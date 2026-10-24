@@ -7,7 +7,10 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 ## Decisions in force (as of 2026-10-24)
 
 - **.NET everywhere.** Target .NET 10 LTS. One C# codebase for the server and all clients. Engine plugins may need other languages inside the engine (Luau for Roblox Studio, GDScript or C# for Godot); the .NET side talks to them over a protocol.
-- **Server host: Windows only, headless**, run as a Windows Service. Linux hosting is a future community goal. No web interface, ever. The server does all compute; clients render.
+- **Server: one OS-agnostic .NET build**, headless, runs on Windows or Linux (owner, 2026-10-24). Anything OS-specific sits behind a provider interface: service host (Windows Service or systemd), VM backend (Hyper-V on Windows, QEMU/KVM on Linux), cache and pub/sub (Garnet on Windows, Valkey on Linux), search (Postgres full-text on Windows, `pg_search` on Linux). First supported and tested host: Windows (the NUC). No Windows-only APIs outside a provider. No web interface, ever. The server does all compute; clients render.
+- **Claude lane:** Anthropic API keys only, Haiku-heavy budget. Never route Pro/Max subscription credentials through the gateway.
+- **Roblox Studio** runs only on the human's Bazaar.Windows desktop; agents do headless Luau checks and file sync.
+- **Wire format** (shared C# contracts vs Protobuf) is OPEN until the first client-server spike. Do not add Protobuf tooling yet.
 - **Clients: Avalonia** (shared `UI.Core` library plus thin Windows, Android, Linux heads). WinUI 3 and Jetpack Compose are retired. Android stays a "development console", not a mobile IDE.
 - **GCs are the coordination system.** Append-only, never purged. Events and software reactions serve GCs, never replace them. Kanban is a dependency board. The Constellation (ex-Mood Board) and the Vault are two views of one knowledge graph.
 - **Email is external-only.** Internal agent coordination stays in GCs.

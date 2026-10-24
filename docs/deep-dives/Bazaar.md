@@ -11,7 +11,7 @@ Status legend used across every doc in this family:
 
 Treat [PROPOSED] items as a backlog to explicitly accept or cut, not as settled. This whole document family should probably become the seed for the real Constitution/Vault once the repo exists.
 
-**Revision 2026-10-24:** .NET everywhere (server and all clients) and the Windows-only server host are now DECIDED; research findings that contradict earlier claims are marked inline. Full findings: `reports/Bazaar stack feasibility research.md`.
+**Revision 2026-10-24:** .NET everywhere (server and all clients) and an OS-agnostic server build (Windows as the first supported host) are now DECIDED; research findings that contradict earlier claims are marked inline. Full findings: `reports/Bazaar stack feasibility research.md`.
 
 ---
 
@@ -51,7 +51,7 @@ Treat [PROPOSED] items as a backlog to explicitly accept or cut, not as settled.
 
 | Agent | Role | Notes |
 |---|---|---|
-| **Claude** | Senior architect / principal reviewer | Architecture, frontend, reviews, hard reasoning. Model whitelist: Haiku, Sonnet, Opus, Fable only. **[RESEARCHED 2026-10-24]** The Claude lane must use Anthropic API keys; Anthropic's current terms do not permit routing Pro/Max subscription credentials through third-party products. "Fable" availability is disputed in secondary reports — verify before whitelisting. |
+| **Claude** | Senior architect / principal reviewer | Architecture, frontend, reviews, hard reasoning. Model whitelist: Haiku, Sonnet, Opus, Fable only. **[RESEARCHED 2026-10-24]** The Claude lane must use Anthropic API keys; Anthropic's current terms do not permit routing Pro/Max subscription credentials through third-party products. "Fable" availability is disputed in secondary reports — verify before whitelisting. **[DECIDED 2026-10-24]** API key with a Haiku-heavy budget. |
 | **Gemini ("Gemi")** | Research lead / engineering manager | Docs, Google search, planning, PM, roadmap. |
 | **DeepSeek** | Heavy implementation | Math, algorithms, large-volume coding. Near-infinite supply via OmniRoute + NVIDIA NIM free tier (~40 RPM is reported on forums; the ~1,000 req/day figure has no source — unverified; not truly infinite; budget a paid fallback). Model whitelist: V4 Flash, V4 Pro, 1M-context variants only. |
 | **Charles** | Boilerplate / cheap-routing specialist | Templates, scaffolding. Routing: `auto/cheap` only. |
