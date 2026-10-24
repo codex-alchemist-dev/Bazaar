@@ -29,7 +29,8 @@ Treat [PROPOSED] items as a backlog to explicitly accept or cut, not as settled.
 
 ### GC (Group Chat) Hierarchy — the backbone
 - **[DECIDED]** No prescribed office structure. Coworkers create/nest/group/recurse GCs as needed — closer to Discord/Slack than Jira. A persistent "General Bazaar GC" (water cooler) exists; everything else grows organically: Project GCs → PR GCs, Research GCs, Architecture GCs, Emergency GCs, etc.
-- **[DECIDED]** GCs are **append-only / immutable as a record**. Archivable, never destructively purged — full history of what was researched, deliberated, and implemented must always be readable back.
+- **[DECIDED]** GCs are **append-only / immutable as a record**. Archivable, never destructively purged — full history of what was researched, deliberated, and implemented must always be readable back. **[DECIDED 2026-10-24, owner]** Messages can be edited, but every version is kept and the UI shows an "edited" marker with openable history; nothing is destroyed.
+- **[DECIDED 2026-10-24, owner]** Direct messages exist as two-member GCs. The owner can read all of them; other members may request to read a DM (an access-request flow, details OPEN).
 - **[PROPOSED]** GC Metadata — tags, types, structured metadata per GC. Concept approved, not spec'd.
 - **[DECIDED]** Sidewalk — the casual/non-code chat mode. (A rename to "Cafeteria"/"Break Room" was proposed — rejected; **Sidewalk stays**. The earlier attribution to ChatGPT was not found in the ChatGPT export; the text appears in the DeepSeek export.)
 - **[PROPOSED]** "The Nervous System" / event bus — internal events (PRMerged, AgentMentioned, SceneChanged, etc.) trigger reactions (Kanban updates, notifications, history log). Explicitly **must not replace GCs** — agents talk through GCs; events are how the *software* reacts, not how agents *think together*.
@@ -92,7 +93,7 @@ Systems with their own dedicated doc are marked; read there for full detail.
 | **Cross-Project Leakage / Hive Mind** | PROPOSED | Controlled knowledge-sharing across projects. |
 | **Playtest Mode** | PROPOSED | AI personas auto-play games for UX feedback. Constrained by the GUI/vision limits in Bazaar.Soul — more plausible as human-assisted on Bazaar.Windows than fully autonomous. |
 | **I'm Feeling Lucky** | PROPOSED | Chaotic all-hands brainstorm mode. |
-| **Work-Life Simulation** | DECIDED | Shifts/breaks/vacations/curfew instead of rate limits; async inbox + auto-coverage. Same resource-sharing philosophy proposed to extend to GUI-capable VM sessions (Bazaar.Soul). |
+| **Work-Life Simulation** | DECIDED | Shifts/breaks/vacations/curfew instead of rate limits; async inbox + auto-coverage. Same resource-sharing philosophy proposed to extend to GUI-capable VM sessions (Bazaar.Soul). **[DECIDED 2026-10-24, owner]** Each agent has its own simulated timezone and schedule. |
 | **Company Constitution** | PROPOSED (5★) | `/company` docs: culture, principles, mission, decision records. Every Soul onboards with it. **[OPEN] Not yet drafted.** |
 | **Organizational Chart** | PROPOSED (5★) | Relationship structure, not rigid hierarchy. |
 | **Resource Economy** | **REJECTED 2026-10-24 (owner)** | No money budgets or wallet. Limits come from quotas and the Work-Life Simulation. |
