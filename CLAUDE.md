@@ -13,7 +13,8 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Wire format** (shared C# contracts vs Protobuf) is OPEN until the first client-server spike. Do not add Protobuf tooling yet.
 - **Licence direction:** AGPL-3.0 for server and clients, Apache-2.0 for the SDK and contracts. DCO vs CLA is OPEN; counsel review before the first public release.
 - **Email** is domain-agnostic: any operator-configured domain. v1 back ends: built-in Bazaar mail client, generic IMAP/SMTP, Cloudflare Email Routing + HTTPS sender, built-in SMTP/IMAP server. Never hardcode a domain.
-- **Client start screen (Windows):** a dashboard of what changed while away. **Android:** dictation is the center of the radial menu.
+- **Client start screen (Windows):** a dashboard of what changed while away (unread GCs and @mentions; PRs and decisions awaiting you; agents and Kanban; build health and usage). **Android:** dictation is the center of the radial menu.
+- **UI:** fully themeable (one theme file drives Avalonia and Monaco); fuzzy command palette opened by a mnemonic, no Ctrl chords; Discord-style GC messages (avatar, role badge, model badge, cost chip, presence, timestamp, profile cards, status/activity).
 - **Agent VM topology** is OPEN: benchmark nested WSL2 vs two VMs per agent before building on either.
 - **Server admin** is a panel inside the apps, plus an allowed read-only browser status page. A TUI status client is OPEN.
 - **Clients: Avalonia** (shared `UI.Core` library plus thin Windows, Android, Linux heads). WinUI 3 and Jetpack Compose are retired. Android stays a "development console", not a mobile IDE.

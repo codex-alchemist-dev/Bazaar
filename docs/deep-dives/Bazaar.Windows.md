@@ -10,7 +10,7 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 
 - **[DECIDED]** Philosophy: **"Build products."** Should strive to feel like the best AI IDE. Full app: IDE/text editor, terminal, custom GitHub diff/PR/issue interface, The Constellation, Vault, Kanban, Godot/Roblox side panels, Observatory, company dashboard. This is where genuine *visual* game-engine work happens (see **Bazaar.Soul**, Section 2, for why that's a deliberate split from headless agent VMs, not an oversight).
 - **[DECIDED]** Detachable windows: right-click/double-click on anything that opens IDE/text-editor/terminal opens it in its own separate lightweight window, not the full Bazaar shell. Real enough to register as the OS default handler (replacing Notepad / the default terminal), not just an in-app convenience.
-- **[DECIDED 2026-10-24, owner]** Start screen: opening the Windows client lands on a **dashboard of what changed** while you were away. Contents are OPEN.
+- **[DECIDED 2026-10-24, owner]** Start screen: opening the Windows client lands on a **dashboard of what changed** while you were away. Contents **[DECIDED 2026-10-24, owner]**: unread GCs and @mentions; PRs and decisions awaiting you; agents and Kanban (presence, tasks blocked or finished); build health and usage. Order and layout are OPEN.
 
 ---
 
@@ -45,8 +45,10 @@ Answering "is that what the `/shared` folder is for?" directly: **not quite — 
 
 - **[DECIDED]** **Editor**: Monaco, embedded in a scoped WebView2 island — `CoreWebView2Environment` pre-warmed at app startup (kills cold-start lag), composition-based embedding via `CoreWebView2CompositionController` (not the basic HWND control) so it visually composites with native chrome instead of feeling glued on, WebView2's own context menu/zoom/chrome stripped entirely, custom Monaco theme JSON matching Bazaar's palette exactly. Same bundle + theme used for the standalone detached editor window, so it stays recognizably "Bazaar" even outside the main shell. Also reused for the GitHub diff viewer via Monaco's built-in diff-editor mode (see **Bazaar.Server**).
 - **[DECIDED]** **Terminal**: a real ConPTY-based terminal control (library TBD between Avalonia's community options — see Section 2), both embedded and standalone/detached, targeting registration as the OS default terminal handler.
-- **[DECIDED]** Full Vim-style modal command navigation — nothing focused by default; typed mnemonic commands rather than `Ctrl+#` shortcuts (`w` → window menu, `wc` → focus chat, `wi` → focus IDE), leader-key driven (`<Space>`), `i` for insert mode, `Esc` to return to command mode. Chosen for being more "riffable"/phonetic and for **stenography compatibility**. Mouse click-to-focus still works alongside it.
+- **[DECIDED]** Full Vim-style modal command navigation — nothing focused by default; typed mnemonic commands rather than `Ctrl+#` shortcuts (`w` → window menu, `wc` → focus chat, `wi` → focus IDE), leader-key driven (`<Space>`), `i` for insert mode, `Esc` to return to command mode. Chosen for being more "riffable"/phonetic and for **stenography compatibility**. Mouse click-to-focus still works alongside it. **[DECIDED 2026-10-24, owner]** A fuzzy command palette is added, opened by a mnemonic rather than a Ctrl chord; standard Ctrl shortcuts stay out.
 - **[DECIDED]** Collapsed/expandable action logs (Claude-Code-style "Read 15 files" chips) — generated locally via the platform-appropriate NPU, never pre-summarized server-side.
+- **[DECIDED 2026-10-24, owner]** Theming: **fully themeable.** One user-editable, shareable palette/theme file drives both the Avalonia styles and the Monaco theme JSON (generated from it). Format is OPEN.
+- **[DECIDED 2026-10-24, owner]** GC message anatomy (shared UI, applies to all clients): avatar, name and role badge; model badge and cost chip; presence dot and timestamp (with date separators); plus Discord-style profile cards, custom status and activity (what the agent is doing right now). Collapsed action chips as above. Layout details are OPEN.
 
 ---
 
