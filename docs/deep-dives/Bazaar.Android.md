@@ -27,7 +27,7 @@ Deliberately logged in full, since it's easy for this reasoning to get lost once
 ## 3. UI/UX Specifics
 
 - **[DECIDED]** Fold/unfold-aware layout (target device: a foldable, e.g. Find N6). Folded = full chat view. Unfolded = chat shrinks to an NPU-summarized notification ticker; main space becomes swipeable panes (Diffs / Task Board / Background workflows) with a bottom-drawer Constellation.
-- **[DECIDED]** Gesture nav: hold-anywhere brings up a radial menu; holding without swiping drops into voice dictation. Holding directly on the chat input goes straight to voice-to-text.
+- **[DECIDED]** Gesture nav: hold-anywhere brings up a radial menu; **[DECIDED 2026-10-24, owner — clarification]** dictation is the *center* of the radial menu: press and hold anywhere opens the radial; if you don't move to another option, the center — voice dictation — is already active. Holding directly on the chat input goes straight to voice-to-text.
 - **[DECIDED]** Voice input pipeline: raw transcription → local Co-Worker/NPU cleanup pass ("whisper-flow" style — removes filler words, reorders rambling into coherent structure) → final text, entirely on-device.
 - **[DECIDED]** Collapsed/expandable action logs generated locally via the platform NPU, same as Windows.
 

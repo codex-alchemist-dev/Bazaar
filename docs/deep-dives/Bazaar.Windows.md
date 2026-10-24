@@ -10,6 +10,7 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 
 - **[DECIDED]** Philosophy: **"Build products."** Should strive to feel like the best AI IDE. Full app: IDE/text editor, terminal, custom GitHub diff/PR/issue interface, The Constellation, Vault, Kanban, Godot/Roblox side panels, Observatory, company dashboard. This is where genuine *visual* game-engine work happens (see **Bazaar.Soul**, Section 2, for why that's a deliberate split from headless agent VMs, not an oversight).
 - **[DECIDED]** Detachable windows: right-click/double-click on anything that opens IDE/text-editor/terminal opens it in its own separate lightweight window, not the full Bazaar shell. Real enough to register as the OS default handler (replacing Notepad / the default terminal), not just an in-app convenience.
+- **[DECIDED 2026-10-24, owner]** Start screen: opening the Windows client lands on a **dashboard of what changed** while you were away. Contents are OPEN.
 
 ---
 
