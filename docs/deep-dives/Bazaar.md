@@ -95,7 +95,7 @@ Systems with their own dedicated doc are marked; read there for full detail.
 | **Work-Life Simulation** | DECIDED | Shifts/breaks/vacations/curfew instead of rate limits; async inbox + auto-coverage. Same resource-sharing philosophy proposed to extend to GUI-capable VM sessions (Bazaar.Soul). |
 | **Company Constitution** | PROPOSED (5★) | `/company` docs: culture, principles, mission, decision records. Every Soul onboards with it. **[OPEN] Not yet drafted.** |
 | **Organizational Chart** | PROPOSED (5★) | Relationship structure, not rigid hierarchy. |
-| **Resource Economy** | PROPOSED (4★) | Per-agent budgets. **[OPEN] Not spec'd.** |
+| **Resource Economy** | **REJECTED 2026-10-24 (owner)** | No money budgets or wallet. Limits come from quotas and the Work-Life Simulation. |
 | **Interrupt System** | PROPOSED (5★) | Formal interrupt/resume stack. |
 | **Company Calendar** | PROPOSED (4★) | Internal planning/release/vacation calendar. |
 | **Office Spaces** | **REJECTED** | GCs self-organize; no fixed floor plan. |
@@ -122,5 +122,5 @@ Systems with their own dedicated doc are marked; read there for full detail.
 ## Open Questions (Core)
 
 1. **Company Constitution — who writes v1** — heavily agreed to be essential, still not drafted.
-2. **Resource Economy / budgets** — liked but not spec'd (currency, limits, what happens at zero).
+2. ~~Resource Economy / budgets~~ — rejected 2026-10-24.
 3. **Bazaar SDK — actual shape** — agreed in principle, no concrete API surface; see also Bazaar.Server.

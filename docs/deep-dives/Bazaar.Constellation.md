@@ -25,6 +25,7 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 
 - **[DECIDED]** Every project gets its own Vault with, at minimum: an **Index**, a **Plan**, **Deep Dive** docs per system/API, plus **Research** docs.
 - **[DECIDED]** Obsidian-style bi-directional `[[wiki-links]]` between documents.
+- **[DECIDED 2026-10-24, owner]** Source of truth: **Markdown files in a git repo** (the private company repo), edited by agents like code. PostgreSQL indexes them for search and for the Constellation graph; it is not the source of truth.
 - **[DECIDED]** The Vault is accessible from all relevant GCs.
 - **[DECIDED]** Search: **ParadeDB's `pg_search`** — a Postgres extension providing production-ready BM25 full-text search, combined with `pgvector` for real hybrid lexical+semantic search. Avoids adding a separate search service to sync; works automatically for all clients since it's server-side and every client queries the same API. Note: `pg_search` is AGPL-licensed itself, but used via SQL (not linked into Bazaar's own binary) — same relationship as using Postgres itself; a real legal check is still worth doing before shipping open source. **[Updated 2026-10-24]** Search sits behind an interface: `pg_search` on Linux, Postgres full-text search + pgvector on Windows (no documented Windows build of `pg_search`). AGPL obligations may attach if an installer bundles it — needs counsel. Full stack context in **Bazaar.Server**.
 

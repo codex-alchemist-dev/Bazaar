@@ -21,7 +21,10 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **GCs are the coordination system.** Append-only, never purged. Events and software reactions serve GCs, never replace them. Kanban is a dependency board. The Constellation (ex-Mood Board) and the Vault are two views of one knowledge graph.
 - **Email is external-only.** Internal agent coordination stays in GCs.
 - **GitHub identity = GitHub Apps** (org `codex-alchemist-dev`), not machine accounts.
-- **Per-agent model whitelists.** No global `auto/*`. The gateway is OmniRoute.
+- **Per-agent model whitelists.** No global `auto/*`. The gateway is **FreeLLMAPI** (owner, 2026-10-24); whether it enforces hard per-agent whitelists is under evaluation. OmniRoute is the fallback.
+- **Vault** source of truth: Markdown files with `[[wiki-links]]` in a git repo; Postgres only indexes them.
+- **Resource Economy** (money budgets) is REJECTED. Limits are quotas plus the Work-Life Simulation.
+- **Build approach (owner, 2026-10-24):** no separate v0.001. Claude (Haiku 5.5 workers directed by the main session) builds Bazaar toward v1.0 directly, with full hygiene: design doc first, tests with every change, build and test before each commit, test-and-fix as you go. Ask the owner about unspecified details instead of assuming.
 - Open items live in each doc's "Open Questions" and in `reports/Bazaar stack feasibility research.md`. Known blockers there (data layer on Windows, subscription routing, bot accounts) must be resolved before building the affected area.
 
 ## Agents, models and parallelism (mandatory)
