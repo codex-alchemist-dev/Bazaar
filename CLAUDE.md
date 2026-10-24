@@ -21,7 +21,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **GCs are the coordination system.** Append-only, never purged. Events and software reactions serve GCs, never replace them. Kanban is a dependency board. The Constellation (ex-Mood Board) and the Vault are two views of one knowledge graph.
 - **Email is external-only.** Internal agent coordination stays in GCs.
 - **GitHub identity = GitHub Apps** (org `codex-alchemist-dev`), not machine accounts.
-- **Per-agent model whitelists.** No global `auto/*`. The gateway is **FreeLLMAPI** (owner, 2026-10-24); whether it enforces hard per-agent whitelists is under evaluation. OmniRoute is the fallback.
+- **Per-agent model whitelists.** No global `auto/*`. The gateway layer is **pluggable per install** (owner, 2026-10-24): operators choose their sources and may run their own proxies. **FreeLLMAPI has priority support** (the owner's install uses it); OmniRoute, direct provider keys and custom proxies are also supported. FreeLLMAPI documents no per-agent whitelist and calls itself personal-experimentation-only, so Bazaar.Server enforcing per-agent model policy itself is PROPOSED, with every gateway an interchangeable OpenAI-compatible upstream behind one interface.
 - **Vault** source of truth: Markdown files with `[[wiki-links]]` in a git repo; Postgres only indexes them.
 - **Resource Economy** (money budgets) is REJECTED. Limits are quotas plus the Work-Life Simulation.
 - **Build approach (owner, 2026-10-24):** no separate v0.001. Claude (Haiku 5.5 workers directed by the main session) builds Bazaar toward v1.0 directly, with full hygiene: design doc first, tests with every change, build and test before each commit, test-and-fix as you go. Ask the owner about unspecified details instead of assuming.
@@ -52,7 +52,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 
 ## Repo and git rules
 
-- Develop on the branch the session names. Never push to `main`. Open PRs as drafts.
+- This repo (`codex-alchemist-dev/Bazaar`) is the **PUBLIC platform repo** (owner, 2026-10-24). Develop on the branch the session names. Never push to `main`. Open PRs as drafts.
 - Never commit secrets, Soul data, credentials, or private-company material. The public repo is the platform only; anything marked confidential by the owner stays out of git. Ask before committing files that came from private chat exports.
 - Do not rewrite shared history without the owner's explicit approval.
 - Commit trailers: `Co-Authored-By:` plus the session link, as the session instructs. A human signs off on agent-authored commits (DCO model, if adopted).
@@ -60,5 +60,8 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 ## Code conventions (provisional until the code exists)
 
 - C#, nullable enabled, central package management, one shared contracts project for client/server messages. Match the surrounding code's style and comment density.
+- Projects (owner-approved names): `Bazaar.Contracts`, `Bazaar.Server` (platform-neutral library), `Bazaar.Server.Host` (service executable), `Bazaar.Sdk`, `Bazaar.Client.Core` (shared Avalonia UI; the docs' `UI.Core`), `Bazaar.Client.Windows`, `.Android`, `.Linux`.
+- Tests: xUnit v3 and TUnit are both approved by the owner. Plan: xUnit v3 for `Avalonia.Headless` UI tests (documented integration), TUnit for server and unit tests. Data-access stack: owner delegated the choice ("modern, performant, novel"); see `research_notes/Bazaar build tooling research/`.
+- The .NET 10 SDK installs with `dotnet-install.sh --channel 10.0` into `~/.dotnet`; put it on PATH and set `DOTNET_ROOT` before building in a cloud session.
 - Every behavior change comes with a test. UI changes get an `Avalonia.Headless` test, since agents verify UI without a display.
 - Prefer small PRs. When docs and code disagree, fix the doc in the same change or ask.
