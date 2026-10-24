@@ -148,7 +148,7 @@ ST stores provider keys in a plain-text `secrets.json` under the user's root, wi
 - Browser exposure: one docs-issue fragment shows the UI calling `/api/secrets/view` and a 403 popup pointing at `allowKeysExposure` (secondary, search snippet of `secrets.js`).
 
 ### Inferences
-- The security design is "keys are stored server-side, never sent back in full by default, but unencrypted on disk". Bazaar's Windows-only server host and DPAPI or envelope-encryption options (already in the Soul Passport plan) are a clear improvement axis; this is a design comparison, not a claim about ST's threat model.
+- The security design is "keys are stored server-side, never sent back in full by default, but unencrypted on disk". Bazaar's planned envelope encryption for secrets (Soul Passport; Wave 3 in docs/implementation-plan.md) are a clear improvement axis; this is a design comparison, not a claim about ST's threat model.
 - ST's multi-key-with-active-flag model is a simple rotation scheme. Bazaar can copy the concept: several credentials per provider, one active, rotate without re-entry.
 - The `/find` allowlist (only URL-type settings exportable) is a useful pattern: the API can return config but never raw credentials.
 
