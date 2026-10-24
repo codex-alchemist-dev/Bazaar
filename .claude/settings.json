@@ -1,0 +1,7 @@
+{
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-haiku-5-5",
+    "CLAUDE_CODE_FORK_SUBAGENT": "0",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5-5"
+  }
+}
