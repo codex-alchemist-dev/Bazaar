@@ -50,4 +50,4 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 3. **Cloud Hypervisor vs. Hyper-V for Windows guests** — needs direct testing before committing.
 4. **CAL licensing for agent-only Windows Server usage** — genuinely unresolved, needs a real licensing consult.
 5. ~~Roblox Studio placement~~ — resolved 2026-10-24: human desktop only.
-6. **VM topology** — nested WSL2 vs two VMs per agent; benchmark one agent on each before ratifying.
+6. **VM topology** — **[DECIDED process 2026-10-24]** benchmark one agent on each (nested WSL2 vs two VMs with an SMB share) on the NUC before ratifying either; nothing agent-VM-related is built on until then.

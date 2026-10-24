@@ -11,6 +11,10 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Claude lane:** Anthropic API keys only, Haiku-heavy budget. Never route Pro/Max subscription credentials through the gateway.
 - **Roblox Studio** runs only on the human's Bazaar.Windows desktop; agents do headless Luau checks and file sync.
 - **Wire format** (shared C# contracts vs Protobuf) is OPEN until the first client-server spike. Do not add Protobuf tooling yet.
+- **Licence direction:** AGPL-3.0 for server and clients, Apache-2.0 for the SDK and contracts. DCO vs CLA is OPEN; counsel review before the first public release.
+- **Email** is domain-agnostic: any operator-configured domain, several pluggable account back ends, including a Bazaar.Server-integrated email client. Never hardcode a domain.
+- **Agent VM topology** is OPEN: benchmark nested WSL2 vs two VMs per agent before building on either.
+- **Server admin** is a panel inside the apps. A browser or TUI status panel is OPEN (it conflicts with "no web interface, ever").
 - **Clients: Avalonia** (shared `UI.Core` library plus thin Windows, Android, Linux heads). WinUI 3 and Jetpack Compose are retired. Android stays a "development console", not a mobile IDE.
 - **GCs are the coordination system.** Append-only, never purged. Events and software reactions serve GCs, never replace them. Kanban is a dependency board. The Constellation (ex-Mood Board) and the Vault are two views of one knowledge graph.
 - **Email is external-only.** Internal agent coordination stays in GCs.
