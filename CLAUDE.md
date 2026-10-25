@@ -23,6 +23,9 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Agent accounts:** agents sign up only where the platform's current terms allow it; otherwise a person creates the account. Check each platform's rules before the first post.
 - **Names:** the owner's instance is Codex Alchemist (the studio, also the developer of the Bazaar platform). "Codex" overlaps OpenAI's product; no clearance search has been done, so keep it out of package IDs and public product names until decided.
 - **Free-tier data** is the operator's choice; setup warns that some free tiers train on prompts.
+- **Council** votes are independent first (private votes with reasoning, then a joint reveal, at most one follow-up round; ties go to the owner). **Reputation** combines peer reviews and hard outcomes (CI, reverts, owner accept/reject), outcomes weighted higher.
+- **Routing defaults:** set up by whoever installs a Bazaar. Charles and the juniors default to a `custom/*` method (automatic switching, custom rules, a whitelist of cheaper code-capable models) when FreeLLMAPI is installed. No unbounded global auto.
+- **Soul Marketplace** is optional user-generated content: behavioral presets only, no personal data or project contexts. v1 scope is OPEN.
 - **Windows default apps:** register as a handler and guide the user to Settings; never claim a silent default.
 - **Android push:** content-free wake-ups through a push-provider interface (FCM and UnifiedPush/ntfy); content is fetched over the authenticated connection.
 - **Passport:** may be mounted per agent, scoped to that agent only (owner's choice; the security note advised against it). Secrets are otherwise injected by the server.

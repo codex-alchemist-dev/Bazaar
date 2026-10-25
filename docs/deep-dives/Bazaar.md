@@ -60,7 +60,7 @@ Treat [PROPOSED] items as a backlog to explicitly accept or cut, not as settled.
 | **Junior swarm** | `auto/*`-routed specialists | Evolve via isolated memory + tailored prompts; ~80% of raw execution cheaply. |
 | **Future specialists** | Database engineer, UI specialist, Testing, Localization, Shader expert, etc. | Emerge via reputation/experience systems, not hand-authored. |
 
-- **[DECIDED]** No agent uses a global `auto/*` — every agent owns its own model routing whitelist/combo, so failures never "brand-bleed" into a different model family.
+- **[DECIDED]** No agent uses a global `auto/*` — every agent owns its own model routing whitelist/combo, so failures never "brand-bleed" into a different model family. **[DECIDED 2026-10-24, owner — clarification]** Routing is set up by whoever sets up a Bazaar. The default for Charles and the juniors, when FreeLLMAPI is an installed provider, is a `custom/*` routing method: automatic switching under custom rules, restricted to a whitelist of cheaper code-capable models. The rule stands: no unbounded global auto.
 - **[DECIDED]** Multi-user future: humans other than you can join as coworkers, treated as "seniors." Only you for now.
 
 ---
@@ -75,7 +75,7 @@ Systems with their own dedicated doc are marked; read there for full detail.
 | **The Constellation** → *see Bazaar.Constellation* | DECIDED | Mood Board / knowledge-graph visual layer. |
 | **Soul System** → *see Bazaar.Soul* | DECIDED | Agent's complete identity: VM, personality, memory, reputation, accounts. |
 | **Soul Passport** → *see Bazaar.Soul* | DECIDED | Credential registry inside a Soul. |
-| **Soul Marketplace** | PROPOSED | Export/import/share Souls between instances. |
+| **Soul Marketplace** | DECIDED (nature); v1 scope OPEN | A completely optional user-generated-content marketplace for sharing preset Souls. Exports hold only overarching behavioral configuration, never personal data or saved project contexts (memories, accounts, credentials, reputation). Imported Souls should be treated as untrusted: quarantined, no tool grants until approved (research recommendation). |
 | **Identity Service** → *see Bazaar.Soul* | PROPOSED | Single chokepoint for all credential/access requests. |
 | **Git Solar System** → *see Bazaar.Constellation* | DECIDED (naming) | Visual Git interface. |
 | **Reverse Gravity Layout** → *see Bazaar.Constellation* | DECIDED | Force-directed auto-layout. |
@@ -113,8 +113,8 @@ Systems with their own dedicated doc are marked; read there for full detail.
 ## 5. Memory, Reputation, Voting
 
 - **[DECIDED]** Each agent owns: private memory, shared project memory, working memory, long-term experience, lessons learned, preferences, failures, reputation. No shared brain.
-- **[DECIDED]** Reputation: agents evaluate each other's work. Delegation shifts toward proven strengths.
-- **[DECIDED]** Voting / Council: any agent can call a vote; whole team votes with stated reasoning; ties escalate to you.
+- **[DECIDED]** Reputation: agents evaluate each other's work. Delegation shifts toward proven strengths. **[DECIDED 2026-10-24, owner]** Scores combine peer reviews and hard outcomes (CI results, reverts, owner accept or reject), with outcomes weighted higher and able to override a peer-review disagreement. The weights are OPEN.
+- **[DECIDED]** Voting / Council: any agent can call a vote; whole team votes with stated reasoning; ties escalate to you. **[DECIDED 2026-10-24, owner]** Votes run independently first: each agent records a vote with reasoning privately; the tally and reasons are revealed together, with at most one follow-up round; ties escalate to you.
 - **[DECIDED]** Decision logs live primarily in the immutable GC record plus Vault documentation.
 - **[DECIDED — Claude's standing ask]** Personality/Soul-driven judgment calls need their *reasoning* to be as auditable as any other decision, not just the outcome.
 
