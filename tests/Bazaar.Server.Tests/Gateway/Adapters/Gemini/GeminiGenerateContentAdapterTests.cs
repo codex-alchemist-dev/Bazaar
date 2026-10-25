@@ -9,15 +9,15 @@ namespace Bazaar.Server.Tests.Gateway.Adapters.Gemini;
 
 public class GeminiGenerateContentAdapterTests
 {
-    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta";
-    private const string Key = "fake-key-for-tests";
-    private const string ModelId = "gemini-2.5-flash";
+    private const string _baseUrl = "https://generativelanguage.googleapis.com/v1beta";
+    private const string _key = "fake-key-for-tests";
+    private const string _modelId = "gemini-2.5-flash";
 
-    private static readonly ProviderEndpoint Endpoint = new(BaseUrl, ModelId, Key);
+    private static readonly ProviderEndpoint _endpoint = new(_baseUrl, _modelId, _key);
 
-    private static readonly ModelRequest Simple = new("agent-1", ModelId, [new ModelMessage(ModelRole.User, "Hi")], []);
+    private static readonly ModelRequest _simple = new("agent-1", _modelId, [new ModelMessage(ModelRole.User, "Hi")], []);
 
-    private const string RetryInfoBody = """
+    private const string _retryInfoBody = """
         {"error": {"code": 429, "message": "Resource has been exhausted (e.g. check quota).", "status": "RESOURCE_EXHAUSTED",
           "details": [
             {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [{"quotaMetric": "generate_content_free_tier_requests"}]},
@@ -77,7 +77,7 @@ public class GeminiGenerateContentAdapterTests
             new ModelEvent.ToolCallArgsDelta("call_1", "{\"zone\":\"Europe/Paris\"}"),
             new ModelEvent.ToolCallEnd("call_1"),
             new ModelEvent.UsageReported(new GatewayTokenUsage(30, 0, 0, 0, 14, 0)),
-            new ModelEvent.Done(StopReason.ToolUse, ModelId),
+            new ModelEvent.Done(StopReason.ToolUse, _modelId),
         ], events);
     }
 
@@ -88,8 +88,8 @@ public class GeminiGenerateContentAdapterTests
         using var http = new HttpClient(handler);
         var adapter = new GeminiGenerateContentAdapter(http);
 
-        var first = await CollectAsync(adapter, Endpoint, Simple, TestContext.Current.CancellationToken);
-        var second = await CollectAsync(adapter, Endpoint, Simple, TestContext.Current.CancellationToken);
+        var first = await CollectAsync(adapter, _endpoint, _simple, TestContext.Current.CancellationToken);
+        var second = await CollectAsync(adapter, _endpoint, _simple, TestContext.Current.CancellationToken);
 
         Assert.Equal("call_0", ((ModelEvent.ToolCallStart)first.First(e => e is ModelEvent.ToolCallStart)).CallId);
         Assert.Equal("call_0", ((ModelEvent.ToolCallStart)second.First(e => e is ModelEvent.ToolCallStart)).CallId);
@@ -107,7 +107,7 @@ public class GeminiGenerateContentAdapterTests
             new ModelEvent.TextDelta("Cached answer."),
             // 1500 prompt tokens, 1200 of them cached: 300 uncached input, 1200 cache read.
             new ModelEvent.UsageReported(new GatewayTokenUsage(300, 0, 0, 1200, 40, 0)),
-            new ModelEvent.Done(StopReason.EndTurn, ModelId),
+            new ModelEvent.Done(StopReason.EndTurn, _modelId),
         ], events);
     }
 
@@ -123,7 +123,7 @@ public class GeminiGenerateContentAdapterTests
             new ModelEvent.Warning("prompt_blocked", "The provider blocked the prompt (SAFETY)."),
             new ModelEvent.UsageReported(new GatewayTokenUsage(25, 0, 0, 0, 0, 0)),
             // No modelVersion in the blocked chunk, so the served model falls back to the model id.
-            new ModelEvent.Done(StopReason.ContentFilter, ModelId),
+            new ModelEvent.Done(StopReason.ContentFilter, _modelId),
         ], events);
     }
 
@@ -143,7 +143,7 @@ public class GeminiGenerateContentAdapterTests
 
         var events = await RunAsync(handler);
 
-        Assert.Equal(new ModelEvent.Done(expected, ModelId), events[^1]);
+        Assert.Equal(new ModelEvent.Done(expected, _modelId), events[^1]);
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public class GeminiGenerateContentAdapterTests
     {
         var request = new ModelRequest(
             "agent-1",
-            ModelId,
+            _modelId,
             [
                 new ModelMessage(ModelRole.System, "Be brief."),
                 new ModelMessage(ModelRole.System, "Use metric units."),
@@ -275,22 +275,22 @@ public class GeminiGenerateContentAdapterTests
     [Fact]
     public async Task Key_travels_in_header_never_in_url_and_extra_headers_apply()
     {
-        var endpoint = new ProviderEndpoint(BaseUrl, ModelId, Key, new Dictionary<string, string> { ["x-test-extra"] = "on" });
+        var endpoint = new ProviderEndpoint(_baseUrl, _modelId, _key, new Dictionary<string, string> { ["x-test-extra"] = "on" });
         var handler = new StubHandler((_, _) => Task.FromResult(Sse("text_stream.sse")));
 
         await RunAsync(handler, endpoint: endpoint);
 
-        Assert.Equal($"{BaseUrl}/models/{ModelId}:streamGenerateContent?alt=sse", handler.Uri!.ToString());
-        Assert.DoesNotContain(Key, handler.Uri!.ToString());
-        Assert.DoesNotContain(Key, handler.Body!);
-        Assert.Equal(Key, handler.ApiKeyHeader);
+        Assert.Equal($"{_baseUrl}/models/{_modelId}:streamGenerateContent?alt=sse", handler.Uri!.ToString());
+        Assert.DoesNotContain(_key, handler.Uri!.ToString());
+        Assert.DoesNotContain(_key, handler.Body!);
+        Assert.Equal(_key, handler.ApiKeyHeader);
         Assert.Equal("on", handler.ExtraHeader);
     }
 
     [Fact]
     public async Task Rate_limit_reads_retry_info_delay()
     {
-        var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.TooManyRequests, RetryInfoBody)));
+        var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.TooManyRequests, _retryInfoBody)));
 
         var events = await RunAsync(handler);
 
@@ -303,7 +303,7 @@ public class GeminiGenerateContentAdapterTests
     [Fact]
     public async Task Retry_after_header_wins_over_retry_info()
     {
-        var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.TooManyRequests, RetryInfoBody, retryAfter: "7")));
+        var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.TooManyRequests, _retryInfoBody, retryAfter: "7")));
 
         var events = await RunAsync(handler);
 
@@ -366,7 +366,7 @@ public class GeminiGenerateContentAdapterTests
         using var http = new HttpClient(handler) { Timeout = TimeSpan.FromMilliseconds(50) };
         var adapter = new GeminiGenerateContentAdapter(http);
 
-        var events = await CollectAsync(adapter, Endpoint, Simple, TestContext.Current.CancellationToken);
+        var events = await CollectAsync(adapter, _endpoint, _simple, TestContext.Current.CancellationToken);
 
         Assert.Equal<ModelEvent>([new ModelEvent.Failure("timeout", "The provider did not respond in time.")], events);
     }
@@ -395,7 +395,7 @@ public class GeminiGenerateContentAdapterTests
         using var http = new HttpClient(handler);
         var adapter = new GeminiGenerateContentAdapter(http);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CollectAsync(adapter, Endpoint, Simple, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CollectAsync(adapter, _endpoint, _simple, cancellation.Token));
     }
 
     private static async Task<List<ModelEvent>> RunAsync(
@@ -405,7 +405,7 @@ public class GeminiGenerateContentAdapterTests
     {
         using var http = new HttpClient(handler);
         var adapter = new GeminiGenerateContentAdapter(http);
-        return await CollectAsync(adapter, endpoint ?? Endpoint, request ?? Simple, TestContext.Current.CancellationToken);
+        return await CollectAsync(adapter, endpoint ?? _endpoint, request ?? _simple, TestContext.Current.CancellationToken);
     }
 
     private static async Task<List<ModelEvent>> CollectAsync(
