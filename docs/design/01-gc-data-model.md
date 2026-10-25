@@ -134,7 +134,7 @@ consumer_cursor(consumer, gc_id, last_seq)
 ```
 `gc_event`, `gc_message`, `gc_message_version`, `gc_mention`, `entry_ref` are hash-partitioned by `gc_id`. Every key includes `gc_id`. `gc.head_seq` is locked per GC, which keeps seq gap-free.
 
-Append: one transaction increments `gc.head_seq`, inserts the event, message or version rows and mentions in one `NpgsqlBatch`, then `pg_notify('gc', '{"gc":..,"seq":..}')`.
+Append: one transaction locks the `gc` row, checks the idempotency key, increments `gc.head_seq`, and inserts the event, message or version rows and mentions in one `NpgsqlBatch`. After commit (spike S3: `pg_notify` inside the transaction gave unstable tails), a coalescing notifier sends `{"gc":..,"seq":..}` on channel `gc`, newest seq per GC, one transaction every few milliseconds. A notification is only a hint: consumers read the log from their cursor, re-read after a listener reconnect, and sweep head against cursor periodically, so a lost hint costs latency, not data. Code: `Server/Gc/Write` and `Server/Gc/Read`.
 ```csharp
 interface IGcLog {
   Task<AppendResult> AppendAsync(AppendRequest r, CancellationToken ct);   // idempotent by client_msg_id
