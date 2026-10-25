@@ -8,7 +8,7 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 
 ## 1. Product Identity
 
-- **[DECIDED]** Philosophy: **"Stay connected."** Explicitly named a "Development Console," not a "Mobile IDE" or "Companion App" — that wording sets what it optimizes for. Review PRs, sketch on The Constellation, approve merges, reply to agents, rearrange Kanban, watch agents work, annotate screenshots, record voice ideas, leave comments. "Office in your pocket," not a place to write 500 lines of C++.
+- **[DECIDED]** Philosophy: **"Stay connected."** Explicitly named a "Development Console," not a "Mobile IDE" or "Companion App" — that wording sets what it optimizes for. Review PRs, sketch on The Constellation, review PRs and merge them in the app (**[DECIDED 2026-10-25, owner — DECISIONS-LOG round 8, C25]** the app is a full replacement of GitHub's UI; the server performs the merge on the owner's signed approval), reply to agents, rearrange Kanban, watch agents work, annotate screenshots, record voice ideas, leave comments. "Office in your pocket," not a place to write 500 lines of C++.
 
 ---
 
@@ -26,12 +26,13 @@ Deliberately logged in full, since it's easy for this reasoning to get lost once
 
 ## 3. UI/UX Specifics
 
-- **[DECIDED]** Fold/unfold-aware layout (target device: a foldable, e.g. Find N6). Folded = full chat view. Unfolded = chat shrinks to an NPU-summarized notification ticker; main space becomes swipeable panes (Diffs / Task Board / Background workflows) with a bottom-drawer Constellation.
+- **[DECIDED]** Fold/unfold-aware layout (target device: a foldable, e.g. Find N6). Folded = full chat view. Unfolded = chat shrinks to an NPU-summarized notification ticker; main space becomes swipeable panes (Diffs / Task Board / Background workflows) with a bottom-drawer Constellation. **[DECIDED 2026-10-25, owner — DECISIONS-LOG round 5, C27]** The server sends layout variants for all postures; the client switches between them locally with no round trip and caches the last profile for offline cold start (the phone does not arrange panes itself).
 - **[DECIDED]** Gesture nav: hold-anywhere brings up a radial menu; **[DECIDED 2026-10-24, owner — clarification]** dictation is the *center* of the radial menu: press and hold anywhere opens the radial; if you don't move to another option, the center — voice dictation — is already active. Holding directly on the chat input goes straight to voice-to-text.
 - **[DECIDED]** Voice input pipeline: raw transcription → local Co-Worker/NPU cleanup pass ("whisper-flow" style — removes filler words, reorders rambling into coherent structure) → final text, entirely on-device.
 - **[DECIDED]** Collapsed/expandable action logs generated locally via the platform NPU, same as Windows.
+- **[DECIDED 2026-10-25, owner — DECISIONS-LOG UI contingency note]** Android never uses Monaco (its own FAQ marks mobile unsupported); diffs and editing on the phone need a native surface (candidate AvaloniaEdit or a custom control, spike order: native Android surface after the Windows and Linux Monaco spikes). The Avalonia-wide Monaco gate (C26) is tracked in Bazaar.Windows.
 - **[DECIDED 2026-10-24, owner]** First distribution path: a Google Play closed test. **[RESEARCHED]** A personal Play account created after 13 Nov 2023 needs a closed test with at least 12 testers opted in for 14 continuous days before production access, so start it early.
-- **[DECIDED 2026-10-24, owner]** Background delivery: content-free push wake-ups through one push-provider interface that supports both FCM and UnifiedPush (self-hosted ntfy); the app then fetches content over its authenticated connection. **[RESEARCHED]** Android 15+ caps a `dataSync` foreground service at 6 hours per 24 (one research note disputes this; re-read the timeout page) and Doze defers network access, so an always-on socket cannot be the only path.
+- **[DECIDED 2026-10-24, owner]** Background delivery: content-free push wake-ups (**[DECIDED 2026-10-25, owner — C41]** a bare wake hint with no chat id or sequence number; three wake kinds plus opt-in quota alerts) through one push-provider interface that supports both FCM and UnifiedPush (self-hosted ntfy); the app then fetches content over its authenticated connection. **[RESEARCHED]** Android 15+ caps a `dataSync` foreground service at 6 hours per 24 (one research note disputes this; re-read the timeout page) and Doze defers network access, so an always-on socket cannot be the only path.
 
 ---
 

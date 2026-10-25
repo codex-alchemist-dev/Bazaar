@@ -1,48 +1,52 @@
 # Coding-Agent Harness
 
-Status: DRAFT for owner review (2026-10-25) · Owner questions: 12
-Depends on: Bazaar.md (GCs, taint rule), Bazaar.Soul.md (VM pair, mounts), Bazaar.Server.md (gateway, Git, approvals), implementation-plan.md · Used by: agent runtime, review flow, Vault writer, benchmark (none written yet)
+Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 11
+Depends on: 01-gc-data-model.md, 04-postgres-schema-and-migrations.md, 12-kanban-and-dependencies.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 16-agent-vms-and-environments.md, 18-vault.md, 21-github-integration.md · Used by: 06-agent-runtime.md, 11-reputation-and-peer-review.md, 28-windows-client.md, 34-testing-strategy.md, 35-spikes-plan.md
 
 ## Purpose
 The tools and mechanics a coworker agent uses to read, edit, build, test and commit code inside its VM pair. The server checks results rather than trusting agent self-reports, so other agents and the owner can review them.
 
 ## Decided inputs
-- Each agent has a Windows VM and a Linux VM, headless by default (Bazaar.Soul §2, CHANGED 2026-10-24).
-- Soul data stays off the VM disk; one scoped per-agent folder is mounted. No clipboard, no drive passthrough (Soul §2).
-- Godot `--headless` and Luau headless checks are the agent engine path. Roblox Studio runs only on the owner's Bazaar.Windows desktop (Soul §2).
-- Once a session has seen untrusted input, post, send, spend and push need owner approval (Server §4, item 13).
-- Model whitelists are per agent, enforced by Bazaar.Server's gateway; no global `auto/*`; Claude lane uses API keys only (Bazaar.md §3).
-- Server-side Git uses LibGit2Sharp, not the git CLI (Server §2). See Conflicts.
-- GCs are append-only; every edit version is kept (Bazaar.md §2). Subagents and workers run on Haiku 5.5, and UI is tested with Avalonia.Headless on xUnit v3 (CLAUDE.md).
+- Each agent has a Windows VM and a Linux VM, headless by default (Bazaar.Soul §2; C03, round 1).
+- Soul data stays off the VM disk. The Passport mount is a per-agent folder holding metadata and a session-cookie profile, detached on hard taint (C02, round 2). No clipboard, no drive passthrough.
+- Tokens never enter a VM. Pushes and PR calls run host-side; keys sit in the server's `ISecretStore` (C05, round 2; doc 14).
+- Git sits behind `IGitProvider`. LibGit2Sharp stays the engine unless spike S23 fails; the git CLI is an alternative implementation (C12, round 3).
+- Taint: external content taints hard; agent text taints softly and propagates only from a tainted source session; Tier 2 actions are gated on hard taint (C06, round 2).
+- Reader/actor split: reader sessions read external input and hand over summaries. Routine internal work needs no human approval; approval gates outward high-impact actions (posting, sending, spending, repo push or merge) (C18, round 6; Claude's reading, to confirm).
+- Approval tiers are doc 15's ladder (C21, round 7). The model seam is `ModelEvent` with an `IChatClient` adapter (C29, round 8).
+- The server verifies. Clean builds and tests run server-side; agent self-reports never count (CLAUDE.md; C37, round 10).
+- PRs are reviewed and merged in the Bazaar clients. A card tied to a PR is Done when the PR is merged (C25, C28, round 8).
+- Claude lane: Anthropic API key and FreeLLMAPI, by availability; subscription logins on no route (C14, round 4). Model whitelists are per agent (doc 05).
+- Notes and plans are Vault documents (C38, round 11). Agent terminals run in the VM and are streamed by the server (C31, round 4).
 
 ## Design
 
 ### Tool set [PROPOSED]
-| Tool | Function | Tier | Runs in |
+| Tool | Function | CapabilityClass | Runs in |
 |---|---|---|---|
 | read, list, search | files, ripgrep, repo map | Read | Linux VM worktree |
 | edit | whole-file, line-anchored or search/replace | Read (in worktree) | Linux VM |
-| shell | argv command, cwd jailed, timeout | Exec (no secrets, egress allowlisted) | Linux VM |
-| git (local) | status, diff, branch, commit, worktree | Read / Exec | Linux VM |
-| git push, draft PR | push `agent/*`, open draft PR | Post | Brokered GitHub App token |
-| browser | Playwright, no Passport, tokens injected per service | Post | Browser VM |
+| shell | argv command, cwd jailed, timeout; no secrets, egress allowlisted | Exec | Linux VM |
+| git (local) | status, diff, branch, commit, worktree | Read / Exec | Through `IGitProvider` |
+| push, draft PR | push `agent/*`, open draft PR | Post | Host-side, via doc 21 |
+| browser | Chromium in the agent's VM, two profiles: anonymous (reader side, no credentials) and account (Passport, allowlisted sites) | Post for account profile | Agent VM profile (C22) |
 | MCP | Bazaar tools (GC, Kanban, memory); external servers only from Bazaar config | Per tool | Host |
 | run_checks | server-owned verification; agent requests, never edits | Read | Server dispatches to VM |
 
-Tiers follow the threat model (Read, Post, Spend, Create-account, Grant-scope, Merge, Deploy), with Exec added. The server enforces tiers in tool dispatch, never in the prompt.
+Each tool declares a `CapabilityClass` (renamed from `ToolTier`, C21). Doc 15's policy maps a class to an approval tier. The server enforces it in tool dispatch, never in the prompt.
 
-### Edit formats and benchmark
+### Edit formats and benchmark [PROPOSED]
 - Evidence is 2024–25 Aider data: whole-file had the highest format compliance for weak models; diff formats gave better pass rates and fewer tokens for strong ones. There is no data for Haiku 5.5 or DeepSeek V4 (research note, verified).
-- Default until measured: whole-file for models without data [PROPOSED]. Each model's format goes in its agent whitelist, chosen by the benchmark (Testing).
-- Metrics: format compliance, malformed-edit rate, pass rate, tokens per task. Architect/editor splitting is an unmeasured option.
+- Default until measured: whole-file for models without data. Each model's format goes in its agent whitelist, chosen by the benchmark (Testing).
+- Metrics: format compliance, malformed-edit rate, pass rate, tokens per task.
 
 ### Context engine [PROPOSED]
-- Per-request package, in order: current file and diff; the GC thread that asked; the task's dependency state; a repo map under a token budget (Aider's default is 1k). All else is fetched by tool.
-- Compaction clears old tool results first, then summarises. Structured notes live in the task record, not the repo. Plans are Kanban subtasks with blocked-by edges; scratch notes stay private; a todo list grants no authority.
+- Per-request package, in order: current file and diff; the GC thread that asked; the task's dependency state; a repo map under a token budget (Aider's default is 1k). All else is fetched by tool. Compaction clears old tool results first, then summarises.
+- Plans and notes are Vault documents (C38). The Kanban task holds state and blocked-by edges and changes only through the task service (C28, doc 12). Private scratch notes sit in the agent's private Vault area (doc 18). A todo list grants no authority.
 - Code intelligence: Roslyn for exact C# symbols, the likely first choice (not researched). Tree-sitter for Luau and GDScript (TreeSitter.DotNet 1.3.0 is secondary; platform support conflicts). No embeddings until grep plus repo map is shown to be worse.
 
-### Verification (server-side)
-Agent self-reports are data. For each PR the server runs, in a fresh clone of the commit:
+### Verification (server-side) [DECIDED: CLAUDE.md]
+For each PR, the server runs in a fresh clone of the commit:
 1. Clean build with no cached outputs; exit code and log recorded.
 2. Test count must not drop against the base branch.
 3. Test-file changes are flagged and need a named reviewer.
@@ -50,99 +54,110 @@ Agent self-reports are data. For each PR the server runs, in a fresh clone of th
 5. UI changes need an Avalonia.Headless test; a screenshot is not evidence.
 6. Luau: `luau-analyze` and Selene. Godot: `--check-only` and `--script`, with the binary build checked first.
 
-Every tool call is traced with its exit code, so a run can be replayed.
+Results go to `check_runs`. Agent reports are data. Every tool call is traced with its exit code, so a run can be replayed.
 
 ### Git workflow [PROPOSED]
-- Branch `agent/<task>`; one worktree per writer (git allows one branch in one worktree only; secondary source).
+- Engine: `IGitProvider` (C12). Worktrees, merges and concurrency are tested by S23, including where the engine runs for a VM worktree.
+- Branch `agent/<task>`; one worktree per writer.
+- Worktrees live on the agent's work share, never on the Passport folder, so a shell that cannot read secrets cannot read cookies (C02; Question 10).
 - Commit author is the agent's GitHub App identity. Trailers: `Co-Authored-By` for the model, plus GC and task IDs.
-- Agents never push to the default branch and never add `Signed-off-by`; the human certifies (Linux kernel policy, via research note).
-- Owner merge sign-off is recorded by the platform under a signed human identity. An agent message is never an approval. PRs open as drafts.
-- Worktrees sit on the mounted folder or are pushed before any golden-image rebase, because a rebase wipes child-disk changes (Soul §2).
+- Push and draft PR run host-side through doc 21. No token enters a VM (C05).
+- Agents never push to the default branch and never add `Signed-off-by`.
+- Merge: the owner approves in a Bazaar client; the server squash-merges and writes the platform's `Signed-off-by` line (C25). Credential choice follows doc 21. PRs open as drafts.
 
-### Review flow [PROPOSED]
-Author opens a draft PR. A reviewer on another model gets read-only tools, no shell, and the diff plus decision context (task card, GC thread, check results). The review is posted to the GC. The owner merges; reviewer approval is not merge authority. Outcomes feed reputation (Bazaar.md §5).
+### Review flow and subagents [PROPOSED]
+- The author opens a draft PR. A reviewer on another model family, where one exists, gets read-only tools, no shell, and the diff plus decision context (task card, GC thread, check results). The review posts to the PR's GC. Reviewer approval sets a flag on the card and is not merge authority (C28). Outcomes feed doc 11.
+- Subagents: fresh context, tool allowlist, model from the parent's whitelist (doc 05). Default depth 1. Writers never share a worktree; parallel work only over disjoint files in separate worktrees. The Haiku 5.5 rule in CLAUDE.md governs build agents, not runtime coworkers.
 
-### Permissions [PROPOSED]
-- A tainted session cannot call Post, Spend or Merge without a per-action owner approval. Approvals are per action or time-boxed with visible scope; no blanket allow (threat model §5).
-- Untrusted sources: repo files, issues, web, email, dependency docs and command output.
-- Reader/actor split stays OPEN (Server §4, item 13).
+### Permissions [PROPOSED, on DECIDED C06 and C18]
+- Routine internal work (edit, shell, commit, check runs) needs no human approval.
+- Hard taint comes from external content: strangers' issues, web pages, email, third-party docs. Coding actors do not read these directly; a reader session reads them and hands over a summary (doc 15).
+- A hard-tainted session cannot run actions that doc 15 gates at Tier 2 without a per-action approval recorded in doc 15's `approval`. A fresh session with an approved summary is the alternative (C06).
+- Pushes to `agent/*`: no approval while untainted; per-push approval while hard-tainted (Question 1).
+- Approvals are per action or time-boxed with visible scope. No blanket allow (threat model §5).
 
 ### VM execution (guest agent) [PROPOSED]
-- The host talks to an `IWorkspace`. The VM backend sits behind it: Hyper-V on Windows, KVM on Linux.
-- Guest agent: start (argv, cwd, env allowlist, timeout), streamed stdout and stderr with sequence numbers, cancel, read and write jailed to the worktree.
-- Transport: Hyper-V sockets for the Windows guest; AF_VSOCK for Linux, since PowerShell Direct is Windows-guest only (verified). SSH is an unverified fallback.
-- A timeout kills the process tree. CPU and memory use cgroups (Linux) or job objects (Windows). Values are placeholders until the NUC sizing benchmark.
-
-### Subagents [PROPOSED]
-Fresh context, tool allowlist, Haiku 5.5. Returns a summary plus a link to its full trace. Default depth 1. Writers never share a worktree; parallel work is only over disjoint files in separate worktrees.
+- `IWorkspace` is a facade over doc 16's `IGuestChannel`, the only guest wire. `IVmBackend` is doc 16's (C22).
+- Guest agent: start (argv, cwd, env allowlist, timeout), streamed output with sequence numbers, cancel, read and write jailed to the worktree. Transport and cgroup or job-object limits follow doc 16.
+- Per-call command timeout (10 minutes) and task limit (2 hours) are this doc's defaults; guest maxima are doc 16's. A timeout kills the process tree.
 
 ### UI and engine verification
-Avalonia.Headless.XUnit with `[AvaloniaFact]` and Skia frame capture for pixel checks (verified, build tooling note). Headless cannot cover windowing, IME, DPI, fold posture or accessibility; those need owner-side testing. Godot: headless import, `--check-only`, `--script`. Roblox Studio has no agent path.
+Avalonia.Headless.XUnit with `[AvaloniaFact]` and Skia frame capture for pixel checks. Headless cannot cover windowing, IME, DPI, fold posture or accessibility; those need owner-side testing. Godot: headless import, `--check-only`, `--script`. Roblox Studio has no agent path.
 
 ## Data and interfaces (sketches)
 ```csharp
-public enum ToolTier { Read, Exec, Post, Spend, CreateAccount, GrantScope, Merge, Deploy }
+public enum CapabilityClass { Read, Exec, Post, Spend, CreateAccount, GrantScope, Merge, Deploy }
+
+public interface IGitProvider
+{
+    Task<WorktreeHandle> AddWorktreeAsync(RepoRef repo, BranchName branch, CancellationToken ct);
+    Task<CommitId> CommitAsync(WorktreeHandle wt, CommitRequest req, CancellationToken ct);
+}
 
 public interface IWorkspace : IAsyncDisposable
 {
     Task<ProcessHandle> StartAsync(ProcessSpec spec, CancellationToken ct);
     IAsyncEnumerable<OutputChunk> StreamAsync(ProcessHandle h, long fromSeq, CancellationToken ct);
-    Task<WorkspaceFile> ReadAsync(WorkspacePath path, CancellationToken ct);
-    Task WriteAsync(WorkspacePath path, ReadOnlyMemory<byte> content, CancellationToken ct);
 }
 ```
-Tables (outline): `tool_calls` (append-only, host-written: session, tool, tier, taint tags, exit code, args hash); `check_runs` (commit, base, build exit, test counts, flags); `approvals` (signed human ID, scope, expires_at, consumed_at).
+Tables owned here: `tool_calls` (append-only, host-written: session, tool, CapabilityClass, source_trust per doc 15's enum, tainted_at_write, exit code, args hash) and `check_runs` (commit, base, build exit, test counts, flags). Approvals use doc 15's `approval`; security events go to doc 15's `audit_log` (C16). This doc adds no approval table.
 
 ## Behaviour and edge cases
-- Command output is untrusted; injected text in test output taints the session.
+- Command output is untrusted. Output that echoes external text taints the session hard (Question 11).
 - A timeout returns a timeout code, never success. Partial output is kept.
-- VM crash mid-command: the call is recorded as `unknown`; the turn resumes from the trace; only idempotent steps re-run.
+- VM crash mid-command: recorded as `unknown`; the turn resumes from the trace; only idempotent steps re-run.
 - One writer per worktree, by host lock. Merge conflicts go to a GC, not a silent overwrite.
 - Path jail rejects `..`, absolute paths and symlinks that leave the worktree.
-- Kill switch: stop the VM, revoke brokered tokens, freeze the Post tier.
+- Kill switch: stop the VM, revoke host-held tokens, freeze Tier 2 classes (doc 15).
+- Hard taint detaches the Passport folder; the work share is unaffected.
 - Repo-supplied MCP servers and instruction files are never auto-loaded (threat model P1).
-- Per-agent rate caps on commands and pushes; a breach freezes the agent and notifies the owner.
+- Per-agent rate caps on commands and pushes come from doc 15's quota table (C36); a breach freezes the agent and notifies the owner.
 
 ## Testing
-- Fake workspace and scripted gateway for deterministic tool sequences; record and replay of model I/O behind `IChatClient`.
+- Fake workspace and scripted gateway for deterministic tool sequences. Record and replay of model I/O at the `ModelEvent` seam, through its `IChatClient` adapter (C29).
 - Real Postgres for trace and approval tables; temporary git repos for worktrees.
-- Negative tests (must refuse or flag): test-file edit, Skip added, test count drop, timeout reported as success, path escape, repo MCP config loaded, push while tainted without approval, two writers on one worktree.
-- Live periodic eval, Bazaar-specific: about 40 tasks from Bazaar's history (bug fix, feature with test, refactor, Avalonia.Headless UI change, Godot script check, Luau lint fix), plus traps: a wrong test (must flag, not edit), an impossible task (must report failure), an injected issue body. Run per model and per edit format, 3 seeds. Measure held-out pass rate, format compliance, fake-success rate, tokens, turns, cost.
+- Negative tests (must refuse or flag): test-file edit, Skip added, test count drop, timeout reported as success, path escape, repo MCP config loaded, push while hard-tainted without approval, two writers on one worktree, worktree on the Passport folder, any token path into a VM.
+- Live periodic eval: about 40 Bazaar-history tasks (bug fix, feature with test, refactor, Avalonia.Headless UI change, Godot check, Luau lint fix) plus traps: a wrong test (must flag), an impossible task (must report failure), an injected issue body. Per model and edit format, 3 seeds. Measure held-out pass rate, format compliance, fake-success rate, tokens, turns, cost.
 
 ## Work packages
-1. Contracts: `ToolTier`, tool-call, check-run and approval shapes (Wave 1 WP1).
-2. Trace and approval tables and migrations. Depends on 1.
-3. `IWorkspace`, in-memory fake, guest protocol. Depends on 1.
-4. Linux guest agent (AF_VSOCK): streaming, timeout, cgroups. Depends on 3.
-5. Windows guest agent (Hyper-V sockets). Depends on 3.
+1. Contracts: `CapabilityClass`, tool-call and check-run shapes (Wave 1 WP1). The approval shape comes from doc 15.
+2. `tool_calls` and `check_runs` tables and migrations, applied by the explicit `migrate` step (doc 04). Depends on 1.
+3. `IWorkspace` facade over `IGuestChannel`, with an in-memory fake. Depends on 1 and doc 16.
+4. `IGitProvider`: LibGit2Sharp implementation gated by S23, plus the CLI alternative. Depends on 3 and S23.
+5. Guest-agent conformance tests against doc 16's agents (streaming, timeout, cancel). Depends on 3.
 6. Edit tools in three formats, with path jail. Depends on 3.
 7. Search and repo map. Depends on 3.
-8. Permission gate: tiers, taint, approvals. Depends on 1 and 2.
+8. Permission gate: class-to-policy lookup, taint, approvals. Depends on 1 and 2.
 9. Check runner: clean build, test count, test-file and fake-success scans. Depends on 2 and 3.
-10. Git service: worktrees, branches, draft PRs, trailers. Depends on 3 and Question 1.
+10. Worktree and push service over `IGitProvider`; host-side push and draft PR via doc 21. Depends on 4 and doc 21.
 11. Review context package and reviewer tool set. Depends on 8 and 10.
 12. Subagent spawner. Depends on 8.
 13. Benchmark task set and runner. Depends on 6 and 9.
-14. Avalonia.Headless tests for the review-diff view. Depends on 11 and the Wave 4 client shell.
+14. Avalonia.Headless tests for the review-diff view. Depends on 11 and the client shell (doc 28).
 
 ## Conflicts
-1. **Git engine.** Server §2 says no git CLI. This design runs the git CLI inside the agent VM and LibGit2Sharp on the server. LibGit2Sharp worktree and merge coverage is unverified (Vault note).
-2. **Parallel subagents.** Cognition (June 2025, a vendor opinion) calls parallel subagents fragile. Claude Code docs describe parallel subagents, default cap 20. Anthropic (June 2025) calls most coding tasks a poor fit for fan-out. The Claude Code docs are the more current source, so the Cognition description may be outdated. Not resolved; this design defaults to one writer and measures.
-3. **Taint scope.** Server §4 names email, strangers' issues and web. The threat model also taints on other agents' GC messages, which are append-only and so poison permanently. Applied fully, nearly every coding session is tainted.
-4. **Approval fatigue.** Per-push approval while tainted is the main usability risk; the threat model reports "always allow" as a documented failure mode.
-5. **Haiku-only subagents** are fixed by policy, but no evidence covers Haiku 5.5 edit quality. The benchmark may change the edit format, not the model.
-6. **Roblox.** The official Studio MCP needs an open Studio, so agents cannot call it headlessly. Its tools can modify open places, so any future path needs approval.
+1. **Subagent depth.** This doc defaults to depth 1; doc 06 specifies depth 2 with 3 concurrent (C36). Doc 06 must state whether its limit covers runtime delegation only.
+2. **Parallel subagents.** Cognition (June 2025, a vendor opinion) calls them fragile; Claude Code docs describe them with a default cap of 20; Anthropic (June 2025) calls most coding tasks a poor fit for fan-out. Unresolved; this design defaults to one writer and measures.
+3. **Haiku edit quality.** No evidence covers Haiku 5.5 edit quality. The benchmark may change the edit format, not the model.
+4. **Taint on routine coding (C06 vs C18).** Repo files and command output can carry third-party text. Until Question 11 is answered, a session that reads such text is hard-tainted and its pushes need approval.
+5. **CLAUDE.md wording.** "Subagents and workers run on Haiku 5.5" reads as runtime policy; it governs build agents. Fix in the CLAUDE.md pass.
+6. **Passport folder.** Coding worktrees must stay off the cookie-bearing folder (C02). Docs 14 and 16 (16 Q2's second share) must confirm the work share is separate.
+7. **Approval fatigue.** C06 and C18 reduce per-action prompts, but "always allow" remains a documented failure mode (threat model).
+8. **Roblox.** The official Studio MCP needs an open Studio, so agents cannot call it headlessly. Any future path that modifies open places needs approval.
 
 ## Questions for the owner
-1. Git in the agent VM: git CLI in the worktree (recommended), LibGit2Sharp server-side only? Or LibGit2Sharp everywhere after a worktree spike?
-2. Taint propagation: does another agent's message taint the reader? Recommended: only when the source session was tainted.
-3. Pushes to `agent/*`: allowed untainted, owner approval per push when tainted. Confirm?
-4. Merge sign-off: who signs (you, by default), and how is it recorded? DCO vs CLA is still open.
-5. Edit format for models without data: whole-file (recommended) or line-anchored?
-6. Benchmark spend: approve about 40 tasks × 3 formats × 3 seeds per model, with a cap per run?
-7. Coding VM: Linux for all coding, Windows only for Windows-only checks? Recommended: yes.
-8. Subagents: depth 1, read-only parallel, writers serialised. Or allow writers on disjoint files?
-9. Command timeout 10 minutes, task limit 2 hours; VM limits are placeholders until the NUC benchmark. Confirm?
-10. Test-count drop: zero tolerance, no override (recommended). Test-file edits need a named reviewer flag. Confirm?
-11. Code intelligence: Roslyn for C# first, tree-sitter deferred until Luau or GDScript work starts?
-12. May agents ever load repo-level instruction files? Recommended: no, Soul config only.
+ANSWERED: git sits behind `IGitProvider`; LibGit2Sharp stays decided unless S23 fails (DECISIONS-LOG round 3).
+ANSWERED: taint propagates only from a tainted source session; external content is hard, agent text soft (round 2).
+ANSWERED: the owner approves merges in a Bazaar client; the server squash-merges with the platform's `Signed-off-by` line; DCO vs CLA stays OPEN (rounds 8 and 12).
+
+1. Pushes to `agent/*`: gated only by hard taint (this draft), or always, because C18 lists repo push among outward actions? Recommended: hard taint only, so routine work keeps moving; confirm the C18 reading.
+2. Edit format for models without data: whole-file (recommended) or line-anchored? Whole-file has the best compliance evidence for weak models.
+3. Benchmark spend: approve about 40 tasks × 3 formats × 3 seeds per model, with a cap per run? Recommended: yes, cap set before the first run.
+4. Coding VM: Linux for all coding, Windows VM used only for Windows-only checks? Recommended: yes. Both VMs exist for every agent (C03); this sets usage only. Windows guest licensing is still open (C23).
+5. Coding subagents: depth 1 with serialised writers (recommended), or writers on disjoint files? Runtime delegation depth is doc 06's to set.
+6. Command timeout 10 minutes per call, task limit 2 hours; guest maxima per doc 16. Confirm?
+7. Test-count drop: zero tolerance, no override (recommended); test-file edits need a named reviewer flag. Confirm?
+8. Code intelligence: Roslyn for C# first, tree-sitter deferred until Luau or GDScript work starts?
+9. May agents ever load repo-level instruction files? Recommended: no; Soul configuration only.
+10. Worktrees on a separate work share, never the Passport folder (new; C02 cookies). Recommended: yes; doc 16 Q2 records the exception.
+11. Taint class for repo content and command output (new). Recommended: the owner's own repo files and build output are agent text (soft); third-party docs, issues and web content are external (hard) and reach coding actors only through a reader session (C18). Confirm?

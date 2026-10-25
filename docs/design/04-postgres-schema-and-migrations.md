@@ -1,118 +1,118 @@
 # PostgreSQL schema and migrations
 
-Status: DRAFT for owner review (2026-10-25) · Owner questions: 12
-Depends on: `docs/deep-dives/Bazaar.Server.md`, `Bazaar.Soul.md`, `Bazaar.Constellation.md` (design docs 01 to 03 not yet written) · Used by: GC service, agent runtime, Vault indexer, search, usage and quota, backup runbook
+Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 8
+Depends on: `01-gc-data-model.md` (GC types, log semantics), `03-server-host-and-providers.md` (`migrate` command, config, providers), `14-identity-service-and-passport.md` (key custody), `18-vault.md` (Vault index tables), `33-backup-dr-and-export.md` (restore, backup retention) · Used by: `02-wire-protocol-and-sync.md`, `05-model-gateway.md`, `06-agent-runtime.md`, `07-soul-system.md`, `08-memory-system.md`, `09-work-life-simulation.md`, `10-council-and-voting.md`, `11-reputation-and-peer-review.md`, `12-kanban-and-dependencies.md`, `13-skimmer-bouncer.md`, `15-security-taint-and-approvals.md`, `21-github-integration.md`, `22-email-subsystem.md`, `23-observatory-and-usage.md`, `24-company-systems-core.md`, `25-company-systems-knowledge.md`, `34-testing-strategy.md`
 
 ## Purpose
-The relational store for Bazaar.Server: the GC log, agent records, memory and embeddings, the Vault index and usage. It sets how the schema is versioned, how GC appends reach clients, and how one schema runs on Windows and Linux.
+The relational store for Bazaar.Server, limited to conventions, the group-chat (GC) log, the per-person key store, and two small records (schema settings and the embedding profile). Each area's tables are defined by its own design doc (C16); this doc sets how every table is versioned, migrated, partitioned and tested, on Windows and Linux alike.
 
 ## Decided inputs
-- PostgreSQL 18 with pgvector; Npgsql 10 with one shared `NpgsqlDataSource`; SQL-first repositories; `NpgsqlBatch`; no ORM in the core; embedded versioned SQL migrations with a small runner (CLAUDE.md; `docs/implementation-plan.md`).
-- GCs are append-only; edits keep every version with an "edited" marker (Bazaar.md §2).
-- GC append and `NOTIFY` in one transaction, payload `{gc_id, seq}`, one `LISTEN` connection per process, replay from the log on reconnect (implementation-plan.md).
-- Search: `pg_search` on Linux, Postgres full-text on Windows, behind one interface (CLAUDE.md).
-- Vault: Markdown in git is the source of truth; Postgres only indexes it (CLAUDE.md).
-- No money budgets; limits are quotas and the Work-Life Simulation (Bazaar.md §4).
-- Votes reveal independently; one follow-up round (Bazaar.md §5). Passport lives outside the VM disk (Bazaar.Soul.md).
+- PostgreSQL 18 with pgvector; Npgsql 10 with one shared `NpgsqlDataSource`; SQL-first repositories; `NpgsqlBatch`; no ORM in the core; embedded versioned SQL migrations (CLAUDE.md; `implementation-plan.md`).
+- GCs are append-only and never purged; edits keep every version with an "edited" marker, stored as a full copy per version (Bazaar.md §2; DECISIONS-LOG R1, C09).
+- GC log model: `gc_event` plus `gc_message` plus `gc_message_version` (DECISIONS-LOG R1, C09).
+- GC fan-out uses Postgres `NOTIFY`; Valkey (Linux) or Garnet (Windows) serve cache and presence only (DECISIONS-LOG R1, C07).
+- `gc_event` is hash-partitioned by `gc_id` from the first migration; the partition count is configurable (DECISIONS-LOG R1 and R12, C10).
+- Erasure: personal fields are stored as per-person encrypted payloads from day 1; erasure destroys the key and appends a tombstone; structure, authorship and timestamps stay. Legal sufficiency needs counsel (DECISIONS-LOG R2, C01).
+- Migrations run only through an explicit `migrate` command; the server at startup checks the schema version and refuses to run on a mismatch (DECISIONS-LOG R11, C44).
+- One embedding profile per install, chosen at setup, stored as `halfvec` (DECISIONS-LOG R10, C39).
+- Vault files (including agent memory) are the source of truth; Postgres holds only their indexes and embeddings (DECISIONS-LOG R11, C38).
+- Usage is `gw_usage` in doc 05; `usage_record` is dropped (DECISIONS-LOG R9, C33).
+- Search: Postgres full-text on Windows, `pg_search` on Linux, one interface (DECISIONS-LOG R4, C23).
 
 ## Design
-**[PROPOSED] Components.** Data-source factory (one per process), migration runner, one repository per area, `GcLogWriter`, `GcNotifyListener`.
+**[PROPOSED] Components.** Data-source factory (one per process), migration runner, one repository per area, `GcLogWriter`, `GcNotifyListener`, and a `KeyStore` that wraps per-person keys under the bootstrap key from doc 14.
 
-**[PROPOSED] Migrations.** Embedded resources in `common/`, `linux/` and `windows/`. The runner applies `common/`, then the host's provider folder. Provider folders may only add extensions and indexes, never change a table a repository uses (a test enforces this).
+**Table ownership.** This doc owns the conventions, `schema_migrations`, `schema_setting`, the GC tables, `person_key` and `embedding_profile`. Every other table is created by its owner doc through a migration in `common/`: agent runtime (06, including turns, steps, leases and inbox items), Soul versions (07), memory and its embeddings (08), schedule and availability (09), votes (10), reputation (11), tasks (12), Passport (14), audit log (15), Vault index (18), usage and quotas (05), activity (23), calendar (24). Digest and other wake kinds (13) are rows in owner tables, not new tables.
+
+**[PROPOSED] Migrations.** Embedded resources in `common/`, `linux/` and `windows/`. The runner applies `common/`, then the host's provider folder. Provider folders may add extensions and indexes only; a test enforces that they never change a table a repository uses.
 - `schema_migrations(version, name, provider, checksum sha256, applied_at)`.
 - `pg_advisory_lock` for the run; one transaction per file, except files marked `-- @no-transaction` (for `CREATE INDEX CONCURRENTLY`).
-- A checksum mismatch on an applied file stops startup. Forward-only; rollback means restore.
-- Separate migration role (DDL) and runtime role (DML only).
+- `migrate` refuses an applied file whose checksum has changed. Forward-only; rollback means restore (doc 33).
+- Startup reads the highest applied version and refuses to run if the database is older or newer than the binary expects. Startup never runs DDL.
+- Two roles: a migration role (DDL) and a runtime role (DML only, with no UPDATE or DELETE on log tables).
+
+**[PROPOSED] Partitioning.** `gc_event` is `PARTITION BY HASH (gc_id)`. Default **16 partitions**: enough to spread writes on one host, and cheap for small installs. The count is set in the setup wizard and in advanced settings, recorded in `schema_setting` at the first `migrate`, and written into the DDL when the table is created. `migrate` refuses to start if the configured count differs from the recorded one. Changing the count after data exists needs a planned data move (a copy-and-switch maintenance window, designed later); the setting is free only before the first data.
 
 **[PROPOSED] GC append, one transaction.**
 1. `UPDATE gc SET next_seq = next_seq + 1 WHERE gc_id = $1 RETURNING next_seq`. The row lock serialises writers per GC; a rollback also rolls back the counter, so there are no gaps.
-2. `INSERT gc_event` (the authoritative row); for a message, also `gc_message_version` and the `gc_message` current pointer.
+2. `INSERT gc_event`, the authoritative row. For a message, also `INSERT gc_message_version` and update the `gc_message` current pointer.
 3. `SELECT pg_notify('gc', '{"gc_id":…,"seq":…}')`.
 4. Commit. The notification is delivered only on commit.
 
 ## Data and interfaces
+Conventions: UUIDv7 ids (native `uuidv7()` in PG 18); `timestamptz` in UTC; singular table names; enums are `text` with CHECK; JSONB only for opaque payloads (anything filtered on gets a column); RESTRICT foreign keys, no cascades on log tables. Any column that can hold personal data is stored as `(key_id, ciphertext, nonce)`, never as plaintext.
 
-Conventions: UUIDv7 ids (native `uuidv7()` in PG 18); `timestamptz` UTC; agent-local time derives from `agent.timezone`; enums are `text` with CHECK; JSONB only for opaque payloads (anything filtered on gets a column); RESTRICT foreign keys, no cascades on log tables.
-
-| Area | Tables (outline) | Notes |
+| Table | Shape | Notes |
 |---|---|---|
-| GC | `gc(gc_id, parent_gc_id, kind, name, next_seq)`; `gc_member(gc_id, agent_id, joined_seq, left_seq)` | A DM is a GC with two members. |
-| GC log | `gc_event(gc_id, seq, kind, actor_id, message_id, payload, created_at)` PK `(gc_id, seq)`; `gc_message(message_id, gc_id, seq, author_id, current_version)`; `gc_message_version(message_id, version, body, editor_id, created_at)` | Insert-only for the runtime role; a trigger also raises on UPDATE and DELETE. |
-| Mentions | `gc_mention(target_id, gc_id, seq)` | Feeds the "what changed while away" dashboard. |
-| Agents | `agent(agent_id, name, role, timezone, schedule, status)`; `agent_soul_ref(agent_id, soul_id, soul_hash)`; `agent_passport(agent_id, ciphertext, key_id, nonce)`; `agent_model_allow(agent_id, provider_id, model_id)` | Passport holds ciphertext only; the key is outside the DB. Whitelist is [PROPOSED]. |
-| Memory | `memory(memory_id, agent_id, scope, body, source_seq, superseded_by)`; `memory_embedding(memory_id, profile_id, embedding halfvec(N))` | scope: private, project, working, lesson. |
-| Tasks | `task(task_id, gc_id, title, status, owner_id, version)`; `task_edge(blocker_id, blocked_id)` | "Blocked" is a view. Cycle check with a recursive CTE in the same transaction. |
-| Votes | `vote(vote_id, gc_id, subject, opened_at, closed_at)`; `ballot(vote_id, round, agent_id, choice, reasoning, cast_at, revealed_at)` | Queries return ballots only once `revealed_at` is set. |
-| Reputation | `reputation_event(event_id, agent_id, source, outcome, ref, created_at)` | Raw events; weights in config (OPEN); scores are a view. |
-| Usage | `usage_record(usage_id, agent_id, provider_id, model_id, input_tokens, output_tokens, status, error_code, retry_after_s, created_at)` | Token counts only. |
-| Audit | `audit_event(audit_id, actor_id, action, target, decision, details, created_at)` | Insert-only. |
-| Vault index | `vault_doc(doc_id, repo_path UNIQUE, commit_sha, content_hash, frontmatter)`; `vault_block(doc_id, block_id, start_line, end_line, body, tsv)`; `vault_link(src_doc_id, src_block_id, target_raw, target_doc_id NULL, target_anchor, kind)`; `vault_tag(doc_id, tag)`; `vault_block_embedding(doc_id, block_id, profile_id, embedding halfvec(N))` | Unresolved links keep `target_doc_id` NULL. Backlinks are a query. Rebuildable from git. |
+| `gc` | `gc_id, parent_gc_id, type_id, name, next_seq` | `type_id` references the GC type registry in doc 01. A DM is a GC with two members. |
+| `gc_member` | `gc_id, principal_id, joined_seq, left_seq` | Principal identity is owned by doc 14. |
+| `gc_event` | `gc_id, seq, kind, source_trust, tainted_at_write, actor_id, message_id, payload, created_at`; PK `(gc_id, seq)` | Hash-partitioned. `source_trust` uses doc 15's provenance enum (owner, system, agent, member-human, external, quarantined). `tainted_at_write` is boolean (C20). Insert-only for the runtime role, plus a trigger that raises on UPDATE and DELETE. |
+| `gc_event_kind` | `kind` PK, `description` | Seed rows: `message`, `system`, `structured` (task updates, PR events), `external-mail` (doc 22; `source_trust = external`), `quarantine` (doc 01). Other docs add rows, not code. See Question 5. |
+| `gc_message` | `message_id, gc_id, seq, author_id, current_version` | Current pointer for each message. |
+| `gc_message_version` | `message_id, version, body_ct, body_nonce, key_id, editor_id, tombstone, created_at`; PK `(message_id, version)` | Full copy per version. Bodies are encrypted under the author's key (Question 3). A tombstone row has no ciphertext. |
+| `gc_mention` | `target_id, gc_id, seq` | Feeds "what changed while away" (doc 29). Index `(target_id, seq)`. |
+| `person_key` | `key_id, person_id, wrapped_key, created_at, destroyed_at` | `wrapped_key` is wrapped under the bootstrap key (doc 14). Destruction sets `destroyed_at` and clears the wrapped key. |
+| `embedding_profile` | `profile_id, provider_id, model_id, dimensions, created_at, active` | One active profile per install, chosen at setup. Changing it means re-embedding. The vector columns live with their owners (08, 18). |
+| `schema_setting` | `key, value` | Holds the partition count and similar values fixed at first `migrate`. |
 
-**Hybrid search [PROPOSED], RRF with k = 60.** Scope filters sit inside both branches, before ranking.
-```sql
-WITH lex AS (  -- Windows: ts_rank on tsv; Linux: BM25
-  SELECT block_id, row_number() OVER (ORDER BY rank DESC) AS r
-  FROM lexical_candidates($q, $scope) LIMIT 50),
-vec AS (
-  SELECT block_id, row_number() OVER (ORDER BY embedding <=> $qv) AS r
-  FROM vault_block_embedding WHERE profile_id = $p AND <scope>
-  ORDER BY embedding <=> $qv LIMIT 50)
-SELECT coalesce(lex.block_id, vec.block_id) AS block_id,
-       coalesce(1.0/(60+lex.r), 0) + coalesce(1.0/(60+vec.r), 0) AS rrf
-FROM lex FULL JOIN vec USING (block_id) ORDER BY rrf DESC LIMIT 20;
-```
+**[PROPOSED] Erasure hook.** Erasure (flow owned by docs 32 and 33) runs one function under a privileged role: it clears the `person_key` row, sets `destroyed_at`, and appends a tombstone version to each affected message. Author, sequence and timestamps remain.
 
-**Partitioning.** `usage_record` and `audit_event`: monthly range partitions on `created_at`, created ahead by a job. `gc_event`: unpartitioned until larger than RAM (PostgreSQL's rule of thumb); then hash by `gc_id`, which keeps `(gc_id, seq)` valid. Do not partition by time, because the key would need `created_at`.
+**Lexical and vector search.** One interface: `ts_rank` on Windows, BM25 through `pg_search` on Linux, plus pgvector `halfvec` filtered by `profile_id`, merged by reciprocal rank fusion. The query is defined in doc 18.
 
-**Indexes.** `gc_event (gc_id, seq)` primary key serves replay. `gc_mention (target_id, seq)`. `task (gc_id, status)`; `task_edge (blocked_id)`. Partial HNSW per embedding profile (limits: 2,000 dimensions for `vector`, 4,000 for `halfvec`). GIN on `vault_block.tsv` (Windows) or BM25 (Linux). `usage_record (agent_id, created_at)`.
+**Indexes.** `gc_event (gc_id, seq)` primary key (serves replay); `gc_member (principal_id, gc_id)`; `gc_message (gc_id, seq)`; `gc_mention (target_id, seq)`.
 
 ## Behaviour and edge cases
-- **Retention.** GC log, message versions and memory are never purged. Audit is kept (owner to confirm). Raw usage: drop old monthly partitions after an owner-set window, keeping daily aggregates. Vault index is rebuilt, not kept.
-- **Backup.** `wal_level = replica`, `archive_mode = on`; test `archive_command` before the first base backup. Nightly `pg_basebackup` plus continuous WAL to an archive, shipped offsite by a file tool. Nightly `pg_dump -Fc` is a logical copy only; it cannot give point-in-time recovery.
-- **Restore drill.** Compare GC row counts and last `seq` per GC with the source at a fixed time; confirm no pending migrations. Restoring an older backup rolls back the log: treat it as an incident.
-- **NOTIFY limits.** Payload under 8000 bytes by default (ours is about 80). Delivered on commit only; duplicates within one transaction collapse. Not stored: a disconnected listener misses them, so on reconnect re-read `gc_event` per subscribed GC above the last delivered `seq`. The queue is about 8 GB; if it fills, commits fail. Keep the listener outside transactions; monitor `pg_notification_queue_usage()`. Do not run the listener behind a transaction-mode pooler.
-- **Ordering.** Order is per GC by `seq`; no cross-GC order is promised.
+- **Ordering.** Order is per GC by `seq`. No cross-GC order is promised. The counter is gap-free.
+- **NOTIFY limits.** Delivered on commit only. A disconnected listener misses notifications, so on reconnect it re-reads `gc_event` above the last delivered `seq` per GC. Keep the listener outside transactions, monitor `pg_notification_queue_usage()`, and never run it behind a transaction-mode pooler.
+- **Retention.** GC log, message versions and mentions are never purged. The only removal of personal content is erasure: key destruction plus tombstone (C01). Vault indexes are rebuilt from git; embeddings are rebuilt from the active profile.
+- **Backups.** Backups keep wrapped keys until the erasure window passes; backup retention equals that window (doc 33). Restoring an older backup rolls back the log and is an incident, handled by the restore policy in doc 33.
+- **Encrypted bodies and search.** Message bodies are ciphertext, so there is no full-text index over them until Question 7 is decided.
+- **Failed migration.** A failed file rolls back its own transaction and releases the lock; the database stays at the last good version and startup refuses to run until `migrate` succeeds.
+- **Runtime role.** No UPDATE or DELETE on `gc_event` or `gc_message_version`. Only the erasure function may write `person_key`.
 
 ## Testing
 Every data test runs against a real PostgreSQL 18 with pgvector.
-- **Runner.** Testcontainers when a Docker daemon is reachable (Docker Desktop on Windows); otherwise `BAZAAR_TEST_PG` points at a local server. The Docker CLI exists on the build machine, but no daemon ran during research.
+- **Runner.** Testcontainers when a Docker daemon is reachable; otherwise `BAZAAR_TEST_PG` points at a local server (Question 8).
 - **Speed [PROPOSED].** Migrate one template database per run; each test class clones it with `CREATE DATABASE … TEMPLATE`.
 - **Migrations.** Fresh apply; re-run is a no-op; an edited applied file is refused; provider folders change only extensions and indexes (schema diff against `common/`).
-- **GC log.** 50 concurrent appends to one GC give seq 1 to 50 with no gaps; a rollback leaves no gap; NOTIFY is seen only after commit; listener drop and replay returns exactly the missed seqs; runtime role UPDATE and DELETE on `gc_event` are denied.
+- **Startup guard.** The server refuses to start on an older or newer schema; a runtime-role session cannot run DDL.
+- **Partitions.** The count is recorded at first `migrate`; a different configured count refuses startup; a lookup by `gc_id` prunes to one partition (EXPLAIN).
+- **GC log.** 50 concurrent appends to one GC give seq 1 to 50 with no gaps; a rollback leaves no gap; NOTIFY is seen only after commit; a listener drop and replay returns exactly the missed seqs; runtime-role UPDATE and DELETE are denied on `gc_event` and `gc_message_version`.
+- **Erasure.** After key destruction, every version of that person's bodies is unreadable, while author, sequence and timestamps remain and a tombstone is appended.
 - **Search.** Contract tests on both providers compare result sets and filters; rank order is asserted per provider only.
-- **Partitions.** Monthly create and drop; EXPLAIN shows pruning.
 
 ## Work packages
-1. Migration runner, history table, migration tests.
+1. Migration runner, `migrate` command, history table, migration tests.
 2. Data-source factory, configuration, test fixture, template database. Depends on 1.
-3. `common/0001` core schema: gc, gc_event, gc_message, gc_member. Depends on 1.
-4. `GcLogWriter`, `GcNotifyListener`, replay. Depends on 2, 3, and `Bazaar.Contracts`.
-5. Agent, Soul reference, Passport and model-allow tables. Depends on 3.
-6. Tasks, edges, blocked view, votes, reputation. Depends on 3.
-7. Usage and audit with partitions and partition job. Depends on 2.
-8. Memory and embedding profiles. Depends on 3.
-9. Vault index tables and incremental indexer from `git diff`. Depends on Vault writer (Wave 3).
-10. Search provider (FTS and BM25) and RRF query. Depends on 8, 9.
-11. Backup runbook and restore-drill scripts. No code dependency.
+3. `common/0001` core schema: `gc`, `gc_member`, `gc_event` (hash-partitioned, count from setup), `gc_event_kind`, `gc_message`, `gc_message_version`, `gc_mention`, `schema_setting`, roles. Depends on 1.
+4. `person_key`, encryption wrapper over doc 14's bootstrap key, erasure function. Depends on 3 and doc 14.
+5. `GcLogWriter`, `GcNotifyListener`, replay. Depends on 2, 3 and `Bazaar.Contracts`.
+6. `embedding_profile` and setup-time profile creation. Depends on 1.
+7. Lexical search provider (`ts_rank` on Windows, `pg_search` on Linux) behind one interface, with contract tests. Depends on 6 and the Vault tables of doc 18 (Wave 3).
+8. Backup runbook and restore drill: owned by doc 33; no work package here.
 
 ## Conflicts
-1. **Erasure versus append-only.** Every version is kept and the log is never purged, yet personal-data erasure may be required. Per-person key destruction is the proposed route; its legal sufficiency is unknown and backups keep keys until expiry. Needs counsel (Bazaar.Server.md §17, OPEN).
-2. **Scale claim.** Bazaar.Server.md marks `gc_id` plus timestamp indexing as "sufficient" under RESEARCHED. No Postgres chat benchmark was found (`data_layer_windows.md` §7). Treat as unverified until load-tested.
-3. **Garnet scope.** CLAUDE.md names Garnet as the Windows pub/sub provider; GC fan-out is decided on NOTIFY; the feasibility report recommends Garnet only if a benchmark needs it.
-4. **Search parity and AGPL.** ts_rank and BM25 rank differently, so the search promise must be set-based. `pg_search` needs AGPL counsel review before any bundle. Minimum PostgreSQL version is 14 (PGXN) or 15 (ParadeDB docs).
-5. **ORM.** `implementation-plan.md` allows EF Core for CRUD "if ever needed"; the data-access note recommends EF 10 for Kanban and reputation. CLAUDE.md forbids an ORM in the core; this draft follows CLAUDE.md.
-6. **Windows backup.** `pg_basebackup` and WAL archiving under a Windows service account are unverified; the PostgreSQL Windows page returned 404.
+1. **Erasure beyond the log.** Personal content also sits in Vault memory files and git history (a consequence of C38). Doc 08 and doc 18 need an erasure answer for those. Legal sufficiency of key destruction is unverified and needs counsel (Server.md Q17).
+2. **Owner read-all versus per-person keys.** The owner reads all DMs (doc 01), but each person's bodies are encrypted under that person's key. The owner's access path must be defined in docs 01 and 14 (Question 3).
+3. **Scale claim.** `(gc_id, seq)` with hash partitions is unbenchmarked (spike S3 pending). The partitioning is a hedge until measured.
+4. **Search and licences.** `pg_search` is AGPL; bundling needs counsel. The Windows build stays on `ts_rank` to remain OSI-only (C23). Rankings differ between providers, so the search contract is set-based.
+5. **Windows backup.** `pg_basebackup` and WAL archiving under a Windows service account are unverified (doc 33 C4). Windows key custody versus recovery on new hardware is still open (doc 33 C1).
+6. **Implementation plan.** `implementation-plan.md` still allows EF Core for CRUD; CLAUDE.md (no ORM in the core) governs and the plan must be corrected.
+7. **Requests to other docs.** Doc 06 adds its tables through `common/` migrations and FKs into `gc_member`. Doc 05 owns `gw_usage` with 5-minute and 1-hour cache-write columns. Docs 08 and 18 store embeddings keyed by `embedding_profile`. Doc 15 owns `audit_log`. Doc 01 owns the GC type registry. Doc 33 owns the restore policy and erasure window. `Bazaar.Server.md` §3 still says "monthly partitioning" and must be corrected.
+
+Moved to owner docs (not decided here): raw usage retention (05), audit retention (15), backup targets (33), reputation weights (11), ballot secrecy (10), cost-chip estimates (05, 23).
 
 ## Questions for the owner
-1. **Garnet in v1?** Default: NOTIFY only; Garnet only for cache after a benchmark.
-2. **Embedding profile.** Default: one profile per install, dimension fixed at setup in the first spike; changing it means re-embedding.
-3. **Windows search quality.** Default: ts_rank on the first Windows host; BM25 deferred, avoiding a Linux VM and AGPL review for now.
-4. **Raw usage retention.** Default: 90 days of raw rows; daily aggregates kept.
-5. **Audit retention.** Default: indefinite in v1.
-6. **Edit storage.** Default: full copy per version (matches "every version is kept"); diffs save space but read worse.
-7. **Erasure and backups.** Default: per-person keys destroyed on request, after counsel review; backups keep old keys for 35 days.
-8. **Backup targets.** Default: WAL shipped hourly (RPO about 1 hour); offsite store chosen later.
-9. **Reputation weights.** Default: store raw events; weights in config, set later (OPEN).
-10. **Ballot secrecy.** Default: enforced in repository queries plus `revealed_at`; a row-level policy is stricter but adds complexity.
-11. **Cost chip.** Default: token counts only. Does the GC cost chip also need an estimated cost, for display only?
-12. **Test database.** Default: Testcontainers when Docker is available, else local PostgreSQL 18 via `BAZAAR_TEST_PG`. Is Docker Desktop acceptable on dev machines?
+ANSWERED: Pub/sub: NOTIFY for GC fan-out; Garnet or Valkey only for cache and presence, with Garnet gated by spike S2 (DECISIONS-LOG R1).
+ANSWERED: Embeddings: one profile per install, chosen at setup, `halfvec` (DECISIONS-LOG R10).
+ANSWERED: Windows search: Postgres full-text, OSI-only build (DECISIONS-LOG R4).
+ANSWERED: Edit storage: full copy per version (DECISIONS-LOG R1).
+
+1. **Restore policy.** Default: adopt doc 33's sequence floor plus a `system` recovery entry, recorded as an exception to doc 01. Why: it is the only restore that never reuses a sequence number. This is still FOLLOW-UP in the log (C10).
+2. **Erasure window.** Default: 35 days, the first draft's figure, which sets backup retention. Why: any value needs counsel (Server.md Q17), so 35 days is a placeholder.
+3. **Key scope for shared GCs.** Default: each message body is encrypted under its author's key; erasing an author removes that author's text from every GC. Why: the author is the person with the erasure right; the owner's read-all access needs its own grant (docs 01, 14).
+4. **Migration on a fresh install.** Default: the setup wizard runs `migrate` once on an empty database; upgrades are a manual `migrate` after a backup. Why: it keeps the explicit step of C44 without first-run friction.
+5. **Event kinds.** Default: a `gc_event_kind` lookup table, so new kinds are rows. Alternative: a CHECK list in the migration. Why: docs 13, 22 and 26 each add kinds.
+6. **Partition count.** Default: 16 hash partitions, set in the setup wizard and advanced settings. Why: a small fixed count is cheap now; changing it later needs a planned data move.
+7. **Search over encrypted messages.** Default: no full-text index over GC bodies; search covers Vault content and non-personal fields until decided. Why: a plaintext index would undo per-person encryption.
+8. **Test database.** Default: Testcontainers when Docker is available, else local PostgreSQL 18 via `BAZAAR_TEST_PG`. Is Docker Desktop acceptable on dev machines?

@@ -1,36 +1,37 @@
 # Work-Life Simulation
 
-Status: DRAFT for owner review (2026-10-25) · Owner questions: 15
-Depends on: Bazaar.md (§2, §4, §5), Bazaar.Server.md (§3, §13), Bazaar.Soul.md (memory, VM), implementation-plan.md (Wave 2) · Used by: Company Calendar (not yet written), Observatory, Bazaar.Windows start screen, Council, Kanban
+Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 13
+Depends on: 04-postgres-schema-and-migrations.md, 05-model-gateway.md, 06-agent-runtime.md, 15-security-taint-and-approvals.md, 18-vault.md, 23-observatory-and-usage.md, 24-company-systems-core.md, Bazaar.md (§2, §4, §5), Bazaar.Server.md (§3, §13), implementation-plan.md (Wave 2) · Used by: 06-agent-runtime.md, 10-council-and-voting.md, 12-kanban-and-dependencies.md, 23-observatory-and-usage.md, 24-company-systems-core.md, 26-fun-systems.md, 28-windows-client.md, 29-android-client.md
 
 ## Purpose
-Paces agents with shifts, breaks, vacations and curfew instead of rate limits. When an agent or a provider key is unavailable, the team sees an explained absence and an automatic cover, not a failed HTTP call. Provider limits still happen and are handled here as data.
+Paces agents with shifts, breaks, vacations and curfew instead of rate limits. When an agent or a provider key is unavailable, the team sees an explained absence and an automatic cover, not a failed HTTP call. Provider limits still happen; this doc consumes them as signals and decides what they mean for availability.
 
 ## Decided inputs
 - Shifts, breaks, vacations and curfew replace rate limiting; async inbox with auto-coverage (Bazaar.md §4).
 - Each agent has its own simulated timezone and schedule (Bazaar.md §4, 2026-10-24).
 - Resource Economy REJECTED: limits are quotas plus this simulation. Cost is display and analysis, never a gate (Bazaar.md §4).
-- Company Calendar is in v1 scope (Bazaar.md §4).
+- Company Calendar is in v1 scope. `calendar_event` is owned by doc 24; this doc consumes it (DECISIONS-LOG round 12, C45).
+- Table ownership (DECISIONS-LOG round 1, C04): this doc owns `agent_schedule` and `availability`. Doc 06 owns `inbox_item`, the agent row and turns; doc 05 owns `gw_quota_state` and model policy; doc 23 owns `agent_activity`.
 - GCs are append-only and are the coordination system; events serve GCs and never replace them (Bazaar.md §2).
-- Each agent owns private memory; no shared brain (Bazaar.md §5).
-- Claude lane uses Anthropic API keys only, Haiku-heavy (Bazaar.md §3; CLAUDE.md).
+- Each agent's persistent memory is stored in the Vault; each agent owns private memory; no shared brain (Bazaar.md §5; DECISIONS-LOG round 11, C38).
+- Claude lane uses both the owner's Anthropic API key and FreeLLMAPI's free tokens, switched by availability. Subscription (Pro/Max) logins stay off every route (DECISIONS-LOG round 4, C14).
 - Bazaar.Server's own gateway enforces per-agent model whitelists; providers are interchangeable upstreams (Bazaar.Server.md §3).
-- Queue and pub/sub carry scheduled work such as shift changes and inbox delivery; Postgres holds state (Bazaar.Server.md §3).
-- Presence dot, custom status and activity appear on GC messages (Bazaar.Windows.md, 2026-10-24).
-- Loop guards are a Wave 2 item (implementation-plan.md).
-- Presence state list (working, reviewing, thinking, in meeting, sleeping, researching, on vacation, helping another project) comes from the work order and is not yet in Bazaar.md. See Conflicts and Q5.
+- Postgres NOTIFY carries GC fan-out; Valkey (Linux) or Garnet (Windows) carries cache and presence, with Garnet gated by spike S2 (DECISIONS-LOG round 1, C07). Scheduled work such as shift changes runs on the server queue (Bazaar.Server.md §3).
+- Loop guards are a Wave 2 item (implementation-plan.md). A loop-guard trip sends the agents involved to the Psych Ward on any trip (DECISIONS-LOG round 9, C34; doc 26).
+- Interrupts use doc 24's per-agent stack (depth 2). An owner interrupt bypasses vacation only when tagged `emergency` (DECISIONS-LOG round 9, C35).
+- Presence is eight labels plus overlays (DECISIONS-LOG round 11, C43). Its mapping and projection belong to doc 23.
+- Wake reasons, the digest and the inbox belong to doc 06 (DECISIONS-LOG round 3, C08).
 
 ## Design
 Components [PROPOSED]:
-- **Schedule calculator**: pure function from agent schedule and time to availability window.
-- **Quota classifier**: provider response to a quota signal.
+- **Schedule calculator**: pure function from agent schedule, calendar events and time to an availability window.
+- **Quota consumer**: applies the provider signals from doc 05 (`QuotaSignal`, `AgentCapacityChanged`) to availability. Classification of provider responses stays in doc 05.
 - **Availability machine**: one per agent, single writer.
-- **Inbox and handover**: durable per-agent queue, drain, daily plan.
+- **Drain and handover**: drain checklist, handover note, daily plan. The inbox itself is doc 06's.
 - **Cover resolver**: picks the cover for an unavailable agent.
-- **Presence publisher**: derived from availability plus current activity, sent over pub/sub. Presence is not GC content.
-- **Calendar feed**: vacation blocks now; planning and release events are informational (Q11).
+- **Presence input**: this doc supplies availability and overlays to doc 23's presence projector. It publishes no presence of its own.
 
-Schedule model [PROPOSED]:
+Schedule model [PROPOSED], stored in `agent_schedule`:
 ```json
 {
   "agent": "example-agent",
@@ -43,74 +44,66 @@ Schedule model [PROPOSED]:
 ```
 Times are in the agent's IANA zone. Shifts may cross midnight. Precedence: vacation beats curfew, curfew beats shift. `afterTokens: 0` means token-driven breaks are disabled until measured.
 
-Availability states: ON_SHIFT, DRAINING, BREAK, OFF (outside shift or curfew), VACATION. Overlays: THROTTLED (until a time), COVERED (cover is answering).
+Availability states: ON_SHIFT, DRAINING, BREAK, OFF (outside shift or curfew), VACATION. Overlays: THROTTLED (until a time) and COVERED (cover is answering). Presence overlays shown by doc 23 are on break (during BREAK), waiting for approval (turn state from doc 06), throttled and covered.
 
 | From | Event | To |
 |---|---|---|
 | ON_SHIFT | shift end, break due, vacation starts, token break | DRAINING |
 | DRAINING | drain checklist complete | BREAK, OFF or VACATION |
-| BREAK / OFF | schedule start or break end | ON_SHIFT; inbox drained in seq order |
+| BREAK / OFF | schedule start or break end | ON_SHIFT; inbox drained in `seq` order |
 | any | RateLimited(until) | overlay THROTTLED; state unchanged |
-| any | SpendCapped on this key | VACATION (reason: provider cap) for every agent on that key |
-| any | owner emergency override | ON_SHIFT now; does not clear SpendCapped |
+| any | SpendCapped on a source | doc 05 reroutes the agent to another allowed source; if none remains, VACATION (reason: provider cap) |
+| any | owner `emergency` interrupt | ON_SHIFT now, bypassing vacation; does not clear provider state |
 
 Every transition is idempotent, keyed by (agent, event, scheduledAt).
 
-Quota exhaustion maps to rest:
+Quota signals and their effect here (classification is doc 05's):
 
-| Provider signal | Quota state | Effect |
-|---|---|---|
-| 429 with `retry-after` | RateLimited(until) | Overlay THROTTLED until the wait ends. No vacation. |
-| 429, `error_code` `enforced_spend_limit_reached`, no `retry-after` | SpendCapped(next 00:00 UTC) | Key-wide VACATION with the true reason shown to the owner. Fallback within the agent's whitelist first (Q10). |
-| 429, no `retry-after`, other code | UnknownRateLimit | Jittered backoff, log, count. |
-| 400 `invalid_request_error` (user-set spend limit) | ConfigError | Alert the owner. Not a vacation. |
-| 5xx, timeout | Transient | Retry policy. No availability change. |
+| Signal from 05 | Effect |
+|---|---|
+| RateLimited(until) | Overlay THROTTLED until the wait ends. No vacation. |
+| SpendCapped(until) | Reroute first (table above). VACATION only when no allowed source remains; the true reason and reset time are shown to the owner. |
+| UnknownRateLimit | No availability change. Jittered backoff in doc 05. |
+| ConfigError | Alert the owner. Not a vacation. |
+| Transient | No availability change. |
 
 Drain [PROPOSED]: a fixed checklist turn. Park or finish in-flight work, push WIP to the agent's branch, update Kanban, write a handover note (open threads, next step, blockers, what the cover must not touch), post it to the agent's GC. The first turn of a shift posts a daily plan to the same GC.
 
-Cover [PROPOSED]: inbox items for an unavailable agent queue in order. The cover reads the handover note and shared project memory. Its replies are labelled "covering for X". Cover pairs are chosen by specialty overlap with a shift overlap, and the owner can override (Q13).
+Cover [PROPOSED]: inbox items for an unavailable agent queue in `seq` order (doc 06's `inbox_item`). The cover reads the handover note and shared project areas of the Vault. It does not read the primary's private Vault area by default (Q1). Its replies are labelled "covering for X". Cover pairs are chosen by specialty overlap with a shift overlap, and the owner can override (Q10).
 
 Other behaviour [PROPOSED]:
-- **Emergency override**: owner only. Bypasses curfew, break and vacation. Writes a GC event with a reason. Cannot clear a provider state.
-- **Mandatory walk**: a loop-guard trip forces a fixed BREAK and a visible GC notice (meaning to confirm, Q4).
-- **Token-driven break**: a rolling-window token count moves the agent to DRAINING.
-- **Background compaction**: runs in BREAK or OFF windows. Writes derived memory with provenance; never edits the GC.
+- **Emergency override**: an owner interrupt tagged `emergency` (doc 24). It bypasses vacation (C35). Whether it also bypasses curfew and break is Q4. It writes a GC event with a reason and cannot clear a provider state.
+- **Loop-guard trip**: hands the agents involved to the Psych Ward (doc 26). This doc defines no separate walk.
+- **Token-driven break**: a rolling-window token count moves the agent to DRAINING. Off until Phase 0 data exists (Q6).
+- **Background compaction**: runs in BREAK or OFF windows; writes derived memory through `VaultWriter` (doc 08); never edits the GC.
 
 ## Data and interfaces
+Tables owned here:
 ```sql
 agent_schedule (agent_id pk, tz text, shifts jsonb, breaks jsonb, curfew jsonb, cover_agent_id, version bigint)
 availability   (agent_id pk, state text, overlay text null, until timestamptz null, reason text, version bigint)
-inbox_item     (id bigserial pk, agent_id, gc_id, gc_seq bigint, kind text, payload jsonb,
-                status text, due_at timestamptz, claimed_until timestamptz null)
-quota_state    (provider_id, key_id, model_class, kind text, until timestamptz null,
-                http_status int, error_code text null, observed_at timestamptz,
-                primary key (provider_id, key_id, model_class, kind))
-calendar_event (id pk, kind text, starts_at timestamptz, ends_at timestamptz, agent_id null)
 ```
+Consumed, not defined here: `inbox_item` (06), `gw_quota_state` and `gw_usage` (05; `gw_usage` carries the 5-minute and 1-hour cache-write columns, DECISIONS-LOG round 9, C33), `calendar_event` with `affects_availability` (24), `agent_activity` (23).
 ```csharp
-public enum QuotaKind { RateLimited, SpendCapped, UnknownRateLimit, ConfigError, Transient }
-public sealed record QuotaSignal(QuotaKind Kind, DateTimeOffset? Until);
-QuotaSignal Classify(int status, IReadOnlyDictionary<string, string> headers, string? errorCode, DateTimeOffset now);
 AvailabilityWindow Evaluate(AgentSchedule schedule, IReadOnlyList<CalendarEvent> events, DateTimeOffset now);
+Task ApplyAsync(AgentId agent, QuotaSignal signal, DateTimeOffset now);   // from 05
+Task ApplyAsync(AgentId agent, AgentCapacityChanged change);            // from 05
 ```
-Gateway to runtime: one usage record per call (fields in observability_cost_testing.md §3, with the three input-token fields kept separate), and one QuotaSignal per 429 or 400. Runtime to gateway: "is this key usable now" only.
+Only events with `affects_availability` change availability (Q13).
 
 ## Behaviour and edge cases
-- `retry-after` is parsed as seconds. The HTTP-date form is unverified, so other forms fall back to jittered backoff.
-- For most Claude models only uncached input counts toward ITPM; cache reads do not (pricing and observability notes, verified). Meter ITPM from uncached input only.
-- Haiku 5.5 prompts over 100K tokens cost five times more. Whether the surcharge covers the whole prompt is unverified. Compaction should keep prompts under the line.
-- The Start-tier spend cap is $500 a month and resets at 00:00 UTC on the 1st (verified). Tier qualification thresholds are not published in the sources read.
 - One writer per agent, guarded by `version`. A restart during DRAINING resumes from its row. A hard kill can skip `StopAsync` (Bazaar.Server.md §4), so turns persist their own state.
-- Schedules are evaluated in IANA zones. Test skipped and repeated local times.
-- Availability never grants or denies tool permissions. Handover notes are untrusted input under Bazaar.Server.md §13.
-- Cache trap: a break longer than the 5-minute cache TTL makes the next call a cache write at 1.25x base. For Haiku with 30,000 cached tokens that is about $0.0038 against about $0.0003 for a read (pricing note prices). Shifts cut call volume but can raise cost per call.
+- Schedules are evaluated in IANA zones. Curfew across midnight and repeated or skipped local times (DST) must be handled.
+- Availability never grants or denies tool permissions. Handover notes are agent text: soft taint under doc 15, never a permission grant (Bazaar.Server.md §13).
+- A break longer than the 5-minute cache TTL makes the next call a cache write at 1.25x base. For Haiku with 30,000 cached tokens that is about $0.0038 against about $0.0003 for a read (pricing note, verified). Shifts cut call volume but can raise cost per call.
+- The Start-tier spend cap is $500 a month and resets at 00:00 UTC on the 1st (verified). Shared rate limits reference doc 15's quota table (C36).
 
 ## Testing
 No real models or displays are needed.
-- Fake clock through `TimeProvider` (confirm the testing package on NuGet). Fake gateway returns 429 with and without `retry-after`, the spend-cap body, a 400 config error and malformed output.
-- Real Postgres for the queue (`SKIP LOCKED`), version conflicts and restart recovery.
-- `Avalonia.Headless` for the presence chip.
-- Key cases: curfew across midnight; DST both ways; cover offline leads to queue and notice; spend cap sets every agent on that key to VACATION and clears only at reset; `retry-after` clears without vacation; cache reads excluded from ITPM; override does not clear the cap; restart mid-DRAINING; inbox replay in `gc_seq` order.
+- Fake clock through `TimeProvider`. Fake gateway returns 429 with and without `retry-after`, the spend-cap body, a 400 config error and malformed output.
+- Real Postgres for `agent_schedule`, `availability` and the drain against doc 06's `inbox_item` (`SKIP LOCKED`), version conflicts and restart recovery.
+- `Avalonia.Headless` for the presence chip in doc 28, fed by doc 23's presence.
+- Key cases: curfew across midnight; DST both ways; cover offline leads to queue and notice; SpendCapped reroutes to an allowed source, and VACATION occurs only when none remains, clearing only at reset; `retry-after` clears without vacation; an untagged owner interrupt does not bypass vacation, a tagged one does; the emergency tag does not clear a provider cap; restart mid-DRAINING; inbox replay in `seq` order.
 
 **Measuring whether shifts save money.** No source shows shift throttling works as a cost control (multi-agent note, Key Q6 gaps). Proposed test [PROPOSED]:
 1. Phase 0, two weeks, instrumentation only: log usage, cache hit ratio and gaps between calls per agent.
@@ -120,39 +113,47 @@ No real models or displays are needed.
 
 ## Work packages
 1. Schedule calculator and DST tests (pure). Depends: Wave 0.
-2. Quota classifier with fixture responses. Depends: Wave 0, gateway WP5 types.
-3. Availability machine with idempotency keys. Depends: 1, 2.
-4. Postgres tables and repositories for schedule, availability, inbox and quota. Depends: Wave 1 WP2.
-5. Inbox queue and ordered drain. Depends: 3, 4.
-6. Drain checklist, handover note, daily plan. Depends: 5.
-7. Cover resolver and "covering for" replies. Depends: 5, Q1 answered.
-8. Presence publisher and chip. Depends: 3, Contracts WP1.
-9. Vacation blocks from calendar. Depends: 1, Company Calendar doc.
-10. Loop-guard walk and token-break triggers. Depends: 3.
-11. Owner override command and audit event. Depends: 3, Contracts.
-12. Usage-to-cost report and shift A/B harness (analysis only). Depends: gateway usage records.
+2. Availability machine with idempotency keys; signal consumers for doc 05's types. Depends: 1, doc 05 signal types.
+3. Repositories for `agent_schedule` and `availability`. Depends: Wave 1 WP2 (04), doc 06's agent table.
+4. Ordered inbox drain on doc 06's `inbox_item`. Depends: 2, 3, doc 06 inbox WP.
+5. Drain checklist, handover note, daily plan. Depends: 4.
+6. Cover resolver and "covering for" replies. Depends: 4, Q1 and Q10 answered.
+7. Presence inputs into doc 23's projector, and the presence chip (doc 28). Depends: 2, doc 23 projector, Contracts WP1.
+8. Vacation blocks from `calendar_event` with `affects_availability`. Depends: 1, doc 24 calendar migration.
+9. Loop-guard hand-off to the Psych Ward and token-break triggers. Depends: 2, doc 26.
+10. Owner `emergency` interrupt: vacation bypass, audit event. Depends: 2, doc 24's `PushAsync`.
+11. Usage-to-cost report and shift A/B harness (analysis only). Depends: `gw_usage` (05), doc 23.
 
 ## Conflicts
-1. **Cover versus memory.** Cover reading the primary's memory conflicts with "each agent owns private memory; no shared brain" (Bazaar.md §5). This design uses shared memory only until Q1 is answered.
-2. **"Instead of rate limits" versus real limits.** At the modelled volumes, Claude-lane per-minute limits look unlikely to bind (Start-tier Haiku allows 1,000 RPM and 2M ITPM; inference). The binding constraints are the $500 monthly cap (typical Claude lane about $54, heavy about $316 with Sonnet; Opus or Fable at heavy volume would exceed the cap) and free-lane daily caps (OpenRouter 50 RPD below 10 credits; Cerebras 1M TPD). The simulation matters most on free lanes.
+Remaining, for this doc or the owner:
+1. **Private memory and cover reads.** Bazaar.md §5 ("no shared brain") now depends on a Vault access layer that enforces per-agent private areas (C38). Docs 08 and 18 must design it. Until then, Q1 governs what a cover may read.
+2. **"Instead of rate limits" versus real limits.** Anthropic per-minute limits look unlikely to bind at modelled volumes (inference). The binding limits are the $500 monthly cap and free-lane daily caps on FreeLLMAPI routes (OpenRouter 50 RPD below 10 credits; Cerebras 1M TPD).
 3. **Hidden billing stop.** A spend cap shown as "on vacation" can hide an account-level stop. The owner must see the true reason and reset time.
-4. **Shifts and cache TTL.** Shifts may raise cost per call (see Behaviour). No evidence either way.
-5. **Compaction and cache.** Context editing invalidates cached prefixes, so compaction saves less than a linear cut (pricing note).
-6. **Presence list and mandatory walk** are not in Bazaar.md, and the walk and token breaks have no evidence base (multi-agent note, Key Q6).
+4. **Shifts, cache and compaction.** Shifts may raise cost per call, and compaction saves less than a linear cut because it invalidates cached prefixes (pricing note). No evidence either way.
+5. **Token-driven breaks** have no evidence base (multi-agent note, Key Q6).
+
+New, for other docs to fix:
+- **06:** the agent row carries `tz` and `schedule jsonb` (C04). Remove both; `agent_schedule` is canonical here.
+- **05:** the pipeline writes "one `UsageRecord`" and the table is `gw_quota_state`; both must match `gw_usage` (C33) and C04 naming. Doc 05 must also state the SpendCapped reroute to the other allowed source (C14).
+- **23:** the presence table has no "on break" or "waiting for approval" overlay (C43). Add them; the BREAK and idle row keeps "sleeping" with the "on break" overlay.
+- **24:** the Schedule bullet lets any owner interrupt bypass curfew, break and vacation. C35 limits the vacation bypass to the `emergency` tag. Doc 24 must state the tag in that bullet.
+- **08 and 18:** the Vault access layer for private areas (C38), see Conflict 1.
 
 ## Questions for the owner
-1. Can a cover read the primary's private memory? Default: no. Cover reads the handover note and shared project memory. Private memory needs per-agent opt-in.
-2. What does presence show for a spend cap? Default: owner sees the true reason and reset time. Other agents see "on vacation".
-3. Do owner DMs wake an agent during curfew? Default: yes. Other messages queue to the next shift.
-4. What is the "mandatory walk"? Default: a fixed 15-minute BREAK after a loop-guard trip, plus a GC notice.
-5. Add "on break" and "waiting on provider" to presence? Default: yes, as overlays. Record the full list in Bazaar.md.
-6. Default shift for a new agent? Default: 09:00 to 17:00 Mon to Fri in the owner's zone, with a 23:00 to 07:00 curfew.
-7. Token-driven break threshold? Default: off until Phase 0 data exists.
-8. Success bar for shifts as a cost control? Default: at least 20% lower cost per accepted item with guardrails flat.
-9. Use 1-hour cache writes for the architect lane during shift gaps? Default: no. Test it on the architect lane first.
-10. On a Claude spend cap, fall back to FreeLLMAPI inside the whitelist? Default: yes if the whitelist allows it, otherwise VACATION.
-11. Are release and planning calendar events informational only in v1? Default: yes. Only vacation blocks change availability.
-12. Who grants a vacation? Default: owner, or an agent who requests one in its GC.
-13. Cover assignment: automatic or owner-chosen? Default: automatic by specialty and shift overlap, owner can override.
-14. No cover available? Default: queue, and post a notice in the General Bazaar GC after four hours.
-15. Free-lane reset times (OpenRouter daily cap, Cerebras TPD)? Default: track in UTC. Verify against each provider's page before use; not verified here.
+1. May a cover read the primary's private Vault area? Default: no. Cover reads the handover note and shared project areas. Private areas need per-agent opt-in.
+2. What does presence show for a spend cap? Default: the owner sees the true reason and reset time; other agents see "on vacation".
+3. Do owner DMs wake an agent during curfew? Default: yes, as a wake reason from doc 06. Other messages queue to the next shift.
+4. Does an `emergency`-tagged owner interrupt also bypass curfew and break? Default: yes for curfew and break, matching doc 24's Q9 default; provider caps are never cleared.
+5. Default shift for a new agent? Default: 09:00 to 17:00 Mon to Fri in the owner's zone, with a 23:00 to 07:00 curfew.
+6. Token-driven break threshold? Default: off until Phase 0 data exists.
+7. Success bar for shifts as a cost control? Default: at least 20% lower cost per accepted item with guardrails flat.
+8. Use 1-hour cache writes for the architect lane during shift gaps? Default: no. Test it on the architect lane first.
+9. Who grants a vacation? Default: the owner, or an agent who requests one in its GC.
+10. Cover assignment: automatic or owner-chosen? Default: automatic by specialty and shift overlap; the owner can override.
+11. No cover available? Default: queue, and post a notice in the General Bazaar GC after four hours.
+12. Free-lane reset times (OpenRouter daily cap, Cerebras TPD)? Default: track in UTC. Verify against each provider's page before use; not verified here.
+13. Are release and planning calendar events informational only in v1? Default: yes. Only events flagged `affects_availability` in doc 24 (vacation blocks) change availability.
+
+ANSWERED: Mandatory walk: a loop-guard trip sends the agents to the Psych Ward on any trip (DECISIONS-LOG round 9, C34).
+ANSWERED: Presence list: eight labels plus overlays such as "on break" and "waiting for approval" (DECISIONS-LOG round 11, C43).
+ANSWERED: Spend-cap fallback: the Claude lane uses FreeLLMAPI by availability, within the agent's whitelist (DECISIONS-LOG round 4, C14). Whitelist gating is doc 05's.

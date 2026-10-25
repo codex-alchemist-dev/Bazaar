@@ -1,200 +1,188 @@
 # Security: Taint, Approvals and Containment
 
-Status: DRAFT for owner review (2026-10-25) · Owner questions: 14
-Depends on: 01-gc-messaging (GC records, message tags), 03-gateway-and-tool-dispatch (tool dispatch, gateway), 06-vm-backends (agent VMs, egress), 09-email (inbound/outbound mail), 11-vault-and-memory (writes), 13-android-client (approval UI) · Used by: all agent-facing subsystems
-(File names are placeholders until the design set is numbered; no other design doc existed when this was drafted.)
+Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 12
+Depends on: 01-gc-data-model.md (message versions), 03-server-host-and-providers.md (OS providers), 04-postgres-schema-and-migrations.md (`gc_message_version`), 05-model-gateway.md (model quota), 06-agent-runtime.md (agent, turn, session), 08-memory-system.md (tiers T0-T3), 14-identity-service-and-passport.md (`ISecretStore`, Passport, leases), 16-agent-vms-and-environments.md (VM pair, egress), 18-vault.md (`VaultWriter`), 21-github-integration.md (push, merge), 22-email-subsystem.md (mail readers), 36-community-and-external-platforms.md (community tiers)
+Used by: 02-wire-protocol-and-sync.md, 10-council-and-voting.md, 12-kanban-and-dependencies.md, 13-skimmer-bouncer.md, 17-coding-agent-harness.md, 23-observatory-and-usage.md, 26-fun-systems.md, 28-windows-client.md, 29-android-client.md, 32-remote-access-auth-and-privacy.md
 
 ## Purpose
-Autonomous agents read hostile text (email, strangers' issues, web pages, other agents' messages), hold credentials, and can act in public. This doc defines how Bazaar.Server limits the damage: it tracks what each session has seen, gates high-impact actions on a human, and contains credentials, network and blast radius outside the model's control.
+Autonomous agents read hostile text (email, strangers' issues, web pages, other agents' messages), hold credentials, and can act in public. This doc defines the controls in Bazaar.Server that limit the damage: what each session has seen, which outward actions need the owner, and how credentials, network and blast radius are contained. Prompts may describe the rules but are never the control.
 
 ## Decided inputs
-- Taint tracking plus a human gate: once a session has seen untrusted input (email, strangers' issues, web), post/send/spend/push need the owner's approval; reader/actor split is OPEN, later (Bazaar.Server §13).
-- Public-posting approval tiers are operator-configured, with shipped defaults and per-platform thresholds (Server §16). CAPTCHA/phone/ID/passkey being human-only is a research recommendation, not decided.
-- Passport may be mounted into the VM as a per-agent scoped folder; risk accepted by the owner (Soul §1).
-- Passport/Soul data lives outside the VM disk; no clipboard, no host drive passthrough beyond the one scoped folder (Soul §2).
-- Agents sign up for services only where the platform's terms allow it (owner; Bazaar.md community section).
-- Nigerian Prince Protocol is optional, behind a setup wizard; otherwise scam email is quarantined (Bazaar.md).
-- Web surfaces: read-only status page and a narrow interactive sign-in page only; no web client.
-- Enforcement lives in Bazaar.Server tool dispatch, not prompts. Email is external-only; GCs are append-only with kept edit versions. GitHub identity is GitHub Apps. Imported Souls are untrusted (Bazaar.md).
-- Server is OS-agnostic; egress, VM and service pieces sit behind providers.
-
+- External content taints hard; agent text taints softly and only from a tainted source. Only hard taint gates Tier 2 (C06).
+- Tainted sessions never return to clean; work continues in a fresh session seeded with owner/system content and an approved summary (C06).
+- Reader/actor split ships in v1 for external input. Approvals gate outward high-impact actions and merges only (C18). Merges are server-performed on signed owner approval (C25).
+- Mount holds metadata plus a session-cookie profile, detached on hard taint; passwords, TOTP seeds, recovery codes, SSH and API keys are never mounted (C02).
+- Provider and GitHub App keys sit in `ISecretStore` (14); pushes run host-side (C05).
+- Approval ladder: the tiers below with doc 36's stricter community defaults (C21). Provenance enum here; memory tiers T0-T3 in 08 (C20).
+- Personal fields are per-person encrypted; erasure destroys the key (C01). Two VMs per agent (C03). Browser profiles per C22.
+- No inbound by default; push is a bare wake hint (C30, C41). Thinking GC text never enters another agent's context (C11). Loop-guard trips go to doc 26 (C34). Sign-in page: three routes, off by default (C42).
 ## Design
 
-### Threat model (summary)
-Each agent by default has all three legs of the "lethal trifecta": untrusted input (A), private data/credentials (B), outward action (C). GCs are shared, so one compromised agent's output is untrusted input for every peer. Main paths: injection via email/issues/web/repo files; cross-agent contamination via GCs and memory; credential theft from the mounted Passport; exfiltration by egress, rendered links, or commits; supply chain (packages, repo config); runaway loops. Research: no filter reliably stops injection, so the controls are architectural (research notes, verified: Willison, Meta Rule of Two; OWASP names secondary).
+### Threat model
+By default each agent has all three legs of the lethal trifecta: untrusted input, credentials, outward action (Rule of Two, verified). The design splits them across sessions. **Reader sessions** hold untrusted input but no credentials and no outward tools. **Actor sessions** hold credentials and outward tools but never read external content.
 
-### Trust levels and tags
-Every content item carries a trust tag set by the server at ingestion, never by the agent:
+### Provenance and taint
+The server sets every trust tag at ingestion; agents cannot set it.
 
-| Tag | Source | Taints a session? |
-|---|---|---|
-| `owner` | Authenticated human in a Bazaar client | No |
-| `system` | Server-generated | No |
-| `agent` | Another agent's GC message or output | Yes, **soft** (see below) |
-| `member-human` | Authenticated co-member of the company | No (configurable) |
-| `external` | Email, stranger issue/PR, web page, forum, package text, tool output from them | Yes, **hard** |
-| `quarantined` | Flagged content/agent | Never delivered to context |
+| Tag | Source | Taints session | Memory tier on write (08) [PROPOSED] |
+|---|---|---|---|
+| `owner` | Authenticated owner | No | T3 |
+| `system` | Server-generated | No | T2 |
+| `member-human` | Authenticated co-member | No (configurable) | T2 |
+| `agent` | Another agent's message or output | Soft, only from a tainted source | T2 if source clean, else T1 |
+| `external` | Email, stranger issue or PR, web, forum, package text, their tool output | **Hard** | T1 (quoted, labelled) |
+| `quarantined` | Flagged content or agent | Never delivered | T0 |
 
-[PROPOSED] Agent-authored GC text taints softly: it never grants authority, but only hard taint blocks Tier 2 actions; otherwise every GC conversation would block all work. A message that quotes `external` content inherits `external` (propagated by the server from tool-result lineage, not by parsing).
+Quoting external text inherits `external` by server-tracked lineage, not by parsing.
 
-### Session taint state machine [PROPOSED]
-States: `Clean` → `Tainted(hard)` ← `Tainted(soft)`; `Clean`→`Tainted(soft)`; any → `Frozen`.
-- Transition to hard: any `external`-tagged item enters the session context (tool result, GC message, file read). The set of sources is recorded (`taint_sources`).
-- Tainted sessions never return to Clean. To act, the agent starts a **fresh session** whose context is seeded only with `owner`/`system` content and an approved, schema-validated summary (the Rule-of-Two "new session" option).
-- Hard taint immediately: (1) marks every Tier 2+ tool call "approval required"; (2) **detaches the Passport mount** and revokes outstanding brokered leases for that session [PROPOSED mitigation, removes leg B]; (3) is shown on the agent's presence chip.
-- Sessions are per task, not per agent lifetime, so an agent is not tainted forever. Compaction/summarisation preserves taint (a summary of tainted text is tainted).
+Session states are `Clean`, `Soft`, `Hard`; taint is monotonic and recorded with its `taint_sources`. Compaction preserves taint. Soft taint changes no tier. Hard taint escalates Tier 1 to Tier 2, blocks Tier 2 without per-action approval, detaches the mount, revokes the session's leases, and shows on the presence chip. Sessions are per task, so an agent is not tainted forever.
 
-### Enforcement point
-`ToolDispatcher` in Bazaar.Server is the only path from model output to side effects. Each tool is registered with a tier, a capability class (read, post, send, spend, push, create-account, grant-scope, install-package, deploy, merge) and a taint rule. Dispatch evaluates `(agent, session taint, tool, args, platform, rate state)` and returns Allow / RequireApproval / Deny. Agent VMs and gateway have no route to external services except through the server (see Egress). Prompts may describe the rules but are never the control.
+### Enforcement
+`ToolDispatcher` is the only path from model output to side effects. Each tool is registered with a tier, a capability class (read, post, send, spend, push, merge, create-account, grant-scope, install-package, deploy) and a taint rule. Dispatch returns Allow, RequireApproval or Deny with a reason. VMs and the gateway have no route to external services except through the server.
 
 ### Approval tiers
-Shipped defaults; operators change thresholds per platform and capability. [PROPOSED] ladder from the research, mapped to server policy:
-
 | Tier | Meaning | Default examples |
 |---|---|---|
-| 0 | Autonomous | Read public pages, own inbox, GC posts, repo reads |
-| 1 | Autonomous with notice in GC | Reply in an approved thread; sign-up on whitelisted service whose terms allow it (no phone/payment/ID) |
-| 2 | Owner approves first | Any new public post/issue/PR, mail to a stranger, spend, push to a repo or merge **when tainted**, new package, OAuth write scope, new service |
-| 3 | Human performs | CAPTCHA, SMS/phone, ID, passkeys, recovery codes, legal-term acceptance |
-| Deny | Never | CAPTCHA/SMS-rental services, accounts in another person's name, sign-ups where terms forbid automation, HN posting |
+| 0 | Autonomous | Public reads, own inbox, GC posts, repo reads, untainted pushes to the agent's own work branch |
+| 1 | Autonomous with GC notice | Reply in an approved thread; sign-up on a whitelisted service whose terms allow it (no phone, payment or ID) |
+| 2 | Owner approves first | New public post, issue, PR or thread; mail to a stranger; spend; push elsewhere; **any merge**; new package; write scope; new service; allowlist change |
+| 3 | Human performs | CAPTCHA, SMS, ID, passkeys, recovery codes, legal terms (recommendation, Q4) |
+| Deny | Never | CAPTCHA or SMS-rental services; accounts in another person's name; sign-ups that forbid automation; posting to platforms with no verified `ServiceTerms` record; Hacker News posting |
 
-Untainted pushes to an agent's own work branch are Tier 0; pushes elsewhere follow platform thresholds. Tainted + Tier 1 becomes Tier 2. Tier 3 is a recommendation not yet decided (Q4).
+Approval flow: (1) the dispatcher stores a `pending_approval` hashing the exact tool, args, target and taint sources, and posts a card into the originating GC; (2) the card shows the exact payload or diff, taint excerpts marked as quoted, cost and expiry (24 h, Q5); (3) the owner chooses Approve once, Deny, Edit then approve, or Approve for this task (1 h, scope shown, never blanket); (4) the response is signed by the owner's device-bound key, and the server checks identity, args hash and expiry before dispatch. Changed args void the approval. Agent text, including "owner approved", carries no authority. Offline owner: the request waits, nothing auto-approves, expiry denies.
 
-### Approval request/response flow
-1. Dispatcher stores a `pending_approval` (hash of exact tool, args, target, taint sources) and posts an **approval card** into the originating GC and a notification to the owner's clients.
-2. Card shows: agent, action, exact payload or diff, taint sources with excerpts (marked as quoted), cost, expiry (default 24 h).
-3. Owner chooses Approve once / Deny / Edit-then-approve / Approve for this task ([PROPOSED] time-boxed, scope shown, max 1 h, never blanket "always allow").
-4. Response is signed by the owner's client key (device-bound); the server verifies identity, payload hash and expiry, then dispatches. Changed args invalidate the approval.
-5. Android: push notification with the card; approve/deny in-app after device unlock (biometric); dictated "yes" is not accepted as approval [PROPOSED]. Windows: dashboard "awaiting you" list (Bazaar.Windows start screen).
-6. Agent messages, including other agents saying "owner approved", carry no authority. Only the signed record counts.
-7. Offline owner: request waits; the agent continues other work; nothing auto-approves on timeout (expires = deny).
+### Reader and actor sessions (v1)
+- **Reader.** Always hard-tainted. Tools: fetch and read, the anonymous browser profile only. No mount, leases, GC posting or outward tools. Scratch space is purged at session end.
+- **Hand-over.** The reader calls `submit_handover(schema_id, payload)`. The server validates against a registered schema: typed fields, enums, maximum lengths, bounded arrays, no URL type unless declared [PROPOSED]. Accepted payloads are stored with `source_refs` lineage.
+- **Actor.** Receives only accepted fields, in a delimited data block. Never fetches external content. Holds leases and tools by tier.
+- **Taint of a hand-over.** The validator writes it as `agent` provenance with empty `taint_sources` and lineage in `derived_from` [PROPOSED; Q2].
+- **Failure.** Invalid payloads are quarantined. A reader can escalate to quarantine but never release (doc 22).
+- **Scope.** Email triage first, then stranger issues, community threads and web research. Replies in approved threads are Tier 1 from an actor session.
 
-### Reader/actor split (later option)
-Reader session holds external content, no credentials, no write tools; emits JSON validated against a server-side schema (bounded enums, lengths, no URLs by default). Actor sees only validated fields. Not built in v1; dispatcher and session model must not preclude it (session role field reserved). Needs a decision on which tasks use it (Q5).
-
-### Provenance on GC messages, memory and Vault
-- Every GC message stores `trust`, `author_kind`, `taint_sources`, and a `derived_from` message list. Edits keep versions; trust of an edit equals the editor's.
-- Memory and Vault writes record source session, trust, taint state at write time. Writes from tainted sessions land in a `low-trust` tier ([PROPOSED] Vault: a `trust: low` front-matter key in the Markdown, enforced server-side on the index). Promotion to normal needs the owner (or a clean-session reviewer plus owner sample check).
-- Context builders include low-trust and `agent` items inside a delimited, labelled block (spotlighting-style, measured not trusted) and never put them in the system section.
-- No inter-agent authority: instructions found in a GC message are data.
+### Writes: GC, memory and Vault
+- `gc_message_version` (doc 04, per C09) carries `source_trust`, `tainted_at_write`, `taint_sources` and `derived_from`. Each edit version carries the editor's trust.
+- Memory notes are Markdown written through `VaultWriter` (C38). Front matter records `source_trust`, `tainted_at_write` and `memory_tier`. Tainted writes start at T1; only a human principal promotes (08).
+- Context builders put agent-tier and lower items in a labelled block, never in the system section. Instructions in messages are data.
 
 ### Quarantine
-Triggers: owner action, anomaly rules (rate, repeated denied calls, canary hit), injection classifier hit [PROPOSED, advisory only], imported Soul before approval, scam email. Effects: content stays visible with a quarantined marker, excluded from other agents' contexts and from memory/Vault promotion; agent's tokens revoked; VM paused. Scam mail: stored raw in a host-side quarantine store, never rendered with links or images, never given to an LLM unless the owner opens a summary job in a clean no-tools session. Nigerian Prince Protocol (when enabled via wizard that states real risk): runs in a dedicated sandboxed agent with no Passport, a throwaway address, no links/attachments, replies Tier 2 each, rate-capped, disabled by default.
+Triggers: owner action, anomaly rules (rate, repeated denials, canary hit), imported Soul before approval, scam mail. Effects: content stays visible but marked, is excluded from other contexts and from promotion, the agent's tokens are revoked and its VMs paused. Scam mail stays in a host-side store, is never rendered with links, and reaches an LLM only through an owner-opened summary job with no tools. The Nigerian Prince Protocol is optional behind a risk wizard (Q9).
 
-### Cross-agent contamination controls
-Quarantine; `agent` trust never promotes; per-GC and per-agent message budgets; per-agent memory is separate (shared Vault only via low-trust tier); an agent that is tainted cannot write into a shared GC other than "status + approval request" until cleaned [PROPOSED]; Constellation/Vault shows trust badges. Schema-bounded messages for automated hand-offs where possible.
+### Egress and ingress
+- Default-deny outside the guest through `IEgressPolicy` (Hyper-V switch and host firewall on Windows; bridge and nftables on Linux), for both VMs.
+- Guest traffic reaches only a host-side per-agent proxy with a domain allowlist. The host answers DNS. Model traffic goes only to the gateway.
+- Remote images and link unfurls in agent posts are stripped or rewritten.
+- No inbound by default; the host polls GitHub and mail. A tunnel is an operator choice (C30).
 
-### Egress control
-Default-deny enforced **outside the guest**: Hyper-V virtual switch/host firewall on Windows, bridge/nftables on Linux (provider interface `IEgressPolicy`). Guest traffic goes only to a host-side per-agent proxy with a domain allowlist; DNS answered by the host; no direct TCP. Model traffic goes to the Bazaar gateway, not the internet. Agent-authored posts have remote images/link unfurling stripped or rewritten. Allowlist changes are Tier 2. Test must include nested-VM networking (Soul benchmark OPEN).
+### Credentials, mounts, browser
+- Secrets live in `ISecretStore` (14). Doc 03 resolves only bootstrap secrets (KEK, database credential).
+- Agents get leases from `ICredentialBroker`: a GitHub App token narrowed to one repository, or a cookie injected at the proxy so it never enters the guest. Token lifetime is unverified.
+- Pushes run host-side. Tokens never enter a VM.
+- The mount is per agent, read-only, on its own share and OS account. It never holds the audit log, other agents' folders or key material. Reader sessions never get it. Canary credentials are planted in it; any use pages the owner and freezes the agent [PROPOSED].
+- Accepted residual risk (owner, round 2): a clean-session compromise can misuse mounted cookies within the allowlist.
+- Browser: an anonymous profile for readers; account profiles for allowlisted sites via the Passport, detached on hard taint (C22).
 
-### Passport mounting: accepted risk and mitigations
-Owner decided to mount per-agent scoped; research advised against. Mitigations [PROPOSED]:
-1. Mount holds only low-sensitivity items: handles, service metadata, session-cookie profile. Passwords, TOTP seeds, recovery codes, SSH private keys, API keys stay host-side behind the broker and are never mountable.
-2. Read-only mount, per-agent share and OS account; server has SMB access auditing.
-3. Hard taint detaches the mount (above); a reader session never gets it.
-4. Egress allowlist makes stolen cookies hard to exfiltrate; cookies bound to short TTL where services allow.
-5. Canary credentials planted in each mount; any use pages the owner and freezes the agent.
-6. Mount never includes the audit log, other agents' folders or key material.
-7. Audit log of mount attach/detach and file reads where host can observe.
-Residual risk: a clean-session compromise can read and misuse the mounted items within the allowlist. Recorded as accepted.
+### Audit log and kill switch
+- Append-only, hash-chained (`prev_hash`), written only by the audit service under a role with no UPDATE or DELETE; daily signed export (Q8). Logs tool calls with trust and taint, approvals, lease use, egress, mount events, kill-switch events and config changes. Personal fields are per-person encrypted (C01). Agents have no access.
+- Kill switch per agent: revoke leases, detach mount, block egress, pause both VMs. Global: freeze egress and write tools; the status page stays up. Triggers: host CLI and automatic rate or canary breach. A weekly drill is tested.
 
-### Credential brokering
-`ICredentialBroker` (the PROPOSED Identity Service, Soul Open Question 1, must be confirmed). Agent requests "act on service X for purpose P"; broker checks policy and taint, then issues a per-action/short-lived lease: GitHub App installation token narrowed to one repo and minimal permissions (lifetime and scoping to be verified; research unverified), or injects a cookie/header into a proxy request without handing it to the guest. Secrets are envelope-encrypted host-side (DPAPI machine scope on Windows, secret-store provider on Linux). Model provider keys stay in the server secret store, never in a VM. TOTP and device-flow codes: generated only on owner-approved requests; device-flow codes shown to the owner.
+### Shared quotas and limits (C36)
+This table holds shared defaults; each subsystem owns its specific limits. [PROPOSED] values.
 
-### Immutable audit log
-Append-only Postgres table, hash-chained (`prev_hash`), written only by the server's audit service under a role without UPDATE/DELETE; periodic signed export to a location the server cannot overwrite. Logs tool calls (with trust tags and taint sources), approvals, lease issue/use, egress requests (domain, method, size), mount attach, kill-switch events, config changes. Agents get no read or write access. Interaction with privacy erasure on the append-only log is OPEN (Server §17).
+| Bucket | Shared default | Specific limits owned by |
+|---|---|---|
+| New public items per platform | 5 per day per agent | 36 |
+| New issue or PR per repository | 1 per day | 36 |
+| New repositories | 3 per week | 36 |
+| Mail sent | 20 per day per agent | 22 |
+| GitHub content writes | 30 per minute per installation | 21 |
+| Approval requests | Per-agent cap (Q7) | 15 |
+| Model calls and spend | Gateway quota | 05 |
+| Subagent depth; wake caps | Not here | 06, 13 |
 
-### Kill switch
-Per agent: revoke leases, detach mounts, block egress, pause VM, mark offline. Global: freeze all egress and all write tools, leaving the status page up. Triggers: owner button (apps, status page is read-only so no), CLI on the host, automatic on rate breach or canary. Scheduled drill (weekly) verified by test; GitHub App token revocation latency to be measured.
-
-### Rate limits
-Per agent, per platform, per capability, per window, enforced in dispatch with token buckets stored in Postgres: posts, mails, GitHub writes, spend, approvals requested. Defaults below the lowest known platform limit (GitHub content ~80/min, 500/h, secondary). Breach: deny, then freeze and notify on repeat. Per-GC message budgets. These are quotas, not money budgets (Resource Economy is rejected); "spend" means calls to paid services.
-
-### Account sign-up policy
-A per-service record `ServiceTerms{allowsAutomation, requiresDisclosure, checkedOn, source}` set by the owner. No record = Tier 2. Disclosure label on every agent account ("AI agent, sponsor, contact"). Platforms with banned automation (HN verified) are Deny. Counsel to review before live accounts.
-
-### Web surfaces
-(1) Read-only status page: no actions, no agent content, no secrets. (2) Narrow interactive sign-in page: authentication only [PROPOSED]: passkey/OIDC login for client pairing and device-flow confirmation, rate-limited, no data views, no agent text rendering. Both are separate listeners with their own allowlists. See Conflicts.
-
-### Supply-chain policy (NuGet)
-Agents cannot run `dotnet add package`; a `request_package` tool creates a Tier 2 approval. Repo-level `nuget.config` with `<clear/>`, package source mapping, per-repo global packages folder (otherwise mapping is bypassed, verified), central package management, lock files and vulnerability audit [PROPOSED; lock/audit behaviour unverified]. Restore/build runs in a no-secrets VM, egress limited to the feed. Typosquat check against an owner-reviewed package-ID allowlist. Repo-supplied MCP configs, rules and instruction files are never auto-loaded unless agent- and owner-reviewed; changes to them need review as code.
+Runtime counters for side-effecting capabilities are `rate_bucket`, owned here. Breach: deny; freeze and notify on repeat. These are quotas, not money budgets (Resource Economy is rejected).
 
 ## Data and interfaces
 ```csharp
-enum TrustLevel { Owner, System, MemberHuman, Agent, External, Quarantined }
-record ToolPolicy(string Tool, CapabilityClass Class, int Tier, TaintRule Taint);
-interface IToolPolicyEngine { PolicyDecision Evaluate(DispatchContext ctx); } // Allow|RequireApproval|Deny + reason
-interface ISessionTaint { TaintState Get(SessionId s); void Mark(SessionId s, TrustLevel src, string sourceRef); }
-interface IApprovalService { Task<ApprovalId> RequestAsync(ApprovalRequest r); Task<ApprovalResult> AwaitAsync(ApprovalId id); }
+interface IToolPolicyEngine { PolicyDecision Evaluate(DispatchContext ctx); }   // Allow | RequireApproval | Deny
+interface IHandoverValidator { HandoverResult Validate(string schemaId, JsonElement payload); }
 interface ICredentialBroker { Task<Lease> LeaseAsync(AgentId a, string service, string purpose, TimeSpan ttl); }
-interface IEgressPolicy { Task ApplyAsync(AgentId a, EgressRules rules); }  // per-OS provider
+interface IEgressPolicy { Task ApplyAsync(AgentId a, EgressRules rules); }
 interface IAuditLog { Task AppendAsync(AuditEntry e); }
 ```
 ```sql
 session_taint(session_id, agent_id, state, taint_sources jsonb, updated_at)
 approval(id, agent_id, session_id, tool, args_hash, payload jsonb, taint_sources jsonb,
          status, requested_at, expires_at, decided_by, decided_at, signature)
+handover(id, reader_session_id, schema_id, payload jsonb, source_refs uuid[], status, created_at)
 audit_log(seq bigserial, ts, actor, kind, payload jsonb, prev_hash bytea, hash bytea)
-gc_message_trust(message_id, trust, author_kind, taint_sources jsonb, derived_from uuid[])
 quarantine(id, subject_kind, subject_id, reason, created_by, released_by)
 rate_bucket(agent_id, platform, capability, window_start, count)
 service_terms(service, allows_automation, requires_disclosure, checked_on, source_ref)
+-- added to doc 04's gc_message_version: source_trust, tainted_at_write, taint_sources, derived_from
 ```
-Contracts with others: Gateway/dispatch call `IToolPolicyEngine` before every side-effecting tool. Mail ingestion tags `External`. GC store persists trust tags. VM backend provider calls `IEgressPolicy` and mount attach/detach.
+`session_id` is the session key doc 06 defines.
 
 ## Behaviour and edge cases
-- Taint is monotonic within a session and propagated by server lineage; tool outputs from external fetches are always `External`.
-- Approval race: args hash mismatch denies; expired approvals cannot be reused; double-approve is idempotent.
-- Server restart: pending approvals and taint persist in Postgres; sessions resume with taint intact.
-- Owner unreachable: agents idle on gated work; no auto-approve; digest on the start screen.
-- Compromised client: approvals tied to device keys; owner can revoke a device; high-value approvals (spend, push to main-like targets) can require a second factor [PROPOSED].
-- Mount detach while the agent is mid-file-write: the write fails visibly; the session is marked incomplete.
-- Quarantined agent's earlier GC messages stay (append-only) but are marked and excluded from others' context.
-- Denial-of-service by approval spam: per-agent approval-request rate limit.
+- Approval race: args-hash mismatch denies; expired approvals cannot be reused; double approve is idempotent.
+- Restart: approvals and taint persist; sessions resume tainted.
+- Device compromise: approvals bind to device keys, which the owner can revoke. Second factor for high-value approvals [PROPOSED].
+- Mount detached mid-write: the write fails visibly; the session is marked incomplete.
+- Push carries only a wake hint (C41). Approval requests are rate-limited per agent.
 
 ## Testing
-Fake gateway with scripted injection payloads; real Postgres (testcontainers) for taint/approval/audit; no real VMs (fake `IEgressPolicy`, fake mount provider). Key cases: tainted session blocked on every Tier 2 capability; clean session after fresh-start; taint survives compaction; approval with altered args rejected; expiry denies; agent-forged "owner approved" ignored; audit chain verification detects tampered row and DB role cannot UPDATE; kill-switch revokes leases within a bound; rate bucket freeze; quarantined content absent from context builder; low-trust memory not promoted; NuGet request path; Avalonia.Headless test of the approval card. Red-team plan: replayable corpus (poisoned issue with hidden Unicode, email with link-exfil markdown, malicious repo rules file, GC message impersonating owner, typosquat package, tool-description poisoning) run in CI against the fake gateway with "injection-compliant" scripted models, asserting no side effect without approval; periodic run of a published benchmark (AgentDojo, not yet evaluated) against real cheap models, outside CI.
+Fake gateway with scripted injection payloads; real Postgres (testcontainers) for taint, approval, audit and hand-over; fake egress and mount providers. Key cases:
+- Hard-tainted sessions blocked on every Tier 2 capability; soft taint alone does not block; a fresh session after handoff sees only owner/system content and the approved summary.
+- Readers have no outward or write tools; invalid payloads are quarantined and cannot be released; actors never receive raw external text.
+- Merge denied without approval; altered args rejected; expiry denies; forged "owner approved" ignored.
+- Audit chain detects a tampered row; DB role cannot UPDATE; kill switch and rate freeze act within bounds.
+- Avalonia.Headless test of the approval card.
+- Red-team corpus in CI (hidden-Unicode issue, exfiltration markdown, malicious rules file, impersonating GC message, typosquat, tool-description poisoning): no side effect without approval.
 
 ## Work packages
-1. Trust-level types and GC message trust columns (migration + repo). No deps.
+1. Trust enum and `gc_message_version` columns. No deps.
 2. Session taint service and lineage propagation. Dep: 1.
-3. Tool registry with tier/capability metadata. No deps.
-4. `ToolPolicyEngine` with default tier table, rate buckets. Deps: 2, 3.
-5. Approval service, tables, signature verification. Dep: 1.
-6. Approval card contracts and GC rendering; Android and Windows UI. Dep: 5.
-7. Audit log service, hash chain, verifier, export. No deps.
-8. Credential broker interface and GitHub App lease provider. Dep: 4, 7.
-9. Egress provider interface plus Hyper-V and Linux implementations. Deps: VM backend.
-10. Passport mount manager with detach-on-taint and canaries. Deps: 2, 9.
-11. Quarantine service and context-builder filter. Deps: 1, 2.
-12. Kill switch (per agent, global) and drill test. Deps: 8, 9, 10.
-13. Memory/Vault trust tiers and promotion flow. Deps: 1, 5.
-14. NuGet policy: config templates, CI check, `request_package` tool. Dep: 5.
-15. Status page and sign-in page listeners. Deps: 7.
-16. Red-team corpus and replay harness. Deps: 4.
-17. Nigerian Prince wizard and sandbox profile. Deps: 11, 4.
+3. Capability registry with tier and taint metadata. No deps.
+4. `ToolPolicyEngine`, default tier table, rate buckets. Deps: 2, 3.
+5. Approval service, tables, signature verification, expiry. Dep: 1.
+6. Approval card contracts; GC, Android and Windows UI. Dep: 5.
+7. Audit log, hash chain, verifier, export. No deps.
+8. Reader primitive: scratch space, schema registry, validator, quarantine path. Deps: 1, 4.
+9. Actor hand-over consumption and fresh-session summary path. Deps: 2, 5, 8.
+10. Credential broker and GitHub App lease provider. Deps: 4, 7.
+11. Egress provider interface; Hyper-V and Linux implementations. Dep: doc 16 backend.
+12. Mount manager: metadata and cookie profile, detach on taint, canaries. Deps: 2, 11.
+13. Quarantine service and context filter. Deps: 1, 2.
+14. Kill switch and drill. Deps: 10, 11, 12.
+15. Memory and Vault tier mapping. Deps: 1, 5.
+16. NuGet policy and `request_package` tool. Dep: 5.
+17. Status and sign-in listeners. Dep: 7.
+18. Red-team corpus and replay harness. Deps: 4, 8.
 
-## Conflicts
-- **Passport mount vs Rule of Two** (Soul §1 vs research): mounting puts leg B in every session. Mitigated, not removed, by detach-on-taint and keeping top-sensitivity secrets unmountable; residual risk accepted.
-- **"No web client, ever" vs a narrow interactive sign-in page** (CLAUDE.md allows only a read-only status page; owner also named a sign-in page). Needs the CLAUDE.md wording reconciled.
-- **Soul §1 (Passport outside VM disk) vs §2 (one scoped folder mounted)**: the audit log and key material must be excluded from any mount; stated here as a rule.
-- **Playwright persistent profile on host** (email note) vs sandboxed browsing: browser belongs in an agent VM; the profile in the mount holds session tokens (treated above).
-- **Nigerian Prince Protocol vs research** (drop scam-baiting): owner decided optional; kept behind wizard, sandboxed, Tier 2 replies.
-- **Tier 3 human-only steps** are recommendations, not DECIDED. Server §13 tainted "push" vs routine agent pushes: untainted work-branch pushes are Tier 0 here (proposal).
-- GitHub App token lifetime/scope and Anthropic/OpenAI/Google injection guidance remain unverified in research.
+## Conflicts (remaining)
+- **Doc 06:** `session_taint` needs a session key; C04 gives 06 agent, turn, step, lease and inbox only. Doc 06 must define sessions.
+- **Doc 04:** must add the trust columns to `gc_message_version` and the `handover` and external-mail kinds (C09).
+- **Doc 17:** coding sessions that read stranger repository files are hard-tainted under C06. Doc 17 must classify its sessions as reader or actor.
+- **Doc 21:** its per-agent GitHub caps (2 issues and 2 PRs per day) differ from doc 36's 1 per repository per day. Doc 21 takes its row from the table above.
+- **Doc 22:** its reader model must become the hand-over primitive above.
+- **Doc 08:** must keep T0-T3 and the mapping above.
 
 ## Questions for the owner
-1. Should `agent`-authored GC text taint a session (soft) or only external content? Default: soft taint that never blocks Tier 2 alone.
-2. Must a tainted session be abandoned, or may the owner "clean" it by approving a summary? Default: new session with approved summary.
-3. Detach the Passport mount on hard taint, even if that interrupts the task? Default: yes.
-4. Confirm CAPTCHA/phone/ID/passkeys/recovery codes are human-only (Tier 3)? Default: yes.
-5. Which tasks (email triage, stranger issues, web research) use the reader/actor split first? Default: email triage.
-6. Approval expiry and "task-scoped approve" limit? Default: 24 h expiry, 1 h task scope, no blanket allow.
-7. Should Android approvals require biometric unlock, and may dictation approve? Default: biometric yes, dictation no.
-8. Which Passport items may be mounted (cookies/profile, metadata) and which never? Default: as listed above.
-9. Are pushes to an agent's own work branch Tier 0 when untainted? Default: yes; merges Tier 2.
-10. Scope of the sign-in page and how to reword "no web client"? Default: authentication and device pairing only.
-11. Default per-platform rate limits (posts/day, issues/day, mails/day)? Default: 5 public posts/day/platform, 20 mails/day, GitHub writes 30/min.
-12. Hash-chain export location and cadence? Default: daily signed export to an owner-chosen path/off-box.
-13. Nigerian Prince Protocol: separate throwaway address and agent only, replies Tier 2? Default: yes.
-14. Allowed hosts in the default egress allowlist (feed, GitHub, docs)? Default: package feed, GitHub API, gateway only; the rest per request.
+1. Confirm Claude's reading of C18: reader sessions for all external input in v1; actors never read external content. Default: yes.
+2. Does a schema-validated hand-over carry taint? Default: no; lineage is kept and only validated fields reach the actor. Bounded text can still carry injected instructions.
+3. Reader scratch space: same agent VM, purged after the session, or a separate profile? Default: same VM, purged.
+4. Are CAPTCHA, SMS, ID, passkeys, recovery codes and legal terms human-only (Tier 3)? Default: yes.
+5. Approval expiry (24 h) and task-scoped approval (1 h, no blanket allow)? Default: as stated; dictated "yes" is not approval and Android requires biometric unlock.
+6. Are untainted pushes to the agent's own work branch Tier 0, with merges always Tier 2? Default: yes.
+7. Shared quota defaults and the per-agent approval-request cap. Default: the table; cap set by the owner.
+8. Hash-chain export location and cadence. Default: daily signed export off the host.
+9. Nigerian Prince Protocol: throwaway address, sandboxed agent, Tier 2 replies. Default: optional, disabled.
+10. Default egress allowlist: package feed, GitHub API and gateway; others per request. Default: as stated.
+11. Erasure in the audit log (per-person encryption) and in Vault Markdown and git history. Default: audit encrypted; Vault history waits for counsel and doc 18.
+12. Untainted Tier 2 actions (for example a new public post from a clean session): approval always, or only under hard taint? C06 says "Tier 2 gated on hard taint"; C21 says new posts need approval. Default: approval always.
+
+ANSWERED: agent text taints softly, only from a tainted source (DECISIONS-LOG round 2, C06)
+ANSWERED: tainted sessions continue in a fresh session with an approved summary (round 2, C06)
+ANSWERED: detach the mount on hard taint; mountable items are metadata plus cookie profile (round 2, C02)
+ANSWERED: reader-session primitive in v1 for external input (round 6, C18; reading in Q1)
+ANSWERED: merges are server-performed on signed owner approval (round 8, C25)
+ANSWERED: sign-in page is three routes, off by default (round 11, C42)
