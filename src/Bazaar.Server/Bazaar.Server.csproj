@@ -7,9 +7,10 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <EmbeddedResource Include="Data\Sql\**\*.sql" />
   </ItemGroup>
 </Project>
