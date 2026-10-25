@@ -8,7 +8,7 @@ namespace Bazaar.Server.Security.Audit;
 /// </summary>
 public static class AuditExport
 {
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _options = new(JsonSerializerDefaults.Web);
 
     public static string ToJsonLines(IEnumerable<AuditRecord> records)
     {
@@ -17,7 +17,7 @@ public static class AuditExport
         using var writer = new StringWriter();
         foreach (var record in records)
         {
-            writer.Write(JsonSerializer.Serialize(ToDto(record), Options));
+            writer.Write(JsonSerializer.Serialize(ToDto(record), _options));
             writer.Write('\n');
         }
 
@@ -31,7 +31,7 @@ public static class AuditExport
         var records = new List<AuditRecord>();
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            var dto = JsonSerializer.Deserialize<AuditRecordDto>(line, Options)
+            var dto = JsonSerializer.Deserialize<AuditRecordDto>(line, _options)
                 ?? throw new FormatException("Audit export line is empty.");
             records.Add(FromDto(dto));
         }

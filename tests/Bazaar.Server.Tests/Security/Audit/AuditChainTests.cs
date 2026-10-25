@@ -4,7 +4,7 @@ namespace Bazaar.Server.Tests.Security.Audit;
 
 public class AuditChainTests
 {
-    private static readonly DateTimeOffset Start = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _start = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
 
     private static List<AuditRecord> BuildChain(int count)
     {
@@ -12,7 +12,7 @@ public class AuditChainTests
         AuditRecord? head = null;
         for (var i = 0; i < count; i++)
         {
-            head = AuditChain.Append(head, Start.AddSeconds(i), "agent:charles", "tool.call", $"{{\"n\":{i}}}");
+            head = AuditChain.Append(head, _start.AddSeconds(i), "agent:charles", "tool.call", $"{{\"n\":{i}}}");
             records.Add(head);
         }
 
@@ -29,7 +29,7 @@ public class AuditChainTests
     [Fact]
     public void Append_starts_at_seq_1_with_genesis_prev_hash()
     {
-        var first = AuditChain.Append(null, Start, "system", "boot", "{}");
+        var first = AuditChain.Append(null, _start, "system", "boot", "{}");
 
         Assert.Equal(1, first.Seq);
         Assert.Equal(AuditChain.GenesisHash, first.PrevHash);
