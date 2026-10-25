@@ -1,28 +1,30 @@
 # Local Co-Worker (On-Device Inference)
 
-Status: DRAFT for owner review (2026-10-25) · Owner questions: 13
-Depends on: 02-wire-protocol-and-sync.md (escalation message), 05-model-gateway.md (cloud escalation target), 15-security-taint-and-approvals.md (untrusted text), 34-testing-strategy.md
+Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 16
+Depends on: 01-gc-data-model.md (source messages, erasure), 02-wire-protocol-and-sync.md (escalation message), 05-model-gateway.md (cloud escalation target), 15-security-taint-and-approvals.md (untrusted text, provenance), 23-observatory-and-usage.md (telemetry), 34-testing-strategy.md, 35-spikes-plan.md (spike S21)
 Used by: 27-client-architecture.md (chips, cleanup pipeline), 28-windows-client.md, 29-android-client.md, 30-linux-client-and-packaging.md
 
 ## Purpose
 The Local Co-Worker is a small model that runs inside each native client to do cheap language tasks: collapsing action logs and threads into chips, cleaning up voice dictation, expanding and rewriting prompts, and UI assistance. It uses the platform NPU when one is present, falls back to GPU or CPU, and sends no content off the device. Heavy reasoning stays on cloud models reached through the server.
 
 ## Decided inputs
-- Summaries and cleanup run **client-side, never server-side**; the server has no NPU. (Bazaar.Windows §4, Bazaar.Android §4)
-- Action-log chips are collapsed and expandable, generated locally. (Bazaar.Windows §4)
+- **Client-side NPU inference is a ratified exception to "the server does all compute"** (DECISIONS-LOG round 4, C17, 2026-10-25): NPU inference for summaries, voice cleanup and prompt rewrite. The server has no NPU. (Bazaar.Windows §4, Bazaar.Android §4)
+- Action-log chips are collapsed and expandable. (Bazaar.Windows §4)
 - Voice pipeline: raw transcription, then on-device cleanup, then text, "entirely on-device". (Bazaar.Android §3)
 - Windows: Intel NPU only; the NPU path is OpenVINO via Windows ML, and DirectML is not an NPU path. (Bazaar.Windows §3, corrected by research)
 - Android: Qualcomm/Snapdragon NPU only, for now. ONNX Runtime is the common model format. (Bazaar.Android §4)
 - ONNX Runtime is a .NET library capability, not an Avalonia feature. (Bazaar.Windows §2)
 - GCs are append-only; derived summaries never replace messages. (CLAUDE.md, Bazaar.md)
 - Money budgets are REJECTED; local inference is not metered. (CLAUDE.md)
+- The project name `Bazaar.Client.LocalInference` is approved (DECISIONS-LOG round 10, C37, 2026-10-25). The CLAUDE.md update is pending the reconciliation pass.
 
 ## Design
 **Components**
-- **Local runtime** (shared client code) [PROPOSED]: model registry, task queue, output guards, chip labels. Proposed project `Bazaar.Client.LocalInference` (new name, needs owner approval per CLAUDE.md).
+- **Local runtime** (shared client code) [PROPOSED]: model registry, task queue, output guards, chip labels. Project `Bazaar.Client.LocalInference`.
 - **Platform providers** (heads only) [PROPOSED]: `WindowsMlProvider` (Windows ML catalog, OpenVINO EP), `QnnProvider` (Android, ORT Android QNN through a Java binding), `CpuProvider` (ORT CPU, all platforms, the universal fallback).
 - **Task kinds**: `ChipSummary`, `VoiceCleanup`, `PromptRewrite`, `UiAssist`. Each has a fixed prompt template, an input cap and an output cap.
-- **Escalation adapter** [PROPOSED]: sends a request to the server over the wire protocol (doc 02). Never automatic.
+- **Escalation adapter** [PROPOSED]: sends a request to the server over the wire protocol (doc 02) through the gateway (doc 05). Never automatic.
+- Local tasks are not gateway calls and write no `gw_usage` row. Doc 23 may count tier and timing.
 
 **Selection chain** [PROPOSED]
 
@@ -75,15 +77,16 @@ Manifest (sketch):
   "minRuntime": "<version>", "signature": "<detached>" }
 ```
 
-Client local store [PROPOSED]: table `local_summary(cache_key PK, source_hash, model_version, tier, text, created_at)` and table `npu_blob(model_sha256, ep, driver_version, runtime_version, path)`, primary key on the four key fields. Store format is OPEN (the client local DB is not decided). Summaries are derived, not synced, deletable.
+Client local store [PROPOSED]: table `local_summary(cache_key PK, source_hash, model_version, tier, text, created_at)` and table `npu_blob(model_sha256, ep, driver_version, runtime_version, path)`, primary key on the four key fields. Store format is OPEN (the client local DB is not decided). Summaries are derived, not synced, deletable, and never written to a GC.
 
 ## Behaviour and edge cases
 - **Cold start:** NPU compile takes seconds to minutes. Warm up at app start only when enabled; show a "warming" state.
 - **Input limits:** the documented OpenVINO NPU LLM path uses static shapes and a 1024-token prompt default. Longer inputs are chunked or cover the newest entries only. Chunking rules are PROPOSED.
 - **Driver builds:** the NPU tier is refused on Intel driver builds 32.0.100.4300, 4509 and 4512, which OpenVINO release notes tie to crashes on Core Ultra Series 3. Target 32.0.100.5540 or later, re-checked before release.
 - **Power:** background summaries pause on battery saver (Android) and on battery (Windows) [PROPOSED].
-- **Security:** model output is display text. It never becomes a tool call, command or approval. Thread text is untrusted (doc 15). A prompt rewrite is sent only after the user confirms it.
+- **Security:** model output is display text. It never becomes a tool call, command or approval. Thread text is untrusted (doc 15). A prompt rewrite is sent only after the user confirms it. [PROPOSED] A confirmed rewrite built from external content carries that content's provenance into the session it is sent to (doc 15, C06).
 - **Privacy:** no content leaves the device. The only network use is model and EP download. Telemetry records tier and timing, never text [PROPOSED]. Escalation is an explicit user or agent action through the server (doc 05), and the UI states that content is leaving the device.
+- **Erasure:** when a source message is erased (doc 01, per-person key destruction), its `local_summary` rows keyed to that source hash are deleted [PROPOSED]; see question 16.
 - **Failure:** any error returns raw content, and the chip shows its count-only label.
 
 ## Testing
@@ -94,7 +97,7 @@ Client local store [PROPOSED]: table `local_summary(cache_key PK, source_hash, m
 - Output guard tests: a dropped number or name falls back to raw text.
 - Avalonia.Headless: deterministic chip label offline, summary replaces label when present, Degraded badge visible.
 - Linux CI: a real ORT CPU run on a tiny generated ONNX fixture, which exercises the real runtime path without an NPU.
-- Hardware lane (manual or nightly, not CI): NUC Intel NPU and one Snapdragon Android device. Benchmark harness records time to first token, tokens per second, per-EP placement and error rate on a fixed cleanup corpus. Recorded, not gated, until targets exist.
+- Hardware lane (manual or nightly, not CI): NUC Intel NPU (spike S21 in doc 35: NPU with no CPU fallback at driver 32.0.100.5540 or later) and one Snapdragon Android device. Benchmark harness records time to first token, tokens per second, per-EP placement and error rate on a fixed cleanup corpus. Recorded, not gated, until targets exist.
 - Android QNN: instrumented test on a physical device only.
 
 ## Model candidates and licences (research, not advice)
@@ -107,14 +110,14 @@ Client local store [PROPOSED]: table `local_summary(cache_key PK, source_hash, m
 | Whisper tiny / small | STT (Android QNN, Windows CPU) | Not covered by the research | Verify |
 | Moonshine streaming / tiny | STT candidate (CPU) | Code and streaming MIT; legacy non-English models non-commercial | Exclude legacy |
 
-No Intel NPU tokens-per-second figure from an official source exists. Community numbers are unverified and are not used for budgeting. The Android Whisper-Small real-time factor (about 0.09 to 0.13) is one developer's result. Qualcomm QAIRT and Qualcomm GenieX terms need counsel review before distribution.
+No Intel NPU tokens-per-second figure from an official source exists. Community numbers are unverified and are not used for budgeting. The Android Whisper-Small real-time factor (about 0.09 to 0.13) is one developer's result. Qualcomm QAIRT and Qualcomm GenieX terms need counsel review before distribution. Models download separately and are not in the signed build; any SDK bundled in a signed build must meet the OSI-only rule (DECISIONS-LOG round 4, C23).
 
 ## Work packages
 1. Contracts, `FakeLocalBackend` and selector interface. No hardware.
 2. Manifest, hash verification and local model store. Depends on 1.
 3. Output guards and deterministic chip labels, with headless tests. Depends on 1.
 4. Scheduler with cancellation and single-flight. Depends on 1.
-5. Windows: ORT CPU provider first (runs in Linux CI), then the Windows ML OpenVINO provider behind a flag. Depends on 1, 2.
+5. Windows: ORT CPU provider first (runs in Linux CI), then the Windows ML OpenVINO provider behind a flag. Depends on 1, 2, and spike S21 for the NPU step.
 6. Placement verifier, `Degraded` state and UI badge. Depends on 5.
 7. Blob cache keyed on driver and runtime. Depends on 2, 5.
 8. Android QNN packaging spike: Java AAR module, manifest entries, `ADSP_LIBRARY_PATH`, QAIRT pin. Depends on 1.
@@ -124,17 +127,17 @@ No Intel NPU tokens-per-second figure from an official source exists. Community 
 12. Benchmark harness and fixed cleanup corpus. Depends on 1.
 
 ## Conflicts
-1. **"Server does all compute" (CLAUDE.md) versus client-side inference.** The Co-Worker is an explicit exception. Owner should ratify it into CLAUDE.md.
-2. **"Nothing leaves the device" (brief) versus escalation.** Resolved as: local tasks never send content; escalation is a separate, visible action.
-3. **ONNX-only format versus the Intel LLM path.** The documented OpenVINO GenAI NPU path uses OpenVINO IR, not ONNX. Running autoregressive LLMs through the ORT OpenVINO EP is unverified. If that spike fails, the single-format decision needs owner review.
-4. **Windows ML catalog downloads EPs on demand**, which conflicts with offline use. Installer pre-fetch is needed. Windows ML also needs Windows 11 24H2 (build 26100) or later, which no decision sets.
-5. **Bazaar.Windows §3 still reads "DirectML vs QNN".** Fix in the same change (CLAUDE.md rule).
-6. **Licences** for Gemma 4 (two sources disagree), Phi-4-mini and Qwen3 (secondary only), and Whisper (not researched) are unresolved.
-7. **GenieX claims GGUF on NPU**, which other sources deny. Unresolved; do not rely on it.
-8. **Intel driver and OpenVINO versions** conflict (2026.2 versus 2026.3.1 in sources). Pin one pair after a test.
-9. **Windows STT NPU path and Windows AI Speech** are unresearched. Windows STT is CPU-only until tested.
-10. **Phi Silica** is a Microsoft-fixed model with Limited Access. It cannot ship as the Co-Worker.
-11. **Android binding** is hand-rolled: no .NET NuGet for ORT QNN exists. The decision stands, but the cost is real.
+1. **ONNX-only format versus the Intel LLM path.** The documented OpenVINO GenAI NPU path uses OpenVINO IR, not ONNX. Running autoregressive LLMs through the ORT OpenVINO EP is unverified. If spike S21 or its follow-up fails, the single-format decision needs owner review (question 6).
+2. **Windows ML catalog downloads EPs on demand**, which conflicts with offline use. Installer pre-fetch is needed. Windows ML also needs Windows 11 24H2 (build 26100) or later (question 5).
+3. **Licences** for Gemma 4 (two sources disagree), Phi-4-mini and Qwen3 (secondary only), Whisper (not researched), and the Qualcomm QAIRT and GenieX terms are unresolved. Counsel.
+4. **GenieX claims GGUF on NPU**, which other sources deny. Unresolved; do not rely on it.
+5. **Intel driver and OpenVINO versions** conflict (2026.2 versus 2026.3.1 in sources). Pin one pair after S21.
+6. **Windows STT NPU path and Windows AI Speech** are unresearched. Windows STT is CPU-only until tested.
+7. **Phi Silica** is a Microsoft-fixed model with Limited Access. It cannot ship as the Co-Worker.
+8. **Android binding** is hand-rolled: no .NET NuGet for ORT QNN exists. The decision stands, but the cost is real.
+9. **Chip generation in docs 27 and 28.** They say action chips are "generated locally on the NPU". This doc makes chip labels deterministic with no model, and the model writes only an optional prose line. **Docs 27 and 28 must be corrected to match.**
+10. **CLAUDE.md wording.** The ratified exception names NPU inference only. This doc also runs GPU and CPU tiers on-device. Question 15.
+11. **Provenance of a confirmed rewrite.** A prompt rewrite built from external content is display text, but once sent it is input to a session. **Doc 15 must state whether it carries `source_trust` (C06, C20).**
 
 ## Questions for the owner
 1. **Automatic escalation?** Default: no. Only the user or an explicit agent action sends content to the server.
@@ -150,3 +153,6 @@ No Intel NPU tokens-per-second figure from an official source exists. Community 
 11. **Latency target** for cleanup of a 10-second utterance? Default: under 2 s on the NUC and the Android device. The benchmark may change this.
 12. **Cleanup rules?** Default: remove fillers and fix structure only. Never add facts, and always keep the raw transcript.
 13. **Hardware?** Which Core Ultra generation is the NUC, and which SoC is the Android device? Default: the owner names them; sources do not verify the Find N6 SoC.
+14. **UiAssist under the ratified exception?** DECISIONS-LOG round 4 names summaries, voice cleanup and prompt rewrite only. Default: include `UiAssist` as on-device NPU inference, since it is the same kind of work.
+15. **Ratify CPU and GPU tiers?** The ratified wording says "NPU inference". Default: amend CLAUDE.md to "on-device inference (NPU, GPU or CPU)", so the fallback tiers are covered.
+16. **Erasing derived summaries?** When a source message is erased (C01), delete its local summaries too. Default: yes, by source hash, on the next client sync.
