@@ -1,0 +1,16 @@
+CTRLC|cleared inherited ignore=True
+RUN|run1|2026-10-25T06:06:36.1020854Z|Microsoft Windows NT 10.0.26300.0|.NET 10.0.13|X64|logical CPUs 24
+TIMING|Cmd|first output ms 13.8|prompt ms after CreateProcess returned 57.8|prompt seen=True
+TIMING|Pwsh|first output ms 12.9|prompt ms after CreateProcess returned 240.4|prompt seen=True
+CHECK|Cmd|SHELL_ECHO|PASS|prompt seen=True; output marker S11_RESULT_42 seen=True; tail: RESULT_42\e[9;1HC:\Users\theof\AppData\Local\Temp\claude\V--git-Bazaar-Workspace\177e6ab8-f79b-4a3c-ac83-9c037b8dae93\scratchpad\s11build\Spike.S11.Conpty>\e[?25h
+CHECK|Cmd|RESIZE|PASS|want 100x30 got 100x30; want 132x40 got 132x40
+CHECK|Cmd|COLOUR|PASS|done=True; SGR31=True; SGR38;5;196=True; SGR38;2;255;0;0=True
+CHECK|Cmd|CTRL_C|PASS|ping running=True; ping stopped on 0x03=True; ping.exe left running=0; shell alive after=True
+CHECK|Cmd|SHUTDOWN|PASS|ping running=True; shell alive before close=True; ClosePseudoConsole returned=True; shell exited within 5 s=True; orphan ping.exe=0; new conhost.exe still alive (informational)=0
+CHECK|Pwsh|SHELL_ECHO|PASS|prompt seen=True; output marker S11_RESULT_42 seen=True; tail: [mS11_RESULT_42\r\nPS C:\Users\theof\AppData\Local\Temp\claude\V--git-Bazaar-Workspace\177e6ab8-f79b-4a3c-ac83-9c037b8dae93\scratchpad\s11build\Spike.S11.Conpty> 
+CHECK|Pwsh|RESIZE|PASS|want 100x30 got 100x30; want 132x40 got 132x40
+CHECK|Pwsh|COLOUR|PASS|done=True; SGR31=True; SGR38;5;196=True; SGR38;2;255;0;0=True
+CHECK|Pwsh|CTRL_C|PASS|ping running=True; ping stopped on 0x03=True; ping.exe left running=0; shell alive after=True
+CHECK|Pwsh|SHUTDOWN|PASS|ping running=True; shell alive before close=True; ClosePseudoConsole returned=True; shell exited within 5 s=True; orphan ping.exe=0; new conhost.exe still alive (informational)=0
+SUMMARY|run1|checks 10|failed 0
+exit=0

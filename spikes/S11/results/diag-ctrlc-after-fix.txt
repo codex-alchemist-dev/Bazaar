@@ -1,0 +1,9 @@
+CTRLC|cleared inherited ignore=True
+RUN|diag|2026-10-25T06:06:19.3111282Z|Microsoft Windows NT 10.0.26300.0|.NET 10.0.13|X64|logical CPUs 24
+DIAG|Cmd|idle prompt raw 0x03|tail: \r\n\r\nC:\Users\theof\AppData\Local\Temp\claude\V--git-Bazaar-Workspace\177e6ab8-f79b-4a3c-ac83-9c037b8dae93\scratchpad\s11build\Spike.S11.Conpty>
+DIAG|Cmd|ping raw 0x03|ping running=True|tail: verage = 0ms\r\nControl-C\r\n^C\r\nC:\Users\theof\AppData\Local\Temp\claude\V--git-Bazaar-Workspace\177e6ab8-f79b-4a3c-ac83-9c037b8dae93\scratchpad\s11build\Spike.S11.Conpty>\e]0;C:\WINDOWS\SYSTEM32\cmd.exe
+DIAG|Cmd|after kill|shell responsive=True
+DIAG|Pwsh|idle prompt raw 0x03|tail: \e[?25l\e[91m^C\e[m\r\nPS C:\Users\theof\AppData\Local\Temp\claude\V--git-Bazaar-Workspace\177e6ab8-f79b-4a3c-ac83-9c037b8dae93\scratchpad\s11build\Spike.S11.Conpty> \e[?25h
+DIAG|Pwsh|ping raw 0x03|ping running=True|tail:  Minimum = 0ms, Maximum = 0ms, Average = 0ms\r\nControl-C\r\nPS C:\Users\theof\AppData\Local\Temp\claude\V--git-Bazaar-Workspace\177e6ab8-f79b-4a3c-ac83-9c037b8dae93\scratchpad\s11build\Spike.S11.Conpty> 
+DIAG|Pwsh|after kill|shell responsive=False
+exit=0
