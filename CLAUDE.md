@@ -42,6 +42,10 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Build approach (owner, 2026-10-24):** no separate v0.001. Claude (Haiku 5.5 workers directed by the main session) builds Bazaar toward v1.0 directly, with full hygiene: design doc first, tests with every change, build and test before each commit, test-and-fix as you go. Ask the owner about unspecified details instead of assuming.
 - Open items live in each doc's "Open Questions" and in `docs/research/reports/Bazaar stack feasibility research.md`. Known blockers there (data layer on Windows, subscription routing, bot accounts) must be resolved before building the affected area.
 
+## Design set (owner decisions, 2026-10-25)
+
+Detailed drafts: `docs/design/` (index in `README.md`). Cross-doc conflicts were resolved by the owner; **`docs/design/DECISIONS-LOG.md` is authoritative wherever an older doc or line disagrees.** Key calls: GC log in separate `gc_event`/`gc_message`/`gc_message_version` tables with per-GC sequence numbers and hash partitions (count set at setup); Postgres NOTIFY for GC fan-out, Valkey/Garnet for cache and presence; per-person encrypted personal fields from day 1; the Vault (Markdown in git) holds almost everything written, including agent memory, and Postgres holds the GC log, structured state and indexes; Identity Service holds all provider and GitHub App keys; external content taints hard and agent text softly, with reader sessions handling untrusted input so daily work needs no human approval (approvals gate outward high-impact actions and PR merges); the owner merges from the Bazaar clients; Skimmer Bouncer can promote unmentioned messages (after shadow-mode measurement); Thinking GCs nest under working GCs; loop-guard trips go to the Psych Ward; the browser is a full Chromium with an anonymous profile and Passport-backed account profiles; Monaco hosting is a gate spike for the Avalonia decision (Android never uses Monaco).
+
 ## Agents, models and parallelism (mandatory)
 
 **Model policy (owner, 2026-10-25).** The main session may run on Opus 5.5 or Sonnet 5.5; it coordinates, decides and reviews.

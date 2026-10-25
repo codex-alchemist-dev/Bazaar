@@ -105,3 +105,16 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | C42 Sign-in page | **RESOLVED**: doc 32's three-route scope (sign-in, pairing approval, recovery), off by default, showing no content. | CLAUDE.md wording about the sign-in page is corrected in the reconciliation pass. |
 | C43 Presence | **RESOLVED**: eight labels (working, reviewing, thinking, in meeting, sleeping, researching, on vacation, helping another project) plus overlays such as "on break" and "waiting for approval". | Docs 09 and 23 adopt it; Bazaar.md §4 records the list. |
 | C44 Migrations | **RESOLVED**: an explicit `migrate` command; the server at startup only checks the schema version and refuses to run on a mismatch. | Docs 03 and 04. |
+
+## Round 12 (2026-10-25)
+
+| Register | Decision | Effect on the docs |
+|---|---|---|
+| C45 Calendar | **RESOLVED**: doc 24 owns `calendar_event`; doc 09 consumes it. | Docs 09 and 24. |
+| C40 Status endpoints | **RESOLVED**: doc 02 defines the wire/status format and protocol version, doc 03 the live/ready probes, doc 23 the contents of the status page. | Docs 02, 03, 23. |
+| C10 follow-up: partition count | **RESOLVED**: the number of GC-log hash partitions is configurable in the setup wizard and in advanced settings. Doc 04 supplies the default. Changing it after data exists needs a planned data move (the setting is fully free only before the first data). | Doc 04 and the setup wizard (doc 27/32). |
+| C25 follow-up: merge credential | **RESOLVED**: both supported: a dedicated owner GitHub App with merge rights, or the owner's linked GitHub credential. Chosen in the setup wizard and changeable in settings. | Docs 14, 21. |
+
+## Status after round 12
+
+All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the definition of "bigger changes" that need the owner's vote (C32); confirmation of Claude's reading of C18 (reader/actor split as the autonomy mechanism); the C10 restore policy (sequence floor plus recovery entry, doc 33) is PROPOSED, not confirmed; erasure for personal data inside Markdown Vault files and git history (consequence of C38); Windows KEK custody vs recovery on new hardware (doc 33 C1). Reconciliation of the 36 docs, the deep-dive docs and CLAUDE.md with this log is the next step.
