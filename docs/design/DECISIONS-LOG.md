@@ -69,3 +69,12 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 ## UI framework contingency (research note, 2026-10-25)
 
 `docs/research/notes/Bazaar UI framework contingency/ui_framework_alternatives.md`: Monaco is explicitly unsupported on mobile (its own FAQ), so the Android client cannot depend on Monaco under any framework (diffs and editing on the phone need a native surface); no free, verified route puts Monaco in an Avalonia WebView; Avalonia's pricing page and its Accelerate docs conflict about whether a WebView control is free (needs a written answer from Avalonia); within .NET the most mature WebView host is MAUI Blazor Hybrid (no official Linux desktop target); Tauri hosts Monaco reliably on Windows and Linux but needs a "no web client" ruling; AvaloniaEdit is the native-editor fallback. Recommended spike order: Windows WebView2 Monaco, then Linux WebKitGTK, then a native Android surface, then AvaloniaEdit.
+
+## Round 8 (2026-10-25)
+
+| Register | Decision | Effect on the docs |
+|---|---|---|
+| C25 Owner merge | **RESOLVED (owner statement)**: Bazaar.Windows and Bazaar.Android contain a full replacement of GitHub's UI, so managing PRs and merging all happen inside the apps. The server performs the merge on the owner's signed approval from a client. **FOLLOW-UP:** the credential used (the owner's linked GitHub credential vs a dedicated owner GitHub App with merge rights; the App avoids storing a personal token). | Docs 21, 28, 29 specify the in-app PR review and merge flow and the squash-merge `Signed-off-by` line; doc 14 holds the credential. |
+| C28 Done meaning | **RESOLVED**: for a card tied to a PR, Done = the PR is merged; reviewer approval is a visible flag. | Doc 12 changes (it used reviewer approval as Done). |
+| C29 Model seam | **RESOLVED**: Bazaar's `ModelEvent` types are the seam, with an `IChatClient` adapter shipped in v1. | Docs 05, 06 conform; the adapter lets Microsoft libraries plug in. |
+| C30 Ingress | **RESOLVED**: the home host accepts no inbound connections by default: it polls GitHub and mail providers; a tunnel or overlay is optional for real-time webhooks. | Docs 21, 22, 32 default to pull/poll; the Cloudflare Worker-posts-to-home design in the email note is an optional upgrade. |
