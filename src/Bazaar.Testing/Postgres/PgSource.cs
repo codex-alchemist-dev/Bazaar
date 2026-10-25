@@ -17,6 +17,14 @@ public sealed class PgSource : IAsyncDisposable
     public const string EnvImage = "BAZAAR_TEST_PG_IMAGE";
     public const string DefaultImage = "pgvector/pgvector:pg18";
 
+    /// <summary>
+    /// True on Windows without <c>BAZAAR_TEST_PG</c>: hosted Windows runners cannot run Linux containers, so database
+    /// tests there wait for a locally installed server (docs/design/34, <c>test.ci.windows_db_job</c> = false).
+    /// Linux never counts as unsupported; a missing database there must fail loudly.
+    /// </summary>
+    public static bool IsUnsupportedHost =>
+        OperatingSystem.IsWindows() && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvConnectionString));
+
     private static readonly Lazy<Task<PgSource>> SharedLazy = new(StartAsync);
 
     private readonly PostgreSqlContainer? _container;

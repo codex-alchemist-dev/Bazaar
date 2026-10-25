@@ -24,7 +24,7 @@ public class PgFixture : IAsyncDisposable
     public NpgsqlDataSource DataSource =>
         _dataSource ?? throw new InvalidOperationException("PgFixture is not initialised.");
 
-    public async ValueTask InitializeAsync()
+    public virtual async ValueTask InitializeAsync()
     {
         _template = await PgTemplate.GetSharedAsync().ConfigureAwait(false);
         DatabaseName = await _template.CloneAsync(GetType().Name).ConfigureAwait(false);

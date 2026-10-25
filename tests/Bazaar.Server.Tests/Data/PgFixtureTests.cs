@@ -3,9 +3,15 @@ using Npgsql;
 
 namespace Bazaar.Server.Tests.Data;
 
-public sealed class DbA : PgFixture, IAsyncLifetime;
+public sealed class DbA : PgFixture, IAsyncLifetime
+{
+    public override ValueTask InitializeAsync() => PgSource.IsUnsupportedHost ? ValueTask.CompletedTask : base.InitializeAsync();
+}
 
-public sealed class DbB : PgFixture, IAsyncLifetime;
+public sealed class DbB : PgFixture, IAsyncLifetime
+{
+    public override ValueTask InitializeAsync() => PgSource.IsUnsupportedHost ? ValueTask.CompletedTask : base.InitializeAsync();
+}
 
 public static class PgFixtureTemplate
 {
@@ -35,9 +41,14 @@ public sealed class PgFixtureTests(DbA a, DbB b) : IClassFixture<DbA>, IClassFix
         return Convert.ToInt64(await cmd.ExecuteScalarAsync(TestContext.Current.CancellationToken), System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    // Windows without BAZAAR_TEST_PG has no database yet by design (test.ci.windows_db_job = false); Linux never skips.
+    private static void SkipWithoutDatabase() =>
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+
     [Fact]
     public async Task Each_class_gets_its_own_database()
     {
+        SkipWithoutDatabase();
         Assert.NotEqual(a.DatabaseName, b.DatabaseName);
         await using (var cmd = a.DataSource.CreateCommand("CREATE TABLE only_in_a(id int)"))
             await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
@@ -48,6 +59,7 @@ public sealed class PgFixtureTests(DbA a, DbB b) : IClassFixture<DbA>, IClassFix
     [Fact]
     public async Task Clone_carries_the_migrated_template_content()
     {
+        SkipWithoutDatabase();
         Assert.Equal(1, await ScalarAsync(a.DataSource, "SELECT count(*) FROM template_marker"));
         Assert.Equal(1, await ScalarAsync(b.DataSource, "SELECT count(*) FROM template_marker"));
         Assert.Equal(1, PgFixtureTemplate.MigrationRuns);
@@ -56,6 +68,7 @@ public sealed class PgFixtureTests(DbA a, DbB b) : IClassFixture<DbA>, IClassFix
     [Fact]
     public async Task Server_is_postgres_18_with_pgvector_available()
     {
+        SkipWithoutDatabase();
         Assert.Equal(18, await ScalarAsync(a.DataSource, "SELECT current_setting('server_version_num')::int / 10000"));
         Assert.Equal(1, await ScalarAsync(a.DataSource, "SELECT count(*) FROM pg_available_extensions WHERE name = 'vector'"));
     }
@@ -63,6 +76,7 @@ public sealed class PgFixtureTests(DbA a, DbB b) : IClassFixture<DbA>, IClassFix
     [Fact]
     public async Task Notify_round_trips()
     {
+        SkipWithoutDatabase();
         await using var listener = await a.OpenConnectionAsync(TestContext.Current.CancellationToken);
         var got = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         listener.Notification += (_, e) => got.TrySetResult(e.Payload);
