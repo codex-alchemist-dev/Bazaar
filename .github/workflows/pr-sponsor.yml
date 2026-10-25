@@ -1,0 +1,65 @@
+# DCO sign-off at merge (owner decision).
+#
+# Bazaar uses the Developer Certificate of Origin (DCO) model, but the human
+# sponsor signs off when the PR is merged, not on each agent commit. Agent
+# commits carry Co-Authored-By trailers. A human sponsor (the owner or another
+# accountable person) adds a line of the form:
+#
+#     Signed-off-by: Full Name <email@example.com>
+#
+# to the pull request description. A squash merge then carries that line into
+# the commit that lands on the default branch, which is where the DCO
+# certification is recorded.
+#
+# Repository setting required (owner, GitHub Settings > General > Pull Requests):
+#   "Default commit message for squash merges" = "Pull request title and description"
+# Without it GitHub builds the squash message from commit titles only, and the
+# sign-off line does not reach the merged commit.
+#
+# What this check does and does not prove:
+#   - It checks that a well-formed Signed-off-by line is present in the
+#     description. It cannot prove who wrote it. The branch protection rule
+#     plus human review of the PR is the real control.
+#   - It runs on non-draft PRs only. Drafts cannot be merged, so they do not
+#     need the line yet. The check runs again when a PR is marked ready.
+#
+# Implementation notes:
+#   - Shell and the event payload only. No third-party action, no checkout.
+#   - The PR body is passed through an environment variable, not interpolated
+#     into the script, so its contents are never executed.
+
+name: PR sign-off
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  signed-off-by:
+    name: Signed-off-by line in PR description
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check for Signed-off-by line
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          # Strip CRs from Windows line endings, then require a whole line that
+          # reads "Signed-off-by: <Name> <email>". The name must be non-empty and
+          # the address must look like name@domain.
+          if printf '%s\n' "$PR_BODY" | tr -d '\r' \
+              | grep -Eq '^Signed-off-by: [^<>]+[^<> ] <[^<> @]+@[^<> @]+>[[:space:]]*$'; then
+            echo "Found a Signed-off-by line in the pull request description."
+            exit 0
+          fi
+          echo "::error title=Missing Signed-off-by::Add a line 'Signed-off-by: Full Name <email>' to the pull request description. The human sponsor adds it; it is carried into the squash-merge commit."
+          exit 1
