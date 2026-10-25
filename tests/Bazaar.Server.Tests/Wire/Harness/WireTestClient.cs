@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Wire.Harness;
 /// <summary>A scripted client on <see cref="ClientWebSocket"/>.</summary>
 public sealed class WireTestClient : IAsyncDisposable
 {
-    private static readonly TimeSpan ReceiveTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan _receiveTimeout = TimeSpan.FromSeconds(10);
 
     private readonly ClientWebSocket _socket = new();
     private int _nextId;
@@ -23,7 +23,7 @@ public sealed class WireTestClient : IAsyncDisposable
     public async Task ConnectAsync(Uri uri, string? bearer = null)
     {
         if (bearer is not null) _socket.Options.SetRequestHeader("Authorization", $"Bearer {bearer}");
-        using var cts = new CancellationTokenSource(ReceiveTimeout);
+        using var cts = new CancellationTokenSource(_receiveTimeout);
         await _socket.ConnectAsync(uri, cts.Token);
     }
 
@@ -53,7 +53,7 @@ public sealed class WireTestClient : IAsyncDisposable
     /// <summary>Sends raw bytes as one message.</summary>
     public async Task SendRawAsync(ReadOnlyMemory<byte> bytes, WebSocketMessageType type)
     {
-        using var cts = new CancellationTokenSource(ReceiveTimeout);
+        using var cts = new CancellationTokenSource(_receiveTimeout);
         await _socket.SendAsync(bytes, type, true, cts.Token);
     }
 
@@ -67,7 +67,7 @@ public sealed class WireTestClient : IAsyncDisposable
     /// <summary>Reads the next frame, or null when the server closed the socket.</summary>
     public async Task<Envelope?> TryReceiveAsync()
     {
-        using var cts = new CancellationTokenSource(ReceiveTimeout);
+        using var cts = new CancellationTokenSource(_receiveTimeout);
         var writer = new ArrayBufferWriter<byte>();
         while (true)
         {

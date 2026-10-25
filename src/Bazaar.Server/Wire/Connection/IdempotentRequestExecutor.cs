@@ -11,7 +11,7 @@ namespace Bazaar.Server.Wire.Connection;
 /// </summary>
 public sealed class IdempotentRequestExecutor
 {
-    private static readonly TimeSpan SweepEvery = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan _sweepEvery = TimeSpan.FromMinutes(1);
 
     private readonly ConcurrentDictionary<(string Device, string Id), Entry> _entries = new();
     private readonly TimeProvider _time;
@@ -93,7 +93,7 @@ public sealed class IdempotentRequestExecutor
     {
         var now = _time.GetUtcNow().UtcTicks;
         var last = Interlocked.Read(ref _lastSweepTicks);
-        if (now - last < SweepEvery.Ticks || Interlocked.CompareExchange(ref _lastSweepTicks, now, last) != last)
+        if (now - last < _sweepEvery.Ticks || Interlocked.CompareExchange(ref _lastSweepTicks, now, last) != last)
         {
             return;
         }

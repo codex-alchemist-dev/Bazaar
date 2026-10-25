@@ -15,10 +15,10 @@ namespace Bazaar.Server.Wire.Connection;
 /// </summary>
 internal sealed partial class WireConnection : IWireConnection, IDisposable
 {
-    private const int ServerMinor = 0;
-    private const int ServerMajor = 1;
-    private const int HeartbeatCloseCode = 1001;
-    private const int ServerFaultCloseCode = 1011;
+    private const int _ServerMinor = 0;
+    private const int _ServerMajor = 1;
+    private const int _HeartbeatCloseCode = 1001;
+    private const int _ServerFaultCloseCode = 1011;
 
     private readonly WebSocket _socket;
     private readonly string? _headerCredential;
@@ -43,7 +43,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private readonly record struct Outbound(byte[] Data, bool IsEvent);
 
     private IWireCodec _codec;
-    private int _version = ServerMajor;
+    private int _version = _ServerMajor;
     private (int Code, string Reason)? _closeRequest;
     private volatile bool _closing;
     private int _pendingEvents;
@@ -159,7 +159,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     {
         using var abortReg = requestAborted.Register(() =>
         {
-            _ = CloseAsync(ServerFaultCloseCode, "aborted").AsTask();
+            _ = CloseAsync(_ServerFaultCloseCode, "aborted").AsTask();
             _abort.Cancel();
         });
         var sender = Task.CompletedTask;
@@ -180,12 +180,12 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         }
         catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException or ObjectDisposedException)
         {
-            await CloseAsync(ServerFaultCloseCode, "socket fault").ConfigureAwait(false);
+            await CloseAsync(_ServerFaultCloseCode, "socket fault").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             LogConnectionFailed(_log, ex, ConnectionId);
-            await CloseAsync(ServerFaultCloseCode, "internal").ConfigureAwait(false);
+            await CloseAsync(_ServerFaultCloseCode, "internal").ConfigureAwait(false);
         }
         finally
         {
@@ -230,13 +230,13 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         }
 
         // Version and codec first, so an old client learns it must upgrade whatever its credential.
-        var serverMin = _options.PreviousMajorSupported ? ServerMajor - 1 : ServerMajor;
-        var chosen = Math.Min(body.VersionMax, ServerMajor);
+        var serverMin = _options.PreviousMajorSupported ? _ServerMajor - 1 : _ServerMajor;
+        var chosen = Math.Min(body.VersionMax, _ServerMajor);
         var codec = _codecs.FirstOrDefault(c => body.Codecs.Contains(c.Name, StringComparer.Ordinal));
         if (chosen < Math.Max(body.VersionMin, serverMin) || codec is null)
         {
             var upgrade = new Welcome(
-                ServerMajor, ServerMinor, _codec.Name, Guid.Empty, _time.GetUtcNow(), _options.HeartbeatIntervalS,
+                _ServerMajor, _ServerMinor, _codec.Name, Guid.Empty, _time.GetUtcNow(), _options.HeartbeatIntervalS,
                 _options.HeartbeatTimeoutS, Limits(), [], 0, true, _options.MinimumBuild);
             await SendDirectAsync(Frame(WireTypes.Welcome, EnvelopeKind.Response, hello.Id, null, _time.GetUtcNow(), _codec.EncodePayload(upgrade))).ConfigureAwait(false);
             await CloseDirectAsync(WireCloseCodes.UpgradeRequired, "upgrade required").ConfigureAwait(false);
@@ -286,7 +286,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         }
 
         var welcome = new Welcome(
-            _version, ServerMinor, _codec.Name, Principal.Id, _time.GetUtcNow(), _options.HeartbeatIntervalS,
+            _version, _ServerMinor, _codec.Name, Principal.Id, _time.GetUtcNow(), _options.HeartbeatIntervalS,
             _options.HeartbeatTimeoutS, Limits(), _options.Capabilities.ToArray(), 0, null, null);
         await SendDirectAsync(Frame(WireTypes.Welcome, EnvelopeKind.Response, hello.Id, null, _time.GetUtcNow(), _codec.EncodePayload(welcome))).ConfigureAwait(false);
         return true;
@@ -492,7 +492,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         }
         catch (Exception ex) when (ex is WebSocketException or IOException or ObjectDisposedException or InvalidOperationException)
         {
-            await CloseAsync(ServerFaultCloseCode, "send failed").ConfigureAwait(false);
+            await CloseAsync(_ServerFaultCloseCode, "send failed").ConfigureAwait(false);
         }
     }
 
@@ -529,7 +529,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
 
                 if (now - new DateTimeOffset(Interlocked.Read(ref _lastActivityTicks), TimeSpan.Zero) >= timeout)
                 {
-                    await CloseAsync(HeartbeatCloseCode, "heartbeat timeout").ConfigureAwait(false);
+                    await CloseAsync(_HeartbeatCloseCode, "heartbeat timeout").ConfigureAwait(false);
                     return;
                 }
 
