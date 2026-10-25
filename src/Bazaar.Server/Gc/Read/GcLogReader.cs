@@ -7,7 +7,7 @@ namespace Bazaar.Server.Gc.Read;
 /// <summary>Reads <c>gc_event</c> by <c>(gc_id, seq)</c>, the primary key, so a read prunes to one partition.</summary>
 public sealed class GcLogReader(NpgsqlDataSource dataSource, IGcReadAccess access) : IGcLogReader
 {
-    private const string ReadSql = """
+    private const string _readSql = """
         SELECT seq, event_id, kind, author_kind, author_id, source_trust, tainted_at_write, taint_sources::text,
                message_id, version, target_seq, reply_to_seq, payload::text, created_at
         FROM gc_event
@@ -29,7 +29,7 @@ public sealed class GcLogReader(NpgsqlDataSource dataSource, IGcReadAccess acces
         if (!grant.Allowed)
             throw new GcAccessDeniedException(gcId);
 
-        await using var cmd = dataSource.CreateCommand(ReadSql);
+        await using var cmd = dataSource.CreateCommand(_readSql);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gcId });
         cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = afterSeq });
         cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = grant.ThroughSeq ?? long.MaxValue });

@@ -12,8 +12,8 @@ namespace Bazaar.Server.Tests.Gc;
 /// <summary>Tests for <see cref="GcLogReader"/> (viewer rules, paging, field mapping) and <see cref="CoalescingGcNotifier"/> (NOTIFY hints).</summary>
 public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
 {
-    private static readonly Guid SystemId = Guid.CreateVersion7();
-    private static readonly GcPrincipal Viewer = new(Guid.CreateVersion7(), PrincipalKind.Owner, "Owner");
+    private static readonly Guid _systemId = Guid.CreateVersion7();
+    private static readonly GcPrincipal _viewer = new(Guid.CreateVersion7(), PrincipalKind.Owner, "Owner");
 
     private sealed class NoopNotifier : IGcNotifier
     {
@@ -36,7 +36,7 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         for (var start = 0; start < count; start += batchSize)
         {
             var requests = Enumerable.Range(start, Math.Min(batchSize, count - start))
-                .Select(i => new AppendRequest(gc, GcEventKinds.System, AuthorKind.System, SystemId, SourceTrust.System, $"e{i}"))
+                .Select(i => new AppendRequest(gc, GcEventKinds.System, AuthorKind.System, _systemId, SourceTrust.System, $"e{i}"))
                 .ToList();
             await writer.AppendManyAsync(requests, ct);
         }
@@ -67,7 +67,7 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         await SeedSystemEventsAsync(new GcLogWriter(db.DataSource, NoopNotifier.Instance), gc, 10, ct);
         var reader = new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Full));
 
-        var page = await ReadAllAsync(reader, gc, afterSeq: 4, limit: 3, Viewer, ct);
+        var page = await ReadAllAsync(reader, gc, afterSeq: 4, limit: 3, _viewer, ct);
 
         Assert.Equal([5L, 6L, 7L], page.Select(e => e.Seq));
     }
@@ -86,7 +86,7 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         var pageSizes = new List<int>();
         while (true)
         {
-            var page = await ReadAllAsync(reader, gc, after, limit: 100, Viewer, ct);
+            var page = await ReadAllAsync(reader, gc, after, limit: 100, _viewer, ct);
             pageSizes.Add(page.Count);
             if (page.Count == 0)
                 break;
@@ -125,9 +125,9 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
             PayloadJson = """{"title":"x","n":2}""",
         }, ct);
         await writer.AppendAsync(new AppendRequest(gc, GcEventKinds.ExternalMail, AuthorKind.ExternalBridge, bridge, SourceTrust.Quarantined, "x1"), ct);
-        await writer.AppendAsync(new AppendRequest(gc, GcEventKinds.System, AuthorKind.Owner, Viewer.Id, SourceTrust.Owner, "o1"), ct);
+        await writer.AppendAsync(new AppendRequest(gc, GcEventKinds.System, AuthorKind.Owner, _viewer.Id, SourceTrust.Owner, "o1"), ct);
 
-        var events = await ReadAllAsync(new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Full)), gc, 0, 100, Viewer, ct);
+        var events = await ReadAllAsync(new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Full)), gc, 0, 100, _viewer, ct);
 
         Assert.Equal(4, events.Count);
 
@@ -185,7 +185,7 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         await SeedSystemEventsAsync(new GcLogWriter(db.DataSource, NoopNotifier.Instance), gc, 3, ct);
         var reader = new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Denied));
 
-        var ex = await Assert.ThrowsAsync<GcAccessDeniedException>(() => ReadAllAsync(reader, gc, 0, 10, Viewer, ct));
+        var ex = await Assert.ThrowsAsync<GcAccessDeniedException>(() => ReadAllAsync(reader, gc, 0, 10, _viewer, ct));
 
         Assert.Equal(gc, ex.GcId);
     }
@@ -199,8 +199,8 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         await SeedSystemEventsAsync(new GcLogWriter(db.DataSource, NoopNotifier.Instance), gc, 10, ct);
         var reader = new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Through(5)));
 
-        var visible = await ReadAllAsync(reader, gc, 0, IGcLogReader.MaxLimit, Viewer, ct);
-        var after = await ReadAllAsync(reader, gc, 5, IGcLogReader.MaxLimit, Viewer, ct);
+        var visible = await ReadAllAsync(reader, gc, 0, IGcLogReader.MaxLimit, _viewer, ct);
+        var after = await ReadAllAsync(reader, gc, 5, IGcLogReader.MaxLimit, _viewer, ct);
 
         Assert.Equal([1L, 2L, 3L, 4L, 5L], visible.Select(e => e.Seq));
         Assert.Empty(after);
@@ -214,9 +214,9 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         var gc = await db.CreateGcAsync();
         var reader = new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Full));
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReadAllAsync(reader, gc, 0, 0, Viewer, ct));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReadAllAsync(reader, gc, 0, IGcLogReader.MaxLimit + 1, Viewer, ct));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReadAllAsync(reader, gc, -1, 10, Viewer, ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReadAllAsync(reader, gc, 0, 0, _viewer, ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReadAllAsync(reader, gc, 0, IGcLogReader.MaxLimit + 1, _viewer, ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReadAllAsync(reader, gc, -1, 10, _viewer, ct));
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         var gc = await db.CreateGcAsync();
         var reader = new GcLogReader(db.DataSource, new FixedAccess(GcReadGrant.Full));
 
-        var events = await ReadAllAsync(reader, gc, 0, 100, Viewer, ct);
+        var events = await ReadAllAsync(reader, gc, 0, 100, _viewer, ct);
 
         Assert.Empty(events);
         Assert.Equal(0L, await reader.GetHeadSeqAsync(gc, ct));
@@ -257,15 +257,15 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
         var listener = await db.OpenConnectionAsync(ct);
         listener.Notification += (_, e) =>
         {
-            if (e.Channel == GcNotifyChannelName)
+            if (e.Channel == _gcNotifyChannelName)
                 sink.Enqueue(e.Payload);
         };
-        await using var listen = new NpgsqlCommand($"LISTEN {GcNotifyChannelName}", listener);
+        await using var listen = new NpgsqlCommand($"LISTEN {_gcNotifyChannelName}", listener);
         await listen.ExecuteNonQueryAsync(ct);
         return listener;
     }
 
-    private const string GcNotifyChannelName = "gc";
+    private const string _gcNotifyChannelName = "gc";
 
     /// <summary>Runs a round trip on the listener so every notification committed so far has been delivered to it.</summary>
     private static async Task<List<(Guid Gc, long Seq)>> DrainAsync(NpgsqlConnection listener, ConcurrentQueue<string> sink, CancellationToken ct)

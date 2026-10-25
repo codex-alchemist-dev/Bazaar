@@ -20,33 +20,33 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
-    private const string LockSql = """
+    private const string _locksql = """
         SELECT head_seq, archived_at IS NOT NULL FROM gc WHERE gc_id = $1 FOR UPDATE
         """;
 
-    private const string KeysSql = """
+    private const string _keyssql = """
         SELECT k.ord, e.seq, e.event_id, e.created_at
         FROM unnest($2::uuid[], $3::text[]) WITH ORDINALITY AS k(author_id, client_msg_id, ord)
         JOIN gc_event e ON e.gc_id = $1 AND e.author_id = k.author_id AND e.client_msg_id = k.client_msg_id
         """;
 
-    private const string AdvanceSql = "UPDATE gc SET head_seq = head_seq + $2 WHERE gc_id = $1";
+    private const string _advancesql = "UPDATE gc SET head_seq = head_seq + $2 WHERE gc_id = $1";
 
-    private const string InsertEventSql = """
+    private const string _inserteventsql = """
         INSERT INTO gc_event (gc_id, seq, event_id, kind, author_kind, author_id, session_id, source_trust,
                               tainted_at_write, taint_sources, message_id, version, target_seq, reply_to_seq,
                               payload, client_msg_id, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17)
         """;
 
-    private const string InsertMessageSql = "INSERT INTO gc_message (gc_id, message_id, first_seq, author_id) VALUES ($1, $2, $3, $4)";
+    private const string _insertmessagesql = "INSERT INTO gc_message (gc_id, message_id, first_seq, author_id) VALUES ($1, $2, $3, $4)";
 
-    private const string InsertVersionSql = """
+    private const string _insertversionsql = """
         INSERT INTO gc_message_version (gc_id, message_id, version, body_ct, key_id, editor_id, created_at)
         VALUES ($1, $2, 1, $3, $4, $5, $6)
         """;
 
-    private const string InsertMentionsSql = """
+    private const string _insertmentionssql = """
         INSERT INTO gc_mention (gc_id, seq, target_principal_id)
         SELECT $1, $2, t FROM unnest($3::uuid[]) AS t
         """;
@@ -134,11 +134,11 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         NpgsqlConnection conn, NpgsqlTransaction tx, Guid gcId, IReadOnlyList<AppendRequest> requests, CancellationToken ct)
     {
         await using var batch = new NpgsqlBatch(conn, tx);
-        var lockCmd = new NpgsqlBatchCommand(LockSql);
+        var lockCmd = new NpgsqlBatchCommand(_locksql);
         lockCmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gcId });
         batch.BatchCommands.Add(lockCmd);
 
-        var keysCmd = new NpgsqlBatchCommand(KeysSql);
+        var keysCmd = new NpgsqlBatchCommand(_keyssql);
         keysCmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gcId });
         keysCmd.Parameters.Add(new NpgsqlParameter<Guid[]> { TypedValue = [.. requests.Select(r => r.AuthorId)] });
         keysCmd.Parameters.Add(new NpgsqlParameter<string[]> { TypedValue = [.. requests.Select(r => r.ClientMsgId)] });
@@ -166,7 +166,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         List<(int Index, long Seq)> fresh, DateTimeOffset now, AppendResult[] results, CancellationToken ct)
     {
         await using var batch = new NpgsqlBatch(conn, tx);
-        batch.BatchCommands.Add(Cmd(AdvanceSql, P(gcId), P((long)fresh.Count)));
+        batch.BatchCommands.Add(Cmd(_advancesql, P(gcId), P((long)fresh.Count)));
 
         foreach (var (index, seq) in fresh)
         {
@@ -174,17 +174,17 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             var eventId = Guid.CreateVersion7();
             var messageId = r.Message is null ? (Guid?)null : Guid.CreateVersion7();
             batch.BatchCommands.Add(Cmd(
-                InsertEventSql,
+                _inserteventsql,
                 P(gcId), P(seq), P(eventId), P(r.Kind), P(GcEnumText.ToText(r.AuthorKind)), P(r.AuthorId), N(r.SessionId),
                 P(GcEnumText.ToText(r.SourceTrust)), P(r.TaintedAtWrite), N(r.TaintSourcesJson), N(messageId),
                 N(r.Message is null ? (int?)null : 1), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now)));
 
             if (r.Message is { } body && messageId is { } mid)
             {
-                batch.BatchCommands.Add(Cmd(InsertMessageSql, P(gcId), P(mid), P(seq), P(r.AuthorId)));
-                batch.BatchCommands.Add(Cmd(InsertVersionSql, P(gcId), P(mid), PBytes(body.BodyCiphertext), P(body.KeyId), P(r.AuthorId), P(now)));
+                batch.BatchCommands.Add(Cmd(_insertmessagesql, P(gcId), P(mid), P(seq), P(r.AuthorId)));
+                batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), PBytes(body.BodyCiphertext), P(body.KeyId), P(r.AuthorId), P(now)));
                 if (r.Mentions.Count > 0)
-                    batch.BatchCommands.Add(Cmd(InsertMentionsSql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
+                    batch.BatchCommands.Add(Cmd(_insertmentionssql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
             }
 
             results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);

@@ -10,9 +10,9 @@ public sealed class GcListenerTests(GcDb db) : IClassFixture<GcDb>
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static readonly TimeSpan Fast = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan _fast = TimeSpan.FromMilliseconds(50);
 
-    private static GcListenerOptions FastListener => new(Fast, TimeSpan.FromMilliseconds(200), TimeSpan.FromSeconds(1));
+    private static GcListenerOptions FastListener => new(_fast, TimeSpan.FromMilliseconds(200), TimeSpan.FromSeconds(1));
 
     [Fact]
     public async Task A_committed_append_wakes_a_subscriber_through_the_notifier_and_listener()
