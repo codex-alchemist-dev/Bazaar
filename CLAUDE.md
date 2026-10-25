@@ -11,7 +11,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Claude lane:** Anthropic API keys only, Haiku-heavy budget. Never route Pro/Max subscription credentials through the gateway.
 - **Roblox Studio** runs only on the human's Bazaar.Windows desktop; agents do headless Luau checks and file sync.
 - **Wire format** (shared C# contracts vs Protobuf) is OPEN until the first client-server spike. Do not add Protobuf tooling yet.
-- **Licence direction:** AGPL-3.0 for server and clients, Apache-2.0 for the SDK and contracts. DCO vs CLA is OPEN; counsel review before the first public release.
+- **Licences (owner, 2026-10-25):** AGPL-3.0 at the root (server and clients), Apache-2.0 for `Bazaar.Sdk` and `Bazaar.Contracts`; copyright "The Bazaar Authors". Counsel review before the first public release. **DCO:** human sign-off at merge: agent commits carry `Co-Authored-By`, and the owner squash-merges with a `Signed-off-by` line.
 - **Email** is domain-agnostic: any operator-configured domain. v1 back ends: built-in Bazaar mail client, generic IMAP/SMTP, Cloudflare Email Routing + HTTPS sender, built-in SMTP/IMAP server. Never hardcode a domain.
 - **Client start screen (Windows):** a dashboard of what changed while away (unread GCs and @mentions; PRs and decisions awaiting you; agents and Kanban; build health and usage). **Android:** dictation is the center of the radial menu.
 - **UI:** fully themeable (one theme file drives Avalonia and Monaco); fuzzy command palette opened by a mnemonic, no Ctrl chords; Discord-style GC messages (avatar, role badge, model badge, cost chip, presence, timestamp, profile cards, status/activity).
@@ -44,10 +44,12 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 
 ## Agents, models and parallelism (mandatory)
 
-**Model policy.** The main session may be Sonnet 5.5. Every subagent, worktree agent and parallel worker runs on **Haiku 5.5 (`claude-haiku-5-5`)**, even when the user is talking to Sonnet.
-- Always pass `model: "haiku"` explicitly on every Agent call. Never leave it blank, and never pass sonnet or opus unless the user names that model for that task.
-- Use the named agents in `.claude/agents/` or `general-purpose`. **Never use `fork` for delegated work**: forks run on the main model, not Haiku.
-- Hard reasoning, architecture calls and final review are done by the main session itself, not by escalating a subagent to a bigger model.
+**Model policy (owner, 2026-10-25).** The main session may run on Opus 5.5 or Sonnet 5.5; it coordinates, decides and reviews.
+- **Haiku 5.5 (`model: "haiku"`) for everything by default**: research, scaffolding, routine code, tests, docs, reviews.
+- **Sonnet 5.5 (`model: "sonnet"`) for more complicated tasks**: cross-project design, tricky concurrency or security code, hard debugging, synthesis across many sources.
+- **The main session works by hand only on very high-tier tasks**: architecture decisions, final review before merge, resolving conflicts between agents, and anything touching the owner's decisions or secrets.
+- Always pass `model` explicitly on every Agent call. Never use Opus or Fable for subagents unless the owner names it for that task.
+- Use the named agents in `.claude/agents/` or `general-purpose`. **Never use `fork` for delegated work**: forks run on the main model.
 - `.claude/settings.json` sets `CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-5-5` and `CLAUDE_CODE_FORK_SUBAGENT=0` as the default. The hard lock (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, needs Claude Code 2.1.257 or newer) is opt-in because it also ignores per-agent `model` and blocks any model override.
 
 **Parallel by default.** Before starting sequential work, split the task into independent units.
