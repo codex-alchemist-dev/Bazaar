@@ -30,6 +30,7 @@ Deliberately logged in full, since it's easy for this reasoning to get lost once
 - **[DECIDED]** Gesture nav: hold-anywhere brings up a radial menu; **[DECIDED 2026-10-24, owner — clarification]** dictation is the *center* of the radial menu: press and hold anywhere opens the radial; if you don't move to another option, the center — voice dictation — is already active. Holding directly on the chat input goes straight to voice-to-text.
 - **[DECIDED]** Voice input pipeline: raw transcription → local Co-Worker/NPU cleanup pass ("whisper-flow" style — removes filler words, reorders rambling into coherent structure) → final text, entirely on-device.
 - **[DECIDED]** Collapsed/expandable action logs generated locally via the platform NPU, same as Windows.
+- **[DECIDED 2026-10-24, owner]** Background delivery: content-free push wake-ups through one push-provider interface that supports both FCM and UnifiedPush (self-hosted ntfy); the app then fetches content over its authenticated connection. **[RESEARCHED]** Android 15+ caps a `dataSync` foreground service at 6 hours per 24 (one research note disputes this; re-read the timeout page) and Doze defers network access, so an always-on socket cannot be the only path.
 
 ---
 
