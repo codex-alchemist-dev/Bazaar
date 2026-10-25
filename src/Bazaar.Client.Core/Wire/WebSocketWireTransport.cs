@@ -55,11 +55,11 @@ public sealed class WebSocketWireTransportFactory : IWireTransportFactory
 /// </summary>
 internal sealed class WebSocketWireConnection(ClientWebSocket socket, int maxFrameBytes, WebSocketMessageType sendType) : IWireConnection
 {
-    private const int ChunkBytes = 16 * 1024;
+    private const int _chunkBytes = 16 * 1024;
 
     /// <summary>RFC 6455 1005: the peer sent a close frame with no status. Reported as 0 (no code).</summary>
-    private const int NoStatusReceived = 1005;
-    private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
+    private const int _noStatusReceived = 1005;
+    private static readonly TimeSpan _closeTimeout = TimeSpan.FromSeconds(2);
     private readonly SemaphoreSlim _sendGate = new(1, 1);
 
     /// <inheritdoc />
@@ -85,7 +85,7 @@ internal sealed class WebSocketWireConnection(ClientWebSocket socket, int maxFra
         }
 
         var message = new ArrayBufferWriter<byte>();
-        byte[] chunk = ArrayPool<byte>.Shared.Rent(ChunkBytes);
+        byte[] chunk = ArrayPool<byte>.Shared.Rent(_chunkBytes);
         try
         {
             while (true)
@@ -129,7 +129,7 @@ internal sealed class WebSocketWireConnection(ClientWebSocket socket, int maxFra
         {
             if (socket.State == WebSocketState.Open)
             {
-                using var timeout = new CancellationTokenSource(CloseTimeout);
+                using var timeout = new CancellationTokenSource(_closeTimeout);
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, timeout.Token).ConfigureAwait(false);
             }
         }
@@ -148,14 +148,14 @@ internal sealed class WebSocketWireConnection(ClientWebSocket socket, int maxFra
     private int CloseCode()
     {
         int code = socket.CloseStatus is { } status ? (int)status : 0;
-        return code == NoStatusReceived ? 0 : code;
+        return code == _noStatusReceived ? 0 : code;
     }
 
     /// <summary>Completes a close the server started by sending the matching close frame.</summary>
     private async Task EchoCloseAsync()
     {
         if (socket.State != WebSocketState.CloseReceived) return;
-        var status = socket.CloseStatus is { } s && (int)s != NoStatusReceived ? s : WebSocketCloseStatus.NormalClosure;
+        var status = socket.CloseStatus is { } s && (int)s != _noStatusReceived ? s : WebSocketCloseStatus.NormalClosure;
         await SendCloseAsync(status, socket.CloseStatusDescription).ConfigureAwait(false);
     }
 
@@ -164,7 +164,7 @@ internal sealed class WebSocketWireConnection(ClientWebSocket socket, int maxFra
     {
         try
         {
-            using var timeout = new CancellationTokenSource(CloseTimeout);
+            using var timeout = new CancellationTokenSource(_closeTimeout);
             await _sendGate.WaitAsync(timeout.Token).ConfigureAwait(false);
             try
             {

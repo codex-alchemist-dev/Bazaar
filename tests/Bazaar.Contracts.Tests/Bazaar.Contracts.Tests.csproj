@@ -8,7 +8,7 @@
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="**\Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Wire\**\Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

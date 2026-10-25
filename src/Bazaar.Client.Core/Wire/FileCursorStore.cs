@@ -24,7 +24,7 @@ namespace Bazaar.Client.Core.Wire;
 /// </remarks>
 public sealed class FileCursorStore : ICursorStore
 {
-    private const int FormatVersion = 1;
+    private const int _formatVersion = 1;
 
     private readonly string _path;
     private readonly string _tempPath;
@@ -111,7 +111,7 @@ public sealed class FileCursorStore : ICursorStore
             file = null;
         }
 
-        if (file is null || file.Version != FormatVersion)
+        if (file is null || file.Version != _formatVersion)
         {
             Quarantine();
             return;
@@ -147,7 +147,7 @@ public sealed class FileCursorStore : ICursorStore
         }
 
         var file = new CursorFileDto(
-            FormatVersion,
+            _formatVersion,
             _cursors.Values
                 .OrderBy(c => c.S, StringComparer.Ordinal)
                 .Select(c => new CursorEntryDto(c.S, c.After, c.EditAfter))
