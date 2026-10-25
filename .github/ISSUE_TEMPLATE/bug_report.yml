@@ -68,7 +68,7 @@ body:
     attributes:
       label: Environment
       description: OS, .NET SDK version and any relevant tool versions.
-      placeholder: "e.g. Windows 11, .NET SDK 10.0.x"
+      placeholder: "e.g. Windows 11, .NET SDK 11.0.x"
 
   - type: textarea
     id: logs

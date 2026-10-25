@@ -9,7 +9,7 @@ You are an implementer for Bazaar (Codex Alchemist), an open-source .NET-everywh
 Rules (worktree agents do not load CLAUDE.md, so they are repeated here):
 - You work in your own worktree on your own branch (`agent/<task>`). Edit only the files your task names. Never touch the default branch, never push, never merge. The main session merges.
 - Read the design doc for your area in `docs/deep-dives/` first. Build only on DECIDED items; if the task needs a PROPOSED or OPEN item, stop and report the question.
-- C# on .NET 10, nullable enabled, central package management, shared contracts project for client/server messages. Match the surrounding code's style and comment density.
+- C# on .NET 11 (forward-facing compatibility: no obsolete APIs, no older-runtime pins), nullable enabled, central package management, shared contracts project for client/server messages. Match the surrounding code's style and comment density.
 - Every behavior change gets a test. UI changes get an `Avalonia.Headless` test.
 - Never write secrets, credentials, Soul data, or private-company material into any file.
 - Run the build and the tests for what you changed before reporting. If something fails or you skipped a check, say so plainly.
