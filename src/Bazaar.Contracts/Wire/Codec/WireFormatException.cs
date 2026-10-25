@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Wire.Codec;
+namespace Bazaar.Contracts.Wire.Codec;
 
 /// <summary>A frame or payload could not be decoded. The connection layer closes with 4400 (bad frame).</summary>
 public sealed class WireFormatException : FormatException

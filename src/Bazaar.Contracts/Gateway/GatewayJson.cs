@@ -14,7 +14,11 @@ public static class GatewayJson
     private static JsonSerializerOptions Create()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
+        options.Converters.Add(new JsonStringEnumConverter<QuotaState>(JsonNamingPolicy.SnakeCaseLower));
+        options.Converters.Add(new JsonStringEnumConverter<ModelRole>(JsonNamingPolicy.SnakeCaseLower));
+        options.Converters.Add(new JsonStringEnumConverter<GatewayIdentity>(JsonNamingPolicy.SnakeCaseLower));
+        options.Converters.Add(new JsonStringEnumConverter<UsageStatus>(JsonNamingPolicy.SnakeCaseLower));
+        options.Converters.Add(new JsonStringEnumConverter<StopReason>(JsonNamingPolicy.SnakeCaseLower));
         return options;
     }
 }

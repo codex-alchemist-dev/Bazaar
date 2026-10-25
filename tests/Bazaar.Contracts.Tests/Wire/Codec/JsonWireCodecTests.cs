@@ -1,9 +1,9 @@
 using System.Buffers;
 using System.Text;
 using Bazaar.Contracts.Wire;
-using Bazaar.Server.Wire.Codec;
+using Bazaar.Contracts.Wire.Codec;
 
-namespace Bazaar.Server.Tests.Wire.Codec;
+namespace Bazaar.Contracts.Tests.Wire.Codec;
 
 public class JsonWireCodecTests
 {

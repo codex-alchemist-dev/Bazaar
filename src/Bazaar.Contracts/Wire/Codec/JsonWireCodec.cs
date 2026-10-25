@@ -1,9 +1,8 @@
 using System.Buffers;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Server.Wire.Codec;
+namespace Bazaar.Contracts.Wire.Codec;
 
 /// <summary>
 /// JSON text frames. Envelope fields are written by hand so the payload stays raw JSON; payloads use
