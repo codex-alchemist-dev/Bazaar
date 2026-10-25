@@ -130,8 +130,9 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
     [Fact]
     public void Two_handlers_for_one_kind_are_rejected()
     {
+        // The constructor never touches the store, so no database is needed here (this runs on Windows without one).
         var ex = Assert.Throws<ArgumentException>(() => new JobPoller(
-            new JobStore(db.DataSource),
+            null!,
             [new Handler("same", (_, _) => Task.CompletedTask), new Handler("same", (_, _) => Task.CompletedTask)],
             new FakeClock()));
         Assert.Contains("'same'", ex.Message, StringComparison.Ordinal);

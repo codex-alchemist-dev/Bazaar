@@ -22,7 +22,8 @@ public sealed class PgFtsSearchProviderTests(SearchDb db) : IClassFixture<Search
     [Fact]
     public void Probe_reports_the_provider_as_usable()
     {
-        var status = new PgFtsSearchProvider(db.DataSource).Probe();
+        // Probe does not use the database, so it runs on Windows without one.
+        var status = new PgFtsSearchProvider(null!).Probe();
 
         Assert.Equal("postgres_fts", status.Kind);
         Assert.True(status.Usable);
