@@ -6,6 +6,7 @@
     <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
+    <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Testing/Bazaar.Testing.csproj" />
   </Folder>
