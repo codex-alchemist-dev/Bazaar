@@ -56,7 +56,13 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - Two or more independent units: launch them **together in one message**, as foreground-independent agents. Do not wait on one before launching the next.
 - Independent tool calls (reads, greps, searches) also go in one block.
 - Fan out research, file-by-file or module-by-module edits, test runs, and doc updates. Keep sequential only what truly depends on earlier output.
-- Keep concurrency reasonable: up to about 8 agents at a time (the platform default cap is 20). Merge results before spawning the next wave.
+- Concurrency and scale: see **Batch development** below.
+
+**Batch development (owner, 2026-10-25).** When development starts, fan out massively: 200+ Haiku 5.5 sessions across the build, plus a couple of Sonnet 5.5 sessions for the hard parts.
+- Cut the work into many small, independent work packages (one file or one small module, with its own tests). Each gets its own worktree and branch `agent/<wp-id>`; the main session merges in dependency order and runs the full build after each wave.
+- Run in waves sized to the machine. The platform default is 20 concurrent subagents (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), and the cloud container has limited CPU, RAM and disk, so 200 simultaneous builds are not realistic; 200+ across waves is. Measure CPU, RAM and disk after the first wave and scale the next one.
+- Agents build and test only the projects they touch; the main session runs the full `./build.sh`.
+- Remove worktrees and branches after merging. A work package that cannot be finished independently goes back to the main session as a question, not a guess.
 - Do not spawn an agent for a single quick lookup the main session can do in one call.
 
 **Worktrees.** Any agent that **writes** files while another agent also writes gets `isolation: "worktree"`, one branch per agent (`agent/<task>`). Read-only and notes-only agents share the main tree.
