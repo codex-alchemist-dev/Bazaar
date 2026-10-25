@@ -115,7 +115,7 @@ Consumers (notifier, unread counter, search indexer, Kanban board view) read the
 ## Data and interfaces
 ```
 gc_type(type_key pk, label, default_visibility, default_wake, archive_policy,
-        kanban_binding bool, registered_by)
+        kanban_binding text (yes|optional|no), registered_by)
 gc(gc_id uuid pk, parent_gc_id, type_key, title, tags text[], metadata jsonb,
    head_seq bigint, created_by, created_at, archived_at)
 gc_member(gc_id, principal_id, role, joined_seq, left_seq)        -- pk (gc_id, principal_id)
