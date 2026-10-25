@@ -7,7 +7,7 @@ namespace Bazaar.Contracts.Tests.Gateway;
 
 public class GatewayContractsTests
 {
-    private static readonly DateTimeOffset Moment = new(2026, 10, 25, 5, 37, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _moment = new(2026, 10, 25, 5, 37, 0, TimeSpan.Zero);
 
     private static string Serialize<T>(T value) => JsonSerializer.Serialize(value, GatewayJson.Options);
 
@@ -132,7 +132,7 @@ public class GatewayContractsTests
     {
         var record = new GatewayUsageRecord(
             Id: Guid.Parse("3f2c9a1e-5b7d-4c8e-9a0f-1234567890ab"),
-            Timestamp: Moment,
+            Timestamp: _moment,
             AgentId: "agent-charles",
             TurnId: "turn-7",
             ProviderId: "anthropic-direct",
@@ -160,7 +160,7 @@ public class GatewayContractsTests
     public void Aborted_usage_record_keeps_estimate_flag_and_error_code()
     {
         var record = new GatewayUsageRecord(
-            Guid.NewGuid(), Moment, "agent-a", null, "freellmapi", "secret://x", "claude-sonnet-5-5", null,
+            Guid.NewGuid(), _moment, "agent-a", null, "freellmapi", "secret://x", "claude-sonnet-5-5", null,
             GatewayIdentity.Pooled, new GatewayTokenUsage(0, 0, 0, 0, 77, 0), 5400, UsageStatus.Aborted,
             "stream_dropped", null, Estimated: true, PriceVersion: null);
 
@@ -186,7 +186,7 @@ public class GatewayContractsTests
     {
         var events = new GatewayQuotaEvent[]
         {
-            new QuotaStateChanged("freellmapi", "secret://bazaar/providers/freellmapi/key", "claude", QuotaState.RateLimited, Moment.AddMinutes(1)),
+            new QuotaStateChanged("freellmapi", "secret://bazaar/providers/freellmapi/key", "claude", QuotaState.RateLimited, _moment.AddMinutes(1)),
             new QuotaStateChanged("anthropic-direct", "secret://bazaar/providers/anthropic-direct/api_key", "haiku", QuotaState.SpendCapped, null),
         };
 
@@ -198,7 +198,7 @@ public class GatewayContractsTests
     [Fact]
     public void Agent_capacity_changed_round_trips_and_is_tagged()
     {
-        GatewayQuotaEvent original = new AgentCapacityChanged("agent-juniper", false, Moment.AddHours(2), QuotaState.SpendCapped);
+        GatewayQuotaEvent original = new AgentCapacityChanged("agent-juniper", false, _moment.AddHours(2), QuotaState.SpendCapped);
 
         var json = Serialize(original);
         var back = Deserialize<GatewayQuotaEvent>(json);
