@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
+    <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
+    <Project Path="src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj" />
+    <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
+    <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
+    <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
+    <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
+    <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
+  </Folder>
+</Solution>
