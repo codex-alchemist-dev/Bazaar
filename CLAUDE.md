@@ -23,6 +23,8 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Agent accounts:** agents sign up only where the platform's current terms allow it; otherwise a person creates the account. Check each platform's rules before the first post.
 - **Names:** the owner's instance is Codex Alchemist (the studio, also the developer of the Bazaar platform). "Codex" overlaps OpenAI's product; no clearance search has been done, so keep it out of package IDs and public product names until decided.
 - **Free-tier data** is the operator's choice; setup warns that some free tiers train on prompts.
+- **"No web client"** (owner's words: clients must be native with minimum hardware specs) concerns browser-based clients of the server. Native clients may embed web components such as Monaco.
+- **Claude lane** routes automatically between Haiku and Sonnet (rules OPEN). **Remote access** and **public-posting approval tiers** are operator-configured, with documented options and shipped defaults.
 - **Council** votes are independent first (private votes with reasoning, then a joint reveal, at most one follow-up round; ties go to the owner). **Reputation** combines peer reviews and hard outcomes (CI, reverts, owner accept/reject), outcomes weighted higher.
 - **Routing defaults:** set up by whoever installs a Bazaar. Charles and the juniors default to a `custom/*` method (automatic switching, custom rules, a whitelist of cheaper code-capable models) when FreeLLMAPI is installed. No unbounded global auto.
 - **Soul Marketplace** is optional user-generated content: behavioral presets only, no personal data or project contexts. v1 scope is OPEN.
