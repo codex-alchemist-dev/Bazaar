@@ -163,10 +163,10 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 1. **Windows host licence (carried).** Whether Windows 11 Pro may run 24/7 as a server, and whether agent VMs need CALs, are unverified. The first supported host cannot be declared until written answers exist. The edition (Server or Windows 11 Pro) is an operator install fact recorded in the install documentation, not a setting; the default is Server pending the answer. Licence terms need counsel.
 2. **Platform facts unverified (carried).** Windows recovery actions, SCM stop timeouts and the .NET shutdown default lack primary sources. Restart policy depends on them.
 3. **Windows KEK custody (carried, doc 33 C1).** A DPAPI machine-scope KEK conflicts with recovery on new hardware. Windows custody stays open until doc 33 closes it.
-4. **Probe and status names (must fix in 02 and 23).** Doc 02 (status endpoint, and the open questions) and doc 23 (status page section) still list `/healthz`. This doc uses `/health/live` and `/health/ready` (C40); `/healthz` must go. Doc 23 must cite doc 02's `/status`.
+4. **Probe and status names (resolved, C40).** This doc uses `/health/live` and `/health/ready`; there is no `/healthz`. Doc 02 owns the `/status` format and doc 23 cites it.
 5. **Startup migrations (must fix in 04).** Doc 04 still runs its migration runner at startup. C44 requires the explicit `migrate` command.
 6. **Turn state (must fix in 24).** Doc 24 says the runtime "persists the current turn as `interrupted` (03)". Turn state is doc 06's (C04).
-7. **CLAUDE.md and deep-dives (partly open).** CLAUDE.md now states two VMs per agent (C03) and the Claude lane on both sources (C14), which agree with the log. Still open: CLAUDE.md's "Decisions in force" line says the cache and pub/sub use Garnet or Valkey, while C07 makes Postgres NOTIFY carry GC fan-out. Bazaar.Server.md §3 still names Garnet with no NOTIFY note.
+7. **CLAUDE.md and deep-dives (partly open).** CLAUDE.md now states two VMs per agent (C03) and the Claude lane on both sources (C14), which agree with the log. Still open: CLAUDE.md's "Decisions in force" line says the cache and pub/sub use Garnet or Valkey, while C07 makes Postgres NOTIFY carry GC fan-out. Bazaar.Server.md §3 now carries the NOTIFY note (resolved).
 
 ## Questions for the owner
 ANSWERED: VM topology is two VMs per agent; S8 is for sizing only (DECISIONS-LOG round 1, C03).
