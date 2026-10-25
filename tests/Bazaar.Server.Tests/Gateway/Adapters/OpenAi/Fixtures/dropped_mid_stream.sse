@@ -1,0 +1,4 @@
+data: {"id":"chatcmpl-2b6","object":"chat.completion.chunk","created":1761350900,"model":"served-text-model","choices":[{"index":0,"delta":{"role":"assistant","content":"Partial "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-2b6","object":"chat.completion.chunk","created":1761350900,"model":"served-text-model","choices":[{"index":0,"delta":{"content":"answ"},"finish_reason":null}]}
+

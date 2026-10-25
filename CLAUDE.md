@@ -51,6 +51,8 @@ Detailed drafts: `docs/design/` (index in `README.md`). Cross-doc conflicts were
 
 ## Agents, models and parallelism (mandatory)
 
+**Default mode.** Do the work primarily through parallel Haiku 5.5 sub-agents, one per independent item or file group, each in its own git worktree (`agent/<task>`). Use Sonnet 5.5 only for security-critical or concurrency-heavy work and for reviewing and integrating sub-agent output. Work directly only when a task is too small or too tightly coupled to split. Build and test before every push.
+
 **Model policy (owner, 2026-10-25).** The main session may run on Opus 5.5 or Sonnet 5.5; it coordinates, decides and reviews.
 - **Haiku 5.5 (`model: "haiku"`) for everything by default**: research, scaffolding, routine code, tests, docs, reviews.
 - **Sonnet 5.5 (`model: "sonnet"`) for more complicated tasks**: cross-project design, tricky concurrency or security code, hard debugging, synthesis across many sources.

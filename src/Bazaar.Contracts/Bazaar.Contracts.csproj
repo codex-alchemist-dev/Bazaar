@@ -2,5 +2,6 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 </Project>
