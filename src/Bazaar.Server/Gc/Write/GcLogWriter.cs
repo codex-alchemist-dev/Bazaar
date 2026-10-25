@@ -42,8 +42,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
     private const string _insertmessagesql = "INSERT INTO gc_message (gc_id, message_id, first_seq, author_id) VALUES ($1, $2, $3, $4)";
 
     private const string _insertversionsql = """
-        INSERT INTO gc_message_version (gc_id, message_id, version, body_ct, key_id, editor_id, created_at)
-        VALUES ($1, $2, 1, $3, $4, $5, $6)
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at)
+        VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8)
         """;
 
     private const string _insertmentionssql = """
@@ -182,7 +182,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             if (r.Message is { } body && messageId is { } mid)
             {
                 batch.BatchCommands.Add(Cmd(_insertmessagesql, P(gcId), P(mid), P(seq), P(r.AuthorId)));
-                batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), PBytes(body.BodyCiphertext), P(body.KeyId), P(r.AuthorId), P(now)));
+                batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now)));
                 if (r.Mentions.Count > 0)
                     batch.BatchCommands.Add(Cmd(_insertmentionssql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
             }
@@ -202,6 +202,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
     }
 
     private static NpgsqlParameter<T> P<T>(T value) => new NpgsqlParameter<T> { TypedValue = value };
+
+    private static NpgsqlParameter NullBytes() => new() { Value = DBNull.Value, NpgsqlDbType = NpgsqlDbType.Bytea };
 
     private static NpgsqlParameter<byte[]> PBytes(ReadOnlyMemory<byte> value) =>
         new NpgsqlParameter<byte[]> { TypedValue = value.ToArray(), NpgsqlDbType = NpgsqlDbType.Bytea };

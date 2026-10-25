@@ -8,7 +8,8 @@ namespace Bazaar.Server.Gc.Write;
 /// </summary>
 /// <param name="BodyCiphertext">The encrypted body.</param>
 /// <param name="KeyId">The key the body is sealed under.</param>
-public sealed record MessageBody(ReadOnlyMemory<byte> BodyCiphertext, Guid KeyId);
+/// <param name="Nonce">The cipher nonce, when the cipher uses one.</param>
+public sealed record MessageBody(ReadOnlyMemory<byte> BodyCiphertext, Guid KeyId, ReadOnlyMemory<byte> Nonce = default);
 
 /// <summary>
 /// One event to append. Seq, event id and time are assigned by the writer; provenance is set by the caller from the
