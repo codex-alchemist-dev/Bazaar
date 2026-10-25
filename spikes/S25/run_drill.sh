@@ -79,13 +79,13 @@ wait_archived "$seg"
 sleep 1
 T="$(psql_src -c "select clock_timestamp()")"
 psql_src -c "select pg_sleep(1)" >/dev/null
-psql_src -f "$HERE/sql/snapshot.sql" > "$OUT/expected_at_T.csv"
+psql_src -f - < "$HERE/sql/snapshot.sql" > "$OUT/expected_at_T.csv"
 log "batch A committed and archived; T=$T"
 
 # ---- Batch B (after T; this is the range the rollback discards) -------------
 psql_src -c "select append_messages(g, $B_PER_GC) from generate_series(1, 4) g" >/dev/null
 t_b_end=$(ms)
-psql_src -f "$HERE/sql/snapshot.sql" > "$OUT/source_before_crash.csv"
+psql_src -f - < "$HERE/sql/snapshot.sql" > "$OUT/source_before_crash.csv"
 # Surviving source: the highest seq each GC reached, as clients and the offsite audit head would have seen it.
 psql_src -c "select gc_id, head_seq from gc order by gc_id" > "$OUT/seen.csv"
 seg="$(psql_src -c "select pg_walfile_name(pg_current_wal_lsn())")"
@@ -123,7 +123,7 @@ echo "restore_to_promote_ms,$(( $(ms) - t0 ))" >> "$OUT/timings.csv"
 log "restored and promoted"
 
 # P1: match at T
-psql_rst -f "$HERE/sql/snapshot.sql" > "$OUT/restored_at_T.csv"
+psql_rst -f - < "$HERE/sql/snapshot.sql" > "$OUT/restored_at_T.csv"
 replay_ts="$(psql_rst -c "select pg_last_xact_replay_timestamp() <= '$T'::timestamptz")"
 if diff -q "$OUT/expected_at_T.csv" "$OUT/restored_at_T.csv" >/dev/null; then p1_counts=true; else p1_counts=false; fi
 p1_replay="$replay_ts"
@@ -135,16 +135,17 @@ while IFS=, read -r gc seen; do
 done < "$OUT/seen.csv"
 
 # P2 and P3 from the system entries
-psql_rst -f "$HERE/sql/verify_recovery.sql" > "$OUT/verify_recovery.csv"
+psql_rst -f - < "$HERE/sql/verify_recovery.sql" > "$OUT/verify_recovery.csv"
 
 # P4: the first append after recovery must be seen_head + 2
 psql_rst -c "select append_messages(g, 1) from generate_series(1, 4) g" >/dev/null
 psql_rst -c "select gc_id, max(seq) from gc_message group by gc_id order by gc_id" > "$OUT/max_after_append.csv"
-psql_rst -f "$HERE/sql/verify_recovery.sql" > "$OUT/verify_after_append.csv"
+psql_rst -f - < "$HERE/sql/verify_recovery.sql" > "$OUT/verify_after_append.csv"
 
 # ---- Judge ------------------------------------------------------------------
 p2_p3_ok=true
-if grep -q ',f' "$OUT/verify_recovery.csv" || grep -q ',f' "$OUT/verify_after_append.csv"; then p2_p3_ok=false; fi[[ "$(wc -l < "$OUT/verify_recovery.csv")" -eq 4 ]] || p2_p3_ok=false
+if grep -q ',f' "$OUT/verify_recovery.csv" || grep -q ',f' "$OUT/verify_after_append.csv"; then p2_p3_ok=false; fi
+[[ "$(wc -l < "$OUT/verify_recovery.csv")" -eq 4 ]] || p2_p3_ok=false
 p4_ok=true
 while IFS=, read -r gc seen; do
     got="$(awk -F, -v g="$gc" '$1==g {print $2}' "$OUT/max_after_append.csv")"
