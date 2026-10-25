@@ -1,7 +1,6 @@
 using System.Buffers;
-using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Server.Wire.Codec;
+namespace Bazaar.Contracts.Wire.Codec;
 
 /// <summary>
 /// Turns envelopes and payload records into frames and back. The codec is chosen in <c>hello</c> and

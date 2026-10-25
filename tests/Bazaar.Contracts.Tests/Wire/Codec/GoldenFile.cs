@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Tests.Wire.Codec;
+namespace Bazaar.Contracts.Tests.Wire.Codec;
 
 /// <summary>Compares text with a checked-in golden file; set BAZAAR_UPDATE_GOLDEN=1 to rewrite them.</summary>
 internal static class GoldenFile
