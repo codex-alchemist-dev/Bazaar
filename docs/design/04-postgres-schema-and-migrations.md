@@ -37,8 +37,8 @@ The relational store for Bazaar.Server, limited to conventions, the group-chat (
 **[PROPOSED] GC append, one transaction.**
 1. `UPDATE gc SET head_seq = head_seq + 1 WHERE gc_id = $1 RETURNING head_seq`. `head_seq` is the last assigned seq (doc 01), so the returned value is the seq this write takes. The row lock serialises writers per GC; a rollback also rolls back the counter, so there are no gaps.
 2. `INSERT gc_event`, the authoritative row, carrying its provenance. A new message also inserts `gc_message` and its first `gc_message_version`. An edit inserts a `message_edit` event (carrying the editor's provenance) and a new `gc_message_version`.
-3. `SELECT pg_notify('gc', '{"gc_id":…,"seq":…}')`.
-4. Commit. The notification is delivered only on commit.
+3. Commit.
+4. After commit, hand `{"gc":…,"seq":…}` to the coalescing notifier, which sends `pg_notify('gc', …)` for the newest seq per GC in one transaction every few milliseconds (spike S3: `pg_notify` inside the append transaction gave unstable tails). Nothing is sent for a rolled-back append. Consumers treat it as a hint (see NOTIFY limits).
 
 ## Data and interfaces
 Conventions: UUIDv7 ids (native `uuidv7()` in PG 18); `timestamptz` in UTC; singular table names; enums are `text` with CHECK; JSONB only for opaque payloads (anything filtered on gets a column); RESTRICT foreign keys, no cascades on log tables. Any column that can hold personal data is stored as `(key_id, ciphertext, nonce)`, never as plaintext.
