@@ -32,17 +32,17 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource)
     public const string Common = "common";
 
     /// <summary>Advisory-lock key for the migration run. Distinct from the instance lock (doc 03).</summary>
-    private const long LockKey = 0x42415A4D49475231; // "BAZMIGR1"
+    private const long _lockKey = 0x42415A4D49475231; // "BAZMIGR1"
 
     /// <summary>Applies every pending file. Racing runners queue on the lock; the later one finds nothing to do.</summary>
     public async Task<MigrationResult> MigrateAsync(IMigrationSource source, string provider, CancellationToken ct = default)
     {
         var plan = Plan(source, provider);
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
-        await ExecAsync(conn, null, $"SELECT pg_advisory_lock({LockKey})", ct).ConfigureAwait(false);
+        await ExecAsync(conn, null, $"SELECT pg_advisory_lock({_lockKey})", ct).ConfigureAwait(false);
         try
         {
-            await ExecAsync(conn, null, CreateHistorySql, ct).ConfigureAwait(false);
+            await ExecAsync(conn, null, _createHistorySql, ct).ConfigureAwait(false);
             var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
             var pending = Diff(plan, history, throwIfAhead: true);
 
@@ -57,7 +57,7 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource)
         }
         finally
         {
-            await ExecAsync(conn, null, $"SELECT pg_advisory_unlock({LockKey})", CancellationToken.None).ConfigureAwait(false);
+            await ExecAsync(conn, null, $"SELECT pg_advisory_unlock({_lockKey})", CancellationToken.None).ConfigureAwait(false);
         }
     }
 
@@ -84,7 +84,7 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource)
                 : "The database schema is older than this build; run 'migrate' (after a backup).");
     }
 
-    private const string CreateHistorySql = """
+    private const string _createHistorySql = """
         CREATE TABLE IF NOT EXISTS schema_migrations (
             provider   text        NOT NULL,
             version    integer     NOT NULL,

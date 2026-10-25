@@ -30,7 +30,7 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
         return Convert.ToInt64(await cmd.ExecuteScalarAsync(TestContext.Current.CancellationToken), System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static readonly MigrationFile[] Basic =
+    private static readonly MigrationFile[] _basic =
     [
         Common(1, "one", "CREATE TABLE t_one (id int)"),
         Common(2, "two", "CREATE TABLE t_two (id int); INSERT INTO t_two VALUES (7)"),
@@ -40,7 +40,7 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     public async Task Fresh_database_applies_every_file_in_order()
     {
         var ds = await FreshAsync(db);
-        var result = await new MigrationRunner(ds).MigrateAsync(Source(Basic), "linux", TestContext.Current.CancellationToken);
+        var result = await new MigrationRunner(ds).MigrateAsync(Source(_basic), "linux", TestContext.Current.CancellationToken);
 
         Assert.Equal([1, 2], result.Applied.Select(a => a.Version));
         Assert.Equal(0, result.AlreadyApplied);
@@ -53,8 +53,8 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     {
         var ds = await FreshAsync(db);
         var runner = new MigrationRunner(ds);
-        await runner.MigrateAsync(Source(Basic), "linux", TestContext.Current.CancellationToken);
-        var again = await runner.MigrateAsync(Source(Basic), "linux", TestContext.Current.CancellationToken);
+        await runner.MigrateAsync(Source(_basic), "linux", TestContext.Current.CancellationToken);
+        var again = await runner.MigrateAsync(Source(_basic), "linux", TestContext.Current.CancellationToken);
 
         Assert.Empty(again.Applied);
         Assert.Equal(2, again.AlreadyApplied);
@@ -66,9 +66,9 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     {
         var ds = await FreshAsync(db);
         var runner = new MigrationRunner(ds);
-        await runner.MigrateAsync(Source(Basic), "linux", TestContext.Current.CancellationToken);
+        await runner.MigrateAsync(Source(_basic), "linux", TestContext.Current.CancellationToken);
 
-        var tampered = Source(Common(1, "one", "CREATE TABLE t_one (id int, extra int)"), Basic[1]);
+        var tampered = Source(Common(1, "one", "CREATE TABLE t_one (id int, extra int)"), _basic[1]);
         var ex = await Assert.ThrowsAsync<MigrationChecksumException>(
             () => runner.MigrateAsync(tampered, "linux", TestContext.Current.CancellationToken));
         Assert.Contains("0001_one", ex.Message);
@@ -158,9 +158,9 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     {
         var ds = await FreshAsync(db);
         var runner = new MigrationRunner(ds);
-        await runner.MigrateAsync(Source(Basic), "linux", TestContext.Current.CancellationToken);
+        await runner.MigrateAsync(Source(_basic), "linux", TestContext.Current.CancellationToken);
 
-        var older = Source(Basic[0]);
+        var older = Source(_basic[0]);
         await Assert.ThrowsAsync<SchemaVersionException>(() => runner.MigrateAsync(older, "linux", TestContext.Current.CancellationToken));
         Assert.Equal(SchemaState.Ahead, await runner.GetStateAsync(older, "linux", TestContext.Current.CancellationToken));
     }
@@ -191,14 +191,14 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
         var runner = new MigrationRunner(ds);
         var ct = TestContext.Current.CancellationToken;
 
-        Assert.Equal(SchemaState.Behind, await runner.GetStateAsync(Source(Basic), "linux", ct));
-        await Assert.ThrowsAsync<SchemaVersionException>(() => runner.EnsureCurrentAsync(Source(Basic), "linux", ct));
+        Assert.Equal(SchemaState.Behind, await runner.GetStateAsync(Source(_basic), "linux", ct));
+        await Assert.ThrowsAsync<SchemaVersionException>(() => runner.EnsureCurrentAsync(Source(_basic), "linux", ct));
 
-        await runner.MigrateAsync(Source(Basic), "linux", ct);
-        await runner.EnsureCurrentAsync(Source(Basic), "linux", ct);
-        Assert.Equal(SchemaState.Current, await runner.GetStateAsync(Source(Basic), "linux", ct));
+        await runner.MigrateAsync(Source(_basic), "linux", ct);
+        await runner.EnsureCurrentAsync(Source(_basic), "linux", ct);
+        Assert.Equal(SchemaState.Current, await runner.GetStateAsync(Source(_basic), "linux", ct));
 
-        var newer = Source(Basic[0], Basic[1], Common(3, "three", "SELECT 1"));
+        var newer = Source(_basic[0], _basic[1], Common(3, "three", "SELECT 1"));
         Assert.Equal(SchemaState.Behind, await runner.GetStateAsync(newer, "linux", ct));
         Assert.Equal(2, await ScalarAsync(ds, "SELECT count(*) FROM schema_migrations"));
     }
@@ -210,10 +210,10 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
         var output = new StringWriter();
         var ct = TestContext.Current.CancellationToken;
 
-        Assert.Equal(0, await MigrateCommand.RunAsync(db.ConnectionString, Source(Basic), "linux", output, ct));
+        Assert.Equal(0, await MigrateCommand.RunAsync(db.ConnectionString, Source(_basic), "linux", output, ct));
         Assert.Contains("done: 2 applied", output.ToString(), StringComparison.Ordinal);
 
-        var tampered = Source(Common(1, "one", "CREATE TABLE t_one (id bigint)"), Basic[1]);
+        var tampered = Source(Common(1, "one", "CREATE TABLE t_one (id bigint)"), _basic[1]);
         Assert.Equal(1, await MigrateCommand.RunAsync(db.ConnectionString, tampered, "linux", output, ct));
         Assert.Contains("migrate refused", output.ToString(), StringComparison.Ordinal);
     }
