@@ -1,6 +1,6 @@
 # Bazaar Gateway Source Catalogue: providers, wire formats, outbound proxies, free-token terms (as of 2026-10-24)
 
-Scope: candidate default model sources and gateways for Bazaar.Server's own model gateway (per-agent whitelists enforced by Bazaar, pluggable providers). Built on the two existing notes, which were read first: `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md` and `/home/user/Bazaar/research_notes/FreeLLMAPI gateway evaluation/freellmapi_evaluation.md`. This pass fetched about 30 primary pages, and anything I did not fetch is marked unverified. Not legal advice. Nothing was run or installed.
+Scope: candidate default model sources and gateways for Bazaar.Server's own model gateway (per-agent whitelists enforced by Bazaar, pluggable providers). Built on the two existing notes, which were read first: `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md` and `docs/research/notes/FreeLLMAPI gateway evaluation/freellmapi_evaluation.md`. This pass fetched about 30 primary pages, and anything I did not fetch is marked unverified. Not legal advice. Nothing was run or installed.
 
 **Evidence labels.** "Verified (primary)" means I read the page through WebFetch in this pass. WebFetch returns a model-summarised rendering, so quotes are summaries unless stated otherwise, and figures should be re-checked against the raw page before they go into a public document. "Carried (prior note)" means the fact comes from one of the two existing notes, which were themselves primary-read but not re-read here. "Secondary" means blogs, aggregators, search summaries or a third party's review. "Unverified" means not confirmed from any source I could read.
 
@@ -307,7 +307,7 @@ Field notes:
 - dotnet-api-docs PR 10600 (SOCKS formats in docs; unmerged status unknown): https://github.com/dotnet/dotnet-api-docs/pull/10600
 - Secondary (search summary, not fetched): https://dotnetcoretutorials.com/socks-proxy-support-in-net/ ; https://github.com/extremecodetv/SocksSharp
 - FreeLLMAPI ToS review (carried, project self-assessment): https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/architecture/00-high-level-index.md
-- Existing notes: `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md`; `/home/user/Bazaar/research_notes/FreeLLMAPI gateway evaluation/freellmapi_evaluation.md`
+- Existing notes: `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md`; `docs/research/notes/FreeLLMAPI gateway evaluation/freellmapi_evaluation.md`
 
 ## Unverified or not obtained (summary)
 - Mistral, DeepSeek, xAI, Together, Fireworks, Cohere, Cloudflare AI Gateway, Portkey, Helicone, vLLM, llama.cpp, LM Studio: no primary read in this pass.

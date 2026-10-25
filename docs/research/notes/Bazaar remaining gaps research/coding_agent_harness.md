@@ -2,7 +2,7 @@
 
 Research date: 2026-10-24. Budget: about 21 tool calls, so coverage is partial. Most primary sources read are dated 2024 to late 2025. I did not find a 2026 primary source for any harness's current tool set. Labels: **verified** = primary source read in this session; **secondary** = search snippet or aggregator; **unverified** = from memory or not checked.
 
-Bazaar context read: `/home/user/Bazaar/docs/deep-dives/Bazaar.md` (agents each have a VM; GCs are the coordination system; Claude lane uses Anthropic API keys only, never Pro/Max subscription credentials; subagents and workers run on Haiku 5.5). `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/agent_runtime_dotnet.md` (prior note: use `IChatClient` seam, official `Anthropic` NuGet package, official C# MCP SDK, build the agent loop custom; sandboxing "not researched").
+Bazaar context read: `/home/user/Bazaar/docs/deep-dives/Bazaar.md` (agents each have a VM; GCs are the coordination system; Claude lane uses Anthropic API keys only, never Pro/Max subscription credentials; subagents and workers run on Haiku 5.5). `docs/research/notes/Bazaar stack feasibility research/agent_runtime_dotnet.md` (prior note: use `IChatClient` seam, official `Anthropic` NuGet package, official C# MCP SDK, build the agent loop custom; sandboxing "not researched").
 
 ## Key Question 1: Prior art (Claude Code, Codex CLI, OpenHands, Aider, Cline/Roo, OpenCode, SWE-agent, Goose)
 
@@ -76,7 +76,7 @@ The only verified remote-execution pattern is OpenHands' split between a local, 
 
 ### Cited Findings
 - OpenHands SDK workspaces: `LocalWorkspace` (single process), `DockerWorkspace` (container running an Agent Server), `RemoteAPIWorkspace` (connects over HTTP). Tools "run alongside the agent in whatever environment workspace configures (local/container/remote)." — [OpenHands SDK architecture overview](https://docs.openhands.dev/sdk/arch/overview) (**verified**, no date)
-- The prior Bazaar note records that the official C# MCP SDK (`ModelContextProtocol`, Apache-2.0) supports client and server roles and HTTP transport (`HttpClientTransport`). Its stdio transport was not confirmed. — `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/agent_runtime_dotnet.md` (**verified** as a file read; its MCP claims are secondary to the SDK repo)
+- The prior Bazaar note records that the official C# MCP SDK (`ModelContextProtocol`, Apache-2.0) supports client and server roles and HTTP transport (`HttpClientTransport`). Its stdio transport was not confirmed. — `docs/research/notes/Bazaar stack feasibility research/agent_runtime_dotnet.md` (**verified** as a file read; its MCP claims are secondary to the SDK repo)
 - Anthropic harness article: agents used browser automation (Puppeteer MCP) for end-to-end tests. The authors noted limits, such as browser-native alert modals being invisible to the tooling. — [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) (**verified**; 26 Nov 2025)
 
 ### Inferences
@@ -150,4 +150,4 @@ Agents tend to claim success too early unless the harness requires an external c
 - https://docs.openhands.dev/sdk/arch/overview
 - https://packages.nuget.org/packages/TreeSitter.DotNet/ (search snippet only)
 - /home/user/Bazaar/docs/deep-dives/Bazaar.md
-- /home/user/Bazaar/research_notes/Bazaar stack feasibility research/agent_runtime_dotnet.md
+- docs/research/notes/Bazaar stack feasibility research/agent_runtime_dotnet.md

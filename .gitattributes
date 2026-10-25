@@ -23,5 +23,5 @@
 
 # Count the design docs and research as documentation in language statistics.
 docs/** linguist-documentation
-research_notes/** linguist-documentation
-reports/** linguist-documentation
+docs/research/notes/** linguist-documentation
+docs/research/reports/** linguist-documentation

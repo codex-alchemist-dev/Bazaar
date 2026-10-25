@@ -6,7 +6,7 @@ Verification labels used below: **[verified]** = primary source page read in thi
 
 Caveat on the search method: WebFetch was used on a limited set of primary pages (about 9 fetches). Most paper-level numbers below come from search snippets and are marked [secondary]. Several papers were only read at abstract level. Nothing here is a full replication.
 
-Key local context read: `/home/user/Bazaar/docs/deep-dives/Bazaar.md` (Council = DECIDED; Skimmer Bouncer, Psych Ward, Mirror Agent = PROPOSED; no master orchestrator = DECIDED) and `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/agent_runtime_dotnet.md` (its Key Question 4, on GC coordination and gatekeepers, and Key Question 6, on reputation and voting, were explicitly unsourced; this note partly fills those gaps).
+Key local context read: `/home/user/Bazaar/docs/deep-dives/Bazaar.md` (Council = DECIDED; Skimmer Bouncer, Psych Ward, Mirror Agent = PROPOSED; no master orchestrator = DECIDED) and `docs/research/notes/Bazaar stack feasibility research/agent_runtime_dotnet.md` (its Key Question 4, on GC coordination and gatekeepers, and Key Question 6, on reputation and voting, were explicitly unsourced; this note partly fills those gaps).
 
 ---
 

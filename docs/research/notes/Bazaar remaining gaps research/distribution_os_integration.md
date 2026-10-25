@@ -4,7 +4,7 @@ Scope: packaging, updates, signing, OS integration and server upgrades for the B
 
 Labels used: **verified** = primary source read in this session; **secondary** = aggregator, vendor blog, search snippet, or news report; **unverified** = knowledge only, no source read; **gap** = not answered.
 
-Repo inputs read: `/home/user/Bazaar/docs/deep-dives/Bazaar.Windows.md`, `/home/user/Bazaar/docs/deep-dives/Bazaar.Android.md`, `/home/user/Bazaar/docs/deep-dives/Bazaar.Linux.md`, `/home/user/Bazaar/docs/implementation-plan.md`, `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/cicd_repo_licensing.md`.
+Repo inputs read: `/home/user/Bazaar/docs/deep-dives/Bazaar.Windows.md`, `/home/user/Bazaar/docs/deep-dives/Bazaar.Android.md`, `/home/user/Bazaar/docs/deep-dives/Bazaar.Linux.md`, `/home/user/Bazaar/docs/implementation-plan.md`, `docs/research/notes/Bazaar stack feasibility research/cicd_repo_licensing.md`.
 
 ---
 

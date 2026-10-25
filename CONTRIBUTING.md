@@ -14,7 +14,7 @@ scaffolding is being added now.
 
 The design lives in `docs/deep-dives/`. Start with `docs/deep-dives/Bazaar.md`,
 then read the document for the area you plan to touch. Research behind the
-decisions is in `research_notes/` and `reports/`.
+decisions is in `docs/research/notes/` and `docs/research/reports/`.
 
 Each decision carries one of these status tags:
 

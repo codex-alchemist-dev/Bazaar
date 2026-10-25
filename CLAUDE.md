@@ -2,7 +2,7 @@
 
 Bazaar is an open-source platform for a persistent AI software company: agents with their own identity, memory and accounts coordinate in group chats (GCs), with no master orchestrator. Codex Alchemist is the first company on it. The owner is the boss and final tie-breaker.
 
-Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with `Bazaar.md`, then the doc for the area you touch. Research behind them: `research_notes/` and `reports/`. Read the relevant doc before changing an area. Statuses: DECIDED / PROPOSED / REJECTED / RESEARCHED / OPEN. Only DECIDED items are settled; do not build on PROPOSED or OPEN without asking.
+Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with `Bazaar.md`, then the doc for the area you touch. Research behind them: `docs/research/notes/` and `docs/research/reports/`. Read the relevant doc before changing an area. Statuses: DECIDED / PROPOSED / REJECTED / RESEARCHED / OPEN. Only DECIDED items are settled; do not build on PROPOSED or OPEN without asking.
 
 ## Decisions in force (as of 2026-10-24)
 
@@ -40,7 +40,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Vault** source of truth: Markdown files with `[[wiki-links]]` in a git repo; Postgres only indexes them.
 - **Resource Economy** (money budgets) is REJECTED. Limits are quotas plus the Work-Life Simulation.
 - **Build approach (owner, 2026-10-24):** no separate v0.001. Claude (Haiku 5.5 workers directed by the main session) builds Bazaar toward v1.0 directly, with full hygiene: design doc first, tests with every change, build and test before each commit, test-and-fix as you go. Ask the owner about unspecified details instead of assuming.
-- Open items live in each doc's "Open Questions" and in `reports/Bazaar stack feasibility research.md`. Known blockers there (data layer on Windows, subscription routing, bot accounts) must be resolved before building the affected area.
+- Open items live in each doc's "Open Questions" and in `docs/research/reports/Bazaar stack feasibility research.md`. Known blockers there (data layer on Windows, subscription routing, bot accounts) must be resolved before building the affected area.
 
 ## Agents, models and parallelism (mandatory)
 

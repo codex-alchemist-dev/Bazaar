@@ -1,6 +1,6 @@
 # FreeLLMAPI as a Bazaar model gateway: evaluation (as of 2026-10-24)
 
-Scope: evaluate https://github.com/tashfeenahmed/freellmapi against the Bazaar requirements: per-agent hard model whitelists, pass-through of a user's own paid Anthropic key, OpenAI-compatible endpoint, free tokens for cheap agents, and the ToS and security risk. Compared with OmniRoute using the existing notes at `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md`. Not legal advice.
+Scope: evaluate https://github.com/tashfeenahmed/freellmapi against the Bazaar requirements: per-agent hard model whitelists, pass-through of a user's own paid Anthropic key, OpenAI-compatible endpoint, free tokens for cheap agents, and the ToS and security risk. Compared with OmniRoute using the existing notes at `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md`. Not legal advice.
 
 **Evidence labels.** "Verified (primary)" means I read the repository file or docs page through WebFetch. WebFetch returns a model-summarised rendering, so quotes are marked as summarised and should be re-checked against the raw file before they go into a public document. "Secondary" means blogs, aggregators or search summaries. "Unverified" means not confirmed from any source I could read. I did not run, install or clone anything.
 
@@ -91,7 +91,7 @@ No, not on the documented evidence. The docs show one unified key plus unexplain
 - v0.16.0 added "Claude Code tiers" as routing controls, so Claude Code requests can be routed to tiers in the pool. Verified (primary, summarised): [Releases](https://github.com/tashfeenahmed/freellmapi/releases).
 - Claude Code setup: `npx freellmapi setup-claude --url … --api-key <unified-key>` or `setup-claude`/`launch`. Verified (primary, summarised): supported agents doc.
 - Anthropic's terms on routing Claude Code through a third party: Verified (primary, read 2026-10-24): [Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance). Key sentences: "Customers may not pay for, resell, or intermediate Claude usage on their end users' behalf. Each end user must authenticate with their own Anthropic API key, Claude subscription plan credentials, or 3P inference provider credential." Also: "The Claude Code binary must not be modified." And: "Anthropic does not permit third-party developers ... to route requests through Free, Pro, or Max plan credentials on behalf of their users." The same page says configuring an operator's own API key in "a secrets manager ... for use by the customer's own authorized users" is allowed when usage is billed to the key owner. It also says advertised Pro and Max limits "assume ordinary, individual usage." The HIPAA section says "Claude Code routed through a third-party cloud provider or a gateway aren't covered" (a HIPAA configuration note, not a ToS clause).
-- Cross-check with the existing feasibility notes (secondary for this task): [ai_gateway_models.md, section 3](/home/user/Bazaar/research_notes/Bazaar%20stack%20feasibility%20research/ai_gateway_models.md) reports the same legal page and an enforcement timeline (2026-01 to 2026-04) from press sources.
+- Cross-check with the existing feasibility notes (secondary for this task): [ai_gateway_models.md, section 3](docs/research/notes/Bazaar%20stack%20feasibility%20research/ai_gateway_models.md) reports the same legal page and an enforcement timeline (2026-01 to 2026-04) from press sources.
 
 ### Inferences
 - FreeLLMAPI cannot meet the requirement "an agent's key can only reach specific models and never falls back outside them" on the documented evidence. Bazaar would need to verify this in the code (`server/` routing and key scoping), or wrap it with its own allowlist.
@@ -117,7 +117,7 @@ The project's own ToS review (April to June 2026) rates most providers "Likely O
 - Pooling several free-tier keys: the project supports multiple keys per provider (per-key counters and key rotation), and the review's rule of thumb is "one account per provider." Whether multiple accounts per provider are allowed by a given provider was not checked. Unverified.
 - Reselling or sharing: Cerebras says keys "may not be sold or transferred" (per the review table). OpenRouter tightened its no-resale clause in April 2026 (per the review table). Bazaar's use would not resell, but a company gateway serving many agents and users is a grey area under the review's own scope. Unverified against primary provider terms.
 - Non-free-tier risk: a search-result summary says the project notes "free tiers change without notice" and "no SLA" (secondary, search summary only; the wording was not seen in the repo). Unverified against the repo.
-- Subscription and OAuth credentials: the API reference, supported agents doc, and README do not mention Claude Pro/Max, Gemini CLI OAuth or other subscription logins as providers. The Gemini-style route accepts `x-goog-api-key`, and the Gemini CLI setup uses `/v1beta` with "the native wire format." Verified (primary, summarised). Whether the Gemini CLI setup uses a subscription login is not stated. Gap. The feasibility notes flag Google's Gemini CLI and Antigravity quota pooling as undocumented (see [ai_gateway_models.md, section 4](/home/user/Bazaar/research_notes/Bazaar%20stack%20feasibility%20research/ai_gateway_models.md)).
+- Subscription and OAuth credentials: the API reference, supported agents doc, and README do not mention Claude Pro/Max, Gemini CLI OAuth or other subscription logins as providers. The Gemini-style route accepts `x-goog-api-key`, and the Gemini CLI setup uses `/v1beta` with "the native wire format." Verified (primary, summarised). Whether the Gemini CLI setup uses a subscription login is not stated. Gap. The feasibility notes flag Google's Gemini CLI and Antigravity quota pooling as undocumented (see [ai_gateway_models.md, section 4](docs/research/notes/Bazaar%20stack%20feasibility%20research/ai_gateway_models.md)).
 - Web sessions and scraping: no documentation of browser sessions, scraping or consumer-web-endpoint access was found in the docs I read. The Fetch Relay is an HTTP relay for provider APIs. Not verified beyond the docs I read; I did not read the code.
 - The `Premium` plan: the paid tier sells live catalog updates. This is a commercial element in a repo whose own disclaimer says personal use only. Verified (primary, summarised): README.
 
@@ -163,7 +163,7 @@ Keys are encrypted at rest with AES-256-GCM. There is no default password, but a
 
 ## 6. Comparison with OmniRoute
 
-OmniRoute facts below come from the existing notes at `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md` (section 1). I did not re-read the OmniRoute repository for this report. Treat those OmniRoute points as secondary.
+OmniRoute facts below come from the existing notes at `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md` (section 1). I did not re-read the OmniRoute repository for this report. Treat those OmniRoute points as secondary.
 
 | Criterion | FreeLLMAPI (this report) | OmniRoute (from existing notes) |
 |---|---|---|
@@ -219,4 +219,4 @@ On the features Bazaar needs (hard per-agent key pinning and Anthropic pass-thro
 - Docs index: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/en/README.md
 - Anthropic, Claude Code legal and compliance: https://code.claude.com/docs/en/legal-and-compliance
 - Secondary: https://mer.vin/2026/05/freellmapi-stack-free-llm-api-tiers-into-one-openai-endpoint-1b-tokens-month/ ; https://awesome.ecosyste.ms/projects/github.com%2Ftashfeenahmed%2Ffreellmapi ; https://ossinsight.io/analyze/tashfeenahmed/freellmapi ; https://newreleases.io/project/github/tashfeenahmed/freellmapi/release/v0.6.1
-- Existing notes: `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md`
+- Existing notes: `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md`

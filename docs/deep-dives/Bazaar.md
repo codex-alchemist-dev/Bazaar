@@ -11,7 +11,7 @@ Status legend used across every doc in this family:
 
 Treat [PROPOSED] items as a backlog to explicitly accept or cut, not as settled. This whole document family should probably become the seed for the real Constitution/Vault once the repo exists.
 
-**Revision 2026-10-24:** .NET everywhere (server and all clients) and an OS-agnostic server build (Windows as the first supported host) are now DECIDED; research findings that contradict earlier claims are marked inline. Full findings: `reports/Bazaar stack feasibility research.md`.
+**Revision 2026-10-24:** .NET everywhere (server and all clients) and an OS-agnostic server build (Windows as the first supported host) are now DECIDED; research findings that contradict earlier claims are marked inline. Full findings: `docs/research/reports/Bazaar stack feasibility research.md`.
 
 ---
 

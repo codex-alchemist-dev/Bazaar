@@ -1,6 +1,6 @@
 # Bazaar implementation plan (draft, 2026-10-24)
 
-Status: DRAFT for owner review. Built from the status-tagged design docs in `docs/deep-dives/` and the research in `research_notes/` and `reports/`. Only DECIDED items are built on; anything else is a question to the owner first.
+Status: DRAFT for owner review. Built from the status-tagged design docs in `docs/deep-dives/` and the research in `docs/research/notes/` and `docs/research/reports/`. Only DECIDED items are built on; anything else is a question to the owner first.
 
 ## Working method (owner-approved)
 
@@ -16,7 +16,7 @@ Status: DRAFT for owner review. Built from the status-tagged design docs in `doc
 | Language and runtime | C# on .NET 10 LTS, one codebase | owner, 2026-10-24 |
 | Server | One OS-agnostic build; OS-specific parts behind providers | owner, 2026-10-24 |
 | Project names | `Bazaar.Contracts`, `Bazaar.Server`, `Bazaar.Server.Host`, `Bazaar.Sdk`, `Bazaar.Client.Core`, `Bazaar.Client.Windows`, `.Android`, `.Linux` | owner, 2026-10-24 |
-| Database | PostgreSQL 18 + pgvector. Raw Npgsql 10 with one shared `NpgsqlDataSource`, SQL-first repositories, `NpgsqlBatch`, embedded versioned SQL migrations with a small runner (OS-specific extension steps). EF Core only for CRUD-shaped tables if ever needed. Marten is not the core store | delegated to Claude by owner ("modern, performant"); research: `research_notes/Bazaar build tooling research/data_access.md` |
+| Database | PostgreSQL 18 + pgvector. Raw Npgsql 10 with one shared `NpgsqlDataSource`, SQL-first repositories, `NpgsqlBatch`, embedded versioned SQL migrations with a small runner (OS-specific extension steps). EF Core only for CRUD-shaped tables if ever needed. Marten is not the core store | delegated to Claude by owner ("modern, performant"); research: `docs/research/notes/Bazaar build tooling research/data_access.md` |
 | GC log | Append-only table; append and `NOTIFY` in one transaction with a small `{gc_id, seq}` payload; one `LISTEN` connection per process; clients replay from the log on reconnect | research (PostgreSQL NOTIFY docs verified) |
 | Wire format | Shared C# contracts vs Protobuf is OPEN until the first client-server spike. Start with raw WebSocket and an envelope with per-GC sequence numbers | owner: decide at first spike |
 | Cache and pub/sub | Interface; Valkey on Linux, Garnet on Windows (compatibility to be spiked) | owner, 2026-10-24 |
@@ -29,7 +29,7 @@ Status: DRAFT for owner review. Built from the status-tagged design docs in `doc
 
 ### Wave 0 — scaffold (main session, sequential)
 
-`global.json`, solution file, `Directory.Build.props`, `Directory.Packages.props` (central package management), `.editorconfig`, nullable and warnings-as-errors, empty projects with test projects, `build.sh` and `build.ps1` entry points, GitHub Actions workflow on hosted runners. Exact recipe comes from `research_notes/Bazaar build tooling research/`. Done when `dotnet build` and `dotnet test` pass on the empty solution.
+`global.json`, solution file, `Directory.Build.props`, `Directory.Packages.props` (central package management), `.editorconfig`, nullable and warnings-as-errors, empty projects with test projects, `build.sh` and `build.ps1` entry points, GitHub Actions workflow on hosted runners. Exact recipe comes from `docs/research/notes/Bazaar build tooling research/`. Done when `dotnet build` and `dotnet test` pass on the empty solution.
 
 ### Wave 1 — foundation (parallel work packages)
 
@@ -67,4 +67,4 @@ Hyper-V VM backend after the topology benchmark; QEMU/KVM backend later. Engine 
 
 ## Open questions tracked in the docs
 
-See each doc's "Open Questions" section and `reports/Bazaar stack feasibility research.md`.
+See each doc's "Open Questions" section and `docs/research/reports/Bazaar stack feasibility research.md`.

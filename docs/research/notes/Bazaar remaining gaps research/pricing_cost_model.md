@@ -2,7 +2,7 @@
 
 Scope: current per-million-token (MTok) API prices for the lanes Bazaar plans to use, prompt-caching and batch mechanics, Anthropic cost features and rate-limit tiers, a three-scenario monthly cost model for a six-agent team, the levers that matter, and a coarse note on hosting costs. All prices are USD unless a page names another currency. Nothing was installed or run. Figures from WebFetch are a model-summarised rendering of the page, so re-check any figure against the raw page before it goes into a public document.
 
-**Evidence labels.** "Verified (primary)" means the page was fetched in this pass; WebFetch text is a converted rendering, so treat quotes as close paraphrase. "Verified (primary, summarised)" means a summarising model extracted the numbers; re-check them. "Carried" means the fact comes from an existing note in `/home/user/Bazaar/research_notes/` that was read in this pass. "Secondary" and "Unverified" are as defined in the source catalogue. All pricing pages are undated apart from the dates each page states.
+**Evidence labels.** "Verified (primary)" means the page was fetched in this pass; WebFetch text is a converted rendering, so treat quotes as close paraphrase. "Verified (primary, summarised)" means a summarising model extracted the numbers; re-check them. "Carried" means the fact comes from an existing note in `docs/research/notes/` that was read in this pass. "Secondary" and "Unverified" are as defined in the source catalogue. All pricing pages are undated apart from the dates each page states.
 
 **Bottom line.**
 1. Anthropic's current table (verified primary) puts Haiku 5.5 at $0.10 input and $0.50 output per MTok for prompts up to 100K tokens, and Sonnet 5.5 at $2 and $10. Opus 5.5 is $4 and $20. Fable 5.1 is $10 and $50. At the same (typical) token profile, Haiku's cost per call is roughly one-nineteenth of Sonnet's and one-ninety-second of Fable's.
@@ -261,7 +261,7 @@ The lever list below is ordered by estimated dollar effect at the typical profil
 No primary sources were read for NUC hardware, electricity tariffs, VPS pricing, domains or code signing. The only usable form here is the arithmetic. Treat these lines as unverified until the owner supplies the figures.
 
 ### Cited Findings
-- None. No primary source was read for hardware, electricity, VPS (mail or relay), domain registration or code-signing certificate prices. The notes in `/home/user/Bazaar/research_notes/Bazaar gateway sources research/source_catalogue.md` and `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md` contain no hosting or signing prices.
+- None. No primary source was read for hardware, electricity, VPS (mail or relay), domain registration or code-signing certificate prices. The notes in `docs/research/notes/Bazaar gateway sources research/source_catalogue.md` and `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md` contain no hosting or signing prices.
 
 ### Inferences
 - Electricity formula: kWh per month = average watts x 730 hours / 1,000; monthly cost = kWh x local tariff. Illustration only, with assumed inputs: a 20 W average draw gives 14.6 kWh per month; at an assumed tariff of $0.25 per kWh, about $3.65 per month. **Both inputs are assumptions, not measurements.**
@@ -290,8 +290,8 @@ Primary (fetched in this pass; undated unless stated):
 - OpenRouter model-page attempt (no price returned): https://openrouter.ai/deepseek/deepseek-v4-flash
 
 Carried from existing notes (read in this pass, not re-fetched):
-- `/home/user/Bazaar/research_notes/Bazaar gateway sources research/source_catalogue.md` (OpenRouter limits, Cerebras limits, Cloudflare pricing, Gemini rate-limit tiers, Gemini CLI quota)
-- `/home/user/Bazaar/research_notes/Bazaar stack feasibility research/ai_gateway_models.md` (model names, DeepSeek IDs, Fable report, token-compression claims)
+- `docs/research/notes/Bazaar gateway sources research/source_catalogue.md` (OpenRouter limits, Cerebras limits, Cloudflare pricing, Gemini rate-limit tiers, Gemini CLI quota)
+- `docs/research/notes/Bazaar stack feasibility research/ai_gateway_models.md` (model names, DeepSeek IDs, Fable report, token-compression claims)
 - Gemini rate limits: https://ai.google.dev/gemini-api/docs/rate-limits
 - OpenRouter limits: https://openrouter.ai/docs/api/reference/limits
 - Cerebras limits: https://inference-docs.cerebras.ai/support/rate-limits
