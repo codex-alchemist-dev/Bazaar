@@ -101,10 +101,10 @@ Late or repeated wakes are harmless because the cursor makes the fetch idempoten
 ## Data and interfaces
 
 ```csharp
-record Envelope(int V, string T, Kind K, string? Id, string? Re, string? S, long? N, DateTimeOffset Ts, ReadOnlyMemory<byte> P);
+record Envelope(int V, string T, EnvelopeKind K, string? Id, string? Re, string? S, long? N, DateTimeOffset? Ts, ReadOnlyMemory<byte> P); // Ts absent on client frames
 interface IWireCodec { string Name { get; } bool IsBinary { get; }
-  void Encode(in Envelope e, IBufferWriter<byte> w); Envelope Decode(ReadOnlySpan<byte> frame);
-  T DecodePayload<T>(in Envelope e); }
+  void Encode(in Envelope e, IBufferWriter<byte> w); Envelope Decode(ReadOnlySpan<byte> frame);   // Decode throws WireFormatException (close 4400)
+  ReadOnlyMemory<byte> EncodePayload<T>(T payload); T DecodePayload<T>(in Envelope e); }
 interface IConnectionAuthenticator { ValueTask<AuthResult> AuthenticateAsync(HelloCredential cred, DeviceInfo device, CancellationToken ct); }
 record AuthResult(bool Ok, PrincipalRef? Principal, string? DeviceId, DateTimeOffset? ExpiresAt, string? Reason);
 interface IPushNotifier { Task WakeAsync(string deviceId, WakeHint hint, CancellationToken ct); }
