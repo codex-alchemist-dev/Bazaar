@@ -60,8 +60,12 @@ Bazaar uses the [Developer Certificate of Origin](https://developercertificate.o
 (DCO). Human contributors sign off their own commits with `git commit -s`, which
 adds a `Signed-off-by:` line.
 
-Pull requests are squash-merged. At merge, the owner adds a `Signed-off-by:`
-line to the squashed commit. Do not add that line on someone else's behalf.
+Pull requests are squash-merged. The sponsor adds a `Signed-off-by:` line to the
+pull request description, and the squash-merge commit carries it onto the default
+branch. The repository setting "Default commit message for squash merges" must be
+"Pull request title and description" for this to work. The sign-off check in
+`.github/workflows/pr-sponsor.yml` runs on non-draft pull requests. Do not add
+that line on someone else's behalf.
 
 ## AI-agent contributions
 
