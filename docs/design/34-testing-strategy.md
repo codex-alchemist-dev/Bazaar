@@ -7,21 +7,19 @@ Depends on: 01-gc-data-model.md, 02-wire-protocol-and-sync.md, 04-postgres-schem
 Defines how Bazaar proves its own code and its agents' work: the test layers, what runs without real models or displays, what gates a merge, and how the server, not an agent's claim, decides work is done.
 
 ## Decided inputs
-- xUnit v3 everywhere first; TUnit may be added later; xUnit pin `xunit.v3.mtp-v2` 3.2.2 approved as a tool. (CLAUDE.md; implementation-plan.md; DECISIONS-LOG round 10, C37)
-- Every behaviour change ships with a test; UI changes get Avalonia.Headless tests. (CLAUDE.md)
-- Build and tests run before every commit; data tests use real PostgreSQL. (implementation-plan.md)
-- **Server verifies, agent self-reports never count:** the server runs clean builds and tests. (DECISIONS-LOG round 10, C37, 2026-10-25; CLAUDE.md wording pending the reconciliation pass)
+- xUnit v3 everywhere first; TUnit later; pin `xunit.v3.mtp-v2` 3.2.2 as a tool. Every behaviour change ships with a test; UI changes get Avalonia.Headless tests; builds and tests run before every commit; data tests use real PostgreSQL. (CLAUDE.md; implementation-plan.md; DECISIONS-LOG round 10, C37)
+- **Server verifies, agent self-reports never count:** the server runs clean builds and tests. (DECISIONS-LOG round 10, C37, 2026-10-25; CLAUDE.md wording pending)
 - Per-agent model whitelists are enforced by Bazaar.Server, so policy tests hit the server, never the prompt. (CLAUDE.md; 05)
-- GCs are append-only; edits are new full copies per version (`gc_message_version`). Golden tests compare GC history including edits. (CLAUDE.md; DECISIONS-LOG round 1, C09)
-- Resource Economy is REJECTED, so no test asserts a money gate; the Work-Life Simulation replaces rate limits, and real 429s are handled as data. (CLAUDE.md; Bazaar.md)
-- Council votes are independent before reasoning is revealed; Thinking-GC text and vote reasoning stay out of other agents' context until the reveal. (Bazaar.md §5; DECISIONS-LOG rounds 3 and 9, C11, C32)
-- Taint: external content taints hard; agent text taints softly and propagates only from a tainted source session; Tier 2 actions are gated on hard taint; a fresh-session path with an approved summary exists. (DECISIONS-LOG round 2, C06)
-- Reader/actor split ships in v1 for external input (email, issues, web, forums); reader sessions hand over summaries. (DECISIONS-LOG round 6, C18: owner statement, Claude's reading to confirm, see Q13)
+- GCs are append-only; each edit is a full copy (`gc_message_version`); golden tests compare history including edits. (CLAUDE.md; DECISIONS-LOG round 1, C09)
+- Resource Economy is REJECTED: no money-gate tests; real 429s are handled as data. (CLAUDE.md; Bazaar.md)
+- Council votes are sealed until the reveal; Thinking-GC text and vote reasoning stay out of other agents' context until then. (Bazaar.md §5; DECISIONS-LOG rounds 3 and 9, C11, C32)
+- Taint: external content taints hard; agent text taints softly, only from a tainted source session; Tier 2 is gated on hard taint; a fresh-session path with an approved summary exists. (DECISIONS-LOG round 2, C06)
+- Reader/actor split ships in v1 for external input; reader sessions hand over summaries. (DECISIONS-LOG round 6, C18: owner statement, Claude's reading to confirm, Q14)
 - Approval tiers follow 15's ladder with 36's stricter community defaults. (DECISIONS-LOG round 7, C21)
-- Loop-guard trips send the agents involved to the Psych Ward; unmentioned messages wake an agent only through Skimmer promotion under a cap, after shadow-mode measurement; interrupts use a depth-2 stack and only `emergency` bypasses vacation. (DECISIONS-LOG rounds 3, 9; C08, C34, C35)
-- Claude member uses both the owner's Anthropic API key and FreeLLMAPI free tokens, by availability, labelled by source; subscription (Pro/Max) logins stay off every route. (CLAUDE.md; DECISIONS-LOG round 4, C14)
-- Model seam: `ModelEvent` types with an `IChatClient` adapter shipped in v1. (DECISIONS-LOG round 8, C29)
-- One server-side `ISecretStore`; git pushes run host-side; planted keys must be absent from logs and spans. (DECISIONS-LOG round 2, C05)
+- Loop-guard trips send the agents involved to the Psych Ward; unmentioned messages wake only via capped Skimmer promotion after shadow-mode measurement; interrupts use a depth-2 stack, and only `emergency` bypasses vacation. (DECISIONS-LOG rounds 3, 9; C08, C34, C35)
+- Claude member uses the owner's Anthropic API key and FreeLLMAPI free tokens, by availability, labelled by source; subscription (Pro/Max) logins stay off every route. (CLAUDE.md; DECISIONS-LOG round 4, C14)
+- Model seam: `ModelEvent` types with an `IChatClient` adapter in v1. (DECISIONS-LOG round 8, C29)
+- One server-side `ISecretStore`; git pushes run host-side; planted keys absent from logs and spans. (DECISIONS-LOG round 2, C05)
 - A PR-linked card is Done only when its PR is merged. (DECISIONS-LOG round 8, C28)
 - Subagents run on Haiku 5.5. Real GC transcripts and Soul data never enter the public repo. (CLAUDE.md)
 
@@ -154,7 +152,7 @@ Key domain cases (PROPOSED, each in the layer shown):
 3. **Public CI versus live and Windows needs.** Evals need keys, so they run privately. Hosted Windows runners have no Linux containers, so Windows database tests depend on an unverified PostgreSQL install. Headless Avalonia on a hosted Windows runner is also unverified (cicd_repo_licensing.md).
 4. **Pixel goldens** differ by OS font rasterisation.
 5. **CI engine undecided** (Bazaar.Server.md Q3). This doc assumes GitHub Actions.
-6. **Reader/actor split (other docs).** C18 puts it in v1 for external input, but Bazaar.Server.md item 13 still says "OPEN for later" and 15 says "Not built in v1". Those docs must change; this doc's tests follow C18 pending Q13.
+6. **Reader/actor split (other docs).** C18 puts it in v1 for external input, but Bazaar.Server.md item 13 still says "OPEN for later" and 15 says "Not built in v1". Those docs must change; this doc's tests follow C18 pending Q14.
 7. **CLAUDE.md** does not yet carry the C37 items (verification rule, approved names and tools) or the C14 and C18 wording. Pending the reconciliation pass.
 
 ## Questions for the owner
@@ -171,6 +169,6 @@ Key domain cases (PROPOSED, each in the layer shown):
 11. Performance: trend-only until spike numbers exist, then thresholds? Default: yes.
 12. Red-team corpus: synthetic payloads public, real incidents referenced only? Default: yes.
 13. Hyper-V and VM tests: manual or nightly on the NUC in the private repo? Default: nightly.
-14. Confirm Claude's reading of C18: the reader/actor split ships in v1 for external input, and tests in WP14 follow it. Default: yes.
-15. "Bigger changes" that need your vote when the team vote is split or tied (C32): default candidates are new agent, promotion to senior, retirement and whitelist change; "eligible voter" defaults to agents seated in the GC holding the vote. Needed before the Council tie tests can be finished.
-16. Erasure tests for Vault Markdown files and git history (C01, C38 consequence, FOLLOW-UP): default: personal content in Vault pages is encrypted per person, key destruction plus tombstone, history not rewritten. Needed before the erasure tests can be written.
+14. Confirm Claude's reading of C18 (reader/actor split as the v1 mechanism for external input; WP14 follows it). Default: yes.
+15. Which changes are "bigger" and need your vote when a team vote is split or tied (C32)? Default: new agent, promotion to senior, retirement, whitelist change; eligible voters are the agents seated in the voting GC. Needed to finish the Council tie tests.
+16. Erasure in Vault Markdown and git history (C01, C38; FOLLOW-UP). Default: personal Vault content encrypted per person, key destruction plus tombstone, history not rewritten. Needed before erasure tests.

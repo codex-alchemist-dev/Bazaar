@@ -9,15 +9,12 @@ Seven v1 company systems that turn the GC record, the Vault and the project repo
 ## Decided inputs
 - All seven are v1 scope (Bazaar.md §4, owner 2026-10-24). Their designs below are [PROPOSED].
 - No master orchestrator; GCs are the coordination system; other systems serve GCs and never replace them (Bazaar.md §1–2).
-- GC history is append-only; edits keep every version. The log is `gc_event`, `gc_message` and `gc_message_version` (01; DECISIONS-LOG round 1, C09).
+- GC history is append-only; edits keep every version, in `gc_event`, `gc_message` and `gc_message_version` (01; DECISIONS-LOG round 1, C09).
 - Resource Economy is REJECTED. No money budgets in any system here (Bazaar.md §4).
 - Each agent owns its private memory; there is no shared brain (Bazaar.md §5).
-- The Vault holds every durable written artifact: memories, decisions, plans, research, the Constitution, Twin pages and the Archive. Postgres holds the GC log, structured state and indexes over Vault files (DECISIONS-LOG round 11, C38; CLAUDE.md Vault line). Company knowledge has no free-standing Postgres rows.
-- Decision records are `decisions/NNNN-slug.md`, written only through `VaultWriter` (18; DECISIONS-LOG round 7, C24).
-- Git access goes through `IGitProvider` (17, 18, 21; DECISIONS-LOG round 3, C12).
-- Derived stores are fed by GC events over Postgres NOTIFY; no Valkey or Garnet dependency (04; DECISIONS-LOG round 1, C07).
-- Thinking GC text is never published; vote reasoning is withheld until the joint reveal (10, 26; DECISIONS-LOG round 3, C11).
-- Install data never leaves its install (Bazaar.md §1). Soul exports carry no memories, accounts or reputation (Bazaar.md §4).
+- The Vault holds every durable written artifact, including memories, decisions, Twin pages and the Archive. Postgres holds the GC log, structured state and indexes over Vault files (DECISIONS-LOG round 11, C38). Decision records are `decisions/NNNN-slug.md`, written only through `VaultWriter` (18; round 7, C24). Git access goes through `IGitProvider` (round 3, C12).
+- Derived stores are fed by GC events over Postgres NOTIFY, with no Valkey or Garnet dependency (04; round 1, C07). Thinking GC text is never published; vote reasoning is withheld until the joint reveal (10, 26; round 3, C11).
+- Install data never leaves its install; Soul exports carry no memories, accounts or reputation (Bazaar.md §1, §4).
 - Reputation combines peer reviews and hard outcomes (Bazaar.md §5). Weights are OPEN.
 - Promotions, hiring (Talent Pool) and retirement run as Council votes. A unanimous vote passes; a split or tied vote on a bigger change escalates to the owner (DECISIONS-LOG round 9, C32).
 
@@ -73,7 +70,7 @@ The example's `origin_kind` value is a placeholder until 15 confirms its enum.
 - Clients read cached views only, over the 02 socket and HTTP surface. All computation runs on the server.
 
 ## Testing
-No real model or display. Real Postgres (Testcontainers) for rollups, rebuilds, chains and grants. Real Git repos in temp directories for the Vault paths. A fake gateway returns scripted prose. Key cases:
+No real model or display. Real Postgres (Testcontainers) for rollups, rebuilds, chains and grants; a fake gateway returns scripted prose. Key cases:
 - Rebuild from identical sources yields identical fact IDs and rollups.
 - A missing CI run produces a gap, not a zero.
 - A Hive copy of a T1 lesson, Vault text, or a subject-tagged item is refused. Revoking a grant deprecates copies.
