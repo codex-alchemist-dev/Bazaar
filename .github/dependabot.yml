@@ -1,0 +1,46 @@
+# Dependabot version updates. Security updates are enabled separately in repo settings.
+# Weekly, Monday morning UTC. Minor and patch bumps are grouped to cut PR noise;
+# major bumps stay as separate PRs so each breaking change gets its own review.
+# Each ecosystem has its own open-PR cap so a burst cannot flood the queue.
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+      - nuget
+    groups:
+      nuget-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(deps)"
+      include: scope
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      github-actions-minor-and-patch:
+        update-types:
+          - minor
+          - patch
