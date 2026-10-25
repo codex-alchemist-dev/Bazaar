@@ -4,7 +4,7 @@
 
 Bazaar is an open-source platform for a persistent AI software company: agents
 with their own identity, memory and accounts coordinate in group chats, with no
-master orchestrator. The server is a .NET 10 program, and the clients are
+master orchestrator. The server is a .NET 11 program, and the clients are
 Avalonia applications that render what the server computes.
 
 The project is pre-alpha. Most of what exists is design, and the code
@@ -34,7 +34,11 @@ review (see `.github/CODEOWNERS`).
 
 ## Building and testing
 
-You need the .NET 10 SDK. The exact version is pinned in `global.json`.
+You need the .NET 11 SDK. The exact version is pinned in `global.json`.
+
+Forward-facing compatibility: write for the newest supported .NET. Use current
+APIs, avoid obsolete or deprecated ones (warnings are errors), and never pin to
+or add code paths for an older runtime. See `CLAUDE.md` and `docs/design/DECISIONS-LOG.md` round 15.
 
 - Linux and macOS: `./build.sh`
 - Windows: `./build.ps1`
