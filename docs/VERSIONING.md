@@ -1,6 +1,6 @@
 # Versioning and release channels
 
-Status: DECIDED by the owner (2026-10-25) where marked; codenames after v1 are [PROPOSED].
+Status: DECIDED by the owner (2026-10-25) where marked; codenames v2, v3 and v5 are owner-accepted; v4 is Wormwood (owner-accepted).
 Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.md` and `common/version.py`). This scheme differs from RESIBO's in three places: SemVer instead of per-PR counters, star-and-alchemy codenames instead of minerals, and immutable release tags.
 
 ## 1. Version numbers [DECIDED]
@@ -29,7 +29,7 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 
 **Bumping:** the PR that merges into `main` bumps `VersionPrefix` when it completes a milestone (0.x) or changes the public surface (1.x and later). A release is an annotated tag `vX.Y.Z[-pre]` on `main`; tags are immutable.
 
-## 2. Major-version codenames [DECIDED theme; names after v1 PROPOSED]
+## 2. Major-version codenames [DECIDED theme; all names through v5 owner-accepted]
 
 Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is **words that belong to both alchemy and the stars**. The list grows only as majors ship (RESIBO's rule: don't front-load it). `ProductVersion` holds only names that are in use.
 
@@ -37,10 +37,10 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 |---|---|---|
 | v0.x | Beta | Placeholder for the pre-release period. |
 | v1.0.0 | **Zuhal** (owner-picked, 2026-10-25) | Arabic name of Saturn, a wandering star; alchemists tied Saturn to lead, the base metal the Great Work starts from. |
-| v2.0.0 | Yliaster [PROPOSED] | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
-| v3.0.0 | Xerion [PROPOSED] | The dry powder of the stone, the root of "elixir". X is thin, like RESIBO's X; Xanthosis (the solar "yellowing" stage) is the alternate. |
-| v4.0.0 | Wandering Star [PROPOSED] | The planets of antiquity, each ruling one of the seven alchemical metals. |
-| v5.0.0 | Venus [PROPOSED] | A planet, and the alchemical name for copper. |
+| v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
+| v3.0.0 | **Xerion** (owner-accepted, 2026-10-25) | The dry powder of the stone, the root of "elixir". X is thin, like RESIBO's X. |
+| **Wormwood** (owner-accepted, 2026-10-25) | A bitter medicinal herb in old pharmacopoeias, and the star Wormwood, which falls in Revelation 8:10-11 and makes the waters bitter. The alchemy link is the weaker of the two halves. |
+| v5.0.0 | **Venus** (owner-accepted, 2026-10-25) | A planet, and the alchemical name for copper. |
 
 Codename art and banners (About screen, credits, server status page) are kept for every codename forever. An LTSC install on an old major must still show its own name (RESIBO's retention rule).
 
