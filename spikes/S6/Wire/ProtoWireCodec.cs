@@ -32,41 +32,49 @@ public sealed class ProtoWireCodec : IWireCodec
             m.P.ToByteArray());
     }
 
-    public void EncodePayload<T>(T payload, IBufferWriter<byte> w)
-    {
-        IMessage msg = payload switch
-        {
-            Hello h => ToProto(h),
-            Subscribe s => new P.Subscribe { Streams = { s.Streams.Select(x => new P.StreamRef { S = x.S, After = x.After, EditAfter = x.EditAfter }) } },
-            GcMessage g => ToProto(g),
-            GcPage g => new P.GcPage { Items = { g.Items.Select(ToProto) } },
-            Lagged l => new P.Lagged { S = l.S, LastSent = l.LastSent },
-            GcMessageV11 g => new P.GcMessageV11
-            {
-                GcId = g.GcId, N = g.N, Ev = g.Ev, MessageId = g.MessageId, AuthorId = g.AuthorId, Text = g.Text,
-                TsUnixMs = g.Ts.ToUnixTimeMilliseconds(), Edited = g.Edited, Mentions = { g.Mentions }, ThreadId = g.ThreadId ?? "",
-            },
-            _ => throw new NotSupportedException(typeof(T).Name),
-        };
-        msg.WriteTo(w);
-    }
+    public void EncodePayload<T>(T payload, IBufferWriter<byte> w) => ToMessage(payload!).WriteTo(w);
 
     public T DecodePayload<T>(in Envelope e)
     {
         var s = e.P.Span;
-        object o = typeof(T) switch
+        IMessage m = typeof(T) switch
         {
-            var t when t == typeof(Hello) => FromProto(P.Hello.Parser.ParseFrom(s)),
-            var t when t == typeof(Subscribe) => new Subscribe(P.Subscribe.Parser.ParseFrom(s).Streams
-                .Select(x => new StreamRef(x.S, x.After, x.EditAfter)).ToArray()),
-            var t when t == typeof(GcMessage) => FromProto(P.GcMessage.Parser.ParseFrom(s)),
-            var t when t == typeof(GcPage) => new GcPage(P.GcPage.Parser.ParseFrom(s).Items.Select(FromProto).ToArray()),
-            var t when t == typeof(Lagged) => FromProto(P.Lagged.Parser.ParseFrom(s)),
-            var t when t == typeof(GcMessageV11) => FromProto(P.GcMessageV11.Parser.ParseFrom(s)),
+            var t when t == typeof(Hello) => P.Hello.Parser.ParseFrom(s),
+            var t when t == typeof(Subscribe) => P.Subscribe.Parser.ParseFrom(s),
+            var t when t == typeof(GcMessage) => P.GcMessage.Parser.ParseFrom(s),
+            var t when t == typeof(GcPage) => P.GcPage.Parser.ParseFrom(s),
+            var t when t == typeof(Lagged) => P.Lagged.Parser.ParseFrom(s),
+            var t when t == typeof(GcMessageV11) => P.GcMessageV11.Parser.ParseFrom(s),
             _ => throw new NotSupportedException(typeof(T).Name),
         };
-        return (T)o;
+        return (T)FromMessage(m);
     }
+
+    internal static IMessage ToMessage(object payload) => payload switch
+    {
+        Hello h => ToProto(h),
+        Subscribe s => new P.Subscribe { Streams = { s.Streams.Select(x => new P.StreamRef { S = x.S, After = x.After, EditAfter = x.EditAfter }) } },
+        GcMessage g => ToProto(g),
+        GcPage g => new P.GcPage { Items = { g.Items.Select(ToProto) } },
+        Lagged l => new P.Lagged { S = l.S, LastSent = l.LastSent },
+        GcMessageV11 g => new P.GcMessageV11
+        {
+            GcId = g.GcId, N = g.N, Ev = g.Ev, MessageId = g.MessageId, AuthorId = g.AuthorId, Text = g.Text,
+            TsUnixMs = g.Ts.ToUnixTimeMilliseconds(), Edited = g.Edited, Mentions = { g.Mentions }, ThreadId = g.ThreadId ?? "",
+        },
+        _ => throw new NotSupportedException(payload.GetType().Name),
+    };
+
+    internal static object FromMessage(IMessage m) => m switch
+    {
+        P.Hello h => FromProto(h),
+        P.Subscribe s => new Subscribe([.. s.Streams.Select(x => new StreamRef(x.S, x.After, x.EditAfter))]),
+        P.GcMessage g => FromProto(g),
+        P.GcPage g => new GcPage([.. g.Items.Select(FromProto)]),
+        P.Lagged l => FromProto(l),
+        P.GcMessageV11 g => FromProto(g),
+        _ => throw new NotSupportedException(m.GetType().Name),
+    };
 
     private static P.Hello ToProto(Hello h) => new()
     {

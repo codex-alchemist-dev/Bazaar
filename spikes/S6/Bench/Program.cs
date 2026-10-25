@@ -5,7 +5,7 @@ using Spike.S6.Wire;
 
 // Bytes and time for a 200-message page (one frame) and a 10k replay (one frame per message).
 // Single process, Release, warm-up first. Output is one line per measure, for the spike record.
-IWireCodec[] codecs = [new JsonWireCodec(), new ProtoWireCodec()];
+IWireCodec[] codecs = [new JsonWireCodec(), new ProtoWireCodec(), new ProtoJsonWireCodec()];
 var all = Corpus.Messages(10_000);
 var page = all.Take(200).ToArray();
 int runs = 3;

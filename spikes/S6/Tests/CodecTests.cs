@@ -6,7 +6,7 @@ namespace Spike.S6.Tests;
 
 public class CodecTests
 {
-    public static TheoryData<IWireCodec> Codecs => new() { new JsonWireCodec(), new ProtoWireCodec() };
+    public static TheoryData<IWireCodec> Codecs => new() { new JsonWireCodec(), new ProtoWireCodec(), new ProtoJsonWireCodec() };
 
     private static byte[] Frame(IWireCodec c, string type, Kind k, object payload, string? s = null, long? n = null, string? id = null)
     {
