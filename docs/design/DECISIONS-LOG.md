@@ -87,3 +87,12 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | C33 Usage table | **RESOLVED**: one gateway-owned `gw_usage` table with 5-minute and 1-hour cache-write columns; `usage_record` is dropped. | Docs 04, 05, 23. |
 | C34 Loop guard trip | **RESOLVED**: the agents involved go to the Psych Ward on any trip (no separate 15-minute break). | Doc 26 stands; docs 06, 09 and 15 drop their own "mandatory walk" definitions in favour of the ward. |
 | C35 Interrupts | **RESOLVED**: doc 24's per-agent interrupt stack (depth 2); an owner interrupt bypasses vacation only when tagged `emergency`. | Doc 06's flat `Interrupt` is replaced by doc 24's push contract; doc 09 adopts the `emergency` tag. |
+
+## Round 10 (2026-10-25)
+
+| Register | Decision | Effect on the docs |
+|---|---|---|
+| C36 Shared defaults | **RESOLVED**: one quota/limits table in doc 15 holds shared defaults; each subsystem doc owns its own specific limits. | Docs 02, 05, 06, 13, 22, 32, 36 reference doc 15's table for shared limits. |
+| C37 CLAUDE.md gaps | **RESOLVED**: approve adding the new project names, tools and the verification rule as DECIDED: the server runs clean builds and tests and agent self-reports never count. | Applied to CLAUDE.md in the reconciliation pass. |
+| C39 Embeddings | **RESOLVED**: one embedding profile per install, chosen at setup, stored as `halfvec`. | Docs 04 and 08 drop the fixed 1024-dimension `vector`. |
+| C38 Company knowledge | **FOLLOW-UP (owner asked a clarifying question):** "Want memory itself, even per agent, always a part of vault?" The register entry was only about company-wide and cross-project knowledge, not each agent's private memory; being re-asked with clearer options. | Held until answered. |
