@@ -59,6 +59,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
+      # Real PostgreSQL for tests that touch SQL (no in-memory substitute). Linux only: hosted
+      # Windows runners cannot run Linux containers. Tests read the connection string from BAZAAR_TEST_PG.
+      - name: Start PostgreSQL 18 with pgvector (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+            --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
+            pgvector/pgvector:pg18
+          for _ in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            sleep 1
+          done
+          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
+          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+
       - name: Build and test (Linux)
         if: runner.os == 'Linux'
         run: ./build.sh
