@@ -117,7 +117,7 @@ public sealed class SettingDefinitionTests
     {
         var result = Eval(HostSettings.ShutdownTimeoutSeconds, "30", _agentActor);
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
-        Assert.Contains("only by _operator", result.Reason);
+        Assert.Contains("only by Operator", result.Reason);
     }
 
     [Theory]
