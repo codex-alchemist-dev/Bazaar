@@ -110,6 +110,10 @@ Systems with their own dedicated doc are marked; read there for full detail.
 
 ---
 
+### v1.0 scope of the named systems (owner, 2026-10-24)
+
+**[DECIDED 2026-10-24, owner]** In the build toward v1.0: Observatory, Company Constitution, Organizational Chart, Interrupt System, Company Calendar, Health System and Analytics, Digital Twin, Skimmer Bouncer, Psych Ward and the vent post, What If Engine and Time Machine (historical replay), Mirror Agent, I'm Feeling Lucky and Playtest Mode. These move from PROPOSED to planned for v1; their detailed designs are still to be written. **[RESEARCHED caveat]** No source measured a cheap gatekeeper's miss rate on chat; the Skimmer Bouncer is PROPOSED to start defer-only (never drop a message) with digests until its miss rate is measured on real GC transcripts. Not yet scoped: Identity Service, Bazaar Archive, Talent Pool, Genetic Memory Transfer, Cross-Project Hive Mind, Company Memory, Bazaar SDK, GC metadata, scam-baiting.
+
 ## 5. Memory, Reputation, Voting
 
 - **[DECIDED]** Each agent owns: private memory, shared project memory, working memory, long-term experience, lessons learned, preferences, failures, reputation. No shared brain.
