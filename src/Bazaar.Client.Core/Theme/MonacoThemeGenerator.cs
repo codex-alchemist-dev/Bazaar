@@ -9,7 +9,7 @@ namespace Bazaar.Client.Core.Theme;
 /// </summary>
 public static class MonacoThemeGenerator
 {
-    private static readonly (string Token, string Key)[] SyntaxRules =
+    private static readonly (string Token, string Key)[] _syntaxRules =
     [
         ("", "color.syntax.default"),
         ("keyword", "color.syntax.keyword"),
@@ -22,7 +22,7 @@ public static class MonacoThemeGenerator
     public static string Generate(ThemeDefinition theme)
     {
         var rules = new JsonArray();
-        foreach ((string token, string key) in SyntaxRules)
+        foreach ((string token, string key) in _syntaxRules)
         {
             rules.Add(new JsonObject
             {

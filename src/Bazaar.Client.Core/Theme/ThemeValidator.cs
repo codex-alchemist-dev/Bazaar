@@ -13,22 +13,22 @@ namespace Bazaar.Client.Core.Theme;
 /// </summary>
 public static partial class ThemeValidator
 {
-    private const int MaxInputLength = 256 * 1024;
+    private const int _maxInputLength = 256 * 1024;
 
-    private static readonly string[] ForbiddenFragments =
+    private static readonly string[] _forbiddenFragments =
     [
         "//", "www.", "url(", "@import", "javascript:", "vbscript:", "data:", "expression(", "<", ">", "{", "}", "\\",
     ];
 
-    private static readonly HashSet<string> TopLevelFields = new(StringComparer.Ordinal) { "schemaVersion", "name", "base", "tokens" };
+    private static readonly HashSet<string> _topLevelFields = new(StringComparer.Ordinal) { "schemaVersion", "name", "base", "tokens" };
 
     /// <summary>Loads and validates a theme file. Never throws on bad input; problems come back as issues.</summary>
     public static ThemeLoadResult Validate(string json)
     {
         var issues = new List<ThemeIssue>();
-        if (json.Length > MaxInputLength)
+        if (json.Length > _maxInputLength)
         {
-            issues.Add(new ThemeIssue("", "too-large", $"Theme file is larger than {MaxInputLength} characters."));
+            issues.Add(new ThemeIssue("", "too-large", $"Theme file is larger than {_maxInputLength} characters."));
             return Reject(issues);
         }
 
@@ -61,7 +61,7 @@ public static partial class ThemeValidator
             CheckDuplicateKeys(root, "", issues);
             foreach (JsonProperty property in root.EnumerateObject())
             {
-                if (!TopLevelFields.Contains(property.Name))
+                if (!_topLevelFields.Contains(property.Name))
                 {
                     issues.Add(new ThemeIssue("/" + property.Name, "unknown-field", "Unknown top-level field."));
                 }
@@ -334,7 +334,7 @@ public static partial class ThemeValidator
 
     private static void CheckText(string text, string path, List<ThemeIssue> issues)
     {
-        string? fragment = ForbiddenFragments.FirstOrDefault(f => text.Contains(f, StringComparison.OrdinalIgnoreCase));
+        string? fragment = _forbiddenFragments.FirstOrDefault(f => text.Contains(f, StringComparison.OrdinalIgnoreCase));
         if (fragment is not null)
         {
             issues.Add(new ThemeIssue(path, "unsafe-content", $"Text contains \"{fragment}\". URLs, markup, scripts and remote fonts are not allowed."));
