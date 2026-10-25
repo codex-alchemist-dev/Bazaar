@@ -7,7 +7,7 @@ namespace Bazaar.Server.Tests.Gateway.Adapters.OpenAi;
 
 public class OpenAiChatRequestTests
 {
-    private const string WeatherSchema = """{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}""";
+    private const string _weatherSchema = """{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}""";
 
     private static JsonElement SentBody(StubHandler handler)
     {
@@ -34,7 +34,7 @@ public class OpenAiChatRequestTests
                 new ModelMessage(ModelRole.Assistant, "Checking.", ToolCalls: [new ModelToolCall("call_1", "get_weather", "{\"city\":\"Lisbon\"}")]),
                 new ModelMessage(ModelRole.Tool, "{\"tempC\":21}", ToolCallId: "call_1"),
             ],
-            [new ModelToolDefinition("get_weather", "Get the weather.", WeatherSchema)],
+            [new ModelToolDefinition("get_weather", "Get the weather.", _weatherSchema)],
             MaxOutputTokens: 256,
             Temperature: 0.2);
         var handler = HandlerWithEmptyStream();
