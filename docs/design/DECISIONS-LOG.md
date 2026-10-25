@@ -78,3 +78,12 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | C28 Done meaning | **RESOLVED**: for a card tied to a PR, Done = the PR is merged; reviewer approval is a visible flag. | Doc 12 changes (it used reviewer approval as Done). |
 | C29 Model seam | **RESOLVED**: Bazaar's `ModelEvent` types are the seam, with an `IChatClient` adapter shipped in v1. | Docs 05, 06 conform; the adapter lets Microsoft libraries plug in. |
 | C30 Ingress | **RESOLVED**: the home host accepts no inbound connections by default: it polls GitHub and mail providers; a tunnel or overlay is optional for real-time webhooks. | Docs 21, 22, 32 default to pull/poll; the Cloudflare Worker-posts-to-home design in the email note is an optional upgrade. |
+
+## Round 9 (2026-10-25)
+
+| Register | Decision | Effect on the docs |
+|---|---|---|
+| C32 Promotion and role management | **RESOLVED (owner statement)**: members, roles and similar are managed entirely by the group, even with no human present. Bigger changes need a vote from the boss only when the team vote is not already perfect (unanimous) or is tied. **FOLLOW-UP:** define "bigger changes" (candidates: new agent, promotion to senior, retirement, changing a model whitelist) and who counts as an eligible voter for "perfect". | Docs 07, 10, 11, 24: promotions, hiring (Talent Pool) and retirement run as Council votes; a unanimous vote passes without the owner; split or tied votes on bigger changes escalate to the owner. Doc 11's weights feed the debate, not an owner approval step. |
+| C33 Usage table | **RESOLVED**: one gateway-owned `gw_usage` table with 5-minute and 1-hour cache-write columns; `usage_record` is dropped. | Docs 04, 05, 23. |
+| C34 Loop guard trip | **RESOLVED**: the agents involved go to the Psych Ward on any trip (no separate 15-minute break). | Doc 26 stands; docs 06, 09 and 15 drop their own "mandatory walk" definitions in favour of the ward. |
+| C35 Interrupts | **RESOLVED**: doc 24's per-agent interrupt stack (depth 2); an owner interrupt bypasses vacation only when tagged `emergency`. | Doc 06's flat `Interrupt` is replaced by doc 24's push contract; doc 09 adopts the `emergency` tag. |
