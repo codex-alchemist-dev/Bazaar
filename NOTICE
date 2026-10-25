@@ -1,0 +1,27 @@
+Bazaar
+Copyright (c) 2026 The Bazaar Authors
+
+Licensing
+
+This repository uses more than one licence, split by directory:
+
+- The repository as a whole, including the Bazaar server, the clients, the
+  design documents and all other files, is licensed under the GNU Affero
+  General Public License, version 3 (AGPL-3.0). The full text is in the
+  LICENSE file at the repository root.
+- The SDK (src/Bazaar.Sdk/) and the shared contracts (src/Bazaar.Contracts/)
+  are licensed under the Apache License, version 2.0. The full text is in
+  the LICENSE file in each of those directories.
+
+A file is under the licence of the directory it sits in, unless the file
+itself says otherwise.
+
+Third-party software
+
+Each third-party dependency keeps its own licence. Third-party notices will
+be added to this file as dependencies are added to the project.
+
+Status
+
+The licensing arrangement in this file is pending review by counsel. It may
+change before the first public release.

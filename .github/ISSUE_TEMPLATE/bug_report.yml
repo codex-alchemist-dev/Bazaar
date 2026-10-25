@@ -1,0 +1,88 @@
+name: Bug report
+description: Something in Bazaar is broken, or behaves differently from the design docs.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Bazaar is pre-alpha, so many areas exist only as design.
+
+        **Do not report security problems here.** Follow [SECURITY.md](https://github.com/codex-alchemist-dev/Bazaar/blob/main/SECURITY.md) and use private reporting.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project does this concern?
+      options:
+        - Server
+        - Client core (Avalonia shared UI)
+        - Windows client
+        - Android client
+        - Linux client
+        - SDK
+        - Contracts
+        - Build or CI
+        - Design docs
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see? Include any error messages.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should have happened? If this is a design-doc mismatch, name the doc and section.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of steps that shows the problem.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+
+  - type: input
+    id: revision
+    attributes:
+      label: Commit or branch
+      description: The commit hash or branch you tested. "main" is not enough on its own.
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, .NET SDK version and any relevant tool versions.
+      placeholder: "e.g. Windows 11, .NET SDK 10.0.x"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output. Remove secrets and personal data first.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and found no duplicate.
+          required: true
+        - label: I have removed secrets, credentials and private company material from this report.
+          required: true
