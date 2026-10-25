@@ -1,0 +1,83 @@
+name: Feature request
+description: Suggest a capability or change for Bazaar.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bazaar builds only on DECIDED design decisions. Many requests touch areas still marked PROPOSED or OPEN. That is fine to suggest here, but the owner must decide before anyone builds it.
+
+        **Do not put security problems here.** Follow [SECURITY.md](https://github.com/codex-alchemist-dev/Bazaar/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Server
+        - Client core (Avalonia shared UI)
+        - Windows client
+        - Android client
+        - Linux client
+        - SDK
+        - Contracts
+        - Build or CI
+        - Design docs
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or goal
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should Bazaar do? Keep it to the behaviour, not the implementation.
+    validations:
+      required: true
+
+  - type: input
+    id: design-doc
+    attributes:
+      label: Related design doc
+      description: Path under docs/deep-dives/, e.g. docs/deep-dives/Bazaar.Server.md, and the section if you know it.
+      placeholder: "docs/deep-dives/..."
+
+  - type: dropdown
+    id: decision-status
+    attributes:
+      label: Status of the decision this depends on
+      description: Check the status tag on the design doc. If you are not sure, choose "Not sure".
+      options:
+        - DECIDED
+        - PROPOSED
+        - OPEN
+        - REJECTED / CHANGED (I think it should be reconsidered)
+        - Not sure
+        - Not applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other options you thought about, and why you prefer this one.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and found no duplicate.
+          required: true
+        - label: I have removed secrets, credentials and private company material from this request.
+          required: true

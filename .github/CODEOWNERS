@@ -1,0 +1,4 @@
+# Owner review is required for design decisions, the agent contract and agent configuration.
+/docs/deep-dives/ @Cookiesmuch
+/CLAUDE.md @Cookiesmuch
+/.claude/ @Cookiesmuch

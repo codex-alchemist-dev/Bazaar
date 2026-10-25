@@ -1,0 +1,17 @@
+# Authors
+
+"The Bazaar Authors" means the people, and the AI agents disclosed as
+contributors, who have written parts of Bazaar. It is the copyright holder
+named in the LICENSE files and in NOTICE.
+
+Human contributors are listed below by GitHub handle. Contributions from AI
+agents are disclosed in the git history through `Co-Authored-By:` trailers,
+and each one is sponsored and signed off by a named human. Agents are not
+listed here individually.
+
+Initial author:
+
+- @Cookiesmuch (project owner)
+
+To add yourself, include an entry in the pull request that carries your first
+change.
