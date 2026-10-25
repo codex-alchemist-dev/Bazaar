@@ -106,6 +106,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 
     private static Guid Validate(IReadOnlyList<AppendRequest> requests)
     {
+        ArgumentNullException.ThrowIfNull(requests[0]);
         var gcId = requests[0].GcId;
         var keys = new HashSet<(Guid, string)>();
         foreach (var r in requests)
