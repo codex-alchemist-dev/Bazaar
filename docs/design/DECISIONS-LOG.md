@@ -47,3 +47,12 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | C27 Fold layout | **RESOLVED**: the server sends layout variants for all postures; the client switches locally with no round trip and caches the last profile for offline cold start. | Docs 02 and 29 align (doc 29's "phone arranges panes itself" is dropped); doc 27 owns the offline fallback shell. |
 | C41 Push content | **RESOLVED**: bare wake hint, no chat id or sequence number; three wake kinds plus opt-in quota alerts; content is fetched over the authenticated connection. | Docs 02, 29 and 32 use the bare payload. |
 | Remaining entries | **FOLLOW-UP**: the owner chose to walk through them in groups (C15, C16, C18-C22, C24, C25, C28-C30, C32-C36, C37-C45). | Continuing in groups of four. |
+
+## Round 6 (2026-10-25)
+
+| Register | Decision | Effect on the docs |
+|---|---|---|
+| C15 Aux transport | **RESOLVED**: WebSocket for realtime plus authenticated HTTP for blobs, search and pairing, specified in doc 02. | Doc 02 owns the HTTP surface; docs 18, 19, 20, 22, 26, 29, 32 reference it. |
+| C16 Schema ownership | **RESOLVED**: each area's design doc owns its tables; doc 04 keeps conventions and core tables. | Doc 04 trims duplicates; the owner docs are canonical for their tables (C04 sets the runtime tables). |
+| C18 Reader/actor | **RESOLVED (owner statement)**: agents must function as workers completely independently, with no human input, for the daily workflow; PRs and similar outward steps are a separate issue. **Claude's interpretation, to confirm:** the reader/actor split is the mechanism that makes this possible, so it ships in v1 for external input (email, issues, web, forums): reader sessions read untrusted content and hand over summaries; actor sessions never read external content directly and so are not tainted by it; the approval gate (C06) applies to outward high-impact actions (posting, sending, spending, repo push/merge), not to routine internal work. | Docs 15, 22, 36, 17, 12 change: the "approve everything after an external read" fallback is dropped; doc 15 designs the reader-session primitive and its hand-over format; docs 22 and 36 route inbound email and community content through reader sessions. The PR/merge approval path is designed separately (doc 21). |
+| C19 GC types | **RESOLVED**: a GC type registry table with the v1 types seeded (new types are rows, not code changes). | Doc 01 defines the registry; docs 26 (ward, sandbox, brainstorm, sidewalk), 21 (PR), 01 (project, DM, thinking) register their types. |
