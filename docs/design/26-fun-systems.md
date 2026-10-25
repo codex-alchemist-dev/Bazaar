@@ -9,18 +9,15 @@ The creative and social systems that make the company feel like a team: recovery
 ## Decided inputs
 - v1 scope: Psych Ward and vent post, What If and Time Machine, Mirror Agent, Lucky mode, Playtest (Bazaar.md section 4, owner 2026-10-24).
 - Sidewalk is the casual, non-code GC; the name stays (Bazaar.md section 2).
-- GCs are append-only; edits keep every version. The log is `gc_event`, `gc_message` and `gc_message_version`, with full copies per version (01, 04; DECISIONS-LOG round 1, C09). Events serve GCs, never replace them (CLAUDE.md).
-- GC types live in a registry table; new types are rows (01; round 6, C19).
-- Personal fields are per-person encrypted payloads from day 1; erasure destroys the key and appends a tombstone (round 2, C01). Legal sufficiency needs counsel.
-- External content taints a session hard; agent text taints softly and only from a tainted source session; Tier 2 actions are gated on hard taint (round 2, C06). Reader sessions read untrusted input and hand over summaries (round 6, C18; Claude's reading, owner to confirm).
-- Approval tiers follow 15's ladder with 36's stricter community defaults (round 7, C21). Tier 2 means the owner approves.
-- Wake reasons are owned by 06. The Skimmer may promote a digest item early under a cap; nothing else wakes an agent (round 3, C08).
-- Any loop-guard trip admits the agents involved to the Psych Ward; there is no separate 15-minute break (round 9, C34).
-- Thinking GCs nest under each working GC; they are never injected into another agent's context; vote reasoning stays hidden until the reveal (round 3, C11).
-- Almost everything written lives in the Vault, including agent memory. Postgres holds the GC log, structured state and indexes (round 11, C38).
+- GCs are append-only; edits keep every version in `gc_message_version` (01, 04; round 1, C09). GC types are rows in a registry (round 6, C19). Events serve GCs, never replace them (CLAUDE.md).
+- Personal fields are per-person encrypted payloads; erasure destroys the key and appends a tombstone (round 2, C01). Legal sufficiency needs counsel.
+- External content taints a session hard; agent text taints softly, only from a tainted source session; Tier 2 actions gate on hard taint (round 2, C06). Reader sessions read untrusted input and hand over summaries (round 6, C18; Claude's reading, owner to confirm).
+- Approval tiers follow 15's ladder with 36's stricter community defaults (round 7, C21).
+- Wake reasons are owned by 06; the Skimmer may promote a digest item early under a cap (round 3, C08). Any loop-guard trip admits the agents involved to the Psych Ward, with no separate break (round 9, C34).
+- Thinking GCs nest under each working GC; never injected into another agent's context; vote reasoning hidden until the reveal (round 3, C11).
+- Memory and other written artifacts live in the Vault; Postgres holds the GC log, structured state and indexes (round 11, C38).
 - Git pushes run host-side; tokens never enter a VM (round 2, C05). Sandbox and persona roles are profiles on the two per-agent VM images (round 7, C22).
-- Presence uses eight labels plus overlays such as "on break" and "waiting for approval" (round 11, C43).
-- Roblox Studio runs only on Bazaar.Windows (Bazaar.Soul.md section 2). Agents cannot watch a live viewport.
+- Presence uses eight labels plus overlays (round 11, C43). Roblox Studio runs only on Bazaar.Windows (Bazaar.Soul.md section 2).
 
 ## Design
 
@@ -138,15 +135,15 @@ No real models or displays. Scripted fake gateway; real Postgres.
 
 ## Conflicts
 Remaining only. Cross-doc fixes are listed for the owning doc.
-1. **Vent target (36).** 36 must name the operator-set posting targets and Tier 2 defaults that Publication refers to. Until then, "public" has no target.
+1. **Vent target (36).** 36 must name the operator-set posting targets that publication refers to (Q1).
 2. **Soul preferences are exported (07).** 07 exports Preferences; Bazaar.md says exports never hold personal data, and Mirror is excluded. 07 must narrow the export.
-3. **Mandatory walk (09, 06).** 09 still defines a 15-minute BREAK after a loop-guard trip and 06 a digest-only pause. Both must be deleted in favour of the ward (C34).
-4. **Run-scoped wake (13, 06).** 13 has no run-scoped override. 06 must add the `brainstorm` wake reason, and 13 may only promote early under its cap (C08).
-5. **Reader-session primitive (15).** Playtest notes, Mirror, Lucky and Sidewalk rely on a tool-less reader session. 15 must define the primitive and its hand-over format (C18).
-6. **GC type rows (01).** 01 must register `ward`, `vent`, `sandbox`, `brainstorm` and `sidewalk` in its type registry (C19).
+3. **Mandatory walk (09, 06).** 09 still defines a 15-minute BREAK after a loop-guard trip, and 06 a digest-only pause. Both must go in favour of the ward (C34).
+4. **Run-scoped wake (13, 06).** 13 has no run-scoped override. 06 must add the `brainstorm` wake reason; 13 may only promote early under its cap (C08, Q14).
+5. **Reader-session primitive (15).** Playtest notes, Mirror, Lucky and Sidewalk rely on a tool-less reader session. 15 must define it and its hand-over format (C18).
+6. **GC type rows (01).** 01 must register `ward`, `vent`, `sandbox`, `brainstorm` and `sidewalk` (C19).
 7. **Presence labels (09).** 09 must adopt the eight labels and overlays (C43); WARD is an overlay.
-8. **Erasure in Vault history (18, 33).** Memory and commits that hold personal data cannot be erased by key destruction. This is open (C38 consequence).
-9. **Client capture (17, 28).** Playtest window capture is not in the ratified list of client-side exceptions (C17). See Q15.
+8. **Erasure in Vault history (18, 33).** Memory and commits holding personal data cannot be erased by key destruction. Open (C38 consequence).
+9. **Client capture (17, 28).** Playtest window capture is not in the ratified client-side exceptions (C17). See Q15.
 
 ## Questions for the owner
 1. Vent target: internal General GC, or an external target? Default: internal; external needs an operator target from 36 and a Tier 2 approval per post.
