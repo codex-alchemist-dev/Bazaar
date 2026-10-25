@@ -89,7 +89,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |
 
-**Status endpoint [PROPOSED].** `GET /status` returns JSON with a `schema` integer, server and protocol versions, and doc 23's sections, plus a minimal HTML view of the same JSON. It never includes GC, Vault or agent names. `/healthz` is a probe and moves to doc 03 (`/health/live`, `/health/ready`). Bind address and token requirement are settings (`wire.status_bind_address`, `wire.status_require_token`; table below).
+**Status endpoint [PROPOSED].** `GET /status` returns JSON with a `schema` integer, server and protocol versions, and doc 23's sections, plus a minimal HTML view of the same JSON. It never includes GC, Vault or agent names. Probes are not served here: doc 03 owns `/health/live` and `/health/ready`; there is no `/healthz`. Bind address and token requirement are settings (`wire.status_bind_address`, `wire.status_require_token`; table below).
 
 **Android [PROPOSED].** The socket is held only while the app is foreground or unfolded. Otherwise:
 1. The server sees a wake-worthy event (`mention`, `dm`, `owner_decision`; `quota` if opted in) for a device without a live socket and calls `IPushNotifier.WakeAsync`, coalesced to one per device per `wire.push_wake_coalesce_s` (30 s).
@@ -189,7 +189,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 - Doc 01 still models one `entry` table with edits as entries and numbers edits in Q1; it must follow C09 and Q1 here.
 - Doc 04 must add the `ev` counter and `edit_seq` (if Q1 is accepted) and list the restore exception.
 - Doc 30 says the protocol version is an integer and keeps a `dataSync` keep-alive; both must change (C40, C41).
-- Doc 03 must not define `/healthz`; it owns `/health/live` and `/health/ready`.
+- Resolved: doc 03 defines no `/healthz`; it owns `/health/live` and `/health/ready`.
 
 ## Questions for the owner
 Answered and moved out: sequence per GC (C10), cached profile and fallback shell (C27), bare wake (C41), wake kinds (C41). Plain values and policy choices are now settings (table above).
