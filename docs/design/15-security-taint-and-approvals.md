@@ -139,24 +139,18 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 - Red-team corpus in CI (hidden-Unicode issue, exfiltration markdown, malicious rules file, impersonating GC message, typosquat, tool-description poisoning): no side effect without approval.
 
 ## Work packages
-1. Trust enum and `gc_message_version` columns. No deps.
-2. Session taint service and lineage propagation. Dep: 1.
-3. Capability registry with tier and taint metadata. No deps.
-4. `ToolPolicyEngine`, default tier table, rate buckets. Deps: 2, 3.
-5. Approval service, tables, signature verification, expiry. Dep: 1.
-6. Approval card contracts; GC, Android and Windows UI. Dep: 5.
-7. Audit log, hash chain, verifier, export. No deps.
-8. Reader primitive: scratch space, schema registry, validator, quarantine path. Deps: 1, 4.
-9. Actor hand-over consumption and fresh-session summary path. Deps: 2, 5, 8.
-10. Credential broker and GitHub App lease provider. Deps: 4, 7.
-11. Egress provider interface; Hyper-V and Linux implementations. Dep: doc 16 backend.
-12. Mount manager: metadata and cookie profile, detach on taint, canaries. Deps: 2, 11.
-13. Quarantine service and context filter. Deps: 1, 2.
-14. Kill switch and drill. Deps: 10, 11, 12.
-15. Memory and Vault tier mapping. Deps: 1, 5.
-16. NuGet policy and `request_package` tool. Dep: 5.
-17. Status and sign-in listeners. Dep: 7.
-18. Red-team corpus and replay harness. Deps: 4, 8.
+1. Trust enum, `gc_message_version` columns, taint service with lineage. No deps.
+2. Capability registry, `ToolPolicyEngine`, rate buckets. Deps: 1.
+3. Approval service, tables, signature and expiry; card contracts and GC, Android and Windows UI. Deps: 1.
+4. Audit log: hash chain, verifier, export. No deps.
+5. Reader primitive: scratch space, schema registry, validator, quarantine; actor hand-over and fresh-session summary path. Deps: 1, 2, 3.
+6. Credential broker and GitHub App lease provider. Deps: 2, 4.
+7. Egress provider and Hyper-V and Linux implementations. Dep: doc 16 backend.
+8. Mount manager: metadata and cookie profile, detach on taint, canaries. Deps: 1, 7.
+9. Quarantine service and context filter; memory and Vault tier mapping. Deps: 1, 3.
+10. Kill switch and drill. Deps: 6, 7, 8.
+11. NuGet policy and `request_package`; status and sign-in listeners. Deps: 3, 4.
+12. Red-team corpus and replay harness. Deps: 2, 5.
 
 ## Conflicts (remaining)
 - **Doc 06:** `session_taint` needs a session key; C04 gives 06 agent, turn, step, lease and inbox only. Doc 06 must define sessions.
