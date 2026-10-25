@@ -1,0 +1,9 @@
+<Project>
+  <!-- Spike-local pins so the shared Directory.Packages.props stays untouched. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="LibGit2Sharp" Version="0.31.0" />
+  </ItemGroup>
+</Project>
