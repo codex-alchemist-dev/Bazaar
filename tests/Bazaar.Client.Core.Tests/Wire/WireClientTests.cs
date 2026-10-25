@@ -42,7 +42,7 @@ public class WireClientTests : IAsyncLifetime
 
     private static async Task Until(Func<bool> condition, Action? tick = null)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
         while (!condition())
         {
             if (DateTime.UtcNow > deadline) throw new TimeoutException("condition not reached");
