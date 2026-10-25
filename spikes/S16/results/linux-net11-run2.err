@@ -1,0 +1,12 @@
+socks5-ipv4                                                    outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.74ms 
+socks5-domain                                                  outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.80ms 
+socks5h-ipv4                                                   outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.62ms 
+socks5h-domain                                                 outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.85ms 
+socks4-ipv4                                                    outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.64ms 
+socks4a-domain                                                 outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.71ms 
+socks5-userpass-creds                                          outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.79ms 
+socks5-userpass-nocreds (control)                              outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: An error occurred while establishing a connection to the proxy tunnel. -> SocksException: SOCKS server did not return a suitable authentication method.
+socks5-proxy-stopped (control)                                 outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: Connection refused (127.0.0.1:42977) -> SocketException: Connection refused
+http-absolute-form (baseline)                                  outcome=pass ok=31/31 connectSeen=0 forwards=31 median=0.69ms 
+https-proxy-uri, cert not trusted (validation bypassed)        outcome=pass ok=31/31 connectSeen=0 forwards=31 median=47.96ms 
+https-proxy-uri, cert not trusted (default validation)         outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: The SSL connection could not be established, see inner exception. -> AuthenticationException: Authentication failed, see inner exception. -> AuthenticationException: The remote certificate is invalid because of errors in the certificate chain: UntrustedRoot
