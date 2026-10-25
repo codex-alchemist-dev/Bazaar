@@ -1,6 +1,6 @@
 # Linux client, packaging, updates and signing
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 13
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 6
 Depends on: 02-wire-protocol-and-sync.md, 03-server-host-and-providers.md, 04-postgres-schema-and-migrations.md, 14-identity-service-and-passport.md, 21-github-integration.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md · Used by: 32-remote-access-auth-and-privacy.md, 33-backup-dr-and-export.md, 34-testing-strategy.md, 35-spikes-plan.md
 
 ## Purpose
@@ -19,6 +19,7 @@ Defines the Linux desktop client (`Bazaar.Client.Linux`), built last on the shar
 - Owner merges happen in the Bazaar clients; the server performs the merge on the owner's signed approval, using either a dedicated owner GitHub App with merge rights or the owner's linked GitHub credential, chosen in setup (rounds 8 and 12, C25).
 - Provider and GitHub App keys live in the Identity Service; the server bootstrap holds only the KEK and database credential (round 2, C05).
 - No inbound connections to the home host by default; the host polls (round 8, C30).
+- Versioning and channels (owner, 2026-10-25): versions are SemVer; pre-release builds are `v0.x`; release channels are LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel, chosen by the operator. Stable, Beta and Alpha are git tags on one history; LTSC is a real branch. The full rules belong in `docs/VERSIONING.md`.
 - Licences: AGPL-3.0 at the root; Apache-2.0 for `Bazaar.Sdk` and `Bazaar.Contracts`. Licensing is pending counsel (CLAUDE.md).
 - Human sign-off at merge through the DCO line; agents open draft PRs only; no secrets or keys in git (CLAUDE.md).
 
@@ -34,9 +35,9 @@ Defines the Linux desktop client (`Bazaar.Client.Linux`), built last on the shar
 | Default-app registration | Windows default-app APIs | `.desktop` entries and `xdg-mime`; default-terminal mechanism unverified |
 | Updates | Velopack | Per packaging format (section 3) |
 | Accessibility | UI Automation (unverified) | AT-SPI2 backend in Avalonia 12.0 (vendor claim) |
-| In-app PR review and merge | Yes (C25) | [PROPOSED] Yes, same flow (Question 13) |
+| In-app PR review and merge | Yes (C25) | [PROPOSED] Yes, same flow (setting `linux.pr_merge`) |
 
-Avalonia supports X11 by default, Wayland as opt-in from 12.1.0, and lists Ubuntu 25.x, Fedora 43 and Debian 13 as Tier 1 (vendor docs). **[PROPOSED]** v1 supports Tier 1 only.
+Avalonia supports X11 by default, Wayland as opt-in from 12.1.0, and lists Ubuntu 25.x, Fedora 43 and Debian 13 as Tier 1 (vendor docs). **[PROPOSED]** v1 supports Tier 1 only (setting `linux.supported_distros`).
 
 ### 2. PTY terminal backend [PROPOSED]
 - One interface, `ITerminalBackend`, on the client: ConPTY on Windows (doc 28), PTY on Linux.
@@ -64,14 +65,15 @@ public interface ITerminalBackend {
 ### 4. Installers and update paths [PROPOSED]
 - **Windows client:** Velopack, approved as the client updater and packaging tool (DECISIONS-LOG round 10, C37). Per-user install under `%LocalAppData%`, delta updates from GitHub Releases (verified in Velopack docs). Velopack does not sign, does not cover Windows Services and does not document machine-wide installs. `VelopackApp.Build().Run()` must be the first call in the entry point.
 - **Windows server:** Worker Service with `AddWindowsService()`. Installer as **MSI built with WiX v5** (unverified), which registers the service, keeps data under `%ProgramData%` and upgrades with MajorUpgrade. MSIX is an open gap.
-- **Linux server:** tarball plus install script: dedicated `bazaar` user, `/etc/bazaar/` config holding only the bootstrap secrets (KEK and database credential, C05), `/var/lib/bazaar/` state, systemd unit with `Type=notify` (unverified) and `Restart=on-failure`. Releases sit in `/opt/bazaar/releases/<version>` behind a `current` symlink, so switching or rolling back is one atomic step. The installer opens no inbound port (C30). If the package bundles `pg_search`, counsel reviews it first (C23).
-- **Android:** Play closed test (verified: 12 testers, 14 continuous days, personal accounts created after 13 Nov 2023). Play needs an AAB (unverified). Keys live in Play App Signing. Push is a bare wake (C41), so this doc assumes no keep-alive service. The verified note that `dataSync` cannot start from `BOOT_COMPLETED` on Android 15+ is passed to doc 29.
-- **Winget:** after the first stable release. Manifests point at a released installer URL and SHA-256. Publication rules unverified.
+- **Linux server:** tarball plus install script: dedicated `bazaar` user, `/etc/bazaar/` config holding only the bootstrap secrets (KEK and database credential, C05), `/var/lib/bazaar/` state, systemd unit with `Type=notify` (unverified) and `Restart=on-failure`. Releases sit in `/opt/bazaar/releases/<version>` behind a `current` symlink, so switching or rolling back is one atomic step. The installer opens no inbound port (C30). Bundling `pg_search` is setting `packaging.pg_search_bundling`; counsel reviews it before any bundled build (C23).
+- **Android:** Play closed test (verified: 12 testers, 14 continuous days, personal accounts created after 13 Nov 2023). Play needs an AAB (unverified). Keys live in Play App Signing. Push is a bare wake (C41), so Android uses no keep-alive foreground service (doc 29).
+- **Winget:** publication timing is setting `packaging.winget_publish`. Manifests point at a released installer URL and SHA-256. Publication rules unverified.
 
-### 5. Versioning [PROPOSED]
-- SemVer per component. One tag `vX.Y.Z` builds all components together.
+### 5. Versioning and channels
+- **[DECIDED (owner, 2026-10-25)]** SemVer versions; pre-release builds are `v0.x`; channels LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel, chosen by the operator; Stable, Beta and Alpha are git tags on one history; LTSC is a real branch. Rules live in `docs/VERSIONING.md` (not yet written).
+- **[PROPOSED]** One tag `vX.Y.Z` builds all components together.
+- **[PROPOSED]** The operator's channel is setting `update.channel` (default Stable). Latest-Commit is never offered to operators. Server upgrades are always operator-run; automatic server updates are off (`packaging.server_auto_update`).
 - The protocol version scheme is doc 02's (`major.minor`, current and previous major). This doc does not define an integer. `ReleaseManifest` carries the range as strings.
-- Channels: `stable` and `beta`. Server upgrades are always operator-run; automatic server updates are off.
 
 ### 6. Server upgrade and rollback [PROPOSED]
 1. The installer reads the installed app and schema versions and refuses a downgrade.
@@ -91,7 +93,7 @@ Rollback switches `current` back. An old binary refuses to start if the schema i
 | Azure Artifact Signing | Quota tiers verified; USD prices did not render | Not chosen. Eligibility is secondary (individuals in US/Canada, or organisations in EU/UK) |
 | OV or EV certificate | Not researched | Not chosen |
 
-Scope: Windows executables, MSI and Velopack packages. Linux: SHA-256 sums plus a detached signature (GPG or Sigstore, unverified). Android: Play App Signing. SignPath holds its own key, so no certificate sits in the repository.
+Scope: Windows executables, MSI and Velopack packages. Linux: SHA-256 sums plus a detached signature (GPG or Sigstore, unverified). Android: Play App Signing. SignPath holds its own key, so no certificate sits in the repository. Timing is setting `packaging.signing_mode`.
 
 ### 8. Release pipeline [PROPOSED]
 - Exists: `ci.yml` (build and test on `ubuntu-latest` and `windows-latest`, gitleaks) and `pr-sponsor.yml`. No release workflow yet.
@@ -110,6 +112,21 @@ public sealed record ReleaseArtifact(string Os, string Format, string Sha256, st
 
 Handshake (format per doc 02): `{ "component": "client-linux", "appVersion": "0.0.0", "protocolVersion": "<major.minor per doc 02>" }`.
 
+### Settings
+
+Registry owned by doc 03 (round 13). Each change is audited (doc 15 `audit_log`); surfaced in the setup wizard and advanced settings (docs 27, 32).
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `update.channel` | enum: LTSC, Stable, Beta, Alpha, Latest-Commit | Stable [PROPOSED] | install | operator; Latest-Commit owner-only | No |
+| `packaging.server_auto_update` | bool | false | install | operator | No; upgrades stay operator-run |
+| `packaging.sideload_apk` | bool | true | install | owner | No |
+| `packaging.signing_mode` | enum: unsigned-beta, signpath | unsigned-beta | install | owner | Needs counsel before signpath is used for public builds |
+| `packaging.pg_search_bundling` | enum: operator-installed, bundled | operator-installed | install | owner | Needs counsel before `bundled` |
+| `packaging.winget_publish` | enum: after-first-stable, manual | after-first-stable | install | owner | No |
+| `linux.supported_distros` | list | Ubuntu 25.x, Fedora 43, Debian 13 | install | operator | No; other distros are unsupported |
+| `linux.pr_merge` | bool | true | install | owner | No (server still requires the owner's signed approval) |
+
 ## Behaviour and edge cases
 - Client updates never touch the server, which must accept the previous protocol major during that window.
 - Installers must not replace files while the service runs. A failed migration leaves the old binary in place. `CREATE INDEX CONCURRENTLY` needs its own step.
@@ -122,6 +139,7 @@ Handshake (format per doc 02): `{ "component": "client-linux", "appVersion": "0.
 - Service install: fake host in CI; real install on the NUC is a spike. Linux unit: `systemd-analyze verify`.
 - PTY on `ubuntu-latest` with a real PTY; Linux client via Avalonia.Headless; packaged builds smoke-tested headless.
 - Release gate: a script verifies every checksum and signature before the draft is created.
+- Channel selection: table tests that each `update.channel` value maps to the right source and that Latest-Commit is refused for non-owner installs.
 
 ## Work packages
 1. `ReleaseManifest` and handshake records in `Bazaar.Contracts`, with tests.
@@ -131,39 +149,35 @@ Handshake (format per doc 02): `{ "component": "client-linux", "appVersion": "0.
 5. Windows server MSI spike, then build (needs 2).
 6. Velopack pack spike for the Windows client (needs doc 28's head).
 7. `release.yml` draft: environment gate, checksums, draft release, no signing yet.
-8. SignPath integration (route chosen; timing per Question 7).
+8. SignPath integration (route chosen; timing per setting `packaging.signing_mode`).
 9. Linux client head on the shared UI (needs docs 27 and 28); `.desktop` and `xdg-mime`; Monaco only after the WebKitGTK spike; Flatpak spike.
 10. SBOM and NOTICE from NuGet in CI.
-11. In-app PR review and merge on Linux, if Question 13 is yes (needs doc 21).
+11. In-app PR review and merge on Linux, if setting `linux.pr_merge` is on (needs doc 21).
+12. `docs/VERSIONING.md` (owner's versioning rules; not yet written).
 
 ## Conflicts
 1. **Monaco on Linux and the Avalonia gate (C26).** If the free-route Monaco spike fails on Windows or Linux, the Avalonia decision itself is reopened, and Linux scope may shrink. Evidence: no source shows Monaco in an Avalonia WebView (unverified).
 2. **Velopack and the server.** Velopack does not cover Windows Services, machine-wide installs or signing, so the server needs its own installer track.
 3. **Rollback versus the append-only log (C10, C01).** A database restore discards events written after the backup. The restore policy in doc 33 (sequence floor plus recovery entry) is PROPOSED and not yet confirmed. Doc 33 must confirm it or the owner must accept the loss window.
-4. **Linux `pg_search` and the OSI-only build (C23).** The Linux server may need `pg_search`, whose bundling needs counsel. Until counsel answers, the Linux package decision is open.
+4. **Linux `pg_search` and the OSI-only build (C23).** The Linux server may need `pg_search`, whose bundling needs counsel. Until counsel answers, the default is operator-installed (`packaging.pg_search_bundling`).
 5. **KEK custody on a new host (C05; doc 33 C1).** The Linux server's bootstrap secret has the same open recovery question as Windows.
-6. **For doc 29 (new).** DECISIONS-LOG C41 means no keep-alive service on Android. Doc 29 must drop any `dataSync` keep-alive, which the `BOOT_COMPLETED` note makes unworkable on Android 15+ (the note is verified).
-7. **Android distribution.** The owner chose the Play closed test. The research suggested sideloading the owner's devices first. Question 4 covers this.
+6. **Android distribution.** The owner chose the Play closed test. The research suggested sideloading the owner's devices first. Setting `packaging.sideload_apk` (default on) keeps both.
 
-**Verification status.** Verified: Velopack overview; Play closed-test rule; Android foreground service types; SignPath free for OSS (vendor page); Azure quota tiers; Avalonia Linux tiers, X11 and Wayland; Avalonia paid tiers. Vendor claim: AT-SPI2. Secondary: SignPath conditions; Azure eligibility. Unverified: Velopack on Linux and services; WiX; MSIX; sd_notify; AppImage and Flatpak; SmartScreen; winget; EV prices; Play fee; AAB packaging. Owner decisions are recorded as decided in DECISIONS-LOG and are not verified claims.
+**Verification status.** Verified: Velopack overview; Play closed-test rule; Avalonia Linux tiers, X11 and Wayland; Avalonia paid tiers; SignPath free for OSS (vendor page); Azure quota tiers. Vendor claim: AT-SPI2. Secondary: SignPath conditions; Azure eligibility. Unverified: Velopack on Linux and services; WiX; MSIX; sd_notify; AppImage and Flatpak; SmartScreen; winget; EV prices; Play fee; AAB packaging. Owner decisions are recorded as decided in DECISIONS-LOG and are not verified claims.
 
 ## Questions for the owner
 
 ANSWERED: Velopack is approved as the Windows client updater and packaging tool; its spike still gates adoption (DECISIONS-LOG round 10, C37).
 ANSWERED: Terminal location: the human's local terminal runs in the client; agent terminals are streamed by the server (DECISIONS-LOG round 4, C31).
-ANSWERED: Signing route is SignPath on an OSI-only build (DECISIONS-LOG round 4, C23); only timing remains (Question 7).
+ANSWERED: Signing route is SignPath on an OSI-only build (DECISIONS-LOG round 4, C23); timing is setting `packaging.signing_mode`.
 ANSWERED: Protocol version scheme belongs to doc 02, so this doc no longer proposes an integer (DECISIONS-LOG round 12, C40).
+ANSWERED: Versioning is SemVer, with the channel set and tag/branch model in the owner's 2026-10-25 note; see `docs/VERSIONING.md` (section 5).
 
 1. **Linux v1 scope.** Default: chat, Kanban, Constellation, Vault, palette, theme and the local terminal (C31 decided the Windows terminal only, so Linux needs confirming). Monaco only if its free-route spike passes (C26).
-2. **Linux distributions.** Default: Tier 1 only (Ubuntu 25.x, Fedora 43, Debian 13).
-3. **Linux format.** Default: tarball and AppImage now; Flatpak after its spike; deb and rpm later.
-4. **Owner-only sideload APK.** Keep it alongside the Play closed test? Default: yes.
-5. **Windows server installer.** Default: MSI via WiX. MSIX is out of v1 until spiked.
-6. **Linux server package.** Default: tarball with install script and systemd unit first; deb and rpm later; `pg_search` bundling waits for counsel.
-7. **Signing timing.** Default: unsigned betas now; apply to SignPath after the first public release and a licence review by counsel.
-8. **Release gate.** Default: owner-only trigger, required reviewer on the environment, drafts first.
-9. **Rollback policy.** Default: forward-only migrations and binary rollback. A database restore needs your acceptance of the loss window, or doc 33 provides replay (C10 restore policy is PROPOSED).
-10. **Versioning.** Default: SemVer per component, one tag per release.
-11. **Server auto-update.** Default: off; operator-run upgrades only.
-12. **Winget.** Default: publish after the first stable release.
-13. **Linux PR merge.** Default: yes, the same in-app review and merge flow as Windows and Android (C25), with the server merging on your signed approval.
+2. **Linux format.** Default: tarball and AppImage now; Flatpak after its spike; deb and rpm later.
+3. **Windows server installer.** Default: MSI via WiX. MSIX is out of v1 until spiked.
+4. **Linux server package format.** Default: tarball with install script and systemd unit first; deb and rpm later.
+5. **Release gate.** Default: owner-only trigger, required reviewer on the environment, drafts first.
+6. **Rollback policy.** Default: forward-only migrations and binary rollback. A database restore needs your acceptance of the loss window, or doc 33 provides replay (C10 restore policy is PROPOSED).
+
+MOVED TO SETTINGS: linux.supported_distros, packaging.sideload_apk, packaging.signing_mode, packaging.pg_search_bundling, packaging.winget_publish, packaging.server_auto_update, linux.pr_merge (DECISIONS-LOG round 13)

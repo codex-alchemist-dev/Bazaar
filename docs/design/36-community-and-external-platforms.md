@@ -1,6 +1,6 @@
 # Community and External Platforms
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 11
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 2
 Depends on: 01-gc-data-model.md, 04-postgres-schema-and-migrations.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 21-github-integration.md, 22-email-subsystem.md · Used by: 06-agent-runtime.md, 23-observatory-and-usage.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md
 
 ## Purpose
@@ -92,10 +92,25 @@ community_action(id, agent_id, sponsor_id, platform, action, target_url, body, b
                  approval_id, taint_sources jsonb, external_id, status, created_at)
 target_blocklist(platform, target_ref, reason, added_by, added_at, pk(platform, target_ref))
 ```
-This doc owns these four tables (doc 04 keeps conventions only). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01) [PROPOSED; doc 04 to confirm].
+This doc owns these four tables (doc 04 keeps conventions only). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
+
+### Settings [PROPOSED]
+Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings registry (doc 03); every change writes an audit entry (doc 15 `audit_log`).
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `community.platform.enabled.<platform>` | bool | `false` for every platform; `true` for GitHub | install | operator (owner) | Yes, owner; needs counsel (public posting). Enabling does not override a missing verified `platform_policy` record, which stays Deny |
+| `community.quota.new_repos_per_week` | int | 3 | agent | operator (owner) | Raising: yes, owner. Lowering: no |
+| `community.disclosure.footer_template` | string | `Posted by an AI agent (Bazaar), sponsor <name>, contact <address>.` | install | operator (owner) | Yes; needs counsel. Floor: a disclosure footer is always present |
+| `community.disclosure.display_suffix` | string | `(AI agent)` | install | operator (owner) | Yes; needs counsel. Floor: the profile always discloses AI |
+| `community.code.trailer_style` | enum: `assisted_by_signoff`, `co_authored_by`, `target_rules` | `assisted_by_signoff` | project | sponsor, operator | No. Floor: agents never add `Signed-off-by` |
+| `community.outreach.cold_email` | bool | `false` | install | operator (owner) | Yes, owner; needs counsel (CAN-SPAM, GDPR/PECR) |
+| `community.counsel_review_before_live_post` | bool | `true` | install | operator (owner) | Yes, owner; needs counsel |
+
+Shared quota keys are owned by doc 15 and are not redefined here: `security.quota.public_items_per_platform_day` (5) and `security.quota.public_issue_pr_per_repo_day` (1, also used by doc 21). Settings may tighten these floors, never loosen them: hard-taint rules, Tier 2 for new accounts, and Deny for unverified or banned platforms.
 
 ### Rate limits, audit and takedown
-- **Quotas**, enforced in ToolDispatcher (doc 15): 5 new public items per day per platform; 1 new issue or PR per repo per day; no more than 3 new repos per week per agent. The platform-wide public-post cap and GitHub write rate (30/min per install, below the 80/min secondary limit) live in doc 15's shared table. Breach denies, then freezes that agent on that platform and notifies the sponsor.
+- **Quotas**, enforced in ToolDispatcher (doc 15): `security.quota.public_items_per_platform_day` (5) new public items per platform per day; `security.quota.public_issue_pr_per_repo_day` (1) new issue or PR per repo per day (one value shared with doc 21); `community.quota.new_repos_per_week` (3) new repos per agent per week. The platform-wide public-post cap and GitHub write rate (30/min per install, below the 80/min secondary limit) live in doc 15's shared table. Breach denies, then freezes that agent on that platform and notifies the sponsor.
 - **Audit**: every outward action writes one `community_action` row and an audit_log entry (doc 15). Rows are append-only; a withdrawal adds a row. Shows in the Observatory (doc 23) and in the GC where the draft was made.
 - **Kill switch**: per platform (stops all community writes there); per target (objection or moderator ban adds to `target_blocklist`); per agent (doc 15). A blocklisted target is not reopened without an owner decision.
 - **Withdraw**: closing or deleting own posts where the platform allows, Tier 2.
@@ -136,11 +151,9 @@ This doc owns these four tables (doc 04 keeps conventions only). `taint_sources`
 ## Conflicts
 1. **Reply path vs taint (remaining).** Rounds 2 and 4 keep the reader/actor split in v1 and forbid an autonomous reply from the session that read the thread. Doc 15 must still specify the hand-over format and the fresh-session path. Until Q1 is confirmed, every reply is Tier 2.
 2. **GitHub reach (remaining risk).** The owner keeps fork-and-PR as decided (round 3, C13). Issue creation on uninstalled public repos and org-fork PRs remain unverified. Spike S22 runs before WP 7's fork path; fallback is installed repos only, with the owner posting drafts elsewhere.
-3. **Godot (remaining).** The primary CONTRIBUTING.md has no AI rule; a secondary report says June 2026 bans autonomous agents. Deny until resolved (Q3).
-4. **Sign-up wording in Bazaar.md (cross-doc).** Bazaar.md's community line (its line 42, per the earlier Conflict 6) implies agents sign up to GitHub and Stack Overflow. Doc 14 and CLAUDE.md say a human creates the account and the agent gets a lease. Bazaar.md needs the same wording.
-5. **Doc 15 shipped defaults (cross-doc).** Doc 15 must list new accounts as Tier 2 and unverified platforms as Deny in its shipped defaults (round 7, C21), and must design the reader hand-over (Conflicts 1).
-6. **Doc 04 encryptable fields (cross-doc).** `community_action.body` and `bot_profile.contact` need the per-person encryption rule (round 2, C01); C01's doc list does not include this doc.
-7. **EU AI Act Article 50 (unverified).** A secondary report says it is in force from 2 Aug 2026. If so, the labels here are required, not optional. Counsel to confirm.
+3. **Godot (remaining).** The primary CONTRIBUTING.md has no AI rule; a secondary report says June 2026 bans autonomous agents. Deny until resolved: `community.platform.enabled.godot` defaults to `false` and the unverified-platform floor applies (DECISIONS-LOG round 7, C21).
+4. **Sign-up wording in Bazaar.md (cross-doc, partly addressed).** Bazaar.md line 42 carries the owner's 2026-10-24 qualifier (sign up only where terms allow; otherwise a person creates the account), but still lists GitHub and Stack Overflow as places agents "can sign up". Doc 14 and CLAUDE.md say a human creates the account and the agent gets a lease. Bazaar.md needs the same wording.
+5. **EU AI Act Article 50 (unverified).** A secondary report says it is in force from 2 Aug 2026. If so, the labels here are required, not optional. Counsel to confirm.
 
 Legal points for counsel (research, not advice):
 - EU AI Act Art. 50: provider vs deployer role; the unconfirmed December 2026 grace period; Art. 50(4) for AI text on public-interest matters.
@@ -150,17 +163,12 @@ Legal points for counsel (research, not advice):
 - Sponsor liability when a platform bans the account.
 
 ## Questions for the owner
-1. v1 replies: does the reader/actor split (round 4, C18; Claude's reading, to confirm) make Tier 1 replies from a clean actor session autonomous in approved threads? Default: no; approve every reply (Tier 2) until the hand-over is built and tested.
-2. Reddit: any agent posting? Default: no; sponsor-manual only until the primary API terms are read.
-3. Godot forum and repos: Deny until the contributing rules and forum are read? Default: yes.
-4. Stack Overflow: Deny until the gen-AI policy is read? Default: yes.
-5. Quota values: 5 new public items/day/platform; 1 new issue or PR per repo per day; 3 new repos/week? Default: as stated (community-specific; platform-wide caps stay in doc 15's table).
-6. Footer and display name wording? Default: "(AI agent)" suffix and the one-line footer.
-7. Sponsor: one named human per agent, required before any account? Default: yes.
-8. Code contributions to other projects: `Assisted-by` plus sponsor `Signed-off-by`, with no `Co-Authored-By`? Default: yes. (This repo keeps CLAUDE.md's trailers.)
-9. Objections: stop and blocklist at once; withdrawal of own posts needs approval? Default: yes.
-10. Cold outreach email to maintainers and RFC or mailing-list posts in v1? Default: no cold email; replies only in threads the agent opened; each list post Tier 2.
-11. Counsel: engage before the first live post? Default: yes.
+1. v1 replies: does the reader/actor split (round 4, C18; Claude's reading, to confirm) make Tier 1 replies from a clean actor session autonomous in approved threads? Default: no; approve every reply (Tier 2) until the hand-over is built and tested. (Stays a question: it changes an approval tier tied to the taint rule, and asks the owner to confirm Claude's reading.)
+2. Sponsor: one named human per agent, required before any account? Default: yes. (Stays a question: it is the accountability floor for outward accounts, a design-intent choice.)
+
+MOVED TO SETTINGS: community.platform.enabled.<platform> (Reddit, Godot, Stack Overflow, and any other platform), community.quota.new_repos_per_week, community.disclosure.footer_template, community.disclosure.display_suffix, community.code.trailer_style, community.outreach.cold_email, community.counsel_review_before_live_post (DECISIONS-LOG round 13)
+
+Settled without a question: objections stop posting and blocklist the target at once (kill switch, above); withdrawal of own posts is Tier 2 (shipped floor, not a setting). Quota values are doc 15's keys.
 
 ANSWERED: New accounts need owner approval every time, Tier 2, overriding doc 15's whitelist autonomy (DECISIONS-LOG round 7, C21).
 ANSWERED: Unverified platforms are Deny until a verified record exists (DECISIONS-LOG round 7, C21; 36's stricter default adopted).

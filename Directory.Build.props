@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
+    <!-- Product version (docs/VERSIONING.md). SemVer; the SDK appends +<commit> as build metadata. -->
+    <VersionPrefix>0.1.0</VersionPrefix>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

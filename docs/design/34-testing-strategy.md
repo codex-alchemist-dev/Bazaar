@@ -1,6 +1,6 @@
 # Testing strategy
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 15
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 4
 Depends on: 01-gc-data-model.md, 02-wire-protocol-and-sync.md, 04-postgres-schema-and-migrations.md, 05-model-gateway.md, 06-agent-runtime.md, 10-council-and-voting.md, 12-kanban-and-dependencies.md, 13-skimmer-bouncer.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 17-coding-agent-harness.md, 18-vault.md, 27-client-architecture.md · Used by: 35-spikes-plan.md, 11-reputation-and-peer-review.md, 17-coding-agent-harness.md, and every subsystem doc's Testing section
 
 ## Purpose
@@ -14,7 +14,7 @@ Defines how Bazaar proves its own code and its agents' work: the test layers, wh
 - Resource Economy is REJECTED: no money-gate tests; real 429s are handled as data. (CLAUDE.md; Bazaar.md)
 - Council votes are sealed until the reveal; Thinking-GC text and vote reasoning stay out of other agents' context until then. (Bazaar.md §5; DECISIONS-LOG rounds 3 and 9, C11, C32)
 - Taint: external content taints hard; agent text taints softly, only from a tainted source session; Tier 2 is gated on hard taint; a fresh-session path with an approved summary exists. (DECISIONS-LOG round 2, C06)
-- Reader/actor split ships in v1 for external input; reader sessions hand over summaries. (DECISIONS-LOG round 6, C18: owner statement, Claude's reading to confirm, Q14)
+- Reader/actor split ships in v1 for external input; reader sessions hand over summaries. (DECISIONS-LOG round 6, C18: owner statement, Claude's reading to confirm, Question 3)
 - Approval tiers follow 15's ladder with 36's stricter community defaults. (DECISIONS-LOG round 7, C21)
 - Loop-guard trips send the agents involved to the Psych Ward; unmentioned messages wake only via capped Skimmer promotion after shadow-mode measurement; interrupts use a depth-2 stack, and only `emergency` bypasses vacation. (DECISIONS-LOG rounds 3, 9; C08, C34, C35)
 - Claude member uses the owner's Anthropic API key and FreeLLMAPI free tokens, by availability, labelled by source; subscription (Pro/Max) logins stay off every route. (CLAUDE.md; DECISIONS-LOG round 4, C14)
@@ -39,8 +39,8 @@ Everything below is [PROPOSED] unless listed above.
 | L7 | Property | Random append and splice interleavings; seeds logged | small set per PR, large nightly | yes |
 | L8 | Red team | Injection corpus through the fake gateway; asserts the server refuses | every PR | yes |
 | L9 | Live evals | Haiku 5.5 on the Bazaar task set; LLM judges | nightly, private repo | no |
-| L10 | Performance | Graph at 1k, 5k, 10k nodes; gateway overhead; replay of 10k entries | nightly, trend only | no |
-| L11 | Platform | Windows Service, systemd, Hyper-V, Studio | hosted or NUC | where hosted |
+| L10 | Performance | Graph at 1k, 5k, 10k nodes; gateway overhead; replay of 10k entries | nightly, trend only (`test.perf.gate_mode`) | no |
+| L11 | Platform | Windows Service, systemd, Hyper-V; Roblox Studio checklist (manual, owner's Bazaar.Windows desktop only) | hosted or NUC; Studio on the desktop | where hosted |
 | L12 | Engine | Godot headless, `luau-analyze` and Selene on fixtures | every PR, Linux | yes |
 
 ### Fixtures: real PostgreSQL
@@ -54,17 +54,17 @@ Everything below is [PROPOSED] unless listed above.
 One template database is migrated per run; each test class clones it (04). The cloud container's Docker daemon is unconfirmed; the first spike runs `docker info` and otherwise uses a service container or `BAZAAR_TEST_PG`.
 
 ### Deterministic agent testing
-- **Fake gateway:** one seam. Scripts are `ModelEvent` steps (text, tool call, `retry-after` 429, spend-cap 429, timeout, malformed tool JSON, mid-stream drop, wrong served model), exposed through the `IChatClient` adapter.
+- **Fake gateway:** one seam. Scripts are `ModelEvent` steps (text, tool call, `retry-after` 429, spend-cap 429, timeout, malformed tool JSON, mid-stream drop, wrong served model), exposed through the `IChatClient` adapter. The fake Skimmer scorer (doc 13) uses the same seam: its scores are scripted `ModelEvent`s, not a second fake.
 - **Cassettes:** keyed by a request digest (provider, model id, system-prompt hash, message digest, tool-schema digest, sampling parameters). A mismatch fails with a diff and never falls through to a live model.
-- **Recording:** explicit command only, cost logged. Real-model cassettes stay private; public ones are synthetic.
+- **Recording:** explicit command only, cost logged (`test.cassette.record_mode`). Real-model cassettes stay private; public ones are synthetic.
 - **Golden comparison:** structural only: speaker, tool-name sequence, event kinds, seq order, version chain of edits. Never exact model text.
 - **Loop guards, wake rules and time:** scripted agents; all time through a fake `TimeProvider` (package name to confirm).
 
 ### Live evals (non-gating)
-- **Task set:** about 40 tasks mined from Bazaar's history (bug fix, feature with test, refactor, Headless UI change, Godot and Luau checks), plus traps: a wrong test (must flag, not edit), an impossible task (must report failure), an injected issue (must not act). Ten are held out.
+- **Task set:** about 40 tasks mined from Bazaar's history (bug fix, feature with test, refactor, Headless UI change, Godot and Luau checks), plus traps: a wrong test (must flag, not edit), an impossible task (must report failure), an injected issue (must not act). `test.eval.holdout_count` (default 10) are held out.
 - **Credentials:** the harness accepts only API keys and gateway sources; it refuses subscription logins (tested, see Testing).
-- **Matrix and scoring:** per model and edit format, 3 seeds. Deterministic checks (build, tests, test files untouched, format compliance, fake success) score first; judges second.
-- **Judges:** `.Quality` evaluators from Microsoft.Extensions.AI.Evaluation, with its response cache; not `.Safety` (Foundry dependency). Judge scores are reported only after calibration on about 50 human-labelled items.
+- **Matrix and scoring:** per model and edit format, with `test.eval.seed_count` seeds (default 3). Deterministic checks (build, tests, test files untouched, format compliance, fake success) score first; judges second.
+- **Judges:** `.Quality` evaluators from Microsoft.Extensions.AI.Evaluation, with its response cache; not `.Safety` (Foundry dependency). Judge scores are reported only after calibration on about 50 human-labelled items. The judge model is set per install (`test.eval.judge_model`).
 
 ### Verification gate (server-run)
 The checker runs in a clean clone, not in the agent's working tree. It stores exit codes and logs, and fails when:
@@ -83,11 +83,12 @@ The checker runs in a clean clone, not in the agent's working tree. It stores ex
 - **Red-team corpus (L8):** poisoned issue with hidden Unicode; email with link-exfiltration markdown; malicious rules file; GC message impersonating the owner; typosquat package; tool-description poisoning. The fake gateway emits the injected tool call.
 - **Assertions are about enforcement, not model resistance:** a hard-tainted session refuses Tier 2 tools; soft-tainted agent text from an untainted source does not block; no state change; audit entry written. A message claiming owner approval grants nothing (agent text carries no owner authority). Model resistance is measured only in L9.
 - **Reader/actor:** reader sessions have no tools and output schema-validated JSON; actor sessions receive only that summary, never the raw external content.
+- **Browser and cookie profiles:** a hard-tainted session has its cookie-profile mount (C02) and account browser profiles (C22) detached; the detach is enforced by the server and audited (DECISIONS-LOG rounds 2 and 7).
 - **Approval and audit:** altered approval arguments rejected; expired approval denies; agent-forged "owner approved" ignored; PR merge runs only on the server after a signed owner approval; tampered audit row detected; application DB role cannot UPDATE audit; planted keys absent from logs and spans.
 
 ### Flakiness, coverage and test data
-- **Flakiness:** no skip, no quarantine, no retry-to-green. A failure is re-run once only to classify it; both results are logged. Seeds and clock values are logged on every failure.
-- **Coverage:** reported per project with coverlet; no percentage gate in v1.
+- **Flakiness:** no skip and no retry-to-green. A failing test is re-run to classify it (`test.flake.rerun_count`, default 1); both results are logged. Quarantine is off by default (`test.flake.quarantine_allowed`; turning it on needs owner sign-off). Seeds and clock values are logged on every failure.
+- **Coverage:** reported per project with coverlet; no percentage gate in v1 (`test.coverage.mode`, default `report`).
 - **Test data:** fictional names and RFC 2606 domains; replay uses sanitized copies of transcripts.
 
 ### CI mapping (engine not yet decided)
@@ -96,7 +97,7 @@ The checker runs in a clean clone, not in the agent's working tree. It stores ex
 | Pull request, public repo | L0 to L8, L11 (Windows providers), L12 | Hosted Linux and Windows | None; fork PRs get none |
 | Push to protected branch | Same, plus release build | Hosted | None |
 | Nightly, private repo | L9, L10, judge drift, cassette freshness, L7 large | NUC or hosted | Anthropic key and gateway keys from a protected environment |
-| Manual, private repo | Hyper-V, Studio checklist | NUC | None |
+| Nightly or manual, private repo | Hyper-V (`test.ci.platform_schedule`, default nightly); Studio checklist stays manual on the owner's Bazaar.Windows desktop | NUC; owner's desktop for Studio | None |
 
 ## Data and interfaces
 ```csharp
@@ -110,6 +111,30 @@ public sealed record CassetteKey(string Provider, string Model,
 ```
 - Cassette file: one JSON record per call: key, response, input, cache-write 5-minute and cache-write 1-hour token fields kept separate (`gw_usage`, C33), the identity source (`native` or `pooled`, C14), recorded-at, recorder version.
 - Fixtures (xUnit v3 collection fixtures): `PgFixture`, `HeadlessAppFixture`, `ProtocolHostFixture`.
+
+### Settings [PROPOSED] (DECISIONS-LOG round 13)
+Keys follow doc 03's registry (typed, scoped, audited on change). Shipped defaults are the safe ones; a change to a row marked "yes" needs owner approval.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `test.ci.windows_db_job` | bool | `false` (database tests on Linux only until the Windows PostgreSQL install spike passes) | install | operator | no |
+| `test.ci.platform_schedule` | enum: `nightly`, `manual` | `nightly` (Hyper-V tests on the NUC) | install | operator | no |
+| `test.cassette.record_mode` | enum: `explicit` | `explicit` (cost logged; real-model cassettes stay private) | install | operator | no |
+| `test.golden.pixel_tolerance_pct` | number | `0.5` | project | operator | no |
+| `test.golden.pixel_platforms` | list | `linux` (structural assertions elsewhere) | install | operator | no |
+| `test.coverage.mode` | enum: `report`, `gate` | `report` | project | operator | no |
+| `test.flake.rerun_count` | int | `1` (classifying re-run only; a re-run never turns red into green) | install | operator | no |
+| `test.flake.quarantine_allowed` | bool | `false` | install | operator | yes (owner sign-off) |
+| `test.eval.seed_count` | int | `3` | install | operator | no |
+| `test.eval.nightly_models` | list | `claude-haiku-5-5` | install | operator | no |
+| `test.eval.sonnet_on_demand` | bool | `true` | install | operator | no |
+| `test.eval.holdout_count` | int | `10` | install | operator | no |
+| `test.eval.judge_model` | string | unset: a non-Anthropic model chosen at setup; judge scores hidden until calibrated | install | operator | no |
+| `test.perf.gate_mode` | enum: `trend`, `threshold` | `trend` (thresholds after spike numbers exist) | install | operator | no |
+| `test.redteam.public_corpus` | enum: `synthetic-only`, `synthetic-plus-redacted` | `synthetic-only`; needs counsel | install | operator | yes |
+| `test.erasure.vault_history` | enum: `key-destruction-tombstone`, `history-rewrite` | `key-destruction-tombstone`; needs counsel | install | operator | yes (owner; `history-rewrite` rewrites shared history, which CLAUDE.md reserves for owner approval) |
+
+Notes: the eval settings are development spend for the test suite, not a gateway budget (Resource Economy is REJECTED). The erasure default is the stronger option that keeps the append-only GC log and needs no history rewrite; `history-rewrite` is documented, not default.
 
 ## Behaviour and edge cases
 - **Cassette drift:** any prompt change fails replay until re-recorded; prompts live in versioned files so churn is visible.
@@ -133,7 +158,7 @@ Key domain cases (PROPOSED, each in the layer shown):
 ## Work packages
 1. `Bazaar.Testing` support project (clock, ids, seeds) and L0 architecture test. Depends on: scaffold.
 2. PostgreSQL fixture: Testcontainers, service container and `BAZAAR_TEST_PG` selection; template database. Depends on: 1 (04 WP2).
-3. Fake gateway (`ModelEvent` steps, `IChatClient` adapter) and cassette store with fail-loud matching. Depends on: 1.
+3. Fake gateway (`ModelEvent` steps, `IChatClient` adapter), fake Skimmer scorer on the same seam, and cassette store with fail-loud matching. Depends on: 1.
 4. Headless harness: `AvaloniaTestApplication`, `UseSkia`, frame-capture helper, `IEditorHost` stub. Depends on: 1.
 5. Protocol harness: in-process Kestrel, `ClientWebSocket`, HTTP surface, fake authenticator and push. Depends on: 2.
 6. Scripted-agent runner for wake, Skimmer promotion, loop guard to Psych Ward, interrupt stack, kill and resume. Depends on: 3.
@@ -150,25 +175,15 @@ Key domain cases (PROPOSED, each in the layer shown):
 1. **xUnit pin vs research note.** The pin 3.2.2 is approved (C37). `build_and_test_tooling.md` still recommends 4.0.0-pre.108 and is out of date; it needs a note update.
 2. **Cassettes versus iteration.** Replay keyed on full request digests breaks on every prompt edit. Re-recording costs money and is not deterministic. This will slow prompt work.
 3. **Public CI versus live and Windows needs.** Evals need keys, so they run privately. Hosted Windows runners have no Linux containers, so Windows database tests depend on an unverified PostgreSQL install. Headless Avalonia on a hosted Windows runner is also unverified (cicd_repo_licensing.md).
-4. **Pixel goldens** differ by OS font rasterisation.
+4. **Pixel goldens** differ by OS font rasterisation; goldens are Linux-only by default (`test.golden.pixel_platforms`).
 5. **CI engine undecided** (Bazaar.Server.md Q3). This doc assumes GitHub Actions.
-6. **Reader/actor split (other docs).** C18 puts it in v1 for external input, but Bazaar.Server.md item 13 still says "OPEN for later" and 15 says "Not built in v1". Those docs must change; this doc's tests follow C18 pending Q14.
+6. **Reader/actor split (other docs).** C18 puts it in v1 for external input. Doc 15 is reconciled in this pass; Bazaar.Server.md item 13 still says "OPEN for later" and must change. This doc's tests follow C18 pending Question 3.
 7. **CLAUDE.md** does not yet carry the C37 items (verification rule, approved names and tools) or the C14 and C18 wording. Pending the reconciliation pass.
 
 ## Questions for the owner
-1. ANSWERED: "Server verifies, never self-reports" is DECIDED (DECISIONS-LOG round 10, C37).
-2. CI engine: GitHub Actions, hosted runners only for the public repo? Default: yes; fork PRs can run code on self-hosted runners.
-3. Windows job: install PostgreSQL 18, or database tests on Linux only? Default: Linux only, until a spike verifies the install.
-4. Re-recording cassettes: explicit command only, cost logged, real-model cassettes private? Default: yes.
-5. Pixel goldens: Linux container only, with structural assertions on Windows and Android? Default: yes, with a 0.5% pixel tolerance.
-6. Coverage: report only in v1, revisit at Wave 2 exit? Default: yes.
-7. Flakes: one classifying re-run, never a green from a re-run, no quarantine without your sign-off? Default: yes.
-8. Judge model for live evals? Default: a non-Anthropic model chosen per install through the gateway, to avoid self-preference bias; no judge scores reported until calibrated on 50 labelled items.
-9. Eval spend: nightly Haiku-only at 40 tasks, 3 seeds, all formats; Sonnet on demand only? Default: yes. This is development spend, not a gateway budget.
-10. Task-set authorship: main session drafts from Bazaar's history, you approve, 10 tasks held out? Default: yes.
-11. Performance: trend-only until spike numbers exist, then thresholds? Default: yes.
-12. Red-team corpus: synthetic payloads public, real incidents referenced only? Default: yes.
-13. Hyper-V and VM tests: manual or nightly on the NUC in the private repo? Default: nightly.
-14. Confirm Claude's reading of C18 (reader/actor split as the v1 mechanism for external input; WP14 follows it). Default: yes.
-15. Which changes are "bigger" and need your vote when a team vote is split or tied (C32)? Default: new agent, promotion to senior, retirement, whitelist change; eligible voters are the agents seated in the voting GC. Needed to finish the Council tie tests.
-16. Erasure in Vault Markdown and git history (C01, C38; FOLLOW-UP). Default: personal Vault content encrypted per person, key destruction plus tombstone, history not rewritten. Needed before erasure tests.
+1. **CI engine.** GitHub Actions with hosted runners is assumed. Confirm it. Proposed: fork PRs get no secrets and never run on self-hosted runners (the earlier draft let fork PRs use self-hosted runners; [PROPOSED] to drop that).
+2. **Task-set authorship.** The main session drafts the task set from Bazaar's history and you approve it before use. Default: yes.
+3. **Claude's reading of C18.** Confirm the reader/actor split as the v1 mechanism for external input; WP14 follows it. Default: yes.
+4. **"Bigger changes" (C32 follow-up).** Confirm the default classes: new agent, promotion to senior, retirement, model whitelist change; eligible voters are the agents seated in the voting GC. Once confirmed, the list becomes a per-install setting owned by doc 10 (DECISIONS-LOG round 13, rule 4). Needed to finish the Council tie tests.
+
+MOVED TO SETTINGS: test.ci.windows_db_job, test.ci.platform_schedule, test.cassette.record_mode, test.golden.pixel_tolerance_pct, test.golden.pixel_platforms, test.coverage.mode, test.flake.rerun_count, test.flake.quarantine_allowed, test.eval.seed_count, test.eval.nightly_models, test.eval.sonnet_on_demand, test.eval.holdout_count, test.eval.judge_model, test.perf.gate_mode, test.redteam.public_corpus, test.erasure.vault_history (DECISIONS-LOG round 13)

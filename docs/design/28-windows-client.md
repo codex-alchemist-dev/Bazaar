@@ -1,6 +1,6 @@
 # Bazaar.Windows client: IDE, terminal, PR UI, default apps
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 10
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3
 Depends on: 02-wire-protocol-and-sync.md, 12-kanban-and-dependencies.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 20-engine-integration-api.md, 21-github-integration.md, 27-client-architecture.md, 30-linux-client-and-packaging.md, 31-local-coworker-npu.md · Used by: 26-fun-systems.md, 29-android-client.md, 32-remote-access-auth-and-privacy.md, 34-testing-strategy.md, 35-spikes-plan.md
 
 ## Purpose
@@ -16,7 +16,7 @@ The Windows head of the Avalonia client. It hosts the IDE, the human's local ter
 - Start screen: what changed while away (unread GCs and @mentions; PRs and decisions awaiting you; agents and Kanban; build health and usage). (§1)
 - Vim-style modal navigation, leader key, mnemonics, fuzzy palette, no Ctrl chords. (§4)
 - Roblox Studio runs only on this desktop. (Bazaar.Soul §2; CLAUDE.md)
-- Local NPU for collapsed action-log summaries; never server-side summaries. (§4; C17)
+- Action chips are deterministic (no model). The local NPU writes only an optional prose summary of collapsed action logs; never server-side summaries. (§4; C17; doc 31)
 - One theme file drives Avalonia and Monaco; format OPEN. (§4)
 - Owner merges from the Bazaar clients (DECISIONS-LOG round 8, C25): PR management and merge happen in the app; the server performs the squash merge on the owner's signed approval. The merge credential is a dedicated owner GitHub App or the owner's linked GitHub credential, chosen in the setup wizard (round 12). For a card tied to a PR, Done means merged; reviewer approval is a flag (round 8, C28).
 
@@ -25,7 +25,7 @@ The Windows head of the Avalonia client. It hosts the IDE, the human's local ter
 
 **Launcher [PROPOSED].** `--open <path>` and `--terminal` forward to the running instance over a per-user named pipe. A new instance starts only if no instance answers. A named mutex enforces a single instance.
 
-**Startup budgets [PROPOSED, spike targets, not measured].**
+**Startup budgets [PROPOSED, spike targets, not measured].** Each value is a setting (`windows.startup.budget_*`, see Settings).
 
 | Path | Target |
 |---|---|
@@ -45,13 +45,13 @@ The Windows head of the Avalonia client. It hosts the IDE, the human's local ter
 
 Spike pass criteria: composition or HWND embedding; keyboard and focus handoff to the Vim layer; IME in Monaco; memory per window; Monaco ready time with a pre-warmed environment; theme injection without reload. If no free route passes, the project may move off Avalonia to another open-source platform, with the owner's accepted migration (round 5). The contingency survey (`docs/research/notes/Bazaar UI framework contingency/ui_framework_alternatives.md`) recommends the order: Windows WebView2 Monaco, then Linux WebKitGTK, then a native Android surface, then AvaloniaEdit as the native fallback. Monaco is not used on Android (CLAUDE.md).
 
-**Editor, diff and PR panes [PROPOSED].** The editor is Monaco per window behind `IEditorHost`, so a native fallback can replace it. Diffs use Monaco diff mode. PR and issue lists, reviews and comments are native Avalonia. PR body Markdown renders in the WebView (no paid control). **In-app review and merge:** the owner reviews in the client; the client sends a signed approval; the server merges (squash, with the `Signed-off-by` line from CLAUDE.md) and records the platform's signed human identity (17, 21). The client holds no GitHub credential; all GitHub reads and writes go through the server (21, 14).
+**Editor, diff and PR panes [PROPOSED].** The editor is Monaco per window behind `IEditorHost`, so a native fallback can replace it. Local-disk saves follow `windows.editor.local_write` (default `server-backed`: local folders stay read-only until a save is accepted). Diffs use Monaco diff mode. PR and issue lists, reviews and comments are native Avalonia. PR body Markdown renders in the WebView (no paid control). **In-app review and merge:** the owner reviews in the client; the client sends a signed approval; the server merges (squash, with the `Signed-off-by` line from CLAUDE.md) and records the platform's signed human identity (17, 21). The client holds no GitHub credential; all GitHub reads and writes go through the server (21, 14).
 
-**Desktop Studio bridge [PROPOSED].** The client is an MCP client of Roblox's built-in Studio server over local stdio, when Studio is open. The server (15, 20) issues a grant per call. The client runs only calls that carry a valid grant, returns the result, and keeps no grants and no audit log. Write tools need owner approval on the server before relay (Question 9). Studio's server has no authentication, so only this client process connects.
+**Desktop Studio bridge [PROPOSED].** The client is an MCP client of Roblox's built-in Studio server over local stdio, when Studio is open. Each relay call carries a grant ID that points to a durable `engine_grants` row or approval (15, 20), not a fresh grant per call. The client runs only calls that carry a valid grant, returns the result, and keeps no grants and no audit log. Studio writes follow doc 20's default (agents write freely to a designated dev place); the open owner question is doc 20's Q5. Studio's server has no authentication, so only this client process connects.
 
-**Playtest support [PROPOSED].** Console output, state dumps and scripted input through the bridge. Periodic `screen_capture` only at a rate the owner sets, because screenshots are costly and agents cannot watch a viewport (Soul §2). Godot runs its GUI here only when a human needs it.
+**Playtest support [PROPOSED].** Console output, state dumps and scripted input through the bridge. Periodic `screen_capture` only at the rate in `playtest.capture_interval_s` (default off), because screenshots are costly and agents cannot watch a viewport (Soul §2). Godot runs its GUI here only when a human needs it.
 
-**Local NPU [PROPOSED].** Ratified exception (C17). Probe at start: OpenVINO EP on Intel NPU (Core Ultra Series 1+) via Windows ML, then ORT CPU. QNN later. Pin the NPU driver to 32.0.100.5540 or newer; avoid 32.0.100.4300, .4509 and .4512 (crash reports). Cache compiled models keyed on driver plus OpenVINO version. Show the active backend in the UI, and check that ops ran on the NPU rather than falling back silently to CPU. No tokens-per-second figure is sourced; benchmark before any budget.
+**Local NPU [PROPOSED].** Ratified exception (C17). Probe at start: OpenVINO EP on Intel NPU (Core Ultra Series 1+) via Windows ML, then ORT CPU. QNN later. Enabled backends come from `windows.npu.backends` (default Intel only; Snapdragon later). The NPU summary is optional; the client works without it. Pin the NPU driver to 32.0.100.5540 or newer; avoid 32.0.100.4300, .4509 and .4512 (crash reports). Cache compiled models keyed on driver plus OpenVINO version. Show the active backend in the UI, and check that ops ran on the NPU rather than falling back silently to CPU. No tokens-per-second figure is sourced; benchmark before any budget.
 
 **Local terminal [PROPOSED].** Ratified exception (C17, C31). One ConPTY per session, for the human's own shells only. It replaces Windows Terminal for local use. Registering as the console host (the default-terminal role) is gated on spike S10 (35). If S10 fails, Bazaar is a terminal the user opens, not the default.
 
@@ -77,6 +77,23 @@ public sealed record StudioRelayResult(string GrantId, bool Ok, JsonElement Payl
 ```
 Contracts: 02 supplies GC, since-last-seen data and the authenticated HTTP surface for blobs and search (round 6, C15); 21 PR, review and merge data; 20 and 15 Studio grants; 14 the owner's signed-approval credential class (C25 follow-up); 27 palette, theme tokens, key router and the offline fallback shell.
 
+### Settings
+Keys are read from the server registry (doc 03) and cached for offline use (doc 27). Install-scope rows are changed by the operator in the setup wizard or advanced settings; every change is audited.
+
+| Key | Type | Default | Scope (install/project/agent) | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `windows.startup.budget_shell_ms` | int | 1000 | install | operator | no |
+| `windows.startup.budget_dashboard_cache_ms` | int | 500 | install | operator | no |
+| `windows.startup.budget_dashboard_lan_ms` | int | 2000 | install | operator | no |
+| `windows.startup.budget_editor_first_file_ms` | int | 300 | install | operator | no |
+| `windows.startup.budget_detached_window_ms` | int | 500 | install | operator | no |
+| `windows.file_handler_types` | list of extensions | .txt .md .json .yaml .cs .py .ts .js .gd .lua, plus terminal | install | operator | no |
+| `windows.editor.local_write` | enum: `server-backed`, `local-write` | `server-backed` | install | operator | yes (doc 15 tier; local writes bypass the server log) |
+| `windows.dictation.enabled` | bool | false | install | operator | no (research first, C08) |
+| `windows.npu.backends` | list | `intel-openvino` | install | operator | no |
+| `windows.keys.leader` | key | `Space` | install | each user, for their own client | no |
+| `playtest.capture_interval_s` | int (0 = off) | 0 | project | project owner | no |
+
 ## Behaviour and edge cases
 - **Renderer crash:** reload the Monaco bundle and reopen models from the server. Unsaved edits stay in a local draft file until the server accepts them.
 - **Offline:** dashboard shows cache age; editor goes read-only; reconnect resumes from the sequence number (02).
@@ -98,7 +115,7 @@ Contracts: 02 supplies GC, since-last-seen data and the authenticated HTTP surfa
 
 ## Work packages
 1. Launcher and single-instance named-pipe IPC (needs 27 shell).
-2. Theme-to-Monaco generator and Avalonia resource mapping (needs theme format, Question 4).
+2. Theme-to-Monaco generator and Avalonia resource mapping (needs theme format, Question 3).
 3. Monaco bundle build and JS bridge, with harness test.
 4. WebView host spike across options B to D, then the host (needs 3; option A excluded).
 5. Editor pane with multi-model tabs behind `IEditorHost` (needs 4, 02).
@@ -129,14 +146,11 @@ Packages 1, 3, 7, 8, 9 and 13 can run in parallel.
 ## Questions for the owner
 1. **Terminal candidates:** spike Iciclecreek.Avalonia.Terminal and Terminal.Avalonia, with a custom xterm build over ConPTY as fallback? Both candidates must be OSI-licensed. Default: yes.
 2. **Process model:** one process, or terminals in a separate host so a GUI crash does not kill shells? Default: one process; revisit after the spike.
-3. **Startup budgets:** adopt the table as spike targets? Default: yes.
-4. **Theme file:** versioned JSON with named tokens, read by Android and Linux too? Default: yes.
-5. **File types to register:** .txt, .md, .json, .yaml, .cs, .py, .ts, .js, .gd, .lua, plus the terminal. Confirm the list. Default: as listed.
-6. **Local files:** does the IDE edit files on the human's disk, or only through the server? Default: server-backed; local folders read-only until a save is accepted. (Syncing the viewed branch to a local folder is already ratified, round 4.)
-7. **Windows dictation:** in v1 on desktop? Default: no; research Windows speech APIs first (C08: not yet researched).
-8. **Desktop NPU:** Intel only for v1? Default: yes; Snapdragon later.
-9. **Studio writes:** every write needs owner approval until doc 15 has trust rules. Confirm. Default: yes.
-10. **Playtest capture:** scheduled screenshots, owner-reviewable, at a rate set with doc 23's cost model; confirm the rate and the `<Space>` leader key with the mnemonic list. Default: capture off until a rate is set.
+3. **Theme file:** versioned JSON with named tokens, read by Android and Linux too? Default: yes. (A file format is a layout choice, so it stays a question.)
+
+MOVED TO SETTINGS: windows.startup.budget_shell_ms, windows.startup.budget_dashboard_cache_ms, windows.startup.budget_dashboard_lan_ms, windows.startup.budget_editor_first_file_ms, windows.startup.budget_detached_window_ms, windows.file_handler_types, windows.editor.local_write, windows.dictation.enabled, windows.npu.backends, windows.keys.leader, playtest.capture_interval_s (DECISIONS-LOG round 13)
+
+Removed from this list: Studio writes (now doc 20 Q5, see Desktop Studio bridge).
 
 ANSWERED: Monaco spike with free routes only; no Accelerate purchase (DECISIONS-LOG round 5, C26; old Q1).
 ANSWERED: an HWND-hosted WebView2 is an accepted route if composition is unreachable (DECISIONS-LOG round 4, C23; old Q2).

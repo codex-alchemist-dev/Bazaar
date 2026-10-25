@@ -1,6 +1,6 @@
 # Agent Memory System
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 10
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 5
 Depends on: `04-postgres-schema-and-migrations.md` · `05-model-gateway.md` · `06-agent-runtime.md` · `07-soul-system.md` · `09-work-life-simulation.md` · `14-identity-service-and-passport.md` · `15-security-taint-and-approvals.md` · `18-vault.md` · `docs/deep-dives/Bazaar.md` §5 · `Bazaar.Soul.md` §1–2 · Used by: `09-work-life-simulation.md`, `10-council-and-voting.md`, `11-reputation-and-peer-review.md`, `18-vault.md`, `19-constellation-and-git-solar-system.md`, `25-company-systems-knowledge.md`, `33-backup-dr-and-export.md`
 
 ## Purpose
@@ -39,7 +39,7 @@ Paths extend doc 18's layout; doc 18 must register the `memory` doc type and the
 | company | any memory type | `company/memory/…` | agents propose; owner promotes | Until deprecated |
 | hive | `memory-hive` | `hive/<kind>/<slug>.md` | copy flow (section 6) | Until deprecated |
 
-Scopes are therefore areas: `private` (the agent's own `agents/<agent>/`), `project`, `company`, `hive`. There is no separate company scope in the database; a company fact is a note under `company/`, and its owner-promoted tier is front matter. Episodic notes are tiny, so a turn summary costs one small file; they are written in batches (section 3). Working notes are deleted by the sweeper at TTL, and git history keeps them.
+Scopes are therefore areas: `private` (the agent's own `agents/<agent>/`), `project`, `company`, `hive`. There is no separate company scope in the database; a company fact is a note under `company/`, and its owner-promoted tier is front matter. Episodic notes are tiny, so a turn summary costs one small file; they are written in batches (section 3). Working notes are deleted by the sweeper at TTL, and git history keeps them. Lessons are Vault memory notes (`memory-procedure`, the procedural kind above); doc 07 has no `lessons` table (cross-doc pass, doc 07 fix list).
 
 Note front matter (doc 18's keys plus memory keys):
 
@@ -72,7 +72,7 @@ The validation result goes into the commit message trailer `Bazaar-Memory-Valida
 
 ### 3. Commit batching [PROPOSED]
 
-A commit per memory write would flood the repo. The memory write path keeps a per-agent in-memory queue and flushes one commit per agent when the first of these happens: end of the turn, 30 seconds idle, or 20 queued writes. The writer validates all items, writes the files, makes one commit with trailers (`Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`, `Bazaar-Memory-Ops`) and emits `(oldSha, newSha)` to the indexer. Reads within the same turn see the queue first, so a store followed by a retrieve is consistent. Queued writes survive a restart through a small spool table (`memory_spool`) replayed at startup. Consolidation (section 4) is one commit per run. Batch thresholds are [PROPOSED] defaults to measure.
+A commit per memory write would flood the repo. The memory write path keeps a per-agent in-memory queue and flushes one commit per agent when the first of these happens: end of the turn, 30 seconds idle, or 20 queued writes. The writer validates all items, writes the files, makes one commit with trailers (`Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`, `Bazaar-Memory-Ops`) and emits `(oldSha, newSha)` to the indexer. Reads within the same turn see the queue first, so a store followed by a retrieve is consistent. Queued writes survive a restart through a small spool table (`memory_spool`) replayed at startup. Consolidation (section 4) is one commit per run. Batch thresholds are settings (`memory.batch.idle_seconds`, `memory.batch.max_writes`), defaults [PROPOSED] to measure.
 
 ### 4. Episodic and semantic [PROPOSED]
 
@@ -80,7 +80,7 @@ Episodic notes are written at turn end without a model call: a pointer to GC mes
 
 ### 5. Trust and provenance [PROPOSED]
 
-Front matter carries both scales (C20): `source_trust` is doc 15's provenance enum, `trust` is the promotion tier.
+Front matter carries both scales (C20): `source_trust` is doc 15's provenance enum (`owner, system, agent, member-human, external, quarantined`; doc 15 owns the table), `trust` is this doc's promotion tier. T0 to T3 are the tier names here.
 
 | Tier | Meaning | Retrieval |
 |---|---|---|
@@ -89,18 +89,18 @@ Front matter carries both scales (C20): `source_trust` is doc 15's provenance en
 | T2 agent-verified | Clean agent write | Normal |
 | T3 owner-promoted | Human-approved | Normal, ranked higher |
 
-Boundary mapping [PROPOSED; doc 15 confirms the enum names]: a write from a hard-tainted session or with `source_trust` external gets T1; a quarantined `source_trust` gets T0; a clean agent write gets T2; only a human principal sets T3. A tainted session's writes start at T1 and no tool clears taint. Only a human promotes T1 to T2 or T2 to T3; agents may request, and votes and peer reviews cannot promote. Promotion is a commit by the owner's identity, so the audit trail is in git.
+Boundary mapping [PROPOSED; doc 15's provenance table is the reference]: a write from a hard-tainted session or with `source_trust = external` gets T1; `source_trust = quarantined` gets T0; a clean `agent` write gets T2; only a human principal (`owner` or `member-human`) sets T3. A tainted session's writes start at T1 and no tool clears taint. Only a human promotes T1 to T2 or T2 to T3; agents may request, and votes and peer reviews cannot promote. Promotion is a commit by the owner's identity, so the audit trail is in git.
 
 ### 6. Hive Mind and Company Memory as Vault areas [PROPOSED]
 
 - Company Memory is `company/memory/`; Hive Mind is `hive/`. Both are Vault only (C38). Agents propose; the owner promotes to T3.
-- Crossing projects is a **copy** note, never a link target of private text. Copies keep `origin_project` and `origin_note` in front matter.
+- Genetic Memory Transfer candidates (doc 25) are also Vault Markdown notes under `hive/`; no separate memory-item scope exists. Crossing projects is a **copy** note, never a link target of private text. Copies keep `origin_project` and `origin_note` in front matter.
 - Allowed: procedural and failure lessons, and technical facts naming no project, customer or person. Excluded: preferences, reputation, private memory, GC text, credentials, subject-tagged items, T0 and T1.
-- A sanitizer pass runs before copying. Grants per project pair and kind are owner-set; doc 25 Q10 (items reviewed for 30 days, then automatic under the grant) is adopted per DECISIONS-LOG C38 recommendation, subject to the owner's confirmation in Q6.
+- A sanitizer pass runs before copying. Grants per project pair and kind and the allowed kinds are install settings (`hive.grants`, `hive.allowed_kinds`, Settings table); the review window is doc 25's `hive.grant_review_days` (default 30, then automatic under the grant).
 
 ### 7. Consolidation ("coffee break") [PROPOSED]
 
-- Runs in the agent's own break window from the Work-Life scheduler (doc 09), never inside a turn.
+- Runs in the agent's own break window from the Work-Life scheduler (doc 09), never inside a turn. Time and token caps are settings (`memory.consolidation.max_minutes`, `memory.consolidation.max_tokens`).
 - Reads episodes in a **reader session** (doc 15's primitive): no tools, no write handle, structured output only. Output inherits the highest input taint.
 - Output is a set of note rewrites validated by SoulGuard and committed in one commit by the writer: new semantic notes, rewritten lessons, deprecations with a link, and a decay pass (rank weights live in `memory_state`, not in files). A maintenance report goes to the agent's private GC.
 - One run per agent (advisory lock), with time and token caps.
@@ -116,14 +116,14 @@ Retrieval:
 
 No unscoped query exists. Decay: retrieval weight falls with time since last use, with a half-life per kind; floors apply to failure, T3 and company notes. Decay never deletes; deprecated notes are excluded; working notes are swept at TTL.
 
-**Cover reads primary (doc 09).** Cover reads the handover note and shared project memory, never private memory. Anything the primary wants the cover to know is written to the handover note or a project note. Per-agent opt-in to private reads is not offered in v1 (DECISIONS-LOG C38 recommendation; the owner answered C38 only in general terms, so Q8 keeps it open). Doc 09 Q1 should match.
+**Cover reads primary (doc 09).** Cover reads the handover note and shared project memory, never private memory. Anything the primary wants the cover to know is written to the handover note or a project note. Per-agent opt-in to private reads is not offered in v1 (DECISIONS-LOG C38 recommendation; the owner answered C38 only in general terms, so question 3 keeps it open). Doc 09 Q1 should match.
 
 ### 9. Embeddings, personal data and erasure [PROPOSED; erasure OPEN]
 
 - Embeddings go through Bazaar.Server's gateway (doc 05), so per-agent policy applies. FreeLLMAPI exposes `/v1/embeddings` but restricts failover to one model family (`freellmapi_evaluation.md`).
 - One profile per install, `halfvec`; the dimension is fixed at setup. No model has been evaluated yet; choose after a retrieval evaluation. Embeddings of different profiles never mix in one query. pgvector HNSW limits: 2,000 for `vector`, 4,000 for `halfvec` (README, verified).
-- Personal data (C01). Spans naming a person are tagged at write time (Q7) and stored as an **encrypted block** inside the note: a fenced block carrying `subject` id, key id and ciphertext, with the key held in doc 14's secret/key store. The indexer never sees plaintext of these blocks and never embeds them, so no vector encodes them. Retrieval shows "[encrypted personal data]" unless the Principal may decrypt. DSAR export: decrypt by subject across areas and list the notes.
-- Erasure destroys the subject key. Ciphertext stays in the files and in git history but is unreadable; the note gets a tombstone line. Structure, authorship and timestamps stay. Backups keep old keys until expiry, and backup retention must equal the erasure window (doc 33). Legal sufficiency needs counsel.
+- Personal data (C01). Spans naming a person are tagged at write time (setting `memory.personal_tagging`, needs counsel) and stored as an **encrypted block** inside the note: a fenced block carrying `subject` id, key id and ciphertext, with the key held in doc 04's per-person key table (`person_key`, C01; doc 14 owns only the Soul and Passport DEKs). The indexer never sees plaintext of these blocks and never embeds them, so no vector encodes them. Retrieval shows "[encrypted personal data]" unless the Principal may decrypt. DSAR export: decrypt by subject across areas and list the notes.
+- Erasure destroys the subject key. Ciphertext stays in the files and in git history but is unreadable; the note gets a tombstone line. Structure, authorship and timestamps stay. Backup retention equals the erasure window (C01, doc 33), so backups hold old keys only for that window. Legal sufficiency needs counsel.
 - **OPEN:** personal data that tagging missed sits as plaintext in Markdown and in every git revision. Options: (a) treat misses as incidents and rewrite history for the affected paths with the owner's explicit approval (`CLAUDE.md` forbids rewriting shared history without it) and a forced re-clone of the host-side repo; (b) accept a documented residual risk; (c) keep personal notes out of the git-tracked area entirely. No default is chosen.
 
 ### 10. Interface sketch
@@ -148,6 +148,29 @@ memory_spool(spool_id uuid pk, agent_id uuid, payload jsonb, created_at timestam
 ```
 `memory_state` is derived from front matter and rebuilt from the repo; it is never authoritative.
 
+### Settings [PROPOSED; registry in doc 03]
+
+Every change writes an `audit_log` entry (doc 15). Settings never loosen the fixed floors, which are not settings: only humans promote T1 to T2 and T2 to T3 (votes and reviews cannot); peers never read private paths; the excluded Hive classes (preferences, reputation, private memory, GC text, credentials, subject-tagged items, T0 and T1) stay excluded; there is no hard-delete tool and decay never deletes; failure and T3 decay floors apply.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `memory.embedding_profile` | enum: none, or one install profile | `none` (lexical only until setup chooses) | install | operator, in setup wizard | Yes after data exists: a change is a planned re-embed (dimension is fixed) |
+| `memory.personal_tagging` | enum: `rule-and-model` | `rule-and-model` | install | operator; cannot be turned off | Yes (needs counsel) |
+| `memory.project_note_edit` | enum: `proposal`, `direct` | `proposal` | project | project admins, within the operator ceiling | No; audit entry |
+| `memory.batch.idle_seconds` | int | 30 | install | operator | No |
+| `memory.batch.max_writes` | int | 20 | install | operator | No |
+| `memory.decay.half_life_days` | int | 90 | install | operator | No |
+| `memory.working.ttl_days` | int | 7 | install | operator | No |
+| `memory.consolidation.max_minutes` | int | 10 | agent | operator | No |
+| `memory.consolidation.max_tokens` | int | 50000 | agent | operator | No |
+| `memory.note_max_bytes` | int | 4096 | install | operator | No |
+| `memory.query_candidates` | int | 2000 | install | operator | No |
+| `memory.max_notes_per_agent` | int | 100000 | install | operator | No |
+| `hive.allowed_kinds` | list: `procedure`, `failure`, `technical-fact` | all three | install | operator; Council may propose (C32) | Yes (Council vote); excluded classes cannot be added |
+| `hive.grants` | list of (source project, target project, kind) | empty (no transfer) | install | operator; Council may propose | Yes |
+
+`hive.grant_review_days` is doc 25's key (default 30) and is not repeated here.
+
 ## Behaviour and edge cases
 
 - A note and its index rows are consistent through the indexer's catch-up from `indexed_commit` (doc 18). Notes without embeddings are skipped by vector search.
@@ -155,7 +178,7 @@ memory_spool(spool_id uuid pk, agent_id uuid, payload jsonb, created_at timestam
 - Updates are optimistic on `memory.version`; git history is the version log.
 - Injected text is stored at T1, labelled, and placed in context as data, never in the system role.
 - A quarantined agent's writes become T0 and are excluded from others' retrieval, Hive Mind and Company Memory.
-- Limits [PROPOSED]: 4 KB per note, 2,000 candidates per query, 100,000 notes per agent. A very large per-agent file count may slow git; measure on the NUC.
+- Limits [PROPOSED] are settings (4 KB per note, 2,000 candidates per query, 100,000 notes per agent). A very large per-agent file count may slow git; measure on the NUC.
 - Memory is served only through server APIs; no client or VM holds a clone.
 
 ## Testing
@@ -189,7 +212,7 @@ Key cases:
 9. Consolidation job and reader session. Depends on: 4, 5, 6.
 10. Decay and working-note sweeper. Depends on: 5.
 11. Hive Mind copy flow and sanitizer. Depends on: 3, 4.
-12. Subject tagging, encrypted blocks, DSAR and erasure. Depends on: 1; key store from doc 14.
+12. Subject tagging, encrypted blocks, DSAR and erasure. Depends on: 1; per-person key table from doc 04.
 13. Evaluation harness and labelled-set builder. Depends on: 7.
 
 ## Conflicts
@@ -207,13 +230,10 @@ ANSWERED: Company knowledge is Vault only; the `company` scope is dropped (DECIS
 ANSWERED: Embedding dimension and profile: one profile per install, `halfvec` (DECISIONS-LOG round 10, C39).
 ANSWERED: Memory lives in the Vault as Markdown (DECISIONS-LOG round 11, C38).
 
-1. **Owner read of private memory.** Default: readable by the owner, every read logged. Why: the owner is final authority.
-2. **Embedding provider.** Default: per-install choice through the gateway (FreeLLMAPI or a local runtime); no assumed Anthropic embeddings. Why: no embedding model was evaluated.
-3. **Memory access.** Default: tools only, no mount; amends Soul §2. Why: keeps memory off VM disks.
-4. **Edit rights.** Default: agents edit only their own notes; others' project notes need a proposal. Why: prevents silent overwrites.
-5. **Batching thresholds.** Default: flush at turn end, 30 seconds idle or 20 writes; consolidation is one commit. Why: starting points to measure.
-6. **Hive Mind classes and grants.** Default: procedural and failure lessons and technical facts only; owner-set grants per project pair and kind; copies reviewed 30 days then automatic (doc 25 Q10). Why: smallest surface that still transfers learning.
-7. **Personal-data tagging and untagged leaks.** Default: rule-plus-model tagging at write time, measured on labelled samples before enabling. OPEN: pick a policy for untagged personal data already in git history (section 9 options a to c). Why: tagging errors cannot be fixed by key destruction.
-8. **Cover and private memory.** Default: cover never reads private memory; no opt-in in v1. Why: C38 recommendation; confirm.
-9. **Decay, TTL and consolidation budget.** Default: 90-day half-life for episodic and semantic with floors on failure and T3; working notes 7 days after task close; 10 minutes and 50k tokens per break. Why: starting points to tune on the labelled set.
-10. **Promotion and storage cap.** Default: only a human promotes T1 to T2 and T2 to T3; agents may request; 100,000 notes per agent; tool names as in the brief. Why: votes cannot approve (`Bazaar.md` §5); caps are placeholders to measure on the NUC.
+1. **Owner read of private memory.** Default: readable by the owner, every read logged. Why: the owner is final authority (C38, "the owner reads all"); confirm this is the intended reading.
+2. **Memory access.** Default: tools only, no mount; amends Soul §2. Why: keeps memory off VM disks; a mount is a design-intent and threat-model call.
+3. **Cover and private memory.** Default: cover never reads private memory; no opt-in in v1. Why: an opt-in would loosen the privacy floor; C38 recommendation; confirm.
+4. **Untagged personal data already in git history (needs counsel).** Options (section 9): (a) rewrite history for affected paths with the owner's explicit approval and a forced re-clone; (b) documented residual risk; (c) keep personal notes out of the git-tracked area. Undecided, and (c) changes the file layout, so one answer is needed. Tagging itself is the setting `memory.personal_tagging`.
+5. **Tool names.** Default: `memory_store`, `memory_retrieve`, `memory_update`, `memory_deprecate`, from the task brief. Why: naming is the owner's call.
+
+MOVED TO SETTINGS: memory.embedding_profile, memory.personal_tagging, memory.project_note_edit, memory.batch.idle_seconds, memory.batch.max_writes, memory.decay.half_life_days, memory.working.ttl_days, memory.consolidation.max_minutes, memory.consolidation.max_tokens, memory.note_max_bytes, memory.query_candidates, memory.max_notes_per_agent, hive.allowed_kinds, hive.grants (DECISIONS-LOG round 13)

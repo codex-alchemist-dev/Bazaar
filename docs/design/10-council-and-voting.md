@@ -1,6 +1,6 @@
 # Council and Voting
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 19
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3
 Depends on: `01-gc-data-model.md` (GC log, event kinds), `04-postgres-schema-and-migrations.md` (conventions, per-person encryption), `06-agent-runtime.md` (wake reasons, Thinking GCs), `09-work-life-simulation.md` (schedules, absence), `12-kanban-and-dependencies.md` (task service, `council` gate), `15-security-taint-and-approvals.md` (taint flags, approval tiers), `18-vault.md` (VaultWriter), `24-company-systems-core.md` (interrupt stack) · Used by: `07-soul-system.md` (hire, promote, retire), `11-reputation-and-peer-review.md`, `25-company-systems-knowledge.md` (Talent Pool, Archive), `28-windows-client.md` and `29-android-client.md` (vote and escalation UI), `33-backup-dr-and-export.md`
 
 ## Purpose
@@ -45,10 +45,12 @@ For a bigger change, "decisive" means unanimous among eligible voters; any split
 | Option choice | one of 2 to 6 options | One option over 50% of non-abstaining cast | Follow-up, then escalate |
 | Ranked | full ranking | Instant-runoff majority | Deferred until after pilot |
 
+Enabled types are set by `council.vote_types_enabled` (approve/reject and option choice; ranked is not built).
+
 ### Membership and role votes (C32)
 
-- **Motions:** `hire` (candidate from the Talent Pool, doc 25), `promote`, `retire`, and other role changes.
-- **Motion class:** `bigger_change` or `ordinary`. [PROPOSED] Until Question 18 is answered, every membership or role motion is a `bigger_change`.
+- **Motions:** `hire` (candidate from the Talent Pool, doc 25), `promote`, `retire`, and other role changes. A vote may also propose a change to the Company Constitution (doc 24).
+- **Motion class:** `bigger_change` or `ordinary`, set by `council.bigger_change_classes` (Settings below). [PROPOSED] Default: every membership or role motion and every Constitution change is a `bigger_change`. This closes the C32 follow-up on which motions are bigger changes as a per-install setting (DECISIONS-LOG round 13, rule 4); the owner's C32 statement still governs the escalation rule.
 - **Rule:** a `bigger_change` passes without the owner only when unanimous; split or tied outcomes escalate. An `ordinary` motion uses the vote-type rules above.
 - **Effect:** the Council emits `council.decision`; the owning doc applies the change (doc 07 for Soul and lifecycle state, doc 25 for hiring). This doc writes no agent tables (C04).
 - **Context:** reputation (doc 11) is shown beside the vote; it does not weight it in v1.
@@ -56,27 +58,27 @@ For a bigger change, "decisive" means unanimous among eligible voters; any split
 ### Eligibility, quorum and deadlines [PROPOSED]
 
 - **Eligible:** agent members of the GC at open. The proposer, the subject's author and (for membership votes) the subject cannot vote; they may post non-voting reasons. The owner does not vote.
-- **Unanimity:** measured over eligible voters after these exclusions (Question 19).
-- **Quorum:** majority of eligible voters cast, minimum 3. Abstentions count for quorum, not threshold.
+- **Unanimity:** measured over eligible voters after these exclusions (`council.unanimity_electorate`; the stricter option counts all GC members).
+- **Quorum:** majority of eligible voters cast, minimum `council.quorum_min` (3). Abstentions count for quorum (`council.abstain_counts_quorum`), never for the threshold.
 - **Absent agents:** excluded from the denominator only if doc 09 shows them absent for the whole window at open. Self-declared absence does not count.
-- **Deadline:** one working day on each voter's own schedule, capped at 72 hours wall clock; one extension, then Escalated.
-- **Follow-up trigger:** no decisive result, or at least one third dissent on a high-impact motion. Pilot: always on.
+- **Deadline:** `council.vote_deadline_working_days` (1) on each voter's own schedule, capped by `council.vote_deadline_cap_hours` (72) wall clock; `council.vote_extensions_max` (1) extension, then Escalated.
+- **Follow-up trigger:** no decisive result, or at least `council.followup_dissent_share` (0.33) dissent on a high-impact motion. `council.followup_enabled` is on in the pilot. The one-round cap is fixed (DECIDED).
 
 ### Weighting
 
-Pilot: equal weight per voter. [PROPOSED] The only candidate is a bounded factor (1.0 to 1.5) from hard outcomes (CI, reverts, owner accept or reject), domain-matched. Peer-review weighting is not proposed. Weights are OPEN (Question 1).
+Equal weight per voter by default: `council.reputation_weight` = 1.0 (no weighting), matching doc 11. The setting may be raised to at most 1.5, a bounded factor from hard outcomes (CI, reverts, owner accept or reject), domain-matched [PROPOSED]. Peer-review weighting is not proposed.
 
 ### Private storage and reveal
 
 - Sealed ballots sit in `council_ballot` in Postgres, outside the GC log, and never enter any agent's memory or prompt before reveal. The ballot prompt contains the motion and the agent's own ballot only.
 - Ballot reasoning and the reasons in `council.reveal` are personal fields: per-person encrypted (C01). Erasure destroys that voter's key and tombstones their reasoning; the tally and structure stay. Legal sufficiency needs counsel.
-- Sealed and revealed ballots are kept as the audit record, except through erasure. The owner can read sealed ballots, as with DMs, and access is audited. [PROPOSED] (Question 12)
+- Sealed and revealed ballots are kept as the audit record, except through erasure. The owner can read sealed ballots, as with DMs, and access is audited. [PROPOSED] (Question 1)
 - Thinking GCs never show vote reasoning before the reveal (doc 06, C11).
 
 ### Escalation (ties, no quorum, bigger-change splits) [PROPOSED]
 
 - The packet holds the motion, options, both tallies, all reasons, dissent summary and taint flags.
-- Owner picks a listed option or defers; optional reasoning is recorded. No timeout decision; re-notify after 4 hours.
+- Owner picks a listed option or defers; optional reasoning is recorded. No timeout decision; re-notify every `council.escalation_renotify_hours` (4).
 - Alerts use the owner-decision wake kind (C41): a bare hint; the card is fetched over the authenticated connection.
 - **Windows:** "Decisions awaiting you" card on the dashboard; inline vote card in the GC view. **Android:** push opens the same card; optional reasoning by dictation.
 - Both call one `ResolveEscalation` API in `Bazaar.Client.Core`.
@@ -109,15 +111,15 @@ Council is not Kanban. A card gates on a decided vote with the `council` gate (d
 - **Crash:** ballots durable on write; a crash mid-reveal leaves the vote in its prior state; restart resumes.
 - **Reconnect:** clients derive vote cards from GC replay, not local storage.
 - **Taint:** each ballot records `tainted_at_write` (doc 15). Tainted votes are counted and flagged. [PROPOSED]
-- **Abuse:** 5 open votes per agent per day; no reopen of a withdrawn or decided subject within 24 hours without new evidence. [PROPOSED]
+- **Abuse:** `council.open_votes_per_agent_day` (5); no reopen of a withdrawn or decided subject within `council.reopen_cooldown_hours` (24) without new evidence. [PROPOSED]
 - **Cost:** one model call per voter, plus one per follow-up; per-vote token cap [PROPOSED]. No money budgets.
 
 ### Pilot metrics (proposed)
 
 - **Flip rate** (follow-up vs independent choice, by direction) and **evidence flips** (flips whose reason cites nothing absent from the reveal; reviewer-labelled sample).
 - **Accuracy** where outcomes exist (CI, revert, owner accept): independent vs final ballot.
-- **Holdout:** 15% of votes skip follow-up. **Other:** tie, escalation and override rates; agreement by family; tokens per vote.
-- **Stop rule:** turn off follow-up if evidence-free flips exceed 20% or final accuracy falls below independent accuracy.
+- **Holdout:** `council.pilot_holdout_share` (0.15) of votes skip follow-up. **Other:** tie, escalation and override rates; agreement by family; tokens per vote. Pilot size: `council.pilot_target_votes` (20).
+- **Stop rule:** turn off follow-up if evidence-free flips exceed `council.pilot_stop_flip_share` (0.20) or final accuracy falls below independent accuracy.
 
 ## Data and interfaces
 
@@ -143,6 +145,36 @@ interface ICouncilService {
 // Pure domain: VoteStateMachine.Next(state, event), Tally.Decide(ballots, kind, motionClass)
 // Ports: IGcAppender (doc 01), IScheduleProvider (doc 09), IVaultDecisionWriter (forwards to VaultWriter, doc 18), IClock
 ```
+
+### Settings
+
+Registry rules from doc 03 (round 13): settings are per install here, changes are audited (doc 15 `audit_log`), and no setting loosens a DECIDED item (one follow-up round, sealed ballots, hard-taint gating of outward actions).
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `council.reputation_weight` | decimal, 1.0 to 1.5 | 1.0 (none) | install | operator | Yes, audited |
+| `council.owner_votes` | bool | false | install | operator | Yes, audited |
+| `council.exclude_author` | bool | true | install | operator | Yes, audited |
+| `council.exclude_membership_subject` | bool | true | install | operator | Yes, audited |
+| `council.unanimity_electorate` | enum: eligible_after_exclusions, all_gc_members | eligible_after_exclusions | install | operator | Yes, audited |
+| `council.bigger_change_classes` | list | all membership and role motions, and Constitution changes [PROPOSED] | install | operator; Council may propose | Yes, audited |
+| `council.quorum_min` | int, at least 1 | 3 | install | operator | No, audited |
+| `council.abstain_counts_quorum` | bool | true | install | operator | No, audited |
+| `council.vote_types_enabled` | list | approve_reject, option_choice | install | operator | No, audited |
+| `council.vote_deadline_working_days` | int | 1 | install | operator | No, audited |
+| `council.vote_deadline_cap_hours` | int | 72 | install | operator | No, audited |
+| `council.vote_extensions_max` | int | 1 | install | operator | No, audited |
+| `council.followup_enabled` | bool | true (pilot) | install | operator | Yes, audited |
+| `council.followup_dissent_share` | decimal | 0.33 | install | operator | No, audited |
+| `council.reason_min_sentences` | int | 2 | install | operator | No, audited |
+| `council.reason_max_chars` | int | 2000 | install | operator | No, audited |
+| `council.reason_order` | enum: random, fixed | random | install | operator | No, audited |
+| `council.escalation_renotify_hours` | int | 4 | install | operator | No, audited |
+| `council.open_votes_per_agent_day` | int | 5 | install | operator | No, audited |
+| `council.reopen_cooldown_hours` | int | 24 | install | operator | No, audited |
+| `council.pilot_holdout_share` | decimal | 0.15 | install | operator | No, audited |
+| `council.pilot_stop_flip_share` | decimal | 0.20 | install | operator | No, audited |
+| `council.pilot_target_votes` | int | 20 | install | operator | No, audited |
 
 ## Testing
 
@@ -174,36 +206,23 @@ Packages 2, 3, 6 and 7 can run in parallel once 1 is merged.
 ## Conflicts
 
 1. **Whole-team voting vs weighting.** Mixed-capability groups can be pulled down by a weaker member. Equal weighting is safer but may drown strong reviewers.
-2. **Reputation weighting.** This doc proposes a 1.0 to 1.5 factor; doc 11 says reputation does not weight votes in v1. Owner decides (Question 1); doc 11 follows.
-3. **Visible reasons vs independence.** Reveal remains the main sycophancy channel; follow-up rules limit it but cannot remove it.
-4. **Even electorates.** Even electorates tie often and load the owner (Question 5).
-5. **Correlated voters.** Majority voting helps only when voters err independently; same-family agents share errors.
-6. **Sealed ballots vs owner visibility and backups.** Sealed ballots are readable by the owner and present in backups until the erasure window closes (C01; doc 33). Multi-person installs need counsel review (`Bazaar.Server.md` item 17).
-7. **Council vs taint gate.** Unanimous votes can pass membership changes without the owner (C32). This doc keeps them outside the taint gate, which covers outward actions (C06). Owner confirms (Question 13).
-8. **Doc 06 (wake reasons).** Ballot requests need a named wake reason (assignment, or a new vote-request reason). Doc 06 must also replace its flat `Interrupt` with doc 24's push contract (C35).
-9. **Docs 07 and 11 (promotion).** Doc 07 Q7 ("promotion needs your approval") and doc 11 ("promotion logged, badge only") must both become Council votes (C32).
-10. **Doc 04 (tables).** Drop the outlined `vote` and `ballot` tables (C16). Mark `council_ballot.reasoning` and reveal reasons as per-person encrypted (C01).
-11. **Doc 01 (kinds).** Register `council.*` event kinds in the kind registry (C19).
-12. **Erasure in Vault files (OPEN).** Decision records quote reasons; erasure inside Markdown and git history is OPEN (C38 follow-up).
+2. **Visible reasons vs independence.** Reveal remains the main sycophancy channel; follow-up rules limit it but cannot remove it.
+3. **Even electorates.** Even electorates tie often and load the owner. Operators can address this with `council.quorum_min` and `council.owner_votes` (Settings).
+4. **Correlated voters.** Majority voting helps only when voters err independently; same-family agents share errors.
+5. **Sealed ballots vs owner visibility and backups.** Sealed ballots are readable by the owner and present in backups until the erasure window closes (C01; doc 33). Multi-person installs need counsel review (`Bazaar.Server.md` item 17).
+6. **Council vs taint gate.** Unanimous votes can pass membership changes without the owner (C32). This doc keeps them outside the taint gate, which covers outward actions (C06). Owner confirms (Question 2).
+7. **Doc 06 (wake reasons).** Ballot requests need a named wake reason (assignment, or a new vote-request reason). Doc 06 must also replace its flat `Interrupt` with doc 24's push contract (C35).
+8. **Docs 07 and 11 (promotion).** Doc 07 Q7 ("promotion needs your approval") and doc 11 ("promotion logged, badge only") must both become Council votes (C32).
+9. **Doc 04 (tables).** Drop the outlined `vote` and `ballot` tables (C16). Mark `council_ballot.reasoning` and reveal reasons as per-person encrypted (C01).
+10. **Doc 01 (kinds).** Register `council.*` event kinds in the kind registry (C19).
+11. **Erasure in Vault files (OPEN).** Decision records quote reasons; erasure inside Markdown and git history is OPEN (C38 follow-up).
+
+Resolved in this pass: the reputation-weighting conflict (doc 10 proposed 1.0 to 1.5; doc 11 says none). `council.reputation_weight` defaults to 1.0 per DECISIONS-LOG round 13, so the two docs agree.
 
 ## Questions for the owner
 
-1. **Weighting.** Default: equal per voter; hard-outcome weighting only after evidence. Doc 11 says none in v1.
-2. **Owner as voter.** Default: resolve escalations only, so the tie-breaker is never a voter.
-3. **Author exclusion.** Default: proposer and subject author cannot vote, but may post reasons.
-4. **Subject of a membership or role vote.** Default: the subject cannot vote on its own hire, promotion or retirement; it may post reasons.
-5. **Quorum and electorate.** Default: majority of eligible, minimum 3, abstentions count for quorum. Alternative: odd-sized electorate to reduce ties.
-6. **Deadlines.** Default: one working day per voter, cap 72 hours, one extension.
-7. **Follow-up trigger.** Default: no decisive result, or one third dissent on high-impact motions; always on during pilot.
-8. **Pilot vote types.** Default: approve/reject and option choice; ranked later.
-9. **Abstentions.** Default: count for quorum, not threshold.
-10. **Reason rules.** Default: at least two sentences, cite evidence or label opinion, 2,000-character cap.
-11. **Reason order.** Default: random per vote, seed stored in the record.
-12. **Owner access to sealed ballots.** Default: readable and audited, as with DMs. Alternative: hidden until reveal.
-13. **Tainted votes and the taint boundary.** Default: tainted votes counted and flagged; membership changes stay outside the taint gate.
-14. **Council and approvals.** Default: never grants owner-reserved approvals; may request one through doc 15's tiers.
-15. **Escalation alerts.** Default: Android push plus Windows dashboard card; re-notify after 4 hours; no auto-decision.
-16. **Rate limits.** Default: 5 open votes per agent per day; no reopen within 24 hours without new evidence.
-17. **Pilot scope.** Default: 20 internal design and process votes, 15% holdout, stop rule as above.
-18. **Bigger changes (C32, FOLLOW-UP).** Which motions need the owner when not unanimous? Candidates: new agent, promotion to senior, retirement, changing a model whitelist. Default: all membership and role motions count as bigger changes until this list is set.
-19. **"Perfect" vote (C32, FOLLOW-UP).** Unanimity measured over whom? Default: eligible voters after the exclusions above (proposer, subject author, subject of a membership vote, owner).
+1. **Owner access to sealed ballots.** Default: readable and audited, as with DMs. Alternative: hidden until reveal.
+2. **Tainted votes and the taint boundary.** Default: tainted votes counted and flagged; membership changes stay outside the taint gate. (Moving them inside would change the hard-taint gate, so this stays with the owner.)
+3. **Council and approvals.** Default: never grants owner-reserved approvals; may request one through doc 15's tiers.
+
+MOVED TO SETTINGS: council.reputation_weight, council.owner_votes, council.exclude_author, council.exclude_membership_subject, council.unanimity_electorate, council.bigger_change_classes, council.quorum_min, council.abstain_counts_quorum, council.vote_types_enabled, council.vote_deadline_working_days, council.vote_deadline_cap_hours, council.vote_extensions_max, council.followup_enabled, council.followup_dissent_share, council.reason_min_sentences, council.reason_max_chars, council.reason_order, council.escalation_renotify_hours, council.open_votes_per_agent_day, council.reopen_cooldown_hours, council.pilot_holdout_share, council.pilot_stop_flip_share, council.pilot_target_votes (DECISIONS-LOG round 13)

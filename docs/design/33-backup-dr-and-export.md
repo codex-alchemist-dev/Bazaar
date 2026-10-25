@@ -1,6 +1,6 @@
 # Backup, Disaster Recovery and Export
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 16
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 6
 Depends on: 01-gc-data-model.md, 03-server-host-and-providers.md, 04-postgres-schema-and-migrations.md, 07-soul-system.md, 08-memory-system.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 16-agent-vms-and-environments.md, 17-coding-agent-harness.md, 18-vault.md · Used by: 32-remote-access-auth-and-privacy.md, 34-testing-strategy.md
 
 ## Purpose
@@ -18,6 +18,7 @@ Defines what an instance must recover after losing a disk, a host or a credentia
 - Migrations run by an explicit `migrate` command; the server only checks the schema version at startup and refuses on mismatch (round 11, C44, RESOLVED).
 - GC fan-out uses Postgres NOTIFY. GC log uses hash partitions by `gc_id` from day 1, with a configurable count (round 1, C10, and round 12, RESOLVED).
 - Home host accepts no inbound connections by default (round 8, C30, RESOLVED). Offsite shipping is therefore outbound-only.
+- Configurability rule (round 13): plain values and policy choices here are settings with safe defaults. Legal or privacy exposure (data leaving the install, retention) defaults to the most protective option and is marked needs counsel.
 
 ## Design
 Everything below is [PROPOSED] unless tagged DECIDED.
@@ -27,13 +28,13 @@ Everything below is [PROPOSED] unless tagged DECIDED.
 | Component | Treatment | Method |
 |---|---|---|
 | PostgreSQL (GC log, structured state, reputation, Kanban, usage, Passport ciphertext, DEK table, audit) | Restore | Base backups plus WAL archive (point-in-time recovery). Nightly `pg_dump -Fc` as a logical copy only |
-| Vault repo (all agent memory, decisions, Constitution, research) | Restore | Push to a private remote the operator controls, plus nightly `git bundle` through `IGitProvider`. Index rebuilt, not restored. Its RPO is the last push, not the WAL age (Q16) |
-| Soul folders (host-side) | Restore | File snapshot in the same run as the database, with a consistency marker. Cookie profiles follow Q15 |
-| Golden parent disk per version in use | Restore, or rebuild | Offsite copy of each parent a child references; recipe rebuild as fallback (`16`) |
-| Child VM disks | Recreate | Not backed up. Unpushed in-VM work is lost; push before rebase (`17`) |
+| Vault repo (all agent memory, decisions, Constitution, research) | Restore | Push to a private remote the operator controls, plus nightly `git bundle` through `IGitProvider`. Index rebuilt, not restored. Its RPO is the last push (`vault.push_cadence`, doc 18), not the WAL age (Q6) |
+| Soul folders (host-side) | Restore | File snapshot in the same run as the database, with a consistency marker. Cookie profiles are excluded unless `security.backup.include_cookie_profiles` is true (doc 15, default false) |
+| Golden parent disk per version in use | Restore, or rebuild | Offsite copy only if `backup.golden_parent_offsite` is true; otherwise recipe rebuild (`16`) |
+| Child VM disks | Recreate | Not backed up by default (`backup.include_child_vm_disks`, false). Unpushed in-VM work is lost; push before rebase (`17`) |
 | VM checkpoints | Not a backup | Short rollback aid only |
 | Keys (section Keys) | Escrow | Offline sealed copies |
-| Audit hash head | Restore | Also copied to the offsite store (`15`) |
+| Audit hash head | Restore | Also copied offsite when `backup.audit_head_offsite` is true (`15`) |
 | Logs, raw usage (`gw_usage`, `05`/`23`), search indexes | Not backed up | Logs rotate; raw usage ages out; indexes (Postgres full-text, `halfvec`) rebuilt from the log and the Vault |
 | Config | Restore | Holds bootstrap references only (`03`, `14`): the KEK and database credential by reference, never values |
 
@@ -41,11 +42,11 @@ Everything below is [PROPOSED] unless tagged DECIDED.
 
 **PostgreSQL, Windows path.**
 - `pg_basebackup` nightly (plain or tar) into a backup folder.
-- `wal_level = replica`, `archive_mode = on`, `archive_timeout = 15min`.
+- `wal_level = replica`, `archive_mode = on`, `archive_timeout` from `backup.wal_archive_timeout` (15 min).
 - `archive_command` calls a small Bazaar archiver (fsync, copy, size check, non-zero exit on any doubt), not `cmd copy`, to avoid quoting and silent-success failures.
 - Offsite shipping of base sets and WAL by restic (Windows supported per secondary sources).
 - `pg_dump -Fc` nightly for selective restore only; it cannot support point-in-time recovery (PostgreSQL docs, verified).
-- Retention: two newest base sets plus all WAL since the older one. Incremental base backups stay off until drilled.
+- Local retention: `backup.base_sets_kept` (2) newest base sets plus all WAL since the older one. Incremental base backups stay off until drilled.
 
 **PostgreSQL, Linux path.** pgBackRest (Debian and Ubuntu documented; S3-compatible repositories verified) or WAL-G (Linux binaries). Selected by `IBackupEngine` on Linux hosts. Barman is not used: its Windows status is unclear.
 
@@ -57,18 +58,18 @@ Everything below is [PROPOSED] unless tagged DECIDED.
 | KEK (Passport master key) | Unwraps per-subject DEKs (`14`) | Offline sealed copy held by owner; DPAPI on the host (bootstrap, `03`) |
 | Provider and GitHub App keys | Held by the Identity Service (`14`) | Encrypted under the KEK; re-issued if the KEK is lost |
 
-Losing the KEK means rotating every credential and losing unwrap for encrypted personal fields (`14`). Vault files are not encrypted under the KEK in this design (Q16).
+Losing the KEK means rotating every credential and losing unwrap for encrypted personal fields (`14`). Vault files are not encrypted under the KEK in this design (Q6).
 
 **Objectives [PROPOSED].**
-- RPO about 1 hour for PostgreSQL, measured as the age of the newest WAL segment in the offsite store. A local-only archive does not count.
-- Vault RPO: the age of the last successful push or bundle. [PROPOSED] push after each `VaultWriter` batch (`18`).
+- RPO for PostgreSQL: `backup.offsite_rpo_target` (1 h), measured as the age of the newest WAL segment in the offsite store. A local-only archive does not count.
+- Vault RPO: the age of the last successful push or bundle, set by `vault.push_cadence` (15 min, doc 18) and `backup.vault_bundle_hours` (24 h).
 - RTO about 1 day for a full NUC rebuild, from first restore command to first agent turn.
 - One agent VM: recreate from golden parent; target hours; unmeasured.
 
 **Restore rules.**
 1. Never restore in place. Restore into an empty data root or a new instance; refuse a non-empty target.
 2. Prefer point-in-time recovery to the latest recoverable point over a base-only restore.
-3. Rollback policy (open; C10 FOLLOW-UP). Restoring to time T discards GC entries after T and rewinds `gc.next_seq`. Clients may already have seen the discarded sequence numbers, so reusing them would break gap-free replay (`01`, `02`). Proposal:
+3. Rollback policy (open; C10 FOLLOW-UP, Q3). Restoring to time T discards GC entries after T and rewinds `gc.next_seq`. Clients may already have seen the discarded sequence numbers, so reusing them would break gap-free replay (`01`, `02`). Proposal:
    - Restore to a scratch instance first. Compare each GC head with every surviving source (WAL to latest, offsite audit head, client caches).
    - Replay recoverable entries; never drop them.
    - For an unrecoverable range, write a `system` entry in each affected GC recording the lost sequence range and restore time. Set `next_seq` above the highest sequence any surviving source saw. Do not reconstruct lost content.
@@ -77,9 +78,9 @@ Losing the KEK means rotating every credential and losing unwrap for encrypted p
 4. Soul folders and database come from one backup run. If the consistency marker does not match, the agent starts quarantined.
 5. A restored instance runs `migrate` only deliberately. Startup checks the schema version and refuses to run on a mismatch (`04`).
 
-**Erasure and backups.** Each subject's data key (DEK) is wrapped by the KEK and kept in a separate key table (`14`, `04`). Erasure destroys the wrapped DEK, purges embeddings and writes a tombstone (`08` §9, `14`). Backup retention equals the erasure window (DECIDED, round 2, C01). The window is a [PROPOSED] 35 days (`04` Q7): erasure is complete when the last backup set holding that DEK has expired. Until then the gap is documented. Per-person encryption covers database personal fields only. Vault files and git history are not yet covered (Q16). Needs counsel.
+**Erasure and backups.** Each subject's data key (DEK) is wrapped by the KEK and kept in a separate key table (`14`, `04`). Erasure destroys the wrapped DEK, purges embeddings and writes a tombstone (`08` §9, `14`). Backup retention equals the erasure window (DECIDED, round 2, C01). The window is `erasure.backup_window_days` (doc 04; placeholder 35 days; needs counsel; a shorter window is the more protective choice). Erasure is complete when the last backup set holding that DEK has expired; until then the gap is documented. Per-person encryption covers database personal fields only. Vault files and git history are not yet covered (Q6). Offsite retention settings below are capped so that the newest offsite snapshot stays inside the window (Conflict 8).
 
-**Offsite store.** Operator's choice behind `IBackupTarget`. Example: restic to S3-compatible storage or Backblaze B2 (2024-dated price, unverified for 2026). Restic's encryption is secondary-sourced.
+**Offsite store.** `backup.offsite_target` (default `none`): nothing leaves the install until the operator configures a target, and setup warns that RPO is local-only until then. Documented options: restic to any S3-compatible bucket (the example), restic to Backblaze B2 (2024-dated price, unverified for 2026), or a custom `IBackupTarget`. Restic's encryption is secondary-sourced.
 
 **Instance export and migration.** Three artifacts, not interchangeable:
 
@@ -93,21 +94,45 @@ Cutover: (1) drain turns (`03` shutdown) and stop VMs; (2) take a final base bac
 
 **Behaviour and edge cases.**
 - An archive gap, missed base backup or stale Vault push raises an alert and turns the dashboard red.
-- A full archive volume blocks WAL removal, so disk use is a monitored input (warn 80%, red 95%).
-- Backup repositories hold Passport ciphertext, private Vault memory and, if Q15 includes them, cookie profiles. Only the owner runs restores.
+- A full archive volume blocks WAL removal, so disk use is a monitored input (`backup.volume_warn_pct` 80, `backup.volume_red_pct` 95).
+- Backup repositories hold Passport ciphertext and private Vault memory, and cookie profiles only if `security.backup.include_cookie_profiles` is true. Only the owner runs restores.
 - Soul folders are snapshotted at a turn checkpoint, so the marker reflects a quiet point.
+
+### Settings
+
+Keys are install-scoped; the operator changes them in the setup wizard or advanced settings (docs 27, 32), and every change is audited (`15`). Shipped defaults are the safe ones.
+
+| Key | Type | Default | Scope (install/project/agent) | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `backup.offsite_target` | enum: none, restic-s3, restic-b2, custom | none | install | operator | Yes (owner). Data leaves the install; needs counsel (processor terms) |
+| `backup.wal_archive_timeout` | duration | 15 min | install | operator | No |
+| `backup.offsite_rpo_target` | duration | 1 h | install | operator | No; drill checks compare against it |
+| `backup.base_sets_kept` | int | 2 | install | operator | No |
+| `backup.offsite_keep_daily` | int | 14 | install | operator | No; daily plus weekly must fit the erasure window |
+| `backup.offsite_keep_weekly` | int | 4 | install | operator | Yes (owner). Needs counsel. Owner's earlier 8 weeks (about 56 days) exceeds the 35-day placeholder, so 4 is the default |
+| `backup.golden_parent_offsite` | bool | false | install | operator | Yes (owner). Data leaves the install; needs counsel |
+| `backup.include_child_vm_disks` | bool | false | install | operator | Yes (owner). Child disks hold private work |
+| `backup.audit_head_offsite` | bool | true | install | operator | No. Hash only, no content; counsel to confirm |
+| `backup.vault_bundle_hours` | int | 24 | install | operator | No |
+| `backup.drill_interval_days` | int | 90 | install | operator | No |
+| `backup.check_interval_hours` | int | 24 | install | operator | No; WAL and Vault push age checks |
+| `backup.volume_warn_pct` | int | 80 | install | operator | No |
+| `backup.volume_red_pct` | int | 95 | install | operator | No |
+
+Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, doc 04); `security.backup.include_cookie_profiles` (false, doc 15); `vault.push_cadence` (15 min, doc 18).
 
 ## Testing
 - Real PostgreSQL 18: base backup, write rows, archive, point-in-time restore to a timestamp; GC row counts and max seq per GC match.
 - Archiver: reports failure when the target is full or unwritable; PostgreSQL keeps the WAL.
 - Restore refuses a non-empty target. Restored server refuses to start on a schema mismatch. Rollback writes a recovery entry and `next_seq` clears the highest seen; clients get `stale_cursor`.
+- Settings validation refuses offsite retention that exceeds `erasure.backup_window_days`.
 - Vault: bundle and push restore to the remote head; private memory notes are present and no older commit is restored.
 - Erasure: after window expiry, an old snapshot's ciphertext and its DEK are unreadable; before it, the gap is asserted and documented.
 - KEK export round trip; wrong passphrase rejected; real DPAPI on the NUC (`Category=Windows-host`).
 - Instance bundle digest mismatch refused; old instance holds no leases after cutover.
 - Avalonia.Headless: stale RPO shows red.
 
-**Drill checklist (quarterly).**
+**Drill checklist (quarterly, `backup.drill_interval_days`).**
 1. Restore latest base plus WAL to a scratch host; counts match at a fixed timestamp.
 2. Newest offsite WAL age is within RPO; last Vault push is within Vault RPO.
 3. `pg_restore` a dump; run a `halfvec` similarity query on a rebuilt index.
@@ -132,30 +157,21 @@ Cutover: (1) drain turns (`03` shutdown) and stop VMs; (2) take a final base bac
 13. Drill runbook (documentation only). No code dependency.
 
 ## Conflicts
-1. **DPAPI machine scope vs new-host recovery** (DECISIONS-LOG round 12: still open). `14` binds the KEK to the host, which protects a copied disk. Migration and rebuild on new hardware need the KEK elsewhere. A sealed export creates a second copy of the master key. Owner decision (Q4).
-2. **Erasure beyond the database** (C38 FOLLOW-UP; C01 applied to database fields only). Vault files and git history keep personal memory after key destruction. Legal sufficiency is open (`Server.md` Q17). `08` §9 must replace "until expiry" with the window, and `04` Q7's 35 days must be confirmed.
+1. **DPAPI machine scope vs new-host recovery** (DECISIONS-LOG round 12: still open). `14` binds the KEK to the host, which protects a copied disk. Migration and rebuild on new hardware need the KEK elsewhere. A sealed export creates a second copy of the master key. Owner decision (Q1).
+2. **Erasure beyond the database** (C38 FOLLOW-UP; C01 applied to database fields only). Vault files and git history keep personal memory after key destruction. Legal sufficiency is open (`Server.md` Q17). `08` §9 must replace "until expiry" with the window, and the `04` placeholder of 35 days must be confirmed by counsel.
 3. **Rollback vs append-only and gap-free sequence** (C10 FOLLOW-UP). `04` treats an older restore as an incident; `01` and `02` require gap-free sequence. The policy above is a [PROPOSED] exception: `01` and `04` must record it.
 4. **Windows backup unverified (largest risk).** `pg_basebackup` and `archive_command` under the service account are unverified; the PostgreSQL Windows page returned 404; pgBackRest and WAL-G are not Windows-supported. Hyper-V checkpoint and export behaviour is unverified (Microsoft pages returned 404).
 5. **Soul Marketplace status.** `Bazaar.md` calls its nature DECIDED; `Bazaar.Soul.md` and `07` say PROPOSED. The Soul export is needed only if it is in v1 (`07` Q2).
 6. **Third-party copies of personal data.** Offsite stores hold encrypted Passport data and private Vault memory. Processor terms and cross-border transfer need counsel for multi-person installs (`Bazaar.Server.md` §17).
 7. **Second Soul mount** (`16` Q2). C02 keeps it as an explicit exception; snapshot scope depends on the answer.
-8. **Cookie profiles in backups** (new; C02 accepted the mount risk). `15` does not yet say whether snapshots and offsite copies include session cookies. This doc needs that rule (Q15).
-9. **Vault backup timing vs PostgreSQL RPO** (new). Memory is now in the Vault, so its loss window is the push cadence, not the WAL age. `18` must state when `VaultWriter` pushes.
+8. **Offsite retention vs erasure window** (new, from the owner's recommended restic default of 14 daily and 8 weekly, about 56 days). That exceeds the 35-day placeholder in `04`. This pass caps the default at 4 weekly; counsel must confirm the window before any longer setting is allowed.
 
 ## Questions for the owner
-1. Offsite tool and store. Default: restic to any S3-compatible bucket; B2 only after its price is re-checked.
-2. WAL shipping. Default: `archive_timeout` 15 min; offsite RPO target 1 hour.
-3. Backup retention. Default: two base sets plus WAL; restic keeps 14 daily and 8 weekly snapshots.
-4. KEK portability (Conflict 1). Default: passphrase-sealed export for migration; DPAPI stays the everyday provider.
-5. KEK holders. Default: one sealed copy held by you; optional second holder named by you.
-6. Erasure backup window value. Retention equals the window (ANSWERED, DECISIONS-LOG round 2, C01). Default: 35 days (`04` Q7); DEKs in a separate key table.
-7. Rollback policy (C10 FOLLOW-UP). Default: point-in-time recovery to the last recoverable point; unrecoverable ranges recorded, never reconstructed.
-8. Golden parent backups. Default: offsite copy of each referenced parent; recipe rebuild as fallback.
-9. Child VM disks. Default: not backed up; enforce push before rebase.
-10. Migration credentials. Default: move the KEK by sealed export, then rotate provider and GitHub App keys held by the Identity Service (`14`).
-11. Audit head copies. Default: also in the offsite store under its own prefix.
-12. Drill cadence. Default: full drill quarterly; WAL-age and Vault-push-age checks daily.
-13. Backup volume thresholds. Default: warn at 80%, red at 95%.
-14. Soul Marketplace in v1? Default: no; the format is designed only (`07` Q2).
-15. Session-cookie profiles in Soul snapshots and offsite copies (new). Default: exclude cookie profiles from snapshots; after a restore, the owner re-logs allowlisted sites. Alternative: include them, encrypted under the repository password.
-16. Vault push cadence and erasure in Vault history (new; C38 FOLLOW-UP). Default: push after each `VaultWriter` batch and bundle nightly; the erasure window also applies to Vault bundles and remotes. The mechanism (encrypted personal notes or history rewrite) and its legal fit stay open for counsel.
+1. KEK portability (Conflict 1). The sealed export is a second copy of the master key, so this is a key-custody call. Recommended: passphrase-sealed export for migration only; DPAPI stays the everyday provider.
+2. KEK holders. Key custody. Recommended: one sealed copy held by you; optional second holder named by you.
+3. Rollback policy (C10 FOLLOW-UP; still PROPOSED per DECISIONS-LOG round 13). It changes sequence semantics, so one answer is needed. Recommended: point-in-time recovery to the last recoverable point; unrecoverable ranges recorded, never reconstructed.
+4. Migration credentials. Key custody; depends on Q1. Recommended: move the KEK by sealed export, then rotate provider and GitHub App keys held by the Identity Service (`14`).
+5. Soul Marketplace in v1? Product scope. Recommended: no; the format is designed only (`07` Q2).
+6. Erasure in Vault history (C38 FOLLOW-UP). The options are undecided: encrypted personal notes or a history rewrite. Needs counsel. Recommended: the erasure window also applies to Vault bundles and remotes; the mechanism stays open.
+
+MOVED TO SETTINGS: backup.offsite_target, backup.wal_archive_timeout, backup.offsite_rpo_target, backup.base_sets_kept, backup.offsite_keep_daily, backup.offsite_keep_weekly, backup.golden_parent_offsite, backup.include_child_vm_disks, backup.audit_head_offsite, backup.vault_bundle_hours, backup.drill_interval_days, backup.check_interval_hours, backup.volume_warn_pct, backup.volume_red_pct; referenced from other docs: erasure.backup_window_days (04), security.backup.include_cookie_profiles (15), vault.push_cadence (18) (DECISIONS-LOG round 13)

@@ -1,6 +1,6 @@
 # Agent Runtime
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 11
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3
 Depends on: 01-gc-data-model.md, 04-postgres-schema-and-migrations.md, 05-model-gateway.md, 07-soul-system.md, 08-memory-system.md, 09-work-life-simulation.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 16-agent-vms-and-environments.md, 24-company-systems-core.md · Used by: 10-council-and-voting.md, 12-kanban-and-dependencies.md, 13-skimmer-bouncer.md, 17-coding-agent-harness.md, 23-observatory-and-usage.md, 25-company-systems-knowledge.md, 26-fun-systems.md
 
 ## Purpose
@@ -14,14 +14,15 @@ The runtime inside Bazaar.Server that runs persistent agents: it decides when an
 - Each agent has a Windows VM and a Linux VM; the runtime sees only the guest channel (16; round 1, C03).
 - Claude lane: owner's Anthropic key and FreeLLMAPI free tokens, by availability; subscription logins never route (round 4, C14).
 - Model calls use the `ModelEvent` seam with an `IChatClient` adapter in v1 (05; round 8, C29). Runtime never sees provider keys.
-- Taint: external content taints hard; agent text taints softly and only from a tainted source session; Tier 2 is gated on hard taint (15; round 2, C06).
-- Reader/actor split is v1 for external input (round 6, C18; Question 11). Actor turns never read external content directly.
+- Taint: external content taints hard; agent text taints softly and only from a tainted source session; Tier 2 is gated on hard taint (15; round 2, C06). Hard taint is a security invariant, not a setting.
+- Reader/actor split is v1 for external input (round 6, C18; Question 3). Actor turns never read external content directly.
 - Interrupts use 24's per-agent stack (depth 2); only an owner `emergency` interrupt bypasses vacation (round 9, C35).
 - A loop-guard trip sends the agents involved to the Psych Ward (26; round 9, C34).
 - Skimmer may promote an unmentioned message to wake-now under a cap; it never drops one (13; round 3, C08).
 - Promotions, hiring and retirement run as Council votes; split or tied votes on bigger changes go to the owner (10; round 9, C32).
 - Credentials come from 14's `ISecretStore`; no secret enters a context or a VM (round 2, C05).
 - Personal fields are per-person encrypted from the first migration (round 2, C01).
+- Configurability (round 13): plain values and policy choices in this doc are settings (see Settings). Security invariants are not settings and cannot be loosened.
 
 ## Design
 
@@ -30,7 +31,7 @@ The runtime inside Bazaar.Server that runs persistent agents: it decides when an
 |---|---|---|
 | Created | Agent row, Soul version, model policy, grants | owner, or an approved Council hiring vote (10) |
 | Onboarding | Reads Constitution, role brief and project GCs; writes first memories; read-only grants | automatic after Created |
-| Active | Eligible to wake | onboarding checklist passes (Question 1) |
+| Active | Eligible to wake | onboarding checklist passes; the first `runtime.activation_owner_review_count` activations are owner-reviewed, then automatic |
 | Resting | Off-shift, vacation or quota-exhausted; inbox accumulates | 09 schedule, or `RateLimited`/`SpendCapped` from 05 |
 | Retired | Never wakes; Soul, memory and history read-only | owner, or a Council vote (10) |
 
@@ -42,17 +43,21 @@ Presence labels (09, C43) are derived from this state and the schedule; they are
 | Interrupt | 24 stack | Pushed at the next tool boundary; `emergency` bypasses vacation |
 | Mention or DM | 01 | Wakes immediately |
 | Assignment | 12 | Card assigned, or review requested |
+| Vote request | 10 | A Council ballot is requested; each ballot request is one wake [PROPOSED] |
 | Scheduled | 09 | Shift start, reminders |
-| Skimmer-promoted | 13 | Moves a digest item to wake-now early, under a cap; never drops |
-| Digest | 06 | Batches unmentioned GC activity; cadence [PROPOSED] every 2 simulated working hours and at shift start |
+| Brainstorm | 26 | Lucky mode start; once per opted-in agent per run, instead of a 13 override [PROPOSED] |
+| Skimmer-promoted | 13 | Moves a digest item to wake-now early when scored high, under `runtime.skimmer_wakes_per_hour`; never drops |
+| Digest | 06 | Batches unmentioned GC activity; cadence in Settings (every 2 simulated working hours and at shift start) |
 
-An unmentioned message is stored and reaches the agent through the digest unless 13 promotes it. Each pending item is one `inbox_item` row; one digest table and one cadence serve all subsystems (C08). A wake takes the highest-priority pending items and starts one turn. Priority order [PROPOSED]: interrupt, mention/DM, assignment, scheduled, Skimmer-promoted, digest. Wake signal uses Postgres NOTIFY with a poll fallback [PROPOSED] (C07).
+An unmentioned message is stored and reaches the agent through the digest unless 13 promotes it. Each pending item is one `inbox_item` row; one digest table and one cadence serve all subsystems (C08). Enqueue is idempotent: a unique key on `(agent_id, gc_id, gc_seq, kind)` makes a duplicate enqueue a no-op (13). A wake takes the highest-priority pending items and starts one turn. Priority order [PROPOSED]: interrupt, mention/DM, assignment, vote request, scheduled, brainstorm, Skimmer-promoted, digest. Wake signal uses Postgres NOTIFY with a poll fallback [PROPOSED] (C07).
+
+Skimmer-promoted wakes count toward the total per-agent wake cap (`runtime.guard.wakes_per_hour`) [PROPOSED]. The Skimmer's own cap (`runtime.skimmer_wakes_per_hour`, default 20) sits inside that total. Its value must not exceed the total.
 
 ### Turn loop
 1. Claim: take `agent_lease` (one active turn per agent); mark inbox items `claimed`.
 2. Assemble context (below).
 3. Call the model through the 05 seam, streaming. Persist each response and tool result as a `turn_step` before acting on it.
-4. Dispatch tool calls, append results, repeat until a final message, step cap (40), token ceiling, wall clock or interrupt.
+4. Dispatch tool calls, append results, repeat until a final message, step cap (`runtime.turn_step_cap`), token ceiling, wall clock or interrupt.
 5. Post outputs through the GC API (`AppendMessage`), so mention parsing and loop guards apply to agents and humans alike.
 6. Commit: mark inbox items done, submit memory proposals, release the lease.
 
@@ -68,38 +73,75 @@ A **reader turn** (`turn.role = reader`) holds external content, has no write to
 | GC backread | trigger thread in full at its current `gc_message_version`; other GCs summarised | never skip the trigger |
 | Inbox | what woke the agent; reader hand-overs | verbatim; hand-overs carry validated fields only |
 
-Budgets are in Question 3. The manifest stores ids, version ids and hashes, not text, so a turn is reproducible.
+Section budgets are settings (`runtime.budget.*`). The manifest stores ids, version ids and hashes, not text, so a turn is reproducible.
+
+### Session key [PROPOSED]
+15's `session_taint` is keyed by `session_id`, defined here. A session is the unit of taint and holds the turns for one task. Each turn carries a `session_id`:
+- Turns for one task share a session. Compaction keeps taint (15).
+- A subagent child inherits its parent's `session_id`, so taint propagates down.
+- A reader turn runs in its own session. The actor turn that receives its hand-over starts a fresh session that sees only the validated fields and owner or system content (15).
 
 ### Tool dispatch
 `ToolDispatcher` (15) evaluates agent, session taint, tool, arguments and rate state, and returns Allow, RequireApproval or Deny. Credentials are injected host-side from `ISecretStore`; the model never sees secrets or host paths. VM calls go through 16's guest channel. Under hard taint, Tier 2+ calls require approval; soft taint alone does not gate. Each call is logged with arguments hash, exit code and duration. Per-call usage goes to `gw_usage` (05, C33), not `turn_step`.
 
 ### Subagents [PROPOSED]
-A subagent is a child turn loop with fresh context, a tool allowlist that is a subset of the parent's, and a model from the parent's whitelist (Question 5). Limits, owned here (C36): depth 2, 3 concurrent children, a step and token ceiling per child. Children never post to a GC; only the parent does (Question 6). The child returns a summary and a trace id; the full trace is stored for the parent and reviewers.
+A subagent is a child turn loop with fresh context, a tool allowlist that is a subset of the parent's, and a model from the parent's whitelist (05 deny-by-default). Its model follows `runtime.subagent_model_rule`. Limits, owned here (C36), are settings: depth (`runtime.subagent_max_depth`, default 2), concurrent children (`runtime.subagent_max_concurrent`, default 3) and a step ceiling per child (`runtime.subagent_step_cap`, default 40). Coding subagents in 17 use depth 1 inside this limit. Children do not post to a GC unless `runtime.subagent_may_post` is on (default off). The child returns a summary and a trace id; the full trace is stored for the parent and reviewers.
 
 ### Loop guards [PROPOSED]
-Counters are server-side and keyed by thread. On a trip the runtime stops waking the agents involved, posts a system notice in the GC, and admits them to the Psych Ward (26). Trips are logged to `guard_event`.
-| Guard | Default |
+Counters are server-side and keyed by thread. On a trip the runtime stops waking the agents involved, posts a system notice in the GC, and admits them to the Psych Ward (26). Trips are logged to `guard_event`. Limits are settings; loosening one needs owner approval.
+| Guard | Setting (default) |
 |---|---|
-| Ping-pong: two agents alternate N messages with no human or tool result between | 6 |
-| Nested @mention chain depth | 4 |
-| Per-agent wakes per hour (shared cap, Question 10) | 30 |
-| Agent messages in a thread without a human message | 20 |
-| Identical tool call repeated | 3 |
+| Ping-pong: two agents alternate N messages with no human or tool result between | `runtime.guard.pingpong_limit` (6) |
+| Nested @mention chain depth | `runtime.guard.mention_depth` (4) |
+| Wakes per agent per hour, all reasons including Skimmer-promoted | `runtime.guard.wakes_per_hour` (30) |
+| Agent messages in a thread without a human message | `runtime.guard.thread_agent_messages` (20) |
+| Identical tool call repeated | `runtime.guard.repeat_tool_call` (3) |
 
 ### Thinking GCs
 Each agent has a Thinking GC nested under each GC it works in (01; C11). Per-turn reasoning is posted as steps. The owner always reads; peers read on request; thinking is never injected into another agent's context. Vote reasoning is withheld until the tally is revealed. 25 and 26 do not publish Thinking GC text.
 
 ### Concurrency and recovery
-One active turn per agent, via `agent_lease` (expiry and heartbeat). Mentions arriving mid-turn queue; interrupts are checked at tool boundaries. 05's quota state gates model calls: `RateLimited` or `SpendCapped` moves agents to Resting rather than failing turns. Each step is a row written before the next action. On restart the expired lease is recovered: completed tool results are reused; an in-flight model call is re-issued; an in-flight tool call is re-issued only if marked idempotent, otherwise recorded as `unknown` and the model is told. Nothing relies on shutdown hooks. Personal data in `turn_step` payloads is stored as per-person encrypted payloads (C01).
+One active turn per agent, via `agent_lease` (expiry and heartbeat). Mentions arriving mid-turn queue; interrupts are checked at tool boundaries. 05's quota state gates model calls: `RateLimited` or `SpendCapped` moves agents to Resting rather than failing turns. Each step is a row written before the next action. On restart the expired lease is recovered: completed tool results are reused; an in-flight model call is re-issued; an in-flight tool call is re-issued only if marked idempotent, otherwise recorded as `unknown` and the model is told. Nothing relies on shutdown hooks. Personal data in `turn_step` payloads is stored as per-person encrypted payloads (C01). Body retention is a setting (`runtime.turn_body_retention_days`, needs counsel).
 
 ### Base choice [PROPOSED]
 Start with a plain `BackgroundService` plus Postgres inbox and lease (`FOR UPDATE SKIP LOCKED`), behind `IAgentScheduler` so Orleans can replace it. Adopt Orleans only if it removes lease and recovery code without storing state outside Postgres or losing on idle memory and Windows hosting. Microsoft Agent Framework is cherry-picked for libraries only; its speaker-selecting orchestration conflicts with the no-orchestrator rule.
 
+## Settings
+Proposed rows for the doc 03 settings registry. Keys are dotted and prefixed `runtime.` for this area. Scope is install unless noted.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `runtime.activation_owner_review_count` | int | 3 [PROPOSED: the recommended default gave no number] | install | operator | no |
+| `runtime.digest_interval_work_hours` | number | 2 | install | operator | no |
+| `runtime.digest_at_shift_start` | bool | true | install | operator | no |
+| `runtime.budget.system_tokens` | int | 4000 (Haiku-class) | agent | operator; owner per agent | no |
+| `runtime.budget.memory_tokens` | int | 4000 | agent | operator; owner per agent | no |
+| `runtime.budget.task_tokens` | int | 2000 | agent | operator; owner per agent | no |
+| `runtime.budget.vault_tokens` | int | 4000 | agent | operator; owner per agent | no |
+| `runtime.budget.backread_tokens` | int | 12000 | agent | operator; owner per agent | no |
+| `runtime.budget.sonnet_multiplier` | number | 2 | install | operator | no |
+| `runtime.guard.pingpong_limit` | int | 6 | install | operator | yes if loosened (owner) |
+| `runtime.guard.mention_depth` | int | 4 | install | operator | yes if loosened (owner) |
+| `runtime.guard.wakes_per_hour` | int | 30 | install | operator | yes if loosened (owner) |
+| `runtime.guard.thread_agent_messages` | int | 20 | install | operator | yes if loosened (owner) |
+| `runtime.guard.repeat_tool_call` | int | 3 | install | operator | yes if loosened (owner) |
+| `runtime.skimmer_wakes_per_hour` | int | 20 (must not exceed `runtime.guard.wakes_per_hour`) | install | operator | no |
+| `runtime.turn_step_cap` | int | 40 | install | operator | no |
+| `runtime.subagent_max_depth` | int | 2 | install | operator | no |
+| `runtime.subagent_max_concurrent` | int | 3 | install | operator | no |
+| `runtime.subagent_step_cap` | int | 40 | install | operator | no |
+| `runtime.subagent_may_post` | bool | false | install | operator | yes if enabled (owner) |
+| `runtime.subagent_model_rule` | enum: `cheapest_allowed` / `parent_model` | `cheapest_allowed` | install | operator | no; always inside the parent's whitelist |
+| `runtime.turn_body_retention_days` | int | 90 [needs counsel; the protective direction is shorter; upper bound is the C01 erasure window in 33] | install | operator | yes (owner) |
+
+The settings are stored in Postgres and audited on change (03, 15 `audit_log`). The setup wizard and advanced settings (27, 32) show them.
+
 ## Data and interfaces
 ```sql
-agent(id, name, soul_version_id, state, model_policy_id, created_at)  -- policy -> 05; schedule and tz -> 09
-inbox_item(id, agent_id, kind, gc_id, gc_seq, priority, state, due_at, claimed_by, claimed_at)  -- kinds added by 09, 12, 13, 24
-turn(id, agent_id, role /*actor|reader*/, parent_turn_id, depth, wake_reason, status, started_at, ended_at, context_manifest jsonb)
+agent(id, name, soul_version_id, state, model_policy_id, created_at)  -- policy -> 05; schedule and timezone -> 09 (agent_schedule)
+inbox_item(id, agent_id, kind, gc_id, gc_seq, priority, state, due_at, claimed_by, claimed_at,
+  unique(agent_id, gc_id, gc_seq, kind))  -- kind = a wake reason above; digest kind is gc_digest (13); 09, 12, 13, 24 add kinds only
+turn(id, agent_id, session_id, role /*actor|reader*/, parent_turn_id, depth, wake_reason, status, started_at, ended_at, context_manifest jsonb)
 turn_step(turn_id, n, kind /*model|tool|post|memory*/, request_hash, response jsonb, idempotent bool)
 agent_lease(agent_id, holder, expires_at)
 guard_event(id, gc_id, kind, counters jsonb, created_at)
@@ -118,10 +160,10 @@ Contracts: the runtime calls GC `AppendMessage` and reads the current `gc_messag
 - External content arrives by polling; the home host opens no inbound connections (C30).
 - Edited messages: context uses the current version; the manifest records the version id seen.
 - An agent's claim of "done" never counts; the server runs clean builds and tests (C37).
-- Cost is a per-turn chip, never a gate (Question 8).
+- Cost is a per-turn chip, never a gate (Question 2). A cost gate would revive the REJECTED Resource Economy.
 
 ## Testing
-Fake gateway (scripted, cassette replay keyed by request hash, injected 429, spend cap, timeout, malformed tool calls), fake clock, injectable ids, real Postgres for inbox, lease and recovery. Key cases: a mention wakes exactly one turn; an unmentioned message reaches only the digest unless promoted, and promotion never drops; a ping-pong trip admits the agents to the Psych Ward; a kill between steps resumes without repeating a completed tool; a non-idempotent in-flight tool is marked `unknown`; two simultaneous mentions give one active turn; interrupt push and pop at depth 2; an actor turn's context never contains raw external text; hard taint blocks Tier 2 and soft taint does not; vote reasoning is absent from Thinking GCs before reveal; replay reproduces the same steps. LLM-judge evals run nightly and do not gate.
+Fake gateway (scripted, cassette replay keyed by request hash, injected 429, spend cap, timeout, malformed tool calls), fake clock, injectable ids, real Postgres for inbox, lease and recovery. Key cases: a mention wakes exactly one turn; an unmentioned message reaches only the digest unless promoted, and promotion never drops; a ping-pong trip admits the agents to the Psych Ward; a kill between steps resumes without repeating a completed tool; a non-idempotent in-flight tool is marked `unknown`; two simultaneous mentions give one active turn; a duplicate inbox enqueue is a no-op; interrupt push and pop at depth 2; an actor turn's context never contains raw external text; hard taint blocks Tier 2 and soft taint does not; vote reasoning is absent from Thinking GCs before reveal; replay reproduces the same steps. LLM-judge evals run nightly and do not gate.
 
 ## Work packages
 1. Schema and repositories: agent, inbox_item, turn, turn_step, agent_lease (04 conventions).
@@ -140,8 +182,9 @@ Fake gateway (scripted, cassette replay keyed by request hash, injected 429, spe
 ## Conflicts
 - 07 lists Soul states active, paused and retired; this doc's lifecycle replaces them (C04).
 - 09 still defines a 15-minute break and "mandatory walk" (C34), its own `inbox_item` and schedule tables (C04), and an owner override that must use 24's `emergency` tag (C35).
-- 13 has a 30-minute digest, its own `digest_items` table and a 20-per-hour scored-wake cap; all must move to this doc's inbox and cadence and 15's shared cap table (C08, C36).
-- 17 gives runtime subagents depth 1 and a Haiku default; subagent limits are owned here (C36).
+- 13 has a 30-minute digest, its own `digest_items` table and a 20-per-hour scored-wake cap; all must move to this doc's inbox and cadence and 15's shared cap table (C08, C36). 13 also cites this doc's question numbers ("Q4"); they now point to Settings.
+- 26 cites this doc's "Q14" for the Lucky wake; it now uses the Brainstorm reason and the Settings table.
+- 17 gives runtime subagents depth 1 and a Haiku default; subagent limits are owned here (C36). 17 must cite the setting keys.
 - 05 and 04 must use the C04 names (`agent_model_policy`, `quota_state`); 04's `agent_model_allow` is dropped.
 - 15 must define the reader hand-over schema, the shared quota table (C36) and the session role used here as `turn.role`.
 - 24 must define the `PushAsync`/`PopAsync` contract (C35).
@@ -150,17 +193,11 @@ Fake gateway (scripted, cassette replay keyed by request hash, injected 429, spe
 - 16 names the guest interface `IGuestChannel`; 17 names `IWorkspace`. They must be one interface.
 
 ## Questions for the owner
-1. Onboarding to Active: owner each time, or automatic once the checklist passes? Default: owner for the first agents, automatic later.
-2. Digest cadence: every 2 simulated working hours and at shift start; 13 adopts it (C08). Acceptable?
-3. Per-turn token budgets (system / memory / task / Vault / backread): 4k / 4k / 2k / 4k / 12k for Haiku-class, doubled for Sonnet-class. Acceptable?
-4. Guard defaults (ping-pong 6, nesting 4, 30 wakes per hour, 20 agent messages per thread without a human, repeated tool call 3). Adjust?
-5. Runtime subagents: parent's whitelist, or always Haiku 5.5? Default: parent's whitelist, cheapest allowed model.
-6. Subagent limits (depth 2, 3 concurrent, 40 steps): acceptable? May a subagent post to a GC? Default: no.
-7. Base: approve the plain hosted service behind `IAgentScheduler`, with the Orleans spike and criteria above?
-8. Cost as a per-turn chip only, with stops only from quotas and guards? Default: yes.
-9. Retention of `turn_step` bodies: keep 90 days, then prune bodies and keep hashes and GC posts. Counsel to review against the C01 erasure window.
-10. Skimmer-promoted wakes: share the 30-per-hour wake cap, or have their own? Default: share one cap from 15's table.
-11. Confirm the reader/actor split as the v1 mechanism for external input (C18, Claude's reading). Default: yes, starting with email triage.
+1. Base: approve the plain hosted service behind `IAgentScheduler`, with the Orleans spike and criteria above?
+2. Cost as a per-turn chip only, with stops only from quotas and guards? Default: yes. Stays a question because a cost gate would reopen the REJECTED Resource Economy.
+3. Confirm the reader/actor split as the v1 mechanism for external input (C18, Claude's reading). Default: yes, starting with email triage.
+
+MOVED TO SETTINGS: runtime.activation_owner_review_count, runtime.digest_interval_work_hours, runtime.budget.system_tokens, runtime.budget.memory_tokens, runtime.budget.task_tokens, runtime.budget.vault_tokens, runtime.budget.backread_tokens, runtime.budget.sonnet_multiplier, runtime.guard.pingpong_limit, runtime.guard.mention_depth, runtime.guard.wakes_per_hour, runtime.guard.thread_agent_messages, runtime.guard.repeat_tool_call, runtime.skimmer_wakes_per_hour, runtime.subagent_max_depth, runtime.subagent_max_concurrent, runtime.subagent_step_cap, runtime.subagent_may_post, runtime.subagent_model_rule, runtime.turn_body_retention_days (DECISIONS-LOG round 13)
 
 ANSWERED: only Skimmer promotion wakes an agent for an unmentioned message (DECISIONS-LOG round 3, C08).
 ANSWERED: no "mandatory walk"; a loop-guard trip admits the agents to the Psych Ward (round 9, C34).

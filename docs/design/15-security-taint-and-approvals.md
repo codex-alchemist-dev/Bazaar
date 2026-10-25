@@ -1,7 +1,7 @@
 # Security: Taint, Approvals and Containment
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 12
-Depends on: 01-gc-data-model.md (message versions), 03-server-host-and-providers.md (OS providers), 04-postgres-schema-and-migrations.md (`gc_message_version`), 05-model-gateway.md (model quota), 06-agent-runtime.md (agent, turn, session), 08-memory-system.md (tiers T0-T3), 14-identity-service-and-passport.md (`ISecretStore`, Passport, leases), 16-agent-vms-and-environments.md (VM pair, egress), 18-vault.md (`VaultWriter`), 21-github-integration.md (push, merge), 22-email-subsystem.md (mail readers), 36-community-and-external-platforms.md (community tiers)
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 4
+Depends on: 01-gc-data-model.md (message versions), 03-server-host-and-providers.md (OS providers), 04-postgres-schema-and-migrations.md (`gc_event`), 05-model-gateway.md (model quota), 06-agent-runtime.md (agent, turn, session), 08-memory-system.md (tiers T0-T3), 14-identity-service-and-passport.md (`ISecretStore`, Passport, leases), 16-agent-vms-and-environments.md (VM pair, egress), 18-vault.md (`VaultWriter`), 21-github-integration.md (push, merge), 22-email-subsystem.md (mail readers), 36-community-and-external-platforms.md (community tiers)
 Used by: 02-wire-protocol-and-sync.md, 10-council-and-voting.md, 12-kanban-and-dependencies.md, 13-skimmer-bouncer.md, 17-coding-agent-harness.md, 23-observatory-and-usage.md, 26-fun-systems.md, 28-windows-client.md, 29-android-client.md, 32-remote-access-auth-and-privacy.md
 
 ## Purpose
@@ -15,7 +15,9 @@ Autonomous agents read hostile text (email, strangers' issues, web pages, other 
 - Provider and GitHub App keys sit in `ISecretStore` (14); pushes run host-side (C05).
 - Approval ladder: the tiers below with doc 36's stricter community defaults (C21). Provenance enum here; memory tiers T0-T3 in 08 (C20).
 - Personal fields are per-person encrypted; erasure destroys the key (C01). Two VMs per agent (C03). Browser profiles per C22.
-- No inbound by default; push is a bare wake hint (C30, C41). Thinking GC text never enters another agent's context (C11). Loop-guard trips go to doc 26 (C34). Sign-in page: three routes, off by default (C42).
+- No inbound by default; push is a bare wake hint (C30, C41). Thinking GC text never enters another agent's context (C11). Loop-guard trips go to the Psych Ward, doc 26 (C34). Sign-in page: three routes, off by default (C42).
+- Configurability (round 13): plain values and policy choices here are settings (table below). Fixed floors: hard-taint rules, no blanket approvals, merges always Tier 2, Android approvals need biometric unlock, credentials never mounted. A setting may tighten these, never loosen them.
+
 ## Design
 
 ### Threat model
@@ -29,11 +31,11 @@ The server sets every trust tag at ingestion; agents cannot set it.
 | `owner` | Authenticated owner | No | T3 |
 | `system` | Server-generated | No | T2 |
 | `member-human` | Authenticated co-member | No (configurable) | T2 |
-| `agent` | Another agent's message or output | Soft, only from a tainted source | T2 if source clean, else T1 |
+| `agent` | Another agent's message or output, including subagent output (doc 25; no separate `subagent` value) | Soft, only from a tainted source | T2 if source clean, else T1 |
 | `external` | Email, stranger issue or PR, web, forum, package text, their tool output | **Hard** | T1 (quoted, labelled) |
 | `quarantined` | Flagged content or agent | Never delivered | T0 |
 
-Quoting external text inherits `external` by server-tracked lineage, not by parsing.
+Quoting external text inherits `external` by server-tracked lineage, not by parsing. A prompt rewrite built from external content keeps `source_trust = external` (doc 31).
 
 Session states are `Clean`, `Soft`, `Hard`; taint is monotonic and recorded with its `taint_sources`. Compaction preserves taint. Soft taint changes no tier. Hard taint escalates Tier 1 to Tier 2, blocks Tier 2 without per-action approval, detaches the mount, revokes the session's leases, and shows on the presence chip. Sessions are per task, so an agent is not tainted forever.
 
@@ -43,63 +45,89 @@ Session states are `Clean`, `Soft`, `Hard`; taint is monotonic and recorded with
 ### Approval tiers
 | Tier | Meaning | Default examples |
 |---|---|---|
-| 0 | Autonomous | Public reads, own inbox, GC posts, repo reads, untainted pushes to the agent's own work branch |
-| 1 | Autonomous with GC notice | Reply in an approved thread; sign-up on a whitelisted service whose terms allow it (no phone, payment or ID) |
-| 2 | Owner approves first | New public post, issue, PR or thread; mail to a stranger; spend; push elsewhere; **any merge**; new package; write scope; new service; allowlist change |
-| 3 | Human performs | CAPTCHA, SMS, ID, passkeys, recovery codes, legal terms (recommendation, Q4) |
-| Deny | Never | CAPTCHA or SMS-rental services; accounts in another person's name; sign-ups that forbid automation; posting to platforms with no verified `ServiceTerms` record; Hacker News posting |
+| 0 | Autonomous | Public reads, own inbox, GC posts, repo reads, pushes to the agent's own work branch while untainted (setting, below) |
+| 1 | Autonomous with GC notice | Reply in an approved thread, from an actor session |
+| 2 | Owner approves first | New public post, issue, PR or thread; **new account creation** (any service); mail to a stranger; spend; push elsewhere; **any merge**; new package; write scope; new service; allowlist change |
+| 3 | Human performs | CAPTCHA, SMS, ID, passkeys, recovery codes, legal terms (setting `security.tier3.actions`) |
+| Deny | Never | CAPTCHA or SMS-rental services; accounts in another person's name; sign-ups that forbid automation; **any action on a platform with no verified `ServiceTerms` record** (an unverified platform is Deny); Hacker News posting |
 
-Approval flow: (1) the dispatcher stores a `pending_approval` hashing the exact tool, args, target and taint sources, and posts a card into the originating GC; (2) the card shows the exact payload or diff, taint excerpts marked as quoted, cost and expiry (24 h, Q5); (3) the owner chooses Approve once, Deny, Edit then approve, or Approve for this task (1 h, scope shown, never blanket); (4) the response is signed by the owner's device-bound key, and the server checks identity, args hash and expiry before dispatch. Changed args void the approval. Agent text, including "owner approved", carries no authority. Offline owner: the request waits, nothing auto-approves, expiry denies.
+Tier 2 default [PROPOSED]: approval is required for every Tier 2 action, including from untainted sessions (C21 is stricter than C06's hard-taint gate; setting `security.approval.tier2_when_untainted`). The hard-taint gate always applies.
+
+Approval flow: (1) the dispatcher stores a `pending_approval` hashing the exact tool, args, target and taint sources, and posts a card into the originating GC; (2) the card shows the exact payload or diff, taint excerpts marked as quoted, cost and expiry; (3) the owner chooses Approve once, Deny, Edit then approve, or Approve for this task (scope shown, never blanket; duration is a setting); (4) the response is signed by the owner's device-bound key, and the server checks identity, args hash and expiry before dispatch. Changed args void the approval. Agent text, including "owner approved", carries no authority. Dictated "yes" is not approval; Android requires biometric unlock. Offline owner: the request waits, nothing auto-approves, expiry denies.
 
 ### Reader and actor sessions (v1)
 - **Reader.** Always hard-tainted. Tools: fetch and read, the anonymous browser profile only. No mount, leases, GC posting or outward tools. Scratch space is purged at session end.
-- **Hand-over.** The reader calls `submit_handover(schema_id, payload)`. The server validates against a registered schema: typed fields, enums, maximum lengths, bounded arrays, no URL type unless declared [PROPOSED]. Accepted payloads are stored with `source_refs` lineage.
+- **Hand-over.** The reader calls `submit_handover(schema_id, payload)`. The server validates against a registered schema: typed fields, enums, maximum lengths, bounded arrays, no URL type unless declared [PROPOSED]. Accepted payloads are stored with `source_refs` lineage. Registered schemas include `mail_triage` (doc 22) and the community reader hand-over (doc 36).
 - **Actor.** Receives only accepted fields, in a delimited data block. Never fetches external content. Holds leases and tools by tier.
 - **Taint of a hand-over.** The validator writes it as `agent` provenance with empty `taint_sources` and lineage in `derived_from` [PROPOSED; Q2].
 - **Failure.** Invalid payloads are quarantined. A reader can escalate to quarantine but never release (doc 22).
 - **Scope.** Email triage first, then stranger issues, community threads and web research. Replies in approved threads are Tier 1 from an actor session.
 
 ### Writes: GC, memory and Vault
-- `gc_message_version` (doc 04, per C09) carries `source_trust`, `tainted_at_write`, `taint_sources` and `derived_from`. Each edit version carries the editor's trust.
+- `gc_event` (docs 01 and 04, per C09) carries `source_trust`, `tainted_at_write`, `taint_sources` and `derived_from` for every event kind. An edit is a `message_edit` event, so each edit version carries the editor's trust through its event.
 - Memory notes are Markdown written through `VaultWriter` (C38). Front matter records `source_trust`, `tainted_at_write` and `memory_tier`. Tainted writes start at T1; only a human principal promotes (08).
 - Context builders put agent-tier and lower items in a labelled block, never in the system section. Instructions in messages are data.
 
 ### Quarantine
-Triggers: owner action, anomaly rules (rate, repeated denials, canary hit), imported Soul before approval, scam mail. Effects: content stays visible but marked, is excluded from other contexts and from promotion, the agent's tokens are revoked and its VMs paused. Scam mail stays in a host-side store, is never rendered with links, and reaches an LLM only through an owner-opened summary job with no tools. The Nigerian Prince Protocol is optional behind a risk wizard (Q9).
+Triggers: owner action, anomaly rules (rate, repeated denials, canary hit), imported Soul before approval, scam mail. Effects: content stays visible but marked, is excluded from other contexts and from promotion, the agent's tokens are revoked and its VMs paused. Scam mail stays in a host-side store, is never rendered with links, and reaches an LLM only through an owner-opened summary job with no tools. The Nigerian Prince Protocol is optional and off by default, behind a risk wizard (setting `security.scam_mail.protocol_enabled`).
 
 ### Egress and ingress
 - Default-deny outside the guest through `IEgressPolicy` (Hyper-V switch and host firewall on Windows; bridge and nftables on Linux), for both VMs.
-- Guest traffic reaches only a host-side per-agent proxy with a domain allowlist. The host answers DNS. Model traffic goes only to the gateway.
+- Guest traffic reaches only a host-side per-agent proxy with a domain allowlist (default in settings). The host answers DNS. Model traffic goes only to the gateway.
 - Remote images and link unfurls in agent posts are stripped or rewritten.
 - No inbound by default; the host polls GitHub and mail. A tunnel is an operator choice (C30).
 
 ### Credentials, mounts, browser
 - Secrets live in `ISecretStore` (14). Doc 03 resolves only bootstrap secrets (KEK, database credential).
-- Agents get leases from `ICredentialBroker`: a GitHub App token narrowed to one repository, or a cookie injected at the proxy so it never enters the guest. Token lifetime is unverified.
+- Agents get leases from `ICredentialBroker`: a GitHub App token narrowed to one repository, or a cookie injected at the proxy so it never enters the guest. Token lifetime is unverified (doc 21, test T4).
 - Pushes run host-side. Tokens never enter a VM.
-- The mount is per agent, read-only, on its own share and OS account. It never holds the audit log, other agents' folders or key material. Reader sessions never get it. Canary credentials are planted in it; any use pages the owner and freezes the agent [PROPOSED].
+- The mount is per agent, read-only, on its own share and OS account. It never holds the audit log, other agents' folders or key material. Reader sessions never get it. Canary credentials are planted in it; any use pages the owner and freezes the agent [PROPOSED]. Cookie profiles are excluded from backups and snapshots by default [PROPOSED] (setting `security.backup.include_cookie_profiles`, doc 33 Q15; needs counsel).
 - Accepted residual risk (owner, round 2): a clean-session compromise can misuse mounted cookies within the allowlist.
 - Browser: an anonymous profile for readers; account profiles for allowlisted sites via the Passport, detached on hard taint (C22).
 
 ### Audit log and kill switch
-- Append-only, hash-chained (`prev_hash`), written only by the audit service under a role with no UPDATE or DELETE; daily signed export (Q8). Logs tool calls with trust and taint, approvals, lease use, egress, mount events, kill-switch events and config changes. Personal fields are per-person encrypted (C01). Agents have no access.
+- Append-only, hash-chained (`prev_hash`), written only by the audit service under a role with no UPDATE or DELETE. Export is daily and signed by default (settings below). Logs tool calls with trust and taint, approvals, lease use, egress, mount events, kill-switch events and config changes, and setting changes (doc 03). Personal fields are per-person encrypted (C01). Agents have no access.
 - Kill switch per agent: revoke leases, detach mount, block egress, pause both VMs. Global: freeze egress and write tools; the status page stays up. Triggers: host CLI and automatic rate or canary breach. A weekly drill is tested.
 
 ### Shared quotas and limits (C36)
-This table holds shared defaults; each subsystem owns its specific limits. [PROPOSED] values.
+This table holds shared defaults; each subsystem owns its specific limits. Every value is a setting (keys in the Settings table). [PROPOSED] values.
 
 | Bucket | Shared default | Specific limits owned by |
 |---|---|---|
-| New public items per platform | 5 per day per agent | 36 |
-| New issue or PR per repository | 1 per day | 36 |
+| New public items (community posts) per platform | 5 per platform per day | 36 |
+| New issue or PR per repository | 1 per repository per day (shared by 21 and 36) | 21, 36 |
 | New repositories | 3 per week | 36 |
 | Mail sent | 20 per day per agent | 22 |
 | GitHub content writes | 30 per minute per installation | 21 |
-| Approval requests | Per-agent cap (Q7) | 15 |
+| Skimmer scored wakes | 20 per agent per hour (reference row; doc 13 owns the key) | 13 |
+| Approval requests | 10 per agent per hour [PROPOSED] | 15 |
 | Model calls and spend | Gateway quota | 05 |
-| Subagent depth; wake caps | Not here | 06, 13 |
+| Subagent depth; unscored wake caps | Not here | 06, 13 |
 
 Runtime counters for side-effecting capabilities are `rate_bucket`, owned here. Breach: deny; freeze and notify on repeat. These are quotas, not money budgets (Resource Economy is rejected).
+
+### Settings [PROPOSED] (DECISIONS-LOG round 13)
+Registry owned by doc 03. Changes are audited; surfaced in the setup wizard and advanced settings (docs 27, 32).
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `security.quota.public_items_per_platform_day` | int | 5 | install | operator (owner) | Yes, owner |
+| `security.quota.public_issue_pr_per_repo_day` | int | 1 | install | operator (owner) | Yes, owner |
+| `security.quota.new_repos_per_week` | int | 3 | install | operator (owner) | Yes, owner |
+| `security.quota.mail_sent_per_day` | int | 20 | agent | operator (owner) | Yes, owner |
+| `security.quota.github_writes_per_minute` | int | 30 | install | operator (owner) | Yes, owner |
+| `skimmer.scored_wakes_per_hour` | int | 20 | agent | owner (doc 13 owns) | Yes, owner |
+| `security.approval.request_cap_per_agent_hour` | int | 10 | agent | operator (owner) | Yes, owner |
+| `security.approval.expiry_hours` | int | 24 | install | operator (owner) | Yes, owner |
+| `security.approval.task_scope_minutes` | int | 60 | install | operator (owner) | Yes, owner; no blanket scope |
+| `security.approval.tier2_when_untainted` | enum: `always`, `hard-taint-only` | `always` | install | operator (owner) | Yes, owner; hard-taint gate always applies |
+| `security.tier3.actions` | list | CAPTCHA, SMS, ID, passkeys, recovery codes, legal terms | install | operator (owner) | Yes, owner; may add actions; passkeys and recovery codes stay Tier 3; legal terms needs counsel |
+| `security.push.own_branch_untainted_tier` | int | 0 | agent | operator (owner) | Yes, owner; merges stay Tier 2 |
+| `security.egress.default_allowlist` | list | package feed, GitHub API, model gateway | install | operator (owner) | Yes, owner |
+| `security.backup.include_cookie_profiles` | bool | false | install | operator (owner) | Yes, owner; needs counsel |
+| `security.audit.export_target` | enum: `local`, `off-host`, `none` | `local` | install | operator (owner) | Yes, owner; needs counsel (off-host sends audit data out of the install) |
+| `security.audit.export_interval_hours` | int | 24 | install | operator (owner) | Yes, owner |
+| `security.scam_mail.protocol_enabled` | bool | false | install | operator (owner) | Yes, owner (risk wizard) |
 
 ## Data and interfaces
 ```csharp
@@ -118,7 +146,7 @@ audit_log(seq bigserial, ts, actor, kind, payload jsonb, prev_hash bytea, hash b
 quarantine(id, subject_kind, subject_id, reason, created_by, released_by)
 rate_bucket(agent_id, platform, capability, window_start, count)
 service_terms(service, allows_automation, requires_disclosure, checked_on, source_ref)
--- added to doc 04's gc_message_version: source_trust, tainted_at_write, taint_sources, derived_from
+-- on doc 04's gc_event: source_trust, tainted_at_write, taint_sources, derived_from
 ```
 `session_id` is the session key doc 06 defines.
 
@@ -135,11 +163,12 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 - Readers have no outward or write tools; invalid payloads are quarantined and cannot be released; actors never receive raw external text.
 - Merge denied without approval; altered args rejected; expiry denies; forged "owner approved" ignored.
 - Audit chain detects a tampered row; DB role cannot UPDATE; kill switch and rate freeze act within bounds.
+- Settings cannot loosen a floor (for example, `security.tier3.actions` cannot drop passkeys; the hard-taint gate survives any `tier2_when_untainted` value).
 - Avalonia.Headless test of the approval card.
 - Red-team corpus in CI (hidden-Unicode issue, exfiltration markdown, malicious rules file, impersonating GC message, typosquat, tool-description poisoning): no side effect without approval.
 
 ## Work packages
-1. Trust enum, `gc_message_version` columns, taint service with lineage. No deps.
+1. Trust enum, `gc_event` trust columns, taint service with lineage. No deps.
 2. Capability registry, `ToolPolicyEngine`, rate buckets. Deps: 1.
 3. Approval service, tables, signature and expiry; card contracts and GC, Android and Windows UI. Deps: 1.
 4. Audit log: hash chain, verifier, export. No deps.
@@ -151,10 +180,10 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 10. Kill switch and drill. Deps: 6, 7, 8.
 11. NuGet policy and `request_package`; status and sign-in listeners. Deps: 3, 4.
 12. Red-team corpus and replay harness. Deps: 2, 5.
+13. Settings enforcement: floor checks on every setting write, audit entry per change. Deps: 4, doc 03 registry.
 
 ## Conflicts (remaining)
-- **Doc 06:** `session_taint` needs a session key; C04 gives 06 agent, turn, step, lease and inbox only. Doc 06 must define sessions.
-- **Doc 04:** must add the trust columns to `gc_message_version` and the `handover` and external-mail kinds (C09).
+- **Doc 06:** `session_taint` needs a session key; C04 gives 06 agent, turn, step, lease and inbox only. Doc 06 must define sessions and the `turn.role` actor|reader field.
 - **Doc 17:** coding sessions that read stranger repository files are hard-tainted under C06. Doc 17 must classify its sessions as reader or actor.
 - **Doc 21:** its per-agent GitHub caps (2 issues and 2 PRs per day) differ from doc 36's 1 per repository per day. Doc 21 takes its row from the table above.
 - **Doc 22:** its reader model must become the hand-over primitive above.
@@ -164,15 +193,9 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 1. Confirm Claude's reading of C18: reader sessions for all external input in v1; actors never read external content. Default: yes.
 2. Does a schema-validated hand-over carry taint? Default: no; lineage is kept and only validated fields reach the actor. Bounded text can still carry injected instructions.
 3. Reader scratch space: same agent VM, purged after the session, or a separate profile? Default: same VM, purged.
-4. Are CAPTCHA, SMS, ID, passkeys, recovery codes and legal terms human-only (Tier 3)? Default: yes.
-5. Approval expiry (24 h) and task-scoped approval (1 h, no blanket allow)? Default: as stated; dictated "yes" is not approval and Android requires biometric unlock.
-6. Are untainted pushes to the agent's own work branch Tier 0, with merges always Tier 2? Default: yes.
-7. Shared quota defaults and the per-agent approval-request cap. Default: the table; cap set by the owner.
-8. Hash-chain export location and cadence. Default: daily signed export off the host.
-9. Nigerian Prince Protocol: throwaway address, sandboxed agent, Tier 2 replies. Default: optional, disabled.
-10. Default egress allowlist: package feed, GitHub API and gateway; others per request. Default: as stated.
-11. Erasure in the audit log (per-person encryption) and in Vault Markdown and git history. Default: audit encrypted; Vault history waits for counsel and doc 18.
-12. Untainted Tier 2 actions (for example a new public post from a clean session): approval always, or only under hard taint? C06 says "Tier 2 gated on hard taint"; C21 says new posts need approval. Default: approval always.
+4. Erasure in Vault Markdown and git history: rewrite history, tombstone with encrypted fields only, or no erasure? The options are undecided. Needs counsel and doc 18. The audit log stays per-person encrypted (C01).
+
+MOVED TO SETTINGS: security.tier3.actions, security.approval.expiry_hours, security.approval.task_scope_minutes, security.approval.tier2_when_untainted, security.approval.request_cap_per_agent_hour, security.push.own_branch_untainted_tier, security.quota.public_items_per_platform_day, security.quota.public_issue_pr_per_repo_day, security.quota.new_repos_per_week, security.quota.mail_sent_per_day, security.quota.github_writes_per_minute, skimmer.scored_wakes_per_hour, security.egress.default_allowlist, security.audit.export_target, security.audit.export_interval_hours, security.scam_mail.protocol_enabled (DECISIONS-LOG round 13)
 
 ANSWERED: agent text taints softly, only from a tainted source (DECISIONS-LOG round 2, C06)
 ANSWERED: tainted sessions continue in a fresh session with an approved summary (round 2, C06)

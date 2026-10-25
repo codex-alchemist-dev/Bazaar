@@ -1,6 +1,6 @@
 # GC Data Model (the group chat as the central record)
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 13
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 4
 Depends on: 04-postgres-schema-and-migrations.md (conventions, key table, migrations), 15-security-taint-and-approvals.md (trust enum, taint), 02-wire-protocol-and-sync.md (replay, blob HTTP) · Used by: 02, 04, 06-agent-runtime.md, 10-council-and-voting.md, 12-kanban-and-dependencies.md, 13-skimmer-bouncer.md, 14-identity-service-and-passport.md, 15, 21-github-integration.md, 22-email-subsystem.md, 26-fun-systems.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md, 33-backup-dr-and-export.md
 
 ## Purpose
@@ -10,7 +10,7 @@ The GC is the single durable record of what the company said, decided and did. T
 - GCs are the coordination system; events and software reactions serve GCs, never replace them (CLAUDE.md; Bazaar.md section 2).
 - GCs are append-only, never purged, archivable only. Edits keep every version; the UI shows "edited" with openable history (owner, 2026-10-24).
 - Log shape: separate `gc_event`, `gc_message`, `gc_message_version`, full copy per version (round 1, C09).
-- Hash partitions by `gc_id` from day 1; count set at setup (rounds 1 and 12, C10). Restore policy PROPOSED (Q12).
+- Hash partitions by `gc_id` from day 1; count set at setup (rounds 1 and 12, C10). Restore policy PROPOSED (Question 4).
 - Personal fields are per-person encrypted payloads from day 1; erasure destroys the key and appends a tombstone (round 2, C01).
 - Trust tags use doc 15's enum; taint is a separate flag (round 7, C20). External content taints hard; agent text softly (round 2, C06).
 - GC types come from a registry table, v1 types seeded (round 6, C19).
@@ -18,6 +18,7 @@ The GC is the single durable record of what the company said, decided and did. T
 - WebSocket for realtime; blobs and search over authenticated HTTP (round 6, C15). NOTIFY is only a wake hint (round 1, C07).
 - DMs are two-member GCs; the owner reads all. Votes run independently, ballots sealed outside the log until reveal (Bazaar.md sections 2 and 5; 10).
 - Email is external-only. Postgres, raw Npgsql, SQL-first, embedded migrations (CLAUDE.md; 04).
+- Configurability rule (round 13): open plain-value and policy details are settings with safe defaults (see Settings below).
 - Wire format is OPEN; this doc uses neutral record sketches.
 
 ANSWERED: hash partitions by `gc_id` from day 1, count chosen at setup (DECISIONS-LOG rounds 1 and 12).
@@ -27,7 +28,14 @@ ANSWERED: trust uses 15's enum; co-members are `member-human`, the owner is `own
 ## Design
 
 ### Core model [shape DECIDED; details PROPOSED]
-Everything that happens in a GC is an **entry**: one `gc_event` row, numbered by a gap-free per-GC `seq`. Kinds (registry-backed, extensible): `message`, `message_edit`, `system` (membership, archive, access decisions, tombstones, "source edited after use"), `structured` (SDK-validated: task update, PR event, decision, vote notice), `quarantine` (targets an earlier seq), `external_mail` (metadata only; content stays with reader sessions).
+Everything that happens in a GC is an **event**: one `gc_event` row, numbered by a gap-free per-GC `seq`. Kinds (registry-backed, extensible; other docs add rows, not code):
+- `message` and `message_edit`.
+- `system`: membership, archive, access requests and decisions (`gc_access_request`, see Membership), tombstones, "source edited after use".
+- `structured`: SDK-validated task update, PR event, decision, vote notice.
+- `council.open`, `council.reveal`, `council.transition`, `council.decision` (doc 10): notices only; ballots stay sealed.
+- `quarantine`: targets an earlier seq.
+- `handover`: an accepted reader-session hand-over (doc 15), with `source_refs` lineage.
+- `external_mail`: metadata only; content stays with reader sessions. Doc 22 writes this kind; it replaces the earlier `external-mail` spelling there.
 
 A message's identity is in `gc_message`; its text is in `gc_message_version`, one full copy per version. An edit inserts a version and a `message_edit` event at the next seq, so replay from N sees every change. Rows are never updated or deleted: the app role has INSERT and SELECT only, and a trigger refuses UPDATE and DELETE (04). So `gc_message` has no "current version" pointer; the highest version is current.
 
@@ -35,7 +43,7 @@ A message's identity is in `gc_message`; its text is in `gc_message_version`, on
 - `parent_gc_id` is fixed at creation. Later relationships are `link` refs.
 - `gc.type_key` points at the `gc_type` registry. A type is a row, not a behaviour fork: it sets defaults for visibility, wake, archive and Kanban binding. Types named elsewhere (Inbox, General Bazaar, Ideas, private vent) are registered as rows by docs 21, 22, 24, 26, 29.
 
-Seeded v1 types [PROPOSED defaults, Q13]:
+Seeded v1 types [PROPOSED defaults; values are the setting `gc.type_defaults`]:
 
 | type_key | Visibility | Wake | Kanban |
 |---|---|---|---|
@@ -48,12 +56,14 @@ Seeded v1 types [PROPOSED defaults, Q13]:
 | dm | two members plus owner | DM | no |
 | thinking | agent plus owner | never | no |
 | ward | members | per 26 | no |
+| vent | agent plus owner [PROPOSED] | per 26 | no |
+| inbox | agent plus owner [PROPOSED] | per 22 and 06 | no |
 | sandbox, brainstorm | members | mentions | no |
 
 ### Membership and permissions
 - Roles: `owner-reader` (implicit, no row), `member`, `observer`. Humans and agents are principals.
-- Sub-GC: any member of the parent. Invite: any member, logged (Q3). Membership does not inherit down the tree; the owner sees all.
-- DM access: `gc_access_request`; the request and decision are `system` events. Approvers: Q2.
+- Sub-GC: any member of the parent. Invite: any member, logged (setting `gc.invite_policy`). Membership does not inherit down the tree; the owner sees all.
+- DM access: the requester files a `gc_access_request`; the request and decision are `system` events. Approvers: setting `gc.dm_access_approvers`; the owner is always an approver.
 - Agents cannot grant themselves anything; permissions are server policy. Agent messages never count as human approval; approvals check a platform-signed identity (15).
 
 ### Thinking GCs [DECIDED, round 3]
@@ -63,13 +73,13 @@ Seeded v1 types [PROPOSED defaults, Q13]:
 - The context builder (06) never loads it into another agent's context. Never a mention or wake target. Vote reasoning enters only after reveal (10).
 
 ### Edits
-- Only the original author may edit (Q4). Corrections by others are new messages.
+- Only the original author may edit (Question 2). Corrections by others are new messages.
 - Every version stays readable through `GetHistory`. More than one version shows "edited".
 - The edit event records its own author and trust; the message's original trust record is kept.
-- Edits to a message software already acted on emit a `system` note "source edited after use" and do not re-fire reactions (Q5).
+- Edits to a message software already acted on emit a `system` note "source edited after use" and do not re-fire reactions. The edit window is setting `gc.edit_window_hours` (default unlimited).
 
 ### Mentions
-Clients send structured spans `{start, len, principal_id}`; the server validates each against current members and writes `gc_mention`. Plain `@text` stays text. Handles resolve to stable ids. `@owner`, `@here`, `@all` (Q7). Mentioning a non-member grants no access; the server offers an invite. A mention is an inbox row (06). Wake timing belongs to 06; the Skimmer may promote digest items early under its cap (13, C08).
+Clients send structured spans `{start, len, principal_id}`; the server validates each against current members and writes `gc_mention`. Plain `@text` stays text. Handles resolve to stable ids. `@owner` is always available; `@here` and `@all` follow setting `gc.broadcast_mentions`. Mentioning a non-member grants no access; the server offers an invite. A mention is an inbox row (06). Wake timing belongs to 06; the Skimmer may promote digest items early under its cap (13, C08).
 
 ### Provenance and trust [C20, C06, C18]
 Server-assigned on every event; the author cannot set them:
@@ -92,13 +102,13 @@ Rules:
 - Legal sufficiency needs counsel. Backups keep the wrapped key until the erasure window closes (33).
 
 ### Attachments, embeds, archiving
-- `entry_ref(gc_id, seq, ref_kind, ref_id, snapshot)`; kinds `pr`, `task`, `vault_doc`, `gc`, `blob`, `decision`. The snapshot is frozen at post; live state resolves at view time under the viewer's permissions. Vault embeds pin to a commit hash (Q9).
+- `entry_ref(gc_id, seq, ref_kind, ref_id, snapshot)`; kinds `pr`, `task`, `vault_doc`, `gc`, `blob`, `decision`. The snapshot is frozen at post; live state resolves at view time under the viewer's permissions. Vault embeds pin to a commit hash by setting `gc.vault_embed_pin`.
 - `decision` refs point to `decisions/NNNN-slug.md`, written only through VaultWriter (18, C24).
-- Blobs are content-addressed and move over 02's HTTP surface, never the socket. Blob bytes are encrypted under the uploader's key [PROPOSED; 04 to confirm]. Sizes: Q10.
-- Archiving: `archived_at` set by a `system` event. Archived GCs are read-only, searchable, excluded from default lists and wake targets. Children are not archived automatically. Unarchive is owner-only (Q6). No hard-delete path exists.
+- Blobs are content-addressed and move over 02's HTTP surface, never the socket. Blob bytes are encrypted under the uploader's key [PROPOSED; 04 to confirm]. Size caps are settings (`gc.message_max_bytes`, `gc.blob_max_bytes`). Uploads above the blob cap are refused [PROPOSED]; a file-event kind is not registered in v1.
+- Archiving: `archived_at` set by a `system` event. Archived GCs are read-only, searchable, excluded from default lists and wake targets. Children are not archived automatically. Unarchive is governed by `gc.unarchive_policy`. No hard-delete path exists.
 
 ### Software reactions and catch-up
-Consumers (notifier, unread counter, search indexer, Kanban) read the log through `consumer_cursor(consumer, gc_id, last_seq)`, are idempotent on `(consumer, gc_id, seq)`, and can be rebuilt from zero. Triggers are `structured` events, never free text. When software acts, it appends a `system` event so the explanation lives in the GC. Task state is written by the task service (12); who drives whom is in Conflicts.
+Consumers (notifier, unread counter, search indexer, Kanban board view) read the log through `consumer_cursor(consumer, gc_id, last_seq)`, are idempotent on `(consumer, gc_id, seq)`, and can be rebuilt from zero. Triggers are `structured` events, never free text. Consumers never write task state. The task service (12) is the only writer of task state and writes the GC `system` line for each change; the Kanban board is a read-only consumer.
 
 "What happened while I was away": the client holds `read_state(principal_id, gc_id, last_read_seq)`. `GetCatchUpAsync` returns, per GC, unread count (`head_seq - last_read_seq`), unread mentions and `structured` events for PRs awaiting you, decisions, Council notices, blocked tasks and archive events. Opening a GC jumps to `last_read_seq + 1`. Model summaries are a derived layer with seq-range citations, never a substitute.
 
@@ -135,6 +145,23 @@ interface IGcLog {
 ```
 Every read takes the viewer, so DM and Thinking GC rules live in one place.
 
+### Settings [PROPOSED, round 13; registry owned by doc 03]
+Each change writes an audit entry (doc 15 `audit_log`). Floors cannot be loosened: the owner always reads all DMs and always can approve DM access; hard-taint rules and the "source edited after use" note stay on.
+
+| Key | Type | Default | Scope (install/project/agent) | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| gc.dm_access_approvers | `owner` or `owner-or-dm-member` | `owner` | install | operator | yes, owner |
+| gc.invite_policy | `any-member` or `owner-only` | `any-member` | install | operator | no; always logged |
+| gc.edit_window_hours | int, 0 = unlimited | 0 | install | operator | no |
+| gc.unarchive_policy | `owner` or `any-member` | `owner` | install | operator | no |
+| gc.broadcast_mentions | `owner-only` or `owner-and-agents-rate-limited` | `owner-and-agents-rate-limited` | install | operator | no |
+| gc.broadcast_mention_rate_per_hour | int | 2 [PROPOSED] | install | operator | no |
+| gc.dashboard_order | `unread-mentions-then-activity` or `activity` | `unread-mentions-then-activity` | install (each person's client) | each person | no |
+| gc.vault_embed_pin | `commit` or `branch-head` | `commit` | install | operator | no; newer-version hint shown either way |
+| gc.message_max_bytes | int | 32768 | install | operator | no |
+| gc.blob_max_bytes | int | 26214400 | install | operator | no |
+| gc.type_defaults | registry rows (seeded table above) | as shown | install | operator | yes, owner, for any change to `dm` or `thinking` visibility (never wider than shown) |
+
 ## Behaviour and edge cases
 - **Ordering:** seq is the truth; `created_at` is informational. Clients de-duplicate on `(gc_id, seq)`.
 - **Reconnect:** client sends last seq per subscribed GC; the server streams the gap from the table, then goes live. A lost NOTIFY costs latency, not data.
@@ -142,7 +169,7 @@ Every read takes the viewer, so DM and Thinking GC rules live in one place.
 - **Flood:** per-agent and per-GC budgets and reply-depth limits are checked before append; a breach appends a visible `system` notice. A loop-guard trip sends the agents involved to the Psych Ward (26, C34).
 - **Poisoning:** trust tags and quarantine events are the only containment; remote images and unfurls are off in agent-authored events.
 - **Partition count:** fixed at setup; changing it later needs a planned move (C10).
-- **Restore:** [PROPOSED] set the sequence floor above the highest seq any surviving source saw, and append a `system` recovery event. The one documented exception to append-only (33; Q12).
+- **Restore:** [PROPOSED] set the sequence floor above the highest seq any surviving source saw, and append a `system` recovery event. The one documented exception to append-only (33; Question 4).
 - **Access loss:** removing a member sets `left_seq`; they keep what they saw, not later events.
 
 ## Testing
@@ -175,30 +202,22 @@ Real Postgres (Testcontainers); fake clock and principals for catch-up.
 
 ## Conflicts
 Remaining:
-- **Who drives the board.** This doc lets the Kanban consumer read structured events; 12 says only the task service writes task state and events never write GC messages. Round 8 (C28) settled only Done. 12 and 01 need one rule.
 - **Owner reads all DMs vs multi-human privacy.** Needs an exception once another human is a member (32 Q8 proposes a visible marker). Open.
 - **Erasure beyond the log.** Key destruction is the proposed route; legal sufficiency is unverified (counsel). Personal data in Vault Markdown and git history is unanswered (C38; 08).
-- **Restore exception.** PROPOSED (Q12); must be confirmed before 33 relies on it.
+- **Restore exception.** PROPOSED (Question 4); must be confirmed before 33 relies on it.
 - **No-orchestrator evidence gap.** No published test of GC-only teams; agents may read only mention slices. This doc guarantees the full record only; reading rules belong to 06.
 
 New, for other docs to fix:
 - 04: `gc.next_seq` should be `head_seq` (last assigned seq); `gc_member(agent_id)` should be `principal_id`; `gc_message.current_version` is an UPDATE and conflicts with insert-only, so remove it; add the `gc_type` registry, `source_trust` and taint columns on `gc_event`, and the key table.
-- 15: drop `gc_message_trust`; its columns move to `gc_event`.
+- 15: drop `gc_message_trust`; its columns move to `gc_event`; state the trust placement above.
 - 22: `external-mail` and `untrusted-external` map to the `external_mail` kind and `external` source_trust.
 - 02: edits are a `message_edit` event plus `gc_message_version`.
 - 10: vote `structured` events carry notices only (opened, closed, revealed); ballots stay sealed.
 
 ## Questions for the owner
-1. Does an edit consume a gc seq? Default: yes, so `message_edit` keeps replay complete.
-2. Who approves a DM access request: the owner alone, or either DM member too? Default: owner alone; the other member is notified.
-3. Who may invite into a GC? Default: any member, logged.
-4. Can the owner edit another member's message, or only post a correction? Default: author only.
-5. Edit window: unlimited, with the "source edited after use" note? Default: yes.
-6. Unarchive: owner only, or any GC member? Default: owner only.
-7. Are `@all` and `@here` allowed for agents, or owner only? Default: owner, plus rate-limited agents.
-8. Dashboard GC order: unread mentions first, then activity; the away window follows each agent's shift (09). Confirm or change.
-9. Vault embeds: always pinned to a commit hash? Default: yes, with a "newer version" hint.
-10. Size limits: 32 KB text per message, 25 MB per blob, larger files as file events. Default: these.
-11. Structured events: agents may post only through validated SDK calls (Kanban moves need permission). Default: yes.
-12. Restore: confirm the sequence floor plus a `system` recovery event as the one exception to append-only (33). Default: yes.
-13. Confirm the seeded type defaults in the table above. Default: as shown.
+1. Does an edit consume a gc seq? Default: yes, so `message_edit` keeps replay complete. (Changes replay and the `gc_event` shape, so it stays a question.)
+2. Can the owner edit another member's message, or only post a correction? Default: author only. (Record integrity and authorship; design intent.)
+3. Structured events: agents may post only through validated SDK calls (Kanban moves need permission). Default: yes. (Write-path invariant; a looser path would bypass validation, so it is not a setting.)
+4. Restore: confirm the sequence floor plus a `system` recovery event as the one exception to append-only (33). Default: yes.
+
+MOVED TO SETTINGS: gc.dm_access_approvers, gc.invite_policy, gc.edit_window_hours, gc.unarchive_policy, gc.broadcast_mentions, gc.broadcast_mention_rate_per_hour, gc.dashboard_order, gc.vault_embed_pin, gc.message_max_bytes, gc.blob_max_bytes, gc.type_defaults (DECISIONS-LOG round 13)

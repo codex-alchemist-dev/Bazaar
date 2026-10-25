@@ -1,7 +1,7 @@
 # Identity Service and Soul Passport
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 11
-Depends on: `03-server-host-and-providers.md` (bootstrap secrets), `04-postgres-schema-and-migrations.md` (conventions, per-person GC keys), `15-security-taint-and-approvals.md` (taint, tiers, approvals, audit log), `16-agent-vms-and-environments.md` (VM pair, mount placement), `33-backup-dr-and-export.md`; deep-dives `Bazaar.Soul.md`, `Bazaar.Server.md` · Used by: `05-model-gateway.md`, `06-agent-runtime.md`, `07-soul-system.md`, `17-coding-agent-harness.md`, `21-github-integration.md`, `22-email-subsystem.md`, `28-windows-client.md` (approval UI)
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 4
+Depends on: `03-server-host-and-providers.md` (bootstrap secrets, settings registry), `04-postgres-schema-and-migrations.md` (conventions, per-person GC keys), `15-security-taint-and-approvals.md` (taint, tiers, approvals, audit log), `16-agent-vms-and-environments.md` (VM pair, mount placement), `17-coding-agent-harness.md` (shell tool, worktrees), `33-backup-dr-and-export.md`; deep-dives `Bazaar.Soul.md`, `Bazaar.Server.md` · Used by: `05-model-gateway.md`, `06-agent-runtime.md`, `07-soul-system.md`, `17-coding-agent-harness.md`, `21-github-integration.md`, `22-email-subsystem.md`, `28-windows-client.md` (approval UI)
 
 ## Purpose
 The Soul Passport is the credential registry inside a Soul. The Identity Service is the only host-side component that holds, uses or releases those credentials, and it owns the single server-side secret store (`ISecretStore`). Agents ask for access to a named service. Raw secrets stay on the host, except the session-cookie profile the owner has explicitly allowed in the mounted folder. Every use is decided by owner policy and audited.
@@ -13,9 +13,9 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - **Claude lane** (C14, round 4): the owner's Anthropic API key and FreeLLMAPI tokens, by availability. Subscription (Pro/Max) logins stay off every route.
 - **Browser** (C22, round 7): full Chromium, a first-class Passport consumer. No blanket "Passport-free browser VM".
 - **Taint and tiers** (C06, round 2; C18, round 6; C21, round 7): external content taints hard, agent text softly. Tier 2 is gated on hard taint. Tier names follow 15 (Tier 0 autonomous, 1 notice, 2 owner approves, 3 human performs, plus Deny). Reader sessions read external content and hand over summaries; actor sessions never read it.
-- **Owner merge** (C25, rounds 8 and 12): merges happen in the apps on signed owner approval, with a dedicated owner GitHub App or the owner's linked credential, chosen in the setup wizard.
+- **Owner merge** (C25, rounds 8 and 12): merges happen in the apps on signed owner approval. Both credential forms are supported (a dedicated owner GitHub App with merge rights, or the owner's linked GitHub credential), chosen in the setup wizard and changeable in settings.
 - **Erasure** (C01, round 2): personal fields are per-person encrypted; erasure destroys the key and appends a tombstone. The GC keys are defined in 04. The Passport keys below are a separate hierarchy.
-- **GitHub identity** = GitHub Apps in org `codex-alchemist-dev` (`Bazaar.Server.md` §1). Fork-and-PR is built as decided (C13). Migrations use the explicit `migrate` command (C44).
+- **GitHub identity** = GitHub Apps in org `codex-alchemist-dev` (`Bazaar.Server.md` §1). Fork-and-PR is built as decided (C13, round 3). Migrations use the explicit `migrate` command (C44).
 
 ## Design
 
@@ -24,7 +24,9 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - **Identity Service** [PROPOSED]: a low-privilege host process. It is the only holder of decryption keys (through the KEK provider). It exposes `RequestAccess`, brokered calls, a credential-lease broker and a token minter.
 - **`ISecretStore`** (C05): the one server-side store for every secret that is not a bootstrap value. It holds provider API keys (Anthropic, FreeLLMAPI, other gateway upstreams), GitHub App private keys, OAuth refresh tokens and owner-class credentials. Only the KEK reference and the database credential are bootstrap values, resolved by 03. Consumers are host-side: the gateway (05) and the git provider (`IGitProvider`, C12). No VM, agent tool or browser reads the store. [PROPOSED] Each read names a purpose that policy must allow.
 - **Owner-class credentials:** the owner merge credential, in either form from C25. No agent lease can name an owner-class credential. The server performs merges only on signed owner approval (21, 28).
+- **Owner approval signing key:** the device-held key that signs a merge approval is not defined here. Doc 32 owns that key class (28 flagged the gap). Until 32 defines it, this doc makes no claim about it.
 - **Approvals and audit** are owned by 15 (`approval`, `audit_log`). This doc calls them and defines no tables for either.
+- **Settings:** this doc's configurable values are in the Settings table below and are registered in 03.
 
 **Access flow** (`RequestAccess`) [PROPOSED]
 1. **Account check:** is there a Passport entry for this agent and service? If not, return `HumanRequired` for creation. Agent-created accounts, if the owner allows them, are Tier 2 by default, and unverified platforms are Denied (15, 36; C21).
@@ -41,8 +43,9 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 **Mounted folder** (C02)
 - Contents: (a) metadata (service names, handles, expiry); (b) the session-cookie profile for allowlisted account profiles, materialised for active sessions.
 - Never mounted: API keys, App keys, OAuth refresh tokens, TOTP seeds, recovery codes, passkeys, DEKs, the Passport store, audit data.
-- **Canary credentials** [PROPOSED]: decoy entries seeded in each folder. Any use is a detection event that 15 turns into hard taint.
+- **Canary credentials** [PROPOSED]: decoy entries seeded in each folder, for the services listed in `identity.canary_services`. Any use is a 15 detection event that applies hard taint. This response is a fixed floor, not a setting: a canary hit applies hard taint, detaches the mount and holds the agent's sessions for review.
 - Detached automatically on hard taint (15's gate). Each agent has its own share and OS account (15).
+- **Worktree separation** (17): coding worktrees never sit in the cookie-bearing mount folder. The mount is not reachable from the shell tool (`CapabilityClass` Exec, 17), so a command run in a worktree cannot read cookies.
 - [PROPOSED] The cookie profile is encrypted at rest on the host and decrypted into the mount only while a session is active.
 
 **Browser** (C22)
@@ -53,9 +56,8 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 
 **Envelope encryption** [PROPOSED]
 - One data key (DEK) per Soul, with an installation-scope DEK for provider and App keys. Each secret is AEAD-encrypted with a unique nonce.
-- DEKs are wrapped by a host key-encryption key (KEK) behind a provider interface.
+- DEKs are wrapped by a host key-encryption key (KEK) behind a provider interface. This doc owns the `soul_dek` table. The GC per-person key table is in 04.
 - Rotation re-wraps DEKs; it does not re-encrypt every row. Soul deletion destroys that Soul's DEK (crypto-shred).
-- GC per-person keys (C01) are separate keys defined in 04. They may use the same KEK provider.
 
 | KEK option | Fit | Research finding |
 |---|---|---|
@@ -63,21 +65,21 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 | OpenBao transit | Possible if self-hosted | Windows server support not documented on the fetched page. [unverified] |
 | Linux (TPM-bound or systemd credentials) | Needed for the Linux provider | Not researched. |
 
-**Key escrow** [PROPOSED]: a sealed offline KEK copy held by the owner. Losing it means every credential is re-issued. The restore drill decrypts from that copy.
+**Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
 **GitHub Apps** [PROPOSED]
 - One App per agent. Its private key is stored in `ISecretStore`.
 - Installation tokens are minted host-side by signing a JWT. Each token is narrowed to the repositories and permissions of one lease.
-- Token lifetime: one hour per GitHub's documentation. **Unverified** here; 21 C3 tracks it and no revocation claim relies on it until checked.
+- Token lifetime: one hour per GitHub's documentation. **Unverified until test T4 (doc 21).** No revocation claim relies on it.
 - Rate limits (verified): 5,000 requests per hour baseline; content-creating requests are limited to 80 per minute and 500 per hour.
 - Git pushes use a minted token inside the host-side git provider. The token never enters a VM.
 - Fork-and-PR is built as decided (C13). If GitHub refuses the fork call, the feature degrades to installed repositories only (21).
 
-**Owner merge credential** (C25) [PROPOSED]: either a dedicated owner GitHub App with merge rights, or the owner's linked GitHub user token from device flow. The setup wizard chooses it and settings can change it. Either form is stored as owner-class in `ISecretStore`.
+**Owner merge credential** (C25, round 12): both forms are supported. Either form is stored as owner-class in `ISecretStore`. The choice is `identity.merge_credential`.
 
 **OAuth device flow** [PROPOSED]: the owner starts each flow. The user code appears in a GC or the dashboard for confirmation on the device. The Identity Service polls the token endpoint (RFC 8628). Refresh tokens are stored encrypted. Agents never receive them.
 
-**TOTP** [PROPOSED]: seeds are encrypted in the Passport. Codes are generated on demand for allowed services. Recovery codes are never agent-readable. Passkeys stay with the owner or on a hardware key.
+**TOTP** [PROPOSED]: seeds are encrypted in the Passport. Codes are generated on demand for allowed services. Recovery codes are never agent-readable. Passkeys stay with the owner or on a hardware key. Tiers come from the TOTP settings below.
 
 **Kill switch** [PROPOSED]
 - Per agent: revoke all credential leases and App tokens, stop the agent's VMs, mark presence offline, quarantine output.
@@ -97,7 +99,7 @@ credential_lease(lease_id, agent_id, credential_id, scope, issued_at, expires_at
 browser_profile(profile_id, agent_id, profile_kind, ciphertext bytea, dek_id, updated_at)
 ```
 
-Renamed or removed for consistency: `soul_key` is now `soul_dek`, to keep it apart from 04's GC keys. `lease` is now `credential_lease`, because 06 owns the runtime `lease` (C04). `audit_event` and `approval` are removed; they are 15's (C16).
+`lease` is the runtime lease of 06 (C04); this doc uses `credential_lease`. `audit_event` and `approval` are 15's (C16).
 
 ```csharp
 // Sketch only.
@@ -115,12 +117,31 @@ interface IIdentityService {
 }
 ```
 
+### Settings [PROPOSED] (DECISIONS-LOG round 13; registry in 03)
+
+"Owner" means the operator of the install. A change is written to 15's `audit_log`. Floors cannot be loosened by any setting.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `identity.kek_provider` | enum: `dpapi`, `openbao` | `dpapi` | install | owner, in setup wizard | yes (DEK re-wrap) |
+| `identity.kek_recovery_location` | text (write-once location for the sealed KEK copy) | sealed offline copy held by the owner | install | owner | yes |
+| `identity.lease_ttl_minutes` | int | 15 | install | owner | yes if raised |
+| `identity.approval_expiry_hours` | int | 24 | install | owner | yes if raised |
+| `identity.approval_channel` | enum: `client_and_gc`, `gc_only` | `client_and_gc` | install | owner | yes; `gc_only` still needs the owner's authenticated session |
+| `identity.totp.tier_ordinary` | tier | Tier 2 | install | owner | yes if lowered; floor Tier 2 |
+| `identity.totp.tier_sensitive` | tier | Tier 3 | install | owner | yes if lowered; floor Tier 2 |
+| `identity.totp.sensitive_services` | list of service IDs (money or identity) | empty; setup wizard asks the owner to tag services | install | owner | yes |
+| `identity.signup_whitelist` | list of service IDs | empty | install | owner | yes; needs counsel (platform terms, account creation) |
+| `identity.canary_services` | list of service IDs | every service with a mounted cookie profile | install | owner | yes if reduced |
+| `identity.audit_anchor_target` | text (location the host cannot overwrite) | unset; setup wizard requires one before any mount is enabled | install | owner | yes |
+| `identity.merge_credential` | enum: `owner_app`, `linked_user` | no default; chosen in setup wizard (round 12) | install | owner | yes |
+
 ## Behaviour and edge cases
 - **Audit first:** the event is written to 15's `audit_log` before any lease is issued.
-- **Lease TTL** [PROPOSED]: 15 minutes for brokered credentials. GitHub tokens are capped by their own lifetime (unverified).
-- **Approvals** expire after 24 hours [PROPOSED]; an expired approval is never reused.
+- **Lease TTL:** `identity.lease_ttl_minutes` (default 15) for brokered credentials. GitHub tokens are capped by their own lifetime (unverified).
+- **Approvals** expire after `identity.approval_expiry_hours` (default 24); an expired approval is never reused.
 - **Revocation** is immediate for brokered calls and leases. A minted GitHub token stays valid until it expires (up to one hour, unverified); this is accepted.
-- **Hard taint:** the mount and account browser profiles detach, and Tier 2 leases are refused. Canary use is a 15 detection event that applies hard taint (Question 10).
+- **Hard taint:** the mount and account browser profiles detach, and Tier 2 leases are refused. Canary use is a 15 detection event that applies hard taint.
 - **Erasure:** Soul deletion destroys its DEK; a tombstone is appended. Backups keep old DEKs until the erasure window ends (33). Legal sufficiency needs counsel.
 - **Master-key loss:** every credential is re-issued; Soul memory and history survive.
 - **Replay, restart, quarantine:** approval and lease IDs are single-use. Leases and approvals persist across restarts, so no silent widening. Quarantined agents cannot request leases, and their existing leases are revoked.
@@ -132,8 +153,9 @@ interface IIdentityService {
 - **Fakes:** KEK provider and GitHub endpoint cover token mint, scope narrowing, expiry, and a push token that never reaches a VM path.
 - **`ISecretStore`:** an agent-facing caller asking for a provider or App key is denied; host-side callers succeed.
 - **Policy and approvals:** every (tier, taint) combination via 15's table. A hard-tainted session cannot obtain a Tier 2 lease. Tier 2 blocks until approved. An agent cannot approve its own request.
+- **Settings floors:** a TOTP tier below its floor, or a canary response below hard taint, is rejected at save time.
 - **Injection:** a cookie for service A is never returned for service B.
-- **Mounted folder:** only metadata and the cookie profile. No file matches a key, DEK, Passport or audit schema. Canaries are present. The mount detaches on simulated hard taint.
+- **Mounted folder:** only metadata and the cookie profile. No file matches a key, DEK, Passport or audit schema. Canaries are present. The mount detaches on simulated hard taint. No worktree path overlaps the mount.
 - **Browser:** the anonymous profile holds no cookies; account cookies go only to allowlisted sites.
 - **Audit first:** a failed audit write yields no lease. **Kill switch:** after the per-agent switch, no lease succeeds.
 
@@ -151,12 +173,12 @@ interface IIdentityService {
 11. Kill switch and revocation scopes (after 5, 6).
 
 ## Conflicts
-- **Windows KEK custody vs recovery on new hardware** (33 C1, open): DPAPI machine scope needs a second master-key copy to recover. Question 1.
+- **Windows KEK custody vs recovery on new hardware** (33 C1, open): DPAPI machine scope needs a second master-key copy to recover. The provider and recovery location are settings; the recovery gap itself stays open in 33.
 - **Erasure legal sufficiency** (C01): key destruction is not yet validated by counsel.
-- **GitHub App token lifetime** is unverified (21 C3).
-- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. Backups must exclude the mount, or hold it under the Passport's DEK and retention rule.
-- **Runtime `lease`** (for 06): C04 gives 06 the runtime `lease`. This doc uses `credential_lease`; 06 must not use credential leases for work claims.
+- **GitHub App token lifetime** is unverified until test T4 (21 C3).
+- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; 33 Q15 confirms.
 - **Canary detection and per-agent share and OS account** (for 15): 15 must define the detection event that canary use raises.
+- **Owner approval signing key** (for 32, flagged by 28): the device-held key class is not yet defined.
 - **Already decided, for other docs:** 16 and 17 drop any blanket Passport-free browser VM (C22). 16 Q2's second share stays an explicit exception (C02). 03 and 05 reduce their resolvers to bootstrap values (C05). 27 renames its client store interface (C05).
 
 ## Questions for the owner
@@ -165,14 +187,9 @@ ANSWERED: the browser is full Chromium, with anonymous and account profiles insi
 ANSWERED: fork-and-PR stays as decided; if GitHub refuses, the feature uses installed repositories only (DECISIONS-LOG round 3).
 ANSWERED: erasure uses per-person keys and tombstones; legal sufficiency still needs counsel (DECISIONS-LOG round 2).
 
-1. **KEK on Windows.** Default: DPAPI machine scope, with the recovery-on-new-hardware gap in 33 C1 accepted for now. Alternative: OpenBao transit, after a Windows install test. Which, and where should the recovery copy live?
-2. **Offline KEK escrow.** Default: a sealed copy held by you. Should a second holder also exist?
-3. **TOTP tiers.** Default: Tier 2 per use for ordinary services; Tier 3 for money or identity. Confirm, or name other services.
-4. **Approval channel.** Default: approve in Bazaar.Client.Windows, with a GC notice. Alternative: GC-only approval. Which?
-5. **Lease TTL.** Default: 15 minutes for brokered credentials; approvals expire after 24 hours. Other values?
-6. **Audit anchor.** Default: export the audit hash head daily to a location the host cannot overwrite. This is 15's audit log. Where should the anchor be?
-7. **Passkeys.** Default: owner-held only, never in the Passport. Confirm.
-8. **Tier 1 sign-up whitelist.** Default: empty until each platform's terms are checked. Which services are checked first?
-9. **Cookie profile at rest.** Default: encrypted on the host and decrypted into the mount only while a session runs. Confirm, or name a different rule.
-10. **Canary response.** Default: a canary hit applies hard taint, detaches the mount and holds the agent's sessions for review. Confirm. Which services get canaries?
-11. **Tier 2 gating.** C06 gates Tier 2 on hard taint, and 15's ladder requires per-action approval. Default: per-action approval always applies (15), and hard taint additionally blocks Tier 2 in the tainted session. Confirm.
+1. **Second holder of the sealed KEK copy.** Default: none; the owner holds the one sealed copy. A second holder receives key material, which is a custody change, so it is your decision. Confirm, or name a second holder.
+2. **Passkeys.** Default: owner-held only, never in the Passport. Storing them in the Passport would break the never-mounted list. Confirm.
+3. **Cookie profile at rest.** Default: encrypted on the host, decrypted into the mount only while a session runs. This is a security floor that no setting can loosen. Confirm.
+4. **Tier 2 gating (Claude's reading, to confirm).** Per-action approval always applies (15). Hard taint additionally blocks Tier 2 in the tainted session (C06). Confirm.
+
+MOVED TO SETTINGS: identity.kek_provider, identity.kek_recovery_location, identity.lease_ttl_minutes, identity.approval_expiry_hours, identity.approval_channel, identity.totp.tier_ordinary, identity.totp.tier_sensitive, identity.totp.sensitive_services, identity.signup_whitelist, identity.canary_services, identity.audit_anchor_target (DECISIONS-LOG round 13)

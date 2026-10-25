@@ -1,6 +1,6 @@
 # Bazaar.Android (Development Console)
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 13
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 6
 Depends on: 01-gc-data-model.md, 02-wire-protocol-and-sync.md, 06-agent-runtime.md, 12-kanban-and-dependencies.md, 15-security-taint-and-approvals.md, 19-constellation-and-git-solar-system.md, 21-github-integration.md, 27-client-architecture.md, 31-local-coworker-npu.md, 32-remote-access-auth-and-privacy.md · Used by: 34-testing-strategy.md, 35-spikes-plan.md
 
 ## Purpose
@@ -33,13 +33,13 @@ Bazaar.Android is the phone and foldable head of the Bazaar client: a Developmen
 |---|---|
 | Folded | Full chat; GC pager; approval cards inline |
 | Unfolded | Chat column becomes a ticker of on-device summaries; pager of Diffs / Task Board / Background; bottom drawer for Constellation (read-only first) |
-| Half-open | Unfolded layout split at the hinge (Q4) |
+| Half-open | Setting `android.half_open_layout` (default: unfolded layout whenever width allows, else folded) |
 
 ### Radial and dictation [PROPOSED sectors]
-Press: the radial opens with dictation at the centre, and recording starts. Move into a sector: dictation cancels and that action opens. Release in the centre: the transcript is cleaned and placed in the composer for review. Release in an empty sector: cancel. Sectors: Reply, Approvals, Kanban, Agents, Annotate, Sketch, Start screen. The radial ignores screen-edge bands (Conflicts 2).
+Press: the radial opens with dictation at the centre, and recording starts. Move into a sector: dictation cancels and that action opens. Release in the centre: the transcript is cleaned and placed in the composer for review. Release in an empty sector: cancel. Sectors (setting `android.radial_sectors`, default the seven): Reply, Approvals, Kanban, Agents, Annotate, Sketch, Start screen. The radial ignores screen-edge bands (Conflicts 2).
 
 ### Voice pipeline [PROPOSED]
-Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `ITranscriptCleaner` (small instruct model; candidate Phi-4-mini, MIT), then the composer. The cleaner must not add facts (Testing). Without an NPU, a CPU path is labelled "slower" in the UI. Dictated text is never sent without review, and dictation never approves or denies anything.
+Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `ITranscriptCleaner` (small instruct model; candidate Phi-4-mini, MIT), then the composer. The cleaner must not add facts (Testing). Without an NPU, a CPU path is labelled "slower" in the UI. Dictated text is never sent without review, and dictation never approves or denies anything. The cleanup model is setting `android.cleanup_model`; keeping captured audio is setting `android.voice_keep_audio` (default off, needs counsel).
 
 ### Approvals [PROPOSED]
 - Card: agent, action, target, exact payload (diff summary or arguments), taint sources collapsed with quoted excerpts, expiry (default 24 h), link to the GC. The action's tier follows doc 15's ladder.
@@ -53,7 +53,7 @@ Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `IT
 |---|---|---|
 | Read, reply, dictate | Yes | Yes |
 | Approve or deny gated actions | Yes | Yes |
-| Review a PR and merge it after signed approval | Summary; approve, request changes or merge (Q6) | Full diff in Diffs pane; same actions |
+| Review a PR and merge it after signed approval | Summary (full diff only if `android.folded_full_diff` is on, default off); approve, request changes, or merge if `android.merge_from_folded` is on (default on; fresh biometric always required) | Full diff in Diffs pane; same actions |
 | Move Kanban card | List drag (server validates blocks) | Task Board. A PR-tied card goes to Done only through its merge |
 | Watch agents | Presence list | Background pane |
 | Annotate screenshot | Yes (photo picker; upload over the HTTP blob channel) | Yes |
@@ -63,7 +63,7 @@ Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `IT
 Kanban moves carry the board revision. A stale move is rejected and the board is re-fetched.
 
 ### Background delivery [PROPOSED]
-The socket is open only while the app is foreground or unfolded. The server sends a bare wake hint (no GC id, no sequence, no content) for an @mention, a DM or an owner decision, coalesced per device (limits in doc 02; wake reasons owned by doc 06). The phone wakes, opens a short authenticated socket, runs `hello` and `subscribe` from its cursors, posts a local notification and closes. Owner-facing wakes use FCM's notification message type, not high-priority data messages (Doze docs; exact API to verify). The lock screen shows only "Bazaar: something needs you". No keep-alive foreground service is planned.
+The socket is open only while the app is foreground or unfolded. The server sends a bare wake hint (no GC id, no sequence, no content) for an @mention, a DM or an owner decision, coalesced per device (limits in doc 02; wake reasons owned by doc 06). The phone wakes, opens a short authenticated socket, runs `hello` and `subscribe` from its cursors, posts a local notification and closes. Where FCM is the selected provider, owner-facing wakes use its notification message type, not high-priority data messages (Doze docs; exact API to verify). The lock screen shows only "Bazaar: something needs you". No keep-alive foreground service is planned. The provider is setting `android.push_provider` (default UnifiedPush [PROPOSED], needs counsel: FCM routes wake-up timing through Google; FCM remains selectable).
 
 ```csharp
 interface IPushProvider { string Name { get; } Task<string> RegisterAsync(CancellationToken ct); }
@@ -71,6 +71,19 @@ interface ISpeechToText { Task<string> TranscribeAsync(ReadOnlyMemory<short> pcm
 interface ITranscriptCleaner { Task<string> CleanAsync(string raw, CancellationToken ct); }
 interface IPostureSource { IObservable<Posture> Changes { get; } }
 ```
+
+### Settings [PROPOSED]
+Registry rules per doc 03 (DECISIONS-LOG round 13). Every change is written to the audit log. Settings may tighten floors, never loosen them.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `android.radial_sectors` | ordered list of sector ids | Reply, Approvals, Kanban, Agents, Annotate, Sketch, Start screen | install | operator | No |
+| `android.half_open_layout` | enum: `unfolded_if_wide`, `folded` | `unfolded_if_wide` | install | operator | No |
+| `android.folded_full_diff` | bool | off | install | operator | No |
+| `android.merge_from_folded` | bool | on (fresh biometric approval is a floor and cannot be turned off) | install | operator | Yes, per doc 15 ladder |
+| `android.push_provider` | enum: `unifiedpush`, `fcm` | `unifiedpush` [PROPOSED; needs counsel] | install | operator | No |
+| `android.cleanup_model` | enum of benchmarked, licence-checked models | Phi-4-mini (pending benchmark) | install | operator | No |
+| `android.voice_keep_audio` | bool | off [needs counsel] | install | operator | No |
 
 ### Guard against desktop parity [PROPOSED]
 1. Android `UiProfile` never includes editor, terminal or file-tree widgets. A test asserts it.
@@ -123,18 +136,13 @@ interface IPostureSource { IObservable<Posture> Changes { get; } }
 8. Other docs to align (not this doc's to fix): doc 02 must specify the bare wake payload and the HTTP blob surface; doc 12 must make Done mean merged for PR-tied cards; doc 21 must provide the merge-request path with the `Signed-off-by` line; doc 27 must own the cached offline profile.
 
 ## Questions for the owner
-1. Radial sectors: Reply, Approvals, Kanban, Agents, Annotate, Sketch, Start. Default: these seven, because more sectors slow the thumb's arc.
-2. Dictation output: insert for review, never auto-send. Default: review, so a misheard word never reaches an agent.
-3. Holding the composer starts dictation, so text selection moves to double-tap and handles. Default: yes, your decided gesture. Confirm TalkBack is acceptable.
-4. Half-open posture: split at the hinge, or folded? Default: unfolded layout whenever width allows, else folded.
-5. Full diffs: folded shows a summary only. Default: yes, since review belongs to the unfolded context.
-6. Merge on the phone: may a PR be merged from the folded layout, which shows only a summary? Default: yes, after a fresh biometric approval that shows the checks status and the summary; otherwise merge is unfolded only.
-7. Biometric on every approval, and dictation never approves. Default: yes to both (see doc 15).
-8. Minimum Android version. Default: API 35 minimum, API 36 target, since Tier 1 is Android 16 only.
-9. Default push provider. Default: FCM, with UnifiedPush selectable in settings. FCM is simpler but routes wake-ups through Google.
-10. Play closed test: recruit 12 testers now for 14 continuous days, and sideload APKs to your own devices meanwhile. Confirm, and say whether testers may be people outside the company.
-11. Cleanup model: Phi-4-mini (MIT) pending benchmark; Qwen3 small and Gemma 4 E2B as fallbacks after a licence check. Also confirm your foldable's SoC, since the NPU path depends on it.
-12. Voice ideas: keep audio? Default: no, transcript only, audio discarded after cleanup.
-13. Constellation sketches: where do they live? Default: owner annotation nodes; an agent may promote them to the Vault, so the phone never commits to the Git-backed Vault.
+1. Holding the composer starts dictation, so text selection moves to double-tap and handles (your decided gesture). Confirm TalkBack is acceptable with that. Default: yes.
+2. Confirm that dictation never sends text to an agent without review and never approves or denies anything (doc 15). Default: yes to both, so a misheard word never reaches an agent. Biometric on every approval stays a fixed part of the Approvals design.
+3. Minimum Android version: API 35 minimum, API 36 target, since Tier 1 is Android 16 only. Default: yes. This is a build-time value, not an operator setting.
+4. Play closed test: recruit 12 testers now for 14 continuous days, and sideload APKs to your own devices meanwhile. Confirm, and say whether testers may be people outside the company. Default: 12 testers, outside testers only if you agree.
+5. Your foldable's SoC, since the NPU path depends on it (the cleanup model itself is the setting `android.cleanup_model`).
+6. Constellation sketches: where do they live? Default: owner annotation nodes; an agent may promote them to the Vault, so the phone never commits to the Git-backed Vault. This is a file-layout choice.
+
+MOVED TO SETTINGS: android.radial_sectors, android.half_open_layout, android.folded_full_diff, android.merge_from_folded, android.push_provider, android.cleanup_model, android.voice_keep_audio (DECISIONS-LOG round 13)
 
 ANSWERED: screenshot upload uses the authenticated HTTP blob channel specified in doc 02 (DECISIONS-LOG round 6, C15). Whether screenshot annotation ships in v1 remains in the scope table.

@@ -1,6 +1,6 @@
 # Kanban and Dependencies
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 13
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3
 Depends on: `01-gc-data-model.md` (GC rows, pinned messages), `02-wire-protocol-and-sync.md` (board stream and resync), `04-postgres-schema-and-migrations.md` (conventions, NOTIFY), `06-agent-runtime.md` (agent ids, wake reasons), `09-work-life-simulation.md` (work-life scheduler), `10-council-and-voting.md` (gates), `15-security-taint-and-approvals.md` (tool dispatch, approvals, taint), `18-vault.md` (VaultWriter, Vault links), `21-github-integration.md` (PR events, merge). Used by: `23-observatory-and-usage.md` (events), `24-company-systems-core.md` (Interrupt System and Calendar consume events), `17-coding-agent-harness.md` (work-start guard), `11-reputation-and-peer-review.md` (outcomes), `27-client-architecture.md`, `28-windows-client.md`, `29-android-client.md` (board UI).
 
 ## Purpose
@@ -26,17 +26,17 @@ Kanban shows what can start, what waits on what, and who is accountable. It is a
 
 | Transition | Actor | Guard | Side effects |
 |---|---|---|---|
-| Backlog → Ready | System (auto) or owner | All blockers Done | GC line |
+| Backlog → Ready | System (auto, when `kanban.auto_ready` is on) or owner | All blockers Done | GC line |
 | Ready → In progress | Assignee | No unfinished blocker | Owner set; GC line |
-| In progress → Review | Assignee | At least one PR or commit link | Reviewer requested; GC line |
+| In progress → Review | Assignee | At least `kanban.review_min_links` PR or commit links (default 1) | Reviewer requested; GC line |
 | Review → In progress | Reviewer | Reason required | GC line with reason |
-| Review → Done | Reviewer (ungated, no PR); Council or owner if gated; PR-merged event for a PR card | Gate satisfied; PR merged where a PR is linked | Dependents recalculated; GC line |
+| Review → Done | Reviewer (ungated, no PR, when `kanban.reviewer_ungated_done` is on); Council or owner if gated; PR-merged event for a PR card | Gate satisfied; PR merged where a PR is linked | Dependents recalculated; GC line |
 | Done → Review | Owner | Reason required | Reopen; dependents show Blocked; GC line |
 | Ready, In progress or Review → Backlog | Owner or assignee | Reason required | GC line |
 
-- **Reopen** [PROPOSED]: downstream In progress tasks do not move. They show Blocked, and the assignee must post a decision in the GC: pause, or continue with a stated override. Reopening does not undo a merge; further change needs a new PR.
-- **Auto-transitions** [PROPOSED]: Backlog → Ready runs in the same transaction as the last blocker's Done. Every automatic move writes a GC system line.
-- **PR cards** [PROPOSED]: the merge is the Done signal. Doc 21 emits a merged `pr_event`; the task service moves the linked card to Done in the same transaction and writes a GC line. Reviewer approval sets `review_approved_by` and `review_approved_at` and moves nothing. A PR closed unmerged leaves its card in Review, flagged, until the assignee or owner moves it with a reason.
+- **Reopen** [PROPOSED]: with `kanban.reopen_downstream` = `hold` (default), downstream In progress tasks do not move. They show Blocked, and the assignee must post a decision in the GC: pause, or continue with a stated override. With `return_ready`, they move to Ready with a GC line. Reopening does not undo a merge; further change needs a new PR.
+- **Auto-transitions** [PROPOSED]: with `kanban.auto_ready` on (default), Backlog → Ready runs in the same transaction as the last blocker's Done. Every automatic move writes a GC system line.
+- **PR cards** [PROPOSED]: the merge is the Done signal. Doc 21 emits a merged `pr_event`; the task service moves the linked card to Done in the same transaction and writes a GC line. Reviewer approval sets `review_approved_by` and `review_approved_at` and moves nothing. A PR closed unmerged leaves its card in Review, flagged, until the assignee or owner moves it with a reason (`kanban.pr_closed_unmerged` = `hold_flagged`, default; `return_backlog` moves it to Backlog with a GC reason instead).
 
 ## Interception at tool dispatch [PROPOSED]
 Agents change state only through a `kanban.transition` tool call or an authorised UI command. Both call the same `TransitionAsync`. Agents cannot write task tables.
@@ -72,17 +72,35 @@ interface ITaskService {
 
 - **Cycle check** [PROPOSED]: recursive CTE under a per-project advisory lock, so concurrent inserts cannot both pass.
 - **Links** [PROPOSED]: PR and commit checked against the provider (doc 21); Vault docs resolved through the Vault index (doc 18); GCs checked for existence. Links are informational, except that In progress → Review needs one.
-- **Pinning** [PROPOSED]: any GC member can pin a message, creating a task with `origin_message_id`. The message is not edited.
+- **Pinning** [PROPOSED]: any GC member can pin a message by default (`kanban.pin_permission`), creating a task with `origin_message_id`. The message is not edited.
 - **Gates** [PROPOSED]: `council` needs a Council decision record (doc 10; written through VaultWriter, C24). `owner` needs owner approval through doc 15's approval flow (Tier 2). Hard taint does not gate Done. The PR merge is the outward step, and it runs on the owner's signed approval (docs 21 and 28).
-- **Scheduling** [PROPOSED]: `due_at` is soft. Passing it emits `task.due_passed` and changes no state. Agent timing comes from doc 09's work-life schedule. KPI and QPI: OPEN, no fields in v1.
+- **Scheduling** [PROPOSED]: `due_at` is soft by default (`kanban.due_mode` = `soft`). Passing it emits `task.due_passed` and changes no state. With `hard`, a task past `due_at` cannot move Ready → In progress (structured refusal with reason). Agent timing comes from doc 09's work-life schedule. KPI and QPI: OPEN, no fields in v1.
 - **Events** [PROPOSED]: `task.created`, `task.transitioned {from, to, actor, reason}`, `task.blocked` / `task.unblocked`, `task.edge_changed`, `task.guard_refused`, `task.gate_decided`, `task.due_passed`. Written to `task_events` in the same transaction and announced with Postgres NOTIFY, which PostgreSQL delivers only on commit. Consumers: Observatory (23), dashboard, Interrupt System and Calendar (24). Events never write GC messages; the task service does. Assignment and unblock wake reasons are owned by doc 06 (C08).
+
+### Settings
+Keys are proposed for doc 03's registry [PROPOSED]. Every change is written to the audit log (doc 15). Settings never loosen a DECIDED rule: no settings for the PR-merge Done rule (C28), hard-taint exemption of board moves (C06), or the only-the-task-service-writes rule.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `kanban.auto_ready` | bool | true | project | project owner | No |
+| `kanban.reopen_downstream` | enum: `hold`, `return_ready` | `hold` | project | project owner | No |
+| `kanban.blocked_start_roles` | enum: `owner`, `owner_or_assignee` | `owner` | project | install owner | Yes (owner) |
+| `kanban.review_min_links` | int, 0 to 5 | 1 | project | project owner | No |
+| `kanban.reviewer_ungated_done` | bool | true | project | project owner | No |
+| `kanban.abandoned_satisfies_blockers` | bool | false | project | project owner | Yes (owner) |
+| `kanban.due_mode` | enum: `soft`, `hard` | `soft` | project | project owner | No |
+| `kanban.pin_permission` | enum: `any_member`, `owner` | `any_member` | project | project owner | No |
+| `kanban.pr_closed_unmerged` | enum: `hold_flagged`, `return_backlog` | `hold_flagged` | project | project owner | No |
+| `kanban.board_scope` | enum: `project`, `global` | `project` | install | install owner | No |
+| `kanban.max_blockers_per_task` | int | 50 | install | install owner | No |
+| `kanban.max_tasks_per_project` | int | 10000 | install | install owner | No |
 
 ## Behaviour and edge cases
 - **Concurrency**: a stale `version` returns Conflict with current state. Edge writes lock endpoints in ascending id order. If two agents claim one task, one wins; the other gets a refusal naming the new owner.
-- **Reconnect**: board clients resync from a snapshot with a project revision (doc 02 owns the stream and replay rules, C15). `task_events.seq` orders events inside the server and is not a client cursor unless doc 02 adopts it.
-- **Cancellation gap**: the five columns stay, so there is no Cancelled state. Dependents of an abandoned task stay Blocked (Question 7).
+- **Reconnect**: board clients resync from a snapshot with a project revision on the `board` stream (registered in doc 02, which owns the replay rules, C15). `task_events.seq` orders events inside the server and is not a client cursor unless doc 02 adopts it.
+- **Cancellation gap**: the five columns stay, so there is no Cancelled state. By default (`kanban.abandoned_satisfies_blockers` = false) dependents of an abandoned task stay Blocked until the owner re-points or removes the edge.
 - **Deletion**: not in v1; use Ready/In progress/Review → Backlog with a reason.
-- **Limits** [PROPOSED]: 50 blockers per task, 10,000 tasks per project, to bound the cycle check. This doc owns these limits (C36).
+- **Limits** [PROPOSED]: `kanban.max_blockers_per_task` (default 50) and `kanban.max_tasks_per_project` (default 10,000), to bound the cycle check. This doc owns these limits (C36; settings per DECISIONS-LOG round 13).
 - **Security**: only the task service writes state, so injected text cannot change the board directly. Owner overrides are logged with the actor.
 
 ## Testing
@@ -119,21 +137,12 @@ No models or displays needed. Real Postgres via an xUnit v3 fixture; `Avalonia.H
 5. **Reputation (doc 11).** If Review → Done feeds reputation, blocker-caused waits must not count as failures.
 6. **Unverified pattern.** The `task_edges` and row-lock design is an unsourced inference (feasibility note, Key Question 6).
 7. **Doc 01 must change.** It still describes triggers as `task_update` / `pr_event` entries consumed by a "Kanban projector". Per C28 the task service is the only writer and writes the GC system lines.
-8. **Doc 02 must specify** a board stream with snapshot and revision and its resync rule (C15), as this doc now assumes.
-9. **Doc 15 must confirm** that its Tier 2 list does not include board moves and names the PR merge as the outward step (C06).
-10. **Doc 21 must emit** a merged `pr_event` to the task service; doc 21 and doc 04 must drop any task-table outline of their own (C16).
+8. **Doc 15 must confirm** that its Tier 2 list does not include board moves and names the PR merge as the outward step (C06).
+9. **Doc 21 must emit** a merged `pr_event` to the task service; doc 21 and doc 04 must drop any task-table outline of their own (C16).
 
 ## Questions for the owner
-1. **Auto Ready**: should Backlog → Ready be automatic when the last blocker is Done? Default: yes, with a GC line.
-2. **Reopen**: should downstream In progress tasks return to Ready? Default: no; the assignee decides, so no work is silently rolled back.
-3. **Override**: who may start a Blocked task? Default: owner only, with a logged reason.
-4. **Review evidence**: is one PR or commit link enough? Default: yes.
-5. **Review authority**: may a reviewer agent move Review → Done on ungated tasks without a PR? Default: yes; gated tasks need Council or owner; PR-linked cards move only on merge, never on approval alone (C28).
-6. **Assignees**: one accountable owner per task? Default: yes, with helpers mentioned in the GC.
-7. **Cancellation**: the five columns stay. Should an abandoned task (moved to Backlog with a reason) count as Done for dependents? Default: no; dependents stay Blocked until the owner re-points or removes the edge.
-8. **Deadlines**: soft (notice only) or hard (block start)? Default: soft.
-9. **KPI and QPI**: what do they measure, and are they v1? Default: not in v1; no fields until defined.
-10. **Pinning**: may any GC member pin, or only the owner? Default: any member.
-11. **Task GCs**: does each task get its own GC? Default: no; it uses its origin GC, and a child GC is created on request.
-12. **Board scope**: one board per project, or one global board? Default: per project.
-13. **PR closed unmerged**: should the card move back automatically? Default: no; it stays in Review, flagged, and the assignee or owner decides with a reason.
+1. **Assignees**: one accountable owner per task? Default: yes, with helpers mentioned in the GC. (Shapes the `owner_agent_id` column, so it is one answer, not a setting.)
+2. **KPI and QPI**: what do they measure, and are they v1? Default: not in v1; no fields until defined.
+3. **Task GCs**: does each task get its own GC? Default: no; it uses its origin GC, and a child GC is created on request. (Changes the GC creation model, so it is one answer, not a setting.)
+
+MOVED TO SETTINGS: kanban.auto_ready, kanban.reopen_downstream, kanban.blocked_start_roles, kanban.review_min_links, kanban.reviewer_ungated_done, kanban.abandoned_satisfies_blockers, kanban.due_mode, kanban.pin_permission, kanban.pr_closed_unmerged, kanban.board_scope, kanban.max_blockers_per_task, kanban.max_tasks_per_project (DECISIONS-LOG round 13)

@@ -1,10 +1,10 @@
 # Spikes and success criteria
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 10
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 6
 Depends on: 01-gc-data-model.md, 02-wire-protocol-and-sync.md, 03-server-host-and-providers.md, 04-postgres-schema-and-migrations.md, 05-model-gateway.md, 06-agent-runtime.md, 13-skimmer-bouncer.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 16-agent-vms-and-environments.md, 17-coding-agent-harness.md, 18-vault.md, 19-constellation-and-git-solar-system.md, 20-engine-integration-api.md, 23-observatory-and-usage.md · Used by: 09-work-life-simulation.md, 21-github-integration.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md, 30-linux-client-and-packaging.md, 31-local-coworker-npu.md, 33-backup-dr-and-export.md
 
 ## Purpose
-A spike is a time-boxed experiment that settles one unverified claim before code depends on it. This plan merges the spike lists from the implementation plan, the two reports and the notes into 25 spikes, with duplicates such as Monaco and the GitHub test appearing once. S26 (browser profiles) was added by DECISIONS-LOG round 7 (C22). Spikes produce findings, not product code.
+A spike is a time-boxed experiment that settles one unverified claim before code depends on it. This plan merges the spike lists from the implementation plan, the two reports and the notes into 25 spikes, with duplicates such as Monaco and the GitHub test appearing once. S26 (browser profiles) was added by DECISIONS-LOG round 7 (C22). S27 (native Android diff and edit surface) was added by the cross-doc pass (2026-10-25, `docs/design/_CROSSFIX.md`, doc 35 fix list) because Monaco is unsupported on mobile (`docs/research/notes/Bazaar UI framework contingency/ui_framework_alternatives.md`, unverified against Monaco's current FAQ; DECISIONS-LOG round 5, C26). The catalogue now has 27 spikes. Spikes produce findings, not product code.
 
 ## Decided inputs
 - One OS-agnostic server; Windows (the NUC) is the first host; no Windows-only API outside a provider (CLAUDE.md; `Bazaar.Server.md` s3).
@@ -41,7 +41,8 @@ All numeric thresholds are [PROPOSED] starting points unless marked otherwise.
 | S11 | Local terminal control on ConPTY (Windows) and PTY (Linux client). Agent VM terminals are server-streamed and not tested here (C31) | Shell, resize, colour and Ctrl-C correct on both; licence OSI-compatible for the OSI-only build (C23) (fail: own terminal widget) | 2 d | None | Cloud (PTY); Windows (ConPTY) | 28, 30 |
 | S12 | Monaco in a WebView, free routes only (C23, C26): WebView2 on Windows; WebKitGTK on Linux. No Android Monaco (unsupported on mobile) | Monaco loads offline from bundled assets; typing, IME, paste work; theme applied; HWND fallback recorded if composition fails (fail: AvaloniaEdit native editor, and the Avalonia decision is reopened) | 3 d | Windows desktop; Linux desktop | Owner Windows; Linux | 27, 28, 30 |
 | S13 | Android IME and fold on a real foldable at 120 Hz: caret, soft keyboard, activity recreation vs in-place resize, frame pacing; fold switch is local (C27) | No lost keystrokes in 200-character input; GC draft survives fold; fold switch needs no network; at most 2% dropped frames while scrolling | 3 d | Foldable device | Owner device | 29 |
-| S14 | Graph: 5k and 10k nodes, render (Windows and Android) and server layout tick (layout stays server-side, C17) | 5k render at 60 fps, at most 10 ms draw; layout tick at most 8 ms at 10k on NUC; Android not gated until measured | 3 d | Constellation WP3 | Cloud (layout, relative); owner (render) | 19, 27 |
+| S14 | Graph: 5k and 10k nodes, render (Windows and Android) and server layout tick (layout stays server-side, C17) | 5k render at 60 fps, at most 10 ms draw; layout tick at most 8 ms at 10k on NUC (the absolute budget from doc 19); Android not gated until measured | 3 d | Constellation WP3 | Cloud (layout, relative first); NUC (absolute layout tick); owner Windows (render) | 19, 27 |
+| S27 | Native Android diff and edit surface (no Monaco on Android, doc 29): render a 500-line diff, edit one 200-character line with the soft keyboard and IME, undo and selection; no WebView | Diff scrolls at 60 fps with at most 2% dropped frames; IME composition and undo correct; no Monaco or WebView in the path (fail: doc 29 picks another native Android surface and records the cost; the UI decision is reopened only if none passes, C26) | 3 d | S13 | Android device | 29, 27 |
 | S15 | Detachable windows and docking on Avalonia 12 (Dock.Avalonia) vs WinUI 3 reference | Detach and re-dock without crash; 60 fps drag on NUC-class laptop; owner signs off feel | 2 d | Owner review | Owner Windows | 27, 28 |
 | S16 | SOCKS5 through `SocketsHttpHandler` on .NET 10; `https://` proxy URIs on Linux (dotnet/runtime#102441) | Request succeeds via local SOCKS5 proxy (fail: outbound proxy stays schema-only) | 0.5 d | None | Cloud | 05 (low) |
 | S17 | FreeLLMAPI surface: read `server/src` for key scoping, `sk-cp-` keys, chat family lock, usage and health, prompt logging; run pinned version with non-Claude free keys; check that no subscription login is reachable through the Claude route | Forced fallback never reaches an excluded model (pass: policy upstream); else unpolicied upstream. Anthropic key not loaded into FreeLLMAPI (default, Q3) | 2 d | Pinned version; free keys (owner) | Cloud | 05 WP13 |
@@ -60,9 +61,19 @@ Cloud spikes (S3 baseline, S5, S6 part 1, S11 PTY, S14 layout, S16, S17, S18, S2
 ## Data and interfaces
 Spike record, one per spike in `docs/spikes/<ID>.md`: `id`, `branch`, `runner`, `criteria` (written before the run), `environment` (OS build, driver, PostgreSQL, .NET), `runs`, `result` (pass | fail | inconclusive), `findings` (the doc section, conflict or question it feeds).
 
+### Settings
+These are spike-harness settings (the developer's test install), not product runtime settings. Registry rules follow doc 03's settings registry [PROPOSED] and DECISIONS-LOG round 13 (configurability rule); the values are [PROPOSED].
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `spike.spend_cap_usd` | number (USD) | 30 for S18; S19 cap set before the pilot starts | install (per spike) | owner | Yes: owner approves any raise and any time-box extension |
+| `spike.github_write_cap` | integer | 10 | install (per spike) | owner | Yes |
+| `spike.transcript_location` | enum: `local-only`, `cloud-fixtures` | `local-only` | install | owner | Yes; needs counsel (transcripts leaving the install) |
+| `spike.push_providers` | list: `fcm`, `unifiedpush` | `fcm`, `unifiedpush` | install | owner | No |
+
 ## Behaviour and edge cases
 - Time-box is a hard stop. Expiry records `inconclusive`; extension needs owner approval.
-- GitHub spikes: throwaway public repos, at most 10 writes, no posts to third-party projects, within the secondary limits in the stack report.
+- GitHub spikes: throwaway public repos, at most 10 writes (setting `spike.github_write_cap`), no posts to third-party projects, within the secondary limits in the stack report.
 - Destructive tests (S4, S25) run on a scratch VM or copy, never on live data. Spend is capped per spike; keys are session secrets, never in git.
 - A failed spike blocks only the docs it unblocks; each row names its fallback. A result that contradicts a DECIDED item goes to Conflicts.
 
@@ -73,15 +84,14 @@ Spike record, one per spike in `docs/spikes/<ID>.md`: `id`, `branch`, `runner`, 
 
 ## Work packages
 1. Wave A, cloud, start now, in parallel: S6 part 1 (first, since it closes the codec for Contracts), S17, S23, S5, S3 baseline, S25 Linux, S16, S11 PTY, S14 layout. Then S18 (after keys and cap) and S22 (after owner setup).
-2. Wave B, owner NUC, with a cloud-written runbook: S1, then S2, S3 pass, S4 and S25 NUC; S8, then S9 and S26.
-3. Wave C, Windows desktop, Linux desktop and Android device: S10, S11 ConPTY, S12 (WebView2 and WebKitGTK), S13, S14 render, S15, S7 device, S24.
+2. Wave B, owner NUC, with a cloud-written runbook: S1, then S2, S3 pass, S4 and S25 NUC; S8, then S9 and S26; S14 NUC layout tick (absolute budget).
+3. Wave C, Windows desktop, Linux desktop and Android device: S10, S11 ConPTY, S12 (WebView2 and WebKitGTK), S13, S14 render, S15, S7 device, S24, S27.
 4. Wave D, owner data and hardware, after the pilot: S19, S20, S21.
 
 Gates: S6 gates the Contracts design; S8 gates the Hyper-V provider; S12 is a gate for the Avalonia decision as a whole (C26). S22 informs the GitHub PR flow, which is built as decided (C13), so it is run before that flow ships but does not block its design.
 
 ## Conflicts
 - **Wire format.** `Bazaar.Server.md` s3 still says Protobuf is DECIDED in the table header; CLAUDE.md and the reopened text say OPEN. S6 decides; the Server.md row must be fixed.
-- **VM topology text.** CLAUDE.md still says "OPEN: benchmark nested WSL2 vs two VMs", and `Bazaar.Soul.md` line 54 says "decided". C03 resolved it as the two-VM pair; CLAUDE.md needs the update.
 - **Pub/sub text.** CLAUDE.md and `Bazaar.Server.md` s3 still name Garnet as the Windows cache and pub/sub provider without the "candidate" label. C07 resolved NOTIFY for GC fan-out; S2 gates presence and cache.
 - **Git text.** `Bazaar.Server.md` s2 says "not shelling out to the `git` CLI" as DECIDED. C12 keeps LibGit2Sharp behind `IGitProvider`; the wording needs the same change.
 - **Notepad.** `Bazaar.Windows.md` line 12 still says Bazaar replaces Notepad. S10 tests the deep-link route; Windows 11 does not allow a silent default.
@@ -93,14 +103,14 @@ Gates: S6 gates the Contracts design; S8 gates the Hyper-V provider; S12 is a ga
 ## Questions for the owner
 1. Spikes on `spike/<ID>` branches, results in `docs/spikes/<ID>.md`, nothing merged to main? Default: yes.
 2. You create the GitHub App on `codex-alchemist-dev` and throwaway public repos outside that installation, before S22? Default: yes.
-3. Never load your Anthropic key into FreeLLMAPI? C14 decided both sources but does not say whether the key enters FreeLLMAPI. Default: no; the key goes direct to Anthropic and FreeLLMAPI uses its own pool.
-4. Hard spend cap for S18 and the S19 pilot? Default: USD 30 for S18 (rough, unmeasured); S19 cap set before the pilot.
-5. Transcripts for S20 stay on your machines, cloud gets fixtures? Default: yes.
-6. Which foldable, and is its panel 120 Hz? Test both FCM and UnifiedPush? Default: both.
-7. Accept the [PROPOSED] thresholds as starting points? Default: yes.
-8. S10: accept deep-link registration instead of silent Notepad replacement? Default: yes.
-9. If S2 (Garnet) fails, which Windows provider serves presence and cache? Default: presence and cache wait for a chosen provider; GC fan-out is unaffected (NOTIFY).
-10. Accept S26 (browser profiles, from C22) as part of this plan? Default: yes.
+3. Never load your Anthropic key into FreeLLMAPI? C14 decided both sources but does not say whether the key enters FreeLLMAPI. Default: no; the key goes direct to Anthropic and FreeLLMAPI uses its own pool. (Key custody; a security invariant, so not a setting.)
+4. Which foldable device, and is its panel 120 Hz? Hardware only you can name; no safe default. Default: none; S13 and S27 wait.
+5. Accept the [PROPOSED] thresholds as starting points? Default: yes.
+6. If S2 (Garnet) fails, which Windows provider serves presence and cache? Default: presence and cache wait for a chosen provider; GC fan-out is unaffected (NOTIFY).
+
+MOVED TO SETTINGS: spike.spend_cap_usd, spike.github_write_cap, spike.transcript_location, spike.push_providers (DECISIONS-LOG round 13)
+
+ALREADY DECIDED (no longer asked): S10 deep-link registration instead of a silent Notepad replacement is the shipped Windows default-app rule in CLAUDE.md ("never claim a silent default"). S26 (browser profiles) is part of the decided browser design (DECISIONS-LOG round 7, C22).
 
 ANSWERED: Run S2 only if S3 fails? S2 runs regardless and gates presence and cache work (DECISIONS-LOG round 1, C07).
 ANSWERED: Benchmark nested and two-VM topologies? The two-VM pair is decided; S8 is sizing only (DECISIONS-LOG round 1, C03).

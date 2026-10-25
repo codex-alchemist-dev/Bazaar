@@ -1,6 +1,6 @@
 # Soul System
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25) · Owner questions: 12
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 7
 Depends on: `06-agent-runtime.md` (agent row, lifecycle states, wake), `04-postgres-schema-and-migrations.md` (conventions, key table), `05-model-gateway.md` (whitelists, identity lanes), `08-memory-system.md` (per-agent Vault memory), `09-work-life-simulation.md` (schedule), `14-identity-service-and-passport.md` (Passport, secrets), `15-security-taint-and-approvals.md` (provenance enum, taint, approval tiers, mount detach), `16-agent-vms-and-environments.md` (VM pair), `18-vault.md` (VaultWriter, decision files), `10-council-and-voting.md` (promotion, hiring, retirement votes), `11-reputation-and-peer-review.md`, `01-gc-data-model.md` (judgment messages, history) · Used by: `06-agent-runtime.md`, `08-memory-system.md`, `10-council-and-voting.md`, `14-identity-service-and-passport.md`, `25-company-systems-knowledge.md`, `33-backup-dr-and-export.md`
 
 ## Purpose
@@ -32,7 +32,7 @@ Everything below is [PROPOSED] unless tagged DECIDED.
 |---|---|---|---|
 | Identity | name, role, avatar, GitHub App id, email address | agent row (`06`) | role only |
 | Timezone, schedule | work-life settings | `09` | no |
-| Charter | personality doc and prompt layers (Constitution ref, role, personal) | version rows here; text as a Vault file (Q12) | yes |
+| Charter | personality doc and prompt layers (Constitution ref, role, personal) | version rows here; text as a Vault file (Q7) | yes |
 | Skills | Agent Skills folders, specialty tags | refs; reputation evidence (`11`) | skills yes; tags self-declared |
 | Preferences | structured style and tool choices | versioned JSON in `soul_versions` | no |
 | Lessons | append-only entries with source GC seq, provenance tag and `08` tier | per-agent Vault memory area (`08`) | no (private memory) |
@@ -53,6 +53,8 @@ Everything below is [PROPOSED] unless tagged DECIDED.
  "options":["..."],"chosen":"...","reasoning":"...","confidence":"medium"}
 ```
 
+The decision index is the set of `vault_docs` rows with `type=decision` (`18`). This doc adds no decision table.
+
 **Mount composition [DECIDED content, C02].** The per-agent folder contains service metadata (names, handles, expiry) and the session-cookie profile for allowlisted sites. Nothing else. Hard taint detaches it (`15`); the agent then loses account access until a clean session.
 
 **Onboarding.** A new Soul reads the Constitution (version hash recorded), then its role charter, then only lessons the owner has approved. It posts an acknowledgement in its GC. Blocked until the Constitution exists.
@@ -70,17 +72,17 @@ Everything below is [PROPOSED] unless tagged DECIDED.
 
 **Creation.** A Talent Pool template (`25`) is a preset without identity or lessons. Instantiating it creates an agent with a new GitHub App, an email address on an operator-configured domain, child Windows and Linux VM disks off their golden images (`16`), and empty memory. It runs as a Council hiring vote (C32).
 
-Genetic Memory Transfer: a temporary subagent writes candidate lessons to a staging area tagged with its own provenance. Candidates enter a Soul only after review (Q5). Nothing transfers automatically.
+Genetic Memory Transfer: a temporary subagent writes candidate lessons to a staging area tagged with its own provenance. Candidates enter a Soul only after review by the approver set in `soul.lesson_transfer_approver`. Nothing transfers automatically.
 
-**Promotion.** Specialty tags and promotions are Council votes (`10`), fed by `11`'s evidence. A model whitelist change or a tool grant change is a Tier 2 approval under `15`'s ladder; whether a whitelist change is a "bigger change" under C32 is Q11. Promotion never changes a whitelist or grant as a side effect.
+**Promotion.** Specialty tags and promotions are Council votes (`10`), fed by `11`'s evidence. A model whitelist change or a tool grant change is a Tier 2 approval under `15`'s ladder; whether a whitelist change is a "bigger change" under C32 is set by `soul.whitelist_change_bigger`. Promotion never changes a whitelist or grant as a side effect.
 
-**Retirement.** Lifecycle states come from `06` (Created, Onboarding, Active, Resting, Retired). Retirement is a Council vote (C32). On retirement this doc's hooks revoke Passport entries and installation tokens (`14`), delete both child VM disks (durable data is host-side), and keep the Soul record and history read-only. An open decision marks the Soul abandoned, never deletes it.
+**Retirement.** Lifecycle states come from `06` (Created, Onboarding, Active, Resting, Retired). Retirement is a Council vote (C32). On retirement this doc's hooks revoke Passport entries and installation tokens (`14`), delete both child VM disks (durable data is host-side), and keep the Soul record and history read-only, as set by `soul.retired_history`. An open decision marks the Soul abandoned, never deletes it.
 
 **Export (optional Soul Marketplace), format only.** A bundle is a behavioural preset.
 
 ```
 manifest.json   schemaVersion, bundleVersion, creator, files{path: sha256},
-                signature, license (default: none granted), exclusions[], extensions{}
+                signature, license (from soul.export_licence), exclusions[], extensions{}
 charter.md
 skills/<name>/SKILL.md
 ```
@@ -89,8 +91,23 @@ Excluded: Passport, VM disks, GC messages, Vault content, Kanban, raw embeddings
 
 **Import.** Quarantined. Verify digests and signature. Never execute `scripts/`. Drop imported grants, whitelists and reputation. Show the charter diff to the owner before activation. A valid signature proves origin and integrity, not safety.
 
+### Settings
+
+Settings registry rows (`03`, DECISIONS-LOG round 13). Shipped defaults are the most protective option where a row says so. Rows marked "needs counsel" touch legal exposure.
+
+| Key | Type | Default | Scope (install/project/agent) | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `soul.promotion.peer_review_weight` | decimal 0 to 1 | 0 (peer reviews only suggest specialty tags) | install | operator | Council vote (C32) [PROPOSED] |
+| `soul.lesson_transfer_approver` | enum: architect, owner, council | architect | install | operator | owner [PROPOSED] |
+| `soul.charter_change_approver` | enum: owner, architect | owner | install | operator | owner [PROPOSED] |
+| `soul.retired_history` | enum: readonly-until-erasure, readonly-indefinite | readonly-until-erasure | install | operator | owner [PROPOSED]; needs counsel |
+| `soul.export_licence` | enum: none, or an SPDX id chosen by the author | none | install | operator | owner [PROPOSED]; needs counsel |
+| `soul.whitelist_change_bigger` | boolean | true | install | operator; Council may propose a change | Council vote (C32) [PROPOSED] |
+
+Numeric reputation starting weights stay in `11`'s PROPOSED table (Bazaar.md §5 still OPEN); this doc sets only how much peer review feeds promotion.
+
 ## Behaviour and edge cases
-- Agents may propose charter changes; applying one needs owner or architect approval [PROPOSED]. Memory, import or GC text never edits the charter directly (OWASP LLM01).
+- Agents may propose charter changes; applying one follows `soul.charter_change_approver` [PROPOSED]. Memory, import or GC text never edits the charter directly (OWASP LLM01).
 - Quarantined Souls keep visible, tagged messages; their lessons are not promoted.
 - Reputation is a server-side derived view. Weights are OPEN; LLM peer reviews must not dominate promotion.
 
@@ -119,27 +136,23 @@ Excluded: Passport, VM disks, GC messages, Vault content, Kanban, raw embeddings
 ## Conflicts
 Remaining after reconciliation:
 1. **Deep-dive text (fix in the same change):** `Bazaar.Soul.md` lines 12, 26, 28 and 54 and `Bazaar.md` lines 55, 58, 60 and 63 still carry the superseded mount, golden-image, topology and routing wording; CLAUDE.md's Claude-lane line still says "API keys only" (stale-lines table, C03, C14).
-2. **Marketplace status:** `Bazaar.md` calls it DECIDED in nature; this doc says PROPOSED with v1 scope OPEN (Q2). Align after Q2.
-3. **Bigger-changes definition (C32 FOLLOW-UP):** Q11 decides what needs an owner-level vote; until then, whitelist and grant rules are provisional.
+2. **Marketplace status:** `Bazaar.md` calls it DECIDED in nature; this doc says PROPOSED with v1 scope OPEN (Q1). Align after Q1.
+3. **Bigger-changes definition (C32 FOLLOW-UP):** `soul.whitelist_change_bigger` sets the whitelist case; the full class list belongs to `10`, and until the owner defines it the rest is provisional.
 4. **For `06`:** its `agent` row carries `schedule jsonb`, but C04 gives schedule to `09`.
 5. **For `08`:** this doc no longer owns a `lessons` table; lessons are Vault memory entries (C38). `08` must confirm.
-6. **For `10` or `18`:** C24 names one decision index table for judgments and decision files, but no doc owns it.
-7. **For `11`:** its automatic promotion at LCB ≥ 0.6 conflicts with C32 (Council vote). It must say so.
-8. **FOLLOW-UP (C38):** erasure inside Vault Markdown and git history is unanswered (Q8).
+6. **For `11`:** its automatic promotion at LCB ≥ 0.6 conflicts with C32 (Council vote). It must say so.
+7. **FOLLOW-UP (C38):** erasure inside Vault Markdown and git history is unanswered (Q5).
 
 ## Questions for the owner
 1. Marketplace in v1? Default: no. The format is designed, not built; any bundle is optional, user-generated and behavioural only.
 2. Constitution v1 seed: who writes it? Default: you write a one-page seed; Claude drafts the structure.
 3. ChatGPT's role? Default: read-only planning reviewer, no write tools, until you decide.
-4. Reputation starting weights? Default: `11`'s PROPOSED table; promotion weighs outcomes only; peer reviews only suggest specialty tags. Weights stay OPEN in `Bazaar.md` §5.
-5. Genetic Memory Transfer candidates: who approves? Default: the architect preset for lessons; you for charter changes.
-6. How long do retired Souls keep readable history? Default: indefinitely, read-only, no tool grants; erasure per Q8.
-7. Do judgments pin the exact charter version? Default: yes.
-8. Erasure inside Vault Markdown and git history (FOLLOW-UP after C38). Per-person encrypted fields cover Postgres rows only. Default [PROPOSED]: sensitive memory and lesson notes are written as per-person encrypted payloads where the Vault layout allows; no history rewrite; counsel decides whether key destruction suffices.
-9. Export signing: which identity and tool? Default: the exporting agent's GitHub App identity plus an operator key; the signing tool is unverified.
-10. Default licence for exported Souls? Default: none granted until the author chooses. Needs counsel.
-11. Does a model whitelist change count as a "bigger change" (C32 FOLLOW-UP)? Default: yes, a Council vote, with you deciding only on a split or tie; tool grants stay Tier 2 owner approval under `15`.
-12. Charter text: Vault file or Postgres row? Default: Vault file, with its SHA-256 in `soul_versions`; `18` to confirm.
+4. Do judgments pin the exact charter version? Default: yes.
+5. Erasure inside Vault Markdown and git history: encrypted payloads with key destruction, or a history rewrite? Default [PROPOSED]: encrypted payloads where the Vault layout allows, no history rewrite; needs counsel.
+6. Export signing: which identity and tool? Default: the exporting agent's GitHub App identity plus an operator key; the signing tool is unverified.
+7. Charter text: Vault file or Postgres row? Default: Vault file, with its SHA-256 in `soul_versions`; `18` to confirm.
+
+MOVED TO SETTINGS: soul.promotion.peer_review_weight, soul.lesson_transfer_approver, soul.charter_change_approver, soul.retired_history, soul.export_licence, soul.whitelist_change_bigger (DECISIONS-LOG round 13)
 
 ANSWERED: Passport mount is metadata plus a session-cookie profile, detached on hard taint; memory and reputation go through APIs and the Vault (DECISIONS-LOG round 2, C02).
 ANSWERED: Charles and juniors use `custom/*` over a cheap whitelist with FreeLLMAPI; no global `auto/*` (reconciliation brief, 2026-10-25; CLAUDE.md).
