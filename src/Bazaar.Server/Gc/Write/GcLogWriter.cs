@@ -90,7 +90,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 
         if (fresh.Count > 0)
         {
-            var now = _time.GetUtcNow();
+            var now = TruncateToMicroseconds(_time.GetUtcNow());
             await WriteAsync(conn, tx, gcId, requests, fresh, now, results, ct).ConfigureAwait(false);
         }
 
@@ -100,6 +100,9 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             notifier.Notify(gcId, next);
         return results;
     }
+
+    // timestamptz keeps microseconds; returning the same value a later read (or a duplicate answer) will see.
+    private static DateTimeOffset TruncateToMicroseconds(DateTimeOffset t) => new(t.UtcTicks - (t.UtcTicks % 10), TimeSpan.Zero);
 
     private static Guid Validate(IReadOnlyList<AppendRequest> requests)
     {
