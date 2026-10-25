@@ -16,14 +16,14 @@ public sealed class DbB : PgFixture, IAsyncLifetime
 public static class PgFixtureTemplate
 {
     // Stand-in for the real migration runner (M1): proves the template is migrated once and cloned.
-    public static int MigrationRuns => migrationRuns;
-    private static int migrationRuns;
+    public static int MigrationRuns => _migrationRuns;
+    private static int _migrationRuns;
 
 #pragma warning disable CA2255 // the template must be registered before any fixture initialises
     [System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Register() => PgTemplate.UseMigrator(async cs =>
     {
-        Interlocked.Increment(ref migrationRuns);
+        Interlocked.Increment(ref _migrationRuns);
         await using var conn = new NpgsqlConnection(cs);
         await conn.OpenAsync();
         await using var cmd = new NpgsqlCommand("CREATE TABLE template_marker(id int); INSERT INTO template_marker VALUES (1)", conn);

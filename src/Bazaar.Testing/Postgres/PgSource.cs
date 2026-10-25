@@ -25,7 +25,7 @@ public sealed class PgSource : IAsyncDisposable
     public static bool IsUnsupportedHost =>
         OperatingSystem.IsWindows() && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvConnectionString));
 
-    private static readonly Lazy<Task<PgSource>> SharedLazy = new(StartAsync);
+    private static readonly Lazy<Task<PgSource>> _sharedLazy = new(StartAsync);
 
     private readonly PostgreSqlContainer? _container;
 
@@ -43,7 +43,7 @@ public sealed class PgSource : IAsyncDisposable
     public string Origin { get; }
 
     /// <summary>The per-process shared source. Starts on first use.</summary>
-    public static Task<PgSource> GetSharedAsync() => SharedLazy.Value;
+    public static Task<PgSource> GetSharedAsync() => _sharedLazy.Value;
 
     /// <summary>Builds a connection string for <paramref name="database"/> on the same server and credentials.</summary>
     public string ConnectionStringFor(string database, bool pooling = true) =>

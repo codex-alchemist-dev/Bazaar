@@ -8,12 +8,12 @@ namespace Bazaar.Testing.Postgres;
 /// </summary>
 public sealed class PgTemplate
 {
-    private static readonly Lock Gate = new();
-    private static readonly string RunId = Guid.NewGuid().ToString("N")[..8];
-    private static readonly SemaphoreSlim CloneLock = new(1, 1);
-    private static Func<string, Task>? migrator;
-    private static Task<PgTemplate>? shared;
-    private static int cloneCounter;
+    private static readonly Lock _gate = new();
+    private static readonly string _runId = Guid.NewGuid().ToString("N")[..8];
+    private static readonly SemaphoreSlim _cloneLock = new(1, 1);
+    private static Func<string, Task>? _migrator;
+    private static Task<PgTemplate>? _shared;
+    private static int _cloneCounter;
 
     private readonly PgSource _source;
 
@@ -33,30 +33,30 @@ public sealed class PgTemplate
     /// </summary>
     public static void UseMigrator(Func<string, Task> migrate)
     {
-        lock (Gate)
+        lock (_gate)
         {
-            if (shared is not null)
+            if (_shared is not null)
                 throw new InvalidOperationException("The template database is already built; register the migrator before first use.");
-            migrator = migrate;
+            _migrator = migrate;
         }
     }
 
     /// <summary>Builds the process-wide template on first call.</summary>
     public static Task<PgTemplate> GetSharedAsync()
     {
-        lock (Gate)
-            return shared ??= BuildAsync();
+        lock (_gate)
+            return _shared ??= BuildAsync();
     }
 
     private static async Task<PgTemplate> BuildAsync()
     {
         var source = await PgSource.GetSharedAsync().ConfigureAwait(false);
-        var name = $"bazaar_tpl_{RunId}";
+        var name = $"bazaar_tpl_{_runId}";
         await ExecAdminAsync(source, $"CREATE DATABASE \"{name}\"").ConfigureAwait(false);
         var template = new PgTemplate(source, name);
         try
         {
-            if (migrator is { } migrate)
+            if (_migrator is { } migrate)
                 await migrate(source.ConnectionStringFor(name, pooling: false)).ConfigureAwait(false);
         }
         catch
@@ -77,13 +77,13 @@ public sealed class PgTemplate
     /// <summary>Creates a fresh database cloned from the template and returns its name.</summary>
     internal async Task<string> CloneAsync(string label)
     {
-        var name = $"bazaar_t_{RunId}_{Interlocked.Increment(ref cloneCounter)}_{Sanitize(label)}";
+        var name = $"bazaar_t_{_runId}_{Interlocked.Increment(ref _cloneCounter)}_{Sanitize(label)}";
         if (name.Length > 63)
             name = name[..63];
 
         // CREATE DATABASE ... TEMPLATE needs the template idle; serialise clones in-process and retry
         // (SQLSTATE 55006 object_in_use) in case another process still holds it.
-        await CloneLock.WaitAsync().ConfigureAwait(false);
+        await _cloneLock.WaitAsync().ConfigureAwait(false);
         try
         {
             for (var attempt = 0; ; attempt++)
@@ -101,7 +101,7 @@ public sealed class PgTemplate
         }
         finally
         {
-            CloneLock.Release();
+            _cloneLock.Release();
         }
     }
 
