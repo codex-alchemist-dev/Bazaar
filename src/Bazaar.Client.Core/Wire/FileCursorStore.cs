@@ -182,7 +182,6 @@ public sealed class FileCursorStore : ICursorStore
             // Best effort: a stale temp file is ignored on load and overwritten by the next save.
         }
     }
-
 }
 
 /// <summary>The file layout: <c>{"version":1,"cursors":[{"s":"gc:...","after":11,"editAfter":39}]}</c>.</summary>
