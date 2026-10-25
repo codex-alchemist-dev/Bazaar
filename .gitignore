@@ -456,3 +456,6 @@ test-results/
 
 # Generated run artifacts at the repository root
 /artifacts/
+
+# Claude Code agent worktrees (local only)
+.claude/worktrees/
