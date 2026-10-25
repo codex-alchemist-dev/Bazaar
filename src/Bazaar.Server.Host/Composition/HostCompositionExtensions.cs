@@ -26,7 +26,7 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<HostExitCode>();
         services.TryAddSingleton<DatabaseConnection>();
         services.TryAddSingleton<IInstanceLock, PostgresInstanceLock>();
-        services.TryAddSingleton<ISchemaGate, NoSchemaGate>();
+        services.TryAddSingleton<ISchemaGate, MigrationSchemaGate>();
         services.AddSingleton<IReadinessCheck, DatabaseReadinessCheck>();
         services.AddSingleton<IReadinessCheck, InstanceLockReadinessCheck>();
         services.AddSingleton<IReadinessCheck, ProviderReadinessCheck>();

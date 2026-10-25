@@ -57,12 +57,6 @@ public interface ISchemaGate
     Task EnsureCurrentAsync(CancellationToken ct);
 }
 
-/// <summary>Placeholder until M1's runner is wired: accepts any schema. Replaced in the follow-up that adds the <c>migrate</c> subcommand.</summary>
-public sealed class NoSchemaGate : ISchemaGate
-{
-    public Task EnsureCurrentAsync(CancellationToken ct) => Task.CompletedTask;
-}
-
 /// <summary>Exit code the process returns; set to 1 when startup stops the host on purpose.</summary>
 public sealed class HostExitCode
 {

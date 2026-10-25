@@ -3,6 +3,11 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 
+if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
+{
+    return await MigrateSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddBazaarHostOptions(builder.Configuration);
