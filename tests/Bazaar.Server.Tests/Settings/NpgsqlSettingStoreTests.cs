@@ -14,8 +14,8 @@ public sealed class SettingsDb : PgFixture, IAsyncLifetime
 /// <summary>Setting store against a real PostgreSQL, after the embedded migrations (doc 03 testing, doc 04).</summary>
 public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<SettingsDb>
 {
-    private static readonly SettingActor Operator = new("operator:dom", SettingRole.Operator);
-    private static readonly SettingActor AgentActor = new("agent:charles", SettingRole.Agent);
+    private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
+    private static readonly SettingActor _agentActor = new("agent:charles", SettingRole.Agent);
     private static readonly string[] _defaultRoles = ["postgres", "search", "service_host"];
     private static readonly string[] _rolesWithCache = ["postgres", "search", "service_host", "cache"];
 
@@ -79,7 +79,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (ds, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var result = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, Operator, cancellationToken: ct);
+        var result = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Accepted, result.Outcome);
         Assert.Null(result.Reason);
@@ -101,7 +101,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
     {
         var (ds, _, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
-        await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["postgres", "search", "service_host", "cache"], Operator, cancellationToken: ct);
+        await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["postgres", "search", "service_host", "cache"], _operator, cancellationToken: ct);
 
         var reopened = new NpgsqlSettingStore(ds, new InMemorySettingAuditSink());
         var roles = await reopened.GetAsync(HostSettings.ReadinessRequiredRoles, cancellationToken: ct);
@@ -115,7 +115,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (ds, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var result = await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["search", "service_host"], Operator, cancellationToken: ct);
+        var result = await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["search", "service_host"], _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Contains("postgres", result.Reason);
@@ -133,7 +133,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var result = await store.SetAsync(HostSettings.ServiceAccount, "Administrator", Operator, cancellationToken: ct);
+        var result = await store.SetAsync(HostSettings.ServiceAccount, "Administrator", _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Equal("bazaar-service", await store.GetAsync(HostSettings.ServiceAccount, cancellationToken: ct));
@@ -147,7 +147,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var result = await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["postgres", "search", "service_host", "cache"], Operator, cancellationToken: ct);
+        var result = await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["postgres", "search", "service_host", "cache"], _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Accepted, result.Outcome);
         Assert.Single(Accepted(audit));
@@ -159,7 +159,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (ds, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var bind = await store.SetAsync(HostSettings.StatusBindAddress, StatusBind.Lan, Operator, cancellationToken: ct);
+        var bind = await store.SetAsync(HostSettings.StatusBindAddress, StatusBind.Lan, _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.PendingApproval, bind.Outcome);
         Assert.Equal(ApprovalTier.Tier2, bind.ApprovalTier);
@@ -177,7 +177,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         using var doc = JsonDocument.Parse("1");
 
-        var result = await store.SetJsonAsync("host.does_not_exist", doc.RootElement, Operator, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await store.SetJsonAsync("host.does_not_exist", doc.RootElement, _operator, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Contains("not a registered setting", result.Reason);
@@ -191,7 +191,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var ct = TestContext.Current.CancellationToken;
         using var doc = JsonDocument.Parse("\"thirty\"");
 
-        var result = await store.SetJsonAsync("host.shutdown_timeout_seconds", doc.RootElement, Operator, cancellationToken: ct);
+        var result = await store.SetJsonAsync("host.shutdown_timeout_seconds", doc.RootElement, _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Contains("expects", result.Reason);
@@ -206,7 +206,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var result = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, AgentActor, cancellationToken: ct);
+        var result = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, _agentActor, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Equal(20, await store.GetAsync(HostSettings.ShutdownTimeoutSeconds, cancellationToken: ct));
@@ -219,8 +219,8 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, Operator, cancellationToken: ct);
-        var again = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, Operator, cancellationToken: ct);
+        await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, _operator, cancellationToken: ct);
+        var again = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, _operator, cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Accepted, again.Outcome);
         Assert.Single(audit.Entries);
@@ -232,7 +232,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         var ct = TestContext.Current.CancellationToken;
 
-        var result = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, Operator, scopeId: "proj-1", cancellationToken: ct);
+        var result = await store.SetAsync(HostSettings.ShutdownTimeoutSeconds, 30, _operator, scopeId: "proj-1", cancellationToken: ct);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Contains("install setting", result.Reason);
@@ -258,7 +258,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var (_, audit, store) = await FreshAsync(db);
         var stray = new SettingKey<int>("host.stray", 1, SettingScope.Install, SettingRole.Operator, "Not in the registry.");
 
-        var result = await store.SetAsync(stray, 2, Operator, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await store.SetAsync(stray, 2, _operator, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
         Assert.Empty(audit.Entries);

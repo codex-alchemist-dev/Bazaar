@@ -6,15 +6,15 @@ namespace Bazaar.Server.Tests.Settings;
 /// <summary>Registry contents, type checks, floors and approval rules. Pure: no database.</summary>
 public sealed class SettingDefinitionTests
 {
-    private static readonly SettingActor Operator = new("operator:dom", SettingRole.Operator);
-    private static readonly SettingActor AgentActor = new("agent:charles", SettingRole.Agent);
+    private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
+    private static readonly SettingActor _agentActor = new("agent:charles", SettingRole.Agent);
 
-    private static readonly SettingKey<bool> Flag = new("test.flag", false, SettingScope.Install, SettingRole.Operator, "A test flag.");
+    private static readonly SettingKey<bool> _flag = new("test.flag", false, SettingScope.Install, SettingRole.Operator, "A test flag.");
 
     private static SettingEvaluation Eval(SettingDefinition definition, string json, SettingActor? actor = null)
     {
         using var doc = JsonDocument.Parse(json);
-        return definition.Evaluate(actor ?? Operator, doc.RootElement);
+        return definition.Evaluate(actor ?? _operator, doc.RootElement);
     }
 
     private static string? Check(SettingDefinition definition, string json)
@@ -52,7 +52,7 @@ public sealed class SettingDefinitionTests
     public void Registry_refuses_duplicate_names()
     {
         var other = new SettingKey<bool>("test.flag", true, SettingScope.Install, SettingRole.Operator, "Duplicate.");
-        Assert.Throws<ArgumentException>(() => new SettingRegistry([Flag, other]));
+        Assert.Throws<ArgumentException>(() => new SettingRegistry([_flag, other]));
     }
 
     [Fact]
@@ -65,9 +65,9 @@ public sealed class SettingDefinitionTests
     [Fact]
     public void Bool_accepts_true_and_rejects_text()
     {
-        Assert.Equal(SettingWriteOutcome.Accepted, Eval(Flag, "true").Outcome);
-        Assert.Equal(SettingWriteOutcome.Rejected, Eval(Flag, "\"true\"").Outcome);
-        Assert.Equal(SettingWriteOutcome.Rejected, Eval(Flag, "1").Outcome);
+        Assert.Equal(SettingWriteOutcome.Accepted, Eval(_flag, "true").Outcome);
+        Assert.Equal(SettingWriteOutcome.Rejected, Eval(_flag, "\"true\"").Outcome);
+        Assert.Equal(SettingWriteOutcome.Rejected, Eval(_flag, "1").Outcome);
     }
 
     [Fact]
@@ -115,9 +115,9 @@ public sealed class SettingDefinitionTests
     [Fact]
     public void Actor_without_the_required_role_is_rejected()
     {
-        var result = Eval(HostSettings.ShutdownTimeoutSeconds, "30", AgentActor);
+        var result = Eval(HostSettings.ShutdownTimeoutSeconds, "30", _agentActor);
         Assert.Equal(SettingWriteOutcome.Rejected, result.Outcome);
-        Assert.Contains("only by Operator", result.Reason);
+        Assert.Contains("only by _operator", result.Reason);
     }
 
     [Theory]
