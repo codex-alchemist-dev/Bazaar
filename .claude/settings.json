@@ -2,6 +2,7 @@
   "env": {
     "CLAUDE_CODE_SUBAGENT_MODEL": "claude-haiku-5-5",
     "CLAUDE_CODE_FORK_SUBAGENT": "0",
+    "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "50",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5-5"
   }
 }
