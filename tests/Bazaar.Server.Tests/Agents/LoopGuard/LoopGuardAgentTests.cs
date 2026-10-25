@@ -5,8 +5,8 @@ namespace Bazaar.Server.Tests.Agents.LoopGuard;
 
 public class LoopGuardAgentTests
 {
-    private const string A = "agent-a";
-    private const string B = "agent-b";
+    private const string _a = "agent-a";
+    private const string _b = "agent-b";
     private static readonly Guid _gc = Guid.Parse("0196a6f0-0000-7000-8000-000000000301");
 
     private static GuardVerdict Wake(LoopGuardFacade guard, string agent, WakeKind kind = WakeKind.Standard) =>
@@ -18,13 +18,13 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(new FakeClock());
         for (var i = 0; i < 30; i++)
         {
-            Assert.False(Wake(guard, A).Tripped);
+            Assert.False(Wake(guard, _a).Tripped);
         }
 
-        var verdict = Wake(guard, A);
+        var verdict = Wake(guard, _a);
 
         Assert.Equal(GuardKind.WakesPerHour, verdict.Kind);
-        Assert.Equal([A], verdict.AgentIds);
+        Assert.Equal([_a], verdict.AgentIds);
     }
 
     [Fact]
@@ -33,10 +33,10 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(new FakeClock());
         for (var i = 0; i < 30; i++)
         {
-            Wake(guard, A);
+            Wake(guard, _a);
         }
 
-        Assert.False(Wake(guard, B).Tripped);
+        Assert.False(Wake(guard, _b).Tripped);
     }
 
     [Fact]
@@ -46,14 +46,14 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(clock);
         for (var i = 0; i < 30; i++)
         {
-            Wake(guard, A);
+            Wake(guard, _a);
         }
 
         clock.Advance(TimeSpan.FromHours(1) - TimeSpan.FromSeconds(1));
-        Assert.Equal(GuardKind.WakesPerHour, Wake(guard, A).Kind);
+        Assert.Equal(GuardKind.WakesPerHour, Wake(guard, _a).Kind);
 
         clock.Advance(TimeSpan.FromSeconds(1));
-        Assert.False(Wake(guard, A).Tripped);
+        Assert.False(Wake(guard, _a).Tripped);
     }
 
     [Fact]
@@ -62,15 +62,15 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(new FakeClock());
         for (var i = 0; i < 10; i++)
         {
-            Wake(guard, A, WakeKind.SkimmerScored);
+            Wake(guard, _a, WakeKind.SkimmerScored);
         }
 
         for (var i = 0; i < 20; i++)
         {
-            Wake(guard, A);
+            Wake(guard, _a);
         }
 
-        Assert.Equal(GuardKind.WakesPerHour, Wake(guard, A).Kind);
+        Assert.Equal(GuardKind.WakesPerHour, Wake(guard, _a).Kind);
     }
 
     [Fact]
@@ -79,12 +79,12 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(new FakeClock());
         for (var i = 0; i < 20; i++)
         {
-            Assert.True(guard.ScoredWakeWithinCap(A));
-            Assert.False(Wake(guard, A, WakeKind.SkimmerScored).Tripped);
+            Assert.True(guard.ScoredWakeWithinCap(_a));
+            Assert.False(Wake(guard, _a, WakeKind.SkimmerScored).Tripped);
         }
 
-        Assert.False(guard.ScoredWakeWithinCap(A));
-        Assert.True(guard.ScoredWakeWithinCap(B));
+        Assert.False(guard.ScoredWakeWithinCap(_a));
+        Assert.True(guard.ScoredWakeWithinCap(_b));
     }
 
     [Fact]
@@ -93,10 +93,10 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(new FakeClock());
         for (var i = 0; i < 25; i++)
         {
-            Wake(guard, A);
+            Wake(guard, _a);
         }
 
-        Assert.True(guard.ScoredWakeWithinCap(A));
+        Assert.True(guard.ScoredWakeWithinCap(_a));
     }
 
     [Fact]
@@ -106,14 +106,14 @@ public class LoopGuardAgentTests
         var guard = new LoopGuardFacade(clock);
         for (var i = 0; i < 20; i++)
         {
-            Wake(guard, A, WakeKind.SkimmerScored);
+            Wake(guard, _a, WakeKind.SkimmerScored);
         }
 
-        Assert.False(guard.ScoredWakeWithinCap(A));
+        Assert.False(guard.ScoredWakeWithinCap(_a));
 
         clock.Advance(TimeSpan.FromHours(1));
 
-        Assert.True(guard.ScoredWakeWithinCap(A));
+        Assert.True(guard.ScoredWakeWithinCap(_a));
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class LoopGuardAgentTests
 
         for (var i = 0; i < 3; i++)
         {
-            Assert.False(guard.Check(new ToolCall(A, fingerprint)).Tripped);
+            Assert.False(guard.Check(new ToolCall(_a, fingerprint)).Tripped);
         }
     }
 
@@ -135,13 +135,13 @@ public class LoopGuardAgentTests
         var fingerprint = ToolCallFingerprint.Of("search", "{\"q\":\"x\"}");
         for (var i = 0; i < 3; i++)
         {
-            guard.Check(new ToolCall(A, fingerprint));
+            guard.Check(new ToolCall(_a, fingerprint));
         }
 
-        var verdict = guard.Check(new ToolCall(A, fingerprint));
+        var verdict = guard.Check(new ToolCall(_a, fingerprint));
 
         Assert.Equal(GuardKind.RepeatToolCall, verdict.Kind);
-        Assert.Equal([A], verdict.AgentIds);
+        Assert.Equal([_a], verdict.AgentIds);
     }
 
     [Fact]
@@ -153,14 +153,14 @@ public class LoopGuardAgentTests
 
         for (var i = 0; i < 3; i++)
         {
-            guard.Check(new ToolCall(A, first));
+            guard.Check(new ToolCall(_a, first));
         }
 
-        Assert.False(guard.Check(new ToolCall(A, other)).Tripped);
+        Assert.False(guard.Check(new ToolCall(_a, other)).Tripped);
 
         for (var i = 0; i < 3; i++)
         {
-            Assert.False(guard.Check(new ToolCall(A, first)).Tripped);
+            Assert.False(guard.Check(new ToolCall(_a, first)).Tripped);
         }
     }
 
@@ -171,11 +171,11 @@ public class LoopGuardAgentTests
         var fingerprint = ToolCallFingerprint.Of("search", "{}");
         for (var i = 0; i < 3; i++)
         {
-            guard.Check(new ToolCall(A, fingerprint));
+            guard.Check(new ToolCall(_a, fingerprint));
             guard.Check(new ToolResult(_gc));
         }
 
-        Assert.Equal(GuardKind.RepeatToolCall, guard.Check(new ToolCall(A, fingerprint)).Kind);
+        Assert.Equal(GuardKind.RepeatToolCall, guard.Check(new ToolCall(_a, fingerprint)).Kind);
     }
 
     [Fact]
@@ -185,10 +185,10 @@ public class LoopGuardAgentTests
         var fingerprint = ToolCallFingerprint.Of("search", "{}");
         for (var i = 0; i < 3; i++)
         {
-            guard.Check(new ToolCall(A, fingerprint));
+            guard.Check(new ToolCall(_a, fingerprint));
         }
 
-        Assert.False(guard.Check(new ToolCall(B, fingerprint)).Tripped);
+        Assert.False(guard.Check(new ToolCall(_b, fingerprint)).Tripped);
     }
 
     [Fact]
