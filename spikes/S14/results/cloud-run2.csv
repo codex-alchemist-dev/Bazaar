@@ -1,0 +1,38 @@
+# S14 layout tick benchmark (relative; not the NUC)
+# run=2
+# utc=2026-10-25T06:33:08.3522333Z
+# os=Ubuntu 24.04.5 LTS
+# arch=X64
+# logical_processors=4
+# runtime=.NET 11.0.0-rc.2.26504.105
+# gc_server=False gc_latency=Interactive
+# build=Release graph_seed=14 graph=preferential_attachment(m=2) avg_degree~4
+# params Kr=1 Kg=0.1 KRing=0.2 theta=1.2 focus_ring_spacing=40 warmup=30 measured=300
+run,N,mode,scenario,ticks,median_ms,p95_ms,max_ms,alloc_median_B,alloc_max_B,mean_disp_end,ring_err_start,ring_err_end,tree_grows,tree_cells
+2,1000,st,cold,500,0.6991,1.6510,8.3672,0,0,0.0521404,,,0,2321
+# check N=1000 par_vs_st_max_abs_pos_diff_after_5_ticks=0
+# check N=1000 barnes_hut_vs_bruteforce_worst_rel_err_theta=1.2 value=0.07956
+2,1000,st,steady,300,0.6942,0.9347,2.2828,0,0,0.102238,,,0,2301
+2,1000,st,focus_reverse_gravity,300,0.6721,0.8859,1.2955,0,0,0.086395,56.19,78.59,0,2297
+2,1000,st,add_10_nodes,300,0.6782,0.7711,1.2497,0,0,0.0858307,,,0,2341
+2,1000,par,steady,300,0.4577,0.6473,1.4071,1720,1848,0.102238,,,0,2301
+2,1000,par,focus_reverse_gravity,300,0.4672,0.6054,0.6716,1720,1872,0.086395,56.19,78.59,0,2297
+2,1000,par,add_10_nodes,300,0.4849,0.6830,2.0212,1720,1848,0.0858307,,,0,2341
+2,5000,st,cold,500,4.6729,7.0435,7.4114,0,0,0.401983,,,0,12013
+# check N=5000 par_vs_st_max_abs_pos_diff_after_5_ticks=0
+# check N=5000 barnes_hut_vs_bruteforce_worst_rel_err_theta=1.2 value=0.0325
+2,5000,st,steady,300,4.7675,6.8646,10.1049,0,0,0.186943,,,0,11965
+2,5000,st,focus_reverse_gravity,300,4.6096,6.5260,7.0685,0,0,0.176322,81.01,67.67,0,11969
+2,5000,st,add_50_nodes,300,4.6465,6.4312,7.3424,0,0,0.224555,,,0,12145
+2,5000,par,steady,300,2.6101,3.6685,5.9171,1720,1976,0.186943,,,0,11965
+2,5000,par,focus_reverse_gravity,300,2.5077,3.4960,5.5780,1720,1976,0.176322,81.01,67.67,0,11969
+2,5000,par,add_50_nodes,300,2.7111,3.9883,5.3873,1720,9640,0.224555,,,0,12145
+2,10000,st,cold,500,10.3907,14.5167,15.6231,0,0,0.416881,,,0,23933
+# check N=10000 par_vs_st_max_abs_pos_diff_after_5_ticks=0
+# check N=10000 barnes_hut_vs_bruteforce_worst_rel_err_theta=1.2 value=0.04013
+2,10000,st,steady,300,10.1551,13.3419,16.0944,0,0,0.335719,,,0,23773
+2,10000,st,focus_reverse_gravity,300,9.7605,10.6691,13.6496,0,0,0.336445,364.05,144.13,0,23741
+2,10000,st,add_100_nodes,300,9.9201,13.9817,17.7647,0,0,0.373391,,,0,23961
+2,10000,par,steady,300,5.4255,8.2509,20.5944,1720,1976,0.335719,,,0,23773
+2,10000,par,focus_reverse_gravity,300,5.1411,7.8499,10.1958,1720,1976,0.336445,364.05,144.13,0,23741
+2,10000,par,add_100_nodes,300,4.7033,6.6253,16.5591,1720,1976,0.373391,,,0,23961
