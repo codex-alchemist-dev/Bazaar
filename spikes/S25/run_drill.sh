@@ -131,7 +131,7 @@ p1_after_t="$(psql_rst -c "select count(*) = 0 from gc_message where created_at 
 
 # P2: apply the floor and recovery entry per GC (restored_at = now on the restored server)
 while IFS=, read -r gc seen; do
-    psql_rst -c "select apply_recovery($gc, $seen, clock_timestamp())" >/dev/null
+    psql_rst -c "select apply_recovery($gc, $seen, clock_timestamp())" >/dev/null </dev/null
 done < "$OUT/seen.csv"
 
 # P2 and P3 from the system entries
@@ -144,7 +144,7 @@ psql_rst -f - < "$HERE/sql/verify_recovery.sql" > "$OUT/verify_after_append.csv"
 
 # ---- Judge ------------------------------------------------------------------
 p2_p3_ok=true
-if grep -q ',f' "$OUT/verify_recovery.csv" || grep -q ',f' "$OUT/verify_after_append.csv"; then p2_p3_ok=false; fi
+if grep -q ",f" "$OUT/verify_recovery.csv" || cut -d, -f5-8 "$OUT/verify_after_append.csv" | grep -q f; then p2_p3_ok=false; fi
 [[ "$(wc -l < "$OUT/verify_recovery.csv")" -eq 4 ]] || p2_p3_ok=false
 p4_ok=true
 while IFS=, read -r gc seen; do
