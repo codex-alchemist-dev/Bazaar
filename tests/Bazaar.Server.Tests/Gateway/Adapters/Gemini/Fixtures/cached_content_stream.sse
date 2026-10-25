@@ -1,0 +1,2 @@
+data: {"candidates": [{"content": {"parts": [{"text": "Cached answer."}], "role": "model"}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": 1500, "cachedContentTokenCount": 1200, "candidatesTokenCount": 40, "totalTokenCount": 1540, "promptTokensDetails": [{"modality": "TEXT", "tokenCount": 1500}], "cacheTokensDetails": [{"modality": "TEXT", "tokenCount": 1200}]}, "modelVersion": "gemini-2.5-flash"}
+
