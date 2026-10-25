@@ -115,7 +115,7 @@ Consumers (notifier, unread counter, search indexer, Kanban board view) read the
 ## Data and interfaces
 ```
 gc_type(type_key pk, label, default_visibility, default_wake, archive_policy,
-        kanban_binding bool, registered_by)
+        kanban_binding text (yes|optional|no), registered_by)
 gc(gc_id uuid pk, parent_gc_id, type_key, title, tags text[], metadata jsonb,
    head_seq bigint, created_by, created_at, archived_at)
 gc_member(gc_id, principal_id, role, joined_seq, left_seq)        -- pk (gc_id, principal_id)
@@ -134,7 +134,7 @@ consumer_cursor(consumer, gc_id, last_seq)
 ```
 `gc_event`, `gc_message`, `gc_message_version`, `gc_mention`, `entry_ref` are hash-partitioned by `gc_id`. Every key includes `gc_id`. `gc.head_seq` is locked per GC, which keeps seq gap-free.
 
-Append: one transaction locks the `gc` row, checks the idempotency key, increments `gc.head_seq`, and inserts the event, message or version rows and mentions in one `NpgsqlBatch`. After commit (spike S3: `pg_notify` inside the transaction gave unstable tails), a coalescing notifier sends `{"gc":..,"seq":..}` on channel `gc`, newest seq per GC, one transaction every few milliseconds. A notification is only a hint: consumers read the log from their cursor, re-read after a listener reconnect, and sweep head against cursor periodically, so a lost hint costs latency, not data. Code: `Server/Gc/Write` and `Server/Gc/Read`.
+Append: one transaction increments `gc.head_seq`, inserts the event, message or version rows and mentions in one statement and commits. NOTIFY is not sent inside that transaction: after commit, a coalescing notifier sends `pg_notify('gc', '{"gc":..,"seq":..}')` with the newest seq per GC, one transaction every few ms (spike S3: in-transaction NOTIFY serialises commits and gave unstable tails). Consumers read from a per-GC cursor that advances only over contiguous seq; a periodic head-versus-cursor sweep covers a crash between commit and notify.
 ```csharp
 interface IGcLog {
   Task<AppendResult> AppendAsync(AppendRequest r, CancellationToken ct);   // idempotent by client_msg_id
@@ -175,7 +175,7 @@ Each change writes an audit entry (doc 15 `audit_log`). Floors cannot be loosene
 ## Testing
 Real Postgres (Testcontainers); fake clock and principals for catch-up.
 - 200 concurrent appends to one GC give gap-free seq; the same across hash partitions keeps each GC gap-free.
-- Replay from any N equals the live stream; a rolled-back append emits no NOTIFY; a duplicate `client_msg_id` returns the same seq.
+- Replay from any N equals the live stream; a rolled-back append emits no NOTIFY; a forced listener reconnect loses no events once the consumer has caught up (S3); a duplicate `client_msg_id` returns the same seq.
 - UPDATE and DELETE denied for the app role on event, message and version tables.
 - Edit adds a version and a `message_edit`; history round-trips; trust survives.
 - Erasure: after key destruction, bodies are unreadable, the tombstone exists, structure and seq are intact.
