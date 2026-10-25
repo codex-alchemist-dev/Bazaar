@@ -15,12 +15,12 @@ public sealed class MigrateDb : PgFixture, IAsyncLifetime
 
 public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
 {
-    private const string EnvName = "BAZAAR_HOST_TEST_DB";
+    private const string _envName = "BAZAAR_HOST_TEST_DB";
 
     private static IConfiguration Config() => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
     {
         ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
-        ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + EnvName,
+        ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + _envName,
     }).Build();
 
     private static void SkipWithoutDatabase() =>
@@ -39,7 +39,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
     public async Task Migrate_applies_and_the_schema_gate_then_passes()
     {
         SkipWithoutDatabase();
-        Environment.SetEnvironmentVariable(EnvName, db.ConnectionString);
+        Environment.SetEnvironmentVariable(_envName, db.ConnectionString);
         try
         {
             var output = new StringWriter();
@@ -53,7 +53,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
         }
         finally
         {
-            Environment.SetEnvironmentVariable(EnvName, null);
+            Environment.SetEnvironmentVariable(_envName, null);
         }
     }
 
@@ -61,7 +61,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
     public async Task Migrate_refuses_while_another_instance_holds_the_lock()
     {
         SkipWithoutDatabase();
-        Environment.SetEnvironmentVariable(EnvName, db.ConnectionString);
+        Environment.SetEnvironmentVariable(_envName, db.ConnectionString);
         try
         {
             await using var database = new DatabaseConnection(
@@ -76,7 +76,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
         }
         finally
         {
-            Environment.SetEnvironmentVariable(EnvName, null);
+            Environment.SetEnvironmentVariable(_envName, null);
         }
     }
 
