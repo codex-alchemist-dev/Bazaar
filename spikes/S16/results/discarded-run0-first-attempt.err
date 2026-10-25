@@ -1,0 +1,12 @@
+socks5-ipv4                                                    outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.61ms 
+socks5-domain                                                  outcome=pass ok=31/31 connectSeen=31 forwards=0 median=2044.46ms 
+socks5h-ipv4                                                   outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=NotSupportedException: Only the 'http', 'https', 'socks4', 'socks4a' and 'socks5' schemes are allowed for proxies.
+socks5h-domain                                                 outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=NotSupportedException: Only the 'http', 'https', 'socks4', 'socks4a' and 'socks5' schemes are allowed for proxies.
+socks4-ipv4                                                    outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.45ms 
+socks4a-domain                                                 outcome=pass ok=31/31 connectSeen=31 forwards=0 median=2042.73ms 
+socks5-userpass-creds                                          outcome=pass ok=31/31 connectSeen=31 forwards=0 median=0.55ms 
+socks5-userpass-nocreds (control)                              outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: An error occurred while establishing a connection to the proxy tunnel. -> SocksException: SOCKS server did not return a suitable authentication method.
+socks5-proxy-stopped (control)                                 outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: No connection could be made because the target machine actively refused it. (127.0.0.1:60178) -> SocketException: No connection could be made because the target machine actively refused it.
+http-absolute-form (baseline)                                  outcome=pass ok=31/31 connectSeen=0 forwards=31 median=0.48ms 
+https-proxy-uri, cert not trusted (validation bypassed)        outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: The SSL connection could not be established, see inner exception. -> IOException: Received an unexpected EOF or 0 bytes from the transport stream.
+https-proxy-uri, cert not trusted (default validation)         outcome=fail ok=0/1 connectSeen=0 forwards=0 median=-ms err=HttpRequestException: The SSL connection could not be established, see inner exception. -> IOException: Received an unexpected EOF or 0 bytes from the transport stream.
