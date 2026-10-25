@@ -95,14 +95,20 @@ internal static class GeminiRequestBuilder
                     foreach (var call in message.ToolCalls ?? [])
                     {
                         names[call.Id] = call.Name;
-                        parts.Add(new JsonObject
+                        var callPart = new JsonObject
                         {
                             ["functionCall"] = new JsonObject
                             {
                                 ["name"] = call.Name,
                                 ["args"] = TryParseObject(call.ArgumentsJson) ?? new JsonObject(),
                             },
-                        });
+                        };
+                        if (call.ProviderData is { Length: > 0 } signature)
+                        {
+                            callPart["thoughtSignature"] = signature;
+                        }
+
+                        parts.Add(callPart);
                     }
 
                     break;

@@ -31,8 +31,12 @@ public sealed record ModelMessage(
     string? ToolCallId = null,
     IReadOnlyList<ModelToolCall>? ToolCalls = null);
 
-/// <summary>A tool call the model made, with its arguments as the raw JSON the model produced.</summary>
-public sealed record ModelToolCall(string Id, string Name, string ArgumentsJson);
+/// <summary>
+/// A tool call the model made, with its arguments as the raw JSON the model produced.
+/// <c>ProviderData</c> is an opaque provider-specific token (for example Gemini's thought signature) that the
+/// adapter that produced it sends back unchanged on the next turn. Other code must not interpret it.
+/// </summary>
+public sealed record ModelToolCall(string Id, string Name, string ArgumentsJson, string? ProviderData = null);
 
 /// <summary>A tool the model may call. The parameters are a JSON Schema document, kept as text.</summary>
 public sealed record ModelToolDefinition(string Name, string Description, string ParametersJsonSchema);

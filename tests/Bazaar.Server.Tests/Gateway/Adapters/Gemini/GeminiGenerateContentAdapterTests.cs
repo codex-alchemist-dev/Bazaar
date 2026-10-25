@@ -61,6 +61,37 @@ public class GeminiGenerateContentAdapterTests
     }
 
     [Fact]
+    public async Task Thought_signature_on_a_function_call_is_surfaced_as_provider_data()
+    {
+        var handler = new StubHandler((_, _) => Task.FromResult(Sse("function_call_signature.sse")));
+
+        var events = await RunAsync(handler);
+
+        Assert.Equal(new ModelEvent.ToolCallStart("call_0", "get_weather", "c2lnLWFiYw=="), events[0]);
+    }
+
+    [Fact]
+    public async Task Provider_data_is_sent_back_as_thought_signature_on_the_function_call_part()
+    {
+        var request = new ModelRequest(
+            "agent-1",
+            _modelId,
+            [
+                new ModelMessage(ModelRole.User, "Weather?"),
+                new ModelMessage(ModelRole.Assistant, "", ToolCalls: [new ModelToolCall("call_0", "get_weather", "{\"city\":\"Paris\"}", "c2lnLWFiYw==")]),
+                new ModelMessage(ModelRole.Tool, "{\"temp_c\":18}", ToolCallId: "call_0"),
+            ],
+            []);
+        var handler = new StubHandler((_, _) => Task.FromResult(Sse("text_stream.sse")));
+
+        await RunAsync(handler, request);
+
+        var part = JsonNode.Parse(handler.Body!)!["contents"]![1]!["parts"]![0]!;
+        Assert.Equal("c2lnLWFiYw==", part["thoughtSignature"]!.GetValue<string>());
+        Assert.Equal("get_weather", part["functionCall"]!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Function_call_is_assembled_whole_with_synthesized_ids_and_tool_use_stop()
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Sse("function_call_stream.sse")));

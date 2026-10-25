@@ -27,7 +27,7 @@ public class GatewayContractsTests
                 new ModelMessage(
                     ModelRole.Assistant,
                     "",
-                    ToolCalls: [new ModelToolCall("call_1", "list_prs", "{\"state\":\"open\"}")]),
+                    ToolCalls: [new ModelToolCall("call_1", "list_prs", "{\"state\":\"open\"}", ProviderData: "opaque-token")]),
                 new ModelMessage(ModelRole.Tool, "[]", ToolCallId: "call_1"),
             ],
             Tools: [new ModelToolDefinition("list_prs", "Lists pull requests", "{\"type\":\"object\"}")],
@@ -47,6 +47,7 @@ public class GatewayContractsTests
         Assert.Equal(ModelRole.Tool, back.Messages[3].Role);
         Assert.Equal("call_1", back.Messages[3].ToolCallId);
         Assert.Equal("{\"state\":\"open\"}", back.Messages[2].ToolCalls![0].ArgumentsJson);
+        Assert.Equal("opaque-token", back.Messages[2].ToolCalls![0].ProviderData);
         Assert.Equal("{\"type\":\"object\"}", back.Tools[0].ParametersJsonSchema);
         Assert.Equal(json, Serialize(back));
     }
@@ -81,7 +82,7 @@ public class GatewayContractsTests
             new ModelEvent.ThinkingDelta("Considering the options."),
             new ModelEvent.TextDelta("Here is "),
             new ModelEvent.TextDelta("the answer."),
-            new ModelEvent.ToolCallStart("call_9", "read_file"),
+            new ModelEvent.ToolCallStart("call_9", "read_file", ProviderData: "opaque-token"),
             new ModelEvent.ToolCallArgsDelta("call_9", "{\"path\":"),
             new ModelEvent.ToolCallArgsDelta("call_9", "\"a.md\"}"),
             new ModelEvent.ToolCallEnd("call_9"),
