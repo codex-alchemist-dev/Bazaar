@@ -29,11 +29,15 @@ public sealed class WindowsEventLogWriter : IEventLogWriter
     public const string KindName = "windows_event_log";
 
     private readonly string _source;
+    private readonly Func<string, bool> _sourceExists;
 
-    public WindowsEventLogWriter(string source = DefaultSource)
+    /// <param name="source">The event source name. Must be non-blank.</param>
+    /// <param name="sourceExists">Registration check. Defaults to <see cref="EventLog.SourceExists(string)"/>; tests inject a fake.</param>
+    public WindowsEventLogWriter(string source = DefaultSource, Func<string, bool>? sourceExists = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
         _source = source;
+        _sourceExists = sourceExists ?? EventLog.SourceExists;
     }
 
     /// <summary>Usable only on Windows, and only when the installer has registered the source.</summary>
@@ -46,13 +50,14 @@ public sealed class WindowsEventLogWriter : IEventLogWriter
 
         try
         {
-            return EventLog.SourceExists(_source)
+            return _sourceExists(_source)
                 ? new ProviderStatus(KindName, true, [], null)
                 : new ProviderStatus(KindName, false, [], $"event source '{_source}' is not registered; the installer creates it");
         }
         catch (SecurityException)
         {
-            return new ProviderStatus(KindName, false, [], $"event source '{_source}' could not be checked");
+            // A non-elevated user cannot read the Security log, and SourceExists scans it. Report "cannot check" and keep running.
+            return new ProviderStatus(KindName, false, [], $"event source '{_source}' could not be checked without elevation");
         }
     }
 
