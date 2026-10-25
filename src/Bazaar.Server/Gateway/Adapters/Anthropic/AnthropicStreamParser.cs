@@ -156,7 +156,7 @@ internal sealed class AnthropicStreamParser
                 events.Add(new ModelEvent.ToolCallStart(id, name));
                 break;
 
-            // redacted_thinking and unknown block types carry no visible output here, so they are ignored.
+                // redacted_thinking and unknown block types carry no visible output here, so they are ignored.
         }
     }
 
@@ -195,7 +195,7 @@ internal sealed class AnthropicStreamParser
 
                 break;
 
-            // signature_delta is ignored: it is a verification token for replaying thinking, not output.
+                // signature_delta is ignored: it is a verification token for replaying thinking, not output.
         }
     }
 
