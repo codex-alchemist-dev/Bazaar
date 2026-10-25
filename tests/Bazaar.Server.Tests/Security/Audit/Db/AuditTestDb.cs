@@ -17,15 +17,19 @@ internal sealed class AuditTestDb : IAsyncDisposable
     private readonly string _name;
     private readonly string _adminConnectionString;
 
-    private AuditTestDb(string name, string adminConnectionString, NpgsqlDataSource dataSource)
+    private AuditTestDb(string name, string adminConnectionString, string connectionString, NpgsqlDataSource dataSource)
     {
         _name = name;
+        ConnectionString = connectionString;
         _adminConnectionString = adminConnectionString;
         DataSource = dataSource;
     }
 
-    /// <summary>Connection string for this database as the superuser; used to build a data source for another role.</summary>
-    public string ConnectionString => DataSource.ConnectionString;
+    /// <summary>
+    /// Connection string for this database as the superuser; used to build a data source for another role. Kept from
+    /// the source rather than read back from <see cref="DataSource"/>, because Npgsql strips the password there.
+    /// </summary>
+    public string ConnectionString { get; }
 
     public static async Task<AuditTestDb> CreateAsync(CancellationToken ct)
     {
@@ -33,8 +37,9 @@ internal sealed class AuditTestDb : IAsyncDisposable
         var name = $"audit_{Guid.NewGuid():N}";
         await AdminAsync(source.AdminConnectionString, $"CREATE DATABASE \"{name}\" TEMPLATE template0", ct).ConfigureAwait(false);
 
-        var dataSource = NpgsqlDataSource.Create(source.ConnectionStringFor(name));
-        var db = new AuditTestDb(name, source.AdminConnectionString, dataSource);
+        var connectionString = source.ConnectionStringFor(name);
+        var dataSource = NpgsqlDataSource.Create(connectionString);
+        var db = new AuditTestDb(name, source.AdminConnectionString, connectionString, dataSource);
         try
         {
             await new MigrationRunner(dataSource).MigrateAsync(
