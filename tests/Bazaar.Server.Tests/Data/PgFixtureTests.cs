@@ -26,7 +26,11 @@ public static class PgFixtureTemplate
         Interlocked.Increment(ref _migrationRuns);
         await using var conn = new NpgsqlConnection(cs);
         await conn.OpenAsync();
-        await using var cmd = new NpgsqlCommand("CREATE TABLE template_marker(id int); INSERT INTO template_marker VALUES (1)", conn);
+        // Migration 0001 creates the cluster-wide bazaar_app role with a check-then-create, which races when test classes
+        // migrate databases in parallel. Creating it once here, before any class runs, removes the race.
+        await using var cmd = new NpgsqlCommand(
+            "DO $$ BEGIN CREATE ROLE bazaar_app NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;" +
+            "CREATE TABLE template_marker(id int); INSERT INTO template_marker VALUES (1)", conn);
         await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     });
 #pragma warning restore CA2255
