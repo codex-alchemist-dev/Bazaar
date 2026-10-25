@@ -9,6 +9,13 @@ public sealed record AppliedMigration(string Provider, int Version, string Name)
 /// <summary>Outcome of <see cref="MigrationRunner.MigrateAsync"/>.</summary>
 public sealed record MigrationResult(IReadOnlyList<AppliedMigration> Applied, int AlreadyApplied);
 
+/// <summary>
+/// Values migrations read at apply time through <c>current_setting('bazaar.*')</c>. Fixed once the first migration ran;
+/// a different value on a later run is refused (doc 04).
+/// </summary>
+/// <param name="PartitionCount">Hash partitions for the GC log tables (<c>gc.partition_count</c>, default 16 from spike S3).</param>
+public sealed record MigrationOptions(int PartitionCount = 16);
+
 /// <summary>Where a database stands relative to the migration files in the binary.</summary>
 public enum SchemaState
 {
@@ -27,8 +34,10 @@ public enum SchemaState
 /// file (except <c>-- @no-transaction</c> files), a session advisory lock for the whole run, and a checksum guard on every
 /// applied file. Forward-only. Startup never calls <see cref="MigrateAsync"/>; it calls <see cref="EnsureCurrentAsync"/>.
 /// </summary>
-public sealed class MigrationRunner(NpgsqlDataSource dataSource)
+public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOptions? options = null)
 {
+    private readonly MigrationOptions _options = options ?? new MigrationOptions();
+
     public const string Common = "common";
 
     /// <summary>Advisory-lock key for the migration run. Distinct from the instance lock (doc 03).</summary>
@@ -45,6 +54,8 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource)
             await ExecAsync(conn, null, _createHistorySql, ct).ConfigureAwait(false);
             var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
             var pending = Diff(plan, history, throwIfAhead: true);
+            await CheckFixedSettingsAsync(conn, ct).ConfigureAwait(false);
+            await SetSessionOptionAsync(conn, "bazaar.partition_count", _options.PartitionCount.ToString(CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
 
             var applied = new List<AppliedMigration>();
             foreach (var file in pending)
@@ -57,6 +68,7 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource)
         }
         finally
         {
+            await SetSessionOptionAsync(conn, "bazaar.partition_count", "", CancellationToken.None).ConfigureAwait(false);
             await ExecAsync(conn, null, $"SELECT pg_advisory_unlock({_lockKey})", CancellationToken.None).ConfigureAwait(false);
         }
     }
@@ -139,6 +151,28 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource)
         }
 
         return pending;
+    }
+
+    /// <summary>Refuses a run whose options differ from what the first migration recorded in <c>schema_setting</c>.</summary>
+    private async Task CheckFixedSettingsAsync(NpgsqlConnection conn, CancellationToken ct)
+    {
+        await using var exists = new NpgsqlCommand("SELECT to_regclass('schema_setting') IS NOT NULL", conn);
+        if (!(bool)(await exists.ExecuteScalarAsync(ct).ConfigureAwait(false))!)
+            return;
+        await using var cmd = new NpgsqlCommand("SELECT value FROM schema_setting WHERE key = 'gc.partition_count'", conn);
+        if (await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is string recorded
+            && recorded != _options.PartitionCount.ToString(CultureInfo.InvariantCulture))
+            throw new MigrationException(
+                $"gc.partition_count is {_options.PartitionCount} but this database was created with {recorded}. The count is fixed at the first migrate; changing it needs a planned data move.");
+    }
+
+    private static async Task SetSessionOptionAsync(NpgsqlConnection conn, string name, string value, CancellationToken ct)
+    {
+        await using var cmd = new NpgsqlCommand("SELECT set_config($1, $2, false)", conn)
+        {
+            Parameters = { new() { Value = name }, new() { Value = value } },
+        };
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     private static async Task ApplyAsync(NpgsqlConnection conn, MigrationFile file, CancellationToken ct)
