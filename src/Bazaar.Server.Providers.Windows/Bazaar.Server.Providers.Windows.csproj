@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Windows-only libraries live in this assembly only (doc 03, WP8). The platform-neutral Bazaar.Server must not reference them. -->
+    <PackageReference Include="System.Diagnostics.EventLog" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+</Project>
