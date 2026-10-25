@@ -10,11 +10,11 @@ public sealed record FuzzyResult(int Score, IReadOnlyList<int> Positions);
 /// </summary>
 public static class FuzzyScorer
 {
-    private const int MatchPoints = 16;
-    private const int ConsecutiveBonus = 8;
-    private const int WordStartBonus = 10;
-    private const int GapPenalty = 1;
-    private const int NoScore = int.MinValue / 4;
+    private const int _matchPoints = 16;
+    private const int _consecutiveBonus = 8;
+    private const int _wordStartBonus = 10;
+    private const int _gapPenalty = 1;
+    private const int _noScore = int.MinValue / 4;
 
     /// <summary>Returns null when the query is not a subsequence of the candidate.
     /// A blank query matches everything with score 0 and no positions.</summary>
@@ -44,23 +44,23 @@ public static class FuzzyScorer
         {
             best[i] = new int[n];
             from[i] = new int[n];
-            Array.Fill(best[i], NoScore);
+            Array.Fill(best[i], _noScore);
             Array.Fill(from[i], -1);
         }
 
         for (int i = 0; i < m; i++)
         {
-            // Running maximum over k <= j-2 of best[i-1][k] + (k+1) * GapPenalty.
-            // Covers every non-consecutive predecessor at a gap cost of (j-k-1) * GapPenalty.
-            int runValue = NoScore;
+            // Running maximum over k <= j-2 of best[i-1][k] + (k+1) * _gapPenalty.
+            // Covers every non-consecutive predecessor at a gap cost of (j-k-1) * _gapPenalty.
+            int runValue = _noScore;
             int runIndex = -1;
 
             for (int j = 0; j < n; j++)
             {
-                if (i > 0 && j >= 2 && best[i - 1][j - 2] > NoScore)
+                if (i > 0 && j >= 2 && best[i - 1][j - 2] > _noScore)
                 {
                     int k = j - 2;
-                    int value = best[i - 1][k] + (k + 1) * GapPenalty;
+                    int value = best[i - 1][k] + (k + 1) * _gapPenalty;
                     if (value > runValue)
                     {
                         runValue = value;
@@ -73,27 +73,27 @@ public static class FuzzyScorer
                     continue;
                 }
 
-                int point = MatchPoints + (IsWordStart(candidate, j) ? WordStartBonus : 0);
+                int point = _matchPoints + (IsWordStart(candidate, j) ? _wordStartBonus : 0);
 
                 if (i == 0)
                 {
                     // Leading characters skipped before the first match count as gap.
-                    best[0][j] = point - j * GapPenalty;
+                    best[0][j] = point - j * _gapPenalty;
                     continue;
                 }
 
-                int bestPrev = NoScore;
+                int bestPrev = _noScore;
                 int bestFrom = -1;
 
-                if (j >= 1 && best[i - 1][j - 1] > NoScore)
+                if (j >= 1 && best[i - 1][j - 1] > _noScore)
                 {
-                    bestPrev = best[i - 1][j - 1] + ConsecutiveBonus;
+                    bestPrev = best[i - 1][j - 1] + _consecutiveBonus;
                     bestFrom = j - 1;
                 }
 
-                if (runIndex >= 0 && runValue - j * GapPenalty > bestPrev)
+                if (runIndex >= 0 && runValue - j * _gapPenalty > bestPrev)
                 {
-                    bestPrev = runValue - j * GapPenalty;
+                    bestPrev = runValue - j * _gapPenalty;
                     bestFrom = runIndex;
                 }
 
@@ -106,10 +106,10 @@ public static class FuzzyScorer
         }
 
         int bestEnd = -1;
-        int bestScore = NoScore;
+        int bestScore = _noScore;
         for (int j = 0; j < n; j++)
         {
-            if (best[m - 1][j] <= NoScore)
+            if (best[m - 1][j] <= _noScore)
             {
                 continue;
             }
