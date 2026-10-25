@@ -7,7 +7,7 @@ namespace Bazaar.Server.Tests.Gateway.Adapters.Anthropic;
 /// <summary>The request the adapter sends. Each test reads the JSON body and headers as the stub handler received them.</summary>
 public class AnthropicMessagesRequestTests
 {
-    private static readonly string Schema = """{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}""";
+    private static readonly string _schema = """{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}""";
 
     private static async Task<SentRequest> SendAndCapture(ModelRequest request, ProviderEndpoint? endpoint = null)
     {
@@ -94,7 +94,7 @@ public class AnthropicMessagesRequestTests
                 new ModelMessage(ModelRole.Tool, "{\"temp\":18}", ToolCallId: "toolu_1"),
                 new ModelMessage(ModelRole.Tool, "{\"temp\":21}", ToolCallId: "toolu_2"),
             ],
-            [new ModelToolDefinition("get_weather", "Current weather for a city.", Schema)]);
+            [new ModelToolDefinition("get_weather", "Current weather for a city.", _schema)]);
 
         var sent = await SendAndCapture(request);
 
@@ -133,7 +133,7 @@ public class AnthropicMessagesRequestTests
     {
         var request = new ModelRequest("agent-1", "claude-haiku-5-5",
             [new ModelMessage(ModelRole.User, "Hi")],
-            [new ModelToolDefinition("get_weather", "Current weather for a city.", Schema)]);
+            [new ModelToolDefinition("get_weather", "Current weather for a city.", _schema)]);
 
         var sent = await SendAndCapture(request);
 

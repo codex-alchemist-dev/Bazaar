@@ -5,8 +5,8 @@ namespace Bazaar.Server.Tests.Gateway.Adapters.Anthropic;
 
 public class AnthropicMessagesErrorTests
 {
-    private const string RateLimitBody = """{"type":"error","error":{"type":"rate_limit_error","message":"Number of request tokens has exceeded your per-minute rate limit."}}""";
-    private const string SpendCapBody = """{"type":"error","error":{"type":"rate_limit_error","message":"Your credit balance is too low to complete this request. Enforced spend limit reached."}}""";
+    private const string _rateLimitBody = """{"type":"error","error":{"type":"rate_limit_error","message":"Number of request tokens has exceeded your per-minute rate limit."}}""";
+    private const string _spendCapBody = """{"type":"error","error":{"type":"rate_limit_error","message":"Your credit balance is too low to complete this request. Enforced spend limit reached."}}""";
 
     private static Task<List<ModelEvent>> Run(StubHandler handler) =>
         AnthropicTestSupport.Collect(AnthropicTestSupport.Adapter(handler), AnthropicTestSupport.Endpoint(), AnthropicTestSupport.SimpleRequest(), TestContext.Current.CancellationToken);
@@ -14,7 +14,7 @@ public class AnthropicMessagesErrorTests
     [Fact]
     public async Task Http_429_with_retry_after_is_rate_limited_with_the_delay()
     {
-        using var handler = new StubHandler(_ => AnthropicTestSupport.Json(HttpStatusCode.TooManyRequests, RateLimitBody, retryAfter: "30"));
+        using var handler = new StubHandler(_ => AnthropicTestSupport.Json(HttpStatusCode.TooManyRequests, _rateLimitBody, retryAfter: "30"));
 
         var events = await Run(handler);
 
@@ -26,7 +26,7 @@ public class AnthropicMessagesErrorTests
     [Fact]
     public async Task Http_429_without_retry_after_has_no_delay()
     {
-        using var handler = new StubHandler(_ => AnthropicTestSupport.Json(HttpStatusCode.TooManyRequests, RateLimitBody));
+        using var handler = new StubHandler(_ => AnthropicTestSupport.Json(HttpStatusCode.TooManyRequests, _rateLimitBody));
 
         var failure = Assert.IsType<ModelEvent.Failure>(Assert.Single(await Run(handler)));
 
@@ -37,7 +37,7 @@ public class AnthropicMessagesErrorTests
     [Fact]
     public async Task Http_429_with_spend_cap_wording_is_spend_capped_without_a_retry_time()
     {
-        using var handler = new StubHandler(_ => AnthropicTestSupport.Json(HttpStatusCode.TooManyRequests, SpendCapBody, retryAfter: "60"));
+        using var handler = new StubHandler(_ => AnthropicTestSupport.Json(HttpStatusCode.TooManyRequests, _spendCapBody, retryAfter: "60"));
 
         var failure = Assert.IsType<ModelEvent.Failure>(Assert.Single(await Run(handler)));
 
