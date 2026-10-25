@@ -40,7 +40,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Vault** source of truth: Markdown files with `[[wiki-links]]` in a git repo; Postgres only indexes them.
 - **Resource Economy** (money budgets) is REJECTED. Limits are quotas plus the Work-Life Simulation.
 - **Build approach (owner, 2026-10-24):** no separate v0.001. Claude (Haiku 5.5 workers directed by the main session) builds Bazaar toward v1.0 directly, with full hygiene: design doc first, tests with every change, build and test before each commit, test-and-fix as you go. The server runs clean builds and tests; agent self-reports never count (owner, 2026-10-25). Ask the owner about unspecified details instead of assuming.
-- **Versioning (owner, 2026-10-25):** SemVer; pre-release `v0.x` "Beta"; majors get Z-to-A codenames (alchemy and stars; v1.0.0 "Zodiac"); channels LTSC/Stable/Beta/Alpha/Latest-Commit, chosen by the operator. Details: `docs/VERSIONING.md`; milestones: `docs/ROADMAP.md`. Bump `VersionPrefix` in `Directory.Build.props` as section 1 says.
+- **Versioning (owner, 2026-10-25):** SemVer; pre-release `v0.x` "Beta"; majors get Z-to-A codenames (alchemy and stars; v1.0.0 "Zuhal"); channels LTSC/Stable/Beta/Alpha/Latest-Commit, chosen by the operator. Details: `docs/VERSIONING.md`; milestones: `docs/ROADMAP.md`. Bump `VersionPrefix` in `Directory.Build.props` as section 1 says.
 - Open items live in each doc's "Open Questions" and in `docs/research/reports/Bazaar stack feasibility research.md`. Known blockers there (data layer on Windows, subscription routing, bot accounts) must be resolved before building the affected area.
 
 ## Design set (owner decisions, 2026-10-25)

@@ -4,7 +4,7 @@ public class ProductVersionTests
 {
     [Theory]
     [InlineData(0, "Beta")]
-    [InlineData(1, "Zodiac")]
+    [InlineData(1, "Zuhal")]
     public void Known_majors_have_codenames(int major, string expected) =>
         Assert.Equal(expected, ProductVersion.Codename(major));
 

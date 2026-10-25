@@ -36,7 +36,7 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 | Version | Codename | Why it fits both |
 |---|---|---|
 | v0.x | Beta | Placeholder for the pre-release period. |
-| v1.0.0 | **Zodiac** | The twelve signs; alchemical tradition pairs the operations of the Great Work with them. |
+| v1.0.0 | **Zuhal** (owner-picked, 2026-10-25) | Arabic name of Saturn, a wandering star; alchemists tied Saturn to lead, the base metal the Great Work starts from. |
 | v2.0.0 | Yliaster [PROPOSED] | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
 | v3.0.0 | Xerion [PROPOSED] | The dry powder of the stone, the root of "elixir". X is thin, like RESIBO's X; Xanthosis (the solar "yellowing" stage) is the alternate. |
 | v4.0.0 | Wandering Star [PROPOSED] | The planets of antiquity, each ruling one of the seven alchemical metals. |

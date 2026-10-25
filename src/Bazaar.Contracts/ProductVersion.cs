@@ -15,7 +15,7 @@ public static class ProductVersion
     private static readonly Dictionary<int, string> _codenames = new()
     {
         [0] = "Beta",
-        [1] = "Zodiac",
+        [1] = "Zuhal",
     };
 
     /// <summary>The running build's informational version, for example <c>0.1.0+a1b2c3d</c>.</summary>
