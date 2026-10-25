@@ -13,7 +13,7 @@ Status: DRAFT for owner review. Built from the status-tagged design docs in `doc
 
 | Area | Choice | Source |
 |---|---|---|
-| Language and runtime | C# on .NET 10 LTS, one codebase | owner, 2026-10-24 |
+| Language and runtime | C# on .NET 11 (STS; see DECISIONS-LOG round 15), one codebase | owner, 2026-10-24 |
 | Server | One OS-agnostic build; OS-specific parts behind providers | owner, 2026-10-24 |
 | Project names | `Bazaar.Contracts`, `Bazaar.Server`, `Bazaar.Server.Host`, `Bazaar.Sdk`, `Bazaar.Client.Core`, `Bazaar.Client.Windows`, `.Android`, `.Linux` | owner, 2026-10-24 |
 | Database | PostgreSQL 18 + pgvector. Raw Npgsql 10 with one shared `NpgsqlDataSource`, SQL-first repositories, `NpgsqlBatch`, embedded versioned SQL migrations with a small runner (OS-specific extension steps). EF Core only for CRUD-shaped tables if ever needed. Marten is not the core store | delegated to Claude by owner ("modern, performant"); research: `docs/research/notes/Bazaar build tooling research/data_access.md` |

@@ -132,6 +132,13 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta milestones v0.1 to v0.9, extendable. | `docs/ROADMAP.md`. |
 | Provenance placement | **RESOLVED by Claude (schema shape, within C09)**: `source_trust`, `tainted_at_write`, `taint_sources`, `derived_from` live on `gc_event`; an edit is a `message_edit` event, so each version carries its editor's provenance. | Docs 01, 04, 15 aligned. |
 
+## Round 15 (2026-10-25)
+
+| Item | Decision | Effect on the docs |
+|---|---|---|
+| Target runtime | **RESOLVED (owner)**: target .NET 11 (GA expected November 2026), superseding .NET 10 LTS. `global.json` pins the newest 11.0 SDK (`11.0.100-rc.2.26504.105` at adoption); `Microsoft.Extensions.Hosting*` and `Microsoft.AspNetCore.Mvc.Testing` move to the 11.0 line; Npgsql, Avalonia, Testcontainers, Microsoft.Extensions.AI and xunit.v3 3.2.2 build and pass unchanged (no 11.x releases yet). .NET 11 is STS, so expect a move to .NET 12 LTS soon after it ships. | CLAUDE.md, README, CONTRIBUTING, implementation plan, Bazaar.Server.md; older "net10" mentions in design docs are historical. |
+| Forward-facing compatibility | **RESOLVED (owner)**: write for the newest supported .NET and what follows. Prefer current, supported APIs and patterns; no obsolete or deprecated APIs; no pinning to older runtimes or older-runtime code paths; adopt each new .NET release soon after it ships; move RC/preview pins to GA once released. | CLAUDE.md "Decisions in force"; CONTRIBUTING.md. |
+
 ## Status after round 14
 
 All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the definition of "bigger changes" that need the owner's vote (C32); confirmation of Claude's reading of C18 (reader/actor split as the autonomy mechanism); the C10 restore policy (sequence floor plus recovery entry, doc 33) is PROPOSED, not confirmed; erasure for personal data inside Markdown Vault files and git history (consequence of C38); Windows KEK custody vs recovery on new hardware (doc 33 C1). Reconciliation of the 36 docs, the deep-dive docs and CLAUDE.md with this log is the next step.
