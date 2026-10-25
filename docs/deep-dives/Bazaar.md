@@ -17,6 +17,15 @@ Treat [PROPOSED] items as a backlog to explicitly accept or cut, not as settled.
 
 ## 1. Core Philosophy
 
+### Five principles (top level)
+
+- **[DECIDED 2026-10-25, owner]** These five principles come from Codex Alchemist and rank above every other item in this document, the design docs and the code. When two choices conflict, the one that serves more of them wins, and the owner breaks any tie.
+  1. **Open Source.** The platform is public (AGPL-3.0 at the root, Apache-2.0 for `Bazaar.Sdk` and `Bazaar.Contracts`). Each install's private data stays private.
+  2. **Modern.** Current, supported APIs and standards. No obsolete or deprecated APIs, and no code paths kept for older runtimes.
+  3. **Novel.** Work that goes past the usual AI-agent pattern: agents with persistent identity, GCs as the coordination system, and no master orchestrator.
+  4. **Performant.** The server does the compute, clients stay light, and performance budgets are measured on real hardware, not assumed.
+  5. **Forward-Facing.** Build for the newest supported .NET and for what comes next. Move to each new release soon after it ships.
+
 - **[DECIDED]** Bazaar = a persistent AI software studio, not an AI IDE with disposable subagents. Every agent has persistent identity, owns long-term memory, has specialties, can message anyone, spawn subagents, delegate, review, disagree, vote, and learn over time.
 - **[DECIDED]** No master orchestrator. Conversation (GCs) *is* the coordination system — the single biggest architectural commitment; other systems (event buses, etc.) serve GCs, never replace them.
 - **[DECIDED]** You are a coworker on the team, not "the operator" — creative director / product owner / fellow developer (though you are the tie-breaker/final authority — see Voting).
