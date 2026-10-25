@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Generated from a Bazaar theme (schemaVersion 1, base dark). Do not edit; regenerate from the theme file. -->
+  <Color x:Key="Bazaar.color.background.base">#1E1E2E</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.background.base" Color="{StaticResource Bazaar.color.background.base}" />
+  <Color x:Key="Bazaar.color.background.surface">#282839</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.background.surface" Color="{StaticResource Bazaar.color.background.surface}" />
+  <Color x:Key="Bazaar.color.background.editor">#181825</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.background.editor" Color="{StaticResource Bazaar.color.background.editor}" />
+  <Color x:Key="Bazaar.color.text.primary">#CDD6F4</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.text.primary" Color="{StaticResource Bazaar.color.text.primary}" />
+  <Color x:Key="Bazaar.color.text.secondary">#A6ADC8</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.text.secondary" Color="{StaticResource Bazaar.color.text.secondary}" />
+  <Color x:Key="Bazaar.color.text.accent">#89B4FA</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.text.accent" Color="{StaticResource Bazaar.color.text.accent}" />
+  <Color x:Key="Bazaar.color.border.default">#45475A</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.border.default" Color="{StaticResource Bazaar.color.border.default}" />
+  <Color x:Key="Bazaar.color.accent.default">#89B4FA</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.accent.default" Color="{StaticResource Bazaar.color.accent.default}" />
+  <Color x:Key="Bazaar.color.badge.owner.background">#F9E2AF</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.badge.owner.background" Color="{StaticResource Bazaar.color.badge.owner.background}" />
+  <Color x:Key="Bazaar.color.badge.owner.text">#1E1E2E</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.badge.owner.text" Color="{StaticResource Bazaar.color.badge.owner.text}" />
+  <Color x:Key="Bazaar.color.badge.agent.background">#A6E3A1</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.badge.agent.background" Color="{StaticResource Bazaar.color.badge.agent.background}" />
+  <Color x:Key="Bazaar.color.badge.agent.text">#1E1E2E</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.badge.agent.text" Color="{StaticResource Bazaar.color.badge.agent.text}" />
+  <Color x:Key="Bazaar.color.badge.system.background">#CBA6F7</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.badge.system.background" Color="{StaticResource Bazaar.color.badge.system.background}" />
+  <Color x:Key="Bazaar.color.badge.system.text">#1E1E2E</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.badge.system.text" Color="{StaticResource Bazaar.color.badge.system.text}" />
+  <Color x:Key="Bazaar.color.syntax.keyword">#CBA6F7</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.syntax.keyword" Color="{StaticResource Bazaar.color.syntax.keyword}" />
+  <Color x:Key="Bazaar.color.syntax.string">#A6E3A1</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.syntax.string" Color="{StaticResource Bazaar.color.syntax.string}" />
+  <Color x:Key="Bazaar.color.syntax.comment">#9399B2</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.syntax.comment" Color="{StaticResource Bazaar.color.syntax.comment}" />
+  <Color x:Key="Bazaar.color.syntax.number">#FAB387</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.syntax.number" Color="{StaticResource Bazaar.color.syntax.number}" />
+  <Color x:Key="Bazaar.color.syntax.type">#F9E2AF</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.syntax.type" Color="{StaticResource Bazaar.color.syntax.type}" />
+  <Color x:Key="Bazaar.color.syntax.default">#CDD6F4</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.syntax.default" Color="{StaticResource Bazaar.color.syntax.default}" />
+  <FontFamily x:Key="Bazaar.font.family.ui">Inter</FontFamily>
+  <FontFamily x:Key="Bazaar.font.family.mono">Cascadia Code</FontFamily>
+  <x:Double x:Key="Bazaar.font.size.body">14</x:Double>
+  <x:Double x:Key="Bazaar.font.size.small">12</x:Double>
+  <x:Double x:Key="Bazaar.space.xs">4</x:Double>
+  <x:Double x:Key="Bazaar.space.sm">8</x:Double>
+  <x:Double x:Key="Bazaar.space.md">12</x:Double>
+  <x:Double x:Key="Bazaar.space.lg">16</x:Double>
+  <x:Double x:Key="Bazaar.radius.sm">4</x:Double>
+  <x:Double x:Key="Bazaar.radius.md">8</x:Double>
+  <x:Boolean x:Key="Bazaar.reducedMotion">False</x:Boolean>
+</ResourceDictionary>

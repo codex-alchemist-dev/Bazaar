@@ -8,7 +8,7 @@ Defines how clients talk to Bazaar.Server: one raw WebSocket per device, plus an
 
 ## Decided inputs
 - Raw WebSocket; Socket.io dropped (Bazaar.Server.md §3).
-- Wire format (shared C# contracts with System.Text.Json, or Protobuf) is OPEN until the first client-server spike. No Protobuf tooling yet (CLAUDE.md).
+- Wire format [DECIDED 2026-10-25, owner, spike S6, DECISIONS-LOG round 15]: JSON via shared C# contracts with source-generated System.Text.Json. A non-.NET client is a fallback only (Rust). No Protobuf tooling.
 - WebSocket for realtime; authenticated HTTP for blobs, search and pairing (round 6, C15).
 - GC log: `gc_event`, `gc_message`, `gc_message_version` (full copy per version). Append-only, never purged, edits keep every version (round 1, C09).
 - Per-GC gap-free sequence; hash partitions by `gc_id` from day 1 (round 1, C10). Append and `NOTIFY` in one transaction (doc 04).
@@ -101,17 +101,17 @@ Late or repeated wakes are harmless because the cursor makes the fetch idempoten
 ## Data and interfaces
 
 ```csharp
-record Envelope(int V, string T, Kind K, string? Id, string? Re, string? S, long? N, DateTimeOffset Ts, ReadOnlyMemory<byte> P);
+record Envelope(int V, string T, EnvelopeKind K, string? Id, string? Re, string? S, long? N, DateTimeOffset? Ts, ReadOnlyMemory<byte> P); // Ts absent on client frames
 interface IWireCodec { string Name { get; } bool IsBinary { get; }
-  void Encode(in Envelope e, IBufferWriter<byte> w); Envelope Decode(ReadOnlySpan<byte> frame);
-  T DecodePayload<T>(in Envelope e); }
+  void Encode(in Envelope e, IBufferWriter<byte> w); Envelope Decode(ReadOnlySpan<byte> frame);   // Decode throws WireFormatException (close 4400)
+  ReadOnlyMemory<byte> EncodePayload<T>(T payload); T DecodePayload<T>(in Envelope e); }
 interface IConnectionAuthenticator { ValueTask<AuthResult> AuthenticateAsync(HelloCredential cred, DeviceInfo device, CancellationToken ct); }
 record AuthResult(bool Ok, PrincipalRef? Principal, string? DeviceId, DateTimeOffset? ExpiresAt, string? Reason);
 interface IPushNotifier { Task WakeAsync(string deviceId, WakeHint hint, CancellationToken ct); }
 record WakeHint(string Kind); // kind only: no gc id, no seq, no text (C41)
 ```
 
-Codec is chosen in `hello`/`welcome`: text frames JSON, binary frames Protobuf (only if the spike picks it). Optional server bookkeeping: `device_cursor(device_id, stream, applied_n, applied_ev)`; the client's cursor is authoritative for replay.
+Codec is chosen in `hello`/`welcome`: text frames JSON; binary Protobuf frames are not built (S6 chose JSON; a binary codec could be added later behind `IWireCodec`). Optional server bookkeeping: `device_cursor(device_id, stream, applied_n, applied_ev)`; the client's cursor is authoritative for replay.
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
@@ -163,7 +163,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 - Auth: revocation closes within 1 s; DM denial looks like missing. Heartbeat: silent peer closed at 60 s.
 - HTTP: chunked upload resumes after a dropped chunk. UI: unknown widget renders the placeholder (Avalonia.Headless). Status: shape snapshot, no chat text.
 
-**Wire-format spike (OPEN).** Criteria in priority order: non-.NET consumers; toolchain cost on all heads including Android; AOT/trim safety on Android; wire debuggability; schema evolution; size and CPU. One throwaway branch, both codecs behind `IWireCodec`: implement `hello`, `subscribe`, `gc.message`, `lagged`; run the cases above; measure bytes and time for a 200-message page and a 10k replay on the NUC and the Android foldable; add a field and an unknown message; check Android trim/AOT warnings; record LOC and build steps. Decision rule [PROPOSED]: JSON unless a non-.NET consumer is a v1 requirement or measurements show a problem JSON cannot fix. Android items (background socket, Doze wake, network switch, overlay path) belong to doc 29.
+**Wire-format spike S6 [DECIDED: JSON; part 1 done, record in `docs/spikes/S6.md`].** Original plan, criteria in priority order: non-.NET consumers; toolchain cost on all heads including Android; AOT/trim safety on Android; wire debuggability; schema evolution; size and CPU. One throwaway branch, both codecs behind `IWireCodec`: implement `hello`, `subscribe`, `gc.message`, `lagged`; run the cases above; measure bytes and time for a 200-message page and a 10k replay on the NUC and the Android foldable; add a field and an unknown message; check Android trim/AOT warnings; record LOC and build steps. Decision rule [PROPOSED]: JSON unless a non-.NET consumer is a v1 requirement or measurements show a problem JSON cannot fix. Android items (background socket, Doze wake, network switch, overlay path) belong to doc 29.
 
 ## Work packages
 1. `Bazaar.Contracts`: envelope, kinds, codes, message records (`gc.message` with `n` and `ev`), JSON source-gen context.
@@ -182,7 +182,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 14. Test harness: Kestrel, Postgres fixture, fake clock (WP2).
 
 ## Conflicts
-- Bazaar.Server.md §3 still names Protobuf in its transport cell; fix once the spike decides.
+- Bazaar.Server.md §3 transport cell: fixed with the S6 decision (DECISIONS-LOG round 15).
 - Garnet on Windows is unverified (spike S2); presence deltas wait on it.
 - The Android `dataSync` 6 h cap is disputed; either way no always-on socket is planned.
 - Cloudflare Tunnel WebSocket fit is unverified; if an operator uses it, long sockets and heartbeats need testing.
@@ -195,7 +195,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 Answered and moved out: sequence per GC (C10), cached profile and fallback shell (C27), bare wake (C41), wake kinds (C41). Plain values and policy choices are now settings (table above).
 
 1. Do edits take a sequence number? Recommend a separate per-GC edit counter `ev`: C09 keeps edits out of the log, and this keeps replay complete. Alternative: edits take `n`, as doc 01's question defaults. (a) separate `ev` (rec); (b) edits take `n`. This is a wire and schema shape, so it needs one answer.
-2. Wire format: adopt "JSON unless a non-.NET consumer is a v1 requirement"? Recommend yes. Is a non-.NET SDK or plugin planned for v1? This is a wire-format and scope question.
+2. Wire format **[ANSWERED 2026-10-25, owner: JSON; non-.NET is a fallback only, Rust]**: adopt "JSON unless a non-.NET consumer is a v1 requirement"? Recommend yes. Is a non-.NET SDK or plugin planned for v1? This is a wire-format and scope question.
 3. One socket per device, with windows sharing it? Recommend yes. This changes the connection model, so it stays a question.
 4. Confirm the restore policy: sequence floor plus a `system` recovery entry (PROPOSED in doc 33; FOLLOW-UP in DECISIONS-LOG). Recommend confirm. It changes gap-free sequencing, so it stays a question.
 
