@@ -16,13 +16,13 @@ public static class MigrateCommand
         {
             var result = await new MigrationRunner(dataSource).MigrateAsync(source, provider, ct).ConfigureAwait(false);
             foreach (var m in result.Applied)
-                await output.WriteLineAsync($"applied {m.Provider}/{m.Version:D4}_{m.Name}").ConfigureAwait(false);
-            await output.WriteLineAsync($"done: {result.Applied.Count} applied, {result.AlreadyApplied} already applied").ConfigureAwait(false);
+                await output.WriteLineAsync($"applied {m.Provider}/{m.Version:D4}_{m.Name}", ct).ConfigureAwait(false);
+            await output.WriteLineAsync($"done: {result.Applied.Count} applied, {result.AlreadyApplied} already applied", ct).ConfigureAwait(false);
             return 0;
         }
         catch (MigrationException ex)
         {
-            await output.WriteLineAsync($"migrate refused: {ex.Message}").ConfigureAwait(false);
+            await output.WriteLineAsync($"migrate refused: {ex.Message}", ct).ConfigureAwait(false);
             return 1;
         }
     }
