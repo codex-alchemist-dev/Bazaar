@@ -25,8 +25,8 @@ public abstract record ModelEvent
     /// <summary>A chunk of reasoning text. Counted in output tokens as well.</summary>
     public sealed record ThinkingDelta(string Text) : ModelEvent;
 
-    /// <summary>The model began a tool call.</summary>
-    public sealed record ToolCallStart(string CallId, string Name) : ModelEvent;
+    /// <summary>The model began a tool call. ProviderData is the opaque token to carry into <see cref="ModelToolCall"/>.</summary>
+    public sealed record ToolCallStart(string CallId, string Name, string? ProviderData = null) : ModelEvent;
 
     /// <summary>A fragment of a tool call's argument JSON. Fragments concatenate in order.</summary>
     public sealed record ToolCallArgsDelta(string CallId, string ArgumentsFragment) : ModelEvent;

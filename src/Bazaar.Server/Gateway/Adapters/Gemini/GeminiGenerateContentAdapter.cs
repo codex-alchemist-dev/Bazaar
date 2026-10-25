@@ -415,7 +415,7 @@ public sealed class GeminiGenerateContentAdapter : IModelAdapter
             {
                 // Gemini gives no call id, so ids are synthesized per response in arrival order.
                 var id = $"call_{_toolCalls++}";
-                events.Add(new ModelEvent.ToolCallStart(id, Str(call, "name") ?? "unknown"));
+                events.Add(new ModelEvent.ToolCallStart(id, Str(call, "name") ?? "unknown", Str(part, "thoughtSignature")));
                 events.Add(new ModelEvent.ToolCallArgsDelta(id, call["args"]?.ToJsonString() ?? "{}"));
                 events.Add(new ModelEvent.ToolCallEnd(id));
                 return;
