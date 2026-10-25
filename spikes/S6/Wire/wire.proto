@@ -1,0 +1,43 @@
+syntax = "proto3";
+package bazaar.spike.s6;
+option csharp_namespace = "Spike.S6.Wire.Proto";
+
+enum Kind { KIND_UNSPECIFIED = 0; REQ = 1; RES = 2; EVT = 3; ERR = 4; }
+
+message Envelope {
+  int32 v = 1;
+  string t = 2;
+  Kind k = 3;
+  optional string id = 4;
+  optional string re = 5;
+  optional string s = 6;
+  optional int64 n = 7;
+  int64 ts_unix_ms = 8;
+  bytes p = 9;
+}
+
+message Cursor { string s = 1; int64 after = 2; int64 edit_after = 3; }
+message Hello {
+  int32 version_min = 1; int32 version_max = 2;
+  repeated string codecs = 3;
+  string device_id = 4; string device_class = 5; string client_build = 6;
+  repeated Cursor cursors = 7;
+}
+message StreamRef { string s = 1; int64 after = 2; int64 edit_after = 3; }
+message Subscribe { repeated StreamRef streams = 1; }
+message GcMessage {
+  string gc_id = 1; int64 n = 2; int64 ev = 3;
+  string message_id = 4; string author_id = 5; string text = 6;
+  int64 ts_unix_ms = 7; bool edited = 8;
+  repeated string mentions = 9;
+}
+message GcPage { repeated GcMessage items = 1; }
+message Lagged { string s = 1; int64 last_sent = 2; }
+// Added in "v1.1" for the evolution test; v1.0 decoders must ignore field 10.
+message GcMessageV11 {
+  string gc_id = 1; int64 n = 2; int64 ev = 3;
+  string message_id = 4; string author_id = 5; string text = 6;
+  int64 ts_unix_ms = 7; bool edited = 8;
+  repeated string mentions = 9;
+  string thread_id = 10;
+}
