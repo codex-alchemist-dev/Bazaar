@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Sdk\Bazaar.Sdk.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
   </ItemGroup>
