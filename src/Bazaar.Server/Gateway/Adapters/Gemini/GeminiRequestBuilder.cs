@@ -36,7 +36,7 @@ internal static class GeminiRequestBuilder
                 };
                 if (TryParseObject(tool.ParametersJsonSchema) is { } schema)
                 {
-                    declaration["parameters"] = schema;
+                    declaration["parametersJsonSchema"] = schema;
                 }
 
                 declarations.Add(declaration);

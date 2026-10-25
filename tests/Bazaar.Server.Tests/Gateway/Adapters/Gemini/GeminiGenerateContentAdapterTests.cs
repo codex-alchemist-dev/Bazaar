@@ -266,7 +266,7 @@ public class GeminiGenerateContentAdapterTests
         var declaration = body["tools"]!.AsArray()[0]!["functionDeclarations"]!.AsArray()[0]!;
         Assert.Equal("get_weather", declaration["name"]!.GetValue<string>());
         Assert.Equal("Current weather.", declaration["description"]!.GetValue<string>());
-        Assert.Equal("object", declaration["parameters"]!["type"]!.GetValue<string>());
+        Assert.Equal("object", declaration["parametersJsonSchema"]!["type"]!.GetValue<string>());
 
         Assert.Equal(256, body["generationConfig"]!["maxOutputTokens"]!.GetValue<int>());
         Assert.Equal(0.2, body["generationConfig"]!["temperature"]!.GetValue<double>());
