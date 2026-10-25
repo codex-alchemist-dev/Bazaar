@@ -161,7 +161,7 @@ No Intel NPU tokens-per-second figure from an official source exists. Community 
 ## Questions for the owner
 1. **Summary storage?** Default: local cache only, not synced, not in GC logs. Syncing or GC storage changes the schema and wire format, so it needs one answer.
 2. **Second model format** (OpenVINO IR) if the ONNX LLM spike fails? Default: yes, after a spike. This changes the file layout, so it needs one answer.
-3. **Hardware?** Which Core Ultra generation is the NUC, and which SoC is the Android device? Default: the owner names them; sources do not verify the Find N6 SoC.
+3. **Hardware?** Which Core Ultra generation is the owner's PC, and which SoC is the Android device? Default: the owner names them; sources do not verify the Find N6 SoC.
 4. **UiAssist under the ratified exception?** DECISIONS-LOG round 4 names summaries, voice cleanup and prompt rewrite only. Default: include `UiAssist` as on-device NPU inference, since it is the same kind of work. This changes a DECIDED item, so it stays a question.
 5. **Ratify CPU and GPU tiers?** The ratified wording says "NPU inference". Default: amend CLAUDE.md to "on-device inference (NPU, GPU or CPU)", so the fallback tiers are covered. This changes DECIDED wording, so it stays a question.
 

@@ -132,13 +132,13 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 - Fake providers per role. Generic-host tests cover startup order, the selection matrix, "explicit unusable fails start" and "schema mismatch refuses start".
 - `migrate` applies once under the instance lock; startup against an older or newer schema refuses.
 - Settings: every key has a default and a type check; a value that breaks a floor (Administrator account, non-loopback bind without approval, Postgres removed from readiness) is rejected; each change writes an audit row.
-- Real Postgres: CI service container on Linux (doc 34 L2); local Windows Postgres on the NUC, pending doc 34's Windows-job decision.
+- Real Postgres: CI service container on Linux (doc 34 L2); local Windows Postgres on the owner's PC, pending doc 34's Windows-job decision.
 - Kill test: Host as a child process, killed mid-turn. On restart the turn resumes once with no duplicate side effect (doc 06 contract).
 - Stop test: `sc stop` or SIGTERM during a long fake turn; checkpoint lands within `host.shutdown_timeout_seconds`.
 - Cache test: with no cache provider, presence degrades and GC fan-out still delivers.
 - Architecture test: `Bazaar.Server` has no Windows-only reference or `SupportedOSPlatform` attribute.
 - Status test: every status route is GET; output never contains chat, Vault text or secret values.
-- Windows provider tests on a hosted Windows runner; soak with a compressed simulated clock in CI, and a real 48-hour run on the NUC as a manual step.
+- Windows provider tests on a hosted Windows runner; soak with a compressed simulated clock in CI, and a real 48-hour run on the owner's PC as a manual step.
 
 **NUC acceptance checklist (first supported host).** PostgreSQL 18 runs as a service with pgvector and survives reboot; the host is installed with Automatic start and read-back recovery actions; the data-root ACL is limited to the service account; after reboot the host is ready with no manual step; a kill mid-turn recovers the turn once; `sc stop` drains within budget; file logs rotate; the status page is reachable on loopback and blocked from LAN; search reports pg_search unavailable without error and uses Postgres FTS; the 48-hour soak runs with no manual step, no turn lost, memory growth under `host.health.memory_growth_warn_percent` and disk under `host.health.disk_used_warn_percent`, with the licence answers (Conflict 2) recorded first.
 

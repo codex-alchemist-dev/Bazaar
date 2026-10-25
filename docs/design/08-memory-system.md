@@ -178,7 +178,7 @@ Every change writes an `audit_log` entry (doc 15). Settings never loosen the fix
 - Updates are optimistic on `memory.version`; git history is the version log.
 - Injected text is stored at T1, labelled, and placed in context as data, never in the system role.
 - A quarantined agent's writes become T0 and are excluded from others' retrieval, Hive Mind and Company Memory.
-- Limits [PROPOSED] are settings (4 KB per note, 2,000 candidates per query, 100,000 notes per agent). A very large per-agent file count may slow git; measure on the NUC.
+- Limits [PROPOSED] are settings (4 KB per note, 2,000 candidates per query, 100,000 notes per agent). A very large per-agent file count may slow git; measure on the owner's PC.
 - Memory is served only through server APIs; no client or VM holds a clone.
 
 ## Testing
