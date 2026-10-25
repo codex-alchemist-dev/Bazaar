@@ -1,0 +1,10 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Bazaar.Client.Core.MainWindow"
+        Title="Bazaar"
+        Width="800"
+        Height="600">
+  <TextBlock Text="Bazaar"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center" />
+</Window>
