@@ -12,7 +12,7 @@ public class OpenAiChatRequestTests
     private static JsonElement SentBody(StubHandler handler)
     {
         var body = handler.Requests.Single().Body;
-        return JsonDocument.Parse(body).RootElement.Clone();
+        return JsonElement.Parse(body);
     }
 
     private static StubHandler HandlerWithEmptyStream()
