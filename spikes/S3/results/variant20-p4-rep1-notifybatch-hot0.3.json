@@ -1,0 +1,86 @@
+{
+  "db_size_mb": 988,
+  "gap_check_after_load": {
+    "gcs_with_gap_or_head_mismatch": 0
+  },
+  "hot_200_concurrent": {
+    "n": 200,
+    "p50_ms": 159.13,
+    "p95_ms": 286.05,
+    "p99_ms": 293.84,
+    "max_ms": 295.16,
+    "gap_free": true
+  },
+  "hotshare": 0.3,
+  "load": {
+    "n": 15000,
+    "p50_ms": 4.95,
+    "p95_ms": 9.94,
+    "p99_ms": 291.14,
+    "max_ms": 1257.43,
+    "target_rate": 500,
+    "achieved_rate": 499.4,
+    "errors": 0,
+    "notifications_received": 13535,
+    "hint_reads": 15300,
+    "insert_to_consumer_read_ms": {
+      "n": 15300,
+      "p50_ms": 8.27,
+      "p95_ms": 18.67,
+      "p99_ms": 456.21,
+      "max_ms": 881.52
+    }
+  },
+  "notify": "batch",
+  "page200_first_page_of_901_gc": {
+    "n": 300,
+    "p50_ms": 1.78,
+    "p95_ms": 3,
+    "p99_ms": 4.01,
+    "max_ms": 5.88
+  },
+  "page200_latest_in_hot": {
+    "n": 300,
+    "p50_ms": 1.94,
+    "p95_ms": 3.48,
+    "p99_ms": 4.74,
+    "max_ms": 5.35
+  },
+  "page200_random_in_hot_100k": {
+    "n": 300,
+    "p50_ms": 2.1,
+    "p95_ms": 4.03,
+    "p99_ms": 5.2,
+    "max_ms": 6.29
+  },
+  "parts": 4,
+  "preload_events": 1000099,
+  "preload_s": 59.1,
+  "replay10k_paged_200": {
+    "n": 5,
+    "p50_ms": 104.27,
+    "p95_ms": 113.77,
+    "p99_ms": 113.77,
+    "max_ms": 113.77,
+    "contiguous": true,
+    "rows": 50000
+  },
+  "replay10k_single_stmt": {
+    "n": 5,
+    "p50_ms": 115.39,
+    "p95_ms": 191.48,
+    "p99_ms": 191.48,
+    "max_ms": 191.48,
+    "contiguous": true
+  },
+  "run": 20,
+  "saturation_32w": {
+    "n": 22883,
+    "p50_ms": 3.68,
+    "p95_ms": 112.2,
+    "p99_ms": 223.18,
+    "max_ms": 691.64,
+    "appends_per_s": 1523
+  },
+  "tsindex": false
+}

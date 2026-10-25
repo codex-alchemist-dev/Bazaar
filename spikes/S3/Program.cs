@@ -9,32 +9,42 @@ var a = args.Select((x, i) => (x, i)).Where(t => t.x.StartsWith("--")).ToDiction
 string Arg(string k, string d) => a.TryGetValue(k, out var v) ? v : d;
 int run = int.Parse(Arg("run", "1"));
 int parts = int.Parse(Arg("parts", "16"));
-bool notify = Arg("notify", "on") == "on";
+string notifyMode = Arg("notify", "on"); // on = pg_notify inside the append tx; post = separate statement after commit; off
+bool notify = notifyMode == "on";
 bool tsIndex = Arg("tsindex", "off") == "on";
 var phases = Arg("phases", "load,hot,page,replay,index,reconnect").Split(',').ToHashSet();
 string host = Arg("host", "127.0.0.1"), port = Arg("port", "54318");
 string dbName = $"s3_r{run}_p{parts}";
+double hotShare = double.Parse(Arg("hotshare", "0.30"));
 int pacedRate = int.Parse(Arg("rate", "500")), pacedSecs = int.Parse(Arg("secs", "30"));
 
 string Cs(string db, string extra = "") => $"Host={host};Port={port};Username=postgres;Password=spike;Database={db};Maximum Pool Size=100;Minimum Pool Size=8;{extra}";
-var result = new SortedDictionary<string, object> { ["run"] = run, ["parts"] = parts, ["notify"] = notify, ["tsindex"] = tsIndex };
+var result = new SortedDictionary<string, object> { ["run"] = run, ["parts"] = parts, ["notify"] = notifyMode, ["hotshare"] = hotShare, ["tsindex"] = tsIndex };
 
 // ---- database setup ----
+bool fresh; bool reuse = Arg("reuse", "off") == "on"; // keep the preloaded database from an earlier invocation (same run id and partition count)
 await using (var admin = new NpgsqlDataSourceBuilder(Cs("postgres")).Build())
 {
-    await Exec(admin, $"DROP DATABASE IF EXISTS {dbName} WITH (FORCE)");
-    await Exec(admin, $"CREATE DATABASE {dbName}");
+    bool exists = await Scalar<long>(admin, $"SELECT count(*) FROM pg_database WHERE datname = '{dbName}'") > 0;
+    fresh = !(reuse && exists);
+    if (fresh)
+    {
+        await Exec(admin, $"DROP DATABASE IF EXISTS {dbName} WITH (FORCE)");
+        await Exec(admin, $"CREATE DATABASE {dbName}");
+    }
 }
 await using var ds = new NpgsqlDataSourceBuilder(Cs(dbName)).Build();
-var schema = (await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "schema.sql"))).Replace("__PARTS__", parts.ToString());
-await Exec(ds, schema);
-if (tsIndex) await Exec(ds, "CREATE INDEX gc_event_gc_ts ON gc_event (gc_id, created_at)");
-
 Guid GcId(int i) => Guid.Parse(Hex($"gc{i}"));
 const int GcCount = 1000, HotEvents = 100_000, ColdEvents = 901;
 var hot = GcId(0);
 var principal = Guid.Parse(Hex("principal"));
 var agents = Enumerable.Range(0, 20).Select(i => Guid.Parse(Hex($"agent{i}"))).ToArray();
+
+if (fresh)
+{
+var schema = (await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "schema.sql"))).Replace("__PARTS__", parts.ToString());
+await Exec(ds, schema);
+if (tsIndex) await Exec(ds, "CREATE INDEX gc_event_gc_ts ON gc_event (gc_id, created_at)");
 
 // ---- preload: 1000 GCs, ~1M events, one 100k-event hot GC ----
 var sw = Stopwatch.StartNew();
@@ -53,10 +63,14 @@ INSERT INTO gc_mention(gc_id, seq, target_principal_id)
   SELECT n.gc_id, s, md5('principal')::uuid FROM n, LATERAL generate_series(10, n.cnt, 10) s;
 UPDATE gc SET head_seq = n.cnt FROM n WHERE gc.gc_id = n.gc_id;");
 await Exec(ds, "ANALYZE");
+if (Arg("checkpoint", "on") == "on") await Exec(ds, "CHECKPOINT");
 result["preload_s"] = Math.Round(sw.Elapsed.TotalSeconds, 1);
 result["preload_events"] = await Scalar<long>(ds, "SELECT count(*) FROM gc_event");
 result["db_size_mb"] = await Scalar<long>(ds, "SELECT pg_database_size(current_database())/1048576");
 Console.WriteLine($"preload done {sw.Elapsed.TotalSeconds:F1}s events={result["preload_events"]} size={result["db_size_mb"]}MB");
+
+}
+else result["preload_events"] = await Scalar<long>(ds, "SELECT count(*) FROM gc_event");
 
 // ---- append (single statement = one transaction, one round trip) ----
 string appendSql = @"
@@ -67,6 +81,7 @@ m AS (INSERT INTO gc_message(gc_id, message_id, first_seq, author_id) SELECT $1,
 v AS (INSERT INTO gc_message_version(gc_id, message_id, version, body_ct, editor_id, created_at) VALUES ($1, $4, 1, $6, $3, clock_timestamp())),
 mn AS (INSERT INTO gc_mention(gc_id, seq, target_principal_id) SELECT $1, seq, $7 FROM e WHERE $8)
 SELECT seq" + (notify ? ", pg_notify('gc', json_build_object('gc', $1, 'seq', seq)::text)" : "") + " FROM e";
+var Pending = new ConcurrentDictionary<Guid, long>();
 var rng = new Random(run * 7919 + parts);
 var bodyBytes = new byte[400];
 rng.NextBytes(bodyBytes);
@@ -82,9 +97,30 @@ async Task<long> Append(Guid gc, int agent, bool mention = false)
     cmd.Parameters.AddWithValue(bodyBytes);
     cmd.Parameters.AddWithValue(principal);
     cmd.Parameters.AddWithValue(mention);
-    return (long)(await cmd.ExecuteScalarAsync())!;
+    long seq = (long)(await cmd.ExecuteScalarAsync())!;
+    if (notifyMode == "batch") Pending[gc] = seq; // coalesced by the single notifier loop below
+    if (notifyMode == "post")
+    {
+        await using var n = ds.CreateCommand("SELECT pg_notify('gc', json_build_object('gc', $1, 'seq', $2)::text)");
+        n.Parameters.AddWithValue(gc); n.Parameters.AddWithValue(seq);
+        await n.ExecuteNonQueryAsync();
+    }
+    return seq;
 }
-Guid PickGc(Random r) => r.NextDouble() < 0.30 ? hot : GcId(1 + r.Next(GcCount - 1));
+var notifierStop = new CancellationTokenSource();
+var notifierTask = notifyMode != "batch" ? Task.CompletedTask : Task.Run(async () =>
+{
+    // One notifier: every 5 ms send the newest seq per GC in one transaction (one commit, one lock hold) instead of one per append.
+    while (!notifierStop.IsCancellationRequested)
+    {
+        await Task.Delay(5);
+        var batch = new List<string>();
+        foreach (var k in Pending.Keys.ToArray()) if (Pending.TryRemove(k, out var sq)) batch.Add(JsonSerializer.Serialize(new { gc = k, seq = sq }));
+        if (batch.Count == 0) continue;
+        await using var c = ds.CreateCommand("SELECT pg_notify('gc', x) FROM unnest($1::text[]) x"); c.Parameters.AddWithValue(batch.ToArray()); await c.ExecuteNonQueryAsync();
+    }
+});
+Guid PickGc(Random r) => r.NextDouble() < hotShare ? hot : GcId(1 + r.Next(GcCount - 1));
 
 // ---- load: paced open loop; latency measured from scheduled start (no coordinated omission) ----
 async Task<(double[] lat, double achieved, long errors)> Paced(int rate, int secs, Func<Random, Guid> pick, Func<Guid, long, double, Task>? onDone = null)
@@ -127,13 +163,13 @@ async Task<Dictionary<string, object>> GapCheck()
 if (phases.Contains("load"))
 {
     var listener = new Listener(Cs(dbName, "Application Name=s3-listener;"), ds, null);
-    await listener.StartAsync();
+    if (Arg("listen", "on") == "on") await listener.StartAsync();
     // warm-up
     await Paced(100, 3, PickGc);
     var (lat, ach, err) = await Paced(pacedRate, pacedSecs, PickGc);
     await Task.Delay(500);
-    result["load"] = Stats(lat, new() { ["target_rate"] = pacedRate, ["achieved_rate"] = Math.Round(ach, 1), ["errors"] = err, ["notifications_received"] = listener.Received });
-    await listener.StopAsync();
+    result["load"] = Stats(lat, new() { ["target_rate"] = pacedRate, ["achieved_rate"] = Math.Round(ach, 1), ["errors"] = err, ["notifications_received"] = listener.Received, ["hint_reads"] = listener.HintReads, ["insert_to_consumer_read_ms"] = Stats(listener.NotifyLatency.ToArray()) });
+    if (Arg("listen", "on") == "on") await listener.StopAsync();
     // saturation: 32 closed-loop workers for 15 s
     var satLat = new ConcurrentBag<double>(); var stop = new CancellationTokenSource(TimeSpan.FromSeconds(15));
     var satSw = Stopwatch.StartNew();
@@ -252,29 +288,29 @@ if (phases.Contains("reconnect"))
 {
     // Writers at 300/s over 200 GCs; the listener backend is killed 4 times; the consumer catches up from its cursors on reconnect.
     var gcs = Enumerable.Range(1, 200).Select(GcId).ToArray();
-    var commitAt = new ConcurrentDictionary<(Guid, long), double>();
     var clock = Stopwatch.StartNew();
     long startMark = await Scalar<long>(ds, "SELECT count(*) FROM gc_event");
     var startHeads = new Dictionary<Guid, long>();
     await using (var cmd = ds.CreateCommand("SELECT gc_id, head_seq FROM gc WHERE gc_id = ANY($1)"))
     { cmd.Parameters.AddWithValue(gcs); await using var rd = await cmd.ExecuteReaderAsync(); while (await rd.ReadAsync()) startHeads[rd.GetGuid(0)] = rd.GetInt64(1); }
-    var listener = new Listener(Cs(dbName, "Application Name=s3-listener;"), ds, startHeads) { CommitAt = commitAt, Clock = clock };
+    var listener = new Listener(Cs(dbName, "Application Name=s3-listener;"), ds, startHeads) { Clock = clock };
     await listener.StartAsync();
+    clock.Restart(); listener.Clock = clock;
     var killer = Task.Run(async () =>
     {
         foreach (var t in new[] { 5, 12, 19, 26 })
         {
-            await Task.Delay(TimeSpan.FromSeconds(t) - clock.Elapsed);
+            var wait = TimeSpan.FromSeconds(t) - clock.Elapsed; if (wait > TimeSpan.Zero) await Task.Delay(wait);
             await Exec(ds, "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = 's3-listener'");
             listener.KillTimes.Add(clock.Elapsed.TotalMilliseconds);
         }
     });
-    var (lat, _, err) = await Paced(300, 32, r => gcs[r.Next(gcs.Length)], (gc, seq, t) => { commitAt[(gc, seq)] = t; return Task.CompletedTask; });
+    var (lat, _, err) = await Paced(300, 32, r => gcs[r.Next(gcs.Length)], null);
     await killer;
     await Task.Delay(2000); // let the last catch-up finish
     await listener.StopAsync();
     // Ground truth: every event the writers committed vs. every (gc, seq) the consumer saw by either path.
-    long lost = 0, dbEvents = 0, viaNotifyOnly = 0, viaCatchUpOnly = 0, both = 0, outOfOrder = 0;
+    long lost = 0, dbEvents = 0, viaNotifyOnly = 0, viaCatchUpOnly = 0;
     await using (var cmd = ds.CreateCommand("SELECT gc_id, seq FROM gc_event WHERE gc_id = ANY($1) ORDER BY gc_id, seq"))
     {
         cmd.Parameters.AddWithValue(gcs); await using var rd = await cmd.ExecuteReaderAsync();
@@ -283,31 +319,30 @@ if (phases.Contains("reconnect"))
             var key = (rd.GetGuid(0), rd.GetInt64(1));
             if (key.Item2 <= startHeads[key.Item1]) continue;
             dbEvents++;
-            bool n = listener.SeenNotify.ContainsKey(key), c = listener.SeenCatchUp.ContainsKey(key);
-            if (!n && !c) lost++; else if (n && !c) viaNotifyOnly++; else if (!n && c) viaCatchUpOnly++; else both++;
+            if (!listener.Seen.TryGetValue(key, out var seenPath)) lost++; else if (seenPath == 1) viaNotifyOnly++; else viaCatchUpOnly++;
         }
     }
     result["reconnect"] = new Dictionary<string, object>
     {
-        ["events_written"] = dbEvents, ["lost_after_catchup"] = lost, ["via_notify_only"] = viaNotifyOnly,
-        ["missed_by_notify_recovered_by_catchup"] = viaCatchUpOnly, ["seen_by_both"] = both,
+        ["events_written"] = dbEvents, ["lost_after_catchup"] = lost, ["read_after_hint"] = viaNotifyOnly, ["read_by_reconnect_catchup"] = viaCatchUpOnly,
         ["listener_reconnects"] = listener.Reconnects, ["reconnect_ms"] = listener.ReconnectMs.ToArray(),
-        ["notify_seq_gaps_seen"] = listener.GapJumps, ["writer_errors"] = err,
-        ["notify_latency_ms"] = Stats(listener.NotifyLatency.ToArray()), ["append_latency_ms"] = Stats(lat),
+        ["notifications_received"] = listener.Received, ["writer_errors"] = err,
+        ["insert_to_consumer_read_ms"] = Stats(listener.NotifyLatency.ToArray()), ["append_latency_ms"] = Stats(lat),
     };
     Console.WriteLine($"reconnect: {JsonSerializer.Serialize(result["reconnect"])}");
 }
 
+notifierStop.Cancel(); await notifierTask;
 Directory.CreateDirectory("results");
-var path = $"results/run{run}-p{parts}-notify{(notify ? "on" : "off")}{(tsIndex ? "-ts" : "")}.json";
+var path = $"results/{Arg("tag", "run")}{run}-p{parts}-rep{Arg("rep", "1")}-notify{notifyMode}-hot{hotShare}{(tsIndex ? "-ts" : "")}.json";
 await File.WriteAllTextAsync(path, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine($"wrote {path}");
 
 // ---- helpers ----
 static string Hex(string s) => Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(s))).ToLowerInvariant();
 static async Task Exec(NpgsqlDataSource ds, string sql) { await using var c = ds.CreateCommand(sql); c.CommandTimeout = 600; await c.ExecuteNonQueryAsync(); }
-static async Task<T> Scalar<T>(NpgsqlDataSource ds, string sql) { await using var c = ds.CreateCommand(sql); return (T)(await c.ExecuteScalarAsync())!; }
-static double Pct(double[] v, double p) { if (v.Length == 0) return double.NaN; var s = v.OrderBy(x => x).ToArray(); return s[Math.Min(s.Length - 1, (int)Math.Ceiling(p * s.Length) - 1)]; }
+static async Task<T> Scalar<T>(NpgsqlDataSource ds, string sql) { await using var c = ds.CreateCommand(sql); return (T)Convert.ChangeType((await c.ExecuteScalarAsync())!, typeof(T)); }
+static double Pct(double[] v, double p) { if (v.Length == 0) return -1; var s = v.OrderBy(x => x).ToArray(); return s[Math.Min(s.Length - 1, (int)Math.Ceiling(p * s.Length) - 1)]; }
 static Dictionary<string, object> Stats(double[] v, Dictionary<string, object>? extra = null)
 {
     var d = new Dictionary<string, object> { ["n"] = v.Length, ["p50_ms"] = Math.Round(Pct(v, .5), 2), ["p95_ms"] = Math.Round(Pct(v, .95), 2), ["p99_ms"] = Math.Round(Pct(v, .99), 2), ["max_ms"] = Math.Round(v.Length == 0 ? 0 : v.Max(), 2) };
@@ -315,19 +350,24 @@ static Dictionary<string, object> Stats(double[] v, Dictionary<string, object>? 
     return d;
 }
 
-// Consumer: LISTEN as a wake hint; on connection loss reconnect, re-LISTEN, then catch up from per-GC cursors.
+// Consumer: LISTEN is only a wake hint. A hint (or a reconnect) queues a read of the log from the per-GC cursor; the log is the source of truth.
 sealed class Listener(string cs, NpgsqlDataSource ds, Dictionary<Guid, long>? startHeads)
 {
-    public ConcurrentDictionary<(Guid, long), byte> SeenNotify = new(), SeenCatchUp = new();
-    public ConcurrentDictionary<(Guid, long), double>? CommitAt; public Stopwatch? Clock;
-    public ConcurrentBag<double> KillTimes = new(), NotifyLatency = new();
-    public ConcurrentBag<double> ReconnectMs = new();
-    public long Received, Reconnects, GapJumps;
-    readonly Dictionary<Guid, long> _cursor = new(startHeads ?? new()); readonly object _lock = new();
-    readonly CancellationTokenSource _cts = new(); Task? _loop; double _lostAt;
+    public ConcurrentDictionary<(Guid, long), byte> Seen = new(); // 1 = read after a hint, 2 = read by reconnect catch-up
+    public ConcurrentBag<double> NotifyLatency = new(), ReconnectMs = new(), KillTimes = new();
+    public long Received, Reconnects, HintReads, CatchUpReads;
+    readonly Dictionary<Guid, long> _cursor = new(startHeads ?? new());
+    readonly System.Threading.Channels.Channel<Guid?> _work = System.Threading.Channels.Channel.CreateUnbounded<Guid?>(); // null = catch up everything
+    readonly CancellationTokenSource _cts = new(); Task? _conn, _reader; double _lostAt; public Stopwatch? Clock;
 
-    public async Task StartAsync() { var ready = new TaskCompletionSource(); _loop = Task.Run(() => Loop(ready)); await ready.Task; }
-    public async Task StopAsync() { _cts.Cancel(); try { await _loop!; } catch (OperationCanceledException) { } }
+    public async Task StartAsync()
+    {
+        if (startHeads == null)
+            await using (var cmd = ds.CreateCommand("SELECT gc_id, head_seq FROM gc"))
+            { await using var rd = await cmd.ExecuteReaderAsync(); while (await rd.ReadAsync()) _cursor[rd.GetGuid(0)] = rd.GetInt64(1); }
+        var ready = new TaskCompletionSource(); _conn = Task.Run(() => Loop(ready)); _reader = Task.Run(Reader); await ready.Task;
+    }
+    public async Task StopAsync() { await Task.Delay(300); _cts.Cancel(); try { await _conn!; await _reader!; } catch (OperationCanceledException) { } }
 
     async Task Loop(TaskCompletionSource ready)
     {
@@ -340,7 +380,7 @@ sealed class Listener(string cs, NpgsqlDataSource ds, Dictionary<Guid, long>? st
                 conn = new NpgsqlConnection(cs); await conn.OpenAsync(_cts.Token);
                 conn.Notification += (_, e) => OnNotify(e.Payload);
                 await using (var c = new NpgsqlCommand("LISTEN gc", conn)) await c.ExecuteNonQueryAsync(_cts.Token);
-                if (!first) { await CatchUp(); ReconnectMs.Add(Clock?.Elapsed.TotalMilliseconds - _lostAt ?? 0); Interlocked.Increment(ref Reconnects); }
+                if (!first) { _work.Writer.TryWrite(null); ReconnectMs.Add((Clock?.Elapsed.TotalMilliseconds ?? 0) - _lostAt); Interlocked.Increment(ref Reconnects); }
                 if (first) { first = false; ready.TrySetResult(); }
                 while (!_cts.IsCancellationRequested) await conn.WaitAsync(_cts.Token);
             }
@@ -355,34 +395,36 @@ sealed class Listener(string cs, NpgsqlDataSource ds, Dictionary<Guid, long>? st
         using var doc = JsonDocument.Parse(payload);
         var gc = doc.RootElement.GetProperty("gc").GetGuid(); long seq = doc.RootElement.GetProperty("seq").GetInt64();
         Interlocked.Increment(ref Received);
-        SeenNotify[(gc, seq)] = 1;
-        if (CommitAt != null && Clock != null && CommitAt.TryGetValue((gc, seq), out var t)) NotifyLatency.Add(Clock.Elapsed.TotalMilliseconds - t);
-        // Advance the cursor only over a contiguous seq; a jump means events were missed and is left to the read path.
-        lock (_lock)
+        bool ahead; lock (_cursor) ahead = _cursor.TryGetValue(gc, out var cur) && seq > cur; // untracked GCs are not this consumer's
+        if (ahead && Environment.GetEnvironmentVariable("S3_NOREAD") == null) _work.Writer.TryWrite(gc);
+    }
+
+    async Task Reader()
+    {
+        await foreach (var item in _work.Reader.ReadAllAsync(_cts.Token))
         {
-            long cur = _cursor.GetValueOrDefault(gc);
-            if (seq == cur + 1) _cursor[gc] = seq;
-            else if (seq > cur + 1) Interlocked.Increment(ref GapJumps);
+            if (item is { } gc) { await ReadFrom(gc, 1); continue; }
+            Guid[] gcs; lock (_cursor) gcs = _cursor.Keys.ToArray();
+            var heads = new Dictionary<Guid, long>();
+            await using (var cmd = ds.CreateCommand("SELECT gc_id, head_seq FROM gc WHERE gc_id = ANY($1)"))
+            { cmd.Parameters.AddWithValue(gcs); await using var rd = await cmd.ExecuteReaderAsync(); while (await rd.ReadAsync()) heads[rd.GetGuid(0)] = rd.GetInt64(1); }
+            foreach (var (g, head) in heads) { long cur; lock (_cursor) cur = _cursor[g]; if (head > cur) await ReadFrom(g, 2); }
         }
     }
 
-    // Catch-up reads from the log (the source of truth) for every GC whose head is past the cursor.
-    async Task CatchUp()
+    async Task ReadFrom(Guid gc, byte path)
     {
-        Guid[] gcs; lock (_lock) gcs = _cursor.Keys.ToArray();
-        var heads = new Dictionary<Guid, long>();
-        await using (var cmd = ds.CreateCommand("SELECT gc_id, head_seq FROM gc WHERE gc_id = ANY($1)"))
-        { cmd.Parameters.AddWithValue(gcs); await using var rd = await cmd.ExecuteReaderAsync(); while (await rd.ReadAsync()) heads[rd.GetGuid(0)] = rd.GetInt64(1); }
-        foreach (var (gc, head) in heads)
+        long cur; lock (_cursor) cur = _cursor[gc];
+        await using var cmd = ds.CreateCommand("SELECT seq, created_at FROM gc_event WHERE gc_id = $1 AND seq > $2 ORDER BY seq");
+        cmd.Parameters.AddWithValue(gc); cmd.Parameters.AddWithValue(cur);
+        await using var rd = await cmd.ExecuteReaderAsync();
+        long last = cur;
+        while (await rd.ReadAsync())
         {
-            long cur; lock (_lock) cur = _cursor[gc];
-            if (head <= cur) continue;
-            await using var cmd = ds.CreateCommand("SELECT seq FROM gc_event WHERE gc_id = $1 AND seq > $2 ORDER BY seq");
-            cmd.Parameters.AddWithValue(gc); cmd.Parameters.AddWithValue(cur);
-            await using var rd = await cmd.ExecuteReaderAsync();
-            long last = cur;
-            while (await rd.ReadAsync()) { long s = rd.GetInt64(0); SeenCatchUp[(gc, s)] = 1; last = s; }
-            lock (_lock) _cursor[gc] = Math.Max(_cursor[gc], last);
+            long s = rd.GetInt64(0); Seen[(gc, s)] = path; last = s;
+            if (path == 1) { NotifyLatency.Add((DateTime.UtcNow - rd.GetDateTime(1).ToUniversalTime()).TotalMilliseconds); Interlocked.Increment(ref HintReads); }
+            else Interlocked.Increment(ref CatchUpReads);
         }
+        lock (_cursor) _cursor[gc] = Math.Max(_cursor[gc], last);
     }
 }

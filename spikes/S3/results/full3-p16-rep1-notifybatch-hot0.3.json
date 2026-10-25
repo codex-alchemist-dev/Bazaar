@@ -1,0 +1,124 @@
+{
+  "db_size_mb": 991,
+  "gap_check_after_load": {
+    "gcs_with_gap_or_head_mismatch": 0
+  },
+  "hot_200_concurrent": {
+    "n": 200,
+    "p50_ms": 301.71,
+    "p95_ms": 463.53,
+    "p99_ms": 472.49,
+    "max_ms": 473.51,
+    "gap_free": true
+  },
+  "hotshare": 0.3,
+  "index_sizes_mb": 0,
+  "load": {
+    "n": 15000,
+    "p50_ms": 4.61,
+    "p95_ms": 7.12,
+    "p99_ms": 9.02,
+    "max_ms": 44.22,
+    "target_rate": 500,
+    "achieved_rate": 499.9,
+    "errors": 0,
+    "notifications_received": 13628,
+    "hint_reads": 15300,
+    "insert_to_consumer_read_ms": {
+      "n": 15300,
+      "p50_ms": 7.77,
+      "p95_ms": 11.52,
+      "p99_ms": 14.74,
+      "max_ms": 100.45
+    }
+  },
+  "notify": "batch",
+  "page200_first_page_of_901_gc": {
+    "n": 300,
+    "p50_ms": 2.23,
+    "p95_ms": 3.71,
+    "p99_ms": 4.76,
+    "max_ms": 8.71
+  },
+  "page200_latest_in_hot": {
+    "n": 300,
+    "p50_ms": 2.15,
+    "p95_ms": 4.12,
+    "p99_ms": 4.67,
+    "max_ms": 5.33
+  },
+  "page200_random_in_hot_100k": {
+    "n": 300,
+    "p50_ms": 2.49,
+    "p95_ms": 4.34,
+    "p99_ms": 7.42,
+    "max_ms": 51.74
+  },
+  "parts": 16,
+  "preload_events": 1000099,
+  "preload_s": 56.2,
+  "reconnect": {
+    "events_written": 9600,
+    "lost_after_catchup": 0,
+    "read_after_hint": 9522,
+    "read_by_reconnect_catchup": 78,
+    "listener_reconnects": 4,
+    "reconnect_ms": [
+      59.785100000000966,
+      58.31999999999971,
+      59.03729999999996,
+      56.563499999999294
+    ],
+    "notifications_received": 27795,
+    "writer_errors": 0,
+    "insert_to_consumer_read_ms": {
+      "n": 9522,
+      "p50_ms": 7.91,
+      "p95_ms": 10.91,
+      "p99_ms": 17.08,
+      "max_ms": 67.4
+    },
+    "append_latency_ms": {
+      "n": 9600,
+      "p50_ms": 4.01,
+      "p95_ms": 6.68,
+      "p99_ms": 13.13,
+      "max_ms": 54.55
+    }
+  },
+  "replay10k_paged_200": {
+    "n": 5,
+    "p50_ms": 120.79,
+    "p95_ms": 127.59,
+    "p99_ms": 127.59,
+    "max_ms": 127.59,
+    "contiguous": true,
+    "rows": 50000
+  },
+  "replay10k_single_stmt": {
+    "n": 5,
+    "p50_ms": 95.86,
+    "p95_ms": 101.05,
+    "p99_ms": 101.05,
+    "max_ms": 101.05,
+    "contiguous": true
+  },
+  "run": 3,
+  "saturation_32w": {
+    "n": 23620,
+    "p50_ms": 3.54,
+    "p95_ms": 108,
+    "p99_ms": 229.3,
+    "max_ms": 654.09,
+    "appends_per_s": 1568
+  },
+  "ts_query_pk_only": {
+    "n": 20,
+    "p50_ms": 19.71,
+    "p95_ms": 28.65,
+    "p99_ms": 36.05,
+    "max_ms": 36.05,
+    "plan": "Finalize Aggregate (actual time=7.742..10.203 rows=1.00 loops=1)\n  Buffers: shared hit=3175\n  -\u003E  Gather (actual time=7.564..10.196 rows=3.00 loops=1)\n        Workers Planned: 2\n        Workers Launched: 2\n        Buffers: shared hit=3175\n        -\u003E  Partial Aggregate (actual time=5.042..5.043 rows=1.00 loops=3)\n              Buffers: shared hit=3175\n              -\u003E  Parallel Seq Scan on gc_event_p13 gc_event (actual time=4.256..4.858 rows=3935.00 loops=3)\n                    Filter: ((gc_id = \u0027e057a2e4-f63a-0895-78a2-19c1c80ceb3c\u0027::uuid) AND (created_at \u003E (now() - \u002701:00:00\u0027::interval)))\n                    Rows Removed by Filter: 53445\n                    Buffers: shared hit=3175\nPlanning:\n  Buffers: shared hit=14\nPlanning Time: 0.149 ms\nExecution Time: 10.230 ms"
+  },
+  "tsindex": false
+}
