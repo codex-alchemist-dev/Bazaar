@@ -1,0 +1,15 @@
+RUN|run2|2026-10-25T06:35:47.9529475Z|Unix 6.18.44.153|.NET 11.0.0-rc.2.26504.105|X64|logical CPUs 4
+TIMING|Bash|first output ms 2.5|prompt ms after spawn returned 53.9|prompt seen=True
+TIMING|Sh|first output ms 1.4|prompt ms after spawn returned 50.2|prompt seen=True
+CHECK|Bash|SHELL_ECHO|PASS|prompt seen=True; output marker S11_RESULT_42 seen=True; tail: \e[?2004hbash-5.2# echo S11_RESULT_$((6*7))\r\n\e[?2004l\rS11_RESULT_42\r\n\e[?2004hbash-5.2# 
+CHECK|Bash|RESIZE|PASS|want 100x30 got 100x30; want 132x40 got 132x40
+CHECK|Bash|COLOUR|PASS|done=True; SGR31=True; SGR38;5;196=True; SGR38;2;255;0;0=True
+CHECK|Bash|CTRL_C|PASS|sleep running=True; sleep stopped on 0x03=True; sleep left running=0; shell alive after=True
+CHECK|Bash|SHUTDOWN|PASS|sleep running=True; shell alive before close=True; close(master) returned ok=True; shell exited within 5 s=True (exit status 1); orphan processes in session=0 (none)
+CHECK|Sh|SHELL_ECHO|PASS|prompt seen=True; output marker S11_RESULT_42 seen=True; tail: # echo S11_RESULT_$((6*7))\r\nS11_RESULT_42\r\n# 
+CHECK|Sh|RESIZE|PASS|want 100x30 got 100x30; want 132x40 got 132x40
+CHECK|Sh|COLOUR|PASS|done=True; SGR31=True; SGR38;5;196=True; SGR38;2;255;0;0=True
+CHECK|Sh|CTRL_C|PASS|sleep running=True; sleep stopped on 0x03=True; sleep left running=0; shell alive after=True
+CHECK|Sh|SHUTDOWN|PASS|sleep running=True; shell alive before close=True; close(master) returned ok=True; shell exited within 5 s=True (exit status 1); orphan processes in session=0 (none)
+SUMMARY|run2|checks 10|failed 0
+exit=0
