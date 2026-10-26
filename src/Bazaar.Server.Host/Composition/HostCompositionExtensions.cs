@@ -1,4 +1,3 @@
-using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Startup;
@@ -8,6 +7,7 @@ using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Host.Composition;
@@ -25,6 +25,8 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<HostState>();
         services.TryAddSingleton<HostExitCode>();
         services.TryAddSingleton<DatabaseConnection>();
+        // Module repositories take the shared data source; resolving it blocks once on the bootstrap secret read.
+        services.TryAddSingleton(sp => sp.GetRequiredService<DatabaseConnection>().GetAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
         services.TryAddSingleton<IInstanceLock, PostgresInstanceLock>();
         services.TryAddSingleton<ISchemaGate, MigrationSchemaGate>();
         services.AddSingleton<IReadinessCheck, DatabaseReadinessCheck>();
@@ -76,10 +78,14 @@ public static class HostCompositionExtensions
         return services;
     }
 
-    /// <summary>Wire codec (JSON, source-generated, behind <see cref="IWireCodec"/>).</summary>
-    public static IServiceCollection AddBazaarWire(this IServiceCollection services)
+    /// <summary>
+    /// Wire connection manager and codec, with a fail-closed authenticator until the Identity Service supplies the real one.
+    /// The socket endpoint (<c>UseBazaarWire</c>) is not mapped yet: it waits for authentication.
+    /// </summary>
+    public static IServiceCollection AddBazaarHostWire(this IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton<IWireCodec, JsonWireCodec>();
+        services.AddBazaarWire(configuration);
+        services.TryAddSingleton<IConnectionAuthenticator, DenyAllAuthenticator>();
         return services;
     }
 
