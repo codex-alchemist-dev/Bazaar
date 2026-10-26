@@ -9,7 +9,6 @@ namespace Bazaar.Server.Tests.Security.Approvals.Db;
 /// <summary>The runtime role (bazaar_app) can store and move approvals but cannot delete them (doc 15, migration 0011).</summary>
 public sealed class ApprovalRoleTests
 {
-    private const string _skipReason = "needs Postgres: run in CI or on the owner PC";
 
     private static readonly DateTimeOffset _t0 = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
 
@@ -21,7 +20,7 @@ public sealed class ApprovalRoleTests
         return (bool)(await cmd.ExecuteScalarAsync(Ct))!;
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Runtime_role_privileges_are_insert_select_and_update_but_not_delete()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -33,7 +32,7 @@ public sealed class ApprovalRoleTests
         Assert.False(await HasPrivilegeAsync(db.DataSource, "TRUNCATE"));
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Runtime_role_cannot_delete_an_approval_row()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);

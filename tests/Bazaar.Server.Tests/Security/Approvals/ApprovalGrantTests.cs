@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Policy;
-using DecisionOutcome = Bazaar.Server.Security.Approvals.ApprovalService.DecisionOutcome;
 using static Bazaar.Server.Tests.Security.Approvals.ApprovalTestData;
+using DecisionOutcome = Bazaar.Server.Security.Approvals.ApprovalService.DecisionOutcome;
 
 namespace Bazaar.Server.Tests.Security.Approvals;
 
@@ -42,27 +42,27 @@ public sealed class ApprovalGrantTests : IDisposable
                 return await RequestAsync(Context());
 
             case ApprovalStatus.Denied:
-            {
-                var request = await RequestAsync(Context());
-                var signature = Signing.Sign(_key, request.Id, ApprovalDecision.Deny, request.ArgsHash, request.ExpiresAt);
-                await _service.DecideAsync(request.Id, ApprovalDecision.Deny, Signing.DeviceId, signature, Now.AddMinutes(5), Ct);
-                return Present(await _store.GetAsync(request.Id, Ct));
-            }
+                {
+                    var request = await RequestAsync(Context());
+                    var signature = Signing.Sign(_key, request.Id, ApprovalDecision.Deny, request.ArgsHash, request.ExpiresAt);
+                    await _service.DecideAsync(request.Id, ApprovalDecision.Deny, Signing.DeviceId, signature, Now.AddMinutes(5), Ct);
+                    return Present(await _store.GetAsync(request.Id, Ct));
+                }
 
             case ApprovalStatus.Expired:
-            {
-                var request = await RequestAsync(Context());
-                var signature = Signing.Sign(_key, request.Id, ApprovalDecision.Approve, request.ArgsHash, request.ExpiresAt);
-                await _service.DecideAsync(request.Id, ApprovalDecision.Approve, Signing.DeviceId, signature, request.ExpiresAt, Ct);
-                return Present(await _store.GetAsync(request.Id, Ct));
-            }
+                {
+                    var request = await RequestAsync(Context());
+                    var signature = Signing.Sign(_key, request.Id, ApprovalDecision.Approve, request.ArgsHash, request.ExpiresAt);
+                    await _service.DecideAsync(request.Id, ApprovalDecision.Approve, Signing.DeviceId, signature, request.ExpiresAt, Ct);
+                    return Present(await _store.GetAsync(request.Id, Ct));
+                }
 
             case ApprovalStatus.Consumed:
-            {
-                var request = await ApproveAsync(Context());
-                await _service.ConsumeAsync(request.Id, Now.AddMinutes(10), Ct);
-                return Present(await _store.GetAsync(request.Id, Ct));
-            }
+                {
+                    var request = await ApproveAsync(Context());
+                    await _service.ConsumeAsync(request.Id, Now.AddMinutes(10), Ct);
+                    return Present(await _store.GetAsync(request.Id, Ct));
+                }
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(status), status, null);

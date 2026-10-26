@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Policy;
+using static Bazaar.Server.Tests.Security.Approvals.ApprovalTestData;
 using DecisionOutcome = Bazaar.Server.Security.Approvals.ApprovalService.DecisionOutcome;
 using RequestOutcome = Bazaar.Server.Security.Approvals.ApprovalService.RequestOutcome;
-using static Bazaar.Server.Tests.Security.Approvals.ApprovalTestData;
 
 namespace Bazaar.Server.Tests.Security.Approvals;
 

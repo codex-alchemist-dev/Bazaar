@@ -9,7 +9,6 @@ namespace Bazaar.Server.Tests.Security.Approvals.Db;
 /// <summary>PostgresApprovalStore against a real PostgreSQL: insert, read back, compare-and-set, and the table CHECKs (doc 15).</summary>
 public sealed class PostgresApprovalStoreTests
 {
-    private const string _skipReason = "needs Postgres: run in CI or on the owner PC";
 
     private static readonly DateTimeOffset _t0 = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
 
@@ -63,7 +62,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Equal(expected.ConsumedAt, actual.ConsumedAt);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Insert_then_get_round_trips_every_field()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -93,7 +92,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Equal(new TaintSource(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), ContentTrust.External, TaintState.Hard), read.TaintSources[0]);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Get_returns_null_for_an_unknown_id()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -102,7 +101,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Null(await store.GetAsync(Guid.NewGuid(), Ct));
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Pending_row_reads_back_with_empty_taint_and_no_decision()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -118,7 +117,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Null(read.Signature);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task TryReplace_returns_false_when_the_expected_status_is_stale()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -139,7 +138,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Equal(approved.Signature, read.Signature);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task TryReplace_returns_false_for_an_unknown_id()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -150,7 +149,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Null(await store.GetAsync(missing.Id, Ct));
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Concurrent_TryReplace_from_pending_has_exactly_one_winner()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -169,7 +168,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Equal(ApprovalStatus.Approved, read.Status);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Check_refuses_a_consumed_row_without_consumed_at()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -185,7 +184,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Equal(ApprovalStatus.Pending, (await store.GetAsync(pending.Id, Ct))!.Status);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Check_refuses_an_approved_row_without_a_signature()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
@@ -199,7 +198,7 @@ public sealed class PostgresApprovalStoreTests
         Assert.Equal("23514", ex.SqlState);
     }
 
-    [Fact(Skip = _skipReason)]
+    [Fact]
     public async Task Check_refuses_an_args_hash_that_is_not_32_bytes()
     {
         await using var db = await ApprovalTestDb.CreateAsync(Ct);

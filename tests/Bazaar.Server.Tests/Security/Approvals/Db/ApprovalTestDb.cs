@@ -60,7 +60,9 @@ internal sealed class ApprovalTestDb : IAsyncDisposable
     /// </summary>
     public NpgsqlDataSource AsRole(string role)
     {
-        var builder = new NpgsqlDataSourceBuilder(ConnectionString);
+        // Unpooled: a pooled connection can come back with its SET ROLE reset, so later queries would run as the
+        // superuser and skip the privilege checks this helper exists to test. Each physical open runs SET ROLE.
+        var builder = new NpgsqlDataSourceBuilder(new NpgsqlConnectionStringBuilder(ConnectionString) { Pooling = false }.ConnectionString);
         builder.UsePhysicalConnectionInitializer(
             conn => ExecSync(conn, $"SET ROLE {role}"),
             async conn => await ExecAsync(conn, $"SET ROLE {role}", CancellationToken.None).ConfigureAwait(false));
