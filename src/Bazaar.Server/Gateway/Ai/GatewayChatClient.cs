@@ -53,7 +53,7 @@ public sealed class GatewayChatClient : IChatClient
                     break;
 
                 case ModelEvent.ToolCallStart start:
-                    if (!pendingCalls.TryAdd(start.CallId, new PendingCall(start.Name)))
+                    if (!pendingCalls.TryAdd(start.CallId, new PendingCall(start.Name, start.ProviderData)))
                     {
                         throw ProtocolError($"Tool call '{start.CallId}' started twice.");
                     }
@@ -68,7 +68,9 @@ public sealed class GatewayChatClient : IChatClient
                     var call = FindPending(pendingCalls, end.CallId);
                     pendingCalls.Remove(end.CallId);
                     var arguments = GatewayChatMapping.ParseArguments(end.CallId, call.Arguments.ToString());
-                    yield return Update(new FunctionCallContent(end.CallId, call.Name, arguments));
+                    var functionCall = new FunctionCallContent(end.CallId, call.Name, arguments);
+                    GatewayChatMapping.SetProviderData(functionCall, call.ProviderData);
+                    yield return Update(functionCall);
                     break;
 
                 case ModelEvent.UsageReported usage:
@@ -155,7 +157,7 @@ public sealed class GatewayChatClient : IChatClient
 
     private static GatewayModelException ProtocolError(string message) => new("provider_error", message);
 
-    private sealed record PendingCall(string Name)
+    private sealed record PendingCall(string Name, string? ProviderData)
     {
         public StringBuilder Arguments { get; } = new();
     }

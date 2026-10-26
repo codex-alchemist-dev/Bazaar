@@ -16,6 +16,8 @@ builder.Services.AddBazaarSecrets();
 builder.Services.AddBazaarProviders(builder.Configuration);
 builder.Services.AddBazaarHostWire(builder.Configuration);
 builder.Services.AddBazaarAgentSafety();
+builder.Services.AddBazaarSettings();
+builder.Services.AddBazaarGateway();
 
 // Both integrations are no-ops unless the process runs under the matching service manager.
 builder.Services.AddWindowsService(options => options.ServiceName = "Bazaar.Server");

@@ -38,6 +38,6 @@ public static class ExitCheckServers
         }
 
         // Written by whoever merges the last prerequisite: build the host with PRH, migrate db, seed the GC and members.
-        throw new PendingPrerequisitesException([new Prerequisite("E2E", "wire ExitCheckServers.StartAsync to the PRH harness", false)]);
+        throw new PendingPrerequisitesException([new Prerequisite("E2E", "wire ExitCheckServers.StartAsync to the PRH harness once GLUE lands", false)]);
     }
 }
