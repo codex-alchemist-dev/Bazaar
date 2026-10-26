@@ -6,11 +6,11 @@ namespace Bazaar.Server.Tests.Gc.Members;
 
 public class ThinkingGcRulesTests
 {
-    private static readonly Guid WorkingId = Id(100);
-    private static readonly Guid ThinkingId = Id(101);
-    private static readonly Guid AgentA = Id(20);
-    private static readonly Guid AgentB = Id(21);
-    private static readonly Guid Human = Id(22);
+    private static Guid WorkingId => Id(100);
+    private static Guid ThinkingId => Id(101);
+    private static Guid AgentA => Id(20);
+    private static Guid AgentB => Id(21);
+    private static Guid Human => Id(22);
 
     private static Guid Id(int n) => new(n, 0, 0, new byte[8]);
 

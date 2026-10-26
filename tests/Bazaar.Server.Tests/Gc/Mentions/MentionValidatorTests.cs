@@ -4,11 +4,11 @@ namespace Bazaar.Server.Tests.Gc.Mentions;
 
 public class MentionValidatorTests
 {
-    private static readonly Guid Owner = Id(1);
-    private static readonly Guid Author = Id(2);
-    private static readonly Guid Ana = Id(3);
-    private static readonly Guid Bob = Id(4);
-    private static readonly Guid Cy = Id(5);
+    private static Guid Owner => Id(1);
+    private static Guid Author => Id(2);
+    private static Guid Ana => Id(3);
+    private static Guid Bob => Id(4);
+    private static Guid Cy => Id(5);
 
     private const string Body = "hi @Ana";
 

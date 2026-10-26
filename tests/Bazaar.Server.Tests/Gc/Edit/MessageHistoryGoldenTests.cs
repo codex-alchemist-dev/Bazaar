@@ -7,13 +7,13 @@ namespace Bazaar.Server.Tests.Gc.Edit;
 
 public class MessageHistoryGoldenTests
 {
-    private static readonly Guid GcId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid MessageId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    private static readonly Guid AuthorId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    private static readonly DateTimeOffset T0 = new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
+    private static Guid GcId => Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static Guid MessageId => Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static Guid AuthorId => Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static DateTimeOffset T0 => new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
 
     // Indented copy of GcJson.Options so the golden file can be reviewed by eye.
-    private static readonly JsonSerializerOptions IndentedOptions = new(GcJson.Options) { WriteIndented = true };
+    private static JsonSerializerOptions IndentedOptions => new(GcJson.Options) { WriteIndented = true };
 
     [Fact]
     public void Three_version_history_matches_the_golden_json()

@@ -30,8 +30,7 @@ public enum GcChecks
 /// </summary>
 internal sealed class GcSimulation
 {
-    private static readonly string[] Words =
-    [
+    private static string[] Words => [
         "ship", "it", "alpha", "beta", "review", "@ana", "later", "🙂",
     ];
 

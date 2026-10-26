@@ -15,8 +15,7 @@ internal static class GcPropertySeeds
     public const int OpsPerSequence = 300;
 
     /// <summary>Seeds that have caught bugs or cover edge shapes. Never remove one.</summary>
-    private static readonly ulong[] Regression =
-    [
+    private static ulong[] Regression => [
         1,
         2,
         3,

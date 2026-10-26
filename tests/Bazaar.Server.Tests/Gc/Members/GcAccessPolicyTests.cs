@@ -20,16 +20,16 @@ public class GcAccessPolicyTests
 
     private const long LeftSeq = 10;
 
-    private static readonly Guid OwnerId = Id(1);
-    private static readonly Guid MemberA = Id(2);
-    private static readonly Guid MemberB = Id(3);
-    private static readonly Guid Observer = Id(4);
-    private static readonly Guid Former = Id(5);
-    private static readonly Guid Outsider = Id(6);
-    private static readonly Guid OwningAgent = Id(7);
-    private static readonly Guid OtherAgent = Id(8);
-    private static readonly Guid GcId = Id(100);
-    private static readonly Guid ParentId = Id(200);
+    private static Guid OwnerId => Id(1);
+    private static Guid MemberA => Id(2);
+    private static Guid MemberB => Id(3);
+    private static Guid Observer => Id(4);
+    private static Guid Former => Id(5);
+    private static Guid Outsider => Id(6);
+    private static Guid OwningAgent => Id(7);
+    private static Guid OtherAgent => Id(8);
+    private static Guid GcId => Id(100);
+    private static Guid ParentId => Id(200);
 
     private static Guid Id(int n) => new(n, 0, 0, new byte[8]);
 

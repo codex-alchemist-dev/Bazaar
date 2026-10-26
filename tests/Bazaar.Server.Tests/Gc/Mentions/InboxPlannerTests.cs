@@ -5,12 +5,12 @@ namespace Bazaar.Server.Tests.Gc.Mentions;
 
 public class InboxPlannerTests
 {
-    private static readonly Guid GcId = Id(100);
-    private static readonly Guid Author = Id(2);
-    private static readonly Guid Ana = Id(3);
-    private static readonly Guid Bob = Id(4);
+    private static Guid GcId => Id(100);
+    private static Guid Author => Id(2);
+    private static Guid Ana => Id(3);
+    private static Guid Bob => Id(4);
 
-    private static readonly GcRecord Gc = new(GcId, null, "general", null);
+    private static GcRecord Gc => new(GcId, null, "general", null);
 
     private static Guid Id(int n) => new(n, 0, 0, new byte[8]);
 

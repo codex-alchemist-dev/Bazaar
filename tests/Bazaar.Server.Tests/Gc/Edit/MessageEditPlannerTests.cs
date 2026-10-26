@@ -6,11 +6,11 @@ namespace Bazaar.Server.Tests.Gc.Edit;
 
 public class MessageEditPlannerTests
 {
-    private static readonly Guid GcId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid MessageId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    private static readonly Guid AuthorId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    private static readonly Guid OtherId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    private static readonly DateTimeOffset CreatedAt = new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
+    private static Guid GcId => Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static Guid MessageId => Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static Guid AuthorId => Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static Guid OtherId => Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static DateTimeOffset CreatedAt => new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
 
     private static GcRecord LiveGc() => new(GcId, null, "general", null);
 

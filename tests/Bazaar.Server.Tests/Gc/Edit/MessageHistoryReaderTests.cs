@@ -6,16 +6,16 @@ namespace Bazaar.Server.Tests.Gc.Edit;
 
 public class MessageHistoryReaderTests
 {
-    private static readonly Guid GcId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid MessageId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    private static readonly Guid OtherMessageId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-    private static readonly Guid OtherGcId = Guid.Parse("66666666-6666-6666-6666-666666666666");
-    private static readonly Guid AuthorId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    private static readonly DateTimeOffset T0 = new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
+    private static Guid GcId => Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static Guid MessageId => Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static Guid OtherMessageId => Guid.Parse("55555555-5555-5555-5555-555555555555");
+    private static Guid OtherGcId => Guid.Parse("66666666-6666-6666-6666-666666666666");
+    private static Guid AuthorId => Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static DateTimeOffset T0 => new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
 
-    private static readonly GcViewer Reader = new(AuthorId, PrincipalKind.Human);
-    private static readonly Func<GcViewer, bool> CanRead = _ => true;
-    private static readonly Func<GcViewer, bool> CannotRead = _ => false;
+    private static GcViewer Reader => new(AuthorId, PrincipalKind.Human);
+    private static Func<GcViewer, bool> CanRead => _ => true;
+    private static Func<GcViewer, bool> CannotRead => _ => false;
 
     private static MessageVersionRecord Version(int version, long seq, string body = "text")
     {

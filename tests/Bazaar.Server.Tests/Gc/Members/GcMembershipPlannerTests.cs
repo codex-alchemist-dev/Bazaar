@@ -7,23 +7,23 @@ namespace Bazaar.Server.Tests.Gc.Members;
 
 public class GcMembershipPlannerTests
 {
-    private static readonly Guid OwnerId = Id(1);
-    private static readonly Guid MemberA = Id(2);
-    private static readonly Guid Observer = Id(4);
-    private static readonly Guid Former = Id(5);
-    private static readonly Guid Outsider = Id(6);
-    private static readonly Guid NewPrincipal = Id(9);
-    private static readonly Guid GcId = Id(100);
-    private static readonly DateTimeOffset Now = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
+    private static Guid OwnerId => Id(1);
+    private static Guid MemberA => Id(2);
+    private static Guid Observer => Id(4);
+    private static Guid Former => Id(5);
+    private static Guid Outsider => Id(6);
+    private static Guid NewPrincipal => Id(9);
+    private static Guid GcId => Id(100);
+    private static DateTimeOffset Now => new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
 
     private const long HeadSeq = 15;
     private const long FormerLeftSeq = 10;
 
-    private static readonly GcViewer Owner = new(OwnerId, PrincipalKind.Owner);
-    private static readonly GcViewer Member = new(MemberA, PrincipalKind.Human);
-    private static readonly GcViewer ObserverViewer = new(Observer, PrincipalKind.Human);
-    private static readonly GcViewer FormerViewer = new(Former, PrincipalKind.Human);
-    private static readonly GcViewer OutsiderViewer = new(Outsider, PrincipalKind.Human);
+    private static GcViewer Owner => new(OwnerId, PrincipalKind.Owner);
+    private static GcViewer Member => new(MemberA, PrincipalKind.Human);
+    private static GcViewer ObserverViewer => new(Observer, PrincipalKind.Human);
+    private static GcViewer FormerViewer => new(Former, PrincipalKind.Human);
+    private static GcViewer OutsiderViewer => new(Outsider, PrincipalKind.Human);
 
     private static Guid Id(int n) => new(n, 0, 0, new byte[8]);
 
