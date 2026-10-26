@@ -170,6 +170,18 @@ public class GcMembershipPlannerTests
     // Remove member
 
     [Fact]
+    public void Removed_member_is_not_current_after_the_leave_row_is_applied()
+    {
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, MemberA, HeadSeq);
+        var applied = GeneralMembers().Append(result.Member!).ToList();
+
+        var current = GcAccessPolicy.CurrentRow(General(), applied, MemberA);
+        Assert.NotNull(current);
+        Assert.False(GcAccessPolicy.IsActive(current));
+        Assert.Equal(HeadSeq + 1, GcAccessPolicy.ReadableUpToSeq(General(), applied, Member, new HashSet<Guid>()));
+    }
+
+    [Fact]
     public void Member_removes_themselves_and_LeftSeq_is_head_plus_one()
     {
         var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, MemberA, HeadSeq);

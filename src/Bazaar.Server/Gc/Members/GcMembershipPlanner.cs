@@ -107,7 +107,8 @@ public static class GcMembershipPlanner
             return GcPlanResult.Refused(GcPlanRefusal.NotPermitted);
         }
 
-        var left = row with { LeftSeq = headSeq + 1 };
+        // The leave is a new state row keyed by its own seq (gc_member key is (gc_id, principal_id, joined_seq)).
+        var left = row with { JoinedSeq = headSeq + 1, LeftSeq = headSeq + 1 };
         return GcPlanResult.Ok(null, left, SystemEvent(gc, actor, Payload("member_removed", actor, targetPrincipalId, row.Role)));
     }
 
