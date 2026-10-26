@@ -21,7 +21,7 @@ public static partial class ApprovalSignature
     public const int SignatureLength = 64;
 
     /// <summary>Allowed device id: letters, digits, dot, underscore and hyphen, 1 to 128 characters.</summary>
-    public const string DeviceIdPattern = "^[A-Za-z0-9._-]{1,128}$";
+    public const string DeviceIdPattern = @"^[A-Za-z0-9._-]{1,128}\z";
 
     [GeneratedRegex(DeviceIdPattern, RegexOptions.CultureInvariant)]
     private static partial Regex DeviceIdRegex();

@@ -161,7 +161,7 @@ public sealed class ApprovalServiceTests : IDisposable
         Assert.Null(stored.DecidedBy);
     }
 
-    [Fact(Skip = "BUG: a valid approve after expiry returns Conflict, not Expired; the Expired row falls through to the same-decision check.")]
+    [Fact]
     public async Task Valid_approve_after_expiry_still_returns_expired()
     {
         var request = await PendingAsync();

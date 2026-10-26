@@ -100,7 +100,7 @@ public sealed class ApprovalSignatureTests : IDisposable
             ApprovalSignature.Message(_approvalId, ApprovalDecision.Approve, _hash, _expiresAt, deviceId));
     }
 
-    [Fact(Skip = "BUG: IsValidDeviceId accepts a trailing newline because the regex '$' matches before a final newline; use \\z in DeviceIdPattern.")]
+    [Fact]
     public void Device_id_with_trailing_newline_is_rejected()
     {
         Assert.False(ApprovalSignature.IsValidDeviceId("device-1\n"));

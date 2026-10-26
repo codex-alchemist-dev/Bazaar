@@ -141,6 +141,11 @@ public sealed class ApprovalService(
             return new DecisionResult(DecisionOutcome.Expired, expired);
         }
 
+        if (request.Status == ApprovalStatus.Expired)
+        {
+            return new DecisionResult(DecisionOutcome.Expired, request);
+        }
+
         var key = await _keys.FindAsync(deviceId, ct).ConfigureAwait(false);
         if (key is null || key.Revoked)
         {
