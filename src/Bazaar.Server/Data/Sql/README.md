@@ -15,6 +15,7 @@ ones). One owner per number; never reuse or renumber a number, and never edit an
 | `0006` | JOB1 | taken | Jobs |
 | `0007` | search | PR #73 | FTS `search_document` |
 | `0008` | G1b | this PR | `entry_ref`, `read_state`, `consumer_cursor`, `gc_access_request`, `person_key` and `erase_person_key`, `embedding_profile`; `gc_member` becomes insert-only with key `(gc_id, principal_id, joined_seq)` |
+| `0010` | AR1 | this PR | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
 | `0009+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
