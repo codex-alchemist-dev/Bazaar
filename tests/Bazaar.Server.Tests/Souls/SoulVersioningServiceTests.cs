@@ -8,8 +8,8 @@ namespace Bazaar.Server.Tests.Souls;
 /// <summary>Soul version chain against real PostgreSQL (docs/design/07-soul-system.md, Testing).</summary>
 public sealed class SoulVersioningServiceTests(SoulDb db) : IClassFixture<SoulDb>
 {
-    private const string _charterA = "1111111111111111111111111111111111111111111111111111111111111111";
-    private const string _charterB = "2222222222222222222222222222222222222222222222222222222222222222";
+    private static readonly string _charterA = Sha256Hex("charter-a");
+    private static readonly string _charterB = Sha256Hex("charter-b");
     private static readonly int[] _threeVersions = [1, 2, 3];
     private const string _prefs = "{\"tone\":\"dry\",\"verbosity\":2}";
 
@@ -18,8 +18,8 @@ public sealed class SoulVersioningServiceTests(SoulDb db) : IClassFixture<SoulDb
 
     private SoulVersioningService Service() => new(db.DataSource);
 
-    private static SoulVersionAppend Append(Guid soulId, int expected, string charter = _charterA, string prefs = _prefs, string reason = "test") =>
-        new(soulId, expected, charter, prefs, "owner:dom", reason);
+    private static SoulVersionAppend Append(Guid soulId, int expected, string? charter = null, string prefs = _prefs, string reason = "test") =>
+        new(soulId, expected, charter ?? _charterA, prefs, "owner:dom", reason);
 
     [Fact]
     public async Task Appending_at_expected_zero_creates_version_one_without_a_parent()
@@ -204,19 +204,32 @@ public sealed class SoulVersioningServiceTests(SoulDb db) : IClassFixture<SoulDb
         Assert.Null(await service.GetAsync(soulId, 2, TestContext.Current.CancellationToken));
     }
 
-    [Theory]
-    [InlineData("short")]
-    [InlineData("ABCDEF0000000000000000000000000000000000000000000000000000000000")]
-    public async Task A_charter_hash_that_is_not_lowercase_sha256_is_refused_before_any_write(string charter)
+    [Fact]
+    public async Task A_charter_hash_that_is_not_sha256_is_refused_before_any_write()
     {
         SkipWithoutDatabase();
         var soulId = Guid.NewGuid();
         var service = Service();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => service.AppendAsync(Append(soulId, 0, charter: charter), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.AppendAsync(Append(soulId, 0, charter: "short"), TestContext.Current.CancellationToken));
 
         Assert.Equal(0, await service.GetHeadAsync(soulId, TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task An_uppercase_charter_hash_is_refused_before_any_write()
+    {
+        SkipWithoutDatabase();
+        var soulId = Guid.NewGuid();
+        var service = Service();
+        var upper = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData("charter-upper"u8));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.AppendAsync(Append(soulId, 0, charter: upper), TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, await service.GetHeadAsync(soulId, TestContext.Current.CancellationToken));
+    }
+
+    private static string Sha256Hex(string label) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(label)));
 
     [Fact]
     public async Task A_blank_reason_or_author_is_refused()
