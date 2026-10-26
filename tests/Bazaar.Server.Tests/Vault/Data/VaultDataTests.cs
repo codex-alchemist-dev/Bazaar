@@ -26,9 +26,9 @@ public sealed class VaultDb : PgFixture, IAsyncLifetime
 public sealed class VaultDataTests(VaultDb db) : IClassFixture<VaultDb>
 {
     private static readonly DateTimeOffset _t0 = new(2026, 10, 26, 6, 0, 0, TimeSpan.Zero);
-    private const string CommitA = "1111111111111111111111111111111111111111";
-    private const string CommitB = "2222222222222222222222222222222222222222";
-    private const string CommitC = "3333333333333333333333333333333333333333";
+    private const string _commitA = "1111111111111111111111111111111111111111";
+    private const string _commitB = "2222222222222222222222222222222222222222";
+    private const string _commitC = "3333333333333333333333333333333333333333";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -295,20 +295,20 @@ public sealed class VaultDataTests(VaultDb db) : IClassFixture<VaultDb>
         SkipWithoutDatabase();
         var commits = new VaultCommitRepository(db.DataSource);
         var vault = Guid.NewGuid();
-        var root = new VaultCommitRecord(vault, CommitA, [], "agent-a", _t0, ["refs/heads/main"], ["Plan.md"], null, null);
-        var merge = new VaultCommitRecord(vault, CommitC, [CommitA, CommitB], "agent-b", _t0.AddMinutes(5), [], ["Plan.md"],
+        var root = new VaultCommitRecord(vault, _commitA, [], "agent-a", _t0, ["refs/heads/main"], ["Plan.md"], null, null);
+        var merge = new VaultCommitRecord(vault, _commitC, [_commitA, _commitB], "agent-b", _t0.AddMinutes(5), [], ["Plan.md"],
             Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal(2, await commits.InsertAsync([root, merge], Ct));
         Assert.Equal(0, await commits.InsertAsync([root], Ct));
 
-        var stored = await commits.GetAsync(vault, CommitC, Ct);
+        var stored = await commits.GetAsync(vault, _commitC, Ct);
         Assert.NotNull(stored);
-        Assert.Equal([CommitA, CommitB], stored.Parents);
+        Assert.Equal([_commitA, _commitB], stored.Parents);
         Assert.NotNull(stored.GcId);
-        Assert.Equal(CommitC, (await commits.ListRecentAsync(vault, 1, Ct)).Single().Sha);
-        Assert.True(await ScalarAsync<bool>("SELECT is_merge FROM vault_commit WHERE vault_id = $1 AND sha = $2", vault, CommitC));
-        Assert.False(await ScalarAsync<bool>("SELECT is_merge FROM vault_commit WHERE vault_id = $1 AND sha = $2", vault, CommitA));
+        Assert.Equal(_commitC, (await commits.ListRecentAsync(vault, 1, Ct)).Single().Sha);
+        Assert.True(await ScalarAsync<bool>("SELECT is_merge FROM vault_commit WHERE vault_id = $1 AND sha = $2", vault, _commitC));
+        Assert.False(await ScalarAsync<bool>("SELECT is_merge FROM vault_commit WHERE vault_id = $1 AND sha = $2", vault, _commitA));
     }
     [Fact]
     public async Task Commit_with_a_wrong_merge_flag_is_rejected()
@@ -321,9 +321,9 @@ public sealed class VaultDataTests(VaultDb db) : IClassFixture<VaultDb>
                 VALUES ($1, $2, ARRAY[$3, $4]::char(40)[], 'x', now(), false)
                 """);
             cmd.Parameters.AddWithValue(Guid.NewGuid());
-            cmd.Parameters.AddWithValue(CommitC);
-            cmd.Parameters.AddWithValue(CommitA);
-            cmd.Parameters.AddWithValue(CommitB);
+            cmd.Parameters.AddWithValue(_commitC);
+            cmd.Parameters.AddWithValue(_commitA);
+            cmd.Parameters.AddWithValue(_commitB);
             await cmd.ExecuteNonQueryAsync(Ct);
         });
         Assert.Equal("23514", error.SqlState);
@@ -337,11 +337,11 @@ public sealed class VaultDataTests(VaultDb db) : IClassFixture<VaultDb>
         var vault = Guid.NewGuid();
 
         Assert.Null(await state.GetIndexedCommitAsync(vault, Ct));
-        Assert.True(await state.TryAdvanceAsync(vault, null, CommitA, Ct));
-        Assert.False(await state.TryAdvanceAsync(vault, null, CommitB, Ct));
-        Assert.False(await state.TryAdvanceAsync(vault, CommitB, CommitC, Ct));
-        Assert.True(await state.TryAdvanceAsync(vault, CommitA, CommitB, Ct));
-        Assert.Equal(CommitB, await state.GetIndexedCommitAsync(vault, Ct));
+        Assert.True(await state.TryAdvanceAsync(vault, null, _commitA, Ct));
+        Assert.False(await state.TryAdvanceAsync(vault, null, _commitB, Ct));
+        Assert.False(await state.TryAdvanceAsync(vault, _commitB, _commitC, Ct));
+        Assert.True(await state.TryAdvanceAsync(vault, _commitA, _commitB, Ct));
+        Assert.Equal(_commitB, await state.GetIndexedCommitAsync(vault, Ct));
     }
 
     [Fact]

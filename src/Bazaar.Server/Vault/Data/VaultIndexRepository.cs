@@ -144,14 +144,14 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
 
     public async Task<VaultDocRecord?> GetDocumentAsync(Guid docId, CancellationToken cancellationToken = default)
     {
-        await using var cmd = dataSource.CreateCommand(DocSelect + " WHERE doc_id = $1");
+        await using var cmd = dataSource.CreateCommand(_docSelect + " WHERE doc_id = $1");
         cmd.Parameters.AddWithValue(docId);
         return await ReadSingleDocAsync(cmd, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<VaultDocRecord?> GetDocumentByPathAsync(Guid vaultId, string path, CancellationToken cancellationToken = default)
     {
-        await using var cmd = dataSource.CreateCommand(DocSelect + " WHERE vault_id = $1 AND path = $2");
+        await using var cmd = dataSource.CreateCommand(_docSelect + " WHERE vault_id = $1 AND path = $2");
         cmd.Parameters.AddWithValue(vaultId);
         cmd.Parameters.AddWithValue(path);
         return await ReadSingleDocAsync(cmd, cancellationToken).ConfigureAwait(false);
@@ -193,7 +193,7 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
     /// <summary>Unresolved links in one Vault, so a later pass can try to resolve them.</summary>
     public async Task<IReadOnlyList<VaultLinkRecord>> GetUnresolvedLinksAsync(Guid vaultId, CancellationToken cancellationToken = default)
     {
-        await using var cmd = dataSource.CreateCommand(LinkSelect + """
+        await using var cmd = dataSource.CreateCommand(_linkSelect + """
              JOIN vault_docs d ON d.doc_id = l.src_doc
             WHERE d.vault_id = $1 AND l.target_doc IS NULL
             ORDER BY l.src_doc, l.src_ordinal, l.link_ord
@@ -202,19 +202,19 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
         return await ReadLinkRowsAsync(cmd, cancellationToken).ConfigureAwait(false);
     }
 
-    private const string DocSelect = """
+    private const string _docSelect = """
         SELECT doc_id, vault_id, path, title, type, project, area, owner, frontmatter::text, head_commit, updated_at
         FROM vault_docs
         """;
 
-    private const string LinkSelect = """
+    private const string _linkSelect = """
         SELECT l.src_doc, l.src_ordinal, l.link_ord, l.kind, l.target_raw, l.target_doc, l.target_anchor, l.alias
         FROM vault_links l
         """;
 
     private async Task<IReadOnlyList<VaultLinkRecord>> ReadLinksAsync(string where, Guid docId, CancellationToken cancellationToken)
     {
-        await using var cmd = dataSource.CreateCommand(LinkSelect + " " + where
+        await using var cmd = dataSource.CreateCommand(_linkSelect + " " + where
             + " ORDER BY l.src_doc, l.src_ordinal, l.link_ord");
         cmd.Parameters.AddWithValue(docId);
         return await ReadLinkRowsAsync(cmd, cancellationToken).ConfigureAwait(false);

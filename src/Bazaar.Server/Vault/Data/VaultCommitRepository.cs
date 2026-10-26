@@ -50,7 +50,7 @@ public sealed class VaultCommitRepository(NpgsqlDataSource dataSource)
 
     public async Task<VaultCommitRecord?> GetAsync(Guid vaultId, string sha, CancellationToken cancellationToken = default)
     {
-        await using var cmd = dataSource.CreateCommand(CommitSelect + " WHERE vault_id = $1 AND sha = $2");
+        await using var cmd = dataSource.CreateCommand(_commitSelect + " WHERE vault_id = $1 AND sha = $2");
         cmd.Parameters.AddWithValue(vaultId);
         cmd.Parameters.AddWithValue(sha);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -61,7 +61,7 @@ public sealed class VaultCommitRepository(NpgsqlDataSource dataSource)
     public async Task<IReadOnlyList<VaultCommitRecord>> ListRecentAsync(Guid vaultId, int limit, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
-        await using var cmd = dataSource.CreateCommand(CommitSelect + " WHERE vault_id = $1 ORDER BY committed_at DESC, sha DESC LIMIT $2");
+        await using var cmd = dataSource.CreateCommand(_commitSelect + " WHERE vault_id = $1 ORDER BY committed_at DESC, sha DESC LIMIT $2");
         cmd.Parameters.AddWithValue(vaultId);
         cmd.Parameters.AddWithValue(limit);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -74,7 +74,7 @@ public sealed class VaultCommitRepository(NpgsqlDataSource dataSource)
         return commits;
     }
 
-    private const string CommitSelect = """
+    private const string _commitSelect = """
         SELECT vault_id, sha, parents::text[], author, committed_at, refs, touched_paths, gc_id, task_id
         FROM vault_commit
         """;
