@@ -1,0 +1,14 @@
+data: {"id":"chatcmpl-8e4","object":"chat.completion.chunk","created":1761350800,"model":"served-reasoning-model","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"The user asks about "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-8e4","object":"chat.completion.chunk","created":1761350800,"model":"served-reasoning-model","choices":[{"index":0,"delta":{"reasoning_content":"the units first."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-8e4","object":"chat.completion.chunk","created":1761350800,"model":"served-reasoning-model","choices":[{"index":0,"delta":{"content":"It is "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-8e4","object":"chat.completion.chunk","created":1761350800,"model":"served-reasoning-model","choices":[{"index":0,"delta":{"content":"21 degrees."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-8e4","object":"chat.completion.chunk","created":1761350800,"model":"served-reasoning-model","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: {"id":"chatcmpl-8e4","object":"chat.completion.chunk","created":1761350800,"model":"served-reasoning-model","choices":[],"usage":{"prompt_tokens":1200,"completion_tokens":310,"total_tokens":1510,"prompt_tokens_details":{"cached_tokens":1024},"completion_tokens_details":{"reasoning_tokens":280}}}
+
+data: [DONE]
+

@@ -1,0 +1,1 @@
+{"version":1,"minor":0,"codec":"json","principalId":"0196a6f0-0000-7000-8000-000000000002","serverTime":"2026-10-25T05:36:00+00:00","heartbeatIntervalS":20,"heartbeatTimeoutS":60,"limits":{"maxFrameBytes":262144,"inflightRequestsMax":32,"replayPageSize":200},"capabilities":["resync"],"uiRevision":7}
