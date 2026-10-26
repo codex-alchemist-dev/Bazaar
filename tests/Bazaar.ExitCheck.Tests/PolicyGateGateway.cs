@@ -34,17 +34,17 @@ public sealed class PolicyGateGateway(RouteResolver resolver, FakeProvider provi
     public const string PolicyDeniedCode = "policy_denied";
 }
 
-/// <summary>In-memory policy and directory rows for the exit check: one agent that may use <c>fake/small</c> but not <c>fake/large</c>.</summary>
+/// <summary>In-memory policy and directory rows for the exit check: one agent that may use <c>fake:small</c> but not <c>fake:large</c>.</summary>
 public sealed class ExitCheckPolicyWorld : IAgentPolicyStore, IGatewayDirectory
 {
     /// <summary>The agent the exit check runs as.</summary>
     public const string AgentId = "charles";
 
     /// <summary>Allowed model.</summary>
-    public const string AllowedModel = "fake/small";
+    public const string AllowedModel = "fake:small";
 
     /// <summary>Exists, is healthy and is a real model, but is not on the agent's whitelist.</summary>
-    public const string DeniedModel = "fake/large";
+    public const string DeniedModel = "fake:large";
 
     private readonly AgentModelPolicy _policy = AgentModelPolicy.Create(AgentId, [AllowedModel], AllowedModel, 1);
     private readonly GwProvider _provider = new("fake", "first_party", "openai_chat", "https://example.invalid/v1", "api_key", "secret://bazaar/providers/fake/key", "{}", null, null, true);
