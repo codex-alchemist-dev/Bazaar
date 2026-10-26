@@ -1,6 +1,7 @@
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Hosting;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Configuration;
@@ -15,22 +16,40 @@ public sealed class CompositionTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(config ?? []).Build();
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarSecrets();
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarAgentSafety();
+        services.AddBazaarSettings();
+        services.AddBazaarGateway();
         return services.BuildServiceProvider(validateScopes: true);
     }
 
     [Fact]
     public async Task Core_services_resolve()
     {
-        await using var sp = Build();
-        Assert.IsType<JsonWireCodec>(sp.GetRequiredService<IWireCodec>());
-        Assert.NotNull(sp.GetRequiredService<ProviderCapabilityReport>());
-        Assert.NotNull(sp.GetRequiredService<IInstanceLock>());
-        Assert.Equal(3, sp.GetServices<IReadinessCheck>().Count());
+        const string envName = "BAZAAR_HOST_COMPOSITION_TEST_DB";
+        Environment.SetEnvironmentVariable(envName, "Host=localhost;Database=unused");
+        try
+        {
+            await using var sp = Build(new()
+            {
+                ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
+                ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + envName,
+            });
+            Assert.IsType<JsonWireCodec>(sp.GetRequiredService<IWireCodec>());
+            Assert.NotNull(sp.GetRequiredService<ProviderCapabilityReport>());
+            Assert.NotNull(sp.GetRequiredService<IInstanceLock>());
+            Assert.Equal(3, sp.GetServices<IReadinessCheck>().Count());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.Gateway.IModelGateway>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.Settings.ISettingStore>());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envName, null);
+        }
     }
 
     [Fact]
