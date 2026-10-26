@@ -1,0 +1,3 @@
+X-Routed-Via: google/gemini-2.5-flash
+X-Fallback-Attempts: 3
+X-Fallback-Trail: groq/llama-3.3-70b key1=rate_limited; openrouter/mistral-large-2411 key4=provider_error; google/gemini-2.5-flash key2=timeout
