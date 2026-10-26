@@ -1,0 +1,8 @@
+data: {"id":"chatcmpl-ft2","object":"chat.completion.chunk","created":1761350400,"model":"gemini-2.5-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"Fall"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-ft2","object":"chat.completion.chunk","created":1761350400,"model":"gemini-2.5-flash","choices":[{"index":0,"delta":{"content":"back"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-ft2","object":"chat.completion.chunk","created":1761350400,"model":"gemini-2.5-flash","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+
