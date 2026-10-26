@@ -25,6 +25,16 @@ public sealed record WireReply
     /// <summary>A successful reply; the payload is encoded with <paramref name="codec"/>.</summary>
     public static WireReply Ok<T>(IWireCodec codec, T payload) => Ok(codec.EncodePayload(payload));
 
+    /// <summary>
+    /// Runs after the reply is queued, so events the action queues (a subscription's replay) follow the response on the wire.
+    /// Null for replies that need nothing after them.
+    /// </summary>
+    public Func<Task>? AfterReply { get; private init; }
+
+    /// <summary>A successful reply whose <paramref name="afterReply"/> runs once the response is queued.</summary>
+    public static WireReply OkThen<T>(IWireCodec codec, T payload, Func<Task> afterReply) =>
+        new() { IsOk = true, Payload = codec.EncodePayload(payload), AfterReply = afterReply };
+
     /// <summary>A failed reply. <paramref name="code"/> is one of <see cref="WireErrorCodes"/>.</summary>
     public static WireReply Fail(string code, string? message = null, int? retryAfterMs = null) =>
         new() { Error = new WireError(code, message, retryAfterMs) };
@@ -72,6 +82,9 @@ public interface IWireConnection
 
     /// <summary>Cursors the client sent in <c>hello</c>, or empty.</summary>
     IReadOnlyList<StreamCursor> HelloCursors { get; }
+
+    /// <summary>This connection's subscriptions, created after <c>hello</c>; null when no subscription engine is registered.</summary>
+    Sync.SubscriptionSession? Subscriptions { get; }
 
     /// <summary>Cancelled when the connection ends.</summary>
     CancellationToken Closed { get; }
