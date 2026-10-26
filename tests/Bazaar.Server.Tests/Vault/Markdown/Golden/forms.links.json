@@ -1,0 +1,11 @@
+[
+  { "kind": "Link", "target": "projects/x/Plan", "anchorKind": "None", "anchor": null, "alias": null, "start": 15, "length": 19 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": null, "start": 43, "length": 16 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": "the auth doc", "start": 68, "length": 29 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "Heading", "anchor": "Token flow", "alias": null, "start": 108, "length": 27 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "Block", "anchor": "a1b2c3", "alias": null, "start": 144, "length": 24 },
+  { "kind": "Link", "target": "", "anchorKind": "Heading", "anchor": "Token flow", "alias": null, "start": 185, "length": 15 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "Heading", "anchor": "Token flow", "alias": "alias", "start": 208, "length": 33 },
+  { "kind": "Embed", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": null, "start": 250, "length": 17 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "Heading", "anchor": "Token flow", "alias": "the alias", "start": 277, "length": 43 }
+]

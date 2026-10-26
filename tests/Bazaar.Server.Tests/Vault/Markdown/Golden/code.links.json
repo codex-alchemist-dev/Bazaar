@@ -1,0 +1,4 @@
+[
+  { "kind": "Link", "target": "Real link", "anchorKind": "None", "anchor": null, "alias": null, "start": 47, "length": 13 },
+  { "kind": "Link", "target": "After", "anchorKind": "None", "anchor": null, "alias": null, "start": 212, "length": 9 }
+]
