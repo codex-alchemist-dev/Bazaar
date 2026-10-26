@@ -210,11 +210,11 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
         var output = new StringWriter();
         var ct = TestContext.Current.CancellationToken;
 
-        Assert.Equal(0, await MigrateCommand.RunAsync(db.ConnectionString, Source(_basic), "linux", output, ct));
+        Assert.Equal(0, await MigrateCommand.RunAsync(db.ConnectionString, Source(_basic), "linux", output, ct: ct));
         Assert.Contains("done: 2 applied", output.ToString(), StringComparison.Ordinal);
 
         var tampered = Source(Common(1, "one", "CREATE TABLE t_one (id bigint)"), _basic[1]);
-        Assert.Equal(1, await MigrateCommand.RunAsync(db.ConnectionString, tampered, "linux", output, ct));
+        Assert.Equal(1, await MigrateCommand.RunAsync(db.ConnectionString, tampered, "linux", output, ct: ct));
         Assert.Contains("migrate refused", output.ToString(), StringComparison.Ordinal);
     }
 

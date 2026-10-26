@@ -37,8 +37,8 @@ The relational store for Bazaar.Server, limited to conventions, the group-chat (
 **[PROPOSED] GC append, one transaction.**
 1. `UPDATE gc SET head_seq = head_seq + 1 WHERE gc_id = $1 RETURNING head_seq`. `head_seq` is the last assigned seq (doc 01), so the returned value is the seq this write takes. The row lock serialises writers per GC; a rollback also rolls back the counter, so there are no gaps.
 2. `INSERT gc_event`, the authoritative row, carrying its provenance. A new message also inserts `gc_message` and its first `gc_message_version`. An edit inserts a `message_edit` event (carrying the editor's provenance) and a new `gc_message_version`.
-3. `SELECT pg_notify('gc', '{"gc_id":…,"seq":…}')`.
-4. Commit. The notification is delivered only on commit.
+3. Commit.
+4. After commit, hand `{"gc":…,"seq":…}` to the coalescing notifier, which sends `pg_notify('gc', …)` for the newest seq per GC in one transaction every few milliseconds (spike S3: `pg_notify` inside the append transaction gave unstable tails). Nothing is sent for a rolled-back append. Consumers treat it as a hint (see NOTIFY limits).
 
 ## Data and interfaces
 Conventions: UUIDv7 ids (native `uuidv7()` in PG 18); `timestamptz` in UTC; singular table names; enums are `text` with CHECK; JSONB only for opaque payloads (anything filtered on gets a column); RESTRICT foreign keys, no cascades on log tables. Any column that can hold personal data is stored as `(key_id, ciphertext, nonce)`, never as plaintext.
@@ -48,7 +48,7 @@ Conventions: UUIDv7 ids (native `uuidv7()` in PG 18); `timestamptz` in UTC; sing
 | Table | Shape | Notes |
 |---|---|---|
 | `gc` | `gc_id, parent_gc_id, type_id, name, head_seq` | `head_seq` is the last assigned seq (doc 01). `type_id` references the GC type registry in doc 01. A DM is a GC with two members. |
-| `gc_member` | `gc_id, principal_id, joined_seq, left_seq` | Keyed by `principal_id`; humans are principals. Principal identity is owned by doc 14. |
+| `gc_member` | `gc_id, principal_id, role, joined_seq, left_seq` | Insert-only, pk `(gc_id, principal_id, joined_seq)`; current row = highest `joined_seq` (view `gc_member_current`). Keyed by `principal_id`; humans are principals. Principal identity is owned by doc 14. |
 | `gc_event` | `gc_id, seq, kind, source_trust, tainted_at_write, taint_sources, derived_from, actor_id, message_id, payload, created_at`; PK `(gc_id, seq)` | Hash-partitioned. **Provenance placement (doc 01):** every provenance column lives on the event row, for every kind. `source_trust` uses doc 15's enum (owner, system, agent, member-human, external, quarantined). `tainted_at_write` is boolean (C20). `taint_sources` and `derived_from` are jsonb arrays of source event ids (matching `Bazaar.Contracts` `GcEvent`). A version's provenance is the event that wrote it. Insert-only for the runtime role, plus a trigger that raises on UPDATE and DELETE. |
 | `gc_event_kind` | `kind` PK, `description` | Seed rows: `message`, `message_edit`, `system`, `structured` (task and PR state, written by the doc 12 task service), `external_mail` (doc 22; `source_trust = external`; replaces the earlier `external-mail`), `quarantine`, `handover` (doc 15), `council.open`, `council.reveal`, `council.transition`, `council.decision` (doc 10). Other docs add rows, not code. See Question 3. |
 | `gc_message` | `message_id, gc_id, seq, author_id` | Insert-only. No current-version column: the highest `gc_message_version` is current. |
