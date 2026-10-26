@@ -11,6 +11,9 @@ public class GatewayChatClientTests
 {
     private const string _route = "custom/charles";
 
+    /// <summary>Where the adapter keeps a tool call's provider token on the function call.</summary>
+    private const string _providerDataKey = "bazaar.provider_data";
+
     private static readonly ChatMessage[] _hello = [new ChatMessage(ChatRole.User, "hello")];
 
     private static (GatewayChatClient Client, RecordingGateway Gateway, FakeProvider Provider) Create()
@@ -107,6 +110,73 @@ public class GatewayChatClientTests
         Assert.Equal(["second", "first"], calls.Select(c => c.Name));
         Assert.Equal(2, ((JsonElement)calls[0].Arguments!["n"]!).GetInt32());
         Assert.Equal(1, ((JsonElement)calls[1].Arguments!["n"]!).GetInt32());
+    }
+
+    [Fact]
+    public async Task Provider_data_from_the_tool_call_start_is_carried_on_the_function_call()
+    {
+        var (client, _, provider) = Create();
+        provider.EnqueueCall(
+            new ScriptStep.Emit(new ModelEvent.ToolCallStart("call_0", "get_weather", ProviderData: "c2lnLWFiYw==")),
+            new ScriptStep.Emit(new ModelEvent.ToolCallArgsDelta("call_0", "{\"city\":\"Paris\"}")),
+            new ScriptStep.Emit(new ModelEvent.ToolCallEnd("call_0")),
+            new ScriptStep.Emit(new ModelEvent.Done(StopReason.ToolUse, "m")));
+
+        var updates = await Stream(client.GetStreamingResponseAsync(_hello, cancellationToken: TestContext.Current.CancellationToken));
+
+        var call = Assert.IsType<FunctionCallContent>(Assert.Single(updates.SelectMany(u => u.Contents)));
+        Assert.Equal("c2lnLWFiYw==", call.AdditionalProperties![_providerDataKey]);
+    }
+
+    [Fact]
+    public async Task Provider_data_round_trips_from_a_streamed_tool_call_into_the_next_request()
+    {
+        var (client, gateway, provider) = Create();
+        provider.EnqueueCall(
+            new ScriptStep.Emit(new ModelEvent.ToolCallStart("call_0", "get_weather", ProviderData: "c2lnLWFiYw==")),
+            new ScriptStep.Emit(new ModelEvent.ToolCallArgsDelta("call_0", "{\"city\":\"Paris\"}")),
+            new ScriptStep.Emit(new ModelEvent.ToolCallEnd("call_0")),
+            new ScriptStep.Emit(new ModelEvent.Done(StopReason.ToolUse, "m")));
+        provider.EnqueueCall(new ScriptStep.Emit(new ModelEvent.Done(StopReason.EndTurn, "m")));
+        var token = TestContext.Current.CancellationToken;
+
+        var first = await Stream(client.GetStreamingResponseAsync(_hello, cancellationToken: token));
+        var call = Assert.IsType<FunctionCallContent>(Assert.Single(first.SelectMany(u => u.Contents)));
+        var history = new List<ChatMessage>
+        {
+            new(ChatRole.User, "hello"),
+            new(ChatRole.Assistant, [call]),
+            new(ChatRole.Tool, [new FunctionResultContent("call_0", "sunny")]),
+        };
+        await Stream(client.GetStreamingResponseAsync(history, cancellationToken: token));
+
+        var sent = Assert.Single(gateway.Requests.Skip(1));
+        var assistant = Assert.Single(sent.Messages, m => m.ToolCalls is not null);
+        var roundTripped = Assert.Single(assistant.ToolCalls!);
+        Assert.Equal("c2lnLWFiYw==", roundTripped.ProviderData);
+        Assert.Equal("call_0", roundTripped.Id);
+        Assert.Equal("get_weather", roundTripped.Name);
+    }
+
+    [Fact]
+    public async Task Tool_call_without_provider_data_sends_no_provider_data_back()
+    {
+        var (client, gateway, provider) = Create();
+        provider.EnqueueCall(
+            new ScriptStep.Emit(new ModelEvent.ToolCallStart("call-1", "get_weather")),
+            new ScriptStep.Emit(new ModelEvent.ToolCallEnd("call-1")),
+            new ScriptStep.Emit(new ModelEvent.Done(StopReason.ToolUse, "m")));
+        provider.EnqueueCall(new ScriptStep.Emit(new ModelEvent.Done(StopReason.EndTurn, "m")));
+        var token = TestContext.Current.CancellationToken;
+
+        var first = await Stream(client.GetStreamingResponseAsync(_hello, cancellationToken: token));
+        var call = Assert.IsType<FunctionCallContent>(Assert.Single(first.SelectMany(u => u.Contents)));
+        Assert.False(call.AdditionalProperties?.ContainsKey(_providerDataKey) ?? false);
+
+        await Stream(client.GetStreamingResponseAsync([new ChatMessage(ChatRole.Assistant, [call])], cancellationToken: token));
+
+        var roundTripped = Assert.Single(Assert.Single(gateway.Requests.Skip(1)).Messages.Single().ToolCalls!);
+        Assert.Null(roundTripped.ProviderData);
     }
 
     [Fact]

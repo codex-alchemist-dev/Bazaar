@@ -23,4 +23,14 @@ public static class GcLogServiceCollectionExtensions
         services.AddSingleton<GcTail>();
         return services;
     }
+
+    /// <summary>
+    /// Registers the Postgres-backed viewer rules (<see cref="GcReadAccess"/>) as the <see cref="IGcReadAccess"/> the reader
+    /// asks before every read. Call it with <see cref="AddGcLog"/>; the reader resolves nothing without it.
+    /// </summary>
+    public static IServiceCollection AddGcReadAccess(this IServiceCollection services)
+    {
+        services.AddSingleton<IGcReadAccess, GcReadAccess>();
+        return services;
+    }
 }

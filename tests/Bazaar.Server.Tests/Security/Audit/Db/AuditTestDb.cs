@@ -42,6 +42,8 @@ internal sealed class AuditTestDb : IAsyncDisposable
         var db = new AuditTestDb(name, source.AdminConnectionString, connectionString, dataSource);
         try
         {
+            // Roles are cluster-wide and other test databases migrate at the same time: tolerate a role that already exists.
+            await PgRoles.EnsureNoLoginRoleAsync(dataSource, "bazaar_app", ct).ConfigureAwait(false);
             await new MigrationRunner(dataSource).MigrateAsync(
                 new EmbeddedMigrationSource(typeof(PostgresAuditLog).Assembly), MigrateCommand.CurrentProvider(), ct).ConfigureAwait(false);
         }

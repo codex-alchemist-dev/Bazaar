@@ -39,6 +39,7 @@ public sealed class OpenAiChatAdapter : IModelAdapter
             yield break;
         }
 
+        endpoint.OnResponseHeaders?.Invoke(response.Headers);
         if (!response.IsSuccessStatusCode)
         {
             yield return await FailureFromStatusAsync(response, ct);
