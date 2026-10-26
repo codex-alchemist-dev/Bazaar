@@ -8,13 +8,13 @@ public static class MigrateCommand
     /// <summary>The provider folder for this OS: <c>windows</c> or <c>linux</c>.</summary>
     public static string CurrentProvider() => OperatingSystem.IsWindows() ? "windows" : "linux";
 
-    /// <summary>Runs the migrations and writes a plain summary. Returns 0 on success, 1 when a migration was refused or failed.</summary>
-    public static async Task<int> RunAsync(string connectionString, IMigrationSource source, string provider, TextWriter output, CancellationToken ct = default)
+    /// <summary>Runs the migrations and writes a plain summary. <paramref name="options"/> carries <c>gc.partition_count</c> (default 16). Returns 0 on success, 1 when a migration was refused or failed.</summary>
+    public static async Task<int> RunAsync(string connectionString, IMigrationSource source, string provider, TextWriter output, MigrationOptions? options = null, CancellationToken ct = default)
     {
         await using var dataSource = NpgsqlDataSource.Create(connectionString);
         try
         {
-            var result = await new MigrationRunner(dataSource).MigrateAsync(source, provider, ct).ConfigureAwait(false);
+            var result = await new MigrationRunner(dataSource, options).MigrateAsync(source, provider, ct).ConfigureAwait(false);
             foreach (var m in result.Applied)
                 await output.WriteLineAsync($"applied {m.Provider}/{m.Version:D4}_{m.Name}", ct).ConfigureAwait(false);
             await output.WriteLineAsync($"done: {result.Applied.Count} applied, {result.AlreadyApplied} already applied", ct).ConfigureAwait(false);
