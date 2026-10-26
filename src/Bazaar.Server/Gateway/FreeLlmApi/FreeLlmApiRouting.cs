@@ -23,7 +23,7 @@ public sealed record FreeLlmApiRouting(
     public const string AttemptsHeader = "X-Fallback-Attempts";
     public const string TrailHeader = "X-Fallback-Trail";
 
-    private static readonly Regex HopPattern = new(
+    private static readonly Regex _hopPattern = new(
         @"^(?<platform>[^/\s]+)/(?<model>\S+)(?:\s+(?<key>\S+?)=(?<reason>.+))?$",
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 
@@ -49,7 +49,7 @@ public sealed record FreeLlmApiRouting(
                     continue;
                 }
 
-                var match = HopPattern.Match(entry);
+                var match = _hopPattern.Match(entry);
                 if (!match.Success)
                 {
                     malformed = true;
