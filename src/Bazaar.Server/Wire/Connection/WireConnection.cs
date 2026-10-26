@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Threading.Channels;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Wire.Connection;
@@ -30,6 +31,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private readonly IReadOnlyDictionary<string, IWireRequestHandler> _handlers;
     private readonly TimeProvider _time;
     private readonly ILogger _log;
+    private readonly SubscriptionEngine? _subscriptions;
 
     // _cts stops this connection's own work (heartbeat, requests). _abort is the only token a pending receive sees:
     // cancelling a WebSocket receive aborts the socket, so it fires only to give up on a peer that will not finish the close handshake.
@@ -64,9 +66,11 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         IdempotentRequestExecutor idempotency,
         IReadOnlyDictionary<string, IWireRequestHandler> handlers,
         TimeProvider time,
-        ILogger log)
+        ILogger log,
+        SubscriptionEngine? subscriptions = null)
     {
         _socket = socket;
+        _subscriptions = subscriptions;
         _headerCredential = headerCredential;
         _options = options;
         _codecs = codecs;
@@ -94,6 +98,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     public IReadOnlyList<StreamCursor> HelloCursors { get; private set; } = [];
 
     public CancellationToken Closed => _cts.Token;
+
+    /// <inheritdoc />
+    public SubscriptionSession? Subscriptions { get; private set; }
 
     public bool TryEnqueueEvent(Envelope envelope)
     {
@@ -190,6 +197,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         finally
         {
             _registry.Remove(this);
+            Subscriptions?.Dispose();
             _outbound.Writer.TryComplete();
             await DrainAsync(sender).ConfigureAwait(false);
             await FinalCloseAsync(receive).ConfigureAwait(false);
@@ -285,6 +293,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             await evicted.CloseAsync(1008, "superseded by a newer socket").ConfigureAwait(false);
         }
 
+        // The codec is final now, so the subscription frames it writes match what the client negotiated.
+        Subscriptions = _subscriptions?.CreateSession(Principal.Id, _codec, new EventOutbound(this));
+
         var welcome = new Welcome(
             _version, _serverMinor, _codec.Name, Principal.Id, _time.GetUtcNow(), _options.HeartbeatIntervalS,
             _options.HeartbeatTimeoutS, Limits(), _options.Capabilities.ToArray(), 0, null, null);
@@ -366,6 +377,11 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             {
                 var reply = await _idempotency.ExecuteAsync(DeviceId, request.Id, token => RunHandlerAsync(request, token), _cts.Token).ConfigureAwait(false);
                 Reply(request, reply);
+                if (reply.IsOk && reply.AfterReply is { } afterReply)
+                {
+                    // Fire and forget: a subscription replays on its own tasks, and its failures are logged there.
+                    _ = RunAfterReplyAsync(afterReply);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -454,6 +470,43 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private static Memory<byte> MemoryMarshalAsMemory(ArrayBufferWriter<byte> writer) => writer.WrittenMemory.ToArray();
 
     // ---------------------------------------------------------------- send
+
+    private async Task RunAfterReplyAsync(Func<Task> afterReply)
+    {
+        try
+        {
+            await afterReply().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The connection closed while the subscription started; nothing is owed to a closed socket.
+        }
+        catch (Exception ex)
+        {
+            LogHandlerFailed(_log, ex, "after-reply");
+        }
+    }
+
+    /// <summary>Adapts the connection's event queue to the subscription engine's <see cref="IConnectionOutbound"/>.</summary>
+    private sealed class EventOutbound(WireConnection connection) : IConnectionOutbound
+    {
+        private static readonly TimeSpan _roomPoll = TimeSpan.FromMilliseconds(5);
+
+        public bool TryEnqueue(in Envelope envelope) => connection.TryEnqueueEvent(envelope);
+
+        public async ValueTask EnqueueAsync(Envelope envelope, CancellationToken ct)
+        {
+            // Replay waits for room in the queue; live delivery never reaches here (it uses TryEnqueue).
+            while (!connection.TryEnqueueEvent(envelope))
+            {
+                if (connection._closing || connection.Closed.IsCancellationRequested)
+                    throw new OperationCanceledException("The connection closed before replay could be queued.");
+                await Task.Delay(_roomPoll, ct).ConfigureAwait(false);
+            }
+        }
+
+        public void EnqueueControl(Envelope envelope) => connection.Enqueue(envelope);
+    }
 
     private void Reply(Envelope request, WireReply reply)
     {

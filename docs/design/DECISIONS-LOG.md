@@ -158,3 +158,13 @@ Entries come from the Consequence sections of the merged spike docs in `docs/spi
 ## Status after round 14
 
 All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the definition of "bigger changes" that need the owner's vote (C32); confirmation of Claude's reading of C18 (reader/actor split as the autonomy mechanism); the C10 restore policy (sequence floor plus recovery entry, doc 33) is PROPOSED, not confirmed; erasure for personal data inside Markdown Vault files and git history (consequence of C38); Windows KEK custody vs recovery on new hardware (doc 33 C1). Reconciliation of the 36 docs, the deep-dive docs and CLAUDE.md with this log is the next step.
+
+## GLUE: wire-to-log mapping (2026-10-26, implementation decision, owner may revisit)
+
+- **`n` is the message's first event seq** (`gc_message.first_seq`), not every `gc_event` row. The wire streams messages only, so non-message events do not appear as `n` values and clients see gaps in `n`, which the protocol allows.
+- **`ev` is the seq of the event that wrote the current message version.** This replaces the separate `ev` counter that doc 02 proposed as Q1. It stays gap-free and ordered per GC, because seq is. Edits take an `ev` and no `n`, as doc 02 requires. Owner may still prefer a separate counter; this is the simplest mapping that is consistent with the log.
+- **Head values:** `LatestN` is the highest message `first_seq`; `LatestEv` is the highest message event seq (both from indexed lookups, no full scan).
+- **Body codec seam:** `IGcBodyCodec`. `PlaintextGcBodyCodec` is an INTERIM codec that stores UTF-8 unencrypted under the all-zero key id. It must be replaced by the per-person key codec (doc 04 Q2, doc 14) before any real personal data is written.
+- **Former members** lose the live stream entirely (only a full grant opens a stream). Replay to the leave seq is still available through the log reader. Stricter than doc 02's wording; owner to confirm.
+- **Principal kind on the wire path:** `IGcAccessPolicy` receives only a principal id, so the owner shortcut does not apply to subscriptions. The owner must be a member or approved until doc 14 supplies kinds.
+- **Open for owner:** does the owner read every GC by default on the wire (doc 01 says yes), and how is the owner identified in a session?
