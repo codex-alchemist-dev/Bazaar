@@ -20,13 +20,13 @@ public static class ExitCheckLedger
     public static IReadOnlyList<Prerequisite> ServerSide { get; } =
     [
         new("G1", "migration 0001: gc, gc_event, gc_message, gc_message_version, per-GC counters", false),
-        new("G2", "GC append: gap-free n and ev inside the write transaction", false),
-        new("G3", "GC read paths: pages after (n, ev), history", false),
+        new("G2", "GC append: gap-free n and ev inside the write transaction", true),
+        new("G3", "GC read paths: pages after (n, ev), history", true),
         new("HOST1", "composed host that serves the socket on a test port", false),
         new("W3", "connection manager: upgrade, hello/welcome, authenticator hook", false),
-        new("W4", "subscription engine: replay paging, splice, resync", false),
-        new("W5", "dispatcher: LISTEN to sockets, bounded queue, lagged", false),
-        new("W6", "idempotent request layer for gc.send", false),
+        new("W4", "subscription engine: replay paging, splice, resync", true),
+        new("W5", "dispatcher: LISTEN to sockets, bounded queue, lagged", true),
+        new("W6", "idempotent request layer for gc.send", true),
         new("PRH", "protocol harness: in-process Kestrel with a fake authenticator", false),
     ];
 
