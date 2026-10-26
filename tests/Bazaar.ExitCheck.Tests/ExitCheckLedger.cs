@@ -28,7 +28,7 @@ public static class ExitCheckLedger
         new("W5", "dispatcher: LISTEN to sockets, bounded queue, lagged", true),
         new("W6", "idempotent request layer for gc.send", true),
         new("PRH", "protocol harness: in-process Kestrel with a fake authenticator", true),
-        new("GLUE", "subscribe, gc.send and gc.history handlers; IGcStreamSource, IGcAccessPolicy and IGcNotificationSource over the G2/G3 log; SubscriptionSession attached to WireConnection", false),
+        new("GLUE", "subscribe, gc.send and gc.history handlers; IGcStreamSource, IGcAccessPolicy and IGcNotificationSource over the G2/G3 log; SubscriptionSession attached to WireConnection", true),
     ];
 
     /// <summary>The prerequisites not yet merged.</summary>
