@@ -5,9 +5,9 @@ namespace Bazaar.Server.Tests.Vault.Links;
 
 public sealed class VaultLinkResolverTests
 {
-    private static readonly Func<VaultIndexEntry, bool> AllVisible = _ => true;
+    private static readonly Func<VaultIndexEntry, bool> _allVisible = _ => true;
 
-    private static readonly VaultIndexEntry Source = Entry("projects/a/Source.md", "Source", project: "a");
+    private static readonly VaultIndexEntry _source = Entry("projects/a/Source.md", "Source", project: "a");
 
     [Fact]
     public void Path_match_strips_md_from_the_entry_path()
@@ -208,7 +208,7 @@ public sealed class VaultLinkResolverTests
         var result = Resolve(Link(string.Empty), [], VaultAmbiguousLinkPolicy.Refuse);
 
         Assert.True(result.Resolved);
-        Assert.Same(Source, result.Target);
+        Assert.Same(_source, result.Target);
         Assert.True(result.AnchorFound);
     }
 
@@ -317,12 +317,12 @@ public sealed class VaultLinkResolverTests
     public void Null_arguments_throw_argument_null_exception()
     {
         var link = Link("Plan");
-        var index = new[] { Source };
+        var index = new[] { _source };
 
-        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(null!, Source, index, AllVisible, VaultAmbiguousLinkPolicy.Warn));
-        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(link, null!, index, AllVisible, VaultAmbiguousLinkPolicy.Warn));
-        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(link, Source, null!, AllVisible, VaultAmbiguousLinkPolicy.Warn));
-        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(link, Source, index, null!, VaultAmbiguousLinkPolicy.Warn));
+        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(null!, _source, index, _allVisible, VaultAmbiguousLinkPolicy.Warn));
+        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(link, null!, index, _allVisible, VaultAmbiguousLinkPolicy.Warn));
+        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(link, _source, null!, _allVisible, VaultAmbiguousLinkPolicy.Warn));
+        Assert.Throws<ArgumentNullException>(() => VaultLinkResolver.Resolve(link, _source, index, null!, VaultAmbiguousLinkPolicy.Warn));
     }
 
     [Fact]
@@ -332,7 +332,7 @@ public sealed class VaultLinkResolverTests
         var result = Resolve(Link(""), [odd]);
 
         Assert.True(result.Resolved);
-        Assert.Same(Source, result.Target);
+        Assert.Same(_source, result.Target);
     }
 
     private static WikiLink Link(string target, WikiLinkAnchorKind anchorKind = WikiLinkAnchorKind.None, string? anchor = null) =>
@@ -353,7 +353,7 @@ public sealed class VaultLinkResolverTests
         VaultAmbiguousLinkPolicy policy = VaultAmbiguousLinkPolicy.Warn,
         Func<VaultIndexEntry, bool>? canRead = null,
         VaultIndexEntry? source = null) =>
-        VaultLinkResolver.Resolve(link, source ?? Source, index, canRead ?? AllVisible, policy);
+        VaultLinkResolver.Resolve(link, source ?? _source, index, canRead ?? _allVisible, policy);
 
     private static string[] Paths(IEnumerable<VaultIndexEntry> entries) =>
         entries.Select(e => e.Path).ToArray();

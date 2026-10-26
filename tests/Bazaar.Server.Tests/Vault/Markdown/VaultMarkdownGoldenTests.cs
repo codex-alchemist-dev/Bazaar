@@ -7,7 +7,7 @@ namespace Bazaar.Server.Tests.Vault.Markdown;
 /// <summary>Compares the links found in each golden document with its hand-written <c>.links.json</c>.</summary>
 public class VaultMarkdownGoldenTests
 {
-    private static readonly JsonSerializerOptions Options = new()
+    private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
         Converters = { new JsonStringEnumConverter() },
@@ -19,12 +19,13 @@ public class VaultMarkdownGoldenTests
     {
         // File.ReadAllText keeps the CRLF bytes of crlf.md, so offsets are checked against the real file.
         var source = File.ReadAllText(GoldenFixtures.Document(name));
-        var expected = JsonSerializer.Deserialize<List<WikiLink>>(File.ReadAllText(GoldenFixtures.ExpectedLinks(name)), Options);
+        var expected = JsonSerializer.Deserialize<List<WikiLink>>(File.ReadAllText(GoldenFixtures.ExpectedLinks(name)), _options);
 
         var document = VaultMarkdown.Parse(source);
 
         Assert.Equal(source, document.Source);
-        Assert.Null(document.FrontMatter);
+        var hasFrontMatter = FrontMatterSplitter.Split(source).Yaml is not null;
+        Assert.Equal(hasFrontMatter, document.FrontMatter is not null);
         Assert.Equal(expected, document.Links);
     }
 

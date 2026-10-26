@@ -8,7 +8,7 @@ namespace Bazaar.Server.Vault.Links;
 /// </summary>
 public static class VaultLinkResolver
 {
-    private const string MarkdownExtension = ".md";
+    private const string _markdownExtension = ".md";
 
     public static LinkResolution Resolve(
         WikiLink link,
@@ -126,7 +126,7 @@ public static class VaultLinkResolver
     }
 
     private static string StripMarkdownExtension(string path) =>
-        path.EndsWith(MarkdownExtension, StringComparison.Ordinal)
-            ? path[..^MarkdownExtension.Length]
+        path.EndsWith(_markdownExtension, StringComparison.Ordinal)
+            ? path[..^_markdownExtension.Length]
             : path;
 }
