@@ -1,0 +1,347 @@
+{
+  "cases": [
+    {
+      "name": "email-in-sentence",
+      "input": "Ask alice@example.com about it.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["alice@example.com"],
+      "expected": "Ask [email] about it."
+    },
+    {
+      "name": "email-at-start",
+      "input": "bob.jones+ops@example.org wrote the fix.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["bob.jones+ops@example.org"],
+      "expected": "[email] wrote the fix."
+    },
+    {
+      "name": "email-at-end-with-period",
+      "input": "Write to carol@example.net.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["carol@example.net"],
+      "expected": "Write to [email]."
+    },
+    {
+      "name": "email-two-in-line",
+      "input": "cc dan@example.com and erin@example.com now",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["dan@example.com", "erin@example.com"],
+      "expected": "cc [email] and [email] now"
+    },
+    {
+      "name": "token-anthropic-key",
+      "input": "Key was {{anthropic}}",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{anthropic}}"],
+      "expected": "Key was [secret]"
+    },
+    {
+      "name": "token-openai-style-sk",
+      "input": "The old key {{openai}} is dead.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{openai}}"],
+      "expected": "The old key [secret] is dead."
+    },
+    {
+      "name": "token-github-classic-ghp",
+      "input": "push with {{github}} now",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{github}}"],
+      "expected": "push with [secret] now"
+    },
+    {
+      "name": "token-github-fine-grained-pat",
+      "input": "Use {{githubPat}} for CI.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{githubPat}}"],
+      "expected": "Use [secret] for CI."
+    },
+    {
+      "name": "token-aws-access-key",
+      "input": "aws key {{aws}} rotated.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{aws}}"],
+      "expected": "aws key [secret] rotated."
+    },
+    {
+      "name": "token-slack-bot",
+      "input": "Slack token {{slack}} works.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{slack}}"],
+      "expected": "Slack token [secret] works."
+    },
+    {
+      "name": "token-google-api-key",
+      "input": "Maps key {{google}} was pasted.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{google}}"],
+      "expected": "Maps key [secret] was pasted."
+    },
+    {
+      "name": "token-jwt",
+      "input": "session jwt {{jwt}} expired.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{jwt}}"],
+      "expected": "session jwt [secret] expired."
+    },
+    {
+      "name": "private-key-openssh-block",
+      "input": "Here is the blob:\n{{pemOpenOpenssh}}\nb3BlbnNzaC1rZXktdjEAAAAA\n{{pemCloseOpenssh}}\nThat's all.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["b3BlbnNzaC1rZXktdjEAAAAA"],
+      "expected": "Here is the blob:\n[secret]\nThat's all."
+    },
+    {
+      "name": "private-key-rsa-inline",
+      "input": "Pasted this: {{pemOpenRsa}}\nMIIEpAIBAAKCAQEA\n{{pemCloseRsa}} and moved on.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["MIIEpAIBAAKCAQEA"],
+      "expected": "Pasted this: [secret] and moved on."
+    },
+    {
+      "name": "bearer-in-header",
+      "input": "Authorization: Bearer {{bearerA}} sent.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{bearerA}}"],
+      "expected": "Authorization: [secret] sent."
+    },
+    {
+      "name": "bearer-lowercase",
+      "input": "curl with bearer zyxwvutsrq9876 failed.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["zyxwvutsrq9876"],
+      "expected": "curl with [secret] failed."
+    },
+    {
+      "name": "kv-password-equals",
+      "input": "the db password={{pwA}} was wrong",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{pwA}}"],
+      "expected": "the db [secret] was wrong"
+    },
+    {
+      "name": "kv-token-colon",
+      "input": "Set token: {{tokenA}} works",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{tokenA}}"],
+      "expected": "Set [secret] works"
+    },
+    {
+      "name": "kv-api-key-hyphen-colon",
+      "input": "The api-key: {{apiKeyA}} is used by the bot.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{apiKeyA}}"],
+      "expected": "The [secret] is used by the bot."
+    },
+    {
+      "name": "kv-secret-uppercase-equals",
+      "input": "SECRET=opensesame77 leaked into logs.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["opensesame77"],
+      "expected": "[secret] leaked into logs."
+    },
+    {
+      "name": "kv-access-key-underscore",
+      "input": "access_key={{accessKeyA}} rotated yesterday.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["{{accessKeyA}}"],
+      "expected": "[secret] rotated yesterday."
+    },
+    {
+      "name": "kv-pwd-colon",
+      "input": "The shared pwd: letmein42 was reused.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["letmein42"],
+      "expected": "The shared [secret] was reused."
+    },
+    {
+      "name": "url-userinfo-git",
+      "input": "clone https://bob:{{pwB}}@git.example.com/repo.git now",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["bob:{{pwB}}"],
+      "expected": "clone https://[secret]@git.example.com/repo.git now"
+    },
+    {
+      "name": "url-userinfo-database",
+      "input": "postgres://app:{{pwC}}@db.internal:5432/bazaar",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["app:{{pwC}}"],
+      "expected": "postgres://[secret]@db.internal:5432/bazaar"
+    },
+    {
+      "name": "quote-single-line",
+      "input": "They said:\n> old text from the review\nI agree with the fix.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["old text from the review"],
+      "expected": "They said:\n[quoted text removed]\nI agree with the fix."
+    },
+    {
+      "name": "quote-multi-line-indented",
+      "input": "Reply below.\n  > line one of the quote\n  > line two of the quote\nMy answer follows.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["line one of the quote", "line two of the quote"],
+      "expected": "Reply below.\n[quoted text removed]\nMy answer follows."
+    },
+    {
+      "name": "quote-hides-agent-name",
+      "input": "Summary:\n> Charles broke the build twice\nFixed in the next run.",
+      "terms": { "people": [], "agents": ["Charles"], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["Charles", "Charles broke the build twice"],
+      "expected": "Summary:\n[quoted text removed]\nFixed in the next run."
+    },
+    {
+      "name": "quote-block-at-end",
+      "input": "I disagree.\n> we always ship friday\n> and nobody reviews",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["we always ship friday", "nobody reviews"],
+      "expected": "I disagree.\n[quoted text removed]"
+    },
+    {
+      "name": "external-quote-twice",
+      "input": "The vendor said \"we ship on friday\" and then \"We Ship On Friday\" again.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": ["we ship on friday"] },
+      "planted": ["we ship on friday"],
+      "expected": "The vendor said \"[external quote removed]\" and then \"[external quote removed]\" again."
+    },
+    {
+      "name": "external-quote-plain",
+      "input": "Support replied: refund the whole order, then closed it.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": ["Refund the whole order"] },
+      "planted": ["Refund the whole order"],
+      "expected": "Support replied: [external quote removed], then closed it."
+    },
+    {
+      "name": "wiki-link-person-name",
+      "input": "See [[Mira Tan]] for the decision.",
+      "terms": { "people": ["Mira Tan"], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["Mira Tan"],
+      "expected": "See [vault-link] for the decision."
+    },
+    {
+      "name": "wiki-link-two-in-line",
+      "input": "Linked [[people/Ana]] and [[ops-runbook]] today.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["people/Ana", "ops-runbook"],
+      "expected": "Linked [vault-link] and [vault-link] today."
+    },
+    {
+      "name": "md-path-with-slash",
+      "input": "Details are in docs/notes/retro-2026.md, see below.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["docs/notes/retro-2026.md"],
+      "expected": "Details are in [vault-path], see below."
+    },
+    {
+      "name": "vault-path-closing-paren",
+      "input": "Card (vault/cards/card-12.json) moved.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["vault/cards/card-12.json"],
+      "expected": "Card ([vault-path]) moved."
+    },
+    {
+      "name": "memory-path-in-quotes",
+      "input": "Saved to \"memory/ana-notes/log.txt\" yesterday.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["memory/ana-notes/log.txt"],
+      "expected": "Saved to \"[vault-path]\" yesterday."
+    },
+    {
+      "name": "vault-md-person-note",
+      "input": "Read vault/people/Ana.md before standup.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["vault/people/Ana.md"],
+      "expected": "Read [vault-path] before standup."
+    },
+    {
+      "name": "person-mixed-case",
+      "input": "ana filed it and ANA reviewed it.",
+      "terms": { "people": ["Ana"], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["Ana"],
+      "expected": "[person] filed it and [person] reviewed it."
+    },
+    {
+      "name": "agent-name-mixed-case",
+      "input": "charles merged the PR, CHARLES wrote notes.",
+      "terms": { "people": [], "agents": ["Charles"], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": ["Charles"],
+      "expected": "[agent] merged the PR, [agent] wrote notes."
+    },
+    {
+      "name": "repo-name-mixed-case",
+      "input": "Fixed the bug in lattice and LATTICE tests.",
+      "terms": { "people": [], "agents": [], "repositories": ["Lattice"], "customers": [], "externalQuotes": [] },
+      "planted": ["Lattice"],
+      "expected": "Fixed the bug in [repo] and [repo] tests."
+    },
+    {
+      "name": "customer-name-mixed-case",
+      "input": "Northwind asked for the export; NORTHWIND pays monthly.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": ["Northwind"], "externalQuotes": [] },
+      "planted": ["Northwind"],
+      "expected": "[customer] asked for the export; [customer] pays monthly."
+    },
+    {
+      "name": "clean-whole-word-alicebot",
+      "input": "Alicebot ran the nightly job and Malice stayed quiet.",
+      "terms": { "people": ["Alice"], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": [],
+      "expected": "Alicebot ran the nightly job and Malice stayed quiet."
+    },
+    {
+      "name": "clean-whole-word-plural-names",
+      "input": "Lattices and Northwinds are plural forms, not the names.",
+      "terms": { "people": [], "agents": [], "repositories": ["Lattice"], "customers": ["Northwind"], "externalQuotes": [] },
+      "planted": [],
+      "expected": "Lattices and Northwinds are plural forms, not the names."
+    },
+    {
+      "name": "clean-whole-word-underscore-digit",
+      "input": "ana_notes and x_Ana_y stay put, Ana2 too.",
+      "terms": { "people": ["Ana"], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": [],
+      "expected": "ana_notes and x_Ana_y stay put, Ana2 too."
+    },
+    {
+      "name": "clean-plain-status",
+      "input": "The nightly build finished green with 412 tests passing.",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": [],
+      "expected": "The nightly build finished green with 412 tests passing."
+    },
+    {
+      "name": "clean-plain-list",
+      "input": "- retry the migration\n- check the logs\n- ask the owner",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": [],
+      "expected": "- retry the migration\n- check the logs\n- ask the owner"
+    },
+    {
+      "name": "empty-input",
+      "input": "",
+      "terms": { "people": [], "agents": [], "repositories": [], "customers": [], "externalQuotes": [] },
+      "planted": [],
+      "expected": ""
+    },
+    {
+      "name": "vent-failed-review-migration",
+      "input": "What happened: Charles pushed the Lattice migration on Tuesday and the review came back with a failing check. I trusted the note from Ana in docs/notes/migration-plan.md without rereading it. Northwind's export broke as a result, and the thread at [[Release review]] shows the rest.",
+      "terms": { "people": ["Ana"], "agents": ["Charles"], "repositories": ["Lattice"], "customers": ["Northwind"], "externalQuotes": [] },
+      "planted": ["Charles", "Lattice", "Ana", "docs/notes/migration-plan.md", "Northwind", "Release review"],
+      "expected": "What happened: [agent] pushed the [repo] migration on Tuesday and the review came back with a failing check. I trusted the note from [person] in [vault-path] without rereading it. [customer]'s export broke as a result, and the thread at [vault-link] shows the rest."
+    },
+    {
+      "name": "vent-what-i-would-change",
+      "input": "What I would change: I would stop sharing the staging token with Vesper, the agent who runs the deploy. For the next run I'd set api_key={{apiKeyB}} in the staging config and mail the summary to ops@example.com, not the old list. I'm not sure whether the card needs a new review. The Northwind contract says 'we will not renew', so check the terms first.",
+      "terms": { "people": [], "agents": ["Vesper"], "repositories": [], "customers": ["Northwind"], "externalQuotes": ["we will not renew"] },
+      "planted": ["Vesper", "{{apiKeyB}}", "ops@example.com", "we will not renew", "Northwind"],
+      "expected": "What I would change: I would stop sharing the staging token with [agent], the agent who runs the deploy. For the next run I'd set [secret] in the staging config and mail the summary to [email], not the old list. I'm not sure whether the card needs a new review. The [customer] contract says '[external quote removed]', so check the terms first."
+    },
+    {
+      "name": "vent-unsure-of",
+      "input": "What I am unsure of: whether Ana's review of the Northwind export was fair. Bearer {{bearerB}} was in the log, which the agent Charles copied into the Lattice thread. The clone URL https://ci:{{pwD}}@git.example.com/ledger.git was in there too. See memory/ana-notes/review.txt and vault/people/Ana.md before the next card.",
+      "terms": { "people": ["Ana"], "agents": ["Charles"], "repositories": ["Lattice"], "customers": ["Northwind"], "externalQuotes": [] },
+      "planted": ["Ana", "Northwind", "{{bearerB}}", "Charles", "Lattice", "ci:{{pwD}}", "memory/ana-notes/review.txt", "vault/people/Ana.md"],
+      "expected": "What I am unsure of: whether [person]'s review of the [customer] export was fair. [secret] was in the log, which the agent [agent] copied into the [repo] thread. The clone URL https://[secret]@git.example.com/ledger.git was in there too. See [vault-path] and [vault-path] before the next card."
+    }
+  ]
+}

@@ -140,7 +140,7 @@ public sealed class V03ExitCheckTests : IAsyncLifetime
     [Fact]
     public void The_ledger_lists_every_server_piece_the_plan_names()
     {
-        string[] planned = ["G1", "G2", "G3", "HOST1", "W3", "W4", "W5", "W6", "PRH"];
+        string[] planned = ["G1", "G2", "G3", "HOST1", "W3", "W4", "W5", "W6", "PRH", "GLUE"];
         Assert.Equal(planned.Order(), ExitCheckLedger.ServerSide.Select(p => p.Id).Order());
     }
 }
