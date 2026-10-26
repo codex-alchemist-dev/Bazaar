@@ -166,14 +166,31 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     }
 
     [Fact]
-    public async Task A_new_file_numbered_below_an_applied_one_is_refused()
+    public async Task A_new_file_numbered_below_an_applied_one_is_applied_in_numeric_order()
     {
         var ds = await FreshAsync(db);
         var runner = new MigrationRunner(ds);
-        await runner.MigrateAsync(Source(Common(1, "a", "SELECT 1"), Common(3, "c", "SELECT 1")), "linux", TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+        await runner.MigrateAsync(Source(Common(1, "a", "SELECT 1"), Common(4, "d", "SELECT 1")), "linux", ct);
 
-        var withGap = Source(Common(1, "a", "SELECT 1"), Common(2, "b", "SELECT 1"), Common(3, "c", "SELECT 1"));
-        await Assert.ThrowsAsync<SchemaVersionException>(() => runner.MigrateAsync(withGap, "linux", TestContext.Current.CancellationToken));
+        var withGap = Source(Common(1, "a", "SELECT 1"), Common(2, "b", "SELECT 1"), Common(3, "c", "SELECT 1"), Common(4, "d", "SELECT 1"), Common(5, "e", "SELECT 1"));
+        Assert.Equal(SchemaState.Behind, await runner.GetStateAsync(withGap, "linux", ct));
+        var result = await runner.MigrateAsync(withGap, "linux", ct);
+
+        Assert.Equal([2, 3, 5], result.Applied.Select(m => m.Version));
+        Assert.Equal(SchemaState.Current, await runner.GetStateAsync(withGap, "linux", ct));
+    }
+
+    [Fact]
+    public async Task A_late_file_is_still_checksum_checked_with_the_applied_ones()
+    {
+        var ds = await FreshAsync(db);
+        var runner = new MigrationRunner(ds);
+        var ct = TestContext.Current.CancellationToken;
+        await runner.MigrateAsync(Source(Common(1, "a", "SELECT 1"), Common(3, "c", "SELECT 1")), "linux", ct);
+
+        var edited = Source(Common(1, "a", "SELECT 2"), Common(2, "b", "SELECT 1"), Common(3, "c", "SELECT 1"));
+        await Assert.ThrowsAsync<MigrationChecksumException>(() => runner.MigrateAsync(edited, "linux", ct));
     }
 
     [Fact]

@@ -141,16 +141,8 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
                     $"Applied migration {file.Provider}/{file.Version:D4}_{file.Name} was edited after it ran (recorded {checksum[..12]}, now {file.Checksum[..12]}). Add a new file instead.");
         }
 
-        var pending = plan.Where(f => !history.ContainsKey((f.Provider, f.Version))).ToList();
-        foreach (var file in pending)
-        {
-            var highestApplied = history.Keys.Where(k => k.Provider == file.Provider).Select(k => k.Version).DefaultIfEmpty(0).Max();
-            if (file.Version < highestApplied)
-                throw new SchemaVersionException(
-                    $"Migration {file.Provider}/{file.Version:D4}_{file.Name} is older than the applied {file.Provider}/{highestApplied:D4}; numbers must only grow.");
-        }
-
-        return pending;
+        // Branches merge in any order, so a not-yet-applied file below the highest applied number still runs, in numeric order.
+        return plan.Where(f => !history.ContainsKey((f.Provider, f.Version))).ToList();
     }
 
     /// <summary>Refuses a run whose options differ from what the first migration recorded in <c>schema_setting</c>.</summary>
