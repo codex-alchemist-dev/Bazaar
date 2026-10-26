@@ -48,9 +48,9 @@ public sealed class TaskRepository(NpgsqlDataSource dataSource)
     }
 
     /// <summary>Lists a project's tasks, optionally in one column, oldest first.</summary>
-    public async Task<IReadOnlyList<TaskRecord>> ListByProjectAsync(Guid projectId, TaskState? state = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<TaskRecord>> ListByProjectAsync(Guid projectId, TaskState? state = null, NpgsqlTransaction? tx = null, CancellationToken ct = default)
     {
-        await using var cmd = dataSource.CreateCommand($"""
+        await using var cmd = KanbanCommands.Create(dataSource, tx, $"""
             SELECT {_columns} FROM tasks
             WHERE project_id = @project_id AND (@state::text IS NULL OR state = @state)
             ORDER BY created_at, id
