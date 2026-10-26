@@ -17,8 +17,9 @@ ones). One owner per number; never reuse or renumber a number, and never edit an
 | `0008` | G1b | this PR | `entry_ref`, `read_state`, `consumer_cursor`, `gc_access_request`, `person_key` and `erase_person_key`, `embedding_profile`; `gc_member` becomes insert-only with key `(gc_id, principal_id, joined_seq)` |
 | `0009` | VLT4 | this PR | Vault index: `vault_docs`, `vault_blocks`, `vault_block_embedding` (halfvec, dimension checked against `embedding_profile`), `vault_links`, `vault_commit`, `vault_state`; enables `vector` |
 | `0012` | KB1 | this PR | Kanban: `tasks`, `task_edges`, `task_links`, `task_events` (append-only); `bazaar_app` gets column-level UPDATE on `tasks` |
+| `0014` | SOUL1 | this PR | `soul_versions`: append-only Soul version chain (charter SHA-256, preferences JSON, expected-version writes) |
 | `0015` | INT1 | this PR | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
-| `0010-0011`, `0013-0014`, `0016+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0010-0011`, `0013`, `0016+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 

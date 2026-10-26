@@ -209,7 +209,7 @@ public sealed class KanbanDataTests(KanbanDb db) : IClassFixture<KanbanDb>
         await InsertCommittedAsync(NewTaskFor(gcId, projectId: Guid.CreateVersion7(), state: TaskState.Ready));
 
         var all = await repo.ListByProjectAsync(project, ct: Ct);
-        var ready = await repo.ListByProjectAsync(project, TaskState.Ready, Ct);
+        var ready = await repo.ListByProjectAsync(project, TaskState.Ready, ct: Ct);
 
         Assert.Equal(2, all.Count);
         Assert.Single(ready);
