@@ -19,15 +19,16 @@ public static class ExitCheckLedger
     /// <summary>Server-side pieces. The client (W7), policy (GW7) and model seam (GW10) are merged and used for real.</summary>
     public static IReadOnlyList<Prerequisite> ServerSide { get; } =
     [
-        new("G1", "migration 0001: gc, gc_event, gc_message, gc_message_version, per-GC counters", false),
+        new("G1", "migration 0001: gc, gc_event, gc_message, gc_message_version, per-GC counters", true),
         new("G2", "GC append: gap-free n and ev inside the write transaction", true),
         new("G3", "GC read paths: pages after (n, ev), history", true),
-        new("HOST1", "composed host that serves the socket on a test port", false),
-        new("W3", "connection manager: upgrade, hello/welcome, authenticator hook", false),
+        new("HOST1", "composed host that serves the socket on a test port", true),
+        new("W3", "connection manager: upgrade, hello/welcome, authenticator hook", true),
         new("W4", "subscription engine: replay paging, splice, resync", true),
         new("W5", "dispatcher: LISTEN to sockets, bounded queue, lagged", true),
         new("W6", "idempotent request layer for gc.send", true),
-        new("PRH", "protocol harness: in-process Kestrel with a fake authenticator", false),
+        new("PRH", "protocol harness: in-process Kestrel with a fake authenticator", true),
+        new("GLUE", "subscribe, gc.send and gc.history handlers; IGcStreamSource, IGcAccessPolicy and IGcNotificationSource over the G2/G3 log; SubscriptionSession attached to WireConnection", true),
     ];
 
     /// <summary>The prerequisites not yet merged.</summary>
