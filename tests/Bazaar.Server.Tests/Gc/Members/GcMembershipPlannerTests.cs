@@ -16,8 +16,8 @@ public class GcMembershipPlannerTests
     private static Guid GcId => Id(100);
     private static DateTimeOffset Now => new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
 
-    private const long HeadSeq = 15;
-    private const long FormerLeftSeq = 10;
+    private const long _headSeq = 15;
+    private const long _formerLeftSeq = 10;
 
     private static GcViewer Owner => new(OwnerId, PrincipalKind.Owner);
     private static GcViewer Member => new(MemberA, PrincipalKind.Human);
@@ -41,7 +41,7 @@ public class GcMembershipPlannerTests
     [
         Row(MemberA, PrincipalKind.Human, GcMemberRole.Member, 1, null),
         Row(Observer, PrincipalKind.Human, GcMemberRole.Observer, 1, null),
-        Row(Former, PrincipalKind.Human, GcMemberRole.Member, 1, FormerLeftSeq),
+        Row(Former, PrincipalKind.Human, GcMemberRole.Member, 1, _formerLeftSeq),
     ];
 
     private static IReadOnlyCollection<GcMemberRecord> DmMembers() =>
@@ -60,10 +60,10 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Owner_adds_a_member_with_JoinedSeq_at_head_plus_one()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(new GcMemberRecord(GcId, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq + 1, null), result.Member);
+        Assert.Equal(new GcMemberRecord(GcId, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq + 1, null), result.Member);
         Assert.Null(result.Gc);
         Assert.Equal(GcEventKinds.System, result.Event!.Kind);
         Assert.Equal("member_added", Action(result.Event));
@@ -73,7 +73,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Member_may_invite_under_any_member_policy()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Member, NewPrincipal, PrincipalKind.Agent, GcMemberRole.Observer, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Member, NewPrincipal, PrincipalKind.Agent, GcMemberRole.Observer, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GcMemberRole.Observer, result.Member!.Role);
@@ -84,7 +84,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Member_invite_is_refused_under_owner_only_policy()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Member, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.OwnerOnly);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Member, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.OwnerOnly);
 
         Assert.Equal(GcPlanRefusal.OwnerOnlyInvites, result.Refusal);
         Assert.Null(result.Member);
@@ -94,7 +94,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Owner_invite_is_allowed_under_owner_only_policy()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.OwnerOnly);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.OwnerOnly);
 
         Assert.True(result.Succeeded);
     }
@@ -102,7 +102,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Observer_cannot_invite()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), ObserverViewer, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), ObserverViewer, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.NotPermitted, result.Refusal);
     }
@@ -110,8 +110,8 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Former_member_and_outsider_cannot_invite()
     {
-        var former = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), FormerViewer, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
-        var outsider = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), OutsiderViewer, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var former = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), FormerViewer, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
+        var outsider = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), OutsiderViewer, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.NotPermitted, former.Refusal);
         Assert.Equal(GcPlanRefusal.NotPermitted, outsider.Refusal);
@@ -120,7 +120,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Adding_an_active_member_is_refused()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, MemberA, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, MemberA, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.AlreadyMember, result.Refusal);
     }
@@ -128,17 +128,17 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Re_adding_a_former_member_creates_a_new_active_row()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, Former, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, Former, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.True(result.Succeeded);
         Assert.Null(result.Member!.LeftSeq);
-        Assert.Equal(HeadSeq + 1, result.Member.JoinedSeq);
+        Assert.Equal(_headSeq + 1, result.Member.JoinedSeq);
     }
 
     [Fact]
     public void Owner_cannot_be_added_as_a_row()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Owner, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Owner, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.OwnerHasNoRow, result.Refusal);
     }
@@ -146,7 +146,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Adding_to_an_archived_GC_is_refused()
     {
-        var result = GcMembershipPlanner.PlanAddMember(General(archived: true), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(General(archived: true), GeneralMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.Archived, result.Refusal);
     }
@@ -154,7 +154,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void A_DM_takes_no_third_member()
     {
-        var result = GcMembershipPlanner.PlanAddMember(Dm(), DmMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(Dm(), DmMembers(), Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.DmFull, result.Refusal);
     }
@@ -162,7 +162,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Thinking_GC_membership_is_fixed()
     {
-        var result = GcMembershipPlanner.PlanAddMember(Thinking(), [Row(MemberA, PrincipalKind.Agent, GcMemberRole.Member, 0, null)], Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, HeadSeq, GcInvitePolicy.AnyMember);
+        var result = GcMembershipPlanner.PlanAddMember(Thinking(), [Row(MemberA, PrincipalKind.Agent, GcMemberRole.Member, 0, null)], Owner, NewPrincipal, PrincipalKind.Human, GcMemberRole.Member, _headSeq, GcInvitePolicy.AnyMember);
 
         Assert.Equal(GcPlanRefusal.ThinkingMembershipFixed, result.Refusal);
     }
@@ -172,22 +172,22 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Removed_member_is_not_current_after_the_leave_row_is_applied()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, MemberA, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, MemberA, _headSeq);
         var applied = GeneralMembers().Append(result.Member!).ToList();
 
         var current = GcAccessPolicy.CurrentRow(General(), applied, MemberA);
         Assert.NotNull(current);
         Assert.False(GcAccessPolicy.IsActive(current));
-        Assert.Equal(HeadSeq + 1, GcAccessPolicy.ReadableUpToSeq(General(), applied, Member, new HashSet<Guid>()));
+        Assert.Equal(_headSeq + 1, GcAccessPolicy.ReadableUpToSeq(General(), applied, Member, new HashSet<Guid>()));
     }
 
     [Fact]
     public void Member_removes_themselves_and_LeftSeq_is_head_plus_one()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, MemberA, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, MemberA, _headSeq);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(HeadSeq + 1, result.Member!.LeftSeq);
+        Assert.Equal(_headSeq + 1, result.Member!.LeftSeq);
         Assert.Equal(MemberA, result.Member.PrincipalId);
         Assert.Equal(GcMemberRole.Member, result.Member.Role);
         Assert.Equal("member_removed", Action(result.Event));
@@ -196,7 +196,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Observer_may_leave_themselves()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), ObserverViewer, Observer, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), ObserverViewer, Observer, _headSeq);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GcMemberRole.Observer, result.Member!.Role);
@@ -205,7 +205,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Member_cannot_remove_another_member()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, Observer, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Member, Observer, _headSeq);
 
         Assert.Equal(GcPlanRefusal.NotPermitted, result.Refusal);
         Assert.Null(result.Member);
@@ -214,16 +214,16 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Owner_removes_a_member()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Owner, MemberA, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Owner, MemberA, _headSeq);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(HeadSeq + 1, result.Member!.LeftSeq);
+        Assert.Equal(_headSeq + 1, result.Member!.LeftSeq);
     }
 
     [Fact]
     public void Removing_a_former_member_has_no_active_row()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Owner, Former, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(), GeneralMembers(), Owner, Former, _headSeq);
 
         Assert.Equal(GcPlanRefusal.NoActiveMembership, result.Refusal);
     }
@@ -231,7 +231,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Removing_from_an_archived_GC_is_refused()
     {
-        var result = GcMembershipPlanner.PlanRemoveMember(General(archived: true), GeneralMembers(), Owner, MemberA, HeadSeq);
+        var result = GcMembershipPlanner.PlanRemoveMember(General(archived: true), GeneralMembers(), Owner, MemberA, _headSeq);
 
         Assert.Equal(GcPlanRefusal.Archived, result.Refusal);
     }
@@ -315,7 +315,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Outsider_requests_access_to_a_DM()
     {
-        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, OutsiderViewer, HeadSeq, requestPending: false);
+        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, OutsiderViewer, _headSeq, requestPending: false);
 
         Assert.True(result.Succeeded);
         Assert.Equal("access_requested", Action(result.Event));
@@ -325,7 +325,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Non_DM_and_non_thinking_GC_takes_no_request()
     {
-        var result = GcMembershipPlanner.PlanAccessRequest(General(), GeneralMembers(), NoApprovals, OutsiderViewer, HeadSeq, requestPending: false);
+        var result = GcMembershipPlanner.PlanAccessRequest(General(), GeneralMembers(), NoApprovals, OutsiderViewer, _headSeq, requestPending: false);
 
         Assert.Equal(GcPlanRefusal.NotRequestable, result.Refusal);
     }
@@ -333,7 +333,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void DM_member_cannot_request_access_they_already_have()
     {
-        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, Member, HeadSeq, requestPending: false);
+        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, Member, _headSeq, requestPending: false);
 
         Assert.Equal(GcPlanRefusal.AlreadyReadable, result.Refusal);
     }
@@ -341,7 +341,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Former_member_below_head_may_request_again()
     {
-        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, FormerViewer, HeadSeq, requestPending: false);
+        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, FormerViewer, _headSeq, requestPending: false);
 
         Assert.True(result.Succeeded);
     }
@@ -349,7 +349,7 @@ public class GcMembershipPlannerTests
     [Fact]
     public void Duplicate_pending_request_is_refused()
     {
-        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, OutsiderViewer, HeadSeq, requestPending: true);
+        var result = GcMembershipPlanner.PlanAccessRequest(Dm(), DmMembers(), NoApprovals, OutsiderViewer, _headSeq, requestPending: true);
 
         Assert.Equal(GcPlanRefusal.DuplicatePendingRequest, result.Refusal);
     }

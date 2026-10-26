@@ -10,7 +10,7 @@ public class MentionValidatorTests
     private static Guid Bob => Id(4);
     private static Guid Cy => Id(5);
 
-    private const string Body = "hi @Ana";
+    private const string _body = "hi @Ana";
 
     private static Guid Id(int n) => new(n, 0, 0, new byte[8]);
 
@@ -20,7 +20,7 @@ public class MentionValidatorTests
     public void Valid_span_to_active_member_is_accepted()
     {
         var result = MentionValidator.Validate(
-            Body,
+            _body,
             [new MentionSpan(3, 4, Ana)],
             Active(Ana),
             Owner,
@@ -29,7 +29,7 @@ public class MentionValidatorTests
         var accepted = Assert.Single(result.Accepted);
         Assert.Equal(new AcceptedMention(Ana, 3, 4), accepted);
         Assert.Empty(result.Rejected);
-        Assert.Equal("@Ana", Body.Substring(accepted.Start, accepted.Length));
+        Assert.Equal("@Ana", _body.Substring(accepted.Start, accepted.Length));
     }
 
     [Theory]
@@ -40,7 +40,7 @@ public class MentionValidatorTests
     public void Span_outside_body_is_out_of_bounds(int start, int length)
     {
         var result = MentionValidator.Validate(
-            Body,
+            _body,
             [new MentionSpan(start, length, Ana)],
             Active(Ana),
             Owner,
@@ -55,9 +55,9 @@ public class MentionValidatorTests
     [Fact]
     public void Span_ending_exactly_at_body_end_is_accepted()
     {
-        // Body length is 7 UTF-16 units; start 3 + length 4 = 7 is the last valid span.
+        // _body length is 7 UTF-16 units; start 3 + length 4 = 7 is the last valid span.
         var result = MentionValidator.Validate(
-            Body,
+            _body,
             [new MentionSpan(3, 4, Ana)],
             Active(Ana),
             Owner,
@@ -70,7 +70,7 @@ public class MentionValidatorTests
     public void Zero_length_span_is_empty()
     {
         var result = MentionValidator.Validate(
-            Body,
+            _body,
             [new MentionSpan(3, 0, Ana)],
             Active(Ana),
             Owner,
@@ -184,7 +184,7 @@ public class MentionValidatorTests
     {
         // The rejected span occupies no range, so the valid span over the same text is kept.
         var result = MentionValidator.Validate(
-            Body,
+            _body,
             [new MentionSpan(3, 4, Cy), new MentionSpan(3, 4, Ana)],
             Active(Ana),
             Owner,
@@ -228,7 +228,7 @@ public class MentionValidatorTests
     public void Offsets_are_utf16_code_units_so_a_surrogate_pair_counts_twice()
     {
         // "😀" is U+1F600: two UTF-16 units (a surrogate pair) but one code point.
-        // Body layout in UTF-16 units: h=0 i=1 space=2 emoji=3,4 space=5 @=6 A=7 n=8 a=9. Length 10.
+        // _body layout in UTF-16 units: h=0 i=1 space=2 emoji=3,4 space=5 @=6 A=7 n=8 a=9. Length 10.
         const string body = "hi 😀 @Ana";
         Assert.Equal(10, body.Length);
         Assert.Equal(9, body.EnumerateRunes().Count());
