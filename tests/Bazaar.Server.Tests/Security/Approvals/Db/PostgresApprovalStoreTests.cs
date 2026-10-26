@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Approvals.Db;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Testing.Postgres;
 using Npgsql;
 
 namespace Bazaar.Server.Tests.Security.Approvals.Db;
@@ -9,6 +10,9 @@ namespace Bazaar.Server.Tests.Security.Approvals.Db;
 /// <summary>PostgresApprovalStore against a real PostgreSQL: insert, read back, compare-and-set, and the table CHECKs (doc 15).</summary>
 public sealed class PostgresApprovalStoreTests
 {
+    private static void SkipWithoutDatabase() =>
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+
 
     private static readonly DateTimeOffset _t0 = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
 
@@ -65,6 +69,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Insert_then_get_round_trips_every_field()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
 
@@ -95,6 +100,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Get_returns_null_for_an_unknown_id()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
 
@@ -104,6 +110,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Pending_row_reads_back_with_empty_taint_and_no_decision()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var pending = NewPending(Guid.NewGuid());
@@ -120,6 +127,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task TryReplace_returns_false_when_the_expected_status_is_stale()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var pending = NewPending(Guid.NewGuid());
@@ -141,6 +149,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task TryReplace_returns_false_for_an_unknown_id()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var missing = NewPending(Guid.NewGuid());
@@ -152,6 +161,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Concurrent_TryReplace_from_pending_has_exactly_one_winner()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var pending = NewPending(Guid.NewGuid());
@@ -171,6 +181,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Check_refuses_a_consumed_row_without_consumed_at()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var pending = NewPending(Guid.NewGuid());
@@ -187,6 +198,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Check_refuses_an_approved_row_without_a_signature()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var pending = NewPending(Guid.NewGuid());
@@ -201,6 +213,7 @@ public sealed class PostgresApprovalStoreTests
     [Fact]
     public async Task Check_refuses_an_args_hash_that_is_not_32_bytes()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var store = new PostgresApprovalStore(db.DataSource);
         var bad = NewPending(Guid.NewGuid()) with { ArgsHash = new byte[31] };

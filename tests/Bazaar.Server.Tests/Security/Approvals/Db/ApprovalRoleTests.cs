@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Approvals.Db;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Testing.Postgres;
 using Npgsql;
 
 namespace Bazaar.Server.Tests.Security.Approvals.Db;
@@ -9,6 +10,9 @@ namespace Bazaar.Server.Tests.Security.Approvals.Db;
 /// <summary>The runtime role (bazaar_app) can store and move approvals but cannot delete them (doc 15, migration 0011).</summary>
 public sealed class ApprovalRoleTests
 {
+    private static void SkipWithoutDatabase() =>
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+
 
     private static readonly DateTimeOffset _t0 = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
 
@@ -23,6 +27,7 @@ public sealed class ApprovalRoleTests
     [Fact]
     public async Task Runtime_role_privileges_are_insert_select_and_update_but_not_delete()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
 
         Assert.True(await HasPrivilegeAsync(db.DataSource, "INSERT"));
@@ -35,6 +40,7 @@ public sealed class ApprovalRoleTests
     [Fact]
     public async Task Runtime_role_cannot_delete_an_approval_row()
     {
+        SkipWithoutDatabase();
         await using var db = await ApprovalTestDb.CreateAsync(Ct);
         var id = Guid.NewGuid();
         await new PostgresApprovalStore(db.DataSource).InsertAsync(new ApprovalRequest(
