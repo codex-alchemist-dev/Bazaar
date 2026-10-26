@@ -46,4 +46,12 @@ internal static class GcEnumText
         "quarantined" => SourceTrust.Quarantined,
         _ => throw new InvalidDataException($"Unknown source_trust '{text}'."),
     };
+
+    /// <summary>The <c>gc_member.role</c> column: <c>member</c> or <c>observer</c>.</summary>
+    public static Model.GcMemberRole ParseMemberRole(string text) => text switch
+    {
+        "member" => Model.GcMemberRole.Member,
+        "observer" => Model.GcMemberRole.Observer,
+        _ => throw new InvalidDataException($"Unknown gc_member role '{text}'."),
+    };
 }
