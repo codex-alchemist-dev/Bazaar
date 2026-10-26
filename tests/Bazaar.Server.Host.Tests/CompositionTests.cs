@@ -18,7 +18,7 @@ public sealed class CompositionTests
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarSecrets();
         services.AddBazaarProviders(configuration);
-        services.AddBazaarWire();
+        services.AddBazaarHostWire(configuration);
         services.AddBazaarAgentSafety();
         return services.BuildServiceProvider(validateScopes: true);
     }
