@@ -14,7 +14,7 @@ builder.Services.AddBazaarHostOptions(builder.Configuration);
 builder.Services.AddBazaarHostRuntime(builder.Configuration);
 builder.Services.AddBazaarSecrets();
 builder.Services.AddBazaarProviders(builder.Configuration);
-builder.Services.AddBazaarWire();
+builder.Services.AddBazaarHostWire(builder.Configuration);
 builder.Services.AddBazaarAgentSafety();
 
 // Both integrations are no-ops unless the process runs under the matching service manager.
