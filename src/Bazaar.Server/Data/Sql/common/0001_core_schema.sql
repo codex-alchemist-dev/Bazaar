@@ -186,6 +186,8 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bazaar_app') THEN
         CREATE ROLE bazaar_app NOLOGIN;
     END IF;
+EXCEPTION WHEN duplicate_object OR unique_violation THEN
+    NULL; -- another database on the cluster created it concurrently
 END
 $$;
 
