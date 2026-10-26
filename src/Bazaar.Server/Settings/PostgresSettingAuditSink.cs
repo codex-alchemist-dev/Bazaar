@@ -39,13 +39,22 @@ public sealed class PostgresSettingAuditSink(IAuditLog log) : ISettingAuditSink
             ["scope"] = change.Scope.ToString().ToLowerInvariant(),
             ["scope_id"] = change.ScopeId,
             ["actor"] = change.ActorId,
-            ["outcome"] = change.Outcome.ToString().ToLowerInvariant(),
+            ["outcome"] = OutcomeName(change.Outcome),
             ["old"] = AsJson(change.OldValueJson),
             ["new"] = AsJson(change.NewValueJson),
             ["reason"] = change.Reason,
         };
         return payload.ToJsonString();
     }
+
+    /// <summary>Wire name of an outcome in the payload; explicit so it does not depend on enum ToString.</summary>
+    private static string OutcomeName(SettingWriteOutcome outcome) => outcome switch
+    {
+        SettingWriteOutcome.Accepted => "accepted",
+        SettingWriteOutcome.PendingApproval => "pending_approval",
+        SettingWriteOutcome.Rejected => "rejected",
+        _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown settings write outcome."),
+    };
 
     /// <summary>The value as JSON: the parsed node when the text is JSON, else the raw text as a JSON string.</summary>
     private static JsonNode? AsJson(string? text)
