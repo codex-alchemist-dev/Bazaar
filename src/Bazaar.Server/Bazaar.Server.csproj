@@ -8,6 +8,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Markdig" />
+    <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>

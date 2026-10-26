@@ -21,6 +21,9 @@
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0-rc.2.26504.105" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
     <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <!-- Vault Markdown and front matter (doc 18): Markdig for the body, YamlDotNet for the front matter. -->
+    <PackageVersion Include="Markdig" Version="1.5.0" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
