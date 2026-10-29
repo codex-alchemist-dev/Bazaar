@@ -1,7 +1,8 @@
 # Local dev run
 
 Starts Postgres (or uses `BAZAAR_DB`), runs `migrate`, then the server host with dev auth.
-Needs .NET 11 SDK and openssl. Local Postgres needs passwordless `sudo -u postgres` (or root).
+Needs the .NET 11 SDK, openssl, and PostgreSQL 18 with pgvector (the schema uses `uuidv7()`). Local Postgres needs passwordless `sudo -u postgres` (or root).
+If the local cluster is not on 5432, set `BAZAAR_PG_PORT`; without it, up.sh uses the port of the best cluster `pg_lsclusters` lists (online first, then newest version).
 
 **Linux / macOS**
 
@@ -15,7 +16,8 @@ Status: `http://127.0.0.1:7390/status`, readiness: `http://127.0.0.1:7390/health
 
     $env:BAZAAR_DB = 'Host=127.0.0.1;Database=bazaar_dev;Username=bazaar;Password=...'
     $env:Bazaar__DevAuth__Enabled = 'true'
-    $env:Bazaar__DevAuth__Token = [guid]::NewGuid().ToString('N')   # keep this value
+    $env:Bazaar__DevAuth__TokenSecret = 'env:BAZAAR_DEV_TOKEN'
+    $env:BAZAAR_DEV_TOKEN = [guid]::NewGuid().ToString('N')   # keep this value
     dotnet run --project src\Bazaar.Server.Host -- migrate --Bazaar:Host:DataRoot=$env:LOCALAPPDATA\bazaar-dev --Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_DB
     dotnet run --project src\Bazaar.Server.Host -- --Bazaar:Host:DataRoot=$env:LOCALAPPDATA\bazaar-dev --Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_DB
 
