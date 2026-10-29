@@ -22,6 +22,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0014` | SOUL1 | merged | `soul_versions`: append-only Soul version chain (charter SHA-256, preferences JSON, expected-version writes) |
 | `0015` | INT1 | merged | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
 | `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
+| `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
 | `0013`, `0016+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
