@@ -4,23 +4,23 @@ Status: DRAFT (2026-10-25). **Bazaar stays in Beta (v0.x) for a long while** (ow
 
 Each milestone ships when its exit check passes on the server's clean build (C37: agent self-reports never count). The milestone PR bumps `VersionPrefix` to the next `0.MINOR.0`; PRs inside a milestone bump `PATCH`.
 
-## Beta: v0.x
+## Beta: stages
 
-The list below is a starting plan, not a countdown. Milestones can be added, split or reordered as the first projects show what matters, and Beta can run past v0.9 (v0.10, v0.11 and so on). Projects the owner runs on Bazaar during Beta feed back into the next milestone.
+The list below is a starting plan, not a countdown. Milestones can be added, split or reordered as the first projects show what matters, and Beta can run past Stage 9 (Stage 10, Stage 11 and so on). Projects the owner runs on Bazaar during Beta feed back into the next milestone.
 
-| Version | Milestone | Contents | Exit check |
+| Stage | Milestone | Contents | Exit check |
 |---|---|---|---|
-| **v0.1** | Scaffold and design | Solution skeleton, CI (Windows and Ubuntu), repo hygiene, licences, the 36 design docs reconciled with DECISIONS-LOG, versioning (this PR) | `./build.sh` green on both OSes; all docs carry the reconciled status |
-| v0.2 | Spikes, gate 1 | Spikes that block foundation work (doc 35 wave A/B): S2 Garnet, S3 Postgres GC log at scale, S6 wire format, S8 VM sizing, S22 GitHub fork-and-PR, S23 git engine | Each spike has a written result; the wire format and git engine decisions are recorded in DECISIONS-LOG |
-| v0.3 | Foundation (implementation-plan wave 1) | `Bazaar.Contracts` core types and envelope; Postgres schema, `migrate` command, GC log with NOTIFY; provider interfaces with Windows and Linux stubs; settings registry (doc 03); `Bazaar.Server.Host` with WebSocket, reconnect and replay; gateway with per-agent policy, OpenAI-compatible and FreeLLMAPI providers, fake gateway | A fake agent posts to a GC, a client replays after a dropped socket, a model call is denied by policy, all on real Postgres in CI |
-| v0.4 | Company core (wave 2) | Agent runtime and wake model, Souls, memory in the Vault, work-life simulation and presence, Kanban with dependencies, Council, reputation, loop guards and Psych Ward, interrupts and calendar, security taint and approvals | Scripted multi-agent day in replay: shifts, a vote, a blocked task, a loop-guard trip and an approval, with no human input |
-| v0.5 | Knowledge and identity (wave 3) | Vault (VaultWriter, index, access layer), Constellation data, GitHub Apps and the PR flow with owner merge, email back ends and quarantine, Identity Service and Passport, Observatory and usage | An agent opens a PR from a task, the owner approves a signed merge, and the card moves to Done |
-| v0.6 | Windows client (wave 4) | `Bazaar.Client.Core` shell, theme, command palette, dashboard, Discord-style GC view, Kanban and Constellation views; Windows head with editor (after the Monaco gate, S12), terminal and diff/PR UI | Avalonia.Headless suite green; the owner runs a day from the Windows client |
-| v0.7 | Android and Linux clients | Android head (fold layouts, radial menu with dictation, push, native diff surface after S27); Linux head; Velopack updates and channels | Google Play closed-test build; Linux package installs and updates on its channel |
-| v0.8 | Environments and engines (wave 5) | Agent VM pair on Hyper-V (QEMU/KVM later), guest agent, browser profiles; coding harness; Godot headless adapter, Roblox Studio bridge; fun systems | An agent builds and tests a Godot sample in its own VMs |
-| v0.9 | Hardening | Backup, restore and export drills; remote access and privacy settings; community posting tiers; security review; performance budgets; counsel items; history purge (with the owner's go-ahead) | Restore drill passes; counsel sign-off recorded; zero open blocking questions in the design docs |
+| **Stage 1** | Scaffold and design | Solution skeleton, CI (Windows and Ubuntu), repo hygiene, licences, the 36 design docs reconciled with DECISIONS-LOG, versioning (this PR) | `./build.sh` green on both OSes; all docs carry the reconciled status |
+| Stage 2 | Spikes, gate 1 | Spikes that block foundation work (doc 35 wave A/B): S2 Garnet, S3 Postgres GC log at scale, S6 wire format, S8 VM sizing, S22 GitHub fork-and-PR, S23 git engine | Each spike has a written result; the wire format and git engine decisions are recorded in DECISIONS-LOG |
+| Stage 3 | Foundation (implementation-plan wave 1) | `Bazaar.Contracts` core types and envelope; Postgres schema, `migrate` command, GC log with NOTIFY; provider interfaces with Windows and Linux stubs; settings registry (doc 03); `Bazaar.Server.Host` with WebSocket, reconnect and replay; gateway with per-agent policy, OpenAI-compatible and FreeLLMAPI providers, fake gateway | A fake agent posts to a GC, a client replays after a dropped socket, a model call is denied by policy, all on real Postgres in CI |
+| Stage 4 | Company core (wave 2) | Agent runtime and wake model, Souls, memory in the Vault, work-life simulation and presence, Kanban with dependencies, Council, reputation, loop guards and Psych Ward, interrupts and calendar, security taint and approvals | Scripted multi-agent day in replay: shifts, a vote, a blocked task, a loop-guard trip and an approval, with no human input |
+| Stage 5 | Knowledge and identity (wave 3) | Vault (VaultWriter, index, access layer), Constellation data, GitHub Apps and the PR flow with owner merge, email back ends and quarantine, Identity Service and Passport, Observatory and usage | An agent opens a PR from a task, the owner approves a signed merge, and the card moves to Done |
+| Stage 6 | Windows client (wave 4) | `Bazaar.Client.Core` shell, theme, command palette, dashboard, Discord-style GC view, Kanban and Constellation views; Windows head with editor (after the Monaco gate, S12), terminal and diff/PR UI | Avalonia.Headless suite green; the owner runs a day from the Windows client |
+| Stage 7 | Android and Linux clients | Android head (fold layouts, radial menu with dictation, push, native diff surface after S27); Linux head; Velopack updates and channels | Google Play closed-test build; Linux package installs and updates on its channel |
+| Stage 8 | Environments and engines (wave 5) | Agent VM pair on Hyper-V (QEMU/KVM later), guest agent, browser profiles; coding harness; Godot headless adapter, Roblox Studio bridge; fun systems | An agent builds and tests a Godot sample in its own VMs |
+| Stage 9 | Hardening | Backup, restore and export drills; remote access and privacy settings; community posting tiers; security review; performance budgets; counsel items; history purge (with the owner's go-ahead) | Restore drill passes; counsel sign-off recorded; zero open blocking questions in the design docs |
 
-Milestones can overlap: a later milestone's spikes and docs may start early. Order changes need the owner.
+Stage numbers are roadmap labels, not release versions. Releases are SemVer tags on `main` (`docs/VERSIONING.md`). Milestones can overlap: a later milestone's spikes and docs may start early. Order changes need the owner.
 
 ## v1.0.0 "Zuhal": the readiness gate [scope DECIDED, date none]
 

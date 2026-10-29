@@ -1,6 +1,6 @@
-# v0.3 exit check
+# Stage 3 exit check
 
-The protocol test that decides whether v0.3 is done (plan Batch 3, item E2E; doc 34 layer L3). On real PostgreSQL, with the
+The protocol test that decides whether Stage 3 is done (plan Batch 3, item E2E; doc 34 layer L3). On real PostgreSQL, with the
 real wire module and GC glue on in-process Kestrel and the real `WireClient`:
 
 1. a scripted fake agent asks its model through the policy-checked gateway and posts the answer to a GC;
