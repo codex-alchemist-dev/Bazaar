@@ -15,7 +15,7 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 | `-pre` | Pre-release identifier: `-alpha.N`, `-beta.N`, `-rc.N`. It also selects the channel (section 4). |
 | `+build` | The short commit hash. The .NET SDK appends it to `AssemblyInformationalVersion` automatically, so it is never a constant in the repo (same reason as RESIBO). |
 
-**Before v1.0.0 [DECIDED]:** builds carry the placeholder codename **Beta** (RESIBO's `x00` period). The machine version is `0.MINOR.PATCH`, and its display form is zero-padded (next paragraph). `MINOR` is a roadmap stage (`docs/ROADMAP.md`); `PATCH` counts merged PRs inside that stage. During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `MINOR` may grow past 9.
+**Before v1.0.0 [DECIDED]:** builds carry the placeholder codename **Beta** (RESIBO's `x00` period). The machine version is `0.MINOR.PATCH`, and its display form is zero-padded (next paragraph). Roadmap stages (`docs/ROADMAP.md`) are labels and are not tied to version numbers: completing a stage bumps nothing by itself. `MINOR` is bumped when a release adds backward-compatible features, and `PATCH` counts merged changes since the last `MINOR` (owner, 2026-10-29: this decouples the milestone tie). During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `MINOR` may grow past 9.
 
 **Display format: zero-padded [DECIDED, owner, 2026-10-29].** The owner wants early patch numbers not to run out, so the display and tag form pads each part to two digits: `v00.MM.PP`, for example `v00.00.01`, `v00.01.00` (Stage 1), `v00.01.02`. This also answers the earlier open question about an `xYY.ZZ.AA` scheme: the format is zero-padded SemVer with three parts, not a four-part scheme. The padded form is the one shown to people and used for tags. A part that passes 99 widens to three digits for that part only, which needs a line here.
 
@@ -31,7 +31,7 @@ Tradeoff, for the owner to confirm: SemVer 2.0 forbids leading zeros, and NuGet 
 | Database schema | migration number; startup refuses a mismatch (C44) | doc 04 |
 | Settings registry | one entry per key; removing a key is a product MAJOR | doc 03 |
 
-**Bumping:** the PR that merges into `main` bumps `VersionPrefix` when it completes a milestone (0.x) or changes the public surface (1.x and later). A release is an annotated tag on `main`, in display form (`v00.MM.PP`, or `vX.Y.Z[-pre]` from v1.0.0); tags are immutable. The `-pre` suffix keeps its SemVer form.
+**Bumping:** the PR that merges into `main` bumps `VersionPrefix`: `PATCH` for a merged change, `MINOR` when a release adds features (0.x), and `MAJOR` for a breaking change (1.x and later). Stage completion is not a bump. A release is an annotated tag on `main`, in display form (`v00.MM.PP`, or `vX.Y.Z[-pre]` from v1.0.0); tags are immutable. The `-pre` suffix keeps its SemVer form.
 
 ## 2. Major-version codenames [DECIDED theme; all names through v5 owner-accepted]
 
