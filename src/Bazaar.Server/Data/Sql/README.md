@@ -22,7 +22,9 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0014` | SOUL1 | merged | `soul_versions`: append-only Soul version chain (charter SHA-256, preferences JSON, expected-version writes) |
 | `0015` | INT1 | merged | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
 | `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
-| `0013`, `0016+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0016` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0017` | CAL1 | this PR | `calendar_event`: Company Calendar (doc 24 section 4); title stored as `(title_key_id, title_ct, title_nonce)`; `agent_id` references `agent`, no other cross-table foreign keys beyond `gc` |
+| `0013`, `0018+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 
