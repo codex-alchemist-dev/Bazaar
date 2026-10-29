@@ -10,6 +10,7 @@ if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreC
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddBazaarDevAuth(builder.Configuration);
 builder.Services.AddBazaarHostOptions(builder.Configuration);
 builder.Services.AddBazaarHostRuntime(builder.Configuration);
 builder.Services.AddBazaarSecrets();
