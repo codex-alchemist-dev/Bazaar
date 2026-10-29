@@ -17,12 +17,15 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0007` | search | PR #73 | FTS `search_document` |
 | `0008` | G1b | this PR | `entry_ref`, `read_state`, `consumer_cursor`, `gc_access_request`, `person_key` and `erase_person_key`, `embedding_profile`; `gc_member` becomes insert-only with key `(gc_id, principal_id, joined_seq)` |
 | `0009` | VLT4 | merged | Vault index: `vault_docs`, `vault_blocks`, `vault_block_embedding` (halfvec, dimension checked against `embedding_profile`), `vault_links`, `vault_commit`, `vault_state`; enables `vector` |
+| `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
 | `0011` | APR1 | this PR | approval table (doc 15) |
 | `0012` | KB1 | merged | Kanban: `tasks`, `task_edges`, `task_links`, `task_events` (append-only); `bazaar_app` gets column-level UPDATE on `tasks` |
 | `0014` | SOUL1 | merged | `soul_versions`: append-only Soul version chain (charter SHA-256, preferences JSON, expected-version writes) |
 | `0015` | INT1 | merged | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
-| `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
-| `0013`, `0016+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0016` | SKM1 | this PR | Skimmer gate: `gate_config`, `wake_decisions`, `gate_labels` (doc 13; no `gate_run_override`, which waits on question 7); no cross-table foreign keys beyond `agent` and `gc_event` |
+| `0017` | CAL1 | this PR | `calendar_event`: Company Calendar (doc 24 section 4); title stored as `(title_key_id, title_ct, title_nonce)`; `agent_id` references `agent`, no other cross-table foreign keys beyond `gc` |
+| `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
+| `0013`, `0019+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 
