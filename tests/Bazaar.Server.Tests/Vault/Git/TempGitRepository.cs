@@ -26,6 +26,9 @@ internal sealed class TempGitRepository : IDisposable
             repo.Config.Set("core.eol", "lf");
         }
 
+        // Every checkout uses LF, whatever the host OS does with line endings; otherwise a Windows merge can see
+        // two line-ending styles and report a whole-file conflict for disjoint edits.
+        WriteFile(Checkout, ".gitattributes", "* text=auto eol=lf\n");
         foreach (var (path, content) in files)
         {
             WriteFile(Checkout, path, content);
