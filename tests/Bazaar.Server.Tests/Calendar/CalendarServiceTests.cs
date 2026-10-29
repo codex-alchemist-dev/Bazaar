@@ -100,7 +100,11 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
 
         var lines = await db.GcLinesAsync(gc, id);
         Assert.Equal(new[] { ("created", 1L), ("confirmed", 2L), ("updated", 3L) }, lines.Select(l => (l.Change, l.Version)));
-        Assert.Equal("owner", await AuthorKindOfLineAsync(gc, id));
+        // The confirmation line is the owner's; the created line is the agent's.
+        Assert.Equal("owner", await db.ScalarAsync<string>(
+            "SELECT author_kind FROM gc_event WHERE gc_id = $1 AND kind = 'system' AND payload->>'event_id' = $2 AND payload->>'change' = 'confirmed'",
+            gc,
+            id.ToString()));
     }
 
     [Fact]
@@ -317,7 +321,11 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
         Assert.Equal(new[] { early }, forA.Select(e => e.Id));
 
         var everyone = await service.ListOverlappingAsync(_start.AddDays(1), _start.AddDays(11), null, TestContext.Current.CancellationToken);
-        Assert.Equal(new HashSet<Guid> { early, late, other }, everyone.Select(e => e.Id).ToHashSet());
+        // The class shares one database, so other tests' events can overlap this window too: check inclusion only.
+        var ids = everyone.Select(e => e.Id).ToHashSet();
+        Assert.True(ids.Contains(early), $"early {early} missing; rows={everyone.Count}");
+        Assert.True(ids.Contains(late), $"late {late} missing; rows={everyone.Count}");
+        Assert.True(ids.Contains(other), $"other {other} missing; rows={everyone.Count}");
     }
 
     [Fact]

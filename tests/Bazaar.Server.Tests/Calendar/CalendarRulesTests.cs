@@ -23,15 +23,15 @@ public sealed class CalendarRulesTests
         string tz = "Europe/London",
         string title = "Leave",
         Guid? agent = null) => new()
-    {
-        Kind = kind,
-        Title = title,
-        StartsAt = start ?? _start,
-        EndsAt = end ?? _start.AddDays(3),
-        AllDay = allDay,
-        Tz = tz,
-        AgentId = kind == CalendarKind.Vacation ? agent ?? _agent : agent,
-    };
+        {
+            Kind = kind,
+            Title = title,
+            StartsAt = start ?? _start,
+            EndsAt = end ?? _start.AddDays(3),
+            AllDay = allDay,
+            Tz = tz,
+            AgentId = kind == CalendarKind.Vacation ? agent ?? _agent : agent,
+        };
 
     [Fact]
     public void A_valid_vacation_draft_passes()
