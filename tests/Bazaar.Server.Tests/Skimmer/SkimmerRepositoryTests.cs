@@ -1,4 +1,5 @@
 using Bazaar.Server.Skimmer.Data;
+using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Skimmer;
 
@@ -10,6 +11,7 @@ public sealed class SkimmerRepositoryTests(SkimmerDb db) : IClassFixture<Skimmer
     [Fact]
     public async Task Gate_config_reads_null_then_round_trips_and_updates_subscriptions()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var repo = new GateConfigRepository(db.DataSource);
         var agentId = await db.CreateAgentAsync();
 
@@ -25,6 +27,7 @@ public sealed class SkimmerRepositoryTests(SkimmerDb db) : IClassFixture<Skimmer
     [Fact]
     public async Task Wake_decision_round_trips_with_a_score_and_a_model()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var repo = new WakeDecisionRepository(db.DataSource);
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
@@ -46,6 +49,7 @@ public sealed class SkimmerRepositoryTests(SkimmerDb db) : IClassFixture<Skimmer
     [Fact]
     public async Task Rules_decision_stores_null_score_category_and_model()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var repo = new WakeDecisionRepository(db.DataSource);
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
@@ -66,6 +70,7 @@ public sealed class SkimmerRepositoryTests(SkimmerDb db) : IClassFixture<Skimmer
     [Fact]
     public async Task Repeating_a_decision_key_writes_nothing_new()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var repo = new WakeDecisionRepository(db.DataSource);
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
@@ -85,6 +90,7 @@ public sealed class SkimmerRepositoryTests(SkimmerDb db) : IClassFixture<Skimmer
     [Fact]
     public async Task Labels_attach_to_one_decision_and_list_back()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var decisions = new WakeDecisionRepository(db.DataSource);
         var labels = new GateLabelRepository(db.DataSource);
         var agentId = await db.CreateAgentAsync();

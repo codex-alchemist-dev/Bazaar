@@ -12,6 +12,7 @@ public sealed class OrgMigrationTests(OrgBareDb db) : IClassFixture<OrgBareDb>
     public async Task Migration_applies_once_then_reapplies_as_a_no_op()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var runner = new MigrationRunner(db.DataSource);
         var source = OrgTestMigrations.Org18();
 

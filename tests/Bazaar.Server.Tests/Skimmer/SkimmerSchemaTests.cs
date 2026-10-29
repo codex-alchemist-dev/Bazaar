@@ -22,6 +22,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Migration_0016_creates_the_three_gate_tables_and_is_recorded()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await using var tables = db.DataSource.CreateCommand("""
             SELECT table_name FROM information_schema.tables
             WHERE table_schema = current_schema() AND table_name IN ('gate_config', 'wake_decisions', 'gate_labels')
@@ -43,6 +44,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Reapplying_the_migrations_is_a_no_op()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await using var before = db.DataSource.CreateCommand("SELECT count(*) FROM schema_migrations");
         var appliedBefore = (long)(await before.ExecuteScalarAsync(Ct))!;
 
@@ -56,6 +58,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Gate_config_has_only_the_agent_and_subscriptions_columns()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         // Mode, thresholds and caps are settings (doc 13, "MOVED TO SETTINGS"), so they must not be columns here.
         await using var cmd = db.DataSource.CreateCommand("""
             SELECT column_name FROM information_schema.columns
@@ -75,6 +78,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Gate_config_subscriptions_default_to_an_empty_array_so_nothing_is_scored()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         await using var insert = db.DataSource.CreateCommand("INSERT INTO gate_config (agent_id) VALUES ($1)");
         insert.Parameters.AddWithValue(agentId);
@@ -88,6 +92,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Gate_config_needs_an_existing_agent()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var repo = new GateConfigRepository(db.DataSource);
         var orphan = new GateConfig(Guid.CreateVersion7(), "[]");
         Assert.Equal("23503", await SqlStateAsync(() => repo.UpsertAsync(orphan, ct: Ct)));
@@ -99,6 +104,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [InlineData("scored", "promote", "23514")]
     public async Task Wake_decision_rejects_unknown_paths_and_decisions(string path, string decision, string expected)
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
         var repo = new WakeDecisionRepository(db.DataSource);
@@ -110,6 +116,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [InlineData("gossip")]
     public async Task Wake_decision_rejects_categories_outside_the_closed_set(string category)
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
         var repo = new WakeDecisionRepository(db.DataSource);
@@ -122,6 +129,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [InlineData(10001)]
     public async Task Wake_decision_score_must_be_basis_points(int scoreBp)
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
         var repo = new WakeDecisionRepository(db.DataSource);
@@ -132,6 +140,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Wake_decision_seq_must_be_positive()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, _) = await db.CreateGcEventAsync();
         var repo = new WakeDecisionRepository(db.DataSource);
@@ -141,6 +150,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Wake_decision_needs_an_existing_message_and_agent()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
         var repo = new WakeDecisionRepository(db.DataSource);
@@ -152,6 +162,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Wake_decision_key_is_unique_per_prompt_version()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
         var repo = new WakeDecisionRepository(db.DataSource);
@@ -164,6 +175,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
     [Fact]
     public async Task Gate_label_rejects_unknown_sources_blank_labels_and_missing_decisions()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agentId = await db.CreateAgentAsync();
         var (gcId, seq) = await db.CreateGcEventAsync();
         var decisionId = Guid.CreateVersion7();

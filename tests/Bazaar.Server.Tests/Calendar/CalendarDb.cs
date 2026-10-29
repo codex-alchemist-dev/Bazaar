@@ -20,6 +20,8 @@ public sealed class CalendarDb : PgFixture, IAsyncLifetime
 
     public override async ValueTask InitializeAsync()
     {
+        if (PgSource.IsUnsupportedHost)
+            return;
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))

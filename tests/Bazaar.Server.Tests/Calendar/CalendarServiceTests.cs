@@ -2,6 +2,7 @@ using System.Text;
 using Bazaar.Contracts.Gc;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Gc;
+using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Tests.Calendar;
@@ -54,6 +55,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_agent_request_is_proposed_and_writes_one_line_with_a_sealed_title()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("requester");
         var gc = await db.CreateGcAsync();
         var result = await Service().CreateAsync(Vacation(agent, title: "Leave"), Agent(agent), gc, TestContext.Current.CancellationToken);
@@ -80,6 +82,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task Owner_confirms_then_updates_and_each_change_writes_its_line()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("confirm-update");
         var gc = await db.CreateGcAsync();
         var service = Service();
@@ -110,6 +113,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task A_stale_version_is_a_conflict_and_changes_nothing()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("stale");
         var gc = await db.CreateGcAsync();
         var service = Service();
@@ -126,6 +130,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_agent_cannot_confirm_its_own_request()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("self-confirm");
         var gc = await db.CreateGcAsync();
         var service = Service();
@@ -141,6 +146,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_agent_cannot_request_a_vacation_for_another_agent()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("victim");
         var other = await db.CreateAgentAsync("requester-b");
         var gc = await db.CreateGcAsync();
@@ -154,6 +160,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_agent_cannot_create_a_release_but_a_project_lead_can_under_the_default_policy()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("release-agent");
         var gc = await db.CreateGcAsync();
         var service = Service();
@@ -172,6 +179,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task With_release_creators_set_to_owner_a_project_lead_is_refused()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var gc = await db.CreateGcAsync();
         var service = Service(new CalendarPolicy { ReleaseCreators = ReleaseCreators.Owner });
         var lead = new CalendarActor(AuthorKind.Human, Guid.CreateVersion7(), IsProjectLead: true);
@@ -186,6 +194,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_inverted_range_is_rejected_before_anything_is_written()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("inverted");
         var gc = await db.CreateGcAsync();
         var draft = Vacation(agent) with { EndsAt = _start.AddDays(-1) };
@@ -200,6 +209,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task A_vacation_without_an_agent_and_an_unknown_zone_are_rejected()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("bad-input");
         var gc = await db.CreateGcAsync();
         var service = Service();
@@ -216,6 +226,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_owner_created_vacation_starts_confirmed()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("owner-made");
         var gc = await db.CreateGcAsync();
 
@@ -227,6 +238,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task Cancel_is_a_status_change_and_a_cancelled_event_cannot_change_again()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("canceller");
         var gc = await db.CreateGcAsync();
         var service = Service();
@@ -251,6 +263,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_agent_may_cancel_its_own_vacation_but_not_another_agents()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var mine = await db.CreateAgentAsync("cancel-mine");
         var theirs = await db.CreateAgentAsync("cancel-theirs");
         var gc = await db.CreateGcAsync();
@@ -267,6 +280,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_all_day_release_across_the_spring_clock_change_keeps_its_real_length()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var gc = await db.CreateGcAsync();
         var start = new DateTimeOffset(2026, 3, 29, 0, 0, 0, TimeSpan.Zero);
         var draft = new CalendarDraft
@@ -290,6 +304,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task An_all_day_event_that_is_not_at_local_midnight_is_rejected()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var gc = await db.CreateGcAsync();
         var draft = new CalendarDraft
         {
@@ -309,6 +324,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task Listing_returns_only_overlapping_events_and_filters_by_agent()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var a = await db.CreateAgentAsync("list-a");
         var b = await db.CreateAgentAsync("list-b");
         var gc = await db.CreateGcAsync();
@@ -331,6 +347,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     [Fact]
     public async Task A_failed_notice_leaves_the_change_committed_and_announce_adds_the_line_once()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var agent = await db.CreateAgentAsync("notice-retry");
         var realGc = await db.CreateGcAsync();
         var missingGc = Guid.CreateVersion7();

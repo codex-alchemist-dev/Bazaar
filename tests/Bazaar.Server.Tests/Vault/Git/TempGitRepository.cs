@@ -21,7 +21,9 @@ internal sealed class TempGitRepository : IDisposable
             repo.Refs.UpdateTarget("HEAD", "refs/heads/main");
             repo.Config.Set("user.name", Writer.Name);
             repo.Config.Set("user.email", Writer.Email);
+            // Windows checkouts convert line endings unless the repository pins them; keep the fixtures byte-for-byte LF.
             repo.Config.Set("core.autocrlf", "false");
+            repo.Config.Set("core.eol", "lf");
         }
 
         foreach (var (path, content) in files)
@@ -47,7 +49,7 @@ internal sealed class TempGitRepository : IDisposable
     }
 
     public static string ReadFile(string workdir, string relativePath) =>
-        File.ReadAllText(Path.Combine(workdir, relativePath));
+        File.ReadAllText(Path.Combine(workdir, relativePath)).Replace("\r\n", "\n");
 
     /// <summary>Stages every change in the working directory and commits it on the checked-out branch.</summary>
     public static string CommitAll(string workdir, string message)

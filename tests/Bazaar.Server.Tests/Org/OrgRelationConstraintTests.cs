@@ -25,6 +25,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Duplicate_live_loan_in_one_project_is_rejected()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, project) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         await InsertAsync(Relation(OrgRelationKind.LentTo, a, b, project));
@@ -37,6 +38,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Second_live_reports_to_for_one_subject_and_scope_is_rejected()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, c) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         await InsertAsync(Relation(OrgRelationKind.ReportsTo, a, b, null));
@@ -49,6 +51,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Ended_loan_can_be_lent_again_in_the_same_project()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, project) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         var first = await InsertAsync(Relation(OrgRelationKind.LentTo, a, b, project));
@@ -63,6 +66,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task One_subject_may_report_to_different_managers_in_different_projects()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, c) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         var p1 = Guid.CreateVersion7();
@@ -79,6 +83,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Reports_to_cycle_within_one_scope_is_rejected()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, c) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         await InsertAsync(Relation(OrgRelationKind.ReportsTo, a, b, null));
@@ -93,6 +98,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Reports_to_cycle_is_checked_inside_a_project_scope()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, c) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         var project = Guid.CreateVersion7();
@@ -107,6 +113,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Cycle_across_scopes_is_not_a_cycle()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b) = (Guid.CreateVersion7(), Guid.CreateVersion7());
         var project = Guid.CreateVersion7();
@@ -121,6 +128,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Ended_reports_to_edge_does_not_count_toward_a_cycle()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, c) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         await InsertAsync(Relation(OrgRelationKind.ReportsTo, a, b, null));
@@ -135,6 +143,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Reports_to_self_is_rejected_by_check()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var a = Guid.CreateVersion7();
 
@@ -146,6 +155,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Unknown_kind_is_rejected_by_check()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var ex = await RejectedAsync(async () =>
         {
@@ -166,6 +176,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Loan_without_a_project_is_rejected_by_check()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var ex = await RejectedAsync(() => InsertAsync(Relation(OrgRelationKind.LentTo, Guid.CreateVersion7(), Guid.CreateVersion7(), null)));
 
@@ -175,6 +186,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Non_cyclic_loans_and_a_reports_to_chain_are_accepted()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var (a, b, c) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
         var project = Guid.CreateVersion7();
@@ -191,6 +203,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Concurrent_writes_that_would_close_a_cycle_admit_only_one()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         for (var round = 0; round < 5; round++)
         {
@@ -208,6 +221,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Ended_row_is_read_only()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var row = await InsertAsync(Relation(OrgRelationKind.LentTo, Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7()));
         await Repo.EndAsync(row.Id, row.Version, _start.AddDays(1), null, Ct);
@@ -226,6 +240,7 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     [Fact]
     public async Task Identity_fields_cannot_change_after_insert()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         SkipWithoutDatabase();
         var row = await InsertAsync(Relation(OrgRelationKind.LentTo, Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7()));
 
