@@ -23,7 +23,8 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0015` | INT1 | merged | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
 | `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
 | `0016` | SKM1 | this PR | Skimmer gate: `gate_config`, `wake_decisions`, `gate_labels` (doc 13; no `gate_run_override`, which waits on question 7); no cross-table foreign keys beyond `agent` and `gc_event` |
-| `0013`, `0017+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
+| `0013`, `0019+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 
