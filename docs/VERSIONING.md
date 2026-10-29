@@ -15,7 +15,11 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 | `-pre` | Pre-release identifier: `-alpha.N`, `-beta.N`, `-rc.N`. It also selects the channel (section 4). |
 | `+build` | The short commit hash. The .NET SDK appends it to `AssemblyInformationalVersion` automatically, so it is never a constant in the repo (same reason as RESIBO). |
 
-**Before v1.0.0 [DECIDED]:** builds are `v0.MINOR.PATCH` with the placeholder codename **Beta** (RESIBO's `x00` period). `0.MINOR` is a roadmap milestone (`docs/ROADMAP.md`); `PATCH` counts merged PRs inside that milestone. During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `0.MINOR` may grow past 9.
+**Before v1.0.0 [DECIDED]:** builds carry the placeholder codename **Beta** (RESIBO's `x00` period). The machine version is `0.MINOR.PATCH`, and its display form is zero-padded (next paragraph). `MINOR` is a roadmap stage (`docs/ROADMAP.md`); `PATCH` counts merged PRs inside that stage. During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `MINOR` may grow past 9.
+
+**Display format: zero-padded [DECIDED, owner, 2026-10-29].** The owner wants early patch numbers not to run out, so the display and tag form pads each part to two digits: `v00.MM.PP`, for example `v00.00.01`, `v00.01.00` (Stage 1), `v00.01.02`. This also answers the earlier open question about an `xYY.ZZ.AA` scheme: the format is zero-padded SemVer with three parts, not a four-part scheme. The padded form is the one shown to people and used for tags. A part that passes 99 widens to three digits for that part only, which needs a line here.
+
+Tradeoff, for the owner to confirm: SemVer 2.0 forbids leading zeros, and NuGet and .NET normalise them away (`00.01.00` becomes `0.1.0`). So the padded form is display and tag only. `VersionPrefix` in `Directory.Build.props` stays the valid SemVer machine form (`0.1.0`), and the padded form is derived from it one-to-one. Velopack, NuGet and any SemVer comparer use the machine form. Tags use the padded form and map to the machine form on build.
 
 **Source of truth:** `VersionPrefix` in `Directory.Build.props`. Code reads it through `Bazaar.Contracts.ProductVersion` (`Informational`, `Codename(major)`, `CurrentCodename`). Every build carries the same product version: server, clients, SDK and Contracts.
 
@@ -27,7 +31,7 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 | Database schema | migration number; startup refuses a mismatch (C44) | doc 04 |
 | Settings registry | one entry per key; removing a key is a product MAJOR | doc 03 |
 
-**Bumping:** the PR that merges into `main` bumps `VersionPrefix` when it completes a milestone (0.x) or changes the public surface (1.x and later). A release is an annotated tag `vX.Y.Z[-pre]` on `main`; tags are immutable.
+**Bumping:** the PR that merges into `main` bumps `VersionPrefix` when it completes a milestone (0.x) or changes the public surface (1.x and later). A release is an annotated tag on `main`, in display form (`v00.MM.PP`, or `vX.Y.Z[-pre]` from v1.0.0); tags are immutable. The `-pre` suffix keeps its SemVer form.
 
 ## 2. Major-version codenames [DECIDED theme; all names through v5 owner-accepted]
 
@@ -35,7 +39,7 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 
 | Version | Codename | Why it fits both |
 |---|---|---|
-| v0.x | Beta | Placeholder for the pre-release period. |
+| 0.x (shown `v00.MM.PP`) | Beta | Placeholder for the pre-release period. |
 | v1.0.0 | **Zuhal** (owner-picked, 2026-10-25) | Arabic name of Saturn, a wandering star; alchemists tied Saturn to lead, the base metal the Great Work starts from. |
 | v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
 | v3.0.0 | **Xerion** (owner-accepted, 2026-10-25) | The dry powder of the stone, the root of "elixir". X is thin, like RESIBO's X. |
