@@ -1,5 +1,5 @@
-using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Agents.Responder;
+using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
