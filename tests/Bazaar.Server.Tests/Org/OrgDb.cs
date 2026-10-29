@@ -24,4 +24,12 @@ public sealed class OrgDb : PgFixture, IAsyncLifetime
 }
 
 /// <summary>A per-class database with nothing applied, for the migration apply and re-apply test.</summary>
-public sealed class OrgBareDb : PgFixture, IAsyncLifetime;
+public sealed class OrgBareDb : PgFixture, IAsyncLifetime
+{
+    public override async ValueTask InitializeAsync()
+    {
+        if (PgSource.IsUnsupportedHost)
+            return;
+        await base.InitializeAsync();
+    }
+}
