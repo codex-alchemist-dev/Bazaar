@@ -10,6 +10,8 @@ If the local cluster is not on 5432, set `BAZAAR_PG_PORT`; without it, up.sh use
     # or against your own database:
     BAZAAR_DB='Host=...;Database=...;Username=...;Password=...' scripts/dev/up.sh
 
+The run also seeds one dev chat (`scripts/dev/seed-dev-chat.sql`) with the owner and the dev agent `Charles` as members, and configures `Charles` as the responder persona. Fixed local ids: owner `00000000-0000-7000-8000-000000000001`, agent `...0002`, chat `...0003`. Chatting in that two-member chat wakes the agent. Its model calls need a model policy and a FreeLLMAPI route; until those exist, the server logs `policy_denied` and posts nothing.
+
 Status: `http://127.0.0.1:7390/status`, readiness: `http://127.0.0.1:7390/health/ready`.
 
 **Windows PowerShell** (uses your own Postgres; no script)
