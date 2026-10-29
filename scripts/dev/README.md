@@ -20,3 +20,19 @@ Status: `http://127.0.0.1:7390/status`, readiness: `http://127.0.0.1:7390/health
     dotnet run --project src\Bazaar.Server.Host -- --Bazaar:Host:DataRoot=$env:LOCALAPPDATA\bazaar-dev --Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_DB
 
 The token and password are never written to git. The dev token is saved by `up.sh` under `~/.local/share/bazaar-dev` (outside the repo).
+
+## FreeLLMAPI smoke test
+
+Checks your FreeLLMAPI endpoint, unified key and fallback trail without the Bazaar server. Needs only `curl` and `python3`. Flags: `--stream` (SSE chunks), `--tools` (tool-call round trip). Exit 0 = pass, 1 = fail, 3 = rate limited (429).
+
+**Linux**
+
+    export FREELLMAPI_KEY='freellmapi-...'        # never printed
+    scripts/dev/freellmapi-smoke.sh --stream --tools
+    # other endpoint or model:
+    FREELLMAPI_URL=http://127.0.0.1:3001/v1 FREELLMAPI_MODEL=auto scripts/dev/freellmapi-smoke.sh
+
+**Windows PowerShell** (from the repo root, through Git Bash or WSL `bash`)
+
+    $env:FREELLMAPI_KEY = "freellmapi-..."
+    bash scripts/dev/freellmapi-smoke.sh --stream --tools
