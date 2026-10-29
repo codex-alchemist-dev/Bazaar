@@ -1,4 +1,5 @@
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
@@ -19,6 +20,7 @@ builder.Services.AddBazaarHostWire(builder.Configuration);
 builder.Services.AddBazaarAgentSafety();
 builder.Services.AddBazaarSettings();
 builder.Services.AddBazaarGateway();
+builder.Services.AddBazaarAgentResponder(builder.Configuration);
 
 // Both integrations are no-ops unless the process runs under the matching service manager.
 builder.Services.AddWindowsService(options => options.ServiceName = "Bazaar.Server");
