@@ -1,0 +1,17 @@
+# Gitleaks configuration for the full-history secret scan (.github/workflows/ci.yml).
+#
+# Allowlisted by commit, not by path, so a later commit that adds a real secret to the
+# same file is still caught.
+#
+# 7581e7afbc85c4d40539c8d498d28037e7ab3225 adds tests/Bazaar.Server.Tests/Memory/Notes/SoulGuardTests.cs.
+# That file tests the SoulGuard rejection of secret-shaped text. Its inputs are made-up
+# strings such as AKIAIOSFODNN7XYZ1234, and are not live
+# credentials. The commit lives on a branch that is not yet merged, which is why the
+# full-history scan reports it on every PR that fetches all refs.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic secret-shaped fixtures in test data"
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225"]
