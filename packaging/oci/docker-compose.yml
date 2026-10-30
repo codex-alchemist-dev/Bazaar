@@ -49,12 +49,14 @@ services:
     image: bazaar-server:local
     pull_policy: build
     restart: "no"
-    command: ["migrate"]
-    # The migrate subcommand reads configuration with a BAZAAR__ prefix (MigrateSubcommand.cs), so its
-    # variables carry that prefix. The server service below reads them unprefixed.
-    environment:
-      BAZAAR__Bazaar__Host__DataRoot: /var/lib/bazaar
-      BAZAAR__Bazaar__Host__DatabaseConnectionReference: file:/run/secrets/bazaar_db_connection
+    # MigrateSubcommand builds its own configuration and reads only BAZAAR__-prefixed environment variables,
+    # so the unprefixed Bazaar__Host__* values from the server are passed as command-line arguments instead.
+    # The arguments pass through args[1..] into AddCommandLine with the same keys the server uses.
+    # Changing migrate to read the unprefixed variables needs a src/ change, which is out of scope here.
+    command:
+      - migrate
+      - --Bazaar:Host:DataRoot=/var/lib/bazaar
+      - --Bazaar:Host:DatabaseConnectionReference=file:/run/secrets/bazaar_db_connection
     secrets:
       - bazaar_db_connection
     volumes:
@@ -70,6 +72,8 @@ services:
     image: bazaar-server:local
     pull_policy: build
     restart: unless-stopped
+    # PENDING: the status and wire bind should be set to 0.0.0.0 here once the configurable-bind PR lands.
+    # Until then Bazaar:Host:Status:Bind must stay "loopback" (BazaarStatusOptions validator), so nothing is set.
     environment:
       Bazaar__Host__DataRoot: /var/lib/bazaar
       Bazaar__Host__DatabaseConnectionReference: file:/run/secrets/bazaar_db_connection
