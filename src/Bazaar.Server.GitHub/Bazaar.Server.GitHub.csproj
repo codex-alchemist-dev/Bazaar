@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Component migrations: components/<name>/NNNN_name.sql, never in Data/Sql/common (see Data/Sql/README.md). -->
+    <EmbeddedResource Include="components\github\**\*.sql" />
+  </ItemGroup>
+</Project>
