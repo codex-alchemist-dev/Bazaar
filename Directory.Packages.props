@@ -22,6 +22,8 @@
     <!-- Vault Markdown (doc 18, VLT1): Markdig pipeline and YAML front matter reader. -->
     <PackageVersion Include="Markdig" Version="1.5.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+    <!-- Vault git engine (doc 18 C12, spike S23): native libgit2 ships in the package. -->
+    <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
