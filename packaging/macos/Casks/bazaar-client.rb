@@ -21,7 +21,7 @@ cask "bazaar-client" do
   pkg "Bazaar-Client-#{version}.pkg"
 
   # Must match the --identifier used by packaging/macos/build-pkg.sh.
-  uninstall pkgutil: "dev.codex-alchemist.bazaar.client",
+  uninstall pkgutil: "dev.bazaar.client",
             delete:  [
               "/usr/local/lib/bazaar",
               "/usr/local/bin/bazaar-client",

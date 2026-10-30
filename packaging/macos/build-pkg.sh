@@ -13,7 +13,7 @@
 #   --version       numeric SemVer, 0.MM.PP (pkgbuild rejects anything else)
 #   --output-dir    where Bazaar-Client-<version>.pkg is written
 #   --entry-binary  executable name inside --publish-dir (default: Bazaar.Client.Terminal)
-#   --identifier    package identifier (default: dev.codex-alchemist.bazaar.client,
+#   --identifier    package identifier (default: dev.bazaar.client,
 #                   placeholder until the owner confirms the reverse-DNS name)
 #
 # Example publish step (run on a macOS runner; osx-x64 for Intel):
@@ -29,7 +29,7 @@ publish_dir=""
 version=""
 output_dir=""
 entry_binary="Bazaar.Client.Terminal"
-identifier="dev.codex-alchemist.bazaar.client"
+identifier="dev.bazaar.client"
 
 usage() {
   sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
