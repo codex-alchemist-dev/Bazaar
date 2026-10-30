@@ -11,6 +11,8 @@ public static class TaskEventKinds
     public const string GuardRefused = "task.guard_refused";
     public const string GateDecided = "task.gate_decided";
     public const string DuePassed = "task.due_passed";
+    public const string GateRecorded = "task.gate_recorded";
+    public const string ReviewApproved = "task.review_approved";
 }
 
 /// <summary>A row of <c>tasks</c>. <see cref="Version"/> is the optimistic-lock value the next write must match.</summary>

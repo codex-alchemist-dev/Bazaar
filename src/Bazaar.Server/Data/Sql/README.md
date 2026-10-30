@@ -25,7 +25,8 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0016` | SKM1 | this PR | Skimmer gate: `gate_config`, `wake_decisions`, `gate_labels` (doc 13; no `gate_run_override`, which waits on question 7); no cross-table foreign keys beyond `agent` and `gc_event` |
 | `0017` | CAL1 | this PR | `calendar_event`: Company Calendar (doc 24 section 4); title stored as `(title_key_id, title_ct, title_nonce)`; `agent_id` references `agent`, no other cross-table foreign keys beyond `gc` |
 | `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
-| `0013`, `0019+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0013` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
+| `0019+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 
