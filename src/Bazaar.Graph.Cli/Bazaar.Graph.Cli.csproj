@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>bazaar-graph</AssemblyName>
+    <RootNamespace>Bazaar.Graph.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Graph\Bazaar.Graph.csproj" />
+  </ItemGroup>
+</Project>

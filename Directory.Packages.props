@@ -19,6 +19,8 @@
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-rc.2.26504.105" />
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0-rc.2.26504.105" />
+    <!-- Bazaar.Graph (docs/design/graph-index.md): C# syntax extraction. No compilation or native code needed. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <!-- Vault git engine (doc 18 C12, spike S23): native libgit2 ships in the package. -->
     <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
