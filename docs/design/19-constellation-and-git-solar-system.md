@@ -108,7 +108,7 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - **Clustering:** two cliques joined by one edge yield two communities.
 - **Projection:** real PostgreSQL fixture. Unresolved links kept. Non-members never see DM nodes. Thinking GCs produce no nodes. Another agent's private memory is absent; the owner sees it. An erasure tombstone removes the node on the next version.
 - **Git DAG:** fixture repo with a merge yields one comet edge, read through `IGitProvider`.
-- **Client:** Avalonia.Headless with Skia. Golden image at 200 nodes. Hit-test and keyboard-only walk produce the expected `FocusRequest` sequence.
+- **Client:** Avalonia.Headless with the Vulkan renderer on a software Vulkan device (CI-capable). Golden image at 200 nodes. Hit-test and keyboard-only walk produce the expected `FocusRequest` sequence.
 - **Settings:** each setting's default and bounds are tested; a change writes an audit entry.
 - **Performance:** benchmark at 1k, 5k and 10k on the NUC (spike S14), nightly, not a PR gate.
 
