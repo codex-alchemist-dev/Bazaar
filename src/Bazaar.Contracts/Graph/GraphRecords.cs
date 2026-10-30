@@ -19,3 +19,6 @@ public sealed record GraphSnapshot(
 /// snapshot it was computed from. 2D layouts keep z at 0. Clients drop any frame older than the newest one applied (doc 19, ordering).
 /// </summary>
 public sealed record LayoutFrame(long GraphVersion, long LayoutSeq, string FocusId, ReadOnlyMemory<float> Xyz);
+
+/// <summary>A client's request to move the focus of one view to a node (doc 19, Commands). Sent over the socket.</summary>
+public sealed record FocusRequest(string ViewId, string NodeId);

@@ -11,7 +11,11 @@ The Constellation is the visual view of the knowledge graph that the Vault and G
 - **Vault access applies to the graph.** Every read, search hit and link resolution is checked against the caller's principal (18, Access). The owner reads all. An agent reads its own private memory. Other agents do not read private memory. The projection uses the same filter (C38, 18).
 - **Compute location.** Layout and clustering run on the server; clients render and run no simulation. This follows CLAUDE.md, whose listed exceptions (on-device inference, Studio relay, local terminal, branch sync) do not include the graph (DECISIONS-LOG round 4, C17).
 - **Licence.** The public build is OSI-only, with no paid Avalonia controls (DECISIONS-LOG round 4, C23). Node previews use plain Skia text.
-- **Renderer.** Reverse Gravity Layout; Vim-style navigation that restructures the graph; native Skia through Avalonia; no D3-Force, WebGPU or Win2D (Bazaar.Constellation.md §1).
+- **Renderer.** Reverse Gravity Layout; Vim-style navigation that restructures the graph; no D3-Force or WebGPU (Bazaar.Constellation.md §1).
+- **Renderer (owner, 2026-10-30, supersedes the earlier Direct3D 12 choice).** The Constellation renders with **Vulkan** on every client: Windows, Linux and Android. Vulkan is the primary and only built backend, and it follows the latest Vulkan API and its new versions (forward-facing rule). This overrides the Skia choice in Bazaar.Constellation.md §1 for all heads. Mesh shading and other advanced features come through extensions, each gated by a runtime capability check with a fallback path.
+- **Renderer interface.** A thin `IConstellationRenderer` in Client.Core keeps the renderer behind one seam. Its Vulkan implementation is the only one in scope. Any other backend (for example D3D12, or Metal later) is an optional future addition and is not planned now.
+- **Binding (chosen, subject to WP7 spike).** Vortice.Vulkan, MIT licence, generated from the current Vulkan headers and kept current with new Vulkan releases, with thin bindings and no windowing forced on the caller. Fallback if it lags a needed Vulkan version: Silk.NET.Vulkan (also MIT). Either binding stays behind `IConstellationRenderer`. The choice is recorded here; WP7 confirms it.
+- **Future goal: 3D space mode.** The owner may want a 3D space view later. Layout and projection outputs are dimension-agnostic where cheap: positions are packed floats with a dimension count (2 or 3), and 2D is the flattened default. No 3D renderer is in scope now.
 - **Git.** Git access goes through one `IGitProvider`; LibGit2Sharp stays the default until spike S23 says otherwise (DECISIONS-LOG round 3, C12).
 - **GCs.** Append-only. DMs are two-member GCs and the owner reads all of them (CLAUDE.md). Thinking GCs nest under working GCs and peers read them on request (DECISIONS-LOG round 3, C11). GC types come from the registry in 01 (round 6, C19).
 - **Done.** For a card tied to a PR, Done means the PR is merged (round 8, C28).
@@ -26,7 +30,7 @@ The Constellation is the visual view of the knowledge graph that the Vault and G
 - **Graph service (server, [PROPOSED]).** Builds a per-viewer projection from the Vault index (`vault_docs`, `vault_links`, 18), GC references (`gc`, `gc_mention`, 04), Kanban tasks (12), PR data (21) and the Git DAG index. Emits a versioned snapshot, then deltas on the `graph:<id>` stream (02 registry).
 - **Layout engine (server library, [PROPOSED]).** ForceAtlas2-style forces with Barnes-Hut (quadtree in 2D, octree-ready for 3D). No Avalonia dependency. Runs in fixed-budget ticks per view.
 - **Clustering (server, [PROPOSED]).** Louvain communities, recomputed when the graph version changes, not per frame.
-- **Client renderer (`Bazaar.Client.Core`, [PROPOSED]).** A custom Avalonia control that draws through `ICustomDrawOperation` to Skia (secondary source). It interpolates between received position frames, and owns camera, hit-testing and level of detail. It runs no simulation. Android shows a read-only drawer first (29).
+- **Client renderer (`Bazaar.Client.Core`, [PROPOSED]).** A custom Avalonia control that hosts the renderer behind `IConstellationRenderer`; the renderer is Vulkan on all platforms (owner decision, 2026-10-30, see Decided inputs). The control hosts the swap chain with `ICustomDrawOperation`-style interop (secondary source). It interpolates between received position frames, and owns camera, hit-testing and level of detail. It runs no simulation. Android shows a read-only drawer first (29).
 - **Reverse gravity ([PROPOSED]).** On focus change, the server pins the focused node at the origin, gives each node a target ring radius by hop distance, and warm-starts from current positions so the change animates. The ring mechanism is an inference from the research, which names only attraction scaling. Ring count is `constellation.ring_depth`.
 - **Commands ([PROPOSED]).** Navigation commands send a `FocusRequest` to the server over the socket. Keys are mnemonic, never Ctrl chords (27).
 
@@ -104,7 +108,7 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - **Clustering:** two cliques joined by one edge yield two communities.
 - **Projection:** real PostgreSQL fixture. Unresolved links kept. Non-members never see DM nodes. Thinking GCs produce no nodes. Another agent's private memory is absent; the owner sees it. An erasure tombstone removes the node on the next version.
 - **Git DAG:** fixture repo with a merge yields one comet edge, read through `IGitProvider`.
-- **Client:** Avalonia.Headless with Skia. Golden image at 200 nodes. Hit-test and keyboard-only walk produce the expected `FocusRequest` sequence.
+- **Client:** Avalonia.Headless with the Vulkan renderer on a software Vulkan device (CI-capable). Golden image at 200 nodes. Hit-test and keyboard-only walk produce the expected `FocusRequest` sequence.
 - **Settings:** each setting's default and bounds are tested; a change writes an audit entry.
 - **Performance:** benchmark at 1k, 5k and 10k on the NUC (spike S14), nightly, not a PR gate.
 
