@@ -4,7 +4,7 @@ namespace Bazaar.Server.Community.Tests.Profile;
 
 public class BotProfileBuilderTests
 {
-    private static readonly DisclosureOptions Defaults = new();
+    private static readonly DisclosureOptions _defaults = new();
 
     private static BotProfile Sample(string displayName = "Codex Bot") => new(
         AgentId: "agent-42",
@@ -17,7 +17,7 @@ public class BotProfileBuilderTests
     [Fact]
     public void Footer_uses_default_template_text_exactly()
     {
-        var footer = BotProfileBuilder.Footer(Sample(), Defaults);
+        var footer = BotProfileBuilder.Footer(Sample(), _defaults);
 
         Assert.Equal("Posted by an AI agent (Bazaar), sponsor Ada Lovelace, contact ada@example.org.", footer);
     }
@@ -25,7 +25,7 @@ public class BotProfileBuilderTests
     [Fact]
     public void AppendFooter_adds_footer_after_a_blank_line()
     {
-        var text = BotProfileBuilder.AppendFooter("Fixed the parser.", Sample(), Defaults);
+        var text = BotProfileBuilder.AppendFooter("Fixed the parser.", Sample(), _defaults);
 
         Assert.Equal(
             "Fixed the parser.\n\nPosted by an AI agent (Bazaar), sponsor Ada Lovelace, contact ada@example.org.",
@@ -35,8 +35,8 @@ public class BotProfileBuilderTests
     [Fact]
     public void AppendFooter_is_idempotent()
     {
-        var once = BotProfileBuilder.AppendFooter("Fixed the parser.\n", Sample(), Defaults);
-        var twice = BotProfileBuilder.AppendFooter(once, Sample(), Defaults);
+        var once = BotProfileBuilder.AppendFooter("Fixed the parser.\n", Sample(), _defaults);
+        var twice = BotProfileBuilder.AppendFooter(once, Sample(), _defaults);
 
         Assert.Equal(once, twice);
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(twice, "Posted by an AI agent"));
@@ -46,7 +46,7 @@ public class BotProfileBuilderTests
     public void Footer_is_one_line_with_no_trailing_newline()
     {
         var profile = Sample() with { SponsorName = "Ada\nLovelace" };
-        var footer = BotProfileBuilder.Footer(profile, Defaults);
+        var footer = BotProfileBuilder.Footer(profile, _defaults);
 
         Assert.DoesNotContain('\n', footer);
         Assert.DoesNotContain('\r', footer);
@@ -85,7 +85,7 @@ public class BotProfileBuilderTests
     {
         var profile = Sample() with { SponsorName = "{contact}" };
 
-        var footer = BotProfileBuilder.Footer(profile, Defaults);
+        var footer = BotProfileBuilder.Footer(profile, _defaults);
 
         Assert.Equal("Posted by an AI agent (Bazaar), sponsor {contact}, contact ada@example.org.", footer);
     }
@@ -93,8 +93,8 @@ public class BotProfileBuilderTests
     [Fact]
     public void DisplayName_gets_the_suffix_once()
     {
-        Assert.Equal("Codex Bot (AI agent)", BotProfileBuilder.DisplayName(Sample("Codex Bot"), Defaults));
-        Assert.Equal("Codex Bot (AI agent)", BotProfileBuilder.DisplayName(Sample("Codex Bot (AI agent)"), Defaults));
+        Assert.Equal("Codex Bot (AI agent)", BotProfileBuilder.DisplayName(Sample("Codex Bot"), _defaults));
+        Assert.Equal("Codex Bot (AI agent)", BotProfileBuilder.DisplayName(Sample("Codex Bot (AI agent)"), _defaults));
     }
 
     [Fact]
@@ -146,10 +146,10 @@ public class BotProfileBuilderTests
         var profile = Sample();
         var outputs = new[]
         {
-            BotProfileBuilder.DisplayName(profile, Defaults),
-            BotProfileBuilder.Footer(profile, Defaults),
-            BotProfileBuilder.AppendFooter("Assisted-by: Codex Alchemist", profile, Defaults),
-            BotProfileBuilder.AppendFooter("", profile, Defaults),
+            BotProfileBuilder.DisplayName(profile, _defaults),
+            BotProfileBuilder.Footer(profile, _defaults),
+            BotProfileBuilder.AppendFooter("Assisted-by: Codex Alchemist", profile, _defaults),
+            BotProfileBuilder.AppendFooter("", profile, _defaults),
         };
 
         foreach (var output in outputs)

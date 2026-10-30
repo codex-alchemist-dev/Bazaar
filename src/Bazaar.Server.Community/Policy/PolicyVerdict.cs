@@ -1,7 +1,7 @@
 namespace Bazaar.Server.Community.Policy;
 
 /// <summary>The two results of a policy check. Deny is the default for anything not explicitly allowed.</summary>
-public enum PolicyOutcome
+public enum CommunityPolicyOutcome
 {
     Allow,
     Deny,
@@ -10,16 +10,16 @@ public enum PolicyOutcome
 /// <summary>The outcome of <see cref="PolicyResolver.Decide"/>, with the reason written to the audit trail and the draft review.</summary>
 /// <param name="Outcome">Allow or Deny.</param>
 /// <param name="Reason">A short, human-readable reason. Never empty.</param>
-public sealed record PolicyVerdict(PolicyOutcome Outcome, string Reason)
+public sealed record PolicyVerdict(CommunityPolicyOutcome Outcome, string Reason)
 {
-    /// <summary>True only for <see cref="PolicyOutcome.Allow"/>.</summary>
-    public bool IsAllowed => Outcome == PolicyOutcome.Allow;
+    /// <summary>True only for <see cref="CommunityPolicyOutcome.Allow"/>.</summary>
+    public bool IsAllowed => Outcome == CommunityPolicyOutcome.Allow;
 
     /// <summary>An Allow verdict with the given reason.</summary>
-    public static PolicyVerdict Allowed(string reason) => new(PolicyOutcome.Allow, reason);
+    public static PolicyVerdict Allowed(string reason) => new(CommunityPolicyOutcome.Allow, reason);
 
     /// <summary>A Deny verdict with the given reason.</summary>
-    public static PolicyVerdict Denied(string reason) => new(PolicyOutcome.Deny, reason);
+    public static PolicyVerdict Denied(string reason) => new(CommunityPolicyOutcome.Deny, reason);
 }
 
 /// <summary>

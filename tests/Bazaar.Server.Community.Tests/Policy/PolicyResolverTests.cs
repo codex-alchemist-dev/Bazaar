@@ -20,7 +20,7 @@ public class PolicyResolverTests
             var verdict = PolicyResolver.Decide(null, action, _today);
 
             Assert.False(verdict.IsAllowed);
-            Assert.Equal(PolicyOutcome.Deny, verdict.Outcome);
+            Assert.Equal(CommunityPolicyOutcome.Deny, verdict.Outcome);
             Assert.False(string.IsNullOrWhiteSpace(verdict.Reason));
         }
     }
@@ -138,7 +138,7 @@ public class PolicyResolverTests
     {
         var verdict = PolicyResolver.Decide(Seeded("GitHub"), CommunityAction.CreateAccount, _today);
 
-        Assert.Equal(PolicyOutcome.Deny, verdict.Outcome);
+        Assert.Equal(CommunityPolicyOutcome.Deny, verdict.Outcome);
         Assert.Contains("CreateAccount", verdict.Reason, StringComparison.Ordinal);
     }
 }
