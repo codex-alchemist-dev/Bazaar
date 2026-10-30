@@ -2,4 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+  </ItemGroup>
 </Project>
