@@ -11,17 +11,35 @@ public sealed class TaskEventRepository(NpgsqlDataSource dataSource)
         RETURNING seq
         """;
 
-    /// <summary>Appends one event and returns its seq. Nothing here can update or delete an event.</summary>
+    /// <summary>
+    /// Channel for task-event wake hints (doc 12, WP8). A notification is a hint only: consumers read the event rows.
+    /// </summary>
+    public const string NotifyChannel = "kanban_event";
+
+    /// <summary>
+    /// Appends one event and returns its seq, then sends a <c>NOTIFY</c> on <see cref="NotifyChannel"/> inside the same
+    /// transaction. PostgreSQL delivers the notification only when the transaction commits, so a rolled-back change is
+    /// never announced. Nothing here can update or delete an event.
+    /// </summary>
     public async Task<long> AppendAsync(NpgsqlTransaction tx, NewTaskEvent taskEvent, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(tx);
         ArgumentNullException.ThrowIfNull(taskEvent);
-        await using var cmd = KanbanCommands.Create(dataSource, tx, _appendSql);
-        cmd.Parameters.AddWithValue("task_id", taskEvent.TaskId);
-        cmd.Parameters.AddWithValue("kind", taskEvent.Kind);
-        cmd.Parameters.AddWithValue("actor", taskEvent.Actor);
-        cmd.Parameters.Add(new NpgsqlParameter("payload", NpgsqlDbType.Text) { Value = taskEvent.PayloadJson });
-        return (long)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+        long seq;
+        await using (var cmd = KanbanCommands.Create(dataSource, tx, _appendSql))
+        {
+            cmd.Parameters.AddWithValue("task_id", taskEvent.TaskId);
+            cmd.Parameters.AddWithValue("kind", taskEvent.Kind);
+            cmd.Parameters.AddWithValue("actor", taskEvent.Actor);
+            cmd.Parameters.Add(new NpgsqlParameter("payload", NpgsqlDbType.Text) { Value = taskEvent.PayloadJson });
+            seq = (long)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+        }
+
+        await using var notify = KanbanCommands.Create(dataSource, tx, "SELECT pg_notify(@channel, @payload)");
+        notify.Parameters.AddWithValue("channel", NotifyChannel);
+        notify.Parameters.AddWithValue("payload", $"{{\"task_id\":\"{taskEvent.TaskId:D}\",\"seq\":{seq},\"kind\":\"{taskEvent.Kind}\"}}");
+        await notify.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        return seq;
     }
 
     /// <summary>Events of one task with seq greater than <paramref name="afterSeq"/>, oldest first, at most <paramref name="limit"/>.</summary>

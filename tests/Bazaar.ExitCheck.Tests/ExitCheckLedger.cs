@@ -1,6 +1,6 @@
 namespace Bazaar.ExitCheck.Tests;
 
-/// <summary>One work package the v0.3 exit check waits for (docs/design/34-testing-strategy.md; plan Batch 3).</summary>
+/// <summary>One work package the Stage 3 exit check waits for (docs/design/34-testing-strategy.md; plan Batch 3).</summary>
 /// <param name="Id">Plan id, such as <c>W3</c>.</param>
 /// <param name="What">What the exit check needs from it.</param>
 /// <param name="Merged">True once it is on the branch this project builds from.</param>
@@ -11,7 +11,7 @@ public sealed record Prerequisite(string Id, string What, bool Merged);
 /// retry-to-green, so the exit check is never skipped and never reports a fake pass: while a prerequisite is
 /// unmerged, <see cref="ExitCheckServers.StartAsync"/> throws <see cref="PendingPrerequisitesException"/> naming
 /// what is missing. This project is outside <c>Bazaar.slnx</c> and runs in the non-blocking CI job
-/// "v0.3 exit check (tracking)" until every <see cref="Merged"/> flag is true; README.md has the graduation steps.
+/// "Stage 3 exit check (tracking)" until every <see cref="Merged"/> flag is true; README.md has the graduation steps.
 /// Flip a flag in the same PR that merges its work package.
 /// </summary>
 public static class ExitCheckLedger
@@ -28,7 +28,7 @@ public static class ExitCheckLedger
         new("W5", "dispatcher: LISTEN to sockets, bounded queue, lagged", true),
         new("W6", "idempotent request layer for gc.send", true),
         new("PRH", "protocol harness: in-process Kestrel with a fake authenticator", true),
-        new("GLUE", "subscribe, gc.send and gc.history handlers; IGcStreamSource, IGcAccessPolicy and IGcNotificationSource over the G2/G3 log; SubscriptionSession attached to WireConnection", false),
+        new("GLUE", "subscribe, gc.send and gc.history handlers; IGcStreamSource, IGcAccessPolicy and IGcNotificationSource over the G2/G3 log; SubscriptionSession attached to WireConnection", true),
     ];
 
     /// <summary>The prerequisites not yet merged.</summary>
@@ -37,4 +37,4 @@ public static class ExitCheckLedger
 
 /// <summary>Thrown instead of skipping: the exit check cannot run yet. Fails the test with the missing packages listed.</summary>
 public sealed class PendingPrerequisitesException(IReadOnlyList<Prerequisite> pending)
-    : Exception("v0.3 exit check is waiting for: " + string.Join("; ", pending.Select(p => $"{p.Id} ({p.What})")));
+    : Exception("Stage 3 exit check is waiting for: " + string.Join("; ", pending.Select(p => $"{p.Id} ({p.What})")));
