@@ -26,6 +26,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0017` | CAL1 | this PR | `calendar_event`: Company Calendar (doc 24 section 4); title stored as `(title_key_id, title_ct, title_nonce)`; `agent_id` references `agent`, no other cross-table foreign keys beyond `gc` |
 | `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
+| `0019` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
 | `0019+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
