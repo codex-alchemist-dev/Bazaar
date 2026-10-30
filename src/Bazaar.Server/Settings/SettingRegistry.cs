@@ -19,6 +19,9 @@ public sealed class SettingRegistry
     /// <summary>Every <c>host.*</c> key from doc 03.</summary>
     public static SettingRegistry Host { get; } = new(HostSettings.All);
 
+    /// <summary>Every <c>constellation.*</c> key from doc 19. Kept apart from <see cref="Host"/>, which holds only <c>host.*</c>.</summary>
+    public static SettingRegistry Constellation { get; } = new(ConstellationSettings.All);
+
     public IReadOnlyCollection<SettingDefinition> Definitions => _byName.Values;
 
     public bool TryGet(string name, out SettingDefinition? definition)
