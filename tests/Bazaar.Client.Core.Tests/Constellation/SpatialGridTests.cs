@@ -4,16 +4,16 @@ namespace Bazaar.Client.Core.Tests.Constellation;
 
 public class SpatialGridTests
 {
-    private const int Seed = 20261030;
+    private const int _seed = 20261030;
 
     [Fact]
     public void QueryRadius_matches_brute_force_on_1000_seeded_points()
     {
-        float[] xy = RandomPositions(1000, Seed, 1000f);
+        float[] xy = RandomPositions(1000, _seed, 1000f);
         var grid = new SpatialGrid(25f);
         grid.Rebuild(xy);
 
-        var random = new Random(Seed + 1);
+        var random = new Random(_seed + 1);
         var buffer = new int[1000];
         for (int q = 0; q < 200; q++)
         {
@@ -108,10 +108,10 @@ public class SpatialGridTests
     [Fact]
     public void NearestNode_matches_brute_force()
     {
-        float[] xy = RandomPositions(1000, Seed + 2, 1000f);
+        float[] xy = RandomPositions(1000, _seed + 2, 1000f);
         var grid = new SpatialGrid(40f);
         grid.Rebuild(xy);
-        var random = new Random(Seed + 3);
+        var random = new Random(_seed + 3);
 
         for (int q = 0; q < 200; q++)
         {

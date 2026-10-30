@@ -1,3 +1,8 @@
+-- TODO(component): the Constellation is a Bazaar Component. Its migrations belong in components/constellation/,
+-- which the runner does not read yet, so this file stays in common/ until the component model PR lands.
+-- SECURITY (open, must close before the graph service reads these): the node and edge views are unfiltered and
+-- bazaar_app has SELECT on them, so a direct query can read DM titles. Only constellation_visible_nodes applies
+-- the visibility rule. Close this with a SECURITY DEFINER wrapper, or drop the direct SELECT, before shipping.
 -- Constellation projection views (docs/design/19-constellation-and-git-solar-system.md, Data and interfaces, Visibility,
 -- Testing; work package 2). Owner: CGR. Builds on 0001 (gc, gc_member_current), 0009 (vault_docs, vault_links) and 0012
 -- (tasks, task_edges).

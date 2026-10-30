@@ -44,7 +44,7 @@ public sealed record ConstellationFocusRequest(string ViewId, string NodeId);
 /// </remarks>
 public sealed class ConstellationNavigation
 {
-    private const int DefaultHistoryLimit = 200;
+    private const int _defaultHistoryLimit = 200;
 
     private readonly string _viewId;
     private readonly int _historyLimit;
@@ -63,7 +63,7 @@ public sealed class ConstellationNavigation
     /// <summary>Creates a navigation model for one view.</summary>
     /// <param name="viewId">The view id copied into every focus request.</param>
     /// <param name="historyLimit">Maximum entries kept on each stack; the oldest are dropped first.</param>
-    public ConstellationNavigation(string viewId, int historyLimit = DefaultHistoryLimit)
+    public ConstellationNavigation(string viewId, int historyLimit = _defaultHistoryLimit)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewId);
         ArgumentOutOfRangeException.ThrowIfLessThan(historyLimit, 1);

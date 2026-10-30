@@ -9,8 +9,8 @@ namespace Bazaar.Client.Core.Constellation;
 public sealed class SpatialGrid
 {
     // Upper bound on cells per rebuild, relative to node count. Keeps sparse layouts from allocating huge grids.
-    private const int MinCellBudget = 1024;
-    private const int CellBudgetPerNode = 4;
+    private const int _minCellBudget = 1024;
+    private const int _cellBudgetPerNode = 4;
 
     private readonly float _requestedCellSize;
     private float[] _xy = [];
@@ -94,7 +94,7 @@ public sealed class SpatialGrid
         double cell = _requestedCellSize;
         double spanX = maxX - minX;
         double spanY = maxY - minY;
-        double budget = Math.Max(MinCellBudget, (double)CellBudgetPerNode * finite);
+        double budget = Math.Max(_minCellBudget, (double)_cellBudgetPerNode * finite);
         double columns;
         double rows;
         while (true)
