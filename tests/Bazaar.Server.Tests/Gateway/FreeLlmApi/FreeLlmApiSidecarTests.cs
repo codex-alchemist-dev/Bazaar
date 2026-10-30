@@ -40,7 +40,7 @@ public sealed class FreeLlmApiSidecarTests : IDisposable
     }
 
     [Fact]
-    public void An_explicit_base_url_or_key_reference_is_kept()
+    public void An_explicit_base_url_is_kept_but_the_sidecar_always_owns_the_key()
     {
         var options = new FreeLlmApiOptions
         {
@@ -52,7 +52,19 @@ public sealed class FreeLlmApiSidecarTests : IDisposable
         options.ApplyManagedSidecarDefaults();
 
         Assert.Equal("http://127.0.0.1:4000/v1", options.BaseUrl);
-        Assert.Equal("env:OPERATOR_KEY", options.ApiKey);
+        Assert.Equal("file:" + Path.Combine(_root, "unified-key"), options.ApiKey);
+    }
+
+    [Fact]
+    public void A_placeholder_or_empty_default_model_becomes_a_concrete_managed_model()
+    {
+        var auto = new FreeLlmApiOptions { Sidecar = Managed(), DefaultModel = "auto" };
+        auto.ApplyManagedSidecarDefaults();
+        Assert.Equal(FreeLlmApiOptions.ManagedDefaultModel, auto.DefaultModel);
+
+        var configured = new FreeLlmApiOptions { Sidecar = Managed(), DefaultModel = "mistral/mistral-small" };
+        configured.ApplyManagedSidecarDefaults();
+        Assert.Equal("mistral/mistral-small", configured.DefaultModel);
     }
 
     [Fact]
