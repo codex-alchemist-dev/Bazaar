@@ -5,7 +5,7 @@ namespace Bazaar.Server.GitHub.Tests.Auth;
 
 public sealed class IdentityServiceGitHubTokenProviderTests
 {
-    private static readonly DateTimeOffset Start = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _start = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
 
     private static GitHubTokenScope Scope(long installationId = 1) => new(
         installationId,
@@ -18,8 +18,8 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Second_call_within_lifetime_is_served_from_cache()
     {
-        var time = new FakeTimeProvider(Start);
-        var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(Ok("ghs_first", Start.AddHours(1))));
+        var time = new FakeTimeProvider(_start);
+        var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(Ok("ghs_first", _start.AddHours(1))));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
         var first = await provider.GetTokenAsync(Scope(), CancellationToken.None);
@@ -34,7 +34,7 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Token_is_refreshed_once_it_is_within_five_minutes_of_expiry()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var issued = 0;
         var client = new FakeIdentityServiceTokenClient((n, _) =>
         {
@@ -63,12 +63,12 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Concurrent_calls_for_one_scope_cause_exactly_one_exchange()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var client = new FakeIdentityServiceTokenClient(async (_, ct) =>
         {
             await release.Task.WaitAsync(ct);
-            return Ok("ghs_shared", Start.AddHours(1));
+            return Ok("ghs_shared", _start.AddHours(1));
         });
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
@@ -86,8 +86,8 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Different_scopes_are_exchanged_separately()
     {
-        var time = new FakeTimeProvider(Start);
-        var client = new FakeIdentityServiceTokenClient((n, _) => Task.FromResult(Ok($"ghs_{n}", Start.AddHours(1))));
+        var time = new FakeTimeProvider(_start);
+        var client = new FakeIdentityServiceTokenClient((n, _) => Task.FromResult(Ok($"ghs_{n}", _start.AddHours(1))));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
         var a = await provider.GetTokenAsync(Scope(installationId: 1), CancellationToken.None);
@@ -100,11 +100,11 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Failed_exchange_throws_without_the_token_and_is_not_cached()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var client = new FakeIdentityServiceTokenClient((n, _) => Task.FromResult(
             n == 1
-                ? new IdentityTokenResponse(403, "ghs_leaked_value", Start.AddHours(1), "scope_denied")
-                : Ok("ghs_recovered", Start.AddHours(1))));
+                ? new IdentityTokenResponse(403, "ghs_leaked_value", _start.AddHours(1), "scope_denied")
+                : Ok("ghs_recovered", _start.AddHours(1))));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
         var ex = await Assert.ThrowsAsync<GitHubTokenException>(() => provider.GetTokenAsync(Scope(), CancellationToken.None));
@@ -124,7 +124,7 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Success_without_a_token_or_expiry_throws()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(new IdentityTokenResponse(200, null, null, null)));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
@@ -136,8 +136,8 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Already_expired_token_is_rejected()
     {
-        var time = new FakeTimeProvider(Start);
-        var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(Ok("ghs_old", Start.AddMinutes(-1))));
+        var time = new FakeTimeProvider(_start);
+        var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(Ok("ghs_old", _start.AddMinutes(-1))));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
         await Assert.ThrowsAsync<GitHubTokenException>(() => provider.GetTokenAsync(Scope(), CancellationToken.None));
@@ -146,8 +146,8 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Scopes_whose_permission_text_collides_under_naive_joining_are_cached_separately()
     {
-        var time = new FakeTimeProvider(Start);
-        var client = new FakeIdentityServiceTokenClient((n, _) => Task.FromResult(Ok($"ghs_{n}", Start.AddHours(1))));
+        var time = new FakeTimeProvider(_start);
+        var client = new FakeIdentityServiceTokenClient((n, _) => Task.FromResult(Ok($"ghs_{n}", _start.AddHours(1))));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
 
         var first = await provider.GetTokenAsync(
@@ -162,7 +162,7 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Hostile_error_code_is_replaced_in_message_and_exception()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(
             new IdentityTokenResponse(403, null, null, "bad\nINJECTED line\r\n\u0007")));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
@@ -178,7 +178,7 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public async Task Long_valid_error_code_is_capped_at_64_characters()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(
             new IdentityTokenResponse(422, null, null, new string('e', 200))));
         var provider = new IdentityServiceGitHubTokenProvider(client, time);
@@ -191,8 +191,8 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     [Fact]
     public void Token_to_string_does_not_contain_the_value()
     {
-        var token = new GitHubToken("ghs_super_secret_value", Start.AddHours(1));
-        var response = Ok("ghs_super_secret_value", Start.AddHours(1));
+        var token = new GitHubToken("ghs_super_secret_value", _start.AddHours(1));
+        var response = Ok("ghs_super_secret_value", _start.AddHours(1));
 
         Assert.DoesNotContain("ghs_super_secret_value", token.ToString());
         Assert.DoesNotContain("ghs_super_secret_value", response.ToString());

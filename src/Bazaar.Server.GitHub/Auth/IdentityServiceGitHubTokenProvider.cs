@@ -114,10 +114,10 @@ public sealed class IdentityServiceGitHubTokenProvider : IGitHubTokenProvider
             return "unknown";
         }
 
-        return code.Length <= MaxErrorCodeLength ? code : code[..MaxErrorCodeLength];
+        return code.Length <= _maxErrorCodeLength ? code : code[.._maxErrorCodeLength];
     }
 
-    private const int MaxErrorCodeLength = 64;
+    private const int _maxErrorCodeLength = 64;
 
     /// <summary>
     /// Cache and lock key: the installation, repositories and permissions one token is narrowed to.
