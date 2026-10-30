@@ -31,14 +31,15 @@ public static class InboxSelector
     }
 
     /// <summary>
-    /// Plans one wake. The primary is the first selected non-digest item. Every due digest item is folded into
-    /// <see cref="WakeBatch.Digest"/>, grouped by GC. Digest items are never chosen as the primary.
+    /// Plans one wake. The primary is the first selected item that can wake an agent. Every due digest item is folded
+    /// into <see cref="WakeBatch.Digest"/>, grouped by GC. Digest items and Constitution notices are never chosen as the
+    /// primary, so they never wake an agent.
     /// </summary>
     public static WakeBatch Plan(IEnumerable<InboxCandidate> pending, DateTimeOffset now)
     {
         var selected = Select(pending, now);
 
-        var primary = selected.FirstOrDefault(item => item.Kind != InboxKind.GcDigest);
+        var primary = selected.FirstOrDefault(item => item.Kind is not (InboxKind.GcDigest or InboxKind.Constitution));
         var digest = DigestBatcher.Batch(selected);
 
         return new WakeBatch(primary, digest);
