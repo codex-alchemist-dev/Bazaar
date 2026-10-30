@@ -22,6 +22,7 @@
     <!-- Vault git engine (doc 18 C12, spike S23): native libgit2 ships in the package. -->
     <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
+    <PackageVersion Include="MimeKit" Version="4.18.2" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
