@@ -12,6 +12,10 @@ DATA_DIR="${BAZAAR_DEV_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/bazaar-dev}"
 STATUS_PORT="${BAZAAR_STATUS_PORT:-7390}"
 DB_NAME=bazaar_dev
 DB_ROLE=bazaar
+# Fixed dev ids: the owner principal, the dev agent and the dev chat. They are not secrets; they only name local data.
+DEV_OWNER_ID=00000000-0000-7000-8000-000000000001
+DEV_AGENT_ID=00000000-0000-7000-8000-000000000002
+DEV_GC_ID=00000000-0000-7000-8000-000000000003
 
 die() { echo "up.sh: $*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || die "missing '$1' on PATH (see scripts/dev/README.md)"; }
@@ -108,7 +112,13 @@ HOST_ARGS=(
 )
 export Bazaar__DevAuth__Enabled=true
 export Bazaar__DevAuth__TokenSecret=env:BAZAAR_DEV_TOKEN
+export Bazaar__DevAuth__PrincipalId="$DEV_OWNER_ID"
 export BAZAAR_DEV_TOKEN
+
+# The dev agent answers mentions and DMs in the dev chat as its own member. Its model route is the responder default.
+export Bazaar__AgentResponder__Agents__0__AgentId="$DEV_AGENT_ID"
+export Bazaar__AgentResponder__Agents__0__Name="Charles"
+export Bazaar__AgentResponder__Agents__0__SystemPrompt="You are Charles, a dev agent in the local Bazaar chat. Reply briefly and plainly."
 
 # --- Build, migrate, run ----------------------------------------------------
 dotnet build "$PROJECT" -v quiet --nologo
@@ -116,10 +126,20 @@ dotnet build "$PROJECT" -v quiet --nologo
 echo "Running migrations..."
 dotnet run --project "$PROJECT" --no-build -- migrate "${HOST_ARGS[@]}" || die "migrate failed (see output above)"
 
+# The dev chat: the owner and the dev agent as members of one general GC. Idempotent; uses the app role's grants.
+SEED_ARGS=(-X -q -v ON_ERROR_STOP=1 -v owner_id="$DEV_OWNER_ID" -v agent_id="$DEV_AGENT_ID" -v gc_id="$DEV_GC_ID" -f "$ROOT/scripts/dev/seed-dev-chat.sql")
+if [ -n "${PG_PW:-}" ]; then
+  need psql
+  PGPASSWORD="$PG_PW" psql -h 127.0.0.1 -p "$PG_PORT" -U "$DB_ROLE" -d "$DB_NAME" "${SEED_ARGS[@]}" || die "could not seed the dev chat (see output above)"
+else
+  echo "BAZAAR_DB is set, so the dev chat is not seeded. Run scripts/dev/seed-dev-chat.sql against it with owner_id, agent_id and gc_id set to the DEV_* values in up.sh."
+fi
+
 echo
 echo "Status URL:      http://127.0.0.1:$STATUS_PORT/status"
 echo "Readiness URL:   http://127.0.0.1:$STATUS_PORT/health/ready"
-echo "Terminal client: dotnet run --project src/Bazaar.Client.Terminal -- --help"
+echo "Terminal client (owner):  dotnet run --project src/Bazaar.Client.Terminal -- --server ws://127.0.0.1:$STATUS_PORT/ws --gc $DEV_GC_ID --agent $DEV_AGENT_ID=Charles"
+echo "                          token in \$BAZAAR_TOKEN (the same value as BAZAAR_DEV_TOKEN)"
 echo
 
 if curl -fsS -o /dev/null "http://127.0.0.1:$STATUS_PORT/health/live" 2>/dev/null; then
