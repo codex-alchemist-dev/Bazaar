@@ -85,6 +85,18 @@ Search on Linux: the `pg_search` provider stays optional (AGPL review needed bef
 
 ---
 
+## 5a. Component shape (owner rule, 2026-10-30)
+
+Owner decision: everything new is a **Bazaar Component**, not hard-coded into the host. The managed PostgreSQL support is one component.
+
+- **Project:** `src/Bazaar.Components.ManagedPostgres/` (its own project under `src/`, until the component model PR splits the layout). It owns the child-process controller, the bundle layout, the version probe and the `Bazaar:Database:Mode` setting.
+- **Registration:** one public `AddBazaarManagedPostgres(IServiceCollection, IConfiguration)` method. Only `Bazaar.Server.Host`'s composition root calls it. Nothing else registers it.
+- **Migrations:** the component has no tables in v1, so it adds no migration. If it ever needs one, it goes in its own namespace (`components/managed-postgres/NNNN_name.sql`), never in `common/`.
+- **Dependencies:** it references other components only through their contract (abstractions) project. It does not reference `Bazaar.Server` internals. The host passes it the `ISecretResolver` and options through its abstractions.
+- **Naming:** use "Bazaar Component" in docs and code.
+- **Markers:** until the component model PR merges, each new registration carries a `TODO(component)` comment so it is easy to convert.
+- **External mode** stays the existing `DatabaseConnectionReference` path in `Bazaar.Server`. It is not a component, because it is the data layer itself.
+
 ## 6. Work packages
 
 Each package is one worktree (`agent/<wp>`), with its own tests. Haiku implementers unless marked Sonnet. Windows-only steps run on the owner's PC through Remote Control (`V:\git\Bazaar.Workspace`, own worktree).
@@ -92,7 +104,7 @@ Each package is one worktree (`agent/<wp>`), with its own tests. Haiku implement
 | WP | Scope | Owner model | Where it runs | Depends on |
 |---|---|---|---|---|
 | P1 | This design note (done in this PR) | main session | cloud | none |
-| P2 | Setting `Bazaar:Database:Mode` and validation (`managed` / `external`), tests | Haiku | cloud | P1 |
+| P2 | Create the `Bazaar.Components.ManagedPostgres` project and `AddBazaarManagedPostgres()`; `Bazaar:Database:Mode` setting and validation (`managed` / `external`); `TODO(component)` markers; tests | Haiku | cloud | P1 |
 | P3 | `PostgresProcess` child-process controller: initdb, start, stop, readiness, adopt-or-refuse, restart backoff; unit tests with a fake process; Linux integration test against a real local PG 18 | Sonnet (concurrency and lifecycle) | cloud | P2 |
 | P4 | Version probe and bundle layout (`pg/<major>/`), refusal on major mismatch, `db status` subcommand | Haiku | cloud | P3 |
 | P5 | Host wiring: start managed Postgres before migrate and readiness; stop on host shutdown; tests in `Bazaar.Server.Host.Tests` | Haiku | cloud | P3 |
