@@ -18,14 +18,26 @@ public sealed class StatusOptionsTests
     {
         var options = Bind([]);
         Assert.Equal("loopback", options.Bind);
+        Assert.False(options.OwnerApprovedWideBind);
         Assert.Equal(IPAddress.Loopback, options.Address);
         Assert.True(new BazaarStatusOptionsValidator().Validate(null, options).Succeeded);
     }
 
     [Fact]
-    public void Configured_wildcard_bind_listens_on_all_interfaces()
+    public void Wildcard_bind_is_refused_without_owner_approval()
     {
         var options = Bind(new() { ["Bazaar:Host:Status:Bind"] = "0.0.0.0" });
+        Assert.False(new BazaarStatusOptionsValidator().Validate(null, options).Succeeded);
+    }
+
+    [Fact]
+    public void Wildcard_bind_is_accepted_only_with_owner_approval_flag()
+    {
+        var options = Bind(new()
+        {
+            ["Bazaar:Host:Status:Bind"] = "0.0.0.0",
+            ["Bazaar:Host:Status:OwnerApprovedWideBind"] = "true",
+        });
         Assert.Equal(IPAddress.Any, options.Address);
         Assert.True(new BazaarStatusOptionsValidator().Validate(null, options).Succeeded);
     }

@@ -3,8 +3,8 @@ using System.Net;
 namespace Bazaar.Server.Host.Status;
 
 /// <summary>
-/// Where the status listener binds (doc 03, <c>host.status.bind</c> and <c>host.status.port</c>). <c>loopback</c> is the default; an IP literal such as
-/// <c>0.0.0.0</c> is set explicitly through configuration (containers do this). Wider binds still lack the Tier 2 owner approval flow.
+/// Where the status listener binds (doc 03, <c>host.status.bind</c> and <c>host.status.port</c>). <c>loopback</c> is the default. A non-loopback
+/// IP literal such as <c>0.0.0.0</c> is refused unless <see cref="OwnerApprovedWideBind"/> is true, which only the owner's Tier 2 approval may set.
 /// </summary>
 public sealed class BazaarStatusOptions
 {
@@ -15,6 +15,9 @@ public sealed class BazaarStatusOptions
     public string Bind { get; set; } = LoopbackBind;
 
     public int Port { get; set; } = 7390;
+
+    /// <summary>Owner approval for a non-loopback bind (Tier 2, doc 03). Defaults to false, so only loopback is accepted.</summary>
+    public bool OwnerApprovedWideBind { get; set; }
 
     public IPAddress Address => ParseBind(Bind) ?? throw new InvalidOperationException(
         $"{SectionName}:Bind must be 'loopback' or an IP address, not '{Bind}'.");
@@ -36,9 +39,14 @@ public sealed class BazaarStatusOptionsValidator : IValidateOptions<BazaarStatus
     public ValidateOptionsResult Validate(string? name, BazaarStatusOptions options)
     {
         var failures = new List<string>();
-        if (BazaarStatusOptions.ParseBind(options.Bind) is null)
+        var address = BazaarStatusOptions.ParseBind(options.Bind);
+        if (address is null)
         {
             failures.Add($"{BazaarStatusOptions.SectionName}:Bind must be 'loopback' or an IP address such as 0.0.0.0.");
+        }
+        else if (!IPAddress.IsLoopback(address) && !options.OwnerApprovedWideBind)
+        {
+            failures.Add($"{BazaarStatusOptions.SectionName}:Bind must be 'loopback' unless {BazaarStatusOptions.SectionName}:OwnerApprovedWideBind is true (owner Tier 2 approval).");
         }
 
         if (options.Port is < 1 or > 65535)
