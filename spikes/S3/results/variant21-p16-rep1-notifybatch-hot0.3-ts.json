@@ -1,0 +1,49 @@
+{
+  "db_size_mb": 1053,
+  "gap_check_after_load": {
+    "gcs_with_gap_or_head_mismatch": 0
+  },
+  "hotshare": 0.3,
+  "index_sizes_mb": 66,
+  "load": {
+    "n": 15000,
+    "p50_ms": 4.57,
+    "p95_ms": 9.76,
+    "p99_ms": 61.35,
+    "max_ms": 690.45,
+    "target_rate": 500,
+    "achieved_rate": 499.9,
+    "errors": 0,
+    "notifications_received": 13481,
+    "hint_reads": 15300,
+    "insert_to_consumer_read_ms": {
+      "n": 15300,
+      "p50_ms": 8.09,
+      "p95_ms": 16.02,
+      "p99_ms": 216.38,
+      "max_ms": 406.78
+    }
+  },
+  "notify": "batch",
+  "parts": 16,
+  "preload_events": 1000099,
+  "preload_s": 60.5,
+  "run": 21,
+  "saturation_32w": {
+    "n": 22427,
+    "p50_ms": 3.67,
+    "p95_ms": 115.14,
+    "p99_ms": 235.69,
+    "max_ms": 741.15,
+    "appends_per_s": 1492
+  },
+  "ts_query_with_index": {
+    "n": 20,
+    "p50_ms": 4.57,
+    "p95_ms": 5.68,
+    "p99_ms": 7.1,
+    "max_ms": 7.1,
+    "plan": "Aggregate (actual time=5.964..5.965 rows=1.00 loops=1)\n  Buffers: shared hit=11176\n  -\u003E  Index Only Scan using gc_event_p13_gc_id_created_at_idx on gc_event_p13 gc_event (actual time=0.026..5.117 rows=11335.00 loops=1)\n        Index Cond: ((gc_id = \u0027e057a2e4-f63a-0895-78a2-19c1c80ceb3c\u0027::uuid) AND (created_at \u003E (now() - \u002701:00:00\u0027::interval)))\n        Heap Fetches: 11289\n        Index Searches: 1\n        Buffers: shared hit=11176\nPlanning:\n  Buffers: shared hit=14\nPlanning Time: 0.158 ms\nExecution Time: 5.991 ms"
+  },
+  "tsindex": true
+}

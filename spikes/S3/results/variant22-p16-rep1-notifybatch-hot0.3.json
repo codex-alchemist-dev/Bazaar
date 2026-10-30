@@ -1,0 +1,49 @@
+{
+  "db_size_mb": 991,
+  "gap_check_after_load": {
+    "gcs_with_gap_or_head_mismatch": 0
+  },
+  "hotshare": 0.3,
+  "index_sizes_mb": 0,
+  "load": {
+    "n": 15000,
+    "p50_ms": 4.44,
+    "p95_ms": 6.74,
+    "p99_ms": 9.53,
+    "max_ms": 118.49,
+    "target_rate": 500,
+    "achieved_rate": 499.9,
+    "errors": 0,
+    "notifications_received": 13577,
+    "hint_reads": 15300,
+    "insert_to_consumer_read_ms": {
+      "n": 15300,
+      "p50_ms": 7.94,
+      "p95_ms": 12.72,
+      "p99_ms": 18.23,
+      "max_ms": 153.11
+    }
+  },
+  "notify": "batch",
+  "parts": 16,
+  "preload_events": 1000099,
+  "preload_s": 62.8,
+  "run": 22,
+  "saturation_32w": {
+    "n": 22659,
+    "p50_ms": 3.75,
+    "p95_ms": 114.61,
+    "p99_ms": 228.28,
+    "max_ms": 600.39,
+    "appends_per_s": 1507
+  },
+  "ts_query_pk_only": {
+    "n": 20,
+    "p50_ms": 21.71,
+    "p95_ms": 29.73,
+    "p99_ms": 45.37,
+    "max_ms": 45.37,
+    "plan": "Finalize Aggregate (actual time=8.311..11.651 rows=1.00 loops=1)\n  Buffers: shared hit=3140\n  -\u003E  Gather (actual time=8.139..11.642 rows=3.00 loops=1)\n        Workers Planned: 2\n        Workers Launched: 2\n        Buffers: shared hit=3140\n        -\u003E  Partial Aggregate (actual time=5.560..5.561 rows=1.00 loops=3)\n              Buffers: shared hit=3140\n              -\u003E  Parallel Seq Scan on gc_event_p13 gc_event (actual time=4.561..5.326 rows=3803.33 loops=3)\n                    Filter: ((gc_id = \u0027e057a2e4-f63a-0895-78a2-19c1c80ceb3c\u0027::uuid) AND (created_at \u003E (now() - \u002701:00:00\u0027::interval)))\n                    Rows Removed by Filter: 53456\n                    Buffers: shared hit=3140\nPlanning:\n  Buffers: shared hit=14\nPlanning Time: 0.127 ms\nExecution Time: 11.675 ms"
+  },
+  "tsindex": false
+}
