@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kanban="using:Bazaar.Client.Core.Kanban"
+             x:Class="Bazaar.Client.Core.Kanban.KanbanBoardView"
+             x:DataType="kanban:KanbanBoardViewModel">
+  <DockPanel>
+    <TextBlock x:Name="RefusalText"
+               DockPanel.Dock="Top"
+               Margin="8"
+               Foreground="OrangeRed"
+               IsVisible="False" />
+    <ItemsControl ItemsSource="{Binding Columns}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="kanban:KanbanColumnViewModel">
+          <StackPanel Width="200" Margin="8" Spacing="6">
+            <TextBlock Classes="column-title" Text="{Binding Title}" FontWeight="Bold" />
+            <ItemsControl ItemsSource="{Binding Cards}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="kanban:KanbanCardViewModel">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                    <TextBlock Classes="blocked-badge" Text="Blocked" IsVisible="{Binding Blocked}" Foreground="OrangeRed" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </DockPanel>
+</UserControl>
