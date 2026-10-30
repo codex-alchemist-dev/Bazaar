@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "synthetic GC thread: message, wake, model call, tool call",
+  "records": [
+    { "seq": 1, "kind": "gc_message", "id": "msg-0001", "at": "2026-01-01T09:00:00Z", "text": "Synthetic kickoff message.", "keys": { "speaker": "agent-alpha" } },
+    { "seq": 2, "kind": "wake", "id": "wake-0001", "at": "2026-01-01T09:00:01Z", "keys": { "agent": "agent-beta" } },
+    { "seq": 3, "kind": "model_request", "id": "req-0001", "at": "2026-01-01T09:00:02Z", "keys": { "model": "model-example-small" } },
+    { "seq": 4, "kind": "model_response", "id": "res-0001", "at": "2026-01-01T09:00:03Z", "text": "Synthetic reply text.", "keys": { "model": "model-example-small" } },
+    { "seq": 5, "kind": "tool_call", "id": "tool-0001", "at": "2026-01-01T09:00:04Z", "keys": { "tool": "gc.post" } },
+    { "seq": 6, "kind": "gc_message", "id": "msg-0002", "at": "2026-01-01T09:00:05Z", "text": "Synthetic follow-up message.", "keys": { "speaker": "agent-beta" } }
+  ]
+}
