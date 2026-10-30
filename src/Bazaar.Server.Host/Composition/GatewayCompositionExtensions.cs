@@ -9,6 +9,7 @@ using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Usage;
+using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -48,9 +49,14 @@ public static class GatewayCompositionExtensions
         // Bound from the host configuration when one is registered. Without it the options keep their disabled defaults.
         services.AddOptions<FreeLlmApiOptions>()
             .Configure<IServiceProvider>((options, sp) =>
-                sp.GetService<IConfiguration>()?.GetSection(FreeLlmApiOptions.SectionName).Bind(options))
+            {
+                sp.GetService<IConfiguration>()?.GetSection(FreeLlmApiOptions.SectionName).Bind(options);
+                options.ApplyManagedSidecarDefaults();
+            })
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<FreeLlmApiOptions>, FreeLlmApiOptionsValidator>();
+        // TODO(component): registered before the startup key check, so a managed sidecar has written the unified key before the check reads it.
+        services.AddBazaarFreeLlmApiSidecar();
         services.AddHostedService<FreeLlmApiStartupCheckService>();
 
         services.TryAddSingleton(new BreakerOptions());
