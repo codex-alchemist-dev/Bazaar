@@ -117,6 +117,9 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 | `host.log.max_total_mb` | int | 1024 | install | operator | no |
 | `host.health.disk_used_warn_percent` | int | 80 | install | operator | no |
 | `host.health.memory_growth_warn_percent` | int | 10 | install | operator | no |
+| `calendar.vacation_confirmer` | `owner`, `project_lead` | `owner` | project | owner | Tier 2 (owned by doc 24; registered in code as `CalendarSettings`) |
+| `calendar.release_creators` | `owner`, `owner_or_project_lead` | `owner_or_project_lead` | project | owner | no; audit entry (owned by doc 24) |
+| `calendar.display_timezone` | `viewer`, `agent` | `viewer` | install | each viewer (client preference) | no (owned by doc 24) |
 
 ## Behaviour and edge cases
 - **Recovery sweep.** Startup step 6 calls doc 06's sweep, which marks turns with expired leases `interrupted` and re-queues them. Lease heartbeat and length are doc 06's values. Side-effecting tool calls carry idempotency keys so a replay cannot double-post (doc 06).

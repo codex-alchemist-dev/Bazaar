@@ -19,6 +19,9 @@ public sealed class SettingRegistry
     /// <summary>Every <c>host.*</c> key from doc 03.</summary>
     public static SettingRegistry Host { get; } = new(HostSettings.All);
 
+    /// <summary>Every setting this build knows: the host keys and the calendar keys (doc 24). The store still reads <see cref="Host"/> until it is wired to this set.</summary>
+    public static SettingRegistry Known { get; } = new(HostSettings.All.Concat(Calendar.CalendarSettings.All));
+
     public IReadOnlyCollection<SettingDefinition> Definitions => _byName.Values;
 
     public bool TryGet(string name, out SettingDefinition? definition)
