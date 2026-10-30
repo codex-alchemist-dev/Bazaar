@@ -13,4 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.LocalInference\Bazaar.Client.LocalInference.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Corpus\cleanup-corpus.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
