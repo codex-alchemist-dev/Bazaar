@@ -25,6 +25,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # No paths filter on purpose, here or on the workflow trigger. Docs-only and
+  # YAML-only PRs still run this build, so the required checks always report
+  # and a PR is never stuck waiting for a check that was filtered out.
+  # Do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
     name: Build and test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
