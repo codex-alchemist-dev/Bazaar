@@ -52,14 +52,15 @@ public sealed class BundleLayoutValidatorTests
     }
 
     [Fact]
-    public void Manifest_without_trailing_newline_is_malformed()
+    public void Truncated_manifest_json_is_malformed()
     {
-        var text = Encoding.UTF8.GetString(ManifestCodec.Serialize(ManifestWriter.Build(Payload())));
-        var files = Payload().Append((BundleLayoutValidator.ManifestPath, Encoding.UTF8.GetBytes(text.TrimEnd('\n')))).ToArray();
+        var bytes = ManifestCodec.Serialize(ManifestWriter.Build(Payload()));
+        var files = Payload().Append((BundleLayoutValidator.ManifestPath, bytes[..^5])).ToArray();
 
         var result = BundleLayoutValidator.Validate(files);
 
         Assert.Equal(BundleLayoutFindingKind.ManifestMalformed, Assert.Single(result.LayoutFindings).Kind);
+        Assert.Null(result.Contents);
     }
 
     [Fact]
@@ -102,13 +103,32 @@ public sealed class BundleLayoutValidatorTests
     [Fact]
     public void Codec_rejects_unsorted_entries()
     {
-        var text = "bazaar-backup-manifest/1 SHA-256\n"
-            + "sha256 " + new string('a', 64) + " 1 b.txt\n"
-            + "sha256 " + new string('b', 64) + " 1 a.txt\n";
+        var json = """
+            {"format":"bazaar-backup-manifest","version":1,"hashAlgorithm":"SHA-256","entries":[
+            {"path":"b.txt","length":1,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+            {"path":"a.txt","length":1,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}]}
+            """;
 
-        var parsed = ManifestCodec.TryParse(Encoding.UTF8.GetBytes(text));
+        var parsed = ManifestCodec.TryParse(Encoding.UTF8.GetBytes(json));
 
         Assert.Null(parsed.Manifest);
         Assert.Contains("out of order", parsed.Error);
+    }
+
+    [Fact]
+    public void Malformed_or_unknown_version_manifest_is_rejected()
+    {
+        // Not JSON at all.
+        Assert.Null(ManifestCodec.TryParse("not a manifest"u8).Manifest);
+
+        // A future version this build does not read.
+        var future = """{"format":"bazaar-backup-manifest","version":2,"hashAlgorithm":"SHA-256","entries":[]}""";
+        var futureResult = ManifestCodec.TryParse(Encoding.UTF8.GetBytes(future));
+        Assert.Null(futureResult.Manifest);
+        Assert.Contains("Unsupported manifest version 2", futureResult.Error);
+
+        // An unknown member is refused, so the file cannot carry data this build does not check.
+        var extra = """{"format":"bazaar-backup-manifest","version":1,"hashAlgorithm":"SHA-256","entries":[],"signature":"x"}""";
+        Assert.Null(ManifestCodec.TryParse(Encoding.UTF8.GetBytes(extra)).Manifest);
     }
 }

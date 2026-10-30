@@ -23,8 +23,8 @@ public sealed record BundleLayoutResult(IReadOnlyList<BundleLayoutFinding> Layou
 /// <summary>Checks that a bundle has a well-formed manifest and that its payload matches it. Pure: no I/O.</summary>
 public static class BundleLayoutValidator
 {
-    /// <summary>Manifest location at the bundle root. Chosen here; doc 33 does not name it.</summary>
-    public const string ManifestPath = "MANIFEST.sha256";
+    /// <summary>Manifest location at the bundle root (JSON, see <see cref="ManifestCodec"/>). Chosen here; doc 33 does not name it.</summary>
+    public const string ManifestPath = "MANIFEST.json";
 
     public static BundleLayoutResult Validate(IEnumerable<(string Path, byte[] Bytes)> files)
     {

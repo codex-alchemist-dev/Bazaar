@@ -1,113 +1,151 @@
-using System.Globalization;
-using System.Text;
+using System.Text.Json;
 
 namespace Bazaar.Server.Backup.Manifest;
 
 /// <summary>
-/// Text layout of a manifest file (UTF-8, LF line endings, one entry per line). Chosen here because doc 33 fixes the
-/// digest (SHA-256) but not the file format. Layout:
+/// JSON layout of a manifest file (UTF-8), written and read through the source-generated <see cref="ManifestJsonContext"/>.
+/// Doc 33 fixes the digest (SHA-256) but not the file format. Shape:
 /// <code>
-/// bazaar-backup-manifest/1 SHA-256
-/// sha256 &lt;64 lower-case hex&gt; &lt;length in bytes&gt; &lt;normalised path&gt;
+/// {"format":"bazaar-backup-manifest","version":1,"hashAlgorithm":"SHA-256",
+///  "entries":[{"path":"a.txt","length":3,"sha256":"&lt;64 lower-case hex&gt;"}]}
 /// </code>
 /// Entries must be unique and sorted by path (ordinal), so one manifest has one byte sequence.
 /// </summary>
 public static class ManifestCodec
 {
-    private const string _header = "bazaar-backup-manifest/1 " + BackupManifest.HashAlgorithm;
+    /// <summary>Value of the "format" member; identifies the file as a Bazaar backup manifest.</summary>
+    public const string FormatName = "bazaar-backup-manifest";
 
     public static byte[] Serialize(BackupManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
-        var sb = new StringBuilder();
-        sb.Append(_header).Append('\n');
+        var entries = new List<ManifestEntryDto>(manifest.Entries.Count);
+        string? previous = null;
         foreach (var entry in manifest.Entries)
         {
             ArgumentNullException.ThrowIfNull(entry);
             var path = BundlePath.Normalize(entry.Path);
-            sb.Append("sha256 ")
-                .Append(entry.Sha256)
-                .Append(' ')
-                .Append(entry.Length.ToString(CultureInfo.InvariantCulture))
-                .Append(' ')
-                .Append(path)
-                .Append('\n');
+            if (previous is not null && string.CompareOrdinal(previous, path) >= 0)
+            {
+                throw new ArgumentException($"Manifest entries must be unique and sorted by path; '{path}' is out of order.", nameof(manifest));
+            }
+
+            var problem = CheckEntry(path, entry.Length, entry.Sha256);
+            if (problem is not null)
+            {
+                throw new ArgumentException(problem, nameof(manifest));
+            }
+
+            previous = path;
+            entries.Add(new ManifestEntryDto { Path = path, Length = entry.Length, Sha256 = entry.Sha256 });
         }
 
-        return Encoding.UTF8.GetBytes(sb.ToString());
+        var document = new ManifestDocumentDto
+        {
+            Format = FormatName,
+            Version = BackupManifest.FormatVersion,
+            HashAlgorithm = BackupManifest.HashAlgorithm,
+            Entries = entries,
+        };
+        return JsonSerializer.SerializeToUtf8Bytes(document, ManifestJsonContext.Default.ManifestDocumentDto);
     }
 
     /// <summary>Parses manifest bytes. Returns a manifest, or a parse error describing the first problem found.</summary>
     public static ManifestParseResult TryParse(ReadOnlySpan<byte> bytes)
     {
-        string text;
+        ManifestDocumentDto? document;
         try
         {
-            text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);
+            document = JsonSerializer.Deserialize(bytes, ManifestJsonContext.Default.ManifestDocumentDto);
         }
-        catch (DecoderFallbackException)
+        catch (JsonException ex)
         {
-            return ManifestParseResult.Fail("Manifest is not valid UTF-8.");
+            return ManifestParseResult.Fail($"Manifest is not valid manifest JSON: {ex.Message}");
         }
 
-        if (text.Length == 0 || text[^1] != '\n')
+        if (document is null)
         {
-            return ManifestParseResult.Fail("Manifest must end with a line feed.");
+            return ManifestParseResult.Fail("Manifest is empty.");
         }
 
-        var lines = text[..^1].Split('\n');
-        if (lines[0] != _header)
+        if (document.Format != FormatName)
         {
-            return ManifestParseResult.Fail($"Unsupported manifest header: '{lines[0]}'.");
+            return ManifestParseResult.Fail($"Not a Bazaar backup manifest (format '{document.Format}').");
         }
 
-        var entries = new List<BackupManifestEntry>(lines.Length - 1);
+        if (document.Version != BackupManifest.FormatVersion)
+        {
+            return ManifestParseResult.Fail($"Unsupported manifest version {document.Version}; this build reads version {BackupManifest.FormatVersion}.");
+        }
+
+        if (document.HashAlgorithm != BackupManifest.HashAlgorithm)
+        {
+            return ManifestParseResult.Fail($"Unsupported hash algorithm '{document.HashAlgorithm}'; expected {BackupManifest.HashAlgorithm}.");
+        }
+
+        if (document.Entries is null)
+        {
+            return ManifestParseResult.Fail("Manifest has no entries list.");
+        }
+
+        var entries = new List<BackupManifestEntry>(document.Entries.Count);
         string? previous = null;
-        for (var i = 1; i < lines.Length; i++)
+        for (var i = 0; i < document.Entries.Count; i++)
         {
-            var fields = lines[i].Split(' ', 4);
-            if (fields.Length != 4 || fields[0] != "sha256")
+            var dto = document.Entries[i];
+            if (dto is null || dto.Path is null || dto.Sha256 is null)
             {
-                return ManifestParseResult.Fail($"Line {i + 1} is not an 'sha256 <hash> <length> <path>' entry.");
-            }
-
-            var hash = fields[1];
-            if (hash.Length != 64 || !hash.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f'))
-            {
-                return ManifestParseResult.Fail($"Line {i + 1} has a hash that is not 64 lower-case hex digits.");
-            }
-
-            if (!long.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out var length))
-            {
-                return ManifestParseResult.Fail($"Line {i + 1} has a length that is not a non-negative integer.");
+                return ManifestParseResult.Fail($"Entry {i + 1} is missing its path or sha256.");
             }
 
             string path;
             try
             {
-                path = BundlePath.Normalize(fields[3]);
+                path = BundlePath.Normalize(dto.Path);
             }
             catch (ArgumentException ex)
             {
-                return ManifestParseResult.Fail($"Line {i + 1}: {ex.Message}");
+                return ManifestParseResult.Fail($"Entry {i + 1}: {ex.Message}");
             }
 
-            if (path != fields[3])
+            if (path != dto.Path)
             {
-                return ManifestParseResult.Fail($"Line {i + 1} path is not in normalised form.");
+                return ManifestParseResult.Fail($"Entry {i + 1} path is not in normalised form.");
+            }
+
+            var problem = CheckEntry(path, dto.Length, dto.Sha256);
+            if (problem is not null)
+            {
+                return ManifestParseResult.Fail($"Entry {i + 1}: {problem}");
             }
 
             if (previous is not null && string.CompareOrdinal(previous, path) >= 0)
             {
-                return ManifestParseResult.Fail($"Line {i + 1} is out of order or duplicates a path.");
+                return ManifestParseResult.Fail($"Entry {i + 1} is out of order or duplicates a path.");
             }
 
             previous = path;
-            entries.Add(new BackupManifestEntry(path, length, hash));
+            entries.Add(new BackupManifestEntry(path, dto.Length, dto.Sha256));
         }
 
         return ManifestParseResult.Ok(new BackupManifest(entries));
+    }
+
+    /// <summary>Returns a description of the first problem with one entry, or null when the entry is well formed.</summary>
+    private static string? CheckEntry(string path, long length, string sha256)
+    {
+        if (length < 0)
+        {
+            return $"'{path}' has a negative length.";
+        }
+
+        if (sha256.Length != 64 || !sha256.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f'))
+        {
+            return $"'{path}' has a hash that is not 64 lower-case hex digits.";
+        }
+
+        return null;
     }
 }
 
