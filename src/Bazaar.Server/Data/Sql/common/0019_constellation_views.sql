@@ -1,8 +1,5 @@
 -- TODO(component): the Constellation is a Bazaar Component. Its migrations belong in components/constellation/,
 -- which the runner does not read yet, so this file stays in common/ until the component model PR lands.
--- SECURITY (open, must close before the graph service reads these): the node and edge views are unfiltered and
--- bazaar_app has SELECT on them, so a direct query can read DM titles. Only constellation_visible_nodes applies
--- the visibility rule. Close this with a SECURITY DEFINER wrapper, or drop the direct SELECT, before shipping.
 -- Constellation projection views (docs/design/19-constellation-and-git-solar-system.md, Data and interfaces, Visibility,
 -- Testing; work package 2). Owner: CGR. Builds on 0001 (gc, gc_member_current), 0009 (vault_docs, vault_links) and 0012
 -- (tasks, task_edges).
@@ -24,7 +21,8 @@
 --   * A ghost node is visible when a document that is itself visible links to it, so a private note cannot reveal a
 --     link target to another viewer.
 --   * The views carry titles and labels only. No gc_message body, payload or payload_ct is ever projected here.
---   * Edges are not filtered by this function. A consumer must drop any edge whose endpoint is not in the visible set.
+--   * Edges are returned only by constellation_edge_rows, which keeps an edge only when both endpoints are visible.
+--   * Access: bazaar_app has no SELECT on the views. It reads through the SECURITY DEFINER functions below.
 
 CREATE VIEW constellation_doc_nodes AS
 SELECT d.doc_id::text AS node_id,
@@ -99,7 +97,7 @@ FROM task_edges e;
 -- Keep the rule in step with the header comment above and with docs 18 and 19.
 CREATE FUNCTION constellation_visible_nodes(viewer uuid, is_owner boolean DEFAULT false)
 RETURNS SETOF text
-LANGUAGE sql STABLE
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
 AS $$
     WITH visible_docs AS (
         SELECT d.doc_id
@@ -130,10 +128,48 @@ AS $$
       AND (is_owner OR l.src_doc IN (SELECT doc_id FROM visible_docs))
 $$;
 
--- Functions are executable by PUBLIC by default; the runtime role gets it explicitly, as erase_person_key does in 0008.
+-- Functions are executable by PUBLIC by default; the runtime role gets them explicitly, as erase_person_key does in 0008.
 REVOKE ALL ON FUNCTION constellation_visible_nodes(uuid, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION constellation_visible_nodes(uuid, boolean) TO bazaar_app;
 
--- Read-only projections for the runtime role. No writes: a view has nothing to write to.
-GRANT SELECT ON constellation_doc_nodes, constellation_ghost_nodes, constellation_link_edges, constellation_ghost_edges,
-    constellation_gc_nodes, constellation_gc_edges, constellation_task_nodes, constellation_task_edges TO bazaar_app;
+-- The only runtime read path. Each function runs as the migration owner (SECURITY DEFINER), so the views need no
+-- grant to bazaar_app. Labels are returned only for visible nodes, so DM titles cannot leak through a direct query.
+CREATE FUNCTION constellation_node_rows(viewer uuid, is_owner boolean DEFAULT false)
+RETURNS TABLE (node_id text, kind text, label text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
+AS $$
+    WITH visible AS (SELECT id FROM constellation_visible_nodes(viewer, is_owner) AS id)
+    SELECT n.node_id, n.kind, n.title AS label FROM constellation_doc_nodes n WHERE n.node_id IN (SELECT id FROM visible)
+    UNION ALL
+    SELECT n.node_id, n.kind, n.target_raw FROM constellation_ghost_nodes n WHERE n.node_id IN (SELECT id FROM visible)
+    UNION ALL
+    SELECT n.node_id, n.kind, n.title FROM constellation_gc_nodes n WHERE n.node_id IN (SELECT id FROM visible)
+    UNION ALL
+    SELECT n.node_id, n.kind, n.title FROM constellation_task_nodes n WHERE n.node_id IN (SELECT id FROM visible)
+$$;
+
+CREATE FUNCTION constellation_edge_rows(viewer uuid, is_owner boolean DEFAULT false)
+RETURNS TABLE (from_id text, to_id text, kind text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
+AS $$
+    WITH visible AS (SELECT id FROM constellation_visible_nodes(viewer, is_owner) AS id),
+    edges AS (
+        SELECT from_node_id, to_node_id, kind FROM constellation_link_edges
+        UNION ALL SELECT from_node_id, to_node_id, kind FROM constellation_ghost_edges
+        UNION ALL SELECT from_node_id, to_node_id, kind FROM constellation_gc_edges
+        UNION ALL SELECT from_node_id, to_node_id, kind FROM constellation_task_edges
+    )
+    SELECT e.from_node_id, e.to_node_id, e.kind
+    FROM edges e
+    WHERE e.from_node_id IN (SELECT id FROM visible)
+      AND e.to_node_id IN (SELECT id FROM visible)
+$$;
+
+REVOKE ALL ON FUNCTION constellation_node_rows(uuid, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION constellation_edge_rows(uuid, boolean) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION constellation_node_rows(uuid, boolean) TO bazaar_app;
+GRANT EXECUTE ON FUNCTION constellation_edge_rows(uuid, boolean) TO bazaar_app;
+
+-- Direct SELECT on the unfiltered views is revoked. The views stay for the functions above and for the owner.
+REVOKE ALL ON constellation_doc_nodes, constellation_ghost_nodes, constellation_link_edges, constellation_ghost_edges,
+    constellation_gc_nodes, constellation_gc_edges, constellation_task_nodes, constellation_task_edges FROM bazaar_app;

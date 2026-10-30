@@ -37,7 +37,9 @@ public sealed class ConstellationViewTests(ConstellationDb db) : IClassFixture<C
         SkipWithoutDatabase();
         var ds = db.DataSource;
         Assert.Equal(8, await ScalarAsync<long>(ds, "SELECT count(*) FROM information_schema.views WHERE starts_with(table_name, 'constellation_')"));
-        Assert.True(await ScalarAsync<bool>(ds, "SELECT has_table_privilege('bazaar_app', 'constellation_doc_nodes', 'SELECT')"));
+        Assert.False(await ScalarAsync<bool>(ds, "SELECT has_table_privilege('bazaar_app', 'constellation_doc_nodes', 'SELECT')"));
+        Assert.True(await ScalarAsync<bool>(ds, "SELECT has_function_privilege('bazaar_app', 'constellation_node_rows(uuid, boolean)', 'EXECUTE')"));
+        Assert.True(await ScalarAsync<bool>(ds, "SELECT has_function_privilege('bazaar_app', 'constellation_edge_rows(uuid, boolean)', 'EXECUTE')"));
         Assert.False(await ScalarAsync<bool>(ds, "SELECT has_table_privilege('bazaar_app', 'constellation_doc_nodes', 'INSERT')"));
         Assert.True(await ScalarAsync<bool>(ds, "SELECT has_function_privilege('bazaar_app', 'constellation_visible_nodes(uuid, boolean)', 'EXECUTE')"));
     }
