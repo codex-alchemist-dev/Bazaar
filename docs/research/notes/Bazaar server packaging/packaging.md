@@ -134,3 +134,11 @@ Sequencing: P2 and P6 start now in parallel. P3 follows P2. P7 can start as soon
 - Integration (Linux CI): real PG 18 and PG 19 RC when available; initdb, start, migrate, readiness, stop; crash and restart.
 - Windows (PC, P8): first run, reboot, kill, upgrade refusal, backup and restore.
 - Every behaviour change carries a test (CLAUDE.md).
+
+
+## 9. Compose default (2026-10-30)
+
+The Compose default is PostgreSQL 18 (`pgvector/pgvector:pg18`, confirmed on Docker Hub). PostgreSQL 19 is opt-in
+through `deploy/compose/compose.pg19.yaml`. The `pgvector/pgvector:pg19` tag did not exist when checked
+(HTTP 404). **When that tag is published and verified, flip the default to 19** in `deploy/compose/compose.yaml`
+(`PG_MAJOR` default and the `.env.example` comment), and note the date here.

@@ -38,23 +38,21 @@ packaged database for development and self-hosting. The Bazaar host runs outside
 
 4. Stop it with `docker compose down`. Data stays in the volume. `docker compose down -v` deletes the data.
 
-## Switch to PostgreSQL 18
+## Opt in to PostgreSQL 19
 
-PostgreSQL 18 is still supported. Use the override file with both files on the command line:
+The default is PostgreSQL 18 (`pgvector/pgvector:pg18`), because the PostgreSQL 19 image tag was not published when
+this was written. To run 19 once the tag exists, use the override with both files on the command line:
 
-    docker compose -f compose.yaml -f compose.pg18.yaml up -d
+    docker compose -f compose.yaml -f compose.pg19.yaml up -d
 
-This uses the `pgvector/pgvector:pg18` image and its own volume (`bazaar-pgdata-pg18`). The PG 19 volume is not
-touched, and PostgreSQL does not read data from another major, so switch by pointing at the matching volume.
-Changing the major on an existing volume needs a dump and restore; it is not an in-place switch.
-
-If you only want 18 without the override, set `PG_MAJOR=18` in `.env`.
+This uses its own volume (`bazaar-pgdata-pg19`). PostgreSQL does not read data from another major, so changing the
+major on an existing volume needs a dump and restore; it is not an in-place switch.
 
 ## Known limits
 
-- **PostgreSQL 19 image:** the default `pgvector/pgvector:pg19` tag was not published on Docker Hub when this was
-  written (checked 2026-10-30, HTTP 404). `docker compose up` fails to pull it until the tag exists. Use the 18
-  override until then.
+- **PostgreSQL 19 image:** the `pgvector/pgvector:pg19` tag was not published on Docker Hub when this was
+  written (checked 2026-10-30, HTTP 404). The default is 18 for that reason. The default flips to 19 when the tag
+  is published and verified; see the packaging note.
 - **Not run end to end:** this folder was checked for YAML syntax only. It has not been started in a container
   here. Run it on the target Linux host before relying on it.
 

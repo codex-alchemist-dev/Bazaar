@@ -1,20 +1,18 @@
 # Bazaar: PostgreSQL with pgvector for a Linux host (external mode).
 #
 # Run from this folder:    docker compose up -d
-# Switch to PostgreSQL 18: docker compose -f compose.yaml -f compose.pg18.yaml up -d
+# Opt in to PostgreSQL 19: docker compose -f compose.yaml -f compose.pg19.yaml up -d
 # See README.md for the password setup and how to point the Bazaar host at this database.
 #
-# Image tags (checked against Docker Hub on 2026-10-30):
-#   pgvector/pgvector:pg18  exists.
-#   pgvector/pgvector:pg19  does NOT exist yet (Hub returns 404), so `up` with the default
-#                           PG_MAJOR=19 fails to pull until the tag is published. Use compose.pg18.yaml
-#                           or set PG_MAJOR=18 until then. Re-check the tag before relying on 19.
+# Default is PostgreSQL 18 because the pgvector pg19 image tag did not exist on Docker Hub when this was
+# written (2026-10-30). The default flips to 19 once that tag is published and verified; see
+# docs/research/notes/Bazaar server packaging/packaging.md.
 #
-# PG_MAJOR (default 19) selects the image tag and the data volume, so 18 and 19 data never share a directory.
+# PG_MAJOR (default 18) selects the image tag and the data volume, so 18 and 19 data never share a directory.
 # The Bazaar schema uses uuidv7(), which needs PostgreSQL 18 or later.
 services:
   postgres:
-    image: pgvector/pgvector:pg${PG_MAJOR:-19}
+    image: pgvector/pgvector:pg${PG_MAJOR:-18}
     restart: unless-stopped
     environment:
       POSTGRES_USER: bazaar
@@ -26,7 +24,7 @@ services:
       - "127.0.0.1:${BAZAAR_DB_PORT:-5432}:5432"
     volumes:
       # Mounted at the parent directory: PostgreSQL 18+ images keep data in a versioned subdirectory.
-      - bazaar-pgdata-pg${PG_MAJOR:-19}:/var/lib/postgresql
+      - bazaar-pgdata-pg${PG_MAJOR:-18}:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bazaar -d bazaar"]
       interval: 5s
@@ -35,5 +33,5 @@ services:
       start_period: 10s
 
 volumes:
-  bazaar-pgdata-pg19:
   bazaar-pgdata-pg18:
+  bazaar-pgdata-pg19:
