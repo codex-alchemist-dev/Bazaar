@@ -72,11 +72,38 @@ Progressive disclosure. Memory and Vault search return a compact card per hit (i
 
 Graphify reports the highest-degree nodes as a summary of what the codebase is about. The Constellation already computes Louvain communities server-side (19, "Clustering"). A per-project hub list (highest-degree notes and decisions, per cluster) is a small derived output. It can seed the Vault section of context assembly for a new agent, instead of the agent reading the index note.
 
-### 3.6 Symbol graph for code (candidate, needs evidence)
+### 3.6 Codebase RAG for agents working on repos (apply, candidate)
 
-Graphify's code graph is the closest match to the coding harness's repo map. Doc 17 already names Roslyn for C# symbols and says no embeddings until grep plus a repo map is shown to be worse. A symbol outline (types, members, and call edges, with EXTRACTED and INFERRED tags) is a repo map with edges. That is the first slice we just built in PR #118, and it could be kept as a reference for 17's repo map. The owner should decide whether to pursue it. Nothing here is a commitment.
+Agents that change code need to find the right symbols and files without reading whole repos. Doc 17 plans a repo map under a token budget, with Roslyn for C# and Tree-sitter for Luau and GDScript, and no embeddings until grep plus a repo map is shown to be worse. Graphify's approach is a concrete way to build that layer. Proposed shape, all PROPOSED:
 
-### 3.7 Not applicable
+- **Three indexed layers per repo.** File (path, language, hash), symbol (types, members, with line ranges and a signature line), and reference edges (calls, inherits, imports). Symbols come from Roslyn for C#, and from Tree-sitter for other languages once that binding is decided (the open question in PR #118's design doc).
+- **Edge basis.** Every reference edge is EXTRACTED when the syntax shows it directly (a `using`, a base type, a named call). It is INFERRED when a name matches several candidates and resolution is a guess. Ambiguous names above a small cap are dropped rather than linked. The agent sees the basis on every edge, so it knows when to open the file and check.
+- **Incremental cache per file.** The unit is the file's SHA256, the same rule 18 uses for Vault blocks. A commit that touches three files reparses three files. Deleted files drop out. The cache lives beside the repo and is rebuilt from git, so it is never a source of truth.
+- **Entry points from hubs.** The highest-degree symbols per area (the "god nodes") make the first lines of the repo map, so an agent starts from the places the code depends on most.
+- **Query, do not dump.** The agent asks for a symbol's neighbours at depth 1 to 3 and gets one line per edge, `source -relation-> target [basis]`. It opens a file only for the lines it will edit. Doc 17's per-request package (current file and diff, the asking GC thread, dependency state, the repo map under budget) stays as it is; this only changes how the map is built and queried.
+- **Evaluation first.** Compare grep plus repo map against graph-first queries on a fixed set of tasks from real Bazaar PRs (tokens per task, files opened, and whether the change passed review). Only then decide on embeddings for code. Doc 17's rule stays in force.
+
+PR #118 is a working reference for the extraction and cache pieces, kept as a reference and not as a port. The owner decides whether any of it is pursued.
+
+### 3.7 Vault and general retrieval (apply)
+
+The same graph applies to the Vault and to memory, which already share the Vault index (18, 08):
+
+- **Neighbour expansion before search.** Context assembly reads a note's linked neighbours first (`vault_neighbors`, depth 1 by default), then runs hybrid search only for what the links miss. This is the cheapest source of relevant context, because the links were written by someone who judged them relevant.
+- **Basis on every hit.** Vault and memory hits carry EXTRACTED (a link, a mention, a decision reference) or INFERRED (a similarity or consolidation link) labels. Context assembly prefers EXTRACTED when a budget is tight.
+- **Card output.** Search returns one card per hit with an approximate token count; the body is one call away. The budget then pays only for what the agent opens.
+- **Hub summaries.** Per project, the highest-degree notes and decisions, per Constellation cluster (19), seed a new agent's Vault section instead of the index note.
+
+### 3.8 General retrieval rules (apply)
+
+These apply to codebase, Vault and memory alike:
+
+1. Graph or link expansion first, then search, then the budget. Never the reverse.
+2. Every result states its basis and its scope, and carries an id that fetches the body.
+3. Every cache is keyed by content hash and rebuilt from the source of truth (git, the Vault), never trusted on its own.
+4. Retrieval quality is measured on a labelled set per domain, with tokens per outcome as the cost measure. No embedding model is chosen before that set exists.
+
+### 3.9 Not applicable
 
 - **Obsidian or wiki export.** The Vault already is Markdown in git.
 - **A separate graph store.** Bazaar's graph is `vault_links` plus GC references (19). A second store would duplicate it.
