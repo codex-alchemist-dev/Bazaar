@@ -22,7 +22,8 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0014` | SOUL1 | merged | `soul_versions`: append-only Soul version chain (charter SHA-256, preferences JSON, expected-version writes) |
 | `0015` | INT1 | merged | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
 | `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
-| `0013`, `0016+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0019` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
+| `0013`, `0016`–`0018`, `0020+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 
