@@ -84,6 +84,13 @@ Observatory and dashboard tiles share one view model in `Bazaar.Client.Core` (27
 ### Status page (`GET /status`; format in 02) [PROPOSED contents]
 Shows: version, protocol, uptime, readiness word from 03's `/health/ready`, provider health words, quota state words by provider display name, agent counts per presence bucket, queue depth and connected devices. Never shows agent names, GC or Vault content, key ids or workspace ids. Spend and token counts appear only if `status.show_spend_and_tokens` is set (needs counsel, because the page is public-facing).
 
+## Implementation status
+Code in `src/Bazaar.Server/Gateway/Usage/`, tests in `tests/Bazaar.Server.Tests/Gateway/Usage/`.
+- Done (pure, tested with fakes): `PriceTableLoader` (dated JSON price table, unknown fields rejected), `UsageRollup` (hourly `usage_hour` rows with identity split, error and estimate counts, 2-hour rebuild window via `WindowStart`), `UsageTotalsBuilder` (cost known or unknown, identity split, long-prompt count).
+- Not yet: the `price_table` and `usage_hour` migration, the rollup job's Postgres upsert, and the status and client views. These need a Postgres run.
+- `usage_hour` carries an `estimated_calls` count beyond the columns above, so estimates stay labelled in rollups.
+- The long-prompt check counts uncached input plus both cache-write buckets plus cache reads, against a 100K default.
+
 ## Settings
 Registry rules are in 03. Settings may tighten floors, never loosen them.
 
