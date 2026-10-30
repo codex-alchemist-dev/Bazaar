@@ -27,7 +27,7 @@ namespace Bazaar.Server.Vault.Writes;
 /// </remarks>
 public sealed partial class VaultWriter : IDisposable
 {
-    private const string DecisionsFolder = "decisions";
+    private const string _decisionsFolder = "decisions";
 
     private readonly IGitProvider _git;
     private readonly string _repoPath;
@@ -102,8 +102,8 @@ public sealed partial class VaultWriter : IDisposable
         using var laneLease = await AcquireAsync(_vaultLane, ct);
 
         var oldCommit = await _git.HeadAsync(_repoPath, ct);
-        var number = NextDecisionNumber(Path.Combine(_repoPath, DecisionsFolder));
-        var relativePath = $"{DecisionsFolder}/{number:D4}-{draft.Slug}.md";
+        var number = NextDecisionNumber(Path.Combine(_repoPath, _decisionsFolder));
+        var relativePath = $"{_decisionsFolder}/{number:D4}-{draft.Slug}.md";
         var fullPath = Path.Combine(_repoPath, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
