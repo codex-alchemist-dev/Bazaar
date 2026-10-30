@@ -38,7 +38,7 @@ The Vault is the company's durable written memory: Markdown files with Obsidian-
 | `twin/<project>/<page>.md` | twin | Generated Twin prose pages (doc 25 names no folder) [PROPOSED] |
 | `archive/` | archive | Generated only |
 
-**Front matter [PROPOSED].** YAML, parsed by a real YAML library:
+**Front matter [ACCEPTED 2026-10-30, owner delegated].** YAML, parsed by a real YAML library:
 
 ```yaml
 id: 01J...            # ULID, required, stable across renames
@@ -52,7 +52,7 @@ source_trust: agent   # provenance, doc 15's enum (C20)
 tier: T1              # memory promotion tier T0-T3, doc 08's scale (C20)
 ```
 
-**Links [PROPOSED].**
+**Links [ACCEPTED 2026-10-30, owner delegated].**
 
 | Form | Target |
 |---|---|

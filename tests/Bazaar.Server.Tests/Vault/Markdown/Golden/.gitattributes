@@ -1,0 +1,2 @@
+# The repo-wide "* text=auto eol=lf" would rewrite the CRLF fixture on commit; keep its bytes.
+crlf.md -text
