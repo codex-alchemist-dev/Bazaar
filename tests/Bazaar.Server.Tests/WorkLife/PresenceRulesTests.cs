@@ -4,7 +4,7 @@ namespace Bazaar.Server.Tests.WorkLife;
 
 public class PresenceRulesTests
 {
-    private const string Working = "working";
+    private const string _working = "working";
 
     private static PresenceInput In(
         PresenceAvailability availability,
@@ -16,7 +16,7 @@ public class PresenceRulesTests
         bool waitingForApproval = false) =>
         new(availability, activity, tool, gc, throttled, covered, waitingForApproval);
 
-    private static PresenceResult Derive(PresenceInput input, string idleLabel = Working) =>
+    private static PresenceResult Derive(PresenceInput input, string idleLabel = _working) =>
         PresenceRules.Derive(input, idleLabel);
 
     [Theory]
@@ -169,7 +169,7 @@ public class PresenceRulesTests
     {
         var result = Derive(In(availability, PresenceActivityKind.Waiting));
 
-        Assert.Equal(new PresenceResult(Working, PresenceOverlay.Idle), result);
+        Assert.Equal(new PresenceResult(_working, PresenceOverlay.Idle), result);
     }
 
     [Theory]
