@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "synthetic GC thread: re-recorded with new ids, times and wording",
+  "records": [
+    { "seq": 1, "kind": "gc_message", "id": "msg-7731", "at": "2026-06-14T17:42:10Z", "text": "Different wording, same shape.", "keys": { "speaker": "agent-alpha" } },
+    { "seq": 2, "kind": "wake", "id": "wake-7731", "at": "2026-06-14T17:42:11Z", "keys": { "agent": "agent-beta" } },
+    { "seq": 3, "kind": "model_request", "id": "req-7731", "at": "2026-06-14T17:42:12Z", "keys": { "model": "model-example-small" } },
+    { "seq": 4, "kind": "model_response", "id": "res-7731", "at": "2026-06-14T17:42:13Z", "text": "Another synthetic reply.", "keys": { "model": "model-example-small" } },
+    { "seq": 5, "kind": "tool_call", "id": "tool-7731", "at": "2026-06-14T17:42:14Z", "keys": { "tool": "gc.post" } },
+    { "seq": 6, "kind": "gc_message", "id": "msg-7732", "at": "2026-06-14T17:42:15Z", "text": "Another follow-up.", "keys": { "speaker": "agent-beta" } }
+  ]
+}
