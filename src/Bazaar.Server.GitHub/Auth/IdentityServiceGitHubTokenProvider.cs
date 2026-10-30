@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text;
 
 namespace Bazaar.Server.GitHub.Auth;
 
@@ -68,13 +69,14 @@ public sealed class IdentityServiceGitHubTokenProvider : IGitHubTokenProvider
     private async Task<GitHubToken> ExchangeAsync(GitHubTokenScope scope, CancellationToken cancellationToken)
     {
         IdentityTokenResponse response = await _client.ExchangeAsync(scope, cancellationToken).ConfigureAwait(false);
+        string? errorCode = SanitizeErrorCode(response.ErrorCode);
 
         if (response.StatusCode is < 200 or > 299)
         {
             throw new GitHubTokenException(
-                $"GitHub installation token exchange failed (HTTP {response.StatusCode}, error code {response.ErrorCode ?? "none"}).",
+                $"GitHub installation token exchange failed (HTTP {response.StatusCode}, error code {errorCode ?? "none"}).",
                 response.StatusCode,
-                response.ErrorCode);
+                errorCode);
         }
 
         if (string.IsNullOrEmpty(response.Token) || response.ExpiresAt is not { } expiresAt)
@@ -82,7 +84,7 @@ public sealed class IdentityServiceGitHubTokenProvider : IGitHubTokenProvider
             throw new GitHubTokenException(
                 "GitHub installation token exchange returned a response without a token or expiry.",
                 response.StatusCode,
-                response.ErrorCode);
+                errorCode);
         }
 
         if (expiresAt <= _timeProvider.GetUtcNow())
@@ -90,18 +92,50 @@ public sealed class IdentityServiceGitHubTokenProvider : IGitHubTokenProvider
             throw new GitHubTokenException(
                 "GitHub installation token exchange returned a token that has already expired.",
                 response.StatusCode,
-                response.ErrorCode);
+                errorCode);
         }
 
         return new GitHubToken(response.Token, expiresAt);
     }
 
-    /// <summary>Cache and lock key: the installation, repositories and permissions one token is narrowed to.</summary>
+    /// <summary>
+    /// Maps an Identity Service error code to a value safe for exception messages: letters, digits, '_', '.' and '-',
+    /// at most 64 characters. Anything else becomes "unknown". Null stays null.
+    /// </summary>
+    internal static string? SanitizeErrorCode(string? code)
+    {
+        if (code is null)
+        {
+            return null;
+        }
+
+        if (code.Length == 0 || !code.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '.' or '-'))
+        {
+            return "unknown";
+        }
+
+        return code.Length <= MaxErrorCodeLength ? code : code[..MaxErrorCodeLength];
+    }
+
+    private const int MaxErrorCodeLength = 64;
+
+    /// <summary>
+    /// Cache and lock key: the installation, repositories and permissions one token is narrowed to.
+    /// Each component is length-prefixed, so no value can imitate a separator and collide with another scope.
+    /// </summary>
     private readonly record struct ScopeKey(long InstallationId, string RepositoryIds, string Permissions)
     {
-        public static ScopeKey From(GitHubTokenScope scope) => new(
-            scope.InstallationId,
-            string.Join(",", scope.RepositoryIds.Order()),
-            string.Join(";", scope.Permissions.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}")));
+        public static ScopeKey From(GitHubTokenScope scope)
+        {
+            var permissions = new StringBuilder();
+            foreach (var (name, level) in scope.Permissions.OrderBy(p => p.Key, StringComparer.Ordinal))
+            {
+                permissions.Append(Part(name)).Append(Part(level));
+            }
+
+            return new(scope.InstallationId, Part(string.Join(",", scope.RepositoryIds.Order())), permissions.ToString());
+        }
+
+        private static string Part(string value) => $"{value.Length}:{value}";
     }
 }

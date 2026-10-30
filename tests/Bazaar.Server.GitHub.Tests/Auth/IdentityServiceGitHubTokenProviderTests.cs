@@ -144,6 +144,51 @@ public sealed class IdentityServiceGitHubTokenProviderTests
     }
 
     [Fact]
+    public async Task Scopes_whose_permission_text_collides_under_naive_joining_are_cached_separately()
+    {
+        var time = new FakeTimeProvider(Start);
+        var client = new FakeIdentityServiceTokenClient((n, _) => Task.FromResult(Ok($"ghs_{n}", Start.AddHours(1))));
+        var provider = new IdentityServiceGitHubTokenProvider(client, time);
+
+        var first = await provider.GetTokenAsync(
+            new GitHubTokenScope(1, [1L], new Dictionary<string, string> { ["a"] = "b=c" }), CancellationToken.None);
+        var second = await provider.GetTokenAsync(
+            new GitHubTokenScope(1, [1L], new Dictionary<string, string> { ["a=b"] = "c" }), CancellationToken.None);
+
+        Assert.Equal(2, client.Calls);
+        Assert.NotEqual(first.Value, second.Value);
+    }
+
+    [Fact]
+    public async Task Hostile_error_code_is_replaced_in_message_and_exception()
+    {
+        var time = new FakeTimeProvider(Start);
+        var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(
+            new IdentityTokenResponse(403, null, null, "bad\nINJECTED line\r\n\u0007")));
+        var provider = new IdentityServiceGitHubTokenProvider(client, time);
+
+        var ex = await Assert.ThrowsAsync<GitHubTokenException>(() => provider.GetTokenAsync(Scope(), CancellationToken.None));
+
+        Assert.Equal("unknown", ex.ErrorCode);
+        Assert.Contains("error code unknown", ex.Message);
+        Assert.DoesNotContain('\n', ex.Message);
+        Assert.DoesNotContain('\r', ex.Message);
+    }
+
+    [Fact]
+    public async Task Long_valid_error_code_is_capped_at_64_characters()
+    {
+        var time = new FakeTimeProvider(Start);
+        var client = new FakeIdentityServiceTokenClient((_, _) => Task.FromResult(
+            new IdentityTokenResponse(422, null, null, new string('e', 200))));
+        var provider = new IdentityServiceGitHubTokenProvider(client, time);
+
+        var ex = await Assert.ThrowsAsync<GitHubTokenException>(() => provider.GetTokenAsync(Scope(), CancellationToken.None));
+
+        Assert.Equal(64, ex.ErrorCode!.Length);
+    }
+
+    [Fact]
     public void Token_to_string_does_not_contain_the_value()
     {
         var token = new GitHubToken("ghs_super_secret_value", Start.AddHours(1));
