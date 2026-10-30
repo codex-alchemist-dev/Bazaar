@@ -30,7 +30,7 @@ public sealed record FrontMapping(IReadOnlyList<KeyValuePair<string, FrontValue>
 /// </summary>
 internal static partial class FrontMatterCodec
 {
-    private const int MaxDepth = 8;
+    private const int _maxDepth = 8;
 
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_-]*$")]
     private static partial Regex KeyRegex();
@@ -191,7 +191,7 @@ internal static partial class FrontMatterCodec
 
         public FrontValue? ReadValue(int depth)
         {
-            if (depth > MaxDepth)
+            if (depth > _maxDepth)
             {
                 return Fail("nesting is too deep");
             }

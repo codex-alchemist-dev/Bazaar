@@ -11,14 +11,14 @@ namespace Bazaar.Server.Memory.Notes;
 /// </summary>
 internal static class MemoryNoteFields
 {
-    private static readonly string[] TopKeys = ["id", "type", "title", "project", "memory"];
+    private static readonly string[] _topKeys = ["id", "type", "title", "project", "memory"];
 
-    private static readonly string[] MemoryKeys =
+    private static readonly string[] _memoryKeys =
         ["kind", "status", "version", "trust", "source_trust", "tainted", "origin", "derived_from", "subjects", "deprecated", "supersedes"];
 
-    private static readonly string[] OriginKeys = ["gc", "messages"];
+    private static readonly string[] _originKeys = ["gc", "messages"];
 
-    private static readonly string[] DeprecatedKeys = ["reason", "by", "at"];
+    private static readonly string[] _deprecatedKeys = ["reason", "by", "at"];
 
     /// <summary>Writes the front matter lines (each ending in LF) for a note followed by its extra fields.</summary>
     public static string WriteFront(MemoryNote note, IReadOnlyList<KeyValuePair<string, FrontValue>> extras)
@@ -57,7 +57,7 @@ internal static class MemoryNoteFields
     {
         var reader = new Reader();
         note = null;
-        extras = entries.Where(e => Array.IndexOf(TopKeys, e.Key) < 0).ToList();
+        extras = entries.Where(e => Array.IndexOf(_topKeys, e.Key) < 0).ToList();
         var top = Dict(entries);
 
         var id = reader.Scalar(top, "id", "");
@@ -85,7 +85,7 @@ internal static class MemoryNoteFields
 
         if (memory is not null)
         {
-            reader.RejectUnknown(memory, MemoryKeys, "memory.");
+            reader.RejectUnknown(memory, _memoryKeys, "memory.");
             kind = reader.Parse<MemoryKind>(memory, "kind", "memory.", MemoryNoteWire.TryParseKind);
             status = reader.Parse<MemoryNoteStatus>(memory, "status", "memory.", MemoryNoteWire.TryParseStatus);
             version = reader.Parse<long>(memory, "version", "memory.", TryParseVersion);
@@ -99,7 +99,7 @@ internal static class MemoryNoteFields
             var originMap = reader.Mapping(memory, "origin", "memory.", required: false);
             if (originMap is not null)
             {
-                reader.RejectUnknown(originMap, OriginKeys, "memory.origin.");
+                reader.RejectUnknown(originMap, _originKeys, "memory.origin.");
                 origin = new MemoryOrigin(
                     reader.Scalar(originMap, "gc", "memory.origin.", required: false),
                     reader.Strings(originMap, "messages", "memory.origin."));
@@ -108,7 +108,7 @@ internal static class MemoryNoteFields
             var deprecatedMap = reader.Mapping(memory, "deprecated", "memory.", required: false);
             if (deprecatedMap is not null)
             {
-                reader.RejectUnknown(deprecatedMap, DeprecatedKeys, "memory.deprecated.");
+                reader.RejectUnknown(deprecatedMap, _deprecatedKeys, "memory.deprecated.");
                 deprecated = new MemoryDeprecation(
                     reader.Scalar(deprecatedMap, "reason", "memory.deprecated.") ?? string.Empty,
                     reader.Scalar(deprecatedMap, "by", "memory.deprecated.") ?? string.Empty,

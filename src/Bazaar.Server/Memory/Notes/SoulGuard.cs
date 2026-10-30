@@ -96,9 +96,9 @@ public static class SoulGuard
     /// <summary>The shipped default of <c>memory.note_max_bytes</c>. Callers pass the configured value.</summary>
     public const int DefaultMaxNoteBytes = 4096;
 
-    private static readonly MemoryKind[] AgentKinds = [MemoryKind.Procedural, MemoryKind.Failure, MemoryKind.Preference, MemoryKind.Working];
+    private static readonly MemoryKind[] _agentKinds = [MemoryKind.Procedural, MemoryKind.Failure, MemoryKind.Preference, MemoryKind.Working];
 
-    private static readonly HashSet<string> SoulCoreKeys = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> _soulCoreKeys = new(StringComparer.Ordinal)
     {
         "identity",
         "personality",
@@ -239,7 +239,7 @@ public static class SoulGuard
             case MemoryActor.Agent:
                 return request.ActorAgent is not null
                     && area.Scope != MemoryScope.Hive
-                    && Array.IndexOf(AgentKinds, kind) >= 0
+                    && Array.IndexOf(_agentKinds, kind) >= 0
                     && (area.Scope != MemoryScope.Private || string.Equals(area.Owner, request.ActorAgent, StringComparison.Ordinal));
             default:
                 return false;
@@ -263,7 +263,7 @@ public static class SoulGuard
     private static bool IsSoulCoreKey(string key)
     {
         var normalized = key.ToLowerInvariant().Replace('-', '_');
-        return SoulCoreKeys.Contains(normalized) || normalized.Contains("passport", StringComparison.Ordinal);
+        return _soulCoreKeys.Contains(normalized) || normalized.Contains("passport", StringComparison.Ordinal);
     }
 
     /// <summary>
