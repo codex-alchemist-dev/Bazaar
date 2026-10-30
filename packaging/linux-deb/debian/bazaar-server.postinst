@@ -17,6 +17,19 @@ case "$1" in
       chmod 0640 /etc/bazaar/appsettings.json
     fi
 
+    # Side-by-side releases (doc 30). Copy this version into its own directory
+    # if absent, then repoint current atomically. Older releases are kept, so
+    # rolling back is: ln -sfn releases/<old> /opt/bazaar/current and restart.
+    VERSION=$(cat /usr/share/bazaar-server/VERSION)
+    REL=/opt/bazaar/releases/$VERSION
+    install -d -m 0755 /opt/bazaar /opt/bazaar/releases
+    if [ ! -d "$REL" ]; then
+      cp -a /usr/share/bazaar-server/release "$REL.tmp"
+      mv "$REL.tmp" "$REL"
+    fi
+    ln -sfn "releases/$VERSION" /opt/bazaar/current.tmp
+    mv -T /opt/bazaar/current.tmp /opt/bazaar/current
+
     if [ -z "$2" ]; then
       cat <<'MSG'
 
