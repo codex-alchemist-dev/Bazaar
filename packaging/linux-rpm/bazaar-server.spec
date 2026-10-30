@@ -1,11 +1,23 @@
 # Bazaar server host (Bazaar.Server.Host) RPM.
 #
 # Layout follows docs/design/30-linux-client-and-packaging.md (Linux server section):
-#   /opt/bazaar/releases/<version>   self-contained publish output
-#   /opt/bazaar/current              symlink to the active release (created in %post)
+#   /opt/bazaar/releases/<version>   one directory per release, side by side; NOT owned by the RPM
+#   /opt/bazaar/current              symlink to the active release (repointed in %post)
+#   /usr/share/bazaar-server/payload-<version>.tar   the package's release payload (owned by the RPM)
 #   /etc/bazaar/bazaar.env           bootstrap configuration only (%config(noreplace))
 #   /var/lib/bazaar                  state (data root)
 #   %{_unitdir}/bazaar-server.service
+#
+# Why the payload is a tar: an RPM upgrade removes files owned by the old package. Extracting the
+# release into /opt/bazaar/releases/<version> in %post, outside RPM ownership, keeps every installed
+# release on disk, so rollback is only a symlink change.
+#
+# Rollback (operator-run, doc 30):
+#   sudo systemctl stop bazaar-server
+#   sudo ln -sfn /opt/bazaar/releases/<old-version> /opt/bazaar/current
+#   sudo systemctl start bazaar-server
+# A schema mismatch makes the older host refuse to start, which is the intended safety net.
+# Old release directories are never removed automatically; delete them by hand when no longer needed.
 #
 # Status: UNVERIFIED. Not built or linted on a machine with rpmbuild (the authoring host is Windows).
 # Database migrations are never run by this package. Run them explicitly before a restart:
@@ -38,6 +50,7 @@ BuildRequires:  systemd-rpm-macros
 BuildRequires:  git-core
 Requires:       systemd
 Requires(pre):  shadow-utils
+Requires(post): tar
 
 %description
 Bazaar.Server.Host is the headless Bazaar server. It runs as the bazaar system user under
@@ -60,9 +73,10 @@ dotnet publish src/Bazaar.Server.Host/Bazaar.Server.Host.csproj \
     --output %{_builddir}/publish
 
 %install
-# Release payload, versioned directory.
-install -d %{buildroot}/opt/bazaar/releases/%{version}
-cp -a %{_builddir}/publish/. %{buildroot}/opt/bazaar/releases/%{version}/
+# Release payload, packed as a tar that %post extracts into its own versioned directory.
+install -d %{buildroot}/opt/bazaar/releases
+install -d %{buildroot}%{_datadir}/bazaar-server
+tar -C %{_builddir}/publish -cf %{buildroot}%{_datadir}/bazaar-server/payload-%{version}.tar .
 
 # Unit file and bootstrap configuration.
 install -D -m 0644 packaging/linux-rpm/bazaar-server.service %{buildroot}%{_unitdir}/bazaar-server.service
@@ -79,8 +93,20 @@ getent passwd bazaar >/dev/null || \
 exit 0
 
 %post
-# Point current at this release. Upgrades replace the link; the old release directory is removed with the old package.
-ln -sfn /opt/bazaar/releases/%{version} /opt/bazaar/current
+# Extract this release side by side with older ones. An existing directory is kept as is.
+rel=/opt/bazaar/releases/%{version}
+if [ ! -d "$rel" ]; then
+    install -d /opt/bazaar/releases
+    stage=$(mktemp -d /opt/bazaar/releases/.stage-XXXXXX)
+    if tar -xf %{_datadir}/bazaar-server/payload-%{version}.tar -C "$stage"; then
+        mv "$stage" "$rel"
+    else
+        rm -rf "$stage"
+        exit 1
+    fi
+fi
+# Point current at this release. Rolling back is repointing this symlink (see the header).
+ln -sfn "$rel" /opt/bazaar/current
 %systemd_post bazaar-server.service
 
 %preun
@@ -88,6 +114,7 @@ ln -sfn /opt/bazaar/releases/%{version} /opt/bazaar/current
 
 %postun
 # Restart is deliberately not automatic: upgrades are operator-run (doc 30). Run "migrate" first, then restart.
+# Release directories under /opt/bazaar/releases are kept on upgrade and on erase, so rollback stays possible.
 %systemd_postun bazaar-server.service
 if [ $1 -eq 0 ]; then
     rm -f /opt/bazaar/current
@@ -98,7 +125,7 @@ exit 0
 %license LICENSE
 %dir /opt/bazaar
 %dir /opt/bazaar/releases
-/opt/bazaar/releases/%{version}
+%{_datadir}/bazaar-server/payload-%{version}.tar
 %ghost /opt/bazaar/current
 %{_unitdir}/bazaar-server.service
 %dir %attr(0750, root, bazaar) /etc/bazaar
