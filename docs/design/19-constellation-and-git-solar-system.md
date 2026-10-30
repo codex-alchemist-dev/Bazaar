@@ -87,7 +87,7 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 |---|---|
 | Client render, 5k nodes, Windows | 60 fps, ≤ 10 ms draw |
 | Client render, 10k nodes | 60 fps (stretch; Q1) |
-| Server layout tick, 10k nodes | ≤ 8 ms per tick on the NUC (absolute budget; S14 measures it on the NUC) |
+| Server layout tick, 10k nodes | ≤ 8 ms per tick on the owner's PC (absolute budget; S14 measures it on the owner's PC) |
 | Focus change to settled layout, 5k nodes | ≤ 1 s |
 | Android | not gated until the spike |
 
@@ -106,7 +106,7 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - **Git DAG:** fixture repo with a merge yields one comet edge, read through `IGitProvider`.
 - **Client:** Avalonia.Headless with Skia. Golden image at 200 nodes. Hit-test and keyboard-only walk produce the expected `FocusRequest` sequence.
 - **Settings:** each setting's default and bounds are tested; a change writes an audit entry.
-- **Performance:** benchmark at 1k, 5k and 10k on the NUC (spike S14), nightly, not a PR gate.
+- **Performance:** benchmark at 1k, 5k and 10k on the owner's PC (spike S14), nightly, not a PR gate.
 
 ## Work packages
 1. `Bazaar.Contracts`: graph and layout records, JSON source generation; register `graph:<id>` in 02's registry.
@@ -134,7 +134,7 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 ANSWERED: layout runs on the server; clients render only (DECISIONS-LOG round 4, C17).
 ANSWERED: DM nodes appear to members, and the owner sees all DMs, per the decided DM rule (CLAUDE.md).
 
-1. **Performance gate.** 5k or 10k at 60 fps on the NUC? Default: 5k must pass on the Windows NUC desktop; 10k is a stretch. Stays a question: it is an acceptance gate set against the owner's 10k direction (Conflict 2).
+1. **Performance gate.** 5k or 10k at 60 fps on the owner's PC? Default: 5k must pass on the Windows owner's PC desktop; 10k is a stretch. Stays a question: it is an acceptance gate set against the owner's 10k direction (Conflict 2).
 2. **Drafts.** Visible to all viewers, or only the owner and author? Default: owner and author, the same rule as DMs. Also confirm `draft` as a Vault document type (18 lists it as [PROPOSED]). Stays a question: visibility is an access rule and the type is a file-layout choice.
 3. **Accessibility.** Is the keyboard list mirror required for v1? Default: yes. Product scope.
 4. **Memory and Thinking GCs in the graph.** Should other human members see agent memory notes (18's default is owner and owning agent only)? Should Thinking GCs ever be nodes? Default: no and no; the owner can see both through the Vault and GC views. Stays a question: this is an access rule for private material (DECISIONS-LOG round 3, C11).

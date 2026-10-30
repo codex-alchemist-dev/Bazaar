@@ -61,7 +61,7 @@ Hyper-V VM backend after the topology benchmark; QEMU/KVM backend later. Engine 
 
 1. Garnet on Windows: StackExchange.Redis compatibility and persistence.
 2. GitHub App tests on a throwaway public repo: issue creation on an uninstalled repo; fork then PR.
-3. Agent VM sizing benchmark on the NUC: RAM, CPU and boot cost of the Windows + Linux VM pair per agent, and how many pairs fit.
+3. Agent VM sizing benchmark on the owner's PC: RAM, CPU and boot cost of the Windows + Linux VM pair per agent, and how many pairs fit.
 4. Avalonia: Monaco inside a WebView on each platform; terminal control; Android IME on a real foldable; Skia graph benchmark.
 5. FreeLLMAPI: confirm routing modes and what usage and health data it exposes (read its API and code).
 
