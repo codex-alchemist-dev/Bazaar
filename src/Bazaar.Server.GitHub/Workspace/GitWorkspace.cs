@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Bazaar.Server.Vault.Git;
 using LibGit2Sharp;
+using LibGit2Sharp.Handlers;
 
 namespace Bazaar.Server.GitHub.Workspace;
 
@@ -11,8 +12,9 @@ namespace Bazaar.Server.GitHub.Workspace;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Credentials.</b> A push receives a credential source for one push only. The token is held in memory for that call,
-/// is passed to libgit2 as a credential callback, and is never written to disk, a log, a commit or an exception.
+/// <b>Credentials.</b> A push requests the credential once, and only after the origin host is confirmed as an allowed
+/// HTTPS GitHub host. The token is held in memory for that push, is returned to libgit2 once, and is never written to
+/// disk, a log, a commit or an exception.
 /// </para>
 /// <para>
 /// <b>Refusals.</b> The default branch (<c>main</c>) and any branch outside <c>agent/</c> are refused before the lock is
@@ -30,7 +32,9 @@ public sealed class GitWorkspace
 
     private readonly IGitProvider _git;
     private readonly string _rootPath;
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _repoLocks = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _gitHubHosts;
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _repoPaths = new(StringComparer.Ordinal);
 
     public GitWorkspace(IGitProvider git, GitWorkspaceOptions options)
     {
@@ -40,6 +44,7 @@ public sealed class GitWorkspace
 
         _git = git;
         _rootPath = Path.GetFullPath(options.RootPath);
+        _gitHubHosts = new HashSet<string>(options.GitHubHosts, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -54,10 +59,12 @@ public sealed class GitWorkspace
 
         var branch = _agentBranchPrefix + taskId;
         var worktreePath = Path.Combine(_rootPath, repoId, taskId);
+        var fullRepoPath = Path.GetFullPath(repoPath);
 
-        using var _ = await LockRepoAsync(repoId, ct).ConfigureAwait(false);
+        using var _ = await LockRepoAsync(repoId, ct, fullRepoPath, KnownRepoPath(repoId)).ConfigureAwait(false);
         Directory.CreateDirectory(Path.GetDirectoryName(worktreePath)!);
         var fullPath = await _git.AddWorktreeAsync(repoPath, branch, worktreePath, ct).ConfigureAwait(false);
+        _repoPaths[repoId] = fullRepoPath;
         return new TaskWorktree(repoId, taskId, branch, fullPath);
     }
 
@@ -69,22 +76,31 @@ public sealed class GitWorkspace
         ArgumentNullException.ThrowIfNull(request.Author);
 
         var message = BuildCommitMessage(request);
+        ValidateWorktree(worktree);
 
-        using var _ = await LockRepoAsync(worktree.RepoId, ct).ConfigureAwait(false);
+        using var _ = await LockRepoAsync(worktree.RepoId, ct, KnownRepoPath(worktree.RepoId)).ConfigureAwait(false);
         return await _git.CommitAsync(worktree.Path, message, request.Author, ct).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Pushes the task branch to <c>origin</c> host-side, using a credential requested for this push only. Refuses the
-    /// default branch and any branch outside <c>agent/</c>. Never force-pushes.
+    /// default branch, any branch outside <c>agent/</c>, and any origin that is not an allowed HTTPS GitHub host. Never
+    /// force-pushes.
     /// </summary>
     public async Task PushAsync(TaskWorktree worktree, Func<CancellationToken, Task<string>> credential, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(worktree);
         ArgumentNullException.ThrowIfNull(credential);
         ValidatePushBranch(worktree.Branch);
+        ValidateWorktree(worktree);
 
-        using var _ = await LockRepoAsync(worktree.RepoId, ct).ConfigureAwait(false);
+        using var _ = await LockRepoAsync(worktree.RepoId, ct, KnownRepoPath(worktree.RepoId)).ConfigureAwait(false);
+
+        var origin = await Task.Run(() => ReadOriginUri(worktree.Path), ct).ConfigureAwait(false);
+        if (!IsAllowedHost(origin))
+        {
+            throw new GitWorkspaceException("The origin remote is not an allowed GitHub host, so nothing was pushed.");
+        }
 
         string? token = null;
         try
@@ -104,6 +120,33 @@ public sealed class GitWorkspace
             throw new GitWorkspaceException(
                 $"Push of '{worktree.Branch}' failed ({ex.GetType().Name}): {Redact(ex.Message, token)}");
         }
+    }
+
+    /// <summary>
+    /// Returns a credentials handler that yields the token once. A second request during the same push throws, so the
+    /// engine cannot retry with the same secret. A remote that does not accept username and password is refused.
+    /// </summary>
+    internal static CredentialsHandler CreateOneShotCredentials(string token)
+    {
+        var issued = 0;
+        return (_, _, types) =>
+        {
+            if (Interlocked.Exchange(ref issued, 1) != 0)
+            {
+                throw new GitWorkspaceException("The push credential was already issued for this push.");
+            }
+
+            if ((types & SupportedCredentialTypes.UsernamePassword) == 0)
+            {
+                throw new GitWorkspaceException("The remote does not accept username and password credentials.");
+            }
+
+            return new UsernamePasswordCredentials
+            {
+                Username = "x-access-token",
+                Password = token,
+            };
+        };
     }
 
     internal static void ValidatePushBranch(string? branch)
@@ -165,6 +208,35 @@ public sealed class GitWorkspace
         return $"{name}: {value.Trim()}";
     }
 
+    /// <summary>Checks that the worktree is one this workspace created: path, branch and ids must agree.</summary>
+    private void ValidateWorktree(TaskWorktree worktree)
+    {
+        if (!IsValidSegment(worktree.RepoId)
+            || !IsValidSegment(worktree.TaskId)
+            || worktree.Branch != _agentBranchPrefix + worktree.TaskId
+            || string.IsNullOrWhiteSpace(worktree.Path)
+            || !PathsEqual(worktree.Path, Path.Combine(_rootPath, worktree.RepoId, worktree.TaskId)))
+        {
+            throw new GitWorkspaceException("The worktree does not belong to this workspace.");
+        }
+    }
+
+    private static bool PathsEqual(string candidate, string expected)
+    {
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return string.Equals(Path.GetFullPath(candidate), Path.GetFullPath(expected), comparison);
+    }
+
+    private static Uri? ReadOriginUri(string worktreePath)
+    {
+        using var repo = new Repository(worktreePath);
+        var url = repo.Network.Remotes[_pushRemote]?.Url;
+        return url is not null && Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri : null;
+    }
+
+    private bool IsAllowedHost(Uri? origin) =>
+        origin is not null && origin.Scheme == Uri.UriSchemeHttps && _gitHubHosts.Contains(origin.Host);
+
     private static void PushBranch(string worktreePath, string branch, string token)
     {
         using var repo = new Repository(worktreePath);
@@ -173,11 +245,7 @@ public sealed class GitWorkspace
 
         var options = new PushOptions
         {
-            CredentialsProvider = (_, _, _) => new UsernamePasswordCredentials
-            {
-                Username = "x-access-token",
-                Password = token,
-            },
+            CredentialsProvider = CreateOneShotCredentials(token),
         };
 
         var refspec = $"refs/heads/{branch}:refs/heads/{branch}";
@@ -189,26 +257,63 @@ public sealed class GitWorkspace
 
     private static void ValidateSegment(string value, string paramName)
     {
-        if (value is not { Length: > 0 and <= _maxSegmentLength }
-            || !char.IsAsciiLetterOrDigit(value[0])
-            || !value.All(IsSegmentChar)
-            || value.Contains("..", StringComparison.Ordinal))
+        if (!IsValidSegment(value))
         {
             throw new ArgumentException("The value must be a short ASCII identifier made of letters, digits, '.', '_' or '-'.", paramName);
         }
     }
 
+    private static bool IsValidSegment(string? value) =>
+        value is { Length: > 0 and <= _maxSegmentLength }
+        && char.IsAsciiLetterOrDigit(value[0])
+        && value.All(IsSegmentChar)
+        && !value.Contains("..", StringComparison.Ordinal);
+
     private static bool IsSegmentChar(char c) => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-';
 
-    private async Task<RepoLease> LockRepoAsync(string repoId, CancellationToken ct)
+    private string? KnownRepoPath(string repoId) => _repoPaths.TryGetValue(repoId, out var path) ? path : null;
+
+    /// <summary>
+    /// Takes the lock for the repository id and for each known canonical repository path, so two ids that point at one
+    /// path serialize. Locks are taken in sorted key order, which keeps concurrent callers deadlock-free.
+    /// </summary>
+    private async Task<RepoLease> LockRepoAsync(string repoId, CancellationToken ct, params string?[] repoPaths)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
-        var gate = _repoLocks.GetOrAdd(repoId, static _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(ct).ConfigureAwait(false);
-        return new RepoLease(gate);
+
+        var keys = new SortedSet<string>(StringComparer.Ordinal) { "id:" + repoId };
+        foreach (var path in repoPaths)
+        {
+            if (path is not null)
+            {
+                keys.Add("path:" + path);
+            }
+        }
+
+        var gates = new List<SemaphoreSlim>(keys.Count);
+        try
+        {
+            foreach (var key in keys)
+            {
+                var gate = _locks.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                gates.Add(gate);
+            }
+        }
+        catch
+        {
+            foreach (var gate in gates)
+            {
+                gate.Release();
+            }
+
+            throw;
+        }
+
+        return new RepoLease(gates);
     }
 
-    private sealed class RepoLease(SemaphoreSlim gate) : IDisposable
+    private sealed class RepoLease(IReadOnlyList<SemaphoreSlim> gates) : IDisposable
     {
         private int _released;
 
@@ -216,7 +321,10 @@ public sealed class GitWorkspace
         {
             if (Interlocked.Exchange(ref _released, 1) == 0)
             {
-                gate.Release();
+                foreach (var gate in gates)
+                {
+                    gate.Release();
+                }
             }
         }
     }

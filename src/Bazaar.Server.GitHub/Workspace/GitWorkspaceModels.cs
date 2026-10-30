@@ -9,6 +9,9 @@ public sealed class GitWorkspaceOptions
     /// Directory that holds task worktrees. A worktree lives at <c>&lt;RootPath&gt;/&lt;repoId&gt;/&lt;taskId&gt;</c>.
     /// </summary>
     public required string RootPath { get; init; }
+
+    /// <summary>Hosts whose HTTPS origin may receive the push credential. Only <c>github.com</c> by default.</summary>
+    public IReadOnlyList<string> GitHubHosts { get; init; } = ["github.com"];
 }
 
 /// <summary>A worktree for one task, on its own <c>agent/&lt;task&gt;</c> branch.</summary>
