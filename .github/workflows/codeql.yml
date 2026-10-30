@@ -1,0 +1,66 @@
+# CodeQL analysis (advanced setup). Runs on GitHub-hosted runners only.
+#
+# Why there is no paths filter: the required checks "Analyze (csharp)" and
+# "Analyze (actions)" must report on every pull request. A paths filter would
+# skip the workflow on docs-only changes, so the check would never appear and
+# the PR could not merge. Do not add a `paths:` filter here.
+#
+# This file replaces CodeQL default setup. The two cannot coexist: the owner
+# must switch Settings > Code security > Code scanning from default setup to
+# advanced setup before this workflow can run. See docs/ci.md.
+#
+# Every third-party action is pinned to a full commit SHA; the version tag is
+# kept in a trailing comment. Do not switch to tags.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, Monday 06:17 UTC: catches new queries against unchanged code.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push or pull request update supersedes the older run for the same ref.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [csharp, actions]
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # build-mode none: C# is extracted from source without running a build, so
+      # no .NET SDK or NuGet restore is needed here. The actions language has no
+      # build step and also requires none. Accuracy for C# is lower than with a
+      # real build; the trade-off is deliberate to keep the required check fast
+      # and independent of the SDK version.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}
