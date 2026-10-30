@@ -118,6 +118,16 @@ export BAZAAR_DEV_TOKEN
 # The dev agent answers mentions and DMs in the dev chat as its own member. Its model route is the responder default.
 export Bazaar__AgentResponder__Agents__0__AgentId="$DEV_AGENT_ID"
 export Bazaar__AgentResponder__Agents__0__Name="Charles"
+# FreeLLMAPI for the dev agent, only when a base URL is given. The sidecar thread supplies these. The key is read from the
+# environment by reference, never written to a file or the log.
+if [ -n "${BAZAAR_FREELLMAPI_URL:-}" ]; then
+  [ -n "${BAZAAR_FREELLMAPI_KEY:-}" ] || die "BAZAAR_FREELLMAPI_URL is set but BAZAAR_FREELLMAPI_KEY is empty."
+  export BAZAAR_FREELLMAPI_KEY
+  export Bazaar__Gateway__FreeLlmApi__Enabled=true
+  export Bazaar__Gateway__FreeLlmApi__BaseUrl="$BAZAAR_FREELLMAPI_URL"
+  export Bazaar__Gateway__FreeLlmApi__ApiKey=env:BAZAAR_FREELLMAPI_KEY
+  export Bazaar__Gateway__FreeLlmApi__DefaultModel="${BAZAAR_FREELLMAPI_MODEL:-groq/llama-3.3-70b}"
+fi
 export Bazaar__AgentResponder__Agents__0__SystemPrompt="You are Charles, a dev agent in the local Bazaar chat. Reply briefly and plainly."
 
 # --- Build, migrate, run ----------------------------------------------------
