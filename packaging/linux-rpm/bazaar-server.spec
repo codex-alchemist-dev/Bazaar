@@ -67,7 +67,7 @@ cp -a %{_builddir}/publish/. %{buildroot}/opt/bazaar/releases/%{version}/
 # Unit file and bootstrap configuration.
 install -D -m 0644 packaging/linux-rpm/bazaar-server.service %{buildroot}%{_unitdir}/bazaar-server.service
 install -d -m 0750 %{buildroot}/etc/bazaar
-install -m 0640 packaging/linux-rpm/bazaar.env %{buildroot}/etc/bazaar/bazaar.env
+install -m 0640 packaging/linux-rpm/bazaar.env.example %{buildroot}/etc/bazaar/bazaar.env
 
 # State directory (also created by systemd StateDirectory=).
 install -d -m 0750 %{buildroot}/var/lib/bazaar
