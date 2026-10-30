@@ -2,6 +2,8 @@
 
 Status: AUDIT (2026-10-30). Written from a read of `docs/` and `src/` at the commit this file lands on. No code was changed. Owner question: the original deep dives described a comprehensive module system where most base-app functions are modules or extensions. Is that still the design, and is it in the code?
 
+Follow-up: the owner decided on full modularity (every base function a Bazaar Component). See `docs/design/BAZAAR-COMPONENTS.md` for the model and wave plan, and the first slice in `src/Bazaar.Server/Components/`.
+
 ## 1. Short answer
 
 - **The "every base function is a module" design is not in this repo's docs.** A search of `docs/` for module, plugin, extension and addon finds only the items below. The deep dives (`Bazaar.md`, `Bazaar.Server.md`, `Bazaar.Windows.md`) describe GC, Kanban, Vault, agents, Constellation and the gateway as first-party systems, not as plugins. Git history has no deleted doc with that design either (`git log -S module -- docs` only matches an unrelated commit message). If the earlier deep dive exists, it is outside this repo's history. The owner should point to it so this audit can be checked against it.
