@@ -83,6 +83,7 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 - **Concurrency.** One layout engine per view. Concurrent layouts are capped.
 
 ## Scale and level of detail (owner, 2026-10-30; [PROPOSED] numbers)
+Full design, budgets and benchmark plan: `constellation-scale-and-lod.md`.
 - **Target scale.** Millions of nodes company-wide, with billions as the design ceiling. Only the visible, aggregated set reaches the GPU per frame.
 - **Far zoom.** Louvain communities drawn as glyphs; aggregation runs server-side (layout and clustering stay on the server, C17).
 - **Streaming.** Node positions and attributes are sent as viewport chunks or tiles, with a per-viewer cap. Chunks outside the view are evicted.
