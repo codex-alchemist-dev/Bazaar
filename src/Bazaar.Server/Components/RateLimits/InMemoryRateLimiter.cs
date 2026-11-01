@@ -12,7 +12,7 @@ namespace Bazaar.Server.Components.RateLimits;
 public sealed class InMemoryRateLimiter : IRateLimiter
 {
     /// <summary>Idle buckets are swept after this many calls, so keys that stop being used do not accumulate forever.</summary>
-    private const int SweepEveryCalls = 1024;
+    private const int _sweepEveryCalls = 1024;
 
     private readonly TimeProvider _time;
     private readonly Lock _gate = new();
@@ -73,7 +73,7 @@ public sealed class InMemoryRateLimiter : IRateLimiter
     private void MaybeSweep(DateTimeOffset now)
     {
         _callsSinceSweep++;
-        if (_callsSinceSweep < SweepEveryCalls)
+        if (_callsSinceSweep < _sweepEveryCalls)
         {
             return;
         }
