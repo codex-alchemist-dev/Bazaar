@@ -79,6 +79,40 @@ public sealed class CompositionTests
     }
 
     [Fact]
+    public async Task Systemd_creds_references_resolve_from_the_credentials_directory_on_linux()
+    {
+        const string credentialsVariable = "CREDENTIALS_DIRECTORY";
+        var directory = Path.Combine(Path.GetTempPath(), "bazaar-host-creds-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable(credentialsVariable);
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(directory, "kek"), "kek-value\n", TestContext.Current.CancellationToken);
+            Environment.SetEnvironmentVariable(credentialsVariable, directory);
+            await using var sp = Build();
+            var resolver = sp.GetRequiredService<ISecretResolver>();
+
+            if (OperatingSystem.IsLinux())
+            {
+                Assert.Equal("kek-value", await resolver.ResolveAsync("systemd-creds:kek", TestContext.Current.CancellationToken));
+                var missing = await Assert.ThrowsAsync<SecretResolutionException>(
+                    async () => await resolver.ResolveAsync("systemd-creds:not-loaded", TestContext.Current.CancellationToken));
+                Assert.Contains("systemd-creds:not-loaded", missing.Message, StringComparison.Ordinal);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<SecretResolutionException>(
+                    async () => await resolver.ResolveAsync("systemd-creds:kek", TestContext.Current.CancellationToken));
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(credentialsVariable, previous);
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Explicit_service_host_that_is_unregistered_fails_with_no_fallback()
     {
         await using var sp = Build(new() { ["Bazaar:Providers:ServiceHost"] = "no_such_host" });
