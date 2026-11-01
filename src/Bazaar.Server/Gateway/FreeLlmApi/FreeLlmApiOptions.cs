@@ -92,7 +92,8 @@ public sealed class FreeLlmApiOptionsValidator : IValidateOptions<FreeLlmApiOpti
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 
-    private static bool IsSecretReference(string text) =>
+    /// <summary>True for an <c>env:NAME</c> or <c>file:PATH</c> reference. A literal key is never a reference.</summary>
+    internal static bool IsSecretReference(string text) =>
         (text.StartsWith(_envPrefix, StringComparison.Ordinal) && text.Length > _envPrefix.Length)
         || (text.StartsWith(_filePrefix, StringComparison.Ordinal) && text.Length > _filePrefix.Length);
 }
