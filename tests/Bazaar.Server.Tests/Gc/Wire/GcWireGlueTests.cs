@@ -13,7 +13,7 @@ using Npgsql;
 
 namespace Bazaar.Server.Tests.Gc.Wire;
 
-/// <summary>The v0.3 GLUE: wire handlers and stream reads over the real GC log, on Postgres.</summary>
+/// <summary>The Stage 3 GLUE: wire handlers and stream reads over the real GC log, on Postgres.</summary>
 public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
 {
     private static readonly JsonWireCodec _codec = new();
