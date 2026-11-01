@@ -15,6 +15,7 @@ public static class InboxPriority
         InboxKind.Brainstorm => 5,
         InboxKind.SkimmerPromoted => 6,
         InboxKind.GcDigest => 7,
+        InboxKind.Constitution => 8,
         _ => throw new ArgumentException($"Unknown inbox kind '{kind}'.", nameof(kind)),
     };
 
