@@ -1,0 +1,4 @@
+[
+  { "kind": "Link", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": null, "start": 127, "length": 16 },
+  { "kind": "Embed", "target": "diagram", "anchorKind": "None", "anchor": null, "alias": null, "start": 148, "length": 12 }
+]
