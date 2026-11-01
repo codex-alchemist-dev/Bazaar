@@ -4,8 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bazaar.Server.Mail;
 using Bazaar.Server.MailBackends.Common;
-using MimeKit;
 using Bazaar.Server.MailBackends.Generic;
+using MimeKit;
 
 namespace Bazaar.Server.MailBackends.Cloudflare;
 

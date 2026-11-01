@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using MimeKit;
 using Bazaar.Server.Mail;
+using MimeKit;
 
 namespace Bazaar.Server.MailBackends.Common;
 
