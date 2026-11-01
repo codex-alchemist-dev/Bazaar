@@ -168,3 +168,10 @@ All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the 
 - **Former members** lose the live stream entirely (only a full grant opens a stream). Replay to the leave seq is still available through the log reader. Stricter than doc 02's wording; owner to confirm.
 - **Principal kind on the wire path:** `IGcAccessPolicy` receives only a principal id, so the owner shortcut does not apply to subscriptions. The owner must be a member or approved until doc 14 supplies kinds.
 - **Open for owner:** does the owner read every GC by default on the wire (doc 01 says yes), and how is the owner identified in a session?
+
+## Round 14 (2026-10-30): Constellation renderer backend
+
+- **Conflict.** `Bazaar.Constellation.md` §1 and doc 19 mark native Skia through Avalonia as DECIDED and rule out other renderers. A later owner direction, relayed through the coordinator on 2026-10-30, asks for a Vulkan renderer (latest and future versions, forward-facing rule). Owner to confirm which one stands.
+- **Interim state.** Doc 19 names no `IConstellationRenderer`. This change adds it as a renderer-agnostic contract in `Bazaar.Constellation.Rendering`, with frame ordering, interpolation, camera, LOD and hit-test logic that does not depend on the backend. The Vulkan backend (`Bazaar.Constellation.Vulkan`, Vortice.Vulkan 3.3.0) probes the loader and devices only. Its swapchain and drawing path waits for a GPU run on the owner's Windows PC.
+- **Consequence.** The Skia path stays available behind the same interface until the owner decides. If Vulkan is confirmed, Bazaar.Constellation.md §1 and doc 19 are updated in the same change.
+- **Layout and clustering** come from the Constellation layout and Louvain work, which is not in the repo yet. The renderer consumes frames through fakes until those merge.
