@@ -11,7 +11,7 @@ The Constellation is the visual view of the knowledge graph that the Vault and G
 - **Vault access applies to the graph.** Every read, search hit and link resolution is checked against the caller's principal (18, Access). The owner reads all. An agent reads its own private memory. Other agents do not read private memory. The projection uses the same filter (C38, 18).
 - **Compute location.** Layout and clustering run on the server; clients render and run no simulation. This follows CLAUDE.md, whose listed exceptions (on-device inference, Studio relay, local terminal, branch sync) do not include the graph (DECISIONS-LOG round 4, C17).
 - **Licence.** The public build is OSI-only, with no paid Avalonia controls (DECISIONS-LOG round 4, C23). Node previews use plain Skia text.
-- **Renderer.** Reverse Gravity Layout; Vim-style navigation that restructures the graph; native Skia through Avalonia; no D3-Force, WebGPU or Win2D (Bazaar.Constellation.md §1).
+- **Renderer (owner, 2026-10-30).** Vulkan with GPU instancing is the direction; Skia is a fallback behind the same renderer interface (DECISIONS-LOG round 17). Designed for company-wide graphs of millions, possibly billions, of nodes, on phone and PC. Reverse Gravity Layout and Vim-style navigation are unchanged (Bazaar.Constellation.md §1). No D3-Force or WebGPU.
 - **Git.** Git access goes through one `IGitProvider`; LibGit2Sharp stays the default until spike S23 says otherwise (DECISIONS-LOG round 3, C12).
 - **GCs.** Append-only. DMs are two-member GCs and the owner reads all of them (CLAUDE.md). Thinking GCs nest under working GCs and peers read them on request (DECISIONS-LOG round 3, C11). GC types come from the registry in 01 (round 6, C19).
 - **Done.** For a card tied to a PR, Done means the PR is merged (round 8, C28).
@@ -82,11 +82,21 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 - **Stale data.** When disconnected, the last snapshot is shown and marked stale.
 - **Concurrency.** One layout engine per view. Concurrent layouts are capped.
 
+## Scale and level of detail (owner, 2026-10-30; [PROPOSED] numbers)
+- **Target scale.** Millions of nodes company-wide, with billions as the design ceiling. Only the visible, aggregated set reaches the GPU per frame.
+- **Far zoom.** Louvain communities drawn as glyphs; aggregation runs server-side (layout and clustering stay on the server, C17).
+- **Streaming.** Node positions and attributes are sent as viewport chunks or tiles, with a per-viewer cap. Chunks outside the view are evicted.
+- **GPU path.** Instanced draws for nodes and edges, GPU-side frustum and LOD culling, compute-shader layout in later work. Mesh shading only behind a capability check.
+- **Tiers.** PC and phone have separate per-frame draw and memory budgets. Phone uses fewer visible instances and no hover previews above the mid zoom tier.
+
 ## Performance budgets (all [PROPOSED] until spiked)
 | Target | Budget |
 |---|---|
 | Client render, 5k nodes, Windows | 60 fps, ≤ 10 ms draw |
 | Client render, 10k nodes | 60 fps (stretch; Q1) |
+| Client render, 1M aggregated instances, PC | 60 fps, ≤ 12 ms draw (PROPOSED; measured on PC) |
+| Client render, phone (Android Vulkan) | 60 fps at the phone tier, ≤ 14 ms draw (PROPOSED; measured on device) |
+| CPU interpolation, 1M nodes | ≤ 2 ms per frame (benchmark: tests/Bazaar.Constellation.Bench) |
 | Server layout tick, 10k nodes | ≤ 8 ms per tick on the NUC (absolute budget; S14 measures it on the NUC) |
 | Focus change to settled layout, 5k nodes | ≤ 1 s |
 | Android | not gated until the spike |
