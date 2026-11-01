@@ -13,7 +13,7 @@ public sealed class OutboundMessageBuilderTests
     {
         var message = OutboundMessageBuilder.Build(Sample(), "This mail was sent by an AI agent.");
         Assert.Equal("ada@example.org", message.From.Mailboxes.Single().Address);
-        var body = Assert.IsType<MimeKit.TextPart>(message.Body).Text;
+        var body = Assert.IsType<MimeKit.TextPart>(message.Body).Text.Replace("\r\n", "\n", StringComparison.Ordinal);
         Assert.Contains("Body text", body, StringComparison.Ordinal);
         Assert.EndsWith("This mail was sent by an AI agent.\n", body);
     }
