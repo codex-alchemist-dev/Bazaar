@@ -9,7 +9,7 @@ The Vault is the company's durable written memory: Markdown files with Obsidian-
 ## Decided inputs
 - Markdown in git is the source of truth; PostgreSQL indexes it (Constellation s3; DECISIONS-LOG round 11).
 - The Vault holds every durable written artifact, including agent memory as per-agent private and shared areas. PostgreSQL holds the GC log, structured state and the indexes (C38, round 11). This scope is Claude's reading, to be confirmed (Q7).
-- Obsidian-style `[[wiki-links]]`; a project Vault has an Index, a Plan, Deep Dives and Research docs (Constellation s3). The Vault is accessible from all relevant GCs and is one view of the knowledge graph shared with the Constellation (Constellation s1, s3).
+- Obsidian-style `[[wiki-links]]`; a project Vault has an Index, a Plan, Deep Dives and Research docs (Constellation s3). The Vault is accessible from all relevant GCs and is the storage layer under the Constellation, the whole knowledge workspace on Vulkan (Constellation s1, s3; doc 36).
 - Search is hybrid lexical plus vector, behind one interface: Postgres full-text on Windows, `pg_search` on Linux (Server s3; C23, round 4). OSI-licensed components only; no paid components.
 - One embedding profile per install, chosen at setup, stored as `halfvec` (C39, round 10).
 - Decision records are `decisions/NNNN-<slug>.md`, written only through `VaultWriter` (C24, round 7).
