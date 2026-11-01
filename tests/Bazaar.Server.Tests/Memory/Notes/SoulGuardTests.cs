@@ -6,10 +6,10 @@ namespace Bazaar.Server.Tests.Memory.Notes;
 
 public class SoulGuardTests
 {
-    private const int Limit = SoulGuard.DefaultMaxNoteBytes;
+    private const int _limit = SoulGuard.DefaultMaxNoteBytes;
 
     private static SoulGuardResult Check(string text, MemoryWriteRequest? request = null, int? limit = null) =>
-        SoulGuard.Validate(text, request ?? NoteFixtures.Request(), limit ?? Limit);
+        SoulGuard.Validate(text, request ?? NoteFixtures.Request(), limit ?? _limit);
 
     private static string Text(string body) => NoteFixtures.Text(body: body);
 
@@ -40,7 +40,7 @@ public class SoulGuardTests
     {
         var text = Text(new string('é', 2100));
 
-        Assert.True(System.Text.Encoding.UTF8.GetByteCount(text) > Limit);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(text) > _limit);
         Assert.Contains(SoulGuardReason.TooLarge, Check(text).Reasons);
     }
 
@@ -330,7 +330,7 @@ public class SoulGuardTests
     [Fact]
     public void Null_inputs_are_programmer_errors_and_throw()
     {
-        Assert.Throws<ArgumentNullException>(() => SoulGuard.Validate(null!, NoteFixtures.Request(), Limit));
+        Assert.Throws<ArgumentNullException>(() => SoulGuard.Validate(null!, NoteFixtures.Request(), _limit));
         Assert.Throws<ArgumentOutOfRangeException>(() => SoulGuard.Validate(NoteFixtures.Text(), NoteFixtures.Request(), 0));
     }
 }

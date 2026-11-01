@@ -4,7 +4,7 @@ namespace Bazaar.Server.Tests.Memory.Notes;
 
 public class MemoryAreasTests
 {
-    private const string Ulid = "01J9ZABCDEFGHJKMNPQRSTVWXY";
+    private const string _ulid = "01J9ZABCDEFGHJKMNPQRSTVWXY";
 
     [Theory]
     [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes")]
@@ -41,7 +41,7 @@ public class MemoryAreasTests
     [InlineData(MemoryKind.Procedural, "agents/alpha/memory/lessons/retry-backoff.md")]
     [InlineData(MemoryKind.Failure, "agents/alpha/memory/failures/timeouts.md")]
     [InlineData(MemoryKind.Working, "agents/alpha/memory/working/task-42.md")]
-    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/2026-10-30/" + Ulid + ".md")]
+    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/2026-10-30/" + _ulid + ".md")]
     [InlineData(MemoryKind.Semantic, "projects/example/memory/semantic/facts.md")]
     [InlineData(MemoryKind.Preference, "company/memory/preferences/tone.md")]
     [InlineData(MemoryKind.Hive, "hive/procedure/retry-backoff.md")]
@@ -67,8 +67,8 @@ public class MemoryAreasTests
     [Theory]
     [InlineData(MemoryKind.Procedural, "agents/alpha/memory/failures/timeouts.md", "wrong-area")]
     [InlineData(MemoryKind.Procedural, "agents/alpha/memory/lessons/nested/x.md", "wrong-area")]
-    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/" + Ulid + ".md", "wrong-area")]
-    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/2026-13-40/" + Ulid + ".md", "wrong-area")]
+    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/" + _ulid + ".md", "wrong-area")]
+    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/2026-13-40/" + _ulid + ".md", "wrong-area")]
     [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/2026-10-30/short.md", "wrong-area")]
     [InlineData(MemoryKind.Semantic, "agents/alpha/memory/lessons/x.md", "wrong-area")]
     [InlineData(MemoryKind.Hive, "agents/alpha/memory/lessons/x.md", "kind-not-allowed-in-area")]

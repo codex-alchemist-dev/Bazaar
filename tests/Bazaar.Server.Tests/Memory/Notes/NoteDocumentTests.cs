@@ -6,7 +6,7 @@ namespace Bazaar.Server.Tests.Memory.Notes;
 
 public class NoteDocumentTests
 {
-    private const string Lf = """
+    private const string _lf = """
         ---
         id: 01J9ZABCDEFGHJKMNPQRSTVWXY
         type: memory-procedure
@@ -21,8 +21,8 @@ public class NoteDocumentTests
 
     public static TheoryData<string> RoundTripSamples => new()
     {
-        Lf,
-        Lf.Replace("\n", "\r\n", StringComparison.Ordinal),
+        _lf,
+        _lf.Replace("\n", "\r\n", StringComparison.Ordinal),
         "---\nid: a1\ntype: memory-working\ntitle: t\nmemory: {kind: working, status: active, version: 1, trust: T2, source_trust: agent, tainted: false, origin: {gc: g}}\n---",
         "---\n# a comment line\n\nid: a1\ntype: memory-working\ntitle: plain title with: colons\nmemory: {kind: working, status: active, version: 1, trust: T2, source_trust: agent, tainted: false, origin: {gc: g}}\nx-custom: [one, two]\n---\n\nBody with unicode: caf\u00e9 and no final newline",
     };
@@ -40,17 +40,17 @@ public class NoteDocumentTests
     [Fact]
     public void Rewrapping_with_equal_values_keeps_the_original_bytes()
     {
-        var doc = NoteDocument.Parse(Lf).Document!;
+        var doc = NoteDocument.Parse(_lf).Document!;
 
         var same = doc.WithNote(doc.Note with { }).WithBody(doc.Body);
 
-        Assert.Equal(Lf, same.Serialize());
+        Assert.Equal(_lf, same.Serialize());
     }
 
     [Fact]
     public void Changed_front_matter_is_written_canonically_and_the_body_bytes_survive()
     {
-        var doc = NoteDocument.Parse(Lf).Document!;
+        var doc = NoteDocument.Parse(_lf).Document!;
         var changed = doc.WithNote(doc.Note with { Title = "Retry: \"quoted\" title", Version = 4 });
 
         var text = changed.Serialize();
@@ -78,7 +78,7 @@ public class NoteDocumentTests
     [Fact]
     public void Parsed_note_has_typed_fields()
     {
-        var note = NoteDocument.Parse(Lf).Document!.Note;
+        var note = NoteDocument.Parse(_lf).Document!.Note;
 
         Assert.Equal(MemoryKind.Procedural, note.Kind);
         Assert.Equal(MemoryNoteStatus.Active, note.Status);
