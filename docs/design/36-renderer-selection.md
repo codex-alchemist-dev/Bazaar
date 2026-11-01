@@ -1,6 +1,6 @@
 # Renderer selection: Kanban, Vault canvas, Constellation and the whole UI
 
-Status: PROPOSED (2026-11-01), split accepted under the owner's delegated authority (coordinator note, 2026-11-01). Doc 19 and `Bazaar.Constellation.md` §1 are updated to match. Record in `DECISIONS-LOG.md` on the next round.
+Status: PROPOSED (2026-11-01), split accepted under the owner's delegated authority. Owner, 2026-11-01: the Vault and the Constellation are the same thing. Doc 19 and `Bazaar.Constellation.md` §1 are updated to match. Record in `DECISIONS-LOG.md` on the next round.
 
 ## Question
 
@@ -9,9 +9,9 @@ Should Kanban and the Vault canvas render on Vulkan for speed, or is Avalonia en
 ## Recommendation
 
 1. **Avalonia for all ordinary UI, including Kanban and the Vault canvas.** Cards, columns, sticky notes, images and text boxes are retained controls. Avalonia virtualises them, so drawing cost follows what is on screen. Vulkan would add a second rendering stack for no visible gain at these sizes.
-2. **Vulkan only for the Constellation graph view** (and the Git Solar System, which reuses its renderer). Dense point and edge drawing is the one workload where a GPU path pays off. Vulkan with GPU instancing is the primary path (owner, 2026-10-30, for all clients), and Skia through Avalonia is the fallback where Vulkan is unavailable, behind `IConstellationRenderer` (#173, owner 2026-11-01).
+2. **Vulkan for the Constellation, which is the Vault's primary visual surface** (and the Git Solar System, which reuses its renderer). Dense point and edge drawing is the one workload where a GPU path pays off. Vulkan with GPU instancing is the primary path (owner, 2026-10-30, for all clients), and Skia through Avalonia is the fallback where Vulkan is unavailable, behind `IConstellationRenderer` (#173, owner 2026-11-01).
 
-**The Vault is not on Vulkan.** The Vault (doc 18) is Markdown in git with a wiki-link index. It has no renderer. Its graph view is the Constellation, so it already gets Vulkan through that view. The Vault canvas and Kanban are Avalonia surfaces.
+**The Vault's visual surface is Vulkan.** The Vault (doc 18) is Markdown in git with a wiki-link index, and the Constellation is its visual surface, so the Vault is on Vulkan through the Constellation. Editing panes, Kanban and chrome stay on Avalonia.
 3. **No full-Vulkan UI.** A Vulkan UI would replace Avalonia's layout, text, input, accessibility and theming, which the theme file and key router depend on. Monaco is a separate hosted component (WebView2 or WebKitGTK), so it does not decide this either way.
 
 ## Why Avalonia is enough for Kanban and the Vault canvas
@@ -27,7 +27,7 @@ These are starting points to measure against, not settled values. Spike S14 (doc
 | Surface | Stay on Avalonia until | Switch to Vulkan when |
 |---|---|---|
 | Kanban board | Always, at realistic sizes | Sustained over 16 ms frames with 5,000+ visible cards or edges after virtualisation |
-| Vault canvas (boards, images, notes) | Under 2,000 visible items with interactive controls | Over 5,000 visible items and frames miss 60 fps after virtualisation |
+| Vault canvas (boards, images, notes) | Under 2,000 visible items with interactive controls | Over 5,000 visible items and frames miss 60 fps after virtualisation. Not applicable if the canvas is the Constellation, which is already Vulkan |
 | Constellation graph (points and edges) | Skia misses 60 fps at 10,000 visible nodes or edges (the S14 budget, doc 19) | Skia misses that budget, or more than 50,000 visible points are needed on the PC after cluster level-of-detail |
 | Whole UI | Never on current evidence | Only if Avalonia itself misses budget on ordinary screens, which no measurement shows so far |
 
@@ -35,9 +35,9 @@ Above the Constellation's `constellation.node_cap` (default 10,000), the server 
 
 ## Platforms
 
-- **Windows PC:** Avalonia for everything. Vulkan for the Constellation (primary), Skia fallback.
+- **Windows PC:** Avalonia for editing panes, Kanban and chrome. Vulkan for the Constellation and the Vault's visual surface (primary), Skia fallback.
 - **Linux:** same split. Linux GPU drivers vary, so the Skia fallback must stay complete.
-- **Android:** Avalonia for everything. The Constellation uses Vulkan (primary) with the Skia fallback, but its first release is a read-only drawer (doc 29), and the Android numbers are still owed.
+- **Android:** Avalonia for editing panes, Kanban and chrome. The Constellation and Vault visual surface use Vulkan (primary) with the Skia fallback, but the first release is a read-only drawer (doc 29), and the Android numbers are still owed.
 
 ## Costs of Vulkan that the decision must weigh
 
