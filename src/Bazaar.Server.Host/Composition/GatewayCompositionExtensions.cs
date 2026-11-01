@@ -46,18 +46,9 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<NpgsqlDataSource>(sp =>
             sp.GetRequiredService<DatabaseConnection>().GetAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
 
-        // Bound from the host configuration when one is registered. Without it the options keep their disabled defaults.
-        services.AddOptions<FreeLlmApiOptions>()
-            .Configure<IServiceProvider>((options, sp) =>
-            {
-                sp.GetService<IConfiguration>()?.GetSection(FreeLlmApiOptions.SectionName).Bind(options);
-                options.ApplyManagedSidecarDefaults();
-            })
-            .ValidateOnStart();
-        services.AddSingleton<IValidateOptions<FreeLlmApiOptions>, FreeLlmApiOptionsValidator>();
-        // TODO(component): registered before the startup key check, so a managed sidecar has written the unified key before the check reads it.
+        // The FreeLLMAPI options, validation, key check, diagnostics and HTTP client are registered by FreeLlmApiComponent.
+        // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
-        services.AddHostedService<FreeLlmApiStartupCheckService>();
         services.TryAddSingleton<AgentModelPolicyRepository>();
         services.AddHostedService<DevAgentPolicySeed>();
 
@@ -68,7 +59,6 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<UsageRecorder>();
         services.TryAddSingleton<QuotaStateRepository>();
         services.TryAddSingleton<RouteResolver>();
-        services.TryAddSingleton<FreeLlmApiRoutingDiagnostics>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
 
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
@@ -76,7 +66,7 @@ public static class GatewayCompositionExtensions
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
         services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => FreeLlmApiWiring.CreateDirectory(
             sp.GetRequiredService<GatewayDirectoryRepository>(),
-            sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value,
+            FreeLlmApiOptionsOf(sp),
             sp.GetRequiredService<TimeProvider>())));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
@@ -91,9 +81,16 @@ public static class GatewayCompositionExtensions
         return services;
     }
 
+    /// <summary>
+    /// The FreeLLMAPI options when <see cref="FreeLlmApiComponent"/> is registered, otherwise the disabled defaults. A disabled
+    /// component therefore reads as a disabled FreeLLMAPI: no provider, no route, no key.
+    /// </summary>
+    private static FreeLlmApiOptions FreeLlmApiOptionsOf(IServiceProvider sp) =>
+        sp.GetService<IOptions<FreeLlmApiOptions>>()?.Value ?? new FreeLlmApiOptions();
+
     private static IProviderSecretSource CreateProviderSecretSource(IServiceProvider sp) =>
         FreeLlmApiWiring.CreateProviderSecretSource(
-            sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value,
+            FreeLlmApiOptionsOf(sp),
             sp.GetRequiredService<ISecretResolver>(),
             new UnconfiguredProviderSecretSource());
 
@@ -101,14 +98,15 @@ public static class GatewayCompositionExtensions
     {
         var http = sp.GetRequiredService<HttpClient>();
         var time = sp.GetRequiredService<TimeProvider>();
-        var freeLlmApi = sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value;
-        var freeLlmApiHttp = freeLlmApi.Enabled ? FreeLlmApiWiring.CreateHttpClient(freeLlmApi) : http;
-        IModelAdapter openAi = FreeLlmApiWiring.WrapOpenAiAdapter(
-            new OpenAiChatAdapter(http, time),
-            freeLlmApi,
-            freeLlmApiHttp,
-            time,
-            sp.GetRequiredService<FreeLlmApiRoutingDiagnostics>());
+        var freeLlmApi = FreeLlmApiOptionsOf(sp);
+        IModelAdapter openAi = freeLlmApi.Enabled
+            ? FreeLlmApiWiring.WrapOpenAiAdapter(
+                new OpenAiChatAdapter(http, time),
+                freeLlmApi,
+                sp.GetRequiredKeyedService<HttpClient>(FreeLlmApiComponent.HttpClientKey),
+                time,
+                sp.GetRequiredService<FreeLlmApiRoutingDiagnostics>())
+            : new OpenAiChatAdapter(http, time);
         Dictionary<string, IModelAdapter> adapters = new(StringComparer.Ordinal)
         {
             [OpenAiChatAdapterName] = openAi,
@@ -128,16 +126,4 @@ public sealed class UnconfiguredProviderSecretSource : IProviderSecretSource
     /// <summary>Always throws. The reference is not echoed, so it cannot reach a log or an error response.</summary>
     public ValueTask<string?> ResolveAsync(string secretRef, CancellationToken ct) =>
         throw new InvalidOperationException("Provider secrets are not configured yet; they arrive with the Identity Service.");
-}
-
-/// <summary>
-/// Checks at start that the configured FreeLLMAPI key resolves. A disabled config returns at once and reads no secret. A
-/// missing key stops the start with the configuration key named in the error.
-/// </summary>
-public sealed class FreeLlmApiStartupCheckService(IOptions<FreeLlmApiOptions> options, ISecretResolver resolver) : IHostedService
-{
-    public Task StartAsync(CancellationToken cancellationToken) =>
-        FreeLlmApiStartupCheck.VerifyKeyAsync(options.Value, resolver, cancellationToken);
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

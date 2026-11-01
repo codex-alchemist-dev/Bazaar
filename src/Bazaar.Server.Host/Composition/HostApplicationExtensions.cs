@@ -1,5 +1,6 @@
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Components;
+using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Kanban;
@@ -32,7 +33,7 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentResponder(configuration);
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
-        services.AddBazaarComponents(configuration, [new KanbanComponent()]);
+        services.AddBazaarComponents(configuration, [new KanbanComponent(), new FreeLlmApiComponent()]);
         return services;
     }
 }
