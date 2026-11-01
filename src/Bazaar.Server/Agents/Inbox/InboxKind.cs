@@ -29,9 +29,12 @@ public static class InboxKind
     /// <summary>Batched unmentioned GC activity (doc 06, digest).</summary>
     public const string GcDigest = "gc_digest";
 
+    /// <summary>A Constitution change (doc 24, Propagation). Digest-class: it never wakes an agent.</summary>
+    public const string Constitution = "constitution";
+
     /// <summary>Every known kind.</summary>
     public static IReadOnlySet<string> All { get; } = new[]
     {
-        Interrupt, Mention, Assignment, VoteRequest, Scheduled, Brainstorm, SkimmerPromoted, GcDigest,
+        Interrupt, Mention, Assignment, VoteRequest, Scheduled, Brainstorm, SkimmerPromoted, GcDigest, Constitution,
     }.ToFrozenSet(StringComparer.Ordinal);
 }
