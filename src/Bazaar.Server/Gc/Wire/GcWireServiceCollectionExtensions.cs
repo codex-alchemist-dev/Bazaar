@@ -10,7 +10,7 @@ using Microsoft.Extensions.Hosting;
 namespace Bazaar.Server.Gc.Wire;
 
 /// <summary>
-/// Glues the wire layer to the GC log (v0.3 GLUE): the stream source, access policy and notification source over the log,
+/// Glues the wire layer to the GC log (Stage 3 GLUE): the stream source, access policy and notification source over the log,
 /// the body codec seam, the <c>subscribe</c>, <c>gc.send</c> and <c>gc.history</c> handlers, and the dispatcher's host service.
 /// </summary>
 /// <remarks>

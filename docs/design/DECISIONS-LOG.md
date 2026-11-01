@@ -129,7 +129,7 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | Codenames | **RESOLVED (owner)**: majors named Z to A, theme "words that belong to both alchemy and the stars". Owner rejected Claude's first pick "Zodiac" and chose **"Zuhal"** (Arabic name of Saturn; Saturn is lead in alchemy) for v1.0.0; owner accepted Yliaster (v2), Xerion (v3) and Venus (v5) and rejected "Wandering Star" (v4); the owner rejected "Wolf" and accepted Wormwood (v4). | `docs/VERSIONING.md` section 2. |
 | Channels | **RESOLVED (owner)**: LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel; the operator picks per install. Stable, Beta and Alpha are immutable tags on `main`; LTSC is a real branch. | `docs/VERSIONING.md` section 4; doc 30. |
 | Merging | **RESOLVED (owner)**: during full development Claude may merge PRs that pass the requirements (green CI on the head, no conflict, no blocking review). DCO sign-off for these merges is OPEN until before the first public release. | CLAUDE.md repo rules; `docs/VERSIONING.md` section 3. |
-| Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta milestones v0.1 to v0.9, extendable. | `docs/ROADMAP.md`. |
+| Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta stages 1 to 9, extendable (relabelled from v0.1 to v0.9 on 2026-10-29, because stage numbers are not release versions). | `docs/ROADMAP.md`. |
 | Provenance placement | **RESOLVED by Claude (schema shape, within C09)**: `source_trust`, `tainted_at_write`, `taint_sources`, `derived_from` live on `gc_event`; an edit is a `message_edit` event, so each version carries its editor's provenance. | Docs 01, 04, 15 aligned. |
 
 ## Round 15 (2026-10-25)
@@ -168,3 +168,14 @@ All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the 
 - **Former members** lose the live stream entirely (only a full grant opens a stream). Replay to the leave seq is still available through the log reader. Stricter than doc 02's wording; owner to confirm.
 - **Principal kind on the wire path:** `IGcAccessPolicy` receives only a principal id, so the owner shortcut does not apply to subscriptions. The owner must be a member or approved until doc 14 supplies kinds.
 - **Open for owner:** does the owner read every GC by default on the wire (doc 01 says yes), and how is the owner identified in a session?
+
+## Held packages: owner decisions (2026-10-30)
+
+The owner confirmed these with full authority on decisions, and they are implemented in PR #112 and its follow-ups.
+
+- **Org relation kinds:** `reports_to` and `lent_to` only (doc 24 default). Other kinds are a schema change.
+- **Loan object:** loans carry a project scope, as ORG1 requires (doc 24 WP4 may refine the routing).
+- **Sparse worktrees:** not built. VLT3 uses full worktrees until a libgit2 path exists, recorded in doc 18 (item 9).
+- **TRUNCATE on `gc_event`:** already refused. `gc_event_no_truncate` (0001) is a BEFORE TRUNCATE trigger, and the foreign key from `wake_decisions` (0016) refuses first with 0A000. No new migration is needed. Keep the foreign key.
+- **`calendar.*` settings:** registered in code as `CalendarSettings` and combined in `SettingRegistry.Known`. Rows added to the doc 03 table. The store still reads `SettingRegistry.Host` until it is wired to `Known`.
+
