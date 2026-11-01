@@ -1,0 +1,11 @@
+# gitleaks settings for this repo. Extends the default rule set.
+title = "Bazaar gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake secret-shaped literals used as SoulGuard negative and positive test inputs"
+# 7581e7a added tests/Bazaar.Server.Tests/Memory/Notes/SoulGuardTests.cs. Its InlineData strings are fake
+# examples that the SoulGuard scanner must reject. The commit is already pushed, so history is not rewritten.
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225"]
