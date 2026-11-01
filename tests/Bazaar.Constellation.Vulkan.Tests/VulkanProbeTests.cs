@@ -18,6 +18,14 @@ public class VulkanProbeTests
         }
     }
 
+    [Fact]
+    public void Available_is_true_only_when_devices_were_found()
+    {
+        VulkanProbeResult result = VulkanProbe.Run();
+
+        Assert.Equal(result.Devices.Count > 0, result.Available);
+    }
+
     [Theory]
     [InlineData(1, 0, 0, 0x00400000u)]
     [InlineData(1, 4, 0, 0x00404000u)]

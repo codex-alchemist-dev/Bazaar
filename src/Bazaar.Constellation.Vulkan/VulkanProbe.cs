@@ -52,11 +52,12 @@ public static unsafe class VulkanProbe
             var api = new VkInstanceApi(in instance);
             try
             {
+                List<VulkanDeviceInfo> devices = EnumerateDevices(api);
                 return new VulkanProbeResult(
-                    Available: false,
-                    Reason: string.Empty,
+                    Available: devices.Count > 0,
+                    Reason: devices.Count > 0 ? string.Empty : "Vulkan loaded but reported no physical devices.",
                     InstanceApiVersion: VersionString(apiVersion),
-                    Devices: EnumerateDevices(api));
+                    Devices: devices);
             }
             finally
             {
