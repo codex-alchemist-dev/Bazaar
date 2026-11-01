@@ -10,7 +10,7 @@ namespace Bazaar.Client.Core.Souls;
 public partial class SoulProfileView : UserControl
 {
     /// <summary>Spacing used when the theme does not supply a space token.</summary>
-    private const double FallbackSpace = 8;
+    private const double _fallbackSpace = 8;
 
     /// <summary>Creates the view. Bindings are compiled against <see cref="SoulProfileViewModel"/>.</summary>
     public SoulProfileView()
@@ -33,7 +33,7 @@ public partial class SoulProfileView : UserControl
     private double SpaceToken(string key) =>
         this.TryFindResource(key, ActualThemeVariant, out object? value) && value is double length
             ? length
-            : FallbackSpace;
+            : _fallbackSpace;
 
     // TODO(component): mount this card from the GC head avatar and the agent roster once those views exist
     // (docs/design/27-client-architecture.md, GC message anatomy). Not wired to MainWindow in this change.

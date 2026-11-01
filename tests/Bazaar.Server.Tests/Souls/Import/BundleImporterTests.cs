@@ -6,7 +6,7 @@ namespace Bazaar.Server.Tests.Souls.Import;
 
 public sealed class BundleImporterTests
 {
-    private const string Zeros = "0000000000000000000000000000000000000000000000000000000000000000";
+    private const string _zeros = "0000000000000000000000000000000000000000000000000000000000000000";
 
     [Fact]
     public void Valid_bundle_is_quarantined_with_its_verified_manifest()
@@ -76,7 +76,7 @@ public sealed class BundleImporterTests
     [Fact]
     public void Manifest_without_files_is_rejected()
     {
-        var json = $"{{\"formatVersion\":1,\"soulId\":\"{BundleBuilder.SoulId}\",\"soulVersion\":3,\"contentSha256\":\"{Zeros}\",\"exporter\":\"x\",\"exportedAt\":\"2026-10-30T12:00:00+00:00\",\"exclusions\":[]}}";
+        var json = $"{{\"formatVersion\":1,\"soulId\":\"{BundleBuilder.SoulId}\",\"soulVersion\":3,\"contentSha256\":\"{_zeros}\",\"exporter\":\"x\",\"exportedAt\":\"2026-10-30T12:00:00+00:00\",\"exclusions\":[]}}";
         var (manifest, signature) = Sign(json);
 
         AssertRejected(Run(manifest, signature, []), BundleRejectionCode.ManifestMalformed);
@@ -247,7 +247,7 @@ public sealed class BundleImporterTests
     [Fact]
     public void Manifest_entry_with_no_file_is_rejected()
     {
-        var bundle = new BundleBuilder().AddFile("a.txt", "x").AddEntryOnly("missing.txt", Zeros, 0);
+        var bundle = new BundleBuilder().AddFile("a.txt", "x").AddEntryOnly("missing.txt", _zeros, 0);
         var (manifest, signature) = bundle.Sealed();
 
         AssertRejected(Run(manifest, signature, bundle.Files), BundleRejectionCode.ManifestEntryMissingFile);
@@ -346,7 +346,7 @@ public sealed class BundleImporterTests
     [Fact]
     public void Every_failing_file_check_is_reported_together()
     {
-        var bundle = new BundleBuilder().AddFile("a.txt", "x").AddUnlistedFile("../b.txt", "z").AddEntryOnly("gone.txt", Zeros, 0);
+        var bundle = new BundleBuilder().AddFile("a.txt", "x").AddUnlistedFile("../b.txt", "z").AddEntryOnly("gone.txt", _zeros, 0);
         var (manifest, signature) = bundle.Sealed();
 
         AssertRejected(
