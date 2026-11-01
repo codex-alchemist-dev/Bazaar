@@ -36,7 +36,7 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 
 Answering "is that what the `/shared` folder is for?" directly: **not quite — two different kinds of "shared," worth keeping conceptually separate.**
 
-- **`/shared`** (see **Bazaar.Server**) is for **API/data contracts** — `Bazaar.Contracts`, the shared contracts for the WebSocket message format between server and clients (wire format **[OPEN]** until spike S6: shared C# contracts vs Protobuf). Client↔server communication, not client-to-client code reuse.
+- **`/shared`** (see **Bazaar.Server**) is for **API/data contracts** — `Bazaar.Contracts`, the shared contracts for the WebSocket message format between server and clients (wire format **DECIDED** by spike S6: JSON via source-generated System.Text.Json behind `IWireCodec`; no Protobuf). Client↔server communication, not client-to-client code reuse.
 - **The Avalonia move needs a new, separate shared UI class library** — the standard Avalonia multi-platform pattern: one core project (`Bazaar.Client.Core`, the docs' former `UI.Core`) holding the actual XAML views, styles, view models, and Bazaar's theme resources, referenced by thin per-platform **"head" projects** (`Bazaar.Client.Windows`, `Bazaar.Client.Android`, `Bazaar.Client.Linux`, owner-approved names) containing only what's genuinely platform-specific — ConPTY-vs-Linux-PTY terminal backend, foldable WindowManager bindings, NPU execution-provider selection (OpenVINO on Intel through Windows ML, QNN on Qualcomm; DirectML is legacy GPU only), file-association/installer registration. Worth naming distinctly in the repo (e.g. `/client/shared-ui` alongside `/shared`) so the two aren't confused later.
 
 ---
