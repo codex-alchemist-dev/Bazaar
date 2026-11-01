@@ -9,7 +9,9 @@
     <PackageReference Include="LibGit2Sharp" />
     <PackageReference Include="MimeKit" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
