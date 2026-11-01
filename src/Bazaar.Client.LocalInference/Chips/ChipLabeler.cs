@@ -9,7 +9,7 @@ namespace Bazaar.Client.LocalInference.Chips;
 public static class ChipLabeler
 {
     /// <summary>File types listed in full in a label. Further types are summarised as "+N more".</summary>
-    private const int MaxExtensionsShown = 3;
+    private const int _maxExtensionsShown = 3;
 
     /// <summary>Label for entries that are all empty.</summary>
     public const string NoActions = "No actions";
@@ -57,7 +57,7 @@ public static class ChipLabeler
             return string.Empty;
         }
 
-        var shown = extensions.Take(MaxExtensionsShown).ToList();
+        var shown = extensions.Take(_maxExtensionsShown).ToList();
         var hidden = extensions.Count - shown.Count;
         var text = string.Join(", ", shown);
         return hidden > 0 ? $"{text}, +{hidden.ToString(CultureInfo.InvariantCulture)} more" : text;

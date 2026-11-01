@@ -4,7 +4,7 @@ namespace Bazaar.Client.LocalInference.Tests.Models;
 
 public class LocalModelStoreTests : IDisposable
 {
-    private static readonly ManifestPolicy Unsigned = new(RequireSignature: false);
+    private static readonly ManifestPolicy _unsigned = new(RequireSignature: false);
 
     private readonly TempDirectory _temp = new();
 
@@ -21,7 +21,7 @@ public class LocalModelStoreTests : IDisposable
     private string StoreRoot => _temp.Combine("store");
 
     private LocalModelStore Store(ManifestPolicy? policy = null) =>
-        new(StoreRoot, policy ?? Unsigned, FailClosedManifestVerifier.Instance);
+        new(StoreRoot, policy ?? _unsigned, FailClosedManifestVerifier.Instance);
 
     private void AssertNoPartialInstall(string model)
     {

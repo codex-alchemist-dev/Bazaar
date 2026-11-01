@@ -4,14 +4,14 @@ namespace Bazaar.Client.LocalInference.Tests.Speech;
 
 public class SpeechBackendTests
 {
-    private static readonly ReadOnlyMemory<float> OneSecond = new float[16_000];
+    private static readonly ReadOnlyMemory<float> _oneSecond = new float[16_000];
 
     [Fact]
     public async Task Transcription_returns_raw_text_with_tier_and_partial_defaulting_to_false()
     {
         var backend = new FakeSpeechBackend("turn the lights off");
 
-        var result = await backend.TranscribeAsync(OneSecond, CancellationToken.None);
+        var result = await backend.TranscribeAsync(_oneSecond, CancellationToken.None);
 
         Assert.Equal("turn the lights off", result.Text);
         Assert.Equal(BackendTier.Fake, result.Tier);
@@ -26,7 +26,7 @@ public class SpeechBackendTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => backend.TranscribeAsync(OneSecond, cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => backend.TranscribeAsync(_oneSecond, cts.Token));
         Assert.Equal(0, backend.CallCount);
     }
 

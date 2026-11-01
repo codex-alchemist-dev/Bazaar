@@ -5,7 +5,7 @@ namespace Bazaar.Client.LocalInference.Models;
 /// <summary>Signature and per-file integrity checks against a manifest (doc 31, Model packaging and delivery).</summary>
 public static class ModelIntegrity
 {
-    private const int BufferSize = 81920;
+    private const int _bufferSize = 81920;
 
     /// <summary>
     /// A manifest with no signature passes only when the policy does not require one. A signature that is present must
@@ -60,7 +60,7 @@ public static class ModelIntegrity
                 $"Model file '{file.Name}' is {info.Length} bytes; the manifest lists {file.Bytes}.");
         }
 
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, _bufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
         var hash = await SHA256.HashDataAsync(stream, ct);
         if (!string.Equals(Convert.ToHexStringLower(hash), file.Sha256, StringComparison.OrdinalIgnoreCase))
         {

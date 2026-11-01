@@ -4,7 +4,7 @@ namespace Bazaar.Client.LocalInference.Tests.Benchmark;
 
 public class BenchmarkRunnerTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _now = new(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
 
     private static CorpusItem Item(string id, params string[] mustKeep) => new(id, $"input {id}", mustKeep);
 
@@ -18,7 +18,7 @@ public class BenchmarkRunnerTests
             .Throw(new InsufficientMemoryException("full"))
             .Reply("text 4");
 
-        var report = await new BenchmarkRunner(new ScriptedTimeProvider(Now)).RunAsync([backend], corpus, CancellationToken.None);
+        var report = await new BenchmarkRunner(new ScriptedTimeProvider(_now)).RunAsync([backend], corpus, CancellationToken.None);
 
         Assert.Equal(4, report.Runs);
         Assert.Equal(2, report.Errors);
@@ -32,7 +32,7 @@ public class BenchmarkRunnerTests
     {
         var backend = new FakeLocalBackend(BackendTier.Npu).Throw(new InvalidOperationException("blob mismatch"));
 
-        var report = await new BenchmarkRunner(new ScriptedTimeProvider(Now)).RunAsync([backend], [Item("a", "7")], CancellationToken.None);
+        var report = await new BenchmarkRunner(new ScriptedTimeProvider(_now)).RunAsync([backend], [Item("a", "7")], CancellationToken.None);
 
         var record = Assert.Single(report.Records);
         Assert.Equal(BackendTier.Npu, record.Tier);
@@ -49,7 +49,7 @@ public class BenchmarkRunnerTests
             .Reply("Review on the 14th at 3:30.")
             .Reply("Review on the 14th.");
 
-        var report = await new BenchmarkRunner(new ScriptedTimeProvider(Now)).RunAsync([backend], corpus, CancellationToken.None);
+        var report = await new BenchmarkRunner(new ScriptedTimeProvider(_now)).RunAsync([backend], corpus, CancellationToken.None);
 
         Assert.True(report.Records[0].GuardPassed);
         Assert.False(report.Records[1].GuardPassed);
@@ -62,7 +62,7 @@ public class BenchmarkRunnerTests
     {
         var backend = new FakeLocalBackend(BackendTier.Cpu).Reply("ok", degraded: true);
 
-        var report = await new BenchmarkRunner(new ScriptedTimeProvider(Now)).RunAsync([backend], [Item("a")], CancellationToken.None);
+        var report = await new BenchmarkRunner(new ScriptedTimeProvider(_now)).RunAsync([backend], [Item("a")], CancellationToken.None);
 
         var record = Assert.Single(report.Records);
         Assert.Equal(BackendTier.Cpu, record.Tier);
@@ -72,7 +72,7 @@ public class BenchmarkRunnerTests
     [Fact]
     public async Task Elapsed_time_comes_from_the_injected_time_source()
     {
-        var time = new ScriptedTimeProvider(Now, timestamps: [0, 15, 100, 140]);
+        var time = new ScriptedTimeProvider(_now, timestamps: [0, 15, 100, 140]);
         var backend = new FakeLocalBackend(BackendTier.Cpu).Reply("a").Reply("b");
         double[] expected = [15, 40];
 
@@ -81,13 +81,13 @@ public class BenchmarkRunnerTests
         Assert.Equal(expected, report.Records.Select(record => record.ElapsedMs));
         Assert.Equal(15.0, report.P50Ms);
         Assert.Equal(40.0, report.P95Ms);
-        Assert.Equal(Now, report.GeneratedAt);
+        Assert.Equal(_now, report.GeneratedAt);
     }
 
     [Fact]
     public async Task Per_tier_counts_and_percentiles_are_reported_for_each_backend()
     {
-        var time = new ScriptedTimeProvider(Now, timestamps: [0, 10, 0, 30, 0, 20, 0, 40]);
+        var time = new ScriptedTimeProvider(_now, timestamps: [0, 10, 0, 30, 0, 20, 0, 40]);
         var npu = new FakeLocalBackend(BackendTier.Npu).Reply("x", degraded: true).Throw(new TimeoutException());
         var cpu = new FakeLocalBackend(BackendTier.Cpu).Reply("x").Reply("y");
         var corpus = new[] { Item("a"), Item("b") };
@@ -114,7 +114,7 @@ public class BenchmarkRunnerTests
         var backend = new FakeLocalBackend(BackendTier.Cpu);
         CorpusItem[] corpus = [];
 
-        var report = await new BenchmarkRunner(new ScriptedTimeProvider(Now)).RunAsync([backend], corpus, CancellationToken.None);
+        var report = await new BenchmarkRunner(new ScriptedTimeProvider(_now)).RunAsync([backend], corpus, CancellationToken.None);
 
         Assert.Equal(0, report.Runs);
         Assert.Equal(0, report.ErrorRate);
@@ -131,7 +131,7 @@ public class BenchmarkRunnerTests
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new BenchmarkRunner(new ScriptedTimeProvider(Now)).RunAsync([backend], [Item("a")], cts.Token));
+            new BenchmarkRunner(new ScriptedTimeProvider(_now)).RunAsync([backend], [Item("a")], cts.Token));
     }
 
     /// <summary>Clock whose timestamps are scripted in call order; the frequency is 1000 ticks per second, so ticks are milliseconds.</summary>

@@ -4,7 +4,7 @@ namespace Bazaar.Client.LocalInference.Tests.Speech;
 
 public class VoiceCleanupPipelineTests
 {
-    private static readonly Func<string, string, bool> AcceptAll = (_, _) => true;
+    private static readonly Func<string, string, bool> _acceptAll = (_, _) => true;
 
     [Fact]
     public async Task Raw_transcript_is_preserved_next_to_cleaned_text()
@@ -13,7 +13,7 @@ public class VoiceCleanupPipelineTests
         var speech = new FakeSpeechBackend(raw);
         var transcript = await speech.TranscribeAsync(new float[16], CancellationToken.None);
         var backend = new FakeLocalBackend().Reply("The build is green.");
-        var pipeline = new VoiceCleanupPipeline(backend, AcceptAll);
+        var pipeline = new VoiceCleanupPipeline(backend, _acceptAll);
 
         var result = await pipeline.CleanAsync(transcript.Text, CancellationToken.None);
 
@@ -26,7 +26,7 @@ public class VoiceCleanupPipelineTests
     public async Task Model_error_returns_raw_with_null_cleaned_text()
     {
         var backend = new FakeLocalBackend().Throw(new TimeoutException("slow"));
-        var pipeline = new VoiceCleanupPipeline(backend, AcceptAll);
+        var pipeline = new VoiceCleanupPipeline(backend, _acceptAll);
 
         var result = await pipeline.CleanAsync("raw words", CancellationToken.None);
 
@@ -81,7 +81,7 @@ public class VoiceCleanupPipelineTests
     public async Task Cancelled_token_throws_and_does_not_call_the_backend()
     {
         var backend = new FakeLocalBackend().Reply("never");
-        var pipeline = new VoiceCleanupPipeline(backend, AcceptAll);
+        var pipeline = new VoiceCleanupPipeline(backend, _acceptAll);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -94,7 +94,7 @@ public class VoiceCleanupPipelineTests
     {
         using var cts = new CancellationTokenSource();
         var backend = new FakeLocalBackend().Throw(new OperationCanceledException("cancelled mid-run"));
-        var pipeline = new VoiceCleanupPipeline(backend, AcceptAll);
+        var pipeline = new VoiceCleanupPipeline(backend, _acceptAll);
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pipeline.CleanAsync("raw", cts.Token));
@@ -103,7 +103,7 @@ public class VoiceCleanupPipelineTests
     [Fact]
     public void Null_arguments_are_rejected()
     {
-        Assert.Throws<ArgumentNullException>(() => new VoiceCleanupPipeline(null!, AcceptAll));
+        Assert.Throws<ArgumentNullException>(() => new VoiceCleanupPipeline(null!, _acceptAll));
         Assert.Throws<ArgumentNullException>(() => new VoiceCleanupPipeline(new FakeLocalBackend(), null!));
     }
 }

@@ -4,7 +4,7 @@ namespace Bazaar.Client.LocalInference.Tests.Guards;
 
 public class OutputGuardTests
 {
-    private const string Input = "Moved 15 files for Priya to https://example.com/docs/plan, see \"Blue Harbour\".";
+    private const string _input = "Moved 15 files for Priya to https://example.com/docs/plan, see \"Blue Harbour\".";
 
     [Fact]
     public void Dropped_number_fails_the_guard()
@@ -70,7 +70,7 @@ public class OutputGuardTests
     {
         var output = "Moved 15 files for Priya to https://example.com/docs/plan, see \"Blue Harbour\".";
 
-        var report = OutputGuard.Check(Input, output);
+        var report = OutputGuard.Check(_input, output);
 
         Assert.True(report.Passed);
     }
@@ -80,7 +80,7 @@ public class OutputGuardTests
     {
         var output = "Priya moved 15 files: see \"Blue Harbour\" at https://example.com/docs/plan.";
 
-        Assert.True(OutputGuard.Check(Input, output).Passed);
+        Assert.True(OutputGuard.Check(_input, output).Passed);
     }
 
     [Fact]

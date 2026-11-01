@@ -10,7 +10,7 @@ public sealed record InstalledModel(ModelManifest Manifest, string InstallPath);
 /// </summary>
 public sealed class LocalModelStore
 {
-    private const string StagingPrefix = ".staging-";
+    private const string _stagingPrefix = ".staging-";
 
     private readonly ManifestPolicy _policy;
     private readonly IManifestVerifier _verifier;
@@ -51,7 +51,7 @@ public sealed class LocalModelStore
 
         var createdModelDirectory = !Directory.Exists(modelDirectory);
         Directory.CreateDirectory(modelDirectory);
-        var staging = Path.Combine(modelDirectory, StagingPrefix + Guid.NewGuid().ToString("N"));
+        var staging = Path.Combine(modelDirectory, _stagingPrefix + Guid.NewGuid().ToString("N"));
 
         try
         {

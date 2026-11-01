@@ -11,7 +11,7 @@ public static class OutputCaps
     /// ChipSummary 160 (one chip line), VoiceCleanup 2000 (about one dictation of a few minutes),
     /// PromptRewrite 4000 (a prompt the user reviews before sending), UiAssist 500 (short UI text).
     /// </summary>
-    private static readonly Dictionary<LocalTaskKind, int> MaxChars = new()
+    private static readonly Dictionary<LocalTaskKind, int> _maxChars = new()
     {
         [LocalTaskKind.ChipSummary] = 160,
         [LocalTaskKind.VoiceCleanup] = 2000,
@@ -20,7 +20,7 @@ public static class OutputCaps
     };
 
     /// <summary>Output cap in characters for a task kind.</summary>
-    public static int CapFor(LocalTaskKind kind) => MaxChars[kind];
+    public static int CapFor(LocalTaskKind kind) => _maxChars[kind];
 
     /// <summary>Cuts <paramref name="output"/> to the cap for <paramref name="kind"/> and reports whether it was cut.</summary>
     public static CappedText Apply(LocalTaskKind kind, string output)

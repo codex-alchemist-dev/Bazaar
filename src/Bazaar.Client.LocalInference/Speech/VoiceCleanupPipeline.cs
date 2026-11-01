@@ -12,7 +12,7 @@ public sealed record VoiceCleanupResult(string RawText, string? CleanedText);
 /// </summary>
 public sealed class VoiceCleanupPipeline
 {
-    private const int CleanupMaxOutputTokens = 512;
+    private const int _cleanupMaxOutputTokens = 512;
 
     private readonly ILocalModelBackend _backend;
     private readonly Func<string, string, bool> _guard;
@@ -35,7 +35,7 @@ public sealed class VoiceCleanupPipeline
 
         try
         {
-            var request = new LocalTaskRequest(LocalTaskKind.VoiceCleanup, rawText, CleanupMaxOutputTokens, CacheKeyFor(rawText));
+            var request = new LocalTaskRequest(LocalTaskKind.VoiceCleanup, rawText, _cleanupMaxOutputTokens, CacheKeyFor(rawText));
             var result = await _backend.RunAsync(request, ct);
             return _guard(rawText, result.Text)
                 ? new VoiceCleanupResult(rawText, result.Text)

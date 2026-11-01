@@ -4,9 +4,9 @@ namespace Bazaar.Client.LocalInference.Tests.Escalation;
 
 public class EscalationAdapterTests
 {
-    private const string SecretInput = "private thread text";
+    private const string _secretInput = "private thread text";
 
-    private static EscalationRequest Request(string input = SecretInput) =>
+    private static EscalationRequest Request(string input = _secretInput) =>
         new(LocalTaskKind.ChipSummary, input, 256, "corr-1");
 
     private static EscalationAdapter Adapter(FakeEscalationTransport transport, EscalationMode mode) =>
@@ -151,7 +151,7 @@ public class EscalationAdapterTests
     [Fact]
     public async Task Transport_exception_is_returned_as_typed_failure_without_input_or_message()
     {
-        var transport = new FakeEscalationTransport().Throw(new InvalidOperationException($"failed on {SecretInput}"));
+        var transport = new FakeEscalationTransport().Throw(new InvalidOperationException($"failed on {_secretInput}"));
         var adapter = Adapter(transport, EscalationMode.Automatic);
 
         var outcome = await adapter.RequestAsync(Request(), CancellationToken.None);
@@ -159,7 +159,7 @@ public class EscalationAdapterTests
         var failed = Assert.IsType<EscalationFailed>(outcome);
         Assert.Equal(EscalationFailureKind.TransportThrew, failed.Kind);
         Assert.Equal(nameof(InvalidOperationException), failed.Message);
-        Assert.DoesNotContain(SecretInput, failed.Message);
+        Assert.DoesNotContain(_secretInput, failed.Message);
     }
 
     [Fact]

@@ -4,7 +4,7 @@ namespace Bazaar.Client.LocalInference.Tests.Benchmark;
 
 public class BenchmarkReportTests
 {
-    private static readonly DateTimeOffset Stamp = new(2026, 10, 30, 9, 30, 0, TimeSpan.FromHours(1));
+    private static readonly DateTimeOffset _stamp = new(2026, 10, 30, 9, 30, 0, TimeSpan.FromHours(1));
 
     private static BenchmarkReport SampleReport() =>
         BenchmarkReport.From(
@@ -12,7 +12,7 @@ public class BenchmarkReportTests
             new BenchmarkRecord("c01", BackendTier.Npu, 12.5, false, null, true),
             new BenchmarkRecord("c02", BackendTier.Npu, 30, true, "TimeoutException: slow", false),
             new BenchmarkRecord("c01", BackendTier.Cpu, 80, false, null, true),
-        ], Stamp);
+        ], _stamp);
 
     [Fact]
     public void Report_round_trips_through_json()
@@ -46,7 +46,7 @@ public class BenchmarkReportTests
     [Fact]
     public void Null_percentiles_survive_the_round_trip_for_an_empty_report()
     {
-        var report = BenchmarkReport.From([], Stamp);
+        var report = BenchmarkReport.From([], _stamp);
 
         var restored = BenchmarkReport.FromJson(report.ToJson());
 

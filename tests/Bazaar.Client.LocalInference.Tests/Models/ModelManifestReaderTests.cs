@@ -4,13 +4,13 @@ namespace Bazaar.Client.LocalInference.Tests.Models;
 
 public class ModelManifestReaderTests
 {
-    private const string Sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private const string _sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     private static ModelManifest Valid() => new(
         "phi-4-mini",
         "1.0.0",
         "MIT",
-        [new ManifestFile("model.onnx", Sha, 1024), new ManifestFile("tokenizer.json", Sha, 0)],
+        [new ManifestFile("model.onnx", _sha, 1024), new ManifestFile("tokenizer.json", _sha, 0)],
         "1.0.0",
         "sig-A");
 
@@ -90,7 +90,7 @@ public class ModelManifestReaderTests
     [InlineData("manifest.json")]
     public void File_name_that_is_not_a_plain_name_is_rejected(string name)
     {
-        var manifest = Valid() with { Files = [new ManifestFile(name, Sha, 1)] };
+        var manifest = Valid() with { Files = [new ManifestFile(name, _sha, 1)] };
 
         Assert.Throws<ModelFormatException>(() => ModelManifestReader.Validate(manifest));
     }
@@ -119,7 +119,7 @@ public class ModelManifestReaderTests
     [Fact]
     public void Negative_byte_length_is_rejected()
     {
-        var manifest = Valid() with { Files = [new ManifestFile("a.bin", Sha, -1)] };
+        var manifest = Valid() with { Files = [new ManifestFile("a.bin", _sha, -1)] };
 
         Assert.Throws<ModelFormatException>(() => ModelManifestReader.Validate(manifest));
     }
@@ -127,7 +127,7 @@ public class ModelManifestReaderTests
     [Fact]
     public void Duplicate_file_names_are_rejected_case_insensitively()
     {
-        var manifest = Valid() with { Files = [new ManifestFile("Model.onnx", Sha, 1), new ManifestFile("model.ONNX", Sha, 1)] };
+        var manifest = Valid() with { Files = [new ManifestFile("Model.onnx", _sha, 1), new ManifestFile("model.ONNX", _sha, 1)] };
 
         Assert.Throws<ModelFormatException>(() => ModelManifestReader.Validate(manifest));
     }

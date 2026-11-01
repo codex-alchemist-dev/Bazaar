@@ -6,7 +6,7 @@ namespace Bazaar.Client.LocalInference.Benchmark;
 /// </summary>
 public sealed class BenchmarkRunner
 {
-    private const int MaxOutputTokens = 256;
+    private const int _maxOutputTokens = 256;
 
     private readonly TimeProvider _time;
 
@@ -31,7 +31,7 @@ public sealed class BenchmarkRunner
 
     private async Task<BenchmarkRecord> RunItemAsync(ILocalModelBackend backend, CorpusItem item, CancellationToken ct)
     {
-        var request = new LocalTaskRequest(LocalTaskKind.VoiceCleanup, item.Input, MaxOutputTokens, $"bench-{item.Id}");
+        var request = new LocalTaskRequest(LocalTaskKind.VoiceCleanup, item.Input, _maxOutputTokens, $"bench-{item.Id}");
         var start = _time.GetTimestamp();
         try
         {
