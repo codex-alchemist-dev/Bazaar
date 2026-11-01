@@ -13,7 +13,7 @@ public sealed class FileBlobCache : IBlobCache
     internal const string BlobFileName = "blob.bin";
     internal const string SidecarFileName = "key.json";
 
-    private const string StagingDirectoryName = ".staging";
+    private const string _stagingDirectoryName = ".staging";
 
     /// <summary>Creates a cache rooted at <paramref name="root"/>. The folder is created on first write.</summary>
     public FileBlobCache(string root)
@@ -53,7 +53,7 @@ public sealed class FileBlobCache : IBlobCache
         }
 
         var directory = EntryDirectory(key);
-        var staging = Path.Combine(Root, StagingDirectoryName, Guid.NewGuid().ToString("N"));
+        var staging = Path.Combine(Root, _stagingDirectoryName, Guid.NewGuid().ToString("N"));
         try
         {
             Directory.CreateDirectory(staging);

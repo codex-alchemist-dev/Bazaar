@@ -5,8 +5,8 @@ namespace Bazaar.Client.LocalInference.Tests.BlobCache;
 
 public sealed class FileBlobCacheTests : IDisposable
 {
-    private const string BlobFile = "blob.bin";
-    private const string SidecarFile = "key.json";
+    private const string _blobFile = "blob.bin";
+    private const string _sidecarFile = "key.json";
 
     private readonly TempDirectory _temp = new();
     private readonly string _cacheRoot;
@@ -77,7 +77,7 @@ public sealed class FileBlobCacheTests : IDisposable
         var cache = new FileBlobCache(_cacheRoot);
         var key = Key();
         var stored = cache.Put(key, WriteSource("compiled.blob", "compiled-bytes"));
-        var sidecar = Directory.EnumerateFiles(_cacheRoot, SidecarFile, SearchOption.AllDirectories).Single();
+        var sidecar = Directory.EnumerateFiles(_cacheRoot, _sidecarFile, SearchOption.AllDirectories).Single();
         File.WriteAllText(sidecar, File.ReadAllText(sidecar).Replace("2026.3.0", "2026.2.0", StringComparison.Ordinal));
 
         Assert.True(File.Exists(stored));
@@ -90,7 +90,7 @@ public sealed class FileBlobCacheTests : IDisposable
         var cache = new FileBlobCache(_cacheRoot);
         var key = Key();
         cache.Put(key, WriteSource("compiled.blob", "compiled-bytes"));
-        File.Delete(Directory.EnumerateFiles(_cacheRoot, SidecarFile, SearchOption.AllDirectories).Single());
+        File.Delete(Directory.EnumerateFiles(_cacheRoot, _sidecarFile, SearchOption.AllDirectories).Single());
 
         Assert.Null(cache.TryGet(key));
     }
@@ -101,7 +101,7 @@ public sealed class FileBlobCacheTests : IDisposable
         var cache = new FileBlobCache(_cacheRoot);
         var key = Key();
         cache.Put(key, WriteSource("compiled.blob", "compiled-bytes"));
-        File.WriteAllText(Directory.EnumerateFiles(_cacheRoot, SidecarFile, SearchOption.AllDirectories).Single(), "not json");
+        File.WriteAllText(Directory.EnumerateFiles(_cacheRoot, _sidecarFile, SearchOption.AllDirectories).Single(), "not json");
 
         Assert.Null(cache.TryGet(key));
     }
@@ -153,8 +153,8 @@ public sealed class FileBlobCacheTests : IDisposable
         Assert.ThrowsAny<IOException>(() => cache.Put(key, WriteSource("compiled.blob", "compiled-bytes")));
 
         Assert.Null(cache.TryGet(key));
-        Assert.Empty(Directory.EnumerateFiles(_cacheRoot, BlobFile, SearchOption.AllDirectories));
-        Assert.Empty(Directory.EnumerateFiles(_cacheRoot, SidecarFile, SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateFiles(_cacheRoot, _blobFile, SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateFiles(_cacheRoot, _sidecarFile, SearchOption.AllDirectories));
     }
 
     [Fact]

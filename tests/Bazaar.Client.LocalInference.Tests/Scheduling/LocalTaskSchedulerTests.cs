@@ -16,13 +16,14 @@ public class LocalTaskSchedulerTests
         await using var scheduler = new LocalTaskScheduler(backend, "m1", new InMemoryLocalResultCache());
 
         var blocker = Submit(scheduler, Request(LocalTaskKind.UiAssist, "blocker"));
-        (await backend.NextStartedAsync()).Complete("blocker");
-        await blocker;
+        var first = await backend.NextStartedAsync();
 
         var chip = Submit(scheduler, Request(LocalTaskKind.ChipSummary, "chip"));
         var rewrite = Submit(scheduler, Request(LocalTaskKind.PromptRewrite, "rewrite"));
         var voice = Submit(scheduler, Request(LocalTaskKind.VoiceCleanup, "voice"));
         var ui = Submit(scheduler, Request(LocalTaskKind.UiAssist, "ui"));
+        first.Complete("blocker");
+        await blocker;
 
         var order = new List<LocalTaskKind>();
         for (var i = 0; i < 4; i++)
