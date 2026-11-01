@@ -1,6 +1,6 @@
 using Bazaar.Server.Agents.LoopGuard;
-using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Agents.Recovery;
+using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;

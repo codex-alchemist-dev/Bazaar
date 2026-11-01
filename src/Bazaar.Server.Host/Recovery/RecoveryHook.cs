@@ -13,18 +13,18 @@ public sealed class LeaseRecoveryRunner(AgentLeaseRecovery recovery) : ILeaseRec
 {
     // AgentLeaseRecovery takes no advisory lock. Its DELETE ... RETURNING row-locks expired leases, so a second concurrent pass would be
     // correct anyway (it blocks on the locked rows, then finds them gone); this gate only avoids the wasted contention.
-    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private static readonly SemaphoreSlim _gate = new(1, 1);
 
     public async Task<LeaseRecoveryReport> RecoverAsync(CancellationToken ct)
     {
-        await Gate.WaitAsync(ct).ConfigureAwait(false);
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             return await recovery.RecoverExpiredAsync(ct).ConfigureAwait(false);
         }
         finally
         {
-            Gate.Release();
+            _gate.Release();
         }
     }
 }
