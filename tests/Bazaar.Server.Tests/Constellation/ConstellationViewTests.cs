@@ -3,7 +3,7 @@ using Npgsql;
 
 namespace Bazaar.Server.Tests.Constellation;
 
-/// <summary>Constellation projection views and <c>constellation_visible_nodes</c> on real PostgreSQL (migration 0019; doc 19 Testing).</summary>
+/// <summary>Constellation projection views and <c>constellation_visible_nodes</c> on real PostgreSQL (migration 0020; doc 19 Testing).</summary>
 public sealed class ConstellationViewTests(ConstellationDb db) : IClassFixture<ConstellationDb>
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;

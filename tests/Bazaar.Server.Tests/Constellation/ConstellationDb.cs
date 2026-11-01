@@ -4,7 +4,7 @@ using Npgsql;
 
 namespace Bazaar.Server.Tests.Constellation;
 
-/// <summary>A cloned test database migrated with every embedded migration, so the Constellation views (0019) exist.</summary>
+/// <summary>A cloned test database migrated with every embedded migration, so the Constellation views (0020) exist.</summary>
 public sealed class ConstellationDb : PgFixture, IAsyncLifetime
 {
     private NpgsqlDataSource? _pool;
@@ -55,7 +55,7 @@ public sealed class ConstellationSeed
     /// <summary>Target text of a link from <see cref="MemoryDoc"/> that resolves to nothing.</summary>
     public string PrivateTarget => "Private " + Tag;
 
-    /// <summary>The projection's node id for an unresolved link target (migration 0019).</summary>
+    /// <summary>The projection's node id for an unresolved link target (migration 0020).</summary>
     public static string GhostId(string targetRaw) => "ghost:" + targetRaw;
 
     public static async Task<ConstellationSeed> InsertAsync(NpgsqlDataSource ds)
