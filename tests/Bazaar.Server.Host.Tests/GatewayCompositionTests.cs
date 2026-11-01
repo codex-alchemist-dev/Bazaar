@@ -5,6 +5,7 @@ using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
+using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Hosting;
@@ -77,18 +78,18 @@ public sealed class GatewayCompositionTests
     }
 
     [Fact]
-    public async Task Provider_secrets_fail_closed_until_the_identity_service_lands()
+    public async Task Provider_secrets_accept_only_provider_references_and_never_fall_back_to_env()
     {
         Environment.SetEnvironmentVariable(_envName, _connectionString);
         try
         {
             await using var sp = Build();
             var source = sp.GetRequiredService<IProviderSecretSource>();
-            Assert.IsType<UnconfiguredProviderSecretSource>(source);
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            Assert.IsType<GatewaySecretSource>(source);
+            var ex = await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await source.ResolveAsync("env:SOME_PROVIDER_KEY", TestContext.Current.CancellationToken));
-            Assert.Contains("Identity Service", ex.Message, StringComparison.Ordinal);
             Assert.DoesNotContain("SOME_PROVIDER_KEY", ex.Message, StringComparison.Ordinal);
+            Assert.Null(await source.ResolveAsync("secret://bazaar/providers/a/key", TestContext.Current.CancellationToken));
         }
         finally
         {

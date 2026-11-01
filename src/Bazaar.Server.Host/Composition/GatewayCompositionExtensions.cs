@@ -8,6 +8,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
+using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Secrets;
@@ -63,6 +64,7 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<FreeLlmApiRoutingDiagnostics>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
 
+        services.TryAddSingleton<SecretScrubber>();
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
         services.Replace(ServiceDescriptor.Singleton<IUsageStore, UsageRepository>());
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
@@ -79,7 +81,8 @@ public static class GatewayCompositionExtensions
             sp.GetRequiredService<HealthTracker>(),
             sp.GetRequiredService<UsageRecorder>(),
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
-            time: sp.GetRequiredService<TimeProvider>())));
+            time: sp.GetRequiredService<TimeProvider>(),
+            scrubber: sp.GetRequiredService<SecretScrubber>())));
         return services;
     }
 
@@ -87,7 +90,7 @@ public static class GatewayCompositionExtensions
         FreeLlmApiWiring.CreateProviderSecretSource(
             sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value,
             sp.GetRequiredService<ISecretResolver>(),
-            new UnconfiguredProviderSecretSource());
+            new GatewaySecretSource(sp.GetRequiredService<ISecretResolver>()));
 
     private static DictionaryAdapterRegistry CreateAdapterRegistry(IServiceProvider sp)
     {
@@ -109,17 +112,6 @@ public static class GatewayCompositionExtensions
         };
         return new DictionaryAdapterRegistry(adapters);
     }
-}
-
-/// <summary>
-/// Fail-closed <see cref="IProviderSecretSource"/> used for every provider reference that is not the FreeLLMAPI key. Every call
-/// throws, and the gateway turns that into a skipped candidate, so no other provider is ever called without a key.
-/// </summary>
-public sealed class UnconfiguredProviderSecretSource : IProviderSecretSource
-{
-    /// <summary>Always throws. The reference is not echoed, so it cannot reach a log or an error response.</summary>
-    public ValueTask<string?> ResolveAsync(string secretRef, CancellationToken ct) =>
-        throw new InvalidOperationException("Provider secrets are not configured yet; they arrive with the Identity Service.");
 }
 
 /// <summary>

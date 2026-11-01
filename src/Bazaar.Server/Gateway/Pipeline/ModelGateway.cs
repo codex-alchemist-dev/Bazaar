@@ -5,6 +5,7 @@ using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Policy;
+using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 
 namespace Bazaar.Server.Gateway.Pipeline;
@@ -44,10 +45,12 @@ public sealed class ModelGateway : IModelGateway
     private readonly IRouteSuspender _suspender;
     private readonly TimeProvider _time;
     private readonly Action<Exception>? _onInternalError;
+    private readonly SecretScrubber _scrubber;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, bool> _lastPublishedAvailable = [];
 
     /// <param name="onInternalError">Told about a usage write or event publish that threw; the caller's stream is not affected.</param>
+    /// <param name="scrubber">Replaces every resolved key in failure and warning text. A private scrubber is used when none is given.</param>
     public ModelGateway(
         RouteResolver resolver,
         IGatewayDirectory directory,
@@ -60,7 +63,8 @@ public sealed class ModelGateway : IModelGateway
         IGatewayEventSink? events = null,
         IRouteSuspender? suspender = null,
         TimeProvider? time = null,
-        Action<Exception>? onInternalError = null)
+        Action<Exception>? onInternalError = null,
+        SecretScrubber? scrubber = null)
     {
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
@@ -74,12 +78,21 @@ public sealed class ModelGateway : IModelGateway
         _suspender = suspender ?? NullRouteSuspender.Instance;
         _time = time ?? TimeProvider.System;
         _onInternalError = onInternalError;
+        _scrubber = scrubber ?? new SecretScrubber();
     }
 
+    /// <summary>Streams the call's events. Failure and warning text is scrubbed of every resolved key before it is yielded.</summary>
     public async IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        await foreach (var e in CallPipelineAsync(request, cancellationToken).ConfigureAwait(false))
+        {
+            yield return _scrubber.ScrubEvent(e);
+        }
+    }
 
+    private async IAsyncEnumerable<ModelEvent> CallPipelineAsync(ModelRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         var resolution = await _resolver.ResolveAsync(request, cancellationToken).ConfigureAwait(false);
         if (resolution is RouteResolution.Denied denied)
         {
@@ -130,7 +143,8 @@ public sealed class ModelGateway : IModelGateway
                 while (true)
                 {
                     var next = await ReadNextAsync(stream, cancellationToken).ConfigureAwait(false);
-                    var e = next ?? new ModelEvent.Failure("stream_dropped", "The stream ended without a final event.");
+                    // Scrubbed here, so the quota tracker, health and usage see the same text the caller does.
+                    var e = _scrubber.ScrubEvent(next ?? new ModelEvent.Failure("stream_dropped", "The stream ended without a final event."));
                     acc.Observe(e);
                     _health.Observe(key, e);
                     if (e is ModelEvent.Done or ModelEvent.Failure)
@@ -333,6 +347,9 @@ public sealed class ModelGateway : IModelGateway
             {
                 return (null, Skip.Config(model, "the provider secret is missing"));
             }
+
+            // Tracked before any adapter sees the key, so every later failure text can be scrubbed.
+            _scrubber.Track(apiKey);
         }
 
         if (!_health.TryAcquire(key))
