@@ -32,8 +32,13 @@ public static class SecurityFloors
     /// <summary>Highest tier number a setting may name. Anything above is not a tier this build can enforce.</summary>
     public const int HighestTier = 3;
 
-    /// <summary>Tier 3 actions that can never leave <c>security.tier3.actions</c>.</summary>
-    public static IReadOnlyList<Tier3Action> RequiredTier3Actions { get; } = [Tier3Action.Passkeys, Tier3Action.RecoveryCodes];
+    /// <summary>
+    /// Tier 3 actions that can never leave <c>security.tier3.actions</c>. A human performs each of these, so an agent never
+    /// does: passkeys and recovery codes (doc 15), plus CAPTCHA, SMS, ID and legal terms, which the owner kept human-only
+    /// (PR #182 review, safe default).
+    /// </summary>
+    public static IReadOnlyList<Tier3Action> RequiredTier3Actions { get; } =
+        [Tier3Action.Passkeys, Tier3Action.RecoveryCodes, Tier3Action.Captcha, Tier3Action.Sms, Tier3Action.Id, Tier3Action.LegalTerms];
 
     /// <summary>Checks one proposed write to a <c>security.*</c> key. Unknown keys are refused.</summary>
     public static FloorCheck Check(string key, JsonElement proposed)

@@ -15,8 +15,11 @@ public sealed class SecurityFloorsTests
     [InlineData("""["captcha","sms","id","recovery_codes","legal_terms"]""")]
     [InlineData("""["captcha","sms","id","passkeys","legal_terms"]""")]
     [InlineData("""["captcha"]""")]
+    [InlineData("""["captcha","sms","passkeys","recovery_codes","legal_terms"]""")]
+    [InlineData("""["captcha","sms","id","passkeys","recovery_codes"]""")]
+    [InlineData("""["sms","id","passkeys","recovery_codes","legal_terms"]""")]
     [InlineData("[]")]
-    public void Tier3_list_refuses_dropping_passkeys_or_recovery_codes(string proposed)
+    public void Tier3_list_refuses_dropping_a_human_only_action(string proposed)
     {
         var check = SecurityFloors.Check("security.tier3.actions", Json(proposed));
 
@@ -26,7 +29,6 @@ public sealed class SecurityFloorsTests
 
     [Theory]
     [InlineData("""["captcha","sms","id","passkeys","recovery_codes","legal_terms"]""")]
-    [InlineData("""["passkeys","recovery_codes"]""")]
     [InlineData("""["legal_terms","recovery_codes","passkeys","captcha","sms","id"]""")]
     public void Tier3_list_allows_keeping_or_adding_actions(string proposed)
     {
