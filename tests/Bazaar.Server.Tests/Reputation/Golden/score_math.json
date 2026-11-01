@@ -1,0 +1,58 @@
+[
+  {
+    "name": "no_evidence_is_neutral",
+    "now": "2026-10-26T12:00:00+00:00",
+    "evidence": [],
+    "expect": { "s": 0.5, "lcb": 0.025129403592, "nEff": 0.0 }
+  },
+  {
+    "name": "one_revert_now",
+    "now": "2026-10-26T12:00:00+00:00",
+    "evidence": [
+      { "kind": "Revert", "x": 0.0, "occurredAt": "2026-10-26T12:00:00+00:00" }
+    ],
+    "expect": { "s": 0.375, "lcb": -0.023191100282, "nEff": 1.0 }
+  },
+  {
+    "name": "one_revert_180_days_old",
+    "now": "2026-10-26T12:00:00+00:00",
+    "evidence": [
+      { "kind": "Revert", "x": 0.0, "occurredAt": "2026-04-29T12:00:00+00:00" }
+    ],
+    "expect": { "s": 0.428571428571, "lcb": -0.006564018322, "nEff": 0.5 }
+  },
+  {
+    "name": "one_owner_accept_now",
+    "now": "2026-10-26T12:00:00+00:00",
+    "evidence": [
+      { "kind": "OwnerAccept", "x": 1.0, "occurredAt": "2026-10-26T12:00:00+00:00" }
+    ],
+    "expect": { "s": 0.625, "lcb": 0.226808899718, "nEff": 1.0 }
+  },
+  {
+    "name": "ci_green_and_revert_now",
+    "now": "2026-10-26T12:00:00+00:00",
+    "evidence": [
+      { "kind": "CiFirstRun", "x": 1.0, "occurredAt": "2026-10-26T12:00:00+00:00" },
+      { "kind": "Revert", "x": 0.0, "occurredAt": "2026-10-26T12:00:00+00:00" }
+    ],
+    "expect": { "s": 0.444444444444, "lcb": 0.059115055483, "nEff": 1.5 }
+  },
+  {
+    "name": "peer_review_half_reliability_now",
+    "now": "2026-10-26T12:00:00+00:00",
+    "evidence": [
+      { "kind": "PeerReview", "x": 1.0, "occurredAt": "2026-10-26T12:00:00+00:00", "reliability": 0.5 }
+    ],
+    "expect": { "s": 0.516129032258, "lcb": 0.049223540238, "nEff": 0.1 }
+  },
+  {
+    "name": "revert_60_days_old_with_30_day_half_life",
+    "now": "2026-10-26T12:00:00+00:00",
+    "policy": { "halfLifeDays": 30.0 },
+    "evidence": [
+      { "kind": "Revert", "x": 0.0, "occurredAt": "2026-08-27T12:00:00+00:00" }
+    ],
+    "expect": { "s": 0.461538461538, "lcb": 0.006649378037, "nEff": 0.25 }
+  }
+]
