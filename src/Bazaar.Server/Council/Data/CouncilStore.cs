@@ -224,6 +224,21 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
+        // Lock the vote row so a concurrent transition (reveal, close, withdraw) cannot interleave with this insert,
+        // then check the state under the lock. Ballots are rejected outside Collecting and FollowUp.
+        string? stateText;
+        await using (var lockCmd = new NpgsqlCommand("SELECT state FROM council_vote WHERE vote_id = @vote_id FOR UPDATE", conn, tx))
+        {
+            lockCmd.Parameters.AddWithValue("vote_id", ballot.VoteId);
+            stateText = await lockCmd.ExecuteScalarAsync(ct).ConfigureAwait(false) as string;
+        }
+
+        if (stateText is null || !VoteStateMachine.CanAcceptBallot(CouncilText.ParseState(stateText), ballot.Phase))
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return false;
+        }
+
         int inserted;
         await using (var cmd = new NpgsqlCommand(_insertBallotSql, conn, tx))
         {
