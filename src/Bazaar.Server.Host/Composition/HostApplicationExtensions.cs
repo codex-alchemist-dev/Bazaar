@@ -19,6 +19,7 @@ public static class HostApplicationExtensions
         services.AddBazaarDevAuth(configuration);
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
+        services.AddBazaarRecoveryHook(configuration);
         services.AddBazaarSecrets();
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
