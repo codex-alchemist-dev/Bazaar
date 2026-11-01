@@ -20,7 +20,7 @@ public sealed class SettingRegistry
     public static SettingRegistry Host { get; } = new(HostSettings.All);
 
     /// <summary>Every setting this build knows: the host keys and the calendar keys (doc 24). The store still reads <see cref="Host"/> until it is wired to this set.</summary>
-    public static SettingRegistry Known { get; } = new(HostSettings.All.Concat(Calendar.CalendarSettings.All));
+    public static SettingRegistry Known { get; } = new(HostSettings.All.Concat(Calendar.CalendarSettings.All).Concat(Knowledge.KnowledgeSettings.All));
 
     /// <summary>Every <c>constellation.*</c> key from doc 19. Kept apart from <see cref="Host"/>, which holds only <c>host.*</c>.</summary>
     public static SettingRegistry Constellation { get; } = new(ConstellationSettings.All);
