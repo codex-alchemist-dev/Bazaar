@@ -10,12 +10,12 @@ namespace Bazaar.Server.GitHub.Tests;
 /// </summary>
 public sealed class MigrationFileTests
 {
-    private const string MigrationSuffix = "0001_github_tables.sql";
+    private const string _migrationSuffix = "0001_github_tables.sql";
 
     private static string ReadMigration(out string resourceName)
     {
         var assembly = typeof(GitHubComponent).Assembly;
-        resourceName = assembly.GetManifestResourceNames().Single(name => name.EndsWith(MigrationSuffix, System.StringComparison.Ordinal));
+        resourceName = assembly.GetManifestResourceNames().Single(name => name.EndsWith(_migrationSuffix, System.StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
         using var reader = new StreamReader(stream);
@@ -27,7 +27,7 @@ public sealed class MigrationFileTests
     {
         var names = typeof(GitHubComponent).Assembly.GetManifestResourceNames();
 
-        Assert.Contains(names, name => name.EndsWith(MigrationSuffix, System.StringComparison.Ordinal));
+        Assert.Contains(names, name => name.EndsWith(_migrationSuffix, System.StringComparison.Ordinal));
     }
 
     [Fact]
