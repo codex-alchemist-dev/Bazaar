@@ -2,7 +2,7 @@
 
 Status: PROPOSED (2026-11-01; tile format decided by the coordinator, owner-approved) · Owner question: "what if we zoomed all the way out and wanted to see the billions?" · Extends: 19-constellation-and-git-solar-system.md (WP7, scale section) · Decision context: DECISIONS-LOG round 17 (Vulkan with GPU instancing; Skia as fallback)
 
-Every number here is a PROPOSED budget or a calculation. Nothing is measured on a GPU yet. Section 7 lists what needs the owner's PC, and the phone numbers need an Android device.
+Every number here is a PROPOSED budget or a calculation. The first GPU measurements are in section 10 (PC, 2026-11-01); phone numbers are still unmeasured. Section 7 lists what needs the owner's PC, and the phone numbers need an Android device.
 
 ## 1. The answer in one paragraph
 At full zoom-out, billions of nodes are not drawn as billions of dots. They are drawn as **density and structure**: cluster glyphs (Louvain communities, server-side) plus a density field accumulated from the nodes. This is how point-cloud and particle systems handle the same problem. Individual nodes appear as the camera moves into a tile, and only that tile's nodes are streamed and drawn. The renderer therefore never holds all billions at once; it holds a bounded working set chosen by the view. At far zoom a node is sub-pixel anyway, so per-node dots would add cost and no information.
@@ -81,3 +81,40 @@ Items that need the owner's PC or an Android device are in section 7, not here.
 - 02: tile blobs (format v1) need a registry entry in the stream and blob registry. The JSON-only wire rule has the scoped binary exception recorded in section 3.
 - 03: the caps in section 6 are settings rows, added with the other `constellation.*` keys.
 - DECISIONS-LOG round 17: the owner decision there says the target is billions; this doc is how the design meets it.
+
+## 10. Measured results: Windows PC, Intel Arc B580 (2026-11-01)
+Measured by `tests/Bazaar.Constellation.Vulkan.Bench` (Release build, offscreen 1280x720 R8G8B8A8 target, dynamic rendering, one instance per node, 16 bytes per node, 30 warm-up and 200 measured frames per row). Frame time is wall clock per submitted frame, fenced each frame. GPU time is from timestamp queries.
+
+Probe: Intel(R) Arc(TM) B580 Graphics (discrete, 11.9 GiB device-local heap), Vulkan 1.4.356 (instance API 1.4.0), `VK_EXT_mesh_shader` present, `pageableDeviceLocalMemory` true. The integrated Intel GPU also reports mesh shaders.
+
+**Node-count sweep** (instances drawn capped at 2 000 000; resident window capped at 1.5 GiB):
+
+| Total nodes | Resident nodes | Instances per frame | Upload (ms) | Resident (GiB) | Wall p50 (ms) | Wall p95 (ms) | GPU p50 (ms) | GPU p95 (ms) |
+|---|---|---|---|---|---|---|---|---|
+| 1M | 1M | 1M | 18.8 | 0.015 | 0.62 | 0.92 | 0.50 | 0.79 |
+| 10M | 10M | 2M | 738 | 0.15 | 1.86 | 1.96 | 1.72 | 1.72 |
+| 100M | 100M | 2M | 2 397 | 1.49 | 1.12 | 1.71 | 1.00 | 1.54 |
+| 1B | 100.7M window | 2M | 1 412 | 1.50 | 1.68 | 4.27 | 1.54 | 4.05 |
+
+At 1B the whole graph would be 16 GB at 16 bytes per node, so it cannot be resident. The row measures a 100.7M-node window with 2M instances drawn, which is the tile model in section 4 with the cap applied.
+
+**Instance-count sweep** (100.7M resident):
+
+| Instances per frame | Wall p50 (ms) | Wall p95 (ms) | GPU p50 (ms) | GPU p95 (ms) |
+|---|---|---|---|---|
+| 100 000 | 0.63 | 0.66 | 0.37 | 0.37 |
+| 1 000 000 | 1.94 | 3.36 | 1.78 | 3.15 |
+| 2 000 000 | 1.12 | 3.70 | 1.00 | 3.55 |
+| 10 000 000 | 318.2 | 319.6 | 317.9 | 319.3 |
+| 50 000 000 | 2 427.0 | 2 429.1 | 2 426.6 | 2 428.7 |
+| 100 000 000 | not measured | | | |
+
+**What these numbers say, and what they do not.**
+- At the 2M cap the PC is well inside the section 6 frame budget (p95 4.3 ms worst row against 14 ms). Resident data at 100M is 1.49 GiB, which fits the 1.5 GiB PC cap only just.
+- The jump between 2M and 10M instances is not linear: 2M draws in about 1 ms, 10M in about 318 ms. This needs an explanation before the cap is raised. The likely cause is driver-side splitting of very large instance counts, but that is not verified.
+- Frame times at 1M vary between the two sweeps (0.62 ms and 1.94 ms p50). This is probably GPU clock and power state, so treat differences under about 2 ms as noise until a warm-up is longer.
+- The 100M-instance row was not run. A 50M row alone takes about 2.4 s per frame, so the full row would take about 20 minutes. It was stopped.
+
+**Not measured yet.** The swapchain and windowed present path (this benchmark renders offscreen). Mesh-shader culling (the extension is present, the path is not used). Compute culling and density splatting, indirect draws, and tile streaming from the server. Atomic-add throughput. Phone numbers (no Android device here).
+
+**Probe note.** The driver string `0.406.842` is the probe's generic decoding of `driverVersion`. The Vulkan SDK reports the raw value `101.9034` for this Intel driver, so the probe's string formatting is wrong for Intel and needs a vendor-aware decode.
