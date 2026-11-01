@@ -6,7 +6,7 @@ namespace Bazaar.Components.ManagedPostgres;
 /// <summary>Runs PostgreSQL tools with System.Diagnostics.Process. Arguments go through ArgumentList, so nothing is shell-parsed.</summary>
 public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
 {
-    private static readonly TimeSpan AttachedPollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan _attachedPollInterval = TimeSpan.FromMilliseconds(250);
 
     /// <inheritdoc />
     public async Task<PostgresCommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
@@ -144,7 +144,7 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
         {
             while (IsAlive(ProcessId))
             {
-                await Task.Delay(AttachedPollInterval, cancellationToken);
+                await Task.Delay(_attachedPollInterval, cancellationToken);
             }
 
             return -1;

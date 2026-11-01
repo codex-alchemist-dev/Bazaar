@@ -12,10 +12,10 @@ namespace Bazaar.Components.ManagedPostgres;
 /// </summary>
 public sealed class PostgresProcessController : IAsyncDisposable
 {
-    private const int PasswordByteCount = 32;
-    private const string RedactedText = "[redacted]";
-    private static readonly TimeSpan ProbeAttemptTimeout = TimeSpan.FromMilliseconds(500);
-    private static readonly TimeSpan ReadinessPollInterval = TimeSpan.FromMilliseconds(100);
+    private const int _passwordByteCount = 32;
+    private const string _redactedText = "[redacted]";
+    private static readonly TimeSpan _probeAttemptTimeout = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan _readinessPollInterval = TimeSpan.FromMilliseconds(100);
 
     private readonly PostgresProcessOptions _options;
     private readonly IPostgresCommandRunner _runner;
@@ -64,7 +64,7 @@ public sealed class PostgresProcessController : IAsyncDisposable
                 throw new PostgresProcessException($"The data directory {_options.DataDirectory} already holds a cluster; initdb runs once.");
             }
 
-            var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(PasswordByteCount));
+            var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(_passwordByteCount));
             await persistSuperuserPassword(password, cancellationToken);
             await RunInitDbAsync(password, cancellationToken);
         }
@@ -207,7 +207,7 @@ public sealed class PostgresProcessController : IAsyncDisposable
             if (result.ExitCode != 0)
             {
                 throw new PostgresProcessException(
-                    $"initdb failed with exit code {result.ExitCode}: {result.Output.Replace(password, RedactedText, StringComparison.Ordinal)}");
+                    $"initdb failed with exit code {result.ExitCode}: {result.Output.Replace(password, _redactedText, StringComparison.Ordinal)}");
             }
         }
         finally
@@ -298,7 +298,7 @@ public sealed class PostgresProcessController : IAsyncDisposable
                     return;
                 }
 
-                await Task.Delay(ReadinessPollInterval, deadline.Token);
+                await Task.Delay(_readinessPollInterval, deadline.Token);
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -310,7 +310,7 @@ public sealed class PostgresProcessController : IAsyncDisposable
     private async Task<bool> IsAcceptingAsync(CancellationToken cancellationToken)
     {
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        attempt.CancelAfter(ProbeAttemptTimeout);
+        attempt.CancelAfter(_probeAttemptTimeout);
         using var client = new TcpClient();
 
         try

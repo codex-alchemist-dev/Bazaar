@@ -6,7 +6,7 @@ namespace Bazaar.Components.ManagedPostgres;
 /// <summary>Settings for one managed PostgreSQL child process (packaging note, sections 3 and 6 P3).</summary>
 public sealed class PostgresProcessOptions
 {
-    private static readonly Regex SuperuserNamePattern = new("^[a-z_][a-z0-9_]{0,62}$", RegexOptions.CultureInvariant);
+    private static readonly Regex _superuserNamePattern = new("^[a-z_][a-z0-9_]{0,62}$", RegexOptions.CultureInvariant);
 
     /// <summary>Folder holding initdb, postgres and pg_ctl, for example <c>pg/18/bin</c>.</summary>
     public string BinDirectory { get; set; } = string.Empty;
@@ -57,7 +57,7 @@ public sealed class PostgresProcessOptions
             throw new ArgumentException("ListenAddress must be an IP address.", nameof(ListenAddress));
         }
 
-        if (!SuperuserNamePattern.IsMatch(SuperuserName))
+        if (!_superuserNamePattern.IsMatch(SuperuserName))
         {
             throw new ArgumentException("SuperuserName must be a lowercase PostgreSQL identifier.", nameof(SuperuserName));
         }

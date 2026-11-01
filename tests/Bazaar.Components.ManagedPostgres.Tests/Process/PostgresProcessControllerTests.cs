@@ -8,7 +8,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
 {
     private readonly string _dataDirectory = ProcessTestSupport.NewTempDirectory();
     private readonly List<TcpListener> _listeners = [];
-    private static readonly int[] ExpectedRestartSeconds = [1, 2, 4, 8, 16, 30, 30, 30];
+    private static readonly int[] _expectedRestartSeconds = [1, 2, 4, 8, 16, 30, 30, 30];
 
     public void Dispose()
     {
@@ -38,7 +38,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         await controller.InitDbAsync((password, _) => { persisted = password; return ValueTask.CompletedTask; }, TestContext.Current.CancellationToken);
 
         var run = Assert.Single(runner.Runs);
-        Assert.EndsWith("initdb", run.FileName, StringComparison.Ordinal);
+        Assert.Equal("initdb", Path.GetFileNameWithoutExtension(run.FileName));
         Assert.Equal(_dataDirectory, Argument(run.Arguments, "-D"));
         Assert.Equal("bazaar_admin", Argument(run.Arguments, "-U"));
         Assert.Equal("scram-sha-256", Argument(run.Arguments, "-A"));
@@ -311,7 +311,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
             .ToArray();
 
         Assert.Equal(
-            ExpectedRestartSeconds.Select(seconds => TimeSpan.FromSeconds(seconds)).ToArray(),
+            _expectedRestartSeconds.Select(seconds => TimeSpan.FromSeconds(seconds)).ToArray(),
             delays);
         Assert.Equal(maxDelay, PostgresRestartBackoff.DelayFor(10_000, baseDelay, maxDelay));
         Assert.Throws<ArgumentOutOfRangeException>(() => PostgresRestartBackoff.DelayFor(0, baseDelay, maxDelay));

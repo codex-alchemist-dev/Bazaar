@@ -5,7 +5,7 @@ namespace Bazaar.Components.ManagedPostgres.Tests;
 /// <summary>Runs a real PostgreSQL 18 from BAZAAR_TEST_PG_BIN. Skipped when that variable is not set.</summary>
 public sealed class PostgresProcessIntegrationTests : IDisposable
 {
-    private const string BinVariable = "BAZAAR_TEST_PG_BIN";
+    private const string _binVariable = "BAZAAR_TEST_PG_BIN";
     private readonly string _root = ProcessTestSupport.NewTempDirectory();
 
     public void Dispose()
@@ -16,10 +16,10 @@ public sealed class PostgresProcessIntegrationTests : IDisposable
     [Fact]
     public async Task Initdb_start_readiness_and_stop_work_against_a_real_server()
     {
-        var bin = Environment.GetEnvironmentVariable(BinVariable);
+        var bin = Environment.GetEnvironmentVariable(_binVariable);
         if (string.IsNullOrWhiteSpace(bin))
         {
-            Assert.Skip($"Set {BinVariable} to a PostgreSQL 18 bin directory to run this test.");
+            Assert.Skip($"Set {_binVariable} to a PostgreSQL 18 bin directory to run this test.");
         }
 
         var dataDirectory = Path.Combine(_root, "data");
