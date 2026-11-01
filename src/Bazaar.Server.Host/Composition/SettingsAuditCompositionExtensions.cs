@@ -24,14 +24,14 @@ public static class SettingsAuditCompositionExtensions
     }
 
     /// <summary>
-    /// Host settings: <see cref="SettingRegistry.Host"/>, the Postgres-backed <see cref="ISettingStore"/>, and an
-    /// <see cref="ISettingAuditSink"/> that writes each setting change into <see cref="IAuditLog"/>. Calls
-    /// <see cref="AddBazaarAudit"/> itself, so the sink always has its log.
+    /// Settings: <see cref="SettingRegistry.Known"/> (host, calendar, knowledge and constellation keys), the Postgres-backed
+    /// <see cref="ISettingStore"/>, and an <see cref="ISettingAuditSink"/> that writes each setting change into
+    /// <see cref="IAuditLog"/>. Calls <see cref="AddBazaarAudit"/> itself, so the sink always has its log.
     /// </summary>
     public static IServiceCollection AddBazaarSettings(this IServiceCollection services)
     {
         services.AddBazaarAudit();
-        services.TryAddSingleton(SettingRegistry.Host);
+        services.TryAddSingleton(SettingRegistry.Known);
         services.TryAddSingleton<ISettingAuditSink, AuditLogSettingSink>();
         services.TryAddSingleton<ISettingStore, NpgsqlSettingStore>();
         return services;

@@ -53,7 +53,7 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     {
         await using var sp = Build();
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
-        Assert.Same(SettingRegistry.Host, sp.GetRequiredService<SettingRegistry>());
+        Assert.Same(SettingRegistry.Known, sp.GetRequiredService<SettingRegistry>());
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
     }
 
