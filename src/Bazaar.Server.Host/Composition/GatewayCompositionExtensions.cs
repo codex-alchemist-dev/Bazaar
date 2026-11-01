@@ -26,14 +26,14 @@ namespace Bazaar.Server.Host.Composition;
 /// </summary>
 public static class GatewayCompositionExtensions
 {
-    /// <summary>Adapter name for OpenAI-compatible chat providers, as stored on provider rows.</summary>
-    public const string OpenAiChatAdapterName = "openai_chat";
+    /// <summary>Adapter name for OpenAI-compatible chat providers, as stored on provider rows. Owned by the adapter component.</summary>
+    public const string OpenAiChatAdapterName = OpenAiChatAdapterComponent.WireName;
 
-    /// <summary>Adapter name for Anthropic Messages providers, as stored on provider rows.</summary>
-    public const string AnthropicMessagesAdapterName = "anthropic_messages";
+    /// <summary>Adapter name for Anthropic Messages providers, as stored on provider rows. Owned by the adapter component.</summary>
+    public const string AnthropicMessagesAdapterName = AnthropicMessagesAdapterComponent.WireName;
 
-    /// <summary>Adapter name for Gemini generateContent providers, as stored on provider rows.</summary>
-    public const string GeminiGenerateContentAdapterName = "gemini_generate_content";
+    /// <summary>Adapter name for Gemini generateContent providers, as stored on provider rows. Owned by the adapter component.</summary>
+    public const string GeminiGenerateContentAdapterName = GeminiGenerateContentAdapterComponent.WireName;
 
     /// <summary>
     /// Registers the gateway pipeline and its database-backed stores. Needs <c>AddBazaarHostOptions</c>, <c>AddBazaarSecrets</c>
@@ -94,25 +94,18 @@ public static class GatewayCompositionExtensions
             sp.GetRequiredService<ISecretResolver>(),
             new UnconfiguredProviderSecretSource());
 
+    /// <summary>Builds the registry from every adapter the enabled components registered. Two registrations for one name fail the start.</summary>
     private static DictionaryAdapterRegistry CreateAdapterRegistry(IServiceProvider sp)
     {
-        var http = sp.GetRequiredService<HttpClient>();
-        var time = sp.GetRequiredService<TimeProvider>();
-        var freeLlmApi = FreeLlmApiOptionsOf(sp);
-        IModelAdapter openAi = freeLlmApi.Enabled
-            ? FreeLlmApiWiring.WrapOpenAiAdapter(
-                new OpenAiChatAdapter(http, time),
-                freeLlmApi,
-                sp.GetRequiredKeyedService<HttpClient>(FreeLlmApiComponent.HttpClientKey),
-                time,
-                sp.GetRequiredService<FreeLlmApiRoutingDiagnostics>())
-            : new OpenAiChatAdapter(http, time);
-        Dictionary<string, IModelAdapter> adapters = new(StringComparer.Ordinal)
+        Dictionary<string, IModelAdapter> adapters = new(StringComparer.Ordinal);
+        foreach (var registration in sp.GetServices<ModelAdapterRegistration>())
         {
-            [OpenAiChatAdapterName] = openAi,
-            [AnthropicMessagesAdapterName] = new AnthropicMessagesAdapter(http),
-            [GeminiGenerateContentAdapterName] = new GeminiGenerateContentAdapter(http),
-        };
+            if (!adapters.TryAdd(registration.WireName, registration.Create(sp)))
+            {
+                throw new InvalidOperationException($"More than one component registers the gateway adapter '{registration.WireName}'.");
+            }
+        }
+
         return new DictionaryAdapterRegistry(adapters);
     }
 }

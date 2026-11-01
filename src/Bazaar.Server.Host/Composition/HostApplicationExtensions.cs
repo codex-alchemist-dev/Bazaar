@@ -1,9 +1,11 @@
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Components;
+using Bazaar.Server.Gateway.Adapters.Anthropic;
+using Bazaar.Server.Gateway.Adapters.Gemini;
+using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Hosting;
-using Bazaar.Server.Kanban;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,7 +35,7 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentResponder(configuration);
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
-        services.AddBazaarComponents(configuration, [new KanbanComponent(), new FreeLlmApiComponent()]);
+        services.AddBazaarComponents(configuration, HostComponents.All);
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         return services;
     }
