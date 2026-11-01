@@ -229,6 +229,11 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
         var vote = await InsertVoteAsync(store, await db.CreateGcAsync());
 
         Assert.True(await store.TryInsertBallotAsync(NewBallot(vote.VoteId, "agent-a", BallotPhase.Independent, "no", "First view.", _opened), Ct));
+
+        // A follow-up ballot is accepted only once the vote is in FollowUp (after the reveal).
+        Assert.False(await store.TryInsertBallotAsync(NewBallot(vote.VoteId, "agent-a", BallotPhase.FollowUp, "yes", "Too early.", _opened.AddMinutes(2)), Ct));
+        Assert.True(await store.TryTransitionAsync(vote.VoteId, vote.Version, VoteState.Revealed, "reveal", _opened.AddMinutes(3), null, null, Ct));
+        Assert.True(await store.TryTransitionAsync(vote.VoteId, vote.Version + 1, VoteState.FollowUp, "follow-up", _opened.AddMinutes(4), null, null, Ct));
         Assert.True(await store.TryInsertBallotAsync(NewBallot(vote.VoteId, "agent-a", BallotPhase.FollowUp, "yes", "After the reveal.", _opened.AddMinutes(5)), Ct));
 
         var ballots = await store.ListBallotsAsync(vote.VoteId, Ct);
