@@ -106,7 +106,11 @@ public sealed class CoreSchemaTests(MigrationDb db) : IClassFixture<MigrationDb>
         })
         {
             var ex = await Assert.ThrowsAsync<PostgresException>(() => ExecAsync(conn, sql));
-            Assert.Equal("23001", ex.SqlState);
+            // gc_event_no_truncate (0001) is a BEFORE TRUNCATE trigger, but PostgreSQL checks foreign-key references first.
+            // wake_decisions (0016) references gc_event, so TRUNCATE is refused with 0A000 before the trigger runs.
+            // Either way the log is not truncated.
+            var expected = sql.StartsWith("TRUNCATE", StringComparison.Ordinal) ? new[] { "23001", "0A000" } : new[] { "23001" };
+            Assert.Contains(ex.SqlState, expected);
         }
 
         Assert.Equal(1, await CountAsync(ds, "SELECT count(*) FROM gc_event"));

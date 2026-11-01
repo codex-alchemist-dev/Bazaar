@@ -7,7 +7,7 @@ using Microsoft.Extensions.AI;
 namespace Bazaar.ExitCheck.Tests;
 
 /// <summary>
-/// The v0.3 exit check (plan Batch 3, E2E; doc 34 layer L3): a fake agent posts to a GC, a client drops its socket and
+/// The Stage 3 exit check (plan Batch 3, E2E; doc 34 layer L3): a fake agent posts to a GC, a client drops its socket and
 /// replays with no loss and no duplicate, and a model call outside policy is denied. Real PostgreSQL, real host, real
 /// client. Never skipped: while server pieces are unmerged the server tests fail with the list in <see cref="ExitCheckLedger"/>.
 /// </summary>
