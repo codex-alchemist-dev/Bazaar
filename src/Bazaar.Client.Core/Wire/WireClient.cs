@@ -23,6 +23,7 @@ public sealed class WireClient(
     private readonly HashSet<string> _streams = [];
     private readonly Dictionary<string, Pending> _pending = [];
     private IWireConnection? _connection;
+    private readonly string _idPrefix = Guid.NewGuid().ToString("N");
     private int _nextId;
     private DateTimeOffset _lastFrame;
 
@@ -58,7 +59,7 @@ public sealed class WireClient(
     /// <exception cref="WireRequestException">The server answered with an error.</exception>
     public async Task<TResponse> RequestAsync<TRequest, TResponse>(string type, TRequest payload, CancellationToken cancellationToken = default)
     {
-        string id = $"{options.DeviceId}-{Interlocked.Increment(ref _nextId)}";
+        string id = NextId();
         var env = new Envelope(options.ProtocolMajor, type, EnvelopeKind.Request, id, null, null, null, null, codec.EncodePayload(payload));
         var pending = new Pending(Frame(env));
         IWireConnection? conn;
@@ -262,8 +263,14 @@ public sealed class WireClient(
     {
         var sub = new Subscribe([.. streams.Select(cursors.Load)]);
         return TrySendAsync(conn, Frame(new Envelope(options.ProtocolMajor, WireTypes.Subscribe, EnvelopeKind.Request,
-            $"{options.DeviceId}-{Interlocked.Increment(ref _nextId)}", null, null, null, null, codec.EncodePayload(sub))), ct);
+            NextId(), null, null, null, null, codec.EncodePayload(sub))), ct);
     }
+
+    /// <summary>
+    /// A request id unique to this client instance. The server keeps answers per (device, id) for a day, so ids must not
+    /// restart at 1 in a new process that reuses the device id.
+    /// </summary>
+    private string NextId() => $"{_idPrefix}-{Interlocked.Increment(ref _nextId)}";
 
     /// <summary>Sends, ignoring a failure: a dead socket ends the receive loop, which reconnects and resends.</summary>
     private static async ValueTask TrySendAsync(IWireConnection conn, ReadOnlyMemory<byte> frame, CancellationToken ct)
