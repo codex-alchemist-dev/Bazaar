@@ -1,6 +1,6 @@
 # Constellation scale and level of detail (billions of nodes)
 
-Status: PROPOSED (2026-11-01) · Owner question: "what if we zoomed all the way out and wanted to see the billions?" · Extends: 19-constellation-and-git-solar-system.md (WP7, scale section) · Decision context: DECISIONS-LOG round 17 (Vulkan with GPU instancing; Skia as fallback)
+Status: PROPOSED (2026-11-01; tile format decided by the coordinator, owner-approved) · Owner question: "what if we zoomed all the way out and wanted to see the billions?" · Extends: 19-constellation-and-git-solar-system.md (WP7, scale section) · Decision context: DECISIONS-LOG round 17 (Vulkan with GPU instancing; Skia as fallback)
 
 Every number here is a PROPOSED budget or a calculation. Nothing is measured on a GPU yet. Section 7 lists what needs the owner's PC, and the phone numbers need an Android device.
 
@@ -16,7 +16,12 @@ At full zoom-out, billions of nodes are not drawn as billions of dots. They are 
 - **Structure.** A quadtree (2D; octree-ready for 3D) over layout positions, with tiles at each level. Each tile holds: node count, bounding box, Louvain cluster histogram, and a fixed-size sample of its nodes chosen by importance (degree, recency, pinned). Leaves hold all nodes.
 - **Build.** Built by the server when the graph version changes, not per frame. Incremental: only tiles touched by changed nodes are rebuilt. The build is a batch job, so its budget is minutes per million-node change set, not frame time. That number is OPEN and needs a spike.
 - **Stored form.** Each tile is a binary blob: positions quantised to 16 bits per axis relative to the tile origin (4 bytes per node in 2D), cluster id, type and state. Tiles are served over authenticated HTTP as blobs (doc 02, doc 19 Transport).
-- **Open question for the owner.** The wire is JSON through `System.Text.Json` (S6, DECISIONS-LOG). Bulk tile payloads would be raw binary over HTTP, which is a different format. Confirm that tile blobs are an exception, or pick a binary tile format. This is a schema or wire choice, so it needs one answer.
+- **Decided (coordinator, owner-approved, 2026-11-01).** Bulk tile payloads may be binary over HTTP. This is a scoped exception to the JSON-only wire rule. Control messages stay JSON through `IWireCodec`. Tiles use the versioned format below (`tile_format_version = 1`).
+- **Tile format v1 (little-endian).**
+  - Header, 64 bytes: magic `BZTL` (4 bytes); `tile_format_version` u16 = 1; `dimensions` u8 (2 or 3); `flags` u8 (bit 0: sampled, bit 1: full leaf); `node_count` u32; `sample_count` u32; `graph_version` i64; `tile_id` (16 bytes, ULID); bounding box as four f32 (min x, min y, max x, max y); `quant_bits` u8 (16); reserved to 64 bytes.
+  - Origin and scale: f32 origin per axis and f32 scale per axis, so position = origin + q * scale.
+  - Body: `node_count` records of quantised positions (u16 per axis), then `node_count` u32 cluster ids, then `node_count` u16 type and state packed. Sampled tiles repeat the record layout for `sample_count` entries.
+  - Readers reject an unknown version and any `node_count` that does not match the body length. A new version requires a registry entry in doc 02.
 
 ## 4. Streaming and selection
 - **Viewport selection.** The client asks for the tiles the camera needs at the level that matches screen density. A tile is requested when its projected size passes a threshold; a coarser ancestor is drawn until then.
@@ -63,14 +68,16 @@ Tiers are chosen from measured device capability at startup, and the operator ca
 
 **Pass criteria:** the PC tier meets the section 6 budgets at 100M and holds at 1B with the instance cap in force. The phone tier meets its budgets at 100M with its own cap. A failure at 1B on a tier means lowering the instance cap or the working set, not dropping the scale target, unless the owner decides otherwise.
 
-## 8. Open questions for the owner
-1. Tile payload format: a binary blob over HTTP as an exception to JSON-only, or another format? (Section 3.)
-2. Are the section 6 numbers acceptable as starting caps? The most important are the phone instance cap and resident limit.
-3. Is a server-side hierarchical layout acceptable for the whole graph, with force layout only in focus neighbourhoods? (Section 2.)
-4. Does "billions" mean billions of nodes in one company graph, or billions across many companies? The answer sets the tile index size.
+## 8. Open questions and the defaults taken
+1. **Tile payload format.** Answered: binary exception with the v1 format in section 3.
+2. **Starting caps (section 6).** Default taken: use the section 6 numbers as starting caps. They are settings under the configurability rule, with the floors fixed. Tuned after the PC and phone measurements (section 7).
+3. **Layout scope.** Default taken: precomputed hierarchical layout for the whole graph on the server, with force layout only inside focus neighbourhoods (section 2).
+4. **Meaning of "billions".** Default taken: one company graph per install. The tile index is sized per install, so a multi-company graph would need a separate design.
+
+Items that need the owner's PC or an Android device are in section 7, not here.
 
 ## 9. Relation to other docs
 - 19: the renderer and layout sections should point here for scale. Doc 19's 10k-node layout budget stays for the focus neighbourhood.
-- 02: tile blobs need a registry entry if question 1 is answered as binary.
+- 02: tile blobs (format v1) need a registry entry in the stream and blob registry. The JSON-only wire rule has the scoped binary exception recorded in section 3.
 - 03: the caps in section 6 are settings rows, added with the other `constellation.*` keys.
 - DECISIONS-LOG round 17: the owner decision there says the target is billions; this doc is how the design meets it.
