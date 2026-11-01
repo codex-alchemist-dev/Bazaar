@@ -16,7 +16,7 @@ public sealed record NugetPolicyOptions(IReadOnlyList<string> FeedAllowlist, str
     public const string NugetOrgFeed = "https://api.nuget.org/v3/index.json";
 
     /// <summary>NuGet id rules: letters, digits, dot, dash and underscore, starting and ending with a letter or digit, at most 100 characters.</summary>
-    public const string DefaultPackageIdPattern = @"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$";
+    public const string DefaultPackageIdPattern = @"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?\z";
 
     /// <summary>The shipped default: nuget.org only, with the NuGet id rules.</summary>
     public static NugetPolicyOptions Default { get; } = new([NugetOrgFeed], DefaultPackageIdPattern);
@@ -33,7 +33,7 @@ public sealed class NugetPackagePolicy
     // A bare version, or a bracketed one, with no wildcard, comma or parenthesis. NuGet reads a bare version as a minimum,
     // so the install step always pins with brackets; here a bare version is taken as the exact pin the agent meant.
     private static readonly Regex _exactVersion = new(
-        @"^[0-9]+(?:\.[0-9]+){0,3}(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$",
+        @"^[0-9]+(?:\.[0-9]+){0,3}(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?\z",
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         _matchTimeout);
 

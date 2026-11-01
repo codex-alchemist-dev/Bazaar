@@ -97,6 +97,7 @@ public class NugetPackagePolicyTests
     }
 
     [Theory]
+    [InlineData("foo\n")]
     [InlineData("../evil")]
     [InlineData("a b")]
     [InlineData("-leading")]
