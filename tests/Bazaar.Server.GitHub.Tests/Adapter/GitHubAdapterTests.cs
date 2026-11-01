@@ -8,21 +8,21 @@ namespace Bazaar.Server.GitHub.Tests;
 
 public sealed class GitHubAdapterTests
 {
-    private const long Installation = 77;
-    private const string Owner = "codex-alchemist-dev";
-    private const string Repo = "bazaar";
-    private const string Token = "ghs_TESTONLY_do_not_leak_0123456789";
-    private const string HeadSha = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
-    private const string OldSha = "0000000000000000000000000000000000000001";
+    private const long _installation = 77;
+    private const string _owner = "codex-alchemist-dev";
+    private const string _repo = "bazaar";
+    private const string _token = "ghs_TESTONLY_do_not_leak_0123456789";
+    private const string _headSha = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
+    private const string _oldSha = "0000000000000000000000000000000000000001";
 
-    private const string PullsPath = "/repos/codex-alchemist-dev/bazaar/pulls";
-    private const string SearchPath = "/repos/codex-alchemist-dev/bazaar/pulls?head=codex-alchemist-dev%3Aagent%2Fx&state=open";
-    private const string FilesPath = "/repos/codex-alchemist-dev/bazaar/pulls/42/files?per_page=100";
+    private const string _pullsPath = "/repos/codex-alchemist-dev/bazaar/pulls";
+    private const string _searchPath = "/repos/codex-alchemist-dev/bazaar/pulls?head=codex-alchemist-dev%3Aagent%2Fx&state=open";
+    private const string _filesPath = "/repos/codex-alchemist-dev/bazaar/pulls/42/files?per_page=100";
 
-    private static readonly OpenPrRequest OpenRequest = new(Installation, Owner, Repo, "agent/x", "main", "Add x", "Body text");
-    private static readonly PrRef Pr = new(Installation, Owner, Repo, 42);
+    private static readonly OpenPrRequest _openRequest = new(_installation, _owner, _repo, "agent/x", "main", "Add x", "Body text");
+    private static readonly PrRef _pr = new(_installation, _owner, _repo, 42);
 
-    private const string FilesJson =
+    private const string _filesJson =
         """[{"filename": "src/a.cs", "status": "modified", "additions": 3, "deletions": 1, "patch": "@@ -1 +1 @@"}]""";
 
     private static string PullJson(int number, string sha) =>
@@ -41,7 +41,7 @@ public sealed class GitHubAdapterTests
     {
         var http = new ScriptedHttpHandler();
         var clock = time ?? new RecordingTimeProvider();
-        var tokens = new StubTokenProvider(Token);
+        var tokens = new StubTokenProvider(_token);
         var rates = new InMemoryGitHubRateState();
         var logs = new CapturingLogger<GitHubAdapter>();
         var options = new GitHubAdapterOptions { BaseAddress = new Uri("https://api.test/") };
@@ -53,35 +53,35 @@ public sealed class GitHubAdapterTests
     public async Task Open_creates_a_draft_pr_when_no_open_pr_has_the_head()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, SearchPath, Reply.Json(HttpStatusCode.OK, "[]"));
-        h.Http.Route(HttpMethod.Post, PullsPath, Reply.Json(HttpStatusCode.Created, PullJson(42, HeadSha)));
+        h.Http.Route(HttpMethod.Get, _searchPath, Reply.Json(HttpStatusCode.OK, "[]"));
+        h.Http.Route(HttpMethod.Post, _pullsPath, Reply.Json(HttpStatusCode.Created, PullJson(42, _headSha)));
 
-        var pr = await h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None);
+        var pr = await h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None);
 
         Assert.Equal(42, pr.Pr.Number);
-        Assert.Equal(Installation, pr.Pr.InstallationId);
+        Assert.Equal(_installation, pr.Pr.InstallationId);
         Assert.Equal("PR_kwDO42", pr.NodeId);
-        Assert.Equal(HeadSha, pr.HeadSha);
+        Assert.Equal(_headSha, pr.HeadSha);
         Assert.True(pr.Draft);
 
         var post = Assert.Single(h.Http.Requests, r => r.Method == "POST");
-        Assert.Equal($"Bearer {Token}", post.Authorization);
+        Assert.Equal($"Bearer {_token}", post.Authorization);
         using var body = JsonDocument.Parse(post.Body!);
         Assert.True(body.RootElement.GetProperty("draft").GetBoolean());
         Assert.Equal("agent/x", body.RootElement.GetProperty("head").GetString());
         Assert.Equal("main", body.RootElement.GetProperty("base").GetString());
         Assert.Equal("Add x", body.RootElement.GetProperty("title").GetString());
 
-        Assert.Equal(Installation, Assert.Single(h.Tokens.Scopes).InstallationId);
+        Assert.Equal(_installation, Assert.Single(h.Tokens.Scopes).InstallationId);
     }
 
     [Fact]
     public async Task Open_returns_the_existing_pr_without_posting()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, SearchPath, Reply.Json(HttpStatusCode.OK, $"[{PullJson(9, HeadSha)}]"));
+        h.Http.Route(HttpMethod.Get, _searchPath, Reply.Json(HttpStatusCode.OK, $"[{PullJson(9, _headSha)}]"));
 
-        var pr = await h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None);
+        var pr = await h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None);
 
         Assert.Equal(9, pr.Pr.Number);
         Assert.Single(h.Http.Requests);
@@ -92,13 +92,13 @@ public sealed class GitHubAdapterTests
     public async Task Conditional_read_sends_etag_and_returns_cached_body_on_304()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, PullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, HeadSha), ("ETag", "\"pr-1\"")));
-        h.Http.Route(HttpMethod.Get, FilesPath, Reply.Json(HttpStatusCode.OK, FilesJson, ("ETag", "\"files-1\"")));
-        h.Http.Route(HttpMethod.Get, PullsPath + "/42", Reply.NotModified("\"pr-1\""));
-        h.Http.Route(HttpMethod.Get, FilesPath, Reply.NotModified("\"files-1\""));
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha), ("ETag", "\"pr-1\"")));
+        h.Http.Route(HttpMethod.Get, _filesPath, Reply.Json(HttpStatusCode.OK, _filesJson, ("ETag", "\"files-1\"")));
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.NotModified("\"pr-1\""));
+        h.Http.Route(HttpMethod.Get, _filesPath, Reply.NotModified("\"files-1\""));
 
-        var first = await h.Adapter.GetPrFilesAsync(Pr, HeadSha, CancellationToken.None);
-        var second = await h.Adapter.GetPrFilesAsync(Pr, HeadSha, CancellationToken.None);
+        var first = await h.Adapter.GetPrFilesAsync(_pr, _headSha, CancellationToken.None);
+        var second = await h.Adapter.GetPrFilesAsync(_pr, _headSha, CancellationToken.None);
 
         Assert.Equal("src/a.cs", Assert.Single(first).Path);
         var cachedFile = Assert.Single(second);
@@ -117,12 +117,12 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(
             HttpMethod.Get,
-            SearchPath,
+            _searchPath,
             Reply.Json(HttpStatusCode.Forbidden, """{"message": "You have exceeded a secondary rate limit."}""", ("Retry-After", "2")),
             Reply.Json(HttpStatusCode.OK, "[]"));
-        h.Http.Route(HttpMethod.Post, PullsPath, Reply.Json(HttpStatusCode.Created, PullJson(7, HeadSha)));
+        h.Http.Route(HttpMethod.Post, _pullsPath, Reply.Json(HttpStatusCode.Created, PullJson(7, _headSha)));
 
-        var pr = await h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None);
+        var pr = await h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None);
 
         Assert.Equal(7, pr.Pr.Number);
         Assert.Equal(TimeSpan.FromSeconds(2), Assert.Single(h.Time.Delays));
@@ -137,7 +137,7 @@ public sealed class GitHubAdapterTests
         var resetUnix = reset.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
         h.Http.Route(
             HttpMethod.Get,
-            SearchPath,
+            _searchPath,
             Reply.Json(
                 HttpStatusCode.TooManyRequests,
                 """{"message": "API rate limit exceeded"}""",
@@ -145,15 +145,15 @@ public sealed class GitHubAdapterTests
                 ("x-ratelimit-remaining", "0"),
                 ("x-ratelimit-reset", resetUnix)));
 
-        var first = await Assert.ThrowsAsync<GitHubRateLimitedException>(() => h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None));
+        var first = await Assert.ThrowsAsync<GitHubRateLimitedException>(() => h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None));
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(reset.ToUnixTimeSeconds()), first.ResetAt);
-        Assert.Equal(Installation, first.InstallationId);
+        Assert.Equal(_installation, first.InstallationId);
         Assert.Equal(HttpStatusCode.TooManyRequests, first.StatusCode);
         Assert.Empty(h.Time.Delays);
         Assert.Single(h.Http.Requests);
 
         // The window is now at 100%, so the next read is deferred without touching GitHub.
-        var second = await Assert.ThrowsAsync<GitHubRateLimitedException>(() => h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None));
+        var second = await Assert.ThrowsAsync<GitHubRateLimitedException>(() => h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None));
         Assert.Equal(first.ResetAt, second.ResetAt);
         Assert.Single(h.Http.Requests);
     }
@@ -164,13 +164,13 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(
             HttpMethod.Get,
-            SearchPath,
+            _searchPath,
             Reply.Json(HttpStatusCode.ServiceUnavailable, "{}"),
             Reply.Json(HttpStatusCode.BadGateway, "{}"),
             Reply.Json(HttpStatusCode.OK, "[]"));
-        h.Http.Route(HttpMethod.Post, PullsPath, Reply.Json(HttpStatusCode.Created, PullJson(5, HeadSha)));
+        h.Http.Route(HttpMethod.Post, _pullsPath, Reply.Json(HttpStatusCode.Created, PullJson(5, _headSha)));
 
-        var pr = await h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None);
+        var pr = await h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None);
 
         Assert.Equal(5, pr.Pr.Number);
         Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)], h.Time.Delays);
@@ -182,13 +182,13 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(
             HttpMethod.Get,
-            SearchPath,
+            _searchPath,
             Reply.Json(HttpStatusCode.InternalServerError, """{"message": "boom"}"""),
             Reply.Json(HttpStatusCode.InternalServerError, """{"message": "boom"}"""),
             Reply.Json(HttpStatusCode.InternalServerError, """{"message": "boom"}"""),
             Reply.Json(HttpStatusCode.InternalServerError, """{"message": "boom"}"""));
 
-        var ex = await Assert.ThrowsAsync<GitHubApiException>(() => h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<GitHubApiException>(() => h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None));
 
         Assert.Equal(HttpStatusCode.InternalServerError, ex.StatusCode);
         Assert.Equal("boom", ex.GitHubMessage);
@@ -200,13 +200,13 @@ public sealed class GitHubAdapterTests
     public async Task Stale_head_sha_is_rejected_before_the_files_are_read()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, PullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, OldSha)));
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _oldSha)));
 
-        var ex = await Assert.ThrowsAsync<GitHubStaleHeadException>(() => h.Adapter.GetPrFilesAsync(Pr, HeadSha, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<GitHubStaleHeadException>(() => h.Adapter.GetPrFilesAsync(_pr, _headSha, CancellationToken.None));
 
         Assert.Equal(42, ex.PullNumber);
-        Assert.Equal(HeadSha, ex.ExpectedHeadSha);
-        Assert.Equal(OldSha, ex.ActualHeadSha);
+        Assert.Equal(_headSha, ex.ExpectedHeadSha);
+        Assert.Equal(_oldSha, ex.ActualHeadSha);
         Assert.Single(h.Http.Requests);
     }
 
@@ -216,15 +216,15 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(
             HttpMethod.Get,
-            SearchPath,
-            Reply.Json(HttpStatusCode.UnprocessableEntity, $$"""{"message": "Validation Failed: bad credential {{Token}}"}"""));
+            _searchPath,
+            Reply.Json(HttpStatusCode.UnprocessableEntity, $$"""{"message": "Validation Failed: bad credential {{_token}}"}"""));
 
-        var ex = await Assert.ThrowsAsync<GitHubApiException>(() => h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<GitHubApiException>(() => h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None));
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, ex.StatusCode);
-        Assert.DoesNotContain(Token, ex.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(Token, ex.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain(Token, ex.GitHubMessage ?? string.Empty, StringComparison.Ordinal);
+        Assert.DoesNotContain(_token, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_token, ex.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(_token, ex.GitHubMessage ?? string.Empty, StringComparison.Ordinal);
         Assert.Contains("[redacted]", ex.Message, StringComparison.Ordinal);
     }
 
@@ -234,16 +234,16 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(
             HttpMethod.Put,
-            PullsPath + "/42/merge",
-            Reply.Json(HttpStatusCode.OK, $$"""{"merged": true, "sha": "{{HeadSha}}", "message": "Merged"}"""));
-        const string message = "Body of the change\n\nSigned-off-by: Owner <owner@example.test>";
+            _pullsPath + "/42/merge",
+            Reply.Json(HttpStatusCode.OK, $$"""{"merged": true, "sha": "{{_headSha}}", "message": "Merged"}"""));
+        const string message = "Body of the change\n\nSigned-off-by: _owner <owner@example.test>";
 
-        await h.Adapter.SquashMergeAsync(Pr, new MergeRequest(HeadSha, "Add x (#42)", message), CancellationToken.None);
+        await h.Adapter.SquashMergeAsync(_pr, new MergeRequest(_headSha, "Add x (#42)", message), CancellationToken.None);
 
         var put = Assert.Single(h.Http.Requests);
         using var body = JsonDocument.Parse(put.Body!);
         Assert.Equal("squash", body.RootElement.GetProperty("merge_method").GetString());
-        Assert.Equal(HeadSha, body.RootElement.GetProperty("sha").GetString());
+        Assert.Equal(_headSha, body.RootElement.GetProperty("sha").GetString());
         Assert.Equal("Add x (#42)", body.RootElement.GetProperty("commit_title").GetString());
         Assert.Equal(message, body.RootElement.GetProperty("commit_message").GetString());
         Assert.Equal("write", Assert.Single(h.Tokens.Scopes).Permissions["contents"]);
@@ -253,28 +253,28 @@ public sealed class GitHubAdapterTests
     public async Task Squash_merge_fails_when_github_does_not_confirm_the_merge()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Put, PullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": false}"""));
+        h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": false}"""));
 
         await Assert.ThrowsAsync<GitHubApiException>(() =>
-            h.Adapter.SquashMergeAsync(Pr, new MergeRequest(HeadSha, "t", "m"), CancellationToken.None));
+            h.Adapter.SquashMergeAsync(_pr, new MergeRequest(_headSha, "t", "m"), CancellationToken.None));
     }
 
     [Fact]
     public async Task Review_pins_the_head_sha_and_rejects_unknown_events()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Post, PullsPath + "/42/reviews", Reply.Json(HttpStatusCode.OK, """{"id": 1}"""));
+        h.Http.Route(HttpMethod.Post, _pullsPath + "/42/reviews", Reply.Json(HttpStatusCode.OK, """{"id": 1}"""));
 
-        await h.Adapter.PostReviewAsync(Pr, new ReviewRequest(HeadSha, "COMMENT", "Looks fine"), CancellationToken.None);
+        await h.Adapter.PostReviewAsync(_pr, new ReviewRequest(_headSha, "COMMENT", "Looks fine"), CancellationToken.None);
 
         var post = Assert.Single(h.Http.Requests);
         using var body = JsonDocument.Parse(post.Body!);
-        Assert.Equal(HeadSha, body.RootElement.GetProperty("commit_id").GetString());
+        Assert.Equal(_headSha, body.RootElement.GetProperty("commit_id").GetString());
         Assert.Equal("COMMENT", body.RootElement.GetProperty("event").GetString());
         Assert.Equal("Looks fine", body.RootElement.GetProperty("body").GetString());
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            h.Adapter.PostReviewAsync(Pr, new ReviewRequest(HeadSha, "PENDING", "x"), CancellationToken.None));
+            h.Adapter.PostReviewAsync(_pr, new ReviewRequest(_headSha, "PENDING", "x"), CancellationToken.None));
         Assert.Single(h.Http.Requests);
     }
 
@@ -282,17 +282,17 @@ public sealed class GitHubAdapterTests
     public async Task Files_follow_pagination_links_on_the_configured_host()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, PullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, HeadSha)));
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
         h.Http.Route(
             HttpMethod.Get,
-            FilesPath,
-            Reply.Json(HttpStatusCode.OK, FilesJson, ("Link", "<https://api.test/repos/codex-alchemist-dev/bazaar/pulls/42/files?per_page=100&page=2>; rel=\"next\"")));
+            _filesPath,
+            Reply.Json(HttpStatusCode.OK, _filesJson, ("Link", "<https://api.test/repos/codex-alchemist-dev/bazaar/pulls/42/files?per_page=100&page=2>; rel=\"next\"")));
         h.Http.Route(
             HttpMethod.Get,
             "/repos/codex-alchemist-dev/bazaar/pulls/42/files?per_page=100&page=2",
-            Reply.Json(HttpStatusCode.OK, FilesJson));
+            Reply.Json(HttpStatusCode.OK, _filesJson));
 
-        var files = await h.Adapter.GetPrFilesAsync(Pr, HeadSha, CancellationToken.None);
+        var files = await h.Adapter.GetPrFilesAsync(_pr, _headSha, CancellationToken.None);
 
         Assert.Equal(2, files.Count);
         Assert.Equal(3, h.Http.Requests.Count);
@@ -302,13 +302,13 @@ public sealed class GitHubAdapterTests
     public async Task Pagination_link_off_the_configured_host_is_refused_and_never_fetched()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, PullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, HeadSha)));
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
         h.Http.Route(
             HttpMethod.Get,
-            FilesPath,
-            Reply.Json(HttpStatusCode.OK, FilesJson, ("Link", "<https://evil.example/files>; rel=\"next\"")));
+            _filesPath,
+            Reply.Json(HttpStatusCode.OK, _filesJson, ("Link", "<https://evil.example/files>; rel=\"next\"")));
 
-        await Assert.ThrowsAsync<GitHubApiException>(() => h.Adapter.GetPrFilesAsync(Pr, HeadSha, CancellationToken.None));
+        await Assert.ThrowsAsync<GitHubApiException>(() => h.Adapter.GetPrFilesAsync(_pr, _headSha, CancellationToken.None));
 
         Assert.All(h.Http.Requests, r => Assert.StartsWith("https://api.test/", r.Url, StringComparison.Ordinal));
         Assert.Equal(2, h.Http.Requests.Count);
@@ -321,16 +321,16 @@ public sealed class GitHubAdapterTests
         var reset = h.Time.Now.AddHours(1).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
         h.Http.Route(
             HttpMethod.Get,
-            SearchPath,
+            _searchPath,
             Reply.Json(
                 HttpStatusCode.OK,
                 "[]",
                 ("x-ratelimit-limit", "5000"),
                 ("x-ratelimit-remaining", "1400"),
                 ("x-ratelimit-reset", reset)));
-        h.Http.Route(HttpMethod.Post, PullsPath, Reply.Json(HttpStatusCode.Created, PullJson(3, HeadSha)));
+        h.Http.Route(HttpMethod.Post, _pullsPath, Reply.Json(HttpStatusCode.Created, PullJson(3, _headSha)));
 
-        var pr = await h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None);
+        var pr = await h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None);
 
         Assert.Equal(3, pr.Pr.Number);
         Assert.Contains(h.Logs.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("72%", StringComparison.Ordinal));
@@ -340,9 +340,9 @@ public sealed class GitHubAdapterTests
     public async Task Reads_defer_locally_at_90_percent_without_calling_github()
     {
         var h = Build();
-        await h.Rates.SetAsync(Installation, new GitHubRateSnapshot(5000, 400, h.Time.Now.AddMinutes(30)), CancellationToken.None);
+        await h.Rates.SetAsync(_installation, new GitHubRateSnapshot(5000, 400, h.Time.Now.AddMinutes(30)), CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<GitHubRateLimitedException>(() => h.Adapter.OpenDraftPrAsync(OpenRequest, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<GitHubRateLimitedException>(() => h.Adapter.OpenDraftPrAsync(_openRequest, CancellationToken.None));
 
         Assert.Equal(h.Time.Now.AddMinutes(30), ex.ResetAt);
         Assert.Empty(h.Http.Requests);
@@ -355,7 +355,7 @@ public sealed class GitHubAdapterTests
 
         Assert.Throws<ArgumentException>(() => new GitHubAdapter(
             new HttpClient(new ScriptedHttpHandler()),
-            new StubTokenProvider(Token),
+            new StubTokenProvider(_token),
             new InMemoryGitHubRateState(),
             options,
             new CapturingLogger<GitHubAdapter>()));
