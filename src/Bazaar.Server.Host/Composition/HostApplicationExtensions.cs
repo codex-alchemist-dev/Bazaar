@@ -1,6 +1,8 @@
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Wire;
+using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Wire.Connection;
@@ -27,12 +29,19 @@ public static class HostApplicationExtensions
         services.AddBazaarSync(configuration);
         services.AddBazaarGcWire();
         services.AddBazaarAgentSafety();
-        services.AddBazaarSettings();
         services.AddBazaarGateway();
         services.AddBazaarAgentResponder(configuration);
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
-        services.AddBazaarComponents(configuration, [new KanbanComponent()]);
+        services.AddBazaarComponents(configuration, HostComponents());
         return services;
     }
+
+    /// <summary>The first-party components the host composes, in any order. The kernel orders them by their manifests.</summary>
+    internal static IBazaarComponent[] HostComponents() =>
+    [
+        new AuditComponent(),
+        new SettingsComponent(),
+        new KanbanComponent(),
+    ];
 }
