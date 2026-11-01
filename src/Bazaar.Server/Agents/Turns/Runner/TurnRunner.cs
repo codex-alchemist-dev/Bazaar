@@ -272,7 +272,7 @@ public sealed class TurnRunner : ITurnRunner
             }
 
             if (prior.Status is not TurnStepStatus.Abandoned || !prior.Idempotent)
-                return (null, UnknownContent);
+                return (null, _unknownContent);
             // An abandoned idempotent call is re-issued below.
         }
 
@@ -410,11 +410,11 @@ public sealed class TurnRunner : ITurnRunner
             ? "The tool call was denied by policy and did not run."
             : $"The tool call was denied by policy and did not run: {reason}",
         ToolDispatchOutcome.PendingApproval => "The tool call needs owner approval and did not run.",
-        ToolDispatchOutcome.Unknown => UnknownContent,
+        ToolDispatchOutcome.Unknown => _unknownContent,
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown tool dispatch outcome."),
     };
 
-    private const string UnknownContent =
+    private const string _unknownContent =
         "The tool call was in flight when the runtime restarted and is not idempotent, so it was not run again. " +
         "Whether it took effect is unknown; do not assume it succeeded or failed.";
 
