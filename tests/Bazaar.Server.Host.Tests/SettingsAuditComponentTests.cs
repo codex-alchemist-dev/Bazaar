@@ -28,7 +28,7 @@ public sealed class SettingsAuditComponentTests
     [Fact]
     public void Host_component_ids_are_unique()
     {
-        var ids = HostApplicationExtensions.HostComponents().Select(c => c.Manifest.Id).ToList();
+        var ids = HostComponents.All.Select(c => c.Manifest.Id).ToList();
 
         Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
     }
@@ -39,7 +39,7 @@ public sealed class SettingsAuditComponentTests
         Assert.Equal(["audit"], SettingsComponent.ManifestDefinition.DependsOn);
         Assert.Empty(AuditComponent.ManifestDefinition.DependsOn);
 
-        var order = ComponentGraph.Order(HostApplicationExtensions.HostComponents().Select(c => c.Manifest)).Select(m => m.Id).ToList();
+        var order = ComponentGraph.Order(HostComponents.All.Select(c => c.Manifest)).Select(m => m.Id).ToList();
 
         Assert.True(order.IndexOf("audit") < order.IndexOf("settings"));
     }
