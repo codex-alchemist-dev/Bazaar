@@ -224,8 +224,11 @@ public sealed class GitWorkspace
     private static bool PathsEqual(string candidate, string expected)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return string.Equals(Path.GetFullPath(candidate), Path.GetFullPath(expected), comparison);
+        return string.Equals(Canonical(candidate), Canonical(expected), comparison);
     }
+
+    private static string Canonical(string path) =>
+        Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     private static Uri? ReadOriginUri(string worktreePath)
     {

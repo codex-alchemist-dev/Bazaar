@@ -8,13 +8,19 @@ public sealed class GitWorkspaceTests : IDisposable
 {
     private static readonly GitIdentity _bot = new("codex-alchemist-dev[bot]", "1+codex-alchemist-dev[bot]@users.noreply.github.com");
 
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "bazaar-wp7-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bazaar-wp7-" + Guid.NewGuid().ToString("N")));
     private readonly FakeGitProvider _git = new();
 
     public void Dispose()
     {
         if (Directory.Exists(_root))
         {
+            // libgit2 writes loose objects read-only, which makes a plain recursive delete fail on Windows.
+            foreach (var file in Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories))
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+            }
+
             Directory.Delete(_root, recursive: true);
         }
     }
@@ -179,20 +185,16 @@ public sealed class GitWorkspaceTests : IDisposable
         const string secret = "ghs_SECRET_do_not_leak_0123";
         var ct = TestContext.Current.CancellationToken;
         var workspace = CreateWorkspace();
-        var worktreePath = Path.Combine(_root, "worktrees", "repo-a", "task-1");
+        // A separate task per origin, so no repository is deleted between iterations.
+        var cases = new[] { ("task-1", "https://evil.example/owner/repo.git"), ("task-2", "http://github.com/owner/repo.git") };
 
-        foreach (var origin in new[] { "https://evil.example/owner/repo.git", "http://github.com/owner/repo.git" })
+        foreach (var (taskId, origin) in cases)
         {
-            if (Directory.Exists(worktreePath))
-            {
-                Directory.Delete(worktreePath, recursive: true);
-            }
-
-            InitRepo(worktreePath, origin);
+            InitRepo(Path.Combine(_root, "worktrees", "repo-a", taskId), origin);
             var credentialRequested = false;
 
             var error = await Assert.ThrowsAsync<GitWorkspaceException>(() => workspace.PushAsync(
-                Worktree("repo-a", "task-1"),
+                Worktree("repo-a", taskId),
                 _ =>
                 {
                     credentialRequested = true;
