@@ -48,3 +48,26 @@ Above `constellation.node_cap`, the server sends clusters only (doc 19), so the 
 - S14 on the owner's PC: Skia baseline and Vulkan numbers at 5k, 10k and 100k visible items.
 - Android device numbers.
 - Accessibility plan for the Vulkan canvas: the parallel accessible list must cover every canvas item.
+
+## Why Avalonia, what it costs, and what Vulkan-only would rebuild
+
+**Why Avalonia was chosen (DECIDED, Bazaar.Windows §2, 2026-10-24).** One .NET codebase for Windows, Android and Linux, replacing WinUI 3 plus Jetpack Compose. The deciding factor was headless testing: `Avalonia.Headless` runs layout, render and input to an in-memory bitmap, so agents can verify UI changes without a display. WinUI 3 depends on the Windows compositor. Avalonia also ships Android and Linux backends from one stack.
+
+**Licence and cost (recorded facts, one search, not a legal review).**
+- The framework core is MIT (Avalonia's own blog, secondary source).
+- Paid parts are the Accelerate and Pro tier: premium controls, the `NativeWebView` component and the Visual Studio extension. Its pricing pages conflict (a $49/month Pro tier, per-seat and rent-to-own options), so current prices need checking on avaloniaui.net/pricing before any decision.
+- The public build is OSI-only with no paid Avalonia components (DECISIONS-LOG C23). So the cost to Bazaar today is zero, and the real constraint is "do not use Accelerate or Pro components". Monaco hosting (C26) is the open gate, and no free route puts Monaco in an Avalonia WebView.
+
+**What a Vulkan-only UI would have to rebuild** (each is per-OS work, not a single library):
+- Windowing and input: a thin layer such as SDL3 or Silk.NET windowing (both MIT or zlib-style). Plus touch, pen and keyboard routing per OS.
+- Text layout and shaping: HarfBuzz with FreeType, or SkiaSharp's text stack under Vulkan. Bidi and font fallback are extra work.
+- IME: TSF on Windows, IBus or fcitx on Linux, the input method framework on Android. This is the largest single risk.
+- Accessibility: UI Automation on Windows, AT-SPI on Linux, AccessibilityNodeInfo on Android. A drawn surface needs a parallel accessible tree on each.
+- Layout, controls and theming: flex and grid layout, focus and keyboard navigation, dialogs, forms, and a theme driver. This is most of Avalonia's value.
+
+**Cheap options if the owner wants to drop Avalonia.**
+1. Keep Avalonia for chrome and text panes (the current split), and draw the knowledge canvas with Vulkan. This is the recommended path.
+2. Replace only the Avalonia paid parts with free or MIT equivalents, if any paid part is ever needed. This is cheaper than a rewrite.
+3. A Vulkan-only UI on a thin windowing layer plus an existing text stack. Viable on Windows and Linux, but IME and accessibility on all three OSes take most of the effort, and Android is the weakest.
+
+**Recommendation.** Do not drop Avalonia on licence grounds alone. The public build uses only its MIT core (C23), so there is no paid cost to avoid today. Keep the split above: Vulkan for the Constellation, Avalonia for chrome, Kanban and text. Revisit only if the core licence changes or Avalonia fails the S14 or headless-test budgets. The owner should confirm current Avalonia pricing before any licence-driven decision.
