@@ -83,7 +83,10 @@ public enum TurnEndReason
 /// <summary>Result of running one turn loop, including subagent children (doc 06 WP5, WP8).</summary>
 public sealed record TurnOutcome(Guid TurnId, TurnEndReason Reason, string? Summary, int StepCount);
 
-/// <summary>Parameters for one run. A subagent child sets <see cref="ParentTurnId"/> and <see cref="Depth"/>.</summary>
+/// <summary>
+/// Parameters for one run. A subagent child sets <see cref="ParentTurnId"/> and <see cref="Depth"/>.
+/// <see cref="StepCapOverride"/> lowers the step ceiling for this run only; null keeps the runner's configured cap.
+/// </summary>
 public sealed record TurnRunRequest(
     Guid AgentId,
     Guid SessionId,
@@ -96,7 +99,8 @@ public sealed record TurnRunRequest(
     Guid? ParentTurnId = null,
     int Depth = 0,
     string? TriggerGcId = null,
-    long? TriggerGcSeq = null);
+    long? TriggerGcSeq = null,
+    int? StepCapOverride = null);
 
 /// <summary>Runs one turn loop for an agent: claim, assemble, call the model, dispatch, post, commit (doc 06 "Turn loop").</summary>
 public interface ITurnRunner
