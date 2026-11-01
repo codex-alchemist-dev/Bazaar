@@ -202,11 +202,18 @@ public sealed class ModelGateway : IModelGateway
                 }
             }
 
+            if (retryable is not null)
+            {
+                // The failure just reported may have blocked this candidate, so the capacity check below sees it now.
+                skips.Add(AfterFailure(candidate.Model, key, candidate.Family));
+            }
+
             lastFailure = retryable;
         }
 
         if (lastFailure is not null)
         {
+            PublishIfExhausted(request.AgentId, skips);
             yield return lastFailure;
             yield break;
         }
@@ -217,6 +224,32 @@ public sealed class ModelGateway : IModelGateway
     private ModelEvent.Failure NoCapacity(string agentId, List<Skip> skips)
     {
         var now = _time.GetUtcNow();
+        var earliest = Earliest(skips);
+        PublishIfExhausted(agentId, skips);
+
+        int? retryAfter = earliest is { } at ? Math.Max(1, (int)Math.Ceiling((at - now).TotalSeconds)) : null;
+        var detail = skips.Count == 0
+            ? "The route has no usable candidate."
+            : string.Join("; ", skips.Select(s => s.Describe()));
+        return new ModelEvent.Failure("no_capacity", $"No candidate can take the call: {detail}.", retryAfter);
+    }
+
+    /// <summary>
+    /// Publishes that the agent is unavailable, once, when every candidate is blocked by quota or health. A candidate
+    /// skipped for configuration, or one that failed without being blocked, keeps the agent available.
+    /// </summary>
+    private void PublishIfExhausted(string agentId, List<Skip> skips)
+    {
+        if (skips.Count == 0 || !skips.All(s => s.Kind is SkipKind.Quota or SkipKind.Health) || !SetPublished(agentId, available: false))
+        {
+            return;
+        }
+
+        Publish(new AgentCapacityChanged(agentId, false, Earliest(skips), skips[^1].State ?? QuotaState.Down));
+    }
+
+    private static DateTimeOffset? Earliest(List<Skip> skips)
+    {
         DateTimeOffset? earliest = null;
         foreach (var skip in skips)
         {
@@ -226,17 +259,20 @@ public sealed class ModelGateway : IModelGateway
             }
         }
 
-        // A capacity change is reported only when every candidate was blocked by quota or health, not by configuration.
-        if (skips.Count > 0 && skips.All(s => s.Kind != SkipKind.Config) && SetPublished(agentId, available: false))
+        return earliest;
+    }
+
+    /// <summary>How a candidate that just failed retryably stands now: blocked by its quota or breaker, or only failed.</summary>
+    private Skip AfterFailure(ModelRef model, ProviderKey key, string modelClass)
+    {
+        if (_quota.BlockedState(key, modelClass) is { } state)
         {
-            Publish(new AgentCapacityChanged(agentId, false, earliest, skips[^1].State ?? QuotaState.Down));
+            return Skip.Blocked(SkipKind.Quota, model, state, _quota.BlockedUntil(key, modelClass));
         }
 
-        int? retryAfter = earliest is { } at ? Math.Max(1, (int)Math.Ceiling((at - now).TotalSeconds)) : null;
-        var detail = skips.Count == 0
-            ? "The route has no usable candidate."
-            : string.Join("; ", skips.Select(s => s.Describe()));
-        return new ModelEvent.Failure("no_capacity", $"No candidate can take the call: {detail}.", retryAfter);
+        return _health.IsAvailable(key)
+            ? new Skip(SkipKind.Failed, model, "its call failed", null, null)
+            : Skip.Blocked(SkipKind.Health, model, QuotaState.Down, null);
     }
 
     private async ValueTask<(Ready? Ready, Skip? Skip)> PrepareAsync(RouteCandidate candidate, CancellationToken ct)
@@ -475,6 +511,8 @@ public sealed class ModelGateway : IModelGateway
         Config,
         Quota,
         Health,
+        // Tried in this call and failed without a block: the agent still has capacity.
+        Failed,
     }
 
     private sealed record Skip(SkipKind Kind, ModelRef Model, string Reason, QuotaState? State, DateTimeOffset? Until)
