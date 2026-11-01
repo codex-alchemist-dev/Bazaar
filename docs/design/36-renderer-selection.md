@@ -1,53 +1,50 @@
-# Renderer selection: Kanban, Vault canvas, Constellation and the whole UI
+# Renderer selection: the Constellation, Kanban and the chrome
 
-Status: PROPOSED (2026-11-01), split accepted under the owner's delegated authority. Owner, 2026-11-01: the Vault and the Constellation are the same thing. Doc 19 and `Bazaar.Constellation.md` §1 are updated to match. Record in `DECISIONS-LOG.md` on the next round.
+Status: PROPOSED (2026-11-01). Split accepted under the owner's delegated authority. Doc 19 and `Bazaar.Constellation.md` §1 match this doc. Record in `DECISIONS-LOG.md` on the next round.
 
-## Question
+## Decision
 
-Should Kanban and the Vault canvas render on Vulkan for speed, or is Avalonia enough? Should the whole UI move to Vulkan on every platform?
+- **The Constellation is the primary knowledge surface and renders on Vulkan across clients.** It is the Obsidian and Milanote replacement: notes, canvas, the Vault's links, agent memory and related items. Owner, 2026-11-01: it is the whole knowledge workspace, not a side graph view. It draws through the renderer behind `IConstellationRenderer` (#173), with Skia through Avalonia as the fallback where Vulkan is unavailable.
+- **Avalonia stays for chrome, Kanban and text-heavy editing panes.** Kanban is a separate screen (doc 12) and stays on Avalonia unless a measurement says otherwise.
+- **Monaco stays separate.** It is an embedded web component (WebView2, WebKitGTK on Linux), not drawn by either renderer. Android never uses Monaco.
+- **No full-Vulkan UI.** Menus, dialogs, settings, forms and the theme stay on Avalonia.
 
-## Recommendation
+## Why Vulkan for the Constellation
 
-1. **Avalonia for all ordinary UI, including Kanban and the Vault canvas.** Cards, columns, sticky notes, images and text boxes are retained controls. Avalonia virtualises them, so drawing cost follows what is on screen. Vulkan would add a second rendering stack for no visible gain at these sizes.
-2. **Vulkan for the Constellation, which is the Vault's primary visual surface** (and the Git Solar System, which reuses its renderer). Dense point and edge drawing is the one workload where a GPU path pays off. Vulkan with GPU instancing is the primary path (owner, 2026-10-30, for all clients), and Skia through Avalonia is the fallback where Vulkan is unavailable, behind `IConstellationRenderer` (#173, owner 2026-11-01).
+- Its contents are dense and it zooms and pans continuously: documents, canvas items, links, memory notes and graph edges. Doc 19 sets the budget at 60 fps for 5,000 to 10,000 visible nodes on the PC, with cluster level-of-detail above `constellation.node_cap` (default 10,000). The GPU path is for cases Skia cannot hold.
+- The server does layout and aggregation (doc 19). The client draws the frame it is sent.
 
-**The Vault's visual surface is Vulkan.** The Vault (doc 18) is Markdown in git with a wiki-link index, and the Constellation is its visual surface, so the Vault is on Vulkan through the Constellation. Editing panes, Kanban and chrome stay on Avalonia.
-3. **No full-Vulkan UI.** A Vulkan UI would replace Avalonia's layout, text, input, accessibility and theming, which the theme file and key router depend on. Monaco is a separate hosted component (WebView2 or WebKitGTK), so it does not decide this either way.
+## Costs of Vulkan to manage (flagged as the owner asked)
 
-## Why Avalonia is enough for Kanban and the Vault canvas
+- **Text editing.** Vulkan has no text layout, input method or caret. Note bodies are edited in an Avalonia text pane or a Monaco pane. Only rendered labels, previews and canvas text go through Vulkan, and they need their own glyph atlas and shaping path.
+- **Accessibility.** Screen readers and keyboard focus use the Avalonia accessibility tree. A Vulkan-drawn canvas has none, so the Constellation needs a parallel accessible list of its visible items (`AccessibleNodeList` in `Bazaar.Client.Core` already covers part of this). Every item reachable by mouse must be reachable by keyboard and through that list.
+- **Input and hit-testing.** Pointer, touch, IME and keyboard routing go through Avalonia and are passed to the Vulkan control. Hit-testing uses the spatial grid in doc 19.
+- **Theming.** The one theme file drives Avalonia and Monaco (CLAUDE.md). The Vulkan renderer reads the same tokens, so colours and fonts come from that file.
+- **Drivers and devices.** GPU behaviour varies by driver, and CI has no GPU. The Skia fallback must stay complete and tested. The GPU path is verified on the owner's PC.
+- **Two drawing paths.** Golden-image tests run on Skia in Avalonia.Headless. The Vulkan path runs on a software Vulkan device in CI where one exists, and on the PC for real frame numbers.
 
-- Kanban is a dependency board (doc 12): columns of cards plus dependency lines. A busy company has hundreds of open cards, not millions. Virtualised lists and a few hundred edges are well inside Avalonia's budget.
-- The Vault canvas is a freeform board of Vault documents, images and links (Obsidian, Kanban and Milanote-style). Its items are interactive controls with text, so Avalonia is the right tool. Its wiki-link graph view is not a separate canvas: it is the Constellation (doc 18, Constellation s1 and s3), so it takes the Constellation rules below.
-- Only Vault graph views with large node counts need the GPU path.
+## Thresholds to revisit the split
 
-## When to switch a surface to Vulkan (thresholds)
+Starting points only. S14 (doc 35) measures them on the owner's PC. Android numbers are still owed.
 
-These are starting points to measure against, not settled values. Spike S14 (doc 35) measures them on the owner's Windows PC, and the Android numbers are still owed.
-
-| Surface | Stay on Avalonia until | Switch to Vulkan when |
+| Surface | Current choice | Revisit when |
 |---|---|---|
-| Kanban board | Always, at realistic sizes | Sustained over 16 ms frames with 5,000+ visible cards or edges after virtualisation |
-| Vault canvas (boards, images, notes) | Under 2,000 visible items with interactive controls | Over 5,000 visible items and frames miss 60 fps after virtualisation. Not applicable if the canvas is the Constellation, which is already Vulkan |
-| Constellation graph (points and edges) | Skia misses 60 fps at 10,000 visible nodes or edges (the S14 budget, doc 19) | Skia misses that budget, or more than 50,000 visible points are needed on the PC after cluster level-of-detail |
-| Whole UI | Never on current evidence | Only if Avalonia itself misses budget on ordinary screens, which no measurement shows so far |
+| Constellation (canvas, graph, memory) | Vulkan, Skia fallback | Vulkan misses the frame budget on the PC or Android at the agreed sizes, or the fallback fails its tests |
+| Kanban board | Avalonia | Sustained over 16 ms frames with 5,000+ visible cards or edges after virtualisation |
+| Text editing panes | Avalonia (or Monaco) | Not moved to Vulkan: text input and accessibility stay on Avalonia |
+| Whole UI | Avalonia for chrome | Only if Avalonia misses the budget on ordinary screens, which no measurement shows so far |
 
-Above the Constellation's `constellation.node_cap` (default 10,000), the server already sends clusters only (doc 19), so the GPU never receives billions of raw points. The server aggregates; the client draws what is in view. Phone limits are lower and need their own measurement.
+Above `constellation.node_cap`, the server sends clusters only (doc 19), so the GPU never receives billions of raw points. Phone limits are lower and need their own measurement.
 
 ## Platforms
 
-- **Windows PC:** Avalonia for editing panes, Kanban and chrome. Vulkan for the Constellation and the Vault's visual surface (primary), Skia fallback.
-- **Linux:** same split. Linux GPU drivers vary, so the Skia fallback must stay complete.
-- **Android:** Avalonia for editing panes, Kanban and chrome. The Constellation and Vault visual surface use Vulkan (primary) with the Skia fallback, but the first release is a read-only drawer (doc 29), and the Android numbers are still owed.
-
-## Costs of Vulkan that the decision must weigh
-
-- Two drawing paths to test (Avalonia.Headless golden images plus a GPU capture path that needs a real driver).
-- Driver and device variance; the CI container has no GPU, so GPU behaviour is verified only on the owner's PC.
-- The current #173 branch has the renderer contract and a Vulkan shell, with no swapchain yet. Keep that scope: the contract and fallback ship first, and the Vulkan path is gated on the S14 result.
+- **Windows PC:** Avalonia for chrome, Kanban and text panes. Vulkan for the Constellation (primary), Skia fallback.
+- **Linux:** same split. GPU drivers vary, so the Skia fallback must stay complete.
+- **Android:** Avalonia for chrome, Kanban and text panes. The Constellation uses Vulkan (primary) with Skia fallback, but its first release is a read-only drawer (doc 29), and the Android numbers are still owed.
 
 ## Open items
 
-- Owner: confirm the split (Avalonia for the UI, Vulkan for the Constellation only) and the thresholds above.
-- S14 on the owner's PC: Skia baseline at 5k and 10k nodes, then Vulkan at 10k, 100k and 1M instanced points.
+- Owner: confirm the revised split.
+- S14 on the owner's PC: Skia baseline and Vulkan numbers at 5k, 10k and 100k visible items.
 - Android device numbers.
-- Update doc 19 and `Bazaar.Constellation.md` §1 once accepted (both currently say Skia DECIDED).
+- Accessibility plan for the Vulkan canvas: the parallel accessible list must cover every canvas item.
