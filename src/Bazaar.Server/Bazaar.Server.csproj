@@ -6,6 +6,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="LibGit2Sharp" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />

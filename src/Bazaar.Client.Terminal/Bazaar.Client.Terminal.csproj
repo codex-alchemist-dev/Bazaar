@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Client.Terminal</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+  </ItemGroup>
+</Project>
