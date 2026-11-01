@@ -34,6 +34,31 @@ using var bench = new NodeBenchmark();
 bench.Initialize(shaders);
 Console.WriteLine($"gpu.name=\"{bench.DeviceName}\" driver={bench.DriverVersion} vulkan={bench.ApiVersion} device_local_gib={(bench.DeviceLocalBytes / (1024.0 * 1024 * 1024)).ToString("F2", CultureInfo.InvariantCulture)}");
 
+if (args.Length > 0 && args[0] == "experiments")
+{
+    // Cliff investigation at 10M resident nodes. Each row varies one thing: draw-call splitting or quad size.
+    bench.UploadNodes(10_000_000);
+    RunExperiment(bench, "single_10M_quad_0.0015", 0, 0.0015f, 10_000_000);
+    RunExperiment(bench, "single_10M_quad_0", 0, 0f, 10_000_000);
+    bench.PointMode = true;
+    RunExperiment(bench, "points_10M", 0, 0f, 10_000_000);
+    bench.PositionScale = 0.1f;
+    RunExperiment(bench, "points_10M_cluster_scale_0.1", 0, 0f, 10_000_000);
+    bench.PositionScale = 0.01f;
+    RunExperiment(bench, "points_10M_cluster_scale_0.01", 0, 0f, 10_000_000);
+    bench.PointMode = false;
+    RunExperiment(bench, "tris_10M_cluster_scale_0.01", 0, 0.0015f, 10_000_000);
+    bench.PositionScale = 1f;
+    RunExperiment(bench, "split_2M_chunks_10M_quad_0.0015", 2_000_000, 0.0015f, 10_000_000);
+    RunExperiment(bench, "split_1M_chunks_10M_quad_0.0015", 1_000_000, 0.0015f, 10_000_000);
+    foreach (int n in new[] { 4_100_000, 4_194_304, 4_200_000, 4_500_000, 5_000_000 })
+    {
+        RunExperiment(bench, $"single_{n}_quad_0.0015", 0, 0.0015f, n);
+    }
+
+    return 0;
+}
+
 // Sweep 1: total node count. The resident window is capped at the 1.5 GiB budget; draws are capped at 2M instances.
 foreach (long total in nodeCounts)
 {
@@ -69,6 +94,16 @@ if (args.Length > 0)
 }
 
 return 0;
+
+static void RunExperiment(NodeBenchmark bench, string label, int chunk, float quad, int instances)
+{
+    bench.DrawChunk = chunk;
+    bench.QuadSize = quad;
+    FrameStats s = bench.Measure(instances, 10, 60);
+    Console.WriteLine(string.Join(',', "experiment", label, instances,
+        s.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), s.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+        s.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), s.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+}
 
 static string Line(string section, long total, long resident, int drawn, double uploadMs, long bytes, bool fits, FrameStats s) =>
     string.Join(',', section, total, resident, drawn, uploadMs.ToString("F1", CultureInfo.InvariantCulture), bytes, fits,

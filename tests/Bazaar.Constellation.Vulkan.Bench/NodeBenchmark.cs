@@ -52,12 +52,25 @@ public sealed unsafe class NodeBenchmark : IDisposable
     private VkDescriptorSet _descriptorSet;
     private VkPipelineLayout _pipelineLayout;
     private VkPipeline _pipeline;
+    private VkPipeline _pointPipeline;
     private VkShaderModule _vertexModule;
     private VkShaderModule _fragmentModule;
 
     private VkBuffer _nodeBuffer;
     private VkDeviceMemory _nodeMemory;
     private long _nodeCount;
+
+    /// <summary>Instances per vkCmdDraw call. 0 draws everything in one call.</summary>
+    public int DrawChunk { get; set; }
+
+    /// <summary>Half-size of each node quad in clip space. 0 makes degenerate triangles (vertex cost only).</summary>
+    public float QuadSize { get; set; } = 0.0015f;
+
+    /// <summary>Scale applied to node positions. 1 spreads nodes over the whole target; small values cluster them.</summary>
+    public float PositionScale { get; set; } = 1f;
+
+    /// <summary>Draw one point per node instead of a quad (two triangles).</summary>
+    public bool PointMode { get; set; }
 
     public string DeviceName { get; private set; } = string.Empty;
     public string DriverVersion { get; private set; } = string.Empty;
@@ -194,17 +207,21 @@ public sealed unsafe class NodeBenchmark : IDisposable
             pColorAttachments = &colorAttachment,
         };
         _deviceApi.vkCmdBeginRendering(_commandBuffer, &renderingInfo);
-        _deviceApi.vkCmdBindPipeline(_commandBuffer, VkPipelineBindPoint.Graphics, _pipeline);
+        _deviceApi.vkCmdBindPipeline(_commandBuffer, VkPipelineBindPoint.Graphics, PointMode ? _pointPipeline : _pipeline);
         VkDescriptorSet set = _descriptorSet;
         _deviceApi.vkCmdBindDescriptorSets(_commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &set, 0, null);
 
         var push = new PushConstants
         {
-            Transform = new Vector4(1.0f, _width / (float)_height, 0f, 0f),
-            Quad = new Vector4(0.0015f, 0f, 0f, 0f),
+            Transform = new Vector4(PositionScale, PositionScale * _width / (float)_height, 0f, 0f),
+            Quad = new Vector4(QuadSize, 0f, 0f, 0f),
         };
         _deviceApi.vkCmdPushConstants(_commandBuffer, _pipelineLayout, VkShaderStageFlags.Vertex, 0, (uint)sizeof(PushConstants), &push);
-        _deviceApi.vkCmdDraw(_commandBuffer, 6, (uint)instanceCount, 0, 0);
+        int chunk = DrawChunk > 0 ? DrawChunk : instanceCount;
+        for (int first = 0; first < instanceCount; first += chunk)
+        {
+            _deviceApi.vkCmdDraw(_commandBuffer, PointMode ? 1u : 6u, (uint)Math.Min(chunk, instanceCount - first), 0, (uint)first);
+        }
         _deviceApi.vkCmdEndRendering(_commandBuffer);
 
         _deviceApi.vkCmdWriteTimestamp(_commandBuffer, VkPipelineStageFlags.BottomOfPipe, _queryPool, 1);
@@ -495,6 +512,12 @@ public sealed unsafe class NodeBenchmark : IDisposable
         VkPipeline pipeline;
         Check(_deviceApi.vkCreateGraphicsPipelines(VkPipelineCache.Null, 1, &pipelineInfo, null, &pipeline), "vkCreateGraphicsPipelines");
         _pipeline = pipeline;
+
+        // Same shaders, one vertex per node: one rasterised point instead of two triangles.
+        inputAssembly.topology = VkPrimitiveTopology.PointList;
+        VkPipeline pointPipeline;
+        Check(_deviceApi.vkCreateGraphicsPipelines(VkPipelineCache.Null, 1, &pipelineInfo, null, &pointPipeline), "vkCreateGraphicsPipelines(points)");
+        _pointPipeline = pointPipeline;
     }
 
     private void UpdateDescriptor()

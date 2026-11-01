@@ -118,3 +118,24 @@ At 1B the whole graph would be 16 GB at 16 bytes per node, so it cannot be resid
 **Not measured yet.** The swapchain and windowed present path (this benchmark renders offscreen). Mesh-shader culling (the extension is present, the path is not used). Compute culling and density splatting, indirect draws, and tile streaming from the server. Atomic-add throughput. Phone numbers (no Android device here).
 
 **Probe note.** The driver string `0.406.842` is the probe's generic decoding of `driverVersion`. The Vulkan SDK reports the raw value `101.9034` for this Intel driver, so the probe's string formatting is wrong for Intel and needs a vendor-aware decode.
+
+### 10.1 Investigation of the cliff above 2M instances (2026-11-01)
+Experiments at 10M resident nodes, `Bazaar.Constellation.Vulkan.Bench experiments`, 60 measured frames each. GPU p50 in ms.
+
+| Experiment | GPU p50 (ms) |
+|---|---|
+| 10M instances, one draw, quads (baseline) | 317.9 |
+| 10M instances, one draw, degenerate quads (vertex work only) | 5.0 |
+| 10M instances, 2M per draw call (same frame) | 317.9 |
+| 10M instances, 1M per draw call (same frame) | 317.9 |
+| 10M instances, one point per node (point list) | 159.6 |
+| Point list, nodes clustered into 10% of the target | 159.6 |
+| Point list, nodes clustered into 1% of the target | 169.1 |
+| Quads, nodes clustered into 1% of the target | 338.2 |
+| Single draw, quads, 4.0M / 4.1M / 4.2M / 4.5M / 5M / 6M / 8M instances | 2.0 / 7.3 / 12.5 / 28.3 / 54.6 / 107.3 / 212.6 |
+
+What this rules out: a per-draw-call limit (splitting does not help), vertex fetch (degenerate quads are cheap), and scattered render-target writes (clustering makes it no faster).
+
+What it suggests, not proven: the cost grows roughly linearly beyond about 4M instances per frame, at about 50 ms per million. A per-frame work budget in the driver is one candidate. The point-list path roughly halves the cost but is still far from the budget.
+
+Consequence for the design: keep the instance count per frame at or below about 4M, and take the far-zoom density path (section 5) rather than per-node draws beyond that. Revisit once a second driver is measured, and once a multi-submit frame is tried.
