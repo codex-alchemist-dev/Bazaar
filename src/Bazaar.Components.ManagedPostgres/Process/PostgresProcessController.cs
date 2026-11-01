@@ -133,7 +133,15 @@ public sealed class PostgresProcessController : IAsyncDisposable
             _supervisorCts?.Cancel();
             if (_supervisor is { } supervisor)
             {
-                await supervisor;
+                try
+                {
+                    await supervisor;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // A faulted supervisor must not stop child cleanup below.
+                    Raise(PostgresProcessEventKind.ShutdownRequestFailed, $"Supervisor faulted during stop: {ex.Message}");
+                }
             }
 
             var child = _child;
@@ -440,8 +448,9 @@ public sealed class PostgresProcessController : IAsyncDisposable
             {
                 return;
             }
-            catch (Exception ex) when (ex is PostgresProcessException or IOException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                // Any failure (including Win32 and access errors) counts as a failed attempt; the loop retries or gives up.
                 Raise(PostgresProcessEventKind.RestartAttemptFailed, ex.Message, attempt: failures);
             }
         }
