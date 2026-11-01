@@ -22,6 +22,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | # | Doc | Purpose | Qs | Key dependencies |
 |---|---|---|---|---|
 | 05 | [05-model-gateway.md](05-model-gateway.md) | Bazaar's own model gateway: providers, per-agent policy, quota states, FreeLLMAPI setup, catalogue | 16 | 14 (secrets), 09 (quota to vacation), 23 (usage) |
+| 05b | [05b-freellmapi-first-class-provider.md](05b-freellmapi-first-class-provider.md) | FreeLLMAPI as the testing source and first-class provider: base URL, key reference, `agent-default` route, limits (PROPOSED) | 4 | 05, 14, 34 |
 | 06 | [06-agent-runtime.md](06-agent-runtime.md) | Agent lifecycle, wake model, turn loop, context assembly, tool dispatch, loop guards, crash recovery | 14 | 01, 05, 08, 09, 15, 24 |
 | 07 | [07-soul-system.md](07-soul-system.md) | Soul record and versions, auditable judgments, roster presets, retirement, export format | 14 | 06, 08, 11, 14, 15, 24 |
 | 08 | [08-memory-system.md](08-memory-system.md) | Agent memory kinds and scopes, SoulGuard validation, consolidation, trust tiers, retrieval, Hive boundary | 14 | 05, 07, 15, 18 |

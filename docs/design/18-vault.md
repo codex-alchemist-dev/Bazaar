@@ -212,6 +212,8 @@ Packages 1 and 3 can run in parallel; 3 starts after S23 reports.
    - `docs/deep-dives/Bazaar.Constellation.md` line 30: still reads as a single `pg_search` decision (C23).
 8. **Twin folder and drafts.** Doc 25 names no Twin folder, and doc 19's draft visibility (Q3) and `draft` type are open. The `twin/` and `drafts/` paths above are proposals until 25 and 19 confirm them.
 
+9. **Sparse worktrees: not built (owner, 2026-10-30).** LibGit2Sharp has no sparse API (S23 scenario A4). `IGitProvider` uses full worktrees until a libgit2 path exists. A worktree therefore contains every path, not only the agent's area. Revisit with the git CLI option (question on engine fallback) or a libgit2 change.
+
 ## Questions for the owner
 1. Repo: a separate private `<company>-vault` repo (default), or a folder in the company repo?
 2. Front matter ID: ULID (default), or path only?
