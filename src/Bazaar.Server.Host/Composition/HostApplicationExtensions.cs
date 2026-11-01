@@ -1,6 +1,7 @@
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.Http;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,8 @@ public static class HostApplicationExtensions
         services.AddBazaarSettings();
         services.AddBazaarGateway();
         services.AddBazaarAgentResponder(configuration);
+        // TODO(component): map MapBazaarHttpSurface in Program.cs on a listener that allows POST and PATCH (UseBazaarGetOnly blocks them).
+        services.AddBazaarHttpSurface(configuration);
         return services;
     }
 }
