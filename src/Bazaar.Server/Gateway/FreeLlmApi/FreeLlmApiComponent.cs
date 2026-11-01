@@ -59,6 +59,23 @@ public sealed class FreeLlmApiComponent : IBazaarComponent
     }
 
     /// <summary>
+    /// Fails startup when FreeLLMAPI is switched on (<c>Bazaar:Gateway:FreeLlmApi:Enabled</c>) while this component is disabled
+    /// (<c>Bazaar:Components:freellmapi:Enabled=false</c>). A disabled component registers nothing, so without this check the
+    /// gateway setting would be ignored silently.
+    /// </summary>
+    public static void RequireComponentWhenGatewayIsOn(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        if (IsEnabled(configuration) && !BazaarComponentRegistration.IsEnabled(configuration, ManifestDefinition.Id))
+        {
+            throw new InvalidOperationException(
+                "Bazaar:Gateway:FreeLlmApi:Enabled is true, but the freellmapi component is disabled (Bazaar:Components:freellmapi:Enabled=false). " +
+                "Enable the component or set Bazaar:Gateway:FreeLlmApi:Enabled to false.");
+        }
+    }
+
+    /// <summary>
     /// Whether FreeLLMAPI is on: the <c>Enabled</c> flag bound from <c>Bazaar:Gateway:FreeLlmApi</c>, after the managed-sidecar rule.
     /// A disabled or unbound section means off, which is the shipped default.
     /// </summary>

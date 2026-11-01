@@ -47,6 +47,29 @@ public sealed class FreeLlmApiComponentTests
     }
 
     [Fact]
+    public void Gateway_on_with_the_component_disabled_fails_startup_and_names_both_settings()
+    {
+        var configuration = Config([.. EnabledValues(), ("Bazaar:Components:freellmapi:Enabled", "false")]);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration));
+
+        Assert.Contains("Bazaar:Gateway:FreeLlmApi:Enabled", ex.Message);
+        Assert.Contains("Bazaar:Components:freellmapi:Enabled=false", ex.Message);
+    }
+
+    [Fact]
+    public void Gateway_on_with_the_component_enabled_passes_the_guard()
+    {
+        FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(Config(EnabledValues()));
+    }
+
+    [Fact]
+    public void Gateway_off_with_the_component_disabled_passes_the_guard()
+    {
+        FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(Config([("Bazaar:Components:freellmapi:Enabled", "false")]));
+    }
+
+    [Fact]
     public void With_FreeLlmApi_disabled_the_component_registers_no_startup_check_no_validator_and_no_http_client()
     {
         var services = Register(Config());

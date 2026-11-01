@@ -34,6 +34,7 @@ public static class HostApplicationExtensions
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         services.AddBazaarComponents(configuration, [new KanbanComponent(), new FreeLlmApiComponent()]);
+        FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         return services;
     }
 }
