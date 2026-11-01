@@ -21,6 +21,8 @@
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0-rc.2.26504.105" />
     <!-- Vault git engine (doc 18 C12, spike S23): native libgit2 ships in the package. -->
     <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
+    <!-- Cache provider (doc 03 WP12): StackExchange.Redis 3.4.5 (stable, published 2026-10-13) talks to Valkey on Linux. Behind IValkeyClient. -->
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.5" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />

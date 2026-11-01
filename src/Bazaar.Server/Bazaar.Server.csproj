@@ -9,6 +9,7 @@
     <PackageReference Include="LibGit2Sharp" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="StackExchange.Redis" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
