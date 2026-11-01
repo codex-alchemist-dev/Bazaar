@@ -7,7 +7,6 @@ using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Hosting;
-using Bazaar.Server.Kanban;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

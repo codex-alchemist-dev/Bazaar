@@ -14,7 +14,8 @@ namespace Bazaar.Server.Host.Composition;
 /// </summary>
 public static class HostComponents
 {
-    public static IReadOnlyList<IBazaarComponent> All { get; } = [
+    public static IReadOnlyList<IBazaarComponent> All { get; } =
+    [
         new AuditComponent(),
         new SettingsComponent(),
         new KanbanComponent(),
