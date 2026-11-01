@@ -169,9 +169,20 @@ All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the 
 - **Principal kind on the wire path:** `IGcAccessPolicy` receives only a principal id, so the owner shortcut does not apply to subscriptions. The owner must be a member or approved until doc 14 supplies kinds.
 - **Open for owner:** does the owner read every GC by default on the wire (doc 01 says yes), and how is the owner identified in a session?
 
-## Round 14 (2026-10-30): Constellation renderer backend
+## Round 17 (2026-10-30): Constellation renderer backend
 
 - **Conflict.** `Bazaar.Constellation.md` §1 and doc 19 mark native Skia through Avalonia as DECIDED and rule out other renderers. A later owner direction, relayed through the coordinator on 2026-10-30, asks for a Vulkan renderer (latest and future versions, forward-facing rule). Owner to confirm which one stands.
 - **Interim state.** Doc 19 names no `IConstellationRenderer`. This change adds it as a renderer-agnostic contract in `Bazaar.Constellation.Rendering`, with frame ordering, interpolation, camera, LOD and hit-test logic that does not depend on the backend. The Vulkan backend (`Bazaar.Constellation.Vulkan`, Vortice.Vulkan 3.3.0) probes the loader and devices only. Its swapchain and drawing path waits for a GPU run on the owner's Windows PC.
 - **Consequence.** The Skia path stays available behind the same interface until the owner decides. If Vulkan is confirmed, Bazaar.Constellation.md §1 and doc 19 are updated in the same change.
 - **Layout and clustering** come from the Constellation layout and Louvain work, which is not in the repo yet. The renderer consumes frames through fakes until those merge.
+
+## Held packages: owner decisions (2026-10-30)
+
+The owner confirmed these with full authority on decisions, and they are implemented in PR #112 and its follow-ups.
+
+- **Org relation kinds:** `reports_to` and `lent_to` only (doc 24 default). Other kinds are a schema change.
+- **Loan object:** loans carry a project scope, as ORG1 requires (doc 24 WP4 may refine the routing).
+- **Sparse worktrees:** not built. VLT3 uses full worktrees until a libgit2 path exists, recorded in doc 18 (item 9).
+- **TRUNCATE on `gc_event`:** already refused. `gc_event_no_truncate` (0001) is a BEFORE TRUNCATE trigger, and the foreign key from `wake_decisions` (0016) refuses first with 0A000. No new migration is needed. Keep the foreign key.
+- **`calendar.*` settings:** registered in code as `CalendarSettings` and combined in `SettingRegistry.Known`. Rows added to the doc 03 table. The store still reads `SettingRegistry.Host` until it is wired to `Known`.
+
