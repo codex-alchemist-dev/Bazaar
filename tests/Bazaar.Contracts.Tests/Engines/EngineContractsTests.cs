@@ -152,6 +152,14 @@ public class EngineContractsTests
     }
 
     [Fact]
+    public void Project_envelope_uses_design_doc_wire_names()
+    {
+        var json = Serialize(new EngineProjectEnvelope("proj-9", "cmd-4", 17));
+
+        Assert.Equal("{\"project_id\":\"proj-9\",\"command_id\":\"cmd-4\",\"seq\":17}", json);
+    }
+
+    [Fact]
     public void Request_writes_jsonrpc_2_0_and_round_trips()
     {
         var request = new JsonRpcRequest("7", EngineMethods.Command, Element("{\"command_id\":\"cmd-1\"}"));
