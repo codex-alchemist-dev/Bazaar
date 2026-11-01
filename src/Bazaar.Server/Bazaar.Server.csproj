@@ -10,11 +10,8 @@
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
-<<<<<<< HEAD
     <PackageReference Include="StackExchange.Redis" />
-=======
     <PackageReference Include="YamlDotNet" />
->>>>>>> origin/main
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
