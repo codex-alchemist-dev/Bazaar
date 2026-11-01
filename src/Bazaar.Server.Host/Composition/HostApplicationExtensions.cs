@@ -5,7 +5,6 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Hosting;
-using Bazaar.Server.Kanban;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,21 +27,15 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
-
-        // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Kept where AddBazaarGcWire ran, after AddBazaarSync, so the GC hosted services still start before the agent responder.
-        services.AddBazaarComponents(configuration, [
-            new GcComponent(),
-            new KanbanComponent(),
-            new OpenAiChatAdapterComponent(),
-            new AnthropicMessagesAdapterComponent(),
-            new GeminiGenerateContentAdapterComponent(),
-        ]);
+        services.AddBazaarComponents(configuration, [new GcComponent()]);
         services.AddBazaarAgentSafety();
         services.AddBazaarSettings();
         services.AddBazaarGateway();
         services.AddBazaarAgentResponder(configuration);
 
+        // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
+        services.AddBazaarComponents(configuration, HostComponents.All);
         return services;
     }
 }

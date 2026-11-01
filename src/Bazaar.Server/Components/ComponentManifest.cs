@@ -16,6 +16,9 @@ public sealed record ComponentManifest(
     IReadOnlyList<string> DependsOn,
     IReadOnlyList<string> Provides)
 {
-    /// <summary>Migration namespace folder name. Defaults to the id, so each component owns its own SQL (section 5).</summary>
-    public string MigrationNamespace => Id;
+    /// <summary>
+    /// Migration namespace folder name (section 5): the id with <c>-</c> replaced by <c>_</c>, so each component owns its own SQL
+    /// under a name that survives the embedded-resource naming. Ids are kebab-case and cannot contain <c>_</c>, so this is one-to-one.
+    /// </summary>
+    public string MigrationNamespace => Id.Replace('-', '_');
 }
