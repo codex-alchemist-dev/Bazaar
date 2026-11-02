@@ -58,6 +58,25 @@ verified without a display.
   say which of its decisions are DECIDED.
 - Update the docs in the same PR when behaviour or design changes.
 
+## Pull request ownership
+
+A thread owns its pull request until it is merged or closed. The owning thread
+answers review comments, fixes failing checks, keeps the branch current with
+`main`, and merges or closes the PR. Nobody else has to chase it.
+
+The automation in `.github/workflows/` backs this up:
+
+- `pr-automerge.yml` enables squash auto-merge on non-draft PRs into `main`. GitHub
+  merges a PR once every required check passes, including the sign-off check.
+- `pr-maintenance.yml` merges `main` into PR branches that fall behind, and re-runs
+  the Windows WebSocket test flake once.
+- `pr-stale.yml` labels a PR `stale` and comments once after 24 hours with no
+  activity. A PR labelled `duplicate` that is also idle is closed. Nothing else is
+  closed automatically.
+
+None of this weakens branch protection or a required check. Do not add
+gitleaks allowlist entries to get a PR through.
+
 ## Sign-off (DCO)
 
 Bazaar uses the [Developer Certificate of Origin](https://developercertificate.org/)
