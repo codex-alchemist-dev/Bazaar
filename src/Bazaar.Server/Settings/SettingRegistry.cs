@@ -19,6 +19,19 @@ public sealed class SettingRegistry
     /// <summary>Every <c>host.*</c> key from doc 03.</summary>
     public static SettingRegistry Host { get; } = new(HostSettings.All);
 
+    /// <summary>
+    /// Every setting this build knows: the host keys, the calendar keys (doc 24), the knowledge keys (doc 25) and the
+    /// constellation keys (doc 19). The settings store reads this set, so a stored <c>constellation.*</c> row is readable.
+    /// </summary>
+    public static SettingRegistry Known { get; } = new(
+        HostSettings.All
+            .Concat(Calendar.CalendarSettings.All)
+            .Concat(Knowledge.KnowledgeSettings.All)
+            .Concat(ConstellationSettings.All));
+
+    /// <summary>Every <c>constellation.*</c> key from doc 19. Kept apart from <see cref="Host"/>, which holds only <c>host.*</c>.</summary>
+    public static SettingRegistry Constellation { get; } = new(ConstellationSettings.All);
+
     public IReadOnlyCollection<SettingDefinition> Definitions => _byName.Values;
 
     public bool TryGet(string name, out SettingDefinition? definition)

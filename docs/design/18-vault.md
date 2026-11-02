@@ -9,7 +9,7 @@ The Vault is the company's durable written memory: Markdown files with Obsidian-
 ## Decided inputs
 - Markdown in git is the source of truth; PostgreSQL indexes it (Constellation s3; DECISIONS-LOG round 11).
 - The Vault holds every durable written artifact, including agent memory as per-agent private and shared areas. PostgreSQL holds the GC log, structured state and the indexes (C38, round 11). This scope is Claude's reading, to be confirmed (Q7).
-- Obsidian-style `[[wiki-links]]`; a project Vault has an Index, a Plan, Deep Dives and Research docs (Constellation s3). The Vault is accessible from all relevant GCs and is one view of the knowledge graph shared with the Constellation (Constellation s1, s3).
+- Obsidian-style `[[wiki-links]]`; a project Vault has an Index, a Plan, Deep Dives and Research docs (Constellation s3). The Vault is accessible from all relevant GCs and is the storage layer under the Constellation, the whole knowledge workspace on Vulkan (Constellation s1, s3; doc 36).
 - Search is hybrid lexical plus vector, behind one interface: Postgres full-text on Windows, `pg_search` on Linux (Server s3; C23, round 4). OSI-licensed components only; no paid components.
 - One embedding profile per install, chosen at setup, stored as `halfvec` (C39, round 10).
 - Decision records are `decisions/NNNN-<slug>.md`, written only through `VaultWriter` (C24, round 7).
@@ -38,7 +38,7 @@ The Vault is the company's durable written memory: Markdown files with Obsidian-
 | `twin/<project>/<page>.md` | twin | Generated Twin prose pages (doc 25 names no folder) [PROPOSED] |
 | `archive/` | archive | Generated only |
 
-**Front matter [PROPOSED].** YAML, parsed by a real YAML library:
+**Front matter [ACCEPTED 2026-10-30, owner delegated].** YAML, parsed by a real YAML library:
 
 ```yaml
 id: 01J...            # ULID, required, stable across renames
@@ -52,7 +52,7 @@ source_trust: agent   # provenance, doc 15's enum (C20)
 tier: T1              # memory promotion tier T0-T3, doc 08's scale (C20)
 ```
 
-**Links [PROPOSED].**
+**Links [ACCEPTED 2026-10-30, owner delegated].**
 
 | Form | Target |
 |---|---|
@@ -211,6 +211,8 @@ Packages 1 and 3 can run in parallel; 3 starts after S23 reports.
    - 02: `GET /vault/search` is an endpoint of its authenticated HTTP surface (C15).
    - `docs/deep-dives/Bazaar.Constellation.md` line 30: still reads as a single `pg_search` decision (C23).
 8. **Twin folder and drafts.** Doc 25 names no Twin folder, and doc 19's draft visibility (Q3) and `draft` type are open. The `twin/` and `drafts/` paths above are proposals until 25 and 19 confirm them.
+
+9. **Sparse worktrees: not built (owner, 2026-10-30).** LibGit2Sharp has no sparse API (S23 scenario A4). `IGitProvider` uses full worktrees until a libgit2 path exists. A worktree therefore contains every path, not only the agent's area. Revisit with the git CLI option (question on engine fallback) or a libgit2 change.
 
 ## Questions for the owner
 1. Repo: a separate private `<company>-vault` repo (default), or a folder in the company repo?
