@@ -1,6 +1,7 @@
 using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Vms.Tests.Environments;
+using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Vms.Tests.Lifecycle;
 
@@ -12,6 +13,7 @@ public sealed class EnvironmentVmStoreTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Insert_then_compare_and_set_succeeds_on_the_current_state_and_fails_on_a_stale_one()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var ct = TestContext.Current.CancellationToken;
         var image = await db.InsertImageAsync();
         var store = new EnvironmentVmStore(db.Repository);

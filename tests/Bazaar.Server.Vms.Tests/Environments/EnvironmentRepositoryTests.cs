@@ -1,4 +1,5 @@
 using Bazaar.Server.Vms.Environments;
+using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Vms.Tests.Environments;
 
@@ -10,6 +11,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Golden_image_round_trips_and_changes_state()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync(VmOs.Windows, version: 1, state: GoldenImageState.Building);
 
         Assert.Equal(image, await db.Repository.GetGoldenImageAsync(image.Id, TestContext.Current.CancellationToken));
@@ -25,6 +27,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Vm_round_trips_with_null_backend_ref_until_it_is_set()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var agent = Guid.CreateVersion7();
         var vm = await db.InsertVmAsync(agent, image.Id, state: VmState.Absent);
@@ -44,6 +47,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task List_non_retired_excludes_retired_and_list_for_agent_includes_retired()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var agent = Guid.CreateVersion7();
         var live = await db.InsertVmAsync(agent, image.Id, VmOs.Linux, VmState.Running);
@@ -62,6 +66,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Try_update_vm_state_succeeds_on_match_and_fails_on_stale_expected_state()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var vm = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id, state: VmState.Stopped);
 
@@ -80,6 +85,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Checkpoints_round_trip_and_list_oldest_first()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var vm = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id);
 
@@ -96,6 +102,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Mount_detach_sets_detached_at_once_and_list_keeps_detached_rows()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var vm = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id);
         var mount = new ScopedMountRecord(
@@ -115,6 +122,7 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Exec_log_insert_then_complete_fills_exit_code_and_output_size_once()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var vm = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id, state: VmState.Running);
         var hash = new string('b', 64);

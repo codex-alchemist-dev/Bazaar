@@ -23,6 +23,9 @@ public sealed class VmDb : PgFixture, IAsyncLifetime
 
     public override async ValueTask InitializeAsync()
     {
+        // Windows without BAZAAR_TEST_PG has no database; each test skips itself (see Assert.SkipWhen in the tests).
+        if (PgSource.IsUnsupportedHost)
+            return;
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(ConnectionString);
         await ApplyComponentMigrationsAsync();
