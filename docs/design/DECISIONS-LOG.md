@@ -169,6 +169,15 @@ All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the 
 - **Principal kind on the wire path:** `IGcAccessPolicy` receives only a principal id, so the owner shortcut does not apply to subscriptions. The owner must be a member or approved until doc 14 supplies kinds.
 - **Open for owner:** does the owner read every GC by default on the wire (doc 01 says yes), and how is the owner identified in a session?
 
+## Round 17 (2026-10-30): Constellation renderer backend
+
+- **Conflict.** `Bazaar.Constellation.md` §1 and doc 19 mark native Skia through Avalonia as DECIDED and rule out other renderers. A later owner direction, relayed through the coordinator on 2026-10-30, asks for a Vulkan renderer (latest and future versions, forward-facing rule). Owner to confirm which one stands.
+- **Owner decision (2026-10-30, relayed by the coordinator).** Vulkan with GPU instancing is the direction, not an experiment. Design for company-wide graphs of millions, possibly billions of nodes, very fast on phone (Android Vulkan) and PC. Skia stays only as a fallback behind the renderer interface. Billions cannot be drawn at once, so the design uses level of detail: Louvain aggregation at far zoom, chunks or tiles streamed by viewport, GPU culling and instanced draws, compute-shader layout, and a per-frame budget with separate phone and PC tiers. Budgets are PROPOSED until measured on the PC and phone.
+- **Interim state (superseded in part by the owner decision above).** Doc 19 names no `IConstellationRenderer`. This change adds it as a renderer-agnostic contract in `Bazaar.Constellation.Rendering`, with frame ordering, interpolation, camera, LOD and hit-test logic that does not depend on the backend. The Vulkan backend (`Bazaar.Constellation.Vulkan`, Vortice.Vulkan 3.3.0) probes the loader and devices only. Its swapchain and drawing path waits for a GPU run on the owner's Windows PC.
+- **Consequence.** The Skia path stays available behind the same interface until the owner decides. If Vulkan is confirmed, Bazaar.Constellation.md §1 and doc 19 are updated in the same change.
+- **Bulk tile payloads (owner-approved, 2026-11-01).** Tile payloads may be binary over HTTP as a scoped exception to the JSON-only wire rule. Control messages stay JSON through `IWireCodec`. Format v1 is in `constellation-scale-and-lod.md` §3, with `tile_format_version = 1`. Default taken for the open items: the section 6 caps are starting values under the configurability rule, layout is hierarchical server-side with force layout only in focus neighbourhoods, and "billions" means one company graph per install.
+- **Layout and clustering** come from the Constellation layout and Louvain work, which is not in the repo yet. The renderer consumes frames through fakes until those merge.
+
 ## Held packages: owner decisions (2026-10-30)
 
 The owner confirmed these with full authority on decisions, and they are implemented in PR #112 and its follow-ups.
