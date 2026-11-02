@@ -281,9 +281,7 @@ Generated_Code/
 # to a newer Visual Studio version. Backup files are not needed,
 # because we have git ;-)
 _UpgradeReport_Files/
-Backup*/
-# Bazaar.Contracts.Backup is source code, not a backup folder.
-!src/Bazaar.Contracts/Backup/
+/Backup*/
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/
