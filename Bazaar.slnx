@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Bazaar.Client.Components.Chat/Bazaar.Client.Components.Chat.csproj" />
+    <Project Path="src/Bazaar.Client.Components.Launcher/Bazaar.Client.Components.Launcher.csproj" />
     <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
@@ -23,6 +25,8 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Components.Chat.Tests/Bazaar.Client.Components.Chat.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Components.Launcher.Tests/Bazaar.Client.Components.Launcher.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
     <Project Path="tests/Bazaar.Constellation.Rendering.Tests/Bazaar.Constellation.Rendering.Tests.csproj" />
