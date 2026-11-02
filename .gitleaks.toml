@@ -9,4 +9,6 @@ description = "Fake secret-shaped literals used as SoulGuard negative and positi
 # 7581e7a added tests/Bazaar.Server.Tests/Memory/Notes/SoulGuardTests.cs. Its InlineData strings are fake
 # examples that the SoulGuard scanner must reject. The commit is already pushed, so history is not rewritten.
 # 44e954f (#141) added SoulGuardTests.cs with one fake GCP-shaped InlineData literal. Same scope as above: this commit only.
-commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b"]
+# d07f48d (WP14-8 TOTP, on origin/agent/14-wp8-totp) added Base32Tests.cs with the fake literal "JBSWY3DP1SECRET"
+# that checks Base32.Decode does not echo its input. It is a test fixture, not a credential. Scope: this commit only.
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c"]
