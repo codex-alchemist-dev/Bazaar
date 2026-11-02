@@ -92,7 +92,7 @@ Detailed drafts: `docs/design/` (index in `README.md`). Cross-doc conflicts were
 ## Code conventions (provisional until the code exists)
 
 - C#, nullable enabled, central package management, one shared contracts project for client/server messages. Match the surrounding code's style and comment density.
-- Projects (owner-approved names): `Bazaar.Contracts`, `Bazaar.Server` (platform-neutral library), `Bazaar.Server.Host` (service executable), `Bazaar.Sdk`, `Bazaar.Client.Core` (shared Avalonia UI; the docs' `UI.Core`), `Bazaar.Client.Windows`, `.Android`, `.Linux`.
+- Projects (owner-approved names): `Bazaar.Contracts`, `Bazaar.Server` (platform-neutral library), `Bazaar.Server.Host` (service executable), `Bazaar.Sdk`, `Bazaar.Client.Core` (shared Avalonia UI; the docs' `UI.Core`), `Bazaar.Client.Windows`, `.Android`, `.Linux`, `Bazaar.Guest.Agent` (guest-side agent baked into VM images; coordinator-approved 2026-11-01, owner delegated).
 - Tests: xUnit v3 and TUnit are both approved by the owner. Owner (2026-10-24): xUnit v3 everywhere first; add TUnit later where it helps. Data access (owner delegated the choice to Claude, 2026-10-24): raw Npgsql with one shared `NpgsqlDataSource`, SQL-first repositories, embedded versioned SQL migrations; no ORM or event-store framework for the core. Details and reasons: `docs/implementation-plan.md`.
 - The .NET 11 SDK installs with `dotnet-install.sh --version <version in global.json>` into `~/.dotnet`; put it on PATH and set `DOTNET_ROOT` before building in a cloud session.
 - Every behavior change comes with a test. UI changes get an `Avalonia.Headless` test, since agents verify UI without a display.
