@@ -1,5 +1,5 @@
 -- VM environment tables (docs/design/16-agent-vms-and-environments.md, data and interfaces). Owner: VM1 (component vms).
--- Migration number 0021 (renumbered from 0019 and then 0020, which other open branches already claim). Conventions as in 0010: text
+-- Component migration 0001 in the vms namespace (not common; the common numbers are shared, which other open branches already claim). Conventions as in 0010: text
 -- enums with CHECK, RESTRICT foreign keys. Ids come from the caller (UUIDv7 in code), so no server-side UUID function is needed.
 -- agent_id carries NO foreign key: the agent table belongs to the agent runtime component (0010), and this component
 -- depends on contracts only. The caller guarantees the link.

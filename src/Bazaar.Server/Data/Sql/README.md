@@ -34,8 +34,11 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
 | `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
-| `0021` | VM1 | this PR | Component `vms` (`src/Bazaar.Server.Vms/Sql`): `golden_image`, `environment_vm`, `environment_checkpoint`, `scoped_mount`, `exec_log` (doc 16); no cross-table foreign keys |
-| `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0021+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+
+## Component namespaces
+
+A component keeps its own migrations in `components/<name>/NNNN_name.sql`, numbered from `0001` in its own namespace. Those files do not share numbers with `common/`. Component tables have no cross-table foreign keys to `common/` tables. VM1 is the first: `components/vms/0001_vm_environment.sql` (`golden_image`, `environment_vm`, `environment_checkpoint`, `scoped_mount`, `exec_log`; doc 16).
 
 ## Claiming a number
 
