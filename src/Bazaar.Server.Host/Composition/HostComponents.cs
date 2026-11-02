@@ -3,6 +3,8 @@ using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Vault;
 
@@ -16,6 +18,8 @@ public static class HostComponents
 {
     public static IReadOnlyList<IBazaarComponent> All { get; } =
     [
+        new AuditComponent(),
+        new SettingsComponent(),
         new KanbanComponent(),
         new VaultComponent(),
         new OpenAiChatAdapterComponent(),

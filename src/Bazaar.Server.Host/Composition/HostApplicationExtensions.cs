@@ -5,6 +5,8 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc.Wire;
+using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
@@ -30,7 +32,6 @@ public static class HostApplicationExtensions
         services.AddBazaarSync(configuration);
         services.AddBazaarGcWire();
         services.AddBazaarAgentSafety();
-        services.AddBazaarSettings();
         services.AddBazaarGateway();
         services.AddBazaarAgentResponder(configuration);
 
