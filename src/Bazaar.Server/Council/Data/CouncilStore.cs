@@ -7,7 +7,7 @@ namespace Bazaar.Server.Council.Data;
 
 /// <summary>
 /// SQL-first Council store over <c>council_vote</c>, <c>council_ballot</c>, <c>council_ballot_ver</c> and
-/// <c>council_transition</c> (migration 0019, doc 10 WP3). Every state change is one transaction that also appends
+/// <c>council_transition</c> (migration council/0001, doc 10 WP3). Every state change is one transaction that also appends
 /// <c>council_transition</c>. Vote transitions use compare-and-set on <c>version</c>. Ballot reasoning is sealed and
 /// opened through <see cref="ICouncilReasoningCipher"/>; this class never sees key material.
 /// </summary>

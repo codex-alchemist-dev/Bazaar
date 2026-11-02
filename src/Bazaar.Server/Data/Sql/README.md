@@ -25,9 +25,12 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0016` | SKM1 | this PR | Skimmer gate: `gate_config`, `wake_decisions`, `gate_labels` (doc 13; no `gate_run_override`, which waits on question 7); no cross-table foreign keys beyond `agent` and `gc_event` |
 | `0017` | CAL1 | this PR | `calendar_event`: Company Calendar (doc 24 section 4); title stored as `(title_key_id, title_ct, title_nonce)`; `agent_id` references `agent`, no other cross-table foreign keys beyond `gc` |
 | `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
+| `0013` | REP1 | merged | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
+| `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
-| `0019` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
-| `0020+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
+| `council/0001` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
+| `0021+` | frozen | | `common/` is frozen (BAZAAR-COMPONENTS section 5); new migrations go in their component namespace | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 

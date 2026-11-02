@@ -6,7 +6,7 @@ namespace Bazaar.Server.Tests.Council.Data;
 
 /// <summary>
 /// A cloned test database with the core GC schema (0001, for <c>gc</c> and the append-only trigger function) and the
-/// Council tables (0019). Council needs nothing else, so the vault migration (0009, which needs pgvector halfvec) is not applied.
+/// Council tables (council/0001). Council needs nothing else, so the vault migration (0009, which needs pgvector halfvec) is not applied.
 /// </summary>
 public sealed class CouncilDb : PgFixture, IAsyncLifetime
 {
@@ -22,8 +22,9 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common);
-        var source = new InMemoryMigrationSource(files.Where(f => f.Version is 1 or 19));
-        await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, MigrationRunner.Common, CancellationToken.None);
+        var council = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load("council");
+        var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat(council));
+        await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, "council", CancellationToken.None);
     }
 
     /// <summary>Creates a GC for vote origins and returns its id.</summary>

@@ -5,7 +5,7 @@ using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Council.Data;
 
-/// <summary>Council tables (migration 0019) and <see cref="CouncilStore"/> on real PostgreSQL (doc 10, WP3).</summary>
+/// <summary>Council tables (migration council/0001) and <see cref="CouncilStore"/> on real PostgreSQL (doc 10, WP3).</summary>
 public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
