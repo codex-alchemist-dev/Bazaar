@@ -1,0 +1,265 @@
+# Release for Bazaar. Publishes installer packages built by another workflow run
+# as a DRAFT GitHub release. Runs on GitHub-hosted runners only (public repo).
+#
+# Flow:
+#   1. A release tag (v<SemVer>, for example v0.1.0 or v0.2.0-beta.1) is pushed to
+#      origin, or this workflow is started by hand with workflow_dispatch.
+#   2. verify: resolves the tag and the source run, refuses unless the tag's commit
+#      is reachable from origin/main, downloads the installer-* artifacts of the
+#      source run, accepts only installer/archive types (.msi, .exe, .zip,
+#      .tar.gz, .nupkg), writes SHA256SUMS and uploads the set as one artifact.
+#   3. publish: waits at the "release" environment approval gate (set up by the
+#      owner in repository settings: required reviewers), then creates a DRAFT
+#      release with gh and uploads the verified files and SHA256SUMS.
+#
+# Nothing is published automatically. The draft is never marked latest. It is a
+# prerelease only when the tag has a pre-release suffix (-alpha.N, -beta.N, -rc.N),
+# which is how docs/VERSIONING.md section 4 picks the channel. A human reviews the
+# draft on GitHub and publishes it.
+#
+# Every third-party action is pinned to a full commit SHA; the version tag is
+# kept in a trailing comment, the same pins as ci.yml. Do not switch to tags.
+#
+# Permissions: the default token is read-only. Only the publish job gets
+# contents: write, and only after the approval gate.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'ID of a completed, successful workflow run whose installer-* artifacts are published. Its head commit must be the tag commit.'
+        required: true
+        type: string
+      tag:
+        description: 'Release tag, SemVer with a v prefix (for example v0.1.0). It must already exist on origin and point to a commit reachable from main.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # One release run per tag at a time. Never cancel a release in progress.
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify installers and checksums
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Needed to list the runs and artifacts of the source run.
+      actions: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+    steps:
+      - name: Check out with full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and tags are needed for the reachability check below.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve tag, commit and source run (refuse if not on main)
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA_VALUE: ${{ github.sha }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_RUN_ID: ${{ inputs.source_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # SemVer 2.0 (no build metadata). Leading zeros are not allowed.
+          semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$'
+
+          if [ "$EVENT" = "push" ]; then
+            tag="$REF_NAME"
+            commit="$GITHUB_SHA_VALUE"
+          else
+            tag="$INPUT_TAG"
+          fi
+
+          if [[ ! "$tag" =~ $semver_re ]]; then
+            echo "::error::Tag '$tag' is not a SemVer release tag (expected v<MAJOR>.<MINOR>.<PATCH>[-pre])."
+            exit 1
+          fi
+
+          # Fetch every tag and main, then check the tag's commit against origin/main.
+          git fetch --force --tags --no-recurse-submodules origin
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+
+          if [ "$EVENT" != "push" ]; then
+            commit="$(git rev-parse --verify --quiet "refs/tags/$tag^{commit}" || true)"
+            if [ -z "$commit" ]; then
+              echo "::error::Tag $tag does not exist on origin. Create and push the annotated tag first."
+              exit 1
+            fi
+          fi
+
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::Tag $tag points to $commit, which is not reachable from origin/main. Refusing to release."
+            exit 1
+          fi
+
+          if [ "$EVENT" = "push" ]; then
+            # Find the one successful run for this commit that produced installer-* artifacts.
+            run_ids="$(gh api --paginate "repos/$REPO/actions/runs?head_sha=$commit&status=success" --jq '.workflow_runs[].id')"
+            candidates=()
+            for id in $run_ids; do
+              count="$(gh api --paginate "repos/$REPO/actions/runs/$id/artifacts" \
+                --jq '.artifacts[] | select((.expired | not) and (.name | startswith("installer-"))) | .name' | wc -l)"
+              if [ "$count" -gt 0 ]; then
+                candidates+=("$id")
+              fi
+            done
+            if [ "${#candidates[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one successful run for $commit with installer-* artifacts, found ${#candidates[@]}. Start this release with workflow_dispatch and source_run_id."
+              exit 1
+            fi
+            run_id="${candidates[0]}"
+          else
+            run_id="$INPUT_RUN_ID"
+            if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+              echo "::error::source_run_id must be a numeric run id."
+              exit 1
+            fi
+          fi
+
+          # The source run must be finished, successful, and built from the tag commit.
+          IFS=$'\t' read -r run_status run_conclusion run_head <<< \
+            "$(gh api "repos/$REPO/actions/runs/$run_id" --jq '[.status, .conclusion, .head_sha] | @tsv')"
+          if [ "$run_status" != "completed" ] || [ "$run_conclusion" != "success" ]; then
+            echo "::error::Run $run_id is '$run_status' / '$run_conclusion'. It must be completed and successful."
+            exit 1
+          fi
+          if [ "$run_head" != "$commit" ]; then
+            echo "::error::Run $run_id was built from $run_head, not from the tag commit $commit."
+            exit 1
+          fi
+
+          prerelease=false
+          if [[ "$tag" == *-* ]]; then
+            prerelease=true
+          fi
+
+          {
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+            echo "source_run_id=$run_id"
+            echo "commit=$commit"
+          } >> "$GITHUB_OUTPUT"
+          echo "Tag $tag ($commit) is on main. Source run $run_id. Prerelease: $prerelease."
+
+      - name: Download installer-* artifacts from the source run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: installer-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/release-candidate
+          run-id: ${{ steps.resolve.outputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Check file types and write SHA256SUMS
+        env:
+          SOURCE_RUN_ID: ${{ steps.resolve.outputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/release-candidate"
+          mkdir -p "$dir"
+
+          mapfile -d '' -t entries < <(find "$dir" -mindepth 1 -maxdepth 1 -print0 | sort -z)
+          if [ "${#entries[@]}" -eq 0 ]; then
+            echo "::error::No installer-* files were downloaded from run $SOURCE_RUN_ID."
+            exit 1
+          fi
+
+          # Only installer and archive types. Anything else (or any directory or
+          # symlink) stops the release so stray files cannot ship.
+          ext_re='\.(msi|exe|zip|tar\.gz|nupkg)$'
+          names=()
+          for path in "${entries[@]}"; do
+            name="$(basename -- "$path")"
+            if [ -L "$path" ] || [ ! -f "$path" ]; then
+              echo "::error::'$name' is not a regular file."
+              exit 1
+            fi
+            lower="${name,,}"
+            if [[ ! "$lower" =~ $ext_re ]]; then
+              echo "::error::'$name' is not an allowed installer type (.msi, .exe, .zip, .tar.gz, .nupkg)."
+              exit 1
+            fi
+            names+=("$name")
+          done
+
+          cd "$dir"
+          sha256sum -- "${names[@]}" > SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
+          echo "Verified ${#names[@]} files:"
+          cat SHA256SUMS
+
+      - name: Upload verified release set
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate
+          path: ${{ runner.temp }}/release-candidate/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Create draft release
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The owner sets required reviewers on this environment in repository settings.
+    # The job waits for approval before it gets its secrets or write token scope.
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.verify.outputs.tag }}
+      PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+      SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
+    steps:
+      - name: Download verified release set
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-candidate
+          path: ${{ runner.temp }}/release-candidate
+
+      - name: Re-check checksums
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release-candidate"
+          sha256sum --check --strict SHA256SUMS
+
+      - name: Create draft release and upload files
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/release-candidate"
+          args=(
+            --draft
+            --verify-tag
+            --latest=false
+            --title "$TAG"
+            --notes "Draft created from workflow run $SOURCE_RUN_ID. Check SHA256SUMS, then publish the draft by hand."
+          )
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          mapfile -d '' -t files < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z)
+          gh release create "$TAG" "${args[@]}" "${files[@]}"
+          echo "Draft release $TAG created with ${#files[@]} files. Prerelease: $PRERELEASE."

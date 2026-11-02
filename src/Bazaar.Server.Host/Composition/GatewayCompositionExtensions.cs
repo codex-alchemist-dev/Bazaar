@@ -52,6 +52,8 @@ public static class GatewayCompositionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<FreeLlmApiOptions>, FreeLlmApiOptionsValidator>();
         services.AddHostedService<FreeLlmApiStartupCheckService>();
+        services.TryAddSingleton<AgentModelPolicyRepository>();
+        services.AddHostedService<DevAgentPolicySeed>();
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
