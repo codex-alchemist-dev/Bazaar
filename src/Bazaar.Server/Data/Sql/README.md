@@ -1,5 +1,10 @@
 # Migrations
 
+Namespaces (components design section 5): each folder under `Data/Sql` is a namespace. `common/` is the shared, frozen
+namespace and always runs first. A Bazaar Component owns `Data/Sql/<component_id>/` (the id with `-` replaced by `_`); component
+namespaces run in dependency order, then any other folder in name order. History is keyed by `(namespace, version)`.
+Version numbers are local to a namespace. Provider folders (`linux/`, `windows/`) apply only on their host.
+
 Embedded, versioned SQL. Files are named `common/NNNN_name.sql` (or `windows/` and `linux/` for provider-specific
 ones). One owner per number; never reuse or renumber a number, and never edit an applied file (the runner refuses).
 The runner applies any not-yet-applied file in numeric order, even below a number already applied, so PRs may merge in any order.
