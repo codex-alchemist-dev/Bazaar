@@ -4,15 +4,15 @@ namespace Bazaar.Server.Tests.Knowledge.Metrics;
 
 public sealed class MetricsTests
 {
-    private static readonly DateTimeOffset Monday = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _monday = new(2026, 10, 26, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void Ci_collector_counts_runs_per_utc_day_and_passes()
     {
         var samples = CiRunCollector.Collect("bazaar", [
-            new CiRunFact("1", Monday, true),
-            new CiRunFact("2", Monday.AddHours(2), false),
-            new CiRunFact("3", Monday.AddDays(1), true),
+            new CiRunFact("1", _monday, true),
+            new CiRunFact("2", _monday.AddHours(2), false),
+            new CiRunFact("3", _monday.AddDays(1), true),
         ]);
 
         Assert.Contains(samples, s => s.Metric == MetricNames.CiRunsTotal && s.Bucket == new DateOnly(2026, 10, 26) && s.Value == 2);
@@ -23,7 +23,7 @@ public sealed class MetricsTests
     [Fact]
     public void A_day_without_runs_is_a_gap_not_a_zero()
     {
-        var samples = CiRunCollector.Collect("bazaar", [new CiRunFact("1", Monday, true)]);
+        var samples = CiRunCollector.Collect("bazaar", [new CiRunFact("1", _monday, true)]);
 
         Assert.DoesNotContain(samples, s => s.Bucket == new DateOnly(2026, 10, 27));
         Assert.All(samples, s => Assert.NotEqual(0, s.Value));
@@ -32,7 +32,7 @@ public sealed class MetricsTests
     [Fact]
     public void A_repeated_run_id_in_one_batch_is_counted_once()
     {
-        var samples = CiRunCollector.Collect("bazaar", [new CiRunFact("1", Monday, true), new CiRunFact("1", Monday, true)]);
+        var samples = CiRunCollector.Collect("bazaar", [new CiRunFact("1", _monday, true), new CiRunFact("1", _monday, true)]);
 
         Assert.Equal(1, samples.Single(s => s.Metric == MetricNames.CiRunsTotal).Value);
     }
@@ -63,7 +63,7 @@ public sealed class MetricsTests
     public async Task Upsert_is_idempotent_and_query_filters_by_range()
     {
         var store = new InMemoryMetricStore();
-        var batch = CiRunCollector.Collect("bazaar", [new CiRunFact("1", Monday, true)]);
+        var batch = CiRunCollector.Collect("bazaar", [new CiRunFact("1", _monday, true)]);
 
         var first = await store.UpsertAsync(batch, TestContext.Current.CancellationToken);
         var second = await store.UpsertAsync(batch, TestContext.Current.CancellationToken);
@@ -80,8 +80,8 @@ public sealed class MetricsTests
     public async Task Upsert_replaces_the_value_when_a_source_recomputes()
     {
         var store = new InMemoryMetricStore();
-        await store.UpsertAsync(CiRunCollector.Collect("bazaar", [new CiRunFact("1", Monday, true)]), TestContext.Current.CancellationToken);
-        await store.UpsertAsync(CiRunCollector.Collect("bazaar", [new CiRunFact("1", Monday, true), new CiRunFact("2", Monday, false)]), TestContext.Current.CancellationToken);
+        await store.UpsertAsync(CiRunCollector.Collect("bazaar", [new CiRunFact("1", _monday, true)]), TestContext.Current.CancellationToken);
+        await store.UpsertAsync(CiRunCollector.Collect("bazaar", [new CiRunFact("1", _monday, true), new CiRunFact("2", _monday, false)]), TestContext.Current.CancellationToken);
 
         var rows = await store.QueryAsync("bazaar", MetricNames.CiRunsTotal, new DateOnly(2026, 10, 26), new DateOnly(2026, 10, 26), TestContext.Current.CancellationToken);
 

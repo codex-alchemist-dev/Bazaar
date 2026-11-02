@@ -10,7 +10,7 @@ public sealed record MetricRollupRow(string ProjectId, string Metric, string Dim
 public static class MetricRollup
 {
     /// <summary>Metrics whose daily value is a count and is summed. Everything else is averaged.</summary>
-    private static readonly HashSet<string> CountMetrics = new(StringComparer.Ordinal) { MetricNames.CiRunsTotal, MetricNames.CiRunsPassed };
+    private static readonly HashSet<string> _countMetrics = new(StringComparer.Ordinal) { MetricNames.CiRunsTotal, MetricNames.CiRunsPassed };
 
     public static IReadOnlyList<MetricRollupRow> Daily(IEnumerable<MetricSample> samples)
     {
@@ -25,7 +25,7 @@ public static class MetricRollup
             .Select(g =>
             {
                 var values = g.Select(s => s.Value).ToList();
-                var value = CountMetrics.Contains(g.Key.Metric) ? values.Sum() : values.Average();
+                var value = _countMetrics.Contains(g.Key.Metric) ? values.Sum() : values.Average();
                 return new MetricRollupRow(g.Key.ProjectId, g.Key.Metric, g.Key.Dimension, g.Key.Bucket, value, values.Count);
             })
             .ToList();
