@@ -40,6 +40,10 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `engines/0001` | WP2 | this PR | Engine registry, `engines` namespace (doc 20): `engine_projects`, `engine_grants` (default deny for write and exec; approval link is a TODO(component) to doc 15) |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
+## Component namespaces
+
+A component keeps its own migrations in `components/<name>/NNNN_name.sql`, numbered from `0001` in its own namespace. Those files do not share numbers with `common/`. Component tables have no cross-table foreign keys to `common/` tables. VM1 is the first: `components/vms/0001_vm_environment.sql` (`golden_image`, `environment_vm`, `environment_checkpoint`, `scoped_mount`, `exec_log`; doc 16).
+
 ## Claiming a number
 
 1. Take the lowest free number and add your row (owner, work package, one-line content) to this table in the same PR as the migration.
