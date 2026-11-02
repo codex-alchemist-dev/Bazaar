@@ -10,4 +10,4 @@ description = "Fake secret-shaped literals used as SoulGuard negative and positi
 # examples that the SoulGuard scanner must reject. The commit is already pushed, so history is not rewritten.
 # 44e954f (#141) added SoulGuardTests.cs with one fake GCP-shaped InlineData literal. Same scope as above: this commit only.
 # d07f48d (WP14-8) added Base32Tests.cs with one fake Base32 input literal. Same scope as above: this commit only.
-commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c"]
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c", "93ed17a9341e3901ea5d33e6127d038212abbc8b"]
