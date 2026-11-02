@@ -19,6 +19,9 @@
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-rc.2.26504.105" />
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0-rc.2.26504.105" />
+    <!-- Vault Markdown (doc 18, VLT1): Markdig pipeline and YAML front matter reader. -->
+    <PackageVersion Include="Markdig" Version="1.5.0" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <!-- Vault git engine (doc 18 C12, spike S23): native libgit2 ships in the package. -->
     <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
