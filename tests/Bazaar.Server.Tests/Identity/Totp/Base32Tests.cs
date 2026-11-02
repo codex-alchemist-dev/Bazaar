@@ -54,7 +54,7 @@ public sealed class Base32Tests
     [Fact]
     public void Error_message_does_not_echo_the_input()
     {
-        const string secretLikeInput = "JBSWY3DP1SECRET";
+        const string secretLikeInput = "JBSWY3DP1NOPE";
 
         var ex = Assert.Throws<ArgumentException>(() => Base32.Decode(secretLikeInput));
 
