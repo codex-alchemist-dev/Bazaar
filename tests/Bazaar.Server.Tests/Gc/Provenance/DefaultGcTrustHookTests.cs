@@ -9,11 +9,11 @@ namespace Bazaar.Server.Tests.Gc.Provenance;
 /// <summary>The taint rules of <see cref="DefaultGcTrustHook"/> (docs/design/01 "Provenance and trust", docs/design/15).</summary>
 public sealed class DefaultGcTrustHookTests
 {
-    private static readonly Guid Gc = Guid.Parse("00000000-0000-7000-8000-0000000000c1");
-    private static readonly Guid Author = Guid.Parse("00000000-0000-7000-8000-0000000000a1");
+    private static readonly Guid _gc = Guid.Parse("00000000-0000-7000-8000-0000000000c1");
+    private static readonly Guid _author = Guid.Parse("00000000-0000-7000-8000-0000000000a1");
 
     private static AppendRequest Request(AuthorKind authorKind, SourceTrust trust) =>
-        new(Gc, GcEventKinds.Message, authorKind, Author, trust, "k1");
+        new(_gc, GcEventKinds.Message, authorKind, _author, trust, "k1");
 
     [Theory]
     [InlineData(AuthorKind.Owner, SourceTrust.Owner, false)]
