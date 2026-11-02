@@ -1,14 +1,14 @@
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Constellation.Rendering;
 using Bazaar.Client.Core.Tests.Panes;
+using Bazaar.Constellation.Rendering;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Constellation;
 
 public class ConstellationPaneViewModelTests
 {
-    private const string Model = """
+    private const string _model = """
         {"nodes":[
           {"id":"a","label":"Alpha","kind":"note"},
           {"id":"b","label":"Beta","kind":"note"},
@@ -16,7 +16,7 @@ public class ConstellationPaneViewModelTests
          "edges":[{"from":"a","to":"b"},{"from":"b","to":"zz"},{"from":"c","to":"a"}]}
         """;
 
-    private static ConstellationPaneViewModel Pane(string model = Model) =>
+    private static ConstellationPaneViewModel Pane(string model = _model) =>
         new(PaneRegistryTests.Descriptor(PaneKinds.Constellation, model));
 
     [Fact]
@@ -87,6 +87,6 @@ public class ConstellationPaneViewModelTests
     {
         var registry = FirstPartyPanes.CreateRegistry();
 
-        Assert.IsType<ConstellationPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Constellation, Model)));
+        Assert.IsType<ConstellationPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Constellation, _model)));
     }
 }

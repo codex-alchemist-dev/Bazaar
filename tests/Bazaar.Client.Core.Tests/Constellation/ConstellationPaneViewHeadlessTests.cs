@@ -3,8 +3,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Constellation.Rendering;
 using Bazaar.Client.Core.Tests.Panes;
+using Bazaar.Constellation.Rendering;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Constellation;
