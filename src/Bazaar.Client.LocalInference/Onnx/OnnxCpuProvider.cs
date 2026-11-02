@@ -1,3 +1,5 @@
+using Bazaar.Client.LocalInference.Models;
+
 namespace Bazaar.Client.LocalInference.Onnx;
 
 /// <summary>
@@ -17,7 +19,7 @@ public sealed class OnnxCpuProvider : IExecutionProviderSelector
     /// <remarks>
     /// TODO(component): the OpenVINO / Windows ML NPU step (spike S21) plugs in here, ahead of this CPU step.
     /// </remarks>
-    public Task<ILocalModelBackend> SelectAsync(ModelManifest manifest, CancellationToken ct)
+    public async Task<ILocalModelBackend> SelectAsync(ModelManifest manifest, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -29,7 +31,9 @@ public sealed class OnnxCpuProvider : IExecutionProviderSelector
             throw new LocalModelNotInstalledException(path);
         }
 
+        await ModelIntegrity.VerifyFileAsync(file, Path.GetDirectoryName(path)!, ct);
+
         ILocalModelBackend backend = new OnnxCpuBackend(path);
-        return Task.FromResult(backend);
+        return backend;
     }
 }
