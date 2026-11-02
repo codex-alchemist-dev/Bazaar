@@ -1,4 +1,7 @@
 using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Server.Components;
+using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Hosting;
@@ -22,7 +25,7 @@ public sealed class CompositionTests
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarAgentSafety();
-        services.AddBazaarSettings();
+        services.AddBazaarComponents(configuration, [new AuditComponent(), new SettingsComponent()]);
         services.AddBazaarGateway();
         return services.BuildServiceProvider(validateScopes: true);
     }
@@ -76,6 +79,40 @@ public sealed class CompositionTests
         var ex = await Assert.ThrowsAsync<SecretResolutionException>(async () =>
             await sp.GetRequiredService<ISecretResolver>().ResolveAsync("vault:thing", TestContext.Current.CancellationToken));
         Assert.Contains("vault:thing", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Systemd_creds_references_resolve_from_the_credentials_directory_on_linux()
+    {
+        const string credentialsVariable = "CREDENTIALS_DIRECTORY";
+        var directory = Path.Combine(Path.GetTempPath(), "bazaar-host-creds-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable(credentialsVariable);
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(directory, "kek"), "kek-value\n", TestContext.Current.CancellationToken);
+            Environment.SetEnvironmentVariable(credentialsVariable, directory);
+            await using var sp = Build();
+            var resolver = sp.GetRequiredService<ISecretResolver>();
+
+            if (OperatingSystem.IsLinux())
+            {
+                Assert.Equal("kek-value", await resolver.ResolveAsync("systemd-creds:kek", TestContext.Current.CancellationToken));
+                var missing = await Assert.ThrowsAsync<SecretResolutionException>(
+                    async () => await resolver.ResolveAsync("systemd-creds:not-loaded", TestContext.Current.CancellationToken));
+                Assert.Contains("systemd-creds:not-loaded", missing.Message, StringComparison.Ordinal);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<SecretResolutionException>(
+                    async () => await resolver.ResolveAsync("systemd-creds:kek", TestContext.Current.CancellationToken));
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(credentialsVariable, previous);
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]
