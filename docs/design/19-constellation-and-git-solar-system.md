@@ -86,11 +86,22 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 - **Stale data.** When disconnected, the last snapshot is shown and marked stale.
 - **Concurrency.** One layout engine per view. Concurrent layouts are capped.
 
+## Scale and level of detail (owner, 2026-10-30; [PROPOSED] numbers)
+Full design, budgets and benchmark plan: `constellation-scale-and-lod.md`.
+- **Target scale.** Millions of nodes company-wide, with billions as the design ceiling. Only the visible, aggregated set reaches the GPU per frame.
+- **Far zoom.** Louvain communities drawn as glyphs; aggregation runs server-side (layout and clustering stay on the server, C17).
+- **Streaming.** Node positions and attributes are sent as viewport chunks or tiles, with a per-viewer cap. Chunks outside the view are evicted.
+- **GPU path.** Instanced draws for nodes and edges, GPU-side frustum and LOD culling, compute-shader layout in later work. Mesh shading only behind a capability check.
+- **Tiers.** PC and phone have separate per-frame draw and memory budgets. Phone uses fewer visible instances and no hover previews above the mid zoom tier.
+
 ## Performance budgets (all [PROPOSED] until spiked)
 | Target | Budget |
 |---|---|
 | Client render, 5k nodes, Windows | 60 fps, ≤ 10 ms draw |
 | Client render, 10k nodes | 60 fps (stretch; Q1) |
+| Client render, 1M aggregated instances, PC | 60 fps, ≤ 12 ms draw (PROPOSED; measured on PC) |
+| Client render, phone (Android Vulkan) | 60 fps at the phone tier, ≤ 14 ms draw (PROPOSED; measured on device) |
+| CPU interpolation, 1M nodes | ≤ 2 ms per frame (benchmark: tests/Bazaar.Constellation.Bench) |
 | Server layout tick, 10k nodes | ≤ 8 ms per tick on the NUC (absolute budget; S14 measures it on the NUC) |
 | Focus change to settled layout, 5k nodes | ≤ 1 s |
 | Android | not gated until the spike |

@@ -31,7 +31,7 @@ public sealed class PrivacyAuditRecorder
         AppendAsync(actorId, PrivacyAuditKinds.PairingOfferCreated, new JsonObject
         {
             ["offer_id"] = Id(offerId, nameof(offerId)),
-            ["role"] = Id(role, nameof(role)),
+            ["role"] = Label(role, nameof(role)),
             ["ttl_minutes"] = ttlMinutes,
         }, ct);
 
@@ -41,7 +41,7 @@ public sealed class PrivacyAuditRecorder
         {
             ["offer_id"] = Id(offerId, nameof(offerId)),
             ["device_id"] = Id(deviceId, nameof(deviceId)),
-            ["device_class"] = Id(deviceClass, nameof(deviceClass)),
+            ["device_class"] = Label(deviceClass, nameof(deviceClass)),
         }, ct);
 
     /// <summary>A device was revoked (doc 32 section 5). <paramref name="reason"/> is a short code-free label, not free text.</summary>
@@ -49,7 +49,7 @@ public sealed class PrivacyAuditRecorder
         AppendAsync(actorId, PrivacyAuditKinds.DeviceRevoked, new JsonObject
         {
             ["device_id"] = Id(deviceId, nameof(deviceId)),
-            ["reason"] = Id(reason, nameof(reason)),
+            ["reason"] = Label(reason, nameof(reason)),
         }, ct);
 
     /// <summary>A retired refresh credential was presented again; the device is revoked (doc 32 section 5).</summary>
@@ -65,14 +65,14 @@ public sealed class PrivacyAuditRecorder
         AppendAsync(actorId, PrivacyAuditKinds.SignInSucceeded, new JsonObject
         {
             ["human_id"] = Id(humanId, nameof(humanId)),
-            ["method"] = Id(method, nameof(method)),
+            ["method"] = Label(method, nameof(method)),
         }, ct);
 
     /// <summary>A sign-in attempt failed. The payload carries only a generic reason, never the attempted name (doc 32 section 4).</summary>
     public Task SignInFailedAsync(string actorId, string reason, CancellationToken ct = default) =>
         AppendAsync(actorId, PrivacyAuditKinds.SignInFailed, new JsonObject
         {
-            ["reason"] = Id(reason, nameof(reason)),
+            ["reason"] = Label(reason, nameof(reason)),
         }, ct);
 
     /// <summary>A printed recovery code was consumed (doc 32 section 4, <c>/signin/recover</c>). Logs the record id only.</summary>
@@ -109,8 +109,8 @@ public sealed class PrivacyAuditRecorder
         AppendAsync(actorId, PrivacyAuditKinds.RoleChanged, new JsonObject
         {
             ["human_id"] = Id(humanId, nameof(humanId)),
-            ["old_role"] = Id(oldRole, nameof(oldRole)),
-            ["new_role"] = Id(newRole, nameof(newRole)),
+            ["old_role"] = Label(oldRole, nameof(oldRole)),
+            ["new_role"] = Label(newRole, nameof(newRole)),
         }, ct);
 
     /// <summary>The owner read a DM, from <paramref name="fromSeq"/> (doc 32 sections 6 and 8).</summary>
@@ -149,7 +149,7 @@ public sealed class PrivacyAuditRecorder
         return AppendAsync(actorId, PrivacyAuditKinds.ApprovalDecided, new JsonObject
         {
             ["approval_id"] = Id(approvalId, nameof(approvalId)),
-            ["action"] = Id(action, nameof(action)),
+            ["action"] = Label(action, nameof(action)),
             ["decision"] = decision,
             ["args_hash"] = Id(argsHash, nameof(argsHash)),
             ["device_id"] = Id(deviceId, nameof(deviceId)),
@@ -184,7 +184,7 @@ public sealed class PrivacyAuditRecorder
     public Task RateLimitDeniedAsync(string actorId, string bucket, int limit, int windowSeconds, CancellationToken ct = default) =>
         AppendAsync(actorId, PrivacyAuditKinds.RateLimitDenied, new JsonObject
         {
-            ["bucket"] = Id(bucket, nameof(bucket)),
+            ["bucket"] = Label(bucket, nameof(bucket)),
             ["limit"] = limit,
             ["window_seconds"] = windowSeconds,
         }, ct);
@@ -196,6 +196,20 @@ public sealed class PrivacyAuditRecorder
         var payload = Canonicalize(fields).ToJsonString();
         return _log.AppendAsync(new AuditEntry(_time.GetUtcNow(), actorId, kind, payload), ct);
     }
+
+    /// <summary>
+    /// Validates a short label field (role, reason, method, action, bucket, device class). Labels are lowercase slugs, so a
+    /// token or a sentence cannot pass as one, whatever the payload key is called.
+    /// </summary>
+    private static string Label(string value, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
+        if (!_labelPattern.IsMatch(value))
+            throw new ArgumentException($"'{paramName}' must be a lowercase label of letters, digits and underscores (1 to 32 characters).", paramName);
+        return value;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex _labelPattern = new(@"^[a-z][a-z0-9_]{0,31}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     /// <summary>Validates an identifier-like field: it must be non-blank. Returned unchanged for the payload.</summary>
     private static string Id(string value, string paramName)
