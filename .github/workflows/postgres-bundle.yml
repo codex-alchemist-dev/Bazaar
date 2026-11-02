@@ -1,0 +1,155 @@
+# Packaged PostgreSQL bundle check. Builds the PostgreSQL 18 + pgvector bundle that Bazaar.Server ships
+# (packaging/postgres, versions.env), then starts it the way the host does and runs every migration and a
+# halfvec query against it. No external PostgreSQL is used on either platform.
+#
+# Pins: every third-party action is pinned to a full commit SHA, the same pins as ci.yml.
+
+name: PostgreSQL bundle
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/postgres/**'
+      - 'src/Bazaar.Server/Data/**'
+      - '.github/workflows/postgres-bundle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/postgres/**'
+      - 'src/Bazaar.Server/Data/**'
+      - '.github/workflows/postgres-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-bundle:
+    name: Windows bundle, start and migrate
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PG_PORT: '54329'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache the built bundle
+        id: bundle-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/pg-bundle
+          key: pg-bundle-windows-${{ hashFiles('packaging/postgres/versions.env', 'packaging/postgres/build-pgvector-windows.ps1') }}
+
+      - name: Load the MSVC build environment
+        if: steps.bundle-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vcvars = & $vswhere -latest -products * -find 'VC\Auxiliary\Build\vcvars64.bat' | Select-Object -First 1
+          if (-not $vcvars) { throw 'vcvars64.bat not found' }
+          # Import the environment that vcvars64 sets (cl.exe, nmake, INCLUDE, LIB) into later steps.
+          cmd /c "`"$vcvars`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])" }
+          }
+
+      - name: Build the bundle (PostgreSQL binaries plus pgvector)
+        if: steps.bundle-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./packaging/postgres/build-pgvector-windows.ps1 -OutDir artifacts/pg-bundle -Work "$env:RUNNER_TEMP\pg-bundle-work"
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Start the bundled PostgreSQL the way the host does
+        shell: pwsh
+        run: |
+          $bin = Join-Path $PWD 'artifacts\pg-bundle\18\bin'
+          $data = Join-Path $env:RUNNER_TEMP 'pg-data'
+          $pwFile = Join-Path $env:RUNNER_TEMP 'pg-pw.txt'
+          Set-Content -Path $pwFile -Value 'ci-only-password' -NoNewline
+          & (Join-Path $bin 'initdb.exe') -D $data -U postgres -A scram-sha-256 --pwfile=$pwFile --encoding=UTF8 | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+          # The host writes listen_addresses and the port itself; CI sets the same two values here.
+          Add-Content -Path (Join-Path $data 'postgresql.conf') -Value "listen_addresses = '127.0.0.1'`nport = $env:PG_PORT"
+          & (Join-Path $bin 'pg_ctl.exe') -D $data -l (Join-Path $env:RUNNER_TEMP 'pg.log') -w start | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'pg_ctl start failed' }
+          $env:PGPASSWORD = 'ci-only-password'
+          & (Join-Path $bin 'psql.exe') -h 127.0.0.1 -p $env:PG_PORT -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE bazaar_ci" | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'create database failed' }
+          Add-Content -Path $env:GITHUB_ENV -Value "BAZAAR_CI_DB=Host=127.0.0.1;Port=$env:PG_PORT;Database=bazaar_ci;Username=postgres;Password=ci-only-password"
+          Add-Content -Path $env:GITHUB_ENV -Value "BAZAAR_CI_PGDATA=$data"
+
+      - name: Run every migration and a halfvec query
+        shell: pwsh
+        run: |
+          dotnet run --project src/Bazaar.Server.Host/Bazaar.Server.Host.csproj -- migrate `
+            "--Bazaar:Host:DataRoot=$env:RUNNER_TEMP\bazaar-data" `
+            "--Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_CI_DB"
+          if ($LASTEXITCODE -ne 0) { throw 'migrate failed' }
+          $env:PGPASSWORD = 'ci-only-password'
+          $bin = Join-Path $PWD 'artifacts\pg-bundle\18\bin'
+          & (Join-Path $bin 'psql.exe') -h 127.0.0.1 -p $env:PG_PORT -U postgres -d bazaar_ci -v ON_ERROR_STOP=1 -At `
+            -c "SELECT extversion FROM pg_extension WHERE extname = 'vector'" `
+            -c "SELECT '[1,2,3]'::halfvec(3)" | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'halfvec check failed' }
+
+      - name: Stop the bundled PostgreSQL
+        if: always()
+        shell: pwsh
+        run: |
+          $bin = Join-Path $PWD 'artifacts\pg-bundle\18\bin'
+          if (Test-Path (Join-Path $env:RUNNER_TEMP 'pg-data')) {
+            & (Join-Path $bin 'pg_ctl.exe') -D (Join-Path $env:RUNNER_TEMP 'pg-data') -m fast -w stop | Out-Host
+          }
+
+  linux-image:
+    name: Linux Compose image, migrate and halfvec
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Build the PostgreSQL 18 + pgvector image
+        run: docker build -t bazaar-pg:ci packaging/postgres
+
+      - name: Start the image and wait for it
+        run: |
+          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=ci-only-password -p 54330:5432 bazaar-pg:ci
+          for _ in $(seq 1 60); do
+            docker exec bazaar-pg pg_isready -U postgres -q && break
+            sleep 1
+          done
+          docker exec -e PGPASSWORD=ci-only-password bazaar-pg psql -U postgres -c "CREATE DATABASE bazaar_ci"
+
+      - name: Run every migration and a halfvec query
+        env:
+          BAZAAR_CI_DB: Host=127.0.0.1;Port=54330;Database=bazaar_ci;Username=postgres;Password=ci-only-password
+        run: |
+          dotnet run --project src/Bazaar.Server.Host/Bazaar.Server.Host.csproj -- migrate \
+            --Bazaar:Host:DataRoot="$RUNNER_TEMP/bazaar-data" \
+            --Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_CI_DB
+          docker exec -e PGPASSWORD=ci-only-password bazaar-pg psql -U postgres -d bazaar_ci -v ON_ERROR_STOP=1 -At \
+            -c "SELECT extversion FROM pg_extension WHERE extname = 'vector'" \
+            -c "SELECT '[1,2,3]'::halfvec(3)"
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f bazaar-pg || true
