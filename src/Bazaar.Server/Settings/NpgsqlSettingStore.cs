@@ -13,7 +13,7 @@ namespace Bazaar.Server.Settings;
 /// </summary>
 public sealed class NpgsqlSettingStore(NpgsqlDataSource dataSource, ISettingAuditSink audit, SettingRegistry? registry = null) : ISettingStore
 {
-    private readonly SettingRegistry _registry = registry ?? SettingRegistry.Host;
+    private readonly SettingRegistry _registry = registry ?? SettingRegistry.Known;
 
     private const string _selectSql = "SELECT value::text FROM setting WHERE key = @key AND scope = @scope AND scope_id = @scope_id";
 
