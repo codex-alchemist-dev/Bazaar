@@ -1,3 +1,4 @@
+using Bazaar.Server.Gc.Consumers;
 using Bazaar.Server.Gc.Provenance;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
@@ -23,6 +24,8 @@ public static class GcLogServiceCollectionExtensions
         services.AddSingleton<GcNotifyListener>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<GcNotifyListener>());
         services.AddSingleton<GcTail>();
+        // TODO(component): the consumers are a separate component; move this call to the host composition once it has its own wiring.
+        services.AddBazaarGcConsumers();
         return services;
     }
 

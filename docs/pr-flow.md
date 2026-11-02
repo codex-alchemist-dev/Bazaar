@@ -28,6 +28,20 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
 | Analyze (actions) | CodeQL default setup (not a workflow file in this repo) | Not reported. Same as above. |
 | Signed-off-by line in PR description | `pr-sponsor.yml`, job `signed-off-by` | On non-draft PRs only. Skipped on drafts, which counts as a pass. |
 
+## Automation (keeps PRs from being orphaned)
+
+- `.github/workflows/pr-automerge.yml` enables squash auto-merge on non-draft PRs into `main`
+  (or merges directly when GitHub reports CLEAN and auto-merge is unavailable). It never uses
+  `--admin`. Logic: `.github/scripts/pr-automerge.sh`.
+- `.github/workflows/pr-maintenance.yml` runs hourly to merge `main` into behind branches
+  (`update-branch`, then starts `ci.yml` and `pr-sponsor.yml` on the new head, because a
+  GITHUB_TOKEN push starts no workflows). It runs every 30 minutes to re-run a failed
+  Windows job once when the failure is the WebSocket flake.
+- `.github/workflows/pr-stale.yml` runs daily. Idle for 24 hours means no commit, review or
+  non-bot comment. It labels the PR `stale` and comments once. A PR with the `duplicate` label
+  that is also idle is closed.
+- The owning thread still owns each PR until it is merged or closed (see CONTRIBUTING.md).
+
 ## Known gap: CodeQL on docs-only PRs
 
 The two `Analyze` checks come from CodeQL default setup, which skips docs-only PRs. On such
