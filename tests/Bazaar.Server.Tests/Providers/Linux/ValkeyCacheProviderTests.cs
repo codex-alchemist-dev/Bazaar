@@ -54,14 +54,14 @@ public class ValkeyCacheProviderTests
     [Fact]
     public void Probe_resolves_the_secret_reference_and_connects_with_the_value_not_the_reference()
     {
-        var resolver = new FakeSecretResolver(new Dictionary<string, string> { [_secretReference] = "valkey.internal:6380,password=s3cret" });
+        var resolver = new FakeSecretResolver(new Dictionary<string, string> { [_secretReference] = "valkey.internal:6380,ssl=true" });
         var client = new FakeValkeyClient();
         var provider = Create(new ValkeyCacheOptions { SecretReference = _secretReference }, resolver, client);
 
         var status = provider.Probe();
 
         Assert.True(status.Usable);
-        Assert.Equal("valkey.internal:6380,password=s3cret", Assert.Single(FakeValkeyClientFactory.Requested));
+        Assert.Equal("valkey.internal:6380,ssl=true", Assert.Single(FakeValkeyClientFactory.Requested));
     }
 
     [Fact]
