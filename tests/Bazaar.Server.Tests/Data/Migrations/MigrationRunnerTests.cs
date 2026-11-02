@@ -134,7 +134,7 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
 
         var result = await new MigrationRunner(ds).MigrateAsync(source, "linux", TestContext.Current.CancellationToken);
 
-        Assert.Equal(["common", "linux"], result.Applied.Select(a => a.Provider));
+        Assert.Equal(["common", "linux"], result.Applied.Select(a => a.Namespace));
         Assert.Equal(1, await ScalarAsync(ds, "SELECT count(*) FROM pg_indexes WHERE indexname = 'base_t_idx'"));
         Assert.Equal(0, await ScalarAsync(ds, "SELECT count(*) FROM pg_indexes WHERE indexname = 'base_t_win'"));
     }
