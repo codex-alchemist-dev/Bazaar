@@ -10,6 +10,7 @@ namespace Bazaar.Contracts.Memory;
 /// <param name="Body">Note body in Markdown. Size limits are enforced by the memory validator.</param>
 /// <param name="Origin">Provenance label, such as <c>agent</c>, <c>external</c> or <c>owner</c> (doc 15 provenance enum).</param>
 /// <param name="TurnId">The turn the write belongs to, when known.</param>
+/// <param name="Project">Project slug. Required when <paramref name="Scope"/> is <c>project</c>; ignored otherwise.</param>
 public sealed record MemoryStoreRequest(
     string AgentId,
     string Scope,
@@ -17,7 +18,8 @@ public sealed record MemoryStoreRequest(
     string Title,
     string Body,
     string Origin,
-    string? TurnId);
+    string? TurnId,
+    string? Project = null);
 
 /// <summary>Result of <c>memory_store</c>.</summary>
 /// <param name="NoteId">Stable id of the new note.</param>
