@@ -1,3 +1,4 @@
+using Bazaar.Server.Community;
 using Bazaar.Server.Components;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -25,6 +26,7 @@ public static class HostComponents
         new GcComponent(),
         new FunComponent(),
         new KanbanComponent(),
+        new CommunityComponent(),
         new VaultComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
