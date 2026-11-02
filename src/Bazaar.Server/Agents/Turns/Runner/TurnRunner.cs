@@ -17,7 +17,7 @@ namespace Bazaar.Server.Agents.Turns.Runner;
 /// </summary>
 /// <remarks>
 /// Every step is written as pending before its action and completed in place before the runner acts on its result, so a crash
-/// leaves a record. A run that finds no lease returns <see cref="TurnEndReason.LeaseLost"/> with <see cref="TurnOutcome.TurnId"/>
+/// leaves a record. A run that finds no lease returns <see cref="TurnEndReason.LeaseLost"/> with <see cref="TurnRunOutcome.TurnId"/>
 /// set to <see cref="Guid.Empty"/>: no turn was started and no inbox item was touched. Cancellation during a run ends it as
 /// <see cref="TurnEndReason.Interrupted"/>; cleanup then runs without the cancelled token. An unexpected exception ends the turn as
 /// failed, releases the items and lease, and is rethrown.
@@ -63,7 +63,7 @@ public sealed class TurnRunner : ITurnRunner
         _idempotent = new HashSet<string>(options.IdempotentTools, StringComparer.Ordinal);
     }
 
-    public Task<TurnOutcome> RunAsync(TurnRunRequest request, CancellationToken cancellationToken) =>
+    public Task<TurnRunOutcome> RunAsync(TurnRunRequest request, CancellationToken cancellationToken) =>
         ClaimAndRunAsync(request, resumeTurnId: null, cancellationToken);
 
     /// <summary>
@@ -71,10 +71,10 @@ public sealed class TurnRunner : ITurnRunner
     /// called again only for the next step. Unfinished steps are settled as doc 06 gives. This is not on <see cref="ITurnRunner"/>;
     /// the host calls it. A turn that is not running, or that belongs to another agent, is rejected.
     /// </summary>
-    public Task<TurnOutcome> ResumeAsync(Guid turnId, TurnRunRequest request, CancellationToken cancellationToken) =>
+    public Task<TurnRunOutcome> ResumeAsync(Guid turnId, TurnRunRequest request, CancellationToken cancellationToken) =>
         ClaimAndRunAsync(request, turnId, cancellationToken);
 
-    private async Task<TurnOutcome> ClaimAndRunAsync(TurnRunRequest request, Guid? resumeTurnId, CancellationToken ct)
+    private async Task<TurnRunOutcome> ClaimAndRunAsync(TurnRunRequest request, Guid? resumeTurnId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Holder);
@@ -95,7 +95,7 @@ public sealed class TurnRunner : ITurnRunner
         return await RunHeldAsync(request, resumeTurnId, ct).ConfigureAwait(false);
     }
 
-    private async Task<TurnOutcome> RunHeldAsync(TurnRunRequest request, Guid? resumeTurnId, CancellationToken ct)
+    private async Task<TurnRunOutcome> RunHeldAsync(TurnRunRequest request, Guid? resumeTurnId, CancellationToken ct)
     {
         var run = new RunState(request, _time.GetUtcNow() + _options.WallClock);
         Exception? failure = null;
@@ -148,7 +148,7 @@ public sealed class TurnRunner : ITurnRunner
 
         if (failure is not null)
             ExceptionDispatchInfo.Throw(failure);
-        return new TurnOutcome(run.TurnId, run.Reason ?? throw new InvalidOperationException("A run ended without a reason."), run.Summary, run.StepCount);
+        return new TurnRunOutcome(run.TurnId, run.Reason ?? throw new InvalidOperationException("A run ended without a reason."), run.Summary, run.StepCount);
     }
 
     /// <summary>The loop of doc 06 step 4. Returns the reason the turn ended, with the final text in <see cref="RunState.Summary"/>.</summary>
@@ -418,7 +418,7 @@ public sealed class TurnRunner : ITurnRunner
         "The tool call was in flight when the runtime restarted and is not idempotent, so it was not run again. " +
         "Whether it took effect is unknown; do not assume it succeeded or failed.";
 
-    private static TurnOutcome NotStarted(TurnEndReason reason) => new(Guid.Empty, reason, null, 0);
+    private static TurnRunOutcome NotStarted(TurnEndReason reason) => new(Guid.Empty, reason, null, 0);
 
     /// <summary>The state of one run: the turn, counters, the replay queues and the step in flight.</summary>
     private sealed class RunState(TurnRunRequest request, DateTimeOffset deadline)

@@ -85,10 +85,10 @@ public class SubagentRunnerTests
     [Fact]
     public async Task The_fourth_concurrent_child_is_rejected_and_a_slot_frees_when_one_finishes()
     {
-        var held = new List<TaskCompletionSource<TurnOutcome>>();
+        var held = new List<TaskCompletionSource<TurnRunOutcome>>();
         var turns = new ScriptedTurnRunner((_, _) =>
         {
-            var gate = new TaskCompletionSource<TurnOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var gate = new TaskCompletionSource<TurnRunOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (held)
             {
                 held.Add(gate);
@@ -112,13 +112,13 @@ public class SubagentRunnerTests
         var otherParent = runner.SpawnAsync(Request(parentTurnId: Guid.NewGuid()), CancellationToken.None);
         Assert.Equal(4, turns.Requests.Count);
 
-        TaskCompletionSource<TurnOutcome> first;
+        TaskCompletionSource<TurnRunOutcome> first;
         lock (held)
         {
             first = held[0];
         }
 
-        first.SetResult(new TurnOutcome(Guid.NewGuid(), TurnEndReason.FinalMessage, "first", 2));
+        first.SetResult(new TurnRunOutcome(Guid.NewGuid(), TurnEndReason.FinalMessage, "first", 2));
         await running[0];
 
         var fifth = runner.SpawnAsync(Request(parentTurnId: parentTurn), CancellationToken.None);
@@ -128,7 +128,7 @@ public class SubagentRunnerTests
         lock (held)
         {
             foreach (var gate in held.Skip(1))
-                gate.TrySetResult(new TurnOutcome(Guid.NewGuid(), TurnEndReason.FinalMessage, null, 1));
+                gate.TrySetResult(new TurnRunOutcome(Guid.NewGuid(), TurnEndReason.FinalMessage, null, 1));
         }
 
         await Task.WhenAll(running[1], running[2], otherParent, fifth);
@@ -143,7 +143,7 @@ public class SubagentRunnerTests
             calls++;
             if (calls == 1)
                 throw new InvalidOperationException("gateway exploded");
-            return Task.FromResult(new TurnOutcome(Guid.NewGuid(), TurnEndReason.FinalMessage, "ok", 1));
+            return Task.FromResult(new TurnRunOutcome(Guid.NewGuid(), TurnEndReason.FinalMessage, "ok", 1));
         });
         var runner = new SubagentRunner(turns, new SubagentOptions { MaxConcurrent = 1 });
         var parentTurn = Guid.NewGuid();
@@ -238,7 +238,7 @@ public class SubagentRunnerTests
     {
         var childTurn = Guid.NewGuid();
         var turns = new ScriptedTurnRunner((_, _) =>
-            Task.FromResult(new TurnOutcome(childTurn, TurnEndReason.LeaseLost, null, 3)));
+            Task.FromResult(new TurnRunOutcome(childTurn, TurnEndReason.LeaseLost, null, 3)));
         var runner = new SubagentRunner(turns, new SubagentOptions());
 
         var result = await runner.SpawnAsync(Request(), CancellationToken.None);

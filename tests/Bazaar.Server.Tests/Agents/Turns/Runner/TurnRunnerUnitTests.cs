@@ -7,6 +7,9 @@ using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Gateway.Fakes;
 using Npgsql;
 
+using TurnRunner = Bazaar.Server.Agents.Turns.Runner.TurnRunner;
+using TurnRunnerOptions = Bazaar.Server.Agents.Turns.Runner.TurnRunnerOptions;
+
 namespace Bazaar.Server.Tests.Agents.Turns.Runner;
 
 /// <summary>Runner pieces that need no database: options, request hashes, payload JSON and the cancelled-before-start path.</summary>

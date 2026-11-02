@@ -10,6 +10,9 @@ using Bazaar.Server.Tests.Agents.Data;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Time.Testing;
 
+using TurnRunner = Bazaar.Server.Agents.Turns.Runner.TurnRunner;
+using TurnRunnerOptions = Bazaar.Server.Agents.Turns.Runner.TurnRunnerOptions;
+
 namespace Bazaar.Server.Tests.Agents.Turns.Runner;
 
 /// <summary>The turn loop against real Postgres (migration 0010), with the scripted provider behind the gateway seam.</summary>
