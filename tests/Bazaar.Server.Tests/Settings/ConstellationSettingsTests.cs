@@ -39,6 +39,16 @@ public sealed class ConstellationSettingsTests
     }
 
     [Fact]
+    public void Known_registry_includes_every_constellation_key()
+    {
+        // The settings store reads Known, so constellation.* rows are readable only if these keys are in it.
+        foreach (var definition in SettingRegistry.Constellation.Definitions)
+        {
+            Assert.True(SettingRegistry.Known.Contains(definition), definition.Name);
+        }
+    }
+
+    [Fact]
     public void Constellation_defaults_match_doc_19()
     {
         Assert.Equal(10000, ConstellationSettings.NodeCap.Default);
