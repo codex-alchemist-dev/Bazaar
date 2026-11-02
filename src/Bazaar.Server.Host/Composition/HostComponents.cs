@@ -6,6 +6,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
+using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -20,6 +21,7 @@ public static class HostComponents
         new AuditComponent(),
         new SettingsComponent(),
         new KanbanComponent(),
+        new VaultComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
