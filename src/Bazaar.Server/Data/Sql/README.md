@@ -34,7 +34,8 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
 | `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
-| `0021+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0021` | EMAIL1 | this PR | Namespace `mail` (not `common`, which is frozen): mail core (doc 22 tables): `mail_domain`, `mail_mailbox`, `mail_message`, `mail_outbound`, `mail_blob`; personal bodies encrypted per person |
+| `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Claiming a number
 
