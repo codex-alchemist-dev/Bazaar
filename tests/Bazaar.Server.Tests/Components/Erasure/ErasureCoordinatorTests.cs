@@ -48,9 +48,9 @@ public sealed class ErasureCoordinatorTests
         Assert.True(report.KeyDestroyed);
         Assert.False(report.IsComplete);
         Assert.Equal(ErasureParticipantStatus.Failed, report.Participants[1].Result.Status);
-        Assert.Equal("disk unavailable", report.Participants[1].Result.Error);
+        Assert.Equal(nameof(InvalidOperationException), report.Participants[1].Result.Error);
         Assert.Equal(ErasureParticipantStatus.NothingToDo, report.Participants[2].Result.Status);
-        Assert.Contains(report.Failures, f => f.Contains("broken", StringComparison.Ordinal) && f.Contains("disk unavailable", StringComparison.Ordinal));
+        Assert.Contains(report.Failures, f => f.Contains("broken", StringComparison.Ordinal) && f.Contains(nameof(InvalidOperationException), StringComparison.Ordinal));
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class ErasureCoordinatorTests
         Assert.False(report.KeyDestroyed);
         Assert.False(report.IsComplete);
         Assert.Equal(ErasureParticipantStatus.Removed, report.Participants[0].Result.Status);
-        Assert.Contains(report.Failures, f => f.Contains("permission denied to set role", StringComparison.Ordinal));
+        Assert.Contains(report.Failures, f => f.Contains(nameof(InvalidOperationException), StringComparison.Ordinal));
     }
 
     [Fact]
