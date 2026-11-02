@@ -1,0 +1,70 @@
+# Keeps open pull requests moving without a person on hand.
+#
+#   keep-current:  every hour, merges main into each open PR branch that is behind main
+#                  (update-branch, a merge commit, never a force push) and starts the
+#                  required checks on the new head. Logic: .github/scripts/pr-keep-current.sh
+#   rerun-flaky:   every 30 minutes, re-runs the failed jobs once when the only failure is the
+#                  Windows WebSocket test flake. Logic: .github/scripts/pr-rerun-flaky.sh
+#
+# Neither job weakens a check or changes a required check. A re-run keeps the original
+# run's required check names, so the required checks still have to pass.
+# Actions write access is needed to re-run runs and to start workflow_dispatch runs.
+
+name: PR maintenance
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Which job to run'
+        required: true
+        default: both
+        type: choice
+        options: [both, keep-current, rerun-flaky]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: pr-maintenance
+  cancel-in-progress: false
+
+jobs:
+  keep-current:
+    name: Keep open pull requests current with main
+    if: github.event_name == 'schedule' && github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch' && (inputs.job == 'both' || inputs.job == 'keep-current')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Merge main into behind branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/pr-keep-current.sh
+
+  rerun-flaky:
+    name: Re-run the Windows WebSocket flake once
+    if: github.event_name == 'schedule' && github.event.schedule == '*/30 * * * *' || github.event_name == 'workflow_dispatch' && (inputs.job == 'both' || inputs.job == 'rerun-flaky')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Re-run the failed Windows WebSocket job once
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/pr-rerun-flaky.sh
