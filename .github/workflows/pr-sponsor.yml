@@ -44,6 +44,11 @@ concurrency:
 jobs:
   signed-off-by:
     name: Signed-off-by line in PR description
+    # On a draft the job-level if skips the job; it does not fail. GitHub counts a
+    # skipped job as a passing result for a required check, so a draft is not
+    # blocked by this check. Marking the PR ready_for_review (listed in `types`
+    # above) runs the check again with draft == false. Keep the job name stable:
+    # the required check is matched by name.
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
