@@ -9,6 +9,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Components.Fun\Bazaar.Server.Components.Fun.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Components.Kanban\Bazaar.Server.Components.Kanban.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>
