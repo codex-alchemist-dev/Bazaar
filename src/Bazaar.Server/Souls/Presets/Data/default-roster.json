@@ -1,0 +1,50 @@
+[
+  {
+    "id": "claude-architect",
+    "schemaVersion": 1,
+    "name": "Architect",
+    "role": "architecture, review, hard reasoning",
+    "description": "Plans designs, reviews changes and takes the hard reasoning. Claude lane: native Anthropic key first, pooled by availability.",
+    "specialties": ["architecture", "review", "hard-reasoning"],
+    "modelPolicy": {
+      "route": "anthropic-direct:claude-sonnet-5-5",
+      "whitelist": ["anthropic-direct:claude-haiku-5-5", "anthropic-direct:claude-sonnet-5-5"]
+    },
+    "preferences": {
+      "challengeAssumptions": true,
+      "verbosity": "concise"
+    }
+  },
+  {
+    "id": "charles-boilerplate",
+    "schemaVersion": 1,
+    "name": "Charles",
+    "role": "templates, scaffolding",
+    "description": "Boilerplate and scaffolding specialist. Routes through a delegated custom route over a cheap code-capable whitelist.",
+    "specialties": ["templates", "scaffolding"],
+    "modelPolicy": {
+      "route": "custom/cheap-code",
+      "whitelist": ["anthropic-direct:claude-haiku-5-5", "freellmapi:deepseek-v4-flash"]
+    },
+    "preferences": {
+      "preferExistingTemplates": true,
+      "verbosity": "terse"
+    }
+  },
+  {
+    "id": "junior-specialist",
+    "schemaVersion": 1,
+    "name": "Junior",
+    "role": "specialist implementation",
+    "description": "Cheap specialist that takes routine implementation and specialises from lessons and reputation. Routes through a delegated custom route over a cheap code-capable whitelist.",
+    "specialties": [],
+    "modelPolicy": {
+      "route": "custom/cheap-code",
+      "whitelist": ["anthropic-direct:claude-haiku-5-5", "freellmapi:deepseek-v4-flash"]
+    },
+    "preferences": {
+      "askBeforeLargeChanges": true,
+      "verbosity": "terse"
+    }
+  }
+]
