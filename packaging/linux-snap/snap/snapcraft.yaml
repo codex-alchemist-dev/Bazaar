@@ -1,0 +1,66 @@
+# Snap package for the Bazaar Linux client (Bazaar.Client.Linux).
+# Placeholder snap name: bazaar-client. Store push is parked (doc 37, section 7);
+# this file does not log in to or publish to the Snap Store.
+name: bazaar-client
+base: core24
+summary: Native client for the Bazaar platform
+description: |
+  Bazaar is a platform for a persistent AI software company. This snap
+  packages the native Linux desktop client, which connects to a Bazaar
+  server you operate.
+license: AGPL-3.0-only
+website: https://github.com/codex-alchemist-dev/Bazaar
+adopt-info: bazaar-client
+# Placeholder until a store listing and channels are decided.
+grade: devel
+confinement: strict
+
+apps:
+  bazaar-client:
+    command: bin/Bazaar.Client.Linux
+    desktop: snap/gui/bazaar-client.desktop
+    extensions:
+      - gnome
+    plugs:
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - opengl
+      - network
+
+parts:
+  bazaar-client:
+    plugin: nil
+    source: ../..
+    build-packages:
+      - curl
+      - git
+      - ca-certificates
+    stage-packages:
+      # Native libraries Avalonia's X11 and Wayland backends load at runtime.
+      # Verify against a real run before any release.
+      - libx11-6
+      - libice6
+      - libsm6
+      - libfontconfig1
+      - libxkbcommon0
+      - libwayland-client0
+      - libegl1
+      - libgl1
+      - libicu74
+    override-pull: |
+      craftctl default
+      craftctl set version="$(git -C "$CRAFT_PART_SRC" describe --tags --always 2>/dev/null || echo 0.0.0-git)"
+    override-build: |
+      set -eu
+      # SDK channel must match TargetFramework in src/Bazaar.Client.Linux (net11.0)
+      # and global.json. Change them together.
+      DOTNET_DIR="$CRAFT_PART_BUILD/dotnet"
+      curl -sSL https://dot.net/v1/dotnet-install.sh -o "$CRAFT_PART_BUILD/dotnet-install.sh"
+      bash "$CRAFT_PART_BUILD/dotnet-install.sh" --channel 11.0 --quality preview --install-dir "$DOTNET_DIR"
+      export DOTNET_ROOT="$DOTNET_DIR"
+      export PATH="$DOTNET_DIR:$PATH"
+      export DOTNET_CLI_TELEMETRY_OPTOUT=1
+      dotnet publish "$CRAFT_PART_SRC/src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" \
+        -c Release -r linux-x64 --self-contained true -o "$CRAFT_PART_INSTALL/bin"

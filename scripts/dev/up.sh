@@ -115,6 +115,26 @@ export Bazaar__DevAuth__TokenSecret=env:BAZAAR_DEV_TOKEN
 export Bazaar__DevAuth__PrincipalId="$DEV_OWNER_ID"
 export BAZAAR_DEV_TOKEN
 
+# FreeLLMAPI as the default model source (testing). Off unless FREELLMAPI_API_KEY is set.
+# The key stays in the environment; Bazaar reads it through an env: secret reference.
+if [[ -n "${FREELLMAPI_API_KEY:-}" ]]; then
+  FREELLMAPI_BASE_URL="${FREELLMAPI_BASE_URL:-http://127.0.0.1:3001/v1}"
+  if [[ -z "${FREELLMAPI_MODEL:-}" ]]; then
+    # Pick the first concrete model the live instance serves. Bazaar refuses the auto family.
+    FREELLMAPI_MODEL="$(curl -fsS -H "Authorization: Bearer $FREELLMAPI_API_KEY" "$FREELLMAPI_BASE_URL/models" \
+      | python3 -c 'import json,sys; ids=[m["id"] for m in json.load(sys.stdin)["data"] if not m["id"].startswith("auto")]; print(ids[0] if ids else "")' 2>/dev/null || true)"
+  fi
+  if [[ -z "$FREELLMAPI_MODEL" ]]; then
+    echo "FreeLLMAPI: could not pick a model from $FREELLMAPI_BASE_URL/models. Set FREELLMAPI_MODEL to a concrete model id." >&2
+    exit 1
+  fi
+  export Bazaar__Gateway__FreeLlmApi__Enabled=true
+  export Bazaar__Gateway__FreeLlmApi__BaseUrl="$FREELLMAPI_BASE_URL"
+  export Bazaar__Gateway__FreeLlmApi__ApiKey=env:FREELLMAPI_API_KEY
+  export Bazaar__Gateway__FreeLlmApi__DefaultModel="$FREELLMAPI_MODEL"
+  echo "FreeLLMAPI: $FREELLMAPI_BASE_URL, model $FREELLMAPI_MODEL."
+fi
+
 # The dev agent answers mentions and DMs in the dev chat as its own member. Its model route is the responder default.
 export Bazaar__AgentResponder__Agents__0__AgentId="$DEV_AGENT_ID"
 export Bazaar__AgentResponder__Agents__0__Name="Charles"
