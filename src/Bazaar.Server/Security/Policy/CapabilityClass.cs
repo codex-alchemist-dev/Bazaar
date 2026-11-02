@@ -8,6 +8,9 @@ public enum CapabilityClass
     /// <summary>Reads data with no side effect outside the server.</summary>
     Read,
 
+    /// <summary>Runs a command inside a workspace VM (doc 17).</summary>
+    Exec,
+
     /// <summary>Publishes content where others can see it.</summary>
     Post,
 
