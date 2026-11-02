@@ -3,6 +3,7 @@ using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
@@ -20,6 +21,7 @@ public static class HostComponents
     [
         new AuditComponent(),
         new SettingsComponent(),
+        new GcComponent(),
         new KanbanComponent(),
         new VaultComponent(),
         new OpenAiChatAdapterComponent(),
