@@ -1,5 +1,5 @@
 # Linux packaged PostgreSQL for Compose: PostgreSQL 18 plus pgvector from the PGDG repository.
-# The Linux packaged install (managed mode) uses the same major and pgvector version as versions.env.
+# The Linux packaged install (managed mode) uses the same major and pgvector version as versions.txt.
 # The base image is pinned by digest in the Compose file; bump both together.
 ARG PG_MAJOR=18
 FROM postgres:${PG_MAJOR}-bookworm
