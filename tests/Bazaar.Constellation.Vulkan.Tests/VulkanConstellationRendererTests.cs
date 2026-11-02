@@ -34,12 +34,36 @@ public class VulkanConstellationRendererTests
     }
 
     [Fact]
-    public void Attach_does_not_claim_a_surface_before_the_swapchain_exists()
+    public void Attach_reports_the_swapchain_failure_and_does_not_claim_the_surface()
     {
-        using var renderer = new VulkanConstellationRenderer(() => _available);
+        using var renderer = new VulkanConstellationRenderer(
+            () => _available,
+            createSwapchain: _ => (null, "No Vulkan device can present to this surface."));
         RenderAttachResult result = renderer.Attach(Surface);
         Assert.False(result.Attached);
-        Assert.Contains("not implemented", result.Reason);
+        Assert.Equal("No Vulkan device can present to this surface.", result.Reason);
+    }
+
+    [Fact]
+    public void Attach_asks_the_swapchain_factory_for_the_surface_it_was_given()
+    {
+        RenderSurface? seen = null;
+        using var renderer = new VulkanConstellationRenderer(
+            () => _available,
+            createSwapchain: surface =>
+            {
+                seen = surface;
+                return (null, "stop here");
+            });
+        renderer.Attach(Surface);
+        Assert.Equal(Surface, seen);
+    }
+
+    [Fact]
+    public void Draw_without_an_attached_surface_does_nothing()
+    {
+        using var renderer = new VulkanConstellationRenderer(() => _available);
+        renderer.Draw(0);
     }
 
     [Fact]

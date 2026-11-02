@@ -4,25 +4,32 @@ namespace Bazaar.Constellation.Vulkan;
 
 /// <summary>
 /// Vulkan backend for the Constellation view (doc 19, WP7).
-/// This slice probes the loader and devices and keeps the shared frame state (ordering, blending, scene checks).
-/// The swapchain, pipelines and drawing are not implemented yet: they need a GPU run on the owner's Windows PC.
-/// Until then <see cref="Attach"/> reports why it cannot draw, and it never claims a surface it did not bind.
+/// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
+/// Node drawing is not in this slice yet: frames are accepted and ordered, and the swapchain shows the background.
+/// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
 {
-    private const string _swapchainPending = "Vulkan swapchain and pipelines are not implemented yet (GPU spike pending on the owner's PC).";
+    /// <summary>Background colour cleared each frame until node drawing lands (RGBA, linear).</summary>
+    private static readonly (float R, float G, float B, float A) _background = (0.05f, 0.06f, 0.08f, 1f);
 
     private readonly Lazy<VulkanProbeResult> _probe;
+    private readonly Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)> _createSwapchain;
     private readonly FrameSequencer _sequencer = new();
     private readonly FrameInterpolator _interpolator;
+    private VulkanSwapchain? _swapchain;
     private ConstellationScene? _scene;
     private int _widthPixels;
     private int _heightPixels;
     private bool _disposed;
 
-    public VulkanConstellationRenderer(Func<VulkanProbeResult>? probe = null, double frameBlendSeconds = 0.25)
+    public VulkanConstellationRenderer(
+        Func<VulkanProbeResult>? probe = null,
+        double frameBlendSeconds = 0.25,
+        Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)>? createSwapchain = null)
     {
         _probe = new Lazy<VulkanProbeResult>(probe ?? VulkanProbe.Run);
+        _createSwapchain = createSwapchain ?? VulkanSwapchain.TryCreate;
         _interpolator = new FrameInterpolator(frameBlendSeconds);
     }
 
@@ -42,13 +49,27 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     public RenderAttachResult Attach(RenderSurface surface)
     {
         ThrowIfDisposed();
+        if (_swapchain is not null)
+        {
+            return new RenderAttachResult(false, "A surface is already attached. Detach it before attaching another.");
+        }
+
         VulkanProbeResult probe = _probe.Value;
         if (!probe.Available)
         {
             return new RenderAttachResult(false, probe.Reason);
         }
 
-        return new RenderAttachResult(false, _swapchainPending);
+        (VulkanSwapchain? swapchain, string reason) = _createSwapchain(surface);
+        if (swapchain is null)
+        {
+            return new RenderAttachResult(false, reason);
+        }
+
+        _swapchain = swapchain;
+        _widthPixels = surface.WidthPixels;
+        _heightPixels = surface.HeightPixels;
+        return new RenderAttachResult(true, string.Empty);
     }
 
     public void SetScene(ConstellationScene scene)
@@ -85,17 +106,34 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(heightPixels);
         _widthPixels = widthPixels;
         _heightPixels = heightPixels;
+        if (_swapchain is not null)
+        {
+            _ = _swapchain.Resize(widthPixels, heightPixels);
+        }
     }
 
-    /// <summary>Nothing is drawn until a swapchain is bound by <see cref="Attach"/>.</summary>
+    /// <summary>Clears and presents the background. Does nothing until a surface is attached.</summary>
     public void Draw(double nowSeconds)
     {
         ThrowIfDisposed();
+        if (_swapchain is null)
+        {
+            return;
+        }
+
+        _ = _swapchain.ClearAndPresent(_background);
     }
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
+        _swapchain?.Dispose();
+        _swapchain = null;
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
