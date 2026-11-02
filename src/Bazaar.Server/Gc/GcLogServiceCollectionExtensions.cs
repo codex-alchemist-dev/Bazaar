@@ -1,3 +1,4 @@
+using Bazaar.Server.Gc.Provenance;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public static class GcLogServiceCollectionExtensions
         services.AddSingleton<CoalescingGcNotifier>();
         services.AddSingleton<IGcNotifier>(sp => sp.GetRequiredService<CoalescingGcNotifier>());
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<CoalescingGcNotifier>());
+        services.AddBazaarGcProvenance();
         services.AddSingleton<IGcLogWriter, GcLogWriter>();
         services.AddSingleton<IGcLogReader, GcLogReader>();
         services.AddSingleton<GcNotifyListener>();
