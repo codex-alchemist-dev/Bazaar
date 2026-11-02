@@ -448,6 +448,12 @@ public sealed class ModelGateway : IModelGateway
         }
     }
 
+    // The callback gets a scrubbed message, never the raw exception: a host logger must not see a resolved key.
+    private void NotifyInternalError(Exception ex)
+    {
+        _onInternalError?.Invoke(new InvalidOperationException(_scrubber.Scrub($"{ex.GetType().FullName}: {ex.Message}")));
+    }
+
     private void Report(ProviderKey key, string modelClass, ModelEvent.Failure failure)
     {
         try
@@ -456,7 +462,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -469,7 +475,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -481,7 +487,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -517,7 +523,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 

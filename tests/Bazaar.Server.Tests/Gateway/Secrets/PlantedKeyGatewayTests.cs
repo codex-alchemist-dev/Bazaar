@@ -64,4 +64,33 @@ public class PlantedKeyGatewayTests
         Assert.DoesNotContain(_plantedKey, report.Failure.Message, StringComparison.Ordinal);
         Assert.Empty(h.InternalErrors);
     }
+
+    [Fact]
+    public async Task Internal_error_text_handed_to_the_host_has_no_planted_key()
+    {
+        var h = new GatewayHarness();
+        h.Secrets.Values[GatewayHarness.SecretRef("a")] = _plantedKey;
+        h.Adapter("a").Provider.EnqueueCall(GatewayHarness.Reply());
+        var gateway = new Bazaar.Server.Gateway.Pipeline.ModelGateway(
+            h.World.Resolver(),
+            h.Directory,
+            new Bazaar.Server.Gateway.Pipeline.DictionaryAdapterRegistry(h.Adapters),
+            h.Secrets,
+            h.Health,
+            new Bazaar.Server.Gateway.Usage.UsageRecorder(new KeyEchoingStore(_plantedKey)),
+            onInternalError: h.InternalErrors.Add);
+
+        var events = await GatewayHarness.CollectAsync(gateway.CallAsync(GatewayHarness.Request(), _ct), _ct);
+
+        Assert.IsType<ModelEvent.Done>(events[^1]);
+        var error = Assert.Single(h.InternalErrors);
+        Assert.Contains("disk full", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_plantedKey, error.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class KeyEchoingStore(string key) : Bazaar.Server.Gateway.Usage.IUsageStore
+    {
+        public ValueTask AppendAsync(Bazaar.Contracts.Gateway.GatewayUsageRecord record, CancellationToken ct) =>
+            throw new InvalidOperationException($"disk full while writing {key}");
+    }
 }
