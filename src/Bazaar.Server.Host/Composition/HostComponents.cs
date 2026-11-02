@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -24,6 +25,7 @@ public static class HostComponents
         new GcComponent(),
         new KanbanComponent(),
         new VaultComponent(),
+        new AgentTurnsComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
