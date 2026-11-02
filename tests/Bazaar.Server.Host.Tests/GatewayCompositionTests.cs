@@ -1,3 +1,4 @@
+using Bazaar.Server.Components;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -63,7 +64,12 @@ public sealed class GatewayCompositionTests
         Environment.SetEnvironmentVariable(_envName, _connectionString);
         try
         {
-            await using var sp = Build();
+            // The three wire-family adapters arrive through their Bazaar Components, as the host registers them.
+            await using var sp = Build(s => s.AddBazaarComponents(new ConfigurationBuilder().Build(), [
+                new OpenAiChatAdapterComponent(),
+                new AnthropicMessagesAdapterComponent(),
+                new GeminiGenerateContentAdapterComponent(),
+            ]));
             var registry = sp.GetRequiredService<IAdapterRegistry>();
             Assert.IsType<OpenAiChatAdapter>(registry.Get(GatewayCompositionExtensions.OpenAiChatAdapterName));
             Assert.IsType<AnthropicMessagesAdapter>(registry.Get(GatewayCompositionExtensions.AnthropicMessagesAdapterName));
