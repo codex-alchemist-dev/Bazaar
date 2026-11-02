@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Bazaar Client
+Comment=Native client for the Bazaar platform
+Exec=bazaar-client
+# Icon is a placeholder: no icon asset exists yet; add snap/gui/icon.png before a build.
+Icon=${SNAP}/meta/gui/icon.png
+Terminal=false
+Categories=Development;
+StartupWMClass=Bazaar.Client.Linux
