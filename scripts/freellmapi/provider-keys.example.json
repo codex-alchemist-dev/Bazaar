@@ -1,0 +1,8 @@
+[
+  { "platform": "groq", "key": "", "label": "Groq free tier" },
+  { "platform": "cerebras", "key": "", "label": "Cerebras free tier" },
+  { "platform": "mistral", "key": "", "label": "Mistral free tier" },
+  { "platform": "openrouter", "key": "", "label": "OpenRouter :free models" },
+  { "platform": "nvidia", "key": "", "label": "NVIDIA NIM free tier" },
+  { "platform": "google", "key": "", "label": "Google Gemini free tier" }
+]
