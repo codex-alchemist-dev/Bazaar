@@ -1,4 +1,8 @@
 using Bazaar.Server.Components;
+using Bazaar.Server.Gateway.Adapters.Anthropic;
+using Bazaar.Server.Gateway.Adapters.Gemini;
+using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Vault;
 
@@ -14,5 +18,9 @@ public static class HostComponents
     [
         new KanbanComponent(),
         new VaultComponent(),
+        new OpenAiChatAdapterComponent(),
+        new AnthropicMessagesAdapterComponent(),
+        new GeminiGenerateContentAdapterComponent(),
+        new FreeLlmApiComponent(),
     ];
 }
