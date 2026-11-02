@@ -1,5 +1,5 @@
--- Mail core tables (docs/design/22-email-subsystem.md, owner WP EMAIL1, work package 1). Only external mail uses these
--- tables: internal coordination stays in GCs. No domain is hardcoded: mail_domain holds the operator's domain.
+-- Mail core tables (docs/design/22-email-subsystem.md, WP1). Migration namespace "mail" (the mail component, BAZAAR-COMPONENTS
+-- section 5). Only external mail uses these tables: internal coordination stays in GCs. No domain is hardcoded: mail_domain holds the operator's domain.
 -- Personal fields (message body) are encrypted per person, following the CAL1 title pattern (key id, ciphertext, nonce).
 -- Sender credentials are never stored here: config_ref points into the Identity Service secret store (doc 14).
 
