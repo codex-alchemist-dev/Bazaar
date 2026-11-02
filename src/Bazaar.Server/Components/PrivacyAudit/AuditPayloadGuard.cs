@@ -10,7 +10,7 @@ namespace Bazaar.Server.Components.PrivacyAudit;
 public static class AuditPayloadGuard
 {
     /// <summary>Words that mark a payload key as secret-like. A key containing any of them is rejected.</summary>
-    public static IReadOnlyList<string> SecretLikeWords { get; } = ["token", "secret", "password", "code", "key", "body"];
+    public static IReadOnlyList<string> SecretLikeWords { get; } = ["token", "secret", "password", "pass", "pwd", "code", "key", "body", "bearer", "jwt", "otp", "pin", "cookie", "private", "auth"];
 
     /// <summary>Throws <see cref="ArgumentException"/> when any key in <paramref name="payload"/> is secret-like.</summary>
     public static void Ensure(JsonObject payload)
