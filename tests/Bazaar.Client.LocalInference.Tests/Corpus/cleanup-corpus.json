@@ -1,0 +1,102 @@
+[
+  {
+    "id": "c01",
+    "input": "um so the review is on the 14th, uh, at 3:30 in the blue room, you know, the one by the lift",
+    "mustKeep": ["14", "3:30"]
+  },
+  {
+    "id": "c02",
+    "input": "like I was saying, the supplier sent 240 crates and, um, 40 were damaged so we need a replacement order by Friday",
+    "mustKeep": ["240", "40"]
+  },
+  {
+    "id": "c03",
+    "input": "please see https://example.com/handbook/v2 for the, uh, updated steps",
+    "mustKeep": ["https://example.com/handbook/v2"]
+  },
+  {
+    "id": "c04",
+    "input": "um, Tobias Wren said the build failed twice on runs 3 and 5",
+    "mustKeep": ["Tobias Wren", "3", "5"]
+  },
+  {
+    "id": "c05",
+    "input": "the budget line is, you know, 1,250 dollars for hosting and, uh, 80 for the domain",
+    "mustKeep": ["1,250", "80"]
+  },
+  {
+    "id": "c06",
+    "input": "so basically the plan is, like, to ship version 2.4 on the 9th of March",
+    "mustKeep": ["2.4", "9th"]
+  },
+  {
+    "id": "c07",
+    "input": "I, um, I think Priya Nair and I should, uh, meet at the north gate at noon",
+    "mustKeep": ["Priya Nair", "noon"]
+  },
+  {
+    "id": "c08",
+    "input": "okay so, the link is http://intake.example.org/forms/42 and it closes at 17:00",
+    "mustKeep": ["http://intake.example.org/forms/42", "17:00"]
+  },
+  {
+    "id": "c09",
+    "input": "can you, uh, book 4 rooms for the 23rd and 24th",
+    "mustKeep": ["4", "23rd", "24th"]
+  },
+  {
+    "id": "c10",
+    "input": "the sensor reading was, um, 36.5 degrees at the start and 41.2 at the end",
+    "mustKeep": ["36.5", "41.2"]
+  },
+  {
+    "id": "c11",
+    "input": "Dana Okoro will own the, uh, inventory list from week 3",
+    "mustKeep": ["Dana Okoro", "3"]
+  },
+  {
+    "id": "c12",
+    "input": "so, um, the parking ticket was 25 pounds, which, honestly, is a bit much",
+    "mustKeep": ["25"]
+  },
+  {
+    "id": "c13",
+    "input": "we agreed the cutoff is 5 pm and, uh, any late entries go to the next cycle",
+    "mustKeep": ["5 pm"]
+  },
+  {
+    "id": "c14",
+    "input": "this is the, uh, the new wiki at https://wiki.example.net/team/onboarding and, like, please bookmark it",
+    "mustKeep": ["https://wiki.example.net/team/onboarding"]
+  },
+  {
+    "id": "c15",
+    "input": "the crew of 7 finished the, um, the shelving in about 2 hours and 15 minutes",
+    "mustKeep": ["7", "2", "15"]
+  },
+  {
+    "id": "c16",
+    "input": "Hiro Tanaka, uh, approved the design on the 30th, so we can, you know, move on",
+    "mustKeep": ["Hiro Tanaka", "30th"]
+  },
+  {
+    "id": "c17",
+    "input": "there were, like, 3 open tickets, 12 closed, and 1 that is, uh, blocked waiting on a vendor",
+    "mustKeep": ["3", "12", "1"]
+  },
+  {
+    "id": "c18",
+    "input": "the lunch order is for 18 people, um, vegetarian options for 6 of them",
+    "mustKeep": ["18", "6"]
+  },
+  {
+    "id": "c19",
+    "input": "the release notes are at https://example.com/releases/0.9.3 and, uh, the checksum is in the readme",
+    "mustKeep": ["https://example.com/releases/0.9.3"]
+  },
+  {
+    "id": "c20",
+    "input": "so the trial runs from 2026 to 2027, uh, and renews automatically unless we cancel by 1 December",
+    "mustKeep": ["2026", "2027", "1 December"]
+  }
+]
