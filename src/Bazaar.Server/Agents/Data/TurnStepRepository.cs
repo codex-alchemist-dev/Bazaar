@@ -56,6 +56,28 @@ public sealed class TurnStepRepository(NpgsqlDataSource dataSource)
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
     }
 
+    /// <summary>
+    /// The response of a completed model step with this request hash, taken from an abandoned turn of the same agent
+    /// (doc 06, "Concurrency and recovery"). Recovery re-issues an in-flight model call only when it did not finish, so a
+    /// finished one is reused instead of called again. Returns null when no such step exists.
+    /// </summary>
+    public async Task<string?> FindAbandonedModelResponseAsync(Guid agentId, string requestHash, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestHash);
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT s.response::text
+            FROM turn_step AS s
+            JOIN turn AS t ON t.turn_id = s.turn_id
+            WHERE t.agent_id = @agent_id AND t.status = 'abandoned'
+              AND s.kind = 'model' AND s.status = 'completed' AND s.request_hash = @request_hash
+            ORDER BY s.completed_at DESC, s.turn_id, s.n
+            LIMIT 1
+            """);
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        cmd.Parameters.AddWithValue("request_hash", requestHash);
+        return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) as string;
+    }
+
     /// <summary>All steps of a turn in step order.</summary>
     public async Task<IReadOnlyList<TurnStepRecord>> ListAsync(Guid turnId, CancellationToken ct = default)
     {
