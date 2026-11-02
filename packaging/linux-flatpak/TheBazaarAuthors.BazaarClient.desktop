@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Bazaar
+Comment=Native client for the Bazaar AI software company platform
+Exec=bazaar-client
+Icon=TheBazaarAuthors.BazaarClient
+Terminal=false
+Categories=Development;Utility;
+Keywords=Bazaar;agents;chat;kanban;
+StartupNotify=true
