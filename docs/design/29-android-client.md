@@ -35,6 +35,8 @@ Bazaar.Android is the phone and foldable head of the Bazaar client: a Developmen
 | Unfolded | Chat column becomes a ticker of on-device summaries; pager of Diffs / Task Board / Background; bottom drawer for Constellation (read-only first) |
 | Half-open | Setting `android.half_open_layout` (default: unfolded layout whenever width allows, else folded) |
 
+> **Provisional (coordinator, 2026-11-01):** the 600 dp width threshold for the half-open unfolded layout (`PostureLayout.MinUnfoldedWidthDp`) is a placeholder default, not a decided value. The operator setting can change the policy, not the threshold.
+
 ### Radial and dictation [PROPOSED sectors]
 Press: the radial opens with dictation at the centre, and recording starts. Move into a sector: dictation cancels and that action opens. Release in the centre: the transcript is cleaned and placed in the composer for review. Release in an empty sector: cancel. Sectors (setting `android.radial_sectors`, default the seven): Reply, Approvals, Kanban, Agents, Annotate, Sketch, Start screen. The radial ignores screen-edge bands (Conflicts 2).
 
@@ -108,6 +110,8 @@ Registry rules per doc 03 (DECISIONS-LOG round 13). Every change is written to t
 - Cleaner eval: about 50 rambling transcripts. Check filler removal, no added facts (human review) and latency per device class.
 - Real-device spike (not CI): Korean, Japanese and Chinese composer input; fold and unfold mid-stream; half-open; Android 16 insets; 120 Hz scroll; `adb shell dumpsys deviceidle force-idle`, then push, fetch and notify; Wi-Fi to mobile switch; confirm QNN runs the graph on the NPU, not the CPU fallback; Play closed-test install.
 - Headless does not cover IME, fold events or real push.
+
+> **Provisional (coordinator, 2026-11-01):** the Android application ID `org.bazaar.client` is a placeholder. The package name is not decided.
 
 ## Work packages
 1. Android head project: `AvaloniaMainActivity`, manifest, edge-to-edge, CI APK and AAB build. Depends on the doc 27 shell.
