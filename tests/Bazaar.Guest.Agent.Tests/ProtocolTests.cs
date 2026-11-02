@@ -83,12 +83,15 @@ public sealed class ProtocolTests
     [Fact]
     public void Parse_reads_vm_id_nonce_roots_and_limits()
     {
+        // Roots must be absolute on the running platform, so build them from the platform's own root path.
+        var rootA = Path.Combine(Path.GetPathRoot(Path.GetFullPath("."))!, "srv", "a");
+        var rootB = Path.Combine(Path.GetPathRoot(Path.GetFullPath("."))!, "srv", "b");
         var options = GuestAgentOptions.Parse(
-            ["--vm-id", "vm-9", "--nonce", "n-9", "--root", "/srv/a", "--root", "/srv/b", "--max-execs", "2"]);
+            ["--vm-id", "vm-9", "--nonce", "n-9", "--root", rootA, "--root", rootB, "--max-execs", "2"]);
 
         Assert.Equal("vm-9", options.VmId);
         Assert.Equal("n-9", options.Nonce);
-        Assert.Equal(["/srv/a", "/srv/b"], options.AllowedRoots);
+        Assert.Equal([rootA, rootB], options.AllowedRoots);
         Assert.Equal(2, options.MaxConcurrentExecs);
     }
 
