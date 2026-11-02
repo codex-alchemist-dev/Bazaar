@@ -33,12 +33,18 @@ public sealed class OpenAiChatAdapterComponent : IBazaarComponent
     {
         var http = sp.GetRequiredService<HttpClient>();
         var time = sp.GetRequiredService<TimeProvider>();
-        var freeLlmApi = sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value;
-        var freeLlmApiHttp = freeLlmApi.Enabled ? FreeLlmApiWiring.CreateHttpClient(freeLlmApi) : http;
+
+        // The FreeLLMAPI options exist only when FreeLlmApiComponent is registered. Otherwise FreeLLMAPI is off and the plain adapter is used.
+        var freeLlmApi = sp.GetService<IOptions<FreeLlmApiOptions>>()?.Value ?? new FreeLlmApiOptions();
+        if (!freeLlmApi.Enabled)
+        {
+            return new OpenAiChatAdapter(http, time);
+        }
+
         return FreeLlmApiWiring.WrapOpenAiAdapter(
             new OpenAiChatAdapter(http, time),
             freeLlmApi,
-            freeLlmApiHttp,
+            sp.GetRequiredKeyedService<HttpClient>(FreeLlmApiComponent.HttpClientKey),
             time,
             sp.GetRequiredService<FreeLlmApiRoutingDiagnostics>());
     }
