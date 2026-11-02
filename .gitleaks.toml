@@ -7,5 +7,5 @@ useDefault = true
 [allowlist]
 description = "Fake secret-shaped literals used as SoulGuard negative and positive test inputs"
 # 7581e7a added tests/Bazaar.Server.Tests/Memory/Notes/SoulGuardTests.cs. Its InlineData strings are fake
-# examples that the SoulGuard scanner must reject. The commit is already pushed, so history is not rewritten.
-commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225"]
+# examples that the SoulGuard scanner must reject. 44e954f is the squash merge of that work (#141). Both commits are pushed, so history is not rewritten.
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b"]
