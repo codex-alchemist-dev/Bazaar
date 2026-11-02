@@ -1,5 +1,9 @@
 using Bazaar.Server.Agents.Responder;
-using Bazaar.Server.Gc.Wire;
+using Bazaar.Server.Components;
+using Bazaar.Server.Gateway.Adapters.Anthropic;
+using Bazaar.Server.Gateway.Adapters.Gemini;
+using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
@@ -23,10 +27,13 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
-        services.AddBazaarGcWire();
         services.AddBazaarAgentSafety();
-        services.AddBazaarSettings();
         services.AddBazaarGateway();
+
+        // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
+        // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
+        services.AddBazaarComponents(configuration, HostComponents.All);
+        FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
         return services;
     }
