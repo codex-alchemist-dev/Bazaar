@@ -12,8 +12,14 @@ namespace Bazaar.Contracts.Vms;
 /// </summary>
 public static class GuestFrameCodec
 {
-    /// <summary>Protocol version this build writes and accepts.</summary>
-    public const byte Version = 1;
+    /// <summary>
+    /// Protocol version this build writes. Version 2 added PutFileResult, GetFileError, PtyExit and ExecError; the
+    /// other messages have the same layout in both versions.
+    /// </summary>
+    public const byte Version = 2;
+
+    /// <summary>Oldest protocol version this build still reads, so frames from older peers still parse.</summary>
+    private const byte _oldestReadableVersion = 1;
 
     /// <summary>Largest frame the codec writes or reads: the value of <c>length</c>.</summary>
     public const int MaxFrameBytes = 1024 * 1024;
@@ -75,9 +81,10 @@ public static class GuestFrameCodec
         var frame = new byte[counted];
         await ReadExactAsync(stream, frame, "frame body", ct);
 
-        if (frame[0] != Version)
+        if (frame[0] < _oldestReadableVersion || frame[0] > Version)
         {
-            throw new GuestFrameException($"Unsupported guest protocol version {frame[0]}; this build speaks {Version}.");
+            throw new GuestFrameException(
+                $"Unsupported guest protocol version {frame[0]}; this build speaks {_oldestReadableVersion} to {Version}.");
         }
 
         int tagLength = frame[1];
@@ -117,6 +124,10 @@ public static class GuestFrameCodec
         PtyData m => ("ptyData", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.PtyData)),
         PtyResize m => ("ptyResize", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.PtyResize)),
         PtyClose m => ("ptyClose", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.PtyClose)),
+        PutFileResult m => ("putFileResult", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.PutFileResult)),
+        GetFileError m => ("getFileError", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.GetFileError)),
+        PtyExit m => ("ptyExit", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.PtyExit)),
+        ExecError m => ("execError", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.ExecError)),
         _ => throw new GuestFrameException($"No guest tag for message type {message.GetType().Name}."),
     };
 
@@ -134,6 +145,10 @@ public static class GuestFrameCodec
         "ptyData" => Parse(body, GuestJsonContext.Default.PtyData, tag),
         "ptyResize" => Parse(body, GuestJsonContext.Default.PtyResize, tag),
         "ptyClose" => Parse(body, GuestJsonContext.Default.PtyClose, tag),
+        "putFileResult" => Parse(body, GuestJsonContext.Default.PutFileResult, tag),
+        "getFileError" => Parse(body, GuestJsonContext.Default.GetFileError, tag),
+        "ptyExit" => Parse(body, GuestJsonContext.Default.PtyExit, tag),
+        "execError" => Parse(body, GuestJsonContext.Default.ExecError, tag),
         _ => throw new GuestFrameException($"Unknown guest message type '{tag}'. The channel must close."),
     };
 

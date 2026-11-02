@@ -38,6 +38,7 @@ internal sealed class FakePtySession : IPtySession
 {
     private readonly Channel<byte[]> _output = Channel.CreateUnbounded<byte[]>();
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Input bytes the agent wrote, in order.</summary>
     public ConcurrentQueue<byte[]> Input { get; } = new();
@@ -51,8 +52,18 @@ internal sealed class FakePtySession : IPtySession
     /// <inheritdoc />
     public ChannelReader<byte[]> Output => _output.Reader;
 
+    /// <inheritdoc />
+    public Task<int> Exited => _exited.Task;
+
     /// <summary>Simulates shell output.</summary>
     public async Task EmitAsync(byte[] bytes) => await _output.Writer.WriteAsync(bytes);
+
+    /// <summary>Simulates the shell ending on its own with the given exit code.</summary>
+    public void ExitWith(int code)
+    {
+        _exited.TrySetResult(code);
+        _output.Writer.TryComplete();
+    }
 
     /// <inheritdoc />
     public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)
@@ -68,6 +79,7 @@ internal sealed class FakePtySession : IPtySession
     public ValueTask DisposeAsync()
     {
         _output.Writer.TryComplete();
+        _exited.TrySetResult(-1);
         _closed.TrySetResult();
         return ValueTask.CompletedTask;
     }

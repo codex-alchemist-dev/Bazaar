@@ -21,8 +21,13 @@ internal sealed class PathGuard
             .ToArray();
     }
 
-    /// <summary>Returns the real path when it lies strictly inside a root, otherwise null.</summary>
-    public string? Resolve(string path)
+    /// <summary>Returns the real path when it lies strictly inside a root (a file path), otherwise null.</summary>
+    public string? Resolve(string path) => Locate(path, includeRoot: false);
+
+    /// <summary>Returns the real path when it is a root or lies inside one (a working directory), otherwise null.</summary>
+    public string? ResolveDirectory(string path) => Locate(path, includeRoot: true);
+
+    private string? Locate(string path, bool includeRoot)
     {
         if (string.IsNullOrEmpty(path) || !Path.IsPathFullyQualified(path))
         {
@@ -32,7 +37,7 @@ internal sealed class PathGuard
         try
         {
             var real = RealPath(Path.GetFullPath(path), 0);
-            return real is not null && _roots.Any(root => IsStrictlyUnder(real, root)) ? real : null;
+            return real is not null && _roots.Any(root => IsUnder(real, root, includeRoot)) ? real : null;
         }
         catch (ArgumentException)
         {
@@ -72,9 +77,14 @@ internal sealed class PathGuard
         return current;
     }
 
-    private static bool IsStrictlyUnder(string path, string root)
+    private static bool IsUnder(string path, string root, bool includeRoot)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (path.Equals(root, comparison))
+        {
+            return includeRoot;
+        }
+
         var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
         return path.Length > prefix.Length && path.StartsWith(prefix, comparison);
     }
@@ -98,26 +108,27 @@ internal sealed class FileTransfer
     }
 
     /// <summary>
-    /// Receives one PutFile and its content. The file is written to a temporary name, hashed while it is written, and
-    /// moved into place only when the SHA-256 matches. On mismatch the partial file is deleted.
-    /// Returns false when the stream can no longer be read in step (the caller then closes the channel).
+    /// Receives one PutFile and its content, then sends a <see cref="PutFileResult"/>. The file is written to a temporary
+    /// name, hashed while it is written, and moved into place only when the SHA-256 matches. On mismatch the partial file
+    /// is deleted. Returns false when the stream can no longer be read in step (the caller then closes the channel).
     /// </summary>
-    /// <remarks>
-    /// The protocol has no reply frame for a file result, so a refusal or mismatch is reported only on the agent's log.
-    /// </remarks>
-    public async Task<bool> ReceiveAsync(PutFile put, Stream input, CancellationToken ct)
+    public async Task<bool> ReceiveAsync(PutFile put, Stream input, OutboundQueue outbound, CancellationToken ct)
     {
         if (put.Size < 0)
         {
             _log.WriteLine($"PutFile for '{put.Path}' has a negative size; closing the channel.");
+            await outbound.SendAsync(new PutFileResult(put.Path, false, "the size is negative"), ct);
             return false;
         }
 
         var target = _paths.Resolve(put.Path);
         if (target is null || !IsSha256Hex(put.Sha256))
         {
-            _log.WriteLine($"PutFile refused for '{put.Path}': the path is outside the allowed roots or the hash is malformed.");
-            return await DiscardAsync(input, put.Size, ct);
+            var reason = target is null ? "the path is outside the allowed roots" : "the hash is malformed";
+            _log.WriteLine($"PutFile refused for '{put.Path}': {reason}.");
+            var drained = await DiscardAsync(input, put.Size, ct);
+            await outbound.SendAsync(new PutFileResult(put.Path, false, reason), ct);
+            return drained;
         }
 
         var temp = target + "." + Guid.NewGuid().ToString("N") + ".partial";
@@ -129,7 +140,9 @@ internal sealed class FileTransfer
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.WriteLine($"PutFile could not create a file for '{put.Path}': {ex.Message}");
-            return await DiscardAsync(input, put.Size, ct);
+            var drained = await DiscardAsync(input, put.Size, ct);
+            await outbound.SendAsync(new PutFileResult(put.Path, false, "the file could not be created"), ct);
+            return drained;
         }
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -172,6 +185,7 @@ internal sealed class FileTransfer
         if (streamEnded)
         {
             TryDelete(temp);
+            await outbound.SendAsync(new PutFileResult(put.Path, false, "the channel ended before the content did"), ct);
             return false;
         }
 
@@ -179,6 +193,7 @@ internal sealed class FileTransfer
         {
             TryDelete(temp);
             _log.WriteLine($"PutFile for '{put.Path}' failed while writing: {writeError}");
+            await outbound.SendAsync(new PutFileResult(put.Path, false, "the file could not be written"), ct);
             return true;
         }
 
@@ -187,6 +202,7 @@ internal sealed class FileTransfer
         {
             TryDelete(temp);
             _log.WriteLine($"PutFile for '{put.Path}' failed the SHA-256 check; the partial file was removed.");
+            await outbound.SendAsync(new PutFileResult(put.Path, false, "the SHA-256 does not match the content"), ct);
             return true;
         }
 
@@ -198,28 +214,33 @@ internal sealed class FileTransfer
         {
             TryDelete(temp);
             _log.WriteLine($"PutFile for '{put.Path}' could not be moved into place: {ex.Message}");
+            await outbound.SendAsync(new PutFileResult(put.Path, false, "the file could not be moved into place"), ct);
+            return true;
         }
 
+        await outbound.SendAsync(new PutFileResult(put.Path, true, null), ct);
         return true;
     }
 
     /// <summary>
     /// Queues a GetFile answer: a PutFile header and the file's bytes, written as one unit by the outbound writer.
-    /// A refused or unreadable path queues nothing.
+    /// A refused path is answered at once with a <see cref="GetFileError"/>. A missing or unreadable file is answered
+    /// by the writer in place of the header, so the answer keeps its place in the stream.
     /// </summary>
-    public ValueTask QueueSendAsync(string path, OutboundQueue outbound, CancellationToken ct)
+    public async ValueTask QueueSendAsync(string path, OutboundQueue outbound, CancellationToken ct)
     {
         var target = _paths.Resolve(path);
         if (target is null)
         {
             _log.WriteLine($"GetFile refused for '{path}': the path is outside the allowed roots.");
-            return ValueTask.CompletedTask;
+            await outbound.SendAsync(new GetFileError(path, "the path is outside the allowed roots"), ct);
+            return;
         }
 
-        return outbound.EnqueueAsync((stream, token) => SendFileAsync(target, stream, token), ct);
+        await outbound.EnqueueAsync((stream, token) => SendFileAsync(path, target, stream, token), ct);
     }
 
-    private async Task SendFileAsync(string path, Stream output, CancellationToken ct)
+    private async Task SendFileAsync(string guestPath, string path, Stream output, CancellationToken ct)
     {
         FileStream source;
         try
@@ -229,6 +250,7 @@ internal sealed class FileTransfer
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.WriteLine($"GetFile could not open '{path}': {ex.Message}");
+            await GuestFrameCodec.WriteAsync(output, new GetFileError(guestPath, "the file is missing or cannot be opened"), ct);
             return;
         }
 
@@ -246,11 +268,12 @@ internal sealed class FileTransfer
             catch (IOException ex)
             {
                 _log.WriteLine($"GetFile could not read '{path}': {ex.Message}");
+                await GuestFrameCodec.WriteAsync(output, new GetFileError(guestPath, "the file cannot be read"), ct);
                 return;
             }
 
             source.Position = 0;
-            await GuestFrameCodec.WriteAsync(output, new PutFile(path, size, sha256), ct);
+            await GuestFrameCodec.WriteAsync(output, new PutFile(guestPath, size, sha256), ct);
 
             var remaining = size;
             while (remaining > 0)

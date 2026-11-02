@@ -74,4 +74,47 @@ public sealed class PtyTests
         // Nothing is sent back for it, so the next frame is the heartbeat echo.
         await guest.SyncAsync();
     }
+
+    [Fact]
+    public async Task Shell_that_exits_on_its_own_sends_pty_exit_with_its_code()
+    {
+        await using var root = new TempRoot();
+        var pty = new FakePtyHost();
+        await using var guest = new GuestHarness(root.Options(), pty);
+        await guest.ReceiveAsync<Hello>();
+
+        await guest.SendAsync(new PtyOpen("pty-3", 80, 24));
+        var session = await pty.Opened.WaitAsync(GuestHarness.Bound, TestContext.Current.CancellationToken);
+        await session.EmitAsync("bye"u8.ToArray());
+        session.ExitWith(7);
+
+        // The output comes first, then PtyExit as the last frame for the terminal.
+        var data = await guest.ReceiveAsync<PtyData>();
+        Assert.Equal("bye"u8.ToArray(), data.Bytes);
+        var exit = await guest.ReceiveAsync<PtyExit>();
+        Assert.Equal("pty-3", exit.Id);
+        Assert.Equal(7, exit.Code);
+
+        // The terminal is gone, so input for it is ignored.
+        await guest.SendAsync(new PtyData("pty-3", 0, "x"u8.ToArray()));
+        await guest.SyncAsync();
+        Assert.Empty(session.Input);
+    }
+
+    [Fact]
+    public async Task Host_closing_a_terminal_sends_no_pty_exit()
+    {
+        await using var root = new TempRoot();
+        var pty = new FakePtyHost();
+        await using var guest = new GuestHarness(root.Options(), pty);
+        await guest.ReceiveAsync<Hello>();
+
+        await guest.SendAsync(new PtyOpen("pty-4", 80, 24));
+        var session = await pty.Opened.WaitAsync(GuestHarness.Bound, TestContext.Current.CancellationToken);
+        await guest.SendAsync(new PtyClose("pty-4"));
+        await session.Closed.WaitAsync(GuestHarness.Bound, TestContext.Current.CancellationToken);
+
+        // A close is the host's doing, so no PtyExit follows. The next frame is the heartbeat echo.
+        await guest.SyncAsync();
+    }
 }

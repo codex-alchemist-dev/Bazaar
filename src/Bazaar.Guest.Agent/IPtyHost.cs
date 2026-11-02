@@ -15,6 +15,9 @@ public interface IPtySession : IAsyncDisposable
     /// <summary>Terminal output in order. Completes when the shell ends.</summary>
     ChannelReader<byte[]> Output { get; }
 
+    /// <summary>The shell's exit code. Completes when the shell ends, and never faults.</summary>
+    Task<int> Exited { get; }
+
     /// <summary>Writes terminal input.</summary>
     ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct);
 

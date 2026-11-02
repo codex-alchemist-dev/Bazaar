@@ -42,6 +42,7 @@ internal sealed class PipePtySession : IPtySession
     {
         _process = process;
         _ownsGroup = ownsGroup;
+        Exited = WaitForExitCodeAsync(process);
         var stdout = PumpAsync(process.StandardOutput.BaseStream);
         var stderr = PumpAsync(process.StandardError.BaseStream);
         _ = Task.WhenAll(stdout, stderr).ContinueWith(_ => _output.Writer.TryComplete(), TaskScheduler.Default);
@@ -49,6 +50,9 @@ internal sealed class PipePtySession : IPtySession
 
     /// <inheritdoc />
     public ChannelReader<byte[]> Output => _output.Reader;
+
+    /// <inheritdoc />
+    public Task<int> Exited { get; }
 
     /// <inheritdoc />
     public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)
@@ -71,6 +75,20 @@ internal sealed class PipePtySession : IPtySession
         ChildProcess.KillTree(_process, _ownsGroup);
         _process.Dispose();
         return ValueTask.CompletedTask;
+    }
+
+    private static async Task<int> WaitForExitCodeAsync(Process process)
+    {
+        try
+        {
+            await process.WaitForExitAsync();
+            return process.ExitCode;
+        }
+        catch (InvalidOperationException)
+        {
+            // The process was disposed before it was observed to exit. There is no code to report.
+            return -1;
+        }
     }
 
     private async Task PumpAsync(Stream source)

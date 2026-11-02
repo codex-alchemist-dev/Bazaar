@@ -83,3 +83,60 @@ public sealed record PtyResize(string Id, int Cols, int Rows) : GuestMessage;
 /// <summary>Closes a terminal.</summary>
 /// <param name="Id">Pty id.</param>
 public sealed record PtyClose(string Id) : GuestMessage;
+
+/// <summary>
+/// Guest answer to a <see cref="PutFile"/>, sent once the upload succeeds or fails. It follows the file content, so a
+/// host that waits for it knows the content was read.
+/// </summary>
+/// <param name="Path">Guest path from the PutFile.</param>
+/// <param name="Ok">True when the file was written and moved into place.</param>
+/// <param name="Error">Why the upload failed; null when <paramref name="Ok"/> is true.</param>
+public sealed record PutFileResult(string Path, bool Ok, string? Error) : GuestMessage;
+
+/// <summary>
+/// Guest answer to a <see cref="GetFile"/> that cannot be served: the path is refused, or the file is missing or cannot
+/// be read. Sent in place of the PutFile header and bytes, so the host does not wait forever.
+/// </summary>
+/// <param name="Path">Guest path from the GetFile.</param>
+/// <param name="Error">Why the file was not sent.</param>
+public sealed record GetFileError(string Path, string Error) : GuestMessage;
+
+/// <summary>Sent when a terminal's shell exits on its own. A terminal the host closes sends no PtyExit.</summary>
+/// <param name="Id">Pty id.</param>
+/// <param name="Code">Shell exit code.</param>
+public sealed record PtyExit(string Id, int Code) : GuestMessage;
+
+/// <summary>
+/// Sent when an exec is refused before it starts. The guest always follows it with <see cref="Exit"/> for the same id
+/// and code -1, so consumers written before this message still see the exec end. A host that knows ExecError can
+/// ignore that Exit for a refused exec.
+/// </summary>
+/// <param name="Id">Exec id from the refused Exec.</param>
+/// <param name="Code">Machine-readable reason; one of the values in <see cref="ExecRefusalCodes"/>.</param>
+/// <param name="Message">Human-readable reason.</param>
+public sealed record ExecError(string Id, string Code, string Message) : GuestMessage;
+
+/// <summary>Reason codes carried in <see cref="ExecError.Code"/>.</summary>
+public static class ExecRefusalCodes
+{
+    /// <summary>The exec id is empty.</summary>
+    public const string EmptyId = "empty-id";
+
+    /// <summary>The argv is empty or its program name is empty.</summary>
+    public const string NoProgram = "no-program";
+
+    /// <summary>The timeout is zero or negative.</summary>
+    public const string TimeoutNotPositive = "timeout-not-positive";
+
+    /// <summary>An exec with the same id is already running.</summary>
+    public const string DuplicateId = "duplicate-id";
+
+    /// <summary>The concurrency cap is reached.</summary>
+    public const string TooManyExecs = "too-many-execs";
+
+    /// <summary>The working directory is empty or not inside an allowed root. Also used when no roots are configured.</summary>
+    public const string CwdNotAllowed = "cwd-not-allowed";
+
+    /// <summary>The program could not be started, for example because it does not exist.</summary>
+    public const string ProgramNotStarted = "program-not-started";
+}

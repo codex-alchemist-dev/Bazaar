@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Text;
 using System.Threading.Channels;
 using Bazaar.Contracts.Vms;
 
@@ -18,6 +17,7 @@ public sealed class GuestAgent
     private readonly IPtyHost _ptyHost;
     private readonly TextWriter _log;
     private readonly OutboundQueue _outbound = new();
+    private readonly PathGuard _paths;
     private readonly FileTransfer _files;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, ExecSession> _execs = new(StringComparer.Ordinal);
@@ -32,7 +32,8 @@ public sealed class GuestAgent
         _transport = transport;
         _ptyHost = ptyHost ?? new PipePtyHost();
         _log = log ?? TextWriter.Null;
-        _files = new FileTransfer(new PathGuard(options.AllowedRoots), _log);
+        _paths = new PathGuard(options.AllowedRoots);
+        _files = new FileTransfer(_paths, _log);
     }
 
     /// <summary>Runs until the host closes the channel or a protocol error closes it. Returns the exit code.</summary>
@@ -115,7 +116,7 @@ public sealed class GuestAgent
                 CancelExec(cancel.Id);
                 return true;
             case PutFile put:
-                return await _files.ReceiveAsync(put, _transport.FromHost, ct);
+                return await _files.ReceiveAsync(put, _transport.FromHost, _outbound, ct);
             case GetFile get:
                 await _files.QueueSendAsync(get.Path, _outbound, ct);
                 return true;
@@ -144,65 +145,86 @@ public sealed class GuestAgent
         var refusal = CheckExec(exec);
         if (refusal is null)
         {
-            var session = new ExecSession(exec, _outbound);
-            if (session.TryStart(out var error))
+            // The working directory is resolved once, and the exec runs in the resolved path, not the one the host sent.
+            var cwd = _paths.ResolveDirectory(exec.Cwd);
+            if (cwd is null)
             {
-                lock (_gate)
+                refusal = new ExecRefusal(ExecRefusalCodes.CwdNotAllowed, "the working directory is outside the allowed roots");
+            }
+            else
+            {
+                var session = new ExecSession(exec with { Cwd = cwd }, _outbound);
+                if (session.TryStart(out var error))
                 {
-                    _execs.Add(exec.Id, session);
+                    lock (_gate)
+                    {
+                        _execs.Add(exec.Id, session);
+                    }
+
+                    // The continuation runs on the pool, after the entry is added, and then disposes the session.
+                    _ = session.Completion.ContinueWith(_ => RemoveExec(exec.Id, session), TaskScheduler.Default);
+                    return;
                 }
 
-                // The continuation runs on the pool, after the entry is added, and then disposes the session.
-                _ = session.Completion.ContinueWith(_ => RemoveExec(exec.Id, session), TaskScheduler.Default);
-                return;
+                session.Dispose();
+                refusal = new ExecRefusal(ExecRefusalCodes.ProgramNotStarted, error ?? "the program could not start");
             }
-
-            session.Dispose();
-            refusal = error ?? "the program could not start";
         }
 
         await RefuseExecAsync(exec.Id, refusal, ct);
     }
 
-    private string? CheckExec(Exec exec)
+    private ExecRefusal? CheckExec(Exec exec)
     {
         if (string.IsNullOrEmpty(exec.Id))
         {
-            return "the exec id is empty";
+            return new ExecRefusal(ExecRefusalCodes.EmptyId, "the exec id is empty");
         }
 
         if (exec.Argv.Count == 0 || string.IsNullOrEmpty(exec.Argv[0]))
         {
-            return "the exec has no program to run";
+            return new ExecRefusal(ExecRefusalCodes.NoProgram, "the exec has no program to run");
         }
 
         if (exec.TimeoutSec <= 0)
         {
-            return "the timeout must be a positive number of seconds";
+            return new ExecRefusal(ExecRefusalCodes.TimeoutNotPositive, "the timeout must be a positive number of seconds");
+        }
+
+        // setsid starts even when the program is missing and then fails inside exec, so a missing absolute program is
+        // refused here instead. A bare program name is still left to the start, which reports a failure.
+        if (Path.IsPathFullyQualified(exec.Argv[0]) && !File.Exists(exec.Argv[0]))
+        {
+            return new ExecRefusal(ExecRefusalCodes.ProgramNotStarted, $"could not start '{exec.Argv[0]}': the file does not exist");
         }
 
         lock (_gate)
         {
             if (_execs.ContainsKey(exec.Id))
             {
-                return $"exec '{exec.Id}' is already running";
+                return new ExecRefusal(ExecRefusalCodes.DuplicateId, $"exec '{exec.Id}' is already running");
             }
 
             if (_execs.Count >= _options.MaxConcurrentExecs)
             {
-                return $"too many concurrent execs (limit {_options.MaxConcurrentExecs})";
+                return new ExecRefusal(ExecRefusalCodes.TooManyExecs, $"too many concurrent execs (limit {_options.MaxConcurrentExecs})");
             }
         }
 
         return null;
     }
 
-    private async Task RefuseExecAsync(string id, string reason, CancellationToken ct)
+    private async Task RefuseExecAsync(string id, ExecRefusal refusal, CancellationToken ct)
     {
-        _log.WriteLine($"Exec '{id}' refused: {reason}");
-        await _outbound.SendAsync(new Output(id, OutputSource.Stderr, 0, Encoding.UTF8.GetBytes($"exec refused: {reason}\n")), ct);
+        _log.WriteLine($"Exec '{id}' refused: {refusal.Message}");
+        await _outbound.SendAsync(new ExecError(id, refusal.Code, refusal.Message), ct);
+
+        // The Exit that follows keeps consumers written before ExecError working: they still see the exec end.
         await _outbound.SendAsync(new Exit(id, -1, false), ct);
     }
+
+    /// <summary>A refused exec: the machine-readable code and the human-readable reason.</summary>
+    private sealed record ExecRefusal(string Code, string Message);
 
     private void RemoveExec(string id, ExecSession session)
     {
@@ -269,6 +291,22 @@ public sealed class GuestAgent
                     await _outbound.SendAsync(new PtyData(id, seq++, chunk.AsSpan(offset, length).ToArray()), CancellationToken.None);
                 }
             }
+
+            // The output ended. A terminal the host closed was already removed by ClosePtyAsync, so only a shell that
+            // ended on its own is still registered. Removing it here makes PtyExit the last frame for the terminal.
+            lock (_gate)
+            {
+                if (!_ptys.TryGetValue(id, out var current) || !ReferenceEquals(current, session))
+                {
+                    return;
+                }
+
+                _ptys.Remove(id);
+            }
+
+            var code = await session.Exited;
+            await session.DisposeAsync();
+            await _outbound.SendAsync(new PtyExit(id, code), CancellationToken.None);
         }
         catch (ChannelClosedException)
         {

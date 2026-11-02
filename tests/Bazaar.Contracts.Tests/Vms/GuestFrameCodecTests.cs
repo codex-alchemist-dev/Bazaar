@@ -24,7 +24,55 @@ public class GuestFrameCodecTests
         new PtyData("pty-1", 3, [27, 91, 72]),
         new PtyResize("pty-1", 200, 60),
         new PtyClose("pty-1"),
+        new PutFileResult("/mnt/workspace/a.txt", true, null),
+        new PutFileResult("/mnt/workspace/a.txt", false, "the SHA-256 does not match the content"),
+        new GetFileError("/mnt/workspace/missing.bin", "the file is missing or cannot be opened"),
+        new PtyExit("pty-1", 7),
+        new ExecError("ex-1", ExecRefusalCodes.CwdNotAllowed, "the working directory is outside the allowed roots"),
     ];
+
+    public static TheoryData<GuestMessage, string> VersionTwoTags() =>
+    new()
+    {
+        { new PutFileResult("/a", true, null), "putFileResult" },
+        { new GetFileError("/a", "missing"), "getFileError" },
+        { new PtyExit("pty-1", 0), "ptyExit" },
+        { new ExecError("ex-1", ExecRefusalCodes.TooManyExecs, "full"), "execError" },
+    };
+
+    [Theory]
+    [MemberData(nameof(VersionTwoTags))]
+    public void Version_two_messages_use_their_tag(GuestMessage message, string tag)
+    {
+        var frame = Frame(message);
+
+        Assert.Equal(tag, Encoding.ASCII.GetString(frame, 6, frame[5]));
+    }
+
+    [Fact]
+    public async Task Exec_error_carries_its_id_code_and_message()
+    {
+        await using var stream = new MemoryStream();
+        await GuestFrameCodec.WriteAsync(stream, new ExecError("ex-4", ExecRefusalCodes.ProgramNotStarted, "no such file"), _ct);
+
+        stream.Position = 0;
+        var error = Assert.IsType<ExecError>(await GuestFrameCodec.ReadAsync(stream, _ct));
+        Assert.Equal("ex-4", error.Id);
+        Assert.Equal("program-not-started", error.Code);
+        Assert.Equal("no such file", error.Message);
+    }
+
+    [Fact]
+    public async Task Put_file_result_with_no_error_has_a_null_error()
+    {
+        await using var stream = new MemoryStream();
+        await GuestFrameCodec.WriteAsync(stream, new PutFileResult("/a.txt", true, null), _ct);
+
+        stream.Position = 0;
+        var result = Assert.IsType<PutFileResult>(await GuestFrameCodec.ReadAsync(stream, _ct));
+        Assert.True(result.Ok);
+        Assert.Null(result.Error);
+    }
 
     [Theory]
     [MemberData(nameof(AllMessages))]
@@ -70,7 +118,7 @@ public class GuestFrameCodecTests
         var body = Encoding.UTF8.GetString(frame, 2 + 5 + 4, frame.Length - 2 - 5 - 4);
 
         Assert.Equal((uint)(frame.Length - 4), BinaryPrimitives.ReadUInt32BigEndian(frame));
-        Assert.Equal(1, frame[4]);
+        Assert.Equal(2, frame[4]);
         Assert.Equal(5, frame[5]);
         Assert.Equal("hello", Encoding.ASCII.GetString(frame, 6, 5));
         Assert.Equal("{\"agentVersion\":\"0.3.0\",\"vmId\":\"vm-7\",\"nonce\":\"n\"}", body);
@@ -125,13 +173,26 @@ public class GuestFrameCodecTests
     }
 
     [Fact]
-    public async Task Rejects_unknown_version()
+    public async Task Reads_version_one_frames_from_older_peers()
     {
-        var frame = Raw(2, "heartbeat", "{}");
+        var frame = Raw(1, "cancel", "{\"id\":\"ex-5\"}");
+
+        var cancel = Assert.IsType<Cancel>(await GuestFrameCodec.ReadAsync(new MemoryStream(frame), _ct));
+
+        Assert.Equal("ex-5", cancel.Id);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    [InlineData(255)]
+    public async Task Rejects_unknown_version(int version)
+    {
+        var frame = Raw((byte)version, "heartbeat", "{}");
 
         var ex = await Assert.ThrowsAsync<GuestFrameException>(() => GuestFrameCodec.ReadAsync(new MemoryStream(frame), _ct));
 
-        Assert.Contains("version 2", ex.Message);
+        Assert.Contains($"version {version}", ex.Message);
     }
 
     [Fact]
