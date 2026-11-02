@@ -72,6 +72,22 @@ public interface IGitProvider
     /// <summary>Lists the files that differ between two commits.</summary>
     Task<IReadOnlyList<DiffEntry>> DiffAsync(string repoPath, string oldSha, string newSha, CancellationToken ct);
 
+    /// <summary>Resolves a commit-ish (branch, tag or SHA) in a repository to its full SHA. Throws when it does not exist.</summary>
+    Task<string> ResolveCommitAsync(string repoPath, string commitish, CancellationToken ct);
+
+    /// <summary>Lists every blob path in the tree of <paramref name="commitSha"/>, ordinal-sorted, '/' separated.</summary>
+    Task<IReadOnlyList<string>> ListFilesAsync(string repoPath, string commitSha, CancellationToken ct);
+
+    /// <summary>Reads a UTF-8 text file from the tree of <paramref name="commitSha"/>, byte-for-byte (line endings kept).</summary>
+    Task<string> ReadTextAsync(string repoPath, string commitSha, string path, CancellationToken ct);
+
+    /// <summary>
+    /// Lists the commits reachable from <paramref name="includeSha"/> and not from <paramref name="excludeSha"/> (all of
+    /// them when null), oldest first, with parents, author, committer time, message and the paths each commit touches
+    /// against its first parent.
+    /// </summary>
+    Task<IReadOnlyList<GitCommitInfo>> ListCommitsAsync(string repoPath, string? excludeSha, string includeSha, CancellationToken ct);
+
     /// <summary>
     /// Startup recovery: aborts merges left pending in the main checkout and in each worktree, then prunes stale
     /// worktrees. Safe to run repeatedly.
@@ -119,3 +135,12 @@ public sealed record DiffEntry(string Path, string? OldPath, DiffChangeKind Kind
 /// <param name="AbortedMerges">Checkout paths whose unfinished merges were aborted.</param>
 /// <param name="PrunedWorktrees">Names of stale worktrees removed.</param>
 public sealed record RecoveryReport(IReadOnlyList<string> AbortedMerges, IReadOnlyList<string> PrunedWorktrees);
+
+/// <summary>One commit as the Vault index reads it. <see cref="TouchedPaths"/> is ordinal-sorted.</summary>
+public sealed record GitCommitInfo(
+    string Sha,
+    IReadOnlyList<string> Parents,
+    string AuthorName,
+    DateTimeOffset CommittedAt,
+    string Message,
+    IReadOnlyList<string> TouchedPaths);
