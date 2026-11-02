@@ -4,7 +4,7 @@ namespace Bazaar.Server.Vms.Environments;
 
 /// <summary>
 /// SQL-first access to the <c>golden_image</c>, <c>environment_vm</c>, <c>environment_checkpoint</c>, <c>scoped_mount</c>
-/// and <c>exec_log</c> tables (migration 0020, doc 16). Ids and timestamps come from the caller. The methods that change a
+/// and <c>exec_log</c> tables (migration 0021, doc 16). Ids and timestamps come from the caller. The methods that change a
 /// row return whether a row matched, so callers see a stale state or a missing row without a second read.
 /// </summary>
 public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)

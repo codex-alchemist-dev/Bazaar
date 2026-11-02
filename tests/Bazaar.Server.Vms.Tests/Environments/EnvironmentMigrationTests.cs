@@ -3,7 +3,7 @@ using Npgsql;
 
 namespace Bazaar.Server.Vms.Tests.Environments;
 
-/// <summary>Migration 0020 against a real PostgreSQL: the five component tables exist and their constraints hold.</summary>
+/// <summary>Migration 0021 against a real PostgreSQL: the five component tables exist and their constraints hold.</summary>
 public sealed class EnvironmentMigrationTests(VmDb db) : IClassFixture<VmDb>
 {
     private static readonly string[] _componentTables =
