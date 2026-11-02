@@ -1,0 +1,8 @@
+[
+  { "kind": "Link", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": null, "start": 23, "length": 16 },
+  { "kind": "Link", "target": "projects/x/Plan", "anchorKind": "Heading", "anchor": "Scope", "alias": null, "start": 77, "length": 25 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": "auth", "start": 116, "length": 21 },
+  { "kind": "Link", "target": "", "anchorKind": "Heading", "anchor": "Scope", "alias": null, "start": 166, "length": 10 },
+  { "kind": "Link", "target": "Nested target", "anchorKind": "None", "anchor": null, "alias": null, "start": 189, "length": 17 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "Block", "anchor": "a1b2c3", "alias": null, "start": 257, "length": 24 }
+]
