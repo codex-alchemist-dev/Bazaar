@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:souls="clr-namespace:Bazaar.Client.Core.Souls"
+             x:Class="Bazaar.Client.Core.Souls.SoulProfileView"
+             x:DataType="souls:SoulProfileViewModel"
+             FontFamily="{DynamicResource Bazaar.font.family.ui}"
+             FontSize="{DynamicResource Bazaar.font.size.body}"
+             Foreground="{DynamicResource Bazaar.brush.color.text.primary}">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource Bazaar.brush.color.text.secondary}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="{DynamicResource Bazaar.font.family.mono}" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer>
+    <StackPanel x:Name="Root" Spacing="{DynamicResource Bazaar.space.md}">
+
+      <!-- Profile card. Padding and margins come from the space tokens in code-behind (Avalonia will not cast a double resource to Thickness). -->
+      <Border x:Name="CardBorder"
+              Background="{DynamicResource Bazaar.brush.color.background.surface}"
+              BorderBrush="{DynamicResource Bazaar.brush.color.border.default}"
+              BorderThickness="1">
+        <StackPanel Spacing="{DynamicResource Bazaar.space.sm}">
+          <TextBlock x:Name="NameText" FontWeight="SemiBold" Text="{Binding Name}" />
+          <TextBlock x:Name="RoleText" Classes="secondary" Text="{Binding Role}" />
+
+          <Border x:Name="ModelBadge"
+                  HorizontalAlignment="Left"
+                  Background="{DynamicResource Bazaar.brush.color.badge.agent.background}"
+                  IsVisible="{Binding ModelBadge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Foreground="{DynamicResource Bazaar.brush.color.badge.agent.text}"
+                       FontSize="{DynamicResource Bazaar.font.size.small}"
+                       Text="{Binding ModelBadge}" />
+          </Border>
+
+          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Bazaar.space.sm}">
+            <TextBlock x:Name="VersionText" Text="{Binding VersionHeadline}" />
+            <TextBlock x:Name="EditedMarker"
+                       Classes="secondary"
+                       Text="edited"
+                       IsVisible="{Binding IsEdited}" />
+            <TextBlock x:Name="HashText"
+                       Classes="secondary mono"
+                       FontSize="{DynamicResource Bazaar.font.size.small}"
+                       Text="{Binding ContentHashShort, StringFormat='sha256 {0}'}"
+                       IsVisible="{Binding ContentHashShort, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+
+          <TextBlock x:Name="PreferencesText"
+                     TextWrapping="Wrap"
+                     Classes="secondary"
+                     Text="{Binding PreferencesSummary, StringFormat='Preferences: {0}'}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Version history, oldest to newest -->
+      <TextBlock Text="Version history" FontWeight="SemiBold" />
+      <TextBlock x:Name="EmptyHistoryText"
+                 Classes="secondary"
+                 Text="No versions yet."
+                 IsVisible="{Binding !HasHistory}" />
+      <ItemsControl x:Name="HistoryList" ItemsSource="{Binding History}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="souls:VersionHistoryRow">
+            <StackPanel Spacing="{DynamicResource Bazaar.space.xs}">
+              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Bazaar.space.sm}">
+                <TextBlock FontWeight="SemiBold" Text="{Binding VersionLabel}" />
+                <TextBlock Classes="secondary" Text="{Binding ParentLabel, StringFormat='parent {0}'}" />
+                <TextBlock Classes="secondary" Text="{Binding Author, StringFormat='by {0}'}" />
+                <TextBlock Classes="secondary" Text="{Binding CreatedLabel}" />
+              </StackPanel>
+              <TextBlock TextWrapping="Wrap" Text="{Binding Reason}" />
+              <TextBlock Classes="secondary mono"
+                         FontSize="{DynamicResource Bazaar.font.size.small}"
+                         Text="{Binding DecisionLabel, StringFormat='decision {0}'}" />
+              <!-- Row separator: a 1px rule in the theme's border colour. -->
+              <Rectangle Height="1" Fill="{DynamicResource Bazaar.brush.color.border.default}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
