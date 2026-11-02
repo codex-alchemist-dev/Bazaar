@@ -1,3 +1,4 @@
+using Bazaar.Client.Core.Constellation;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Panes;
@@ -12,6 +13,7 @@ public static class FirstPartyPanes
         var registry = new PaneRegistry(report);
         registry.Register(PaneKinds.Kanban, descriptor => new KanbanPaneViewModel(descriptor));
         registry.Register(PaneKinds.Dashboard, descriptor => new DashboardPaneViewModel(descriptor));
+        registry.Register(PaneKinds.Constellation, descriptor => new ConstellationPaneViewModel(descriptor));
         return registry;
     }
 }
