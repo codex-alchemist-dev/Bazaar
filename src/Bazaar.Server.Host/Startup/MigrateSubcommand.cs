@@ -50,7 +50,13 @@ public static class MigrateSubcommand
             return 1;
         }
 
-        return await MigrateCommand.RunAsync(connectionString, new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), MigrateCommand.CurrentProvider(), output, ct: ct);
+        return await MigrateCommand.RunAsync(
+            connectionString,
+            new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
+            MigrateCommand.CurrentProvider(),
+            output,
+            components: HostComponents.All.Select(c => c.Manifest),
+            ct: ct);
     }
 
     private sealed class SingleSecretResolver(string reference, string value) : ISecretResolver
