@@ -33,26 +33,46 @@ name: PR sign-off
 on:
   pull_request:
     types: [opened, edited, synchronize, ready_for_review]
+  # Started by pr-maintenance.yml after it merges main into a PR branch. A push made with
+  # GITHUB_TOKEN does not start workflows, so this run is what gives the new head commit its check.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to re-check'
+        required: true
+        type: string
 
 permissions:
   pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   signed-off-by:
     name: Signed-off-by line in PR description
-    if: github.event.pull_request.draft == false
+    # On a draft the job-level if skips the job; it does not fail. GitHub counts a
+    # skipped job as a passing result for a required check, so a draft is not
+    # blocked by this check. Marking the PR ready_for_review (listed in `types`
+    # above) runs the check again with draft == false. Keep the job name stable:
+    # the required check is matched by name.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Check for Signed-off-by line
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          if [ -n "$PR_NUMBER" ]; then
+            # A dispatch run has no pull_request payload, so read the description from the API.
+            PR_BODY=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""')
+          fi
           # Strip CRs from Windows line endings, then require a whole line that
           # reads "Signed-off-by: <Name> <email>". The name must be non-empty and
           # the address must look like name@domain.
