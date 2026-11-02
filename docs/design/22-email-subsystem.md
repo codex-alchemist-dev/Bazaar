@@ -110,6 +110,9 @@ Tables owned by this doc (C16); migrations run through 04. Personal fields (`bod
 
 Inbound GC message: `gc_message` kind `external_mail` (registered in 01's GC type registry), `source_trust = external` (15's provenance enum, C20), `mailbox_id`, `mail_message` reference. The `gc_event`/`gc_message`/`gc_message_version` model in 01 and 04 applies (C09).
 
+### Open: durable outbound store (parked)
+`SendLedger` (MailBackends) is in memory only, so an idempotency key is forgotten on restart. The durable copy is `mail_outbound`, but its `message_id` is NOT NULL with a foreign key to `mail_message`, and `OutboundMail` carries no message id. Agreed option (a), not yet built: add `MessageId` to `OutboundMail`; the send path inserts the `mail_message` row in state `sending` before the SMTP or HTTPS call, then records the receipt on `mail_outbound`. Option (b), a nullable `message_id`, loses the link to the message and was rejected. Parked until the north-star client work is done.
+
 ### Settings
 Registry rows (03 owns the registry; 27 and 32 surface them in the setup wizard and advanced settings). Changes are audited (15 `audit_log`).
 
