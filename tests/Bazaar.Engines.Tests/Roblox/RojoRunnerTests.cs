@@ -14,7 +14,9 @@ public sealed class RojoRunnerTests : IDisposable
 
     private string CreateProject(string relativePath)
     {
-        string full = Path.Combine(_root, relativePath);
+        // Return the normalised full path: the runner passes Path.GetFullPath output, and on Windows a raw
+        // Path.Combine with a "/" in relativePath keeps mixed separators, which are not equal to it.
+        string full = Path.GetFullPath(Path.Combine(_root, relativePath));
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         File.WriteAllText(full, "{ \"name\": \"Fixture\", \"tree\": { \"$className\": \"DataModel\" } }");
         return full;
@@ -32,7 +34,7 @@ public sealed class RojoRunnerTests : IDisposable
     public async Task BuildAsync_runs_configured_binary_with_build_arguments_in_root()
     {
         string project = CreateProject("game/default.project.json");
-        string output = Path.Combine(_root, "game", "out.rbxlx");
+        string output = Path.GetFullPath(Path.Combine(_root, "game", "out.rbxlx"));
         var fake = new FakeProcessRunner();
         var runner = new RojoRunner(new RojoOptions { BinaryPath = "/opt/rojo/rojo", Timeout = TimeSpan.FromSeconds(30) }, fake);
 
@@ -41,7 +43,7 @@ public sealed class RojoRunnerTests : IDisposable
         FakeProcessRunner.Call call = Assert.Single(fake.Calls);
         Assert.Equal("/opt/rojo/rojo", call.FileName);
         Assert.Equal(["build", project, "--output", output], call.Arguments);
-        Assert.Equal(Path.GetFullPath(_root).TrimEnd('/'), call.WorkingDirectory.TrimEnd('/'));
+        Assert.Equal(Path.GetFullPath(_root), call.WorkingDirectory);
         Assert.Equal(TimeSpan.FromSeconds(30), call.Timeout);
         Assert.Equal(output, result);
     }
