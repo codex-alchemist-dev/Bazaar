@@ -35,10 +35,13 @@ public sealed record AppendRequest(
     /// <summary>The writing session, when there is one.</summary>
     public Guid? SessionId { get; init; }
 
-    /// <summary>Whether the writing session was tainted (doc 15).</summary>
-    public bool TaintedAtWrite { get; init; }
+    /// <summary>
+    /// Whether the event was tainted when written (doc 15). Null lets the trust hook derive it from the author kind and
+    /// source trust; an explicit value is kept as given.
+    /// </summary>
+    public bool? TaintedAtWrite { get; init; }
 
-    /// <summary>Taint lineage as a JSON array, or null.</summary>
+    /// <summary>Taint lineage as a JSON array, or null. The trust hook never invents lineage; it only checks the shape.</summary>
     public string? TaintSourcesJson { get; init; }
 
     /// <summary>Earlier seq this event refers to.</summary>
