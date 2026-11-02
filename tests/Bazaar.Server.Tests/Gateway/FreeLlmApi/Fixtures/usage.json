@@ -1,0 +1,16 @@
+{
+  "month": "2026-10",
+  "resetsAt": "2026-11-01T00:00:00.000Z",
+  "requests": 152,
+  "tokens": 104000000,
+  "byPlatform": [
+    { "platform": "opencode", "requests": 90, "tokens": 80000000 },
+    { "platform": "google", "requests": 62, "tokens": 24000000 }
+  ],
+  "byKey": [
+    { "keyId": 3, "platform": "opencode", "label": "work laptop", "enabled": true,
+      "requests": 90, "tokens": 80000000, "requestCap": null, "tokenCap": 50000000 },
+    { "keyId": 4, "platform": "google", "label": "shared", "enabled": true,
+      "requests": 62, "tokens": 24000000, "requestCap": 1000, "tokenCap": null }
+  ]
+}

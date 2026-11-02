@@ -40,7 +40,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Vault** source of truth: Markdown files with `[[wiki-links]]` in a git repo; Postgres only indexes them.
 - **Resource Economy** (money budgets) is REJECTED. Limits are quotas plus the Work-Life Simulation.
 - **Build approach (owner, 2026-10-24):** no separate v0.001. Claude (Haiku 5.5 workers directed by the main session) builds Bazaar toward v1.0 directly, with full hygiene: design doc first, tests with every change, build and test before each commit, test-and-fix as you go. The server runs clean builds and tests; agent self-reports never count (owner, 2026-10-25). Ask the owner about unspecified details instead of assuming.
-- **Versioning (owner, 2026-10-25):** SemVer; pre-release `v0.x` "Beta"; majors get Z-to-A codenames (alchemy and stars; v1.0.0 "Zuhal"); channels LTSC/Stable/Beta/Alpha/Latest-Commit, chosen by the operator. Details: `docs/VERSIONING.md`; milestones: `docs/ROADMAP.md`. Bump `VersionPrefix` in `Directory.Build.props` as section 1 says.
+- **Versioning (owner, 2026-10-25; display format 2026-10-29):** SemVer machine version; pre-release `0.x` "Beta", displayed zero-padded as `v00.MM.PP` (`VersionPrefix` stays SemVer); majors get Z-to-A codenames (alchemy and stars; v1.0.0 "Zuhal"); channels LTSC/Stable/Beta/Alpha/Latest-Commit, chosen by the operator. Details: `docs/VERSIONING.md`; milestones: `docs/ROADMAP.md`. Bump `VersionPrefix` in `Directory.Build.props` as section 1 says.
 - Open items live in each doc's "Open Questions" and in `docs/research/reports/Bazaar stack feasibility research.md`. Known blockers there (data layer on Windows, subscription routing, bot accounts) must be resolved before building the affected area.
 
 ## Design set (owner decisions, 2026-10-25)
@@ -92,7 +92,7 @@ Detailed drafts: `docs/design/` (index in `README.md`). Cross-doc conflicts were
 ## Code conventions (provisional until the code exists)
 
 - C#, nullable enabled, central package management, one shared contracts project for client/server messages. Match the surrounding code's style and comment density.
-- Projects (owner-approved names): `Bazaar.Contracts`, `Bazaar.Server` (platform-neutral library), `Bazaar.Server.Host` (service executable), `Bazaar.Sdk`, `Bazaar.Client.Core` (shared Avalonia UI; the docs' `UI.Core`), `Bazaar.Client.Windows`, `.Android`, `.Linux`.
+- Projects (owner-approved names): `Bazaar.Contracts`, `Bazaar.Server` (platform-neutral library), `Bazaar.Server.Host` (service executable), `Bazaar.Sdk`, `Bazaar.Client.Core` (shared Avalonia UI; the docs' `UI.Core`), `Bazaar.Client.Windows`, `.Android`, `.Linux`, `Bazaar.Guest.Agent` (guest-side agent baked into VM images; coordinator-approved 2026-11-01, owner delegated).
 - Tests: xUnit v3 and TUnit are both approved by the owner. Owner (2026-10-24): xUnit v3 everywhere first; add TUnit later where it helps. Data access (owner delegated the choice to Claude, 2026-10-24): raw Npgsql with one shared `NpgsqlDataSource`, SQL-first repositories, embedded versioned SQL migrations; no ORM or event-store framework for the core. Details and reasons: `docs/implementation-plan.md`.
 - The .NET 11 SDK installs with `dotnet-install.sh --version <version in global.json>` into `~/.dotnet`; put it on PATH and set `DOTNET_ROOT` before building in a cloud session.
 - Every behavior change comes with a test. UI changes get an `Avalonia.Headless` test, since agents verify UI without a display.

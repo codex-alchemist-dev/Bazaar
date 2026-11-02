@@ -72,9 +72,11 @@ calendar_event (id, kind text, title, starts_at timestamptz, ends_at timestamptz
                 source_gc_id, version bigint)
 ```
 ```csharp
-interface IInterruptStack {
-    Task<Frame> PushAsync(AgentId id, InterruptSource src, string reason, CancellationToken ct);
-    Task<Frame?> PopAsync(AgentId id, FrameId frame, string resumeNote, CancellationToken ct); // idempotent
+// As built in INT1 (migration 0015, src/Bazaar.Server/Interrupts). resumeNote, the GC line and the emergency tag move to WP6.
+interface IInterruptStackService {
+    Task<InterruptFrame> PushAsync(Guid agentId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt, CancellationToken ct);
+    Task<InterruptFrame?> PopAsync(Guid agentId, Guid frameId, CancellationToken ct); // idempotent
+    Task<IReadOnlyList<InterruptFrame>> GetStackAsync(Guid agentId, CancellationToken ct);
 }
 interface IOrgGraph { Task<IReadOnlyList<OrgEdge>> RoutesAsync(ProjectId p, AgentId a, CancellationToken ct); }
 interface ICalendar { Task<CalendarEvent> SetAsync(CalendarDraft d, long? expectedVersion, CancellationToken ct); }
@@ -116,7 +118,7 @@ Real Postgres (xUnit v3 fixture) for constraints, with the schema built by the 0
 2. `constitution.changed` event, inbox kind, excerpt refresh. Needs 1, 06 WP2, 07 WP2.
 3. Org schema, unique and cycle constraints, SQL repositories. Needs the 04 core migrations.
 4. Org routing function and loan lifecycle with GC lines. Needs 3, 12 WP6.
-5. Interrupt frame table and stack service. Needs 04 migrations.
+5. Interrupt frame table and stack service. Needs 04 migrations. **Done in INT1:** migration 0015 and `IInterruptStackService`, with a real-Postgres test suite. Not yet done: GC lines, the cancel flag, `resume_turn_id`, and the emergency tag (WP6).
 6. Scheduler wiring at tool boundaries; resume. Needs 5, 06 WP3, WP5.
 7. Calendar table, service, GC lines. Needs the 04 core migrations.
 8. Availability consumes calendar vacations. Needs 7, 09 WP3, WP9.

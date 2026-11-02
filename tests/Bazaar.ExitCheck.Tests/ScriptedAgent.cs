@@ -49,14 +49,13 @@ public sealed class ExitCheckDevice : IAsyncDisposable
 
     public ExitCheckDevice(IExitCheckServer server, Guid principal, string deviceId)
     {
-        Transport = new SeveringTransport(server.Transport);
+        Transport = new SeveringTransport(server.TransportFor(principal));
         Cursors = new InMemoryCursorStore();
         Client = new WireClient(Transport, new JsonWireCodec(), Cursors, new WireClientOptions
         {
             DeviceId = deviceId,
             DeviceClass = "test",
             ClientBuild = "exit-check",
-            Credential = server.CredentialFor(principal),
             BackoffStart = TimeSpan.FromMilliseconds(20),
             BackoffMax = TimeSpan.FromMilliseconds(200),
             Jitter = () => 0,

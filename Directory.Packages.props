@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Android" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
@@ -19,13 +20,24 @@
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0-rc.2.26504.105" />
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0-rc.2.26504.105" />
+    <!-- Vault Markdown (doc 18, VLT1): Markdig pipeline and YAML front matter reader. -->
+    <PackageVersion Include="Markdig" Version="1.5.0" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+    <!-- Vault git engine (doc 18 C12, spike S23): native libgit2 ships in the package. -->
+    <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
+    <PackageVersion Include="MimeKit" Version="4.18.2" />
+    <PackageVersion Include="MailKit" Version="4.18.2" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0-rc.2.26504.105" />
+    <!-- Constellation Vulkan backend (doc 19, WP7; owner direction 2026-10-30). Published 2026-09-29. -->
+    <PackageVersion Include="Vortice.Vulkan" Version="3.3.0" />
     <!-- 3.2.x, not 4.0.x: Avalonia.Headless.XUnit 12.1.4 is binary-incompatible with xunit.v3 4.0.2 (MissingMethodException at discovery). -->
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
+    <!-- Local Co-Worker CPU tier (doc 31 WP5): ONNX Runtime CPU execution provider, latest stable. -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
   </ItemGroup>
 </Project>

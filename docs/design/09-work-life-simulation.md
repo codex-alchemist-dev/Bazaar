@@ -149,6 +149,8 @@ No real models or displays are needed.
 10. Owner `emergency` interrupt: vacation bypass, audit event. Depends: 2, doc 24's `PushAsync`.
 11. Usage-to-cost report and shift A/B harness (analysis only). Depends: `gw_usage` (05), doc 23.
 
+**Status and parked items (2026-11-02).** Done: WP1 schedule calculator (WLS1, #98), WP2 availability machine (WL2) and the presence rules for doc 23 (WL3), both pure, merged in #151. Parked, not started: WP3 repositories for `agent_schedule` and `availability` (needs a Work-Life component migration path), WP4 ordered inbox drain, WP5 drain checklist and handover note, WP6 cover resolver, WP7 presence projector wiring, WP8 vacation blocks from `calendar_event`, WP9 loop-guard hand-off, WP10 owner `emergency` interrupt, WP11 usage-to-cost report. Resume after the north-star Windows and Android client work; WP3 and WP4 come first.
+
 ## Conflicts
 Remaining, for this doc or the owner:
 1. **Private memory and cover reads.** Bazaar.md §5 ("no shared brain") now depends on a Vault access layer that enforces per-agent private areas (C38). Docs 08 and 18 must design it. Until then, Q1 governs what a cover may read.

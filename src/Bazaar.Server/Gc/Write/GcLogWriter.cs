@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.Server.Gc.Provenance;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -16,9 +17,10 @@ namespace Bazaar.Server.Gc.Write;
 /// A rollback undoes the counter with the rows, so a failed append leaves no gap. If the commit's outcome is unknown (the
 /// connection dropped), the caller retries with the same key and gets the original event or a fresh append.
 /// </summary>
-public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifier, TimeProvider? timeProvider = null) : IGcLogWriter
+public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifier, TimeProvider? timeProvider = null, IGcTrustHook? trustHook = null) : IGcLogWriter
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+    private readonly IGcTrustHook _trust = trustHook ?? new DefaultGcTrustHook();
 
     private const string _locksql = """
         SELECT head_seq, archived_at IS NOT NULL FROM gc WHERE gc_id = $1 FOR UPDATE
@@ -65,6 +67,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         ArgumentNullException.ThrowIfNull(requests);
         if (requests.Count == 0)
             return [];
+        requests = ResolveTrust(requests);
         var gcId = Validate(requests);
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
@@ -99,6 +102,15 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         if (fresh.Count > 0)
             notifier.Notify(gcId, next);
         return results;
+    }
+
+    // Runs before the transaction opens: the trust hook is pure and must not see or change the log state.
+    private List<AppendRequest> ResolveTrust(IReadOnlyList<AppendRequest> requests)
+    {
+        var resolved = new List<AppendRequest>(requests.Count);
+        foreach (var r in requests)
+            resolved.Add(_trust.Resolve(r));
+        return resolved;
     }
 
     // timestamptz keeps microseconds; returning the same value a later read (or a duplicate answer) will see.
@@ -176,7 +188,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             batch.BatchCommands.Add(Cmd(
                 _inserteventsql,
                 P(gcId), P(seq), P(eventId), P(r.Kind), P(GcEnumText.ToText(r.AuthorKind)), P(r.AuthorId), N(r.SessionId),
-                P(GcEnumText.ToText(r.SourceTrust)), P(r.TaintedAtWrite), N(r.TaintSourcesJson), N(messageId),
+                P(GcEnumText.ToText(r.SourceTrust)), P(r.TaintedAtWrite ?? false), N(r.TaintSourcesJson), N(messageId),
                 N(r.Message is null ? (int?)null : 1), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now)));
 
             if (r.Message is { } body && messageId is { } mid)

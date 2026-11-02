@@ -7,7 +7,7 @@ using Microsoft.Extensions.AI;
 namespace Bazaar.ExitCheck.Tests;
 
 /// <summary>
-/// The v0.3 exit check (plan Batch 3, E2E; doc 34 layer L3): a fake agent posts to a GC, a client drops its socket and
+/// The Stage 3 exit check (plan Batch 3, E2E; doc 34 layer L3): a fake agent posts to a GC, a client drops its socket and
 /// replays with no loss and no duplicate, and a model call outside policy is denied. Real PostgreSQL, real host, real
 /// client. Never skipped: while server pieces are unmerged the server tests fail with the list in <see cref="ExitCheckLedger"/>.
 /// </summary>
@@ -18,22 +18,28 @@ public sealed class V03ExitCheckTests : IAsyncLifetime
     private readonly Db _db = new();
     private readonly FakeProvider _provider = new();
     private readonly ExitCheckPolicyWorld _policy = new();
+    private static readonly bool _hasDb = !PgSource.IsUnsupportedHost;
     private IExitCheckServer? _server;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    public async ValueTask InitializeAsync() => await _db.InitializeAsync();
+    public async ValueTask InitializeAsync()
+    {
+        // Windows without BAZAAR_TEST_PG has no database by design (test.ci.windows_db_job = false); Linux never skips.
+        if (_hasDb) await _db.InitializeAsync();
+    }
 
     public async ValueTask DisposeAsync()
     {
         if (_server is not null) await _server.DisposeAsync();
-        await _db.DisposeAsync();
+        if (_hasDb) await _db.DisposeAsync();
     }
 
     private PolicyGateGateway Gateway() => new(_policy.Resolver, _provider);
 
     private async Task<(ExitCheckDevice Human, ScriptedAgent Agent, ExitCheckDevice AgentDevice)> StartAsync()
     {
+        Assert.SkipWhen(!_hasDb, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         _server = await ExitCheckServers.StartAsync(_db);
         var human = new ExitCheckDevice(_server, _server.HumanId, "human-phone");
         var agentDevice = new ExitCheckDevice(_server, _server.AgentId, "agent-runtime");
@@ -132,7 +138,7 @@ public sealed class V03ExitCheckTests : IAsyncLifetime
             await unknownAgent.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: Ct));
 
         Assert.Equal(PolicyGateGateway.PolicyDeniedCode, ex.Code);
-        Assert.Contains("NotAllowed", ex.Message);
+        Assert.Contains("ModelNotAllowed", ex.Message);
         Assert.Equal(PolicyGateGateway.PolicyDeniedCode, ex2.Code);
         Assert.Empty(_provider.Calls);
     }
@@ -140,7 +146,7 @@ public sealed class V03ExitCheckTests : IAsyncLifetime
     [Fact]
     public void The_ledger_lists_every_server_piece_the_plan_names()
     {
-        string[] planned = ["G1", "G2", "G3", "HOST1", "W3", "W4", "W5", "W6", "PRH"];
+        string[] planned = ["G1", "G2", "G3", "HOST1", "W3", "W4", "W5", "W6", "PRH", "GLUE"];
         Assert.Equal(planned.Order(), ExitCheckLedger.ServerSide.Select(p => p.Id).Order());
     }
 }

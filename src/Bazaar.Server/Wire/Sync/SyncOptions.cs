@@ -24,6 +24,9 @@ public sealed class SyncOptions
     /// <summary>Delay before the dispatcher retries a failed log read.</summary>
     public TimeSpan PumpRetryDelay { get; init; } = TimeSpan.FromMilliseconds(250);
 
+    /// <summary>How often the dispatcher re-reads every active GC, bounding the delay a lost notification can cause.</summary>
+    public TimeSpan? SweepInterval { get; init; } = TimeSpan.FromSeconds(30);
+
     /// <summary>The protocol major stamped on events the engine sends.</summary>
     public int ProtocolMajor { get; init; } = 1;
 }
