@@ -64,6 +64,9 @@ public sealed class PostgresProcessController : IAsyncDisposable
                 throw new PostgresProcessException($"The data directory {_options.DataDirectory} already holds a cluster; initdb runs once.");
             }
 
+            // Password files from runs that were killed mid-initdb are removed before a new one is written.
+            PasswordFile.SweepStale(DateTime.UtcNow);
+
             var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(_passwordByteCount));
             await persistSuperuserPassword(password, cancellationToken);
             await RunInitDbAsync(password, cancellationToken);
@@ -189,10 +192,10 @@ public sealed class PostgresProcessController : IAsyncDisposable
 
     private async Task RunInitDbAsync(string password, CancellationToken cancellationToken)
     {
-        var passwordFile = Path.Combine(Path.GetTempPath(), $"bazaar-pg-{Guid.NewGuid():N}.pwfile");
+        string? passwordFile = null;
         try
         {
-            WritePasswordFile(passwordFile, password);
+            passwordFile = PasswordFile.Create(password);
 
             IReadOnlyList<string> arguments =
             [
@@ -212,27 +215,11 @@ public sealed class PostgresProcessController : IAsyncDisposable
         }
         finally
         {
-            File.Delete(passwordFile);
+            if (passwordFile is not null)
+            {
+                File.Delete(passwordFile);
+            }
         }
-    }
-
-    private static void WritePasswordFile(string path, string password)
-    {
-        var options = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-        };
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        }
-
-        using var stream = new FileStream(path, options);
-        using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        writer.Write(password);
-        writer.Write('\n');
     }
 
     private async Task<(IPostgresChild Child, bool Adopted)> StartCoreAsync(CancellationToken cancellationToken)

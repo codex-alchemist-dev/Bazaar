@@ -50,6 +50,31 @@ public sealed class PostgresProcessControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task InitDb_removes_abandoned_password_files_and_keeps_recent_ones()
+    {
+        var stale = Path.Combine(Path.GetTempPath(), $"bazaar-pg-{Guid.NewGuid():N}.pwfile");
+        var recent = Path.Combine(Path.GetTempPath(), $"bazaar-pg-{Guid.NewGuid():N}.pwfile");
+        File.WriteAllText(stale, "abandoned\n");
+        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow - TimeSpan.FromHours(2));
+        File.WriteAllText(recent, "in progress\n");
+        try
+        {
+            var runner = new FakePostgresCommandRunner();
+            var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
+
+            await controller.InitDbAsync((_, _) => ValueTask.CompletedTask, TestContext.Current.CancellationToken);
+
+            Assert.False(File.Exists(stale));
+            Assert.True(File.Exists(recent));
+        }
+        finally
+        {
+            File.Delete(stale);
+            File.Delete(recent);
+        }
+    }
+
+    [Fact]
     public async Task InitDb_failure_message_never_contains_the_password()
     {
         var runner = new FakePostgresCommandRunner();
