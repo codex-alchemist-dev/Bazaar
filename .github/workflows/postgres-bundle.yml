@@ -1,5 +1,5 @@
 # Packaged PostgreSQL bundle check. Builds the PostgreSQL 18 + pgvector bundle that Bazaar.Server ships
-# (packaging/postgres, versions.env), then starts it the way the host does and runs every migration and a
+# (packaging/postgres, versions.txt), then starts it the way the host does and runs every migration and a
 # halfvec query against it. No external PostgreSQL is used on either platform.
 #
 # Pins: every third-party action is pinned to a full commit SHA, the same pins as ci.yml.
@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: artifacts/pg-bundle
-          key: pg-bundle-windows-${{ hashFiles('packaging/postgres/versions.env', 'packaging/postgres/build-pgvector-windows.ps1') }}
+          key: pg-bundle-windows-${{ hashFiles('packaging/postgres/versions.txt', 'packaging/postgres/build-pgvector-windows.ps1') }}
 
       - name: Load the MSVC build environment
         if: steps.bundle-cache.outputs.cache-hit != 'true'

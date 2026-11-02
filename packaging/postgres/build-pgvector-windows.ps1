@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $versions = @{}
-Get-Content "$PSScriptRoot\versions.env" | Where-Object { $_ -match '^[A-Z_]+=' } | ForEach-Object {
+Get-Content "$PSScriptRoot\versions.txt" | Where-Object { $_ -match '^[A-Z_]+=' } | ForEach-Object {
     $k, $v = $_ -split '=', 2; $versions[$k] = $v.Trim()
 }
 $major = $versions['PG_MAJOR']
