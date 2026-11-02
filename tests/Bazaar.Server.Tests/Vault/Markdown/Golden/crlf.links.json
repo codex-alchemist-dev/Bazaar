@@ -1,0 +1,5 @@
+[
+  { "kind": "Link", "target": "Auth service", "anchorKind": "None", "anchor": null, "alias": null, "start": 16, "length": 16 },
+  { "kind": "Link", "target": "projects/x/Plan", "anchorKind": "Heading", "anchor": "Scope", "alias": "plan", "start": 47, "length": 30 },
+  { "kind": "Link", "target": "Auth service", "anchorKind": "Block", "anchor": "a1b2c3", "alias": null, "start": 96, "length": 24 }
+]
