@@ -55,6 +55,21 @@ public sealed class WakeDecisionRepository(NpgsqlDataSource dataSource)
         return (await ReadAsync(cmd, ct).ConfigureAwait(false)).FirstOrDefault();
     }
 
+    /// <summary>The most recent decision for one (gc, seq, agent), across prompt versions, or null. Ties break on the time-ordered id.</summary>
+    public async Task<WakeDecisionRecord?> FindLatestAsync(Guid gcId, long seq, Guid agentId, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand($"""
+            SELECT {_columns} FROM wake_decisions
+            WHERE gc_id = @gc_id AND seq = @seq AND agent_id = @agent_id
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """);
+        cmd.Parameters.AddWithValue("gc_id", gcId);
+        cmd.Parameters.AddWithValue("seq", seq);
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        return (await ReadAsync(cmd, ct).ConfigureAwait(false)).FirstOrDefault();
+    }
+
     private static async Task<List<WakeDecisionRecord>> ReadAsync(NpgsqlCommand cmd, CancellationToken ct)
     {
         var result = new List<WakeDecisionRecord>();
