@@ -5,17 +5,17 @@ namespace Bazaar.Server.Tests.Identity.BrowserProfiles;
 
 public class AesGcmProfileEncryptorTests
 {
-    private static readonly byte[] Plaintext = "{\"cookies\":[]}"u8.ToArray();
+    private static readonly byte[] _plaintext = "{\"cookies\":[]}"u8.ToArray();
 
     [Fact]
     public void Decrypt_round_trips_the_plaintext()
     {
         var encryptor = new AesGcmProfileEncryptor(RandomNumberGenerator.GetBytes(32));
 
-        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, Plaintext);
+        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, _plaintext);
         var decrypted = encryptor.Decrypt(BrowserProfileTestKit.AgentId, blob);
 
-        Assert.Equal(Plaintext, decrypted);
+        Assert.Equal(_plaintext, decrypted);
         Assert.Equal(12, blob.Nonce.Length);
         Assert.Equal(16, blob.Tag.Length);
     }
@@ -25,8 +25,8 @@ public class AesGcmProfileEncryptorTests
     {
         var encryptor = new AesGcmProfileEncryptor(RandomNumberGenerator.GetBytes(32));
 
-        var first = encryptor.Encrypt(BrowserProfileTestKit.AgentId, Plaintext);
-        var second = encryptor.Encrypt(BrowserProfileTestKit.AgentId, Plaintext);
+        var first = encryptor.Encrypt(BrowserProfileTestKit.AgentId, _plaintext);
+        var second = encryptor.Encrypt(BrowserProfileTestKit.AgentId, _plaintext);
 
         Assert.NotEqual(first.Nonce, second.Nonce);
         Assert.NotEqual(first.Ciphertext, second.Ciphertext);
@@ -36,7 +36,7 @@ public class AesGcmProfileEncryptorTests
     public void Flipping_a_ciphertext_byte_makes_decrypt_throw()
     {
         var encryptor = new AesGcmProfileEncryptor(RandomNumberGenerator.GetBytes(32));
-        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, Plaintext);
+        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, _plaintext);
         var tampered = (byte[])blob.Ciphertext.Clone();
         tampered[0] ^= 0x01;
         var forged = blob with { Ciphertext = tampered };
@@ -48,7 +48,7 @@ public class AesGcmProfileEncryptorTests
     public void Flipping_a_tag_byte_makes_decrypt_throw()
     {
         var encryptor = new AesGcmProfileEncryptor(RandomNumberGenerator.GetBytes(32));
-        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, Plaintext);
+        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, _plaintext);
         var tampered = (byte[])blob.Tag.Clone();
         tampered[^1] ^= 0x80;
 
@@ -60,7 +60,7 @@ public class AesGcmProfileEncryptorTests
     public void Decrypting_for_another_agent_makes_decrypt_throw()
     {
         var encryptor = new AesGcmProfileEncryptor(RandomNumberGenerator.GetBytes(32));
-        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, Plaintext);
+        var blob = encryptor.Encrypt(BrowserProfileTestKit.AgentId, _plaintext);
 
         Assert.ThrowsAny<CryptographicException>(() => encryptor.Decrypt("agent-other", blob));
     }

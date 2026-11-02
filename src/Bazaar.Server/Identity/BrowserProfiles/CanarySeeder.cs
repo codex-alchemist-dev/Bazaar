@@ -9,14 +9,14 @@ namespace Bazaar.Server.Identity.BrowserProfiles;
 /// </summary>
 public static class CanarySeeder
 {
-    private const string ValuePrefix = "canary-decoy-not-a-credential-";
+    private const string _valuePrefix = "canary-decoy-not-a-credential-";
 
     /// <summary>Returns a decoy cookie scoped to <paramref name="service"/>, with a fresh random name and value.</summary>
     public static BrowserCookie Seed(string service)
     {
         var domain = CookieDomain.Normalize(service);
         var name = "cnry_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(6)).ToLowerInvariant();
-        var value = ValuePrefix + Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
+        var value = _valuePrefix + Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
         return new BrowserCookie(name, value, domain, "/", null);
     }
 
@@ -24,6 +24,6 @@ public static class CanarySeeder
     public static bool IsCanary(BrowserCookie cookie)
     {
         ArgumentNullException.ThrowIfNull(cookie);
-        return cookie.Value.StartsWith(ValuePrefix, StringComparison.Ordinal);
+        return cookie.Value.StartsWith(_valuePrefix, StringComparison.Ordinal);
     }
 }

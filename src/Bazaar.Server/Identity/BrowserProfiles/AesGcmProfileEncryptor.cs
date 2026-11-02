@@ -9,9 +9,9 @@ namespace Bazaar.Server.Identity.BrowserProfiles;
 /// </summary>
 public sealed class AesGcmProfileEncryptor : IProfileEncryptor
 {
-    private const int KeySize = 32;
-    private const int NonceSize = 12;
-    private const int TagSize = 16;
+    private const int _keySize = 32;
+    private const int _nonceSize = 12;
+    private const int _tagSize = 16;
 
     private readonly byte[] _key;
 
@@ -20,9 +20,9 @@ public sealed class AesGcmProfileEncryptor : IProfileEncryptor
     public AesGcmProfileEncryptor(byte[] key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        if (key.Length != KeySize)
+        if (key.Length != _keySize)
         {
-            throw new ArgumentException($"AES-256-GCM needs a {KeySize}-byte key.", nameof(key));
+            throw new ArgumentException($"AES-256-GCM needs a {_keySize}-byte key.", nameof(key));
         }
 
         _key = (byte[])key.Clone();
@@ -34,10 +34,10 @@ public sealed class AesGcmProfileEncryptor : IProfileEncryptor
         ArgumentException.ThrowIfNullOrEmpty(agentId);
         ArgumentNullException.ThrowIfNull(plaintext);
 
-        var nonce = RandomNumberGenerator.GetBytes(NonceSize);
+        var nonce = RandomNumberGenerator.GetBytes(_nonceSize);
         var ciphertext = new byte[plaintext.Length];
-        var tag = new byte[TagSize];
-        using var aes = new AesGcm(_key, TagSize);
+        var tag = new byte[_tagSize];
+        using var aes = new AesGcm(_key, _tagSize);
         aes.Encrypt(nonce, plaintext, ciphertext, tag, Encoding.UTF8.GetBytes(agentId));
         return new ProfileCiphertext(nonce, ciphertext, tag);
     }
@@ -49,7 +49,7 @@ public sealed class AesGcmProfileEncryptor : IProfileEncryptor
         ArgumentNullException.ThrowIfNull(ciphertext);
 
         var plaintext = new byte[ciphertext.Ciphertext.Length];
-        using var aes = new AesGcm(_key, TagSize);
+        using var aes = new AesGcm(_key, _tagSize);
         aes.Decrypt(ciphertext.Nonce, ciphertext.Ciphertext, ciphertext.Tag, plaintext, Encoding.UTF8.GetBytes(agentId));
         return plaintext;
     }
