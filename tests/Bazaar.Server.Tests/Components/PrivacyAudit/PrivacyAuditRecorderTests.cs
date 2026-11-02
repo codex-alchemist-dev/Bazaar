@@ -88,6 +88,20 @@ public sealed class PrivacyAuditRecorderTests
         Assert.Equal("passkey", PayloadOf(entry)["method"]!.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData("Bearer abc.def.ghi")]
+    [InlineData("reason with spaces")]
+    [InlineData("")]
+    public async Task Sign_in_failed_refuses_a_value_that_is_not_a_label(string reason)
+    {
+        var (recorder, log, _) = Create();
+
+        await Assert.ThrowsAnyAsync<ArgumentException>(() =>
+            recorder.SignInFailedAsync(PrivacyAuditRecorder.AnonymousActor, reason, TestContext.Current.CancellationToken));
+
+        Assert.Empty(log.Entries);
+    }
+
     [Fact]
     public async Task Sign_in_failed_uses_anonymous_actor_and_only_a_reason()
     {
