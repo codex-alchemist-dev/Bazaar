@@ -1,0 +1,58 @@
+# Squash auto-merge for pull requests, so a green PR does not wait for someone to press merge.
+#
+# What it does (no branch protection is weakened and no required check is bypassed):
+#   1. On a pull request event (opened, reopened, edited, ready for review) and on a review
+#      event, it enables squash auto-merge on that PR. GitHub then merges the PR itself once
+#      every required check passes.
+#   2. Every 30 minutes it sweeps all open non-draft PRs into main and does the same. This
+#      catches PRs that missed step 1, for example after a runner backlog or a sign-off line
+#      added later. If auto-merge is not allowed by the repository, it merges a PR directly,
+#      but only when GitHub reports the merge state as CLEAN.
+#
+# Logic lives in .github/scripts/pr-automerge.sh.
+# Never pass --admin here. Never skip checks.
+
+name: PR auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-automerge-${{ github.event.pull_request.number || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    name: Enable auto-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable auto-merge on this pull request
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash .github/scripts/pr-automerge.sh "$PR_NUMBER"
+
+      - name: Sweep every open pull request into main
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/pr-automerge.sh
