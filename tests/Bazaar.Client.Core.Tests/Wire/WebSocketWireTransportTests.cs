@@ -56,11 +56,13 @@ public sealed class WebSocketWireTransportTests
         var acceptTask = server.AcceptAsync(Ct);
         await using var pair = await OpenAsync(factory, acceptTask);
 
-        await pair.Server.SendAsync(new byte[] { 1, 2 }, WebSocketMessageType.Text, false, Ct);
-        await pair.Server.SendAsync(new byte[] { 3, 4, 5 }, WebSocketMessageType.Text, false, Ct);
-        await pair.Server.SendAsync(new byte[] { 6 }, WebSocketMessageType.Text, true, Ct);
+        // Send and receive concurrently: the client must read while the server is still writing fragments,
+        // so the test never depends on the server's writes completing before the client starts reading.
+        Task sending = SendFragmentsAsync(pair.Server, Ct);
 
-        WireReceive frame = await pair.Client.ReceiveAsync(Ct);
+        WireReceive frame = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        await sending.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
         Assert.False(frame.IsClosed);
         Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, frame.Frame.ToArray());
     }
@@ -209,6 +211,13 @@ public sealed class WebSocketWireTransportTests
         IWireConnection client = await factory.ConnectAsync(TestContext.Current.CancellationToken);
         AcceptedSocket accepted = await acceptTask.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         return new Pair(client, accepted.Socket, accepted.Request);
+    }
+
+    private static async Task SendFragmentsAsync(WebSocket socket, CancellationToken ct)
+    {
+        await socket.SendAsync(new byte[] { 1, 2 }, WebSocketMessageType.Text, false, ct);
+        await socket.SendAsync(new byte[] { 3, 4, 5 }, WebSocketMessageType.Text, false, ct);
+        await socket.SendAsync(new byte[] { 6 }, WebSocketMessageType.Text, true, ct);
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text)

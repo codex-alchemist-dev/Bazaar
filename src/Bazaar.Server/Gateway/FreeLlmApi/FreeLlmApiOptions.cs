@@ -28,6 +28,37 @@ public sealed class FreeLlmApiOptions
 
     /// <summary>Overall time limit for one upstream call, headers and body.</summary>
     public int TimeoutSeconds { get; set; } = 120;
+
+    /// <summary>Managed sidecar settings. When <c>Sidecar:Managed</c> is true, the host runs FreeLLMAPI itself.</summary>
+    public FreeLlmApiSidecarOptions Sidecar { get; set; } = new();
+
+    /// <summary>The concrete upstream model a managed sidecar uses when none is configured. Never the placeholder <c>auto</c>.</summary>
+    public const string ManagedDefaultModel = "groq/llama-3.3-70b";
+
+    /// <summary>
+    /// Applies the managed-sidecar rules. The sidecar owns the key: <c>ApiKey</c> is always the unified-key file it writes, and
+    /// any configured value is replaced. A placeholder or empty <c>DefaultModel</c> becomes <see cref="ManagedDefaultModel"/>.
+    /// The base URL stays operator-configurable, defaulting to loopback. Does nothing when the sidecar is not managed.
+    /// </summary>
+    public void ApplyManagedSidecarDefaults()
+    {
+        if (!Sidecar.Managed)
+        {
+            return;
+        }
+
+        Enabled = true;
+        if (string.IsNullOrWhiteSpace(BaseUrl))
+        {
+            BaseUrl = $"http://{FreeLlmApiSidecarOptions.BindHost}:{Sidecar.Port}/v1";
+        }
+
+        ApiKey = Sidecar.UnifiedKeyReference;
+        if (string.IsNullOrWhiteSpace(DefaultModel) || DefaultModel == "auto")
+        {
+            DefaultModel = ManagedDefaultModel;
+        }
+    }
 }
 
 /// <summary>Checks the FreeLLMAPI options at start. Each failure names its configuration key and never echoes a value.</summary>

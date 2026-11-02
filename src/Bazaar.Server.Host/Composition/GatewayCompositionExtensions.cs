@@ -10,6 +10,7 @@ using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
+using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -26,14 +27,14 @@ namespace Bazaar.Server.Host.Composition;
 /// </summary>
 public static class GatewayCompositionExtensions
 {
-    /// <summary>Adapter name for OpenAI-compatible chat providers, as stored on provider rows.</summary>
-    public const string OpenAiChatAdapterName = "openai_chat";
+    /// <summary>Adapter name for OpenAI-compatible chat providers, as stored on provider rows. Owned by the adapter component.</summary>
+    public const string OpenAiChatAdapterName = OpenAiChatAdapterComponent.WireName;
 
-    /// <summary>Adapter name for Anthropic Messages providers, as stored on provider rows.</summary>
-    public const string AnthropicMessagesAdapterName = "anthropic_messages";
+    /// <summary>Adapter name for Anthropic Messages providers, as stored on provider rows. Owned by the adapter component.</summary>
+    public const string AnthropicMessagesAdapterName = AnthropicMessagesAdapterComponent.WireName;
 
-    /// <summary>Adapter name for Gemini generateContent providers, as stored on provider rows.</summary>
-    public const string GeminiGenerateContentAdapterName = "gemini_generate_content";
+    /// <summary>Adapter name for Gemini generateContent providers, as stored on provider rows. Owned by the adapter component.</summary>
+    public const string GeminiGenerateContentAdapterName = GeminiGenerateContentAdapterComponent.WireName;
 
     /// <summary>
     /// Registers the gateway pipeline and its database-backed stores. Needs <c>AddBazaarHostOptions</c>, <c>AddBazaarSecrets</c>
@@ -46,13 +47,11 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<NpgsqlDataSource>(sp =>
             sp.GetRequiredService<DatabaseConnection>().GetAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
 
-        // Bound from the host configuration when one is registered. Without it the options keep their disabled defaults.
-        services.AddOptions<FreeLlmApiOptions>()
-            .Configure<IServiceProvider>((options, sp) =>
-                sp.GetService<IConfiguration>()?.GetSection(FreeLlmApiOptions.SectionName).Bind(options))
-            .ValidateOnStart();
-        services.AddSingleton<IValidateOptions<FreeLlmApiOptions>, FreeLlmApiOptionsValidator>();
-        services.AddHostedService<FreeLlmApiStartupCheckService>();
+        // The FreeLLMAPI options, validation, key check, diagnostics and HTTP client are registered by FreeLlmApiComponent.
+        // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
+        services.AddBazaarFreeLlmApiSidecar();
+        services.TryAddSingleton<AgentModelPolicyRepository>();
+        services.AddHostedService<DevAgentPolicySeed>();
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
@@ -61,7 +60,6 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<UsageRecorder>();
         services.TryAddSingleton<QuotaStateRepository>();
         services.TryAddSingleton<RouteResolver>();
-        services.TryAddSingleton<FreeLlmApiRoutingDiagnostics>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
 
         services.TryAddSingleton<SecretScrubber>();
@@ -70,7 +68,7 @@ public static class GatewayCompositionExtensions
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
         services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => FreeLlmApiWiring.CreateDirectory(
             sp.GetRequiredService<GatewayDirectoryRepository>(),
-            sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value,
+            FreeLlmApiOptionsOf(sp),
             sp.GetRequiredService<TimeProvider>())));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
@@ -86,42 +84,32 @@ public static class GatewayCompositionExtensions
         return services;
     }
 
+    /// <summary>
+    /// The FreeLLMAPI options when <see cref="FreeLlmApiComponent"/> is registered, otherwise the disabled defaults. A disabled
+    /// component therefore reads as a disabled FreeLLMAPI: no provider, no route, no key.
+    /// </summary>
+    private static FreeLlmApiOptions FreeLlmApiOptionsOf(IServiceProvider sp) =>
+        sp.GetService<IOptions<FreeLlmApiOptions>>()?.Value ?? new FreeLlmApiOptions();
+
     private static IProviderSecretSource CreateProviderSecretSource(IServiceProvider sp) =>
         FreeLlmApiWiring.CreateProviderSecretSource(
-            sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value,
+            FreeLlmApiOptionsOf(sp),
             sp.GetRequiredService<ISecretResolver>(),
             new GatewaySecretSource(sp.GetRequiredService<ISecretResolver>()));
 
+    /// <summary>Builds the registry from every adapter the enabled components registered. Two registrations for one name fail the start.</summary>
     private static DictionaryAdapterRegistry CreateAdapterRegistry(IServiceProvider sp)
     {
-        var http = sp.GetRequiredService<HttpClient>();
-        var time = sp.GetRequiredService<TimeProvider>();
-        var freeLlmApi = sp.GetRequiredService<IOptions<FreeLlmApiOptions>>().Value;
-        var freeLlmApiHttp = freeLlmApi.Enabled ? FreeLlmApiWiring.CreateHttpClient(freeLlmApi) : http;
-        IModelAdapter openAi = FreeLlmApiWiring.WrapOpenAiAdapter(
-            new OpenAiChatAdapter(http, time),
-            freeLlmApi,
-            freeLlmApiHttp,
-            time,
-            sp.GetRequiredService<FreeLlmApiRoutingDiagnostics>());
-        Dictionary<string, IModelAdapter> adapters = new(StringComparer.Ordinal)
+        Dictionary<string, IModelAdapter> adapters = new(StringComparer.Ordinal);
+        foreach (var registration in sp.GetServices<ModelAdapterRegistration>())
         {
-            [OpenAiChatAdapterName] = openAi,
-            [AnthropicMessagesAdapterName] = new AnthropicMessagesAdapter(http),
-            [GeminiGenerateContentAdapterName] = new GeminiGenerateContentAdapter(http),
-        };
+            if (!adapters.TryAdd(registration.WireName, registration.Create(sp)))
+            {
+                throw new InvalidOperationException($"More than one component registers the gateway adapter '{registration.WireName}'.");
+            }
+        }
+
         return new DictionaryAdapterRegistry(adapters);
     }
 }
 
-/// <summary>
-/// Checks at start that the configured FreeLLMAPI key resolves. A disabled config returns at once and reads no secret. A
-/// missing key stops the start with the configuration key named in the error.
-/// </summary>
-public sealed class FreeLlmApiStartupCheckService(IOptions<FreeLlmApiOptions> options, ISecretResolver resolver) : IHostedService
-{
-    public Task StartAsync(CancellationToken cancellationToken) =>
-        FreeLlmApiStartupCheck.VerifyKeyAsync(options.Value, resolver, cancellationToken);
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-}
