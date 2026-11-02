@@ -228,6 +228,42 @@ public class WireClientTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_new_client_with_the_same_device_id_never_reuses_an_earlier_request_id()
+    {
+        // The server answers a repeated (device, id) with the original reply and does not run it again. A restarted
+        // process must therefore not count from 1 again under the same device id, or its sends are silently dropped.
+        Start();
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Hello).Any());
+        await Settle();
+        var first = _transport.Latest;
+        var firstSend = _client.RequestAsync<GcSend, GcSendResult>(WireTypes.GcSend, new GcSend(_gc, "one", null, null), TestContext.Current.CancellationToken);
+        await Until(() => first.SentOfType(WireTypes.GcSend).Any());
+        var firstId = first.SentOfType(WireTypes.GcSend).Single().Id;
+        first.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, firstId, null, null, DateTimeOffset.UnixEpoch,
+            _transport.Codec.EncodePayload(new GcSendResult(1, 1))));
+        await firstSend.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        var otherTransport = new FakeWireTransport();
+        using var otherCts = new CancellationTokenSource();
+        var other = new WireClient(otherTransport, otherTransport.Codec, new InMemoryCursorStore(),
+            new WireClientOptions { DeviceId = "dev-1", DeviceClass = "windows", ClientBuild = "test", Jitter = () => 1.0 }, _clock);
+        var otherRun = other.RunAsync(otherCts.Token);
+        await Until(() => otherTransport.Count == 1 && otherTransport.Latest.SentOfType(WireTypes.Hello).Any());
+        await Settle();
+        var second = otherTransport.Latest;
+        var secondSend = other.RequestAsync<GcSend, GcSendResult>(WireTypes.GcSend, new GcSend(_gc, "two", null, null), TestContext.Current.CancellationToken);
+        await Until(() => second.SentOfType(WireTypes.GcSend).Any());
+        var secondId = second.SentOfType(WireTypes.GcSend).Single().Id;
+        second.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, secondId, null, null, DateTimeOffset.UnixEpoch,
+            _transport.Codec.EncodePayload(new GcSendResult(2, 2))));
+        await secondSend.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        Assert.NotEqual(firstId, secondId);
+        await otherCts.CancelAsync();
+        await otherRun.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task Unanswered_request_is_resent_with_the_same_id_after_reconnect()
     {
         Start();
