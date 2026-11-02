@@ -1,4 +1,5 @@
 using Bazaar.Server.Vms.Environments;
+using Bazaar.Testing.Postgres;
 using Npgsql;
 
 namespace Bazaar.Server.Vms.Tests.Environments;
@@ -9,6 +10,7 @@ public sealed class EnvironmentConstraintTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Second_live_vm_for_the_same_agent_and_os_is_refused()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync(VmOs.Linux);
         var agent = Guid.CreateVersion7();
         await db.InsertVmAsync(agent, image.Id, VmOs.Linux, VmState.Stopped);
@@ -21,6 +23,7 @@ public sealed class EnvironmentConstraintTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Same_agent_may_hold_one_live_vm_per_os()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync(VmOs.Linux);
         var agent = Guid.CreateVersion7();
         await db.InsertVmAsync(agent, image.Id, VmOs.Linux, VmState.Stopped);
@@ -32,6 +35,7 @@ public sealed class EnvironmentConstraintTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Retiring_a_vm_frees_the_slot_for_a_new_vm()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync(VmOs.Windows);
         var agent = Guid.CreateVersion7();
         var first = await db.InsertVmAsync(agent, image.Id, VmOs.Windows, VmState.Running);
@@ -47,6 +51,7 @@ public sealed class EnvironmentConstraintTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Attached_guest_path_is_unique_until_its_mount_is_detached()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var image = await db.InsertImageAsync();
         var vm = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id);
         var agent = Guid.CreateVersion7();

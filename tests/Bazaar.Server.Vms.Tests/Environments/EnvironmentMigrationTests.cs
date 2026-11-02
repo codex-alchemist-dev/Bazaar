@@ -1,4 +1,5 @@
 using Bazaar.Server.Vms.Environments;
+using Bazaar.Testing.Postgres;
 using Npgsql;
 
 namespace Bazaar.Server.Vms.Tests.Environments;
@@ -12,6 +13,7 @@ public sealed class EnvironmentMigrationTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Migration_creates_all_component_tables()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await using var cmd = db.DataSource.CreateCommand("""
             SELECT table_name FROM information_schema.tables
             WHERE table_schema = 'public'
@@ -29,6 +31,7 @@ public sealed class EnvironmentMigrationTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Golden_image_refuses_an_unknown_os()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await using var cmd = db.DataSource.CreateCommand("""
             INSERT INTO golden_image (id, os, version, sha256, guest_agent_version, state)
             VALUES (gen_random_uuid(), 'macos', 1, repeat('a', 64), '1.0.0', 'Ready')
@@ -40,6 +43,7 @@ public sealed class EnvironmentMigrationTests(VmDb db) : IClassFixture<VmDb>
     [Fact]
     public async Task Golden_image_refuses_a_second_version_for_the_same_os()
     {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await db.InsertImageAsync(VmOs.Windows, version: 7);
         var ex = await Assert.ThrowsAsync<PostgresException>(() => db.InsertImageAsync(VmOs.Windows, version: 7));
         Assert.Equal("23505", ex.SqlState);
