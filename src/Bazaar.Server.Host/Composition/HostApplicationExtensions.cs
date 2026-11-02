@@ -4,7 +4,7 @@ using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
-using Bazaar.Server.Gc.Wire;
+using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Hosting;
@@ -30,7 +30,8 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
-        services.AddBazaarGcWire();
+        // Kept where AddBazaarGcWire ran, after AddBazaarSync, so the GC hosted services still start before the agent responder.
+        services.AddBazaarComponents(configuration, [new GcComponent()]);
         services.AddBazaarAgentSafety();
         services.AddBazaarGateway();
         services.AddBazaarAgentResponder(configuration);
