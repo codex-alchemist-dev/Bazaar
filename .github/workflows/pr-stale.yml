@@ -1,0 +1,36 @@
+# Daily stale pull request report. A PR with no activity for 24 hours gets the `stale` label
+# and one comment. A PR labelled `duplicate` that is also idle is closed. Nothing else is closed.
+# Logic: .github/scripts/pr-stale.sh. Rules: CONTRIBUTING.md, "Pull request ownership".
+
+name: PR stale report
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-stale
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    name: Flag and close stale pull requests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Flag stale pull requests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/pr-stale.sh

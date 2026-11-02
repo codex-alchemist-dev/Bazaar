@@ -1,5 +1,6 @@
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Components;
+using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -23,6 +24,7 @@ public static class HostComponents
         new AuditComponent(),
         new SettingsComponent(),
         new GcComponent(),
+        new FunComponent(),
         new KanbanComponent(),
         new VaultComponent(),
         new AgentTurnsComponent(),
