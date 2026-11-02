@@ -5,6 +5,8 @@
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
     <Project Path="src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj" />
     <Project Path="src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj" />
+    <Project Path="src/Bazaar.Constellation.Rendering/Bazaar.Constellation.Rendering.csproj" />
+    <Project Path="src/Bazaar.Constellation.Vulkan/Bazaar.Constellation.Vulkan.csproj" />
     <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
     <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
@@ -20,6 +22,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
+    <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
+    <Project Path="tests/Bazaar.Constellation.Rendering.Tests/Bazaar.Constellation.Rendering.Tests.csproj" />
+    <Project Path="tests/Bazaar.Constellation.Vulkan.Tests/Bazaar.Constellation.Vulkan.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.LocalInference.Tests/Bazaar.Client.LocalInference.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Terminal.Tests/Bazaar.Client.Terminal.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
