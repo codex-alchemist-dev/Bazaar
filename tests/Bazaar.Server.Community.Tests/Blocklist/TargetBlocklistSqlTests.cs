@@ -56,12 +56,12 @@ public class TargetBlocklistSqlTests
 
     private static string ReadMigration()
     {
-        var names = typeof(TargetBlocklistSqlText).Assembly.GetManifestResourceNames()
+        var names = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly.GetManifestResourceNames()
             .Where(n => n.EndsWith("0004_target_blocklist.sql", StringComparison.Ordinal))
             .ToList();
         var name = Assert.Single(names);
 
-        using var stream = typeof(TargetBlocklistSqlText).Assembly.GetManifestResourceStream(name)
+        using var stream = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded resource {name} is missing.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();

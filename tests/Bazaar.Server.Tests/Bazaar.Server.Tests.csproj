@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3.mtp-v2" />
     <None Include="**/Golden/*.json" Exclude="bin/**;obj/**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="**/Golden/*.md" Exclude="bin/**;obj/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
@@ -22,6 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Components.Kanban\Bazaar.Server.Components.Kanban.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>

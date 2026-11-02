@@ -93,8 +93,8 @@ public class PlatformPolicySeedTests
     [Fact]
     public void Migration_is_embedded_and_defines_the_check_constraint()
     {
-        using var stream = typeof(PlatformPolicyLoader).Assembly.GetManifestResourceStream(
-            "Bazaar.Server.Community.Data.Sql.community.0001_platform_policy.sql");
+        using var stream = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly.GetManifestResourceStream(
+            "Bazaar.Server.Data.Sql.community.0001_platform_policy.sql");
         Assert.NotNull(stream);
 
         using var reader = new StreamReader(stream);

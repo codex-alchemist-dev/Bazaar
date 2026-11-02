@@ -61,12 +61,12 @@ public class CommunityActionSqlTests
 
     private static string ReadMigration()
     {
-        var names = typeof(CommunityActionStore).Assembly.GetManifestResourceNames()
+        var names = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly.GetManifestResourceNames()
             .Where(n => n.EndsWith("0003_community_action.sql", StringComparison.Ordinal))
             .ToList();
         var name = Assert.Single(names);
 
-        using var stream = typeof(CommunityActionStore).Assembly.GetManifestResourceStream(name)
+        using var stream = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded resource {name} is missing.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
