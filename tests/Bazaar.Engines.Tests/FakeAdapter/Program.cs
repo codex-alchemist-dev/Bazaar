@@ -9,6 +9,7 @@ using Bazaar.Contracts.Engines;
 //   hang:   commands print two output lines and never reply. Other methods still work.
 //   crash:  a command prints one output line and the process exits with code 3 without replying.
 //   slow:   commands reply after slowMilliseconds.
+//   unresponsive: prints one line at startup, then never replies to any request.
 var mode = args.Length > 0 ? args[0] : "normal";
 var slowMilliseconds = args.Length > 1 && int.TryParse(args[1], out var parsed) ? parsed : 0;
 
@@ -17,6 +18,11 @@ using var stdin = new StreamReader(Console.OpenStandardInput(), utf8);
 using var stdout = new StreamWriter(Console.OpenStandardOutput(), utf8) { AutoFlush = true, NewLine = "\n" };
 
 var seq = new Dictionary<string, long>(StringComparer.Ordinal);
+
+if (mode == "unresponsive")
+{
+    EmitOutput("boot", "startup", "booting");
+}
 
 string? line;
 while ((line = stdin.ReadLine()) is not null)
@@ -27,6 +33,11 @@ while ((line = stdin.ReadLine()) is not null)
     var hasId = root.TryGetProperty("id", out var idElement);
     var id = hasId ? idElement.GetString() : null;
     var parameters = root.TryGetProperty("params", out var paramsElement) ? paramsElement : default;
+
+    if (mode == "unresponsive")
+    {
+        continue;
+    }
 
     switch (method)
     {

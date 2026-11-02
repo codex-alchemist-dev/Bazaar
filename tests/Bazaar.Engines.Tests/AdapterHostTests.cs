@@ -68,6 +68,19 @@ public class AdapterHostTests
     }
 
     [Fact]
+    public async Task Hanging_health_call_times_out_like_a_command()
+    {
+        await using var host = StartFake("unresponsive", TimeSpan.FromMilliseconds(500));
+
+        var error = await Assert.ThrowsAsync<EngineAdapterException>(() => host.HealthAsync(CancellationToken.None));
+
+        Assert.Equal(EngineErrorCodes.Timeout, error.Code);
+        Assert.Contains("booting", error.LastOutput);
+        Assert.Equal(AdapterHostState.Failed, host.State);
+        Assert.NotNull(host.ExitCode);
+    }
+
+    [Fact]
     public async Task Crash_fails_every_pending_request_with_adapter_crashed()
     {
         await using var host = StartFake("crash", TimeSpan.FromSeconds(30));

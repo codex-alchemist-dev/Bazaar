@@ -121,11 +121,11 @@ public sealed class AdapterHost : IAsyncDisposable
     public Task<JsonElement?> OpenAsync(string projectId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
-        return RequestAsync(EngineMethods.Open, Serialize(new AdapterProjectParams(projectId)), ct);
+        return BoundedRequestAsync(EngineMethods.Open, Serialize(new AdapterProjectParams(projectId)), $"Open of project '{projectId}'", ct);
     }
 
     /// <summary>Sends <c>health</c>. The adapter answers with its own status object.</summary>
-    public Task<JsonElement?> HealthAsync(CancellationToken ct) => RequestAsync(EngineMethods.Health, null, ct);
+    public Task<JsonElement?> HealthAsync(CancellationToken ct) => BoundedRequestAsync(EngineMethods.Health, null, "Health check", ct);
 
     /// <summary>
     /// Sends one <c>command</c> and waits for its result. The command timeout applies to this call. A timeout kills the
@@ -144,20 +144,10 @@ public sealed class AdapterHost : IAsyncDisposable
             command.Name,
             command.Arguments));
 
-        using var timeout = new CancellationTokenSource(_options.CommandTimeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         JsonElement? result;
         try
         {
-            result = await RequestAsync(EngineMethods.Command, parameters, linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested && timeout.IsCancellationRequested)
-        {
-            var failure = Fail(
-                EngineErrorCodes.Timeout,
-                $"Command '{command.Name}' ({command.CommandId}) exceeded {_options.CommandTimeout}; the adapter was killed.");
-            await WaitForExitAsync().ConfigureAwait(false);
-            throw failure.Copy();
+            result = await BoundedRequestAsync(EngineMethods.Command, parameters, $"Command '{command.Name}' ({command.CommandId})", ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -185,7 +175,7 @@ public sealed class AdapterHost : IAsyncDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
         ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
-        return RequestAsync(EngineMethods.Cancel, Serialize(new EngineProjectEnvelope(projectId, commandId, LastSeq(projectId))), ct);
+        return BoundedRequestAsync(EngineMethods.Cancel, CancelParams(projectId, commandId), $"Cancel of command '{commandId}'", ct);
     }
 
     /// <summary>
@@ -195,7 +185,7 @@ public sealed class AdapterHost : IAsyncDisposable
     public async Task<JsonElement?> CloseAsync(string projectId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
-        var result = await RequestAsync(EngineMethods.Close, Serialize(new AdapterProjectParams(projectId)), ct).ConfigureAwait(false);
+        var result = await BoundedRequestAsync(EngineMethods.Close, Serialize(new AdapterProjectParams(projectId)), $"Close of project '{projectId}'", ct).ConfigureAwait(false);
         lock (_gate)
         {
             if (_state == AdapterHostState.Running)
@@ -302,13 +292,38 @@ public sealed class AdapterHost : IAsyncDisposable
         }
     }
 
-    private async Task SendCancelQuietlyAsync(string projectId, string commandId)
+    private JsonElement CancelParams(string projectId, string commandId) =>
+        Serialize(new EngineProjectEnvelope(projectId, commandId, LastSeq(projectId)));
+
+    /// <summary>
+    /// Sends one request with the per-command timeout. On timeout the child is killed, the session is marked Failed, and
+    /// every pending request fails with <see cref="EngineErrorCodes.Timeout"/>. A caller cancellation is not a failure.
+    /// </summary>
+    private async Task<JsonElement?> BoundedRequestAsync(string method, JsonElement? parameters, string description, CancellationToken ct)
     {
+        using var timeout = new CancellationTokenSource(_options.CommandTimeout);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         try
         {
-            await CancelAsync(projectId, commandId, CancellationToken.None).WaitAsync(_cancelGrace).ConfigureAwait(false);
+            return await RequestAsync(method, parameters, linked.Token).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is EngineAdapterException or TimeoutException or OperationCanceledException)
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            var failure = Fail(EngineErrorCodes.Timeout, $"{description} exceeded {_options.CommandTimeout}; the adapter was killed.");
+            await WaitForExitAsync().ConfigureAwait(false);
+            throw failure.Copy();
+        }
+    }
+
+    private async Task SendCancelQuietlyAsync(string projectId, string commandId)
+    {
+        // Unbounded by the session timeout: a late or missing cancel reply must not fail the session on its own.
+        try
+        {
+            using var grace = new CancellationTokenSource(_cancelGrace);
+            await RequestAsync(EngineMethods.Cancel, CancelParams(projectId, commandId), grace.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is EngineAdapterException or OperationCanceledException)
         {
             // Best effort: the caller already stopped waiting, and the session state reports any real failure.
         }
