@@ -52,8 +52,6 @@ internal sealed class FakeGitProvider : IGitProvider
     public Task<IReadOnlyList<DiffEntry>> DiffAsync(string repoPath, string oldSha, string newSha, CancellationToken ct) =>
         throw new NotSupportedException();
 
-    public Task<RecoveryReport> RecoverAsync(string repoPath, CancellationToken ct) => throw new NotSupportedException();
-
     public Task<string> ResolveCommitAsync(string repoPath, string commitish, CancellationToken ct) =>
         throw new NotSupportedException();
 
@@ -64,11 +62,9 @@ internal sealed class FakeGitProvider : IGitProvider
         throw new NotSupportedException();
 
     public Task<IReadOnlyList<GitCommitInfo>> ListCommitsAsync(
-        string repoPath,
-        string? excludeSha,
-        string includeSha,
-        CancellationToken ct) =>
-        throw new NotSupportedException();
+        string repoPath, string? excludeSha, string includeSha, CancellationToken ct) => throw new NotSupportedException();
+
+    public Task<RecoveryReport> RecoverAsync(string repoPath, CancellationToken ct) => throw new NotSupportedException();
 
     private async Task TrackAsync(CancellationToken ct)
     {
