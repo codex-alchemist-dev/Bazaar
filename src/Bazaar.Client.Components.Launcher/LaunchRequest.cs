@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace Bazaar.Client.Core.Launcher;
+namespace Bazaar.Client.Components.Launcher;
 
-// TODO(component): Bazaar Component "launcher". Move to its own project and register via AddBazaarLauncher() from host composition only.
+// Bazaar Component "launcher" (client). Host composition (the Windows head) is the only caller of its public API.
 
 /// <summary>What a second launch asks the running instance to do.</summary>
 public sealed record LaunchRequest(IReadOnlyList<string> OpenPaths, bool OpenTerminal)

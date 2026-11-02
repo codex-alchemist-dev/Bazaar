@@ -1,7 +1,7 @@
 using System.IO.Pipes;
 using System.Text.Json;
 
-namespace Bazaar.Client.Core.Launcher;
+namespace Bazaar.Client.Components.Launcher;
 
 /// <summary>
 /// Single-instance hand-off. A second launch forwards its <see cref="LaunchRequest"/> over a per-user

@@ -8,5 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
   </ItemGroup>
 </Project>

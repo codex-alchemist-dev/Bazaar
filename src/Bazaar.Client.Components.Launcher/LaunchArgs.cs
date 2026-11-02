@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Launcher;
+namespace Bazaar.Client.Components.Launcher;
 
 /// <summary>Parses the command line: <c>--open &lt;path&gt;</c> (repeatable) and <c>--terminal</c>. Unknown arguments are ignored.</summary>
 public static class LaunchArgs

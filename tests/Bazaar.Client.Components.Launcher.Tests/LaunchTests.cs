@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Launcher;
+using Bazaar.Client.Components.Launcher;
 
-namespace Bazaar.Client.Core.Tests.Launcher;
+namespace Bazaar.Client.Components.Launcher.Tests;
 
 public sealed class LaunchTests
 {
