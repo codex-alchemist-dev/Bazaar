@@ -3,8 +3,8 @@ using System.Text;
 
 namespace Bazaar.Server.Data.Migrations;
 
-/// <summary>One versioned SQL file. <see cref="Provider"/> is the folder it came from: <c>common</c>, <c>windows</c> or <c>linux</c>.</summary>
-public sealed record MigrationFile(string Provider, int Version, string Name, string Sql)
+/// <summary>One versioned SQL file. <see cref="Namespace"/> is the folder it came from (<c>common</c>, a provider folder, or a component namespace).</summary>
+public sealed record MigrationFile(string Namespace, int Version, string Name, string Sql)
 {
     /// <summary>Marker on the first line for files that must run outside a transaction (<c>CREATE INDEX CONCURRENTLY</c>).</summary>
     public const string NoTransactionMarker = "-- @no-transaction";
