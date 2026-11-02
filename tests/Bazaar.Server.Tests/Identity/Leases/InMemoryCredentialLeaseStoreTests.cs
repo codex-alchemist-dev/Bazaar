@@ -6,16 +6,16 @@ namespace Bazaar.Server.Tests.Identity.Leases;
 
 public sealed class InMemoryCredentialLeaseStoreTests
 {
-    private static readonly DateTimeOffset Start = new(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _start = new(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task Issue_ThenGet_ReturnsTheActiveLease()
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var store = new InMemoryCredentialLeaseStore(time);
         var id = new LeaseId(Guid.CreateVersion7());
 
-        var lease = await store.IssueAsync(id, "agent-a", new CredentialId(Guid.CreateVersion7()), "github:read", Start.AddMinutes(5), null, TestContext.Current.CancellationToken);
+        var lease = await store.IssueAsync(id, "agent-a", new CredentialId(Guid.CreateVersion7()), "github:read", _start.AddMinutes(5), null, TestContext.Current.CancellationToken);
 
         Assert.NotNull(lease);
         Assert.Equal(id, lease.Id);
@@ -26,23 +26,23 @@ public sealed class InMemoryCredentialLeaseStoreTests
     [Fact]
     public async Task Issue_RefusesAnApprovalIdThatAlreadyBackedALease()
     {
-        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(Start));
+        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(_start));
         var approval = Guid.CreateVersion7();
         var credential = new CredentialId(Guid.CreateVersion7());
 
-        Assert.NotNull(await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", Start.AddMinutes(5), approval, TestContext.Current.CancellationToken));
+        Assert.NotNull(await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", _start.AddMinutes(5), approval, TestContext.Current.CancellationToken));
         Assert.True(await store.IsApprovalUsedAsync(approval, TestContext.Current.CancellationToken));
-        Assert.Null(await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", Start.AddMinutes(5), approval, TestContext.Current.CancellationToken));
+        Assert.Null(await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", _start.AddMinutes(5), approval, TestContext.Current.CancellationToken));
         Assert.Single(await store.ListActiveAsync("agent-a", TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task RevokeAgent_LeavesOtherAgentsLeasesActive()
     {
-        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(Start));
+        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(_start));
         var credential = new CredentialId(Guid.CreateVersion7());
-        await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", Start.AddMinutes(5), null, TestContext.Current.CancellationToken);
-        var other = await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-b", credential, "s:a", Start.AddMinutes(5), null, TestContext.Current.CancellationToken);
+        await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", _start.AddMinutes(5), null, TestContext.Current.CancellationToken);
+        var other = await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-b", credential, "s:a", _start.AddMinutes(5), null, TestContext.Current.CancellationToken);
 
         await store.RevokeAgentAsync("agent-a", TestContext.Current.CancellationToken);
 
@@ -53,9 +53,9 @@ public sealed class InMemoryCredentialLeaseStoreTests
     [Fact]
     public async Task GlobalRevocation_RevokesEveryLease()
     {
-        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(Start));
+        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(_start));
         var credential = new CredentialId(Guid.CreateVersion7());
-        var lease = await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", Start.AddMinutes(5), null, TestContext.Current.CancellationToken);
+        var lease = await store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", credential, "s:a", _start.AddMinutes(5), null, TestContext.Current.CancellationToken);
 
         await store.RevokeAsync(new GlobalRevocation(), TestContext.Current.CancellationToken);
 
@@ -65,9 +65,9 @@ public sealed class InMemoryCredentialLeaseStoreTests
     [Fact]
     public async Task Issue_RejectsAnExpiryNotInTheFuture()
     {
-        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(Start));
+        var store = new InMemoryCredentialLeaseStore(new FakeTimeProvider(_start));
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", new CredentialId(Guid.CreateVersion7()), "s:a", Start, null, TestContext.Current.CancellationToken));
+            store.IssueAsync(new LeaseId(Guid.CreateVersion7()), "agent-a", new CredentialId(Guid.CreateVersion7()), "s:a", _start, null, TestContext.Current.CancellationToken));
     }
 }

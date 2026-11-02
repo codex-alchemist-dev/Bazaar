@@ -8,24 +8,24 @@ namespace Bazaar.Server.Tests.Identity.Leases;
 
 public sealed class IdentityServiceTests
 {
-    private const string Agent = "agent-a";
-    private const string OtherAgent = "agent-b";
-    private const string Service = "github";
+    private const string _agent = "agent-a";
+    private const string _otherAgent = "agent-b";
+    private const string _service = "github";
 
-    private static readonly DateTimeOffset Start = new(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _start = new(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
 
-    private static AccessRequest Read(string agent = Agent) =>
-        new(agent, Service, "read_issues", "triage");
+    private static AccessRequest Read(string agent = _agent) =>
+        new(agent, _service, "read_issues", "triage");
 
-    private static AccessRequest Write(string agent = Agent) =>
-        new(agent, Service, "write_comment", "reply");
+    private static AccessRequest Write(string agent = _agent) =>
+        new(agent, _service, "write_comment", "reply");
 
     private static Harness Build(Func<AccessRequest, ToolTier>? tierFor = null, IIdentityAudit? audit = null)
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FakeTimeProvider(_start);
         var agents = new FakeAgentState();
         var directory = new InMemoryCredentialDirectory();
-        directory.Add(Agent, Service, new CredentialId(Guid.CreateVersion7()));
+        directory.Add(_agent, _service, new CredentialId(Guid.CreateVersion7()));
         var leases = new InMemoryCredentialLeaseStore(time);
         var recorder = new RecordingAudit();
         var approvals = new FakeApprovals();
@@ -49,7 +49,7 @@ public sealed class IdentityServiceTests
         var decision = await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken);
 
         Assert.IsType<Denied>(decision);
-        Assert.Empty(await harness.Leases.ListActiveAsync(Agent, TestContext.Current.CancellationToken));
+        Assert.Empty(await harness.Leases.ListActiveAsync(_agent, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -72,11 +72,11 @@ public sealed class IdentityServiceTests
         var harness = Build();
         var granted = Assert.IsType<Granted>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
 
-        harness.Agents.Quarantine(Agent);
+        harness.Agents.Quarantine(_agent);
         var decision = await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken);
 
         Assert.IsType<Denied>(decision);
-        Assert.Null(await harness.Leases.GetAsync(granted.Lease, Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await harness.Leases.GetAsync(granted.Lease, _agent, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class IdentityServiceTests
     {
         var harness = Build();
 
-        var decision = await harness.Service.RequestAccessAsync(Read(OtherAgent), TestContext.Current.CancellationToken);
+        var decision = await harness.Service.RequestAccessAsync(Read(_otherAgent), TestContext.Current.CancellationToken);
 
         Assert.IsType<HumanRequired>(decision);
         Assert.Empty(harness.Audit.Entries);
@@ -96,16 +96,16 @@ public sealed class IdentityServiceTests
         var harness = Build();
         var granted = Assert.IsType<Granted>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
 
-        // The lease belongs to Agent; a lookup naming another agent finds nothing.
-        Assert.Null(await harness.Leases.GetAsync(granted.Lease, OtherAgent, TestContext.Current.CancellationToken));
-        Assert.IsType<HumanRequired>(await harness.Service.RequestAccessAsync(Read(OtherAgent), TestContext.Current.CancellationToken));
+        // The lease belongs to _agent; a lookup naming another agent finds nothing.
+        Assert.Null(await harness.Leases.GetAsync(granted.Lease, _otherAgent, TestContext.Current.CancellationToken));
+        Assert.IsType<HumanRequired>(await harness.Service.RequestAccessAsync(Read(_otherAgent), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task HardTaint_Tier2_IsDenied_EvenWithAnApproval()
     {
         var harness = Build();
-        harness.Agents.SetTaint(Agent, TaintState.Hard);
+        harness.Agents.SetTaint(_agent, TaintState.Hard);
         harness.Approvals.Grant(Guid.CreateVersion7());
 
         var decision = await harness.Service.RequestAccessAsync(Write(), TestContext.Current.CancellationToken);
@@ -118,7 +118,7 @@ public sealed class IdentityServiceTests
     public async Task HardTaint_EscalatesTier1ToTier2_AndDenies()
     {
         var harness = Build();
-        harness.Agents.SetTaint(Agent, TaintState.Hard);
+        harness.Agents.SetTaint(_agent, TaintState.Hard);
 
         var decision = await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken);
 
@@ -129,7 +129,7 @@ public sealed class IdentityServiceTests
     public async Task SoftTaint_DoesNotBlockTier2_ItStillNeedsApproval()
     {
         var harness = Build();
-        harness.Agents.SetTaint(Agent, TaintState.Soft);
+        harness.Agents.SetTaint(_agent, TaintState.Soft);
 
         var decision = await harness.Service.RequestAccessAsync(Write(), TestContext.Current.CancellationToken);
 
@@ -162,7 +162,7 @@ public sealed class IdentityServiceTests
         harness.Approvals.Grant(approval);
         var second = await harness.Service.RequestAccessAsync(Write(), TestContext.Current.CancellationToken);
         Assert.IsType<Denied>(second);
-        Assert.Single(await harness.Leases.ListActiveAsync(Agent, TestContext.Current.CancellationToken));
+        Assert.Single(await harness.Leases.ListActiveAsync(_agent, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -171,13 +171,13 @@ public sealed class IdentityServiceTests
         var harness = Build();
         var granted = Assert.IsType<Granted>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
 
-        Assert.Equal(Start.AddMinutes(15), granted.ExpiresAt);
-        Assert.NotNull(await harness.Leases.GetAsync(granted.Lease, Agent, TestContext.Current.CancellationToken));
+        Assert.Equal(_start.AddMinutes(15), granted.ExpiresAt);
+        Assert.NotNull(await harness.Leases.GetAsync(granted.Lease, _agent, TestContext.Current.CancellationToken));
 
         harness.Time.Advance(TimeSpan.FromMinutes(15));
 
-        Assert.Null(await harness.Leases.GetAsync(granted.Lease, Agent, TestContext.Current.CancellationToken));
-        Assert.Empty(await harness.Leases.ListActiveAsync(Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await harness.Leases.GetAsync(granted.Lease, _agent, TestContext.Current.CancellationToken));
+        Assert.Empty(await harness.Leases.ListActiveAsync(_agent, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -186,10 +186,10 @@ public sealed class IdentityServiceTests
         var harness = Build();
         var mine = Assert.IsType<Granted>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
 
-        await harness.Service.RevokeAsync(new AgentRevocation(Agent), TestContext.Current.CancellationToken);
+        await harness.Service.RevokeAsync(new AgentRevocation(_agent), TestContext.Current.CancellationToken);
 
-        Assert.Null(await harness.Leases.GetAsync(mine.Lease, Agent, TestContext.Current.CancellationToken));
-        Assert.Empty(await harness.Leases.ListActiveAsync(Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await harness.Leases.GetAsync(mine.Lease, _agent, TestContext.Current.CancellationToken));
+        Assert.Empty(await harness.Leases.ListActiveAsync(_agent, TestContext.Current.CancellationToken));
         Assert.Equal("lease.revoked", harness.Audit.Entries[^1].Kind);
     }
 
@@ -201,7 +201,7 @@ public sealed class IdentityServiceTests
 
         await harness.Service.RevokeAsync(new GlobalRevocation(), TestContext.Current.CancellationToken);
 
-        Assert.Null(await harness.Leases.GetAsync(mine.Lease, Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await harness.Leases.GetAsync(mine.Lease, _agent, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public sealed class IdentityServiceTests
     [Fact]
     public async Task DefaultTierMapping_TreatsWriteAndSpendAsTier2()
     {
-        Assert.Equal(ToolTier.OwnerApproves, IdentityService.DefaultTierFor(new AccessRequest(Agent, Service, "Spend_credits", "x")));
+        Assert.Equal(ToolTier.OwnerApproves, IdentityService.DefaultTierFor(new AccessRequest(_agent, _service, "Spend_credits", "x")));
         Assert.Equal(ToolTier.AutonomousWithNotice, IdentityService.DefaultTierFor(Read()));
 
         var harness = Build();
