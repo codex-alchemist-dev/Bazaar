@@ -50,7 +50,7 @@ Defines the environment each agent works in: one Windows VM and one Linux VM per
 - Limits: exec timeout, output cap and concurrent execs per VM are settings (`vm.exec.*`). Execs run as a non-admin guest user, and a timeout kills the whole process tree. [PROPOSED]
 - Guest-supplied paths are checked against the VM's mount list.
 
-**Network and egress** [PROPOSED]: default-deny at the host switch or bridge (mechanism to verify on the NUC). The only route is a host egress proxy with a per-agent domain allowlist, used by browser profiles too. DNS goes through the proxy. Guest firewalls are not trusted. Allowlist changes need approval (`vm.egress.allowlist_change_approval`).
+**Network and egress** [PROPOSED]: default-deny at the host switch or bridge (mechanism to verify on the owner's PC). The only route is a host egress proxy with a per-agent domain allowlist, used by browser profiles too. DNS goes through the proxy. Guest firewalls are not trusted. Allowlist changes need approval (`vm.egress.allowlist_change_approval`).
 
 **Resources** [PROPOSED starting values; the Windows estimate is unsourced]
 

@@ -63,7 +63,7 @@ Losing the KEK means rotating every credential and losing unwrap for encrypted p
 **Objectives [PROPOSED].**
 - RPO for PostgreSQL: `backup.offsite_rpo_target` (1 h), measured as the age of the newest WAL segment in the offsite store. A local-only archive does not count.
 - Vault RPO: the age of the last successful push or bundle, set by `vault.push_cadence` (15 min, doc 18) and `backup.vault_bundle_hours` (24 h).
-- RTO about 1 day for a full NUC rebuild, from first restore command to first agent turn.
+- RTO about 1 day for a full owner's PC rebuild, from first restore command to first agent turn.
 - One agent VM: recreate from golden parent; target hours; unmeasured.
 
 **Restore rules.**
@@ -128,7 +128,7 @@ Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, do
 - Settings validation refuses offsite retention that exceeds `erasure.backup_window_days`.
 - Vault: bundle and push restore to the remote head; private memory notes are present and no older commit is restored.
 - Erasure: after window expiry, an old snapshot's ciphertext and its DEK are unreadable; before it, the gap is asserted and documented.
-- KEK export round trip; wrong passphrase rejected; real DPAPI on the NUC (`Category=Windows-host`).
+- KEK export round trip; wrong passphrase rejected; real DPAPI on the owner's PC (`Category=Windows-host`).
 - Instance bundle digest mismatch refused; old instance holds no leases after cutover.
 - Avalonia.Headless: stale RPO shows red.
 

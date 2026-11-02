@@ -136,7 +136,7 @@ Registry owned by doc 03 (round 13). Each change is audited (doc 15 `audit_log`)
 ## Testing
 - Version negotiation: table tests for accept, upgrade-required and refuse-downgrade, using doc 02's `major.minor` rule.
 - Migrations on real Postgres: upgrade N-1 to N with data; roll back to N-1 on an expand-only schema; startup refuses a mismatched schema.
-- Service install: fake host in CI; real install on the NUC is a spike. Linux unit: `systemd-analyze verify`.
+- Service install: fake host in CI; real install on the owner's PC is a spike. Linux unit: `systemd-analyze verify`.
 - PTY on `ubuntu-latest` with a real PTY; Linux client via Avalonia.Headless; packaged builds smoke-tested headless.
 - Release gate: a script verifies every checksum and signature before the draft is created.
 - Channel selection: table tests that each `update.channel` value maps to the right source and that Latest-Commit is refused for non-owner installs.
