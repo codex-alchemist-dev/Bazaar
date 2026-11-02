@@ -360,6 +360,21 @@ public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
 
         Assert.True(Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(2));
         Assert.Equal([(gc, 42L)], (await DrainAsync(listener, sink, ct)));
+
+        // The hint is sent before the notifier counts the flush, so the listener can see it first.
+        // Wait for the counter rather than reading it once.
+        using var flushDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        flushDeadline.CancelAfter(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (notifier.FlushCount < 1)
+                await Task.Delay(10, flushDeadline.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            Assert.Fail("The notifier did not count the flush within 5 s of the hint.");
+        }
+
         Assert.True(notifier.FlushCount >= 1);
     }
 
