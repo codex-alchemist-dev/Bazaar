@@ -74,12 +74,25 @@ jobs:
           $data = Join-Path $env:RUNNER_TEMP 'pg-data'
           $pwFile = Join-Path $env:RUNNER_TEMP 'pg-pw.txt'
           Set-Content -Path $pwFile -Value 'ci-only-password' -NoNewline
-          & (Join-Path $bin 'initdb.exe') -D $data -U postgres -A scram-sha-256 --pwfile=$pwFile --encoding=UTF8 | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+          # Run a PostgreSQL tool with stdio redirected to files and a hard timeout. Piping its output into this
+          # step (| Out-Host) kept the step open for the whole job: the server inherits the pipe and never closes it.
+          function Invoke-PgTool([string]$Exe, [string[]]$Arguments, [string]$Name, [int]$TimeoutSeconds = 300) {
+            $out = Join-Path $env:RUNNER_TEMP "$Name.out.txt"
+            $err = Join-Path $env:RUNNER_TEMP "$Name.err.txt"
+            $proc = Start-Process -FilePath $Exe -ArgumentList $Arguments -NoNewWindow -PassThru `
+              -RedirectStandardOutput $out -RedirectStandardError $err
+            if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+              $proc.Kill()
+              Get-Content $out, $err -ErrorAction SilentlyContinue | Out-Host
+              throw "$Name timed out after $TimeoutSeconds seconds"
+            }
+            Get-Content $out, $err -ErrorAction SilentlyContinue | Out-Host
+            if ($proc.ExitCode -ne 0) { throw "$Name failed with exit code $($proc.ExitCode)" }
+          }
+          Invoke-PgTool (Join-Path $bin 'initdb.exe') @('-D', $data, '-U', 'postgres', '-A', 'scram-sha-256', "--pwfile=$pwFile", '--encoding=UTF8') 'initdb'
           # The host writes listen_addresses and the port itself; CI sets the same two values here.
           Add-Content -Path (Join-Path $data 'postgresql.conf') -Value "listen_addresses = '127.0.0.1'`nport = $env:PG_PORT"
-          & (Join-Path $bin 'pg_ctl.exe') -D $data -l (Join-Path $env:RUNNER_TEMP 'pg.log') -w start | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw 'pg_ctl start failed' }
+          Invoke-PgTool (Join-Path $bin 'pg_ctl.exe') @('-D', $data, '-l', (Join-Path $env:RUNNER_TEMP 'pg.log'), '-w', 'start') 'pg_ctl_start' 120
           $env:PGPASSWORD = 'ci-only-password'
           & (Join-Path $bin 'psql.exe') -h 127.0.0.1 -p $env:PG_PORT -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE bazaar_ci" | Out-Host
           if ($LASTEXITCODE -ne 0) { throw 'create database failed' }
@@ -106,7 +119,7 @@ jobs:
         run: |
           $bin = Join-Path $PWD 'artifacts\pg-bundle\18\bin'
           if (Test-Path (Join-Path $env:RUNNER_TEMP 'pg-data')) {
-            & (Join-Path $bin 'pg_ctl.exe') -D (Join-Path $env:RUNNER_TEMP 'pg-data') -m fast -w stop | Out-Host
+            Start-Process -FilePath (Join-Path $bin 'pg_ctl.exe') -ArgumentList @('-D', (Join-Path $env:RUNNER_TEMP 'pg-data'), '-m', 'fast', '-w', 'stop') -NoNewWindow -Wait -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'pg_ctl_stop.out.txt') -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'pg_ctl_stop.err.txt')
           }
 
   linux-image:
