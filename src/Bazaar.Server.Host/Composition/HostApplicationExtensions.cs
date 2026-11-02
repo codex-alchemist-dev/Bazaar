@@ -5,6 +5,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.Http;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +37,8 @@ public static class HostApplicationExtensions
         services.AddBazaarComponents(configuration, HostComponents.All);
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
+        // TODO(component): map MapBazaarHttpSurface in Program.cs on a listener that allows POST and PATCH (UseBazaarGetOnly blocks them).
+        services.AddBazaarHttpSurface(configuration);
         return services;
     }
 }
