@@ -6,6 +6,8 @@ namespace Bazaar.Server.Agents.Turns;
 /// What one turn needs to start. <see cref="Messages"/> is the context already assembled by the caller (doc 06, "Context
 /// assembly"); its hash keys step reuse on recovery, so the same context must give the same messages.
 /// <see cref="InboxClaimLimit"/> is how many due inbox items the turn claims; zero claims none.
+/// <see cref="MessageBuilder"/>, when set, builds the messages after the turn row exists and receives its id, so the context
+/// manifest can record it (doc 06). It then takes the place of <see cref="Messages"/>, which may be empty.
 /// </summary>
 public sealed record TurnRequest(
     Guid AgentId,
@@ -14,7 +16,10 @@ public sealed record TurnRequest(
     string Route,
     IReadOnlyList<ModelMessage> Messages,
     IReadOnlyList<ModelToolDefinition>? Tools = null,
-    int InboxClaimLimit = 0);
+    int InboxClaimLimit = 0,
+    Func<Guid, CancellationToken, Task<IReadOnlyList<ModelMessage>>>? MessageBuilder = null,
+    TurnRole Role = TurnRole.Actor,
+    int? StepCapOverride = null);
 
 /// <summary>How a turn run ended.</summary>
 public enum TurnOutcome
@@ -37,6 +42,7 @@ public enum TurnOutcome
 /// <param name="ModelSteps">Model steps written in this run, including reused ones.</param>
 /// <param name="ReusedSteps">Model steps whose response was reused from an abandoned turn instead of a gateway call.</param>
 /// <param name="ClaimedItems">Inbox items claimed by this run.</param>
+/// <param name="EndReason">The turn's end reason in <see cref="TurnEndReason"/> terms, when the run recorded one. Null for failures with no matching reason.</param>
 public sealed record TurnResult(
     TurnOutcome Outcome,
     Guid? TurnId,
@@ -44,7 +50,8 @@ public sealed record TurnResult(
     string? FailureReason,
     int ModelSteps,
     int ReusedSteps,
-    int ClaimedItems)
+    int ClaimedItems,
+    TurnEndReason? EndReason = null)
 {
     /// <summary>The result for a run that did not get the lease.</summary>
     public static TurnResult NotAcquired { get; } = new(TurnOutcome.NotAcquired, null, null, null, 0, 0, 0);
