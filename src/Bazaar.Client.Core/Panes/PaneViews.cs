@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Bazaar.Client.Core.Constellation;
 
 namespace Bazaar.Client.Core.Panes;
 
@@ -16,6 +17,7 @@ public static class PaneViews
     {
         KanbanPaneViewModel kanban => WithTitle(kanban.Title, KanbanBoard(kanban)),
         DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
+        ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
     };
