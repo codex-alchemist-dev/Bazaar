@@ -1,4 +1,5 @@
 using Bazaar.Server.Components;
+using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -8,6 +9,7 @@ using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
+using Bazaar.Server.Mail;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -25,7 +27,9 @@ public static class HostComponents
         new GcComponent(),
         new FunComponent(),
         new KanbanComponent(),
+        new BackupComponent(),
         new VaultComponent(),
+        new MailComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),

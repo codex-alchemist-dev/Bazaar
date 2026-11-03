@@ -98,6 +98,22 @@ Cutover: (1) drain turns (`03` shutdown) and stop VMs; (2) take a final base bac
 - Backup repositories hold Passport ciphertext and private Vault memory, and cookie profiles only if `security.backup.include_cookie_profiles` is true. Only the owner runs restores.
 - Soul folders are snapshotted at a turn checkpoint, so the marker reflects a quiet point.
 
+**Engine decision for Linux (2026-10-30, agent decision, reversible).** pgBackRest, not WAL-G. Reasons: its documented
+Debian and Ubuntu path matches the Linux host target, it verifies and expires backup sets itself, and it supports
+S3-compatible repositories (verified in the research note). WAL-G's Linux binaries are equally usable, but its docs were
+read only through search summaries. Windows stays on `pg_basebackup` plus the Bazaar archiver: neither pgBackRest nor
+WAL-G runs on Windows. The pgBackRest adapter is not implemented in this change; `IBackupEngine` is the seam.
+
+**Implementation status (2026-10-30, Backup component, `src/Bazaar.Server.Backup`).**
+- WP1 contracts (`Bazaar.Contracts.Backup`): done. WP2 archiver: done with unit tests; the drill below used `cp`, so the
+  Bazaar archiver is not yet exercised as a real `archive_command`. WP3 base backup, retention and sidecar: done with fake
+  engines plus the real `pg_basebackup` engine path (run in the drill). WP4 offsite: restic adapter with fake process runner
+  and policy validation; no live restic run yet. WP8 restore runner: done with unit tests; the drill checked the same settings
+  by hand against real PostgreSQL 16 (150 of 200 rows at the target time). WP12 status card: not started (depends on doc 27
+  client screens). WP13 drill runbook: `docs/runbooks/backup-restore-drill.md`.
+- Not yet: the Windows drill on the owner's PC; the scheduled job and status persistence (component table migration);
+  the Soul consistency marker (WP6) and the restore-time marker check.
+
 ### Settings
 
 Keys are install-scoped; the operator changes them in the setup wizard or advanced settings (docs 27, 32), and every change is audited (`15`). Shipped defaults are the safe ones.
