@@ -21,13 +21,14 @@ public sealed class SettingRegistry
 
     /// <summary>
     /// Every setting this build knows: the host keys, the calendar keys (doc 24), the knowledge keys (doc 25), the
-    /// constellation keys (doc 19) and the doc 15 security keys. The settings store reads this set.
+    /// constellation keys (doc 19), the gateway keys (doc 05) and the doc 15 security keys. The settings store reads this set, so a stored <c>constellation.*</c> row is readable.
     /// </summary>
     public static SettingRegistry Known { get; } = new(
         HostSettings.All
             .Concat(Calendar.CalendarSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
+            .Concat(Gateway.GatewaySettings.All)
             .Concat(SecuritySettings.All));
 
     /// <summary>Every <c>constellation.*</c> key from doc 19. Kept apart from <see cref="Host"/>, which holds only <c>host.*</c>.</summary>
