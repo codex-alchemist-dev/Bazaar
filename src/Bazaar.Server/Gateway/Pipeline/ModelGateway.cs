@@ -5,6 +5,7 @@ using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Policy;
+using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 
 namespace Bazaar.Server.Gateway.Pipeline;
@@ -44,10 +45,12 @@ public sealed class ModelGateway : IModelGateway
     private readonly IRouteSuspender _suspender;
     private readonly TimeProvider _time;
     private readonly Action<Exception>? _onInternalError;
+    private readonly SecretScrubber _scrubber;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, bool> _lastPublishedAvailable = [];
 
     /// <param name="onInternalError">Told about a usage write or event publish that threw; the caller's stream is not affected.</param>
+    /// <param name="scrubber">Replaces every resolved key in failure and warning text. A private scrubber is used when none is given.</param>
     public ModelGateway(
         RouteResolver resolver,
         IGatewayDirectory directory,
@@ -60,7 +63,8 @@ public sealed class ModelGateway : IModelGateway
         IGatewayEventSink? events = null,
         IRouteSuspender? suspender = null,
         TimeProvider? time = null,
-        Action<Exception>? onInternalError = null)
+        Action<Exception>? onInternalError = null,
+        SecretScrubber? scrubber = null)
     {
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
@@ -74,12 +78,21 @@ public sealed class ModelGateway : IModelGateway
         _suspender = suspender ?? NullRouteSuspender.Instance;
         _time = time ?? TimeProvider.System;
         _onInternalError = onInternalError;
+        _scrubber = scrubber ?? new SecretScrubber();
     }
 
+    /// <summary>Streams the call's events. Failure and warning text is scrubbed of every resolved key before it is yielded.</summary>
     public async IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        await foreach (var e in CallPipelineAsync(request, cancellationToken).ConfigureAwait(false))
+        {
+            yield return _scrubber.ScrubEvent(e);
+        }
+    }
 
+    private async IAsyncEnumerable<ModelEvent> CallPipelineAsync(ModelRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         var resolution = await _resolver.ResolveAsync(request, cancellationToken).ConfigureAwait(false);
         if (resolution is RouteResolution.Denied denied)
         {
@@ -130,7 +143,8 @@ public sealed class ModelGateway : IModelGateway
                 while (true)
                 {
                     var next = await ReadNextAsync(stream, cancellationToken).ConfigureAwait(false);
-                    var e = next ?? new ModelEvent.Failure("stream_dropped", "The stream ended without a final event.");
+                    // Scrubbed here, so the quota tracker, health and usage see the same text the caller does.
+                    var e = _scrubber.ScrubEvent(next ?? new ModelEvent.Failure("stream_dropped", "The stream ended without a final event."));
                     acc.Observe(e);
                     _health.Observe(key, e);
                     if (e is ModelEvent.Done or ModelEvent.Failure)
@@ -202,11 +216,18 @@ public sealed class ModelGateway : IModelGateway
                 }
             }
 
+            if (retryable is not null)
+            {
+                // The failure just reported may have blocked this candidate, so the capacity check below sees it now.
+                skips.Add(AfterFailure(candidate.Model, key, candidate.Family));
+            }
+
             lastFailure = retryable;
         }
 
         if (lastFailure is not null)
         {
+            PublishIfExhausted(request.AgentId, skips);
             yield return lastFailure;
             yield break;
         }
@@ -217,6 +238,32 @@ public sealed class ModelGateway : IModelGateway
     private ModelEvent.Failure NoCapacity(string agentId, List<Skip> skips)
     {
         var now = _time.GetUtcNow();
+        var earliest = Earliest(skips);
+        PublishIfExhausted(agentId, skips);
+
+        int? retryAfter = earliest is { } at ? Math.Max(1, (int)Math.Ceiling((at - now).TotalSeconds)) : null;
+        var detail = skips.Count == 0
+            ? "The route has no usable candidate."
+            : string.Join("; ", skips.Select(s => s.Describe()));
+        return new ModelEvent.Failure("no_capacity", $"No candidate can take the call: {detail}.", retryAfter);
+    }
+
+    /// <summary>
+    /// Publishes that the agent is unavailable, once, when every candidate is blocked by quota or health. A candidate
+    /// skipped for configuration, or one that failed without being blocked, keeps the agent available.
+    /// </summary>
+    private void PublishIfExhausted(string agentId, List<Skip> skips)
+    {
+        if (skips.Count == 0 || !skips.All(s => s.Kind is SkipKind.Quota or SkipKind.Health) || !SetPublished(agentId, available: false))
+        {
+            return;
+        }
+
+        Publish(new AgentCapacityChanged(agentId, false, Earliest(skips), skips[^1].State ?? QuotaState.Down));
+    }
+
+    private static DateTimeOffset? Earliest(List<Skip> skips)
+    {
         DateTimeOffset? earliest = null;
         foreach (var skip in skips)
         {
@@ -226,17 +273,20 @@ public sealed class ModelGateway : IModelGateway
             }
         }
 
-        // A capacity change is reported only when every candidate was blocked by quota or health, not by configuration.
-        if (skips.Count > 0 && skips.All(s => s.Kind != SkipKind.Config) && SetPublished(agentId, available: false))
+        return earliest;
+    }
+
+    /// <summary>How a candidate that just failed retryably stands now: blocked by its quota or breaker, or only failed.</summary>
+    private Skip AfterFailure(ModelRef model, ProviderKey key, string modelClass)
+    {
+        if (_quota.BlockedState(key, modelClass) is { } state)
         {
-            Publish(new AgentCapacityChanged(agentId, false, earliest, skips[^1].State ?? QuotaState.Down));
+            return Skip.Blocked(SkipKind.Quota, model, state, _quota.BlockedUntil(key, modelClass));
         }
 
-        int? retryAfter = earliest is { } at ? Math.Max(1, (int)Math.Ceiling((at - now).TotalSeconds)) : null;
-        var detail = skips.Count == 0
-            ? "The route has no usable candidate."
-            : string.Join("; ", skips.Select(s => s.Describe()));
-        return new ModelEvent.Failure("no_capacity", $"No candidate can take the call: {detail}.", retryAfter);
+        return _health.IsAvailable(key)
+            ? new Skip(SkipKind.Failed, model, "its call failed", null, null)
+            : Skip.Blocked(SkipKind.Health, model, QuotaState.Down, null);
     }
 
     private async ValueTask<(Ready? Ready, Skip? Skip)> PrepareAsync(RouteCandidate candidate, CancellationToken ct)
@@ -297,6 +347,9 @@ public sealed class ModelGateway : IModelGateway
             {
                 return (null, Skip.Config(model, "the provider secret is missing"));
             }
+
+            // Tracked before any adapter sees the key, so every later failure text can be scrubbed.
+            _scrubber.Track(apiKey);
         }
 
         if (!_health.TryAcquire(key))
@@ -395,6 +448,12 @@ public sealed class ModelGateway : IModelGateway
         }
     }
 
+    // The callback gets a scrubbed message, never the raw exception: a host logger must not see a resolved key.
+    private void NotifyInternalError(Exception ex)
+    {
+        _onInternalError?.Invoke(new InvalidOperationException(_scrubber.Scrub($"{ex.GetType().FullName}: {ex.Message}")));
+    }
+
     private void Report(ProviderKey key, string modelClass, ModelEvent.Failure failure)
     {
         try
@@ -403,7 +462,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -416,7 +475,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -428,7 +487,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -464,7 +523,7 @@ public sealed class ModelGateway : IModelGateway
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _onInternalError?.Invoke(ex);
+            NotifyInternalError(ex);
         }
     }
 
@@ -475,6 +534,8 @@ public sealed class ModelGateway : IModelGateway
         Config,
         Quota,
         Health,
+        // Tried in this call and failed without a block: the agent still has capacity.
+        Failed,
     }
 
     private sealed record Skip(SkipKind Kind, ModelRef Model, string Reason, QuotaState? State, DateTimeOffset? Until)
