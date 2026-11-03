@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:chat="using:Bazaar.Client.Core.Chat"
+             x:Class="Bazaar.Client.Core.Chat.ChatView"
+             x:DataType="chat:ChatViewModel">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="{Binding Status}"
+               Opacity="0.7"
+               Margin="0,0,0,8" />
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="4">
+      <TextBlock Text="{Binding Error}"
+                 Foreground="Crimson"
+                 IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <DockPanel>
+        <Button x:Name="SendButton"
+                DockPanel.Dock="Right"
+                Content="Send"
+                Margin="8,0,0,0" />
+        <TextBox x:Name="DraftBox"
+                 Text="{Binding Draft}"
+                 PlaceholderText="Type a message, Enter to send" />
+      </DockPanel>
+    </StackPanel>
+    <ListBox x:Name="Lines"
+             ItemsSource="{Binding Lines}"
+             Background="Transparent"
+             BorderThickness="0">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="chat:ChatLine">
+          <StackPanel Margin="0,4" Spacing="2">
+            <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</UserControl>
