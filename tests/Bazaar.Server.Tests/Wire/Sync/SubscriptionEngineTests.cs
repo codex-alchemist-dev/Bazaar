@@ -184,7 +184,7 @@ public class SubscriptionEngineTests
         h.Log.RemoveMember(SyncHarness.Alice, SyncHarness.Gc);
         await h.Dispatcher.RecheckAccessAsync(SyncHarness.Gc, h.Log, CancellationToken.None);
         h.Log.Append(SyncHarness.Gc, "secret");
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await c.WaitAsync(() => c.Of(WireTypes.StreamRevoked).Count == 1);
 
         Assert.Single(c.Of(WireTypes.StreamRevoked));
         Assert.Equal(2, c.Messages.Count);

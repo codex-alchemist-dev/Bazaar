@@ -88,6 +88,9 @@ public sealed record TransitionResult(
         new(TransitionStatus.Invalid, outcome, null, []);
 }
 
+/// <summary>One card's result from <see cref="TaskService.PrMergedAsync"/>.</summary>
+public sealed record PrMergeOutcome(Guid TaskId, TransitionResult Result);
+
 public enum EdgeStatus
 {
     Added,

@@ -160,7 +160,7 @@ internal sealed class GatewayHarness
         return this;
     }
 
-    public ModelGateway Gateway(PriceTable? prices = null) => new(
+    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null) => new(
         World.Resolver(),
         Directory,
         new DictionaryAdapterRegistry(Adapters),
@@ -168,7 +168,7 @@ internal sealed class GatewayHarness
         Health,
         new UsageRecorder(Usage),
         prices,
-        Quota,
+        quota ?? Quota,
         Sink,
         Suspender,
         Clock,
