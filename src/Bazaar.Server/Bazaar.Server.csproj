@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
