@@ -168,10 +168,11 @@ public sealed class ExecTests
         Assert.False(refused.Exit.TimedOut);
         Assert.Empty(refused.Outputs);
 
+        // Both are cancelled at once, so their Exits can arrive in either order. Collect them together.
         await guest.SendAsync(new Cancel("a"));
         await guest.SendAsync(new Cancel("b"));
-        await guest.CollectExecAsync("a").WaitAsync(GuestHarness.Bound, TestContext.Current.CancellationToken);
-        await guest.CollectExecAsync("b").WaitAsync(GuestHarness.Bound, TestContext.Current.CancellationToken);
+        var ended = await guest.CollectExecsAsync("a", "b").WaitAsync(GuestHarness.Bound, TestContext.Current.CancellationToken);
+        Assert.Equal(2, ended.Count);
     }
 
     [Fact]

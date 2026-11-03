@@ -98,6 +98,30 @@ internal sealed class GuestHarness : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Reads frames until every named exec has its Exit, in whatever order the Exits arrive. Collecting them one
+    /// at a time would drop an earlier-finishing exec's Exit while waiting for a later one.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, ExecResult>> CollectExecsAsync(params string[] ids)
+    {
+        var outputs = ids.ToDictionary(id => id, _ => new List<Output>(), StringComparer.Ordinal);
+        var exits = new Dictionary<string, Exit>(StringComparer.Ordinal);
+        while (exits.Count < ids.Length)
+        {
+            var message = await ReceiveAsync();
+            if (message is Output output && outputs.TryGetValue(output.Id, out var list))
+            {
+                list.Add(output);
+            }
+            else if (message is Exit exit && outputs.ContainsKey(exit.Id))
+            {
+                exits[exit.Id] = exit;
+            }
+        }
+
+        return ids.ToDictionary(id => id, id => new ExecResult(outputs[id], exits[id]), StringComparer.Ordinal);
+    }
+
     /// <summary>Reads frames until the first output chunk of the exec arrives.</summary>
     public async Task<Output> ReceiveFirstOutputAsync(string id)
     {
