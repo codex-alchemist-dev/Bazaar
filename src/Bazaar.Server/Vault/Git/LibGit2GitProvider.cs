@@ -55,7 +55,12 @@ public sealed class LibGit2GitProvider : IGitProvider
         }, ct).ConfigureAwait(false);
     }
 
-    public async Task<MergeResult> MergeAsync(string checkoutPath, string branch, GitIdentity author, CancellationToken ct)
+    public async Task<MergeResult> MergeAsync(
+        string checkoutPath,
+        string branch,
+        GitIdentity author,
+        CancellationToken ct,
+        string? message = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branch);
         ArgumentNullException.ThrowIfNull(author);
@@ -68,15 +73,28 @@ public sealed class LibGit2GitProvider : IGitProvider
             var options = new MergeOptions
             {
                 FastForwardStrategy = FastForwardStrategy.NoFastForward,
-                CommitOnSuccess = true,
+                // With a custom message the merge commit is written below, so it can carry trailers.
+                CommitOnSuccess = message is null,
             };
-            var merge = repo.Merge(source, Signature(author), options);
+            var signature = Signature(author);
+            var merge = repo.Merge(source, signature, options);
             return merge.Status switch
             {
                 MergeStatus.UpToDate => new MergeResult(GitMergeOutcome.UpToDate, repo.Head.Tip.Sha, []),
                 MergeStatus.Conflicts => new MergeResult(GitMergeOutcome.Conflicted, null, ConflictPaths(repo)),
-                _ => new MergeResult(GitMergeOutcome.Merged, merge.Commit.Sha, []),
+                _ when message is null => new MergeResult(GitMergeOutcome.Merged, merge.Commit.Sha, []),
+                _ => new MergeResult(GitMergeOutcome.Merged, repo.Commit(message, signature, signature).Sha, []),
             };
+        }, ct).ConfigureAwait(false);
+    }
+
+    public async Task<string> HeadAsync(string checkoutPath, CancellationToken ct)
+    {
+        using var _ = await CheckoutLocks.AcquireAsync(checkoutPath, ct).ConfigureAwait(false);
+        return await Task.Run(() =>
+        {
+            using var repo = OpenRepository(checkoutPath);
+            return repo.Head.Tip.Sha;
         }, ct).ConfigureAwait(false);
     }
 
@@ -105,6 +123,90 @@ public sealed class LibGit2GitProvider : IGitProvider
                     MapKind(c.Status)))
                 .ToList();
         }, ct);
+
+    public Task<string> ResolveCommitAsync(string repoPath, string commitish, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commitish);
+        return Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            var commit = repo.Lookup<Commit>(commitish)
+                ?? repo.Branches[commitish]?.Tip
+                ?? throw new ArgumentException($"Commit '{commitish}' not found.", nameof(commitish));
+            return commit.Sha;
+        }, ct);
+    }
+
+    public Task<IReadOnlyList<string>> ListFilesAsync(string repoPath, string commitSha, CancellationToken ct) =>
+        Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            var tree = CommitTree(repo, commitSha);
+            var paths = new List<string>();
+            CollectBlobs(tree, string.Empty, paths);
+            paths.Sort(StringComparer.Ordinal);
+            return (IReadOnlyList<string>)paths;
+        }, ct);
+
+    public Task<string> ReadTextAsync(string repoPath, string commitSha, string path, CancellationToken ct) =>
+        Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            var blob = CommitTree(repo, commitSha)[path]?.Target as Blob
+                ?? throw new FileNotFoundException($"'{path}' is not a file at commit '{commitSha}'.", path);
+            using var stream = blob.GetContentStream();
+            using var reader = new StreamReader(stream, new System.Text.UTF8Encoding(false));
+            return reader.ReadToEnd();
+        }, ct);
+
+    public Task<IReadOnlyList<GitCommitInfo>> ListCommitsAsync(string repoPath, string? excludeSha, string includeSha, CancellationToken ct) =>
+        Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            var filter = new CommitFilter
+            {
+                IncludeReachableFrom = repo.Lookup<Commit>(includeSha) ?? throw new ArgumentException($"Commit '{includeSha}' not found.", nameof(includeSha)),
+                ExcludeReachableFrom = excludeSha is null ? null : repo.Lookup<Commit>(excludeSha),
+                SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Reverse,
+            };
+            var result = new List<GitCommitInfo>();
+            foreach (var commit in repo.Commits.QueryBy(filter))
+            {
+                var parent = commit.Parents.FirstOrDefault();
+                var changes = repo.Diff.Compare<TreeChanges>(parent?.Tree, commit.Tree);
+                var touched = changes.Select(c => c.Path).Concat(changes.Where(c => c.OldPath is not null).Select(c => c.OldPath!))
+                    .Distinct(StringComparer.Ordinal).OrderBy(p => p, StringComparer.Ordinal).ToList();
+                result.Add(new GitCommitInfo(
+                    commit.Sha,
+                    commit.Parents.Select(p => p.Sha).ToList(),
+                    commit.Author.Name,
+                    commit.Committer.When,
+                    commit.Message,
+                    touched));
+            }
+
+            return (IReadOnlyList<GitCommitInfo>)result;
+        }, ct);
+
+    private static Tree CommitTree(Repository repo, string commitSha) =>
+        repo.Lookup<Commit>(commitSha)?.Tree ?? throw new ArgumentException($"Commit '{commitSha}' not found.", nameof(commitSha));
+
+    private static void CollectBlobs(Tree tree, string prefix, List<string> paths)
+    {
+        foreach (var entry in tree)
+        {
+            var path = prefix + entry.Name;
+            switch (entry.Target)
+            {
+                case Blob:
+                    paths.Add(path);
+                    break;
+                case Tree subtree:
+                    CollectBlobs(subtree, path + "/", paths);
+                    break;
+            }
+        }
+    }
 
     public async Task<RecoveryReport> RecoverAsync(string repoPath, CancellationToken ct)
     {
