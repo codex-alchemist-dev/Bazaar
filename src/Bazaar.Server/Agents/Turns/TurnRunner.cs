@@ -57,7 +57,7 @@ public sealed class TurnRunner
         ArgumentException.ThrowIfNullOrWhiteSpace(request.WakeReason);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Route);
         ArgumentOutOfRangeException.ThrowIfNegative(request.InboxClaimLimit);
-        if (request.Messages.Count == 0)
+        if (request.MessageBuilder is null && request.Messages.Count == 0)
             throw new ArgumentException("A turn needs at least one message.", nameof(request));
 
         var holder = $"turn-runner:{Guid.CreateVersion7():N}";
@@ -76,11 +76,11 @@ public sealed class TurnRunner
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return await FailAsync(progress, "wall clock exceeded").ConfigureAwait(false);
+            return await FailAsync(progress, "wall clock exceeded", TurnEndReason.WallClock).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return await FailAsync(progress, Describe(ex)).ConfigureAwait(false);
+            return await FailAsync(progress, Describe(ex), ex is GatewayModelException ? TurnEndReason.GatewayFailed : null).ConfigureAwait(false);
         }
         finally
         {
@@ -100,7 +100,7 @@ public sealed class TurnRunner
     private async Task<TurnResult> RunTurnAsync(TurnRequest request, Progress progress, CancellationToken ct)
     {
         var turnId = await _turns.StartAsync(
-            new TurnStart(request.AgentId, request.SessionId, TurnRole.Actor, request.WakeReason), ct).ConfigureAwait(false);
+            new TurnStart(request.AgentId, request.SessionId, request.Role, request.WakeReason), ct).ConfigureAwait(false);
         progress.TurnId = turnId;
 
         if (request.InboxClaimLimit > 0)
@@ -110,14 +110,21 @@ public sealed class TurnRunner
         }
 
         var tools = request.Tools ?? [];
-        var messages = request.Messages.ToList();
+        // A message builder runs once the turn row exists, so the context manifest can record the turn id (doc 06).
+        var messages = request.MessageBuilder is null
+            ? request.Messages.ToList()
+            : (await request.MessageBuilder(turnId, ct).ConfigureAwait(false)).ToList();
+        if (messages.Count == 0)
+            return await FailAsync(progress, "the message builder returned no messages").ConfigureAwait(false);
         var text = new StringBuilder();
         long spent = 0;
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            if (progress.ModelSteps >= _options.StepCap)
-                return await FailAsync(progress, $"step cap of {_options.StepCap} reached").ConfigureAwait(false);
+            // An override lowers the ceiling for this run only; it never raises the configured cap.
+            var stepCap = request.StepCapOverride is { } overrideCap ? Math.Min(overrideCap, _options.StepCap) : _options.StepCap;
+            if (progress.ModelSteps >= stepCap)
+                return await FailAsync(progress, $"step cap of {stepCap} reached", TurnEndReason.StepCap).ConfigureAwait(false);
 
             var hash = ModelRequestHash.Compute(request.Route, messages, tools);
             var (response, reused) = await CallModelAsync(request, progress, messages, tools, hash, ct).ConfigureAwait(false);
@@ -126,7 +133,7 @@ public sealed class TurnRunner
             if (!reused)
                 spent += response.Tokens;
             if (spent > _options.TokenCeiling)
-                return await FailAsync(progress, $"token ceiling of {_options.TokenCeiling} exceeded").ConfigureAwait(false);
+                return await FailAsync(progress, $"token ceiling of {_options.TokenCeiling} exceeded", TurnEndReason.TokenCeiling).ConfigureAwait(false);
 
             if (response.ToolCalls.Count > 0)
                 return await FailAsync(progress, $"model requested tool '{response.ToolCalls[0].Name}'; tool dispatch is not available").ConfigureAwait(false);
@@ -259,14 +266,14 @@ public sealed class TurnRunner
         await _inbox.CompleteAsync(progress.Holder, progress.ClaimedIds, CancellationToken.None).ConfigureAwait(false);
         await _turns.EndAsync(turnId, TurnStatus.Completed, CancellationToken.None).ConfigureAwait(false);
         progress.Finished = true;
-        return Result(TurnOutcome.Completed, progress, finalText, null);
+        return Result(TurnOutcome.Completed, progress, finalText, null, TurnEndReason.FinalMessage);
     }
 
     /// <summary>
     /// Fails the turn: a pending model step is marked abandoned, the turn is marked failed, and claimed items return to pending.
     /// Runs with no cancellation, so a cancelled run is still cleaned up. The flag is set first, so a failing cleanup is not retried.
     /// </summary>
-    private async Task<TurnResult> FailAsync(Progress progress, string reason)
+    private async Task<TurnResult> FailAsync(Progress progress, string reason, TurnEndReason? endReason = null)
     {
         progress.Finished = true;
         if (progress.TurnId is { } turnId)
@@ -277,11 +284,12 @@ public sealed class TurnRunner
         }
 
         await _inbox.ReleaseAsync(progress.Holder, CancellationToken.None).ConfigureAwait(false);
-        return Result(TurnOutcome.Failed, progress, null, reason);
+        return Result(TurnOutcome.Failed, progress, null, reason, endReason);
     }
 
-    private static TurnResult Result(TurnOutcome outcome, Progress progress, string? finalText, string? reason) =>
-        new(outcome, progress.TurnId, finalText, reason, progress.ModelSteps, progress.ReusedSteps, progress.ClaimedIds.Count);
+    private static TurnResult Result(
+        TurnOutcome outcome, Progress progress, string? finalText, string? reason, TurnEndReason? endReason = null) =>
+        new(outcome, progress.TurnId, finalText, reason, progress.ModelSteps, progress.ReusedSteps, progress.ClaimedIds.Count, endReason);
 
     private static PendingToolCall FindCall(List<PendingToolCall> calls, string callId) =>
         calls.LastOrDefault(c => c.CallId == callId && !c.Ended)
