@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Bazaar
+GenericName=AI company client
+Comment=Bazaar Linux client
+Exec=AppRun %U
+Icon=bazaar-client
+Terminal=false
+Categories=Development;
+StartupWMClass=Bazaar.Client.Linux
