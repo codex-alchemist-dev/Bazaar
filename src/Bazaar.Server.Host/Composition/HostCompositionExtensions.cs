@@ -1,5 +1,7 @@
 using Bazaar.Server.Agents.LoopGuard;
+using Bazaar.Server.Agents.Recovery;
 using Bazaar.Server.Gateway.Usage;
+using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Providers;
@@ -33,6 +35,22 @@ public static class HostCompositionExtensions
         services.AddSingleton<IReadinessCheck, InstanceLockReadinessCheck>();
         services.AddSingleton<IReadinessCheck, ProviderReadinessCheck>();
         services.AddHostedService<StartupSequence>();
+        return services;
+    }
+
+    /// <summary>
+    /// Doc 03 WP5: startup lease recovery sweep (step 6) and shutdown checkpoint. Call after <see cref="AddBazaarHostRuntime"/> so the hosted
+    /// service starts after <c>StartupSequence</c>. TODO(component): move into the component model once PR #125 merges.
+    /// </summary>
+    public static IServiceCollection AddBazaarRecoveryHook(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddOptions<RecoveryHookOptions>().Bind(configuration.GetSection(RecoveryHookOptions.SectionName));
+        services.TryAddSingleton<AgentLeaseRecovery>();
+        services.TryAddSingleton<ILeaseRecoveryRunner, LeaseRecoveryRunner>();
+        services.TryAddSingleton<RecoveryHookState>();
+        services.AddSingleton<IReadinessCheck, RecoverySweepReadinessCheck>();
+        services.AddHostedService<RecoveryHostedService>();
         return services;
     }
 
