@@ -55,7 +55,13 @@ public interface IGitProvider
     /// merge is clean (no fast-forward). On conflicts nothing is committed: the conflicting paths are reported, the
     /// working tree keeps conflict markers, and the merge stays pending until <see cref="AbortMergeAsync"/> is called.
     /// </summary>
-    Task<MergeResult> MergeAsync(string checkoutPath, string branch, GitIdentity author, CancellationToken ct);
+    /// <param name="message">
+    /// The merge commit message. Null keeps the engine's default ("Merge branch ..."). Writers pass trailers here.
+    /// </param>
+    Task<MergeResult> MergeAsync(string checkoutPath, string branch, GitIdentity author, CancellationToken ct, string? message = null);
+
+    /// <summary>Returns the commit SHA that HEAD of the checkout points to.</summary>
+    Task<string> HeadAsync(string checkoutPath, CancellationToken ct);
 
     /// <summary>
     /// Abandons a pending merge: restores the checkout to its HEAD (index and working tree) and removes the merge state.
