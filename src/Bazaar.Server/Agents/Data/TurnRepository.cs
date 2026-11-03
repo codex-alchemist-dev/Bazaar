@@ -44,6 +44,19 @@ public sealed class TurnRepository(NpgsqlDataSource dataSource)
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
     }
 
+    /// <summary>Stores the context manifest of a running turn. The runner calls this once the context is assembled. Returns false if the turn has ended.</summary>
+    public async Task<bool> SetContextManifestAsync(Guid turnId, string manifestJson, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(manifestJson);
+        await using var cmd = dataSource.CreateCommand("""
+            UPDATE turn SET context_manifest = @manifest::jsonb
+            WHERE turn_id = @turn_id AND status = 'running'
+            """);
+        cmd.Parameters.AddWithValue("turn_id", turnId);
+        cmd.Parameters.Add(AgentSql.Jsonb("manifest", manifestJson));
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+    }
+
     public async Task<TurnRecord?> GetAsync(Guid turnId, CancellationToken ct = default)
     {
         await using var cmd = dataSource.CreateCommand($"{_selectSql} WHERE turn_id = @turn_id");

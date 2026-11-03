@@ -1,0 +1,7 @@
+# Pinned inputs for the packaged PostgreSQL bundle (docs/research/notes/Bazaar server packaging/packaging.md).
+# Read by the Windows and Linux bundle builds and by .github/workflows/postgres-bundle.yml.
+# Bump deliberately: the bundle check in CI must pass before a new value merges.
+PG_MAJOR=18
+PG_VERSION=18.0
+PG_EDB_BUILD=1
+PGVECTOR_VERSION=0.8.1
