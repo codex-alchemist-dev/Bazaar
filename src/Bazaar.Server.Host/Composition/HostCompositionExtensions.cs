@@ -1,5 +1,7 @@
 using Bazaar.Server.Agents.LoopGuard;
+using Bazaar.Server.Agents.Recovery;
 using Bazaar.Server.Gateway.Usage;
+using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Providers;
@@ -36,6 +38,22 @@ public static class HostCompositionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Doc 03 WP5: startup lease recovery sweep (step 6) and shutdown checkpoint. Call after <see cref="AddBazaarHostRuntime"/> so the hosted
+    /// service starts after <c>StartupSequence</c>. TODO(component): move into the component model once PR #125 merges.
+    /// </summary>
+    public static IServiceCollection AddBazaarRecoveryHook(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddOptions<RecoveryHookOptions>().Bind(configuration.GetSection(RecoveryHookOptions.SectionName));
+        services.TryAddSingleton<AgentLeaseRecovery>();
+        services.TryAddSingleton<ILeaseRecoveryRunner, LeaseRecoveryRunner>();
+        services.TryAddSingleton<RecoveryHookState>();
+        services.AddSingleton<IReadinessCheck, RecoverySweepReadinessCheck>();
+        services.AddHostedService<RecoveryHostedService>();
+        return services;
+    }
+
     /// <summary>Bootstrap secret references: <c>env:</c> and <c>file:</c> everywhere, plus the OS resolver (<c>dpapi:</c> or <c>systemd-creds:</c>).</summary>
     public static IServiceCollection AddBazaarSecrets(this IServiceCollection services)
     {
@@ -57,21 +75,24 @@ public static class HostCompositionExtensions
     }
 
     /// <summary>
-    /// Picks one provider per role at start (doc 03). Only the service host has OS implementations so far; the other roles default to
+    /// Picks one provider per role at start (doc 03). The service host and the cache have OS implementations so far; the other roles default to
     /// <c>none</c> until their providers land. Explicit choices that are not usable fail the start with no silent fallback.
     /// </summary>
     public static IServiceCollection AddBazaarProviders(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<BazaarProviderOptions>().Bind(configuration.GetSection(BazaarProviderOptions.SectionName));
+        services.AddOptions<ValkeyCacheOptions>().Bind(configuration.GetSection(ValkeyCacheOptions.SectionName));
         services.TryAddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<BazaarProviderOptions>>().Value;
+            var valkey = sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
+            IReadOnlyList<ICacheProvider> caches = LinuxProviders.CacheCandidates(valkey, sp.GetService<ISecretResolver>());
             return new ProviderCapabilityReport(
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
                 ProviderSelector.Select(ProviderRole.Vm, options.Vm, Array.Empty<IVmProvider>()),
-                ProviderSelector.Select(ProviderRole.Cache, options.Cache, Array.Empty<ICacheProvider>()),
+                ProviderSelector.Select(ProviderRole.Cache, options.Cache, caches),
                 ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
             ]);
         });
