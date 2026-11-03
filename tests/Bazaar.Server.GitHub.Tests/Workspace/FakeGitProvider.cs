@@ -54,22 +54,6 @@ internal sealed class FakeGitProvider : IGitProvider
 
     public Task<string> HeadAsync(string checkoutPath, CancellationToken ct) => throw new NotSupportedException();
 
-    public Task<string> ResolveCommitAsync(string repoPath, string commitish, CancellationToken ct) =>
-        throw new NotSupportedException();
-
-    public Task<IReadOnlyList<string>> ListFilesAsync(string repoPath, string commitSha, CancellationToken ct) =>
-        throw new NotSupportedException();
-
-    public Task<string> ReadTextAsync(string repoPath, string commitSha, string path, CancellationToken ct) =>
-        throw new NotSupportedException();
-
-    public Task<IReadOnlyList<GitCommitInfo>> ListCommitsAsync(
-        string repoPath,
-        string? excludeSha,
-        string includeSha,
-        CancellationToken ct) =>
-        throw new NotSupportedException();
-
     public Task AbortMergeAsync(string checkoutPath, CancellationToken ct) => throw new NotSupportedException();
 
     public Task<string> ResolveCommitAsync(string repoPath, string commitish, CancellationToken ct) =>
