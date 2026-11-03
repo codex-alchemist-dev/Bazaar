@@ -6,4 +6,7 @@ public interface ICacheProvider : IProvider
     Task SetAsync(string key, ReadOnlyMemory<byte> value, TimeSpan ttl, CancellationToken ct);
 
     Task<ReadOnlyMemory<byte>?> GetAsync(string key, CancellationToken ct);
+
+    /// <summary>Removes the key if present. Missing keys are not an error.</summary>
+    Task DeleteAsync(string key, CancellationToken ct);
 }
