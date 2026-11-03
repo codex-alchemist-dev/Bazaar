@@ -47,7 +47,7 @@ public sealed class ErasureCoordinator
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                result = ErasureParticipantResult.Failed(ex.Message);
+                result = ErasureParticipantResult.Failed(ex.GetType().Name);
             }
 
             outcomes.Add(new ParticipantOutcome(participant.Name, result));
@@ -70,7 +70,7 @@ public sealed class ErasureCoordinator
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return (PersonKeyOutcome.Failed, ex.Message);
+            return (PersonKeyOutcome.Failed, ex.GetType().Name);
         }
     }
 }
