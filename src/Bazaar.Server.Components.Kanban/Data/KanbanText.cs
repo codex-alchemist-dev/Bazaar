@@ -56,4 +56,18 @@ internal static class KanbanText
         "vault_doc" => TaskLinkKind.VaultDoc,
         _ => throw new InvalidOperationException($"Unknown task link kind '{text}'."),
     };
+
+    public static string ToSql(TaskGateOutcome outcome) => outcome switch
+    {
+        TaskGateOutcome.Approved => "approved",
+        TaskGateOutcome.Rejected => "rejected",
+        _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Not a gate outcome."),
+    };
+
+    public static TaskGateOutcome ParseOutcome(string text) => text switch
+    {
+        "approved" => TaskGateOutcome.Approved,
+        "rejected" => TaskGateOutcome.Rejected,
+        _ => throw new InvalidOperationException($"Unknown gate outcome '{text}'."),
+    };
 }
