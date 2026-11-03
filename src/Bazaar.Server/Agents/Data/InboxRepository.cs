@@ -78,6 +78,26 @@ public sealed class InboxRepository(NpgsqlDataSource dataSource)
         return rows;
     }
 
+    /// <summary>
+    /// Claims the named due items that are still pending, for a turn whose caller chose them (doc 06 "Turn loop" step 1).
+    /// Items in any other state are skipped. Returns how many were claimed by this call.
+    /// </summary>
+    public async Task<int> ClaimByIdAsync(Guid agentId, string holder, IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(holder);
+        if (ids.Count == 0)
+            return 0;
+        await using var cmd = dataSource.CreateCommand("""
+            UPDATE inbox_item
+            SET state = 'claimed', claimed_by = @holder, claimed_at = now()
+            WHERE agent_id = @agent_id AND state = 'pending' AND due_at <= now() AND inbox_item_id = ANY(@ids)
+            """);
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        cmd.Parameters.AddWithValue("holder", holder);
+        cmd.Parameters.Add(new NpgsqlParameter<Guid[]> { ParameterName = "ids", TypedValue = [.. ids] });
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>Marks items claimed by <paramref name="holder"/> as done. Returns how many changed.</summary>
     public async Task<int> CompleteAsync(string holder, IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
     {

@@ -10,6 +10,9 @@ public static class VaultMarkdown
     // Markdig pipelines are immutable once built and the wiki-link parser keeps no per-parse state, so one instance is shared.
     private static readonly MarkdownPipeline _pipeline = Build();
 
+    /// <summary>The shared pipeline, for block splitting that must agree with <see cref="Parse"/> on offsets.</summary>
+    internal static MarkdownPipeline Pipeline => _pipeline;
+
     /// <summary>
     /// Finds every wiki-link in <paramref name="source"/>, in document order. The YAML front matter block is not inline-parsed,
     /// so links inside it are not reported. A document with a front matter block must have a valid one (see

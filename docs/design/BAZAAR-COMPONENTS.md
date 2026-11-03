@@ -67,7 +67,7 @@ Enablement comes from settings (`Bazaar:Components:<id>:Enabled`). A disabled co
 - Each component owns a migration namespace: `src/<Component>/Data/Sql/<component-id>/NNNN_name.sql`. Numbers are local to the namespace.
 - The migration history table is keyed by `(component_id, version)`. The runner applies namespaces in dependency order and records each file once.
 - Components never write another component's tables. A cross-component read goes through the owner's contract. Foreign keys to another component's table are allowed only to a table the dependency declares in its contract.
-- The existing shared `common/` namespace is frozen. New migrations go in their component's namespace. Moving `common/` files into their components is wave 2 of the plan (section 10); the history table migration keeps existing rows valid.
+- The existing shared `common/` namespace is frozen. New migrations go in their component's namespace. Applied `common/` files are **not moved**: history rows are keyed by `(namespace, version)`, so a moved file would look unapplied and re-run. Files such as `0001_core_schema.sql` also mix several components' tables, so they cannot be split without rewriting applied history. `MigrationNamespaceTests` in `tests/Bazaar.Architecture.Tests` enforces the freeze: no new file in `common/`, and no frozen file removed or renamed.
 - Personal fields stay encrypted per person (doc 01 decisions in force), and a component that stores them uses the kernel's secret and crypto services.
 
 ## 6. Enforced boundaries
@@ -120,7 +120,7 @@ Wave 0 (this PR): the model, the abstractions and graph validation in `Bazaar.Se
 
 Wave 1: kernel split. Move discovery, ordering and lifecycle into a `Bazaar.Server.Kernel` folder; put the host composition's `Add*` calls behind component entries. Convert the gateway: `freellmapi` becomes a provider component, `openai_chat`, `anthropic_messages` and `gemini_generate_content` become adapter components. Convert settings and audit. Each conversion is one PR with its tests, and the wire contract stays unchanged.
 
-Wave 2: data split. Move each table family from `common/` to its component namespace, add the `(component_id, version)` history, and remove the `common/` baseline entries as each moves. Then GC log, Vault, Interrupts, Calendar, WorkLife, Council, Skimmer, Org and Souls become components, each with its contracts project.
+Wave 2: data split, as decided 2026-11-02. The `common/` files applied before the freeze stay where they are and are frozen (section 5). Each component's new SQL goes in its own namespace. Components whose tables sit in `common/` keep those tables under the shared history until a later wave can rewrite them safely. GC log and Vault are components with their namespaces ready; Interrupts, Calendar, WorkLife, Council, Skimmer, Org and Souls become components as they are built, each with its contracts project.
 
 Wave 3: project split. Each component's implementation moves to its own project (`Bazaar.Server.Components.<Name>` plus `.Abstractions`). Enforce rule 1 and 2 with no baseline left. Add the out-of-process proxy and move the FreeLLMAPI sidecar and managed Postgres onto it.
 

@@ -1,4 +1,7 @@
 using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Server.Components;
+using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Hosting;
@@ -22,7 +25,7 @@ public sealed class CompositionTests
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarAgentSafety();
-        services.AddBazaarSettings();
+        services.AddBazaarComponents(configuration, [new AuditComponent(), new SettingsComponent()]);
         services.AddBazaarGateway();
         return services.BuildServiceProvider(validateScopes: true);
     }
