@@ -13,5 +13,5 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 
 dotnet workload install android
-dotnet restore src/Bazaar.Client.Android/Bazaar.Client.Android.csproj
-dotnet build src/Bazaar.Client.Android/Bazaar.Client.Android.csproj -c Release --no-restore
+dotnet restore src/Bazaar.Client.Android/Bazaar.Client.Android.csproj -p:BazaarAndroid=true
+dotnet build src/Bazaar.Client.Android/Bazaar.Client.Android.csproj -c Release --no-restore -p:BazaarAndroid=true

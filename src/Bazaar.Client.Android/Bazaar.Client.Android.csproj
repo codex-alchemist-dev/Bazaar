@@ -1,9 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Android head (doc 29). Not in Bazaar.slnx: the Android workload is not on the hosted CI runners.
-    Build it with scripts/build-android.sh on a machine with the workload and the Android SDK.
+    Build it with scripts/build-android.sh (passes BazaarAndroid=true) on a machine with the workload and the Android SDK.
+
+    Without BazaarAndroid=true this project targets plain net11.0 with no Android packages, so restore
+    succeeds on hosts without the workload. GitHub's automatic dependency submission (the "submit-nuget"
+    check) restores every project it finds, and a net11.0-android restore fails there with NETSDK1147.
   -->
   <PropertyGroup>
+    <BazaarAndroid Condition="'$(BazaarAndroid)' == ''">false</BazaarAndroid>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BazaarAndroid)' == 'true'">
     <OutputType>Exe</OutputType>
     <TargetFramework>net11.0-android</TargetFramework>
     <SupportedOSPlatformVersion>35</SupportedOSPlatformVersion>
@@ -14,7 +21,12 @@
     <AndroidUseAapt2>true</AndroidUseAapt2>
     <RootNamespace>Bazaar.Client.Android</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
+  <PropertyGroup Condition="'$(BazaarAndroid)' != 'true'">
+    <OutputType>Library</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Client.Android</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BazaarAndroid)' == 'true'">
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
