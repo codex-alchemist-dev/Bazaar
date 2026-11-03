@@ -38,6 +38,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `council/0001` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
 | `0021` | EMAIL1 | this PR | Namespace `mail` (not `common`, which is frozen): mail core (doc 22 tables): `mail_domain`, `mail_mailbox`, `mail_message`, `mail_outbound`, `mail_blob`; personal bodies encrypted per person |
 | `engines/0001` | WP2 | this PR | Engine registry, `engines` namespace (doc 20): `engine_projects`, `engine_grants` (default deny for write and exec; approval link is a TODO(component) to doc 15) |
+| `kanban/0001` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces

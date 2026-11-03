@@ -28,6 +28,27 @@ public sealed class TaskLinkRepository(NpgsqlDataSource dataSource)
         return result;
     }
 
+    /// <summary>Tasks that carry a link of this kind and reference, oldest first.</summary>
+    public async Task<IReadOnlyList<Guid>> FindTaskIdsAsync(TaskLinkKind kind, string reference, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT task_id FROM task_links l
+            JOIN tasks t ON t.id = l.task_id
+            WHERE l.kind = @kind AND l.ref = @ref
+            ORDER BY t.created_at, t.id
+            """);
+        cmd.Parameters.AddWithValue("kind", KanbanText.ToSql(kind));
+        cmd.Parameters.AddWithValue("ref", reference);
+        var result = new List<Guid>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(reader.GetGuid(0));
+        }
+
+        return result;
+    }
+
     /// <summary>Adds a link. Returns false when the same link was already there.</summary>
     public async Task<bool> InsertAsync(NpgsqlTransaction tx, TaskLink link, CancellationToken ct = default)
     {
