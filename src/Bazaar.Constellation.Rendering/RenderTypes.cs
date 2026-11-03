@@ -14,6 +14,9 @@ public enum RenderSurfaceKind
 
     /// <summary>Handle is ANativeWindow* (PlatformWindow); PlatformDisplay is unused.</summary>
     Android,
+
+    /// <summary>No native window. Offscreen or test surface (VK_EXT_headless_surface); handles are unused.</summary>
+    Headless,
 }
 
 /// <summary>A native window the backend draws into. The host owns the window's lifetime.</summary>
