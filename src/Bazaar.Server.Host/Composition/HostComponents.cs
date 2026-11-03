@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Components;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Fun;
@@ -29,6 +30,7 @@ public static class HostComponents
         new KanbanComponent(),
         new BackupComponent(),
         new VaultComponent(),
+        new AgentTurnsComponent(),
         new MailComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
