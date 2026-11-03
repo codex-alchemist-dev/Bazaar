@@ -56,4 +56,15 @@ public sealed class FakeCacheProvider : ICacheProvider
             return Task.FromResult<ReadOnlyMemory<byte>?>(entry.Value);
         }
     }
+
+    /// <inheritdoc />
+    public Task DeleteAsync(string key, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            _entries.Remove(key);
+        }
+
+        return Task.CompletedTask;
+    }
 }

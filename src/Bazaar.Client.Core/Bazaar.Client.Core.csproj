@@ -8,5 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Constellation.Rendering\Bazaar.Constellation.Rendering.csproj" />
   </ItemGroup>
 </Project>
