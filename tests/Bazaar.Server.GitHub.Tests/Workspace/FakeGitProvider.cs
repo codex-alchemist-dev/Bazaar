@@ -44,8 +44,15 @@ internal sealed class FakeGitProvider : IGitProvider
     public Task<IReadOnlyList<string>> PruneWorktreesAsync(string repoPath, CancellationToken ct) =>
         throw new NotSupportedException();
 
-    public Task<MergeResult> MergeAsync(string checkoutPath, string branch, GitIdentity author, CancellationToken ct) =>
+    public Task<MergeResult> MergeAsync(
+        string checkoutPath,
+        string branch,
+        GitIdentity author,
+        CancellationToken ct,
+        string? message = null) =>
         throw new NotSupportedException();
+
+    public Task<string> HeadAsync(string checkoutPath, CancellationToken ct) => throw new NotSupportedException();
 
     public Task AbortMergeAsync(string checkoutPath, CancellationToken ct) => throw new NotSupportedException();
 
