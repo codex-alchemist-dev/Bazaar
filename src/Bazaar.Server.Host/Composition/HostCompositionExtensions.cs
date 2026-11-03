@@ -57,21 +57,24 @@ public static class HostCompositionExtensions
     }
 
     /// <summary>
-    /// Picks one provider per role at start (doc 03). Only the service host has OS implementations so far; the other roles default to
+    /// Picks one provider per role at start (doc 03). The service host and the cache have OS implementations so far; the other roles default to
     /// <c>none</c> until their providers land. Explicit choices that are not usable fail the start with no silent fallback.
     /// </summary>
     public static IServiceCollection AddBazaarProviders(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<BazaarProviderOptions>().Bind(configuration.GetSection(BazaarProviderOptions.SectionName));
+        services.AddOptions<ValkeyCacheOptions>().Bind(configuration.GetSection(ValkeyCacheOptions.SectionName));
         services.TryAddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<BazaarProviderOptions>>().Value;
+            var valkey = sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
+            IReadOnlyList<ICacheProvider> caches = LinuxProviders.CacheCandidates(valkey, sp.GetService<ISecretResolver>());
             return new ProviderCapabilityReport(
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
                 ProviderSelector.Select(ProviderRole.Vm, options.Vm, Array.Empty<IVmProvider>()),
-                ProviderSelector.Select(ProviderRole.Cache, options.Cache, Array.Empty<ICacheProvider>()),
+                ProviderSelector.Select(ProviderRole.Cache, options.Cache, caches),
                 ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
             ]);
         });
