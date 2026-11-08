@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -16,6 +18,10 @@ public static class ManagedPostgresServiceCollectionExtensions
         services.AddOptions<ManagedPostgresOptions>()
             .Bind(configuration.GetSection(ManagedPostgresOptions.SectionName))
             .ValidateOnStart();
+
+        services.TryAddSingleton<IPostgresCommandRunner, ProcessPostgresCommandRunner>();
+        services.TryAddSingleton<ManagedPostgresEndpoint>();
+        services.AddHostedService<ManagedPostgresHostedService>();
 
         return services;
     }
