@@ -146,11 +146,13 @@ jobs:
       - name: Start the image and wait for it
         run: |
           docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=ci-only-password -p 54330:5432 bazaar-pg:ci
+          # The official image starts a temporary init server first, and pg_isready can pass against it before the
+          # real server is up. Wait for a real query over TCP, which the init server does not accept.
           for _ in $(seq 1 60); do
-            docker exec bazaar-pg pg_isready -U postgres -q && break
+            docker exec -e PGPASSWORD=ci-only-password bazaar-pg psql -h 127.0.0.1 -U postgres -At -c "select 1" >/dev/null 2>&1 && break
             sleep 1
           done
-          docker exec -e PGPASSWORD=ci-only-password bazaar-pg psql -U postgres -c "CREATE DATABASE bazaar_ci"
+          docker exec -e PGPASSWORD=ci-only-password bazaar-pg psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE bazaar_ci"
 
       - name: Run every migration and a halfvec query
         env:
