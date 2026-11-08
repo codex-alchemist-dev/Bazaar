@@ -68,7 +68,7 @@ public sealed class RyuseiEventBridge
                 var decision = await DecideEventAsync(tx, trigger, evt, now, ct).ConfigureAwait(false);
                 if (decision.Fire is { } fire)
                 {
-                    await _writer.ApplyAsync(tx, trigger, fire, now, ct).ConfigureAwait(false);
+                    await _writer.ApplyAsync(tx, trigger, fire, now, ct: ct).ConfigureAwait(false);
                     fired++;
                 }
                 else

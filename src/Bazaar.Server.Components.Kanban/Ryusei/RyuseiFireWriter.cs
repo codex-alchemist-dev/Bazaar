@@ -47,13 +47,15 @@ public sealed class RyuseiFireWriter
     /// <summary>
     /// Writes one decision. Returns false, and writes nothing, when this trigger already has a fire for the instant (a crash-retried
     /// fire, doc 38). Otherwise the fire row, the trigger update and the inbox items commit together with the caller's transaction.
-    /// The caller must hold the trigger's row lock, which makes the version check pass.
+    /// The caller must hold the trigger's row lock, which makes the version check pass. When <paramref name="ping"/> is set (an
+    /// attach fire, WP-R7), each target's wake is keyed by the GC line's (gc_id, gc_seq) instead of the fire id.
     /// </summary>
     public async Task<bool> ApplyAsync(
         NpgsqlTransaction tx,
         RyuseiTriggerRecord trigger,
         RyuseiFireDecision decision,
         DateTimeOffset now,
+        RyuseiPingPosted? ping = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(tx);
@@ -87,7 +89,18 @@ public sealed class RyuseiFireWriter
             throw new InvalidOperationException($"Trigger {trigger.TriggerId:D} changed under the row lock.");
         }
 
-        if (decision.WakeReason is { } reason)
+        if (ping is not null)
+        {
+            var priority = checked((short)InboxPriority.Rank(InboxKind.RyuseiPing));
+            foreach (var agentId in decision.WakeAgentIds)
+            {
+                await InboxRepository.EnqueueAsync(
+                    tx,
+                    new InboxEnqueue(agentId, InboxKind.RyuseiPing, priority, GcId: ping.GcId, GcSeq: ping.Seq),
+                    ct).ConfigureAwait(false);
+            }
+        }
+        else if (decision.WakeReason is { } reason)
         {
             var priority = checked((short)InboxPriority.Rank(reason));
             foreach (var agentId in decision.WakeAgentIds)
