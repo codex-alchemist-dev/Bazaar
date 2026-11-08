@@ -55,10 +55,10 @@ public sealed class RyuseiTriggerService
 {
     private readonly NpgsqlDataSource _dataSource;
     private readonly RyuseiTriggerRepository _triggers;
-    private readonly IAuditLog _audit;
+    private readonly ITransactionalAuditLog _audit;
     private readonly RyuseiLimits _limits;
 
-    public RyuseiTriggerService(NpgsqlDataSource dataSource, IAuditLog audit, RyuseiLimits? limits = null)
+    public RyuseiTriggerService(NpgsqlDataSource dataSource, ITransactionalAuditLog audit, RyuseiLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(audit);
@@ -134,9 +134,8 @@ public sealed class RyuseiTriggerService
             maxFires,
             expiresAt,
             chainDepth), ct).ConfigureAwait(false);
-        await tx.CommitAsync(ct).ConfigureAwait(false);
 
-        await AuditAsync(creator, "ryusei.trigger.created", now, new JsonObject
+        await AuditInTransactionAsync(conn, tx, creator, "ryusei.trigger.created", now, new JsonObject
         {
             ["triggerId"] = triggerId.ToString("D"),
             ["projectId"] = projectId.ToString("D"),
@@ -145,6 +144,7 @@ public sealed class RyuseiTriggerService
             ["pingMode"] = RyuseiText.ToSql(pingMode),
             ["chainDepth"] = chainDepth,
         }, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
 
         return RyuseiTriggerResult.Ok(triggerId, stored.Version);
     }
@@ -214,15 +214,14 @@ public sealed class RyuseiTriggerService
             return RyuseiTriggerResult.Other(RyuseiTriggerStatus.Conflict, "The trigger changed while this request was running. Nothing was written.");
         }
 
-        await tx.CommitAsync(ct).ConfigureAwait(false);
-
-        await AuditAsync(actor, $"ryusei.trigger.{ChangeVerb(change)}", now, new JsonObject
+        await AuditInTransactionAsync(conn, tx, actor, $"ryusei.trigger.{ChangeVerb(change)}", now, new JsonObject
         {
             ["triggerId"] = triggerId.ToString("D"),
             ["projectId"] = record.ProjectId.ToString("D"),
             ["fromState"] = RyuseiText.ToSql(record.State),
             ["toState"] = RyuseiText.ToSql(target.Value),
         }, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
 
         return RyuseiTriggerResult.Ok(triggerId, record.Version + 1);
     }
@@ -287,6 +286,11 @@ public sealed class RyuseiTriggerService
         ["message"] = check.Message,
     };
 
+    /// <summary>Audits a refusal. A refusal changes no state, so it is appended on its own, outside any transaction.</summary>
     private Task AuditAsync(RyuseiActor actor, string kind, DateTimeOffset now, JsonObject payload, CancellationToken ct) =>
         _audit.AppendAsync(new AuditEntry(now, actor.ToAuditText(), kind, payload.ToJsonString()), ct);
+
+    /// <summary>Audits a state change inside its transaction, so the change and its audit row commit or roll back together.</summary>
+    private Task AuditInTransactionAsync(NpgsqlConnection conn, NpgsqlTransaction tx, RyuseiActor actor, string kind, DateTimeOffset now, JsonObject payload, CancellationToken ct) =>
+        _audit.AppendInTransactionAsync(conn, tx, new AuditEntry(now, actor.ToAuditText(), kind, payload.ToJsonString()), ct);
 }

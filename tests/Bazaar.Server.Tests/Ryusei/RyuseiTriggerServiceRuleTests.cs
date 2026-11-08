@@ -340,11 +340,17 @@ public sealed class RyuseiTriggerServiceRuleTests
 }
 
 /// <summary>Captures audit appends in memory.</summary>
-internal sealed class CapturingAuditLog : IAuditLog
+internal sealed class CapturingAuditLog : ITransactionalAuditLog
 {
     public List<AuditEntry> Entries { get; } = [];
 
     public Task AppendAsync(AuditEntry e, CancellationToken ct = default)
+    {
+        Entries.Add(e);
+        return Task.CompletedTask;
+    }
+
+    public Task AppendInTransactionAsync(NpgsqlConnection conn, NpgsqlTransaction tx, AuditEntry e, CancellationToken ct = default)
     {
         Entries.Add(e);
         return Task.CompletedTask;
