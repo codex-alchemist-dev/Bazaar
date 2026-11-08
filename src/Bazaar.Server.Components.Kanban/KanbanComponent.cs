@@ -37,5 +37,6 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<TaskDeadlineRepository>();
         services.TryAddSingleton<DeadlineScanHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<DeadlineScanHandler>());
+        services.AddSingleton(new RecurringJob(DeadlineScanHandler.JobKind, deadline.Interval));
     }
 }
