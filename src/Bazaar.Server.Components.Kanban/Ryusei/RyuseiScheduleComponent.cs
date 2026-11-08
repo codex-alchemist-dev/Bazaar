@@ -9,7 +9,7 @@ namespace Bazaar.Server.Kanban.Ryusei;
 
 /// <summary>
 /// RyuseiFuda schedule (doc 38, Layer 2) as a Bazaar Component. Registers <see cref="RyuseiTriggerService"/> with the caps
-/// bound from <see cref="SectionName"/>. It needs the shared <c>NpgsqlDataSource</c> and <see cref="IAuditLog"/>. The
+/// bound from <see cref="SectionName"/>. It needs the shared <c>NpgsqlDataSource</c> and <see cref="ITransactionalAuditLog"/>. The
 /// scheduler tick, the event bridge and the agent tools come in later work packages (doc 38, WP-R5 to WP-R9).
 /// </summary>
 public sealed class RyuseiScheduleComponent : IBazaarComponent
@@ -33,7 +33,7 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
         services.TryAddSingleton(limits);
         services.TryAddSingleton(sp => new RyuseiTriggerService(
             sp.GetRequiredService<NpgsqlDataSource>(),
-            sp.GetRequiredService<IAuditLog>(),
+            sp.GetRequiredService<ITransactionalAuditLog>(),
             sp.GetRequiredService<RyuseiLimits>()));
     }
 }
