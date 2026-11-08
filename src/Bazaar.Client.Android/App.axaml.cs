@@ -36,3 +36,5 @@ public sealed class App : Avalonia.Application
         return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
     }
 }
+
+// CodeQL analysis trigger (no functional change).
