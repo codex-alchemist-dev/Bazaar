@@ -32,13 +32,13 @@ public sealed class TaskGcBridgeTests(KanbanDb db) : IClassFixture<KanbanDb>
         return new Board(Guid.CreateVersion7(), gcId);
     }
 
-    private async Task<Guid> AddTaskAsync(Guid projectId, Guid gcId, TaskState state)
+    private async Task<Guid> AddTaskAsync(Guid projectId, Guid gcId, TaskState state, Guid? assignee = null)
     {
         var id = Guid.CreateVersion7();
         await using var conn = await db.DataSource.OpenConnectionAsync(Ct);
         await using var tx = await conn.BeginTransactionAsync(Ct);
         await new TaskRepository(db.DataSource).InsertAsync(tx,
-            new NewTask(id, projectId, "Task", state, null, TaskGate.None, gcId, null, null), Ct);
+            new NewTask(id, projectId, "Task", state, assignee, TaskGate.None, gcId, null, null), Ct);
         await tx.CommitAsync(Ct);
         return id;
     }
@@ -97,11 +97,25 @@ public sealed class TaskGcBridgeTests(KanbanDb db) : IClassFixture<KanbanDb>
     {
         SkipWithoutDatabase();
         var board = await NewBoardAsync();
-        var task = await AddTaskAsync(board.ProjectId, board.GcId, TaskState.Ready);
+        var agent = Guid.CreateVersion7();
+        var actor = new TaskActor(TaskActorKind.Agent, agent);
+        var task = await AddTaskAsync(board.ProjectId, board.GcId, TaskState.Ready, agent);
         var service = new TaskService(db.DataSource, gcLog: NewWriter());
 
-        await service.TransitionAsync(task, TaskState.InProgress, _owner, "start", 1, Ct);
-        await service.TransitionAsync(task, TaskState.Review, _owner, "review", 2, Ct);
+        var first = await service.TransitionAsync(task, TaskState.InProgress, actor, "start", 1, Ct);
+        Assert.Equal(TransitionStatus.Applied, first.Status);
+
+        // In progress to Review needs a PR or commit link (review minimum) and the assignee as the actor.
+        await using (var conn = await db.DataSource.OpenConnectionAsync(Ct))
+        await using (var tx = await conn.BeginTransactionAsync(Ct))
+        {
+            await new TaskLinkRepository(db.DataSource).InsertAsync(tx,
+                new TaskLink(task, TaskLinkKind.Pr, "codex-alchemist-dev/Bazaar#903"), Ct);
+            await tx.CommitAsync(Ct);
+        }
+
+        var second = await service.TransitionAsync(task, TaskState.Review, actor, "review", 2, Ct);
+        Assert.Equal(TransitionStatus.Applied, second.Status);
 
         var lines = await SystemLinesAsync(board.GcId);
         Assert.Equal(2, lines.Count);
