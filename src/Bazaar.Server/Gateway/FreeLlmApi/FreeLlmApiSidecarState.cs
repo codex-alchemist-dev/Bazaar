@@ -14,7 +14,7 @@ public static class FreeLlmApiSidecarState
     public const string AdminPasswordFile = "admin-password";
     public const string AdminCreatedMarker = "admin-created";
     public const string DeclarativeConfigFile = "declarative-config.json";
-    public const string AdminEmail = "bazaar-sidecar@localhost";
+    public const string AdminEmail = "sidecar@bazaar.local";
 
     private static readonly JsonSerializerOptions _json = new()
     {
