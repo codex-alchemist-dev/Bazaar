@@ -119,6 +119,16 @@ public sealed class FreeLlmApiSidecarTests : IDisposable
     }
 
     [Fact]
+    public void The_admin_email_is_one_the_sidecar_accepts()
+    {
+        // FreeLLMAPI validates emails with zod, which rejects reserved names such as ".localhost".
+        var at = FreeLlmApiSidecarState.AdminEmail.LastIndexOf('@');
+        Assert.True(at > 0);
+        Assert.Contains('.', FreeLlmApiSidecarState.AdminEmail[(at + 1)..]);
+        Assert.DoesNotContain(".localhost", FreeLlmApiSidecarState.AdminEmail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void The_declarative_config_carries_the_admin_until_the_account_is_marked_created()
     {
         var keys = new[] { new ProviderKeyEntry("groq", "gsk_test_value", "free") };
