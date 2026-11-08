@@ -1,4 +1,5 @@
 using Bazaar.Server.Components;
+using Bazaar.Server.Jobs;
 using Bazaar.Server.Kanban.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,5 +29,13 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<TaskEventRepository>();
         services.TryAddSingleton<TaskLinkRepository>();
         services.TryAddSingleton<TaskService>();
+
+        // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
+        var deadline = new DeadlineScanOptions();
+        configuration.GetSection(DeadlineScanOptions.SectionName).Bind(deadline);
+        services.TryAddSingleton(deadline);
+        services.TryAddSingleton<TaskDeadlineRepository>();
+        services.TryAddSingleton<DeadlineScanHandler>();
+        services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<DeadlineScanHandler>());
     }
 }
