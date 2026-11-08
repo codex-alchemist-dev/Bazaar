@@ -14,6 +14,10 @@ public class InboxPriorityTests
     [InlineData(InboxKind.SkimmerPromoted, 6)]
     [InlineData(InboxKind.GcDigest, 7)]
     [InlineData(InboxKind.Constitution, 8)]
+    [InlineData(InboxKind.RyuseiTimer, 4)]
+    [InlineData(InboxKind.RyuseiInterval, 4)]
+    [InlineData(InboxKind.RyuseiWatcher, 4)]
+    [InlineData(InboxKind.RyuseiEvent, 4)]
     public void Rank_follows_the_doc_06_order(string kind, int rank)
     {
         Assert.Equal(rank, InboxPriority.Rank(kind));
@@ -32,6 +36,6 @@ public class InboxPriorityTests
     {
         Assert.All(InboxKind.All, kind => Assert.True(InboxPriority.IsKnown(kind)));
         Assert.False(InboxPriority.IsKnown("nudge"));
-        Assert.Equal(9, InboxKind.All.Count);
+        Assert.Equal(13, InboxKind.All.Count);
     }
 }
