@@ -88,6 +88,58 @@ public sealed record TransitionResult(
         new(TransitionStatus.Invalid, outcome, null, []);
 }
 
+public enum CreateFromMessageStatus
+{
+    Created,
+
+    /// <summary>No GC has this message.</summary>
+    UnknownMessage,
+
+    /// <summary>The message is in a GC other than the one the pin was made from.</summary>
+    OtherGc,
+}
+
+/// <summary>Result of <see cref="TaskService.CreateFromMessageAsync"/>. <see cref="TaskId"/> is set only when created.</summary>
+public sealed record CreateFromMessageResult(CreateFromMessageStatus Status, Guid? TaskId)
+{
+    public static CreateFromMessageResult Created(Guid taskId) => new(CreateFromMessageStatus.Created, taskId);
+
+    public static CreateFromMessageResult Refused(CreateFromMessageStatus status) => new(status, null);
+}
+
+public enum LinkStatus
+{
+    /// <summary>The link was inserted.</summary>
+    Added,
+
+    /// <summary>The same link was already on the task. Nothing changed.</summary>
+    AlreadyPresent,
+
+    /// <summary>No task has this id. Nothing changed.</summary>
+    UnknownTask,
+
+    /// <summary>The reference is not valid for its kind, or names no GC. Nothing changed.</summary>
+    Refused,
+}
+
+public enum LinkRefusalReason
+{
+    /// <summary>The reference does not have the shape its kind needs (see <see cref="TaskLinkReferences"/>).</summary>
+    Malformed,
+
+    /// <summary>A GC link names a GC that does not exist.</summary>
+    UnknownGc,
+}
+
+/// <summary>Why a link was refused. <see cref="Message"/> is safe to show to the person who sent the link.</summary>
+public sealed record LinkRefusal(TaskLinkKind Kind, LinkRefusalReason Reason, string Message);
+
+/// <summary>Result of <see cref="TaskService.AddLinkAsync"/>. <see cref="Refusal"/> is set only for <see cref="LinkStatus.Refused"/>.</summary>
+public sealed record AddLinkResult(LinkStatus Status, LinkRefusal? Refusal)
+{
+    public static AddLinkResult Refuse(LinkRefusal refusal) => new(LinkStatus.Refused, refusal);
+}
+
 /// <summary>One card's result from <see cref="TaskService.PrMergedAsync"/>.</summary>
 public sealed record PrMergeOutcome(Guid TaskId, TransitionResult Result);
 

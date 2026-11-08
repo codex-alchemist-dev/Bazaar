@@ -67,6 +67,21 @@ public sealed class TaskRepository(NpgsqlDataSource dataSource)
         return result;
     }
 
+    /// <summary>The GCs that hold a message (one in practice, since message ids are uuidv7). Empty when the message is unknown.</summary>
+    public async Task<IReadOnlyList<Guid>> FindMessageGcIdsAsync(Guid messageId, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT gc_id FROM gc_message WHERE message_id = @message_id");
+        cmd.Parameters.AddWithValue("message_id", messageId);
+        var result = new List<Guid>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(reader.GetGuid(0));
+        }
+
+        return result;
+    }
+
     /// <summary>Inserts a task at version 1 and returns the stored row.</summary>
     public async Task<TaskRecord> InsertAsync(NpgsqlTransaction tx, NewTask task, CancellationToken ct = default)
     {
