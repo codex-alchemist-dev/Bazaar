@@ -1,6 +1,6 @@
 # Versioning and release channels
 
-Status: DECIDED by the owner (2026-10-25) where marked; codenames v2, v3 and v5 are owner-accepted; v4 is Wormwood (owner-accepted).
+Status: DECIDED by the owner (2026-10-25) where marked; codename v2 is owner-accepted; v3, v4 and v5 were changed by owner picks on 2026-11-08: v3 is Xylokrator (replacing Xerion), v4 is Weltseele (replacing Wormwood), and v5 is Valthyrzmthl (replacing Venus, meaning pending).
 Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.md` and `common/version.py`). This scheme differs from RESIBO's in three places: SemVer instead of per-PR counters, star-and-alchemy codenames instead of minerals, and immutable release tags.
 
 ## 1. Version numbers [DECIDED]
@@ -47,9 +47,9 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 | 0.x (shown `v00.MM.PP`) | Beta | Placeholder for the pre-release period. |
 | v1.0.0 | **Zuhal** (owner-picked, 2026-10-25) | Arabic name of Saturn, a wandering star; alchemists tied Saturn to lead, the base metal the Great Work starts from. |
 | v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
-| v3.0.0 | **Xerion** (owner-accepted, 2026-10-25) | The dry powder of the stone, the root of "elixir". X is thin, like RESIBO's X. |
-| **Wormwood** (owner-accepted, 2026-10-25) | A bitter medicinal herb in old pharmacopoeias, and the star Wormwood, which falls in Revelation 8:10-11 and makes the waters bitter. The alchemy link is the weaker of the two halves. |
-| v5.0.0 | **Venus** (owner-accepted, 2026-10-25) | A planet, and the alchemical name for copper. |
+| v3.0.0 | **Xylokrator** (owner pick, 2026-11-08; replaces Xerion) | "Ruler of the wood" (Greek *xylon*, wood, and *kratos*, rule). The philosophers' tree of the Great Work, made cosmic: the tree of the heavens. |
+| v4.0.0 | **Weltseele** (owner pick, 2026-11-08; replaces Wormwood) | Anima mundi, the world soul: the animating principle of the cosmos. Plato's Timaeus gave it to the heavens, and Renaissance writers on the world soul, Ficino among them, tied it to the spirit that binds matter and sky, which is the alchemical side. |
+| v5.0.0 | **Valthyrzmthl** (owner pick, 2026-11-08; replaces Venus) | Coined by the owner, derived from the Valthyr root, in an exotic consonant-cluster style. No alchemy or star link is recorded yet; the theme's two halves are not yet shown for this name. |
 
 Codename art and banners (About screen, credits, server status page) are kept for every codename forever. An LTSC install on an old major must still show its own name (RESIBO's retention rule).
 

@@ -11,7 +11,7 @@ namespace Bazaar.Client.Core.Panes;
 /// <summary>Registers the panes every client ships with.</summary>
 public static class FirstPartyPanes
 {
-    private const string _kanbanTitle = "Kanban";
+    private const string _kanbanTitle = "RyuseiFuda · Board";
 
     /// <summary>An empty board: five columns, no cards. Shown when no board snapshot is available.</summary>
     private static readonly JsonElement _emptyKanbanModel = JsonElement.Parse("""{"cards":[]}""");

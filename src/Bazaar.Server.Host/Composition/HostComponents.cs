@@ -12,6 +12,7 @@ using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
+using Bazaar.Server.Kanban.Ryusei;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Vault;
 
@@ -30,6 +31,7 @@ public static class HostComponents
         new GcComponent(),
         new FunComponent(),
         new KanbanComponent(),
+        new RyuseiScheduleComponent(),
         new CommunityComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
