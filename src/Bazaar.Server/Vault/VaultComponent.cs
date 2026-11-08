@@ -1,4 +1,5 @@
 using Bazaar.Server.Components;
+using Bazaar.Server.Vault.Search;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,9 +10,8 @@ namespace Bazaar.Server.Vault;
 /// git repo are the source of truth; Postgres only indexes them. The component owns the Vault data, git and link code.
 /// </summary>
 /// <remarks>
-/// No Vault service is registered in DI today: the Vault repositories, <c>IGitProvider</c> and the link resolver have no
-/// registration in the host, so this component registers nothing yet. Add a registration here when the Vault is wired into
-/// the host, so the component stays the single owner of its services.
+/// Registers the read side (<c>AddBazaarVaultSearch</c>). The write side (indexer, <c>IGitProvider</c>, link resolver) has no
+/// registration in the host yet; add it here when it lands, so the component stays the single owner of its services.
 /// </remarks>
 public sealed class VaultComponent : IBazaarComponent
 {
@@ -30,5 +30,7 @@ public sealed class VaultComponent : IBazaarComponent
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        // Read side: hybrid search, link expansion and body fetch (GET /vault/search). Needs the host's NpgsqlDataSource.
+        services.AddBazaarVaultSearch();
     }
 }

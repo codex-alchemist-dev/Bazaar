@@ -36,6 +36,26 @@ public sealed class StatusEndpointsTests
     }
 
     [Fact]
+    public async Task Writes_are_refused_on_the_status_page_but_allowed_on_api_routes()
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            var status = await client.PostAsync("/health/live", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, status.StatusCode);
+
+            var api = await client.PostAsync("/blobs", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, api.StatusCode);
+
+            var tiles = await client.PostAsync("/constellation/tiles", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, tiles.StatusCode);
+
+            var delete = await client.DeleteAsync("/blobs", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, delete.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task Live_is_ok_even_before_startup_finishes()
     {
         var (app, client, _) = await StartAsync();
