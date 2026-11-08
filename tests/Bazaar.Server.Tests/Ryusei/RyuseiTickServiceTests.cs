@@ -126,9 +126,10 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
         }
 
         var future = await InsertCommittedAsync(NewTrigger(new RyuseiTimerTriggerSpec(_base.AddDays(1)), _base.AddDays(1), Guid.CreateVersion7()));
-        var watcher = await InsertCommittedAsync(NewTrigger(
+        // An idle watcher has no next fire, so no claim picks it up. An event-armed watcher is claimed (see the next test).
+        var idleWatcher = await InsertCommittedAsync(NewTrigger(
             new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null),
-            _base.AddMinutes(-1),
+            null,
             Guid.CreateVersion7()));
 
         await using var claimConn = await db.DataSource.OpenConnectionAsync(Ct);
@@ -138,7 +139,7 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
 
         Assert.DoesNotContain(claimed, r => r.TriggerId == paused.TriggerId);
         Assert.DoesNotContain(claimed, r => r.TriggerId == future.TriggerId);
-        Assert.DoesNotContain(claimed, r => r.TriggerId == watcher.TriggerId);
+        Assert.DoesNotContain(claimed, r => r.TriggerId == idleWatcher.TriggerId);
     }
 
     [Fact]
@@ -255,14 +256,14 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
     }
 
     [Fact]
-    public async Task A_watcher_is_not_fired_by_the_tick()
+    public async Task An_idle_watcher_is_not_fired_by_the_tick()
     {
         SkipWithoutDatabase();
         var agent = Guid.CreateVersion7();
         await InsertAgentAsync(agent, "active");
         var row = await InsertCommittedAsync(NewTrigger(
             new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null),
-            _base,
+            null,
             agent));
 
         await Tick(Clock(_base.AddHours(1))).TickAsync(Ct);

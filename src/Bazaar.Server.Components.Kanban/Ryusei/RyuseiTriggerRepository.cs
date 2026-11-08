@@ -53,7 +53,8 @@ public sealed class RyuseiTriggerRepository(NpgsqlDataSource dataSource)
     /// <summary>
     /// Claims up to <paramref name="limit"/> active timer and interval triggers that are due at <paramref name="now"/>, locking
     /// them until <paramref name="tx"/> ends (doc 38, Firing). Rows another tick has locked are skipped, not waited for, so two
-    /// ticks never fire the same trigger. Watchers and events are not claimed (WP-R6 adds their predicates).
+    /// ticks never fire the same trigger. A watcher is claimed only when an event has armed it (its next_fire_at is set). Events
+    /// are never claimed: they fire on their first match in the event bridge.
     /// </summary>
     public async Task<IReadOnlyList<RyuseiTriggerRecord>> ClaimDueAsync(
         NpgsqlTransaction tx,
@@ -65,13 +66,35 @@ public sealed class RyuseiTriggerRepository(NpgsqlDataSource dataSource)
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
         await using var cmd = KanbanCommands.Create(dataSource, tx, $"""
             SELECT {_columns} FROM ryusei_trigger
-            WHERE state = 'active' AND kind IN ('timer', 'interval') AND next_fire_at <= @now
+            WHERE state = 'active' AND kind IN ('timer', 'interval', 'watcher') AND next_fire_at <= @now
             ORDER BY next_fire_at, trigger_id
             LIMIT @limit
             FOR UPDATE SKIP LOCKED
             """);
         cmd.Parameters.AddWithValue("now", now);
         cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadAllAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Locks the active event and watcher triggers an event could match, in trigger id order (doc 38, WP-R6). A null
+    /// <paramref name="projectId"/> means a GC-sourced event, which carries no project, so every project's triggers are
+    /// candidates and the predicate's GC filter does the scoping. Rows are waited for, not skipped, so no match is missed.
+    /// </summary>
+    public async Task<IReadOnlyList<RyuseiTriggerRecord>> LockEventCandidatesAsync(
+        NpgsqlTransaction tx,
+        Guid? projectId,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        await using var cmd = KanbanCommands.Create(dataSource, tx, $"""
+            SELECT {_columns} FROM ryusei_trigger
+            WHERE state = 'active' AND kind IN ('event', 'watcher')
+              AND (@project_id::uuid IS NULL OR project_id = @project_id)
+            ORDER BY trigger_id
+            FOR UPDATE
+            """);
+        cmd.Parameters.AddWithValue("project_id", KanbanCommands.Nullable(projectId));
         return await ReadAllAsync(cmd, ct).ConfigureAwait(false);
     }
 
