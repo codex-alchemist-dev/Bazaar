@@ -30,6 +30,7 @@ public sealed class ConstellationPaneView : Grid
     private readonly DispatcherTimer _timer;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly ConstellationCanvas _canvas;
+    private readonly TextBlock _placeholder;
     private Point? _pressAt;
     private Point _lastPointer;
     private bool _dragging;
@@ -43,6 +44,14 @@ public sealed class ConstellationPaneView : Grid
         Focusable = true;
 
         _canvas = new ConstellationCanvas(this);
+        _placeholder = new TextBlock
+        {
+            Text = "No graph data yet. The view fills in once the server sends a graph snapshot.",
+            Margin = new Thickness(16),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Top,
+            Opacity = 0.7,
+        };
         _list = new ListBox
         {
             Margin = new Thickness(8, 0, 0, 0),
@@ -51,13 +60,19 @@ public sealed class ConstellationPaneView : Grid
         _list.SelectionChanged += OnListSelectionChanged;
         Grid.SetColumn(_list, 1);
         Children.Add(_canvas);
+        Children.Add(_placeholder);
         Children.Add(_list);
 
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) => Tick());
         _pane.PropertyChanged += (_, _) => Refresh();
+        SizeChanged += (_, _) => RequestVisibleTiles();
+        _placeholder.IsVisible = !_pane.HasData;
     }
 
     public ConstellationPaneViewModel Pane => _pane;
+
+    /// <summary>True while the pane shows its no-data placeholder instead of a graph.</summary>
+    public bool ShowsPlaceholder => _placeholder.IsVisible;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -96,7 +111,25 @@ public sealed class ConstellationPaneView : Grid
     private void Refresh()
     {
         _list.ItemsSource = AccessibleRows();
+        _placeholder.IsVisible = !_pane.HasData;
         _canvas.InvalidateVisual();
+    }
+
+    /// <summary>Asks the pane for the nodes in the box the camera currently shows. Only cancellation is swallowed.</summary>
+    private async void RequestVisibleTiles()
+    {
+        if (Bounds.Width < 1 || Bounds.Height < 1)
+        {
+            return;
+        }
+
+        try
+        {
+            await _pane.SetViewportAsync(_pane.VisibleBox((int)Bounds.Width, (int)Bounds.Height));
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private List<string> AccessibleRows() => _pane.AccessibleList.Items
@@ -128,6 +161,19 @@ public sealed class ConstellationPaneView : Grid
             int count = pane.Nodes.Count;
             int width = (int)Math.Max(1, Bounds.Width);
             int height = (int)Math.Max(1, Bounds.Height);
+
+            // Tile nodes come from the viewport request and are drawn as they are; they skip the layout interpolator.
+            if (pane.TileNodes.Count > 0)
+            {
+                foreach (var node in pane.TileNodes)
+                {
+                    var (tx, ty) = pane.Camera.WorldToScreen(node.X, node.Y, width, height);
+                    context.DrawEllipse(_nodeBrush, null, new Point(tx, ty), 2.5, 2.5);
+                }
+
+                return;
+            }
+
             if (count == 0)
             {
                 return;
@@ -203,11 +249,17 @@ public sealed class ConstellationPaneView : Grid
             base.OnPointerReleased(e);
             e.Pointer.Capture(null);
             bool click = _owner._pressAt is not null && !_owner._dragging;
+            bool dragged = _owner._dragging;
             var release = e.GetPosition(this);
             _owner._pressAt = null;
             if (click)
             {
                 FocusAt(release);
+            }
+
+            if (dragged)
+            {
+                _owner.RequestVisibleTiles();
             }
         }
 
@@ -218,6 +270,7 @@ public sealed class ConstellationPaneView : Grid
             _owner._pane.Camera.ZoomAt((float)point.X, (float)point.Y, (int)Bounds.Width, (int)Bounds.Height,
                 e.Delta.Y > 0 ? 1.1f : 1f / 1.1f);
             InvalidateVisual();
+            _owner.RequestVisibleTiles();
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
