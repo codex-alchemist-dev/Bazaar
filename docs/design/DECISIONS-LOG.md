@@ -211,3 +211,22 @@ Defaults taken by WP-R4 (PR #339, squash-merged) for doc 38 open questions. Two 
 | Migration namespace | Component id `ryusei-schedule` maps to namespace `ryusei_schedule`, while the SQL folder is `ryusei`. | Owner may rename either. |
 
 **Open for owner:** none from WP-R4. The owner may still change any default above.
+
+## Round 20 (2026-11-08): RyuseiFuda WP-R6 defaults
+
+Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridge in doc 38. The owner may change any of them.
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Watcher delivery | Event-driven, not polled. `pollSeconds` is stored but unused, because no Vault or PR event source exists to poll. | Yes, once a poll source exists. |
+| Watcher debounce | A match on an idle watcher sets `next_fire_at = now + debounceSeconds`. A match on an armed watcher keeps the pending deadline, so a burst fires once. After a fire the watcher returns to idle. | Yes. |
+| Refused fires | A refused fire consumes the pending match (WP-R5 behaviour). A match during a cooldown refusal is dropped. | Yes. |
+| Event triggers | Fire once on first match, wake wakeable targets, then move to `fired`. No wakeable target gives `skipped_resting`. An expired `expiresAt` expires the trigger with no fire row. | Yes. |
+| Outcome strings | Reused from WP-R5 (`woke`, `refused_cap`, `refused_cooldown`, `skipped_resting`, `error`). No new outcomes. | Yes. |
+| GC scope | A GC event matches only predicates that name a GC id, since `gc` has no project column. Task events are scoped to their project. | Yes. |
+| Watcher creation | A watcher is created with `next_fire_at` NULL, not `now`, so an idle watcher does not fire on creation. This changes the WP-R5 contract. | Yes. |
+| Mapped events | Kanban: `task.transitioned`, `task.due_passed`, `task.blocked`, `task.unblocked`. GC: `gc.message` (author set for agent authors only) and `council.decision_recorded`. | Yes. |
+| Vault and PR events | Not wired. No NOTIFY channel exists for Vault writes, and PR events are mapped in memory only. Triggers on these kinds can be created but will not fire. | Needs a source (follow-up). |
+| Idle watcher expiry | Expires at the next match or tick, not at `expiresAt`. | Yes. |
+
+**Known limits (follow-ups, not decisions):** a GC cursor starts at the first hinted head, so events committed before process start are not replayed; a kanban event lost while its LISTEN connection is down is not replayed; the candidate query has no partial index for active event and watcher rows (add with migration 0002 once volume is known); a second LISTEN connection for kanban runs beside the GC listener, which doc 04 does not describe.
