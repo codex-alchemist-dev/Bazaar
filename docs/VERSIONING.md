@@ -1,6 +1,6 @@
 # Versioning and release channels
 
-Status: DECIDED by the owner (2026-10-25) where marked; codenames v2, v3 and v5 are owner-accepted; v4 is Wormwood (owner-accepted).
+Status: DECIDED by the owner (2026-10-25) where marked; codenames v2, v3 and v5 are owner-accepted; v4 is Weltseele (owner pick, 2026-11-08, replacing Wormwood).
 Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.md` and `common/version.py`). This scheme differs from RESIBO's in three places: SemVer instead of per-PR counters, star-and-alchemy codenames instead of minerals, and immutable release tags.
 
 ## 1. Version numbers [DECIDED]
@@ -48,7 +48,7 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 | v1.0.0 | **Zuhal** (owner-picked, 2026-10-25) | Arabic name of Saturn, a wandering star; alchemists tied Saturn to lead, the base metal the Great Work starts from. |
 | v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
 | v3.0.0 | **Xerion** (owner-accepted, 2026-10-25) | The dry powder of the stone, the root of "elixir". X is thin, like RESIBO's X. |
-| **Wormwood** (owner-accepted, 2026-10-25) | A bitter medicinal herb in old pharmacopoeias, and the star Wormwood, which falls in Revelation 8:10-11 and makes the waters bitter. The alchemy link is the weaker of the two halves. |
+| v4.0.0 | **Weltseele** (owner pick, 2026-11-08; replaces Wormwood) | Anima mundi, the world soul: the animating principle of the cosmos. Plato's Timaeus gave it to the heavens, and Renaissance writers on the world soul, Ficino among them, tied it to the spirit that binds matter and sky, which is the alchemical side. |
 | v5.0.0 | **Venus** (owner-accepted, 2026-10-25) | A planet, and the alchemical name for copper. |
 
 Codename art and banners (About screen, credits, server status page) are kept for every codename forever. An LTSC install on an old major must still show its own name (RESIBO's retention rule).
