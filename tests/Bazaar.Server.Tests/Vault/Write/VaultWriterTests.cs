@@ -1,6 +1,6 @@
+using Bazaar.Server.Tests.Vault.Git;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Write;
-using Bazaar.Server.Tests.Vault.Git;
 using LibGit2Sharp;
 
 namespace Bazaar.Server.Tests.Vault.Write;
