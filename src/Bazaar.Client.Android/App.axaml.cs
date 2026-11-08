@@ -25,3 +25,5 @@ public sealed class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 }
+
+// CodeQL analysis trigger (no functional change).
