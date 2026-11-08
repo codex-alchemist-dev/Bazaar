@@ -7,7 +7,7 @@ Depends on: 02-wire-protocol-and-sync.md, 03-server-host-and-providers.md, 04-po
 Defines the Linux desktop client (`Bazaar.Client.Linux`), built last on the shared Avalonia UI, and how every Bazaar component is packaged, versioned, updated and signed. Server installs (Windows Service and systemd) are included because they share the upgrade and rollback rules.
 
 ## Decided inputs
-- .NET 10 and one C# codebase; Avalonia clients on `Bazaar.Client.Core` (CLAUDE.md). Avalonia stays conditional on the Monaco hosting gate (round 5, C26).
+- .NET 11 and one C# codebase; Avalonia clients on `Bazaar.Client.Core` (CLAUDE.md). Avalonia stays conditional on the Monaco hosting gate (round 5, C26).
 - Server is one OS-agnostic build, run as a Windows Service or systemd unit; Windows is the first supported host (CLAUDE.md).
 - The server does all compute; clients render. Ratified client-side exceptions: NPU inference, the human's local terminal, the Roblox Studio bridge relay, and syncing the viewed branch to a local folder. Layout stays server-side (round 4, C17).
 - Terminals: `Bazaar.Server` and `Bazaar.Linux` are separate. Agent terminals run in VMs and are streamed by the server. The client's own terminal is a local, built-in shell (round 4, C31; doc 28 owns the Windows role).

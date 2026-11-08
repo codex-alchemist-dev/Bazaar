@@ -80,12 +80,13 @@ public class VaultComponentTests
     }
 
     [Fact]
-    public void Vault_component_adds_no_services_yet()
+    public void Vault_component_registers_the_read_side_search_services()
     {
         var services = new ServiceCollection();
 
         new VaultComponent().AddServices(services, Config());
 
-        Assert.Empty(services);
+        Assert.Contains(services, d => d.ServiceType == typeof(Bazaar.Server.Vault.Search.VaultSearchService));
+        Assert.Contains(services, d => d.ServiceType == typeof(Bazaar.Server.Vault.Search.VaultSearchOptions));
     }
 }

@@ -1,0 +1,21 @@
+Source: bazaar-server
+Section: net
+Priority: optional
+Maintainer: The Bazaar Authors <packaging@bazaar.invalid>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/codex-alchemist-dev/Bazaar
+
+Package: bazaar-server
+Architecture: amd64
+Depends: ${misc:Depends}, adduser, systemd
+Description: Bazaar company server host
+ Bazaar.Server.Host runs the Bazaar company server as a systemd service.
+ The package bundles a self-contained .NET build, so no .NET runtime is
+ needed on the host. PostgreSQL 18 with pgvector is not installed by this
+ package; the operator provides it and points the server at it.
+ .
+ The service is enabled but not started on install. Set up the config and
+ the database credential, run the migrate command, then start the service.
+ The status listener binds to loopback only.

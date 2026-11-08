@@ -22,7 +22,7 @@ Defines the environment each agent works in: one Windows VM and one Linux VM per
 **Components**
 - **VM provider** (`IVmBackend`): Hyper-V on Windows (first); KVM on Linux (later). The only backend interface, called only by the server, never from a guest. [PROPOSED] internals.
 - **Environment service**: owns the agent's VM pair, lifecycle, schedules and resource accounting. Serialises lifecycle operations per VM.
-- **Guest agent**: one self-contained .NET 10 program, baked into both guest images. Runs commands, moves files and hosts terminal sessions. [PROPOSED]
+- **Guest agent**: one self-contained .NET 11 program, baked into both guest images. Runs commands, moves files and hosts terminal sessions. [PROPOSED]
 - **Guest channel** (`IGuestChannel`): the only guest wire. `IWorkspace` (doc 17) is a facade over it.
 - **Scoped mounts**, host-side and bound to one agent: a Soul folder (metadata and session-cookie profile, detached on hard taint) and one workspace share for coding worktrees (doc 17). The workspace share is the explicit exception to "one scoped folder" (C02, round 2); it is not the Soul folder. [PROPOSED] a separate share and guest OS account per agent; doc 15 designs their isolation and the canary credentials that C02 makes required.
 - **Profiles**: presets of image, egress and mounts over the same two images. The browser profiles are the first use. [PROPOSED] restore and sandbox roles are also profiles on the same two images, not third VMs (C22 default).
