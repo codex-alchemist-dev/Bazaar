@@ -61,6 +61,14 @@ public sealed partial class VaultWriter : IDisposable
         using var laneLease = await AcquireAsync(_vaultLane, ct);
 
         var oldCommit = await _git.HeadAsync(_repoPath, ct);
+
+        // Frozen decisions are checked on the branch's own changes, before anything touches the main checkout.
+        var frozen = await DecisionImmutability.FindViolationsAsync(_git, _repoPath, request.BaseCommit, request.Branch, ct);
+        if (frozen.Count > 0)
+        {
+            return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, frozen, null);
+        }
+
         var message = BuildMergeMessage(request);
 
         MergeResult merge;
@@ -246,6 +254,12 @@ public enum VaultEditOutcome
 
     /// <summary>Overlapping edits. Nothing was committed; the branch is kept for the agent to rebase.</summary>
     Conflicted,
+
+    /// <summary>
+    /// The branch changes a frozen decision record (one whose status is no longer <c>proposed</c>). Nothing was merged;
+    /// <see cref="VaultEditResult.ConflictPaths"/> lists the refused paths.
+    /// </summary>
+    Refused,
 }
 
 /// <summary>An agent's request to land its edit branch.</summary>
