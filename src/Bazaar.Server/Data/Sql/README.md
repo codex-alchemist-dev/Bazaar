@@ -39,6 +39,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0021` | EMAIL1 | this PR | Namespace `mail` (not `common`, which is frozen): mail core (doc 22 tables): `mail_domain`, `mail_mailbox`, `mail_message`, `mail_outbound`, `mail_blob`; personal bodies encrypted per person |
 | `engines/0001` | WP2 | this PR | Engine registry, `engines` namespace (doc 20): `engine_projects`, `engine_grants` (default deny for write and exec; approval link is a TODO(component) to doc 15) |
 | `kanban/0001` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
+| `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
