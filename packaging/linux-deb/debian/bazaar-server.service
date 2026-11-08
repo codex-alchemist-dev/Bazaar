@@ -1,0 +1,32 @@
+[Unit]
+Description=Bazaar company server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=bazaar
+Group=bazaar
+WorkingDirectory=/var/lib/bazaar
+ExecStart=/usr/bin/bazaar-server
+# The database connection string is encrypted with systemd-creds and is
+# decrypted into the service's credentials directory at start. Bazaar reads it
+# through the file: reference set in /etc/bazaar/appsettings.json.
+LoadCredentialEncrypted=database-connection:/etc/bazaar/credentials/database-connection.cred
+Restart=on-failure
+RestartSec=60
+# Host shutdown budget (host.shutdown_timeout_seconds, default 20) plus margin.
+TimeoutStopSec=45
+KillSignal=SIGTERM
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/var/lib/bazaar
+
+[Install]
+WantedBy=multi-user.target
