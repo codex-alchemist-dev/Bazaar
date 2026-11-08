@@ -9,6 +9,7 @@ namespace Bazaar.Client.Core.Panes;
 public sealed class PaneRegistry
 {
     private readonly Dictionary<string, Func<PaneDescriptor, IPaneViewModel>> _factories = new(StringComparer.Ordinal);
+    private readonly List<string> _kinds = [];
     private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
     private readonly Action<string>? _report;
 
@@ -28,7 +29,12 @@ public sealed class PaneRegistry
         {
             throw new InvalidOperationException($"Pane kind '{kind}' is already registered.");
         }
+
+        _kinds.Add(kind);
     }
+
+    /// <summary>Registered kinds in registration order. The phone pager lists panes in this order (doc 29).</summary>
+    public IReadOnlyList<string> Kinds => _kinds;
 
     /// <summary>True when a factory is registered for the kind.</summary>
     public bool Contains(string kind) => _factories.ContainsKey(kind);

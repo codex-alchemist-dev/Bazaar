@@ -23,4 +23,7 @@ public static class PaneKinds
 
     /// <summary>Constellation 2D view of the Vault's knowledge graph (doc 19).</summary>
     public const string Constellation = "bazaar.constellation";
+
+    /// <summary>Vault search pane: search the Vault over GET /vault/search and open a result (doc 18).</summary>
+    public const string VaultSearch = "bazaar.vault-search";
 }
