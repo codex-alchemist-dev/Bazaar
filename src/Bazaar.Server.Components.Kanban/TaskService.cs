@@ -26,12 +26,14 @@ public sealed class TaskService
     private readonly TaskEventRepository _events;
     private readonly TaskGateRepository _gates;
     private readonly IGcLogWriter? _gcLog;
+    private readonly IGcExistence _gcExistence;
 
     /// <summary>
     /// Creates the service. <paramref name="gcLog"/> carries the reason lines (doc 12, WP6): without it, transitions and
-    /// pins still work and post nothing to a GC.
+    /// pins still work and post nothing to a GC. <paramref name="gcExistence"/> is how GC links are checked; null uses the
+    /// <c>gc</c> table.
     /// </summary>
-    public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null, IGcLogWriter? gcLog = null)
+    public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null, IGcLogWriter? gcLog = null, IGcExistence? gcExistence = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
@@ -42,6 +44,7 @@ public sealed class TaskService
         _links = new TaskLinkRepository(dataSource);
         _events = new TaskEventRepository(dataSource);
         _gates = new TaskGateRepository(dataSource);
+        _gcExistence = gcExistence ?? new SqlGcExistence(dataSource);
     }
 
     /// <summary>
@@ -402,6 +405,43 @@ public sealed class TaskService
         await PostReasonLinesAsync([new ReasonLine(taskId, gcId, seq, title, null, KanbanText.ToSql(TaskState.Backlog), "pinned from message")], actor, ct)
             .ConfigureAwait(false);
         return CreateFromMessageResult.Created(taskId);
+    }
+
+    /// <summary>
+    /// Adds a link to a task (doc 12, Links). The reference is checked for shape first, then a GC link is checked for an
+    /// existing GC, then the task row is locked and the link inserted. A refused reference writes nothing.
+    /// <para>
+    /// No <c>task.link_added</c> event is written: the <c>task_events</c> CHECK constraint (migration 0001_kanban_gates) does
+    /// not allow that kind, and adding it needs a migration. Until then the <paramref name="actor"/> is not recorded.
+    /// </para>
+    /// </summary>
+    public async Task<AddLinkResult> AddLinkAsync(Guid taskId, TaskLinkKind kind, string reference, TaskActor actor, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        _ = actor;
+        var problem = TaskLinkReferences.Check(kind, reference);
+        if (problem is not null)
+        {
+            return AddLinkResult.Refuse(new LinkRefusal(kind, LinkRefusalReason.Malformed, problem));
+        }
+
+        if (kind == TaskLinkKind.Gc && !await _gcExistence.ExistsAsync(Guid.ParseExact(reference, "D"), ct).ConfigureAwait(false))
+        {
+            return AddLinkResult.Refuse(new LinkRefusal(kind, LinkRefusalReason.UnknownGc, "No GC has this id."));
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        // Locking the task row serialises the link with transitions that read the links (the In progress to Review rule).
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return new AddLinkResult(LinkStatus.UnknownTask, null);
+        }
+
+        var inserted = await _links.InsertAsync(tx, new TaskLink(taskId, kind, reference), ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new AddLinkResult(inserted ? LinkStatus.Added : LinkStatus.AlreadyPresent, null);
     }
 
     /// <summary>
