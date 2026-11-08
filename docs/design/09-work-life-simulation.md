@@ -16,7 +16,7 @@ Paces agents with shifts, breaks, vacations and curfew instead of rate limits. W
 - Each agent's persistent memory is stored in the Vault; each agent owns private memory; no shared brain (Bazaar.md §5; DECISIONS-LOG round 11, C38).
 - Claude lane uses both the owner's Anthropic API key and FreeLLMAPI's free tokens, switched by availability. Subscription (Pro/Max) logins stay off every route (DECISIONS-LOG round 4, C14).
 - Bazaar.Server's own gateway enforces per-agent model whitelists; providers are interchangeable upstreams (Bazaar.Server.md §3).
-- Postgres NOTIFY carries GC fan-out; Valkey (Linux) or Garnet (Windows) carries cache and presence, with Garnet gated by spike S2 (DECISIONS-LOG round 1, C07). Scheduled work such as shift changes runs on the server queue (Bazaar.Server.md §3).
+- Postgres NOTIFY carries GC fan-out; Valkey (Linux) or Garnet (Windows) carries cache and presence, with Garnet gated by spike S2 (DECISIONS-LOG round 1, C07). Scheduled work such as shift changes runs on the server queue (Bazaar.Server.md §3). Agent self-wakes, timers and watchers are RyuseiFuda (doc 38), which reads this schedule.
 - Loop guards are a Wave 2 item (implementation-plan.md). A loop-guard trip sends the agents involved to the Psych Ward on any trip (DECISIONS-LOG round 9, C34; doc 26).
 - Interrupts use doc 24's per-agent stack (depth 2). An owner interrupt bypasses vacation only when tagged `emergency` (DECISIONS-LOG round 9, C35).
 - Presence is eight labels plus overlays (DECISIONS-LOG round 11, C43). Its mapping and projection belong to doc 23.

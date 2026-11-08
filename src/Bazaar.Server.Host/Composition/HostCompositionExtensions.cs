@@ -1,3 +1,4 @@
+using Bazaar.Components.ManagedPostgres;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Recovery;
 using Bazaar.Server.Gateway.Usage;
@@ -26,6 +27,8 @@ public static class HostCompositionExtensions
         services.AddOptions<BazaarReadinessOptions>().Bind(configuration.GetSection(BazaarReadinessOptions.SectionName));
         services.TryAddSingleton<HostState>();
         services.TryAddSingleton<HostExitCode>();
+        // Managed PostgreSQL (packaging.md P5). External mode is the default and leaves the configured secret reference in charge.
+        services.AddBazaarManagedPostgres(configuration);
         services.TryAddSingleton<DatabaseConnection>();
         // Module repositories take the shared data source; resolving it blocks once on the bootstrap secret read.
         services.TryAddSingleton(sp => sp.GetRequiredService<DatabaseConnection>().GetAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
