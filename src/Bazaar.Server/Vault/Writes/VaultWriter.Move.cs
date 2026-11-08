@@ -92,6 +92,7 @@ public sealed partial class VaultWriter
         message.Append("\n\n");
         AppendTrailers(message, request.AgentId, request.GcId, request.TaskId, oldCommit);
         var newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+        await NotifyAsync(oldCommit, newCommit, ct);
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], null);
     }
