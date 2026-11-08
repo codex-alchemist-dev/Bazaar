@@ -282,7 +282,7 @@ Each package has its own tests. Packages with no dependency can run in parallel 
 Waves: R1, R2, R12 (view design only) and R13 can start first. WP-R3 comes next, then R4 and R5 together with the guards. R6 to R11 follow.
 
 ## Conflicts
-1. **Doc 06 inbox key.** It assumes a GC sequence on every wake. Proposed fix in this doc (source key). Owner of doc 06 decides the key shape (one answer).
+1. **Doc 06 inbox key. Resolved with a safe default (coordinator, 2026-11-08).** Doc 06's unique key assumes a GC sequence on every wake. The wake source can now be either a GC line or a RyuseiFuda ticket (a `ryusei_fire` row). The inbox key becomes `(agent_id, source_key, kind)`, where `source_key` is the GC line's `gc_seq` or the ticket's `fire_id`. A GC-line wake keeps the same dedupe as before. Doc 06 is updated to match in this PR. Owner may still choose a different key shape; if so, change this line and WP-R5 only.
 2. **Triggers and the board.** Triggers could be read as a second way to move cards. They are not. Only `kanban.transition` moves cards, through the task service (doc 12).
 3. **Doc 12 "talk-first" rule.** Auto-Ready and reopen still write a GC line. Triggers follow the same rule: every fire that speaks to others writes a line.
 4. **Doc 09 curfew versus timers.** A timer at 02:00 for an agent in curfew waits for shift start. The owner may expect it to run at 02:00. Default follows doc 09; `ryusei.bypass_curfew` exists for the owner to override.
