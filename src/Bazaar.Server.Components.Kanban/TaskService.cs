@@ -1,4 +1,7 @@
 using System.Text.Json.Nodes;
+using Bazaar.Contracts.Gc;
+using Bazaar.Server.Gc;
+using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Kanban.Data;
 using Npgsql;
 
@@ -22,17 +25,26 @@ public sealed class TaskService
     private readonly TaskLinkRepository _links;
     private readonly TaskEventRepository _events;
     private readonly TaskGateRepository _gates;
+    private readonly IGcLogWriter? _gcLog;
+    private readonly IGcExistence _gcExistence;
 
-    public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null)
+    /// <summary>
+    /// Creates the service. <paramref name="gcLog"/> carries the reason lines (doc 12, WP6): without it, transitions and
+    /// pins still work and post nothing to a GC. <paramref name="gcExistence"/> is how GC links are checked; null uses the
+    /// <c>gc</c> table.
+    /// </summary>
+    public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null, IGcLogWriter? gcLog = null, IGcExistence? gcExistence = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
+        _gcLog = gcLog;
         _options = options ?? new TaskServiceOptions();
         _tasks = new TaskRepository(dataSource);
         _edges = new TaskEdgeRepository(dataSource);
         _links = new TaskLinkRepository(dataSource);
         _events = new TaskEventRepository(dataSource);
         _gates = new TaskGateRepository(dataSource);
+        _gcExistence = gcExistence ?? new SqlGcExistence(dataSource);
     }
 
     /// <summary>
@@ -136,8 +148,12 @@ public sealed class TaskService
             return TransitionResult.Conflict(task.Version);
         }
 
-        await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Transitioned, actor.ToText(),
+        var transitionSeq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Transitioned, actor.ToText(),
             Payload(("from", KanbanText.ToSql(task.State)), ("to", KanbanText.ToSql(to)), ("reason", reason))), ct).ConfigureAwait(false);
+        var reasonLines = new List<ReasonLine>
+        {
+            new(taskId, task.OriginGcId, transitionSeq, task.Title, KanbanText.ToSql(task.State), KanbanText.ToSql(to), reason),
+        };
 
         var dependents = graphBefore.Where(e => e.BlockerId == taskId).Select(e => e.BlockedId);
         await EmitBlockedChangesAsync(tx, dependents, graphBefore, graphBefore, statesBefore, statesAfter, actor, ct).ConfigureAwait(false);
@@ -153,12 +169,14 @@ public sealed class TaskService
                 }
 
                 await _tasks.UpdateAsync(tx, dependent with { State = TaskState.Ready }, dependent.Version, ct).ConfigureAwait(false);
-                await _events.AppendAsync(tx, new NewTaskEvent(dependentId, TaskEventKinds.Transitioned, TaskActor.SystemActor.ToText(),
+                var readySeq = await _events.AppendAsync(tx, new NewTaskEvent(dependentId, TaskEventKinds.Transitioned, TaskActor.SystemActor.ToText(),
                     Payload(("from", "backlog"), ("to", "ready"), ("reason", "auto-ready: blockers done"))), ct).ConfigureAwait(false);
+                reasonLines.Add(new ReasonLine(dependentId, dependent.OriginGcId, readySeq, dependent.Title, "backlog", "ready", "auto-ready: blockers done"));
             }
         }
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
+        await PostReasonLinesAsync(reasonLines, actor, ct).ConfigureAwait(false);
         return TransitionResult.Applied(task.Version + 1);
     }
 
@@ -354,6 +372,79 @@ public sealed class TaskService
     }
 
     /// <summary>
+    /// Creates a Backlog card from a message (doc 12, WP6, "pin"). The card's origin GC is the message's GC, and the message
+    /// is kept twice: as <c>origin_message_id</c> (the database checks it against the GC) and as a <c>gc</c> task link.
+    /// <paramref name="gcId"/> is the GC the pin is made from; a message in any other GC, or an unknown message, is refused
+    /// and creates nothing.
+    /// </summary>
+    public async Task<CreateFromMessageResult> CreateFromMessageAsync(
+        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        var messageGcs = await _tasks.FindMessageGcIdsAsync(messageId, ct).ConfigureAwait(false);
+        if (messageGcs.Count == 0)
+        {
+            return CreateFromMessageResult.Refused(CreateFromMessageStatus.UnknownMessage);
+        }
+
+        if (!messageGcs.Contains(gcId))
+        {
+            return CreateFromMessageResult.Refused(CreateFromMessageStatus.OtherGc);
+        }
+
+        var taskId = Guid.CreateVersion7();
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await _tasks.InsertAsync(tx, new NewTask(taskId, projectId, title, TaskState.Backlog, null, TaskGate.None, gcId, messageId, null), ct)
+            .ConfigureAwait(false);
+        await _links.InsertAsync(tx, new TaskLink(taskId, TaskLinkKind.Gc, messageId.ToString("D")), ct).ConfigureAwait(false);
+        var seq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Created, actor.ToText(),
+            Payload(("to", KanbanText.ToSql(TaskState.Backlog)), ("title", title), ("message_id", messageId.ToString("D")))), ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+
+        await PostReasonLinesAsync([new ReasonLine(taskId, gcId, seq, title, null, KanbanText.ToSql(TaskState.Backlog), "pinned from message")], actor, ct)
+            .ConfigureAwait(false);
+        return CreateFromMessageResult.Created(taskId);
+    }
+
+    /// <summary>
+    /// Adds a link to a task (doc 12, Links). The reference is checked for shape first, then a GC link is checked for an
+    /// existing GC, then the task row is locked and the link inserted. A refused reference writes nothing.
+    /// <para>
+    /// No <c>task.link_added</c> event is written: the <c>task_events</c> CHECK constraint (migration 0001_kanban_gates) does
+    /// not allow that kind, and adding it needs a migration. Until then the <paramref name="actor"/> is not recorded.
+    /// </para>
+    /// </summary>
+    public async Task<AddLinkResult> AddLinkAsync(Guid taskId, TaskLinkKind kind, string reference, TaskActor actor, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        _ = actor;
+        var problem = TaskLinkReferences.Check(kind, reference);
+        if (problem is not null)
+        {
+            return AddLinkResult.Refuse(new LinkRefusal(kind, LinkRefusalReason.Malformed, problem));
+        }
+
+        if (kind == TaskLinkKind.Gc && !await _gcExistence.ExistsAsync(Guid.ParseExact(reference, "D"), ct).ConfigureAwait(false))
+        {
+            return AddLinkResult.Refuse(new LinkRefusal(kind, LinkRefusalReason.UnknownGc, "No GC has this id."));
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        // Locking the task row serialises the link with transitions that read the links (the In progress to Review rule).
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return new AddLinkResult(LinkStatus.UnknownTask, null);
+        }
+
+        var inserted = await _links.InsertAsync(tx, new TaskLink(taskId, kind, reference), ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new AddLinkResult(inserted ? LinkStatus.Added : LinkStatus.AlreadyPresent, null);
+    }
+
+    /// <summary>
     /// Read-only start check for the dispatch path (doc 12, Interception). The coding harness calls it before it creates a
     /// worktree. It takes no lock and writes nothing; <see cref="TransitionAsync"/> repeats the check under lock.
     /// </summary>
@@ -425,6 +516,54 @@ public sealed class TaskService
                 "{}"), ct).ConfigureAwait(false);
         }
     }
+
+    /// <summary>
+    /// Posts one reason line per committed task event into the task's GC (doc 12, WP6). The line is a <c>system</c> event
+    /// whose client message id is <c>kanban:&lt;taskId&gt;:&lt;eventSeq&gt;</c>: the event seq is unique and stable, so a repeat
+    /// of the same line is answered with the original and never duplicated.
+    /// <para>
+    /// The GC log has its own transaction, so the line cannot join the task's transaction. It is posted after commit: the
+    /// board change is never rolled back by a GC failure, and a failed post surfaces as an exception to the caller, who
+    /// can retry the same change knowing the board already has it. An archived GC takes no new events (doc 01), so its
+    /// lines are skipped and the change stands.
+    /// </para>
+    /// </summary>
+    private async Task PostReasonLinesAsync(IReadOnlyList<ReasonLine> lines, TaskActor actor, CancellationToken ct)
+    {
+        if (_gcLog is null)
+        {
+            return;
+        }
+
+        foreach (var line in lines)
+        {
+            var request = new AppendRequest(line.GcId, GcEventKinds.System, AuthorKind.System, TaskActor.SystemActor.Id,
+                SourceTrust.System, $"kanban:{line.TaskId:D}:{line.EventSeq}")
+            {
+                PayloadJson = Payload(
+                    ("kind", "kanban.reason"),
+                    ("task_id", line.TaskId.ToString("D")),
+                    ("task_event_seq", line.EventSeq.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    ("title", line.Title),
+                    ("from", line.From),
+                    ("to", line.To),
+                    ("reason", line.Reason),
+                    ("actor", actor.ToText())),
+            };
+            try
+            {
+                await _gcLog.AppendAsync(request, ct).ConfigureAwait(false);
+            }
+            catch (GcArchivedException)
+            {
+                // Archived GCs take no new events; the board change stands without its line.
+            }
+        }
+    }
+
+    /// <summary>A committed task event that gets a GC line. <see cref="From"/> is null on creation.</summary>
+    private sealed record ReasonLine(
+        Guid TaskId, Guid GcId, long EventSeq, string Title, string? From, string To, string? Reason);
 
     private static string Payload(params (string Key, string? Value)[] fields)
     {

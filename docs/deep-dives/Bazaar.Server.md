@@ -45,7 +45,7 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 
 ## 4. Backend language — decided: .NET
 
-- **[DECIDED 2026-10-24]** .NET (C#) for the server and every client. Target **.NET 10 LTS** (supported until November 2028; .NET 8 LTS and .NET 9 STS end November 2026) **[RESEARCHED, primary source]**. One language across server and clients, one shared contracts project, LibGit2Sharp for Git, Npgsql for PostgreSQL, Hyper-V management through WMI/PowerShell, Avalonia for UI.
+- **[DECIDED 2026-10-24]** .NET (C#) for the server and every client. Target **.NET 11** (owner, 2026-10-25, superseding the .NET 10 LTS target; .NET 10 LTS is supported until November 2028; .NET 8 LTS and .NET 9 STS end November 2026) **[RESEARCHED, primary source]**. One language across server and clients, one shared contracts project, LibGit2Sharp for Git, Npgsql for PostgreSQL, Hyper-V management through WMI/PowerShell, Avalonia for UI.
 - **Hosting [RESEARCHED]:** Worker Service with `AddWindowsService()` on Windows (systemd on Linux — standard .NET pattern, not re-verified). Keep mutable data under `%ProgramData%`. A hard kill can skip `StopAsync`, so in-flight agent turns must persist their own state. Crash-restart recovery settings still need verification.
 - **Transport [RESEARCHED]:** raw ASP.NET Core WebSockets; SignalR is the fallback; gRPC is not recommended for v1.
 - **Admin console:** none inside the service process. Use a CLI or the Avalonia client over the same API. Terminal.Gui v2 is viable as a *separate* TUI client attached over the WebSocket API. Whether to build a TUI client at all is an **[OPEN]** question for the owner.
