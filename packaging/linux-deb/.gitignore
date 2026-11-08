@@ -1,0 +1,6 @@
+debian/bazaar-server/
+debian/publish/
+debian/.debhelper/
+debian/files
+debian/*.substvars
+debian/*.debhelper.log

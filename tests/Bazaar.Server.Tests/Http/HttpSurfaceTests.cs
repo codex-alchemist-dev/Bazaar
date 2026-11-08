@@ -147,6 +147,7 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
     [InlineData("HEAD", "/blobs/uploads/00000000000000000000000000000000")]
     [InlineData("GET", "/blobs/0000000000000000000000000000000000000000000000000000000000000000")]
     [InlineData("GET", "/search?gc=00000000-0000-7000-8000-00000000c001&q=x")]
+    [InlineData("GET", "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=x")]
     public async Task Unauthenticated_requests_are_rejected(string method, string url)
     {
         var (app, client) = await StartAsync();
@@ -156,6 +157,32 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
             Assert.Equal(HttpStatusCode.Unauthorized, none.StatusCode);
             var bad = await client.SendAsync(Req(new HttpMethod(method), url, "wrong"), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Unauthorized, bad.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_search_rejects_bad_parameters_before_searching()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var noVault = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?q=auth"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, noVault.StatusCode);
+            var emptyQuery = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q="), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, emptyQuery.StatusCode);
+            var longQuery = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=" + new string('x', 201)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, longQuery.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_search_is_unavailable_when_the_search_component_is_not_registered()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=auth"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         }
     }
 
