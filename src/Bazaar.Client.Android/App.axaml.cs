@@ -11,7 +11,7 @@ public sealed class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // TODO(android-shell): the activity lifetime re-creates the view on configuration change; posture is read from WindowManager (doc 29).
+        // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
             activity.MainViewFactory = () => new PhoneShell();

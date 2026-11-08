@@ -57,6 +57,17 @@ public class PaneRegistryTests
     }
 
     [Fact]
+    public void Kinds_list_registered_kinds_in_registration_order()
+    {
+        var registry = new PaneRegistry();
+        registry.Register("test.b", d => new GenericPaneViewModel(d));
+        registry.Register("test.a", d => new GenericPaneViewModel(d));
+        registry.Register("test.c", d => new GenericPaneViewModel(d));
+
+        Assert.Equal(["test.b", "test.a", "test.c"], registry.Kinds);
+    }
+
+    [Fact]
     public void First_party_registry_covers_kanban_and_dashboard()
     {
         var registry = FirstPartyPanes.CreateRegistry();
