@@ -91,10 +91,11 @@ public sealed class GcCreateService
             }
         }
 
+        // Members are written only when this call created the GC, so a plain insert is right. gc_member's key is
+        // (gc_id, principal_id, joined_seq) and the table is append-only, so an ON CONFLICT on a narrower key would not match.
         const string insertMember = """
             INSERT INTO gc_member (gc_id, principal_id, role, joined_seq)
             VALUES (@gc_id, @principal_id, 'member', 0)
-            ON CONFLICT (gc_id, principal_id) DO NOTHING
             """;
         foreach (var member in request.Members)
         {
