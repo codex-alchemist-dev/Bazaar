@@ -45,6 +45,8 @@ The Constellation is the visual view of the knowledge graph that the Vault and G
 |---|---|---|
 | Vault document (`type`: index, plan, deep-dive, research, constitution, decision, archive, memory, summary, twin, charter, draft; the list matches 18) | Vault document ID (ULID; survives renames) | `vault_docs` (18) |
 | draft | Vault document with `type = draft` (18, [PROPOSED]) | Vault |
+| objective | Vault document with front matter `kind: objective` [PROPOSED, doc 38] | Vault |
+| phase | Vault document with front matter `kind: phase` [PROPOSED, doc 38] | Vault |
 | pr | owner/repo#n | PR data from 21 (polled) |
 | task | task ID | Kanban (12) |
 | gc | GC ID | `gc` plus type registry (04, 01); DM nodes members and owner only |
@@ -53,7 +55,9 @@ The Constellation is the visual view of the knowledge graph that the Vault and G
 
 Decisions are Vault documents of `type = decision` (18, C24), not a separate node kind. Memory notes are Vault documents of `type = memory`; the node shows their `tier`.
 
-Edge kinds: `links_to` (wiki-link, from `vault_links`), `backlink` (derived), `decides` (decision record to the node it decides; `decidedIn` GC message reference), `implements` (PR to task), `mentions` (from `gc_mention`), `derived_from`, `supersedes`, `contradicts` (front-matter relations, 08), `parent` (GC nesting, including Thinking GCs), `merges` (git).
+Objectives and phases are Vault documents of `type = plan` with front matter `kind` [PROPOSED, doc 38]: the `vault_docs` type CHECK (0009_vault.sql) has no `objective` or `phase` value.
+
+Edge kinds: `links_to` (wiki-link, from `vault_links`), `backlink` (derived), `decides` (decision record to the node it decides; `decidedIn` GC message reference), `implements` (PR to task), `mentions` (from `gc_mention`), `derived_from`, `supersedes`, `contradicts` (front-matter relations, 08), `parent` (GC nesting, including Thinking GCs), `merges` (git), `depends_on` (objective to objective, from front matter) [PROPOSED, doc 38].
 
 ```csharp
 public sealed record GraphSnapshot(long GraphVersion, IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges);
