@@ -2,8 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
+using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Core.Wire;
 
 namespace Bazaar.Client.Windows;
 
@@ -45,18 +48,55 @@ internal static class Program
                     TaskContinuationOptions.OnlyOnFaulted);
         }
 
+        var chatSettings = ChatSettings(args);
+        GcChatSession? chat = null;
+        using var chatStop = new CancellationTokenSource();
+
+        // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
+        Window CreateMainWindow()
+        {
+            if (chatSettings is null)
+            {
+                return new MainWindow();
+            }
+
+            chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
+            var view = new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action));
+            _ = chat.StartAsync(chatStop.Token).ContinueWith(
+                task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
+                TaskContinuationOptions.OnlyOnFaulted);
+            return new MainWindow(view);
+        }
+
         try
         {
-            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            BuildAvaloniaApp(CreateMainWindow).StartWithClassicDesktopLifetime(args);
         }
         finally
         {
+            chatStop.Cancel();
+            chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             listenerStop.Cancel();
         }
     }
 
-    private static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>().UsePlatformDetect();
+    /// <summary>
+    /// Chat settings from the environment. <c>--dev-gc</c> overrides <c>BAZAAR_GC</c> for this run. Null means no chat is configured.
+    /// </summary>
+    private static ChatConnectionSettings? ChatSettings(IReadOnlyList<string> args)
+    {
+        var devGc = DevChatGcResolver.Resolve(args, cachedId: null);
+        return ChatConnectionSettings.FromEnvironment(name =>
+            name == ChatConnectionSettings.GcVariable && devGc is { } gc
+                ? gc.ToString("D")
+                : Environment.GetEnvironmentVariable(name));
+    }
+
+    private static string CursorPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "cursors.json");
+
+    private static AppBuilder BuildAvaloniaApp(Func<Window> createMainWindow) =>
+        AppBuilder.Configure(() => new App(createMainWindow)).UsePlatformDetect();
 
     private static void ActivateMainWindow()
     {
