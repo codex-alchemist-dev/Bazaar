@@ -8,6 +8,7 @@
     <Project Path="src/Bazaar.Constellation.Rendering/Bazaar.Constellation.Rendering.csproj" />
     <Project Path="src/Bazaar.Constellation.Vulkan/Bazaar.Constellation.Vulkan.csproj" />
     <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
+    <Project Path="src/Bazaar.Server.Components.Backup/Bazaar.Server.Components.Backup.csproj" />
     <Project Path="src/Bazaar.Guest.Agent/Bazaar.Guest.Agent.csproj" />
     <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
@@ -24,7 +25,9 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Linux.Tests/Bazaar.Client.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
     <Project Path="tests/Bazaar.Constellation.Rendering.Tests/Bazaar.Constellation.Rendering.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.Tests/Bazaar.Constellation.Vulkan.Tests.csproj" />

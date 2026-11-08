@@ -21,6 +21,7 @@ public sealed class TaskService
     private readonly TaskEdgeRepository _edges;
     private readonly TaskLinkRepository _links;
     private readonly TaskEventRepository _events;
+    private readonly TaskGateRepository _gates;
 
     public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null)
     {
@@ -31,6 +32,7 @@ public sealed class TaskService
         _edges = new TaskEdgeRepository(dataSource);
         _links = new TaskLinkRepository(dataSource);
         _events = new TaskEventRepository(dataSource);
+        _gates = new TaskGateRepository(dataSource);
     }
 
     /// <summary>
@@ -38,9 +40,20 @@ public sealed class TaskService
     /// for this actor, and no blocker is unfinished when starting work. A refused start is recorded as a
     /// <c>task.guard_refused</c> event and changes nothing else.
     /// </summary>
-    public async Task<TransitionResult> TransitionAsync(
-        Guid taskId, TaskState to, TaskActor actor, string? reason, long expectedVersion, CancellationToken ct = default)
+    public Task<TransitionResult> TransitionAsync(
+        Guid taskId, TaskState to, TaskActor actor, string? reason, long expectedVersion, CancellationToken ct = default) =>
+        TransitionCoreAsync(taskId, to, actor, reason, expectedVersion, prMerged: false, ct);
+
+    /// <summary>The transition path shared by <see cref="TransitionAsync"/> and the PR-merge hook (WP12).</summary>
+    private async Task<TransitionResult> TransitionCoreAsync(
+        Guid taskId, TaskState to, TaskActor actor, string? reason, long expectedVersion, bool prMerged, CancellationToken ct)
     {
+        // Only the PR-merge hook (WP12) may say a PR is merged; a caller's word is not enough.
+        if (prMerged && actor.Kind != TaskActorKind.System)
+        {
+            throw new ArgumentException("A merged-PR move must come from the system actor.", nameof(actor));
+        }
+
         var seen = await _tasks.GetAsync(taskId, ct).ConfigureAwait(false);
         if (seen is null)
         {
@@ -79,6 +92,7 @@ public sealed class TaskService
         }
 
         var links = await _links.ListAsync(taskId, tx, ct).ConfigureAwait(false);
+        var gateOutcome = task.Gate == TaskGate.None ? null : await _gates.LatestAsync(taskId, task.Gate, tx, ct).ConfigureAwait(false);
         var context = new TransitionContext
         {
             IsSystem = actor.Kind == TaskActorKind.System,
@@ -91,11 +105,11 @@ public sealed class TaskService
             MinReviewLinks = _options.ReviewMinLinks,
             ReviewerUngatedDone = _options.ReviewerUngatedDone,
             Gate = task.Gate,
-            // Council gates need a decision record (doc 12, Gates; WP9), which does not exist yet, so only an owner gate can pass.
-            GateSatisfied = task.Gate == TaskGate.Owner && actor.Kind == TaskActorKind.Owner,
+            // The latest recorded decision for the task's gate decides it (doc 12, WP9). No actor can pass a gate by asserting it.
+            GateSatisfied = gateOutcome == TaskGateOutcome.Approved,
             HasPrLink = links.Any(l => l.Kind == TaskLinkKind.Pr),
-            // The merged-PR event (WP12) is not wired yet, so a PR card cannot reach Done by a move.
-            PrMerged = false,
+            // Only the PR-merge hook sets this (see PrMergedAsync); a manual move cannot reach Done for a PR card.
+            PrMerged = prMerged,
         };
 
         var outcome = TaskTransitionRules.Evaluate(task.State, to, context);
@@ -224,6 +238,119 @@ public sealed class TaskService
         await EmitBlockedChangesAsync(tx, [blockedId], graphBefore, graphAfter, statesBefore, statesBefore, actor, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return EdgeResult.Of(EdgeStatus.Removed);
+    }
+
+    /// <summary>
+    /// Records a gate decision (doc 12, WP9). Owner gates are decided by the owner; council gates by the council hook, which
+    /// passes the system actor and the council decision id. Recording changes no state; the next Review to Done reads it.
+    /// </summary>
+    public async Task<TransitionResult> RecordGateDecisionAsync(
+        Guid taskId, TaskGateOutcome outcome, TaskActor actor, string reference, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference);
+        var seen = await _tasks.GetAsync(taskId, ct).ConfigureAwait(false);
+        if (seen is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        if (seen.Gate == TaskGate.None)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.NotATransition);
+        }
+
+        var authorised = seen.Gate == TaskGate.Owner
+            ? actor.Kind == TaskActorKind.Owner
+            : actor.Kind == TaskActorKind.System;
+        if (!authorised)
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotAuthorised, []);
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await LockGraphAsync(tx, seen.ProjectId, exclusive: false, ct).ConfigureAwait(false);
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        await _gates.InsertAsync(tx, taskId, task.Gate, outcome, actor.Id, reference, ct).ConfigureAwait(false);
+        await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.GateRecorded, actor.ToText(),
+            Payload(("gate", KanbanText.ToSql(task.Gate)), ("outcome", KanbanText.ToSql(outcome)), ("reference", reference))), ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return TransitionResult.Applied(task.Version);
+    }
+
+    /// <summary>
+    /// Sets the reviewer-approval flag on a card in Review (doc 12, PR cards). The flag moves nothing: Done still needs the
+    /// merge (for PR cards) or the normal rules. The reviewer is the owner or an agent that is not the assignee.
+    /// </summary>
+    public async Task<TransitionResult> RecordReviewApprovalAsync(Guid taskId, TaskActor reviewer, CancellationToken ct = default)
+    {
+        var seen = await _tasks.GetAsync(taskId, ct).ConfigureAwait(false);
+        if (seen is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await LockGraphAsync(tx, seen.ProjectId, exclusive: false, ct).ConfigureAwait(false);
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        if (task.State != TaskState.Review)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.NotATransition);
+        }
+
+        var isReviewer = reviewer.Kind == TaskActorKind.Owner
+            || (reviewer.Kind == TaskActorKind.Agent && reviewer.Id != task.OwnerAgentId);
+        if (!isReviewer)
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotAuthorised, []);
+        }
+
+        var approvedAt = DateTimeOffset.UtcNow;
+        if (!await _tasks.UpdateAsync(tx, task with { ReviewApprovedBy = reviewer.Id, ReviewApprovedAt = approvedAt }, task.Version, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.ReviewApproved, reviewer.ToText(),
+            Payload(("approved_at", approvedAt.ToString("O")))), ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return TransitionResult.Applied(task.Version + 1);
+    }
+
+    /// <summary>
+    /// Consumes a merged-PR event (doc 21's <c>pr_event</c>, WP12). Every card linked to <paramref name="prRef"/> that is in
+    /// Review moves to Done through the normal transition path with the merge flag set. A PR closed without merging is not
+    /// handled here: its card stays where it is (doc 12, <c>kanban.pr_closed_unmerged</c> = hold_flagged).
+    /// </summary>
+    public async Task<IReadOnlyList<PrMergeOutcome>> PrMergedAsync(string prRef, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(prRef);
+        var outcomes = new List<PrMergeOutcome>();
+        foreach (var taskId in await _links.FindTaskIdsAsync(TaskLinkKind.Pr, prRef, ct).ConfigureAwait(false))
+        {
+            var current = await _tasks.GetAsync(taskId, ct).ConfigureAwait(false);
+            if (current is null)
+            {
+                continue;
+            }
+
+            var result = await TransitionCoreAsync(taskId, TaskState.Done, TaskActor.SystemActor, $"pull request merged: {prRef}",
+                current.Version, prMerged: true, ct).ConfigureAwait(false);
+            outcomes.Add(new PrMergeOutcome(taskId, result));
+        }
+
+        return outcomes;
     }
 
     /// <summary>
