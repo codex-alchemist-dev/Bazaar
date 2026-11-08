@@ -9,9 +9,9 @@ namespace Bazaar.Components.ManagedPostgres.Secrets;
 /// </summary>
 public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProvider keys) : IManagedPasswordStore
 {
-    private const int KeySize = 32;
-    private const int NonceSize = 12;
-    private const int TagSize = 16;
+    private const int _keySize = 32;
+    private const int _nonceSize = 12;
+    private const int _tagSize = 16;
 
     public async Task<string?> LoadAsync(CancellationToken cancellationToken)
     {
@@ -21,20 +21,20 @@ public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProv
         }
 
         var blob = await File.ReadAllBytesAsync(path, cancellationToken);
-        if (blob.Length < NonceSize + TagSize)
+        if (blob.Length < _nonceSize + _tagSize)
         {
             throw new InvalidDataException("The managed password store is truncated.");
         }
 
         var key = await LoadKeyAsync(cancellationToken);
-        var nonce = blob.AsSpan(0, NonceSize);
-        var tag = blob.AsSpan(NonceSize, TagSize);
-        var cipher = blob.AsSpan(NonceSize + TagSize);
+        var nonce = blob.AsSpan(0, _nonceSize);
+        var tag = blob.AsSpan(_nonceSize, _tagSize);
+        var cipher = blob.AsSpan(_nonceSize + _tagSize);
         var plain = new byte[cipher.Length];
 
         try
         {
-            using var aes = new AesGcm(key, TagSize);
+            using var aes = new AesGcm(key, _tagSize);
             aes.Decrypt(nonce, cipher, tag, plain);
         }
         catch (CryptographicException)
@@ -51,22 +51,22 @@ public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProv
         ArgumentException.ThrowIfNullOrEmpty(password);
 
         var key = await LoadKeyAsync(cancellationToken);
-        var nonce = RandomNumberGenerator.GetBytes(NonceSize);
+        var nonce = RandomNumberGenerator.GetBytes(_nonceSize);
         var plain = Encoding.UTF8.GetBytes(password);
         var cipher = new byte[plain.Length];
-        var tag = new byte[TagSize];
+        var tag = new byte[_tagSize];
 
-        using (var aes = new AesGcm(key, TagSize))
+        using (var aes = new AesGcm(key, _tagSize))
         {
             aes.Encrypt(nonce, plain, cipher, tag);
         }
 
         CryptographicOperations.ZeroMemory(plain);
 
-        var blob = new byte[NonceSize + TagSize + cipher.Length];
+        var blob = new byte[_nonceSize + _tagSize + cipher.Length];
         nonce.CopyTo(blob, 0);
-        tag.CopyTo(blob, NonceSize);
-        cipher.CopyTo(blob, NonceSize + TagSize);
+        tag.CopyTo(blob, _nonceSize);
+        cipher.CopyTo(blob, _nonceSize + _tagSize);
 
         // Write beside the target and move into place, so a crash never leaves a half-written store.
         var temp = path + ".tmp";
@@ -82,7 +82,7 @@ public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProv
     private async Task<byte[]> LoadKeyAsync(CancellationToken cancellationToken)
     {
         var key = await keys.GetKeyAsync(cancellationToken);
-        if (key.Length != KeySize)
+        if (key.Length != _keySize)
         {
             throw new InvalidOperationException("The managed store key must be 32 bytes.");
         }
