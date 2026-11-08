@@ -1,9 +1,11 @@
 using Bazaar.Server.Components;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Vault.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Constellation;
 
@@ -27,8 +29,22 @@ public sealed class ConstellationComponent : IBazaarComponent
 
     public ComponentManifest Manifest => ManifestDefinition;
 
+    /// <summary>Configuration key for the Vault whose documents form the graph. Without it the graph stays empty.</summary>
+    public const string VaultIdKey = "Constellation:VaultId";
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        // The Vault graph wins when a Vault is configured. It is added before the empty default, so TryAdd keeps it.
+        if (Guid.TryParse(configuration[VaultIdKey], out var vaultId))
+        {
+            services.TryAddSingleton<IConstellationGraphSource>(sp => new VaultGraphSource(
+                new VaultIndexRepository(sp.GetRequiredService<NpgsqlDataSource>()),
+                vaultId));
+        }
+
         services.TryAddSingleton<IConstellationGraphSource, ConstellationEmptyGraphSource>();
         services.TryAddSingleton<IConstellationTileSource, LayoutTileSource>();
 
