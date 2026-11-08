@@ -193,3 +193,21 @@ The owner confirmed these with full authority on decisions, and they are impleme
 | Item | Decision | Effect on the docs |
 |---|---|---|
 | RyuseiFuda | PROPOSED (planning, owner naming and direction, 2026-11-08): RyuseiFuda is the umbrella name for the macro board (doc 12), micro agent schedule and objective roadmap (doc 38); it is the answer to agent loop and scheduling. Inbox dedupe key is (agent_id, source_key, kind) where source_key is the GC seq or the fire_id (doc 06 conflict resolved as a safe default, owner may change). | docs 06, 12, 19, 23, 24, 26, 38; glossary in docs/deep-dives/Bazaar.md |
+
+## Round 19 (2026-11-08): RyuseiFuda WP-R4 defaults
+
+Defaults taken by WP-R4 (PR #339, squash-merged) for doc 38 open questions. Two were decided by the coordinator on 2026-11-08 and are marked as such. The rest are defaults the owner may change.
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Live cap | Counts active and paused triggers per target. Pausing does not free a cap slot, so resume can never push past the cap. | Decided by the coordinator, 2026-11-08. |
+| Creation concurrency | `pg_advisory_xact_lock` keyed on the project, held for the cap check and insert. | No, unless the lock scope changes. |
+| Refusals | Audited with no state change (`ryusei.trigger.refused`). | Yes, if refusals should stay unaudited. |
+| Audit placement | Decided 2026-11-08 (coordinator): a create, pause, resume or cancel appends its audit row inside the same transaction as the state change (`ITransactionalAuditLog`), so a crash cannot leave an unaudited change. Refusals change no state and append on their own. Implemented in the follow-up to WP-R4. | Decided. |
+| Coworker triggers | Per-call argument, default Allowed. `ask_first` and `off` refuse, since no approval flow exists yet. | Yes, once an approval flow exists. |
+| Authority | Pause and resume: owner or a target agent. Cancel: creator or owner. Owner may target resting agents (the fire skips them). Agents may not target resting or retired agents. | Yes. |
+| Idempotent create | Not implemented. Doc 38's per-(created_by, purpose, spec) minute window is deferred. | Yes. |
+| Component dependency | `ryusei-schedule` depends on `kanban` only. It resolves `IAuditLog`, so audit must be enabled. | Owner may add `audit` to DependsOn. |
+| Migration namespace | Component id `ryusei-schedule` maps to namespace `ryusei_schedule`, while the SQL folder is `ryusei`. | Owner may rename either. |
+
+**Open for owner:** none from WP-R4. The owner may still change any default above.
