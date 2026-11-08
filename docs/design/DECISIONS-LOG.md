@@ -126,7 +126,7 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | Item | Decision | Effect on the docs |
 |---|---|---|
 | Versions | **RESOLVED (owner)**: SemVer `vMAJOR.MINOR.PATCH`; pre-release builds are `v0.x` with the placeholder codename "Beta"; v1.0.0 is a deliberate jump. Inspired by RESIBO V3. | `docs/VERSIONING.md`; `VersionPrefix` in `Directory.Build.props`; `Bazaar.Contracts.ProductVersion`. |
-| Codenames | **RESOLVED (owner)**: majors named Z to A, theme "words that belong to both alchemy and the stars". Owner rejected Claude's first pick "Zodiac" and chose **"Zuhal"** (Arabic name of Saturn; Saturn is lead in alchemy) for v1.0.0; owner accepted Yliaster (v2), Xerion (v3) and Venus (v5) and rejected "Wandering Star" (v4); the owner rejected "Wolf" and accepted Wormwood (v4). | `docs/VERSIONING.md` section 2. |
+| Codenames | **RESOLVED (owner)**: majors named Z to A, theme "words that belong to both alchemy and the stars". Owner rejected Claude's first pick "Zodiac" and chose **"Zuhal"** (Arabic name of Saturn; Saturn is lead in alchemy) for v1.0.0; owner accepted Yliaster (v2), Xerion (v3) and Venus (v5) and rejected "Wandering Star" (v4); the owner rejected "Wolf" and accepted Wormwood (v4). **Update (owner pick, 2026-11-08): v4 is now "Weltseele" (anima mundi, the world soul), replacing Wormwood.** Owner pick (2026-11-08): v5 is now "Valthyrzmthl", replacing Venus; its meaning note is pending. Owner pick (2026-11-08): v3 is now "Xylokrator" ("ruler of the wood"), replacing Xerion. | `docs/VERSIONING.md` section 2. |
 | Channels | **RESOLVED (owner)**: LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel; the operator picks per install. Stable, Beta and Alpha are immutable tags on `main`; LTSC is a real branch. | `docs/VERSIONING.md` section 4; doc 30. |
 | Merging | **RESOLVED (owner)**: during full development Claude may merge PRs that pass the requirements (green CI on the head, no conflict, no blocking review). DCO sign-off for these merges is OPEN until before the first public release. | CLAUDE.md repo rules; `docs/VERSIONING.md` section 3. |
 | Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta stages 1 to 9, extendable (relabelled from v0.1 to v0.9 on 2026-10-29, because stage numbers are not release versions). | `docs/ROADMAP.md`. |
@@ -188,3 +188,8 @@ The owner confirmed these with full authority on decisions, and they are impleme
 - **TRUNCATE on `gc_event`:** already refused. `gc_event_no_truncate` (0001) is a BEFORE TRUNCATE trigger, and the foreign key from `wake_decisions` (0016) refuses first with 0A000. No new migration is needed. Keep the foreign key.
 - **`calendar.*` settings:** registered in code as `CalendarSettings` and combined in `SettingRegistry.Known`. Rows added to the doc 03 table. The store still reads `SettingRegistry.Host` until it is wired to `Known`.
 
+## Round 18 (2026-11-08)
+
+| Item | Decision | Effect on the docs |
+|---|---|---|
+| RyuseiFuda | PROPOSED (planning, owner naming and direction, 2026-11-08): RyuseiFuda is the umbrella name for the macro board (doc 12), micro agent schedule and objective roadmap (doc 38); it is the answer to agent loop and scheduling. Inbox dedupe key is (agent_id, source_key, kind) where source_key is the GC seq or the fire_id (doc 06 conflict resolved as a safe default, owner may change). | docs 06, 12, 19, 23, 24, 26, 38; glossary in docs/deep-dives/Bazaar.md |
