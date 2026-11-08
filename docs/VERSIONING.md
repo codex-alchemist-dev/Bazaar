@@ -17,9 +17,14 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 
 **Before v1.0.0 [DECIDED]:** builds carry the placeholder codename **Beta** (RESIBO's `x00` period). The machine version is `0.MINOR.PATCH`, and its display form is zero-padded (next paragraph). Roadmap stages (`docs/ROADMAP.md`) are labels and are not tied to version numbers: completing a stage bumps nothing by itself. `MINOR` is bumped when a release adds backward-compatible features, and `PATCH` counts merged changes since the last `MINOR` (owner, 2026-10-29: this decouples the milestone tie). During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `MINOR` may grow past 9.
 
-**Display format: zero-padded [DECIDED, owner, 2026-10-29].** The owner wants early patch numbers not to run out, so the display and tag form pads each part to two digits: `v00.MM.PP`, for example `v00.00.01`, `v00.01.00` (Stage 1), `v00.01.02`. This also answers the earlier open question about an `xYY.ZZ.AA` scheme: the format is zero-padded SemVer with three parts, not a four-part scheme. The padded form is the one shown to people and used for tags. A part that passes 99 widens to three digits for that part only, which needs a line here.
+**Display format: zero-padded, with the commit at the end [DECIDED, owner, 2026-10-29 and 2026-11-08].** Each part is padded to two digits so early numbers never run out. The owner's 2026-11-08 directive sets two display forms:
 
-Tradeoff, for the owner to confirm: SemVer 2.0 forbids leading zeros, and NuGet and .NET normalise them away (`00.01.00` becomes `0.1.0`). So the padded form is display and tag only. `VersionPrefix` in `Directory.Build.props` stays the valid SemVer machine form (`0.1.0`), and the padded form is derived from it one-to-one. Velopack, NuGet and any SemVer comparer use the machine form. Tags use the padded form and map to the machine form on build.
+- **Project version** (the product, shown to people and used on release tags): `xAA.BB.CC-commit`, for example `x00.01.02-a1b2c3d`. The `x` marks the product line, and the short commit hash closes the string.
+- **Internal components, APIs and modules** (SDK, Contracts, Server.Host, plugins, wire and schema lines where they are displayed): `vAA.BB.CC-commit`, for example `v00.01.02-a1b2c3d`.
+
+The `-commit` suffix is the short hash of the commit the build came from. It is display only and never part of a release tag. Tags on `main` use the project form without the commit (`x00.01.02`), because a tag names a commit already.
+
+Tradeoff: SemVer 2.0 forbids leading zeros, and NuGet and .NET normalise them away (`00.01.00` becomes `0.1.0`). So the padded forms are display only. `VersionPrefix` in `Directory.Build.props` stays the valid SemVer machine form (`0.1.0`), and both padded forms are derived from it one-to-one. Velopack, NuGet and any SemVer comparer use the machine form, with the commit in `+build` metadata. A part that passes 99 widens to three digits for that part only, which needs a line here.
 
 **Source of truth:** `VersionPrefix` in `Directory.Build.props`. Code reads it through `Bazaar.Contracts.ProductVersion` (`Informational`, `Codename(major)`, `CurrentCodename`). Every build carries the same product version: server, clients, SDK and Contracts.
 
@@ -31,7 +36,7 @@ Tradeoff, for the owner to confirm: SemVer 2.0 forbids leading zeros, and NuGet 
 | Database schema | migration number; startup refuses a mismatch (C44) | doc 04 |
 | Settings registry | one entry per key; removing a key is a product MAJOR | doc 03 |
 
-**Bumping:** the PR that merges into `main` bumps `VersionPrefix`: `PATCH` for a merged change, `MINOR` when a release adds features (0.x), and `MAJOR` for a breaking change (1.x and later). Stage completion is not a bump. A release is an annotated tag on `main`, in display form (`v00.MM.PP`, or `vX.Y.Z[-pre]` from v1.0.0); tags are immutable. The `-pre` suffix keeps its SemVer form.
+**Bumping:** the PR that merges into `main` bumps `VersionPrefix`: `PATCH` for a merged change, `MINOR` when a release adds features (0.x), and `MAJOR` for a breaking change (1.x and later). Stage completion is not a bump. A release is an annotated tag on `main`, in project display form (`x00.MM.PP`, without the commit, or `xX.Y.Z[-pre]` from v1.0.0); tags are immutable. The `-pre` suffix keeps its SemVer form.
 
 ## 2. Major-version codenames [DECIDED theme; all names through v5 owner-accepted]
 
