@@ -16,13 +16,19 @@ public sealed class App : Avalonia.Application
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
-            activity.MainViewFactory = () => new PhoneShell(FirstPartyPanes.CreateRegistry());
+            activity.MainViewFactory = CreatePhoneShell;
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
-            single.MainView = new PhoneShell(FirstPartyPanes.CreateRegistry());
+            single.MainView = CreatePhoneShell();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static PhoneShell CreatePhoneShell()
+    {
+        var registry = FirstPartyPanes.CreateRegistry();
+        return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
     }
 }
