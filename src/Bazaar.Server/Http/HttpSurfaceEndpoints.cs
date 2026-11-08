@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Text.Json;
 using Bazaar.Contracts.Gc;
+using Bazaar.Contracts.Graph;
+using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Http.Blobs;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Wire.Connection;
@@ -20,6 +23,7 @@ namespace Bazaar.Server.Http;
 /// <item><c>HEAD|PATCH /blobs/uploads/{id}</c> reports the offset or appends a chunk at <c>Upload-Offset</c>.</item>
 /// <item><c>GET /blobs/{hash}</c> serves a blob with range support; a non-viewer gets 404.</item>
 /// <item><c>GET /search?gc=&amp;q=</c> searches one GC, answering only what the caller can read.</item>
+/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19).</item>
 /// </list>
 /// Pairing routes (<c>/pair/*</c>) are not part of this package: doc 32 leaves their detail to a spike.
 /// </summary>
@@ -35,6 +39,7 @@ public static class HttpSurfaceEndpoints
         routes.MapMethods("/blobs/uploads/{id}", ["PATCH"], (HttpContext http, string id) => Guarded(http, (h, p) => AppendAsync(h, p, id)));
         routes.MapGet("/blobs/{hash}", (HttpContext http, string hash) => Guarded(http, (h, p) => DownloadAsync(h, p, hash)));
         routes.MapGet("/search", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, SearchAsync)));
+        routes.MapPost("/constellation/tiles", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, ConstellationTileAsync)));
         // TODO(component): pairing routes (POST /pair/offers, POST /pair/token) wait for the doc 32 spike.
         return routes;
     }
@@ -65,6 +70,45 @@ public static class HttpSurfaceEndpoints
         }
 
         return await run(http, auth.Principal);
+    }
+
+    private const int _maxTileBodyBytes = 4096;
+
+    private static async Task<IResult> ConstellationTileAsync(HttpContext http, PrincipalRef principal)
+    {
+        var length = http.Request.ContentLength;
+        if (length is null or < 1) return Error(StatusCodes.Status400BadRequest, "bad_request");
+        if (length > _maxTileBodyBytes) return Error(StatusCodes.Status413PayloadTooLarge, "too_large");
+
+        ConstellationTileRequestBody? body;
+        try
+        {
+            body = await JsonSerializer.DeserializeAsync(http.Request.Body, ConstellationTileJsonContext.Default.ConstellationTileRequestBody, http.RequestAborted);
+        }
+        catch (JsonException)
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+
+        if (body is null || string.IsNullOrWhiteSpace(body.ViewId)
+            || !Enum.TryParse<ZoomTier>(body.Tier, ignoreCase: false, out var tier) || !Enum.IsDefined(tier))
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+
+        ViewportRequest request;
+        try
+        {
+            request = new ViewportRequest(body.ViewId, body.GraphVersion, tier, body.MinX, body.MinY, body.MinZ, body.MaxX, body.MaxY, body.MaxZ, body.MaxNodes);
+        }
+        catch (ArgumentException)
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+
+        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, http.RequestAborted);
+        http.Response.StatusCode = response.StatusCode;
+        http.Response.ContentType = response.ContentType;
+        await http.Response.Body.WriteAsync(response.Body, http.RequestAborted);
+        return Results.Empty;
     }
 
     private static async Task<IResult> CreateUploadAsync(HttpContext http, PrincipalRef principal)

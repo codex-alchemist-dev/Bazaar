@@ -44,11 +44,18 @@ public static class StatusEndpoints
     }
 
     /// <summary>Rejects every method but GET and HEAD with 405 before routing, so no write route can exist on this listener.</summary>
+    private static bool IsApiRoute(PathString path) =>
+        path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
+
     public static IApplicationBuilder UseBazaarGetOnly(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {
-        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+        // The status page stays read-only. The authenticated API routes (blob uploads, the Constellation tile endpoint) also take writes.
+        var isApi = IsApiRoute(context.Request.Path);
+        var method = context.Request.Method;
+        var allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || (isApi && (HttpMethods.IsPost(method) || HttpMethods.IsPatch(method)));
+        if (!allowed)
         {
-            context.Response.Headers.Allow = "GET, HEAD";
+            context.Response.Headers.Allow = isApi ? "GET, HEAD, POST, PATCH" : "GET, HEAD";
             context.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
             return;
         }
