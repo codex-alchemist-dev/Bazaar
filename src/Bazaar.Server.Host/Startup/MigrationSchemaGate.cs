@@ -1,4 +1,5 @@
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Host.Composition;
 
 namespace Bazaar.Server.Host.Startup;
 
@@ -9,6 +10,7 @@ public sealed class MigrationSchemaGate(DatabaseConnection database) : ISchemaGa
     {
         var dataSource = await database.GetAsync(ct);
         var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
-        await new MigrationRunner(dataSource).EnsureCurrentAsync(source, MigrateCommand.CurrentProvider(), ct);
+        var components = HostComponents.All.Select(c => c.Manifest);
+        await new MigrationRunner(dataSource, components: components).EnsureCurrentAsync(source, MigrateCommand.CurrentProvider(), ct);
     }
 }

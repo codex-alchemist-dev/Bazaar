@@ -129,7 +129,7 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | Codenames | **RESOLVED (owner)**: majors named Z to A, theme "words that belong to both alchemy and the stars". Owner rejected Claude's first pick "Zodiac" and chose **"Zuhal"** (Arabic name of Saturn; Saturn is lead in alchemy) for v1.0.0; owner accepted Yliaster (v2), Xerion (v3) and Venus (v5) and rejected "Wandering Star" (v4); the owner rejected "Wolf" and accepted Wormwood (v4). | `docs/VERSIONING.md` section 2. |
 | Channels | **RESOLVED (owner)**: LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel; the operator picks per install. Stable, Beta and Alpha are immutable tags on `main`; LTSC is a real branch. | `docs/VERSIONING.md` section 4; doc 30. |
 | Merging | **RESOLVED (owner)**: during full development Claude may merge PRs that pass the requirements (green CI on the head, no conflict, no blocking review). DCO sign-off for these merges is OPEN until before the first public release. | CLAUDE.md repo rules; `docs/VERSIONING.md` section 3. |
-| Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta milestones v0.1 to v0.9, extendable. | `docs/ROADMAP.md`. |
+| Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta stages 1 to 9, extendable (relabelled from v0.1 to v0.9 on 2026-10-29, because stage numbers are not release versions). | `docs/ROADMAP.md`. |
 | Provenance placement | **RESOLVED by Claude (schema shape, within C09)**: `source_trust`, `tainted_at_write`, `taint_sources`, `derived_from` live on `gc_event`; an edit is a `message_edit` event, so each version carries its editor's provenance. | Docs 01, 04, 15 aligned. |
 
 ## Round 15 (2026-10-25)
@@ -158,3 +158,33 @@ Entries come from the Consequence sections of the merged spike docs in `docs/spi
 ## Status after round 14
 
 All 45 register entries (C01 to C45) are resolved. Still open as FOLLOW-UP: the definition of "bigger changes" that need the owner's vote (C32); confirmation of Claude's reading of C18 (reader/actor split as the autonomy mechanism); the C10 restore policy (sequence floor plus recovery entry, doc 33) is PROPOSED, not confirmed; erasure for personal data inside Markdown Vault files and git history (consequence of C38); Windows KEK custody vs recovery on new hardware (doc 33 C1). Reconciliation of the 36 docs, the deep-dive docs and CLAUDE.md with this log is the next step.
+
+## GLUE: wire-to-log mapping (2026-10-26, implementation decision, owner may revisit)
+
+- **`n` is the message's first event seq** (`gc_message.first_seq`), not every `gc_event` row. The wire streams messages only, so non-message events do not appear as `n` values and clients see gaps in `n`, which the protocol allows.
+- **`ev` is the seq of the event that wrote the current message version.** This replaces the separate `ev` counter that doc 02 proposed as Q1. It stays gap-free and ordered per GC, because seq is. Edits take an `ev` and no `n`, as doc 02 requires. Owner may still prefer a separate counter; this is the simplest mapping that is consistent with the log.
+- **Head values:** `LatestN` is the highest message `first_seq`; `LatestEv` is the highest message event seq (both from indexed lookups, no full scan).
+- **Body codec seam:** `IGcBodyCodec`. `PlaintextGcBodyCodec` is an INTERIM codec that stores UTF-8 unencrypted under the all-zero key id. It must be replaced by the per-person key codec (doc 04 Q2, doc 14) before any real personal data is written.
+- **Former members** lose the live stream entirely (only a full grant opens a stream). Replay to the leave seq is still available through the log reader. Stricter than doc 02's wording; owner to confirm.
+- **Principal kind on the wire path:** `IGcAccessPolicy` receives only a principal id, so the owner shortcut does not apply to subscriptions. The owner must be a member or approved until doc 14 supplies kinds.
+- **Open for owner:** does the owner read every GC by default on the wire (doc 01 says yes), and how is the owner identified in a session?
+
+## Round 17 (2026-10-30): Constellation renderer backend
+
+- **Conflict.** `Bazaar.Constellation.md` §1 and doc 19 mark native Skia through Avalonia as DECIDED and rule out other renderers. A later owner direction, relayed through the coordinator on 2026-10-30, asks for a Vulkan renderer (latest and future versions, forward-facing rule). Owner to confirm which one stands.
+- **Owner decision (2026-10-30, relayed by the coordinator).** Vulkan with GPU instancing is the direction, not an experiment. Design for company-wide graphs of millions, possibly billions of nodes, very fast on phone (Android Vulkan) and PC. Skia stays only as a fallback behind the renderer interface. Billions cannot be drawn at once, so the design uses level of detail: Louvain aggregation at far zoom, chunks or tiles streamed by viewport, GPU culling and instanced draws, compute-shader layout, and a per-frame budget with separate phone and PC tiers. Budgets are PROPOSED until measured on the PC and phone.
+- **Interim state (superseded in part by the owner decision above).** Doc 19 names no `IConstellationRenderer`. This change adds it as a renderer-agnostic contract in `Bazaar.Constellation.Rendering`, with frame ordering, interpolation, camera, LOD and hit-test logic that does not depend on the backend. The Vulkan backend (`Bazaar.Constellation.Vulkan`, Vortice.Vulkan 3.3.0) probes the loader and devices only. Its swapchain and drawing path waits for a GPU run on the owner's Windows PC.
+- **Consequence.** The Skia path stays available behind the same interface until the owner decides. If Vulkan is confirmed, Bazaar.Constellation.md §1 and doc 19 are updated in the same change.
+- **Bulk tile payloads (owner-approved, 2026-11-01).** Tile payloads may be binary over HTTP as a scoped exception to the JSON-only wire rule. Control messages stay JSON through `IWireCodec`. Format v1 is in `constellation-scale-and-lod.md` §3, with `tile_format_version = 1`. Default taken for the open items: the section 6 caps are starting values under the configurability rule, layout is hierarchical server-side with force layout only in focus neighbourhoods, and "billions" means one company graph per install.
+- **Layout and clustering** come from the Constellation layout and Louvain work, which is not in the repo yet. The renderer consumes frames through fakes until those merge.
+
+## Held packages: owner decisions (2026-10-30)
+
+The owner confirmed these with full authority on decisions, and they are implemented in PR #112 and its follow-ups.
+
+- **Org relation kinds:** `reports_to` and `lent_to` only (doc 24 default). Other kinds are a schema change.
+- **Loan object:** loans carry a project scope, as ORG1 requires (doc 24 WP4 may refine the routing).
+- **Sparse worktrees:** not built. VLT3 uses full worktrees until a libgit2 path exists, recorded in doc 18 (item 9).
+- **TRUNCATE on `gc_event`:** already refused. `gc_event_no_truncate` (0001) is a BEFORE TRUNCATE trigger, and the foreign key from `wake_decisions` (0016) refuses first with 0A000. No new migration is needed. Keep the foreign key.
+- **`calendar.*` settings:** registered in code as `CalendarSettings` and combined in `SettingRegistry.Known`. Rows added to the doc 03 table. The store still reads `SettingRegistry.Host` until it is wired to `Known`.
+

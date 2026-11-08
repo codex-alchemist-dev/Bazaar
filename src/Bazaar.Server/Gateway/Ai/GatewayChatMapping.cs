@@ -11,6 +11,9 @@ namespace Bazaar.Server.Gateway.Ai;
 /// </summary>
 internal static class GatewayChatMapping
 {
+    /// <summary>The <see cref="FunctionCallContent.AdditionalProperties"/> key that holds <see cref="ModelToolCall.ProviderData"/>.</summary>
+    public const string ProviderDataKey = "bazaar.provider_data";
+
     /// <summary>
     /// Builds the gateway request. <see cref="ChatOptions.ModelId"/>, when set, replaces the route; policy is enforced by the gateway.
     /// </summary>
@@ -103,7 +106,7 @@ internal static class GatewayChatMapping
                     break;
 
                 case FunctionCallContent call:
-                    (toolCalls ??= []).Add(new ModelToolCall(call.CallId, call.Name, SerializeArguments(call.Arguments)));
+                    (toolCalls ??= []).Add(new ModelToolCall(call.CallId, call.Name, SerializeArguments(call.Arguments), GetProviderData(call)));
                     break;
 
                 case FunctionResultContent result:
@@ -161,6 +164,24 @@ internal static class GatewayChatMapping
 
         return new ModelToolDefinition(function.Name, function.Description, function.JsonSchema.GetRawText());
     }
+
+    /// <summary>
+    /// Carries the opaque provider token (for example Gemini's thought signature) on the call's additional properties,
+    /// so it can be sent back unchanged on the next request. Null tokens are not stored.
+    /// </summary>
+    public static void SetProviderData(FunctionCallContent call, string? providerData)
+    {
+        if (providerData is null)
+        {
+            return;
+        }
+
+        call.AdditionalProperties ??= [];
+        call.AdditionalProperties[ProviderDataKey] = providerData;
+    }
+
+    public static string? GetProviderData(FunctionCallContent call) =>
+        call.AdditionalProperties is not null && call.AdditionalProperties.TryGetValue(ProviderDataKey, out var value) ? value as string : null;
 
     private static string SerializeArguments(IDictionary<string, object?>? arguments) =>
         arguments is null ? "{}" : JsonSerializer.Serialize(arguments);
