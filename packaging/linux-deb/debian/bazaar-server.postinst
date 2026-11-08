@@ -1,0 +1,53 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    if ! getent passwd bazaar >/dev/null; then
+      adduser --system --group --home /var/lib/bazaar --no-create-home \
+        --shell /usr/sbin/nologin --gecos "Bazaar server" bazaar
+    fi
+
+    # Data root and config directories: service account owns state, others get nothing.
+    install -d -m 0750 -o bazaar -g bazaar /var/lib/bazaar
+    install -d -m 0750 -o root -g bazaar /etc/bazaar
+    install -d -m 0750 -o root -g bazaar /etc/bazaar/credentials
+    if [ -f /etc/bazaar/appsettings.json ]; then
+      chown root:bazaar /etc/bazaar/appsettings.json
+      chmod 0640 /etc/bazaar/appsettings.json
+    fi
+
+    # Side-by-side releases (doc 30). Copy this version into its own directory
+    # if absent, then repoint current atomically. Older releases are kept, so
+    # rolling back is: ln -sfn releases/<old> /opt/bazaar/current and restart.
+    VERSION=$(cat /usr/share/bazaar-server/VERSION)
+    REL=/opt/bazaar/releases/$VERSION
+    install -d -m 0755 /opt/bazaar /opt/bazaar/releases
+    if [ ! -d "$REL" ]; then
+      cp -a /usr/share/bazaar-server/release "$REL.tmp"
+      mv "$REL.tmp" "$REL"
+    fi
+    ln -sfn "releases/$VERSION" /opt/bazaar/current.tmp
+    mv -T /opt/bazaar/current.tmp /opt/bazaar/current
+
+    if [ -z "$2" ]; then
+      cat <<'MSG'
+
+bazaar-server is installed but not started. Before the first start:
+  1. Review /etc/bazaar/appsettings.json.
+  2. Encrypt the PostgreSQL connection string into the credential file:
+       systemd-creds encrypt --name=database-connection - \
+         /etc/bazaar/credentials/database-connection.cred
+  3. Apply the schema. Startup never migrates:
+       sudo -u bazaar bazaar-server migrate
+  4. Start the service:
+       sudo systemctl start bazaar-server
+
+MSG
+    fi
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

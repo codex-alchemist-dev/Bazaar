@@ -1,0 +1,55 @@
+#!/usr/bin/make -f
+# Builds Bazaar.Server.Host from the repository two levels above this directory.
+
+export DOTNET_CLI_TELEMETRY_OPTOUT = 1
+export DOTNET_NOLOGO = 1
+
+include /usr/share/dpkg/pkg-info.mk
+
+PKG     := bazaar-server
+REPO    := $(CURDIR)/../..
+HOST    := $(REPO)/src/Bazaar.Server.Host/Bazaar.Server.Host.csproj
+PUBLISH := $(CURDIR)/debian/publish
+PKGDIR  := $(CURDIR)/debian/$(PKG)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	# No autotools or CMake project; nothing to configure.
+
+override_dh_auto_build:
+	dotnet publish "$(HOST)" -c Release -r linux-x64 --self-contained true \
+		-p:PublishSingleFile=false -o "$(PUBLISH)"
+
+override_dh_auto_test:
+	# Tests run in CI (build.sh); the package build does not repeat them.
+
+override_dh_auto_clean:
+	rm -rf "$(PUBLISH)"
+
+override_dh_auto_install:
+	# The package ships one release payload in /usr/share/bazaar-server/release.
+	# postinst copies it to /opt/bazaar/releases/<version>, which dpkg does not
+	# own, so older releases survive upgrades for rollback (doc 30).
+	install -d "$(PKGDIR)/usr/share/$(PKG)/release"
+	cp -a "$(PUBLISH)/." "$(PKGDIR)/usr/share/$(PKG)/release/"
+	rm -f "$(PKGDIR)/usr/share/$(PKG)/release/appsettings.json" \
+		"$(PKGDIR)/usr/share/$(PKG)/release/appsettings.Development.json"
+	echo "$(DEB_VERSION_UPSTREAM)" > "$(PKGDIR)/usr/share/$(PKG)/VERSION"
+	# Wrapper: follows the current symlink, so a rollback is one repoint.
+	# The host reads appsettings.json from /etc/bazaar. exec keeps the host as
+	# the systemd main process.
+	install -d "$(PKGDIR)/usr/bin"
+	printf '%s\n' '#!/bin/sh' \
+		'export ASPNETCORE_CONTENTROOT=/etc/bazaar' \
+		'exec /opt/bazaar/current/Bazaar.Server.Host "$$@"' \
+		> "$(PKGDIR)/usr/bin/$(PKG)"
+	chmod 0755 "$(PKGDIR)/usr/bin/$(PKG)"
+	install -D -m 0644 debian/appsettings.json "$(PKGDIR)/etc/bazaar/appsettings.json"
+	install -d -m 0750 "$(PKGDIR)/var/lib/bazaar"
+
+override_dh_installsystemd:
+	# Enabled, not started: the operator fills in config and runs migrate first.
+	# No restart on upgrade: upgrades stay operator-run (doc 30).
+	dh_installsystemd --name=bazaar-server --no-start --no-restart-after-upgrade

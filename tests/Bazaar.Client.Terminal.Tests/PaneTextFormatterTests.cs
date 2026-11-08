@@ -12,9 +12,9 @@ public sealed class PaneTextFormatterTests
     public void Kanban_lists_each_column_with_its_cards_and_blocked_marking()
     {
         var descriptor = new PaneDescriptor(PaneKinds.Kanban, "Board", string.Empty, JsonElement.Parse("""
-            {"tasks":[
-              {"id":"t1","title":"Schema","state":"Ready","blocked":true},
-              {"id":"t2","title":"Codec","state":"In progress"}
+            {"cards":[
+              {"id":"0196a6f0-0000-7000-8000-000000000001","title":"Schema","state":"ready","unfinishedBlockerIds":["0196a6f0-0000-7000-8000-000000000009"],"blockerTitles":["Other"]},
+              {"id":"0196a6f0-0000-7000-8000-000000000002","title":"Codec","state":"in_progress"}
             ]}
             """));
 
