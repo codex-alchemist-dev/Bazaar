@@ -1,7 +1,10 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Core.Server;
 
 namespace Bazaar.Client.Android;
 
@@ -11,16 +14,31 @@ public sealed class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // TODO(android-shell): the activity lifetime re-creates the view on configuration change; posture is read from WindowManager (doc 29).
+        // TODO(pairing): call ClientServer.Use(endpoint) with the paired endpoint (doc 32). Until then the development default applies.
+        // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
+        // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
+        var tiles = HttpConstellationTileSource.Create(ClientServer.Current);
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
-            activity.MainViewFactory = () => new PhoneShell();
+            activity.MainViewFactory = () => CreatePhoneShell(tiles);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
-            single.MainView = new PhoneShell();
+            single.MainView = CreatePhoneShell(tiles);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    private static PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
+    {
+        var registry = FirstPartyPanes.CreateRegistry(tiles: tiles);
+        return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+    }
 }
+
+// CodeQL default setup retrigger: comment-only, no code change.
+
+// CodeQL analysis trigger (no functional change).
+
+// CodeQL analysis trigger (no functional change).

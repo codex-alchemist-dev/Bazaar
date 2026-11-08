@@ -41,6 +41,7 @@ public static class HttpSurfaceEndpoints
         routes.MapGet("/search", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, SearchAsync)));
         routes.MapPost("/constellation/tiles", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, ConstellationTileAsync)));
         routes.MapGet("/vault/search", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, SearchVaultAsync)));
+        routes.MapGet("/vault/doc", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, ReadVaultDocAsync)));
         // TODO(component): pairing routes (POST /pair/offers, POST /pair/token) wait for the doc 32 spike.
         return routes;
     }
@@ -239,12 +240,7 @@ public static class HttpSurfaceEndpoints
         var search = services.GetService<Vault.Search.VaultSearchService>();
         if (search is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
 
-        var caller = principal.Kind switch
-        {
-            "owner" => Vault.Search.VaultCaller.Owner,
-            "agent" => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: "agent:" + principal.Id.ToString("D")),
-            _ => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: null),
-        };
+        var caller = VaultCallerFor(principal);
         var result = await search.SearchAsync(
             new Vault.Search.VaultSearchQuery(
                 vaultId,
@@ -271,6 +267,34 @@ public static class HttpSurfaceEndpoints
         });
         return Results.Json(new { cards, lexical_only = result.LexicalOnly, indexed_commit = result.IndexedCommit });
     }
+
+    /// <summary>
+    /// <c>GET /vault/doc?vault=&amp;doc=&amp;ordinal=</c> returns one block's body. The same access rule as search applies, so a
+    /// document the caller cannot read answers 404, like one that does not exist.
+    /// </summary>
+    private static async Task<IResult> ReadVaultDocAsync(HttpContext http, PrincipalRef principal)
+    {
+        var q = http.Request.Query;
+        if (!Guid.TryParse(q["vault"].ToString(), out var vaultId)
+            || !Guid.TryParse(q["doc"].ToString(), out var docId)
+            || !int.TryParse(q["ordinal"].ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var ordinal))
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+
+        var search = http.RequestServices.GetService<Vault.Search.VaultSearchService>();
+        if (search is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
+
+        var body = await search.FetchBodyAsync(vaultId, docId, ordinal, VaultCallerFor(principal), http.RequestAborted);
+        if (body is null) return Error(StatusCodes.Status404NotFound, "not_found");
+        return Results.Json(new { body });
+    }
+
+    /// <summary>Owner reads everything; an agent reads shared documents and its own private memory; anyone else reads shared only.</summary>
+    private static Vault.Search.VaultCaller VaultCallerFor(PrincipalRef principal) => principal.Kind switch
+    {
+        "owner" => Vault.Search.VaultCaller.Owner,
+        "agent" => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: "agent:" + principal.Id.ToString("D")),
+        _ => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: null),
+    };
 
     /// <summary>The search scope under which a GC's documents are indexed.</summary>
     public static string GcSearchScope(Guid gcId) => "gc:" + gcId.ToString("D");
