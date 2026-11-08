@@ -188,7 +188,7 @@ The owner confirmed these with full authority on decisions, and they are impleme
 - **TRUNCATE on `gc_event`:** already refused. `gc_event_no_truncate` (0001) is a BEFORE TRUNCATE trigger, and the foreign key from `wake_decisions` (0016) refuses first with 0A000. No new migration is needed. Keep the foreign key.
 - **`calendar.*` settings:** registered in code as `CalendarSettings` and combined in `SettingRegistry.Known`. Rows added to the doc 03 table. The store still reads `SettingRegistry.Host` until it is wired to `Known`.
 
-## Round 15 (2026-11-08)
+## Round 18 (2026-11-08)
 
 | Item | Decision | Effect on the docs |
 |---|---|---|
