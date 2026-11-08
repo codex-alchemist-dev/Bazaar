@@ -148,6 +148,7 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
     [InlineData("GET", "/blobs/0000000000000000000000000000000000000000000000000000000000000000")]
     [InlineData("GET", "/search?gc=00000000-0000-7000-8000-00000000c001&q=x")]
     [InlineData("GET", "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=x")]
+    [InlineData("GET", "/vault/doc?vault=00000000-0000-7000-8000-00000000d001&doc=00000000-0000-7000-8000-00000000e001&ordinal=0")]
     public async Task Unauthenticated_requests_are_rejected(string method, string url)
     {
         var (app, client) = await StartAsync();
@@ -172,6 +173,30 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
             Assert.Equal(HttpStatusCode.BadRequest, emptyQuery.StatusCode);
             var longQuery = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=" + new string('x', 201)), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, longQuery.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_doc_rejects_missing_or_negative_parameters()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var missing = await client.SendAsync(Req(HttpMethod.Get, "/vault/doc?vault=00000000-0000-7000-8000-00000000d001&doc=00000000-0000-7000-8000-00000000e001"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+            var notAGuid = await client.SendAsync(Req(HttpMethod.Get, "/vault/doc?vault=nope&doc=00000000-0000-7000-8000-00000000e001&ordinal=0"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, notAGuid.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_doc_is_unavailable_when_the_search_component_is_not_registered()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Get, "/vault/doc?vault=00000000-0000-7000-8000-00000000d001&doc=00000000-0000-7000-8000-00000000e001&ordinal=0"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         }
     }
 
