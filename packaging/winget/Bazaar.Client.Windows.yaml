@@ -1,0 +1,27 @@
+# Winget manifest template (singleton form). Filled by the release pipeline from the
+# released installer URL and SHA-256 (docs/design/37-distribution-matrix-and-packaging.md).
+# Placeholders in {{double braces}} are never published as-is.
+# "Codex" stays out of package IDs until the naming decision (CLAUDE.md, Names).
+PackageIdentifier: TheBazaarAuthors.Bazaar.Client
+PackageVersion: "{{MACHINE_VERSION}}"
+PackageLocale: en-US
+Publisher: The Bazaar Authors
+PackageName: Bazaar Client
+PackageUrl: https://github.com/codex-alchemist-dev/Bazaar
+License: AGPL-3.0-only
+ShortDescription: Native client for the Bazaar platform.
+Moniker: bazaar
+Tags:
+  - ai
+  - agents
+Installers:
+  - Architecture: x64
+    InstallerType: exe
+    InstallerUrl: "{{INSTALLER_URL}}"
+    InstallerSha256: "{{INSTALLER_SHA256}}"
+    InstallerSwitches:
+      Silent: --silent
+      SilentWithProgress: --silent
+    Scope: user
+ManifestType: singleton
+ManifestVersion: 1.6.0
