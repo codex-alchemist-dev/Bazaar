@@ -5,3 +5,7 @@ PG_MAJOR=18
 PG_VERSION=18.0
 PG_EDB_BUILD=1
 PGVECTOR_VERSION=0.8.1
+# SHA-256 of each download, checked by build-pgvector-windows.ps1 before use. Pinned from a download on the owner's PC
+# on 2026-11-09; the upstream publishers do not publish these values here, so re-check them when a version is bumped.
+PG_SHA256=4A1EA6E6ECBDE1747103C7B5BC0674CC415B9AA8EF7B7BAD3A4EE38C37C051B1
+PGVECTOR_SHA256=A9094DFB85CCDDE3CBB295F1086D4C71A20DB1D26BF1D6C39F07A7D164033EB4

@@ -7,6 +7,7 @@
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
     <Project Path="src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj" />
     <Project Path="src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj" />
+    <Project Path="src/Bazaar.Components.ManagedPostgres/Bazaar.Components.ManagedPostgres.csproj" />
     <Project Path="src/Bazaar.Constellation.Rendering/Bazaar.Constellation.Rendering.csproj" />
     <Project Path="src/Bazaar.Constellation.Vulkan/Bazaar.Constellation.Vulkan.csproj" />
     <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
@@ -27,6 +28,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
+    <Project Path="tests/Bazaar.Components.ManagedPostgres.Tests/Bazaar.Components.ManagedPostgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Chat.Tests/Bazaar.Client.Components.Chat.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Launcher.Tests/Bazaar.Client.Components.Launcher.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
