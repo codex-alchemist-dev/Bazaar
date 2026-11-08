@@ -300,6 +300,30 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
     public async Task<IReadOnlyList<VaultLinkRecord>> GetBacklinksAsync(Guid docId, CancellationToken cancellationToken = default) =>
         await ReadLinksAsync("WHERE target_doc = $1", docId, cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Resolved links between documents of one Vault, as (source, target) pairs. Feeds the Constellation graph, which needs no
+    /// anchors, aliases or access checks: those stay with the link reader.
+    /// </summary>
+    public async Task<IReadOnlyList<(Guid SrcDoc, Guid TargetDoc)>> ListResolvedLinksAsync(Guid vaultId, CancellationToken cancellationToken = default)
+    {
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT l.src_doc, l.target_doc
+            FROM vault_links l
+            JOIN vault_docs d ON d.doc_id = l.src_doc
+            WHERE d.vault_id = $1 AND l.target_doc IS NOT NULL
+            ORDER BY l.src_doc, l.target_doc
+            """);
+        cmd.Parameters.AddWithValue(vaultId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var rows = new List<(Guid SrcDoc, Guid TargetDoc)>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add((reader.GetGuid(0), reader.GetGuid(1)));
+        }
+
+        return rows;
+    }
+
     /// <summary>Unresolved links in one Vault, so a later pass can try to resolve them.</summary>
     public async Task<IReadOnlyList<VaultLinkRecord>> GetUnresolvedLinksAsync(Guid vaultId, CancellationToken cancellationToken = default)
     {
