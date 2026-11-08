@@ -5,25 +5,25 @@ namespace Bazaar.Components.ManagedPostgres.Tests;
 
 public sealed class PgUpgradePlannerTests
 {
-    private static readonly BundleLayout Layout = new(Path.Combine("install", "pg"), Path.Combine("data", "root"));
+    private static readonly BundleLayout _layout = new(Path.Combine("install", "pg"), Path.Combine("data", "root"));
 
     [Fact]
     public void Check_run_uses_both_bindirs_and_datadirs_and_adds_check()
     {
-        var command = PgUpgradePlanner.Plan(Layout, 18, 19, checkOnly: true, clusterRunning: false);
+        var command = PgUpgradePlanner.Plan(_layout, 18, 19, checkOnly: true, clusterRunning: false);
 
         Assert.Contains("--check", command.Arguments);
-        Assert.Equal(Layout.Resolve(18).Bin, Argument(command.Arguments, "--old-bindir"));
-        Assert.Equal(Layout.Resolve(19).Bin, Argument(command.Arguments, "--new-bindir"));
-        Assert.Equal(Layout.Resolve(18).DataDirectory, Argument(command.Arguments, "--old-datadir"));
-        Assert.Equal(Layout.Resolve(19).DataDirectory, Argument(command.Arguments, "--new-datadir"));
+        Assert.Equal(_layout.Resolve(18).Bin, Argument(command.Arguments, "--old-bindir"));
+        Assert.Equal(_layout.Resolve(19).Bin, Argument(command.Arguments, "--new-bindir"));
+        Assert.Equal(_layout.Resolve(18).DataDirectory, Argument(command.Arguments, "--old-datadir"));
+        Assert.Equal(_layout.Resolve(19).DataDirectory, Argument(command.Arguments, "--new-datadir"));
         Assert.Equal("pg_upgrade", Path.GetFileNameWithoutExtension(command.FileName));
     }
 
     [Fact]
     public void Real_upgrade_omits_check()
     {
-        var command = PgUpgradePlanner.Plan(Layout, 18, 19, checkOnly: false, clusterRunning: false);
+        var command = PgUpgradePlanner.Plan(_layout, 18, 19, checkOnly: false, clusterRunning: false);
 
         Assert.DoesNotContain("--check", command.Arguments);
     }
@@ -31,14 +31,14 @@ public sealed class PgUpgradePlannerTests
     [Fact]
     public void Refuses_a_running_cluster()
     {
-        Assert.Throws<InvalidOperationException>(() => PgUpgradePlanner.Plan(Layout, 18, 19, checkOnly: true, clusterRunning: true));
+        Assert.Throws<InvalidOperationException>(() => PgUpgradePlanner.Plan(_layout, 18, 19, checkOnly: true, clusterRunning: true));
     }
 
     [Fact]
     public void Refuses_downgrades_and_same_major()
     {
-        Assert.ThrowsAny<Exception>(() => PgUpgradePlanner.Plan(Layout, 19, 18, checkOnly: true, clusterRunning: false));
-        Assert.ThrowsAny<Exception>(() => PgUpgradePlanner.Plan(Layout, 18, 18, checkOnly: true, clusterRunning: false));
+        Assert.ThrowsAny<Exception>(() => PgUpgradePlanner.Plan(_layout, 19, 18, checkOnly: true, clusterRunning: false));
+        Assert.ThrowsAny<Exception>(() => PgUpgradePlanner.Plan(_layout, 18, 18, checkOnly: true, clusterRunning: false));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class PgUpgradePlannerTests
     [Fact]
     public void Dump_is_custom_format_and_never_carries_a_password()
     {
-        var command = PgDumpBackupPlanner.PlanDump(Layout, 18, "backup.dump", 54320, "bazaar_admin", "bazaar");
+        var command = PgDumpBackupPlanner.PlanDump(_layout, 18, "backup.dump", 54320, "bazaar_admin", "bazaar");
 
         Assert.Contains("-Fc", command.Arguments);
         Assert.Contains("--no-password", command.Arguments);
@@ -67,7 +67,7 @@ public sealed class PgUpgradePlannerTests
     [Fact]
     public void Restore_check_lists_the_dump_without_restoring_it()
     {
-        var command = PgDumpBackupPlanner.PlanRestoreCheck(Layout, 18, "backup.dump");
+        var command = PgDumpBackupPlanner.PlanRestoreCheck(_layout, 18, "backup.dump");
 
         Assert.Equal(["--list", "backup.dump"], command.Arguments);
         Assert.Equal("pg_restore", Path.GetFileNameWithoutExtension(command.FileName));
