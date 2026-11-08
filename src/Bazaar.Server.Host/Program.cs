@@ -25,5 +25,8 @@ app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.UseBazaarWire();
 
+// Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
+var exitCode = app.Services.GetRequiredService<HostExitCode>();
+
 await app.RunAsync();
-return app.Services.GetRequiredService<HostExitCode>().Value;
+return exitCode.Value;
