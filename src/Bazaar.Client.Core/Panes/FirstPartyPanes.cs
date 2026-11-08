@@ -9,12 +9,14 @@ public static class FirstPartyPanes
     // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI
     // container yet. Decide how client components register (a head composition root or a client kernel), then turn this
     // into per-component registrations. Until then the heads call CreateRegistry.
-    public static PaneRegistry CreateRegistry(Action<string>? report = null)
+    /// <param name="tiles">The Constellation tile source the heads inject. Null leaves the pane without tile requests.</param>
+    public static PaneRegistry CreateRegistry(Action<string>? report = null, IConstellationTileSource? tiles = null)
     {
         var registry = new PaneRegistry(report);
         registry.Register(PaneKinds.Kanban, descriptor => new KanbanPaneViewModel(descriptor));
         registry.Register(PaneKinds.Dashboard, descriptor => new DashboardPaneViewModel(descriptor));
-        registry.Register(PaneKinds.Constellation, descriptor => new ConstellationPaneViewModel(descriptor));
+        registry.Register(PaneKinds.Constellation, descriptor =>
+            new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));
         return registry;
     }
 }
