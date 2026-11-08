@@ -18,6 +18,8 @@ public static class FirstPartyPanes
 
     /// <summary>An empty GC model. The GC pane takes its content from the chat, not the descriptor.</summary>
     private static readonly JsonElement _emptyGcModel = JsonElement.Parse("{}");
+    /// <summary>An empty Constellation model: no graph loaded yet.</summary>
+    private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
     // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI
     // container yet. Decide how client components register (a head composition root or a client kernel), then turn this
@@ -43,6 +45,16 @@ public static class FirstPartyPanes
         registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, chat));
         return registry;
     }
+
+    /// <summary>
+    /// The panes the Windows head shows when started with <c>--panes</c>: the Kanban board and the Constellation
+    /// view, both with empty models. The heads fill the models from the server once a session is connected.
+    /// </summary>
+    public static IReadOnlyList<PaneDescriptor> WindowPanes() =>
+    [
+        new PaneDescriptor(PaneKinds.Kanban, _kanbanTitle, string.Empty, _emptyKanbanModel),
+        new PaneDescriptor(PaneKinds.Constellation, "Constellation", string.Empty, _emptyConstellationModel),
+    ];
 
     /// <summary>
     /// Pane bodies for the phone pager. The Kanban pane renders its real board from <paramref name="kanbanModel"/>
