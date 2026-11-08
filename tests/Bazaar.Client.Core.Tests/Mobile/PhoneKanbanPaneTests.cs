@@ -31,7 +31,7 @@ public class PhoneKanbanPaneTests
         window.Show();
 
         var texts = ShownText(window);
-        Assert.Contains("Kanban", texts);
+        Assert.Contains("RyuseiFuda · Board", texts);
         Assert.Contains("Backlog (0)", texts);
         Assert.Contains("Done (0)", texts);
         Assert.DoesNotContain(PaneKinds.Kanban, texts);
