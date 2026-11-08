@@ -20,4 +20,7 @@ public static class PaneKinds
 
     /// <summary>Start-screen dashboard of what changed while away (CLAUDE.md, client start screen).</summary>
     public const string Dashboard = "bazaar.dashboard";
+
+    /// <summary>Constellation 2D view of the Vault's knowledge graph (doc 19).</summary>
+    public const string Constellation = "bazaar.constellation";
 }
