@@ -52,6 +52,15 @@ public sealed record RyuseiLimits
 
     /// <summary>ryusei.max_ping_fanout, 1 to 8.</summary>
     public int MaxPingFanout { get; init; } = RyuseiDefaults.MaxPingFanout;
+
+    /// <summary>ryusei.max_fires_per_day: woke fires per trigger in any 24 hours. The tick reads it (doc 38, guard table).</summary>
+    public int MaxFiresPerDay { get; init; } = RyuseiDefaults.MaxFiresPerDay;
+
+    /// <summary>ryusei.cooldown_seconds: the gap a trigger keeps between wakes. The guard floors it at 10 seconds.</summary>
+    public int CooldownSeconds { get; init; } = RyuseiDefaults.CooldownSeconds;
+
+    /// <summary>ryusei.auto_pause_after: consecutive refusals before a trigger pauses, 1 to 20.</summary>
+    public int AutoPauseAfter { get; init; } = RyuseiDefaults.AutoPauseAfter;
 }
 
 /// <summary>A creation request as the pure rules see it. Nothing here touches the database.</summary>

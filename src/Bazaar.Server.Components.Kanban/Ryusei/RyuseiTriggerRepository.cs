@@ -50,6 +50,31 @@ public sealed class RyuseiTriggerRepository(NpgsqlDataSource dataSource)
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? Read(reader) : null;
     }
 
+    /// <summary>
+    /// Claims up to <paramref name="limit"/> active timer and interval triggers that are due at <paramref name="now"/>, locking
+    /// them until <paramref name="tx"/> ends (doc 38, Firing). Rows another tick has locked are skipped, not waited for, so two
+    /// ticks never fire the same trigger. Watchers and events are not claimed (WP-R6 adds their predicates).
+    /// </summary>
+    public async Task<IReadOnlyList<RyuseiTriggerRecord>> ClaimDueAsync(
+        NpgsqlTransaction tx,
+        DateTimeOffset now,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = KanbanCommands.Create(dataSource, tx, $"""
+            SELECT {_columns} FROM ryusei_trigger
+            WHERE state = 'active' AND kind IN ('timer', 'interval') AND next_fire_at <= @now
+            ORDER BY next_fire_at, trigger_id
+            LIMIT @limit
+            FOR UPDATE SKIP LOCKED
+            """);
+        cmd.Parameters.AddWithValue("now", now);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadAllAsync(cmd, ct).ConfigureAwait(false);
+    }
+
     /// <summary>Lists a project's triggers, optionally in one state, oldest first.</summary>
     public async Task<IReadOnlyList<RyuseiTriggerRecord>> ListByProjectAsync(
         Guid projectId,
