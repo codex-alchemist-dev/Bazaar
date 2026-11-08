@@ -188,3 +188,8 @@ The owner confirmed these with full authority on decisions, and they are impleme
 - **TRUNCATE on `gc_event`:** already refused. `gc_event_no_truncate` (0001) is a BEFORE TRUNCATE trigger, and the foreign key from `wake_decisions` (0016) refuses first with 0A000. No new migration is needed. Keep the foreign key.
 - **`calendar.*` settings:** registered in code as `CalendarSettings` and combined in `SettingRegistry.Known`. Rows added to the doc 03 table. The store still reads `SettingRegistry.Host` until it is wired to `Known`.
 
+## Round 18 (2026-11-08)
+
+| Item | Decision | Effect on the docs |
+|---|---|---|
+| RyuseiFuda | PROPOSED (planning, owner naming and direction, 2026-11-08): RyuseiFuda is the umbrella name for the macro board (doc 12), micro agent schedule and objective roadmap (doc 38); it is the answer to agent loop and scheduling. Inbox dedupe key is (agent_id, source_key, kind) where source_key is the GC seq or the fire_id (doc 06 conflict resolved as a safe default, owner may change). | docs 06, 12, 19, 23, 24, 26, 38; glossary in docs/deep-dives/Bazaar.md |
