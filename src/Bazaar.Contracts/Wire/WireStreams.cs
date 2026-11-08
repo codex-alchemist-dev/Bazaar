@@ -35,4 +35,16 @@ public static class WireStreams
             && stream.StartsWith(GcPrefix, StringComparison.Ordinal)
             && Guid.TryParseExact(stream.AsSpan(GcPrefix.Length), "D", out gcId);
     }
+
+    /// <summary>The stream name for a graph.</summary>
+    public static string Graph(Guid graphId) => GraphPrefix + graphId.ToString("D");
+
+    /// <summary>Reads the graph id out of a <c>graph:&lt;id&gt;</c> stream name.</summary>
+    public static bool TryParseGraph(string? stream, out Guid graphId)
+    {
+        graphId = default;
+        return stream is not null
+            && stream.StartsWith(GraphPrefix, StringComparison.Ordinal)
+            && Guid.TryParseExact(stream.AsSpan(GraphPrefix.Length), "D", out graphId);
+    }
 }

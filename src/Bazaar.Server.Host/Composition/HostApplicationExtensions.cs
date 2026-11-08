@@ -37,7 +37,6 @@ public static class HostApplicationExtensions
         services.AddBazaarComponents(configuration, HostComponents.All);
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
-        // TODO(component): map MapBazaarHttpSurface in Program.cs on a listener that allows POST and PATCH (UseBazaarGetOnly blocks them).
         services.AddBazaarHttpSurface(configuration);
         return services;
     }
