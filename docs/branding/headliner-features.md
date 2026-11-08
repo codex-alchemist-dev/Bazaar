@@ -92,9 +92,9 @@ Versions are SemVer. Pre-release builds are "Beta", displayed as `v00.MM.PP`. Ea
 |---|---|---|
 | v1.0.0 | Zuhal | DECIDED (owner-picked). Ships only when the owner judges Bazaar ready. |
 | v2.0.0 | Yliaster | DECIDED (owner-accepted) |
-| v3.0.0 | Xerion | DECIDED (owner-accepted) |
-| v4.0.0 | Wormwood | DECIDED (owner-accepted) |
-| v5.0.0 | Venus | DECIDED (owner-accepted) |
+| v3.0.0 | Xylokrator | DECIDED (owner pick, 2026-11-08; replaces Xerion). Meaning: "ruler of the wood" (Greek *xylon*, wood, and *kratos*, rule). The philosophers' tree of the Great Work, made cosmic. |
+| v4.0.0 | Weltseele | DECIDED (owner pick, 2026-11-08; replaces Wormwood). Meaning: anima mundi, the world soul. Plato's *Timaeus* gave it to the heavens, and Renaissance writers tied it to the spirit that binds matter and sky. |
+| v5.0.0 | Valthyrzmthl | DECIDED (owner pick, 2026-11-08; replaces Venus). Meaning: coined by the owner, from the Valthyr root, in an exotic consonant-cluster style. No alchemy or star link is recorded yet. |
 
 Release channels: LTSC, Stable, Beta, Alpha and Latest-Commit, chosen by the operator. Source: `docs/VERSIONING.md`.
 
@@ -102,6 +102,7 @@ Release channels: LTSC, Stable, Beta, Alpha and Latest-Commit, chosen by the ope
 
 - **Confirm RyuseiFuda's design doc** (doc 38) once PR #327 merges. Then update doc 12 and the glossary.
 - **Confirm the meanings of unconfirmed rows**: Digital Twin and Bazaar Archive have no design doc in `docs/design/`. Their wording here comes from `Bazaar.md` §4 alone.
+- **Give Valthyrzmthl an alchemy and star link** (owner's rationale). The theme needs both halves, and the v5 row says none is recorded yet.
 - **Clear the "Codex" name** before it appears in any public product name or package ID.
 - **Draft the Company Constitution.** It is v1 scope and still has no text.
 - **Counsel review** of the licences, and the NOTICE file, before the first public release.
