@@ -43,7 +43,7 @@ public sealed class RyuseiPingLineTests
     [Fact]
     public void Attach_line_is_a_system_line_in_the_attach_gc()
     {
-        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _fireAt, [_agentA, _agentB]);
+        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _gc, _fireAt, [_agentA, _agentB]);
 
         Assert.Equal(_gc, request.GcId);
         Assert.Equal(GcEventKinds.System, request.Kind);
@@ -56,7 +56,7 @@ public sealed class RyuseiPingLineTests
     [Fact]
     public void Attach_line_names_the_trigger_and_the_targets_by_id()
     {
-        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _fireAt, [_agentA, _agentB]);
+        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _gc, _fireAt, [_agentA, _agentB]);
 
         Assert.NotNull(request.PayloadJson);
         Assert.Contains(RyuseiPingLine.PayloadKind, request.PayloadJson);
@@ -69,7 +69,7 @@ public sealed class RyuseiPingLineTests
     public void Attach_line_never_carries_the_purpose_text()
     {
         // Purpose is agent-written; the line is read by every member, so it stays out of the payload.
-        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc, "PURPOSE-SENTINEL-7731"), _fireAt, [_agentA]);
+        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc, "PURPOSE-SENTINEL-7731"), _gc, _fireAt, [_agentA]);
 
         Assert.DoesNotContain("PURPOSE-SENTINEL-7731", request.PayloadJson);
     }
@@ -77,8 +77,8 @@ public sealed class RyuseiPingLineTests
     [Fact]
     public void Retried_fire_keys_to_the_same_client_message_id()
     {
-        var first = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _fireAt, [_agentA]);
-        var retry = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _fireAt, [_agentA]);
+        var first = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _gc, _fireAt, [_agentA]);
+        var retry = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _gc, _fireAt, [_agentA]);
 
         Assert.Equal(first.ClientMsgId, retry.ClientMsgId);
     }
@@ -86,19 +86,27 @@ public sealed class RyuseiPingLineTests
     [Fact]
     public void A_later_fire_gets_a_different_client_message_id()
     {
-        var first = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _fireAt, [_agentA]);
-        var later = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _fireAt.AddMinutes(1), [_agentA]);
+        var first = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _gc, _fireAt, [_agentA]);
+        var later = RyuseiPingLine.Build(Trigger(RyuseiPingMode.Attach, _gc), _gc, _fireAt.AddMinutes(1), [_agentA]);
 
         Assert.NotEqual(first.ClientMsgId, later.ClientMsgId);
         Assert.True(first.ClientMsgId.Length <= AppendRequest.MaxClientMsgIdLength);
     }
 
-    [Theory]
-    [InlineData(RyuseiPingMode.None)]
-    [InlineData(RyuseiPingMode.NewGc)]
-    public void Only_attach_mode_builds_a_line(RyuseiPingMode mode)
+    [Fact]
+    public void New_gc_line_goes_to_the_gc_it_is_given()
     {
-        Assert.Throws<ArgumentException>(() => RyuseiPingLine.Build(Trigger(mode, null), _fireAt, [_agentA]));
+        var newGc = Guid.Parse("44444444-4444-7444-8444-444444444444");
+        var request = RyuseiPingLine.Build(Trigger(RyuseiPingMode.NewGc, null), newGc, _fireAt, [_agentA]);
+
+        Assert.Equal(newGc, request.GcId);
+        Assert.Equal(AuthorKind.System, request.AuthorKind);
+    }
+
+    [Fact]
+    public void Ping_mode_none_posts_no_line()
+    {
+        Assert.Throws<ArgumentException>(() => RyuseiPingLine.Build(Trigger(RyuseiPingMode.None, null), _gc, _fireAt, [_agentA]));
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Bazaar.Server.Gc;
+using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Write;
 using Npgsql;
 
@@ -27,6 +28,7 @@ public sealed class RyuseiTickService
     private readonly TimeProvider _time;
     private readonly Func<RyuseiTriggerRecord, TimeZoneInfo> _zoneOf;
     private readonly IGcLogWriter? _gcLog;
+    private readonly GcCreateService? _gcCreate;
 
     /// <param name="zoneOf">
     /// The zone that anchors an interval's wall-clock days. Null means UTC until doc 09 zones are stored (no table holds
@@ -37,7 +39,8 @@ public sealed class RyuseiTickService
         RyuseiLimits limits,
         TimeProvider time,
         Func<RyuseiTriggerRecord, TimeZoneInfo>? zoneOf = null,
-        IGcLogWriter? gcLog = null)
+        IGcLogWriter? gcLog = null,
+        GcCreateService? gcCreate = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(limits);
@@ -47,6 +50,7 @@ public sealed class RyuseiTickService
         _time = time;
         _zoneOf = zoneOf ?? (_ => TimeZoneInfo.Utc);
         _gcLog = gcLog;
+        _gcCreate = gcCreate;
         _triggers = new RyuseiTriggerRepository(dataSource);
         _writer = new RyuseiFireWriter(dataSource);
     }
@@ -101,7 +105,7 @@ public sealed class RyuseiTickService
         // An attach fire posts its system line first (WP-R7). The line is idempotent on (trigger, fire instant), so a retried
         // batch returns the same seq and the inbox keys stay stable.
         RyuseiPingPosted? ping = null;
-        if (decision.Woke && trigger.PingMode == RyuseiPingMode.Attach)
+        if (decision.Woke && trigger.PingMode != RyuseiPingMode.None)
         {
             (ping, decision) = await PostPingAsync(trigger, decision, ct).ConfigureAwait(false);
         }
@@ -110,8 +114,10 @@ public sealed class RyuseiTickService
     }
 
     /// <summary>
-    /// Posts the attach line. Returns the posted line, or null and an error decision when the GC cannot take it (missing,
-    /// archived, or no GC log installed). An error decision wakes nobody, so the fire is recorded instead of poisoning the batch.
+    /// Posts the ping line for an attach fire, or creates the GC and then posts its line for a new_gc fire. Returns the posted
+    /// line, or null and an error decision when the GC cannot take it. An error decision wakes nobody, so the fire is recorded
+    /// instead of poisoning the batch. A new GC is created in its own transaction first, so the line's GC exists when the line
+    /// goes in. Both steps are idempotent on (trigger, fire instant).
     /// </summary>
     private async Task<(RyuseiPingPosted? Ping, RyuseiFireDecision Decision)> PostPingAsync(
         RyuseiTriggerRecord trigger,
@@ -120,18 +126,49 @@ public sealed class RyuseiTickService
     {
         if (_gcLog is null)
         {
-            return (null, RyuseiTickRules.Malformed(trigger, "No GC log is installed, so the attach ping cannot be posted."));
+            return (null, RyuseiTickRules.Malformed(trigger, "No GC log is installed, so the ping cannot be posted."));
+        }
+
+        Guid gcId;
+        if (trigger.PingMode == RyuseiPingMode.Attach)
+        {
+            if (trigger.AttachGcId is not { } attachGc)
+            {
+                return (null, RyuseiTickRules.Malformed(trigger, "The attach ping has no attach GC."));
+            }
+
+            gcId = attachGc;
+        }
+        else
+        {
+            if (_gcCreate is null)
+            {
+                return (null, RyuseiTickRules.Malformed(trigger, "No GC creation service is installed, so the new GC cannot be made."));
+            }
+
+            gcId = GcCreateService.DeterministicGcId($"ryusei-gc:{trigger.TriggerId:D}:{decision.ScheduledFor.ToUniversalTime():O}");
+            var members = trigger.TargetAgentIds.Append(trigger.CreatedBy).Distinct().ToArray();
+            try
+            {
+                await _gcCreate.EnsureAsync(
+                    new GcCreateRequest(gcId, $"RyuseiFuda: {trigger.Purpose}", trigger.CreatedBy, members),
+                    ct).ConfigureAwait(false);
+            }
+            catch (GcCreateRefusedException)
+            {
+                return (null, RyuseiTickRules.Malformed(trigger, "The new GC was refused by its create rules."));
+            }
         }
 
         try
         {
-            var request = RyuseiPingLine.Build(trigger, decision.ScheduledFor, decision.WakeAgentIds);
+            var request = RyuseiPingLine.Build(trigger, gcId, decision.ScheduledFor, decision.WakeAgentIds);
             var result = await _gcLog.AppendAsync(request, ct).ConfigureAwait(false);
             return (new RyuseiPingPosted(result.GcId, result.Seq), decision);
         }
         catch (Exception ex) when (ex is GcNotFoundException or GcArchivedException)
         {
-            return (null, RyuseiTickRules.Malformed(trigger, "The attach GC is missing or archived."));
+            return (null, RyuseiTickRules.Malformed(trigger, "The ping GC is missing or archived."));
         }
     }
 

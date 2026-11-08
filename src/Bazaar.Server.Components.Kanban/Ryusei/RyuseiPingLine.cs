@@ -18,14 +18,17 @@ public static class RyuseiPingLine
     /// <summary>The <c>kind</c> field in the line's payload.</summary>
     public const string PayloadKind = "ryusei.ping";
 
-    /// <summary>Builds the append for one fire. The trigger must be an attach-mode trigger with a GC.</summary>
-    public static AppendRequest Build(RyuseiTriggerRecord trigger, DateTimeOffset scheduledFor, IReadOnlyList<Guid> wakeAgentIds)
+    /// <summary>
+    /// Builds the append for one fire into <paramref name="gcId"/>: the attach GC for attach mode, or the freshly created GC for
+    /// new_gc mode. A trigger with ping mode none posts no line.
+    /// </summary>
+    public static AppendRequest Build(RyuseiTriggerRecord trigger, Guid gcId, DateTimeOffset scheduledFor, IReadOnlyList<Guid> wakeAgentIds)
     {
         ArgumentNullException.ThrowIfNull(trigger);
         ArgumentNullException.ThrowIfNull(wakeAgentIds);
-        if (trigger.PingMode != RyuseiPingMode.Attach || trigger.AttachGcId is not { } gcId)
+        if (trigger.PingMode == RyuseiPingMode.None)
         {
-            throw new ArgumentException("Only an attach-mode trigger with a GC posts a ping line.", nameof(trigger));
+            throw new ArgumentException("A trigger with ping mode none posts no ping line.", nameof(trigger));
         }
 
         var fireAt = scheduledFor.ToUniversalTime();

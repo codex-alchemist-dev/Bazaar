@@ -1,4 +1,5 @@
 using Bazaar.Server.Components;
+using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Jobs;
@@ -48,7 +49,9 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<RyuseiLimits>(),
             sp.GetRequiredService<TimeProvider>(),
-            gcLog: sp.GetService<IGcLogWriter>()));
+            gcLog: sp.GetService<IGcLogWriter>(),
+            gcCreate: sp.GetService<GcCreateService>()));
+        services.TryAddSingleton(sp => new GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
 
