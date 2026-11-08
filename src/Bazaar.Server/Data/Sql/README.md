@@ -34,11 +34,15 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
 | `components/remote/0001` | PAIR1 (group 32 WP1) | this PR | `human`, `device`, `refresh_credential`, `pairing_offer`, `passkey_credential`, `recovery_code`, `privacy_settings`, `privacy_request`, `approval_key` (doc 32). Component folder: applies once the component model (PR #125) loads `components/`; inert until then |
+| `components/remote/0002` | PAIR1 follow-up | this PR | `pairing_offer` gains `device_label`, `device_class`, `last_polled_at` (device request shown to the approver; slow_down). Inert until components load |
 | `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
 | `council/0001` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
+| `interrupts/0001` | INT1 follow-up | this PR | `interrupt_frame.reason` is replaced by sealed columns (`reason_sealed`, `reason_nonce`, `reason_key_id`); AES-256-GCM, bound to frame and agent ids. Lives in the `interrupts` namespace because `common/` is frozen |
 | `0021` | EMAIL1 | this PR | Namespace `mail` (not `common`, which is frozen): mail core (doc 22 tables): `mail_domain`, `mail_mailbox`, `mail_message`, `mail_outbound`, `mail_blob`; personal bodies encrypted per person |
 | `engines/0001` | WP2 | this PR | Engine registry, `engines` namespace (doc 20): `engine_projects`, `engine_grants` (default deny for write and exec; approval link is a TODO(component) to doc 15) |
+| `common/` | frozen | | No new files here. New SQL goes in its component namespace (`Data/Sql/<component_id>/`) |
 | `kanban/0001` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
+| `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
