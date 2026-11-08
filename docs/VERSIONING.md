@@ -1,6 +1,6 @@
 # Versioning and release channels
 
-Status: DECIDED by the owner (2026-10-25) where marked; codename v2 is owner-accepted; v3, v4 and v5 were changed by owner picks on 2026-11-08: v3 is Xylokrator (replacing Xerion), v4 is Weltseele (replacing Wormwood), and v5 is Valthyr (replacing Venus, meaning pending).
+Status: DECIDED by the owner (2026-10-25) where marked; codename v2 is owner-accepted; v3, v4 and v5 were changed by owner picks on 2026-11-08: v3 is Xylokrator (replacing Xerion), v4 is Weltseele (replacing Wormwood), and v5 is Valthyrzmthl (replacing Venus, meaning pending).
 Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.md` and `common/version.py`). This scheme differs from RESIBO's in three places: SemVer instead of per-PR counters, star-and-alchemy codenames instead of minerals, and immutable release tags.
 
 ## 1. Version numbers [DECIDED]
@@ -49,7 +49,7 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 | v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
 | v3.0.0 | **Xylokrator** (owner pick, 2026-11-08; replaces Xerion) | "Ruler of the wood" (Greek *xylon*, wood, and *kratos*, rule). The philosophers' tree of the Great Work, made cosmic: the tree of the heavens. |
 | v4.0.0 | **Weltseele** (owner pick, 2026-11-08; replaces Wormwood) | Anima mundi, the world soul: the animating principle of the cosmos. Plato's Timaeus gave it to the heavens, and Renaissance writers on the world soul, Ficino among them, tied it to the spirit that binds matter and sky, which is the alchemical side. |
-| v5.0.0 | **Valthyr** (owner pick, 2026-11-08; replaces Venus) | Meaning and the star and alchemy link are pending: the owner has not yet given the rationale, and this row must be filled in before the name is treated as settled. |
+| v5.0.0 | **Valthyrzmthl** (owner pick, 2026-11-08; replaces Venus) | Meaning and the star and alchemy link are pending: the owner has not yet given the rationale, and this row must be filled in before the name is treated as settled. |
 
 Codename art and banners (About screen, credits, server status page) are kept for every codename forever. An LTSC install on an old major must still show its own name (RESIBO's retention rule).
 
