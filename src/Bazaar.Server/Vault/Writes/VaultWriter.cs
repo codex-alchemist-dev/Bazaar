@@ -21,8 +21,9 @@ namespace Bazaar.Server.Vault.Writes;
 /// the caller can post a conflict card. Nothing is committed and the main checkout is left clean.
 /// </para>
 /// <para>
-/// <b>Not yet here:</b> memory batching, the conflict card itself, the indexer hook, and the decision immutability
-/// check (doc 18 work packages 9 and the indexer, owned by other threads).
+/// <b>Frozen decisions:</b> a branch that changes a non-proposed decision record is refused (see
+/// <see cref="DecisionImmutability"/>). Moves and renames live in <c>VaultWriter.Move.cs</c>.
+/// <b>Not yet here:</b> memory batching, the conflict card itself, and the indexer hook (owned by other threads).
 /// </para>
 /// </remarks>
 public sealed partial class VaultWriter : IDisposable
@@ -169,11 +170,29 @@ public sealed partial class VaultWriter : IDisposable
         return highest + 1;
     }
 
+    /// <summary>
+    /// The 26-character Crockford base32 form of a document id (doc 18: front-matter ids are ULIDs). The 128 bits are
+    /// read big-endian from the id's text form, so a time-ordered UUID v7 keeps its time order.
+    /// </summary>
+    internal static string ToUlid(Guid id)
+    {
+        const string alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        var value = new System.Numerics.BigInteger(Convert.FromHexString(id.ToString("N")), isUnsigned: true, isBigEndian: true);
+        var chars = new char[26];
+        for (var i = chars.Length - 1; i >= 0; i--)
+        {
+            chars[i] = alphabet[(int)(value & 31)];
+            value >>= 5;
+        }
+
+        return new string(chars);
+    }
+
     private static string RenderDecision(DecisionDraft draft)
     {
         var builder = new StringBuilder();
         builder.Append("---\n");
-        builder.Append("id: ").Append(draft.DocId.ToString("D")).Append('\n');
+        builder.Append("id: ").Append(ToUlid(draft.DocId)).Append('\n');
         builder.Append("type: decision\n");
         builder.Append("title: ").Append(draft.Title).Append('\n');
         builder.Append("status: proposed\n");
