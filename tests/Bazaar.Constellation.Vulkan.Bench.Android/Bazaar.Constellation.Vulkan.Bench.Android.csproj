@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationId>org.bazaar.constellation.vulkanbench</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>29</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Vulkan" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Constellation.Vulkan\Bazaar.Constellation.Vulkan.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The same benchmark code and SPIR-V shaders as the PC bench, compiled into the APK. -->
+    <Compile Include="..\Bazaar.Constellation.Vulkan.Bench\NodeBenchmark.cs" Link="NodeBenchmark.cs" />
+    <AndroidAsset Include="..\Bazaar.Constellation.Vulkan.Bench\Shaders\*.spv" LogicalName="Shaders\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
