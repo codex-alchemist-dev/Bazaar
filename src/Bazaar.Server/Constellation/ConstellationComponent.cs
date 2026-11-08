@@ -9,7 +9,7 @@ namespace Bazaar.Server.Constellation;
 
 /// <summary>
 /// Constellation as a Bazaar Component (docs/design/19-constellation-and-git-solar-system.md, docs/design/BAZAAR-COMPONENTS.md).
-/// It registers the tile handler and a default tile source. The layout and clustering code is pure library code and needs no
+/// It registers the tile handler, the on-demand layout tile source and the default (empty) graph source. The layout and clustering code is pure library code and needs no
 /// registration. It depends on no other component.
 /// </summary>
 /// <remarks>
@@ -29,7 +29,8 @@ public sealed class ConstellationComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton<IConstellationTileSource, ConstellationNoTileSource>();
+        services.TryAddSingleton<IConstellationGraphSource, ConstellationEmptyGraphSource>();
+        services.TryAddSingleton<IConstellationTileSource, LayoutTileSource>();
 
         // TODO(settings): read the stored constellation.node_cap per request. Until the settings reader is wired here, the handler
         // uses the shipped default, which is the same bound the settings store enforces.
