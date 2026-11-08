@@ -20,6 +20,7 @@ public static class PaneViews
         DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
         ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
         GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
+        Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
     };
