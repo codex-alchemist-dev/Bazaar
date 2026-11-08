@@ -1,3 +1,4 @@
+using Bazaar.Server.Vault.Links;
 using Npgsql;
 
 namespace Bazaar.Server.Vault.Data;
@@ -142,6 +143,115 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
         return deleted > 0;
     }
 
+    /// <summary>
+    /// Every indexed document of a Vault as a resolver entry: path, title, aliases, project, heading slugs and block ids.
+    /// The indexer uses these for unchanged documents, so a catch-up does not re-parse them.
+    /// </summary>
+    public async Task<IReadOnlyList<VaultIndexEntry>> ListEntriesAsync(Guid vaultId, CancellationToken cancellationToken = default)
+    {
+        var docs = new List<(Guid DocId, string Path, string Title, string? Project, string FrontmatterJson)>();
+        await using (var cmd = dataSource.CreateCommand("""
+            SELECT doc_id, path, title, project, frontmatter::text FROM vault_docs WHERE vault_id = $1 ORDER BY path
+            """))
+        {
+            cmd.Parameters.AddWithValue(vaultId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                docs.Add((reader.GetGuid(0), reader.GetString(1), reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3), reader.GetString(4)));
+            }
+        }
+
+        var headingSlugs = new Dictionary<Guid, HashSet<string>>();
+        var blockIds = new Dictionary<Guid, List<string>>();
+        await using (var cmd = dataSource.CreateCommand("""
+            SELECT b.doc_id, b.block_id, b.heading_path
+            FROM vault_blocks b JOIN vault_docs d ON d.doc_id = b.doc_id
+            WHERE d.vault_id = $1
+            """))
+        {
+            cmd.Parameters.AddWithValue(vaultId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var docId = reader.GetGuid(0);
+                if (!reader.IsDBNull(1))
+                {
+                    if (!blockIds.TryGetValue(docId, out var ids))
+                    {
+                        blockIds[docId] = ids = [];
+                    }
+
+                    ids.Add(reader.GetString(1));
+                }
+
+                var path = reader.GetFieldValue<string[]>(2);
+                if (path.Length > 0)
+                {
+                    if (!headingSlugs.TryGetValue(docId, out var slugs))
+                    {
+                        headingSlugs[docId] = slugs = new HashSet<string>(StringComparer.Ordinal);
+                    }
+
+                    slugs.Add(VaultSlug.Heading(path[^1]));
+                }
+            }
+        }
+
+        return docs.Select(doc => new VaultIndexEntry(
+            doc.DocId,
+            doc.Path,
+            doc.Title,
+            AliasesOf(doc.FrontmatterJson),
+            doc.Project,
+            headingSlugs.TryGetValue(doc.DocId, out var slugs) ? slugs.ToArray() : [],
+            blockIds.TryGetValue(doc.DocId, out var ids) ? ids.ToArray() : [])).ToList();
+    }
+
+    /// <summary>
+    /// Documents with at least one link that could resolve differently after a change: a link into one of
+    /// <paramref name="docIds"/>, an unresolved link, or a link whose text matches one of <paramref name="names"/>
+    /// (lower-case path without <c>.md</c>, title or alias).
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> FindLinkingDocumentsAsync(
+        Guid vaultId,
+        IReadOnlyCollection<Guid> docIds,
+        IReadOnlyCollection<string> names,
+        CancellationToken cancellationToken = default)
+    {
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT DISTINCT l.src_doc
+            FROM vault_links l JOIN vault_docs d ON d.doc_id = l.src_doc
+            WHERE d.vault_id = $1
+              AND (l.target_doc IS NULL
+                   OR l.target_doc = ANY($2::uuid[])
+                   OR lower(regexp_replace(l.target_raw, '\.md$', '', 'i')) = ANY($3::text[]))
+            """);
+        cmd.Parameters.AddWithValue(vaultId);
+        cmd.Parameters.AddWithValue(docIds.ToArray());
+        cmd.Parameters.AddWithValue(names.ToArray());
+        var result = new List<Guid>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            result.Add(reader.GetGuid(0));
+        }
+
+        return result;
+    }
+
+    private static string[] AliasesOf(string frontmatterJson)
+    {
+        using var json = System.Text.Json.JsonDocument.Parse(frontmatterJson);
+        if (!json.RootElement.TryGetProperty("aliases", out var aliases) || aliases.ValueKind != System.Text.Json.JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return aliases.EnumerateArray().Select(alias => alias.GetString() ?? string.Empty).ToArray();
+    }
+
     public async Task<VaultDocRecord?> GetDocumentAsync(Guid docId, CancellationToken cancellationToken = default)
     {
         await using var cmd = dataSource.CreateCommand(_docSelect + " WHERE doc_id = $1");
@@ -189,6 +299,30 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
     /// <summary>Links that resolve to one document. Callers filter these by the caller's access before showing them.</summary>
     public async Task<IReadOnlyList<VaultLinkRecord>> GetBacklinksAsync(Guid docId, CancellationToken cancellationToken = default) =>
         await ReadLinksAsync("WHERE target_doc = $1", docId, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Resolved links between documents of one Vault, as (source, target) pairs. Feeds the Constellation graph, which needs no
+    /// anchors, aliases or access checks: those stay with the link reader.
+    /// </summary>
+    public async Task<IReadOnlyList<(Guid SrcDoc, Guid TargetDoc)>> ListResolvedLinksAsync(Guid vaultId, CancellationToken cancellationToken = default)
+    {
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT l.src_doc, l.target_doc
+            FROM vault_links l
+            JOIN vault_docs d ON d.doc_id = l.src_doc
+            WHERE d.vault_id = $1 AND l.target_doc IS NOT NULL
+            ORDER BY l.src_doc, l.target_doc
+            """);
+        cmd.Parameters.AddWithValue(vaultId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var rows = new List<(Guid SrcDoc, Guid TargetDoc)>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            rows.Add((reader.GetGuid(0), reader.GetGuid(1)));
+        }
+
+        return rows;
+    }
 
     /// <summary>Unresolved links in one Vault, so a later pass can try to resolve them.</summary>
     public async Task<IReadOnlyList<VaultLinkRecord>> GetUnresolvedLinksAsync(Guid vaultId, CancellationToken cancellationToken = default)

@@ -13,13 +13,14 @@ public sealed class SubscriptionEngine(
     IGcAccessPolicy access,
     GcDispatcher dispatcher,
     SyncOptions options,
-    TimeProvider? time = null)
+    TimeProvider? time = null,
+    IGraphLodSource? graphLod = null)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>Creates the per-connection state. Dispose it when the socket closes.</summary>
     public SubscriptionSession CreateSession(Guid principalId, IWireCodec codec, IConnectionOutbound outbound) =>
-        new(principalId, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound);
+        new(principalId, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
 }
 
 /// <summary>What <see cref="SubscriptionSession.SubscribeAsync"/> decided, and the work to start once the response is queued.</summary>
@@ -50,13 +51,14 @@ public sealed class SubscriptionSession : IDisposable
     private readonly SyncOptions _options;
     private readonly SyncFrames _frames;
     private readonly IConnectionOutbound _outbound;
+    private readonly IGraphLodSource? _graphLod;
     private readonly CancellationTokenSource _cts = new();
     private readonly object _gate = new();
     private readonly Dictionary<string, GcSubscription> _subs = [];
 
     internal SubscriptionSession(
         Guid principalId, IGcStreamSource source, IGcAccessPolicy access, GcDispatcher dispatcher,
-        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound)
+        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod)
     {
         _principalId = principalId;
         _source = source;
@@ -65,6 +67,7 @@ public sealed class SubscriptionSession : IDisposable
         _options = options;
         _frames = frames;
         _outbound = outbound;
+        _graphLod = graphLod;
     }
 
     /// <summary>Streams this connection is subscribed to.</summary>
@@ -129,8 +132,35 @@ public sealed class SubscriptionSession : IDisposable
         _cts.Dispose();
     }
 
+    /// <summary>
+    /// A graph stream is a one-shot level-of-detail snapshot (doc 19). The source checks access and returns the frame, or
+    /// null for denied and unknown graphs alike. Graph streams are not held in <c>_subs</c>, so <c>unsubscribe</c> has
+    /// nothing to drop and resubscribing sends a fresh snapshot. Live deltas are a later change.
+    /// </summary>
+    private async Task<(string Status, Func<Task>? Start)> SubscribeGraphAsync(string stream, Guid graphId, CancellationToken ct)
+    {
+        if (_graphLod is null)
+        {
+            return (SubscribeStatuses.Denied, null);
+        }
+
+        var frame = await _graphLod.GetAsync(_principalId, graphId, ct).ConfigureAwait(false);
+        if (frame is null)
+        {
+            return (SubscribeStatuses.Denied, null);
+        }
+
+        var outgoing = frame with { S = stream };
+        return (SubscribeStatuses.Ok, () => _outbound.EnqueueAsync(_frames.GraphLod(outgoing), _cts.Token).AsTask());
+    }
+
     private async Task<(string Status, Func<Task>? Start)> SubscribeOneAsync(StreamCursor cursor, CancellationToken ct)
     {
+        if (WireStreams.TryParseGraph(cursor.S, out var graphId))
+        {
+            return await SubscribeGraphAsync(cursor.S, graphId, ct).ConfigureAwait(false);
+        }
+
         if (!WireStreams.TryParseGc(cursor.S, out var gcId))
         {
             return (SubscribeStatuses.Denied, null);

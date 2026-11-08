@@ -81,7 +81,7 @@ Systems with their own dedicated doc are marked; read there for full detail.
 | System | Status | Purpose |
 |---|---|---|
 | **Bazaar** | DECIDED | The overall platform. |
-| **The Constellation** → *see Bazaar.Constellation* | DECIDED | The visual layer of the knowledge graph (formerly the Mood Board); the Vault and the Constellation are two views of one graph. |
+| **The Constellation** → *see Bazaar.Constellation* | DECIDED | The whole knowledge workspace (Obsidian and Milanote replacement) on Vulkan, covering the Vault, canvas, memory and links; not a side graph view (owner, 2026-11-01). |
 | **Soul System** → *see Bazaar.Soul* | DECIDED | Agent's complete identity: VM, personality, memory, reputation, accounts. |
 | **Soul Passport** → *see Bazaar.Soul* | DECIDED | Credential registry inside a Soul. |
 | **Soul Marketplace** | DECIDED (nature); v1 scope OPEN | A completely optional user-generated-content marketplace for sharing preset Souls. Exports hold only overarching behavioral configuration, never personal data or saved project contexts (memories, accounts, credentials, reputation). Imported Souls should be treated as untrusted: quarantined, no tool grants until approved (research recommendation). |

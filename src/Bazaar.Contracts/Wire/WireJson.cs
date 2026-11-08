@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.Graph;
+using Bazaar.Contracts.Kanban;
 
 namespace Bazaar.Contracts.Wire;
 
@@ -27,4 +29,13 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
+[JsonSerializable(typeof(GraphSnapshot))]
+[JsonSerializable(typeof(KanbanBoardSnapshot))]
+[JsonSerializable(typeof(LayoutFrame))]
+[JsonSerializable(typeof(FocusRequest))]
+[JsonSerializable(typeof(GraphLodFrame))]
+[JsonSerializable(typeof(TileKey))]
+[JsonSerializable(typeof(ViewportRequest))]
+[JsonSerializable(typeof(ClusterGlyph))]
+[JsonSerializable(typeof(TileFrame))]
 public sealed partial class WireJsonContext : JsonSerializerContext;
