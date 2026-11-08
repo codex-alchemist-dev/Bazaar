@@ -7,7 +7,7 @@ Depends on: 02-wire-protocol-and-sync.md (status format, protocol version), 04-p
 Bazaar.Server.Host is the one executable that runs the company server, as a Worker Service on Windows (first supported host) or Linux. This doc covers how it composes the platform-neutral `Bazaar.Server` library with per-OS providers, how it starts, stops and stays up unattended, how it reports health, and where its operator-configurable values live. The company must keep working when no client is connected.
 
 ## Decided inputs
-- One OS-agnostic .NET 10 build; Windows is the first supported and tested host. (CLAUDE.md; Bazaar.Server.md §1)
+- One OS-agnostic .NET 11 build; Windows is the first supported and tested host. (CLAUDE.md; Bazaar.Server.md §1)
 - Service host, VM backend, cache and search are per-OS providers. No Windows-only API outside a provider. (CLAUDE.md; Bazaar.Server.md §3)
 - Pub/sub (C07, round 1): GC fan-out is Postgres NOTIFY, owned by doc 04 and not a provider. Valkey (Linux) or Garnet (Windows) serve cache and presence only. Garnet waits for spike S2.
 - VM topology (C03, round 1, owner 2026-10-24): two VMs per agent, a Windows VM and a Linux VM. Spike S8 is for sizing only. The VM contract is doc 16's.
@@ -49,7 +49,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 
 **Unattended operation [PROPOSED].** No dialogs or interactive session. Logs are capped. Disk and memory thresholds degrade health; they do not stop the host. Time-based work lives in database rows owned by their area docs (for example doc 09's schedules), picked up by the job poller. Model quota exhaustion is a gateway state (agents queue), not a host failure. Windows Update reboots are scheduled into `host.maintenance_window`, run the shutdown path, and Automatic start brings the host back.
 
-**Health and probes [PROPOSED].** `/health/live` reports that the process is up. `/health/ready` reports that Postgres is reachable, the schema version matches, the instance lock is held and the readiness roles (setting) are usable. The status listener is GET-only, bound per `host.status.bind` (loopback by default), and separate from `/ws` and from doc 32's sign-in routes. Its route, format and contents belong to docs 02 and 23; this doc only supplies the version, uptime and provider data. There is no `/healthz`.
+**Health and probes [PROPOSED].** `/health/live` reports that the process is up. `/health/ready` reports that Postgres is reachable, the schema version matches, the instance lock is held and the readiness roles (setting) are usable. The status listener is GET-only, bound per `host.status.bind` (loopback by default), and a non-loopback IP literal (such as `0.0.0.0`) is refused unless `Bazaar:Host:Status:OwnerApprovedWideBind` is true; that flag defaults to false and is set only by the owner's Tier 2 approval, and separate from `/ws` and from doc 32's sign-in routes. Its route, format and contents belong to docs 02 and 23; this doc only supplies the version, uptime and provider data. There is no `/healthz`.
 
 **Logging [PROPOSED].** `ILogger` with a JSON file sink under the data root, daily rotation, capped by `host.log.retention_days` and `host.log.max_total_mb`. No Serilog in v1. Windows Event Log carries warnings and lifecycle events only; the installer creates the source. Linux logs go to journald via stdout.
 

@@ -64,7 +64,7 @@ A 429 with no `retry-after` and no spend-cap code gets jittered backoff. A `Spen
 
 Dashboard: `/v1/usage` monthly requests and tokens by platform, probe latency, error and fallback rates, expected-set violations.
 
-**Reverse proxies and local runtimes.** Add-provider form: base URL, auth, extra headers, body include/exclude lists, model-list probe, test message, final request URL shown, validation on save. Local runtimes: `none` auth, low concurrency cap, 60-second health. "Base URL override" and "Outbound network proxy" are separate concepts; `socks5` waits for the .NET 10 spike. Outbound proxy and multi-key rotation exist in the schema only and stay hidden in the UI unless `gateway.outbound_proxy.ui` or `gateway.multi_key.ui` is turned on.
+**Reverse proxies and local runtimes.** Add-provider form: base URL, auth, extra headers, body include/exclude lists, model-list probe, test message, final request URL shown, validation on save. Local runtimes: `none` auth, low concurrency cap, 60-second health. "Base URL override" and "Outbound network proxy" are separate concepts; `socks5` waits for the .NET 11 spike. Outbound proxy and multi-key rotation exist in the schema only and stay hidden in the UI unless `gateway.outbound_proxy.ui` or `gateway.multi_key.ui` is turned on.
 
 ## Data and interfaces
 ```csharp
@@ -156,7 +156,7 @@ A `FakeProvider` adapter is scripted: text, tool calls, thinking, `retry-after` 
 13. FreeLLMAPI provider: usage and health, and the expected-set auditor. (4, 7, 8)
 14. Guided-setup service for the admin panel. (13)
 15. Reverse-proxy and local-runtime add-provider validation. (4, 11)
-16. Spike: .NET 10 socks5 through `SocketsHttpHandler`. (none)
+16. Spike: .NET 11 socks5 through `SocketsHttpHandler`. (none)
 17. `IChatClient` adapter over `IModelGateway`, first wave. (1, 7)
 18. Settings keys above registered in doc 03's registry. (doc 03)
 
