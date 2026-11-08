@@ -1,0 +1,40 @@
+{
+  "db_size_mb": 991,
+  "gap_check_after_load": {
+    "gcs_with_gap_or_head_mismatch": 0
+  },
+  "hotshare": 0.3,
+  "load": {
+    "n": 15000,
+    "p50_ms": 4.48,
+    "p95_ms": 9.77,
+    "p99_ms": 372.29,
+    "max_ms": 1634.26,
+    "target_rate": 500,
+    "achieved_rate": 499.9,
+    "errors": 0,
+    "notifications_received": 15300,
+    "hint_reads": 15300,
+    "insert_to_consumer_read_ms": {
+      "n": 15300,
+      "p50_ms": 2.28,
+      "p95_ms": 37.65,
+      "p99_ms": 481.66,
+      "max_ms": 837.24
+    }
+  },
+  "notify": "on",
+  "parts": 16,
+  "preload_events": 1000099,
+  "preload_s": 57.4,
+  "run": 10,
+  "saturation_32w": {
+    "n": 17198,
+    "p50_ms": 4.56,
+    "p95_ms": 149.27,
+    "p99_ms": 295.18,
+    "max_ms": 963.18,
+    "appends_per_s": 1144
+  },
+  "tsindex": false
+}
