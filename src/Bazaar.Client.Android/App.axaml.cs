@@ -25,3 +25,5 @@ public sealed class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 }
+
+// CodeQL default setup retrigger: comment-only, no code change.
