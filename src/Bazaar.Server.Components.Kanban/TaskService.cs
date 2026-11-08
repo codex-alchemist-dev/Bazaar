@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gc;
+using Bazaar.Contracts.Kanban;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Kanban.Data;
@@ -461,6 +462,30 @@ public sealed class TaskService
         }
 
         return BlockedStatus.CheckStart(taskId, incoming, states);
+    }
+
+    /// <summary>
+    /// The project board: every task with its unfinished blockers and their titles (doc 12, board view). Read-only,
+    /// no locks: a snapshot is a consistent read of one statement per table, which is enough for a view that the
+    /// client re-reads on each board event.
+    /// </summary>
+    public async Task<KanbanBoardSnapshot> GetBoardSnapshotAsync(Guid projectId, CancellationToken ct = default)
+    {
+        var tasks = await _tasks.ListByProjectAsync(projectId, null, null, ct).ConfigureAwait(false);
+        var edges = await _edges.ListForProjectAsync(projectId, null, ct).ConfigureAwait(false);
+        var byId = tasks.ToDictionary(t => t.Id, t => t);
+        var states = byId.ToDictionary(kv => kv.Key, kv => kv.Value.State);
+
+        var cards = tasks.Select(task =>
+        {
+            var unfinished = BlockedStatus.UnfinishedBlockers(task.Id, edges, states);
+            var titles = unfinished
+                .Select(id => byId.TryGetValue(id, out var blocker) ? blocker.Title : "(unknown task)")
+                .ToList();
+            return new KanbanBoardCard(task.Id, task.Title, KanbanText.ToSql(task.State), task.OwnerAgentId, unfinished, titles);
+        }).ToList();
+
+        return new KanbanBoardSnapshot(projectId, cards);
     }
 
     private static async Task LockGraphAsync(NpgsqlTransaction tx, Guid projectId, bool exclusive, CancellationToken ct)
