@@ -428,3 +428,5 @@ sealed class Listener(string cs, NpgsqlDataSource ds, Dictionary<Guid, long>? st
         lock (_cursor) _cursor[gc] = Math.Max(_cursor[gc], last);
     }
 }
+
+// CodeQL analysis trigger (no functional change).
