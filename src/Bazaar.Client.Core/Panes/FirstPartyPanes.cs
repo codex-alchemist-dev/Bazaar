@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Avalonia.Controls;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Server;
@@ -9,6 +11,11 @@ namespace Bazaar.Client.Core.Panes;
 /// <summary>Registers the panes every client ships with.</summary>
 public static class FirstPartyPanes
 {
+    private const string _kanbanTitle = "Kanban";
+
+    /// <summary>An empty board: five columns, no cards. Shown when no board snapshot is available.</summary>
+    private static readonly JsonElement _emptyKanbanModel = JsonElement.Parse("""{"cards":[]}""");
+
     // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI
     // container yet. Decide how client components register (a head composition root or a client kernel), then turn this
     // into per-component registrations. Until then the heads call CreateRegistry.
@@ -32,5 +39,28 @@ public static class FirstPartyPanes
 
         registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, chat));
         return registry;
+    }
+
+    /// <summary>
+    /// Pane bodies for the phone pager. The Kanban pane renders its real board from <paramref name="kanbanModel"/>
+    /// (the server's board snapshot, Guid-parsed by the pane), or an empty board when none is given. Other kinds
+    /// return null and keep the pager's kind-name placeholder until their phone views land.
+    /// </summary>
+    /// <param name="registry">The registry the shell pages through. Its factories build the view models.</param>
+    /// <param name="kanbanModel">The board snapshot, or null when no session is connected.</param>
+    public static Func<string, Control?> PhonePaneBodies(PaneRegistry registry, JsonElement? kanbanModel = null)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+
+        return kind =>
+        {
+            if (kind != PaneKinds.Kanban)
+            {
+                return null;
+            }
+
+            var model = kanbanModel ?? _emptyKanbanModel;
+            return PaneViews.Create(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
+        };
     }
 }

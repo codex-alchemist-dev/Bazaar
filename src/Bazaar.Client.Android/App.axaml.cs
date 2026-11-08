@@ -20,13 +20,19 @@ public sealed class App : Avalonia.Application
         var tiles = HttpConstellationTileSource.Create(ClientServer.Current);
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
-            activity.MainViewFactory = () => new PhoneShell(FirstPartyPanes.CreateRegistry(tiles: tiles));
+            activity.MainViewFactory = () => CreatePhoneShell(tiles);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
-            single.MainView = new PhoneShell(FirstPartyPanes.CreateRegistry(tiles: tiles));
+            single.MainView = CreatePhoneShell(tiles);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
+    {
+        var registry = FirstPartyPanes.CreateRegistry(tiles: tiles);
+        return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
     }
 }

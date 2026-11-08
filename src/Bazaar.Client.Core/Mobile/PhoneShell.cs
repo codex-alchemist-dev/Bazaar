@@ -14,6 +14,7 @@ namespace Bazaar.Client.Core.Mobile;
 public sealed class PhoneShell : UserControl
 {
     private readonly PaneRegistry _registry;
+    private readonly Func<string, Control?>? _paneBody;
     private readonly Carousel _pager = new();
     private IReadOnlyList<IReadOnlyList<string>> _pages = [];
 
@@ -23,10 +24,13 @@ public sealed class PhoneShell : UserControl
     {
     }
 
-    public PhoneShell(PaneRegistry registry)
+    /// <param name="registry">The panes to page through, in order.</param>
+    /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
+        _paneBody = paneBody;
 
         var title = new TextBlock { Text = "Bazaar", FontSize = 22, Margin = new Thickness(16, 16, 16, 8), FontWeight = FontWeight.SemiBold };
         DockPanel.SetDock(title, Dock.Top);
@@ -93,11 +97,12 @@ public sealed class PhoneShell : UserControl
         _pager.SelectedIndex = 0;
     }
 
-    private static Grid PageView(IReadOnlyList<string> kinds)
+    private Grid PageView(IReadOnlyList<string> kinds)
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), Margin = new Thickness(8) };
         for (var i = 0; i < kinds.Count; i++)
         {
+            Control body = _paneBody?.Invoke(kinds[i]) ?? new TextBlock { Text = kinds[i], TextWrapping = TextWrapping.Wrap, FontSize = 16 };
             var placeholder = new Border
             {
                 Padding = new Thickness(12),
@@ -105,7 +110,7 @@ public sealed class PhoneShell : UserControl
                 BorderThickness = new Thickness(1),
                 BorderBrush = Brushes.Gray,
                 CornerRadius = new CornerRadius(4),
-                Child = new TextBlock { Text = kinds[i], TextWrapping = TextWrapping.Wrap, FontSize = 16 },
+                Child = body,
             };
             Grid.SetColumn(placeholder, i);
             grid.Children.Add(placeholder);
