@@ -139,3 +139,17 @@ What this rules out: a per-draw-call limit (splitting does not help), vertex fet
 What it suggests, not proven: the cost grows roughly linearly beyond about 4M instances per frame, at about 50 ms per million. A per-frame work budget in the driver is one candidate. The point-list path roughly halves the cost but is still far from the budget.
 
 Consequence for the design: keep the instance count per frame at or below about 4M, and take the far-zoom density path (section 5) rather than per-node draws beyond that. Revisit once a second driver is measured, and once a multi-submit frame is tried.
+
+### 10.2 Android bench on an emulator (emulator, not a phone; 2026-11-08)
+Run: `Bazaar.Constellation.Vulkan.Bench.Android` on an Android 15 (API 35) x86_64 Google APIs emulator, WHPX-accelerated, with `-gpu host`. Vulkan calls go through the emulator's translation layer to the host Intel Arc B580. The emulator reports Vulkan 1.3.0 and no mesh-shader extension. Phone caps: 256 MB resident (16M nodes), 300 000 instances per frame. These numbers are not phone numbers. Section 6 phone budgets still need a physical device.
+
+| Section | Total nodes | Resident nodes | Instances per frame | Upload (ms) | Wall p50 (ms) | Wall p95 (ms) | GPU p50 (ms) | GPU p95 (ms) |
+|---|---|---|---|---|---|---|---|---|
+| nodes | 1M | 1M | 300k | 982 | 2.29 | 5.97 | 1.07 | 1.87 |
+| nodes | 4M | 4M | 300k | 2 538 | 1.90 | 2.90 | 1.07 | 1.91 |
+| nodes | 16M | 16M | 300k | 8 490 | 1.61 | 2.38 | 1.07 | 1.86 |
+| instances | 16.8M | 16.8M | 100k | 8 001 | 0.77 | 1.68 | 0.37 | 1.21 |
+| instances | 16.8M | 16.8M | 300k | 8 001 | 1.69 | 2.42 | 1.07 | 1.96 |
+| instances | 16.8M | 16.8M | 1M | 8 001 | 2.29 | 3.67 | 1.92 | 3.30 |
+
+The 300k-instance cap is the phone-tier figure from section 6. Above it, the emulator tracks the PC roughly linearly and did not show the PC cliff in the range measured here (1M instances at 1.9 ms GPU p50). The emulator's translation layer dominates these numbers, so they don't say anything about phone-GPU cliffs.
