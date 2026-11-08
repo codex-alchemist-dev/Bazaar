@@ -41,5 +41,7 @@
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
     <!-- Local Co-Worker CPU tier (doc 31 WP5): ONNX Runtime CPU execution provider, latest stable. -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <!-- Android fold posture (doc 29, WP2): Jetpack WindowManager bindings. Pinned, not yet referenced; the mapping in Bazaar.Client.Core is pure. Provisional, pending spike S13. -->
+    <PackageVersion Include="Xamarin.AndroidX.Window" Version="1.5.1.3" />
   </ItemGroup>
 </Project>
