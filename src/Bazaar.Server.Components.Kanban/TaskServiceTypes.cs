@@ -88,6 +88,25 @@ public sealed record TransitionResult(
         new(TransitionStatus.Invalid, outcome, null, []);
 }
 
+public enum CreateFromMessageStatus
+{
+    Created,
+
+    /// <summary>No GC has this message.</summary>
+    UnknownMessage,
+
+    /// <summary>The message is in a GC other than the one the pin was made from.</summary>
+    OtherGc,
+}
+
+/// <summary>Result of <see cref="TaskService.CreateFromMessageAsync"/>. <see cref="TaskId"/> is set only when created.</summary>
+public sealed record CreateFromMessageResult(CreateFromMessageStatus Status, Guid? TaskId)
+{
+    public static CreateFromMessageResult Created(Guid taskId) => new(CreateFromMessageStatus.Created, taskId);
+
+    public static CreateFromMessageResult Refused(CreateFromMessageStatus status) => new(status, null);
+}
+
 /// <summary>One card's result from <see cref="TaskService.PrMergedAsync"/>.</summary>
 public sealed record PrMergeOutcome(Guid TaskId, TransitionResult Result);
 
