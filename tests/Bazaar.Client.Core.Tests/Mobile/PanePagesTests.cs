@@ -4,14 +4,14 @@ namespace Bazaar.Client.Core.Tests.Mobile;
 
 public class PanePagesTests
 {
-    private static readonly string[] Three = ["one", "two", "three"];
+    private static readonly string[] _three = ["one", "two", "three"];
 
     [Fact]
     public void Folded_posture_gives_one_pane_per_page()
     {
         var variant = PostureLayout.Select(PostureKind.Folded, HalfOpenLayoutPolicy.UnfoldedIfWide, 360);
 
-        var pages = PanePages.Paginate(variant, Three);
+        var pages = PanePages.Paginate(variant, _three);
 
         Assert.Equal(1, PanePages.PanesPerPage(variant));
         Assert.Equal(3, pages.Count);
@@ -24,7 +24,7 @@ public class PanePagesTests
     {
         var variant = PostureLayout.Select(PostureKind.Unfolded, HalfOpenLayoutPolicy.UnfoldedIfWide, 900);
 
-        var pages = PanePages.Paginate(variant, Three);
+        var pages = PanePages.Paginate(variant, _three);
 
         Assert.Equal(2, PanePages.PanesPerPage(variant));
         Assert.Equal(2, pages.Count);
