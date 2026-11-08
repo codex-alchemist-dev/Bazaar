@@ -8,6 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -134,13 +135,42 @@ public class VaultSearchClientTests
     }
 
     [Fact]
-    public void Registry_without_a_vault_api_falls_back_to_the_generic_view()
+    public void Registry_without_an_explicit_api_builds_one_for_the_configured_endpoint()
     {
-        var reports = new List<string>();
-        var registry = FirstPartyPanes.CreateRegistry(reports.Add);
+        var registry = FirstPartyPanes.CreateRegistry();
 
-        Assert.False(registry.Contains(PaneKinds.VaultSearch));
-        Assert.IsType<GenericPaneViewModel>(registry.Create(Descriptor()));
+        Assert.True(registry.Contains(PaneKinds.VaultSearch));
+        Assert.IsType<VaultSearchPaneViewModel>(registry.Create(Descriptor()));
+    }
+
+    [Fact]
+    public async Task Factory_sends_the_endpoint_base_address_and_credential()
+    {
+        var handler = new FakeHandler(_ => Json(_searchJson));
+        var api = VaultApiFactory.Create(new ServerEndpoint(new Uri("http://example.test:9000/base/"), "tok-1"), handler);
+
+        await api.SearchAsync(_vault, "auth", null, null, 3, TestContext.Current.CancellationToken);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.StartsWith("http://example.test:9000/base/vault/search", request.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Equal("tok-1", request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public void Client_server_starts_at_the_development_default_and_takes_a_new_endpoint()
+    {
+        var original = ClientServer.Current;
+        try
+        {
+            Assert.Equal(ServerEndpoint.Development, ClientServer.Current);
+            var paired = new ServerEndpoint(new Uri("http://10.0.0.5:8080/"), "paired");
+            ClientServer.Use(paired);
+            Assert.Same(paired, ClientServer.Current);
+        }
+        finally
+        {
+            ClientServer.Use(original);
+        }
     }
 
     [Fact]
