@@ -140,3 +140,5 @@ jobs:
           # --log-opts=--all scans every ref in the fetched history, not just HEAD.
           # --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
           "$RUNNER_TEMP/gitleaks" git --log-opts=--all --redact --exit-code 1 --verbose .
+
+# CodeQL analysis trigger (no functional change).
