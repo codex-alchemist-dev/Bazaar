@@ -8,6 +8,7 @@ namespace Bazaar.Contracts;
 /// The number comes from <c>VersionPrefix</c> in Directory.Build.props; the SDK appends the
 /// commit hash as SemVer build metadata (<c>1.2.3+a1b2c3d</c>).
 /// </summary>
+// Touch: keeps the Analyze jobs reporting on packaging-only PRs (comment only).
 public static class ProductVersion
 {
     // Keyed by MAJOR only. A living list: add a name when that major actually ships, never
