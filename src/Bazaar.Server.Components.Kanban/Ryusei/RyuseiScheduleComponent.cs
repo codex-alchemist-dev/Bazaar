@@ -1,5 +1,6 @@
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Read;
+using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
@@ -42,10 +43,12 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<RyuseiLimits>()));
 
         // Scheduler tick (doc 38, WP-R5): the job handler the poller runs for ryusei.trigger_tick.
+        // The GC log takes attach pings (WP-R7). Null means no GC log is installed; attach fires then record an error.
         services.TryAddSingleton(sp => new RyuseiTickService(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<RyuseiLimits>(),
-            sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<TimeProvider>(),
+            gcLog: sp.GetService<IGcLogWriter>()));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
 

@@ -1,3 +1,5 @@
+using Bazaar.Server.Gc;
+using Bazaar.Server.Gc.Write;
 using Npgsql;
 
 namespace Bazaar.Server.Kanban.Ryusei;
@@ -24,6 +26,7 @@ public sealed class RyuseiTickService
     private readonly RyuseiLimits _limits;
     private readonly TimeProvider _time;
     private readonly Func<RyuseiTriggerRecord, TimeZoneInfo> _zoneOf;
+    private readonly IGcLogWriter? _gcLog;
 
     /// <param name="zoneOf">
     /// The zone that anchors an interval's wall-clock days. Null means UTC until doc 09 zones are stored (no table holds
@@ -33,7 +36,8 @@ public sealed class RyuseiTickService
         NpgsqlDataSource dataSource,
         RyuseiLimits limits,
         TimeProvider time,
-        Func<RyuseiTriggerRecord, TimeZoneInfo>? zoneOf = null)
+        Func<RyuseiTriggerRecord, TimeZoneInfo>? zoneOf = null,
+        IGcLogWriter? gcLog = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(limits);
@@ -42,6 +46,7 @@ public sealed class RyuseiTickService
         _limits = limits;
         _time = time;
         _zoneOf = zoneOf ?? (_ => TimeZoneInfo.Utc);
+        _gcLog = gcLog;
         _triggers = new RyuseiTriggerRepository(dataSource);
         _writer = new RyuseiFireWriter(dataSource);
     }
@@ -88,7 +93,46 @@ public sealed class RyuseiTickService
             decision = RyuseiTickRules.Decide(input, now, _limits);
         }
 
-        return decision is not null && await _writer.ApplyAsync(tx, trigger, decision, now, ct).ConfigureAwait(false);
+        if (decision is null)
+        {
+            return false;
+        }
+
+        // An attach fire posts its system line first (WP-R7). The line is idempotent on (trigger, fire instant), so a retried
+        // batch returns the same seq and the inbox keys stay stable.
+        RyuseiPingPosted? ping = null;
+        if (decision.Woke && trigger.PingMode == RyuseiPingMode.Attach)
+        {
+            (ping, decision) = await PostPingAsync(trigger, decision, ct).ConfigureAwait(false);
+        }
+
+        return await _writer.ApplyAsync(tx, trigger, decision, now, ping, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Posts the attach line. Returns the posted line, or null and an error decision when the GC cannot take it (missing,
+    /// archived, or no GC log installed). An error decision wakes nobody, so the fire is recorded instead of poisoning the batch.
+    /// </summary>
+    private async Task<(RyuseiPingPosted? Ping, RyuseiFireDecision Decision)> PostPingAsync(
+        RyuseiTriggerRecord trigger,
+        RyuseiFireDecision decision,
+        CancellationToken ct)
+    {
+        if (_gcLog is null)
+        {
+            return (null, RyuseiTickRules.Malformed(trigger, "No GC log is installed, so the attach ping cannot be posted."));
+        }
+
+        try
+        {
+            var request = RyuseiPingLine.Build(trigger, decision.ScheduledFor, decision.WakeAgentIds);
+            var result = await _gcLog.AppendAsync(request, ct).ConfigureAwait(false);
+            return (new RyuseiPingPosted(result.GcId, result.Seq), decision);
+        }
+        catch (Exception ex) when (ex is GcNotFoundException or GcArchivedException)
+        {
+            return (null, RyuseiTickRules.Malformed(trigger, "The attach GC is missing or archived."));
+        }
     }
 
     private async Task<RyuseiTickInput> BuildInputAsync(
