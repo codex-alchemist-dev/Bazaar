@@ -121,17 +121,83 @@ public sealed class RyuseiTickRulesTests
     }
 
     [Fact]
-    public void A_watcher_or_an_event_is_not_fired_by_the_tick_until_its_predicate_exists()
+    public void An_event_is_never_tickable_and_an_idle_watcher_is_not_due()
     {
         var watcher = new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null);
         var evt = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
 
-        Assert.Null(Decide(Input(Row(watcher, _anchor)), _anchor.AddHours(1)));
-        Assert.Null(Decide(Input(Row(evt, _anchor)), _anchor.AddHours(1)));
-        Assert.False(RyuseiTickRules.IsTickable(RyuseiTriggerKind.Watcher));
+        // An idle watcher has no next fire (WP-R6 arms it on a match), so it is not due at any time.
+        Assert.Null(Decide(Input(Row(watcher, null)), _anchor.AddHours(1)));
+        Assert.Null(Decide(Input(Row(evt, null)), _anchor.AddHours(1)));
+        Assert.True(RyuseiTickRules.IsTickable(RyuseiTriggerKind.Watcher));
         Assert.False(RyuseiTickRules.IsTickable(RyuseiTriggerKind.Event));
         Assert.True(RyuseiTickRules.IsTickable(RyuseiTriggerKind.Timer));
         Assert.True(RyuseiTickRules.IsTickable(RyuseiTriggerKind.Interval));
+    }
+
+    [Fact]
+    public void An_armed_watcher_fires_as_a_watcher_once_its_deadline_passes_and_then_goes_idle()
+    {
+        var watcher = new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null);
+        var deadline = _anchor.AddSeconds(30);
+        var row = Row(watcher, deadline);
+
+        Assert.Null(Decide(Input(row), deadline.AddSeconds(-1)));
+
+        var decision = Decide(Input(row), deadline.AddSeconds(1));
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.Woke, decision.Outcome);
+        Assert.Equal(deadline, decision.ScheduledFor);
+        Assert.Equal(RyuseiTriggerState.Active, decision.NextState);
+        Assert.Null(decision.NextFireAt);
+        Assert.Equal("woke", RyuseiTickRules.ToSql(RyuseiFireOutcome.Woke));
+        Assert.Equal("ryusei_watcher", decision.WakeReason);
+        Assert.Single(decision.WakeAgentIds);
+        Assert.Equal(_agent, decision.WakeAgentIds[0]);
+    }
+
+    [Fact]
+    public void A_watcher_that_reaches_max_fires_is_fired_by_its_last_wake()
+    {
+        var watcher = new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, 2);
+        var deadline = _anchor.AddSeconds(30);
+        var row = Row(watcher, deadline, fireCount: 1) with { MaxFires = 2 };
+
+        var decision = Decide(Input(row), deadline.AddSeconds(1));
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.Woke, decision.Outcome);
+        Assert.Equal(RyuseiTriggerState.Fired, decision.NextState);
+    }
+
+    [Fact]
+    public void An_armed_watcher_inside_the_cooldown_is_refused_and_goes_idle()
+    {
+        var watcher = new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null);
+        var deadline = _anchor.AddSeconds(30);
+        var row = Row(watcher, deadline, fireCount: 1);
+
+        var decision = Decide(Input(row, lastWokeAt: deadline.AddSeconds(-5)), deadline);
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.RefusedCooldown, decision.Outcome);
+        Assert.Null(decision.NextFireAt);
+        Assert.Equal(RyuseiTriggerState.Active, decision.NextState);
+    }
+
+    [Fact]
+    public void An_armed_watcher_with_no_wakeable_target_is_skipped()
+    {
+        var watcher = new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null);
+        var deadline = _anchor.AddSeconds(30);
+        var row = Row(watcher, deadline);
+
+        var decision = Decide(Input(row, targets: [new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Resting)]), deadline);
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.SkippedResting, decision.Outcome);
+        Assert.Equal(RyuseiTriggerState.Active, decision.NextState);
     }
 
     // Interval arithmetic: missed fires coalesce into one.

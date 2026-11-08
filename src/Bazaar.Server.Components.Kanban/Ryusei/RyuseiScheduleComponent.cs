@@ -1,9 +1,12 @@
 using Bazaar.Server.Components;
+using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Bazaar.Server.Kanban.Ryusei;
@@ -48,5 +51,15 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
 
         // The tick runs every minute (the floor for interval triggers, doc 38). Each bucket adds one job.
         services.AddSingleton(new RecurringJob(RyuseiTickJobHandler.JobKind, TimeSpan.FromMinutes(1)));
+
+        // Event bridge (doc 38, WP-R6): GC and kanban events match event and watcher triggers. Watchers fire on the tick above.
+        services.TryAddSingleton(sp => new RyuseiEventBridge(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(sp => new RyuseiEventListener(
+            sp.GetRequiredService<NpgsqlDataSource>(),
+            sp.GetRequiredService<RyuseiEventBridge>(),
+            sp.GetRequiredService<GcNotifyListener>(),
+            timeProvider: sp.GetRequiredService<TimeProvider>(),
+            logger: sp.GetRequiredService<ILogger<RyuseiEventListener>>()));
+        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RyuseiEventListener>());
     }
 }
