@@ -16,6 +16,8 @@ public static class FirstPartyPanes
     /// <summary>An empty board: five columns, no cards. Shown when no board snapshot is available.</summary>
     private static readonly JsonElement _emptyKanbanModel = JsonElement.Parse("""{"cards":[]}""");
 
+    /// <summary>An empty GC model. The GC pane takes its content from the chat, not the descriptor.</summary>
+    private static readonly JsonElement _emptyGcModel = JsonElement.Parse("{}");
     /// <summary>An empty Constellation model: no graph loaded yet.</summary>
     private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
@@ -56,7 +58,8 @@ public static class FirstPartyPanes
 
     /// <summary>
     /// Pane bodies for the phone pager. The Kanban pane renders its real board from <paramref name="kanbanModel"/>
-    /// (the server's board snapshot, Guid-parsed by the pane), or an empty board when none is given. Other kinds
+    /// (the server's board snapshot, Guid-parsed by the pane), or an empty board when none is given. The GC pane
+    /// renders the chat through <see cref="PaneViews"/>, or its empty state when no session is connected. Other kinds
     /// return null and keep the pager's kind-name placeholder until their phone views land.
     /// </summary>
     /// <param name="registry">The registry the shell pages through. Its factories build the view models.</param>
@@ -67,13 +70,19 @@ public static class FirstPartyPanes
 
         return kind =>
         {
-            if (kind != PaneKinds.Kanban)
+            if (kind == GcPaneViewModel.PaneKind)
             {
-                return null;
+                // The GC pane has no model of its own: the registry's chat supplies it, or the pane shows its empty state.
+                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
             }
 
-            var model = kanbanModel ?? _emptyKanbanModel;
-            return PaneViews.Create(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
+            if (kind == PaneKinds.Kanban)
+            {
+                var model = kanbanModel ?? _emptyKanbanModel;
+                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
+            }
+
+            return null;
         };
     }
 }
