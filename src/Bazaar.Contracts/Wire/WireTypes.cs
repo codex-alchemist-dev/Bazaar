@@ -39,6 +39,9 @@ public static class WireTypes
     /// <summary>Presence delta.</summary>
     public const string PresenceUpdate = "presence.update";
 
+    /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
+    public const string GraphLod = "graph.lod";
+
     /// <summary>Client asks for its server-driven UI profile.</summary>
     public const string UiGet = "ui.get";
 

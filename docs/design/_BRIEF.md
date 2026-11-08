@@ -13,7 +13,7 @@ You are drafting ONE detailed design doc for Bazaar, an open-source platform whe
 ## Rules
 
 - **Only DECIDED items are requirements.** Anything PROPOSED or OPEN is a proposal or a question; label it that way. Do not invent product decisions. When the sources do not settle something, write a proposal marked **[PROPOSED]** and add it to Questions for the owner.
-- Keep to the stack in CLAUDE.md: C#, .NET 10, OS-agnostic server with providers per OS, raw Npgsql with SQL-first repositories (no ORM for the core), Avalonia clients, xUnit v3.
+- Keep to the stack in CLAUDE.md: C#, .NET 11, OS-agnostic server with providers per OS, raw Npgsql with SQL-first repositories (no ORM for the core), Avalonia clients, xUnit v3.
 - No code beyond short interface or schema sketches (C# signatures, SQL table outlines, JSON examples). No implementation.
 - No secrets, credentials, real hostnames, personal data or private-company material. Placeholder values only.
 - Legal, licensing, terms and privacy-law points are research, not advice; mark them "needs counsel" where relevant.
