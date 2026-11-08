@@ -5,22 +5,47 @@ namespace Bazaar.Server.Agents.Data;
 /// <summary>SQL-first access to <c>inbox_item</c> (doc 06, "Wake model"). Priority is supplied by the caller.</summary>
 public sealed class InboxRepository(NpgsqlDataSource dataSource)
 {
+    private const string _enqueueSql = """
+        INSERT INTO inbox_item (agent_id, kind, gc_id, gc_seq, source_ref, priority, due_at)
+        VALUES (@agent_id, @kind, @gc_id, @gc_seq, @source_ref, @priority, COALESCE(@due_at, now()))
+        ON CONFLICT DO NOTHING
+        RETURNING inbox_item_id
+        """;
+
     /// <summary>
     /// Adds a pending item. Returns false when an item with the same dedupe key already exists (a no-op, doc 06).
     /// </summary>
     public async Task<bool> EnqueueAsync(InboxEnqueue item, CancellationToken ct = default)
     {
+        ValidateEnqueue(item);
+        await using var cmd = dataSource.CreateCommand(_enqueueSql);
+        BindEnqueue(cmd, item);
+        return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
+    }
+
+    /// <summary>
+    /// Adds a pending item inside <paramref name="tx"/>, so the item commits or rolls back with the caller's other writes
+    /// (for example, a RyuseiFuda fire, doc 38). Same dedupe and return value as <see cref="EnqueueAsync(InboxEnqueue, CancellationToken)"/>.
+    /// </summary>
+    public static async Task<bool> EnqueueAsync(NpgsqlTransaction tx, InboxEnqueue item, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        ValidateEnqueue(item);
+        await using var cmd = new NpgsqlCommand(_enqueueSql, tx.Connection, tx);
+        BindEnqueue(cmd, item);
+        return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
+    }
+
+    private static void ValidateEnqueue(InboxEnqueue item)
+    {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentException.ThrowIfNullOrWhiteSpace(item.Kind);
         if (item.GcId.HasValue != item.GcSeq.HasValue)
             throw new ArgumentException("A GC-backed inbox item needs both GcId and GcSeq.", nameof(item));
+    }
 
-        await using var cmd = dataSource.CreateCommand("""
-            INSERT INTO inbox_item (agent_id, kind, gc_id, gc_seq, source_ref, priority, due_at)
-            VALUES (@agent_id, @kind, @gc_id, @gc_seq, @source_ref, @priority, COALESCE(@due_at, now()))
-            ON CONFLICT DO NOTHING
-            RETURNING inbox_item_id
-            """);
+    private static void BindEnqueue(NpgsqlCommand cmd, InboxEnqueue item)
+    {
         cmd.Parameters.AddWithValue("agent_id", item.AgentId);
         cmd.Parameters.AddWithValue("kind", item.Kind);
         cmd.Parameters.AddWithValue("gc_id", AgentSql.Nullable(item.GcId));
@@ -28,7 +53,6 @@ public sealed class InboxRepository(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("source_ref", AgentSql.NullableRef(item.SourceRef));
         cmd.Parameters.AddWithValue("priority", item.Priority);
         cmd.Parameters.AddWithValue("due_at", AgentSql.Nullable(item.DueAt));
-        return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
     }
 
     /// <summary>

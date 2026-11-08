@@ -10,6 +10,11 @@ Bazaar is an open-source platform for a persistent AI software studio. Agents wi
 - [`docs/implementation-plan.md`](docs/implementation-plan.md) describes how the build is organised and why.
 - Each decision carries a status (DECIDED, PROPOSED, REJECTED / CHANGED, RESEARCHED or OPEN). Only DECIDED items are settled. See [CONTRIBUTING.md](CONTRIBUTING.md#design-docs).
 
+## Roadmap
+
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta milestones.
+- TODO: spotlight the headliner features in this README, in the visuals and in the advertising once Bazaar is public-ready. The named list is in [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md).
+
 ## Build
 
 Requirements: the .NET 11 SDK. The exact version is pinned in `global.json`.
