@@ -5,6 +5,7 @@ using Npgsql;
 namespace Bazaar.Server.Host.Startup;
 
 /// <summary>Resolves the database secret reference once and shares one <see cref="NpgsqlDataSource"/> (doc 04). The connection string never reaches logs.</summary>
+// Asks the managed component first; External mode falls back to the secret reference.
 public sealed class DatabaseConnection(
     IOptions<BazaarHostOptions> options,
     ISecretResolver secrets,
