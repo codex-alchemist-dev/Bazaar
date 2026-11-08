@@ -1,4 +1,5 @@
 using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -12,7 +13,7 @@ public static class FirstPartyPanes
     // into per-component registrations. Until then the heads call CreateRegistry.
     /// <param name="report">Called once per kind that falls back.</param>
     /// <param name="tiles">The Constellation tile source the heads inject. Null leaves the pane without tile requests.</param>
-    /// <param name="vault">The Vault API the head configured. Null leaves the Vault search kind to the generic fallback.</param>
+    /// <param name="vault">The Vault API to use. Null builds one for <see cref="ClientServer.Current"/>.</param>
     public static PaneRegistry CreateRegistry(
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
@@ -23,10 +24,8 @@ public static class FirstPartyPanes
         registry.Register(PaneKinds.Dashboard, descriptor => new DashboardPaneViewModel(descriptor));
         registry.Register(PaneKinds.Constellation, descriptor =>
             new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));
-        if (vault is not null)
-        {
-            registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vault));
-        }
+        var vaultApi = vault ?? VaultApiFactory.Create(ClientServer.Current);
+        registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vaultApi));
 
         return registry;
     }
