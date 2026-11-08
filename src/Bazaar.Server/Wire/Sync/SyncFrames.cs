@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 
@@ -17,6 +18,9 @@ internal sealed class SyncFrames(IWireCodec codec, SyncOptions options, TimeProv
 
     public Envelope Resync(string stream, GcHead head, int unread, IReadOnlyList<WireGcMessage> tail) =>
         Event(WireTypes.Resync, stream, null, codec.EncodePayload(new Resync(stream, head.LatestN, head.LatestEv, unread, tail)));
+
+    public Envelope GraphLod(GraphLodFrame frame) =>
+        Event(WireTypes.GraphLod, frame.S, null, codec.EncodePayload(frame));
 
     private Envelope Event(string type, string stream, long? n, ReadOnlyMemory<byte> payload) =>
         new(options.ProtocolMajor, type, EnvelopeKind.Event, null, null, stream, n, time.GetUtcNow(), payload);
