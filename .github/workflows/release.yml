@@ -263,3 +263,244 @@ jobs:
           mapfile -d '' -t files < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z)
           gh release create "$TAG" "${args[@]}" "${files[@]}"
           echo "Draft release $TAG created with ${#files[@]} files. Prerelease: $PRERELEASE."
+
+  # ---------------------------------------------------------------------------
+  # Packaging jobs. They run only on a tag push and never block verify or
+  # publish: no job above needs them, so a failure or skip here leaves the
+  # release path unchanged. Each one publishes its heads without tests (CI
+  # covers those for the same commit) and uploads installer-<platform> with
+  # archives only, unsigned. Signing is not configured here.
+  # ---------------------------------------------------------------------------
+
+  packaging-detect:
+    name: Packaging inputs
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      windows: ${{ steps.detect.outputs.windows }}
+      linux: ${{ steps.detect.outputs.linux }}
+      macos: ${{ steps.detect.outputs.macos }}
+      android: ${{ steps.detect.outputs.android }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Detect which packaging jobs have their projects
+        id: detect
+        shell: bash
+        env:
+          MACOS_BUILDS: ${{ vars.MACOS_BUILDS }}
+        run: |
+          set -euo pipefail
+          all_exist() { for f in "$@"; do [ -f "$f" ] || return 1; done; }
+          {
+            if all_exist src/Bazaar.Server.Host/Bazaar.Server.Host.csproj src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj; then echo "windows=true"; else echo "windows=false"; fi
+            if all_exist src/Bazaar.Server.Host/Bazaar.Server.Host.csproj src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj; then echo "linux=true"; else echo "linux=false"; fi
+            if [[ "$MACOS_BUILDS" == "true" ]]; then echo "macos=true"; else echo "macos=false"; fi
+            if compgen -G "src/Bazaar.Client.Android/*.csproj" > /dev/null; then echo "android=true"; else echo "android=false"; fi
+          } >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+  package-windows:
+    name: Package Windows archives
+    needs: packaging-detect
+    if: needs.packaging-detect.outputs.windows == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Publish and package Windows x64 archives
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $semver = $env:TAG.TrimStart('v')
+          function Publish-Head([string]$Project, [string]$Dir) {
+              dotnet publish $Project -c Release -r win-x64 --self-contained true -o $Dir
+              if ($LASTEXITCODE -ne 0) { throw "publish failed: $Project" }
+          }
+          Publish-Head 'src/Bazaar.Server.Host/Bazaar.Server.Host.csproj' 'stage/server'
+          Publish-Head 'src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj' 'stage/client-windows'
+          Publish-Head 'src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj' 'stage/client-terminal'
+
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $packages = @(
+              @{ Dir = 'stage/server';          Zip = "Bazaar.Server-$semver-win-x64.zip" },
+              @{ Dir = 'stage/client-windows';  Zip = "Bazaar.Client.Windows-$semver-win-x64.zip" },
+              @{ Dir = 'stage/client-terminal'; Zip = "Bazaar.Client.Terminal-$semver-win-x64.zip" }
+          )
+          foreach ($p in $packages) {
+              Compress-Archive -Path (Join-Path $p.Dir '*') -DestinationPath (Join-Path 'dist' $p.Zip)
+          }
+
+      - name: Upload Windows archives
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-windows
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  package-linux:
+    name: Package Linux x64 archives
+    needs: packaging-detect
+    if: needs.packaging-detect.outputs.linux == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Publish and package Linux x64 archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          semver="${TAG#v}"
+          publish() { dotnet publish "$1" -c Release -r linux-x64 --self-contained true -o "$2"; }
+          publish src/Bazaar.Server.Host/Bazaar.Server.Host.csproj stage/server
+          publish src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj stage/client-linux
+          publish src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj stage/client-terminal
+
+          mkdir -p dist
+          tar -C stage/server -czf "dist/Bazaar.Server-$semver-linux-x64.tar.gz" .
+          tar -C stage/client-linux -czf "dist/Bazaar.Client.Linux-$semver-linux-x64.tar.gz" .
+          tar -C stage/client-terminal -czf "dist/Bazaar.Client.Terminal-$semver-linux-x64.tar.gz" .
+
+      - name: Upload Linux archives
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-linux
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  package-macos:
+    name: Package macOS arm64 archives (opt-in)
+    needs: packaging-detect
+    # Same opt-in as the draft's macOS job: repository variable MACOS_BUILDS=true.
+    if: needs.packaging-detect.outputs.macos == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Publish and package macOS arm64 archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          semver="${TAG#v}"
+          publish() { dotnet publish "$1" -c Release -r osx-arm64 --self-contained true -o "$2"; }
+          publish src/Bazaar.Server.Host/Bazaar.Server.Host.csproj stage/server
+          publish src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj stage/client-terminal
+
+          mkdir -p dist
+          # ditto keeps the executable bit, which tar.gz and zip can lose here.
+          ditto -c -k --keepParent stage/server "dist/Bazaar.Server-$semver-osx-arm64.zip"
+          ditto -c -k --keepParent stage/client-terminal "dist/Bazaar.Client.Terminal-$semver-osx-arm64.zip"
+
+      - name: Upload macOS archives
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-macos
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  package-android:
+    name: Package Android APK
+    needs: packaging-detect
+    # Runs only once src/Bazaar.Client.Android exists (doc 29). Unsigned: no keystore is read here.
+    if: needs.packaging-detect.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Install .NET Android workload
+        run: dotnet workload install android
+
+      - name: Publish unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          semver="${TAG#v}"
+          dotnet publish src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
+            -c Release -p:AndroidPackageFormat=apk -o stage/android
+          apk="$(find stage/android -name '*.apk' | head -n 1)"
+          if [[ -z "$apk" ]]; then echo "::error::No APK was produced."; exit 1; fi
+          mkdir -p dist
+          cp "$apk" "dist/Bazaar.Client.Android-$semver.apk"
+
+      # Named packaging-android, not installer-*: verify accepts only .msi, .exe, .zip,
+      # .tar.gz and .nupkg, so an APK must not enter a release set until that list changes.
+      - name: Upload Android APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packaging-android
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
