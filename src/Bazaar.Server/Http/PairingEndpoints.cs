@@ -1,6 +1,6 @@
 using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Wire.Connection;
