@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gc;
+using Bazaar.Server.Constellation;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Http;
 using Bazaar.Server.Http.Blobs;
@@ -68,11 +70,52 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         builder.Services.AddSingleton<IGcReadAccess, GrantTable>();
         builder.Services.AddSingleton<ISearchProvider, FixedSearch>();
         builder.Services.AddBazaarHttpSurface(builder.Configuration);
+        new ConstellationComponent().AddServices(builder.Services, builder.Configuration);
         var app = builder.Build();
         app.MapBazaarHttpSurface();
         await app.StartAsync(TestContext.Current.CancellationToken);
         var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
         return (app, new HttpClient { BaseAddress = new Uri(address) });
+    }
+
+    private const string _tileBody = """{"view_id":"v1","graph_version":0,"tier":"Far","min_x":-1,"min_y":-1,"min_z":-1,"max_x":1,"max_y":1,"max_z":1,"max_nodes":10}""";
+
+    [Fact]
+    public async Task Tile_endpoint_requires_a_token()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", null, Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Tile_endpoint_returns_a_binary_frame_for_an_empty_graph()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/x-bazaar-tile", response.Content.Headers.ContentType?.MediaType);
+        }
+    }
+
+    [Fact]
+    public async Task Tile_endpoint_rejects_a_bad_body_and_an_inverted_box()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var bad = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes("{not json")), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+
+            var inverted = _tileBody.Replace("\"min_x\":-1", "\"min_x\":5", StringComparison.Ordinal);
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes(inverted)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
     }
 
     private static HttpRequestMessage Req(HttpMethod method, string url, string? token = "alice", byte[]? body = null, params (string, string)[] headers)
@@ -104,6 +147,8 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
     [InlineData("HEAD", "/blobs/uploads/00000000000000000000000000000000")]
     [InlineData("GET", "/blobs/0000000000000000000000000000000000000000000000000000000000000000")]
     [InlineData("GET", "/search?gc=00000000-0000-7000-8000-00000000c001&q=x")]
+    [InlineData("GET", "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=x")]
+    [InlineData("GET", "/vault/doc?vault=00000000-0000-7000-8000-00000000d001&doc=00000000-0000-7000-8000-00000000e001&ordinal=0")]
     public async Task Unauthenticated_requests_are_rejected(string method, string url)
     {
         var (app, client) = await StartAsync();
@@ -113,6 +158,56 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
             Assert.Equal(HttpStatusCode.Unauthorized, none.StatusCode);
             var bad = await client.SendAsync(Req(new HttpMethod(method), url, "wrong"), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.Unauthorized, bad.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_search_rejects_bad_parameters_before_searching()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var noVault = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?q=auth"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, noVault.StatusCode);
+            var emptyQuery = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q="), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, emptyQuery.StatusCode);
+            var longQuery = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=" + new string('x', 201)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, longQuery.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_doc_rejects_missing_or_negative_parameters()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var missing = await client.SendAsync(Req(HttpMethod.Get, "/vault/doc?vault=00000000-0000-7000-8000-00000000d001&doc=00000000-0000-7000-8000-00000000e001"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+            var notAGuid = await client.SendAsync(Req(HttpMethod.Get, "/vault/doc?vault=nope&doc=00000000-0000-7000-8000-00000000e001&ordinal=0"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, notAGuid.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_doc_is_unavailable_when_the_search_component_is_not_registered()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Get, "/vault/doc?vault=00000000-0000-7000-8000-00000000d001&doc=00000000-0000-7000-8000-00000000e001&ordinal=0"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Vault_search_is_unavailable_when_the_search_component_is_not_registered()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Get, "/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=auth"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         }
     }
 

@@ -18,6 +18,7 @@ public static class PaneViews
         KanbanPaneViewModel kanban => WithTitle(kanban.Title, KanbanBoard(kanban)),
         DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
         ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
+        Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
     };
