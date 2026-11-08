@@ -45,5 +45,8 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
+
+        // The tick runs every minute (the floor for interval triggers, doc 38). Each bucket adds one job.
+        services.AddSingleton(new RecurringJob(RyuseiTickJobHandler.JobKind, TimeSpan.FromMinutes(1)));
     }
 }
