@@ -1,7 +1,13 @@
 # Migrations
 
+Namespaces (components design section 5): each folder under `Data/Sql` is a namespace. `common/` is the shared, frozen
+namespace and always runs first. A Bazaar Component owns `Data/Sql/<component_id>/` (the id with `-` replaced by `_`); component
+namespaces run in dependency order, then any other folder in name order. History is keyed by `(namespace, version)`.
+Version numbers are local to a namespace. Provider folders (`linux/`, `windows/`) apply only on their host.
+
 Embedded, versioned SQL. Files are named `common/NNNN_name.sql` (or `windows/` and `linux/` for provider-specific
 ones). One owner per number; never reuse or renumber a number, and never edit an applied file (the runner refuses).
+The runner applies any not-yet-applied file in numeric order, even below a number already applied, so PRs may merge in any order.
 
 ## Registry
 
@@ -15,12 +21,34 @@ ones). One owner per number; never reuse or renumber a number, and never edit an
 | `0006` | JOB1 | taken | Jobs |
 | `0007` | search | PR #73 | FTS `search_document` |
 | `0008` | G1b | this PR | `entry_ref`, `read_state`, `consumer_cursor`, `gc_access_request`, `person_key` and `erase_person_key`, `embedding_profile`; `gc_member` becomes insert-only with key `(gc_id, principal_id, joined_seq)` |
-| `0009+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `0009` | VLT4 | merged | Vault index: `vault_docs`, `vault_blocks`, `vault_block_embedding` (halfvec, dimension checked against `embedding_profile`), `vault_links`, `vault_commit`, `vault_state`; enables `vector` |
+| `0010` | AR1 | PR #97 | Agent runtime: `agent`, `inbox_item`, `turn`, `turn_step`, `agent_lease` (doc 06 WP1; no cross-table foreign keys) |
+| `0011` | APR1 | this PR | approval table (doc 15) |
+| `0012` | KB1 | merged | Kanban: `tasks`, `task_edges`, `task_links`, `task_events` (append-only); `bazaar_app` gets column-level UPDATE on `tasks` |
+| `0014` | SOUL1 | merged | `soul_versions`: append-only Soul version chain (charter SHA-256, preferences JSON, expected-version writes) |
+| `0015` | INT1 | merged | `interrupt_frame`: per-agent interrupt stack (doc 24 WP5); no foreign keys to agent or GC tables |
+| `0016` | SKM1 | this PR | Skimmer gate: `gate_config`, `wake_decisions`, `gate_labels` (doc 13; no `gate_run_override`, which waits on question 7); no cross-table foreign keys beyond `agent` and `gc_event` |
+| `0017` | CAL1 | this PR | `calendar_event`: Company Calendar (doc 24 section 4); title stored as `(title_key_id, title_ct, title_nonce)`; `agent_id` references `agent`, no other cross-table foreign keys beyond `gc` |
+| `0018` | ORG1 | this PR | `org_relation`: org edges (`reports_to`, `lent_to`), live-edge and one-`reports_to` unique indexes, cycle and read-only trigger; no foreign keys to agent or project tables |
+| `0013` | REP1 | merged | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
+| `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
+| `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
+| `components/remote/0001` | PAIR1 (group 32 WP1) | this PR | `human`, `device`, `refresh_credential`, `pairing_offer`, `passkey_credential`, `recovery_code`, `privacy_settings`, `privacy_request`, `approval_key` (doc 32). Component folder: applies once the component model (PR #125) loads `components/`; inert until then |
+| `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
+| `council/0001` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
+| `0021` | EMAIL1 | this PR | Namespace `mail` (not `common`, which is frozen): mail core (doc 22 tables): `mail_domain`, `mail_mailbox`, `mail_message`, `mail_outbound`, `mail_blob`; personal bodies encrypted per person |
+| `engines/0001` | WP2 | this PR | Engine registry, `engines` namespace (doc 20): `engine_projects`, `engine_grants` (default deny for write and exec; approval link is a TODO(component) to doc 15) |
+| `kanban/0001` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
+| `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+
+## Component namespaces
+
+A component keeps its own migrations in `components/<name>/NNNN_name.sql`, numbered from `0001` in its own namespace. Those files do not share numbers with `common/`. Component tables have no cross-table foreign keys to `common/` tables. VM1 is the first: `components/vms/0001_vm_environment.sql` (`golden_image`, `environment_vm`, `environment_checkpoint`, `scoped_mount`, `exec_log`; doc 16).
 
 ## Claiming a number
 
 1. Take the lowest free number and add your row (owner, work package, one-line content) to this table in the same PR as the migration.
 2. If two PRs claim the same number, the one merged second renumbers before merging; the table is the tie-breaker.
-3. Do not skip numbers except the reserved `0005`; the runner refuses out-of-order and duplicate versions.
+3. Gaps are harmless: a late file below the highest applied number still runs, in numeric order. The runner still refuses duplicate versions and edited applied files.
 
 Source: `docs/implementation-plan.md` and the development plan section 4.

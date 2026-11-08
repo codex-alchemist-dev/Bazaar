@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -16,8 +17,12 @@ public sealed class WireConnectionManager
     private readonly IReadOnlyDictionary<string, IWireRequestHandler> _handlers;
     private readonly TimeProvider _time;
     private readonly ILoggerFactory _logs;
+    private readonly SubscriptionEngine? _subscriptions;
 
-    /// <summary>Creates the manager. Handlers are keyed by type; two handlers for one type are a startup error.</summary>
+    /// <summary>
+    /// Creates the manager. Handlers are keyed by type; two handlers for one type are a startup error. With a
+    /// <paramref name="subscriptions"/> engine, each authenticated connection gets its own subscription session.
+    /// </summary>
     public WireConnectionManager(
         IOptions<WireOptions> options,
         IEnumerable<IWireCodec> codecs,
@@ -26,8 +31,10 @@ public sealed class WireConnectionManager
         IdempotentRequestExecutor idempotency,
         IEnumerable<IWireRequestHandler> handlers,
         TimeProvider time,
-        ILoggerFactory logs)
+        ILoggerFactory logs,
+        SubscriptionEngine? subscriptions = null)
     {
+        _subscriptions = subscriptions;
         _options = options;
         _codecs = codecs.ToArray();
         if (_codecs.Length == 0) throw new InvalidOperationException("No wire codec is registered.");
@@ -53,7 +60,7 @@ public sealed class WireConnectionManager
     {
         using var connection = new WireConnection(
             socket, headerCredential, _options.Value, _codecs, _authenticator, _registry, _idempotency, _handlers,
-            _time, _logs.CreateLogger<WireConnection>());
+            _time, _logs.CreateLogger<WireConnection>(), _subscriptions);
         await connection.RunAsync(cancellationToken).ConfigureAwait(false);
     }
 }

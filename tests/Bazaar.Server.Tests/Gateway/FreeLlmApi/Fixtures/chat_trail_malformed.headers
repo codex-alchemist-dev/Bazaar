@@ -1,0 +1,3 @@
+X-Routed-Via: groq/llama-3.3-70b
+X-Fallback-Attempts: 2
+X-Fallback-Trail: groq/llama-3.3-70b key1=rate_limited; not-a-hop

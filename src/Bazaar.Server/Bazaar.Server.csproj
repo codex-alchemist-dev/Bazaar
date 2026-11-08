@@ -6,11 +6,17 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="LibGit2Sharp" />
+    <PackageReference Include="MimeKit" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />
+    <EmbeddedResource Include="Souls\Presets\Data\*.json" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

@@ -44,6 +44,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
   - `n`: every `gc_event` row (messages, system and other events).
   - `ev` [PROPOSED, Q1]: every new message version. Edits are versions, not log entries, so an edit takes no `n`. The `gc.message` event for an edit carries the message's `n` and the new version's `ev`.
 - A client's per-GC cursor is the pair `(n, ev)`.
+- Implementation (GLUE, 2026-10-26; DECISIONS-LOG): `n` is the message's first event seq and `ev` is the seq of the event that wrote the current version, so the two counters come from the one log and no separate counter is kept. Question 1 is answered by this mapping, pending owner review.
 - Other streams are state, not history. Each carries a `revision`; clients take a snapshot on subscribe, then deltas, and re-fetch on any doubt.
 
 **Stream registry [PROPOSED].** A stream is state unless listed here as a log.
