@@ -16,7 +16,10 @@ name: CodeQL
 
 on:
   push:
-    branches: [main]
+    # Every branch, like ci.yml. A push-triggered run is linked to its PR by branch name;
+    # the pull_request-only run gets a refs/pull/N/head suite that GitHub does not link,
+    # so the required Analyze checks would never count for the PR.
+    branches: ['**']
   pull_request:
   schedule:
     # Weekly, Monday 06:17 UTC: catches new queries against unchanged code.
