@@ -230,3 +230,14 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | Idle watcher expiry | Expires at the next match or tick, not at `expiresAt`. | Yes. |
 
 **Known limits (follow-ups, not decisions):** a GC cursor starts at the first hinted head, so events committed before process start are not replayed; a kanban event lost while its LISTEN connection is down is not replayed; the candidate query has no partial index for active event and watcher rows (add with migration 0002 once volume is known); a second LISTEN connection for kanban runs beside the GC listener, which doc 04 does not describe.
+
+**Coordinator decisions on the WP-R6 open questions (2026-11-08, owner delegated, safe defaults):**
+
+| Item | Decision |
+|---|---|
+| Vault and PR event sources | Next source work after WP-R7: Vault NOTIFY and a persisted PR event table. Until then triggers on those kinds are inert. |
+| `pollSeconds` | Kept reserved, unused. |
+| Refused watcher | Re-armed, with a bounded retry count. |
+| Idle watcher expiry | Accepted for v1 (expires at next match or tick). |
+| GC and kanban catch-up | Accepted for v1. A catch-up read is added later. |
+| Second LISTEN connection | Accepted. This deviates from doc 04, which is noted there. |
