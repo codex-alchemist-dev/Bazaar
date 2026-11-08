@@ -25,7 +25,7 @@ public sealed class ConstellationComponentTests
     }
 
     [Fact]
-    public async Task Component_registers_a_tile_handler_that_answers_not_found_without_a_layout_store()
+    public async Task Component_registers_a_tile_handler_that_answers_an_empty_frame_without_a_graph_store()
     {
         var services = new ServiceCollection();
 
@@ -33,8 +33,13 @@ public sealed class ConstellationComponentTests
 
         using var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<ConstellationTileHandler>();
-        TileResponse response = await handler.HandleAsync(AnyViewport(), TestContext.Current.CancellationToken);
-        Assert.Equal(404, response.StatusCode);
+
+        // The default graph is empty at version 0, so a view of version 0 gets an empty frame, and a view of any other version is stale.
+        TileResponse empty = await handler.HandleAsync(AnyViewport() with { GraphVersion = 0 }, TestContext.Current.CancellationToken);
+        Assert.Equal(200, empty.StatusCode);
+
+        TileResponse stale = await handler.HandleAsync(AnyViewport(), TestContext.Current.CancellationToken);
+        Assert.Equal(409, stale.StatusCode);
     }
 
     [Fact]
