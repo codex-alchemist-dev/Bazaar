@@ -40,11 +40,11 @@ public class PaneRegistryTests
         var reports = new List<string>();
         var registry = FirstPartyPanes.CreateRegistry(reports.Add);
 
-        var pane = registry.Create(Descriptor(PaneKinds.Kanban, "{\"tasks\":\"nope\"}"));
+        var pane = registry.Create(Descriptor(PaneKinds.Kanban, "{\"cards\":\"nope\"}"));
 
         Assert.IsType<GenericPaneViewModel>(pane);
         Assert.Single(reports);
-        Assert.Contains("tasks", reports[0]);
+        Assert.Contains("cards", reports[0]);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class PaneRegistryTests
 
         Assert.True(registry.Contains(PaneKinds.Kanban));
         Assert.True(registry.Contains(PaneKinds.Dashboard));
-        Assert.IsType<KanbanPaneViewModel>(registry.Create(Descriptor(PaneKinds.Kanban, "{\"tasks\":[]}")));
+        Assert.IsType<KanbanPaneViewModel>(registry.Create(Descriptor(PaneKinds.Kanban, "{\"cards\":[]}")));
         Assert.IsType<DashboardPaneViewModel>(registry.Create(Descriptor(PaneKinds.Dashboard, "{\"sections\":[]}")));
     }
 

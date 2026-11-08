@@ -39,7 +39,7 @@ public class PaneViewsHeadlessTests
     {
         var pane = new KanbanPaneViewModel(PaneRegistryTests.Descriptor(
             "bazaar.kanban",
-            "{\"tasks\":[{\"id\":\"t1\",\"title\":\"Schema\",\"state\":\"Ready\",\"blocked\":true}]}"));
+            "{\"cards\":[{\"id\":\"0196a6f0-0000-7000-8000-000000000001\",\"title\":\"Schema\",\"state\":\"ready\",\"unfinishedBlockerIds\":[\"0196a6f0-0000-7000-8000-000000000009\"],\"blockerTitles\":[\"Other\"]}]}"));
 
         var view = PaneViews.Create(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();

@@ -1,45 +1,53 @@
 using System.Text.Json;
+using Bazaar.Client.Core.Kanban;
+using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Panes;
 
 /// <summary>One card on the board. <see cref="IsBlocked"/> is the derived Blocked marking, not a column.</summary>
-public sealed record KanbanCard(string Id, string Title, bool IsBlocked);
+public sealed record KanbanCard(Guid Id, string Title, bool IsBlocked);
 
 /// <summary>One column in the fixed board order.</summary>
 public sealed record KanbanColumn(string Name, IReadOnlyList<KanbanCard> Cards);
 
 /// <summary>
-/// Kanban dependency board (doc 12). Model: <c>{ "tasks": [ { "id", "title", "state", "blocked" } ] }</c>.
-/// States are Backlog, Ready, In progress, Review and Done; spaces, hyphens and case are ignored.
+/// Kanban board pane (doc 12). Model: the server's board snapshot, the same shape as <c>KanbanBoardSnapshot</c>:
+/// <c>{ "projectId", "cards": [ { "id", "title", "state", "ownerAgentId", "unfinishedBlockerIds", "blockerTitles" } ] }</c>.
+/// Ids are Guid strings and states are <c>backlog</c>, <c>ready</c>, <c>in_progress</c>, <c>review</c> or <c>done</c>.
+/// A card with a missing field, a bad id or any other state is left out and counted in <see cref="SkippedTaskCount"/>.
 /// </summary>
 public sealed class KanbanPaneViewModel : IPaneViewModel
 {
-    private static readonly string[] _columnNames = ["Backlog", "Ready", "In progress", "Review", "Done"];
+    private static readonly string[] _states = ["backlog", "ready", "in_progress", "review", "done"];
 
     public KanbanPaneViewModel(PaneDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
-
         Kind = descriptor.Kind;
         Title = descriptor.Title;
 
-        var tasks = PaneValues.Array(descriptor.Model, "tasks");
-        var buckets = _columnNames.ToDictionary(name => name, _ => new List<KanbanCard>(), StringComparer.Ordinal);
+        var cards = new List<KanbanBoardCard>();
         var skipped = 0;
-
-        foreach (var task in tasks.EnumerateArray())
+        foreach (var element in PaneValues.Array(descriptor.Model, "cards").EnumerateArray())
         {
-            if (task.ValueKind != JsonValueKind.Object || !TryColumn(task, out var column, out var card))
+            if (TryCard(element, out var card))
+            {
+                cards.Add(card);
+            }
+            else
             {
                 skipped++;
-                continue;
             }
-
-            buckets[column].Add(card);
         }
 
-        Columns = _columnNames.Select(name => new KanbanColumn(name, buckets[name])).ToArray();
+        // The board does the Blocked derivation and the column order; the pane only reads its result.
+        var board = KanbanBoardMapping.ToBoard(new KanbanBoardSnapshot(Guid.Empty, cards));
+        Columns = board.Columns
+            .Select(column => new KanbanColumn(
+                column.Title,
+                column.Cards.Select(card => new KanbanCard(card.Id, card.Title, card.Blocked)).ToList()))
+            .ToArray();
         SkippedTaskCount = skipped;
     }
 
@@ -50,33 +58,103 @@ public sealed class KanbanPaneViewModel : IPaneViewModel
     /// <summary>All five columns, always in board order, even when empty.</summary>
     public IReadOnlyList<KanbanColumn> Columns { get; }
 
-    /// <summary>Tasks left out because their state was unknown or a required field was missing.</summary>
+    /// <summary>Cards left out because a field was missing or malformed, or their state was not one of the five.</summary>
     public int SkippedTaskCount { get; }
 
-    private static bool TryColumn(JsonElement task, out string column, out KanbanCard card)
+    private static bool TryCard(JsonElement element, out KanbanBoardCard card)
     {
-        column = string.Empty;
         card = null!;
-
-        if (!task.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String ||
-            !task.TryGetProperty("title", out var title) || title.ValueKind != JsonValueKind.String ||
-            !task.TryGetProperty("state", out var state) || state.ValueKind != JsonValueKind.String)
+        if (element.ValueKind != JsonValueKind.Object ||
+            !TryGuid(element, "id", out var id) ||
+            !element.TryGetProperty("title", out var title) || title.ValueKind != JsonValueKind.String ||
+            !element.TryGetProperty("state", out var state) || state.ValueKind != JsonValueKind.String ||
+            Array.IndexOf(_states, state.GetString()) < 0)
         {
             return false;
         }
 
-        var normalized = Normalize(state.GetString()!);
-        var match = _columnNames.FirstOrDefault(name => Normalize(name) == normalized);
-        if (match is null)
+        Guid? owner = null;
+        if (element.TryGetProperty("ownerAgentId", out var ownerElement) && ownerElement.ValueKind != JsonValueKind.Null)
+        {
+            if (ownerElement.ValueKind != JsonValueKind.String || !Guid.TryParse(ownerElement.GetString(), out var parsed))
+            {
+                return false;
+            }
+
+            owner = parsed;
+        }
+
+        if (!TryGuidArray(element, "unfinishedBlockerIds", out var blockers) ||
+            !TryStringArray(element, "blockerTitles", out var blockerTitles))
         {
             return false;
         }
 
-        column = match;
-        card = new KanbanCard(id.GetString()!, title.GetString()!, PaneValues.Flag(task, "blocked"));
+        card = new KanbanBoardCard(id, title.GetString()!, state.GetString()!, owner, blockers, blockerTitles);
         return true;
     }
 
-    private static string Normalize(string state) =>
-        new(state.Where(c => c is not (' ' or '-' or '_')).Select(char.ToLowerInvariant).ToArray());
+    private static bool TryGuid(JsonElement element, string name, out Guid value)
+    {
+        value = default;
+        return element.TryGetProperty(name, out var property) &&
+               property.ValueKind == JsonValueKind.String &&
+               Guid.TryParse(property.GetString(), out value);
+    }
+
+    /// <summary>A missing array reads as empty; a present one must hold only Guid strings.</summary>
+    private static bool TryGuidArray(JsonElement element, string name, out IReadOnlyList<Guid> values)
+    {
+        var result = new List<Guid>();
+        values = result;
+        if (!element.TryGetProperty(name, out var array))
+        {
+            return true;
+        }
+
+        if (array.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String || !Guid.TryParse(item.GetString(), out var id))
+            {
+                return false;
+            }
+
+            result.Add(id);
+        }
+
+        return true;
+    }
+
+    /// <summary>A missing array reads as empty; a present one must hold only strings.</summary>
+    private static bool TryStringArray(JsonElement element, string name, out IReadOnlyList<string> values)
+    {
+        var result = new List<string>();
+        values = result;
+        if (!element.TryGetProperty(name, out var array))
+        {
+            return true;
+        }
+
+        if (array.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                return false;
+            }
+
+            result.Add(item.GetString()!);
+        }
+
+        return true;
+    }
 }
