@@ -21,7 +21,9 @@ public static class ManagedPostgresServiceCollectionExtensions
 
         services.TryAddSingleton<IPostgresCommandRunner, ProcessPostgresCommandRunner>();
         services.TryAddSingleton<ManagedPostgresEndpoint>();
-        services.AddHostedService<ManagedPostgresHostedService>();
+        services.TryAddSingleton<ManagedPostgresHostedService>();
+        services.TryAddSingleton<IManagedPostgresConnectionProvider>(sp => sp.GetRequiredService<ManagedPostgresHostedService>());
+        services.AddHostedService(sp => sp.GetRequiredService<ManagedPostgresHostedService>());
 
         return services;
     }
