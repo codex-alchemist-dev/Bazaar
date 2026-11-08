@@ -31,6 +31,7 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
+[JsonSerializable(typeof(GraphLodFrame))]
 [JsonSerializable(typeof(TileKey))]
 [JsonSerializable(typeof(ViewportRequest))]
 [JsonSerializable(typeof(ClusterGlyph))]
