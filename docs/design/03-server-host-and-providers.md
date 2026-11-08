@@ -7,7 +7,7 @@ Depends on: 02-wire-protocol-and-sync.md (status format, protocol version), 04-p
 Bazaar.Server.Host is the one executable that runs the company server, as a Worker Service on Windows (first supported host) or Linux. This doc covers how it composes the platform-neutral `Bazaar.Server` library with per-OS providers, how it starts, stops and stays up unattended, how it reports health, and where its operator-configurable values live. The company must keep working when no client is connected.
 
 ## Decided inputs
-- One OS-agnostic .NET 10 build; Windows is the first supported and tested host. (CLAUDE.md; Bazaar.Server.md §1)
+- One OS-agnostic .NET 11 build; Windows is the first supported and tested host. (CLAUDE.md; Bazaar.Server.md §1)
 - Service host, VM backend, cache and search are per-OS providers. No Windows-only API outside a provider. (CLAUDE.md; Bazaar.Server.md §3)
 - Pub/sub (C07, round 1): GC fan-out is Postgres NOTIFY, owned by doc 04 and not a provider. Valkey (Linux) or Garnet (Windows) serve cache and presence only. Garnet waits for spike S2.
 - VM topology (C03, round 1, owner 2026-10-24): two VMs per agent, a Windows VM and a Linux VM. Spike S8 is for sizing only. The VM contract is doc 16's.
