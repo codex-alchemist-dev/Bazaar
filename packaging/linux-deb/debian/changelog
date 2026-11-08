@@ -1,0 +1,6 @@
+bazaar-server (0.1.0) unstable; urgency=medium
+
+  * Initial Debian package for Bazaar.Server.Host: self-contained build,
+    systemd unit, dedicated bazaar user, pre and post scripts.
+
+ -- The Bazaar Authors <packaging@bazaar.invalid>  Fri, 30 Oct 2026 00:00:00 +0000
