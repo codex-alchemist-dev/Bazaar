@@ -28,6 +28,36 @@ public enum RyuseiRefusal
 
     /// <summary>A trigger was given more ping targets than the fan-out cap allows.</summary>
     PingFanoutExceeded,
+
+    /// <summary>A watcher or event predicate failed <see cref="RyuseiPredicateValidator"/>. The message says why.</summary>
+    InvalidPredicate,
+
+    /// <summary>The trigger kind does not match the spec's kind.</summary>
+    KindMismatch,
+
+    /// <summary>The purpose is empty or only whitespace.</summary>
+    InvalidPurpose,
+
+    /// <summary>The ping mode and the attach GC disagree. Attach needs a GC; none and new_gc forbid one.</summary>
+    PingModeMismatch,
+
+    /// <summary>The same agent was named twice in one trigger's targets.</summary>
+    DuplicateTarget,
+
+    /// <summary>An agent creator tried to target an agent in another project (doc 38, Authority).</summary>
+    TargetOutsideProject,
+
+    /// <summary>An agent creator tried to target a resting or retired agent (doc 38, Authority).</summary>
+    TargetNotActive,
+
+    /// <summary>A coworker trigger was refused because <c>ryusei.coworker_triggers</c> is <c>off</c>.</summary>
+    CoworkerTriggersOff,
+
+    /// <summary>A coworker trigger was refused because <c>ryusei.coworker_triggers</c> is <c>ask_first</c>. No approval flow exists yet.</summary>
+    CoworkerTriggersNeedApproval,
+
+    /// <summary>The actor is not allowed to make this change (doc 38, Authority).</summary>
+    NotAuthorized,
 }
 
 /// <summary>
