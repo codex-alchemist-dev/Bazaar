@@ -24,6 +24,7 @@ public static class PairingEndpoints
     public const string DeviceCodeGrantType = "urn:ietf:params:oauth:grant-type:device_code";
 
     /// <summary>Maps the pairing routes. The pairing service must be registered (<c>AddBazaarPairing</c>).</summary>
+    // Device routes (device-authorization, token) carry no credential yet; the human routes sit behind Guarded.
     public static IEndpointRouteBuilder MapBazaarPairingRoutes(this IEndpointRouteBuilder routes)
     {
         routes.MapPost("/pair/offers", (Func<HttpContext, Task<IResult>>)(http =>
