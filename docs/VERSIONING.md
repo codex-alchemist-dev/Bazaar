@@ -49,7 +49,7 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 | v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
 | v3.0.0 | **Xylokrator** (owner pick, 2026-11-08; replaces Xerion) | "Ruler of the wood" (Greek *xylon*, wood, and *kratos*, rule). The philosophers' tree of the Great Work, made cosmic: the tree of the heavens. |
 | v4.0.0 | **Weltseele** (owner pick, 2026-11-08; replaces Wormwood) | Anima mundi, the world soul: the animating principle of the cosmos. Plato's Timaeus gave it to the heavens, and Renaissance writers on the world soul, Ficino among them, tied it to the spirit that binds matter and sky, which is the alchemical side. |
-| v5.0.0 | **Valthyrzmthl** (owner pick, 2026-11-08; replaces Venus) | Meaning and the star and alchemy link are pending: the owner has not yet given the rationale, and this row must be filled in before the name is treated as settled. |
+| v5.0.0 | **Valthyrzmthl** (owner pick, 2026-11-08; replaces Venus) | Coined by the owner, derived from the Valthyr root, in an exotic consonant-cluster style. No alchemy or star link is recorded yet; the theme's two halves are not yet shown for this name. |
 
 Codename art and banners (About screen, credits, server status page) are kept for every codename forever. An LTSC install on an old major must still show its own name (RESIBO's retention rule).
 
