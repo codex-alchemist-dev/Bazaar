@@ -51,7 +51,8 @@ public sealed record ToolDispatchRequest(
     Guid SessionId,
     TurnRole Role,
     ModelToolCall Call,
-    bool Idempotent);
+    bool Idempotent,
+    int ChainDepth = 0);
 
 /// <summary>The result of one dispatch. <see cref="ResultJson"/> is set only for <see cref="ToolDispatchOutcome.Executed"/>.</summary>
 public sealed record ToolDispatchResult(ToolDispatchOutcome Outcome, string? ResultJson = null, string? Reason = null);
@@ -100,7 +101,8 @@ public sealed record TurnRunRequest(
     int Depth = 0,
     string? TriggerGcId = null,
     long? TriggerGcSeq = null,
-    int? StepCapOverride = null);
+    int? StepCapOverride = null,
+    int ChainDepth = 0);
 
 /// <summary>Runs one turn loop for an agent: claim, assemble, call the model, dispatch, post, commit (doc 06 "Turn loop").</summary>
 public interface ITurnRunner

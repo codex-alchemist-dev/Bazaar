@@ -6,6 +6,9 @@ namespace Bazaar.Server.Agents.Turns;
 /// What one turn needs to start. <see cref="Messages"/> is the context already assembled by the caller (doc 06, "Context
 /// assembly"); its hash keys step reuse on recovery, so the same context must give the same messages.
 /// <see cref="InboxClaimLimit"/> is how many due inbox items the turn claims; zero claims none.
+/// <see cref="InboxItemIds"/>, when non-empty, claims exactly those items (the ones still pending and due), and then
+/// <see cref="InboxClaimLimit"/> must be zero.
+/// <see cref="Tools"/> are offered to the model on an actor turn; a reader turn offers none.
 /// <see cref="MessageBuilder"/>, when set, builds the messages after the turn row exists and receives its id, so the context
 /// manifest can record it (doc 06). It then takes the place of <see cref="Messages"/>, which may be empty.
 /// </summary>
@@ -19,7 +22,8 @@ public sealed record TurnRequest(
     int InboxClaimLimit = 0,
     Func<Guid, CancellationToken, Task<IReadOnlyList<ModelMessage>>>? MessageBuilder = null,
     TurnRole Role = TurnRole.Actor,
-    int? StepCapOverride = null);
+    int? StepCapOverride = null,
+    IReadOnlyList<Guid>? InboxItemIds = null);
 
 /// <summary>How a turn run ended.</summary>
 public enum TurnOutcome
