@@ -93,18 +93,18 @@ public sealed class SealedRefreshCredentialStoreTests
     /// <summary>Reversible XOR behind a marker prefix. <see cref="KeyLost"/> makes every open fail, as a Keystore loss would.</summary>
     private sealed class FakeSealer : ICredentialSealer
     {
-        private const byte Mask = 0x5A;
-        private static readonly byte[] Marker = Encoding.ASCII.GetBytes("SEAL");
+        private const byte _mask = 0x5A;
+        private static readonly byte[] _marker = Encoding.ASCII.GetBytes("SEAL");
 
         public bool KeyLost { get; set; }
 
         public byte[] Seal(byte[] plaintext)
         {
-            var sealedBytes = new byte[Marker.Length + plaintext.Length];
-            Marker.CopyTo(sealedBytes, 0);
+            var sealedBytes = new byte[_marker.Length + plaintext.Length];
+            _marker.CopyTo(sealedBytes, 0);
             for (var i = 0; i < plaintext.Length; i++)
             {
-                sealedBytes[Marker.Length + i] = (byte)(plaintext[i] ^ Mask);
+                sealedBytes[_marker.Length + i] = (byte)(plaintext[i] ^ _mask);
             }
 
             return sealedBytes;
@@ -112,15 +112,15 @@ public sealed class SealedRefreshCredentialStoreTests
 
         public byte[]? Open(byte[] sealedBytes)
         {
-            if (KeyLost || sealedBytes.Length < Marker.Length || !sealedBytes.AsSpan(0, Marker.Length).SequenceEqual(Marker))
+            if (KeyLost || sealedBytes.Length < _marker.Length || !sealedBytes.AsSpan(0, _marker.Length).SequenceEqual(_marker))
             {
                 return null;
             }
 
-            var plaintext = new byte[sealedBytes.Length - Marker.Length];
+            var plaintext = new byte[sealedBytes.Length - _marker.Length];
             for (var i = 0; i < plaintext.Length; i++)
             {
-                plaintext[i] = (byte)(sealedBytes[Marker.Length + i] ^ Mask);
+                plaintext[i] = (byte)(sealedBytes[_marker.Length + i] ^ _mask);
             }
 
             return plaintext;
