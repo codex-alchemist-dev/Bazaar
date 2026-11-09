@@ -53,6 +53,9 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             gcCreate: sp.GetService<GcCreateService>(),
             audit: sp.GetService<ITransactionalAuditLog>()));
         services.TryAddSingleton(sp => new GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
+
+        // Chain depth of a fire-woken turn (doc 38, Chain depth): the trigger's chain_depth, read by fire id.
+        services.TryAddSingleton<IRyuseiWakeDepthSource>(sp => new RyuseiWakeDepthSource(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
 
