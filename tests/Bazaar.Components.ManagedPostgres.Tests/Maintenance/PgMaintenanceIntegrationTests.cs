@@ -59,7 +59,7 @@ public sealed class PgMaintenanceIntegrationTests : IAsyncDisposable
         await Assert.ThrowsAsync<PgMaintenanceException>(() => PgDumpRestore.RunAsync(
             runner, layout, connection with { Database = "restored" }, backup.DumpPath, TestContext.Current.CancellationToken));
 
-        Assert.False(await DatabaseExistsAsync(runner, layout, connection, "restored"));
+        Assert.False(await RestoredDatabaseExistsAsync(runner, layout, connection));
     }
 
     [Fact]
@@ -144,9 +144,10 @@ public sealed class PgMaintenanceIntegrationTests : IAsyncDisposable
         return new StartedCluster(controller, connection);
     }
 
-    private static async Task<bool> DatabaseExistsAsync(IPostgresCommandRunner runner, BundleLayout layout, PgConnection connection, string database)
+    /// <summary>Checks for the one database the tests restore into. The SQL is a constant, never built from a name.</summary>
+    private static async Task<bool> RestoredDatabaseExistsAsync(IPostgresCommandRunner runner, BundleLayout layout, PgConnection connection)
     {
-        var result = await RunSqlAsync(runner, layout, connection, "postgres", $"select count(*) from pg_database where datname = '{database}';");
+        var result = await RunSqlAsync(runner, layout, connection, "postgres", "select count(*) from pg_database where datname = 'restored';");
         return result == "1";
     }
 
