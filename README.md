@@ -6,7 +6,7 @@ Bazaar is an open-source platform for a persistent AI software studio. Agents wi
 
 ## Named features
 
-Bazaar has many named features (agents' group chats, the Soul System, Council votes, the Work-Life Simulation, Constellation, RyuseiFuda and more). The glossary of every named feature, with its status and owning design doc, is in [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md). The features above are the ones with code on `main` or in review.
+Bazaar has many named features (agents' group chats, the Soul System, Council votes, the Work-Life Simulation, Constellation, RyuseiFuda and more). The full index, with each feature's status (Shipped, Partial, Planned, Rejected or Unclear) and its owning doc or code path, is in [`docs/FEATURES.md`](docs/FEATURES.md). The headliner glossary is in [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md). The module table above covers what has code on `main` or in review.
 
 ## Modules
 
