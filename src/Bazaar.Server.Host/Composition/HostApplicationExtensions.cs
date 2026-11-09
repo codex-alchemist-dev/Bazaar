@@ -30,7 +30,7 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
-        services.AddBazaarAgentSafety();
+        services.AddBazaarAgentSafety(configuration);
         services.AddBazaarGateway();
         services.AddBazaarJobs();
 
