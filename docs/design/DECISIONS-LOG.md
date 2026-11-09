@@ -241,3 +241,16 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | Idle watcher expiry | Accepted for v1 (expires at next match or tick). |
 | GC and kanban catch-up | Accepted for v1. A catch-up read is added later. |
 | Second LISTEN connection | Accepted. This deviates from doc 04, which is noted there. |
+
+## Round 22 (2026-11-09): turn-path stores
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Agent post API | `GcAgentPostSink` (`src/Bazaar.Server/Agents/Turns/Posting/`) calls the raw `IGcLogWriter.AppendAsync`. No higher-level GC post service exists, and the wire `gc.send` handler needs a session principal and client-parsed mentions, so it cannot serve an agent post. | Yes, when a post service exists. |
+| Mention parsing | Not applied. The sink attaches no mentions. Mention parsing and loop guards from doc 06 step 5 are a follow-up that must land before turns post to live GCs. | Needs a follow-up. |
+| Loop guards | Not applied on the post path. `ILoopGuard` is not wired to the GC append. | Needs a follow-up. |
+| Author and trust | Author kind `agent`, author id = agent id, source trust `agent` (soft taint, round 2). No session id. | No. |
+| Body | Sealed by `IGcBodyCodec` before the writer, as the judgment poster does. | No. |
+| Client message id | `turn:{turnId}:{sha256(text) hex}`, 106 characters at most. A retry of the same turn and text returns the original event. A different text in the same turn is a new event, not a silent duplicate. | Yes. |
+| Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
+| Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |

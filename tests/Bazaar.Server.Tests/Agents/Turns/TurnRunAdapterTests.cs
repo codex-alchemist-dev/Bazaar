@@ -116,15 +116,68 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
     }
 
     [Fact]
-    public async Task The_adapter_refuses_named_inbox_items_rather_than_claiming_by_count()
+    public async Task A_request_that_names_inbox_items_claims_exactly_those_and_completes_them()
     {
         SkipWithoutDatabase();
         var agent = await Agents.CreateAsync("adapter-items", null, Ct);
-        var adapter = new TurnRunAdapter(Runner(new ScriptedModelGateway()), new StubAssembler(), _route);
+        var first = await EnqueueAsync(agent, "a");
+        var second = await EnqueueAsync(agent, "b");
+        var untouched = await EnqueueAsync(agent, "c");
+        var adapter = new TurnRunAdapter(Runner(new ScriptedModelGateway().Reply(FinalAnswer("ok"))), new StubAssembler(), _route);
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => adapter.RunAsync(
-            new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "mention", [Guid.NewGuid()], "holder", _route, []), Ct));
+        var outcome = await adapter.RunAsync(
+            new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "mention", [first, second], "holder", _route, []), Ct);
+
+        Assert.Equal(TurnEndReason.FinalMessage, outcome.Reason);
+        Assert.Equal("done", await StateAsync(first));
+        Assert.Equal("done", await StateAsync(second));
+        Assert.Equal("pending", await StateAsync(untouched));
     }
+
+    [Fact]
+    public async Task The_adapter_offers_the_allowlisted_tools_to_an_actor_turn()
+    {
+        SkipWithoutDatabase();
+        var agent = await Agents.CreateAsync("adapter-tools", null, Ct);
+        var gateway = new ScriptedModelGateway().Reply(FinalAnswer("ok"));
+        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), _route, [_read, _write]);
+
+        await adapter.RunAsync(
+            new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "mention", [], "holder", _route, ["write_note"]), Ct);
+
+        Assert.Equal(["write_note"], gateway.Requests[0].Tools.Select(t => t.Name));
+    }
+
+    [Fact]
+    public async Task The_adapter_offers_no_tools_to_a_reader_turn()
+    {
+        SkipWithoutDatabase();
+        var agent = await Agents.CreateAsync("adapter-reader", null, Ct);
+        var gateway = new ScriptedModelGateway().Reply(FinalAnswer("ok"));
+        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), _route, [_read, _write]);
+
+        await adapter.RunAsync(
+            new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Reader, "mention", [], "holder", _route, ["read_note", "write_note"]), Ct);
+
+        Assert.Empty(gateway.Requests[0].Tools);
+    }
+
+    private static readonly ModelToolDefinition _read = new("read_note", "Reads a note.", """{"type":"object"}""");
+    private static readonly ModelToolDefinition _write = new("write_note", "Writes a note.", """{"type":"object"}""");
+
+    /// <summary>Enqueues one pending mention item for <paramref name="agent"/> and returns its id.</summary>
+    private async Task<Guid> EnqueueAsync(Guid agent, string tag)
+    {
+        var sourceRef = $"adapter-{tag}-{Guid.NewGuid():N}";
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, SourceRef: sourceRef), Ct);
+        return await db.ScalarAsync<Guid>(
+            "SELECT inbox_item_id FROM inbox_item WHERE agent_id = @id AND source_ref = @ref", ("id", agent), ("ref", sourceRef));
+    }
+
+    private Task<string> StateAsync(Guid itemId) =>
+        db.ScalarAsync<string>("SELECT state FROM inbox_item WHERE inbox_item_id = @id", ("id", itemId));
+
+    private InboxRepository Inbox => new(db.DataSource);
 
     private sealed class StubAssembler : ITurnContextAssembler
     {
