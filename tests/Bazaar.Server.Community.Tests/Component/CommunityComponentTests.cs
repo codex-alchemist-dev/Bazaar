@@ -1,5 +1,9 @@
+using Bazaar.Server.Community.Actions;
+using Bazaar.Server.Community.Blocklist;
+using Bazaar.Server.Community.Policy;
 using Bazaar.Server.Community.Quotas;
 using Bazaar.Server.Components;
+using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,5 +31,21 @@ public class CommunityComponentTests
 
         using var provider = services.BuildServiceProvider();
         Assert.IsType<InMemoryCommunityFreezeStore>(provider.GetRequiredService<ICommunityFreezeStore>());
+    }
+
+    [Fact]
+    public void Registers_the_community_feature_services()
+    {
+        var services = new ServiceCollection();
+
+        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new CommunityComponent()]);
+
+        Assert.Contains(services, d => d.ServiceType == typeof(PlatformPolicyLoader));
+        Assert.Contains(services, d => d.ServiceType == typeof(ITargetBlocklist));
+        Assert.Contains(services, d => d.ServiceType == typeof(ICommunityActionSql));
+        Assert.Contains(services, d => d.ServiceType == typeof(CommunityActionStore));
+        Assert.Contains(services, d => d.ServiceType == typeof(KillSwitch));
+        Assert.Contains(services, d => d.ServiceType == typeof(IRateBucketStore));
+        Assert.Contains(services, d => d.ServiceType == typeof(CommunityQuotaGuard));
     }
 }

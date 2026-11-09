@@ -1,5 +1,9 @@
+using Bazaar.Server.Community.Actions;
+using Bazaar.Server.Community.Blocklist;
+using Bazaar.Server.Community.Policy;
 using Bazaar.Server.Community.Quotas;
 using Bazaar.Server.Components;
+using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -28,9 +32,15 @@ public sealed class CommunityComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        // Only dependency-free services register here. The Postgres-backed stores (action log, blocklist, policy loader) need the
-        // shared NpgsqlDataSource and IAuditLog from the kernel; the host wires them when it is composed against a database.
-        // TODO(component): register the Npgsql stores once the host supplies their dependencies in the composition tests.
+        services.TryAddSingleton<PlatformPolicyLoader>();
+        services.TryAddSingleton<NpgsqlTargetBlocklist>();
+        services.TryAddSingleton<ITargetBlocklist>(sp => sp.GetRequiredService<NpgsqlTargetBlocklist>());
+        services.TryAddSingleton<ICommunityActionSql, NpgsqlCommunityActionSql>();
+        services.TryAddSingleton<CommunityActionStore>();
+        services.TryAddSingleton<KillSwitch>();
+
+        services.TryAddSingleton<IRateBucketStore, InMemoryRateBucketStore>();
         services.TryAddSingleton<ICommunityFreezeStore, InMemoryCommunityFreezeStore>();
+        services.TryAddSingleton<CommunityQuotaGuard>();
     }
 }
