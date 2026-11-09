@@ -221,10 +221,29 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The separator 
 
 ## Roadmap and status
 
-- [`docs/FEATURES.md`](docs/FEATURES.md) lists every named feature with its status and owning doc.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta milestones.
-- [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md) is the glossary of the headline features.
-- [`docs/VERSIONING.md`](docs/VERSIONING.md) explains version numbers and release channels.
+Beta runs in nine stages, then the v1.0.0 Zuhal readiness gate. Stages are labels, not version numbers. Ordering follows [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+<p align="center">
+  <img src="docs/assets/roadmap.svg" alt="Roadmap timeline: Beta stages 1 to 9, then v1.0.0 Zuhal, with each named feature marked shipped, in progress or planned" width="100%">
+</p>
+
+The same status in text:
+
+| Stage | Milestone | Named features and status |
+|---|---|---|
+| Stage 1 | Scaffold and design | Solution and CI (shipped); Design set (shipped); Versioning rules (shipped) |
+| Stage 2 | Spikes, gate 1 | Wire format (S6) (shipped); Git engine (S23) (in progress); Cache: Garnet (S2) (planned); VM sizing (S8) (planned) |
+| Stage 3 | Foundation | GC log and NOTIFY (shipped); Managed PostgreSQL (shipped); Migration runner (shipped); Wire transport (shipped); Model gateway (shipped); Bazaar.Server.Host * (shipped) |
+| Stage 4 | Company core | Agent runtime (in progress); Souls (in progress); Work-Life Simulation (in progress); Council (in progress); Reputation (in progress); Taint and approvals (in progress); Workday board (Kanban) (shipped); Orrery scheduling (in progress) |
+| Stage 5 | Knowledge and identity | Vault (in progress); Constellation data (in progress); GitHub integration (in progress); Agent email (in progress); Identity and Passport (in progress); Observatory (in progress); Roadmap views * (in progress); Memory (in progress) |
+| Stage 6 | Windows client | Client.Core shell (in progress); Constellation views (in progress); Discord-style GC view (in progress); Theme (in progress); Command palette (planned); Start screen dashboard (planned); Git diff and PR panes (planned); ConPTY terminal (planned) |
+| Stage 7 | Android and Linux | Android head (in progress); Device pairing (shipped); Radial menu (planned); Push wake-ups (planned); Linux head (in progress); Velopack updates (planned) |
+| Stage 8 | Environments and engines | Agent VMs (in progress); Guest agent (in progress); Coding harness (in progress); Godot adapter (in progress); Roblox Studio bridge (in progress); Browser profiles (planned); Fun systems (in progress) |
+| Stage 9 | Hardening | Backup and restore (in progress); Remote access and TLS (in progress); Conduit transports * (in progress); Erasure (in progress); Rate limits (in progress); Community tiers (in progress); Data export (planned); Counsel items (planned) |
+| v1.0.0 | Zuhal, the readiness gate (no date) | Company Constitution (planned); Health System (planned); Company Analytics (planned); Skimmer Bouncer (in progress); Digital Twin (planned); Mirror Agent (planned); What If Engine (planned); Time Machine (in progress); Soul Marketplace (planned); Talent Pool (planned); Genetic Memory Transfer (planned); Hive Mind (planned); Bazaar Archive (planned); Company Memory (planned); GC metadata (planned); Playtest Mode (planned); Bazaar SDK (in progress); Lucky mode (in progress) |
+
+`*` marks a tentative placement that the sources do not state. The full feature index is in [`docs/FEATURES.md`](docs/FEATURES.md).
+
 
 ---
 
