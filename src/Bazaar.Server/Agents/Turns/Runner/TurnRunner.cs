@@ -285,7 +285,7 @@ public sealed class TurnRunner : ITurnRunner
         run.StepCount++;
         run.InFlight = new InFlight(n, TurnStepKind.Tool, idempotent);
 
-        var request = new ToolDispatchRequest(run.Request.AgentId, run.TurnId, run.Request.SessionId, run.Request.Role, call, idempotent);
+        var request = new ToolDispatchRequest(run.Request.AgentId, run.TurnId, run.Request.SessionId, run.Request.Role, call, idempotent, run.Request.ChainDepth);
         var result = await _dispatcher.InvokeAsync(request, ct).ConfigureAwait(false);
         await CompleteStepAsync(
             run.TurnId, n, JsonSerializer.Serialize(new ToolStepPayload(call.Id, result.Outcome, result.ResultJson, result.Reason), TurnRunnerJson.Default.ToolStepPayload), ct)
