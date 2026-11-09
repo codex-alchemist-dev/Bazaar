@@ -32,4 +32,7 @@ public static class RyuseiDefaults
 
     /// <summary>Default and maximum <c>ryusei.max_ping_fanout</c>. Valid range is 1 to 8.</summary>
     public const int MaxPingFanout = 8;
+
+    /// <summary>Default <c>runtime.guard.wakes_per_hour</c>, the wake cap per agent shared with doc 06. Floor none.</summary>
+    public const int MaxAgentWakesPerHour = 30;
 }

@@ -185,6 +185,7 @@ public sealed class RyuseiTickService
             .ToArray();
         var firesInDay = await RyuseiFireRepository.CountWokeSinceAsync(tx, trigger.TriggerId, now - TimeSpan.FromHours(24), ct).ConfigureAwait(false);
         var lastWoke = await RyuseiFireRepository.LastWokeAtAsync(tx, trigger.TriggerId, ct).ConfigureAwait(false);
-        return new RyuseiTickInput(trigger, spec, _zoneOf(trigger), targets, firesInDay, lastWoke);
+        var wakesInHour = await RyuseiFireRepository.WakesSinceAsync(tx, trigger.TargetAgentIds, now - TimeSpan.FromHours(1), ct).ConfigureAwait(false);
+        return new RyuseiTickInput(trigger, spec, _zoneOf(trigger), targets, firesInDay, lastWoke, wakesInHour);
     }
 }
