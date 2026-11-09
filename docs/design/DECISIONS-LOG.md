@@ -241,3 +241,16 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | Idle watcher expiry | Accepted for v1 (expires at next match or tick). |
 | GC and kanban catch-up | Accepted for v1. A catch-up read is added later. |
 | Second LISTEN connection | Accepted. This deviates from doc 04, which is noted there. |
+
+## Round 22 (2026-11-09): turn-path stores
+
+Defaults taken by the in-flight call store (agent/wp-inflight), safe defaults on the coordinator's call. The owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Table | `in_flight_call` (migration `turns_inflight/0001`): `call_key` primary key (`{turnId:D}:{callId}`), `state` CHECK in (`begun`, `completed`), `begun_at`, `lease_expires_at`, `completed_at`. Own namespace `turns_inflight`, because `turns` belongs to the taint store and `common/` is frozen. | Yes, before first production write. |
+| Lease constant | `InFlightCallRows.Lease` = 10 minutes. It reclaims a row only; it never lets a call run again. | Yes. |
+| Unfinished rule | A call is unfinished when its row exists and `state = 'begun'`, whatever `lease_expires_at` says. A begun call may have run, so a lapsed lease does not make it safe to repeat. | No: this follows the Unknown rule in doc 06. |
+| Begin | Upsert to `begun` with a fresh lease from the database clock. A repeated begin after completion reopens the row. | Yes. |
+| Complete | Sets `completed`. A missing key is a no-op. | Yes. |
+| Registration | `PostgresInFlightCallStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, the file that holds the turn seams. The dispatcher is not wired. | Yes. |

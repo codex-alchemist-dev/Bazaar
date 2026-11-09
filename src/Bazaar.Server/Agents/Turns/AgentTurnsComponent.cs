@@ -1,5 +1,7 @@
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Subagents;
+using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.Agents.Turns.Tools.Db;
 using Bazaar.Server.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,5 +38,7 @@ public sealed class AgentTurnsComponent : IBazaarComponent
 
         services.TryAddSingleton(new TurnRunnerOptions());
         services.TryAddSingleton(new SubagentOptions());
+        // Postgres crash markers (turns_inflight/0001). Needs an NpgsqlDataSource from the host.
+        services.TryAddSingleton<IInFlightCallStore, PostgresInFlightCallStore>();
     }
 }
