@@ -12,6 +12,7 @@ public enum TransitionOutcome
     PrNotMerged,
     GateNotSatisfied,
     BlockersUnfinished,
+    DuePassed,
 }
 
 /// <summary>Facts the transition rules need. The task service fills these under the task's lock; the rules do no I/O.</summary>
@@ -36,6 +37,9 @@ public sealed record TransitionContext
 
     /// <summary>A PR card is Done only when its PR is merged (doc 12, PR cards).</summary>
     public bool PrMerged { get; init; }
+
+    /// <summary>The task is past its due time and hard due-date mode blocks starting it.</summary>
+    public bool DuePassed { get; init; }
 }
 
 /// <summary>
@@ -74,6 +78,11 @@ public static class TaskTransitionRules
 
             case (TaskState.Ready, TaskState.InProgress):
                 // The claim. The blocker guard runs in the service before this rule is consulted.
+                if (ctx.DuePassed)
+                {
+                    return TransitionOutcome.DuePassed;
+                }
+
                 return ctx.IsAgent || ctx.IsOwner ? TransitionOutcome.Allowed : TransitionOutcome.NotAuthorised;
 
             case (TaskState.InProgress, TaskState.Review):

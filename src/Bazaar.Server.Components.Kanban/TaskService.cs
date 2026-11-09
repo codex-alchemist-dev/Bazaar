@@ -28,13 +28,19 @@ public sealed class TaskService
     private readonly TaskGateRepository _gates;
     private readonly IGcLogWriter? _gcLog;
     private readonly IGcExistence _gcExistence;
+    private readonly TimeProvider _time;
 
     /// <summary>
     /// Creates the service. <paramref name="gcLog"/> carries the reason lines (doc 12, WP6): without it, transitions and
     /// pins still work and post nothing to a GC. <paramref name="gcExistence"/> is how GC links are checked; null uses the
     /// <c>gc</c> table.
     /// </summary>
-    public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null, IGcLogWriter? gcLog = null, IGcExistence? gcExistence = null)
+    public TaskService(
+        NpgsqlDataSource dataSource,
+        TaskServiceOptions? options = null,
+        IGcLogWriter? gcLog = null,
+        IGcExistence? gcExistence = null,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
@@ -46,6 +52,7 @@ public sealed class TaskService
         _events = new TaskEventRepository(dataSource);
         _gates = new TaskGateRepository(dataSource);
         _gcExistence = gcExistence ?? new SqlGcExistence(dataSource);
+        _time = time ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -123,11 +130,21 @@ public sealed class TaskService
             HasPrLink = links.Any(l => l.Kind == TaskLinkKind.Pr),
             // Only the PR-merge hook sets this (see PrMergedAsync); a manual move cannot reach Done for a PR card.
             PrMerged = prMerged,
+            DuePassed = _options.DueMode == DeadlineMode.Hard
+                && task.DueAt is { } dueAt
+                && dueAt <= _time.GetUtcNow(),
         };
 
         var outcome = TaskTransitionRules.Evaluate(task.State, to, context);
         if (outcome != TransitionOutcome.Allowed)
         {
+            if (outcome == TransitionOutcome.DuePassed)
+            {
+                await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.GuardRefused, actor.ToText(),
+                    Payload(("to", KanbanText.ToSql(to)), ("reason", "due date passed"))), ct).ConfigureAwait(false);
+                await tx.CommitAsync(ct).ConfigureAwait(false);
+            }
+
             return outcome == TransitionOutcome.NotATransition
                 ? TransitionResult.Invalid(outcome)
                 : TransitionResult.Refused(outcome, []);

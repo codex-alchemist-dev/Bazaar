@@ -92,6 +92,17 @@ public sealed class TaskTransitionRulesTests
     }
 
     [Fact]
+    public void Hard_due_date_refuses_a_ready_to_in_progress_claim()
+    {
+        var due = Permissive(agent: true) with { DuePassed = true };
+
+        Assert.Equal(TransitionOutcome.DuePassed, TaskTransitionRules.Evaluate(TaskState.Ready, TaskState.InProgress, due));
+        Assert.Equal(
+            TransitionOutcome.Allowed,
+            TaskTransitionRules.Evaluate(TaskState.Ready, TaskState.InProgress, due with { DuePassed = false }));
+    }
+
+    [Fact]
     public void Review_needs_an_assignee_and_enough_links()
     {
         var notAssignee = Permissive() with { IsAssignee = false };

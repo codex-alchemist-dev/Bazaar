@@ -17,8 +17,8 @@ namespace Bazaar.Server.Kanban;
 /// after a crash finds the event already there.
 /// </para>
 /// <para>
-/// TODO (doc 12; owner decision): hard due dates are not implemented. <see cref="DeadlineMode.Hard"/> refuses to run, and no
-/// automatic state change is made here. Changing a task's state is the task service's job, not the scanner's.
+/// Hard mode uses the same event scan; the task service enforces the hard start guard when a caller tries to claim a past-due
+/// task. The scanner remains responsible only for recording that the due time passed.
 /// </para>
 /// </summary>
 public sealed class DeadlineScanHandler(
@@ -38,11 +38,6 @@ public sealed class DeadlineScanHandler(
     /// <summary>Runs one bounded pass and returns how many <c>task.due_passed</c> events it appended.</summary>
     public async Task<int> ScanAsync(CancellationToken ct = default)
     {
-        if (options.Mode != DeadlineMode.Notify)
-        {
-            throw new NotSupportedException($"Deadline mode '{options.Mode}' is not implemented (doc 12 TODO).");
-        }
-
         var emitted = 0;
         foreach (var taskId in await deadlines.ListCandidatesAsync(options.BatchSize, ct).ConfigureAwait(false))
         {

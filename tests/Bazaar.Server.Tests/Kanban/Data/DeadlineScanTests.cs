@@ -140,7 +140,7 @@ public sealed class DeadlineScanTests(KanbanDb db) : IClassFixture<KanbanDb>
     }
 
     [Fact]
-    public async Task Hard_mode_is_refused_rather_than_silently_run_as_notify()
+    public async Task Hard_mode_still_records_due_passed_events()
     {
         SkipWithoutDatabase();
         var handler = new DeadlineScanHandler(
@@ -150,6 +150,9 @@ public sealed class DeadlineScanTests(KanbanDb db) : IClassFixture<KanbanDb>
             new TaskEventRepository(db.DataSource),
             new DeadlineScanOptions { Mode = DeadlineMode.Hard });
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => handler.ScanAsync(Ct));
+        var task = await AddTaskAsync(TaskState.Ready, Micros(DateTimeOffset.UtcNow.AddHours(-2)));
+
+        Assert.Equal(1, await handler.ScanAsync(Ct));
+        Assert.Single(await DuePassedPayloadsAsync(task));
     }
 }

@@ -24,6 +24,9 @@ public sealed class KanbanComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        var taskOptions = new TaskServiceOptions();
+        configuration.GetSection(TaskServiceOptions.SectionName).Bind(taskOptions);
+        services.TryAddSingleton(taskOptions);
         services.TryAddSingleton<TaskRepository>();
         services.TryAddSingleton<TaskEdgeRepository>();
         services.TryAddSingleton<TaskEventRepository>();

@@ -24,6 +24,8 @@ public readonly record struct TaskActor(TaskActorKind Kind, Guid Id)
 /// <summary>Operator settings the task service reads (doc 12, Settings). Defaults are the shipped values.</summary>
 public sealed record TaskServiceOptions
 {
+    public const string SectionName = "Bazaar:Kanban";
+
     /// <summary>kanban.auto_ready: Backlog dependents move to Ready when their last blocker is Done.</summary>
     public bool AutoReady { get; init; } = true;
 
@@ -52,6 +54,9 @@ public sealed record TaskServiceOptions
             field = value;
         }
     } = BlockerGraph.DefaultMaxBlockersPerTask;
+
+    /// <summary>Whether a task past its due time may be claimed from Ready.</summary>
+    public DeadlineMode DueMode { get; init; } = DeadlineMode.Notify;
 }
 
 public enum TransitionStatus

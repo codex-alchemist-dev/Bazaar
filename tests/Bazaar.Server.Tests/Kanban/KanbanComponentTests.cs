@@ -33,4 +33,23 @@ public class KanbanComponentTests
         Assert.NotNull(provider.GetRequiredService<TaskService>());
         Assert.Same(provider.GetRequiredService<TaskRepository>(), provider.GetRequiredService<TaskRepository>());
     }
+
+    [Fact]
+    public void Kanban_binds_hard_due_mode_into_task_service_options()
+    {
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{TaskServiceOptions.SectionName}:DueMode"] = nameof(DeadlineMode.Hard),
+            })
+            .Build();
+
+        services.AddBazaarComponents(configuration, [new KanbanComponent()]);
+
+        using var provider = services.BuildServiceProvider();
+        Assert.Equal(DeadlineMode.Hard, provider.GetRequiredService<TaskServiceOptions>().DueMode);
+    }
 }
