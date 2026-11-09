@@ -78,12 +78,13 @@ Modules are opt-in unless marked **default**. The priority column orders client 
 | 91 | `wifi-direct-local` | Lan (proximity) | off | Wi-Fi Direct support on both ends | Same role as BLE: pairing bootstrap and, where supported, a short-lived direct data path | none | Platform support is uneven; treated as a bootstrap, not a steady-state transport |
 
 Notes on the table:
-- Modules that expose plaintext to a third party (cloudflared, ngrok-style, Tailscale's control plane) say so in the setup wizard. The TLS pin still applies end to end where the path allows it.
+- Modules that expose plaintext to a third party (cloudflared, ngrok-style, Tailscale's control plane) say so in the setup wizard. Where TLS is terminated by a third party, the offer is marked `TerminatesTls` and the end-to-end pin does not apply (section 3).
 - **Relay and P2P are the open-source fallbacks.** The default recommendation for a device that is neither on the LAN nor on an overlay is `relay-selfhost`, with `p2p-ice` as an opt-in direct path that falls back to it.
 - The owner's default remains zero-config: `lan-mdns` on, everything else off until the operator turns it on in the setup wizard or advanced settings.
 
 ### 3. Security model
 - **TLS everywhere off loopback.** The server certificate comes from `ICertificateProvider` (32, section 2). Clients pin the server key hash from the pairing QR. A mismatch fails the attempt and does not fall back to a weaker offer.
+- **Third-party TLS termination.** Where a third party ends TLS (`cloudflared`, `ngrok-style`), the client cannot pin the server key end to end. Such offers set `TerminatesTls`; the client then trusts the public CA chain for the edge and relies on the device credential and the authenticated handshake (32, sections 5 and 6) for server identity. This weakens the pin guarantee for those modules only. Owner decision needed (question 5).
 - **No downgrade.** A module may not publish a `ws://` offer unless its scope is `Loopback`. The registry rejects any other offer at publish time (a test covers this).
 - **Pins travel with the server, not the address.** The pin is the server's key, so a changed address, tunnel hostname or relay does not break trust, and an attacker-controlled address does not gain trust.
 - **Reachability is not identity.** Any transport can carry the 32 handshake; authentication is unchanged. Overlay or tunnel membership grants no access.
@@ -110,19 +111,19 @@ Registered in 03's settings registry. Changes are audited (15). "Yes" means the 
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
-| `transport.lan_mdns.enabled` | bool | true | install | owner | no |
-| `transport.manual_port_forward.enabled` | bool | false | install | owner | yes, when enabled |
-| `transport.manual_port_forward.public_host` | string | unset | install | owner | yes |
-| `transport.manual_port_forward.probe_url` | string | unset (probe skipped, offer marked unverified) | install | owner | no |
-| `transport.upnp_natpmp.enabled` | bool | false | install | owner | yes, when enabled |
+| `transport.lan-mdns.enabled` | bool | true | install | owner | no |
+| `transport.manual-port-forward.enabled` | bool | false | install | owner | yes, when enabled |
+| `transport.manual-port-forward.public_host` | string | unset | install | owner | yes |
+| `transport.manual-port-forward.probe_url` | string | unset (probe skipped, offer marked unverified) | install | owner | no |
+| `transport.upnp-natpmp.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.cloudflared.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.cloudflared.mode` | enum: `named`, `quick` | `named` | install | owner | yes, if changed to `quick` |
 | `transport.cloudflared.binary_path` | string | unset (use pinned download) | install | owner | yes |
-| `transport.overlay.tailscale.enabled` | bool | false | install | owner | yes, when enabled |
+| `transport.overlay-tailscale.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.relay.url` | string | unset | install | owner | yes |
 | `transport.relay.enabled` | bool | false | install | owner | yes, when enabled |
-| `transport.p2p_ice.enabled` | bool | false | install | owner | yes, when enabled |
-| `transport.p2p_ice.stun_servers` | list | operator list (documented public servers) | install | owner | no |
+| `transport.p2p-ice.enabled` | bool | false | install | owner | yes, when enabled |
+| `transport.p2p-ice.stun_servers` | list | operator list (documented public servers) | install | owner | no |
 | `transport.tor.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.connect_timeout_ms` | int | 4000 | install | owner | no |
 | `transport.offer_refresh_seconds` | int | 60 | install | owner | no |
@@ -131,12 +132,13 @@ Shipped floors that are not settings: no `ws://` offer off loopback; no module h
 
 ## Data and interfaces
 - Config is stored in the Settings table (03). No new SQL table is required for v1. Offer state is in memory and reported over 02.
+- Settings keys use the module id as written in the catalogue: `transport.<module-id>.enabled`, with sub-keys such as `transport.manual-port-forward.public_host` (the registry reads `transport.<id>.enabled`).
 - `transport_mapping(id, module_id, external_addr, internal_port, created_at, renew_at, removed_at)` is proposed for audit of port mappings only. Owned here; the migration number is assigned at implementation time from 04's list.
-- The offer frame: `{ "module": "lan-mdns", "scope": "lan", "uri": "wss://192.168.1.20:7443/ws", "keyHash": "sha256:…", "expiresAt": null, "requiresRelay": false }`. Versioned under 02's envelope.
+- The offer frame: `{ "module": "lan-mdns", "scope": "lan", "uri": "wss://192.168.1.20:7443/ws", "keyHash": "sha256:…", "expiresAt": null, "requiresRelay": false, "verified": true, "terminatesTls": false }`. Versioned under 02's envelope.
 
 ```csharp
 public sealed record TransportOffer(string ModuleId, TransportScope Scope, Uri Uri, string ServerKeyHash,
-    DateTimeOffset? ExpiresAt, bool RequiresRelay, bool Verified);
+    DateTimeOffset? ExpiresAt, bool RequiresRelay, bool Verified, bool TerminatesTls = false);
 public sealed record ReachabilityResult(bool Usable, string Reason, IReadOnlyList<Uri> Candidates);
 public sealed record ReachabilityContext(int LocalPort, ITransportSettings Settings, TimeProvider Time, ILogger Logger);
 public enum TransportModuleState { Disabled, Starting, Running, Degraded, Failed }
@@ -187,3 +189,4 @@ Each module has unit tests against fakes; a shared contract suite runs against e
 2. Should `upnp-natpmp` and `manual-port-forward` need a separate owner approval per mapping, or once per install? Default: once per install, audited.
 3. Which public STUN servers ship as the default list? Default: operator-editable list, no vendor pinned in code.
 4. Is the Bluetooth and Wi-Fi Direct bootstrap in scope for v1.0, or a post-1.0 module? Default: post-1.0.
+5. May a module whose offer has `TerminatesTls` (cloudflared, ngrok-style) be enabled without the server key pin, relying on the device credential alone? Default in this doc: allowed, opt-in, shown as a warning in the wizard, and never the default route.

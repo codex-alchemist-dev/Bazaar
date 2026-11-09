@@ -11,6 +11,11 @@ namespace Bazaar.Server.Transports;
 /// <param name="ExpiresAt">When the address stops being valid, or null when it is stable.</param>
 /// <param name="RequiresRelay">True when traffic passes through an operator relay.</param>
 /// <param name="Verified">True when the module confirmed reachability from outside, not just from configuration.</param>
+/// <param name="TerminatesTls">
+/// True when a third party ends TLS on the path (for example a Cloudflare edge), so the client cannot check
+/// <paramref name="ServerKeyHash"/> end to end. The device credential (doc 32, section 5) then carries the trust.
+/// Doc 39 section 3.
+/// </param>
 public sealed record TransportOffer(
     string ModuleId,
     TransportScope Scope,
@@ -18,4 +23,5 @@ public sealed record TransportOffer(
     string ServerKeyHash,
     DateTimeOffset? ExpiresAt,
     bool RequiresRelay,
-    bool Verified);
+    bool Verified,
+    bool TerminatesTls = false);
