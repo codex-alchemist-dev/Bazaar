@@ -136,7 +136,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Conduit | The connectivity feature: reachability and transport modules. Sub-parts named in project memory: Conduit.Cloudflared, Conduit.P2P, Conduit.Lan. | Unclear. Project memory says doc 39 (PR #358) defines `IReachabilityProvider` and `ITransportModule`. Doc 39 is not on `main`, so the status here cannot be checked. | project memory; doc 39 (not in repo) |
+| Conduit | The connectivity feature: reachability and transport modules. Sub-parts named in project memory: Conduit.Cloudflared, Conduit.P2P, Conduit.Lan. | In flight. Doc 39 (PR #358) defines `IReachabilityProvider` and `ITransportModule`; it is not on `main` yet. | project memory; doc 39 (PR #358) |
 | Remote access and auth | Remote access, authentication, authorization and privacy settings. | Partial (`src/Bazaar.Server/Remote`, `Tls`, `RateLimits`) | `docs/design/32` |
 | Pairing | Device authorization and pairing for clients (`/pair/*` routes). | Shipped (state machine, device-authorization client, HTTP routes) | `docs/design/32` §3 |
 | Privacy audit | Audit of privacy-relevant events. | Partial (`src/Bazaar.Server/Components/PrivacyAudit`) | `docs/design/32` |
@@ -226,7 +226,6 @@ Stage labels (roadmap, not versions): Stage 1 to Stage 9, see `docs/ROADMAP.md`.
 
 These items are named in the sources but their meaning, status or home is not settled. They are listed here rather than guessed.
 
-- **Conduit** and its parts (Cloudflared, P2P, LAN): doc 39 is not on `main`. Confirm the design and status once PR #358 lands.
 - **Digital Twin** and **Bazaar Archive**: no dedicated design doc. Their wording comes from `Bazaar.md` §4 alone.
 - **RyuseiFuda spelling**: owner messages used variant spellings; the canonical form is `RyuseiFuda` and has not been confirmed by the owner.
 - **Valthyrzmthl**: meaning and an alchemy or star link are still missing.
