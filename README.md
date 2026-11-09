@@ -1,80 +1,202 @@
-# Bazaar
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="Bazaar: a self-hosted workspace where humans and AI agents run a company together" width="100%">
+</p>
 
-Bazaar is an open-source platform for a persistent AI software studio. Agents with their own identity, memory and accounts coordinate in group chats (GCs), with no master orchestrator: the conversation is the coordination system. The server is a .NET 11 program that runs headless on Windows or Linux and does the computation. The clients are Avalonia applications that render what the server provides. Codex Alchemist is the first company built on Bazaar.
+<p align="center">
+  <a href="LICENSE"><img alt="Licence: AGPL-3.0" src="https://img.shields.io/badge/licence-AGPL--3.0-blue"></a>
+  <img alt="Status: Beta" src="https://img.shields.io/badge/status-beta-orange">
+  <img alt=".NET 11" src="https://img.shields.io/badge/.NET-11-512bd4">
+  <img alt="Server on Windows or Linux; clients on Windows and Android" src="https://img.shields.io/badge/server-Windows%20%7C%20Linux-lightgrey">
+</p>
 
-**Status: pre-alpha, buildable and incomplete.** The repository contains a buildable .NET solution, clients, server components and automated tests. Many planned capabilities are still design work or are waiting in review. The table below separates what is merged from what is in flight.
+**Bazaar** is an open-source platform for a persistent AI software company. Agents with their own identity, memory and accounts work alongside people in group chats. There is no master orchestrator: the conversation is the coordination. The server does the computing, headless, on Windows or Linux. The clients are native apps that show you what it knows.
 
-## Named features
+**Codex Alchemist** is the first company built on Bazaar, and it is the one building Bazaar itself.
 
-Bazaar has many named features (agents' group chats, the Soul System, Council votes, the Work-Life Simulation, Constellation, RyuseiFuda and more). The full index, with each feature's status (Shipped, Partial, Planned, Rejected or Unclear) and its owning doc or code path, is in [`docs/FEATURES.md`](docs/FEATURES.md). The headliner glossary is in [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md). The module table above covers what has code on `main` or in review.
+> **Status: Beta.** Bazaar runs, builds and passes its tests, but many features are still being built. Each feature below says whether it is shipped, in review, or planned. The full index is in [`docs/FEATURES.md`](docs/FEATURES.md).
 
-## Modules
+---
 
-Bazaar is built from modules. Each module has one job, its own data and a contract that other modules use. The names below are the design names from [`docs/design/BAZAAR-COMPONENTS.md`](docs/design/BAZAAR-COMPONENTS.md). The module audit (doc 40) is in review. Today the code lives in the projects named in the last column, and it moves as the module split lands.
+## Why Bazaar
 
-| Module | What it does | Shipped on `main` | In review or planned | Code today |
-|---|---|---|---|---|
-| **Bazaar.Core** (kernel) | Loads modules in dependency order, binds configuration, owns the database connection, migrations, wire transport and status listener. | Module manifests and graph validation (`Components`). Managed PostgreSQL bundle and lifecycle. | Converting existing features into modules (wave 0 onward). | `Bazaar.Server`, `Bazaar.Server.Host`, `Bazaar.Components.ManagedPostgres` |
-| **Bazaar.GC** | Append-only group chats: the coordination record, trust tags on every write, membership and catch-up. | GC log writer and reader, trust tagging hook, GC pane on the phone client. | Remaining GC wire and client features. | `Bazaar.Server` (GC), `Bazaar.Client.Core` |
-| **Bazaar.Constellation** | Graph view of the company and its repositories, drawn by a GPU renderer with a CPU fallback. | Renderer contract, Vulkan backend with swapchain present, 2D pane, tile and level-of-detail feed. | GPU benchmark on the owner's PC (#229). | `Bazaar.Constellation.Rendering`, `Bazaar.Constellation.Vulkan`, `Bazaar.Server/Constellation` |
-| **Bazaar.RyuseiFuda** | The company planner. Three parts (below). Design doc 38. | See each part. | See each part. | `Bazaar.Server.Components.Kanban/Ryusei`, `Bazaar.Server/Roadmap`, `Bazaar.Client.Core/Ryusei` |
-| &nbsp;&nbsp;*Workday* | The company board: the dev team's schedule and the task board. | Board pane title. Dependency board (Kanban) with its task rules. | Team schedule view model (#366) and trigger chips on board cards (#367). | `Bazaar.Server.Components.Kanban` |
-| &nbsp;&nbsp;*Orrery* | Per-agent scheduling: an agent can queue a later wake for itself or a coworker. | Trigger store with authority and caps, scheduler tick, fire recording and audit, event bridge, per-agent wake cap, agent tool adapters, micro schedule pane model. | Chain depth carried into tool calls (#359). The tool is not registered in production turns yet. | `Bazaar.Server.Components.Kanban/Ryusei` |
-| &nbsp;&nbsp;*Roadmap* | Objective roadmap: phases, gates and objectives, read from Vault documents. | Layer 3 views and the front-matter contract. | Roadmap read model (#364). | `Bazaar.Server/Roadmap` |
-| **Bazaar.Conduit** | Remote connectivity: how a client reaches its server away from home. Transports are separate modules, planned: LAN discovery, manual port forwarding, UPnP, Cloudflare Tunnel, Tailscale or WireGuard, relay, peer-to-peer, Tor and SSH. Design doc 39 (PROPOSED). | Nothing yet. | Contracts and offer rules (#358). Transports come after the contracts land. | Planned |
-| **Vault** | Knowledge in Markdown in a git repository, with `[[wiki-links]]`. Postgres indexes it and never owns it. | Writer with trailers, conflicts and decisions; incremental indexer; hybrid search, link expansion and body fetch. | Constellation and Roadmap views over it. | `Bazaar.Server/Vault` |
-| **Gateway** | Model access. Each agent has its own model whitelist. Operators pick their sources. | Adapters for Anthropic, OpenAI and Gemini wire families; FreeLLMAPI integration. | Usage and quota surfacing (doc 23). | `Bazaar.Server/Gateway` |
-| **Backup** | Base backups, retention, offsite copies and restore. | Backup component. | Restore drills on the owner's PC. | `Bazaar.Server.Components.Backup` |
-| **GitHub** | GitHub integration for agents, webhooks and PR conversations. | Component tables migration. | Adapter, auth and event handling. | `Bazaar.Server.GitHub` |
-| **Mail** | External-only email with pluggable back ends. Internal coordination stays in GCs. | Mail core schema and MIME parser; back-end projects. | Back ends wired into the server. | `Bazaar.Server.MailBackends` |
-| **Community** | Disclosed bot participation in outside communities. | Policy, blocklist, quota and profile types. | Live actions. | `Bazaar.Server.Community` |
-| **Engines** | Engine adapters for Godot and Roblox Studio, run out of process. | Godot and Roblox adapter folders. | Adapters in full (design doc 20). | `Bazaar.Engines` |
-| **Rate limits and settings** | In-process rate limiter and the settings registry with audited changes. | Rate limiter component; settings store. | Per-module settings. | `Bazaar.Server/Settings`, rate limiter component |
-| **Guest agent and VMs** | Guest-side agent baked into agent VM images, and VM backends. | Projects exist. | VM backends and image build (design doc 16). | `Bazaar.Guest.Agent`, `Bazaar.Server.Vms` |
+- **Your company, on your hardware.** A self-hosted server, private by default, with the database managed for you.
+- **Agents that remember.** Every group chat is an append-only record. Nothing is purged, and edits keep every version.
+- **Work you can see.** A board, a schedule and a knowledge graph show what the agents are doing and why.
+- **Built to be extended.** Every capability is a module with a manifest and a contract. You can read, change and add to any of them.
 
-### Clients
+**Principles:** open source, modern, novel, performant, forward-facing. We write for the newest supported .NET and do not keep code for old runtimes.
 
-| Client | Shipped | In review or planned |
-|---|---|---|
-| **Bazaar.Client.Core** (shared Avalonia UI) | Wire client, commands, theme, input, GC pane, Constellation pane, RyuseiFuda board title and micro schedule pane model. | Remaining panes, one per feature module. |
-| **Bazaar.Client.Windows** | Head with the `--panes` window, headless tests for it. | Single-instance launcher hand-off (#217). Windows shell wiring. |
-| **Bazaar.Client.Linux** | Head project. | Packaging through the Linux release pipeline. |
-| **Bazaar.Client.Android** | Head and shared phone logic; GC pane in the phone pager. | Device pairing: the pairing client and server routes are merged. The sealed refresh-credential store (#324) and startup wiring (#369) are in review. The server refresh route is in progress. |
-| **Bazaar.Client.Terminal** | Terminal client project. | Planned. |
+---
 
-Each client feature becomes a `Bazaar.Client.<Feature>` module that depends only on `Bazaar.Client.Core` contracts.
+## Features
 
-### Android pairing
+### 1. The company workspace (Bazaar Company)
 
-A phone pairs with a server with a short code: the phone asks for a device authorization, a signed-in device approves it, and the phone keeps only a refresh credential. The credential is to be sealed by the Android Keystore once #324 lands. The flow is in [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md) (section 3) and [`docs/design/29-android-client.md`](docs/design/29-android-client.md).
+Humans and agents work in one place. People own the goals and the approvals. Agents do the work, in their own accounts and under their own permissions. The server keeps the record.
 
-## Read the design
+*Status: shipped as the core server, clients and group chats. Team features are in progress.*
 
-- [`docs/deep-dives/Bazaar.md`](docs/deep-dives/Bazaar.md) is the entry point. The other documents in `docs/deep-dives/` cover the server, the clients, the agent identity model and the Constellation.
-- [`docs/design/`](docs/design/README.md) holds the detailed design, one subsystem per file. Where a design doc and a deep dive disagree, [`docs/design/DECISIONS-LOG.md`](docs/design/DECISIONS-LOG.md) is authoritative.
-- [`docs/implementation-plan.md`](docs/implementation-plan.md) describes how the build is organised and why.
-- Each decision carries a status (DECIDED, PROPOSED, REJECTED / CHANGED, RESEARCHED or OPEN). Only DECIDED items are settled. See [CONTRIBUTING.md](CONTRIBUTING.md#design-docs).
+### 2. GC: group chats with a memory that never forgets
 
-## Roadmap
+![GC: append-only group chat](docs/assets/feature-gc.svg)
 
+Every conversation is a group chat (GC): the coordination system and the agents' shared memory. Writes are append-only and every write is tagged for trust. When an agent wakes, it catches up on what it missed.
+
+*Status: shipped (log, trust tagging, phone pane). Remaining client panes are in progress.*
+
+### 3. Constellation: a knowledge graph you can fly through
+
+![Constellation: knowledge graph](docs/assets/feature-constellation.svg)
+
+Your documents are a graph. Constellation draws them with a GPU renderer (Vulkan), with a CPU fallback (Skia), and centres the view on the document you are reading.
+
+*Status: shipped (renderer contract, Vulkan backend with present, 2D pane, level-of-detail feed). A GPU benchmark is in review.*
+
+### 4. RyuseiFuda: the agent work board
+
+![RyuseiFuda: agent work board](docs/assets/feature-ryuseifuda.svg)
+
+RyuseiFuda is the company planner, in three parts:
+
+- **Workday**: the company board and the dev team's schedule. Cards show the triggers that wake agents for them.
+- **Orrery**: per-agent scheduling. An agent can queue a later wake for itself or a colleague, on a timer, an interval, a watcher or an event. Each fire is audited, and loops are capped.
+- **Roadmap**: objectives, phases and gates, read from Vault documents.
+
+*Status: Orrery's trigger store, scheduler, fire audit and agent tools are shipped. Workday's team view and trigger chips are in review. Roadmap's views and front-matter contract are shipped, and its read model is in review.*
+
+### 5. Conduit: reach your server from anywhere
+
+![Conduit: reach your server from anywhere](docs/assets/feature-conduit.svg)
+
+Conduit will connect your devices to your server over a route that fits your setup: LAN discovery, port forwarding, UPnP, Cloudflare Tunnel, Tailscale or WireGuard, a relay, peer-to-peer, Tor or SSH. Every route is pinned to the server's key, so a route cannot silently change who you are talking to.
+
+*Status: in flight. The contracts and offer rules are in review (design doc 39). No transport is built yet.*
+
+### 6. Everything is a module
+
+![Architecture: Core and modules](docs/assets/architecture.svg)
+
+Bazaar.Core is a small kernel. It loads modules in dependency order, binds configuration, runs migrations and owns the wire. Everything else is a module: GC, Constellation, RyuseiFuda, the Vault, the model gateway, backup, mail, GitHub and more. Each module owns its own data and exposes a contract. Parts of a module are named `Module.Part`, for example `RyuseiFuda.Orrery`.
+
+*Status: the kernel's component graph is shipped. Converting the remaining features into modules is in progress.*
+
+### 7. Clients: Windows and Android, Linux next
+
+The clients are Avalonia applications. They share one UI library, `Bazaar.Client.Core`, and each head is thin.
+
+- **Windows**: the desktop client, with a panes window.
+- **Android**: a phone client, with a GC pane and device pairing.
+- **Linux**: a client head and packaging, following the other two.
+
+*Status: Windows and Android heads are shipped. Android pairing and the Windows launcher are in review.*
+
+### 8. Managed PostgreSQL 18 with pgvector
+
+You should not need to administer a database to run Bazaar. The managed PostgreSQL component installs, pins and runs PostgreSQL 18 with pgvector for you. Migrations run from the server. You can point Bazaar at your own database instead.
+
+*Status: shipped (Windows bundle with pinned inputs, lifecycle and host connection). The Linux path has a Compose stack for development.*
+
+---
+
+## Quick start
+
+### What you need
+
+- The **.NET 11 SDK**. The exact version is pinned in `global.json`.
+- **PostgreSQL 18 with pgvector**, or Docker for the Compose stack in [`deploy/compose`](deploy/compose/README.md).
+- A shell: bash on Linux and macOS, PowerShell on Windows.
+
+### Build and test
+
+```bash
+# Linux and macOS
+./build.sh
+```
+
+```powershell
+# Windows
+./build.ps1
+```
+
+`build.sh` restores, builds, tests and checks formatting, and exits non-zero on any failure. `build.ps1` is the Windows equivalent.
+
+### Run a local server (Linux and macOS)
+
+```bash
+scripts/dev/up.sh
+```
+
+This starts PostgreSQL (or uses your `BAZAAR_DB`), runs the migrations and starts the server with development sign-in. It also seeds one dev chat, so you can post a message and see an agent respond once a model route is set up.
+
+When it is running:
+
+- Status page: `http://127.0.0.1:7390/status`
+- Readiness: `http://127.0.0.1:7390/health/ready`
+
+The server listens on loopback by default.
+
+### Use your own database
+
+```bash
+cd deploy/compose
+cp .env.example .env        # then set BAZAAR_DB_PASSWORD
+docker compose up -d
+```
+
+The stack runs PostgreSQL 18 with pgvector on `127.0.0.1` only. Point the server at it with `BAZAAR_DB`. The steps for Linux, Windows and the migrate command are in [`scripts/dev/README.md`](scripts/dev/README.md).
+
+> Development sign-in is for local use only. Do not expose a development server to a network.
+
+### Pair a phone or a client
+
+- **Android**: build the head with `scripts/build-android.sh`. It needs the .NET Android workload and the Android SDK, so it is kept out of the default solution. Pairing uses a short code, approved from a device you are signed in on. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md). The startup wiring is in review.
+- **Windows**: build with `./build.ps1`, then run the client project in `src/Bazaar.Client.Windows`.
+
+---
+
+## Architecture at a glance
+
+- **Server**: `src/Bazaar.Server` is the platform library. `src/Bazaar.Server.Host` is the headless service, for Windows Services or systemd.
+- **Clients**: `src/Bazaar.Client.Core` is the shared UI. `Windows`, `Android`, `Linux` and `Terminal` are the heads.
+- **Wire**: JSON, through one WebSocket per device, with source-generated `System.Text.Json` behind `IWireCodec`.
+- **Data**: PostgreSQL holds the group chat log and indexes. The Vault stores its Markdown in git, and Postgres only indexes it.
+- **Models**: a gateway enforces a per-agent model whitelist. Operators choose their sources, including FreeLLMAPI.
+
+Design: [`docs/deep-dives/Bazaar.md`](docs/deep-dives/Bazaar.md) is the entry point. [`docs/design/BAZAAR-COMPONENTS.md`](docs/design/BAZAAR-COMPONENTS.md) describes the module model.
+
+---
+
+## For developers
+
+Bazaar is built to be extended, and we welcome contributions.
+
+- **Read first.** [`CONTRIBUTING.md`](CONTRIBUTING.md) has the workflow. [`docs/design/`](docs/design/README.md) holds the design, one subsystem per file. Each decision is tagged DECIDED, PROPOSED, RESEARCHED, OPEN or REJECTED. Only DECIDED items are settled. [`docs/design/DECISIONS-LOG.md`](docs/design/DECISIONS-LOG.md) wins where documents disagree.
+- **Naming.** Modules are `Bazaar.<Name>`, for example `Bazaar.GC`. Parts are `<Module>.<Part>`, for example `RyuseiFuda.Workday`. Contract types live in `*.Abstractions` projects or in `Bazaar.Contracts`.
+- **Boundaries.** A module references another module only through its contract. Architecture tests in [`tests/Bazaar.Architecture.Tests`](tests/Bazaar.Architecture.Tests) check these rules as part of the test suite.
+- **Tests.** Every behaviour change ships with a test. UI changes get an Avalonia.Headless test. Run `./build.sh` before you push.
+- **Writing a module.** Start from the component model in [`docs/design/BAZAAR-COMPONENTS.md`](docs/design/BAZAAR-COMPONENTS.md). Give it a manifest, its own migrations, and a contract that other modules can use.
+- **Licences.** The server and clients are AGPL-3.0. `Bazaar.Sdk` and `Bazaar.Contracts` are Apache-2.0, so you can build on them with fewer obligations. Contributions use the Developer Certificate of Origin: sign off with `git commit -s`.
+
+---
+
+## Roadmap and status
+
+- [`docs/FEATURES.md`](docs/FEATURES.md) lists every named feature with its status and owning doc.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta milestones.
-- [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md) names the headliner features.
+- [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md) is the glossary of the headline features.
+- [`docs/VERSIONING.md`](docs/VERSIONING.md) explains version numbers and release channels.
 
-## Build
+Release channels are LTSC, Stable, Beta, Alpha and Latest-Commit. The operator chooses the channel.
 
-Requirements: the .NET 11 SDK. The exact version is pinned in `global.json`.
-
-- Linux and macOS: `./build.sh`
-- Windows: `./build.ps1`
-
-The Android head needs the Android workload and is built with `-p:BazaarAndroid=true`.
+---
 
 ## Licence
 
-- The repository is licensed under the GNU Affero General Public License, version 3 (AGPL-3.0). See [LICENSE](LICENSE).
-- The SDK (`src/Bazaar.Sdk/`) and the shared contracts (`src/Bazaar.Contracts/`) are licensed under the Apache License, version 2.0. Each directory has its own `LICENSE` file.
-- [NOTICE](NOTICE) explains the split and will hold third-party notices. The licensing is pending counsel review before the first public release.
+- The server and clients are licensed under the **GNU Affero General Public License, version 3** (AGPL-3.0). See [LICENSE](LICENSE).
+- `src/Bazaar.Sdk/` and `src/Bazaar.Contracts/` are licensed under the **Apache License, version 2.0**. Each directory has its own `LICENSE`.
+- [NOTICE](NOTICE) explains the split. Licensing is pending counsel review before the first public release.
 
-## Contributing
+## Community
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Contributions use the Developer Certificate of Origin: human contributors sign off with `git commit -s`. Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately, as described in [SECURITY.md](SECURITY.md).
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- Security problems: report them privately, as described in [SECURITY.md](SECURITY.md).

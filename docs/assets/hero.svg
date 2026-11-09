@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="t d">
+  <title id="t">Bazaar hero</title>
+  <desc id="d">A dark panel with the Bazaar name, a tagline, and a network of agent and human nodes joined by group-chat lines.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#1c2330"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f2b84b"/>
+      <stop offset="1" stop-color="#7cc4ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="320" rx="16" fill="url(#bg)"/>
+  <g stroke="#3b4a63" stroke-width="2" fill="none" opacity="0.9">
+    <path d="M600 90 L700 150 L820 80"/>
+    <path d="M700 150 L760 240 L880 210"/>
+    <path d="M600 90 L560 210 L760 240"/>
+    <path d="M820 80 L880 210"/>
+  </g>
+  <g>
+    <circle cx="600" cy="90" r="14" fill="#f2b84b"/>
+    <circle cx="700" cy="150" r="18" fill="#7cc4ff"/>
+    <circle cx="820" cy="80" r="12" fill="#9be38f"/>
+    <circle cx="760" cy="240" r="14" fill="#f2b84b"/>
+    <circle cx="560" cy="210" r="11" fill="#9be38f"/>
+    <circle cx="880" cy="210" r="13" fill="#7cc4ff"/>
+  </g>
+  <text x="56" y="120" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="72" font-weight="700" fill="#f0f6fc">Bazaar</text>
+  <rect x="56" y="140" width="220" height="4" rx="2" fill="url(#accent)"/>
+  <text x="56" y="186" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#c9d1d9">A self-hosted workspace where humans</text>
+  <text x="56" y="216" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#c9d1d9">and AI agents run a company together.</text>
+  <text x="56" y="268" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" fill="#8b949e">Open source · .NET 11 · Windows, Linux and Android · Beta</text>
+</svg>
