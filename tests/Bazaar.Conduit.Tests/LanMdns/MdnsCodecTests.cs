@@ -24,7 +24,7 @@ public sealed class MdnsCodecTests
             Additionals:
             [
                 new MdnsResourceRecord(_instance, MdnsTypes.ClassIn, true, 120, new SrvRecordData(0, 0, 7443, "bazaar.local")),
-                new MdnsResourceRecord(_instance, MdnsTypes.ClassIn, true, 120, new TxtRecordData(["keyhash=0123456789abcdef", "ver=1.2.3"])),
+                new MdnsResourceRecord(_instance, MdnsTypes.ClassIn, true, 120, new TxtRecordData(["keyhash=AAAAAAAAAAAAAAAA-fixture", "ver=1.2.3"])),
                 new MdnsResourceRecord("bazaar.local", MdnsTypes.ClassIn, true, 120, new ARecordData(IPAddress.Parse("192.168.1.20"))),
             ]);
 
@@ -48,7 +48,7 @@ public sealed class MdnsCodecTests
         Assert.True(decoded.Additionals[0].CacheFlush);
 
         var txt = Assert.IsType<TxtRecordData>(decoded.Additionals[1].Data);
-        Assert.Equal(["keyhash=0123456789abcdef", "ver=1.2.3"], txt.Strings);
+        Assert.Equal(["keyhash=AAAAAAAAAAAAAAAA-fixture", "ver=1.2.3"], txt.Strings);
 
         var a = Assert.IsType<ARecordData>(decoded.Additionals[2].Data);
         Assert.Equal(IPAddress.Parse("192.168.1.20"), a.Address);
