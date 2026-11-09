@@ -55,6 +55,11 @@ public static class AuthRefreshEndpoints
             if (logger is not null) AuthRefreshLog.RefreshRefused(logger, refused.Failure);
             return HttpSurfaceEndpoints.Error(StatusCodes.Status401Unauthorized, "invalid_grant");
         }
+        catch (AccessTokenIssuerUnavailableException)
+        {
+            // No issuer is configured on this host. The secret was not rotated, so the client may retry once one is available.
+            return HttpSurfaceEndpoints.Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
+        }
     }
 
     /// <summary>The same transport rule as the device routes: 403 for plaintext off the machine.</summary>

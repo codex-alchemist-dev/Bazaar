@@ -88,6 +88,23 @@ public sealed class AuthRefreshEndpointsTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task With_no_access_token_issuer_the_route_answers_503_unavailable_with_no_reason()
+    {
+        var fake = new FakeTokenService { Unavailable = true };
+        var (app, client) = await StartAsync(fake);
+        await using (app)
+        {
+            var response = await client.SendAsync(Refresh("""{"refresh_token":"refresh-test","device_class":"windows","client_build":"0.1.0"}"""), Ct);
+
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            var text = await response.Content.ReadAsStringAsync(Ct);
+            Assert.Equal("unavailable", (await ReadAsync(response)).GetProperty("error").GetString());
+            Assert.DoesNotContain("refresh-test", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("issuer", text, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [Theory]
     [InlineData("""{"device_class":"windows","client_build":"0.1.0"}""")]
     [InlineData("""{"refresh_token":"   ","device_class":"windows","client_build":"0.1.0"}""")]
@@ -120,12 +137,14 @@ public sealed class AuthRefreshEndpointsTests : IAsyncLifetime
         }
     }
 
-    /// <summary>A token service double: returns <see cref="Next"/>, or refuses with <see cref="Refuse"/> when it is set.</summary>
+    /// <summary>A token service double: returns <see cref="Next"/>, refuses with <see cref="Refuse"/>, or fails as having no issuer when <see cref="Unavailable"/> is set.</summary>
     private sealed class FakeTokenService : ITokenService
     {
         public TokenPair? Next { get; init; }
 
         public TokenRefreshFailure? Refuse { get; init; }
+
+        public bool Unavailable { get; init; }
 
         public string? LastRefresh { get; private set; }
 
@@ -135,6 +154,7 @@ public sealed class AuthRefreshEndpointsTests : IAsyncLifetime
         {
             LastRefresh = refresh;
             LastDevice = device;
+            if (Unavailable) throw new AccessTokenIssuerUnavailableException();
             if (Refuse is { } reason) throw new TokenRefreshException(reason);
             return Task.FromResult(Next ?? throw new InvalidOperationException("No pair configured."));
         }
