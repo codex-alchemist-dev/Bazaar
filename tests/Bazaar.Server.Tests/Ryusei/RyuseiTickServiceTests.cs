@@ -1,4 +1,8 @@
 using System.Text.Json.Nodes;
+using Bazaar.Contracts.Gc;
+using Bazaar.Server.Gc;
+using Bazaar.Server.Gc.Create;
+using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Kanban.Ryusei;
 using Bazaar.Server.Tests.Kanban.Data;
 using Bazaar.Testing.Postgres;
@@ -126,9 +130,10 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
         }
 
         var future = await InsertCommittedAsync(NewTrigger(new RyuseiTimerTriggerSpec(_base.AddDays(1)), _base.AddDays(1), Guid.CreateVersion7()));
-        var watcher = await InsertCommittedAsync(NewTrigger(
+        // An idle watcher has no next fire, so no claim picks it up. An event-armed watcher is claimed (see the next test).
+        var idleWatcher = await InsertCommittedAsync(NewTrigger(
             new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null),
-            _base.AddMinutes(-1),
+            null,
             Guid.CreateVersion7()));
 
         await using var claimConn = await db.DataSource.OpenConnectionAsync(Ct);
@@ -138,7 +143,7 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
 
         Assert.DoesNotContain(claimed, r => r.TriggerId == paused.TriggerId);
         Assert.DoesNotContain(claimed, r => r.TriggerId == future.TriggerId);
-        Assert.DoesNotContain(claimed, r => r.TriggerId == watcher.TriggerId);
+        Assert.DoesNotContain(claimed, r => r.TriggerId == idleWatcher.TriggerId);
     }
 
     [Fact]
@@ -255,14 +260,14 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
     }
 
     [Fact]
-    public async Task A_watcher_is_not_fired_by_the_tick()
+    public async Task An_idle_watcher_is_not_fired_by_the_tick()
     {
         SkipWithoutDatabase();
         var agent = Guid.CreateVersion7();
         await InsertAgentAsync(agent, "active");
         var row = await InsertCommittedAsync(NewTrigger(
             new RyuseiWatcherTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }, 60, 30, null, null),
-            _base,
+            null,
             agent));
 
         await Tick(Clock(_base.AddHours(1))).TickAsync(Ct);
@@ -273,5 +278,137 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
         Assert.Equal(1L, stored.Version);
         Assert.Empty(await FiresOfAsync(row.TriggerId));
         Assert.Empty(await InboxOfAsync(agent));
+    }
+
+    /// <summary>A GC log that records each append and answers with a fixed seq, so a test can check the line and the wake keys.</summary>
+    private sealed class RecordingGcLog(long seq) : IGcLogWriter
+    {
+        public List<AppendRequest> Requests { get; } = [];
+
+        public Task<AppendResult> AppendAsync(AppendRequest request, CancellationToken ct)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new AppendResult(request.GcId, seq, Guid.CreateVersion7(), false, DateTimeOffset.UtcNow));
+        }
+
+        public Task<IReadOnlyList<AppendResult>> AppendManyAsync(IReadOnlyList<AppendRequest> requests, CancellationToken ct) =>
+            throw new NotSupportedException("The tick posts one line at a time.");
+    }
+
+    private async Task InsertGcAsync(Guid gcId)
+    {
+        await using var cmd = db.DataSource.CreateCommand(
+            "INSERT INTO gc (gc_id, type_key, title, created_by) VALUES (@id, 'general', 'tick attach test', @by)");
+        cmd.Parameters.AddWithValue("id", gcId);
+        cmd.Parameters.AddWithValue("by", Guid.CreateVersion7());
+        await cmd.ExecuteNonQueryAsync(Ct);
+    }
+
+    private async Task<List<(Guid GcId, long Seq, string Kind, string? SourceRef)>> ByGcInboxOfAsync(Guid agentId)
+    {
+        await using var cmd = db.DataSource.CreateCommand(
+            "SELECT gc_id, gc_seq, kind, source_ref FROM inbox_item WHERE agent_id = @agent_id AND gc_id IS NOT NULL");
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        var rows = new List<(Guid, long, string, string?)>();
+        await using var reader = await cmd.ExecuteReaderAsync(Ct);
+        while (await reader.ReadAsync(Ct))
+        {
+            rows.Add((reader.GetGuid(0), reader.GetInt64(1), reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3)));
+        }
+
+        return rows;
+    }
+
+    [Fact]
+    public async Task An_attach_fire_posts_one_system_line_and_keys_the_wake_to_it()
+    {
+        SkipWithoutDatabase();
+        var agent = Guid.CreateVersion7();
+        await InsertAgentAsync(agent, "active");
+        var attachGc = Guid.CreateVersion7();
+        await InsertGcAsync(attachGc);
+        var due = _base.AddMinutes(-1);
+        var trigger = NewTrigger(new RyuseiTimerTriggerSpec(due), due, agent) with
+        {
+            AttachGcId = attachGc,
+            PingMode = RyuseiPingMode.Attach,
+        };
+        var row = await InsertCommittedAsync(trigger);
+
+        var gcLog = new RecordingGcLog(seq: 7);
+        var tick = new RyuseiTickService(db.DataSource, new RyuseiLimits(), Clock(_base), gcLog: gcLog);
+        await tick.TickAsync(Ct);
+
+        // One line, in the attach GC, system kind, carrying the trigger id and the target id.
+        var line = Assert.Single(gcLog.Requests);
+        Assert.Equal(attachGc, line.GcId);
+        Assert.Equal(GcEventKinds.System, line.Kind);
+        Assert.Contains(agent.ToString("D"), line.PayloadJson);
+
+        // The fire woke the target, and its wake is keyed to the line's (gc_id, gc_seq), not to the fire id.
+        var fires = await FiresOfAsync(row.TriggerId);
+        Assert.Equal("woke", Assert.Single(fires).Outcome);
+        var wake = Assert.Single(await ByGcInboxOfAsync(agent));
+        Assert.Equal(attachGc, wake.GcId);
+        Assert.Equal(7, wake.Seq);
+        Assert.Equal("ryusei_ping", wake.Kind);
+        Assert.Null(wake.SourceRef);
+    }
+
+    [Fact]
+    public async Task A_new_gc_fire_creates_the_gc_with_its_members_and_posts_into_it()
+    {
+        SkipWithoutDatabase();
+        var agent = Guid.CreateVersion7();
+        await InsertAgentAsync(agent, "active");
+        var due = _base.AddMinutes(-1);
+        var trigger = NewTrigger(new RyuseiTimerTriggerSpec(due), due, agent) with { PingMode = RyuseiPingMode.NewGc };
+        var row = await InsertCommittedAsync(trigger);
+
+        var gcLog = new RecordingGcLog(seq: 1);
+        var tick = new RyuseiTickService(db.DataSource, new RyuseiLimits(), Clock(_base), gcLog: gcLog, gcCreate: new GcCreateService(db.DataSource));
+        await tick.TickAsync(Ct);
+
+        // The line goes into the GC that was just created: the same deterministic id the service derives.
+        var line = Assert.Single(gcLog.Requests);
+        var expectedGc = GcCreateService.DeterministicGcId($"ryusei-gc:{row.TriggerId:D}:{_base.AddMinutes(-1):O}");
+        Assert.Equal(expectedGc, line.GcId);
+
+        await using (var cmd = db.DataSource.CreateCommand("SELECT title FROM gc WHERE gc_id = @id"))
+        {
+            cmd.Parameters.AddWithValue("id", expectedGc);
+            var title = (string?)await cmd.ExecuteScalarAsync(Ct);
+            Assert.StartsWith("RyuseiFuda: ", title);
+        }
+
+        await using (var cmd = db.DataSource.CreateCommand("SELECT count(*) FROM gc_member WHERE gc_id = @id"))
+        {
+            cmd.Parameters.AddWithValue("id", expectedGc);
+            // The target and the creator.
+            Assert.Equal(2L, (long)(await cmd.ExecuteScalarAsync(Ct))!);
+        }
+
+        Assert.Equal("woke", Assert.Single(await FiresOfAsync(row.TriggerId)).Outcome);
+        var wake = Assert.Single(await ByGcInboxOfAsync(agent));
+        Assert.Equal(expectedGc, wake.GcId);
+        Assert.Equal("ryusei_ping", wake.Kind);
+    }
+
+    [Fact]
+    public async Task Creating_the_same_gc_twice_writes_it_once()
+    {
+        SkipWithoutDatabase();
+        var creator = Guid.CreateVersion7();
+        var member = Guid.CreateVersion7();
+        var gcId = GcCreateService.DeterministicGcId($"ryusei-gc-twice:{Guid.CreateVersion7():D}");
+        var service = new GcCreateService(db.DataSource);
+        var request = new GcCreateRequest(gcId, "twice", creator, [member, creator]);
+
+        Assert.True(await service.EnsureAsync(request, Ct));
+        Assert.False(await service.EnsureAsync(request, Ct));
+
+        await using var cmd = db.DataSource.CreateCommand("SELECT count(*) FROM gc_member WHERE gc_id = @id");
+        cmd.Parameters.AddWithValue("id", gcId);
+        Assert.Equal(2L, (long)(await cmd.ExecuteScalarAsync(Ct))!);
     }
 }

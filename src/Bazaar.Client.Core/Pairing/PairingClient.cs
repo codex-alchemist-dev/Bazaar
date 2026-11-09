@@ -46,14 +46,20 @@ public sealed class PairingClient(HttpClient http, Func<TimeSpan, CancellationTo
         return new PairingClient(http, Task.Delay);
     }
 
-    /// <summary>Starts the device authorization for <paramref name="userCode"/> (the code from the approver's offer).</summary>
-    public async Task<DeviceAuthorization> StartAsync(string userCode, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Starts the device authorization for <paramref name="userCode"/> (the code from the approver's offer). The approver sees
+    /// <paramref name="label"/> and <paramref name="deviceClass"/> (<c>windows</c>, <c>linux</c>, <c>android</c>, <c>terminal</c>
+    /// or <c>other</c>) before approving.
+    /// </summary>
+    public async Task<DeviceAuthorization> StartAsync(string userCode, string label, string deviceClass, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceClass);
 
         using var response = await _http.PostAsJsonAsync(
             "pair/device-authorization",
-            new DeviceAuthorizationRequest(userCode),
+            new DeviceAuthorizationRequest(userCode, label, deviceClass),
             PairingJsonContext.Default.DeviceAuthorizationRequest,
             cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
