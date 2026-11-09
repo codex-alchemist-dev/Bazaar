@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Backup;
 using Bazaar.Server.Components;
 using Bazaar.Server.Components.Backup.Jobs;
 using Bazaar.Server.Components.Backup.Engines;
