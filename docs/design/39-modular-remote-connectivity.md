@@ -1,6 +1,6 @@
 # Modular Remote Connectivity Transports
 
-Status: PROPOSED (2026-11-09, requested by the owner in the "Design modular remote connectivity transports" thread) · Owner questions: 4
+Status: PROPOSED (2026-11-09; decisions 1, 2 and 5 recorded from owner, 2026-11-09, requested by the owner in the "Design modular remote connectivity transports" thread) · Owner questions: 2 open (3 and 4)
 Depends on: 02-wire-protocol-and-sync.md, 03-server-host-and-providers.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 32-remote-access-auth-and-privacy.md · Used by: 27-client-architecture.md, 28-windows-client.md, 29-android-client.md, 30-linux-client-and-packaging.md
 
 ## Purpose
@@ -84,8 +84,8 @@ Notes on the table:
 
 ### 3. Security model
 - **TLS everywhere off loopback.** The server certificate comes from `ICertificateProvider` (32, section 2). Clients pin the server key hash from the pairing QR. A mismatch fails the attempt and does not fall back to a weaker offer.
-- **Third-party TLS termination.** Where a third party ends TLS (`cloudflared`, `ngrok-style`), the client cannot pin the server key end to end. Such offers set `TerminatesTls`; the client then trusts the public CA chain for the edge and relies on the device credential and the authenticated handshake (32, sections 5 and 6) for server identity. This weakens the pin guarantee for those modules only. Owner decision needed (question 5).
-- **No downgrade.** A module may not publish a `ws://` offer unless its scope is `Loopback`. The registry rejects any other offer at publish time (a test covers this).
+- **Third-party TLS termination (decided 2026-11-09, owner via coordinator).** Where a third party ends TLS (`cloudflared`, `ngrok-style`), the offer sets `TerminatesTls`. The server key pin is still required by default: the client must verify the server key hash end to end, inside the tunnel, by running its own TLS session over the tunneled bytes. Trusting the tunnel's public CA chain alone is allowed only when the operator has set `transport.allow-unpinned-tls-termination` to true. That opt-out is off by default, is audited (15), and shows a warning in the wizard. Pin enforcement in the registry is unchanged; the client-side check is WP 12.
+- **No downgrade.** A module may not publish a `ws://` offer unless its scope is `Loopback`. The registry rejects any other offer at publish time (a test covers this). A `TerminatesTls` offer is published only with its key hash; the pin is verified by the client as described above.
 - **Pins travel with the server, not the address.** The pin is the server's key, so a changed address, tunnel hostname or relay does not break trust, and an attacker-controlled address does not gain trust.
 - **Reachability is not identity.** Any transport can carry the 32 handshake; authentication is unchanged. Overlay or tunnel membership grants no access.
 - **Relays and tunnels see only what their scope exposes.** The catalogue states who sees plaintext. Relay modules forward opaque bytes; they never hold keys, tokens or the pinned key.
@@ -117,11 +117,12 @@ Registered in 03's settings registry. Changes are audited (15). "Yes" means the 
 | `transport.manual-port-forward.probe_url` | string | unset (probe skipped, offer marked unverified) | install | owner | no |
 | `transport.upnp-natpmp.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.cloudflared.enabled` | bool | false | install | owner | yes, when enabled |
+| `transport.allow-unpinned-tls-termination` | bool | false | install | owner | yes, when enabled; audited; warning shown |
 | `transport.cloudflared.mode` | enum: `named`, `quick` | `named` | install | owner | yes, if changed to `quick` |
 | `transport.cloudflared.binary_path` | string | unset (use pinned download) | install | owner | yes |
 | `transport.overlay-tailscale.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.relay.url` | string | unset | install | owner | yes |
-| `transport.relay.enabled` | bool | false | install | owner | yes, when enabled |
+| `transport.relay-selfhost.enabled` | bool | false | install | owner | yes, when enabled (default fallback for devices off the LAN and off an overlay, decided 2026-11-09) |
 | `transport.p2p-ice.enabled` | bool | false | install | owner | yes, when enabled |
 | `transport.p2p-ice.stun_servers` | list | operator list (documented public servers) | install | owner | no |
 | `transport.tor.enabled` | bool | false | install | owner | yes, when enabled |
@@ -185,8 +186,8 @@ Each module has unit tests against fakes; a shared contract suite runs against e
 - `p2p-ice` and `relay-selfhost` need a QUIC or WebSocket framing choice that 02 does not yet fix. The P2P data path stays unimplemented until 02 settles it.
 
 ## Questions for the owner
-1. Is `relay-selfhost` the default fallback for a device that is neither on the LAN nor on an overlay? Default in this doc: yes, opt-in to enable.
+1. DECIDED 2026-11-09 (owner via coordinator): `relay-selfhost` is the default fallback for a device that is neither on the LAN nor on an overlay. It is open source and self-hostable, and it is enabled by the operator.
 2. Should `upnp-natpmp` and `manual-port-forward` need a separate owner approval per mapping, or once per install? Default: once per install, audited.
 3. Which public STUN servers ship as the default list? Default: operator-editable list, no vendor pinned in code.
 4. Is the Bluetooth and Wi-Fi Direct bootstrap in scope for v1.0, or a post-1.0 module? Default: post-1.0.
-5. May a module whose offer has `TerminatesTls` (cloudflared, ngrok-style) be enabled without the server key pin, relying on the device credential alone? Default in this doc: allowed, opt-in, shown as a warning in the wizard, and never the default route.
+5. DECIDED 2026-11-09 (owner via coordinator): TLS-terminated offers keep the server key pin by default. Dropping the pin is an explicit per-install opt-out (`transport.allow-unpinned-tls-termination`), off by default, audited, with a warning.
