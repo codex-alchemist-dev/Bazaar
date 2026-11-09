@@ -161,6 +161,24 @@ public sealed class RyuseiTriggerService
     public Task<RyuseiTriggerResult> CancelAsync(RyuseiActor actor, Guid triggerId, DateTimeOffset now, CancellationToken ct = default) =>
         ChangeStateAsync(actor, triggerId, RyuseiChange.Cancel, now, ct);
 
+    /// <summary>
+    /// Lists the triggers that name <paramref name="agentId"/> as a target, oldest first, optionally in one state, at most
+    /// <paramref name="limit"/> rows. This is a read: it writes no audit row and applies no authority rule, because a target
+    /// may always see the triggers that name it (doc 38, coworker triggers). The filter runs after the target query, so a
+    /// very busy agent reads more rows than the page keeps.
+    /// </summary>
+    public async Task<IReadOnlyList<RyuseiTriggerRecord>> ListForTargetAsync(
+        Guid agentId,
+        RyuseiTriggerState? state,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+        var all = await _triggers.ListByTargetAgentAsync(agentId, ct).ConfigureAwait(false);
+        return all.Where(t => state is null || t.State == state.Value).Take(limit).ToList();
+    }
+
     private enum RyuseiChange
     {
         Pause,

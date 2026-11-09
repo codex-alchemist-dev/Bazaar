@@ -50,8 +50,12 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<RyuseiLimits>(),
             sp.GetRequiredService<TimeProvider>(),
             gcLog: sp.GetService<IGcLogWriter>(),
-            gcCreate: sp.GetService<GcCreateService>()));
+            gcCreate: sp.GetService<GcCreateService>(),
+            audit: sp.GetService<ITransactionalAuditLog>()));
         services.TryAddSingleton(sp => new GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
+
+        // Chain depth of a fire-woken turn (doc 38, Chain depth): the trigger's chain_depth, read by fire id.
+        services.TryAddSingleton<IRyuseiWakeDepthSource>(sp => new RyuseiWakeDepthSource(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
 
@@ -59,7 +63,9 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
         services.AddSingleton(new RecurringJob(RyuseiTickJobHandler.JobKind, TimeSpan.FromMinutes(1)));
 
         // Event bridge (doc 38, WP-R6): GC and kanban events match event and watcher triggers. Watchers fire on the tick above.
-        services.TryAddSingleton(sp => new RyuseiEventBridge(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(sp => new RyuseiEventBridge(
+            sp.GetRequiredService<NpgsqlDataSource>(),
+            sp.GetService<ITransactionalAuditLog>()));
         services.TryAddSingleton(sp => new RyuseiEventListener(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<RyuseiEventBridge>(),
