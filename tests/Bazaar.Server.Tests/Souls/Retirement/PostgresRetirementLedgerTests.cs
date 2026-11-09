@@ -1,11 +1,34 @@
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Testing.Postgres;
+using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Bazaar.Server.Tests.Souls.Retirement;
 
 public sealed class PostgresRetirementLedgerTests(RetirementDb db) : IClassFixture<RetirementDb>
 {
+    [Fact]
+    public void Registration_uses_the_durable_ledger_and_allows_overrides()
+    {
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+        services.AddBazaarRetirementLedger();
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<PostgresRetirementLedger>(provider.GetRequiredService<IRetirementLedger>());
+
+        var overrideLedger = new InMemoryRetirementLedger();
+        services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+        services.AddSingleton<IRetirementLedger>(overrideLedger);
+        services.AddBazaarRetirementLedger();
+        using var overrideProvider = services.BuildServiceProvider();
+
+        Assert.Same(overrideLedger, overrideProvider.GetRequiredService<IRetirementLedger>());
+    }
+
     [Fact]
     public async Task Records_and_reads_latest_outcome_per_step()
     {
