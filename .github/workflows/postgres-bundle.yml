@@ -62,6 +62,10 @@ jobs:
         shell: pwsh
         run: ./packaging/postgres/build-pgvector-windows.ps1 -OutDir artifacts/pg-bundle -Work "$env:RUNNER_TEMP\pg-bundle-work"
 
+      - name: Check the bundle layout and pins (cached or freshly built)
+        shell: pwsh
+        run: ./packaging/postgres/test-bundle-layout.ps1 -BundleRoot artifacts/pg-bundle
+
       - name: Set up .NET SDK from global.json
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

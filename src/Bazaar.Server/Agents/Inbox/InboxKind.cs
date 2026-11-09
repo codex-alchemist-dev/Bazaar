@@ -32,9 +32,25 @@ public static class InboxKind
     /// <summary>A Constitution change (doc 24, Propagation). Digest-class: it never wakes an agent.</summary>
     public const string Constitution = "constitution";
 
+    /// <summary>A RyuseiFuda one-shot timer fired (doc 38, Wake reasons). Keyed by the fire id; ranked with scheduled wakes.</summary>
+    public const string RyuseiTimer = "ryusei_timer";
+
+    /// <summary>A RyuseiFuda interval fired (doc 38, Wake reasons). Keyed by the fire id; ranked with scheduled wakes.</summary>
+    public const string RyuseiInterval = "ryusei_interval";
+
+    /// <summary>A RyuseiFuda watcher's predicate held (doc 38, Wake reasons). Keyed by the fire id; ranked with scheduled wakes.</summary>
+    public const string RyuseiWatcher = "ryusei_watcher";
+
+    /// <summary>A RyuseiFuda event trigger matched (doc 38, Wake reasons). Keyed by the fire id; ranked with scheduled wakes.</summary>
+    public const string RyuseiEvent = "ryusei_event";
+
+    /// <summary>A RyuseiFuda attach ping (doc 38, Ping, attach and new-GC). Keyed by the GC line's (gc_id, gc_seq); ranked with scheduled wakes.</summary>
+    public const string RyuseiPing = "ryusei_ping";
+
     /// <summary>Every known kind.</summary>
     public static IReadOnlySet<string> All { get; } = new[]
     {
         Interrupt, Mention, Assignment, VoteRequest, Scheduled, Brainstorm, SkimmerPromoted, GcDigest, Constitution,
+        RyuseiTimer, RyuseiInterval, RyuseiWatcher, RyuseiEvent, RyuseiPing,
     }.ToFrozenSet(StringComparer.Ordinal);
 }
