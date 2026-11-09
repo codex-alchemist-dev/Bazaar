@@ -1,9 +1,12 @@
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Subagents;
+using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.Agents.Turns.Tools.Db;
 using Bazaar.Server.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Agents.Turns;
 
@@ -36,5 +39,6 @@ public sealed class AgentTurnsComponent : IBazaarComponent
 
         services.TryAddSingleton(new TurnRunnerOptions());
         services.TryAddSingleton(new SubagentOptions());
+        services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
     }
 }
