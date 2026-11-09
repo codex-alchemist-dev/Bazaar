@@ -56,6 +56,9 @@ public sealed record RyuseiLimits
     /// <summary>ryusei.max_fires_per_day: woke fires per trigger in any 24 hours. The tick reads it (doc 38, guard table).</summary>
     public int MaxFiresPerDay { get; init; } = RyuseiDefaults.MaxFiresPerDay;
 
+    /// <summary>runtime.guard.wakes_per_hour: wakes per target agent per hour, all reasons. Floor none (doc 38, guard table).</summary>
+    public int MaxAgentWakesPerHour { get; init; } = RyuseiDefaults.MaxAgentWakesPerHour;
+
     /// <summary>ryusei.cooldown_seconds: the gap a trigger keeps between wakes. The guard floors it at 10 seconds.</summary>
     public int CooldownSeconds { get; init; } = RyuseiDefaults.CooldownSeconds;
 

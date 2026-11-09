@@ -99,6 +99,32 @@ public class ToolDispatcherTests
     }
 
     [Fact]
+    public async Task A_contextual_tool_gets_the_verified_caller_and_the_plain_call_is_not_used()
+    {
+        var tool = new FakeContextualTool();
+        var policy = new FakePolicyEngine(_allow);
+
+        var result = await Dispatcher(policy, new FakeToolRegistry((_tool, tool)), new FakeAuditLog())
+            .InvokeAsync(Request(), CancellationToken.None);
+
+        // The plain overload throws on a contextual tool, which would surface as the fixed tool-failed result.
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal("""{"ok":true}""", result.ResultJson);
+        Assert.Equal(new ToolCallContext(_agentId, _sessionId, _turnId), tool.LastContext);
+    }
+
+    private sealed class FakeContextualTool : IContextualTool
+    {
+        public ToolCallContext? LastContext { get; private set; }
+
+        public Task<string> ExecuteAsync(JsonElement args, ToolCallContext context, CancellationToken cancellationToken)
+        {
+            LastContext = context;
+            return Task.FromResult("""{"ok":true}""");
+        }
+    }
+
+    [Fact]
     public async Task A_require_approval_decision_returns_pending_and_does_not_run()
     {
         var tool = new FakeTool(_ => Task.FromResult("{}"));
