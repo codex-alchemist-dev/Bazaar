@@ -3,7 +3,7 @@ using Npgsql;
 namespace Bazaar.Server.Kanban.Data;
 
 /// <summary>Builds commands on the transaction's connection when there is one, else on a pooled connection.</summary>
-public static class KanbanCommands
+internal static class KanbanCommands
 {
     public static NpgsqlCommand Create(NpgsqlDataSource dataSource, NpgsqlTransaction? tx, string sql) =>
         tx is null ? dataSource.CreateCommand(sql) : new NpgsqlCommand(sql, tx.Connection, tx);

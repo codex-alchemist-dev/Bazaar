@@ -6,6 +6,10 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <!-- RyuseiFuda (Bazaar.RyuseiFuda) reuses KanbanCommands; internal, not public, so Kanban's API stays closed. -->
+    <InternalsVisibleTo Include="Bazaar.RyuseiFuda" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
   </ItemGroup>
