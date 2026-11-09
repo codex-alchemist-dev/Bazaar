@@ -13,11 +13,12 @@ public class PairingClientTests
     {
         var handler = new ScriptedHandler(_ => Json(HttpStatusCode.OK, """{"device_code":"dev-1","interval":5}"""));
 
-        var auth = await Client(handler, (_, _) => Task.CompletedTask).StartAsync("ABCD2345", TestContext.Current.CancellationToken);
+        var auth = await Client(handler, (_, _) => Task.CompletedTask).StartAsync("ABCD2345", "Dom laptop", "windows", TestContext.Current.CancellationToken);
 
         Assert.Equal(new DeviceAuthorization("dev-1", 5), auth);
         Assert.Equal("/pair/device-authorization", handler.Requests[0].RequestUri!.AbsolutePath);
         Assert.Contains("\"user_code\":\"ABCD2345\"", handler.Bodies[0]);
+        Assert.Contains("\"device_class\":\"windows\"", handler.Bodies[0]);
     }
 
     [Fact]
