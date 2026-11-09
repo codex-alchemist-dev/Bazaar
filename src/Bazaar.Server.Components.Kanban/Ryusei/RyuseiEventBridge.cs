@@ -1,3 +1,4 @@
+using Bazaar.Server.Security.Audit;
 using Npgsql;
 
 namespace Bazaar.Server.Kanban.Ryusei;
@@ -24,12 +25,13 @@ public sealed class RyuseiEventBridge
     private readonly RyuseiTriggerRepository _triggers;
     private readonly RyuseiFireWriter _writer;
 
-    public RyuseiEventBridge(NpgsqlDataSource dataSource)
+    /// <param name="audit">The fire audit log (doc 38). Null skips the fire audit line only; the fire rows are still written.</param>
+    public RyuseiEventBridge(NpgsqlDataSource dataSource, ITransactionalAuditLog? audit = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
         _triggers = new RyuseiTriggerRepository(dataSource);
-        _writer = new RyuseiFireWriter(dataSource);
+        _writer = new RyuseiFireWriter(dataSource, audit);
     }
 
     /// <summary>Applies one event to every matching active event and watcher trigger. Commits once.</summary>
