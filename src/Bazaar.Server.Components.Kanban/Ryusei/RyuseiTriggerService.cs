@@ -248,14 +248,15 @@ public sealed class RyuseiTriggerService
     /// <summary>
     /// The first <c>next_fire_at</c>, <c>max_fires</c> and <c>expires_at</c> for a new row. A timer keeps its instant, which
     /// may already be past (it is then due at once). An interval is due now when its first occurrence has passed, and
-    /// otherwise at its anchor. A watcher polls first at creation. An event has no time-based fire, so it stores null.
+    /// otherwise at its anchor. A watcher is idle at creation and stores null: an event match arms it with a debounce deadline
+    /// (WP-R6). An event has no time-based fire, so it stores null.
     /// </summary>
     private (DateTimeOffset? NextFireAt, long? MaxFires, DateTimeOffset? ExpiresAt) Schedule(RyuseiTriggerSpec spec, DateTimeOffset now, TimeZoneInfo? zone) =>
         spec switch
         {
             RyuseiTimerTriggerSpec timer => (timer.FireAt, null, null),
             RyuseiIntervalTriggerSpec interval => (IntervalFirst(interval, now, zone), null, null),
-            RyuseiWatcherTriggerSpec watcher => (now, watcher.MaxFires, watcher.ExpiresAt),
+            RyuseiWatcherTriggerSpec watcher => ((DateTimeOffset?)null, watcher.MaxFires, watcher.ExpiresAt),
             _ => (null, null, null),
         };
 

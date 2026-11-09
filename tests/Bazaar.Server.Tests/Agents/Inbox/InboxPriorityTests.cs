@@ -36,6 +36,6 @@ public class InboxPriorityTests
     {
         Assert.All(InboxKind.All, kind => Assert.True(InboxPriority.IsKnown(kind)));
         Assert.False(InboxPriority.IsKnown("nudge"));
-        Assert.Equal(13, InboxKind.All.Count);
+        Assert.Equal(14, InboxKind.All.Count);
     }
 }
