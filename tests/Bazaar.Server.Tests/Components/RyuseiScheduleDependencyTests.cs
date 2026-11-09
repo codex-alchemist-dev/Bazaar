@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Components;
 /// <summary>
 /// RyuseiFuda's schedule component (doc 38, layer 2) resolves services from the GC log and the audit log at registration
 /// and at run time. Those reads must be declared in its manifest, or the kernel starts it without the components it needs.
-/// Audit 39, section 3.
+/// Audit doc 40, section 3.
 /// </summary>
 public sealed class RyuseiScheduleDependencyTests
 {
@@ -22,7 +22,7 @@ public sealed class RyuseiScheduleDependencyTests
     }
 
     [Fact]
-    public void Ryusei_schedule_declares_the_components_it_resolves_from()
+    public void Ryusei_declares_the_components_it_resolves_from()
     {
         var depends = RyuseiScheduleComponent.ManifestDefinition.DependsOn;
 
@@ -32,7 +32,17 @@ public sealed class RyuseiScheduleDependencyTests
     }
 
     [Fact]
-    public void Ryusei_schedule_will_not_start_when_its_gc_component_is_disabled()
+    public void Ryusei_keeps_the_old_enablement_key_working()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:ryusei-schedule:Enabled"] = "false" })
+            .Build();
+
+        Assert.False(BazaarComponentRegistration.IsEnabled(configuration, "ryusei"));
+    }
+
+    [Fact]
+    public void Ryusei_will_not_start_when_its_gc_component_is_disabled()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:gc:Enabled"] = "false" })
@@ -48,7 +58,7 @@ public sealed class RyuseiScheduleDependencyTests
         var ex = Assert.Throws<ComponentGraphException>(() =>
             new ServiceCollection().AddBazaarComponents(configuration, components));
 
-        Assert.Contains("ryusei-schedule", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("ryusei", ex.Message, StringComparison.Ordinal);
         Assert.Contains("gc", ex.Message, StringComparison.Ordinal);
     }
 }

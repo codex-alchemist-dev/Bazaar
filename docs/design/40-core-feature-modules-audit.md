@@ -1,4 +1,4 @@
-# 39. Core feature modules: GC, Constellation, RyuseiFuda
+# 40. Core feature modules: GC, Constellation, RyuseiFuda
 
 Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows `MODULARITY-AUDIT.md` (2026-10-30) and `BAZAAR-COMPONENTS.md`. The owner's question: are GC, Constellation and RyuseiFuda just modules of Bazaar, and does the shape `Bazaar.Core` plus feature modules that slot into `Bazaar.Server` and each `Bazaar.Client.*` head exist?
 
@@ -16,7 +16,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 | GC (`gc`) | Folder `Bazaar.Server/Gc/` in core assembly | GC pane in `Client.Core` (`GcPaneViewModel`) | none | 13 files outside `Gc/` import it (Agents, Calendar, Org, Http, Souls, Kanban, Ryusei). Kanban and Ryusei use it. |
 | Constellation (`constellation`) | Folder `Bazaar.Server/Constellation/` in core | `Client.Core/Constellation/` | none | Its Vault graph source reads `Vault.Data` types. Used by `Http/HttpSurfaceEndpoints.cs`. |
 | Kanban (`kanban`) | Own project `Bazaar.Server.Components.Kanban` | Board pane in `Client.Core` | none | Uses GC (optional: `IGcLogWriter`, `IGcExistence`). Works without GC. |
-| RyuseiFuda schedule (`ryusei-schedule`) | Code in the Kanban project, namespace `Bazaar.Server.Kanban.Ryusei` | `Client.Core/Ryusei/RyuseiMicroPaneViewModel` | `kanban` (plus `gc` and `audit` after this PR) | Hard: `GcNotifyListener`, `ITransactionalAuditLog`. Optional: `IGcLogWriter`, `GcCreateService`. |
+| RyuseiFuda schedule (`ryusei`, formerly `ryusei-schedule`) | Code in the Kanban project, namespace `Bazaar.Server.Kanban.Ryusei` | `Client.Core/Ryusei/RyuseiMicroPaneViewModel` | `kanban` (plus `gc` and `audit` after this PR) | Hard: `GcNotifyListener`, `ITransactionalAuditLog`. Optional: `IGcLogWriter`, `GcCreateService`. |
 
 ## 3. Gaps
 
@@ -26,7 +26,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 4. **GC is effectively core, but it is not declared as core.** Thirteen files outside `Gc/` depend on it. No consumer declares `gc`. Calendar, Org, Agents and Http are not components yet, so the kernel cannot see their edge.
 5. **Single assembly for the server features.** GC, Constellation and Vault are folders in `Bazaar.Server`, so no project boundary is enforced. The architecture tests check only Contracts and Client.Core layering, not component boundaries. Rules 1 and 2 of `BAZAAR-COMPONENTS.md` section 6 are not yet tests.
 6. **RyuseiFuda is inside the Kanban project.** Layer 1 (Kanban) and layer 2 (RyuseiFuda) share one assembly. The `kanban` dependency is therefore not a project boundary.
-7. **Migration namespace mismatch.** The `ryusei-schedule` component maps to namespace `ryusei_schedule`, but its SQL folder is `ryusei`. The runner still applies it (after the component namespaces, by name), so nothing breaks today, but the ordering and ownership are not what the manifest says. `DECISIONS-LOG.md` already records this as an owner choice: rename the component id or the folder. Renaming the folder would change applied history, so the component id is the safer side. Owner to choose.
+7. **Migration namespace mismatch (DECIDED 2026-11-09: rename the id to `ryusei`; applied as code, see PR #360 follow-up).** The `ryusei-schedule` component maps to namespace `ryusei_schedule`, but its SQL folder is `ryusei`. The runner still applies it (after the component namespaces, by name), so nothing breaks today, but the ordering and ownership are not what the manifest says. `DECISIONS-LOG.md` already records this as an owner choice: rename the component id or the folder. Renaming the folder would change applied history, so the component id is the safer side. Owner to choose.
 8. **GC, Constellation and Vault tables sit in `common/`**, which is frozen (see `BAZAAR-COMPONENTS.md` section 5). Their components own no migration namespace yet. This is correct under the freeze, and moving it would re-run applied files, so it stays until a wave decides otherwise.
 9. **Client panes are hard-wired.** `FirstPartyPanes.CreateRegistry` names each pane. Heads cannot add or drop a feature pane without editing Client.Core.
 10. **Version format.** Manifests use SemVer (`0.1.0`). The owner's rule (2026-11-08) is `vAA.BB.CC-commit` for internal modules, with SemVer under the hood. The manifest keeps SemVer, and the display derives the other form. No code change is needed, but the rule belongs in `BAZAAR-COMPONENTS.md`.
@@ -68,7 +68,17 @@ Each step is a small PR with tests, per `CLAUDE.md`.
 
 Not now: a runtime plugin loader, a module framework with its own container, or splitting every folder before step 3 exists.
 
-## 6. Owner decisions needed
+## 6. Decisions
+
+Recorded 2026-11-09 by the coordinator, relaying the owner's choices:
+
+1. **Names:** `Bazaar.Core` (kernel), `Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`. Sub-parts are `Module.Part` (for example `RyuseiFuda.Roadmap`). Macro, Micro and Connection names are pending and must not be baked into new project names.
+2. **Optional dependencies:** a `Soft` flag on each dependency (`SoftDependsOn`), additive, with hard as the default.
+3. **RyuseiFuda id:** renamed to `ryusei`, which matches its SQL folder. The old enablement key is still read (`BazaarComponentRegistration.LegacyIds`). Migration history is unchanged because the namespace was already `ryusei`.
+
+The earlier open questions are kept below for reference.
+
+## 6a. Open questions (superseded where decided above)
 
 1. **Project naming.** Options: (a) `Bazaar.Gc`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda` (matches the namespaces today); (b) `Bazaar.GC` (matches the owner's spoken form); (c) `Bazaar.Server.Components.<Name>` (matches the existing Kanban project). The kernel name `Bazaar.Core` is also new. Owner picks.
 2. **Optional dependencies** (item 2): field name `OptionalDependsOn`, or a `Soft` flag on each dependency. Owner or doc owner picks.
