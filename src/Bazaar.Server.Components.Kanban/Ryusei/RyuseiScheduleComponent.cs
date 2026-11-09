@@ -28,7 +28,9 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
         Id: "ryusei-schedule",
         Version: "0.1.0",
         Kind: ComponentKind.Feature,
-        DependsOn: ["kanban"],
+        // gc: the event listener resolves GcNotifyListener, and attach pings use the GC log. audit: RyuseiTriggerService resolves
+        // ITransactionalAuditLog. Both were used without being declared (doc 39, section 3).
+        DependsOn: ["kanban", "gc", "audit"],
         Provides: ["feature:ryusei-schedule"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
