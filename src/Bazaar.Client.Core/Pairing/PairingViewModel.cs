@@ -34,6 +34,9 @@ public sealed class PairingViewModel(PairingFlow flow, string deviceClass) : INo
     /// <summary>The label the approver sees for this device.</summary>
     public const string DefaultLabel = "This device";
 
+    /// <summary>The client build the server sees on a cold-start refresh.</summary>
+    public const string ClientBuild = "bazaar-android";
+
     private readonly PairingFlow _flow = flow ?? throw new ArgumentNullException(nameof(flow));
     private readonly string _deviceClass = !string.IsNullOrWhiteSpace(deviceClass)
         ? deviceClass
@@ -149,6 +152,48 @@ public sealed class PairingViewModel(PairingFlow flow, string deviceClass) : INo
         {
             _inFlight.Dispose();
             _inFlight = null;
+        }
+    }
+
+    /// <summary>
+    /// Cold start: tries to restore a pairing from the stored refresh credential. Returns <c>true</c> and raises <see cref="Paired"/>
+    /// when the device is restored. Returns <c>false</c> when it is not paired, the server refuses the credential, the server
+    /// address is not usable, or the server cannot be reached. It does not throw. A transport failure sets <see cref="Message"/>
+    /// to "Could not reach the server."; other failures leave the form idle.
+    /// </summary>
+    public async Task<bool> TryRestoreAsync(CancellationToken cancellationToken = default)
+    {
+        if (!TryParseServerAddress(ServerAddress, out var address))
+        {
+            return false;
+        }
+
+        try
+        {
+            var grant = await _flow.RestoreAsync(address, _deviceClass, ClientBuild, cancellationToken).ConfigureAwait(true);
+            if (grant is null)
+            {
+                return false;
+            }
+
+            Status = PairingStatus.Paired;
+            Message = "Paired.";
+            Paired?.Invoke(this, new PairingCompletedEventArgs(address, grant));
+            return true;
+        }
+        catch (HttpRequestException)
+        {
+            Status = PairingStatus.Idle;
+            Message = "Could not reach the server.";
+            return false;
+        }
+        catch (PairingException)
+        {
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
     }
 

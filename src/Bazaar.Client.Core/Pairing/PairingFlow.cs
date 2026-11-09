@@ -40,6 +40,37 @@ public sealed class PairingFlow(IRefreshCredentialStore store, Func<Uri, Pairing
         return grant;
     }
 
+    /// <summary>
+    /// Cold start: exchanges the stored refresh credential for a new grant (doc 32, section 5). Returns <c>null</c> when the device
+    /// is not paired. On success the rotated refresh credential replaces the stored one. When the server refuses the credential
+    /// (<c>invalid_grant</c>) the stored credential is cleared and <c>null</c> is returned, so the device must pair again. Transport
+    /// failures and other errors propagate and leave the stored credential in place.
+    /// </summary>
+    public async Task<PairingGrant?> RestoreAsync(Uri baseAddress, string deviceClass, string clientBuild, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceClass);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientBuild);
+
+        var stored = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
+        if (stored is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var grant = await _clientFor(baseAddress).RefreshAsync(stored, deviceClass, clientBuild, cancellationToken).ConfigureAwait(false);
+            await _store.SaveAsync(grant.RefreshToken, cancellationToken).ConfigureAwait(false);
+            return grant;
+        }
+        catch (PairingException exception) when (exception.Code == PairingClient.InvalidGrantCode)
+        {
+            await _store.ClearAsync(cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+    }
+
     /// <summary>True when a refresh credential is stored, which means the device has paired before.</summary>
     public async Task<bool> IsPairedAsync(CancellationToken cancellationToken = default) =>
         await _store.LoadAsync(cancellationToken).ConfigureAwait(false) is not null;

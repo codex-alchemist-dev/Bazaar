@@ -110,6 +110,8 @@ public class PairingFlowTests
 
         public int SaveCount { get; private set; }
 
+        public int ClearCount { get; private set; }
+
         public Task<string?> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(Value);
 
         public Task SaveAsync(string refreshCredential, CancellationToken cancellationToken = default)
@@ -122,6 +124,7 @@ public class PairingFlowTests
         public Task ClearAsync(CancellationToken cancellationToken = default)
         {
             Value = null;
+            ClearCount++;
             return Task.CompletedTask;
         }
     }

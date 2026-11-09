@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Bazaar.Client.Core.Server;
@@ -30,6 +31,9 @@ public sealed class PairingClient(HttpClient http, Func<TimeSpan, CancellationTo
 {
     /// <summary>The RFC 8628 grant type for the token poll.</summary>
     public const string DeviceCodeGrantType = "urn:ietf:params:oauth:grant-type:device_code";
+
+    /// <summary>The refresh error for a credential the server refuses. The device must pair again.</summary>
+    public const string InvalidGrantCode = "invalid_grant";
 
     /// <summary>How much <c>slow_down</c> raises the poll interval (RFC 8628, section 3.5).</summary>
     public static readonly TimeSpan SlowDownStep = TimeSpan.FromSeconds(5);
@@ -110,6 +114,53 @@ public sealed class PairingClient(HttpClient http, Func<TimeSpan, CancellationTo
                     throw new PairingException(error);
             }
         }
+    }
+
+    /// <summary>
+    /// Exchanges the stored refresh credential for a new access token and a rotated refresh credential (doc 32, section 5).
+    /// A 401 means the server refused the credential: a <see cref="PairingException"/> with <c>invalid_grant</c>, after which the
+    /// device must pair again. Any other non-success answer ends with a <see cref="PairingException"/> carrying the server's error
+    /// code, or <c>malformed_response</c>. A transport failure propagates as <see cref="HttpRequestException"/>.
+    /// </summary>
+    public async Task<PairingGrant> RefreshAsync(string refreshToken, string deviceClass, string clientBuild, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(refreshToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceClass);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientBuild);
+
+        using var response = await _http.PostAsJsonAsync(
+            "auth/refresh",
+            new RefreshRequest(refreshToken, deviceClass, clientBuild),
+            PairingJsonContext.Default.RefreshRequest,
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            throw new PairingException(InvalidGrantCode);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new PairingException(await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false));
+        }
+
+        RefreshResponse? body;
+        try
+        {
+            body = await response.Content.ReadFromJsonAsync(
+                PairingJsonContext.Default.RefreshResponse, cancellationToken).ConfigureAwait(false);
+        }
+        catch (JsonException)
+        {
+            throw new PairingException("malformed_response");
+        }
+
+        if (body is null || string.IsNullOrWhiteSpace(body.AccessToken) || string.IsNullOrWhiteSpace(body.RefreshToken))
+        {
+            throw new PairingException("malformed_response");
+        }
+
+        return new PairingGrant(body.AccessToken, body.RefreshToken, body.ExpiresIn);
     }
 
     /// <summary>The grant as an endpoint for <see cref="ClientServer.Use"/>: the server's base address with the access token.</summary>
