@@ -20,12 +20,19 @@ public sealed class P2pIceModule : IConduitModule
     /// <summary>Reason shown when the settings list no STUN server.</summary>
     public const string NoStunServersReason = "no-stun-servers";
 
-    private readonly StunGatherer _gatherer;
+    /// <summary>Reason shown once a signaling channel is injected (doc 39 work package 5).</summary>
+    public const string SignalingReadyReason = "signaling-ready";
 
-    /// <summary>Creates the module over a gatherer. The default uses real UDP sockets and system DNS.</summary>
-    public P2pIceModule(StunGatherer? gatherer = null)
+    private readonly StunGatherer _gatherer;
+    private readonly bool _signalingReady;
+
+    /// <summary>Creates the module over a gatherer and an optional signaling channel. The defaults use real UDP sockets and system DNS.</summary>
+    /// <param name="gatherer">STUN gatherer. Defaults to UDP.</param>
+    /// <param name="channel">Signaling channel to the peer. Null leaves signaling unconfigured.</param>
+    public P2pIceModule(StunGatherer? gatherer = null, IRendezvousChannel? channel = null)
     {
         _gatherer = gatherer ?? new StunGatherer(new UdpStunTransport());
+        _signalingReady = channel is not null;
     }
 
     /// <inheritdoc />
@@ -74,7 +81,7 @@ public sealed class P2pIceModule : IConduitModule
         }
 
         LastReflexive = result.Candidate;
-        Publish(ConduitModuleState.Starting, SignalingNotConfiguredReason);
+        Publish(ConduitModuleState.Starting, _signalingReady ? SignalingReadyReason : SignalingNotConfiguredReason);
     }
 
     /// <inheritdoc />
