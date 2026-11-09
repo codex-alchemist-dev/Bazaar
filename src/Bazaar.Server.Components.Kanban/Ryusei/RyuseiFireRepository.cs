@@ -74,6 +74,36 @@ public static class RyuseiFireRepository
         return reader.GetFieldValue<DateTimeOffset>(0);
     }
 
+    /// <summary>
+    /// The highest count of inbox items made for any one of <paramref name="agentIds"/> since <paramref name="since"/>, which is
+    /// the shared wake count per agent (doc 06, doc 38). Zero when there are no agents or no wakes. The wake cap reads it.
+    /// </summary>
+    public static async Task<int> WakesSinceAsync(
+        NpgsqlTransaction tx,
+        IReadOnlyCollection<Guid> agentIds,
+        DateTimeOffset since,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        ArgumentNullException.ThrowIfNull(agentIds);
+        if (agentIds.Count == 0)
+        {
+            return 0;
+        }
+
+        await using var cmd = new NpgsqlCommand("""
+            SELECT count(*) FROM inbox_item
+            WHERE agent_id = ANY(@agent_ids) AND created_at >= @since
+            GROUP BY agent_id
+            ORDER BY count(*) DESC
+            LIMIT 1
+            """, tx.Connection, tx);
+        cmd.Parameters.AddWithValue("agent_ids", agentIds.ToArray());
+        cmd.Parameters.AddWithValue("since", since);
+        var top = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        return top is null or DBNull ? 0 : checked((int)(long)top);
+    }
+
     /// <summary>The <c>agent.state</c> of each id that exists. A missing id is absent from the result.</summary>
     public static async Task<IReadOnlyDictionary<Guid, string>> AgentStatesAsync(
         NpgsqlTransaction tx,

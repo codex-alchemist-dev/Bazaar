@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Inbox;
+using Bazaar.Server.Security.Audit;
 using Npgsql;
 
 namespace Bazaar.Server.Kanban.Ryusei;
@@ -14,11 +15,17 @@ namespace Bazaar.Server.Kanban.Ryusei;
 public sealed class RyuseiFireWriter
 {
     private readonly RyuseiTriggerRepository _triggers;
+    private readonly ITransactionalAuditLog? _audit;
 
-    public RyuseiFireWriter(NpgsqlDataSource dataSource)
+    /// <param name="audit">
+    /// The audit log for fire rows (doc 38). Null means no audit log is installed: the fire is still written, and only its audit line
+    /// is skipped. Production always passes one, so this is for the bare constructors and tests.
+    /// </param>
+    public RyuseiFireWriter(NpgsqlDataSource dataSource, ITransactionalAuditLog? audit = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _triggers = new RyuseiTriggerRepository(dataSource);
+        _audit = audit;
     }
 
     /// <summary>Maps an agent's <c>agent.state</c> to what a fire sees. An id with no row is missing.</summary>
@@ -48,7 +55,8 @@ public sealed class RyuseiFireWriter
     /// Writes one decision. Returns false, and writes nothing, when this trigger already has a fire for the instant (a crash-retried
     /// fire, doc 38). Otherwise the fire row, the trigger update and the inbox items commit together with the caller's transaction.
     /// The caller must hold the trigger's row lock, which makes the version check pass. When <paramref name="ping"/> is set (an
-    /// attach fire, WP-R7), each target's wake is keyed by the GC line's (gc_id, gc_seq) instead of the fire id.
+    /// attach fire, WP-R7), each target's wake is keyed by the GC line's (gc_id, gc_seq) instead of the fire id. The fire's audit row
+    /// (<see cref="RyuseiFireAudit"/>) is appended in the same transaction, so a crash cannot leave a fire without its audit row.
     /// </summary>
     public async Task<bool> ApplyAsync(
         NpgsqlTransaction tx,
@@ -87,6 +95,16 @@ public sealed class RyuseiFireWriter
         if (!await _triggers.UpdateAsync(tx, next, trigger.Version, ct).ConfigureAwait(false))
         {
             throw new InvalidOperationException($"Trigger {trigger.TriggerId:D} changed under the row lock.");
+        }
+
+        if (_audit is not null)
+        {
+            var entry = RyuseiFireAudit.Build(fireId, trigger, decision, now);
+            await _audit.AppendInTransactionAsync(
+                tx.Connection ?? throw new InvalidOperationException("The fire transaction has no connection."),
+                tx,
+                entry,
+                ct).ConfigureAwait(false);
         }
 
         if (ping is not null)

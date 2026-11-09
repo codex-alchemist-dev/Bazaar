@@ -48,13 +48,15 @@ public enum RyuseiFireOutcome
 /// <param name="Targets">Each target agent and its status.</param>
 /// <param name="FiresInLast24Hours">Woke fires of this trigger in the last 24 hours.</param>
 /// <param name="LastWokeAt">The time of the latest woke fire, or null when there is none.</param>
+/// <param name="WakesInLastHour">The highest count of wakes in the last hour over the trigger's targets, all reasons (doc 38, guard table).</param>
 public sealed record RyuseiTickInput(
     RyuseiTriggerRecord Trigger,
     RyuseiTriggerSpec Spec,
     TimeZoneInfo Zone,
     IReadOnlyList<RyuseiFireTarget> Targets,
     int FiresInLast24Hours,
-    DateTimeOffset? LastWokeAt);
+    DateTimeOffset? LastWokeAt,
+    int WakesInLastHour = 0);
 
 /// <summary>
 /// The result for one due trigger: the fire row to insert, and how the trigger row changes. <see cref="WakeAgentIds"/> is
@@ -205,19 +207,25 @@ public static class RyuseiTickRules
                 SkippedCause(skipped, "no target can be woken"));
         }
 
-        // Cooldown first, then the daily cap. The first refusal found decides the outcome.
+        // Cooldown, then the daily cap, then the shared wake cap. The first refusal found decides the outcome.
         var cooldown = RyuseiGuards.CheckCooldown(now, input.LastWokeAt, limits.CooldownSeconds);
         var guard = cooldown.IsAllowed
             ? RyuseiGuards.CheckDailyFireCap(input.FiresInLast24Hours, limits.MaxFiresPerDay)
             : cooldown;
+        if (guard.IsAllowed)
+        {
+            guard = RyuseiGuards.CheckAgentWakeCap(input.WakesInLastHour, limits.MaxAgentWakesPerHour);
+        }
+
         if (!guard.IsAllowed)
         {
             var outcome = guard.Refusal == RyuseiRefusal.CooldownActive ? RyuseiFireOutcome.RefusedCooldown : RyuseiFireOutcome.RefusedCap;
             var consecutive = trigger.ConsecutiveRefusals + 1;
             var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
 
-            // Hitting the daily cap pauses at once (doc 38 guard table). Any refusal pauses at the auto-pause threshold.
-            var paused = outcome == RyuseiFireOutcome.RefusedCap || !streak.IsAllowed;
+            // Only the daily fire cap pauses at once (doc 38 guard table). The wake cap and the cooldown do not; every refusal
+            // still counts toward the auto-pause streak.
+            var paused = guard.Refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
             return new RyuseiFireDecision(
                 outcome,
                 scheduledFor,

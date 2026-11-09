@@ -54,6 +54,13 @@ public static class RyuseiGuards
     }
 
     /// <summary>
+    /// Wakes per agent per hour, shared with doc 06 and counted across all wake reasons. <paramref name="wakesInLastHour"/>
+    /// counts the wakes already made, not the one being decided. Refusing does not pause the trigger.
+    /// </summary>
+    public static RyuseiDecision CheckAgentWakeCap(int wakesInLastHour, int maxWakesPerHour) =>
+        wakesInLastHour < maxWakesPerHour ? RyuseiDecision.Allow : RyuseiDecision.Refuse(RyuseiRefusal.AgentWakeCapReached);
+
+    /// <summary>
     /// Active triggers per agent. <paramref name="activeTriggers"/> counts the ones already active, not the one being
     /// created. So with a cap of 50 the 50th is allowed (49 active) and the 51st is refused (50 active).
     /// </summary>

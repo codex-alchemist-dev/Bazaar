@@ -1,6 +1,7 @@
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Server.Security.Audit;
 using Npgsql;
 
 namespace Bazaar.Server.Kanban.Ryusei;
@@ -40,7 +41,8 @@ public sealed class RyuseiTickService
         TimeProvider time,
         Func<RyuseiTriggerRecord, TimeZoneInfo>? zoneOf = null,
         IGcLogWriter? gcLog = null,
-        GcCreateService? gcCreate = null)
+        GcCreateService? gcCreate = null,
+        ITransactionalAuditLog? audit = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(limits);
@@ -52,7 +54,9 @@ public sealed class RyuseiTickService
         _gcLog = gcLog;
         _gcCreate = gcCreate;
         _triggers = new RyuseiTriggerRepository(dataSource);
-        _writer = new RyuseiFireWriter(dataSource);
+        // A null audit log is allowed (for example, in tests that build the tick directly). The fire rows are still written, and
+        // the fire audit line is skipped, so nothing else depends on the audit being installed.
+        _writer = new RyuseiFireWriter(dataSource, audit);
     }
 
     /// <summary>Runs one pass and returns how many fire rows it wrote (woke, refused or skipped).</summary>
@@ -185,6 +189,7 @@ public sealed class RyuseiTickService
             .ToArray();
         var firesInDay = await RyuseiFireRepository.CountWokeSinceAsync(tx, trigger.TriggerId, now - TimeSpan.FromHours(24), ct).ConfigureAwait(false);
         var lastWoke = await RyuseiFireRepository.LastWokeAtAsync(tx, trigger.TriggerId, ct).ConfigureAwait(false);
-        return new RyuseiTickInput(trigger, spec, _zoneOf(trigger), targets, firesInDay, lastWoke);
+        var wakesInHour = await RyuseiFireRepository.WakesSinceAsync(tx, trigger.TargetAgentIds, now - TimeSpan.FromHours(1), ct).ConfigureAwait(false);
+        return new RyuseiTickInput(trigger, spec, _zoneOf(trigger), targets, firesInDay, lastWoke, wakesInHour);
     }
 }
