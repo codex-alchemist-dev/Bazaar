@@ -44,6 +44,18 @@ public static class GcTypeKeys
     /// <summary>Per-agent Thinking GC nested under a working GC.</summary>
     public const string Thinking = "thinking";
 
+    /// <summary>Recovery GC opened on Ward admission (doc 26, section 1).</summary>
+    public const string Ward = "ward";
+
+    /// <summary>Private reflection GC for vent drafts (doc 26, section 2).</summary>
+    public const string Vent = "vent";
+
+    /// <summary>Ephemeral all-hands brainstorm GC opened by Lucky mode (doc 26, section 6).</summary>
+    public const string Brainstorm = "brainstorm";
+
+    /// <summary>Casual social GC with no Kanban or reputation binding (doc 26, section 8).</summary>
+    public const string Sidewalk = "sidewalk";
+
     /// <summary>Members a DM holds before the owner, per the seeded type table.</summary>
     public const int DmMemberLimit = 2;
 
@@ -52,4 +64,10 @@ public static class GcTypeKeys
 
     /// <summary>True for a Thinking GC.</summary>
     public static bool IsThinking(GcRecord gc) => gc.TypeKey == Thinking;
+
+    /// <summary>True for a Ward GC.</summary>
+    public static bool IsWard(GcRecord gc) => gc.TypeKey == Ward;
+
+    /// <summary>True for a Sidewalk GC.</summary>
+    public static bool IsSideWalk(GcRecord gc) => gc.TypeKey == Sidewalk;
 }
