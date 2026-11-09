@@ -20,6 +20,12 @@ public enum RyuseiRefusal
     /// <summary>Consecutive refusals reached the threshold. The trigger must be paused and the owner notified.</summary>
     AutoPauseTripped,
 
+    /// <summary>
+    /// The target agent already has its maximum number of wakes in the last hour, counted across all reasons (doc 38, guard
+    /// table; shared with doc 06). The fire is recorded as refused and the trigger is not paused, so it is not lost.
+    /// </summary>
+    AgentWakeCapReached,
+
     /// <summary>The agent already has its maximum number of active triggers.</summary>
     ActiveTriggerCapReached,
 
