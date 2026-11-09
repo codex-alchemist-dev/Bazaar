@@ -16,7 +16,7 @@ public sealed class RyuseiFireAuditTests
     private static readonly Guid _project = Guid.Parse("22222222-2222-7222-8222-222222222222");
     private static readonly Guid _creator = Guid.Parse("33333333-3333-7333-8333-333333333333");
     private static readonly Guid _target = Guid.Parse("44444444-4444-7444-8444-444444444444");
-    private const string SecretPurpose = "watch the release-candidate tag for the customer escalation";
+    private const string _secretPurpose = "watch the release-candidate tag for the customer escalation";
 
     private static RyuseiTriggerRecord Trigger() => new(
         TriggerId: _trigger,
@@ -24,7 +24,7 @@ public sealed class RyuseiFireAuditTests
         CreatedBy: _creator,
         Kind: RyuseiTriggerKind.Timer,
         TargetAgentIds: [_target],
-        Purpose: SecretPurpose,
+        Purpose: _secretPurpose,
         SpecJson: "{}",
         TaskId: null,
         AttachGcId: null,
