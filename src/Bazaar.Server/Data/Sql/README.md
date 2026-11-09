@@ -46,6 +46,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `ryusei/0001` | WP-R3 | this PR | RyuseiFuda schedule (doc 38, Layer 2): `ryusei_trigger` (attach GC set exactly when `ping_mode = 'attach'`) and append-only `ryusei_fire` with `UNIQUE (trigger_id, scheduled_for)`; FKs to `tasks` and `gc` only |
 | `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
 | `agent_turns/0001` | WP-TAINT | this PR | `session_taint`: append-only session taint snapshots, latest row per session, no-decrease trigger (doc 15); no foreign keys |
+| `turns_inflight/0001` | WP-INFLIGHT | this PR | `in_flight_call`: crash markers for non-idempotent tool calls (doc 06; `PostgresInFlightCallStore`). Own namespace, because `turns` is the taint store's folder and `common/` is frozen; no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
