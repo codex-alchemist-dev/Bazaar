@@ -26,12 +26,14 @@ public sealed class App : Avalonia.Application
             AndroidRefreshCredentials.Create(global::Android.App.Application.Context),
             uri => PairingClient.Create(uri));
         var pairing = new PairingViewModel(flow, deviceClass: "android");
-        pairing.Paired += (_, completed) =>
+        pairing.Paired += (_, completed) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             ClientServer.Use(PairingClient.ToEndpoint(completed.BaseAddress, completed.Grant));
             host.Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current));
-        };
+        });
         host.Content = new PairingView(pairing);
+        // Cold start: a stored credential refreshes silently; otherwise the pairing screen stays up.
+        _ = pairing.TryRestoreAsync();
 
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
