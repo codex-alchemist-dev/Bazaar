@@ -3,7 +3,10 @@ using System.Text.Json.Serialization;
 namespace Bazaar.Client.Core.Pairing;
 
 /// <summary>Start of the device authorization: the code the approver typed or scanned.</summary>
-internal sealed record DeviceAuthorizationRequest([property: JsonPropertyName("user_code")] string UserCode);
+internal sealed record DeviceAuthorizationRequest(
+    [property: JsonPropertyName("user_code")] string UserCode,
+    [property: JsonPropertyName("label")] string Label,
+    [property: JsonPropertyName("device_class")] string DeviceClass);
 
 /// <summary>The server's answer to the start: the polled device code and the poll interval in seconds.</summary>
 internal sealed record DeviceAuthorizationResponse(

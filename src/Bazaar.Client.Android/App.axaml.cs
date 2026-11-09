@@ -44,3 +44,5 @@ public sealed class App : Avalonia.Application
 // CodeQL analysis trigger (no functional change).
 
 // CodeQL analysis trigger (no functional change).
+
+// CI re-run: comment-only touch so checks report on a fresh head.
