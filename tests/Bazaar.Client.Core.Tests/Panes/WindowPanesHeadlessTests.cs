@@ -43,7 +43,7 @@ public class WindowPanesHeadlessTests
         Assert.Equal(2, stack.Children.Count);
 
         var titles = stack.Children.Select(child => Assert.IsType<StackPanel>(child).Children.OfType<TextBlock>().First().Text).ToList();
-        Assert.Equal(["Kanban", "Constellation"], titles);
+        Assert.Equal(["RyuseiFuda · Board", "Constellation"], titles);
     }
 
     [AvaloniaFact]
