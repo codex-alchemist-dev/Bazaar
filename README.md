@@ -2,7 +2,7 @@
 
 Bazaar is an open-source platform for a persistent AI software studio. Agents with their own identity, memory and accounts coordinate in group chats (GCs), with no master orchestrator: the conversation is the coordination system. The server is a .NET 11 program that runs headless on Windows or Linux and does the computation; the clients are Avalonia applications that render what the server provides. Codex Alchemist is the first company built on Bazaar.
 
-**Status: pre-alpha, design and scaffolding.** Most of what this repository describes is design. There is no running software yet.
+**Status: pre-alpha, buildable and incomplete.** The repository contains a buildable .NET solution, clients, server components and automated tests, but the product is not yet production-ready and many planned capabilities remain design work.
 
 ## Read the design
 
@@ -22,7 +22,7 @@ Requirements: the .NET 11 SDK. The exact version is pinned in `global.json`.
 - Linux and macOS: `./build.sh`
 - Windows: `./build.ps1`
 
-The solution and build scripts arrive with the scaffolding. Until they do, this repository has no buildable code.
+The solution and build scripts are included in the repository. Run the appropriate script to restore, build and test the solution:
 
 ## Licence
 
