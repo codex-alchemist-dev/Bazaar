@@ -14,22 +14,13 @@
 
 **Codex Alchemist** is the first company built on Bazaar, and it is the one building Bazaar itself.
 
-> **Status: Beta.** Bazaar runs, builds and passes its tests, but many features are still being built. Each feature below says whether it is shipped, in review, or planned. The full index is in [`docs/FEATURES.md`](docs/FEATURES.md).
+> **Status: Beta.** Bazaar builds, runs and passes its tests. Many features are still in progress. The full status index is in [`docs/FEATURES.md`](docs/FEATURES.md).
 
 ---
 
-## Versioning
+## Version
 
-Versioning is front and centre, because every build, tag and wire message depends on it.
-
-- **Project version:** `xAA.BB.CC-commit`, with two-digit padded parts, for example `x00.01.00-a1b2c3d`. Release tags use the project form without the commit, for example `x00.01.00`.
-- **Internal components, APIs and modules:** `vAA.BB.CC-commit`, for example `v00.01.00-a1b2c3d`.
-- **SemVer underneath:** the padded form is display only. Tooling gets valid SemVer with the leading zeros removed (`00.01.00` becomes `0.1.0`). NuGet, Docker, Git and the update feed use that form.
-- **Source of truth:** `VersionPrefix` in [`Directory.Build.props`](Directory.Build.props). Code reads it through `Bazaar.Contracts.ProductVersion`.
-- **Codenames:** each major gets one, from Z to A: Zuhal (v1), Yliaster (v2), Xylokrator (v3), Weltseele (v4) and Valthyrzmthl (v5). Bazaar stays in beta until the owner judges it ready for v1.0.0.
-- **Channels:** LTSC, Stable, Beta, Alpha and Latest-Commit. The server operator picks one per install.
-
-The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The separator before the commit is pending the owner's confirmation.
+Current version: **0.1.0 (Beta)**, displayed as `x00.01.00`. Project versions use the form `xAA.BB.CC`, with the build commit appended (`x00.01.00-a1b2c3d`). Details are in [For developers](#versioning).
 
 ---
 
@@ -196,11 +187,21 @@ Five principles rank above every other item in the design and the code. When two
 4. **Performant.** The server does the compute and clients stay light. Budgets are measured on real hardware, not assumed.
 5. **Forward-Facing.** Build for the newest supported .NET and for what comes next. Move to each new release soon after it ships.
 
-### Versioning for contributors
+### Versioning
 
-- Every PR that merges into `main` bumps `VersionPrefix` in `Directory.Build.props`. A merged change is a PATCH. A release that adds features is a MINOR. A breaking change is a MAJOR, from v1.0.0 on.
-- A stage on the roadmap is not a version bump by itself.
-- Code reads the version through `Bazaar.Contracts.ProductVersion`.
+**Format.** Project versions are `xAA.BB.CC-commit`, with each part padded to two digits, for example `x00.01.00-a1b2c3d`. Release tags use the project form without the commit (`x00.01.00`). Internal components, APIs and modules use `vAA.BB.CC-commit`, for example `v00.01.00-a1b2c3d`. The commit suffix is display only.
+
+**SemVer underneath.** The padded form is display only. Tooling gets valid SemVer 2.0 with the leading zeros removed: `00.01.00` becomes `0.1.0`. NuGet, Docker, Git and the update feed use that form.
+
+**Source of truth.** `VersionPrefix` in [`Directory.Build.props`](Directory.Build.props). Code reads it through `Bazaar.Contracts.ProductVersion`.
+
+**Bumps.** Every PR that merges into `main` bumps `VersionPrefix`. A merged change is a PATCH. A release that adds features is a MINOR. A breaking change is a MAJOR, from v1.0.0 on. A roadmap stage is not a version bump by itself. During 0.x, anything may change.
+
+**Codenames.** Each major gets one, from Z to A: Zuhal (v1), Yliaster (v2), Xylokrator (v3), Weltseele (v4) and Valthyrzmthl (v5). Bazaar stays in beta until the owner judges it ready for v1.0.0.
+
+**Channels.** LTSC, Stable, Beta, Alpha and Latest-Commit. The server operator picks one per install.
+
+The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The separator before the commit is pending the owner's confirmation.
 
 ### Module rules
 
@@ -224,8 +225,6 @@ Five principles rank above every other item in the design and the code. When two
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta milestones.
 - [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md) is the glossary of the headline features.
 - [`docs/VERSIONING.md`](docs/VERSIONING.md) explains version numbers and release channels.
-
-Release channels are LTSC, Stable, Beta, Alpha and Latest-Commit. The operator chooses the channel.
 
 ---
 
