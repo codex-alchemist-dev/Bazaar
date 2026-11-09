@@ -12,7 +12,11 @@ description = "Fake secret-shaped literals used as SoulGuard negative and positi
 # d07f48d (WP14-8) added Base32Tests.cs with one fake Base32 input literal. Same scope as above: this commit only.
 # 8fbd6b6c5 and 01ef61d92 each re-added the same fake GCP-shaped SoulGuard literal in SoulGuardTests.cs (#210 and later).
 # Same scope: these commits only, and the literal is not a credential.
-commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c", "8fbd6b6c5080e4bcaa02a9ee182562946ab42de2", "01ef61d92c2a37bf705546d84afbb86d73b66a95"]
+# ec1e46445 and af6656bf6 re-added the same fake GCP-shaped SoulGuard literal in SoulGuardTests.cs (#359 and follow-up).
+# Same scope: these commits only, and the literal is not a credential.
+# 9ce11f1a3 added transient mDNS TXT test literals like keyhash=... in MdnsCodecTests.cs; this was synthetic test data.
+# Same scope as above: this commit only, and the literals are not credentials.
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c", "8fbd6b6c5080e4bcaa02a9ee182562946ab42de2", "01ef61d92c2a37bf705546d84afbb86d73b66a95", "ec1e46445d23043ead4a4f3f67957e7789e1eed9", "af6656bf6fc7d16b01a9750dbccf5e1e984a143c", "9ce11f1a3d05a73c4fbe04c7a17aa6f6e82c54b8"]
 # Base32Tests.cs holds fake Base32 test vectors (for example JBSWY3DP1SECRET), not credentials.
 # Path-scoped, so later edits to this file do not need new commit entries.
 paths = ['''tests/Bazaar\.Server\.Tests/Identity/Totp/Base32Tests\.cs$''']
