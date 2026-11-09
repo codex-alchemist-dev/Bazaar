@@ -57,6 +57,8 @@ public sealed class TurnRunner
         ArgumentException.ThrowIfNullOrWhiteSpace(request.WakeReason);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Route);
         ArgumentOutOfRangeException.ThrowIfNegative(request.InboxClaimLimit);
+        if (request.InboxItemIds is { Count: > 0 } && request.InboxClaimLimit > 0)
+            throw new ArgumentException("A turn claims named inbox items or a count of them, not both.", nameof(request));
         if (request.MessageBuilder is null && request.Messages.Count == 0)
             throw new ArgumentException("A turn needs at least one message.", nameof(request));
 
@@ -103,13 +105,18 @@ public sealed class TurnRunner
             new TurnStart(request.AgentId, request.SessionId, request.Role, request.WakeReason), ct).ConfigureAwait(false);
         progress.TurnId = turnId;
 
-        if (request.InboxClaimLimit > 0)
+        if (request.InboxItemIds is { Count: > 0 } named)
+        {
+            // The claimed set is the named items that were still pending and due; the others are left alone.
+            progress.ClaimedIds.AddRange(await _inbox.ClaimByIdAsync(request.AgentId, progress.Holder, named, ct).ConfigureAwait(false));
+        }
+        else if (request.InboxClaimLimit > 0)
         {
             var rows = await _inbox.ClaimAsync(request.AgentId, progress.Holder, request.InboxClaimLimit, ct).ConfigureAwait(false);
             progress.ClaimedIds.AddRange(rows.Select(r => r.InboxItemId));
         }
 
-        var tools = request.Tools ?? [];
+        var tools = TurnToolOffer.ForRole(request.Role, request.Tools);
         // A message builder runs once the turn row exists, so the context manifest can record the turn id (doc 06).
         var messages = request.MessageBuilder is null
             ? request.Messages.ToList()
