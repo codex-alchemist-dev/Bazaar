@@ -254,3 +254,13 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | Client message id | `turn:{turnId}:{sha256(text) hex}`, 106 characters at most. A retry of the same turn and text returns the original event. A different text in the same turn is a new event, not a silent duplicate. | Yes. |
 | Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
 | Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |
+
+Defaults taken by WP-TAINT for the session taint store behind `ISessionTaintStore` (doc 15). The coordinator chose them under the safe-defaults rule; the owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Storage | Taint is persisted in Postgres, table `session_taint` in namespace `agent_turns` (`agent_turns/0001`). Namespace folder follows the component id `agent-turns` with `-` replaced by `_`. | Yes. |
+| Keying and append-only | Keyed by `session_id`. Each save appends a full snapshot (level and every source so far). Update, delete and truncate are refused by the `gc_append_only` triggers. | Yes. |
+| Read rule | The session's taint is its latest row (highest `seq`). No rows gives `SessionTaint.Clean`. | Yes. |
+| No decrease | A trigger refuses a level below the session's latest level, serialised per session with an advisory lock. Taint never decreases (doc 15). | No (security invariant). |
+| Registration | `ISessionTaintStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, over `NpgsqlDataSource`. The tool dispatcher is not wired by this change. Policy is unchanged. | Yes. |
