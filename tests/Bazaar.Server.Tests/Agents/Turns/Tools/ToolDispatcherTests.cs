@@ -32,8 +32,9 @@ public class ToolDispatcherTests
         string args = _args,
         TurnRole role = TurnRole.Actor,
         bool idempotent = false,
-        string callId = "call-1") =>
-        new(_agentId, _turnId, _sessionId, role, new ModelToolCall(callId, tool, args), idempotent);
+        string callId = "call-1",
+        int chainDepth = 0) =>
+        new(_agentId, _turnId, _sessionId, role, new ModelToolCall(callId, tool, args), idempotent, chainDepth);
 
     private static string Sha256Hex(string text) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
@@ -111,6 +112,18 @@ public class ToolDispatcherTests
         Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
         Assert.Equal("""{"ok":true}""", result.ResultJson);
         Assert.Equal(new ToolCallContext(_agentId, _sessionId, _turnId), tool.LastContext);
+    }
+
+    [Fact]
+    public async Task A_contextual_tool_gets_the_chain_depth_of_the_request()
+    {
+        var tool = new FakeContextualTool();
+
+        var result = await Dispatcher(new FakePolicyEngine(_allow), new FakeToolRegistry((_tool, tool)), new FakeAuditLog())
+            .InvokeAsync(Request(chainDepth: 2), CancellationToken.None);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal(new ToolCallContext(_agentId, _sessionId, _turnId, ChainDepth: 2), tool.LastContext);
     }
 
     private sealed class FakeContextualTool : IContextualTool
