@@ -12,12 +12,16 @@ public sealed class ServerKeyPinTests
 {
     private static readonly string _emptyKeyHash = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
-    /// <summary>Creates a self-signed P-256 certificate. The caller owns the returned certificate.</summary>
+    /// <summary>
+    /// Creates a self-signed P-256 certificate with its private key attached. The certificate is round-tripped through
+    /// PKCS#12 because Windows SslStream cannot use an ephemeral key for server authentication. The caller owns the result.
+    /// </summary>
     private static X509Certificate2 SelfSigned(string name)
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var request = new CertificateRequest($"CN={name}", key, HashAlgorithmName.SHA256);
-        return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        using var ephemeral = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx, string.Empty), string.Empty, X509KeyStorageFlags.EphemeralKeySet);
     }
 
     private static ConduitOffer Offer(string hash, bool terminatesTls) =>
