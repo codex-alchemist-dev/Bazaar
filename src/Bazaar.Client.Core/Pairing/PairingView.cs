@@ -19,10 +19,10 @@ public sealed class PairingView : UserControl
         DataContext = _viewModel;
 
         var serverAddress = new TextBox { PlaceholderText = "Server address" };
-        serverAddress.Bind(TextBox.TextProperty, new Binding(nameof(PairingViewModel.ServerAddress)) { Mode = BindingMode.TwoWay });
+        serverAddress.Bind(TextBox.TextProperty, new Binding(nameof(PairingViewModel.ServerAddress)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
 
         var userCode = new TextBox { PlaceholderText = "Code from your other device" };
-        userCode.Bind(TextBox.TextProperty, new Binding(nameof(PairingViewModel.UserCode)) { Mode = BindingMode.TwoWay });
+        userCode.Bind(TextBox.TextProperty, new Binding(nameof(PairingViewModel.UserCode)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
 
         var pair = new Button { Content = "Pair", HorizontalAlignment = HorizontalAlignment.Left };
         pair.Bind(Button.IsEnabledProperty, new Binding(nameof(PairingViewModel.CanPair)));

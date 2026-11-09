@@ -29,4 +29,22 @@ public class PairingViewHeadlessTests
         Assert.False(pair.IsEnabled);
         Assert.Equal("Waiting for approval on your other device.", message.Text);
     }
+
+    [AvaloniaFact]
+    public void Typing_a_code_into_the_text_box_enables_pair()
+    {
+        // Regression: the code is typed into the TextBox, and the button must follow without losing focus (UpdateSourceTrigger).
+        var model = new PairingViewModel(PairingFakes.Flow(new InMemoryRefreshCredentialStore(), new GatedPairingHandler()), "android");
+        var window = new Window { Content = new PairingView(model) };
+        window.Show();
+
+        var pair = window.GetLogicalDescendants().OfType<Button>().Single();
+        var code = window.GetLogicalDescendants().OfType<TextBox>().Single(box => box.PlaceholderText == "Code from your other device");
+        Assert.False(pair.IsEnabled);
+
+        code.Text = "ABCD2345";
+
+        Assert.Equal("ABCD2345", model.UserCode);
+        Assert.True(pair.IsEnabled);
+    }
 }
