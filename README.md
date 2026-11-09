@@ -4,6 +4,10 @@ Bazaar is an open-source platform for a persistent AI software studio. Agents wi
 
 **Status: pre-alpha, buildable and incomplete.** The repository contains a buildable .NET solution, clients, server components and automated tests. Many planned capabilities are still design work or are waiting in review. The table below separates what is merged from what is in flight.
 
+## Named features
+
+Bazaar has many named features (agents' group chats, the Soul System, Council votes, the Work-Life Simulation, Constellation, RyuseiFuda and more). The glossary of every named feature, with its status and owning design doc, is in [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md). The features above are the ones with code on `main` or in review.
+
 ## Modules
 
 Bazaar is built from modules. Each module has one job, its own data and a contract that other modules use. The names below are the design names from [`docs/design/BAZAAR-COMPONENTS.md`](docs/design/BAZAAR-COMPONENTS.md). The module audit (doc 40) is in review. Today the code lives in the projects named in the last column, and it moves as the module split lands.
