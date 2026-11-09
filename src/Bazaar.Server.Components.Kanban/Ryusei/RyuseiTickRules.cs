@@ -87,10 +87,11 @@ public sealed record RyuseiFireDecision(
 public static class RyuseiTickRules
 {
     /// <summary>
-    /// The kinds the tick fires. Watchers and events need predicate evaluation over the event stream (WP-R6), so the claim
-    /// and the decision both leave them alone until that exists.
+    /// The kinds the tick fires. A watcher is tickable, but only once an event has armed it: the event bridge (WP-R6) sets its
+    /// <c>next_fire_at</c> to the debounce deadline, and an idle watcher has none. An event trigger is never tickable; it fires
+    /// on its first match in the bridge.
     /// </summary>
-    public static bool IsTickable(RyuseiTriggerKind kind) => kind is RyuseiTriggerKind.Timer or RyuseiTriggerKind.Interval;
+    public static bool IsTickable(RyuseiTriggerKind kind) => kind is RyuseiTriggerKind.Timer or RyuseiTriggerKind.Interval or RyuseiTriggerKind.Watcher;
 
     /// <summary>The inbox wake kind for a trigger kind (doc 38, Wake reasons).</summary>
     public static string WakeReason(RyuseiTriggerKind kind) => kind switch
@@ -112,6 +113,12 @@ public static class RyuseiTickRules
         RyuseiFireOutcome.Error => "error",
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Not a fire outcome."),
     };
+
+    /// <summary>
+    /// True for a watcher past its <c>expiresAt</c>. The tick expires it without a fire row, since nothing fired.
+    /// </summary>
+    public static bool IsExpiredWatcher(RyuseiTriggerRecord trigger, DateTimeOffset now) =>
+        trigger.Kind == RyuseiTriggerKind.Watcher && trigger.ExpiresAt is { } expiresAt && expiresAt <= now;
 
     /// <summary>
     /// Decides one due trigger at <paramref name="now"/>. Returns null when the trigger is not active, is not a tickable
@@ -146,6 +153,11 @@ public static class RyuseiTickRules
         {
             case RyuseiTimerTriggerSpec timer:
                 scheduledFor = timer.FireAt;
+                break;
+
+            case RyuseiWatcherTriggerSpec:
+                // The event bridge armed this watcher: next_fire_at is its debounce deadline (doc 38, WP-R6). It has no schedule to advance.
+                scheduledFor = nextFireAt;
                 break;
 
             case RyuseiIntervalTriggerSpec interval:
@@ -217,10 +229,12 @@ public static class RyuseiTickRules
                 RefusedCause(guard.Refusal, consecutive, paused, missedCount));
         }
 
+        // A watcher that has reached its max fires is used up by the fire that woke its targets (doc 38, Trigger types).
+        var reachedMaxFires = trigger.Kind == RyuseiTriggerKind.Watcher && trigger.MaxFires is { } maxFires && trigger.FireCount + 1 >= maxFires;
         return new RyuseiFireDecision(
             RyuseiFireOutcome.Woke,
             scheduledFor,
-            onwardState,
+            reachedMaxFires ? RyuseiTriggerState.Fired : onwardState,
             onwardFireAt,
             0,
             wakeable,
