@@ -40,6 +40,15 @@ Before `codeql.yml` can run, the repository owner must:
 Until this switch is made, the `Analyze (csharp)` and `Analyze (actions)`
 checks will not report on pull requests.
 
+## Canary (not required)
+
+`canary.yml` builds and tests against the newest .NET 11 preview SDK, on
+Linux, once a week and on demand. It is not a required check and it does not
+run on pull requests. It is marked `continue-on-error`, so a red canary is a
+signal to file a follow-up, not a blocked merge. It also writes a report of
+outdated and prerelease NuGet packages to the job summary. See
+`docs/FORWARD-FACING.md` for what it covers and what is still to be added.
+
 ## Local checks
 
 Before pushing, run `./build.sh` (Linux) or `./build.ps1` (Windows), and

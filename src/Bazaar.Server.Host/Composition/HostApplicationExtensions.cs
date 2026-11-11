@@ -31,7 +31,7 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
-        services.AddBazaarAgentSafety();
+        services.AddBazaarAgentSafety(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
@@ -41,6 +41,8 @@ public static class HostApplicationExtensions
         services.AddBazaarComponents(configuration, HostComponents.All);
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
+        // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.
+        services.AddBazaarRemoteAuth(configuration);
         services.AddBazaarHttpSurface(configuration);
         return services;
     }

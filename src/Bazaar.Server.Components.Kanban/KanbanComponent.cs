@@ -20,7 +20,9 @@ public sealed class KanbanComponent : IBazaarComponent
         Version: "0.1.0",
         Kind: ComponentKind.Feature,
         DependsOn: [],
-        Provides: ["feature:kanban"]);
+        Provides: ["feature:kanban"],
+        // GC is optional: the task service records to the GC log only when it is present (doc 40, section 3).
+        SoftDependsOn: ["gc"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
 

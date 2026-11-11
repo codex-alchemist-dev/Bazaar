@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Roadmap;
 
 namespace Bazaar.Contracts.Wire;
 
@@ -32,6 +33,7 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
 [JsonSerializable(typeof(KanbanBoardRequest))]
+[JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
 [JsonSerializable(typeof(GraphLodFrame))]

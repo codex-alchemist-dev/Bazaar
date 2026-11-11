@@ -3,6 +3,7 @@ using Bazaar.Server.Community;
 using Bazaar.Server.Company;
 using Bazaar.Server.Components;
 using Bazaar.Server.Components.Backup;
+using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -15,6 +16,7 @@ using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Kanban.Ryusei;
 using Bazaar.Server.Mail;
+using Bazaar.Server.Roadmap;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -34,12 +36,14 @@ public static class HostComponents
         new FunComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
+        new RoadmapComponent(),
         new CommunityComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
