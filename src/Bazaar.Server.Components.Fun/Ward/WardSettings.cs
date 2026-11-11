@@ -6,6 +6,9 @@ namespace Bazaar.Server.Fun.Ward;
 /// </summary>
 public sealed class WardSettings
 {
+    /// <summary>Configuration section for Psych Ward settings.</summary>
+    public const string SectionName = "Bazaar:Ward";
+
     /// <summary><c>ward.min_stay_minutes</c>: the shortest stay before discharge.</summary>
     public int MinStayMinutes { get; init; } = 60;
 
