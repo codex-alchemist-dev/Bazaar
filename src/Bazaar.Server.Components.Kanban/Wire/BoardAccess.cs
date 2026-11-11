@@ -19,6 +19,10 @@ public interface IBoardAccessPolicy
 /// </summary>
 public sealed class OwnerOnlyBoardAccess : IBoardAccessPolicy
 {
+    /// <summary>
+    /// Grants the read only when the principal kind is exactly "owner" (ordinal comparison). Every other kind, including
+    /// "agent" and "human", is denied, whatever the project.
+    /// </summary>
     /// <inheritdoc />
     public ValueTask<bool> CanReadAsync(PrincipalRef principal, Guid projectId, CancellationToken cancellationToken) =>
         ValueTask.FromResult(string.Equals(principal.Kind, "owner", StringComparison.Ordinal));
