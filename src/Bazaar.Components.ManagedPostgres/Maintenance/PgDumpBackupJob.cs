@@ -12,6 +12,7 @@ public sealed record PgDumpBackup(string DumpPath, long Bytes, string Sha256, in
 /// lists the archive with <c>pg_restore --list</c> to prove it is readable, then renames it into place and writes a
 /// <c>.sha256</c> sidecar. A failed run leaves no file behind, so the newest dump on disk is always a verified one.
 /// Dumps are logical copies for selective restore; point-in-time recovery stays with the base backup and WAL path.
+/// Comment-only change: it makes CodeQL Analyze run on this head, since the bot-made merge commit did not trigger it.
 /// </summary>
 public sealed class PgDumpBackupJob(IPostgresCommandRunner runner, BundleLayout layout, TimeProvider time)
 {
