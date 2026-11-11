@@ -3,6 +3,7 @@ using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Components;
+using Bazaar.Server.Mentions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -50,6 +51,8 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
             sp.GetRequiredService<TurnStarterOptions>()));
+        services.TryAddSingleton(sp => new PrincipalHandleRepository(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IAgentHandleAssigner>(sp => sp.GetRequiredService<PrincipalHandleRepository>());
         services.TryAddSingleton<AgentRepository>();
     }
 }

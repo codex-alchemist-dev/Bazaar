@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Mentions;
 using Bazaar.Server.Tests.Gc;
 using Npgsql;
@@ -334,5 +335,56 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         Assert.Single(handles.Distinct());
         Assert.Equal(HandleSlug.FromName(name), handles[0]);
         Assert.Equal(1L, await db.ScalarAsync<long>("SELECT count(*) FROM principal_handle WHERE principal_id = $1", agent));
+    }
+
+    [Fact]
+    public async Task A_created_agent_gets_the_slug_of_its_name_as_its_handle()
+    {
+        GcTestSkip.WithoutDatabase();
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var agents = new AgentRepository(db.DataSource, handles: Repo);
+
+        var agent = await agents.CreateAsync("Created " + suffix, ct: Ct);
+
+        var handle = await Repo.GetAsync(agent, Ct);
+        Assert.NotNull(handle);
+        Assert.Equal("created-" + suffix, handle.Handle);
+    }
+
+    [Fact]
+    public async Task A_second_agent_with_the_same_name_gets_a_suffixed_handle()
+    {
+        GcTestSkip.WithoutDatabase();
+        var name = "Twin " + Guid.NewGuid().ToString("N")[..12];
+        var agents = new AgentRepository(db.DataSource, handles: Repo);
+
+        var first = await agents.CreateAsync(name, ct: Ct);
+        var second = await agents.CreateAsync(name, ct: Ct);
+
+        var firstHandle = (await Repo.GetAsync(first, Ct))!.Handle;
+        Assert.Equal(firstHandle + "-2", (await Repo.GetAsync(second, Ct))!.Handle);
+    }
+
+    [Fact]
+    public async Task A_created_agent_with_an_unusable_name_has_no_handle()
+    {
+        GcTestSkip.WithoutDatabase();
+        var agents = new AgentRepository(db.DataSource, handles: Repo);
+
+        var agent = await agents.CreateAsync("!", ct: Ct);
+
+        Assert.NotNull(await agents.GetAsync(agent, Ct));
+        Assert.Null(await Repo.GetAsync(agent, Ct));
+    }
+
+    [Fact]
+    public async Task An_agent_created_without_an_assigner_has_no_handle()
+    {
+        GcTestSkip.WithoutDatabase();
+        var agents = new AgentRepository(db.DataSource);
+
+        var agent = await agents.CreateAsync("Plain " + Guid.NewGuid().ToString("N")[..12], ct: Ct);
+
+        Assert.Null(await Repo.GetAsync(agent, Ct));
     }
 }

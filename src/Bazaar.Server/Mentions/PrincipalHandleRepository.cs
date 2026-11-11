@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.Server.Agents.Data;
 using Npgsql;
 
 namespace Bazaar.Server.Mentions;
@@ -29,7 +30,7 @@ public sealed class HandleTakenException(string handle, Exception? innerExceptio
 /// SQL-first access to <c>principal_handle</c> (<c>mentions/0001</c>). A principal has at most one handle and a handle belongs
 /// to at most one principal; both are enforced by the table, so concurrent writers cannot break them.
 /// </summary>
-public sealed class PrincipalHandleRepository(NpgsqlDataSource dataSource)
+public sealed class PrincipalHandleRepository(NpgsqlDataSource dataSource) : IAgentHandleAssigner
 {
     /// <summary>How many suffixed candidates <see cref="EnsureAgentHandleAsync"/> tries before it gives up.</summary>
     public const int MaxSuffixAttempts = 1000;
