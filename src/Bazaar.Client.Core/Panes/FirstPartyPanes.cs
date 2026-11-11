@@ -32,6 +32,9 @@ public static class FirstPartyPanes
         new ConstellationPaneModule(),
         new VaultSearchPaneModule(),
         new GcPaneModule(),
+        new RyuseiSchedulePaneModule(),
+        new RoadmapPaneModule(),
+        new WorkdayPaneModule(),
     ];
 
     // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI

@@ -15,6 +15,9 @@ public class PaneModuleTests
             [typeof(ConstellationPaneModule)] = PaneKinds.Constellation,
             [typeof(VaultSearchPaneModule)] = PaneKinds.VaultSearch,
             [typeof(GcPaneModule)] = GcPaneViewModel.PaneKind,
+            [typeof(RyuseiSchedulePaneModule)] = PaneKinds.RyuseiSchedule,
+            [typeof(RoadmapPaneModule)] = PaneKinds.Roadmap,
+            [typeof(WorkdayPaneModule)] = PaneKinds.Workday,
         };
 
         Assert.Equal(expected.Count, FirstPartyPanes.Modules.Count);
@@ -42,6 +45,9 @@ public class PaneModuleTests
                 PaneKinds.Constellation,
                 PaneKinds.VaultSearch,
                 GcPaneViewModel.PaneKind,
+                PaneKinds.RyuseiSchedule,
+                PaneKinds.Roadmap,
+                PaneKinds.Workday,
             ],
             registry.Kinds);
     }
@@ -67,7 +73,15 @@ public class PaneModuleTests
 
         Assert.False(registry.Contains(PaneKinds.Dashboard));
         Assert.Equal(
-            [PaneKinds.Kanban, PaneKinds.Constellation, PaneKinds.VaultSearch, GcPaneViewModel.PaneKind],
+            [
+                PaneKinds.Kanban,
+                PaneKinds.Constellation,
+                PaneKinds.VaultSearch,
+                GcPaneViewModel.PaneKind,
+                PaneKinds.RyuseiSchedule,
+                PaneKinds.Roadmap,
+                PaneKinds.Workday,
+            ],
             registry.Kinds);
     }
 
