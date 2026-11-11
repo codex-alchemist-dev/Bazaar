@@ -7,6 +7,7 @@ namespace Bazaar.Server.Identity.Keys;
 /// on first use with exclusive create and owner-only permissions on POSIX hosts. The key bytes are never logged or returned
 /// outside this class. This is a floor, not custody: anyone who can read the data root can read the key, so a host should
 /// register a platform provider (DPAPI, Keystore, a vault) through <see cref="IKekProvider"/> when one exists.
+/// The default is a floor under the data-root ACL on Windows and the 0600 mode on POSIX; see docs/design/14.
 /// </summary>
 public sealed class FileKekProvider : IKekProvider, IDisposable
 {
