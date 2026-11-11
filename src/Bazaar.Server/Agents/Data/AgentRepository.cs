@@ -3,7 +3,7 @@ using Npgsql;
 namespace Bazaar.Server.Agents.Data;
 
 /// <summary>SQL-first access to the <c>agent</c> table (doc 06, "Lifecycle").</summary>
-public sealed class AgentRepository(NpgsqlDataSource dataSource)
+public sealed class AgentRepository(NpgsqlDataSource dataSource, IAgentLifecycleObserver? lifecycleObserver = null)
 {
     /// <summary>Creates an agent in <see cref="AgentState.Created"/>. Returns its id.</summary>
     public async Task<Guid> CreateAsync(string name, Guid? soulVersionId = null, CancellationToken ct = default)
@@ -50,6 +50,9 @@ public sealed class AgentRepository(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("agent_id", agentId);
         cmd.Parameters.AddWithValue("from", AgentSql.ToDb(from));
         cmd.Parameters.AddWithValue("to", AgentSql.ToDb(to));
-        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+        var changed = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+        if (changed && to == AgentState.Retired && lifecycleObserver is not null)
+            await lifecycleObserver.AgentRetiredAsync(agentId, ct).ConfigureAwait(false);
+        return changed;
     }
 }
