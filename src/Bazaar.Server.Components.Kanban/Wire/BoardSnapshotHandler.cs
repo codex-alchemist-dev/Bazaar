@@ -7,7 +7,7 @@ namespace Bazaar.Server.Kanban.Wire;
 /// <summary>
 /// <c>board.snapshot</c>: answers with the project's whole board (doc 12). A denied read and a missing project get the same
 /// <c>not_found</c>, so membership does not leak. The client re-requests the snapshot on each board event; there is no
-/// live stream yet.
+/// live stream yet. Access is decided by <see cref="IBoardAccessPolicy"/>, never by the request payload.
 /// </summary>
 public sealed class BoardSnapshotHandler(TaskService tasks, IBoardAccessPolicy access) : IWireRequestHandler
 {
