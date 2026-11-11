@@ -2,10 +2,10 @@
 # Read by the Windows and Linux bundle builds and by .github/workflows/postgres-bundle.yml.
 # Bump deliberately: the bundle check in CI must pass before a new value merges.
 PG_MAJOR=18
-PG_VERSION=18.0
+PG_VERSION=18.6
 PG_EDB_BUILD=1
 PGVECTOR_VERSION=0.8.1
 # SHA-256 of each download, checked by build-pgvector-windows.ps1 before use. Pinned from a download on the owner's PC
-# on 2026-11-09; the upstream publishers do not publish these values here, so re-check them when a version is bumped.
-PG_SHA256=4A1EA6E6ECBDE1747103C7B5BC0674CC415B9AA8EF7B7BAD3A4EE38C37C051B1
+# on 2026-11-09 (18.0); the 18.6 value was computed from the EDB download on 2026-11-11; the upstream publishers do not publish these values here, so re-check them when a version is bumped.
+PG_SHA256=FBE23DA234EE31547BF8A36D29DFD81E82B849DF2D2B78D2EECB43D360252F8C
 PGVECTOR_SHA256=A9094DFB85CCDDE3CBB295F1086D4C71A20DB1D26BF1D6C39F07A7D164033EB4
