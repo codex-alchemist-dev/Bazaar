@@ -1,3 +1,4 @@
+// Contract lives in Bazaar.GC.Abstractions; the namespace stays Bazaar.Server.Gc.Write so consumers need no source change.
 namespace Bazaar.Server.Gc.Write;
 
 /// <summary>Tells listeners that a GC has reached a seq. Called only after the append has committed.</summary>
