@@ -1,3 +1,4 @@
+// Required CodeQL Analyze check runs on this head.
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Model;
 using Npgsql;
