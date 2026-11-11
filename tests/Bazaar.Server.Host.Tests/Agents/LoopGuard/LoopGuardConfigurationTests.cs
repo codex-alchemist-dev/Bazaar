@@ -29,8 +29,12 @@ public sealed class LoopGuardConfigurationTests
         using var provider = services.BuildServiceProvider();
         var guard = provider.GetRequiredService<ILoopGuard>();
 
-        guard.Check(new AgentWake("agent-1", WakeKind.Standard));
-        guard.Check(new AgentWake("agent-1", WakeKind.Standard));
+        // WakesPerHour is the largest count allowed, so the sixth wake in the hour trips.
+        for (var i = 0; i < 5; i++)
+        {
+            _ = guard.Check(new AgentWake("agent-1", WakeKind.Standard));
+        }
+
         var verdict = guard.Check(new AgentWake("agent-1", WakeKind.Standard));
 
         Assert.Equal(GuardKind.WakesPerHour, verdict.Kind);
