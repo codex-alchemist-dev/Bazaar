@@ -1,3 +1,4 @@
+// Required CodeQL Analyze check runs on this head.
 namespace Bazaar.Server.Constellation.Layout;
 
 /// <summary>
