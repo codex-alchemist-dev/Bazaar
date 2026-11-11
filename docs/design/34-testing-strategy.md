@@ -40,7 +40,7 @@ Everything below is [PROPOSED] unless listed above.
 | L8 | Red team | Injection corpus through the fake gateway; asserts the server refuses | every PR | yes |
 | L9 | Live evals | Haiku 5.5 on the Bazaar task set; LLM judges | nightly, private repo | no |
 | L10 | Performance | Graph at 1k, 5k, 10k nodes; gateway overhead; replay of 10k entries | nightly, trend only (`test.perf.gate_mode`) | no |
-| L11 | Platform | Windows Service, systemd, Hyper-V; Roblox Studio checklist (manual, owner's Bazaar.Windows desktop only) | hosted or NUC; Studio on the desktop | where hosted |
+| L11 | Platform | Windows Service, systemd, Hyper-V; Roblox Studio checklist (manual, owner's Bazaar.Windows desktop only) | hosted or owner's PC; Studio on the desktop | where hosted |
 | L12 | Engine | Godot headless, `luau-analyze` and Selene on fixtures | every PR, Linux | yes |
 
 ### Fixtures: real PostgreSQL
@@ -96,8 +96,8 @@ The checker runs in a clean clone, not in the agent's working tree. It stores ex
 |---|---|---|---|
 | Pull request, public repo | L0 to L8, L11 (Windows providers), L12 | Hosted Linux and Windows | None; fork PRs get none |
 | Push to protected branch | Same, plus release build | Hosted | None |
-| Nightly, private repo | L9, L10, judge drift, cassette freshness, L7 large | NUC or hosted | Anthropic key and gateway keys from a protected environment |
-| Nightly or manual, private repo | Hyper-V (`test.ci.platform_schedule`, default nightly); Studio checklist stays manual on the owner's Bazaar.Windows desktop | NUC; owner's desktop for Studio | None |
+| Nightly, private repo | L9, L10, judge drift, cassette freshness, L7 large | owner's PC or hosted | Anthropic key and gateway keys from a protected environment |
+| Nightly or manual, private repo | Hyper-V (`test.ci.platform_schedule`, default nightly); Studio checklist stays manual on the owner's Bazaar.Windows desktop | owner's PC; owner's desktop for Studio | None |
 
 ## Data and interfaces
 ```csharp
@@ -118,7 +118,7 @@ Keys follow doc 03's registry (typed, scoped, audited on change). Shipped defaul
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
 | `test.ci.windows_db_job` | bool | `false` (database tests on Linux only until the Windows PostgreSQL install spike passes) | install | operator | no |
-| `test.ci.platform_schedule` | enum: `nightly`, `manual` | `nightly` (Hyper-V tests on the NUC) | install | operator | no |
+| `test.ci.platform_schedule` | enum: `nightly`, `manual` | `nightly` (Hyper-V tests on the owner's PC) | install | operator | no |
 | `test.cassette.record_mode` | enum: `explicit` | `explicit` (cost logged; real-model cassettes stay private) | install | operator | no |
 | `test.golden.pixel_tolerance_pct` | number | `0.5` | project | operator | no |
 | `test.golden.pixel_platforms` | list | `linux` (structural assertions elsewhere) | install | operator | no |
