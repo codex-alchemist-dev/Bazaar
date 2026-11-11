@@ -19,6 +19,27 @@ public sealed class PaneRegistry
         _report = report;
     }
 
+    /// <summary>
+    /// Builds a registry from <paramref name="modules"/>, in the order given. Each module registers its own kind, so
+    /// a head composes its pane set from a list instead of naming each pane. Throws when two modules share a kind.
+    /// </summary>
+    /// <param name="modules">The pane modules to register.</param>
+    /// <param name="context">The optional dependencies the modules read. Null uses an empty context.</param>
+    public static PaneRegistry Compose(IEnumerable<IPaneModule> modules, PaneModuleContext? context = null)
+    {
+        ArgumentNullException.ThrowIfNull(modules);
+
+        context ??= new PaneModuleContext();
+        var registry = new PaneRegistry(context.Report);
+        foreach (var module in modules)
+        {
+            ArgumentNullException.ThrowIfNull(module);
+            module.Register(registry, context);
+        }
+
+        return registry;
+    }
+
     /// <summary>Registers a factory. Throws <see cref="InvalidOperationException"/> when the kind is already registered.</summary>
     public void Register(string kind, Func<PaneDescriptor, IPaneViewModel> factory)
     {

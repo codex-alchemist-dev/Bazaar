@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Components;
@@ -36,5 +37,6 @@ public sealed class AgentTurnsComponent : IBazaarComponent
 
         services.TryAddSingleton(new TurnRunnerOptions());
         services.TryAddSingleton(new SubagentOptions());
+        services.TryAddSingleton<AgentRepository>();
     }
 }
