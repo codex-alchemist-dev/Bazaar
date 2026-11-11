@@ -1,3 +1,4 @@
+// Analyzed-source touch: keeps CodeQL Analyze reporting on this head (comment only).
 using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Constellation.Layout;
@@ -16,7 +17,21 @@ public static class SolarOrbitLayout
     /// index (the same packing as a layout frame). Nodes unreachable from the core go on one ring beyond the outermost
     /// reachable ring. An empty graph returns an empty array.
     /// </summary>
-    public static float[] Layout(LayoutGraph graph, int coreIndex, LayoutOptions? options = null)
+    /// <remarks>
+    /// Without <paramref name="activityAges"/>, each node sits at radius <c>ring * OrbitSpacing</c>, where the ring is its hop depth.
+    /// With <paramref name="activityAges"/>, the ring slot (angle) is unchanged, but each non-core node sits at its own radius:
+    /// <list type="bullet">
+    /// <item><description><c>Age</c> mode: <see cref="BodyOrbitRadius"/> over the ages of the non-core nodes, so the youngest is at
+    /// <see cref="LayoutOptions.MinOrbitRadius"/> and the oldest at <see cref="LayoutOptions.MaxOrbitRadius"/>.</description></item>
+    /// <item><description><c>Equal</c> mode: every non-core node is at <see cref="LayoutOptions.MinOrbitRadius"/>.</description></item>
+    /// </list>
+    /// The core stays at the origin in both modes, and its age is ignored. Non-finite non-core ages are rejected by
+    /// <see cref="BodyOrbitRadius"/>. The output packing and determinism do not change.
+    /// </remarks>
+    /// <param name="activityAges">Last-activity age per node index, or null to keep the hop-depth ring radii. When given, its
+    /// length must equal <see cref="LayoutGraph.NodeCount"/>.</param>
+    /// <exception cref="ArgumentException"><paramref name="activityAges"/> is given and its length is not the node count.</exception>
+    public static float[] Layout(LayoutGraph graph, int coreIndex, LayoutOptions? options = null, double[]? activityAges = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
@@ -24,6 +39,11 @@ public static class SolarOrbitLayout
         ValidateOptions(options);
 
         var nodeCount = graph.NodeCount;
+        if (activityAges is not null && activityAges.Length != nodeCount)
+        {
+            throw new ArgumentException("Activity ages must have one entry per node.", nameof(activityAges));
+        }
+
         if (nodeCount == 0)
         {
             return [];
@@ -55,6 +75,21 @@ public static class SolarOrbitLayout
             ringSize[ringOf[i]]++;
         }
 
+        // Age range over the non-core nodes only. With no non-core nodes the range is never read.
+        var minAge = double.PositiveInfinity;
+        var maxAge = double.NegativeInfinity;
+        if (activityAges is not null)
+        {
+            for (var i = 0; i < nodeCount; i++)
+            {
+                if (i != coreIndex)
+                {
+                    minAge = Math.Min(minAge, activityAges[i]);
+                    maxAge = Math.Max(maxAge, activityAges[i]);
+                }
+            }
+        }
+
         var ringPhase = new double[ringSize.Length];
         for (var ring = 1; ring < ringSize.Length; ring++)
         {
@@ -75,7 +110,9 @@ public static class SolarOrbitLayout
 
             var slot = ringSeen[ring]++;
             var angle = ringPhase[ring] + Math.Tau * slot / ringSize[ring];
-            var radius = ring * options.OrbitSpacing;
+            var radius = activityAges is null
+                ? ring * options.OrbitSpacing
+                : BodyOrbitRadius(options, activityAges[i], minAge, maxAge);
 
             positions[i * 2] = (float)(radius * Math.Cos(angle));
             positions[i * 2 + 1] = (float)(radius * Math.Sin(angle));
@@ -93,8 +130,7 @@ public static class SolarOrbitLayout
     /// Ages may use any single consistent unit.
     /// </summary>
     /// <remarks>
-    /// This helper is exposed for the Git Solar System wiring. <see cref="Layout"/> still places nodes by hop depth and does not
-    /// call it yet, because it takes no activity ages.
+    /// <see cref="Layout"/> calls this helper for each non-core node when it is given activity ages.
     /// </remarks>
     public static double BodyOrbitRadius(LayoutOptions options, double age, double minAge, double maxAge)
     {
