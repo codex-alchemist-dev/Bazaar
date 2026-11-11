@@ -1,10 +1,10 @@
+using System.Text;
+using System.Text.Json;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Ai;
 using Npgsql;
-using System.Text;
-using System.Text.Json;
 
 namespace Bazaar.Server.Agents.Turns;
 
