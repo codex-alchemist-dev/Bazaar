@@ -2,6 +2,7 @@
 namespace Bazaar.Server.Company.Constitution;
 
 /// <summary>Derives the Constitution sections affected by an accepted document change.</summary>
+// Re-runs the analyzed checks on this PR; no behaviour change.
 public static class ConstitutionSectionChanges
 {
     /// <summary>
