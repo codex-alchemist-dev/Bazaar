@@ -1,6 +1,7 @@
 using Bazaar.Client.Core.Wire;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gc.Wire;
+using Bazaar.Server.Identity.Keys;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;
@@ -66,6 +67,8 @@ public static class ExitCheckServers
         builder.Services.AddSingleton<IConnectionAuthenticator>(auth);
         builder.Services.AddBazaarWire(builder.Configuration);
         builder.Services.AddBazaarSync(builder.Configuration);
+        // GC bodies are sealed under per-person keys and fail closed without a KEK provider (docs/design/04 Question 2).
+        builder.Services.AddSingleton<IKekProvider>(new ExitCheckKek());
         builder.Services.AddBazaarGcWire();
         var app = builder.Build();
         app.UseBazaarWire();
