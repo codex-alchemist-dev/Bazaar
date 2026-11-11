@@ -47,6 +47,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
 | `agent_turns/0001` | WP-TAINT | this PR | `session_taint`: append-only session taint snapshots, latest row per session, no-decrease trigger (doc 15); no foreign keys |
 | `turns_inflight/0001` | WP-INFLIGHT | this PR | `in_flight_call`: crash markers for non-idempotent tool calls (doc 06; `PostgresInFlightCallStore`). Own namespace, because `turns` is the taint store's folder and `common/` is frozen; no foreign keys |
+| `souls/0001` | SOUL-RET | this PR | `soul_retirement_step`: durable latest outcome per Soul, agent and step (doc 07, WP6). Lives in the `souls` namespace because `common/` is frozen |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
