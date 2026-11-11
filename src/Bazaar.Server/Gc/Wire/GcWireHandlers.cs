@@ -84,6 +84,7 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
         }
 
         var kind = viewer.Kind;
+        var body = await bodies.SealAsync(principal.Id, request.Text, cancellationToken).ConfigureAwait(false);
         var append = new AppendRequest(
             request.GcId,
             GcEventKinds.Message,
@@ -103,7 +104,7 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
             },
             clientMsgId)
         {
-            Message = bodies.Seal(request.Text),
+            Message = body,
             Mentions = mentions,
             ReplyToSeq = request.ReplyToN,
         };

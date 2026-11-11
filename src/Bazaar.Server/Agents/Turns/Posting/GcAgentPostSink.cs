@@ -37,6 +37,7 @@ public sealed class GcAgentPostSink(IGcLogWriter writer, IGcBodyCodec bodyCodec)
         if (!Guid.TryParse(gcId, out var gcGuid))
             throw new ArgumentException("The GC id must be a GUID.", nameof(gcId));
 
+        var body = await bodyCodec.SealAsync(agentId, text, cancellationToken).ConfigureAwait(false);
         var request = new AppendRequest(
             gcGuid,
             GcEventKinds.Message,
@@ -45,7 +46,7 @@ public sealed class GcAgentPostSink(IGcLogWriter writer, IGcBodyCodec bodyCodec)
             SourceTrust.Agent,
             ClientMsgId(turnId, text))
         {
-            Message = bodyCodec.Seal(text),
+            Message = body,
         };
         await writer.AppendAsync(request, cancellationToken).ConfigureAwait(false);
     }

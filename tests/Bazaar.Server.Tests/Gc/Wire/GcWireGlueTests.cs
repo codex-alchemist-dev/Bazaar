@@ -225,7 +225,8 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
     private static AppendRequest TextAppend(Guid gc, PrincipalRef author, string text, string clientMsgId) =>
         new(gc, GcEventKinds.Message, AuthorKind.Human, author.Id, SourceTrust.MemberHuman, clientMsgId)
         {
-            Message = new PlaintextGcBodyCodec().Seal(text),
+            // Plaintext sealing never awaits, so blocking on the value here is safe in a synchronous helper.
+            Message = new PlaintextGcBodyCodec().SealAsync(author.Id, text, default).AsTask().GetAwaiter().GetResult(),
         };
 
     /// <summary>A fake connection: enough of <see cref="IWireConnection"/> for the handlers and the subscription session.</summary>
