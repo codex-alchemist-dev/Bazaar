@@ -32,14 +32,23 @@ public sealed class AesGcmGcBodyCodec(NpgsqlDataSource dataSource, IKekProvider?
 
         var key = await keys.GetOrCreateActiveAsync(authorId, ct).ConfigureAwait(false);
         var plaintext = Encoding.UTF8.GetBytes(text);
-        var nonce = RandomNumberGenerator.GetBytes(_nonceSize);
-        var sealed_ = new byte[plaintext.Length + _tagSize];
-        using (var aes = new AesGcm(key.DataKey, _tagSize))
+        try
         {
-            aes.Encrypt(nonce, plaintext, sealed_.AsSpan(0, plaintext.Length), sealed_.AsSpan(plaintext.Length), key.KeyId.ToByteArray());
-        }
+            var nonce = RandomNumberGenerator.GetBytes(_nonceSize);
+            var sealed_ = new byte[plaintext.Length + _tagSize];
+            using (var aes = new AesGcm(key.DataKey, _tagSize))
+            {
+                aes.Encrypt(nonce, plaintext, sealed_.AsSpan(0, plaintext.Length), sealed_.AsSpan(plaintext.Length), key.KeyId.ToByteArray());
+            }
 
-        return new MessageBody(sealed_, key.KeyId, nonce);
+            return new MessageBody(sealed_, key.KeyId, nonce);
+        }
+        finally
+        {
+            // Shorten how long the data key and plaintext sit in process memory.
+            CryptographicOperations.ZeroMemory(key.DataKey);
+            CryptographicOperations.ZeroMemory(plaintext);
+        }
     }
 
     /// <inheritdoc />
@@ -58,9 +67,17 @@ public sealed class AesGcmGcBodyCodec(NpgsqlDataSource dataSource, IKekProvider?
 
         var bodyLength = ciphertext.Length - _tagSize;
         var plaintext = new byte[bodyLength];
-        using var aes = new AesGcm(dataKey, _tagSize);
-        aes.Decrypt(nonce.Span, ciphertext.Span[..bodyLength], ciphertext.Span[bodyLength..], plaintext, keyId.ToByteArray());
-        return Encoding.UTF8.GetString(plaintext);
+        try
+        {
+            using var aes = new AesGcm(dataKey, _tagSize);
+            aes.Decrypt(nonce.Span, ciphertext.Span[..bodyLength], ciphertext.Span[bodyLength..], plaintext, keyId.ToByteArray());
+            return Encoding.UTF8.GetString(plaintext);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(dataKey);
+            CryptographicOperations.ZeroMemory(plaintext);
+        }
     }
 
     private PersonKeyStore RequireKeys() =>
