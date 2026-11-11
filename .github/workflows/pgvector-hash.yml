@@ -1,0 +1,27 @@
+# Temporary: computes the SHA-256 of the pgvector 0.8.2 source archive so it can be pinned in
+# packaging/postgres/versions.txt. Remove this workflow once the pin is merged.
+
+name: pgvector hash (temporary)
+
+on:
+  push:
+    branches: [claude/pgvector-082]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download pgvector 0.8.2 archive and hash it
+        run: |
+          set -euo pipefail
+          url="https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.2.tar.gz"
+          curl -fsSL --retry 4 -o pgvector-0.8.2.tar.gz "$url"
+          sha=$(sha256sum pgvector-0.8.2.tar.gz | cut -d' ' -f1)
+          echo "PGVECTOR_SHA256=${sha^^}"
+          echo "PGVECTOR_SHA256=${sha^^}" >> "$GITHUB_STEP_SUMMARY"
+          tar -tzf pgvector-0.8.2.tar.gz | head -3
