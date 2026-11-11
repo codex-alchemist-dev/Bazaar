@@ -26,7 +26,7 @@ namespace Bazaar.Server.Vault.Writes;
 /// <b>Not yet here:</b> memory batching, the conflict card itself, and the indexer hook (owned by other threads).
 /// </para>
 /// </remarks>
-public sealed partial class VaultWriter : IDisposable
+public sealed partial class VaultWriter : IVaultWriter, IDisposable
 {
     private const string _decisionsFolder = "decisions";
 
