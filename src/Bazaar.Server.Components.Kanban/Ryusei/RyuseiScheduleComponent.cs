@@ -5,6 +5,7 @@ using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Audit;
+using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -83,6 +84,18 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             services.TryAddSingleton<IRyuseiAgentDirectory>(sp => new SqlRyuseiAgentDirectory(
                 sp.GetRequiredService<NpgsqlDataSource>(),
                 projectId));
+            // Policy for each tool (doc 15). Reading the list is autonomous. Changing a trigger is autonomous with a notice,
+            // which hard taint escalates to owner approval. Every write has a quota, so a runaway agent is capped even
+            // before the trigger guards (doc 38, Loop and runaway safeguards) run.
+            services.AddSingleton(new ToolCapability(RyuseiToolContract.ListToolName, ToolTier.Autonomous, CapabilityClass.Read,
+                SessionRoles.Reader | SessionRoles.Actor, new RateRule(120, TimeSpan.FromHours(1))));
+            services.AddSingleton(new ToolCapability(RyuseiToolContract.ScheduleToolName, ToolTier.AutonomousWithNotice, CapabilityClass.Exec,
+                SessionRoles.Actor, new RateRule(10, TimeSpan.FromHours(1))));
+            services.AddSingleton(new ToolCapability(RyuseiToolContract.PauseToolName, ToolTier.AutonomousWithNotice, CapabilityClass.Exec,
+                SessionRoles.Actor, new RateRule(30, TimeSpan.FromHours(1))));
+            services.AddSingleton(new ToolCapability(RyuseiToolContract.CancelToolName, ToolTier.AutonomousWithNotice, CapabilityClass.Exec,
+                SessionRoles.Actor, new RateRule(30, TimeSpan.FromHours(1))));
+
             services.AddSingleton(sp => new ToolRegistration(RyuseiToolContract.ScheduleToolName, new RyuseiScheduleTool(
                 sp.GetRequiredService<RyuseiTriggerService>(),
                 sp.GetRequiredService<IRyuseiAgentDirectory>(),

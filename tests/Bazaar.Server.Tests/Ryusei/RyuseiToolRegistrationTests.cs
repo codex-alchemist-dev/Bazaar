@@ -1,5 +1,6 @@
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Kanban.Ryusei;
+using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -33,6 +34,15 @@ public sealed class RyuseiToolRegistrationTests
 
         Assert.Equal(4, services.Count(d => d.ServiceType == typeof(ToolRegistration)));
         Assert.Single(services, d => d.ServiceType == typeof(IRyuseiAgentDirectory));
+        Assert.Equal(4, services.Count(d => d.ServiceType == typeof(ToolCapability)));
+    }
+
+    [Fact]
+    public void No_capabilities_are_registered_without_a_project_id()
+    {
+        var services = Build(new Dictionary<string, string?>());
+
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(ToolCapability));
     }
 
     private static List<ServiceDescriptor> Build(Dictionary<string, string?> settings)
