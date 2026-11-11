@@ -25,7 +25,9 @@ public sealed class ConstellationComponent : IBazaarComponent
         Version: "0.1.0",
         Kind: ComponentKind.Feature,
         DependsOn: [],
-        Provides: ["feature:constellation", "feature:constellation:tiles"]);
+        Provides: ["feature:constellation", "feature:constellation:tiles"],
+        // The Vault graph is used only when Constellation:VaultId is set (doc 40, section 3).
+        SoftDependsOn: ["vault"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
 

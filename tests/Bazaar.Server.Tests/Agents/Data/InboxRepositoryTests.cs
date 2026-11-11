@@ -151,4 +151,61 @@ public sealed class InboxRepositoryTests(AgentDb db) : IClassFixture<AgentDb>
         Assert.Equal(20, ids.Count);
         Assert.Equal(20, ids.Distinct().Count());
     }
+
+    [Fact]
+    public async Task Peek_returns_due_pending_items_in_claim_order_and_changes_nothing()
+    {
+        SkipWithoutDatabase();
+        var agent = await NewAgentAsync();
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "gc_digest", 7, SourceRef: "digest-1"), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, Guid.CreateVersion7(), 2), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "interrupt", 0, SourceRef: "push-1"), Ct);
+
+        var first = await Inbox.PeekDueAsync(agent, 10, Ct);
+        var second = await Inbox.PeekDueAsync(agent, 10, Ct);
+
+        Assert.Equal(["interrupt", "mention", "gc_digest"], first.Select(r => r.Kind));
+        Assert.Equal(first.Select(r => r.InboxItemId), second.Select(r => r.InboxItemId));
+        Assert.Equal(3, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
+        Assert.Equal(0, await Inbox.CountAsync(agent, InboxState.Claimed, Ct));
+    }
+
+    [Fact]
+    public async Task Peek_respects_the_limit()
+    {
+        SkipWithoutDatabase();
+        var agent = await NewAgentAsync();
+        for (var i = 0; i < 5; i++)
+            await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, Guid.CreateVersion7(), i + 1), Ct);
+
+        Assert.Equal(2, (await Inbox.PeekDueAsync(agent, 2, Ct)).Count);
+        Assert.Equal(5, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
+    }
+
+    [Fact]
+    public async Task Peek_skips_items_that_are_not_due_and_items_already_claimed()
+    {
+        SkipWithoutDatabase();
+        var agent = await NewAgentAsync();
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "scheduled", 4, DueAt: DateTimeOffset.UtcNow.AddDays(1)), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, SourceRef: "dm-11"), Ct);
+        await Inbox.ClaimAsync(agent, "turn-a", 5, Ct);
+
+        Assert.Empty(await Inbox.PeekDueAsync(agent, 10, Ct));
+    }
+
+    [Fact]
+    public async Task Peek_then_claim_by_id_takes_the_peeked_items()
+    {
+        SkipWithoutDatabase();
+        var agent = await NewAgentAsync();
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, SourceRef: "dm-12"), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(agent, "assignment", 2, SourceRef: "card-12"), Ct);
+
+        var peeked = (await Inbox.PeekDueAsync(agent, 10, Ct)).Select(r => r.InboxItemId).ToArray();
+        var claimed = await Inbox.ClaimByIdAsync(agent, "turn-b", peeked, Ct);
+
+        Assert.Equal(peeked.Length, claimed.Count);
+        Assert.Equal(2, await Inbox.CountAsync(agent, InboxState.Claimed, Ct));
+    }
 }

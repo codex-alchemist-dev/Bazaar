@@ -56,6 +56,40 @@ public sealed class InboxRepository(NpgsqlDataSource dataSource)
     }
 
     /// <summary>
+    /// Reads up to <paramref name="limit"/> due pending items, in the same order <see cref="ClaimAsync"/> claims them
+    /// (priority, due time, id). Nothing is claimed or locked, so a caller can read the batch and claim it later by id.
+    /// </summary>
+    public async Task<IReadOnlyList<InboxRow>> PeekDueAsync(Guid agentId, int limit, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT inbox_item_id, kind, priority, gc_id, gc_seq, source_ref
+            FROM inbox_item
+            WHERE agent_id = @agent_id AND state = 'pending' AND due_at <= now()
+            ORDER BY priority, due_at, inbox_item_id
+            LIMIT @limit
+            """);
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        var rows = new List<InboxRow>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            rows.Add(new InboxRow(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                reader.GetInt16(2),
+                reader.IsDBNull(3) ? null : reader.GetGuid(3),
+                reader.IsDBNull(4) ? null : reader.GetInt64(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     /// Claims up to <paramref name="limit"/> due pending items for <paramref name="holder"/>, highest priority first.
     /// Rows locked by another claim are skipped, so two claims never get the same item.
     /// </summary>

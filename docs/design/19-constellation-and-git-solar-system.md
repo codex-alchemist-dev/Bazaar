@@ -78,6 +78,14 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 | `constellation.orbit_radius` | enum `age` or `equal` | `age` | project | project owner or operator | No (audited) |
 | `constellation.screenshot_sources` | list of `gc_attachments`, `test_artifacts` | `gc_attachments` | install | operator | No (audited) |
 
+**Decided 2026-11-11 (safe default, coordinator).** These rules fix how `constellation.orbit_radius` maps to body radii. They are the shipped safe default, not an owner decision.
+1. `age`: a body's radius scales linearly between `MinOrbitRadius` and `MaxOrbitRadius` by its last-activity age. Older bodies sit on outer orbits. The ratio is clamped to 0 to 1.
+2. `equal`: every body uses one uniform radius, which is `MinOrbitRadius`.
+3. If all ages are equal, the radius is `MinOrbitRadius`.
+4. Defaults: `MinOrbitRadius` 10 (equal to the current `OrbitSpacing` default) and `MaxOrbitRadius` 100. Both live on `LayoutOptions`. The operator may change them. `OrbitSpacing`'s default is unchanged.
+
+`constellation.git_layout` (deterministic or force) is still a caller dispatch between `SolarOrbitLayout` and `ForceLayout`. It is not mapped onto `LayoutOptions`.
+
 ## Behaviour and edge cases
 - **Ordering.** Frames carry `GraphVersion` and `LayoutSeq`. The client drops any frame older than the newest applied.
 - **Node identity.** Nodes key on the Vault document ID, not the path, so a rename keeps the node's place. Unresolved links stay as dim ghost nodes.

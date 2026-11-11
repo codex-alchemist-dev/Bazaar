@@ -44,10 +44,22 @@ public static class BazaarComponentRegistration
         return services;
     }
 
+    /// <summary>
+    /// Renamed component ids, mapped to the id they had. An operator who set the old key keeps their setting: the old key is read
+    /// when the new one is absent. Add an entry whenever a component id changes after a release.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> LegacyIds { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal) { ["ryusei"] = "ryusei-schedule" };
+
     /// <summary>Whether a component is enabled by configuration. Missing settings mean enabled.</summary>
     public static bool IsEnabled(IConfiguration configuration, string componentId)
     {
         var value = configuration["Bazaar:Components:" + componentId + ":Enabled"];
+        if (value is null && LegacyIds.TryGetValue(componentId, out var legacy))
+        {
+            value = configuration["Bazaar:Components:" + legacy + ":Enabled"];
+        }
+
         return value is null || !bool.TryParse(value, out var enabled) || enabled;
     }
 }

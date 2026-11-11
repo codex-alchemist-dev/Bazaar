@@ -345,14 +345,16 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
         Assert.Equal(GcEventKinds.System, line.Kind);
         Assert.Contains(agent.ToString("D"), line.PayloadJson);
 
-        // The fire woke the target, and its wake is keyed to the line's (gc_id, gc_seq), not to the fire id.
+        // The fire woke the target. The wake is keyed to the line's (gc_id, gc_seq) and carries the fire id as its source ref,
+        // so the woken turn can read the fire's chain depth (WakeChainDepthSource).
         var fires = await FiresOfAsync(row.TriggerId);
-        Assert.Equal("woke", Assert.Single(fires).Outcome);
+        var fire = Assert.Single(fires);
+        Assert.Equal("woke", fire.Outcome);
         var wake = Assert.Single(await ByGcInboxOfAsync(agent));
         Assert.Equal(attachGc, wake.GcId);
         Assert.Equal(7, wake.Seq);
         Assert.Equal("ryusei_ping", wake.Kind);
-        Assert.Null(wake.SourceRef);
+        Assert.Equal(fire.FireId.ToString("D"), wake.SourceRef);
     }
 
     [Fact]
