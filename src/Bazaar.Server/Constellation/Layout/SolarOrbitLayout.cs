@@ -1,3 +1,4 @@
+// Analyzed-source touch: keeps CodeQL Analyze reporting on this head (comment only).
 using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Constellation.Layout;
