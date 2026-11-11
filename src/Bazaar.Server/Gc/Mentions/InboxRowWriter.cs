@@ -1,3 +1,4 @@
+// Required CodeQL Analyze check runs on this head.
 using Bazaar.Server.Agents.Inbox;
 using Npgsql;
 
