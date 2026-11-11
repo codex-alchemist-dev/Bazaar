@@ -241,6 +241,8 @@ public sealed class GcAgentPostSinkTests
         services.AddSingleton<IGcLogWriter>(new RecordingGcLogWriter());
         services.AddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
         services.AddSingleton<ILoopGuard>(new LoopGuardFacade(TimeProvider.System));
+        // The default mention directory and inbox writer take the shared data source. Nothing connects here.
+        services.AddSingleton(NpgsqlDataSource.Create("Host=localhost"));
         services.AddGcAgentPostSink();
         services.AddGcAgentPostSink();
 

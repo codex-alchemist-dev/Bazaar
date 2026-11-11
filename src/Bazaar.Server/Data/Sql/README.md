@@ -46,6 +46,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `ryusei/0001` | WP-R3 | this PR | RyuseiFuda schedule (doc 38, Layer 2): `ryusei_trigger` (attach GC set exactly when `ping_mode = 'attach'`) and append-only `ryusei_fire` with `UNIQUE (trigger_id, scheduled_for)`; FKs to `tasks` and `gc` only |
 | `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
 | `souls/0001` | SOUL-RET | this PR | `soul_retirement_step`: durable latest outcome per Soul, agent and step (doc 07, WP6). Lives in the `souls` namespace because `common/` is frozen |
+| `mentions/0001` | WP-HANDLES | this PR | `principal_handle`: optional unique lowercase handle per principal (agent or human id), the source of `@handle` mentions; backfills a slug of `agent.name` for existing agents. Lives in the `mentions` namespace because `common/` is frozen; no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
