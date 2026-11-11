@@ -21,6 +21,7 @@ namespace Bazaar.Server.Agents.Scheduling;
 /// A turn whose lease is held elsewhere
 /// (<see cref="TurnEndReason.LeaseLost"/>) is counted as a lease skip, not an error. One agent's failure is logged and counted;
 /// it does not stop the other agents. Cancellation of the pass token stops the pass.
+/// A pass returns only after every turn it started has ended, so an agent that becomes due during a pass waits for the next one.
 /// </remarks>
 public sealed partial class InboxAgentScheduler(
     IDueAgentReader dueAgents,
