@@ -58,7 +58,7 @@ Risks the first change must check:
 
 Goal: clicking the app icon always opens the window immediately. Mechanism:
 
-1. **Autostart at login, opt-in.** Windows: a per-user Run key or a logon Task Scheduler task (the MSIX `windows.startupTask` is the alternative once packaging is settled; it decides the mechanism, an open question). Linux: a systemd user unit (`bazaar-preloader.service`, enabled per user; linger only if the owner wants it at boot) with an XDG autostart file as the fallback for other desktops.
+1. **Autostart at login, opt-in.** Windows: a per-user Run key (decided above). Linux: a systemd user unit (`bazaar-preloader.service`, enabled per user; linger only if the owner wants it at boot) with an XDG autostart file as the fallback for other desktops.
 2. **Warm hidden process.** The preloader starts the client head with `--preload`: the runtime, Avalonia and the R2R code are loaded, the cached shell is built, and the window is created but not shown. The icon launches a second instance, which the existing `LaunchPipe` single-instance logic forwards to the warm process, which shows its window. If the warm process is missing, the icon starts a normal cold instance (the fallback is always the cold path; nothing depends on the preloader).
 3. **Memory budget.** A setting (`client.preload.max_mb`) caps the warm process's working set. If idle RAM is below the budget, the preloader exits. Nothing is preloaded on battery saver or under memory pressure.
 4. **Off by default.** The owner turns it on in settings. The first-run prompt explains what stays in memory. The setting is audited like other settings.
@@ -79,10 +79,13 @@ For each of win-x64 and linux-x64, publish framework-dependent and R2R variants 
 
 Results go in a follow-up note in `docs/research/notes/startup-performance/`. A budget in doc 28 changes only from those numbers.
 
+## Decisions taken (coordinator, 2026-11-11; owner delegated)
+
+1. **Windows packaging: unpackaged.** Self-contained win-x64 publish, no MSIX for now. Autostart is a per-user Run key (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `Bazaar Preloader`). A per-user logon scheduled task is the fallback. MSIX `windows.startupTask` stays a later option when MSIX packaging lands (doc 37).
+2. **SDK pin: latest 11.0 SDK, including the RC.** `global.json` keeps `11.0.100-rc.2.26504.105` as the installed floor and changes `rollForward` from `latestPatch` to `latestFeature`, so the repo follows the newest 11.0 feature band (and the GA when it ships) without a manual bump. `allowPrerelease` stays true until GA. CLAUDE.md already describes this intent, so it is unchanged.
+
 ## Open questions
 
-1. Windows packaging: MSIX or unpackaged? It decides between a `windows.startupTask` and a Run key.
-2. SDK pin: move `global.json` from the RC to the GA 11.0 SDK when it ships? (Owner decision; `global.json` and CLAUDE.md currently disagree.)
-3. Preloader default: stay off (this doc's recommendation) or on for Windows?
-4. Memory budget default for the warm process (this doc proposes a setting, no value until measured).
-5. Composite R2R and MIBC profile: measure in a second round or not at all?
+1. Preloader default for Windows: stay off (this doc's recommendation) or on after the first-run prompt?
+2. Memory budget default for the warm process (a setting, no value until measured).
+3. Composite R2R and MIBC profile: measure in a second round or not at all?

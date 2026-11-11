@@ -8,6 +8,7 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
 
@@ -61,6 +62,7 @@ internal static class Program
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             tiles: HttpConstellationTileSource.Create(ClientServer.Current));
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
+        var preloadStart = PreloadArguments.IsPreload(args);
 
         // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
         // With --panes it shows the Kanban and Constellation panes instead of the start content (chat keeps running).
@@ -76,6 +78,11 @@ internal static class Program
             }
 
             var window = chatView is null ? new MainWindow() : new MainWindow(chatView);
+            if (preloadStart)
+            {
+                // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).
+                window.Opened += (_, _) => window.Hide();
+            }
             if (showPanes)
             {
                 window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
@@ -118,6 +125,11 @@ internal static class Program
     {
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
+            if (!window.IsVisible)
+            {
+                window.Show();
+            }
+
             window.WindowState = WindowState.Normal;
             window.Activate();
         }

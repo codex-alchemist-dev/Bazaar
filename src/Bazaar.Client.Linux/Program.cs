@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Threading;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Wire;
 
 namespace Bazaar.Client.Linux;
@@ -25,7 +26,19 @@ internal static class Program
         }
 
         var paths = LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
-        return BuildAvaloniaApp(() => CreateMainWindow(settings, paths)).StartWithClassicDesktopLifetime(args);
+        // The warm process (doc 40) builds its window hidden; the window stays hidden until a forwarded launch shows it.
+        var preloadStart = PreloadArguments.IsPreload(args);
+        return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart)).StartWithClassicDesktopLifetime(args);
+    }
+
+    private static MainWindow HideIfPreloading(MainWindow window, bool preloadStart)
+    {
+        if (preloadStart)
+        {
+            window.Opened += (_, _) => window.Hide();
+        }
+
+        return window;
     }
 
     private static AppBuilder BuildAvaloniaApp(Func<MainWindow> createMainWindow) =>
