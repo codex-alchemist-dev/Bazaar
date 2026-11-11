@@ -35,6 +35,9 @@ public static class GcWireServiceCollectionExtensions
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
             sp.GetService<Bazaar.Server.Identity.Keys.IKekProvider>()));
 
+        services.TryAddSingleton<Bazaar.Server.Gc.Mentions.IInboxRowWriter>(sp => new Bazaar.Server.Gc.Mentions.InboxRowWriter(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+
         services.TryAddSingleton<PgGcStreamSource>();
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
