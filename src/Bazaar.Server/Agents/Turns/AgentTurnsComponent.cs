@@ -39,6 +39,11 @@ public sealed class AgentTurnsComponent : IBazaarComponent
 
         services.TryAddSingleton(new TurnRunnerOptions());
         services.TryAddSingleton(new SubagentOptions());
+
+        // The tool registry is built from every ToolRegistration a component adds. With none registered it is empty, so
+        // no tool is offered to a model until its component is enabled and configured (doc 38, Settings).
+        services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(
+            sp.GetServices<ToolRegistration>().Select(registration => (registration.Name, registration.Tool))));
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
         // Postgres crash markers (turns_inflight/0001). Needs an NpgsqlDataSource from the host.
         services.TryAddSingleton<IInFlightCallStore, PostgresInFlightCallStore>();

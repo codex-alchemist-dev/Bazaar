@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Read;
@@ -73,5 +74,30 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             timeProvider: sp.GetRequiredService<TimeProvider>(),
             logger: sp.GetRequiredService<ILogger<RyuseiEventListener>>()));
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RyuseiEventListener>());
+
+        // Agent tools (doc 38, WP-R9). They need the project the directory is built for, and the directory has no project
+        // link in the database yet (see SqlRyuseiAgentDirectory). So no tool is offered until the operator sets
+        // Bazaar:Ryusei:ProjectId. Without it the model is never offered ryusei.* tools.
+        if (Guid.TryParse(configuration[$"{SectionName}:ProjectId"], out var projectId))
+        {
+            services.TryAddSingleton<IRyuseiAgentDirectory>(sp => new SqlRyuseiAgentDirectory(
+                sp.GetRequiredService<NpgsqlDataSource>(),
+                projectId));
+            services.AddSingleton(sp => new ToolRegistration(RyuseiToolContract.ScheduleToolName, new RyuseiScheduleTool(
+                sp.GetRequiredService<RyuseiTriggerService>(),
+                sp.GetRequiredService<IRyuseiAgentDirectory>(),
+                sp.GetRequiredService<TimeProvider>())));
+            services.AddSingleton(sp => new ToolRegistration(RyuseiToolContract.ListToolName, new RyuseiListTool(
+                sp.GetRequiredService<RyuseiTriggerService>(),
+                sp.GetRequiredService<IRyuseiAgentDirectory>())));
+            services.AddSingleton(sp => new ToolRegistration(RyuseiToolContract.PauseToolName, new RyuseiPauseTool(
+                sp.GetRequiredService<RyuseiTriggerService>(),
+                sp.GetRequiredService<IRyuseiAgentDirectory>(),
+                sp.GetRequiredService<TimeProvider>())));
+            services.AddSingleton(sp => new ToolRegistration(RyuseiToolContract.CancelToolName, new RyuseiCancelTool(
+                sp.GetRequiredService<RyuseiTriggerService>(),
+                sp.GetRequiredService<IRyuseiAgentDirectory>(),
+                sp.GetRequiredService<TimeProvider>())));
+        }
     }
 }
