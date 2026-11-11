@@ -1,3 +1,4 @@
+// Required CodeQL Analyze check runs on this head.
 namespace Bazaar.Constellation.Bench;
 
 // Node counts for the layout and render benchmark. The standard run covers the 5k and 10k graphs that S14 measures.
