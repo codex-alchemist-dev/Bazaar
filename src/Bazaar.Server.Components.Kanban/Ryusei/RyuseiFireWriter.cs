@@ -114,7 +114,9 @@ public sealed class RyuseiFireWriter
             {
                 await InboxRepository.EnqueueAsync(
                     tx,
-                    new InboxEnqueue(agentId, InboxKind.RyuseiPing, priority, GcId: ping.GcId, GcSeq: ping.Seq),
+                    // SourceRef lets the woken turn find its fire. The ref dedupe index covers only rows with no GC id, so it
+                    // does not apply to this row; the GC dedupe key (agent, gc, seq, kind) still makes the ping idempotent.
+                    new InboxEnqueue(agentId, InboxKind.RyuseiPing, priority, GcId: ping.GcId, GcSeq: ping.Seq, SourceRef: fireId.ToString("D")),
                     ct).ConfigureAwait(false);
             }
         }

@@ -4,7 +4,7 @@ namespace Bazaar.Server.Constellation.Tiles;
 
 /// <summary>
 /// Supplies the tile for a viewport request (doc 19, tile and LOD feed). The real source reads the layout store; tests and
-/// the first endpoint wiring use <see cref="FakeConstellationTileSource"/>. Returns null when there is nothing to show.
+/// the first endpoint wiring use <c>FakeConstellationTileSource</c>. Returns null when there is nothing to show.
 /// </summary>
 public interface IConstellationTileSource
 {
