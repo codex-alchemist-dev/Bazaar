@@ -3,6 +3,10 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(RuntimeIdentifier)' != ''">
+    <!-- Publish-only precompilation for the GUI head (doc 40). Needs a RID; ignored by plain builds. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
   </ItemGroup>
