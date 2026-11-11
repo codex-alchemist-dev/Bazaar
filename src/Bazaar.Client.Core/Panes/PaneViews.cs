@@ -23,6 +23,7 @@ public static class PaneViews
         GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
         RyuseiSchedulePaneViewModel schedule => WithTitle(schedule.Title, RyuseiSchedule(schedule)),
         RoadmapPaneViewModel roadmap => WithTitle(roadmap.Title, Roadmap(roadmap)),
+        WorkdayPaneViewModel workday => WithTitle(workday.Title, Workday(workday)),
         Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
@@ -105,6 +106,32 @@ public static class PaneViews
         }
 
         return rows;
+    }
+
+    private static StackPanel Workday(WorkdayPaneViewModel workday)
+    {
+        var body = new StackPanel { Spacing = 10 };
+        if (workday.Owners.Count == 0)
+        {
+            body.Children.Add(new TextBlock { Text = "No tasks on the board.", Opacity = 0.7 });
+            return body;
+        }
+
+        foreach (var owner in workday.Owners)
+        {
+            body.Children.Add(new TextBlock { Text = $"{owner.Name} ({owner.Tasks.Count})", FontWeight = FontWeight.SemiBold });
+            foreach (var task in owner.Tasks)
+            {
+                body.Children.Add(new TextBlock
+                {
+                    Text = task.Line,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(16, 0, 0, 0),
+                });
+            }
+        }
+
+        return body;
     }
 
     private static StackPanel Roadmap(RoadmapPaneViewModel roadmap)

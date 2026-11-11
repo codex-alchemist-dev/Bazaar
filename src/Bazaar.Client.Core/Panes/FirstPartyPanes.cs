@@ -45,6 +45,7 @@ public static class FirstPartyPanes
         registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, chat));
         registry.Register(PaneKinds.RyuseiSchedule, descriptor => new RyuseiSchedulePaneViewModel(descriptor));
         registry.Register(PaneKinds.Roadmap, descriptor => new RoadmapPaneViewModel(descriptor));
+        registry.Register(PaneKinds.Workday, descriptor => new WorkdayPaneViewModel(descriptor));
         return registry;
     }
 

@@ -32,4 +32,7 @@ public static class PaneKinds
 
     /// <summary>RyuseiFuda objective roadmap: phases, objectives and task progress (doc 38, layer 3).</summary>
     public const string Roadmap = "bazaar.roadmap";
+
+    /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
+    public const string Workday = "bazaar.ryusei-workday";
 }
