@@ -3,6 +3,7 @@ using Bazaar.Server.Community;
 using Bazaar.Server.Company;
 using Bazaar.Server.Components;
 using Bazaar.Server.Components.Backup;
+using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -40,6 +41,7 @@ public static class HostComponents
         new VaultComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
