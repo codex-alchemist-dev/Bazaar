@@ -19,6 +19,8 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
+        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).

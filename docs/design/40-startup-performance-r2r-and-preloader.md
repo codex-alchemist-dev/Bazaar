@@ -66,6 +66,13 @@ Goal: clicking the app icon always opens the window immediately. Mechanism:
 
 The module lives in `Bazaar.Client.Core` behind a `IPreloadProvider` interface, with `Bazaar.Client.Windows` and `Bazaar.Client.Linux` supplying the autostart implementation. It is a separate module, so it can be disabled without touching the client.
 
+## GC and tiering (decided 2026-11-11, owner)
+
+- **Server host:** Server GC with DATAS (`System.GC.Server=true`, `System.GC.DynamicAdaptationMode=1`), concurrent on. Set as runtimeconfig in `Bazaar.Server.Host.csproj`. Re-check each .NET release for newer GC modes; the default is the modern option.
+- **Clients (Windows, Linux):** workstation concurrent GC with TieredPGO (`System.GC.Server=false`, `System.GC.Concurrent=true`, `System.Runtime.TieredPGO=true`), and `GCLatencyMode.SustainedLowLatency` set at start-up. Set in the head csproj and `Main`.
+- **Android:** not decided here; follows the same client rules once measured.
+- Interactive or low-latency GC modes beyond these were not benchmarked in this change; the benchmark decides whether to keep SustainedLowLatency.
+
 ## Measurement plan (decides the budgets)
 
 The owner's PC (`CKorvix_V1`) is the baseline machine. Work happens in a worktree under `V:\git\Bazaar.Workspace`, never the shared checkout.

@@ -14,6 +14,8 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
+        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         ChatConnectionSettings? settings;
         try
         {
