@@ -7,6 +7,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Jobs;
+using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,7 @@ public static class HostApplicationExtensions
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
+        services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
 
