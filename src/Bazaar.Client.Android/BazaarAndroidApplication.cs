@@ -5,7 +5,7 @@ using Avalonia.Android;
 
 namespace Bazaar.Client.Android;
 
-[Application]
+[Application(NetworkSecurityConfig = "@xml/network_security_config")]
 public class BazaarAndroidApplication : AvaloniaAndroidApplication<App>
 {
     public BazaarAndroidApplication(nint javaReference, JniHandleOwnership transfer)

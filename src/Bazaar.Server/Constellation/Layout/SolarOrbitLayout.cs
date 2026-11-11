@@ -1,3 +1,5 @@
+using Bazaar.Server.Settings;
+
 namespace Bazaar.Server.Constellation.Layout;
 
 /// <summary>
@@ -80,6 +82,55 @@ public static class SolarOrbitLayout
         }
 
         return positions;
+    }
+
+    /// <summary>
+    /// Orbit radius for one branch body from its last-activity age (docs/design/19, Settings). Pure: no graph, no randomness.
+    /// In <c>Equal</c> mode the radius is <see cref="LayoutOptions.MinOrbitRadius"/> for any age. In <c>Age</c> mode it is
+    /// linear from <see cref="LayoutOptions.MinOrbitRadius"/> at <paramref name="minAge"/> to
+    /// <see cref="LayoutOptions.MaxOrbitRadius"/> at <paramref name="maxAge"/>. Ages outside that range are clamped, and
+    /// when the two ages are equal the radius is <see cref="LayoutOptions.MinOrbitRadius"/>. Older bodies get outer orbits.
+    /// Ages may use any single consistent unit.
+    /// </summary>
+    /// <remarks>
+    /// This helper is exposed for the Git Solar System wiring. <see cref="Layout"/> still places nodes by hop depth and does not
+    /// call it yet, because it takes no activity ages.
+    /// </remarks>
+    public static double BodyOrbitRadius(LayoutOptions options, double age, double minAge, double maxAge)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ValidateOrbitRadii(options);
+
+        if (!double.IsFinite(age))
+        {
+            throw new ArgumentOutOfRangeException(nameof(age), age, "Age must be finite.");
+        }
+
+        if (!double.IsFinite(minAge) || !double.IsFinite(maxAge) || maxAge < minAge)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxAge), maxAge, "Minimum and maximum ages must be finite, with the maximum not below the minimum.");
+        }
+
+        if (options.OrbitRadiusMode == ConstellationOrbitRadius.Equal || maxAge == minAge)
+        {
+            return options.MinOrbitRadius;
+        }
+
+        var ratio = Math.Clamp((age - minAge) / (maxAge - minAge), 0, 1);
+        return options.MinOrbitRadius + ((options.MaxOrbitRadius - options.MinOrbitRadius) * ratio);
+    }
+
+    private static void ValidateOrbitRadii(LayoutOptions options)
+    {
+        if (!(options.MinOrbitRadius > 0) || !double.IsFinite(options.MinOrbitRadius))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinOrbitRadius, "Minimum orbit radius must be finite and greater than zero.");
+        }
+
+        if (!double.IsFinite(options.MaxOrbitRadius) || options.MaxOrbitRadius < options.MinOrbitRadius)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxOrbitRadius, "Maximum orbit radius must be finite and at least the minimum orbit radius.");
+        }
     }
 
     private static void ValidateOptions(LayoutOptions options)
