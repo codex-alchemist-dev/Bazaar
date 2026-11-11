@@ -21,6 +21,19 @@ public static class FirstPartyPanes
     /// <summary>An empty Constellation model: no graph loaded yet.</summary>
     private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
+    /// <summary>
+    /// The first-party pane modules, in registration order. The phone pager lists panes in this order (doc 29).
+    /// A head that wants a different set composes its own list with <see cref="PaneRegistry.Compose"/>.
+    /// </summary>
+    public static IReadOnlyList<IPaneModule> Modules { get; } =
+    [
+        new KanbanPaneModule(),
+        new DashboardPaneModule(),
+        new ConstellationPaneModule(),
+        new VaultSearchPaneModule(),
+        new GcPaneModule(),
+    ];
+
     // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI
     // container yet. Decide how client components register (a head composition root or a client kernel), then turn this
     // into per-component registrations. Until then the heads call CreateRegistry.
@@ -32,19 +45,8 @@ public static class FirstPartyPanes
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
-        ChatViewModel? chat = null)
-    {
-        var registry = new PaneRegistry(report);
-        registry.Register(PaneKinds.Kanban, descriptor => new KanbanPaneViewModel(descriptor));
-        registry.Register(PaneKinds.Dashboard, descriptor => new DashboardPaneViewModel(descriptor));
-        registry.Register(PaneKinds.Constellation, descriptor =>
-            new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));
-        var vaultApi = vault ?? VaultApiFactory.Create(ClientServer.Current);
-        registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vaultApi));
-
-        registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, chat));
-        return registry;
-    }
+        ChatViewModel? chat = null) =>
+        PaneRegistry.Compose(Modules, new PaneModuleContext(tiles, vault, chat, report));
 
     /// <summary>
     /// The panes the Windows head shows when started with <c>--panes</c>: the Kanban board and the Constellation
