@@ -32,6 +32,10 @@ public static class RemoteAuthCompositionExtensions
                 ? new DevAccessTokenIssuer(sp.GetRequiredService<TimeProvider>())
                 : new UnavailableAccessTokenIssuer();
         });
+
+        // Dev-only owner row for the dev issuer. Registered only with the flag; DevOwnerSeed also checks Development when it starts.
+        if (configuration.GetValue<bool>(DevIssuerEnabledKey))
+            services.AddHostedService<DevOwnerSeed>();
         return services;
     }
 }

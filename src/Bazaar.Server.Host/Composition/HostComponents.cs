@@ -13,6 +13,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Kanban.Ryusei;
+using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Vault;
 
@@ -38,6 +39,7 @@ public static class HostComponents
         new VaultComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
