@@ -43,6 +43,7 @@ public static class FirstPartyPanes
         registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vaultApi));
 
         registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, chat));
+        registry.Register(PaneKinds.RyuseiSchedule, descriptor => new RyuseiSchedulePaneViewModel(descriptor));
         return registry;
     }
 

@@ -26,4 +26,7 @@ public static class PaneKinds
 
     /// <summary>Vault search pane: search the Vault over GET /vault/search and open a result (doc 18).</summary>
     public const string VaultSearch = "bazaar.vault-search";
+
+    /// <summary>RyuseiFuda micro schedule: the per-agent triggers that wake agents (doc 38, layer 2).</summary>
+    public const string RyuseiSchedule = "bazaar.ryusei-schedule";
 }

@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Core.Ryusei;
 
 namespace Bazaar.Client.Core.Panes;
 
@@ -20,6 +21,7 @@ public static class PaneViews
         DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
         ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
         GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
+        RyuseiSchedulePaneViewModel schedule => WithTitle(schedule.Title, RyuseiSchedule(schedule)),
         Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
@@ -70,6 +72,38 @@ public static class PaneViews
 
         // A fixed height gives the chat's message list a bounded area inside the stacked pane.
         return new Border { Height = 480, Child = new ChatView { DataContext = gc.Chat } };
+    }
+
+    private static StackPanel RyuseiSchedule(RyuseiSchedulePaneViewModel schedule)
+    {
+        var rows = new StackPanel { Spacing = 6 };
+        if (schedule.Schedule.Rows.Count == 0)
+        {
+            rows.Children.Add(new TextBlock { Text = "No triggers scheduled.", Opacity = 0.7 });
+            return rows;
+        }
+
+        foreach (var row in schedule.Schedule.Rows)
+        {
+            rows.Children.Add(new Border
+            {
+                Padding = new Thickness(8),
+                BorderThickness = new Thickness(1),
+                BorderBrush = Brushes.Gray,
+                CornerRadius = new CornerRadius(4),
+                Child = new StackPanel
+                {
+                    Children =
+                    {
+                        new TextBlock { Text = $"{row.KindLabel} · {row.StateLabel}", FontWeight = FontWeight.SemiBold },
+                        new TextBlock { Text = row.Purpose, TextWrapping = TextWrapping.Wrap },
+                        new TextBlock { Text = $"{row.NextFireText} · {row.TargetsText}", Opacity = 0.7, TextWrapping = TextWrapping.Wrap },
+                    },
+                },
+            });
+        }
+
+        return rows;
     }
 
     private static StackPanel Dashboard(DashboardPaneViewModel dashboard)
