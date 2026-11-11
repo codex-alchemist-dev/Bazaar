@@ -1,5 +1,6 @@
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Community;
+using Bazaar.Server.Company;
 using Bazaar.Server.Components;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Constellation;
@@ -29,6 +30,7 @@ public static class HostComponents
         new AuditComponent(),
         new SettingsComponent(),
         new GcComponent(),
+        new CompanyComponent(),
         new FunComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
