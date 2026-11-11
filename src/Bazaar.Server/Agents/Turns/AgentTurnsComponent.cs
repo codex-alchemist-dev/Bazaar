@@ -1,6 +1,6 @@
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Subagents;
-using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
