@@ -37,7 +37,7 @@ public static class RoadmapRepository
                 rows.Add(new RoadmapDocumentRow(reader.GetString(0), reader.GetString(1), reader.GetString(2)));
         }
 
-        // Only objective documents carry task links; the phase rows are classified without them.
+        // Task links are read for every roadmap path, phases included. Only objective paths match a link, so phases come back with no states.
         var candidatePaths = rows.Select(r => r.Path).ToArray();
         var states = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         if (candidatePaths.Length > 0)
