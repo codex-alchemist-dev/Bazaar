@@ -1,6 +1,8 @@
 using Bazaar.Server.Components;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Kanban.Data;
+using Bazaar.Server.Kanban.Wire;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -29,6 +31,13 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<TaskEventRepository>();
         services.TryAddSingleton<TaskLinkRepository>();
         services.TryAddSingleton<TaskService>();
+
+        // Agent tool (doc 12, WP5). The host's tool registry aggregates it with the others; no registry composes tools yet.
+        services.TryAddSingleton<KanbanTransitionTool>();
+
+        // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
+        services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();
+        services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
 
         // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
         var deadline = new DeadlineScanOptions();
