@@ -33,8 +33,8 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0013` | REP1 | merged | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
 | `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
-| `components/remote/0001` | PAIR1 (group 32 WP1) | this PR | `human`, `device`, `refresh_credential`, `pairing_offer`, `passkey_credential`, `recovery_code`, `privacy_settings`, `privacy_request`, `approval_key` (doc 32). Component folder: applies once the component model (PR #125) loads `components/`; inert until then |
-| `components/remote/0002` | PAIR1 follow-up | this PR | `pairing_offer` gains `device_label`, `device_class`, `last_polled_at` (device request shown to the approver; slow_down). Inert until components load |
+| `remote/0001` | PAIR1 (group 32 WP1) | this PR | `human`, `device`, `refresh_credential`, `pairing_offer`, `passkey_credential`, `recovery_code`, `privacy_settings`, `privacy_request`, `approval_key` (doc 32). Applies with `RemoteComponent` (namespace `remote`) |
+| `remote/0002` | PAIR1 follow-up | this PR | `pairing_offer` gains `device_label`, `device_class`, `last_polled_at` (device request shown to the approver; slow_down). Applies with `RemoteComponent` |
 | `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
 | `council/0001` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
 | `interrupts/0001` | INT1 follow-up | this PR | `interrupt_frame.reason` is replaced by sealed columns (`reason_sealed`, `reason_nonce`, `reason_key_id`); AES-256-GCM, bound to frame and agent ids. Lives in the `interrupts` namespace because `common/` is frozen |
@@ -45,6 +45,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `roadmap/0001` | RYU-WP12 | this PR | Objective roadmap views (doc 38, Layer 3): `roadmap_objectives`, `roadmap_phases`, `roadmap_progress`, `roadmap_phase_gate`; views only, no tables. Reads `vault_docs`, `tasks` and `task_links` (`vault_links` is not needed: `depends_on` comes from front matter) |
 | `ryusei/0001` | WP-R3 | this PR | RyuseiFuda schedule (doc 38, Layer 2): `ryusei_trigger` (attach GC set exactly when `ping_mode = 'attach'`) and append-only `ryusei_fire` with `UNIQUE (trigger_id, scheduled_for)`; FKs to `tasks` and `gc` only |
 | `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
+| `souls/0001` | SOUL-RET | this PR | `soul_retirement_step`: durable latest outcome per Soul, agent and step (doc 07, WP6). Lives in the `souls` namespace because `common/` is frozen |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces

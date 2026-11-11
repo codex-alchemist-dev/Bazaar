@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <style name="Theme.Bazaar" parent="@android:style/Theme.Material.Light.NoActionBar" />
+  <style name="Theme.Bazaar" parent="@style/Theme.AppCompat.Light.NoActionBar" />
 </resources>

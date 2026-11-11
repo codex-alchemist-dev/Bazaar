@@ -51,12 +51,12 @@ public sealed class RyuseiToolAdaptersTests
     private static RyuseiTriggerService Service(CapturingAuditLog audit) =>
         new(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none;Username=none;Password=none;Timeout=1"), audit);
 
-    private static async Task<JsonNode> RunAsync(IContextualTool tool, string json, Guid callerAgentId)
+    private static async Task<JsonNode> RunAsync(IContextualTool tool, string json, Guid callerAgentId, int chainDepth = 0)
     {
         using var doc = JsonDocument.Parse(json);
         var raw = await tool.ExecuteAsync(
             doc.RootElement.Clone(),
-            new ToolCallContext(callerAgentId, _session, _turn),
+            new ToolCallContext(callerAgentId, _session, _turn, chainDepth),
             TestContext.Current.CancellationToken);
         return JsonNode.Parse(raw)!;
     }
@@ -80,6 +80,21 @@ public sealed class RyuseiToolAdaptersTests
         Assert.True(registry.TryGet(RyuseiToolContract.ScheduleToolName, out _));
         Assert.True(registry.TryGet(RyuseiToolContract.CancelToolName, out _));
         Assert.False(RyuseiToolContract.TryResolveTool("ryusei.delete", out _));
+    }
+
+    [Fact]
+    public async Task A_schedule_from_a_turn_at_the_maximum_chain_depth_is_refused_as_too_deep()
+    {
+        // The new trigger would be one fire deeper than the caller, so the maximum refuses it. The refusal happens before any
+        // database work, so the closed-port service is never reached.
+        var audit = new CapturingAuditLog();
+        var directory = new InMemoryRyuseiAgentDirectory((_agent, true));
+        var tool = new RyuseiScheduleTool(Service(audit), directory, TimeProvider.System);
+
+        var result = await RunAsync(tool, _scheduleJson, _agent, chainDepth: RyuseiDefaults.MaxChainDepth);
+
+        Assert.Equal("refused", result["status"]!.GetValue<string>());
+        Assert.Equal("ChainDepthExceeded", result["refusal"]!.GetValue<string>());
     }
 
     [Fact]

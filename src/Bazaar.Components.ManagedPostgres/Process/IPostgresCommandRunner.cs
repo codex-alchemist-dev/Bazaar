@@ -3,8 +3,17 @@ namespace Bazaar.Components.ManagedPostgres;
 /// <summary>Runs PostgreSQL tools and child processes. The real implementation uses System.Diagnostics.Process.</summary>
 public interface IPostgresCommandRunner
 {
-    /// <summary>Runs a tool to completion and returns its exit code and combined output.</summary>
-    Task<PostgresCommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, CancellationToken cancellationToken);
+    /// <summary>
+    /// Runs a tool to completion and returns its exit code and combined output. <paramref name="environment"/> adds
+    /// variables for this run only (for example PGPASSWORD); secrets go there, never into <paramref name="arguments"/>.
+    /// <paramref name="workingDirectory"/> is where the tool writes its logs and sockets (pg_upgrade needs it writable).
+    /// </summary>
+    Task<PostgresCommandResult> RunAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? environment = null,
+        string? workingDirectory = null);
 
     /// <summary>Starts a long-running child (postgres) that this runner owns.</summary>
     IPostgresChild Start(string fileName, IReadOnlyList<string> arguments);

@@ -4,7 +4,7 @@ namespace Bazaar.Server.Components.Remote;
 
 /// <summary>
 /// <see cref="IRefreshCredentialStore"/> over the shared <see cref="NpgsqlDataSource"/>, SQL-first (docs/implementation-plan.md).
-/// Tables come from <c>components/remote/0001_pairing_auth.sql</c>. Hash lookups use the unique index on
+/// Tables come from <c>remote/0001_pairing_auth.sql</c>. Hash lookups use the unique index on
 /// <c>refresh_credential.hash</c>. Rotation is one transaction, and the partial unique index allows only one live row per device.
 /// </summary>
 public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) : IRefreshCredentialStore
