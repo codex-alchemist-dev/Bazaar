@@ -1,4 +1,6 @@
+using Bazaar.Contracts.Backup;
 using Bazaar.Server.Components;
+using Bazaar.Server.Components.Backup.Engines;
 using Bazaar.Server.Components.Backup.Jobs;
 using Bazaar.Server.Jobs;
 using Microsoft.Extensions.Configuration;
