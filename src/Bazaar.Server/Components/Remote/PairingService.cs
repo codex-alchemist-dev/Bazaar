@@ -199,19 +199,21 @@ public sealed class PairingService(
 
     private async Task<PairingPoll> RedeemAsync(PairingOfferRecord offer, DateTimeOffset now, CancellationToken ct)
     {
-        // Redeem first: a second poll of the same approval finds "redeemed" and gets nothing.
-        if (!await offers.TryTransitionAsync(offer.Id, "approved", "redeemed", ct))
-            throw new PairingPollException("invalid_grant");
-
         var deviceId = Guid.CreateVersion7(now);
         var credentialId = Guid.CreateVersion7(now);
         var secret = RefreshCredentialSecret.Generate();
         var refreshExpiresAt = now.AddDays(_tokens.RefreshSlidingDays);
         var accessExpiresAt = now.AddMinutes(_tokens.AccessTokenMinutes);
-        var device = new DeviceRecord(deviceId, offer.CreatedBy, offer.DeviceLabel ?? string.Empty, offer.DeviceClass ?? "other", 1, null);
 
-        await credentials.CreateDeviceAsync(device, credentialId, RefreshCredentialSecret.Hash(secret), now, refreshExpiresAt, ct);
+        // Issue before any state change. If the issuer is unavailable it throws here, the approval stays redeemable and no device is created.
         var access = accessTokens.Issue(deviceId, offer.CreatedBy, accessExpiresAt);
+
+        // Redeem before creating the device: a second poll of the same approval finds "redeemed" and gets nothing.
+        if (!await offers.TryTransitionAsync(offer.Id, "approved", "redeemed", ct))
+            throw new PairingPollException("invalid_grant");
+
+        var device = new DeviceRecord(deviceId, offer.CreatedBy, offer.DeviceLabel ?? string.Empty, offer.DeviceClass ?? "other", 1, null);
+        await credentials.CreateDeviceAsync(device, credentialId, RefreshCredentialSecret.Hash(secret), now, refreshExpiresAt, ct);
         await audit.PairingIssuedAsync(offer.CreatedBy.ToString("D"), offer.Id.ToString("D"), deviceId.ToString("D"), device.Class, ct);
 
         return new PairingPoll(

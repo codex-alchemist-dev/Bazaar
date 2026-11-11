@@ -4,7 +4,7 @@ namespace Bazaar.Server.Components.Remote;
 
 /// <summary>
 /// <see cref="IPairingOfferStore"/> over the shared <see cref="NpgsqlDataSource"/>, SQL-first. Tables come from
-/// <c>components/remote/0001_pairing_auth.sql</c> and <c>0002_pairing_device_request.sql</c>. Each transition is one guarded UPDATE.
+/// <c>remote/0001_pairing_auth.sql</c> and <c>0002_pairing_device_request.sql</c>. Each transition is one guarded UPDATE.
 /// </summary>
 public sealed class PostgresPairingOfferStore(NpgsqlDataSource dataSource) : IPairingOfferStore
 {

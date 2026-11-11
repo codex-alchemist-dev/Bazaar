@@ -1,4 +1,6 @@
 // Required CodeQL Analyze check runs on this head.
+using Bazaar.Server.Settings;
+
 namespace Bazaar.Server.Constellation.Layout;
 
 /// <summary>
@@ -39,4 +41,23 @@ public sealed record LayoutOptions
     /// <c>n * OrbitSpacing</c>. Must be finite and positive.
     /// </summary>
     public double OrbitSpacing { get; init; } = 10;
+
+    /// <summary>
+    /// How a branch's orbit radius follows its last-activity age (<c>constellation.orbit_radius</c>). <c>Age</c> scales the
+    /// radius between <see cref="MinOrbitRadius"/> and <see cref="MaxOrbitRadius"/>; <c>Equal</c> uses <see cref="MinOrbitRadius"/>.
+    /// Applied by the body radius helper in <see cref="SolarOrbitLayout"/>.
+    /// </summary>
+    public ConstellationOrbitRadius OrbitRadiusMode { get; init; } = ConstellationOrbitRadius.Age;
+
+    /// <summary>
+    /// Radius of the innermost body orbit (youngest activity in <c>Age</c> mode, every body in <c>Equal</c> mode).
+    /// Safe default 10, which matches <see cref="OrbitSpacing"/>. An operator may change it. Must be finite and positive.
+    /// </summary>
+    public double MinOrbitRadius { get; init; } = 10;
+
+    /// <summary>
+    /// Radius of the outermost body orbit (oldest activity in <c>Age</c> mode). Safe default 100; an operator may change it.
+    /// Must be finite and at least <see cref="MinOrbitRadius"/>.
+    /// </summary>
+    public double MaxOrbitRadius { get; init; } = 100;
 }
