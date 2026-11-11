@@ -23,6 +23,7 @@ public sealed class LoopGuardConfigurationTests
             })
             .Build();
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddBazaarAgentSafety(configuration);
 
         using var provider = services.BuildServiceProvider();
@@ -45,6 +46,7 @@ public sealed class LoopGuardConfigurationTests
             })
             .Build();
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddBazaarAgentSafety(configuration);
 
         using var provider = services.BuildServiceProvider();
