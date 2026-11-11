@@ -1,8 +1,11 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Bazaar.Client.Android.Pairing;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Core.Pairing;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Server;
 
@@ -14,17 +17,31 @@ public sealed class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // TODO(pairing): call ClientServer.Use(endpoint) with the paired endpoint (doc 32). Until then the development default applies.
+        // The first screen is the pairing screen (doc 32, section 3). On success the paired endpoint is set and the phone shell
+        // replaces it. The host stays the root view, so both lifetimes keep one stable root.
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
-        var tiles = HttpConstellationTileSource.Create(ClientServer.Current);
+        var host = new ContentControl();
+        var flow = new PairingFlow(
+            AndroidRefreshCredentials.Create(global::Android.App.Application.Context),
+            uri => PairingClient.Create(uri));
+        var pairing = new PairingViewModel(flow, deviceClass: "android");
+        pairing.Paired += (_, completed) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            ClientServer.Use(PairingClient.ToEndpoint(completed.BaseAddress, completed.Grant));
+            host.Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current));
+        });
+        host.Content = new PairingView(pairing);
+        // Cold start: a stored credential refreshes silently; otherwise the pairing screen stays up.
+        _ = pairing.TryRestoreAsync();
+
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
-            activity.MainViewFactory = () => CreatePhoneShell(tiles);
+            activity.MainViewFactory = () => host;
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single)
         {
-            single.MainView = CreatePhoneShell(tiles);
+            single.MainView = host;
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -49,3 +66,5 @@ public sealed class App : Avalonia.Application
 
 // CodeQL analysis trigger (no functional change).
 // CodeQL analysis trigger, pass 2 (no functional change).
+
+// CodeQL analysis trigger (comment only, no functional change).

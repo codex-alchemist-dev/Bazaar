@@ -25,10 +25,12 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
     public const string SectionName = "Bazaar:Ryusei";
 
     public static ComponentManifest ManifestDefinition { get; } = new(
-        Id: "ryusei-schedule",
+        Id: "ryusei",
         Version: "0.1.0",
         Kind: ComponentKind.Feature,
-        DependsOn: ["kanban"],
+        // gc: the event listener resolves GcNotifyListener, and attach pings use the GC log. audit: RyuseiTriggerService resolves
+        // ITransactionalAuditLog. Both were used without being declared (doc 40, section 3).
+        DependsOn: ["kanban", "gc", "audit"],
         Provides: ["feature:ryusei-schedule"]);
 
     public ComponentManifest Manifest => ManifestDefinition;

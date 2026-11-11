@@ -32,7 +32,7 @@ public sealed class GatewayCompositionTests
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarSecrets();
-        services.AddBazaarAgentSafety();
+        services.AddBazaarAgentSafety(new ConfigurationBuilder().Build());
         beforeGateway?.Invoke(services);
         services.AddBazaarGateway();
         return services.BuildServiceProvider(validateScopes: true);
