@@ -89,7 +89,7 @@ Results go in a follow-up note in `docs/research/notes/startup-performance/`. A 
 ## Decisions taken (coordinator, 2026-11-11; owner delegated)
 
 1. **Windows packaging: unpackaged.** Self-contained win-x64 publish, no MSIX for now. Autostart is a per-user Run key (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `Bazaar Preloader`). A per-user logon scheduled task is the fallback. MSIX `windows.startupTask` stays a later option when MSIX packaging lands (doc 37).
-2. **SDK pin: latest 11.0 SDK, including the RC.** `global.json` keeps `11.0.100-rc.2.26504.105` as the installed floor and changes `rollForward` from `latestPatch` to `latestFeature`, so the repo follows the newest 11.0 feature band (and the GA when it ships) without a manual bump. `allowPrerelease` stays true until GA. CLAUDE.md already describes this intent, so it is unchanged.
+2. **SDK pin: latest 11.0 SDK.** `global.json` pins the GA `11.0.100` (main's pin, kept in the merge), with `rollForward: latestFeature` so the repo follows the newest 11.0 feature band without a manual bump, and `allowPrerelease: false`. CLAUDE.md's description of the pin is unchanged.
 
 ## Open questions
 
