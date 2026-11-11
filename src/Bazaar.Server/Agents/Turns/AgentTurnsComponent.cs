@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Agents.Turns.Tools;
@@ -68,5 +69,6 @@ public sealed class AgentTurnsComponent : IBazaarComponent
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
         // Postgres crash markers (turns_inflight/0001). Needs an NpgsqlDataSource from the host.
         services.TryAddSingleton<IInFlightCallStore, PostgresInFlightCallStore>();
+        services.TryAddSingleton<AgentRepository>();
     }
 }

@@ -306,4 +306,40 @@ public sealed class TokenServiceTests
             Options.Create(options),
             time));
     }
+
+    [Fact]
+    public async Task Unavailable_issuer_refuses_the_refresh_and_leaves_the_presented_secret_live_for_a_retry()
+    {
+        var time = new FakeTimeProvider(_start);
+        var store = new InMemoryRefreshCredentialStore();
+        var service = new TokenService(
+            store,
+            new UnavailableIssuer(),
+            new PrivacyAuditRecorder(new FakeAuditLog(), time),
+            Options.Create(new RemoteTokenOptions()),
+            time);
+        var deviceId = Guid.CreateVersion7(_start);
+        var secret = RefreshCredentialSecret.Generate();
+        await store.CreateDeviceAsync(
+            new DeviceRecord(deviceId, Guid.CreateVersion7(_start), "test device", "linux", Revision: 1, RevokedAt: null),
+            Guid.CreateVersion7(_start),
+            RefreshCredentialSecret.Hash(secret),
+            _start,
+            _start.AddDays(30),
+            Ct);
+
+        await Assert.ThrowsAsync<AccessTokenIssuerUnavailableException>(() => service.RefreshAsync(secret, DeviceOf(deviceId), Ct));
+
+        // Nothing rotated: the secret the client still holds is live, so a retry after the issuer returns is not reuse.
+        var credential = await store.FindByHashAsync(RefreshCredentialSecret.Hash(secret), Ct);
+        Assert.NotNull(credential);
+        Assert.Null(credential.RetiredAt);
+        Assert.Null((await store.FindDeviceAsync(deviceId, Ct))!.RevokedAt);
+    }
+
+    /// <summary>An issuer with no key configured: every issue attempt is refused.</summary>
+    private sealed class UnavailableIssuer : IAccessTokenIssuer
+    {
+        public string Issue(Guid deviceId, Guid humanId, DateTimeOffset expiresAt) => throw new AccessTokenIssuerUnavailableException();
+    }
 }

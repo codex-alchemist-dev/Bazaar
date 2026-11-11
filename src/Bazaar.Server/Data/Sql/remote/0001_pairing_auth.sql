@@ -11,8 +11,7 @@
 --   * No foreign keys to GC, agent or erasure tables. human and device are the only cross-row references in this file.
 --   * Each table is append-friendly: revocation sets revoked_at rather than deleting.
 --
--- Migration namespace: components/remote/. The runner does not load component folders yet; this file waits for the
--- component model (PR #125). Until then it is inert and nothing applies it.
+-- Migration namespace: remote/ (owned by RemoteComponent). The runner applies it as a component namespace.
 
 CREATE TABLE human (
     id           uuid        PRIMARY KEY,
