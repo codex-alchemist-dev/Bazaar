@@ -9,6 +9,8 @@ internal sealed class FakePostgresCommandRunner : IPostgresCommandRunner
     private readonly List<FakePostgresChild> _children = [];
     private readonly List<(string FileName, string[] Arguments)> _runs = [];
     private readonly List<string[]> _startArguments = [];
+    private readonly List<IReadOnlyDictionary<string, string>> _environments = [];
+    private readonly List<string?> _workingDirectories = [];
     private readonly HashSet<int> _alivePids = [];
     private int _nextPid = 4000;
     private int _attachCount;
@@ -28,11 +30,24 @@ internal sealed class FakePostgresCommandRunner : IPostgresCommandRunner
 
     public HashSet<int> AlivePids => _alivePids;
 
-    public Task<PostgresCommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    public Task<PostgresCommandResult> RunAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? environment = null,
+        string? workingDirectory = null)
     {
         _runs.Add((fileName, arguments.ToArray()));
+        _workingDirectories.Add(workingDirectory);
+        _environments.Add(environment is null ? new Dictionary<string, string>() : new Dictionary<string, string>(environment));
         return Task.FromResult(OnRun(fileName, arguments));
     }
+
+    /// <summary>Environment passed with each tool run, in run order. Empty when a run had none.</summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, string>> Environments => _environments;
+
+    /// <summary>Working directory passed with each tool run, in run order. Null when a run had none.</summary>
+    public IReadOnlyList<string?> WorkingDirectories => _workingDirectories;
 
     public IPostgresChild Start(string fileName, IReadOnlyList<string> arguments)
     {

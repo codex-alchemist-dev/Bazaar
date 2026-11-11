@@ -12,9 +12,10 @@ namespace Bazaar.Server.Kanban.Ryusei;
 /// <remarks>
 /// Known gaps, to close before this tool is registered for agents:
 /// <list type="bullet">
-/// <item>Chain depth is passed as 0. A tool call made in a turn that a trigger fire woke does not carry its depth, because
-/// <see cref="ToolCallContext"/> has no chain depth. A loop could therefore reset its depth through this tool. The depth must
-/// reach the context before registration.</item>
+/// <item>Chain depth is the caller's context depth plus one. A trigger created here is one fire deeper than the turn that
+/// created it. Above the maximum, the trigger rules refuse the create (<c>ChainDepthExceeded</c>). The woken turn's depth
+/// reaches <see cref="ToolCallContext"/> only once the turn starter sets <see cref="TurnRunRequest.ChainDepth"/> from its
+/// fire, and that starter is not in the codebase yet.</item>
 /// <item>The interval and zone are UTC (zone null). Per-agent timezones are not on the agent row yet.</item>
 /// <item>Not registered at startup. No <see cref="ToolRegistry"/> is built at startup, so there is nothing to register into.
 /// Registration is a follow-up for the dispatcher wiring.</item>
@@ -65,7 +66,7 @@ public sealed class RyuseiScheduleTool(
             taskId: null,
             attachGcId: request.AttachGcId,
             pingMode: request.PingMode,
-            chainDepth: 0,
+            chainDepth: checked(context.ChainDepth + 1),
             now: _time.GetUtcNow(),
             zone: null,
             coworker: _coworkerTriggers,

@@ -1,13 +1,12 @@
 using System.Diagnostics;
+using Bazaar.Constellation.Bench;
 using Bazaar.Constellation.Rendering;
 
 // CPU-side Constellation benchmark. Not a PR gate (doc 19: nightly, on the owner's hardware).
 // GPU frame time, instancing and tile streaming are measured by the Vulkan backend on the PC and phone, not here.
-// Usage: dotnet run -c Release -- [nodeCounts comma-separated, default 10000,100000,1000000]
+// Usage: dotnet run -c Release -- [--large] [nodeCounts comma-separated, default 5000,10000; --large adds 100000,1000000]
 
-int[] counts = args.Length > 0
-    ? args[0].Split(',').Select(int.Parse).ToArray()
-    : [10_000, 100_000, 1_000_000];
+int[] counts = BenchNodeCounts.Resolve(args);
 
 const int Repeats = 5;
 const float CellSize = 16f;

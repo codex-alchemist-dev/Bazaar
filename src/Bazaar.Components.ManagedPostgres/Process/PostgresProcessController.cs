@@ -55,7 +55,22 @@ public sealed class PostgresProcessController : IAsyncDisposable
     public async Task InitDbAsync(Func<string, CancellationToken, ValueTask> persistSuperuserPassword, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(persistSuperuserPassword);
+        await InitDbCoreAsync(null, persistSuperuserPassword, cancellationToken);
+    }
 
+    /// <summary>
+    /// initdb with a superuser password the caller already holds. A major upgrade uses this for the new cluster: pg_upgrade
+    /// connects to both clusters with one password, and the role data (including this password) is carried over from the old
+    /// cluster when it runs, so the new cluster ends up with the same credentials it had before.
+    /// </summary>
+    public Task InitDbWithPasswordAsync(string superuserPassword, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(superuserPassword);
+        return InitDbCoreAsync(superuserPassword, null, cancellationToken);
+    }
+
+    private async Task InitDbCoreAsync(string? existingPassword, Func<string, CancellationToken, ValueTask>? persistSuperuserPassword, CancellationToken cancellationToken)
+    {
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
@@ -67,8 +82,12 @@ public sealed class PostgresProcessController : IAsyncDisposable
             // Password files from runs that were killed mid-initdb are removed before a new one is written.
             PasswordFile.SweepStale(DateTime.UtcNow);
 
-            var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(_passwordByteCount));
-            await persistSuperuserPassword(password, cancellationToken);
+            var password = existingPassword ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(_passwordByteCount));
+            if (persistSuperuserPassword is not null)
+            {
+                await persistSuperuserPassword(password, cancellationToken);
+            }
+
             await RunInitDbAsync(password, cancellationToken);
         }
         finally
