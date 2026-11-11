@@ -12,7 +12,21 @@ public sealed record PgUpgradeCommand(string FileName, IReadOnlyList<string> Arg
 /// </summary>
 public static class PgUpgradePlanner
 {
-    public static PgUpgradeCommand Plan(BundleLayout layout, int fromMajor, int toMajor, bool checkOnly, bool clusterRunning)
+    /// <param name="superuser">
+    /// The install (superuser) role of both clusters. pg_upgrade otherwise connects as the operating-system user.
+    /// </param>
+    /// <param name="link">
+    /// False (the default) copies the data files, so the old cluster stays intact and is the rollback path. True hard-links
+    /// them: faster, but the old cluster can no longer be started once the upgrade has run.
+    /// </param>
+    public static PgUpgradeCommand Plan(
+        BundleLayout layout,
+        int fromMajor,
+        int toMajor,
+        bool checkOnly,
+        bool clusterRunning,
+        bool link = false,
+        string? superuser = null)
     {
         ArgumentNullException.ThrowIfNull(layout);
 
@@ -41,8 +55,18 @@ public static class PgUpgradePlanner
             "--new-bindir", to.Bin,
             "--old-datadir", from.DataDirectory,
             "--new-datadir", to.DataDirectory,
-            "--link",
         };
+
+        if (superuser is not null)
+        {
+            arguments.Add("-U");
+            arguments.Add(superuser);
+        }
+
+        if (link)
+        {
+            arguments.Add("--link");
+        }
 
         if (checkOnly)
         {
