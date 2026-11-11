@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Read;
@@ -25,10 +26,12 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
     public const string SectionName = "Bazaar:Ryusei";
 
     public static ComponentManifest ManifestDefinition { get; } = new(
-        Id: "ryusei-schedule",
+        Id: "ryusei",
         Version: "0.1.0",
         Kind: ComponentKind.Feature,
-        DependsOn: ["kanban"],
+        // gc: the event listener resolves GcNotifyListener, and attach pings use the GC log. audit: RyuseiTriggerService resolves
+        // ITransactionalAuditLog. Both were used without being declared (doc 40, section 3).
+        DependsOn: ["kanban", "gc", "audit"],
         Provides: ["feature:ryusei-schedule"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
@@ -56,6 +59,10 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
 
         // Chain depth of a fire-woken turn (doc 38, Chain depth): the trigger's chain_depth, read by fire id.
         services.TryAddSingleton<IRyuseiWakeDepthSource>(sp => new RyuseiWakeDepthSource(sp.GetRequiredService<NpgsqlDataSource>()));
+
+        // The Ryusei answer replaces the agent turns default (a null source), whichever component registers first.
+        services.Replace(ServiceDescriptor.Singleton<IWakeChainDepthSource>(
+            sp => new RyuseiWakeChainDepthSource(sp.GetRequiredService<IRyuseiWakeDepthSource>())));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
 
