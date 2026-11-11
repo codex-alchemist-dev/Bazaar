@@ -29,4 +29,7 @@ public static class PaneKinds
 
     /// <summary>RyuseiFuda micro schedule: the per-agent triggers that wake agents (doc 38, layer 2).</summary>
     public const string RyuseiSchedule = "bazaar.ryusei-schedule";
+
+    /// <summary>RyuseiFuda objective roadmap: phases, objectives and task progress (doc 38, layer 3).</summary>
+    public const string Roadmap = "bazaar.roadmap";
 }

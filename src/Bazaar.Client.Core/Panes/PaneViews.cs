@@ -22,6 +22,7 @@ public static class PaneViews
         ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
         GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
         RyuseiSchedulePaneViewModel schedule => WithTitle(schedule.Title, RyuseiSchedule(schedule)),
+        RoadmapPaneViewModel roadmap => WithTitle(roadmap.Title, Roadmap(roadmap)),
         Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
@@ -104,6 +105,45 @@ public static class PaneViews
         }
 
         return rows;
+    }
+
+    private static StackPanel Roadmap(RoadmapPaneViewModel roadmap)
+    {
+        var body = new StackPanel { Spacing = 10 };
+        if (roadmap.DependencyCycle is { Count: > 0 } cycle)
+        {
+            body.Children.Add(new TextBlock
+            {
+                Text = "Dependency cycle: " + string.Join(" → ", cycle),
+                Foreground = Brushes.OrangeRed,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        if (roadmap.Phases.Count == 0 && roadmap.UnphasedObjectives.Count == 0)
+        {
+            body.Children.Add(new TextBlock { Text = "No objectives yet.", Opacity = 0.7 });
+        }
+
+        foreach (var phase in roadmap.Phases)
+        {
+            body.Children.Add(new TextBlock { Text = $"{phase.Title} · {phase.Gate}", FontWeight = FontWeight.SemiBold });
+            foreach (var objective in phase.Objectives)
+            {
+                body.Children.Add(new TextBlock { Text = objective.Line, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16, 0, 0, 0) });
+            }
+        }
+
+        if (roadmap.UnphasedObjectives.Count > 0)
+        {
+            body.Children.Add(new TextBlock { Text = "Unphased", FontWeight = FontWeight.SemiBold });
+            foreach (var objective in roadmap.UnphasedObjectives)
+            {
+                body.Children.Add(new TextBlock { Text = objective.Line, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16, 0, 0, 0) });
+            }
+        }
+
+        return body;
     }
 
     private static StackPanel Dashboard(DashboardPaneViewModel dashboard)
