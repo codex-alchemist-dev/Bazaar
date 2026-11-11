@@ -242,6 +242,28 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | GC and kanban catch-up | Accepted for v1. A catch-up read is added later. |
 | Second LISTEN connection | Accepted. This deviates from doc 04, which is noted there. |
 
+## Round 21 (2026-11-09): RyuseiFuda WP-R7 to WP-R11 defaults
+
+Defaults taken by the RyuseiFuda merge train (PRs #349 to #353, squash-merged). The owner may change any of them.
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Per-agent wake cap (WP-R8, #349) | 30 wakes per agent per hour (`ryusei.max_agent_wakes_per_hour`, no floor). Counted from `inbox_item` rows of any kind, so digest-class rows overcount. | Yes. |
+| Wake cap and pausing | The wake cap does not pause the trigger. Only the daily fire cap pauses at once. The refusal streak still auto-pauses. | Yes. |
+| Refused one-shot timer (WP-R8) | Ends as `fired`, not retried. Same as cooldown refusals today. | Yes. |
+| Fire audit (WP-R10, #350) | Every fire is audited in the fire transaction: `ryusei.trigger.fired` when woken, `ryusei.trigger.fire_refused` otherwise. Actor is `system`; the trigger creator goes in the payload. Payload carries ids, outcome and cause, never purpose text. | Yes. |
+| Skipped and error outcomes (WP-R10) | Audited as `fire_refused`, since they wake nobody. | Yes. |
+| Observatory events (WP-R10) | Not emitted. No publisher seam exists yet (doc 23). | Follow-up. |
+| Micro pane view model (WP-R11, #351) | Ordering: active with next fire (soonest first), then paused (no fire last), then the rest. Client-side record only; not registered as a pane and has no Avalonia control. | Follow-up (WP-R4 supplies the wire shape). |
+| Tool contract (WP-R9, #352) | `ryusei.schedule`, `ryusei.list`, `ryusei.pause`, `ryusei.cancel`. Parsing only. Authority, caps and target rules stay in the trigger rules and service. | Yes. |
+| Tool caller context (WP-R9, #353) | Companion interface `IContextualTool : ITool` carries a `ToolCallContext` (agent, session, turn). The plain `ITool` path throws, so a bypass fails loudly. | Yes. |
+| Agent directory (WP-R9, #353) | `IRyuseiAgentDirectory` resolves caller and targets. A retired caller counts as unknown. No project link exists in the schema yet, so the SQL directory takes a project id in its constructor. | Yes. |
+| Tool registration | Not registered at startup. No `ToolRegistry` is built yet. | Follow-up. |
+| Schedule tool chain depth | Passes depth 0. `ToolCallContext` does not carry chain depth, so a loop woken by a fire could reset depth. **Must be fixed before the schedule tool is registered for agents.** | Follow-up (blocking for registration). |
+| New GC from a fire (WP-R7, #346) | Title is the purpose, trimmed to 120 characters. Member cap 9. The GC id is deterministic from the trigger and its scheduled instant, so a retry does not create a second GC. | Yes. |
+
+**Open for owner:** none blocking. The chain-depth fix is a prerequisite for registering the schedule tool, not for the merged code.
+
 ## Round 22 (2026-11-09): turn-path stores
 
 | Item | Default taken | Owner may change |
