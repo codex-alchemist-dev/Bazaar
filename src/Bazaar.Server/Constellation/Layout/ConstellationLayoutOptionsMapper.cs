@@ -8,15 +8,16 @@ namespace Bazaar.Server.Constellation.Layout;
 /// Pure: it reads its inputs and returns a new value, and never touches storage, DI or the base options.
 /// </summary>
 /// <remarks>
-/// Neither choice maps to a <see cref="LayoutOptions"/> field yet, so the result equals <paramref name="baseOptions"/>.
 /// <list type="bullet">
 /// <item><description>
-/// <c>orbit_radius</c> (<see cref="ConstellationOrbitRadius"/>) is an enum with no numeric meaning. Design doc 19 does not
-/// say what <c>age</c> or <c>equal</c> means as a ring spacing, so it is not mapped onto <see cref="LayoutOptions.OrbitSpacing"/>.
+/// <c>orbit_radius</c> (<see cref="ConstellationOrbitRadius"/>) sets <see cref="LayoutOptions.OrbitRadiusMode"/>. The radii
+/// it scales between (<see cref="LayoutOptions.MinOrbitRadius"/> and <see cref="LayoutOptions.MaxOrbitRadius"/>) are not
+/// chosen here. <see cref="LayoutOptions.OrbitSpacing"/> is never changed by this mapping.
 /// </description></item>
 /// <item><description>
-/// <c>git_layout</c> (<see cref="ConstellationGitLayout"/>) picks the layout engine (<see cref="SolarOrbitLayout"/> or
-/// <see cref="ForceLayout"/>). It is a caller dispatch choice, not a tuning field, so it is not mapped either.
+/// <c>git_layout</c> (<see cref="ConstellationGitLayout"/>) is deliberately not mapped onto <see cref="LayoutOptions"/>. It
+/// picks the layout engine (<see cref="SolarOrbitLayout"/> or <see cref="ForceLayout"/>), which is a caller dispatch choice,
+/// not a tuning field.
 /// </description></item>
 /// </list>
 /// </remarks>
@@ -28,6 +29,7 @@ public static class ConstellationLayoutOptionsMapper
         ArgumentNullException.ThrowIfNull(choices);
         ArgumentNullException.ThrowIfNull(baseOptions);
 
-        return baseOptions with { };
+        // git_layout is intentionally unmapped: the caller chooses SolarOrbitLayout or ForceLayout, so no LayoutOptions field carries it.
+        return baseOptions with { OrbitRadiusMode = choices.OrbitRadius };
     }
 }

@@ -46,12 +46,44 @@ public class ConstellationLayoutOptionsMapperTests
     [InlineData(ConstellationOrbitRadius.Equal)]
     public void Orbit_radius_choice_is_not_mapped_onto_orbit_spacing(ConstellationOrbitRadius orbitRadius)
     {
-        // Neither enum value carries a numeric spacing; see the mapper remarks. Pinned so a later mapping is a deliberate change.
+        // The choice sets OrbitRadiusMode, not the ring spacing; see the mapper remarks.
         var baseOptions = new LayoutOptions { OrbitSpacing = 7 };
 
         var result = ConstellationLayoutOptionsMapper.ToLayoutOptions(Choices(orbitRadius: orbitRadius), baseOptions);
 
         Assert.Equal(7, result.OrbitSpacing);
+    }
+
+    [Theory]
+    [InlineData(ConstellationOrbitRadius.Age)]
+    [InlineData(ConstellationOrbitRadius.Equal)]
+    public void Orbit_radius_choice_sets_orbit_radius_mode(ConstellationOrbitRadius orbitRadius)
+    {
+        var result = ConstellationLayoutOptionsMapper.ToLayoutOptions(Choices(orbitRadius: orbitRadius), new LayoutOptions());
+
+        Assert.Equal(orbitRadius, result.OrbitRadiusMode);
+    }
+
+    [Fact]
+    public void Orbit_radius_choice_overrides_a_base_mode_without_touching_the_base()
+    {
+        var baseOptions = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Equal };
+
+        var result = ConstellationLayoutOptionsMapper.ToLayoutOptions(Choices(orbitRadius: ConstellationOrbitRadius.Age), baseOptions);
+
+        Assert.Equal(ConstellationOrbitRadius.Age, result.OrbitRadiusMode);
+        Assert.Equal(ConstellationOrbitRadius.Equal, baseOptions.OrbitRadiusMode);
+    }
+
+    [Fact]
+    public void Orbit_radius_choice_does_not_change_min_or_max_orbit_radius()
+    {
+        var baseOptions = new LayoutOptions { MinOrbitRadius = 12, MaxOrbitRadius = 80 };
+
+        var result = ConstellationLayoutOptionsMapper.ToLayoutOptions(Choices(orbitRadius: ConstellationOrbitRadius.Equal), baseOptions);
+
+        Assert.Equal(12, result.MinOrbitRadius);
+        Assert.Equal(80, result.MaxOrbitRadius);
     }
 
     [Theory]
@@ -68,7 +100,7 @@ public class ConstellationLayoutOptionsMapperTests
     }
 
     [Fact]
-    public void Every_choice_combination_keeps_all_base_fields()
+    public void Every_choice_combination_keeps_all_base_fields_except_orbit_radius_mode()
     {
         var baseOptions = new LayoutOptions { Seed = 9, Dimensions = 3, InitialSpread = 4, JitterTolerance = 2, MaxDisplacement = 6, OrbitSpacing = 5 };
 
@@ -78,7 +110,7 @@ public class ConstellationLayoutOptionsMapperTests
             {
                 var result = ConstellationLayoutOptionsMapper.ToLayoutOptions(Choices(orbitRadius, gitLayout), baseOptions);
 
-                Assert.Equal(baseOptions, result);
+                Assert.Equal(baseOptions with { OrbitRadiusMode = orbitRadius }, result);
             }
         }
     }
