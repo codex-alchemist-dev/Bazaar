@@ -16,7 +16,8 @@ namespace Bazaar.Server.Souls.Retirement;
 /// the Soul's version chain is kept (docs/design/16, "Retire").
 /// </summary>
 // TODO(component): move to AddBazaarSouls() when the component model (PR #125) merges.
-// TODO(06): call RetireAsync from the Retire transition in src/Bazaar.Server/Agents/AgentLifecycle.cs. This work package does not edit 06.
+// The agent repository exposes the post-transition observer seam; a host adapter can invoke this coordinator from it once
+// production Passport, token and VM ports are available.
 public sealed class RetirementCoordinator(
     IPassportRevoker passports,
     ITokenRevoker tokens,
