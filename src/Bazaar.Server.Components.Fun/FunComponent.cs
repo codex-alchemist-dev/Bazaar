@@ -4,14 +4,14 @@ using Bazaar.Server.Sanitization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.Fun;
 
 /// <summary>
 /// The fun systems (docs/design/26-fun-systems.md, docs/design/BAZAAR-COMPONENTS.md). Registers the pure logic that needs
-/// services: vent drafting uses the shared sanitizer. The Psych Ward state machine and the Lucky controller take their
-/// settings directly. Stores (<c>ward_stay</c>, <c>vent</c>) and the settings binding land with their migrations.
-/// TODO(component): bind <c>ward.*</c>, <c>vent.*</c> and <c>lucky.*</c> from configuration once the settings registry (doc 03) is wired.
+/// services: vent drafting uses the shared sanitizer. Vent settings are bound from host configuration; the Psych Ward and
+/// Lucky settings remain direct seams until their runtime integrations land.
 /// </summary>
 public sealed class FunComponent : IBazaarComponent
 {
@@ -28,5 +28,9 @@ public sealed class FunComponent : IBazaarComponent
     {
         services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
         services.TryAddSingleton<VentDrafter>();
+        services.AddOptions<VentSettings>()
+            .BindConfiguration(VentSettings.SectionName)
+            .Validate(settings => !string.IsNullOrWhiteSpace(settings.PublishTarget), "Vent publish target is required.");
+        services.TryAddSingleton(sp => sp.GetRequiredService<IOptions<VentSettings>>().Value);
     }
 }
