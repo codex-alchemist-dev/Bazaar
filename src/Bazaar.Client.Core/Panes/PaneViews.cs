@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Core.Ryusei;
 
 namespace Bazaar.Client.Core.Panes;
 
@@ -20,6 +21,9 @@ public static class PaneViews
         DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
         ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
         GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
+        RyuseiSchedulePaneViewModel schedule => WithTitle(schedule.Title, RyuseiSchedule(schedule)),
+        RoadmapPaneViewModel roadmap => WithTitle(roadmap.Title, Roadmap(roadmap)),
+        WorkdayPaneViewModel workday => WithTitle(workday.Title, Workday(workday)),
         Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
@@ -70,6 +74,103 @@ public static class PaneViews
 
         // A fixed height gives the chat's message list a bounded area inside the stacked pane.
         return new Border { Height = 480, Child = new ChatView { DataContext = gc.Chat } };
+    }
+
+    private static StackPanel RyuseiSchedule(RyuseiSchedulePaneViewModel schedule)
+    {
+        var rows = new StackPanel { Spacing = 6 };
+        if (schedule.Schedule.Rows.Count == 0)
+        {
+            rows.Children.Add(new TextBlock { Text = "No triggers scheduled.", Opacity = 0.7 });
+            return rows;
+        }
+
+        foreach (var row in schedule.Schedule.Rows)
+        {
+            rows.Children.Add(new Border
+            {
+                Padding = new Thickness(8),
+                BorderThickness = new Thickness(1),
+                BorderBrush = Brushes.Gray,
+                CornerRadius = new CornerRadius(4),
+                Child = new StackPanel
+                {
+                    Children =
+                    {
+                        new TextBlock { Text = $"{row.KindLabel} · {row.StateLabel}", FontWeight = FontWeight.SemiBold },
+                        new TextBlock { Text = row.Purpose, TextWrapping = TextWrapping.Wrap },
+                        new TextBlock { Text = $"{row.NextFireText} · {row.TargetsText}", Opacity = 0.7, TextWrapping = TextWrapping.Wrap },
+                    },
+                },
+            });
+        }
+
+        return rows;
+    }
+
+    private static StackPanel Workday(WorkdayPaneViewModel workday)
+    {
+        var body = new StackPanel { Spacing = 10 };
+        if (workday.Owners.Count == 0)
+        {
+            body.Children.Add(new TextBlock { Text = "No tasks on the board.", Opacity = 0.7 });
+            return body;
+        }
+
+        foreach (var owner in workday.Owners)
+        {
+            body.Children.Add(new TextBlock { Text = $"{owner.Name} ({owner.Tasks.Count})", FontWeight = FontWeight.SemiBold });
+            foreach (var task in owner.Tasks)
+            {
+                body.Children.Add(new TextBlock
+                {
+                    Text = task.Line,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(16, 0, 0, 0),
+                });
+            }
+        }
+
+        return body;
+    }
+
+    private static StackPanel Roadmap(RoadmapPaneViewModel roadmap)
+    {
+        var body = new StackPanel { Spacing = 10 };
+        if (roadmap.DependencyCycle is { Count: > 0 } cycle)
+        {
+            body.Children.Add(new TextBlock
+            {
+                Text = "Dependency cycle: " + string.Join(" → ", cycle),
+                Foreground = Brushes.OrangeRed,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        if (roadmap.Phases.Count == 0 && roadmap.UnphasedObjectives.Count == 0)
+        {
+            body.Children.Add(new TextBlock { Text = "No objectives yet.", Opacity = 0.7 });
+        }
+
+        foreach (var phase in roadmap.Phases)
+        {
+            body.Children.Add(new TextBlock { Text = $"{phase.Title} · {phase.Gate}", FontWeight = FontWeight.SemiBold });
+            foreach (var objective in phase.Objectives)
+            {
+                body.Children.Add(new TextBlock { Text = objective.Line, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16, 0, 0, 0) });
+            }
+        }
+
+        if (roadmap.UnphasedObjectives.Count > 0)
+        {
+            body.Children.Add(new TextBlock { Text = "Unphased", FontWeight = FontWeight.SemiBold });
+            foreach (var objective in roadmap.UnphasedObjectives)
+            {
+                body.Children.Add(new TextBlock { Text = objective.Line, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16, 0, 0, 0) });
+            }
+        }
+
+        return body;
     }
 
     private static StackPanel Dashboard(DashboardPaneViewModel dashboard)

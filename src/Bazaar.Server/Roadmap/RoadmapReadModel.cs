@@ -163,6 +163,14 @@ public static class RoadmapReadModel
     private static bool IsFinished(RoadmapStatus status) => status is RoadmapStatus.Done or RoadmapStatus.Dropped;
 
     /// <summary>
+    /// Resolves a bare <c>depends_on</c> slug to an objective path: the path equal to the slug, or the path ending in
+    /// <c>/&lt;slug&gt;.md</c>. <paramref name="sortedPaths"/> must be in ordinal order, and the first match wins. Null when no
+    /// objective matches.
+    /// </summary>
+    public static string? ResolveDependency(IReadOnlyList<string> sortedPaths, string slug) =>
+        sortedPaths.FirstOrDefault(path => path == slug || path.EndsWith("/" + slug + ".md", StringComparison.Ordinal));
+
+    /// <summary>
     /// Runs <see cref="RoadmapFrontMatter.FindDependencyCycle"/> over the objectives, keyed by Path. Each bare slug in
     /// DependsOn maps to the objective whose Path ends with "/&lt;slug&gt;.md" or equals the slug exactly. When several
     /// objectives match one slug, the first in ordinal Path order wins. Slugs that match no objective add no edge.
@@ -174,7 +182,7 @@ public static class RoadmapReadModel
         foreach (var (input, objective) in objectives)
         {
             var targets = objective.DependsOn
-                .Select(slug => paths.FirstOrDefault(path => path == slug || path.EndsWith("/" + slug + ".md", StringComparison.Ordinal)))
+                .Select(slug => ResolveDependency(paths, slug))
                 .OfType<string>()
                 .ToList();
             edges.Add(input.Path, targets);

@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Subagents;
@@ -49,5 +50,6 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
             sp.GetRequiredService<TurnStarterOptions>()));
+        services.TryAddSingleton<AgentRepository>();
     }
 }
