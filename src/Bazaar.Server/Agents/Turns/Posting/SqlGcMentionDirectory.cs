@@ -10,6 +10,7 @@ namespace Bazaar.Server.Agents.Turns.Posting;
 /// <remarks>
 /// The owner id is the <c>human</c> row with role <c>owner</c> (<c>remote/0001</c>), or <see cref="Guid.Empty"/> when the
 /// instance has no owner row yet. The owner is only parsed from a post when it is a current member with a handle, like anyone else.
+/// The roster is read on every call and is not cached, so a handle change applies to the next post.
 /// </remarks>
 public sealed class SqlGcMentionDirectory(NpgsqlDataSource dataSource) : IGcMentionDirectory
 {
