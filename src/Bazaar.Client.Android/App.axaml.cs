@@ -49,3 +49,5 @@ public sealed class App : Avalonia.Application
 
 // CodeQL analysis trigger (no functional change).
 // CodeQL analysis trigger, pass 2 (no functional change).
+
+// CodeQL analysis trigger (comment only, no functional change).
