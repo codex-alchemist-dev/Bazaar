@@ -11,8 +11,8 @@ public sealed class RetirementDb : PgFixture, IAsyncLifetime
         if (PgSource.IsUnsupportedHost)
             return;
         await base.InitializeAsync();
-        var files = new EmbeddedMigrationSource(typeof(PostgresRetirementLedger).Assembly).Load(MigrationRunner.Common);
-        var source = new InMemoryMigrationSource(files.Where(f => f.Version == 21));
-        await new MigrationRunner(DataSource).MigrateAsync(source, MigrationRunner.Common);
+        const string ns = "souls";
+        var files = new EmbeddedMigrationSource(typeof(PostgresRetirementLedger).Assembly).Load(ns);
+        await new MigrationRunner(DataSource).MigrateAsync(new InMemoryMigrationSource(files), ns);
     }
 }
