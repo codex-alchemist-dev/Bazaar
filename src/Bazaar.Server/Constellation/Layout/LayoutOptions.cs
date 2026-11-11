@@ -1,3 +1,4 @@
+// Required CodeQL Analyze check runs on this head.
 namespace Bazaar.Server.Constellation.Layout;
 
 /// <summary>
@@ -32,4 +33,10 @@ public sealed record LayoutOptions
 
     /// <summary>Half-width of the cube that random initial positions fall in, per sqrt(node count). Must be positive.</summary>
     public double InitialSpread { get; init; } = 10;
+
+    /// <summary>
+    /// Distance between neighbouring orbit rings in <see cref="SolarOrbitLayout"/>. Ring <c>n</c> sits at radius
+    /// <c>n * OrbitSpacing</c>. Must be finite and positive.
+    /// </summary>
+    public double OrbitSpacing { get; init; } = 10;
 }

@@ -45,6 +45,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `roadmap/0001` | RYU-WP12 | this PR | Objective roadmap views (doc 38, Layer 3): `roadmap_objectives`, `roadmap_phases`, `roadmap_progress`, `roadmap_phase_gate`; views only, no tables. Reads `vault_docs`, `tasks` and `task_links` (`vault_links` is not needed: `depends_on` comes from front matter) |
 | `ryusei/0001` | WP-R3 | this PR | RyuseiFuda schedule (doc 38, Layer 2): `ryusei_trigger` (attach GC set exactly when `ping_mode = 'attach'`) and append-only `ryusei_fire` with `UNIQUE (trigger_id, scheduled_for)`; FKs to `tasks` and `gc` only |
 | `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |
+| `souls/0001` | SOUL-RET | this PR | `soul_retirement_step`: durable latest outcome per Soul, agent and step (doc 07, WP6). Lives in the `souls` namespace because `common/` is frozen |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
