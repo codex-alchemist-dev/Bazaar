@@ -1,4 +1,5 @@
 using Bazaar.Server.Constellation.Layout;
+using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Tests.Constellation.Layout;
 
@@ -155,6 +156,108 @@ public class SolarOrbitLayoutTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             SolarOrbitLayout.Layout(graph, 0, new LayoutOptions { OrbitSpacing = spacing }));
+    }
+
+    [Fact]
+    public void Body_radius_is_min_at_the_youngest_age_and_max_at_the_oldest()
+    {
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        Assert.Equal(10, SolarOrbitLayout.BodyOrbitRadius(options, age: 5, minAge: 5, maxAge: 25));
+        Assert.Equal(100, SolarOrbitLayout.BodyOrbitRadius(options, age: 25, minAge: 5, maxAge: 25));
+    }
+
+    [Fact]
+    public void Body_radius_at_the_midpoint_age_is_the_midpoint_radius()
+    {
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        Assert.Equal(55, SolarOrbitLayout.BodyOrbitRadius(options, age: 15, minAge: 5, maxAge: 25), 9);
+    }
+
+    [Fact]
+    public void Body_radius_is_linear_in_age()
+    {
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        // A quarter of the way through the age range gives a quarter of the radius range.
+        Assert.Equal(32.5, SolarOrbitLayout.BodyOrbitRadius(options, age: 10, minAge: 0, maxAge: 40), 9);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(20)]
+    [InlineData(40)]
+    public void Body_radius_in_equal_mode_is_min_for_any_age(double age)
+    {
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Equal, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        Assert.Equal(10, SolarOrbitLayout.BodyOrbitRadius(options, age, minAge: 0, maxAge: 40));
+    }
+
+    [Fact]
+    public void Body_radius_is_min_when_all_ages_are_equal()
+    {
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        Assert.Equal(10, SolarOrbitLayout.BodyOrbitRadius(options, age: 7, minAge: 7, maxAge: 7));
+    }
+
+    [Theory]
+    [InlineData(-5, 10)]
+    [InlineData(50, 100)]
+    public void Body_radius_clamps_ages_outside_the_range(double age, double expected)
+    {
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        Assert.Equal(expected, SolarOrbitLayout.BodyOrbitRadius(options, age, minAge: 0, maxAge: 40));
+    }
+
+    [Fact]
+    public void Default_options_use_age_mode_with_radius_range_ten_to_one_hundred()
+    {
+        var options = new LayoutOptions();
+
+        Assert.Equal(ConstellationOrbitRadius.Age, options.OrbitRadiusMode);
+        Assert.Equal(10, options.MinOrbitRadius);
+        Assert.Equal(100, options.MaxOrbitRadius);
+        Assert.Equal(10, options.OrbitSpacing);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(double.NaN)]
+    public void Body_radius_rejects_a_non_positive_minimum(double min)
+    {
+        var options = new LayoutOptions { MinOrbitRadius = min };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => SolarOrbitLayout.BodyOrbitRadius(options, 1, 0, 2));
+    }
+
+    [Fact]
+    public void Body_radius_rejects_a_maximum_below_the_minimum()
+    {
+        var options = new LayoutOptions { MinOrbitRadius = 50, MaxOrbitRadius = 20 };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => SolarOrbitLayout.BodyOrbitRadius(options, 1, 0, 2));
+    }
+
+    [Fact]
+    public void Body_radius_rejects_non_finite_ages()
+    {
+        var options = new LayoutOptions();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => SolarOrbitLayout.BodyOrbitRadius(options, double.NaN, 0, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SolarOrbitLayout.BodyOrbitRadius(options, 1, 0, double.PositiveInfinity));
+    }
+
+    [Fact]
+    public void Body_radius_rejects_a_maximum_age_below_the_minimum_age()
+    {
+        var options = new LayoutOptions();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => SolarOrbitLayout.BodyOrbitRadius(options, 1, minAge: 5, maxAge: 2));
     }
 
     private static LayoutGraph Graph(int nodeCount, params (int From, int To)[] edges)

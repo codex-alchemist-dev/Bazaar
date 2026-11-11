@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Create;
@@ -60,6 +61,10 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
 
         // Chain depth of a fire-woken turn (doc 38, Chain depth): the trigger's chain_depth, read by fire id.
         services.TryAddSingleton<IRyuseiWakeDepthSource>(sp => new RyuseiWakeDepthSource(sp.GetRequiredService<NpgsqlDataSource>()));
+
+        // The Ryusei answer replaces the agent turns default (a null source), whichever component registers first.
+        services.Replace(ServiceDescriptor.Singleton<IWakeChainDepthSource>(
+            sp => new RyuseiWakeChainDepthSource(sp.GetRequiredService<IRyuseiWakeDepthSource>())));
         services.TryAddSingleton<RyuseiTickJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<RyuseiTickJobHandler>());
 

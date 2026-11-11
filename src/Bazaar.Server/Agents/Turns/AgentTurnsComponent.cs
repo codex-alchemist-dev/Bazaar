@@ -1,5 +1,6 @@
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Runner;
+using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Agents.Turns.Tools.Db;
@@ -18,9 +19,12 @@ namespace Bazaar.Server.Agents.Turns;
 /// assembler, tool dispatcher, turn runner and subagent runner seams in this folder.
 /// </summary>
 /// <remarks>
-/// Only the option defaults are registered today. The seams (<c>ITurnContextAssembler</c>, <c>IToolDispatcher</c>,
-/// <c>IAgentPostSink</c>) have no production implementations yet, so <c>TurnRunner</c> and <c>SubagentRunner</c> are not
-/// registered: resolving them would fail at runtime. Register them here once those implementations exist.
+/// Registered: the option defaults (<c>TurnRunnerOptions</c>, <c>SubagentOptions</c>, <c>TurnStarterOptions</c>), the wake chain
+/// depth default (<c>NoWakeChainDepthSource</c>, which never reads a depth; RyuseiFuda replaces it), the due-inbox reader, and
+/// <c>TurnStarter</c>. <c>TurnStarter</c> is a factory, so it resolves <c>ITurnRunner</c> only when someone resolves it. No
+/// <c>ITurnRunner</c> is registered here, and no background service starts turns: resolving <c>TurnStarter</c> fails until a
+/// runner exists. <c>TurnRunner</c> and <c>SubagentRunner</c> are not registered: their seams (<c>ITurnContextAssembler</c>,
+/// <c>IToolDispatcher</c>, <c>IAgentPostSink</c>) have no production implementations yet.
 /// </remarks>
 public sealed class AgentTurnsComponent : IBazaarComponent
 {
@@ -69,6 +73,14 @@ public sealed class AgentTurnsComponent : IBazaarComponent
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
         // Postgres crash markers (turns_inflight/0001). Needs an NpgsqlDataSource from the host.
         services.TryAddSingleton<IInFlightCallStore, PostgresInFlightCallStore>();
+        services.TryAddSingleton(new TurnStarterOptions());
+        services.TryAddSingleton<IWakeChainDepthSource, NoWakeChainDepthSource>();
+        services.TryAddSingleton<IDueInboxReader>(sp => new InboxDueReader(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(sp => new TurnStarter(
+            sp.GetRequiredService<IDueInboxReader>(),
+            sp.GetRequiredService<IWakeChainDepthSource>(),
+            sp.GetRequiredService<ITurnRunner>(),
+            sp.GetRequiredService<TurnStarterOptions>()));
         services.TryAddSingleton<AgentRepository>();
     }
 }
