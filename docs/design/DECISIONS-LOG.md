@@ -276,3 +276,39 @@ Defaults taken by the RyuseiFuda merge train (PRs #349 to #353, squash-merged). 
 | Client message id | `turn:{turnId}:{sha256(text) hex}`, 106 characters at most. A retry of the same turn and text returns the original event. A different text in the same turn is a new event, not a silent duplicate. | Yes. |
 | Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
 | Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |
+
+Defaults taken by WP-TAINT for the session taint store behind `ISessionTaintStore` (doc 15). The coordinator chose them under the safe-defaults rule; the owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Storage | Taint is persisted in Postgres, table `session_taint` in namespace `agent_turns` (`agent_turns/0001`). Namespace folder follows the component id `agent-turns` with `-` replaced by `_`. | Yes. |
+| Keying and append-only | Keyed by `session_id`. Each save appends a full snapshot (level and every source so far). Update, delete and truncate are refused by the `gc_append_only` triggers. | Yes. |
+| Read rule | The session's taint is its latest row (highest `seq`). No rows gives `SessionTaint.Clean`. | Yes. |
+| No decrease | A trigger refuses a level below the session's latest level, serialised per session with an advisory lock. Taint never decreases (doc 15). | No (security invariant). |
+| Registration | `ISessionTaintStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, over `NpgsqlDataSource`. The tool dispatcher is not wired by this change. Policy is unchanged. | Yes. |
+
+Defaults taken by the in-flight call store (agent/wp-inflight), safe defaults on the coordinator's call. The owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Table | `in_flight_call` (migration `turns_inflight/0001`): `call_key` primary key (`{turnId:D}:{callId}`), `state` CHECK in (`begun`, `completed`), `begun_at`, `lease_expires_at`, `completed_at`. Own namespace `turns_inflight`, because `turns` belongs to the taint store and `common/` is frozen. | Yes, before first production write. |
+| Lease constant | `InFlightCallRows.Lease` = 10 minutes. It reclaims a row only; it never lets a call run again. | Yes. |
+| Unfinished rule | A call is unfinished when its row exists and `state = 'begun'`, whatever `lease_expires_at` says. A begun call may have run, so a lapsed lease does not make it safe to repeat. | No: this follows the Unknown rule in doc 06. |
+| Begin | Upsert to `begun` with a fresh lease from the database clock. A repeated begin after completion reopens the row. | Yes. |
+| Complete | Sets `completed`. A missing key is a no-op. | Yes. |
+| Registration | `PostgresInFlightCallStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, the file that holds the turn seams. The dispatcher is not wired. | Yes. |
+
+## Round 23 (2026-11-11): production turn runner and context sources
+
+Coordinator choices under the safe-defaults rule (the owner may change any of them). Marked DECIDED for the build; the owner's review can reopen any row.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Context sources | Three, in order: the charter seam (System), the GC backread (GcBackread), and the trigger message verbatim (Inbox). Workday board items are not a context source: the board is owner-only for reads (doc 12). | Yes (order and bounds). |
+| Charter text | `ISoulCharterSource`, default `NullSoulCharterSource` (no text). `soul_versions` holds only the charter's SHA-256 and the preferences JSON, and the charter is a Vault file with no reader yet, so the seam is documented and empty until a Vault reader and the agent-to-soul mapping land. | Yes, when the reader lands. |
+| GC read principal | The agent's own principal (`PrincipalKind.Agent`, id = agent id). `IGcReadAccess` decides membership, so an agent reads only GCs it is a member of, up to its left seq. A GC it may not read gets a fixed notice item, so the trigger thread is still found. | No (membership rule). |
+| GC backread bounds | Last 20 messages of the trigger GC, each cut to 1000 characters. The trigger message is always included. | Yes. |
+| Inbox section | The trigger message, verbatim, read at its GC seq. Inbox items are GC-backed in this build. | Yes. |
+| Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
+| Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
+| Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
