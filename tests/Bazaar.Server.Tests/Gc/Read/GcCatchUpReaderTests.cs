@@ -88,8 +88,14 @@ public sealed class GcCatchUpReaderTests(GcDb db) : IClassFixture<GcDb>
     {
         GcTestSkip.WithoutDatabase();
         var ct = TestContext.Current.CancellationToken;
-        var gc = await db.CreateGcAsync(archived: true);
+        var gc = await db.CreateGcAsync();
         await ConsumerTestSupport.AppendAsync(db, gc, _other, 2, "archived", ct);
+        // The writer refuses appends to an archived GC, so archive only after the events exist.
+        await using (var archive = db.DataSource.CreateCommand("UPDATE gc SET archived_at = now() WHERE gc_id = $1"))
+        {
+            archive.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+            await archive.ExecuteNonQueryAsync(ct);
+        }
 
         var items = await CreateReader().GetAsync(ConsumerTestSupport.Principal(_me, PrincipalKind.Owner), ct);
 
