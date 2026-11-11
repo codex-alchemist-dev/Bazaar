@@ -276,3 +276,27 @@ Defaults taken by the RyuseiFuda merge train (PRs #349 to #353, squash-merged). 
 | Client message id | `turn:{turnId}:{sha256(text) hex}`, 106 characters at most. A retry of the same turn and text returns the original event. A different text in the same turn is a new event, not a silent duplicate. | Yes. |
 | Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
 | Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |
+
+## Round 23 (2026-11-11): turn starter, post guards, mention handles and the wake loop
+
+Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Turn starter (#436) | One turn per call from the agent's due pending inbox items, read without claiming (`InboxRepository.PeekDueAsync`); the runner claims them by id. The wake reason is the kind of the highest-priority item. The trigger GC line comes from the first GC-backed item. | Yes. |
+| Chain depth of a woken turn (#436) | The largest depth any item reports. A `ryusei_*` item carries its fire id in `source_ref`, and the depth is read from that fire. | Yes. |
+| Unreadable fire depth (#436) | Fails closed: counted as `TurnStarterOptions.UnknownRyuseiDepth` (3, the maximum), never as 0, so the turn cannot schedule deeper. | No (security floor; the value may only be tightened). |
+| Loop guard on agent posts (#438) | `GcAgentPostSink` checks `ILoopGuard` before the append. A tripped post is refused (`AgentPostRefusedException`), the turn ends as `PostRefused`, and its items and lease are released. The mention depth passed to the guard is always 0, and a retry is counted again. | Yes. |
+| Guard trip record (#438) | Logged only. The guard kind and reason are not stored, and there is no Psych Ward hand-off yet. | Follow-up. |
+| Mentions in agent posts (#438) | Parsed from the text as `@handle`, validated against the GC roster, and written as mention inbox rows after the append. `@here` and `@all` are ignored. Without a mention directory the sink attaches no mentions. | Yes. |
+| Principal handle (#443) | Optional, unique, lowercase, in `principal_handle` (migration namespace `mentions/`). Shape `^[a-z0-9][a-z0-9_-]{1,31}$`; `here` and `all` are reserved. No row means not mentionable. | Shape and length: yes. Table and namespace: no. |
+| Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
+| Handles for new agents (#443) | Not assigned at creation. `EnsureAgentHandleAsync` exists, but nothing calls it yet. | Follow-up. |
+| Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
+| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a turn runner or a loop guard stops the host at start. | Default off: yes. Fail at start: no. |
+| Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
+| Wake loop and the guard (#442) | The guard is asked before each wake. A tripped agent is skipped and held for 5 minutes (`GuardTripBackoff`, in memory) before the guard is asked again; its items stay pending. | Yes. |
+| Session per turn (#442) | Each woken turn gets a new session id, so taint does not carry from one turn to the next. Interim, until a session model exists (doc 06, doc 15). | Follow-up. |
+| Route and tools of a woken turn (#442) | One gateway route and one tool allowlist for every woken turn, from the scheduler settings. The route is required when the loop is enabled; the allowlist is empty by default. | Follow-up (per-agent policy). |
+
+**Open for owner:** none blocking. Before the wake loop is switched on, the host must register a turn runner and call `AddGcAgentPostSink()`, and new agents need a handle at creation.
