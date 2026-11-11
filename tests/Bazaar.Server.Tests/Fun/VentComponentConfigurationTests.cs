@@ -19,6 +19,7 @@ public sealed class VentComponentConfigurationTests
             })
             .Build();
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddBazaarComponents(configuration, [new FunComponent()]);
 
         using var provider = services.BuildServiceProvider();
