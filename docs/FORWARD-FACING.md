@@ -35,15 +35,14 @@ update the "Last audit" date when you do.
 |---|---|---|---|
 | **Canary** (weekly plus on demand) | Build and test against the newest .NET 11 preview SDK on Linux; report outdated and prerelease NuGet packages in the job summary | No (non-required, `continue-on-error`) | `.github/workflows/canary.yml` |
 | **Dependabot** (weekly, existing) | Stable NuGet and GitHub Actions updates, security updates | Only through normal PR review | `.github/dependabot.yml` |
-| **Renovate** (proposed, not installed) | Prerelease tracking for a named list of NuGet packages, which Dependabot cannot follow | No | `renovate.json` |
+| **Renovate** (active; GitHub App installed by the owner, 2026-11-11) | Prerelease tracking for a named list of NuGet packages, which Dependabot cannot follow | No | `renovate.json` |
 
 Known limits:
 
 - Dependabot has no documented option to opt in to prerelease versions. It proposes only
   the newest version that carries the same pre-release label as the current pin. So it
   cannot move Bazaar onto Npgsql 11 previews, for example.
-- **Renovate install status: blocked, fallback in use.** The Renovate GitHub App install was started through a Cowork browser-control thread, and a permission check stopped the final Install click. We did not route around that check. Until an owner-approved install happens, the active mechanisms are the weekly Dependabot config and the canary workflow. Dependabot still cannot follow prereleases, so prerelease tracking is manual (the canary report and this page). `renovate.json` stays in the repo, inert, for when the install is approved.
-- Renovate needs the Renovate GitHub App installed on `codex-alchemist-dev/Bazaar`.
+- **Renovate install status: installed.** The owner installed the Renovate GitHub App on `codex-alchemist-dev/Bazaar` on 2026-11-11, and the Renovate onboarding thread handles its setup. `renovate.json` now drives prerelease tracking for the listed packages, alongside the canary.
   Installing an app is a GitHub settings change, so the owner's Cowork session does it
   (see the GitHub permissions note in project memory). Until then `renovate.json` does
   nothing.
