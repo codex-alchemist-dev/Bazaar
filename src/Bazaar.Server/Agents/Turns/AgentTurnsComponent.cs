@@ -2,7 +2,11 @@ using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Subagents;
+using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.Agents.Turns.Tools.Db;
 using Bazaar.Server.Components;
+using Bazaar.Server.Security.Audit;
+using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -42,6 +46,33 @@ public sealed class AgentTurnsComponent : IBazaarComponent
 
         services.TryAddSingleton(new TurnRunnerOptions());
         services.TryAddSingleton(new SubagentOptions());
+
+        // The tool registry is built from every ToolRegistration a component adds. With none registered it is empty, so
+        // no tool is offered to a model until its component is enabled and configured (doc 38, Settings).
+        services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(
+            sp.GetServices<ToolRegistration>().Select(registration => (registration.Name, registration.Tool))));
+
+        // Policy for tool calls (doc 15). Fail closed: a tool with no capability is denied, and each component's capabilities
+        // are the only ones that exist. Quotas are in memory, so a restart resets them; that is the documented default.
+        services.TryAddSingleton<IRateBucketStore, InMemoryRateBucketStore>();
+        services.TryAddSingleton(PolicyOptions.Default);
+        services.TryAddSingleton(sp => CapabilityRegistry.Create(sp.GetServices<ToolCapability>()));
+        services.TryAddSingleton<IToolPolicyEngine>(sp => new ToolPolicyEngine(
+            sp.GetRequiredService<CapabilityRegistry>(),
+            sp.GetRequiredService<IRateBucketStore>(),
+            sp.GetRequiredService<PolicyOptions>()));
+
+        // The dispatcher is the only path a tool call takes: registry, policy, taint, crash markers and audit, in that order.
+        services.TryAddSingleton<IToolDispatcher>(sp => new ToolDispatcher(
+            sp.GetRequiredService<IToolRegistry>(),
+            sp.GetRequiredService<IToolPolicyEngine>(),
+            sp.GetRequiredService<ISessionTaintStore>(),
+            sp.GetRequiredService<IInFlightCallStore>(),
+            sp.GetRequiredService<IAuditLog>(),
+            sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        // Postgres crash markers (turns_inflight/0001). Needs an NpgsqlDataSource from the host.
+        services.TryAddSingleton<IInFlightCallStore, PostgresInFlightCallStore>();
         services.TryAddSingleton(new TurnStarterOptions());
         services.TryAddSingleton<IWakeChainDepthSource, NoWakeChainDepthSource>();
         services.TryAddSingleton<IDueInboxReader>(sp => new InboxDueReader(sp.GetRequiredService<NpgsqlDataSource>()));
