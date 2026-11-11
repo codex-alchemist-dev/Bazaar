@@ -12,6 +12,7 @@ using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -114,11 +115,28 @@ public static class HostCompositionExtensions
     }
 
     /// <summary>Taint policy, loop guard and usage accounting. In-memory stores stand in until the database repositories (GW3, GW8) are wired.</summary>
-    public static IServiceCollection AddBazaarAgentSafety(this IServiceCollection services)
+    public static IServiceCollection AddBazaarAgentSafety(this IServiceCollection services, IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
         services.TryAddSingleton(TaintPolicy.Default);
         services.TryAddSingleton(TimeProvider.System);
-        services.TryAddSingleton<ILoopGuard>(sp => new LoopGuardFacade(sp.GetRequiredService<TimeProvider>()));
+        services.AddOptions<LoopGuardOptions>()
+            .BindConfiguration(LoopGuardOptions.SectionName)
+            .Validate(options =>
+            {
+                try
+                {
+                    options.Validate();
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    return false;
+                }
+            }, "Loop guard limits are invalid.");
+        services.TryAddSingleton<ILoopGuard>(sp => new LoopGuardFacade(
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<IOptions<LoopGuardOptions>>().Value));
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
         return services;

@@ -24,6 +24,32 @@ public class ComponentGraphTests
     }
 
     [Fact]
+    public void A_soft_dependency_orders_the_pair_when_present()
+    {
+        var ordered = ComponentGraph.Order([new ComponentManifest("kanban", "0.1.0", ComponentKind.Feature, [], [], ["gc"]), M("gc")]);
+
+        Assert.Equal(["gc", "kanban"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void A_missing_soft_dependency_is_not_an_error()
+    {
+        var ordered = ComponentGraph.Order([new ComponentManifest("kanban", "0.1.0", ComponentKind.Feature, [], [], ["gc"])]);
+
+        Assert.Equal(["kanban"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void A_soft_cycle_is_still_a_cycle()
+    {
+        var ex = Assert.Throws<ComponentGraphException>(() => ComponentGraph.Order(
+            [new ComponentManifest("a", "0.1.0", ComponentKind.Feature, [], [], ["b"]),
+             new ComponentManifest("b", "0.1.0", ComponentKind.Feature, ["a"], [])]));
+
+        Assert.Contains("cycle", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Duplicate_id_is_rejected()
     {
         var ex = Assert.Throws<ComponentGraphException>(() => ComponentGraph.Order([M("kanban"), M("kanban")]));
