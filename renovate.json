@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Prerelease tracking for NuGet packages that Dependabot cannot follow (Dependabot has no documented opt-in for prereleases). Renovate only touches the packages listed below; everything else stays with Dependabot. Inert until the Renovate GitHub App is installed on the repository.",
+  "enabledManagers": [
+    "nuget"
+  ],
+  "dependencyDashboard": true,
+  "timezone": "Etc/UTC",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "prConcurrentLimit": 3,
+  "labels": [
+    "dependencies",
+    "nuget",
+    "prerelease-track"
+  ],
+  "commitMessagePrefix": "chore(deps)",
+  "packageRules": [
+    {
+      "description": "Default: Renovate does not touch NuGet packages. Dependabot owns them.",
+      "matchManagers": [
+        "nuget"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Tracked: follow prereleases as well as stable releases (see docs/FORWARD-FACING.md).",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchPackageNames": [
+        "Npgsql",
+        "Avalonia*",
+        "Microsoft.Extensions.*",
+        "Microsoft.AspNetCore.Mvc.Testing",
+        "Microsoft.ML.OnnxRuntime",
+        "Vortice.Vulkan",
+        "Testcontainers.PostgreSql",
+        "StackExchange.Redis",
+        "MimeKit",
+        "MailKit",
+        "LibGit2Sharp"
+      ],
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "description": "xunit.v3 4.x is binary-incompatible with Avalonia.Headless.XUnit 12.1.x (see Directory.Packages.props).",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchPackageNames": [
+        "xunit.v3*"
+      ],
+      "enabled": false
+    }
+  ]
+}

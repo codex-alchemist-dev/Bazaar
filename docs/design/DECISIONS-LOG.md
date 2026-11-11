@@ -151,7 +151,7 @@ Entries come from the Consequence sections of the merged spike docs in `docs/spi
 | S14 Graph layout tick | **inconclusive** | Layout stays server-side (C17 unchanged). Cloud 4 vCPU on .NET 11: 10k-node steady tick about 9.7 ms single-threaded and 4.8 ms parallel, against the 8 ms NUC budget. | **OPEN:** the 8 ms gate on the NUC (Wave B runbook step in the doc), the render half (owner Windows), Android, and whether the server ships single-threaded or parallel layout. |
 | S16 SOCKS5 via `SocketsHttpHandler` | **pass** | `socks5://` works on .NET 11 (Linux) and .NET 10 (Windows), including user/pass. The outbound proxy setting is usable and not schema-only. Keep to `socks5://`. | `socks5h://` is rejected on Windows .NET 10 but accepted on Linux .NET 11: re-run on Windows .NET 11. `https://` proxy URIs worked only with validation bypassed: test a trusted chain and credentials. dotnet/runtime#102441 not checked. |
 | S17 FreeLLMAPI surface (read-only half) | **partial** | The source read shows fallback can reach any enabled chain member and there is no caller exclusion list, so the "unpolicied upstream" branch applies. Bazaar.Server's own gateway enforces per-agent model policy and checks the served model and `X-Fallback-Trail`/`X-Fallback-Attempts` after every call (doc 05; no design change). Do not rely on `sk-cp-` profile keys for per-agent scoping until the v0.16.6 conflict is settled. | **OPEN:** the live forced-fallback test with a pinned version and non-Claude free keys (owner-supplied), plus the prompt-logging, usage and health checks. |
-| S25 Postgres base backup, WAL archive and restore drill | **pass** (Linux and Windows, PostgreSQL 18.6) | The C10 restore policy (PITR to a timestamp, sequence floor above the surviving head, a `system` recovery entry recording the lost range, no sequence reuse) works on both paths tested: 3 of 3 runs each, P1 to P4 pass, restore to promotion about 2 to 3 s on 400k rows. Doc 04 WP4 and doc 33 WP8/WP9 can rely on this shape. | **OPEN:** the service-account run on the NUC (doc 35 Wave B), pgBackRest or WAL-G as the engine (neither tested), a real RTO at realistic volume, an offsite archive for the RPO, and a live-crash loss window (the kill came after the archive caught up). |
+| S25 Postgres base backup, WAL archive and restore drill | **pass** (Linux and Windows, PostgreSQL 18.6) | The C10 restore policy (PITR to a timestamp, sequence floor above the surviving head, a `system` recovery entry recording the lost range, no sequence reuse) works on both paths tested: 3 of 3 runs each, P1 to P4 pass, restore to promotion about 2 to 3 s on 400k rows. Doc 04 WP4 and doc 33 WP8/WP9 can rely on this shape. | **OPEN:** a registered Windows service run (the owner's PC run used a non-admin local account, `docs/spikes/S25.md`); the NUC run is void, the NUC is gone, pgBackRest or WAL-G as the engine (neither tested), a real RTO at realistic volume, an offsite archive for the RPO, and a live-crash loss window (the kill came after the archive caught up). |
 | S23 LibGit2Sharp vs git CLI | **pass** (Windows) | LibGit2Sharp stays the default `IGitProvider` (C12 stands). `IGitProvider` states: one writer per checkout (host lock per worktree and a single merge lane); a startup step aborts unfinished merges and prunes stale worktrees. Engines can be mixed per operation. | **OPEN (design call):** LibGit2Sharp has no sparse checkout, so the `paths` argument of doc 18 `AddWorktreeAsync` needs a decision: CLI for that call, materialise only allowed paths, or enforce privacy at the Vault read layer. Not run on Linux; 10k+ commit histories, SMB shares, submodules, LFS, hooks and push/fetch not covered. |
 | S3 GC log at scale | **pass** (Linux baseline; owner-PC run owed) | On Postgres 18.6 with 1M events and 16 hash partitions, median append p95 is 7.1 ms at 500 appends/s (limit 50 ms); 12 forced listener kills lost 0 of 28,800 events; 200-message page p95 4.4 ms; 10k replay 122 ms and contiguous. **Changes (coordinator, per owner defaults):** (1) NOTIFY is sent after commit by a coalescing notifier (newest seq per GC, one transaction every few ms), not by `pg_notify` inside the append transaction, which gave unstable tails (p95 115 ms in one repeat of three). (2) Consumers treat NOTIFY as a hint and read from a per-GC cursor that advances only over contiguous seq; a periodic head-versus-cursor sweep backs up the reconnect catch-up. (3) Default partition count 16 (64 made page reads about 4x slower). (4) No `(gc_id, created_at)` index by default; time-range reads resolve to a seq. (5) One GC tops out near 400 to 700 appends/s (`head_seq` row lock); bulk writers batch. Thresholds proposed in the doc are accepted. | **OPEN:** the same run on the owner's PC (replaces the NUC); the periodic sweep and multi-server fan-out were not tested. See `docs/spikes/S3.md`. |
 
@@ -241,3 +241,38 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | Idle watcher expiry | Accepted for v1 (expires at next match or tick). |
 | GC and kanban catch-up | Accepted for v1. A catch-up read is added later. |
 | Second LISTEN connection | Accepted. This deviates from doc 04, which is noted there. |
+
+## Round 21 (2026-11-09): RyuseiFuda WP-R7 to WP-R11 defaults
+
+Defaults taken by the RyuseiFuda merge train (PRs #349 to #353, squash-merged). The owner may change any of them.
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Per-agent wake cap (WP-R8, #349) | 30 wakes per agent per hour (`ryusei.max_agent_wakes_per_hour`, no floor). Counted from `inbox_item` rows of any kind, so digest-class rows overcount. | Yes. |
+| Wake cap and pausing | The wake cap does not pause the trigger. Only the daily fire cap pauses at once. The refusal streak still auto-pauses. | Yes. |
+| Refused one-shot timer (WP-R8) | Ends as `fired`, not retried. Same as cooldown refusals today. | Yes. |
+| Fire audit (WP-R10, #350) | Every fire is audited in the fire transaction: `ryusei.trigger.fired` when woken, `ryusei.trigger.fire_refused` otherwise. Actor is `system`; the trigger creator goes in the payload. Payload carries ids, outcome and cause, never purpose text. | Yes. |
+| Skipped and error outcomes (WP-R10) | Audited as `fire_refused`, since they wake nobody. | Yes. |
+| Observatory events (WP-R10) | Not emitted. No publisher seam exists yet (doc 23). | Follow-up. |
+| Micro pane view model (WP-R11, #351) | Ordering: active with next fire (soonest first), then paused (no fire last), then the rest. Client-side record only; not registered as a pane and has no Avalonia control. | Follow-up (WP-R4 supplies the wire shape). |
+| Tool contract (WP-R9, #352) | `ryusei.schedule`, `ryusei.list`, `ryusei.pause`, `ryusei.cancel`. Parsing only. Authority, caps and target rules stay in the trigger rules and service. | Yes. |
+| Tool caller context (WP-R9, #353) | Companion interface `IContextualTool : ITool` carries a `ToolCallContext` (agent, session, turn). The plain `ITool` path throws, so a bypass fails loudly. | Yes. |
+| Agent directory (WP-R9, #353) | `IRyuseiAgentDirectory` resolves caller and targets. A retired caller counts as unknown. No project link exists in the schema yet, so the SQL directory takes a project id in its constructor. | Yes. |
+| Tool registration | Not registered at startup. No `ToolRegistry` is built yet. | Follow-up. |
+| Schedule tool chain depth | Passes depth 0. `ToolCallContext` does not carry chain depth, so a loop woken by a fire could reset depth. **Must be fixed before the schedule tool is registered for agents.** | Follow-up (blocking for registration). |
+| New GC from a fire (WP-R7, #346) | Title is the purpose, trimmed to 120 characters. Member cap 9. The GC id is deterministic from the trigger and its scheduled instant, so a retry does not create a second GC. | Yes. |
+
+**Open for owner:** none blocking. The chain-depth fix is a prerequisite for registering the schedule tool, not for the merged code.
+
+## Round 22 (2026-11-09): turn-path stores
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Agent post API | `GcAgentPostSink` (`src/Bazaar.Server/Agents/Turns/Posting/`) calls the raw `IGcLogWriter.AppendAsync`. No higher-level GC post service exists, and the wire `gc.send` handler needs a session principal and client-parsed mentions, so it cannot serve an agent post. | Yes, when a post service exists. |
+| Mention parsing | Not applied. The sink attaches no mentions. Mention parsing and loop guards from doc 06 step 5 are a follow-up that must land before turns post to live GCs. | Needs a follow-up. |
+| Loop guards | Not applied on the post path. `ILoopGuard` is not wired to the GC append. | Needs a follow-up. |
+| Author and trust | Author kind `agent`, author id = agent id, source trust `agent` (soft taint, round 2). No session id. | No. |
+| Body | Sealed by `IGcBodyCodec` before the writer, as the judgment poster does. | No. |
+| Client message id | `turn:{turnId}:{sha256(text) hex}`, 106 characters at most. A retry of the same turn and text returns the original event. A different text in the same turn is a new event, not a silent duplicate. | Yes. |
+| Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
+| Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |
