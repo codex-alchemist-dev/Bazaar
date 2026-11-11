@@ -1,5 +1,7 @@
 using Bazaar.Contracts.Graph;
 
+// Tile layout follows constellation-scale-and-lod.md section 3.
+
 namespace Bazaar.Server.Constellation.Tiles;
 
 /// <summary>Settings for <see cref="QuadtreeTileBuilder"/>. Tiles are built for every level from 0 to <see cref="MaxDepth"/>.</summary>
