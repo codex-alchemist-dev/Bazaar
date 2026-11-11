@@ -297,3 +297,18 @@ Defaults taken by the in-flight call store (agent/wp-inflight), safe defaults on
 | Begin | Upsert to `begun` with a fresh lease from the database clock. A repeated begin after completion reopens the row. | Yes. |
 | Complete | Sets `completed`. A missing key is a no-op. | Yes. |
 | Registration | `PostgresInFlightCallStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, the file that holds the turn seams. The dispatcher is not wired. | Yes. |
+
+## Round 23 (2026-11-11): production turn runner and context sources
+
+Coordinator choices under the safe-defaults rule (the owner may change any of them). Marked DECIDED for the build; the owner's review can reopen any row.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Context sources | Three, in order: the charter seam (System), the GC backread (GcBackread), and the trigger message verbatim (Inbox). Workday board items are not a context source: the board is owner-only for reads (doc 12). | Yes (order and bounds). |
+| Charter text | `ISoulCharterSource`, default `NullSoulCharterSource` (no text). `soul_versions` holds only the charter's SHA-256 and the preferences JSON, and the charter is a Vault file with no reader yet, so the seam is documented and empty until a Vault reader and the agent-to-soul mapping land. | Yes, when the reader lands. |
+| GC read principal | The agent's own principal (`PrincipalKind.Agent`, id = agent id). `IGcReadAccess` decides membership, so an agent reads only GCs it is a member of, up to its left seq. A GC it may not read gets a fixed notice item, so the trigger thread is still found. | No (membership rule). |
+| GC backread bounds | Last 20 messages of the trigger GC, each cut to 1000 characters. The trigger message is always included. | Yes. |
+| Inbox section | The trigger message, verbatim, read at its GC seq. Inbox items are GC-backed in this build. | Yes. |
+| Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
+| Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
+| Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
