@@ -7,13 +7,16 @@ public interface IPostgresCommandRunner
     /// Runs a tool to completion and returns its exit code and combined output. <paramref name="environment"/> adds
     /// variables for this run only (for example PGPASSWORD); secrets go there, never into <paramref name="arguments"/>.
     /// <paramref name="workingDirectory"/> is where the tool writes its logs and sockets (pg_upgrade needs it writable).
+    /// <paramref name="standardInput"/> is written to the tool's stdin and then closed; secrets such as SQL that sets a
+    /// password go there, never into <paramref name="arguments"/> or a file.
     /// </summary>
     Task<PostgresCommandResult> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken,
         IReadOnlyDictionary<string, string>? environment = null,
-        string? workingDirectory = null);
+        string? workingDirectory = null,
+        string? standardInput = null);
 
     /// <summary>Starts a long-running child (postgres) that this runner owns.</summary>
     IPostgresChild Start(string fileName, IReadOnlyList<string> arguments);
