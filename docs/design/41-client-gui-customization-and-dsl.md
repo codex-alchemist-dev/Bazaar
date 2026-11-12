@@ -236,8 +236,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: compiled in only (L1). Simplest and trim-friendly, but no third-party modules without a rebuild.
    - Option 2: out-of-process over a protocol (L3, chosen). Isolation by process and manifest; keeps the shipped set trim-friendly.
    - Option 3: in-process runtime loading (L2). Richest, but conflicts with trimming and ReadyToRun, and a bad module can crash the client.
-3. **Customization model.** Typed, versioned JSON documents (recommended), a custom DSL, or embedded scripting?
-   - Option 1: typed JSON (recommended). Covers theme, layout, commands and start screen with no new language.
+3. **Customization model. DECIDED (owner, 2026-11-12): typed, versioned JSON documents.** Covers theme, layout, commands and start screen with no new language.
+   - Option 1: typed JSON (chosen).
    - Option 2: a custom DSL. Only if you want users to script logic.
    - Option 3: embedded scripting. Not recommended: sandboxing is hard and it conflicts with trimming and Android.
 4. **DSL scope.** Is any expression language wanted, and if so, how far?
