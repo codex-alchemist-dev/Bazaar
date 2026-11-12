@@ -72,7 +72,7 @@ Each step is a small PR with tests, per `CLAUDE.md`.
 4. **GC abstractions project**, and move its consumers onto it.
 5. **Split RyuseiFuda** out of the Kanban project.
 6. **Constellation and Vault** projects and abstractions.
-7. **Client modules** for GC, Constellation and RyuseiFuda, with the pane registry taking modules instead of named panes. Heads compose them.
+7. **Client modules** for GC, Constellation and RyuseiFuda, with the pane registry taking modules instead of named panes. Heads compose them. Progress: the registry composes `IPaneModule`s (#373); a module also registers its view (`PaneRegistry.RegisterView`) and can read a head-supplied service from `PaneModuleContext.Get<T>()`, so Client.Core no longer needs a feature's view model type to render it. Next: move each feature's pane code into `Bazaar.Client.<F>`.
 
 Not now: a runtime plugin loader, a module framework with its own container, or splitting every folder before step 3 exists.
 

@@ -8,7 +8,11 @@ public sealed class ConstellationPaneModule : IPaneModule
 {
     public string Id => PaneKinds.Constellation;
 
-    public void Register(PaneRegistry registry, PaneModuleContext context) =>
+    public void Register(PaneRegistry registry, PaneModuleContext context)
+    {
+        var tiles = context.Tiles ?? context.Get<IConstellationTileSource>();
         registry.Register(PaneKinds.Constellation, descriptor =>
-            new ConstellationPaneViewModel(descriptor, context.Tiles, ConstellationPaneViewModel.DefaultNodeCap));
+            new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));
+        registry.RegisterView<ConstellationPaneViewModel>(pane => new ConstellationPaneView(pane));
+    }
 }
