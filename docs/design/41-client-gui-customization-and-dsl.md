@@ -137,6 +137,18 @@ Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout v
 
 **Cover screen (owner, 2026-11-12): a company-defined cover layout.** Each company defines it for glanceable triage. Until it is set, the cover screen falls back to the folded variant.
 
+## 4.9 Desktop layout (added 2026-11-12)
+
+Docs 27 and 28 cover desktop only as windows, the start dashboard and mnemonic navigation. This section sets the desktop variant for doc 41.
+
+- **Default desktop layout (owner, 2026-11-12): GC rail, chat, pane tabs.** A Discord-style GC rail on the left. The active chat, PR or code view in the centre. Panes (Constellation, RyuseiFuda, Git, code viewer, Diffs) as tabs or dockable panels, which the person can rearrange.
+- **Variant key.** Desktop variants are keyed by window size class, with breakpoints still to be set (open, below). The same layout document drives the desktop, the inner screen and the cover screen, each through its own variant.
+- **Multiple monitors.** Open. Default proposal: one main window, with detached panes opened as separate windows (doc 28 process model).
+- **Pane keyboard model.** Commands and pane focus use mnemonics, with no Ctrl chords (27, 28 §4). Ctrl+1-9 view switching from earlier notes is superseded.
+- **Density.** Open. Default proposal: one density setting, comfortable by default, set per person.
+
+Open for the owner: size-class breakpoints, the multi-monitor rule and the density default.
+
 ## 5. Modules and existing panes
 
 The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
