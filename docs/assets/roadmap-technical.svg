@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 345" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-labelledby="t d">
   <title id="t">Fourteen technical milestones with status</title>
   <desc id="d">Fourteen technical milestones T1 to T14 in two columns, each with a status. T1, the managed PostgreSQL inside the app, is highlighted.</desc>
-  <rect width="960" height="345" rx="16" fill="#0f1420"/>
+  <rect width="960" height="420" rx="16" fill="#0f1420"/>
   <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Technical milestones: fourteen tracks under the features</text>
   <rect x="40" y="70" width="430" height="36" rx="8" fill="#23402a" stroke="#7fd36b" stroke-width="2"/>
   <text x="54" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T1</text>
@@ -59,9 +59,9 @@
   <text x="504" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T14</text>
   <text x="550" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Backup, restore, export</text>
   <text x="910" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
-  <circle cx="40" cy="322" r="8" fill="#7fd36b"/>  <text x="54" y="327" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Done</text>
-  <circle cx="190" cy="322" r="8" fill="#b9e06a"/>  <text x="204" y="327" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Mostly done</text>
-  <circle cx="340" cy="322" r="8" fill="#f5c451"/>  <text x="354" y="327" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">In progress</text>
-  <circle cx="490" cy="322" r="8" fill="#7fb0ff"/>  <text x="504" y="327" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Planned</text>
-  <circle cx="640" cy="322" r="8" fill="#e07a5f"/>  <text x="654" y="327" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Blocked</text>
+  <circle cx="40" cy="392" r="8" fill="#7fd36b"/>  <text x="54" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Done</text>
+  <circle cx="190" cy="392" r="8" fill="#b9e06a"/>  <text x="204" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Mostly done</text>
+  <circle cx="340" cy="392" r="8" fill="#f5c451"/>  <text x="354" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">In progress</text>
+  <circle cx="490" cy="392" r="8" fill="#7fb0ff"/>  <text x="504" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Planned</text>
+  <circle cx="640" cy="392" r="8" fill="#e07a5f"/>  <text x="654" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Blocked</text>
 </svg>

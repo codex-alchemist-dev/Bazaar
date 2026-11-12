@@ -425,9 +425,7 @@ Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuh
 
 Stages are labels, not version numbers. Stage 1 is done. Stage 2 is mostly done. Stages 3 to 7 are partly done, with the open parts named in the roadmap. Stage 8 is planned, with some code in place, and Stage 9, Hardening, has started. v1.0.0 "Zuhal" is the readiness gate: its scope is decided, its date is not.
 
-### Stage by stage, in text
-
-The same roadmap as a table, with each named feature and its status. Status words follow [`docs/FEATURES.md`](docs/FEATURES.md): *shipped* means merged code exists on `main`, *in progress* means partly built, *planned* means named and designed with no code yet.
+Below the timeline is the full stage-by-stage table, with each named feature and its status. Status words follow [`docs/FEATURES.md`](docs/FEATURES.md): *shipped* means merged code exists on `main`, *in progress* means partly built, *planned* means named and designed with no code yet.
 
 | Stage | Milestone | Named features and status |
 |---|---|---|
@@ -448,13 +446,13 @@ The same roadmap as a table, with each named feature and its status. Status word
 
 ![Fourteen technical milestones with status](docs/assets/roadmap-technical.svg)
 
-The headline milestone is **T1, the managed database**. Bazaar packages PostgreSQL 18.7 with pgvector 0.8.2 and runs it for you. The owner never installs or starts it.
+The headline milestone is **T1, the managed database**. Bazaar packages PostgreSQL 18.7 with pgvector 0.8.2 as its pinned default, and runs it for you. The owner never installs or starts it.
 
 ![Managed PostgreSQL inside the app](docs/assets/roadmap-postgres.svg)
 
 The server starts the database, stores its password in a managed store, runs migrations, schedules backups and refuses a major-version mismatch. The Windows smoke run on the owner's PC is the one open part of T1.
 
-Bazaar supports PostgreSQL 18 and 19 at the same time, from the same code. This is the dual-version forward-facing rule. PostgreSQL 18 is the stable default. PostgreSQL 19 runs in a report-only CI job, and its bundle and gated upgrade path are planned.
+Bazaar supports PostgreSQL 18 and 19 at the same time, from the same code. This is the dual-version forward-facing rule: both versions are supported equally, and the pinned version is only the default. Installers and company owners can move to the other version. The 18.7 and 0.8.2 pins are the current defaults. The next pgvector bump to 0.8.7 is tracked in [`docs/FORWARD-FACING.md`](docs/FORWARD-FACING.md). PostgreSQL 19 runs in a report-only CI job, and its bundle and gated upgrade path are planned.
 
 ![PostgreSQL 18 and 19 dual-version support](docs/assets/roadmap-dual-version.svg)
 
