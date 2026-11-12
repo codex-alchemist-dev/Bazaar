@@ -21,6 +21,9 @@ public static class WireTypes
     /// <summary>Client posts a message.</summary>
     public const string GcSend = "gc.send";
 
+    /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
+    public const string BoardSnapshot = "board.snapshot";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 

@@ -112,12 +112,13 @@ public sealed class PgResponderGcStore(NpgsqlDataSource dataSource, IGcBodyCodec
             var body = reader.GetFieldValue<byte[]>(4);
             var nonce = reader.IsDBNull(5) ? ReadOnlyMemory<byte>.Empty : reader.GetFieldValue<byte[]>(5);
             var keyId = reader.IsDBNull(6) ? Guid.Empty : reader.GetGuid(6);
+            var text = await bodies.OpenAsync(body, keyId, nonce, ct).ConfigureAwait(false) ?? GcBodyText.ErasedText;
             messages.Add(new ResponderMessage(
                 reader.GetInt64(0),
                 reader.GetGuid(1),
                 GcEnumText.ParseAuthorKind(reader.GetString(2)),
                 reader.GetGuid(3),
-                bodies.Open(body, keyId, nonce),
+                text,
                 reader.GetFieldValue<Guid[]>(7)));
         }
 

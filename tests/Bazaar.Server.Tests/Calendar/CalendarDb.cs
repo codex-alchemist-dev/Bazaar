@@ -106,19 +106,19 @@ public sealed class ReversingBodyCodec : IGcBodyCodec
 {
     public static readonly Guid KeyId = Guid.Parse("00000000-0000-7000-8000-00000000c0de");
 
-    public MessageBody Seal(string text)
+    public ValueTask<MessageBody> SealAsync(Guid authorId, string text, CancellationToken ct)
     {
         var bytes = Encoding.UTF8.GetBytes(text);
         Array.Reverse(bytes);
-        return new MessageBody(bytes, KeyId);
+        return ValueTask.FromResult(new MessageBody(bytes, KeyId));
     }
 
-    public string Open(ReadOnlyMemory<byte> ciphertext, Guid keyId, ReadOnlyMemory<byte> nonce)
+    public ValueTask<string?> OpenAsync(ReadOnlyMemory<byte> ciphertext, Guid keyId, ReadOnlyMemory<byte> nonce, CancellationToken ct)
     {
         if (keyId != KeyId)
             throw new InvalidOperationException("Unknown key.");
         var bytes = ciphertext.ToArray();
         Array.Reverse(bytes);
-        return Encoding.UTF8.GetString(bytes);
+        return ValueTask.FromResult<string?>(Encoding.UTF8.GetString(bytes));
     }
 }

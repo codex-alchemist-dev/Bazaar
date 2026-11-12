@@ -56,9 +56,32 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         IReadOnlyList<Guid>? mentions = null, CancellationToken ct = default)
     {
         var handler = new GcSendHandler(
-            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data));
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Mentions.InboxRowWriter(connection.Data));
         return await handler.HandleAsync(
             Context(connection, WireTypes.GcSend, requestId, new GcSend(gc, text, mentions, null)), ct);
+    }
+
+    [Fact]
+    public async Task A_human_mention_of_an_agent_writes_an_inbox_row_that_wakes_it()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var agentId = Guid.CreateVersion7();
+        var gc = await GcWithMemberAsync(member);
+        await AddMemberAsync(gc, agentId);
+        await using (var agent = db.DataSource.CreateCommand("INSERT INTO agent (agent_id, name, state) VALUES ($1, 'mention wake test', 'active')"))
+        {
+            agent.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = agentId });
+            await agent.ExecuteNonQueryAsync(ct);
+        }
+        var connection = new FakeWireConnection(db.DataSource, member);
+
+        var reply = await SendAsync(connection, gc, "@agent please look", "mention-1", [agentId], ct);
+
+        Assert.True(reply.IsOk);
+        Assert.Equal(1, await db.ScalarAsync<long>("SELECT count(*) FROM inbox_item WHERE agent_id = $1 AND gc_id = $2", agentId, gc));
     }
 
     [Fact]
@@ -225,7 +248,8 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
     private static AppendRequest TextAppend(Guid gc, PrincipalRef author, string text, string clientMsgId) =>
         new(gc, GcEventKinds.Message, AuthorKind.Human, author.Id, SourceTrust.MemberHuman, clientMsgId)
         {
-            Message = new PlaintextGcBodyCodec().Seal(text),
+            // Plaintext sealing never awaits, so blocking on the value here is safe in a synchronous helper.
+            Message = new PlaintextGcBodyCodec().SealAsync(author.Id, text, default).AsTask().GetAwaiter().GetResult(),
         };
 
     /// <summary>A fake connection: enough of <see cref="IWireConnection"/> for the handlers and the subscription session.</summary>

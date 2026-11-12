@@ -32,6 +32,7 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcRead))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
+[JsonSerializable(typeof(KanbanBoardRequest))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
