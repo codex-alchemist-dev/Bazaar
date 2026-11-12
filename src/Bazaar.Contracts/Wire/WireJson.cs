@@ -40,6 +40,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(KanbanBoardRequest))]
 [JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
 [JsonSerializable(typeof(RyuseiTriggerChangeReply))]
+[JsonSerializable(typeof(RyuseiTriggerListRequest))]
+[JsonSerializable(typeof(RyuseiTriggerListReply))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
