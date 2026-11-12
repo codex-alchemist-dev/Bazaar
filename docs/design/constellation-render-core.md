@@ -37,7 +37,7 @@ These rules check the code as it is. They do not check design intent, so a revie
 These are not violations of the rules above. They are things that will block a clean extraction.
 
 1. **Ordering keys are named for Bazaar.** `RenderFrame` and `FrameSequencer` use `GraphVersion` and `LayoutSeq`. They are generic sequence numbers and should get neutral names.
-2. **Two spatial grids.** `src/Bazaar.Constellation.Rendering/Core/SpatialGrid.cs` and `src/Bazaar.Client.Core/Constellation/SpatialGrid.cs` implement the same idea. One must go, and the client must use the core copy.
+2. **One spatial grid (done, #473).** The client's hit-testing uses `src/Bazaar.Constellation.Rendering/Core/SpatialGrid.cs`. The duplicate in `Bazaar.Client.Core` was removed. The grid is 2D only; 3D frames need a dimension-aware rebuild before the server sends them.
 3. **No GPU consumer for the instance buffer yet.** The Vulkan backend does not draw nodes yet, so the node instance buffer has no consumer. Its layout is not proven on a device, and it should not be frozen as a public contract until it is.
 4. **Bazaar service registration in the Vulkan project.** `Bazaar.Constellation.Vulkan` still uses a Bazaar service registration, so the backend cannot be reused on its own.
 
@@ -45,7 +45,7 @@ These are not violations of the rules above. They are things that will block a c
 
 1. Move `Core/` into its own project with no Bazaar references and its own tests. The architecture rules then become that project's own check.
 2. Rename the ordering keys to neutral names (section 4, item 1).
-3. Consolidate the two spatial grids into the core (section 4, item 2).
+3. Consolidate the two spatial grids into the core (section 4, item 2). Done in #473.
 4. Move the Vulkan backend's generic parts behind the core interfaces, and leave Bazaar-specific code in the adapter (section 4, items 3 and 4).
 5. Publish the package when the owner decides on the name and the licence. The repo rule sets Apache-2.0 for `Bazaar.Sdk` and `Bazaar.Contracts` only. The licence for this library is not decided, so ask the owner first and do not choose it here.
 
