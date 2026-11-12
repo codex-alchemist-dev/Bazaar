@@ -59,6 +59,8 @@ public sealed class RyuseiFireWriter
     /// The caller must hold the trigger's row lock, which makes the version check pass. When <paramref name="ping"/> is set (an
     /// attach fire, WP-R7), each target's wake is keyed by the GC line's (gc_id, gc_seq) instead of the fire id. The fire's audit row
     /// (<see cref="RyuseiFireAudit"/>) is appended in the same transaction, so a crash cannot leave a fire without its audit row.
+    /// When <paramref name="observed"/> is set, the fire's Observatory events (<see cref="RyuseiObservatoryEvents"/>) are added to it.
+    /// The caller emits them after its transaction commits, so an event never describes a fire that rolled back.
     /// </summary>
     public async Task<bool> ApplyAsync(
         NpgsqlTransaction tx,
@@ -66,6 +68,7 @@ public sealed class RyuseiFireWriter
         RyuseiFireDecision decision,
         DateTimeOffset now,
         RyuseiPingPosted? ping = null,
+        List<RyuseiObservatoryEvent>? observed = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(tx);
@@ -149,6 +152,7 @@ public sealed class RyuseiFireWriter
             }
         }
 
+        observed?.AddRange(RyuseiObservatoryEvents.ForFire(fireId, trigger, decision, now));
         return true;
     }
 
