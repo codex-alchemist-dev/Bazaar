@@ -1,8 +1,8 @@
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Constellation.Rendering.Core;
 
-namespace Bazaar.Client.Core.Tests.Constellation;
+namespace Bazaar.Constellation.Rendering.Tests;
 
-public class SpatialGridTests
+public class SpatialGridQueryTests
 {
     private const int _seed = 20261030;
 
