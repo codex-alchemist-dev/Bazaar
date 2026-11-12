@@ -129,7 +129,7 @@ Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout v
 
 - **Display identity is a separate axis from posture.** A foldable's cover screen and inner screen are different displays with their own size and DPI. Posture describes the hinge state; display describes which screen the window is on. Layout variants are keyed by `(deviceClass, display, posture)`.
 - **Cover screen.** Small, usually one column, often used for glanceable triage. Its layout is a document like any other, with its own variant. Until a cover layout is set, it falls back to the folded variant.
-- **Inner screen.** Uses the unfolded or half-open variant, per the posture rules in 29.
+- **Inner screen.** Uses the unfolded or half-open variant, per the posture rules in 29. **Owner decision (2026-11-12):** the unfolded inner-screen layout is a swipeable pager of Diffs, Task Board and Background, with the chat as a notification ticker. The three-column sketch is not used.
 - **Device classes.** `phone`, `foldable`, `tablet`, `desktop`. A foldable is a phone-class device with two displays. The `deviceClass` value comes from the head and selects the default variant set.
 - **Window moves.** When a window moves between displays (fold or unfold), the client selects the variant for the new display with no round trip. Pane view models survive the move.
 - **Baked defaults.** Each company's build carries default variants for each device class and display, so a foldable works before any server connection.
