@@ -244,8 +244,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: none in v1 (was recommended). Reserve a `visibleWhen` field.
    - Option 2: predicates only, a CEL-style subset for visibility rules, later.
    - Option 3: a full DSL. Not recommended.
-5. **Company scope model.** One company per install, keyed for later multi-company (recommended), or multi-company now?
-   - Option 1: one company per install, keyed (recommended).
+5. **Company scope model. DECIDED (owner, 2026-11-12): one company per install, keyed for later.**
+   - Option 1: one company per install, keyed (chosen).
    - Option 2: multi-company now, with its own tenancy and settings model. Larger scope.
 6. **Who may override company locks?**
    - Option 1: the owner only (recommended).
