@@ -35,6 +35,12 @@ public static class GcWireServiceCollectionExtensions
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
             sp.GetService<Bazaar.Server.Identity.Keys.IKekProvider>()));
 
+        // The operator's settings store. The settings component registers the audited store first; this fallback keeps a GC-only
+        // host working (reads need no audit sink; writes only come from the settings component).
+        services.TryAddSingleton<Bazaar.Server.Settings.ISettingStore>(sp => new Bazaar.Server.Settings.NpgsqlSettingStore(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
+            sp.GetService<Bazaar.Server.Settings.ISettingAuditSink>() ?? new Bazaar.Server.Settings.InMemorySettingAuditSink()));
+
         services.TryAddSingleton<Bazaar.Server.Gc.Mentions.IInboxRowWriter>(sp => new Bazaar.Server.Gc.Mentions.InboxRowWriter(
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
 

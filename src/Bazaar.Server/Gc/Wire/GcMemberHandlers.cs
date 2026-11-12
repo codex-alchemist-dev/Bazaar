@@ -4,6 +4,7 @@ using Bazaar.Server.Gc.Members;
 using Bazaar.Server.Gc.Model;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.Gc.Wire;
@@ -14,10 +15,13 @@ namespace Bazaar.Server.Gc.Wire;
 /// the plan was read; the handler then plans again from a fresh read.
 /// </summary>
 /// <remarks>
-/// The invite policy is <see cref="GcInvitePolicy.AnyMember"/> (any active member may invite; always logged). The
-/// <c>gc.invite_policy</c> setting is not wired yet, so the default applies.
+/// The invite policy comes from the <c>gc.invite_policy</c> setting (default: any active member may invite; always logged).
 /// </remarks>
-public sealed class GcMemberAddHandler(IGcLogWriter writer, GcReadAccess access, PgGcMembershipSource source) : IWireRequestHandler
+public sealed class GcMemberAddHandler(
+    IGcLogWriter writer,
+    GcReadAccess access,
+    PgGcMembershipSource source,
+    Bazaar.Server.Settings.ISettingStore settings) : IWireRequestHandler
 {
     /// <inheritdoc />
     public string Type => WireTypes.GcMemberAdd;
@@ -32,10 +36,11 @@ public sealed class GcMemberAddHandler(IGcLogWriter writer, GcReadAccess access,
             return WireReply.Fail(WireErrorCodes.BadRequest, "Role must be member or observer.");
 
         var role = GcEnumText.ParseMemberRole(request.Role);
+        var invitePolicy = await settings.GetAsync(GcSettings.InvitePolicyKey, cancellationToken: cancellationToken).ConfigureAwait(false);
         return await GcMembershipWire.ChangeAsync(
             context, writer, access, source, request.GcId,
             (snapshot, viewer) => GcMembershipPlanner.PlanAddMember(
-                snapshot.Gc, snapshot.Members, viewer, request.PrincipalId, request.Kind, role, snapshot.HeadSeq, GcInvitePolicy.AnyMember),
+                snapshot.Gc, snapshot.Members, viewer, request.PrincipalId, request.Kind, role, snapshot.HeadSeq, invitePolicy),
             cancellationToken).ConfigureAwait(false);
     }
 }
