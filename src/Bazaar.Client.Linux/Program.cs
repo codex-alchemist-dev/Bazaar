@@ -1,5 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Preload;
@@ -30,7 +33,64 @@ internal static class Program
         var paths = LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         // The warm process (doc 40) builds its window hidden; the window stays hidden until a forwarded launch shows it.
         var preloadStart = PreloadArguments.IsPreload(args);
-        return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart)).StartWithClassicDesktopLifetime(args);
+
+        // One instance per user (doc 40): a launch that finds a running instance (warm or visible) forwards and exits.
+        // The running instance shows its window when a forwarded launch arrives.
+        var pipeName = LaunchPipe.DefaultName(Environment.UserName);
+        var request = LaunchArgs.Parse(args);
+        if (TryForward(pipeName, request))
+        {
+            return 0;
+        }
+
+        using var listenerStop = new CancellationTokenSource();
+        _ = LaunchPipe.ListenAsync(pipeName, _ => Dispatcher.UIThread.InvokeAsync(ActivateMainWindow).GetTask(), listenerStop.Token)
+            .ContinueWith(
+                task => Console.Error.WriteLine($"Bazaar: launcher listener stopped: {task.Exception?.GetBaseException().Message}"),
+                TaskContinuationOptions.OnlyOnFaulted);
+
+        try
+        {
+            return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart)).StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            listenerStop.Cancel();
+        }
+    }
+
+    /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
+    private static bool TryForward(string pipeName, LaunchRequest request)
+    {
+        try
+        {
+            // A short budget: with no running instance the connect fails at once, so a cold start pays almost nothing.
+            return LaunchPipe.TryForwardAsync(pipeName, request, TimeSpan.FromMilliseconds(300), CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static void ActivateMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        {
+            if (!window.IsVisible)
+            {
+                window.Show();
+            }
+
+            window.WindowState = WindowState.Normal;
+            window.Activate();
+        }
     }
 
     private static MainWindow HideIfPreloading(MainWindow window, bool preloadStart)
