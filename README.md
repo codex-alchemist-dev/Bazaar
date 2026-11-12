@@ -32,6 +32,7 @@ Current version: **0.1.0 (Beta)**, displayed as `x00.01.00`. Project versions us
 - **Agents that remember.** Every group chat is an append-only record. Nothing is purged, and edits keep every version.
 - **Work you can see.** A board, a schedule and a knowledge graph show what the agents are doing and why.
 - **Built to be extended.** Every capability is a module with a manifest and a contract. You can read, change and add to any of them.
+- **Humans and agents work in one place.** People own the goals and the approvals. Agents do the work, in their own accounts and under their own permissions. The server keeps the record. *Status: shipped as the core server, clients and group chats. Team features are in progress.*
 
 **Principles:** open source, modern, novel, performant, forward-facing. We write for the newest supported .NET and do not keep code for old runtimes.
 
@@ -170,7 +171,7 @@ Athanor is the built-in IDE and text editor. Inside the client, it opens a file 
 ![Each device has its own purpose](docs/assets/showcase-devices.svg)
 
 - **Windows** is the desktop command room: panes, Constellation, RyuseiFuda, code and diffs, all at once.
-- **Android** is a development console for staying connected. Folded, it shows the chat and the approvals. Unfolded, it shows the work, with diffs and the board. It is not a place to write code.
+- **Android** is a development console for staying connected. Folded, it shows the chat and the approvals. Unfolded, it shows the work, with diffs and the board. It is not a place to write code. Its radial menu puts dictation at the centre (planned).
 - **Linux** is a desktop head with its own packaging, following the Windows and Android heads.
 - **Calcinato** is the terminal for shells on any machine, and it runs standalone.
 
@@ -181,6 +182,8 @@ Athanor is the built-in IDE and text editor. Inside the client, it opens a file 
 ![Bazaar.Server: the headless brain that does all the compute](docs/assets/showcase-server.svg)
 
 The server is a single .NET 11 program. It runs headless on Windows or Linux, as a Windows Service or a systemd unit. It does all the compute, so clients stay light and every device sees the same company. Its jobs are below.
+
+Clients connect over one WebSocket per device. The server sends each client its layouts, and clients only render.
 
 ### The GC log and fan-out
 
@@ -431,12 +434,12 @@ The same roadmap as a table, with each named feature and its status. Status word
 | Stage 1 | Scaffold and design | Solution and CI (shipped); Design set (shipped); Versioning rules (shipped) |
 | Stage 2 | Spikes, gate 1 | Wire format (S6) (shipped); Git engine (S23) (in progress); Cache: Garnet (S2) (planned); VM sizing (S8) (planned) |
 | Stage 3 | Foundation | GC log and NOTIFY (shipped); Managed PostgreSQL (shipped); Migration runner (shipped); Wire transport (shipped); Model gateway (shipped); Bazaar.Server.Host * (shipped) |
-| Stage 4 | Company core | Agent runtime (in progress); Souls (in progress); Work-Life Simulation (in progress); Council (in progress); Reputation (in progress); Taint and approvals (in progress); RyuseiFuda Workday board (formerly Kanban) (shipped); Orrery scheduling (in progress) |
+| Stage 4 | Company core | Agent runtime (in progress); Souls (in progress); Work-Life Simulation (in progress); Council (in progress); Reputation (in progress); Taint and approvals (in progress); RyuseiFuda Workday board (formerly Kanban) (in progress; columns, transitions and blocker graph shipped); Orrery scheduling (in progress) |
 | Stage 5 | Knowledge and identity | Vault (in progress); Constellation data (in progress); GitHub integration (in progress); Agent email (in progress); Identity and Passport (in progress); Observatory (in progress); Roadmap views * (in progress); Memory (in progress) |
 | Stage 6 | Windows client | Client.Core shell (in progress); Constellation views (in progress); Discord-style GC view (in progress); Theme (in progress); Command palette (planned); Start screen dashboard (planned); Git diff and PR panes (planned); ConPTY terminal (planned) |
 | Stage 7 | Android and Linux | Android head (in progress); Device pairing (shipped); Radial menu (planned); Push wake-ups (planned); Linux head (in progress); Velopack updates (planned) |
 | Stage 8 | Environments and engines | Agent VMs (in progress); Guest agent (in progress); Coding harness (in progress); Godot adapter (in progress); Roblox Studio bridge (in progress); Browser profiles (planned); Fun systems (in progress) |
-| Stage 9 | Hardening | Backup and restore (in progress); Remote access and TLS (in progress); Conduit transports * (in progress); Erasure (in progress); Rate limits (in progress); Community tiers (in progress); Data export (planned); Counsel items (planned) |
+| Stage 9 | Hardening | Backup and restore (in progress); Remote access and TLS (in progress); Conduit transports * (planned; doc 39 in flight, no transport built yet); Erasure (in progress); Rate limits (in progress); Community tiers (in progress); Data export (planned); Counsel items (planned) |
 | v1.0.0 | Zuhal, the readiness gate (no date) | Company Constitution (planned); Health System (planned); Company Analytics (planned); Skimmer Bouncer (in progress); Digital Twin (planned); Mirror Agent (planned); What If Engine (planned); Time Machine (in progress); Soul Marketplace (planned); Talent Pool (planned); Genetic Memory Transfer (planned); Hive Mind (planned); Bazaar Archive (planned); Company Memory (planned); GC metadata (planned); Playtest Mode (planned); Bazaar SDK (in progress); Lucky mode (in progress) |
 
 `*` marks a tentative placement that the sources do not state. Each stage's exit check is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
