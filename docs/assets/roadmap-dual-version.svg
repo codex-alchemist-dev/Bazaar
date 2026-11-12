@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 270" role="img" aria-labelledby="t d">
+  <title id="t">PostgreSQL 18 and 19 dual-version support</title>
+  <desc id="d">PostgreSQL 18.7 is the stable default and is done. PostgreSQL 19 runs in a report-only CI job and its bundle is planned. Both use the same code, with a gated upgrade path between them.</desc>
+  <rect width="960" height="270" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">PostgreSQL 18 and 19: both supported from the same code</text>
+  <rect x="60" y="80" width="300" height="120" rx="12" fill="#23402a" stroke="#7fd36b" stroke-width="2"/>
+  <text x="210" y="116" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#eefbe9" text-anchor="middle">PostgreSQL 18.7</text>
+  <text x="210" y="142" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#b7dcae" text-anchor="middle">stable, the default</text>
+  <text x="210" y="164" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#b7dcae" text-anchor="middle">Done: bundle, Compose, CI gate</text>
+  <rect x="600" y="80" width="300" height="120" rx="12" fill="#1d2a44" stroke="#7fb0ff" stroke-width="2"/>
+  <text x="750" y="116" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#e8eefc" text-anchor="middle">PostgreSQL 19</text>
+  <text x="750" y="142" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="middle">newest, GA scheduled 2026-11-19</text>
+  <text x="750" y="164" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="middle">CI report-only; bundle planned</text>
+  <line x1="360" y1="140" x2="600" y2="140" stroke="#7fb0ff" stroke-width="3"/>
+  <text x="480" y="132" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">same code</text>
+  <text x="480" y="152" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="middle">pg_upgrade 18 to 19 gated</text>
+  <text x="40" y="246" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Exit check: both versions pass the same tests as gates, and an 18 to 19 upgrade runs on a copy of a real cluster.</text>
+</svg>
