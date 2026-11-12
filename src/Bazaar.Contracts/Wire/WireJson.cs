@@ -3,6 +3,8 @@ using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Roadmap;
 
+using Bazaar.Contracts.Ryusei;
+
 namespace Bazaar.Contracts.Wire;
 
 /// <summary>
@@ -36,6 +38,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
 [JsonSerializable(typeof(KanbanBoardRequest))]
+[JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
+[JsonSerializable(typeof(RyuseiTriggerChangeReply))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
