@@ -156,6 +156,12 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Gates.** Making the terminal the default console host waits on spike S10. A standalone Monaco editor waits on the free-route Monaco spike (doc 27, S12).
 - **Linux.** Handler registration uses `.desktop` and `xdg-mime` (doc 30).
 
+## 4.11 Terminal autocomplete (added 2026-11-12)
+
+- **AI command autocomplete runs on the local NPU, off by default (owner, 2026-11-12).** It is a client-side compute exception (C17, with the NPU inference exception). A setting turns it on. Typed commands stay on the device.
+- **Shell completion** is the baseline. AI suggestions sit on top of it and never replace it.
+- **Gate.** The NPU path depends on doc 31 (local inference) and its backend availability.
+
 ## 5. Modules and existing panes
 
 The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
