@@ -1,4 +1,4 @@
-using Bazaar.Server.Kanban.Ryusei;
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Tests.Kanban.Data;
 using Bazaar.Testing.Postgres;
 using Npgsql;

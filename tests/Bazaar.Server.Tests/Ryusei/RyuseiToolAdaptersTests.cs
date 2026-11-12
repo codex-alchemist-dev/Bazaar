@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bazaar.Server.Agents.Turns.Tools;
-using Bazaar.Server.Kanban.Ryusei;
+using Bazaar.RyuseiFuda.Orrery;
 using Npgsql;
 
 namespace Bazaar.Server.Tests.Ryusei;

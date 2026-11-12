@@ -1,5 +1,5 @@
 using Bazaar.Server.Agents.Inbox;
-using Bazaar.Server.Kanban.Ryusei;
+using Bazaar.RyuseiFuda.Orrery;
 
 namespace Bazaar.Server.Tests.Ryusei;
 
