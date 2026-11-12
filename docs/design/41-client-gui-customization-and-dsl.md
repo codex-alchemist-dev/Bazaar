@@ -125,7 +125,7 @@ Resolution order, later wins: **install defaults (shipped) → company → perso
 
 ## 4.8 Devices, displays and posture (added 2026-11-12)
 
-Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout variant per posture. They do not model a foldable's two screens as separate displays, nor device classes beyond `deviceClass` in `ui.get`. This section fills that gap for doc 41.
+Half-open is 600 dp (owner decision, 2026-11-12). Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout variant per posture. They do not model a foldable's two screens as separate displays, nor device classes beyond `deviceClass` in `ui.get`. This section fills that gap for doc 41.
 
 - **Display identity is a separate axis from posture.** A foldable's cover screen and inner screen are different displays with their own size and DPI. Posture describes the hinge state; display describes which screen the window is on. Layout variants are keyed by `(deviceClass, display, posture)`.
 - **Cover screen (folded) is the main chat interface.** It is the primary way to use Bazaar on the go: a GC list the person can click into and chat, with the top navigation at the top. Its layout is a document like any other, with its own variant. Until a company sets a cover layout, it falls back to a default folded layout (GC list plus chat, per doc 29).
