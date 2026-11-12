@@ -75,7 +75,7 @@ Feasibility questions are spikes, not assumptions. Each must be answered before 
 - **S-B2 Offline builds.** Whether a company server can build all clients with no network after install. The toolchain, NuGet packages and Android SDK must be cached in the installer.
 - **S-B3 Signing keys.** Where signing keys live. Keys held by the company server are convenient but put signing on the server. Keys held off-server need an extra step, which conflicts with "no user steps". See the open decision in doc 41.
 - **S-B5 In-place update.** Which updater each head uses, how the client verifies a server-issued build (hash plus signature), and whether a failed update rolls back.
-- **S-B6 Server discovery.** How a fresh client finds its company server without a code: a baked address with key pin (recommended), local-network discovery, or Conduit reachability (doc 39). Also how it proves the server is the right one.
+- **S-B6 Server discovery.** Decided 2026-11-12: a fresh client finds its company server through an address and key pin baked into the company build. No pairing code is needed. Open within the spike: how the address stays valid when it changes, and what happens when the baked address is unreachable (local-network discovery or Conduit reachability, doc 39, as fallbacks only).
 - **S-B4 Linux packaging without a terminal.** Whether `.deb` and Flatpak outputs can be produced by a server running as a service, with no user shell.
 
 ## 5. Install, upgrade and rollback rules
