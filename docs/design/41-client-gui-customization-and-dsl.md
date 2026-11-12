@@ -242,7 +242,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: typed JSON (chosen).
    - Option 2: a custom DSL. Only if you want users to script logic.
    - Option 3: embedded scripting. Not recommended: sandboxing is hard and it conflicts with trimming and Android.
-4. **DSL scope. DECIDED (owner, 2026-11-12): a full DSL for layouts and rules, carried inside the typed JSON documents (section 4.1, option B').** Its grammar, name and runtime limits are work to design and are not settled by this doc.
+4. **DSL scope. DECIDED (owner, 2026-11-12): a full DSL for layouts and rules, carried inside the typed JSON documents (section 4.1, option B').** Its grammar and runtime limits are work to design. Owner chose the category "short exotic name" (2026-11-12); the exact name is pending a card, and needs a clearance and meaning check.
    - Option 1: none in v1 (not chosen).
    - Option 2: predicates only, a CEL-style subset for visibility rules, later.
    - Option 3: a full DSL. Not recommended.
