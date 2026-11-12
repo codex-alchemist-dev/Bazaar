@@ -4,8 +4,8 @@ using Bazaar.Server.Gc.Members;
 using Bazaar.Server.Gc.Model;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Wire.Connection;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.Gc.Wire;
 
