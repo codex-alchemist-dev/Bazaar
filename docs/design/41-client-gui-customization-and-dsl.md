@@ -154,6 +154,8 @@ The base GUI (the shell, palette, theme, layout renderer and start screen) is al
 
 **Consequence (owner, 2026-11-12): modules are compiled into each company's client.** Because each company builds its own client, company modules are compiled in, not loaded at runtime. That keeps startup static: the client does not load modules or build the GUI dynamically at each start, and preloading (doc 40) is simpler because the GUI is fixed at build time. The layout, theme and commands remain server documents, so per-company look still changes without a rebuild. Out-of-process loading (L3) remains only for engine panes (doc 20), not for company modules.
 
+**Company defaults are baked into the build (owner, 2026-11-12).** Each company's default layout and theme ship inside its client build, as compiled defaults. The server still holds overrides at the person and device scopes, and can change them without a rebuild. A company-scope change on the server overrides the baked default for connected clients; the baked default is the offline and first-run fallback. Layout and theme therefore work before any server connection.
+
 Names for new module projects are the owner's call (section 10). The planned names follow the `Bazaar.Client.<F>` pattern from MODULARITY-AUDIT. None is decided here.
 
 ## 6. Security and sandboxing of custom UI
