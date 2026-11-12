@@ -3,10 +3,11 @@ namespace Bazaar.Constellation.Rendering.Core;
 /// <summary>
 /// One layout result: packed positions for every node, in scene index order.
 /// Dimensions is 2 for the current view and 3 when a 3D layout is served.
+/// Frames are ordered by (Epoch, Sequence): Epoch changes with the graph, Sequence with each layout inside it.
 /// </summary>
 public sealed class RenderFrame
 {
-    public RenderFrame(long graphVersion, long layoutSeq, int dimensions, ReadOnlyMemory<float> positions)
+    public RenderFrame(long epoch, long sequence, int dimensions, ReadOnlyMemory<float> positions)
     {
         if (dimensions is not (2 or 3))
         {
@@ -26,15 +27,17 @@ public sealed class RenderFrame
             }
         }
 
-        GraphVersion = graphVersion;
-        LayoutSeq = layoutSeq;
+        Epoch = epoch;
+        Sequence = sequence;
         Dimensions = dimensions;
         Positions = positions;
     }
 
-    public long GraphVersion { get; }
+    /// <summary>Outer ordering key: the epoch the frame belongs to.</summary>
+    public long Epoch { get; }
 
-    public long LayoutSeq { get; }
+    /// <summary>Inner ordering key: the position of the frame within its epoch.</summary>
+    public long Sequence { get; }
 
     public int Dimensions { get; }
 
