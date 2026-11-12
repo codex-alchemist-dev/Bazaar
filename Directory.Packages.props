@@ -28,8 +28,8 @@
     <!-- Cache provider (doc 03 WP12): StackExchange.Redis 3.4.5 (stable, published 2026-10-13) talks to Valkey on Linux. Behind IValkeyClient. -->
     <PackageVersion Include="StackExchange.Redis" Version="3.4.31" />
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
-    <PackageVersion Include="MimeKit" Version="4.18.2" />
-    <PackageVersion Include="MailKit" Version="4.18.2" />
+    <PackageVersion Include="MimeKit" Version="5.0.0" />
+    <PackageVersion Include="MailKit" Version="5.0.0" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
