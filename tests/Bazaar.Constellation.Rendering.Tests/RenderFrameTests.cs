@@ -20,6 +20,15 @@ public class RenderFrameTests
     }
 
     [Fact]
+    public void Keeps_epoch_and_sequence_as_given()
+    {
+        var frame = new RenderFrame(7, 3, 2, new float[] { 1, 2 });
+
+        Assert.Equal(7, frame.Epoch);
+        Assert.Equal(3, frame.Sequence);
+    }
+
+    [Fact]
     public void Rejects_dimensions_other_than_2_or_3()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new RenderFrame(1, 1, 4, new float[] { 1, 2, 3, 4 }));

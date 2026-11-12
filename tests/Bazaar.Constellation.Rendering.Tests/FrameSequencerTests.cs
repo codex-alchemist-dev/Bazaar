@@ -4,7 +4,7 @@ namespace Bazaar.Constellation.Rendering.Tests;
 
 public class FrameSequencerTests
 {
-    private static RenderFrame Frame(long graph, long seq) => new(graph, seq, 2, new float[] { 0f, 0f });
+    private static RenderFrame Frame(long epoch, long sequence) => new(epoch, sequence, 2, new float[] { 0f, 0f });
 
     [Fact]
     public void Accepts_first_frame_and_newer_frames()
