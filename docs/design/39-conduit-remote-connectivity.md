@@ -81,6 +81,9 @@ Notes on the table:
 - Modules that expose plaintext to a third party (cloudflared, ngrok-style, Tailscale's control plane) say so in the setup wizard. Where TLS is terminated by a third party, the offer is marked `TerminatesTls` and the end-to-end pin does not apply (section 3).
 - **Relay and P2P are the open-source fallbacks.** The default recommendation for a device that is neither on the LAN nor on an overlay is `relay`, with `p2p` as an opt-in direct path that falls back to it.
 - The owner's default remains zero-config: `lan` on, everything else off until the operator turns it on in the setup wizard or advanced settings.
+- **Connecting and pairing never need a LAN (owner, 2026-11-12).** `lan` only adds local convenience. Every client must connect and pair through a reachable path (a tunnel, relay or overlay), with LAN as an optional extra.
+- **Reachability order (owner, 2026-11-12).** For a company server reached from anywhere: (1) `cloudflared` with a registered domain comes first, as the most secure self-hosted option, and the setup wizard offers it first; (2) the relay and overlay modules; (3) port forwarding is supported because the design is modular, but it is never assumed and never recommended unless the operator has proper networking and cybersecurity.
+- **One-click cloudflared (owner, 2026-11-12, open spike S-C1).** The owner chose Cloudflare sign-in inside the app for one-click tunnel setup. The sign-in flow and the API rights it grants are unverified. Until S-C1 passes, the wizard falls back to the manual tunnel-token path.
 
 ### 3. Security model
 - **TLS everywhere off loopback.** The server certificate comes from `ICertificateProvider` (32, section 2). Clients pin the server key hash from the pairing QR. A mismatch fails the attempt and does not fall back to a weaker offer.
@@ -104,7 +107,7 @@ Notes on the table:
 ### 5. Setup and operations
 - The setup wizard asks one question: "Can your devices reach this server while they are away from home?" and lists the modules that fit the answers (no inbound port, own domain, overlay account, none). Choosing a module with a third party shows its trade-off text.
 - Advanced settings show every module, its state, its last failure and its current offers. Changes are audited.
-- Quick-tunnel modules (`cloudflared`, `ngrok`) warn that addresses change on restart and that the pin still protects the connection.
+- Quick-tunnel modules (`cloudflared`, `ngrok`) warn that addresses change on restart and that the pin still protects the connection. A named tunnel on a registered domain is the default recommendation for a company server reached from anywhere (owner, 2026-11-12).
 
 ### Settings
 Registered in 03's settings registry. Changes are audited (15). "Yes" means the change needs owner approval through 15's flow.
