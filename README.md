@@ -218,7 +218,7 @@ An agent has its own identity, memory and accounts. Its Soul holds its personali
 
 ### Managed PostgreSQL 18 and 19 with pgvector
 
-You should not need to administer a database to run Bazaar. The managed PostgreSQL component installs, pins and runs PostgreSQL with pgvector. It supports PostgreSQL 18 and 19 from the same code, so the stable release and the newest one both work. You can point Bazaar at your own database instead.
+You should not need to administer a database to run Bazaar. The managed PostgreSQL component installs, pins and runs PostgreSQL with pgvector. It supports PostgreSQL 18 and 19 from the same code, so the stable release and the newest one both work. An advanced operator option can point Bazaar at an external database instead. It is never required.
 
 *Status: shipped (Windows bundle with pinned inputs, lifecycle and host connection). The Linux path has a Compose stack for development.*
 
@@ -258,13 +258,45 @@ Bazaar supports the newest release and the stable one at the same time, from the
 
 ---
 
-## Quick start
+## Install
+
+Bazaar is meant to install in one step. Nothing else needs installing: no PostgreSQL, no database server, no runtime to set up. The database ships inside Bazaar and is managed for you.
+
+### What gets installed
+
+- **Bazaar.Server**, the headless server.
+- **PostgreSQL 18.7 with pgvector 0.8.2**, pinned and packaged with Bazaar. PostgreSQL is a separate OS process, because a database server cannot run inside another program. Bazaar supervises it as a child process: it starts it, stops it, backs it up and upgrades it. You never see or manage it.
+- **The clients** you need, for your devices, once your company has built them (see the next section).
+
+### Packages in the repository
+
+Packaging recipes for each target are in the repository (`packaging/`). Their public release status varies:
+
+- **Windows:** MSI, MSIX, Chocolatey, Scoop and winget manifests.
+- **Linux:** AppImage, RPM (for the server host), Flatpak, Snap and Debian packages.
+- **Containers:** an OCI image and a Compose stack in [`deploy/compose`](deploy/compose/README.md).
+
+> **Status: packaged, not yet a public release.** The packages build in CI. Signed public installers are planned, and no signed build exists yet. Install from a company build until the signed release ships.
+
+### Installation wizard (planned)
+
+The installer will ask which modules to enable, with sensible defaults. Bazaar does not have optional modules yet, so the wizard will have little to choose from until they exist. PostgreSQL is never a choice, because it is always included and always managed.
+
+### Clients come from your company
+
+Each company builds its own clients, with its own interface and modules, so the client you install is your company's build (for example `CDAX.msix` or `CDAX.apk`). See [Bazaar.Client](#bazaarclient-the-command-room).
+
+---
+
+## Build from source (developers)
+
+Only needed if you are developing Bazaar itself. A normal install does not need any of this.
 
 ### What you need
 
 - The **.NET 11 SDK**. The exact version is pinned in `global.json`.
-- **PostgreSQL 18 (or 19) with pgvector**, or Docker for the Compose stack in [`deploy/compose`](deploy/compose/README.md).
 - A shell: bash on Linux and macOS, PowerShell on Windows.
+- Optional, for development only: a PostgreSQL 18 or 19 server with pgvector that you run yourself, or the Compose stack in [`deploy/compose`](deploy/compose/README.md). Development can point at your own server with `Bazaar:Database:Mode` set to `external`. Installed Bazaar never needs this.
 
 ### Build and test
 
@@ -280,37 +312,22 @@ Bazaar supports the newest release and the stable one at the same time, from the
 
 `build.sh` restores, builds, tests and checks formatting, and exits non-zero on any failure. `build.ps1` is the Windows equivalent.
 
-### Run a local server (Linux and macOS)
+### Run a development server (Linux and macOS)
 
 ```bash
 scripts/dev/up.sh
 ```
 
-This starts PostgreSQL (or uses your `BAZAAR_DB`), runs the migrations and starts the server with development sign-in. It also seeds one dev chat, so you can post a message and see an agent respond once a model route is set up.
+This starts a development database, runs the migrations and starts the server with development sign-in. It also seeds one dev chat. The server listens on loopback by default.
 
 When it is running:
 
 - Status page: `http://127.0.0.1:7390/status`
 - Readiness: `http://127.0.0.1:7390/health/ready`
 
-The server listens on loopback by default.
-
-### Use your own database
-
-```bash
-cd deploy/compose
-cp .env.example .env        # then set BAZAAR_DB_PASSWORD
-docker compose up -d
-```
-
-The stack runs PostgreSQL 18 with pgvector on `127.0.0.1` only. Point the server at it with `BAZAAR_DB`. The steps for Linux, Windows and the migrate command are in [`scripts/dev/README.md`](scripts/dev/README.md).
-
 > Development sign-in is for local use only. Do not expose a development server to a network.
 
-### Pair a phone or a client
-
-- **Android**: build the head with `scripts/build-android.sh`. It needs the .NET Android workload and the Android SDK, so it is kept out of the default solution. Pairing uses a short code, approved from a device you are signed in on. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md). The startup wiring is in review.
-- **Windows**: build with `./build.ps1`, then run the client project in `src/Bazaar.Client.Windows`.
+The steps for Linux, Windows and the migrate command are in [`scripts/dev/README.md`](scripts/dev/README.md).
 
 ---
 
