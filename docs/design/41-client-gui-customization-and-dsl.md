@@ -157,7 +157,7 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **OS default handler.** The editor and terminal register as OS handlers, as decided in Bazaar.Windows §1. The person makes the default change in OS settings. Nothing is claimed silently.
 - **Gates.** Making the terminal the default console host waits on spike S10. A standalone Monaco editor waits on the free-route Monaco spike (doc 27, S12).
 - **Linux.** Handler registration uses `.desktop` and `xdg-mime` (doc 30).
-- **Names (owner, 2026-11-12).** The terminal is **Calcinatio**, with CLI **CaLcInato** (owner confirmed, 2026-11-12; clearance check needed before public use). The editor is **Athanor** (owner chose it, 2026-11-12; clearance check needed before public use). The editor and terminal share one naming family (owner, 2026-11-12).
+- **Names (owner, 2026-11-12).** The terminal is **Calcinato**, with CLI **CaLcInato** (owner confirmed, 2026-11-12; clearance check needed before public use). The editor is **Athanor** (owner chose it, 2026-11-12; clearance check needed before public use). The editor and terminal share one naming family (owner, 2026-11-12).
 
 ## 4.11 Terminal autocomplete (added 2026-11-12)
 
@@ -209,7 +209,7 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Folded drawer** (cover screen, bottom edge) holds the GC rail's quick actions and the RyuseiFuda shortcut only. Anything heavier stays on the inner screen.
 - **Fold ritual.** A fold is a deliberate context switch (triage on the cover, building on the inner screen). The client does not auto-switch panes on fold, and it keeps the last pane per posture.
 - **QR or link install** is superseded by auto-find and auto-trust (doc 37, section 4a and section 5). The install handoff is a download from the company server's output folder, with no device step beyond running the installer.
-- **Clearance** for Athanor, Calcinatio, CaLcInato, Rubedo and any other public name is a later task, listed in the work-package plan.
+- **Clearance** for Athanor, Calcinato, CaLcInato, Rubedo and any other public name is a later task, listed in the work-package plan.
 
 ## 5. Modules and existing panes
 
