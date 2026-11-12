@@ -8,7 +8,7 @@ public class SpatialGridTests
     public void Empty_grid_finds_nothing()
     {
         var grid = new SpatialGrid(10f);
-        grid.Build(ReadOnlySpan<float>.Empty, 2);
+        grid.Rebuild(ReadOnlySpan<float>.Empty);
         Assert.Equal(-1, grid.Nearest(0f, 0f, 50f));
     }
 
@@ -16,7 +16,7 @@ public class SpatialGridTests
     public void Finds_the_node_under_the_pointer_and_ignores_far_ones()
     {
         var grid = new SpatialGrid(10f);
-        grid.Build(new float[] { 0f, 0f, 100f, 100f }, 2);
+        grid.Rebuild(new float[] { 0f, 0f, 100f, 100f });
         Assert.Equal(0, grid.Nearest(1f, 1f, 5f));
         Assert.Equal(-1, grid.Nearest(50f, 50f, 5f));
     }
@@ -33,7 +33,7 @@ public class SpatialGridTests
         }
 
         var grid = new SpatialGrid(16f);
-        grid.Build(positions, 2);
+        grid.Rebuild(positions);
         for (int probe = 0; probe < 200; probe++)
         {
             float x = (float)((random.NextDouble() * 440.0) - 220.0);
@@ -42,14 +42,6 @@ public class SpatialGridTests
             int expected = BruteForceNearest(positions, x, y, radius);
             Assert.Equal(expected, grid.Nearest(x, y, radius));
         }
-    }
-
-    [Fact]
-    public void Ignores_z_for_3d_frames()
-    {
-        var grid = new SpatialGrid(10f);
-        grid.Build(new float[] { 2f, 3f, 999f }, 3);
-        Assert.Equal(0, grid.Nearest(2f, 3f, 1f));
     }
 
     private static int BruteForceNearest(float[] xy, float x, float y, float radius)

@@ -44,9 +44,9 @@ foreach (int nodes in counts)
     }), 2.0);
 
     var grid = new SpatialGrid(CellSize);
-    Report(nodes, "grid_build", Median(() => grid.Build(positions, 2)), 8.0);
+    Report(nodes, "grid_build", Median(() => grid.Rebuild(positions)), 8.0);
 
-    grid.Build(positions, 2);
+    grid.Rebuild(positions);
     Report(nodes, "grid_query_x1000", Median(() =>
     {
         for (int q = 0; q < Queries; q++)
