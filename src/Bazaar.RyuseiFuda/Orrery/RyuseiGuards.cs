@@ -35,6 +35,13 @@ public static class RyuseiGuards
     }
 
     /// <summary>
+    /// Single flight: one fire in flight per trigger (doc 38). <paramref name="fireInFlight"/> is true when another fire of the same
+    /// trigger is still being written, so this one must not start. Refusing it leaves the schedule where it is.
+    /// </summary>
+    public static RyuseiDecision CheckSingleFlight(bool fireInFlight) =>
+        fireInFlight ? RyuseiDecision.Refuse(RyuseiRefusal.SingleFlightHeld) : RyuseiDecision.Allow;
+
+    /// <summary>
     /// Fires per trigger per 24 hours. <paramref name="firesInLast24Hours"/> counts the fires already made, not the one
     /// being decided, so with a cap of 96 the 96th fire is allowed (95 prior) and the 97th is refused (96 prior).
     /// </summary>

@@ -30,10 +30,15 @@ public sealed class RyuseiTickService
     private readonly Func<RyuseiTriggerRecord, TimeZoneInfo> _zoneOf;
     private readonly IGcLogWriter? _gcLog;
     private readonly GcCreateService? _gcCreate;
+    private readonly IPsychWardAdmission _ward;
 
     /// <param name="zoneOf">
     /// The zone that anchors an interval's wall-clock days. Null means UTC until doc 09 zones are stored (no table holds
     /// them yet).
+    /// </param>
+    /// <param name="ward">
+    /// The Psych Ward hook for guard trips (doc 38). Null means <see cref="NoOpPsychWardAdmission"/>. It is called after the
+    /// tick's transaction commits, once per trip.
     /// </param>
     public RyuseiTickService(
         NpgsqlDataSource dataSource,
@@ -42,7 +47,8 @@ public sealed class RyuseiTickService
         Func<RyuseiTriggerRecord, TimeZoneInfo>? zoneOf = null,
         IGcLogWriter? gcLog = null,
         GcCreateService? gcCreate = null,
-        ITransactionalAuditLog? audit = null)
+        ITransactionalAuditLog? audit = null,
+        IPsychWardAdmission? ward = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(limits);
@@ -53,6 +59,7 @@ public sealed class RyuseiTickService
         _zoneOf = zoneOf ?? (_ => TimeZoneInfo.Utc);
         _gcLog = gcLog;
         _gcCreate = gcCreate;
+        _ward = ward ?? new NoOpPsychWardAdmission();
         _triggers = new RyuseiTriggerRepository(dataSource);
         // A null audit log is allowed (for example, in tests that build the tick directly). The fire rows are still written, and
         // the fire audit line is skipped, so nothing else depends on the audit being installed.
@@ -68,19 +75,32 @@ public sealed class RyuseiTickService
 
         var due = await _triggers.ClaimDueAsync(tx, now, BatchSize, ct).ConfigureAwait(false);
         var written = 0;
+        var admissions = new List<PsychWardAdmission>();
         foreach (var trigger in due)
         {
-            if (await ProcessAsync(tx, trigger, now, ct).ConfigureAwait(false))
+            if (await ProcessAsync(tx, trigger, now, admissions, ct).ConfigureAwait(false))
             {
                 written++;
             }
         }
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
+
+        // The hook runs after commit: the trip and the pause are already durable, and a hook failure cannot roll them back.
+        foreach (var admission in admissions)
+        {
+            await _ward.AdmitAsync(admission, ct).ConfigureAwait(false);
+        }
+
         return written;
     }
 
-    private async Task<bool> ProcessAsync(NpgsqlTransaction tx, RyuseiTriggerRecord trigger, DateTimeOffset now, CancellationToken ct)
+    private async Task<bool> ProcessAsync(
+        NpgsqlTransaction tx,
+        RyuseiTriggerRecord trigger,
+        DateTimeOffset now,
+        List<PsychWardAdmission> admissions,
+        CancellationToken ct)
     {
         if (RyuseiTickRules.IsExpiredWatcher(trigger, now))
         {
@@ -114,7 +134,17 @@ public sealed class RyuseiTickService
             (ping, decision) = await PostPingAsync(trigger, decision, ct).ConfigureAwait(false);
         }
 
-        return await _writer.ApplyAsync(tx, trigger, decision, now, ping, ct).ConfigureAwait(false);
+        var applied = await _writer.ApplyAsync(tx, trigger, decision, now, ping, ct).ConfigureAwait(false);
+        if (applied && decision.Trip is { } trip)
+        {
+            admissions.Add(new PsychWardAdmission(
+                trigger.TriggerId,
+                trip,
+                RyuseiTickRules.GuardEventKind(trip),
+                trigger.TargetAgentIds.ToArray()));
+        }
+
+        return applied;
     }
 
     /// <summary>

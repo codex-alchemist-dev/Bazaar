@@ -42,6 +42,29 @@ public static class RyuseiFireRepository
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
     }
 
+    /// <summary>
+    /// Appends one guard trip to <c>guard_event</c> (doc 06, doc 38). A ryusei trip has no GC, so <c>gc_id</c> is null and the
+    /// trigger and fire go in <paramref name="counters"/>.
+    /// </summary>
+    public static async Task InsertGuardEventAsync(
+        NpgsqlTransaction tx,
+        string kind,
+        JsonObject counters,
+        DateTimeOffset at,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        ArgumentNullException.ThrowIfNull(counters);
+        await using var cmd = new NpgsqlCommand("""
+            INSERT INTO guard_event (kind, counters, created_at)
+            VALUES (@kind, @counters::jsonb, @at)
+            """, tx.Connection, tx);
+        cmd.Parameters.AddWithValue("kind", kind);
+        cmd.Parameters.AddWithValue("counters", counters.ToJsonString());
+        cmd.Parameters.AddWithValue("at", at);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>Counts the woke fires of a trigger made after <paramref name="since"/>. The daily cap reads it.</summary>
     public static async Task<int> CountWokeSinceAsync(NpgsqlTransaction tx, Guid triggerId, DateTimeOffset since, CancellationToken ct = default)
     {

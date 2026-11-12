@@ -64,6 +64,12 @@ public enum RyuseiRefusal
 
     /// <summary>The actor is not allowed to make this change (doc 38, Authority).</summary>
     NotAuthorized,
+
+    /// <summary>
+    /// A fire for this trigger is already in flight, so this fire is skipped (doc 38, single flight). The claim's row lock is what
+    /// keeps two ticks from firing one trigger; this refusal is the recorded form of that rule.
+    /// </summary>
+    SingleFlightHeld,
 }
 
 /// <summary>
