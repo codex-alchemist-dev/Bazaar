@@ -41,24 +41,24 @@ public static class DbSubcommand
             switch (args[0].ToLowerInvariant())
             {
                 case "backup":
-                {
-                    var keep = IntOption(args[1..], "--keep") ?? settings.Backup.KeepDumps;
-                    var backup = await maintenance.BackupAsync(keep, ct);
-                    await output.WriteLineAsync($"Backup written: {backup.DumpPath} ({backup.Bytes} bytes), sha256 {backup.Sha256}.", ct);
-                    return 0;
-                }
+                    {
+                        var keep = IntOption(args[1..], "--keep") ?? settings.Backup.KeepDumps;
+                        var backup = await maintenance.BackupAsync(keep, ct);
+                        await output.WriteLineAsync($"Backup written: {backup.DumpPath} ({backup.Bytes} bytes), sha256 {backup.Sha256}.", ct);
+                        return 0;
+                    }
 
                 case "upgrade":
-                {
-                    var to = IntOption(args[1..], "--to") ?? throw new PgMaintenanceException("db upgrade needs --to <major>.");
-                    var keep = IntOption(args[1..], "--keep") ?? settings.Backup.KeepDumps;
-                    var result = await maintenance.UpgradeAsync(to, keep, ct);
-                    await output.WriteLineAsync(
-                        $"Upgraded PostgreSQL {result.FromMajor} to {result.ToMajor}. Restore point: {result.Backup.DumpPath}. " +
-                        $"Set Bazaar:Database:Major to {result.ToMajor}, then start the host.",
-                        ct);
-                    return 0;
-                }
+                    {
+                        var to = IntOption(args[1..], "--to") ?? throw new PgMaintenanceException("db upgrade needs --to <major>.");
+                        var keep = IntOption(args[1..], "--keep") ?? settings.Backup.KeepDumps;
+                        var result = await maintenance.UpgradeAsync(to, keep, ct);
+                        await output.WriteLineAsync(
+                            $"Upgraded PostgreSQL {result.FromMajor} to {result.ToMajor}. Restore point: {result.Backup.DumpPath}. " +
+                            $"Set Bazaar:Database:Major to {result.ToMajor}, then start the host.",
+                            ct);
+                        return 0;
+                    }
 
                 default:
                     await output.WriteLineAsync(_usage, ct);
