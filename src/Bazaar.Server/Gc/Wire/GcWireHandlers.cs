@@ -49,7 +49,7 @@ public sealed class SubscribeHandler : IWireRequestHandler
 /// original). Denied and missing GCs get the same answer. The commit notifies listeners, so subscribers receive the message
 /// through the dispatcher; this handler does not fan out.
 /// </summary>
-public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcReadAccess access) : IWireRequestHandler
+public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcReadAccess access, Bazaar.Server.Gc.Mentions.IInboxRowWriter inbox) : IWireRequestHandler
 {
     /// <summary>Longest accepted message text, in characters. Replaced by the <c>gc.message_max_bytes</c> setting when it is wired.</summary>
     public const int MaxTextLength = 64 * 1024;
@@ -84,6 +84,7 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
         }
 
         var kind = viewer.Kind;
+        var body = await bodies.SealAsync(principal.Id, request.Text, cancellationToken).ConfigureAwait(false);
         var append = new AppendRequest(
             request.GcId,
             GcEventKinds.Message,
@@ -103,7 +104,7 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
             },
             clientMsgId)
         {
-            Message = bodies.Seal(request.Text),
+            Message = body,
             Mentions = mentions,
             ReplyToSeq = request.ReplyToN,
         };
@@ -111,6 +112,16 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
         try
         {
             var result = await writer.AppendAsync(append, cancellationToken).ConfigureAwait(false);
+            if (mentions.Count > 0)
+            {
+                // A human @mention wakes the mentioned agents. The write is idempotent per (recipient, message), so a
+                // retried send with the same request id writes the same rows again and wakes nobody twice.
+                var accepted = mentions.Select(m => new Bazaar.Server.Gc.Mentions.AcceptedMention(m, 0, 0)).ToList();
+                var gcRecord = new Bazaar.Server.Gc.Model.GcRecord(request.GcId, null, string.Empty, null);
+                var rows = Bazaar.Server.Gc.Mentions.InboxPlanner.PlanMentionInbox(gcRecord, result.Seq, accepted, principal.Id);
+                await inbox.WriteAsync(rows, cancellationToken).ConfigureAwait(false);
+            }
+
             // A message's first version: n and ev are the same seq (doc 02, sequence numbers).
             return WireReply.Ok(context.Connection.Codec, new GcSendResult(result.Seq, result.Seq));
         }

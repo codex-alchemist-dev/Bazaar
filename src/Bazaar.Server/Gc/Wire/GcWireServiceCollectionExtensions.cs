@@ -29,8 +29,14 @@ public static class GcWireServiceCollectionExtensions
         services.TryAddSingleton<GcReadAccess>();
         services.TryAddSingleton<IGcReadAccess>(sp => sp.GetRequiredService<GcReadAccess>());
 
-        // INTERIM: plaintext bodies until the per-person key codec lands (docs/design/04 Question 2).
-        services.TryAddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
+        // Per-person AES-256-GCM bodies (docs/design/04 Question 2). The KEK provider is optional at registration: without one the
+        // codec fails closed when it seals, so no body is stored in plaintext (see AesGcmGcBodyCodec).
+        services.TryAddSingleton<IGcBodyCodec>(sp => new AesGcmGcBodyCodec(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
+            sp.GetService<Bazaar.Server.Identity.Keys.IKekProvider>()));
+
+        services.TryAddSingleton<Bazaar.Server.Gc.Mentions.IInboxRowWriter>(sp => new Bazaar.Server.Gc.Mentions.InboxRowWriter(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
 
         services.TryAddSingleton<PgGcStreamSource>();
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());

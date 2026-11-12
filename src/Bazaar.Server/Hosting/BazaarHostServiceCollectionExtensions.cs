@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -20,6 +21,14 @@ public static class BazaarHostServiceCollectionExtensions
             .Bind(configuration.GetSection(BazaarHostOptions.SectionName))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<BazaarHostOptions>, BazaarHostOptionsValidator>();
+
+        // Default KEK: a random key file in the data root (Identity/Keys/FileKekProvider). A platform provider registered
+        // earlier or later replaces it, because this is only a default.
+        services.TryAddSingleton<Bazaar.Server.Identity.Keys.IKekProvider>(sp =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BazaarHostOptions>>().Value;
+            return Bazaar.Server.Identity.Keys.FileKekProvider.Open(Path.Combine(options.DataRoot, "keys", "kek.bin"));
+        });
         services.AddHostedService<BazaarHostOptionsLogger>();
         return services;
     }

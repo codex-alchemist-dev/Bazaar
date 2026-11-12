@@ -88,7 +88,7 @@ public class AgentResponderTests
         var gc = GroupGc();
         var seq = gc.Post(AuthorKind.Owner, ResponderTestIds.Owner, "@Charles hi", ResponderTestIds.Charles);
         var key = AgentResponder.ReplyKey(gc.Messages[0].MessageId);
-        var body = new PlaintextGcBodyCodec().Seal("first");
+        var body = await new PlaintextGcBodyCodec().SealAsync(ResponderTestIds.Charles, "first", TestContext.Current.CancellationToken);
 
         var first = await gc.AppendAsync(new AppendRequest(ResponderTestIds.Gc, GcEventKinds.Message, AuthorKind.Agent, ResponderTestIds.Charles, SourceTrust.Agent, key) { ReplyToSeq = seq, Message = body }, TestContext.Current.CancellationToken);
         var second = await gc.AppendAsync(new AppendRequest(ResponderTestIds.Gc, GcEventKinds.Message, AuthorKind.Agent, ResponderTestIds.Charles, SourceTrust.Agent, key) { ReplyToSeq = seq, Message = body }, TestContext.Current.CancellationToken);
