@@ -45,7 +45,9 @@ public static class GcWireServiceCollectionExtensions
         services.AddSingleton<IHostedService, GcDispatcherService>();
 
         services.AddSingleton<IWireRequestHandler, SubscribeHandler>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();
         services.AddSingleton<IWireRequestHandler, GcSendHandler>();
+        services.AddSingleton<IWireRequestHandler, GcEditHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();
         return services;
     }

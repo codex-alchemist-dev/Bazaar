@@ -48,6 +48,12 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8)
         """;
 
+    // An edit adds a version of a message that already exists: no gc_message row, and the version number comes from the request.
+    private const string _insertEditVersionSql = """
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at)
+        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8)
+        """;
+
     private const string _insertmentionssql = """
         INSERT INTO gc_mention (gc_id, seq, target_principal_id)
         SELECT $1, $2, t FROM unnest($3::uuid[]) AS t
@@ -133,8 +139,13 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             if (!keys.Add((r.AuthorId, r.ClientMsgId)))
                 throw new ArgumentException($"Duplicate idempotency key '{r.ClientMsgId}' within one append.", nameof(requests));
             var isMessage = r.Kind == GcEventKinds.Message;
-            if (isMessage != (r.Message is not null))
-                throw new ArgumentException(isMessage ? "A message event needs a Message body." : "Only a message event carries a Message body.", nameof(requests));
+            var isEdit = r.Kind == GcEventKinds.MessageEdit;
+            if ((isMessage || isEdit) != (r.Message is not null))
+                throw new ArgumentException(
+                    isMessage || isEdit ? "A message or edit event needs a Message body." : "Only a message or edit event carries a Message body.",
+                    nameof(requests));
+            if (isEdit && (r.MessageId is null || r.Version is null || r.Version < 2))
+                throw new ArgumentException("An edit needs the message id and a version of 2 or more.", nameof(requests));
             if (r.Mentions.Count > 0 && !isMessage)
                 throw new ArgumentException("Only a message event carries mentions.", nameof(requests));
         }
@@ -184,19 +195,28 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         {
             var r = requests[index];
             var eventId = Guid.CreateVersion7();
-            var messageId = r.Message is null ? (Guid?)null : Guid.CreateVersion7();
+            var isEdit = r.Kind == GcEventKinds.MessageEdit;
+            var messageId = r.Message is null ? (Guid?)null : isEdit ? r.MessageId : Guid.CreateVersion7();
+            var version = r.Message is null ? (int?)null : isEdit ? r.Version : 1;
             batch.BatchCommands.Add(Cmd(
                 _inserteventsql,
                 P(gcId), P(seq), P(eventId), P(r.Kind), P(GcEnumText.ToText(r.AuthorKind)), P(r.AuthorId), N(r.SessionId),
                 P(GcEnumText.ToText(r.SourceTrust)), P(r.TaintedAtWrite ?? false), N(r.TaintSourcesJson), N(messageId),
-                N(r.Message is null ? (int?)null : 1), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now)));
+                N(version), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now)));
 
             if (r.Message is { } body && messageId is { } mid)
             {
-                batch.BatchCommands.Add(Cmd(_insertmessagesql, P(gcId), P(mid), P(seq), P(r.AuthorId)));
-                batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now)));
-                if (r.Mentions.Count > 0)
-                    batch.BatchCommands.Add(Cmd(_insertmentionssql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
+                if (isEdit)
+                {
+                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value)));
+                }
+                else
+                {
+                    batch.BatchCommands.Add(Cmd(_insertmessagesql, P(gcId), P(mid), P(seq), P(r.AuthorId)));
+                    batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now)));
+                    if (r.Mentions.Count > 0)
+                        batch.BatchCommands.Add(Cmd(_insertmentionssql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
+                }
             }
 
             results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);

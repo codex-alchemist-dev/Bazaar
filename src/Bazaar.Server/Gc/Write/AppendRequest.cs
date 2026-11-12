@@ -50,6 +50,12 @@ public sealed record AppendRequest(
     /// <summary>Seq this event replies to.</summary>
     public long? ReplyToSeq { get; init; }
 
+    /// <summary>The message a <c>message_edit</c> event changes. Required for that kind, unused otherwise.</summary>
+    public Guid? MessageId { get; init; }
+
+    /// <summary>The version a <c>message_edit</c> event creates (2 or more). Required for that kind, unused otherwise.</summary>
+    public int? Version { get; init; }
+
     /// <summary>Kind-specific payload as JSON text.</summary>
     public string? PayloadJson { get; init; }
 
