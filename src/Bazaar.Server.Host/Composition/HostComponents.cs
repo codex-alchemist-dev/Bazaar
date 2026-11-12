@@ -16,7 +16,7 @@ using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Kanban.Ryusei;
 using Bazaar.Server.Mail;
-using Bazaar.Server.Roadmap;
+using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;

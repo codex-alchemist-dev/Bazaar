@@ -3,7 +3,7 @@ using Bazaar.Contracts.Roadmap;
 using Bazaar.Server.Constellation.Tiles;
 using Npgsql;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>
 /// Reads one Vault's objective roadmap from the index and returns it as the wire snapshot (doc 38, Layer 3). Nothing is stored:
