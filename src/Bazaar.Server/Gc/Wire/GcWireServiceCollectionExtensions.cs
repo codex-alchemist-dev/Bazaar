@@ -48,6 +48,9 @@ public static class GcWireServiceCollectionExtensions
         services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();
         services.AddSingleton<IWireRequestHandler, GcSendHandler>();
         services.AddSingleton<IWireRequestHandler, GcEditHandler>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.PgGcMembershipSource>();
+        services.AddSingleton<IWireRequestHandler, GcMemberAddHandler>();
+        services.AddSingleton<IWireRequestHandler, GcMemberRemoveHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();
         return services;
     }

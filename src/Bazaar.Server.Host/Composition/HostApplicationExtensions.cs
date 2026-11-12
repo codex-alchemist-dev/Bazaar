@@ -3,6 +3,7 @@ using Bazaar.Server.Components;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
@@ -40,6 +41,7 @@ public static class HostApplicationExtensions
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
+        AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
         // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.
         services.AddBazaarRemoteAuth(configuration);

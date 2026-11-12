@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 namespace Bazaar.Contracts.Wire;
 
 /// <summary>
@@ -39,6 +40,18 @@ public sealed record GcSend(Guid GcId, string Text, IReadOnlyList<Guid>? Mention
 /// <param name="MessageId">The message to edit.</param>
 /// <param name="Text">The replacement text.</param>
 public sealed record GcEdit(Guid GcId, Guid MessageId, string Text);
+
+/// <summary>Request <c>gc.member.add</c>: invites a principal. The envelope <c>id</c> is the idempotency key.</summary>
+/// <param name="GcId">The group chat.</param>
+/// <param name="PrincipalId">The principal to add.</param>
+/// <param name="Kind">Human or agent. Owners are not added this way.</param>
+/// <param name="Role">member or observer.</param>
+public sealed record GcMemberAdd(Guid GcId, Guid PrincipalId, PrincipalKind Kind, string Role);
+
+/// <summary>Request <c>gc.member.remove</c>: removes a principal. The owner may remove anyone; a member may remove only themselves.</summary>
+/// <param name="GcId">The group chat.</param>
+/// <param name="PrincipalId">The principal to remove.</param>
+public sealed record GcMemberRemove(Guid GcId, Guid PrincipalId);
 
 /// <summary>Response to <c>gc.send</c>.</summary>
 /// <param name="N">The assigned log sequence number.</param>

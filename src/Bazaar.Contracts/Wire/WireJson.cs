@@ -28,6 +28,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcSend))]
 [JsonSerializable(typeof(GcSendResult))]
 [JsonSerializable(typeof(GcEdit))]
+[JsonSerializable(typeof(GcMemberAdd))]
+[JsonSerializable(typeof(GcMemberRemove))]
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]

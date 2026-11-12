@@ -17,19 +17,11 @@ public static class PaneViews
 {
     public static Control Create(IPaneViewModel pane) => pane switch
     {
-        KanbanPaneViewModel kanban => WithTitle(kanban.Title, KanbanBoard(kanban)),
-        DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
-        ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
-        GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
-        RyuseiSchedulePaneViewModel schedule => WithTitle(schedule.Title, RyuseiSchedule(schedule)),
-        RoadmapPaneViewModel roadmap => WithTitle(roadmap.Title, Roadmap(roadmap)),
-        WorkdayPaneViewModel workday => WithTitle(workday.Title, Workday(workday)),
-        Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
     };
 
-    private static StackPanel WithTitle(string title, Control body) => new StackPanel
+    internal static StackPanel WithTitle(string title, Control body) => new StackPanel
     {
         Spacing = 8,
         Children =
@@ -39,7 +31,7 @@ public static class PaneViews
         },
     };
 
-    private static ScrollViewer KanbanBoard(KanbanPaneViewModel kanban)
+    internal static ScrollViewer KanbanBoard(KanbanPaneViewModel kanban)
     {
         var board = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         foreach (var column in kanban.Columns)
@@ -65,7 +57,7 @@ public static class PaneViews
         return new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Content = board };
     }
 
-    private static Control GcPane(GcPaneViewModel gc)
+    internal static Control GcPane(GcPaneViewModel gc)
     {
         if (gc.Chat is null)
         {
@@ -76,7 +68,7 @@ public static class PaneViews
         return new Border { Height = 480, Child = new ChatView { DataContext = gc.Chat } };
     }
 
-    private static StackPanel RyuseiSchedule(RyuseiSchedulePaneViewModel schedule)
+    internal static StackPanel RyuseiSchedule(RyuseiSchedulePaneViewModel schedule)
     {
         var rows = new StackPanel { Spacing = 6 };
         if (schedule.Schedule.Rows.Count == 0)
@@ -108,7 +100,7 @@ public static class PaneViews
         return rows;
     }
 
-    private static StackPanel Workday(WorkdayPaneViewModel workday)
+    internal static StackPanel Workday(WorkdayPaneViewModel workday)
     {
         var body = new StackPanel { Spacing = 10 };
         if (workday.Owners.Count == 0)
@@ -134,7 +126,7 @@ public static class PaneViews
         return body;
     }
 
-    private static StackPanel Roadmap(RoadmapPaneViewModel roadmap)
+    internal static StackPanel Roadmap(RoadmapPaneViewModel roadmap)
     {
         var body = new StackPanel { Spacing = 10 };
         if (roadmap.DependencyCycle is { Count: > 0 } cycle)
@@ -173,7 +165,7 @@ public static class PaneViews
         return body;
     }
 
-    private static StackPanel Dashboard(DashboardPaneViewModel dashboard)
+    internal static StackPanel Dashboard(DashboardPaneViewModel dashboard)
     {
         var sections = new StackPanel { Spacing = 12 };
         foreach (var section in dashboard.Sections)

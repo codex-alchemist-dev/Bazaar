@@ -44,7 +44,7 @@ public class RyuseiSchedulePaneTests
     {
         var pane = new RyuseiSchedulePaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.RyuseiSchedule, _model));
 
-        var view = PaneViews.Create(pane);
+        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Repeating interval · Active", texts);

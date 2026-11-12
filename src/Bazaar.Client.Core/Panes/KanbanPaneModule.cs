@@ -7,6 +7,9 @@ public sealed class KanbanPaneModule : IPaneModule
 {
     public string Id => PaneKinds.Kanban;
 
-    public void Register(PaneRegistry registry, PaneModuleContext context) =>
+    public void Register(PaneRegistry registry, PaneModuleContext context)
+    {
         registry.Register(PaneKinds.Kanban, descriptor => new KanbanPaneViewModel(descriptor));
+        registry.RegisterView<KanbanPaneViewModel>(PaneViews.KanbanBoard);
+    }
 }

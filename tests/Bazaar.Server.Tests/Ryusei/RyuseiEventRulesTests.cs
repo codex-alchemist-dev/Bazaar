@@ -1,5 +1,5 @@
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Kanban.Data;
-using Bazaar.Server.Kanban.Ryusei;
 
 namespace Bazaar.Server.Tests.Ryusei;
 
