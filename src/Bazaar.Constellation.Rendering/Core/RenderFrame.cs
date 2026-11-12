@@ -2,7 +2,7 @@ namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>
 /// One layout result: packed positions for every node, in scene index order.
-/// Dimensions is 2 for the current view and 3 when a 3D layout is served (doc 19, octree-ready).
+/// Dimensions is 2 for the current view and 3 when a 3D layout is served.
 /// </summary>
 public sealed class RenderFrame
 {
