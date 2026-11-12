@@ -1,6 +1,6 @@
 # Client GUI customization, module contract and DSL question
 
-Status: PROPOSED, HELD FOR OWNER DECISIONS (2026-11-12, revised after owner correction) · Owner decisions needed: 8 (section 10) · This PR stays a draft until the owner answers. No default is applied to the decisions in section 10; work that depends on them waits.
+Status: PROPOSED, HELD FOR OWNER DECISIONS (2026-11-12, revised after owner correction) · Owner decisions needed: see section 10 (count refreshed 2026-11-12; command-bar AI matching answered: suggest only) · This PR stays a draft until the owner answers. No default is applied to the decisions in section 10; work that depends on them waits.
 Depends on: 02-wire-protocol-and-sync.md (`ui.get`, `ui.changed`, `prefs.set`), 03-server-host-and-providers.md (settings registry), 15-security-taint-and-approvals.md (approval tiers, `audit_log`), 20-engine-integration-api.md (`PaneDescriptor`), 27-client-architecture.md (layout, theme, keyboard model), 28-windows-client.md, 29-android-client.md, 38-ryusei-fuda.md, 19-constellation-and-git-solar-system.md · Used by: 30-linux-client-and-packaging.md, 34-testing-strategy.md, 40-core-feature-modules-audit.md
 
 ## 1. Purpose
@@ -161,6 +161,14 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **AI command autocomplete runs on the local NPU, off by default (owner, 2026-11-12).** It is a client-side compute exception (C17, with the NPU inference exception). A setting turns it on. Typed commands stay on the device.
 - **Shell completion** is the baseline. AI suggestions sit on top of it and never replace it.
 - **Gate.** The NPU path depends on doc 31 (local inference) and its backend availability.
+- **Command bar AI matching suggests only, never runs (owner, 2026-11-12).** When a typed phrase is not a known command or target, AI matching may propose commands. It never executes them. The user confirms every proposal. Syntax-first commands (section 4.12) run directly.
+
+## 4.12 Navigation grammar (added 2026-11-12, provisional)
+
+- **Syntax first.** Single-letter verbs for speed: `m` move or navigate, `n` next, `i` `j` `k` `l` for directional navigation, plus other vim-style keys. These run with no AI involved.
+- **Named targets** typed then Enter: `topgc` (most recent activity GC), `ryuseifuda` or `kanban` (RyuseiFuda board), `constellation`, `unread`, `settings`. Aliases are configurable per company.
+- **AI fallback.** Unknown phrases go to AI matching, which suggests only (section 4.11). Latency and locality rules follow doc 31.
+- **No Ctrl chords.** Mnemonics and the command bar are the only entry points. Open: exact verb set and whether abbreviations are per-module.
 
 ## 5. Modules and existing panes
 
