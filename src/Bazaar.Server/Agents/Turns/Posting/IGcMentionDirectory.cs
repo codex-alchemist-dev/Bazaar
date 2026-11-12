@@ -11,9 +11,9 @@ public sealed record GcMentionMember(Guid PrincipalId, string Handle);
 public sealed record GcMentionRoster(Guid OwnerId, IReadOnlyList<GcMentionMember> ActiveMembers);
 
 /// <summary>
-/// The seam <see cref="GcAgentPostSink"/> uses to find mention targets for a GC. No implementation is registered in production:
-/// the current schema has no principal handle column (see the report that added this seam). Without a directory the sink posts
-/// with no mentions.
+/// The seam <see cref="GcAgentPostSink"/> uses to find mention targets for a GC. <see cref="SqlGcMentionDirectory"/> is the
+/// registered implementation (<c>AddGcAgentPostSink</c>); it reads handles from <c>principal_handle</c>. Without a directory the
+/// sink posts with no mentions.
 /// </summary>
 public interface IGcMentionDirectory
 {

@@ -11,6 +11,7 @@ using Bazaar.Server.Agents.Turns.Tools.Db;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gc.Read;
+using Bazaar.Server.Mentions;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Sync;
@@ -96,6 +97,8 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
             sp.GetRequiredService<TurnStarterOptions>()));
+        services.TryAddSingleton(sp => new PrincipalHandleRepository(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IAgentHandleAssigner>(sp => sp.GetRequiredService<PrincipalHandleRepository>());
         services.TryAddSingleton<AgentRepository>();
         services.TryAddSingleton<LeaseRepository>();
         services.TryAddSingleton<InboxRepository>();
