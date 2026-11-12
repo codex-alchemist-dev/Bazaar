@@ -1,5 +1,5 @@
-using Bazaar.Server.Agents.Inbox;
 using Bazaar.RyuseiFuda.Orrery;
+using Bazaar.Server.Agents.Inbox;
 
 namespace Bazaar.Server.Tests.Ryusei;
 

@@ -1,6 +1,6 @@
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Start;
-using Bazaar.RyuseiFuda.Orrery;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
