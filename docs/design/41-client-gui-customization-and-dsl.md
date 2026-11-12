@@ -250,8 +250,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
 6. **Who may override company locks? DECIDED (owner, 2026-11-12): the owner only.**
    - Option 1: the owner only (chosen).
    - Option 2: any operator with the owner's role.
-7. **Importing layouts and themes from files.**
-   - Option 1: allowed, with Tier 2 approval and validation (recommended).
+7. **Importing layouts and themes from files. DECIDED (owner, 2026-11-12): allowed, with Tier 2 approval and validation.**
+   - Option 1: allowed, with Tier 2 approval and validation (chosen).
    - Option 2: not allowed in v1. Settings only, created in the app.
 8. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
    - Layout term: "Layout" (recommended), "Workspace" or "Arrangement".
