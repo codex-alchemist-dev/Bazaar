@@ -4,6 +4,7 @@ using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -122,7 +123,9 @@ public sealed class AgentSchedulerRegistrationTests
     [Fact]
     public async Task Enabled_without_a_turn_runner_fails_with_a_clear_error_when_the_hosted_loop_is_resolved()
     {
+        // The component registers the production runner, so take it out to stand for a host that replaced it with nothing.
         var services = Compose(("Enabled", "true"), ("Route", "claude"));
+        services.RemoveAll<ITurnRunner>();
         services.AddSingleton<ILoopGuard>(new FakeLoopGuard());
         await using var provider = services.BuildServiceProvider();
 
@@ -130,6 +133,17 @@ public sealed class AgentSchedulerRegistrationTests
 
         Assert.Contains("no ITurnRunner is registered", ex.Message, StringComparison.Ordinal);
         Assert.Contains("Bazaar:AgentTurns:Scheduler:Enabled", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Enabled_without_a_model_gateway_fails_when_the_hosted_loop_is_resolved()
+    {
+        // The production runner needs an IModelGateway. Without one the loop cannot run a turn, so the host must not start.
+        var services = Compose(("Enabled", "true"), ("Route", "claude"));
+        services.AddSingleton<ILoopGuard>(new FakeLoopGuard());
+        await using var provider = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetServices<IHostedService>().ToList());
     }
 
     [Fact]

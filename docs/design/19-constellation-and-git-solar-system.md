@@ -126,6 +126,11 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - Vault branches (`agent/<task>`) are planets. Writer-queue merges (18) are comets.
 - The layout is deterministic by default (`constellation.git_layout = deterministic`), so history does not jitter as it grows. `force` is available as a setting.
 
+**DECIDED 2026-11-11 (coordinator).** These defaults let WP11 build on the solar system without waiting on the owner:
+1. Comet direction runs from the merged branch tip to the merge commit.
+2. Every parent edge is kept, not only merge comets, so plain parent edges are drawn too.
+3. The git DAG indexer (`src/Bazaar.Server/Constellation/GitDag/`) is the source of these edges.
+
 ## Testing
 - **Layout engine:** xUnit v3, no Avalonia. Fixed seed. Invariants: no NaN, settling, hop ordering, determinism. Barnes-Hut matches brute force within tolerance at 1k nodes.
 - **Clustering:** two cliques joined by one edge yield two communities.
