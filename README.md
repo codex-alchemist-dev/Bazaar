@@ -288,13 +288,22 @@ You never build a client. Running the server installer builds your company's cli
 
 Nothing else is needed: no terminal, no build script, and nothing outside the installer window.
 
+### Updates and offline installs (planned)
+
+Clients update in place from their own server, so you never reinstall one by hand. The server can regenerate the client packages at any time, for example after a module changes. If the server installs while offline, it finishes the install and defers the downloads (the Android SDK and similar) until the internet returns. Then the server builds the clients itself.
+
+*Status: planned. Update and offline deferral are not implemented yet.*
+
 *Status: planned. Per-company client builds and the output folder are not implemented yet. Today, clients are built from the repository with the developer scripts below.*
 
 ### Pair your devices
 
-Once the server is running and a client is installed, pair the client with a short code shown on the server. Approve the code from a device you are already signed in on. Pairing is how a phone or a desktop gets its own key, and the server can revoke it later.
+There are two ways a device joins your server. Company-built clients need no pairing code:
 
-*Status: pairing is shipped in the server routes and the Android client. The short-code flow on desktop and the installer's guided pairing are in progress. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md).*
+- **Company clients (planned).** Each client is built for one company, and it carries its server's address and key pin. On first run it trusts that server and connects. There is no code to type and nothing to approve.
+- **Other devices.** A device that was not built for your company still pairs through the approval flow. The server shows a short code, and you approve it from a device you are already signed in on. Pairing gives that device its own key, and the server can revoke it later.
+
+*Status: the short-code approval flow is shipped in the server routes and the Android client. The desktop short-code flow is in progress. The baked address and key pin for company clients are planned. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md) and [`docs/design/37-distribution-matrix-and-packaging.md`](docs/design/37-distribution-matrix-and-packaging.md).*
 
 ---
 
@@ -412,6 +421,25 @@ Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuh
 ![Beta roadmap: nine stages with status, then the Zuhal gate](docs/assets/roadmap-stages.svg)
 
 Stages are labels, not version numbers. Stage 1 is done. Stage 2 is mostly done. Stages 3 to 7 are partly done, with the open parts named in the roadmap. Stage 8 is planned, with some code in place, and Stage 9, Hardening, has started. v1.0.0 "Zuhal" is the readiness gate: its scope is decided, its date is not.
+
+### Stage by stage, in text
+
+The same roadmap as a table, with each named feature and its status. Status words follow [`docs/FEATURES.md`](docs/FEATURES.md): *shipped* means merged code exists on `main`, *in progress* means partly built, *planned* means named and designed with no code yet.
+
+| Stage | Milestone | Named features and status |
+|---|---|---|
+| Stage 1 | Scaffold and design | Solution and CI (shipped); Design set (shipped); Versioning rules (shipped) |
+| Stage 2 | Spikes, gate 1 | Wire format (S6) (shipped); Git engine (S23) (in progress); Cache: Garnet (S2) (planned); VM sizing (S8) (planned) |
+| Stage 3 | Foundation | GC log and NOTIFY (shipped); Managed PostgreSQL (shipped); Migration runner (shipped); Wire transport (shipped); Model gateway (shipped); Bazaar.Server.Host * (shipped) |
+| Stage 4 | Company core | Agent runtime (in progress); Souls (in progress); Work-Life Simulation (in progress); Council (in progress); Reputation (in progress); Taint and approvals (in progress); RyuseiFuda Workday board (formerly Kanban) (shipped); Orrery scheduling (in progress) |
+| Stage 5 | Knowledge and identity | Vault (in progress); Constellation data (in progress); GitHub integration (in progress); Agent email (in progress); Identity and Passport (in progress); Observatory (in progress); Roadmap views * (in progress); Memory (in progress) |
+| Stage 6 | Windows client | Client.Core shell (in progress); Constellation views (in progress); Discord-style GC view (in progress); Theme (in progress); Command palette (planned); Start screen dashboard (planned); Git diff and PR panes (planned); ConPTY terminal (planned) |
+| Stage 7 | Android and Linux | Android head (in progress); Device pairing (shipped); Radial menu (planned); Push wake-ups (planned); Linux head (in progress); Velopack updates (planned) |
+| Stage 8 | Environments and engines | Agent VMs (in progress); Guest agent (in progress); Coding harness (in progress); Godot adapter (in progress); Roblox Studio bridge (in progress); Browser profiles (planned); Fun systems (in progress) |
+| Stage 9 | Hardening | Backup and restore (in progress); Remote access and TLS (in progress); Conduit transports * (in progress); Erasure (in progress); Rate limits (in progress); Community tiers (in progress); Data export (planned); Counsel items (planned) |
+| v1.0.0 | Zuhal, the readiness gate (no date) | Company Constitution (planned); Health System (planned); Company Analytics (planned); Skimmer Bouncer (in progress); Digital Twin (planned); Mirror Agent (planned); What If Engine (planned); Time Machine (in progress); Soul Marketplace (planned); Talent Pool (planned); Genetic Memory Transfer (planned); Hive Mind (planned); Bazaar Archive (planned); Company Memory (planned); GC metadata (planned); Playtest Mode (planned); Bazaar SDK (in progress); Lucky mode (in progress) |
+
+`*` marks a tentative placement that the sources do not state. Each stage's exit check is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ### The technical milestones
 
