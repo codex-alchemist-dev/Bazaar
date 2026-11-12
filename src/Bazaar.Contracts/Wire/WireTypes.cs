@@ -21,6 +21,9 @@ public static class WireTypes
     /// <summary>Client posts a message.</summary>
     public const string GcSend = "gc.send";
 
+    /// <summary>Client edits its own message, adding a version. Answered with a <c>GcSendResult</c>: the edit event's seq and the new version.</summary>
+    public const string GcEdit = "gc.edit";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
