@@ -81,6 +81,14 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 34 | [34-testing-strategy.md](34-testing-strategy.md) | Test layers, real-Postgres fixtures, fake gateway and cassettes, verification gate, evals | 13 | 02, 04, 05, 06, 15, 17 |
 | 35 | [35-spikes-plan.md](35-spikes-plan.md) | 25 time-boxed spikes (S1 to S25) with pass criteria, fallbacks and run locations | 12 | spans 02 to 33 |
 
+### Rendering (prepared, not extracted)
+
+Not part of the numbered set. Status PROPOSED.
+
+| # | Doc | Purpose | Qs | Key dependencies |
+|---|---|---|---|---|
+| - | [constellation-render-core.md](constellation-render-core.md) | Boundary of the generic bulk-node render core (`Bazaar.Constellation.Rendering.Core`) and its future extraction steps; enforced by the architecture test `ConstellationRenderCoreBoundaryTests` | - | 19, constellation-scale-and-lod |
+
 ## How to review these docs
 
 1. **Start with the register.** [CONFLICT-REGISTER.md](CONFLICT-REGISTER.md) lists 45 cross-cutting issues, each with a multiple-choice question and a recommendation. Its 14 BLOCKER entries must be answered before the affected code is written; answering them settles many per-doc questions at once.
