@@ -1,4 +1,6 @@
 using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.LoopGuard;
+using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.Agents.Turns.Context;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Agents.Turns.Runner;
@@ -16,6 +18,7 @@ using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Bazaar.Server.Agents.Turns;
@@ -27,10 +30,17 @@ namespace Bazaar.Server.Agents.Turns;
 /// <remarks>
 /// Registered: the option defaults (<c>TurnRunnerOptions</c>, <c>SubagentOptions</c>, <c>TurnStarterOptions</c>), the wake chain
 /// depth default (<c>NoWakeChainDepthSource</c>, which never reads a depth; RyuseiFuda replaces it), the due-inbox reader, and
-/// <c>TurnStarter</c>. <c>TurnStarter</c> is a factory, so it resolves <c>ITurnRunner</c> only when someone resolves it. No
-/// <c>ITurnRunner</c> is registered here, and no background service starts turns: resolving <c>TurnStarter</c> fails until a
-/// runner exists. <c>TurnRunner</c> and <c>SubagentRunner</c> are not registered: their seams (<c>ITurnContextAssembler</c>,
-/// <c>IToolDispatcher</c>, <c>IAgentPostSink</c>) have no production implementations yet.
+/// <c>TurnStarter</c>. Also the repositories, the context sources and assembler, and the production <c>ITurnRunner</c>
+/// (<c>TurnRunAdapter</c> over <c>TurnRunner</c>). <c>TurnStarter</c> and the runner are factories, so they are built only when
+/// something resolves them; the runner needs an <c>IModelGateway</c> and the GC component at that point.
+/// <para>
+/// The wake loop is off by default. <c>AgentSchedulerOptions</c> is always bound from <c>Bazaar:AgentTurns:Scheduler</c> and
+/// validated here, so a bad value fails at composition. Only when <c>Enabled</c> is true are the due-agent reader, the
+/// <c>IAgentScheduler</c> (<c>InboxAgentScheduler</c> unless another one is registered first) and the hosted
+/// <c>AgentSchedulerService</c> registered. The hosted service resolves the scheduler when the host starts, so an enabled
+/// wake loop with no <c>ITurnRunner</c> or no <c>ILoopGuard</c> stops the host at start with an error that names what is
+/// missing.
+/// </para>
 /// </remarks>
 public sealed class AgentTurnsComponent : IBazaarComponent
 {
@@ -120,6 +130,8 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<TurnRunner>(),
             sp.GetRequiredService<ITurnContextAssembler>(),
             TurnRoute(configuration)));
+
+        AddScheduler(services, configuration);
     }
 
     /// <summary>The model route every turn uses: <c>Bazaar:Turns:Route</c>, or the Haiku 5.5 model id when unset.</summary>
@@ -129,5 +141,39 @@ public sealed class AgentTurnsComponent : IBazaarComponent
     {
         var route = configuration["Bazaar:Turns:Route"];
         return string.IsNullOrWhiteSpace(route) ? DefaultTurnRoute : route.Trim();
+    }
+
+    /// <summary>Binds the wake loop options and, only when the loop is enabled, registers the scheduler and its hosted service.</summary>
+    private static void AddScheduler(IServiceCollection services, IConfiguration configuration)
+    {
+        var options = new AgentSchedulerOptions();
+        configuration.GetSection(AgentSchedulerOptions.SectionName).Bind(options);
+        options.Validate();
+        services.TryAddSingleton(options);
+
+        if (!options.Enabled)
+            return;
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IDueAgentReader>(sp => new InboxDueAgentReader(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IAgentScheduler>(sp =>
+        {
+            if (sp.GetService<ITurnRunner>() is null)
+                throw new InvalidOperationException(
+                    $"{AgentSchedulerOptions.SectionName}:Enabled is true, but no ITurnRunner is registered. " +
+                    "The wake loop cannot start turns without a turn runner. Register one or switch the wake loop off.");
+            var guard = sp.GetService<ILoopGuard>() ?? throw new InvalidOperationException(
+                $"{AgentSchedulerOptions.SectionName}:Enabled is true, but no ILoopGuard is registered. " +
+                "The wake loop does not wake agents without a loop guard.");
+
+            return new InboxAgentScheduler(
+                sp.GetRequiredService<IDueAgentReader>(),
+                sp.GetRequiredService<TurnStarter>(),
+                guard,
+                sp.GetRequiredService<AgentSchedulerOptions>(),
+                sp.GetRequiredService<TimeProvider>(),
+                sp.GetRequiredService<ILogger<InboxAgentScheduler>>());
+        });
+        services.AddHostedService<AgentSchedulerService>();
     }
 }
