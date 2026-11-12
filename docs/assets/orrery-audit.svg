@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Orrery fire chain with the loop guard</title>
+  <desc id="d">Five fires chain in a row. The loop guard trips at a configured depth, stopping the chain and logging the trip.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Orrery audit and loop guard: every fire on record, chains capped</text>
+  <rect x="40" y="90" width="150" height="50" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="115" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Fire</text>
+  <line x1="190" y1="115" x2="220" y2="115" stroke="#4d6fb3" stroke-width="2"/>
+  <rect x="220" y="90" width="150" height="50" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="295" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Wake</text>
+  <line x1="370" y1="115" x2="400" y2="115" stroke="#4d6fb3" stroke-width="2"/>
+  <rect x="400" y="90" width="150" height="50" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="475" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Turn</text>
+  <line x1="550" y1="115" x2="580" y2="115" stroke="#4d6fb3" stroke-width="2"/>
+  <rect x="580" y="90" width="150" height="50" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="655" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Fire from turn</text>
+  <line x1="730" y1="115" x2="760" y2="115" stroke="#4d6fb3" stroke-width="2"/>
+  <rect x="760" y="90" width="150" height="50" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="835" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Fire from that turn</text>
+  <rect x="40" y="170" width="880" height="60" rx="10" fill="#3a2420" stroke="#e07a5f" stroke-width="2"/>
+  <text x="480" y="196" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#ffd5c8" text-anchor="middle">The loop guard trips at a configured chain depth. The chain stops and the trip is logged.</text>
+  <text x="480" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#ffd5c8" text-anchor="middle">Trips are recorded. A hand-off to the Psych Ward for review is planned.</text>
+  <text x="40" y="258" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Every fire writes an audit row: who fired, why, the chain depth, and the outcome.</text>
+
+</svg>

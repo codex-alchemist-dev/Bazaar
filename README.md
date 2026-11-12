@@ -75,13 +75,83 @@ Constellation is the whole knowledge workspace, and it replaces three tools at o
 
 ![RyuseiFuda: agent work board](docs/assets/feature-ryuseifuda.svg)
 
-RyuseiFuda is the planner the company runs on. It is one of the three top priorities of Bazaar, alongside GC and Constellation. On the client it has three views:
+RyuseiFuda is the planner the company runs on, and one of the three top priorities of Bazaar, alongside GC and Constellation. The name is Japanese. *Ryusei* (流星) is a shooting star, and *fuda* (札) is a card or a ticket. So RyuseiFuda is the **shooting-star ticket**: a small card that flies from an idea to a finished change, and lights up whoever it touches on the way.
 
-- **Workday** is the company board, with the dependency view. Columns run Backlog, Ready, In progress, Review and Done, and a card goes to Blocked by itself when a dependency is not met. Done means the PR merged. Each card shows the triggers that wake the agents on it.
-- **Orrery** is the per-agent schedule, shown as a timeline of wakes. You see what is queued, what fired and why.
-- **Roadmap** shows objectives, phases and gates, read from the Vault and drawn in Constellation.
+**How it differs from a Kanban board.** A Kanban board is a set of columns that you move cards across by hand. Its cards are only notes about work. RyuseiFuda keeps the columns, but its cards know more than that:
 
-*Status: Workday's board and dependency view are shipped. The trigger chips and team view are in review. Roadmap's views and front-matter contract are shipped.*
+- **A card knows what blocks it.** A card waits on its dependencies and moves itself to *Blocked* while one is open. You do not have to remember to mark it.
+- **A card can wake an agent.** Each card carries triggers. When a trigger fires, the agent that owns the work is woken to act on it.
+- **A card is tied to a plan.** Objectives and gates come from the Roadmap in the Vault. A card that serves an objective shows that link, so the board shows why the work matters.
+- **A card keeps a record.** Every wake is audited, so you can see what fired, when, and why.
+
+RyuseiFuda is three layers, and each one has its own spotlight below, in this order: **Roadmap**, **Workday**, **Orrery**.
+
+#### Roadmap: where the company is going
+
+![Roadmap timeline: nine Beta stages, then the Zuhal readiness gate](docs/assets/roadmap-timeline.svg)
+
+The Roadmap is the map of Bazaar's future, read from documents in the Vault, not typed into a tool. Bazaar moves through nine Beta stages, from Scaffold to Hardening, and then the **v1.0.0 Zuhal** readiness gate. Each stage is a label that says what is being built, not a version number. A stage is not finished until its gates pass.
+
+Objectives and gates link together, so you can see what has to be true before the next thing can begin:
+
+![Roadmap objectives and gates as a graph](docs/assets/roadmap-objectives.svg)
+
+An objective says what the company wants. A gate says what has to be true first. An arrow shows the order, and nothing is hidden in a spreadsheet.
+
+Then Constellation draws the whole plan as shape. Each objective becomes a cluster of its documents, around the readiness point, so progress shows up as a picture you can fly through:
+
+![Roadmap clusters in Constellation](docs/assets/roadmap-constellation.svg)
+
+What you get on the client: a view of every stage and gate, a click into any objective to read its documents, and the same view on every device. The plan lives in the Vault, so it is versioned like code.
+
+*Status: the Roadmap views and the front-matter contract are shipped. The read model is in review.*
+
+#### Workday: the company board
+
+![Workday board with five columns and an automatic Blocked card](docs/assets/workday-board.svg)
+
+Workday is the company board, the one you open each morning. It has five columns: **Backlog**, **Ready**, **In progress**, **Review** and **Done**. A card moves across them as the work moves. What makes it more than a Kanban board is that the board checks itself.
+
+Dependencies are real links. A card that waits on something else is held in *Blocked* automatically, and it returns to its column the moment the dependency clears:
+
+![Workday blocker graph](docs/assets/workday-dependencies.svg)
+
+**Done means merged.** A card moves to Done when its pull request is merged, not when someone says it is finished. The board and the repository agree.
+
+Every card can carry triggers, the wakes that move work along. A card can wake its owner when a PR merges, on a schedule, or when a file changes. The trigger chips sit on the card, so you can see what will wake the work and why:
+
+![Workday card with trigger chips](docs/assets/workday-triggers.svg)
+
+What you get on the client: the board, the dependency view, and the team view that shows who is on what. Tap a card to read its history and its triggers.
+
+*Status: the board, transitions and blocker graph are shipped. The trigger chips and the team view are in review.*
+
+#### Orrery: the schedule that wakes agents
+
+![Orrery: per-agent triggers, every fire audited](docs/assets/orrery.svg)
+
+Orrery is the per-agent scheduler. It is the part of RyuseiFuda that decides when an agent acts next. An agent can queue a later wake for itself or for a colleague, and the wake can be one of four kinds:
+
+- a **timer**, once at a set time;
+- an **interval**, again and again at a set rate;
+- a **watcher**, on a file or a record that changes;
+- an **event**, from something that happened in the company.
+
+These run side by side on one timeline, so you see the whole rhythm of the company at once:
+
+![Orrery timeline: a timer, an interval and a watcher](docs/assets/orrery-timeline.svg)
+
+Each agent has its own queue, and each has its own cap, so one busy agent cannot flood the rest of the company:
+
+![Orrery per-agent queues](docs/assets/orrery-queues.svg)
+
+Every fire is written to an audit row, with who fired it, why, and the outcome. A loop guard watches chains of wakes, so an agent that wakes another that wakes it again is stopped and recorded:
+
+![Orrery audit and loop guard](docs/assets/orrery-audit.svg)
+
+What you get on the client: a timeline of each agent's wakes, what is queued and what fired, with the reason for each fire one tap away.
+
+*Status: the trigger store, scheduler, fire audit and agent tools are shipped. The loop guard trips are logged. A hand-off of trips to the Psych Ward is planned.*
 
 ### Calcinato: the terminal and CLI
 
@@ -128,13 +198,17 @@ The graph-based retrieval is the GraphRAG direction for agent memory and RAG: re
 
 *Status: the Vault index, hybrid search and the memory layer are partly shipped. Graph expansion and clustering are in flight.*
 
-### RyuseiFuda on the server: the scheduler behind the board
+### RyuseiFuda on the server: the planner's engine
 
 ![Orrery: per-agent triggers, every fire audited](docs/assets/orrery.svg)
 
-The server runs the planner. Orrery is the per-agent scheduler: an agent can queue a later wake for itself or a colleague, on a timer, an interval, a watcher or an event from the company. Each fire is written to the audit log, and a loop guard caps how many wakes can chain, so a loop stops instead of running forever. Workday's board state, the dependency graph and the Roadmap read model all live on the server too.
+The server runs all three RyuseiFuda layers, so every device sees the same plan:
 
-*Status: the trigger store, scheduler, fire audit, per-agent wake cap and agent tools are shipped. Workday's team view is in review.*
+- **Roadmap (server).** The server reads objectives and gates from the Vault and builds the read model that the clients draw. Constellation receives the same graph.
+- **Workday (server).** The server holds the board state, applies the transitions, and works out what is Blocked from the dependency graph. A card moves to Done only when its PR merge is recorded.
+- **Orrery (server).** The scheduler ticks, fires due triggers, and wakes the agent. It writes the audit row for every fire and enforces the per-agent cap and the loop guard.
+
+*Status: the Orrery trigger store, scheduler, fire audit, per-agent wake cap and agent tools are shipped. Workday's board, transitions and blocker graph are shipped. The Roadmap read model and Workday's team view are in review.*
 
 ### Agents, Souls and the model gateway
 
