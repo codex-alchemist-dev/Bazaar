@@ -188,6 +188,14 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Pipeline and spikes.** The build pipeline and each feasibility question (Android SDK bundling and size, offline builds, signing key custody, Linux packaging without a terminal) are spelled out in doc 37 section 4a. None is assumed to work until its spike runs.
 - **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 pairs the device only.
 
+## 4.14 Defaults for open client items (added 2026-11-12, defaults, not owner decisions)
+
+- **Git view** is a client module (`Bazaar.Client.Git`) that uses the server's `IGitProvider` (doc 21). It links to the Constellation: a branch or commit opens as a node in its orbit (doc 19), and the Constellation opens a commit back in the Git view.
+- **Folded drawer** (cover screen, bottom edge) holds the GC rail's quick actions and the RyuseiFuda shortcut only. Anything heavier stays on the inner screen.
+- **Fold ritual.** A fold is a deliberate context switch (triage on the cover, building on the inner screen). The client does not auto-switch panes on fold, and it keeps the last pane per posture.
+- **QR or link install** is superseded by auto-find and auto-trust (doc 37, section 4a and section 5). The install handoff is a download from the company server's output folder, with no device step beyond running the installer.
+- **Clearance** for Athanor, Calcinatio, CaLcInato, Rubedo and any other public name is a later task, listed in the work-package plan.
+
 ## 5. Modules and existing panes
 
 The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
