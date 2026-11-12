@@ -131,4 +131,23 @@ public sealed class RyuseiFireAuditTests
         Assert.Equal(_creator.ToString("D"), payload["createdBy"]!.GetValue<string>());
         Assert.Equal(_now, entry.Ts);
     }
+
+    [Fact]
+    public void An_expiry_without_a_fire_is_audited_as_expired_with_its_reason_and_no_purpose_text()
+    {
+        var entry = RyuseiFireAudit.BuildExpiry(Trigger(), "watcher_past_expiry", _now);
+        var payload = JsonNode.Parse(entry.Payload)!.AsObject();
+
+        Assert.Equal("ryusei.trigger.expired", RyuseiFireAudit.ExpiredKind);
+        Assert.Equal(RyuseiFireAudit.ExpiredKind, entry.Kind);
+        Assert.Equal(RyuseiFireAudit.SystemActor, entry.Actor);
+        Assert.Equal(_now, entry.Ts);
+        Assert.Equal(_trigger.ToString("D"), payload["triggerId"]!.GetValue<string>());
+        Assert.Equal(_project.ToString("D"), payload["projectId"]!.GetValue<string>());
+        Assert.Equal(_creator.ToString("D"), payload["createdBy"]!.GetValue<string>());
+        Assert.Equal("watcher_past_expiry", payload["reason"]!.GetValue<string>());
+        Assert.DoesNotContain("release-candidate", entry.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("customer escalation", entry.Payload, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => RyuseiFireAudit.BuildExpiry(Trigger(), "", _now));
+    }
 }

@@ -101,6 +101,10 @@ public sealed class RyuseiEventBridge
                 else
                 {
                     await UpdateOrThrowAsync(tx, trigger with { State = decision.NextState, NextFireAt = null }, trigger.Version, ct).ConfigureAwait(false);
+
+                    // Past its expiry, or every target is gone. Nothing fired, so the audit row is the only record of the change.
+                    var reason = trigger.ExpiresAt is { } expiresAt && expiresAt <= now ? "expires_at_reached" : "targets_gone";
+                    await _writer.AuditExpiryAsync(tx, trigger, reason, now, ct).ConfigureAwait(false);
                     expired++;
                 }
             }
@@ -119,6 +123,7 @@ public sealed class RyuseiEventBridge
                     ct).ConfigureAwait(false);
                 if (match.NextState == RyuseiTriggerState.Expired)
                 {
+                    await _writer.AuditExpiryAsync(tx, trigger, "watcher_expired", now, ct).ConfigureAwait(false);
                     expired++;
                 }
                 else

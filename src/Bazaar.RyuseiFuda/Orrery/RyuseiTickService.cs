@@ -112,7 +112,7 @@ public sealed class RyuseiTickService
         if (RyuseiTickRules.IsExpiredWatcher(trigger, now))
         {
             // Expired before its armed fire: nothing fired, so there is no fire row.
-            await _writer.ExpireAsync(tx, trigger, ct).ConfigureAwait(false);
+            await _writer.ExpireAsync(tx, trigger, now, "watcher_past_expiry", ct).ConfigureAwait(false);
             return false;
         }
 
