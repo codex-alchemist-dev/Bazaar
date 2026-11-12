@@ -128,14 +128,14 @@ Resolution order, later wins: **install defaults (shipped) → company → perso
 Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout variant per posture. They do not model a foldable's two screens as separate displays, nor device classes beyond `deviceClass` in `ui.get`. This section fills that gap for doc 41.
 
 - **Display identity is a separate axis from posture.** A foldable's cover screen and inner screen are different displays with their own size and DPI. Posture describes the hinge state; display describes which screen the window is on. Layout variants are keyed by `(deviceClass, display, posture)`.
-- **Cover screen.** Small, usually one column, often used for glanceable triage. Its layout is a document like any other, with its own variant. Until a cover layout is set, it falls back to the folded variant.
-- **Inner screen.** Uses the unfolded or half-open variant, per the posture rules in 29. **Owner decision (2026-11-12):** the unfolded inner-screen layout is a swipeable pager of Diffs, Task Board and Background, with the chat as a notification ticker. The three-column sketch is not used.
+- **Cover screen (folded) is the main chat interface.** It is the primary way to use Bazaar on the go: a GC list the person can click into and chat, with the top navigation at the top. Its layout is a document like any other, with its own variant. Until a company sets a cover layout, it falls back to a default folded layout (GC list plus chat, per doc 29).
+- **Inner screen (unfolded) is for heavy work and monitoring.** Its chat is only a notification ticker, because the cover screen is the chat. The inner screen holds split and swipeable panes with a lot of information at once: Constellation, RyuseiFuda (Workday, Orrery, Roadmap; the Task Board is part of Constellation and RyuseiFuda), Bazaar's own Git view, code viewer and Diffs. **Owner decision (2026-11-12):** a swipeable pager of Diffs, Task Board and Background, with the chat as a notification ticker. The three-column sketch is not used.
 - **Device classes.** `phone`, `foldable`, `tablet`, `desktop`. A foldable is a phone-class device with two displays. The `deviceClass` value comes from the head and selects the default variant set.
 - **Window moves.** When a window moves between displays (fold or unfold), the client selects the variant for the new display with no round trip. Pane view models survive the move.
 - **Baked defaults.** Each company's build carries default variants for each device class and display, so a foldable works before any server connection.
 - **Scope.** The variant key is a document field. It does not add a scope, so the scope table in 4.4 is unchanged.
 
-**Cover screen (owner, 2026-11-12): a company-defined cover layout.** Each company defines it for glanceable triage. Until it is set, the cover screen falls back to the folded variant. Default content (owner, 2026-11-12): a count of unread GC items and of approvals waiting, with a tap to open the phone. No message content on the cover.
+**Cover screen (owner, 2026-11-12): a company-defined cover layout.** Each company defines it for glanceable triage. Until it is set, the cover screen falls back to the folded variant.
 
 ## 5. Modules and existing panes
 
@@ -275,7 +275,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
 7. **Importing layouts and themes from files. DECIDED (owner, 2026-11-12): allowed, with Tier 2 approval and validation.**
    - Option 1: allowed, with Tier 2 approval and validation (chosen).
    - Option 2: not allowed in v1. Settings only, created in the app.
-9. **Cover screen on foldables. DECIDED (owner, 2026-11-12): a company-defined cover layout, falling back to folded.**
+9. **Cover screen on foldables. DECIDED (owner, 2026-11-12): the cover screen is the folded main chat, a company-defined layout, with a default GC list plus chat.**
 10. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
    - Layout term: DECIDED (owner, 2026-11-12): "Layout". Options were "Layout" (recommended), "Workspace" or "Arrangement".
    - Module term: DECIDED (owner, 2026-11-12): "Client module". Options were "Client module" (recommended) or "Pane module".
