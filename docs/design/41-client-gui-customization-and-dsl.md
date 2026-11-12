@@ -240,8 +240,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: typed JSON (chosen).
    - Option 2: a custom DSL. Only if you want users to script logic.
    - Option 3: embedded scripting. Not recommended: sandboxing is hard and it conflicts with trimming and Android.
-4. **DSL scope.** Is any expression language wanted, and if so, how far?
-   - Option 1: none in v1 (recommended). Reserve a `visibleWhen` field.
+4. **DSL scope. DECIDED (owner, 2026-11-12): a full DSL for layouts and rules.** This conflicts with the typed-JSON decision in question 3 and with section 6's no-expressions rule. How the two fit together is open (see the follow-up card in the thread). Sections 4.1, 6 and 12 are out of date until that is answered.
+   - Option 1: none in v1 (was recommended). Reserve a `visibleWhen` field.
    - Option 2: predicates only, a CEL-style subset for visibility rules, later.
    - Option 3: a full DSL. Not recommended.
 5. **Company scope model.** One company per install, keyed for later multi-company (recommended), or multi-company now?
