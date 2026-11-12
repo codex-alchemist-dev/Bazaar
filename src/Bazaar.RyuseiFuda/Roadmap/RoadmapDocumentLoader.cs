@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Roadmap;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>One stored Vault document that carries roadmap front matter: its path, title and front matter as JSON text.</summary>
 public sealed record RoadmapDocumentRow(string Path, string Title, string FrontMatterJson);

@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>
 /// One parsed roadmap document with the Vault facts the read model needs. <see cref="Path"/> is the Vault path; for an
