@@ -315,7 +315,7 @@ Coordinator choices under the safe-defaults rule (the owner may change any of th
 
 ## Round 24 (2026-11-11): turn starter, post guards, mention handles and the wake loop
 
-Defaults taken by PRs #436, #438, #442, #443 and #446. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
+Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
 
 | Item | Default taken | Owner may change |
 |---|---|---|
@@ -327,7 +327,7 @@ Defaults taken by PRs #436, #438, #442, #443 and #446. This round replaces the "
 | Mentions in agent posts (#438) | Parsed from the text as `@handle`, validated against the GC roster, and written as mention inbox rows after the append. `@here` and `@all` are ignored. Without a mention directory the sink attaches no mentions. | Yes. |
 | Principal handle (#443) | Optional, unique, lowercase, in `principal_handle` (migration namespace `mentions/`). Shape `^[a-z0-9][a-z0-9_-]{1,31}$`; `here` and `all` are reserved. No row means not mentionable. | Shape and length: yes. Table and namespace: no. |
 | Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
-| Handles for new agents (#446) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
+| Handles for new agents (#443) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
 | Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
 | Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
 | Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
