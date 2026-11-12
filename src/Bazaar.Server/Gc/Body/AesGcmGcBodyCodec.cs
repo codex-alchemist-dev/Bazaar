@@ -17,6 +17,7 @@ namespace Bazaar.Server.Gc.Body;
 /// </remarks>
 public sealed class AesGcmGcBodyCodec(NpgsqlDataSource dataSource, IKekProvider? kek) : IGcBodyCodec
 {
+    // Nonce and tag sizes are fixed by the AES-GCM layout in docs/design/04, Question 2.
     private const int _nonceSize = 12;
     private const int _tagSize = 16;
 
