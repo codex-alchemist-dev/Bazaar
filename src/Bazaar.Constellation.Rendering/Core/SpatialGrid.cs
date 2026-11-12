@@ -4,7 +4,7 @@ namespace Bazaar.Constellation.Rendering.Core;
 /// Uniform grid for pointer hit-testing. Rebuilt from each frame's positions; queries visit only the cells
 /// that a search radius touches, never every node.
 /// </summary>
-public sealed class SpatialGrid
+public sealed class SpatialGrid : IPickIndex
 {
     private readonly float _cellSize;
     private readonly Dictionary<(int Col, int Row), List<int>> _cells = [];
