@@ -63,6 +63,7 @@ Running the server installer produces the company's client installers in an outp
 - **Inputs.** The company's module list, the baked default layout and theme (doc 41), the channel, and the company's signing settings. The server writes these from its own company configuration; the user does not hand-edit build files.
 - **Outputs.** One output folder per build, for example `out/CDAX/` containing `CDAX.msix`, `CDAX.apk`, the Velopack feed, the Flatpak repo and a `SHA256SUMS` file. Unsigned outputs are labelled in a `README.txt` in the folder.
 - **Failure.** A failed platform build leaves the other outputs in place and writes a plain report in the output folder. The server never publishes partial builds as complete.
+- **No internet at install (owner, 2026-11-12).** The installer never halts for lack of network. It finishes installing the server. The server then defers every download (SDKs, NuGet packages, Flatpak runtimes) until a connection is detected, and it builds the client installers once everything it needs is present and runnable. Until then the output folder shows the state (for example "waiting for network, 3 of 5 downloads done"). The server resumes on its own; the user does nothing.
 - **Scheduling.** A build runs on install, on an update of the server, or when the company changes its module list or baked layout. It is one job on the server, visible in the Observatory (doc 23), never a separate tool.
 
 Feasibility questions are spikes, not assumptions. Each must be answered before this section is built:
