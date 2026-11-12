@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Inbox;
 using Bazaar.Server.Security.Audit;
@@ -100,6 +102,21 @@ public sealed class RyuseiFireWriter
             throw new InvalidOperationException($"Trigger {trigger.TriggerId:D} changed under the row lock.");
         }
 
+        if (decision.Trip is { } trip)
+        {
+            // A guard trip is recorded in the same transaction as the pause, so a crash cannot leave a paused trigger with no trip row.
+            var counters = new JsonObject
+            {
+                ["triggerId"] = trigger.TriggerId.ToString("D"),
+                ["fireId"] = fireId.ToString("D"),
+                ["refusal"] = trip.ToString(),
+                ["consecutiveRefusals"] = decision.ConsecutiveRefusals,
+                ["agentIds"] = AgentIdArray(trigger.TargetAgentIds),
+                ["scheduledFor"] = decision.ScheduledFor.ToString("O", CultureInfo.InvariantCulture),
+            };
+            await RyuseiFireRepository.InsertGuardEventAsync(tx, RyuseiTickRules.GuardEventKind(trip), counters, now, ct).ConfigureAwait(false);
+        }
+
         if (_audit is not null)
         {
             var entry = RyuseiFireAudit.Build(fireId, trigger, decision, now);
@@ -137,6 +154,17 @@ public sealed class RyuseiFireWriter
 
         observed?.AddRange(RyuseiObservatoryEvents.ForFire(fireId, trigger, decision, now));
         return true;
+    }
+
+    private static JsonArray AgentIdArray(IEnumerable<Guid> agentIds)
+    {
+        var array = new JsonArray();
+        foreach (var agentId in agentIds)
+        {
+            array.Add(agentId.ToString("D"));
+        }
+
+        return array;
     }
 
     /// <summary>Moves a trigger to <c>expired</c> without a fire row, for a watcher past its <c>expiresAt</c>.</summary>

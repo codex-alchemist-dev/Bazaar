@@ -39,6 +39,15 @@ public enum RyuseiFireOutcome
 
     /// <summary>The trigger cannot be fired as stored (malformed spec, or an interval below the floor). The trigger is paused.</summary>
     Error,
+
+    /// <summary>
+    /// A guard trip on chain depth: the trigger is deeper in a chain than the setting allows (doc 38). The trigger is paused and the
+    /// trip goes to <c>guard_event</c> and the Psych Ward hook.
+    /// </summary>
+    RefusedLoop,
+
+    /// <summary>Another fire of this trigger is still in flight, so this one is skipped (doc 38, single flight).</summary>
+    SkippedInflight,
 }
 
 /// <summary>What the tick reads for one due trigger. The rules take it as a value; nothing is read from a clock or database here.</summary>
@@ -49,6 +58,7 @@ public enum RyuseiFireOutcome
 /// <param name="FiresInLast24Hours">Woke fires of this trigger in the last 24 hours.</param>
 /// <param name="LastWokeAt">The time of the latest woke fire, or null when there is none.</param>
 /// <param name="WakesInLastHour">The highest count of wakes in the last hour over the trigger's targets, all reasons (doc 38, guard table).</param>
+/// <param name="FireInFlight">True when another fire of this trigger is still being written (doc 38, single flight). The claim's row lock keeps this false in practice.</param>
 public sealed record RyuseiTickInput(
     RyuseiTriggerRecord Trigger,
     RyuseiTriggerSpec Spec,
@@ -56,11 +66,13 @@ public sealed record RyuseiTickInput(
     IReadOnlyList<RyuseiFireTarget> Targets,
     int FiresInLast24Hours,
     DateTimeOffset? LastWokeAt,
-    int WakesInLastHour = 0);
+    int WakesInLastHour = 0,
+    bool FireInFlight = false);
 
 /// <summary>
 /// The result for one due trigger: the fire row to insert, and how the trigger row changes. <see cref="WakeAgentIds"/> is
-/// empty unless <see cref="Outcome"/> is <see cref="RyuseiFireOutcome.Woke"/>.
+/// empty unless <see cref="Outcome"/> is <see cref="RyuseiFireOutcome.Woke"/>. <see cref="Trip"/> is set when a guard paused the
+/// trigger: it names the refusal, the trip goes to <c>guard_event</c>, and the Psych Ward hook is called (doc 38).
 /// </summary>
 public sealed record RyuseiFireDecision(
     RyuseiFireOutcome Outcome,
@@ -70,10 +82,14 @@ public sealed record RyuseiFireDecision(
     int ConsecutiveRefusals,
     IReadOnlyList<Guid> WakeAgentIds,
     string? WakeReason,
-    JsonObject Cause)
+    JsonObject Cause,
+    RyuseiRefusal? Trip = null)
 {
     /// <summary>True when the fire woke its targets and so counts toward the fire count and the daily cap.</summary>
     public bool Woke => Outcome == RyuseiFireOutcome.Woke;
+
+    /// <summary>True when a guard tripped and paused the trigger.</summary>
+    public bool IsTrip => Trip is not null;
 }
 
 /// <summary>
@@ -81,10 +97,12 @@ public sealed record RyuseiFireDecision(
 /// Pure: no clock, no database. The tick service reads the rows, calls <see cref="Decide"/> and writes what it returns.
 /// </summary>
 /// <remarks>
-/// Decisions, in order: a trigger that is not active or not due is left alone (null). A fire whose targets are all
-/// resting or retired is skipped. A fire inside the cooldown or past the daily cap is refused. Otherwise the fire wakes
-/// every wakeable target. A refusal counts toward auto-pause. Every fire that is decided, woke or refused, moves the
-/// schedule on, so a refused occurrence is never retried at the same scheduled time.
+/// Decisions, in order: a trigger that is not active or not due is left alone (null). A fire that finds another fire of the
+/// trigger in flight is skipped and moves nothing (single flight). A fire whose targets are all resting or retired is
+/// skipped. A trigger deeper than the chain limit is a loop trip and pauses. A fire inside the cooldown, past the daily cap
+/// or over the shared wake cap is refused. Otherwise the fire wakes every wakeable target. A refusal counts toward
+/// auto-pause. Every fire that is decided, woke or refused, moves the schedule on, so a refused occurrence is never
+/// retried at the same scheduled time.
 /// </remarks>
 public static class RyuseiTickRules
 {
@@ -113,7 +131,21 @@ public static class RyuseiTickRules
         RyuseiFireOutcome.RefusedCooldown => "refused_cooldown",
         RyuseiFireOutcome.SkippedResting => "skipped_resting",
         RyuseiFireOutcome.Error => "error",
+        RyuseiFireOutcome.RefusedLoop => "refused_loop",
+        RyuseiFireOutcome.SkippedInflight => "skipped_inflight",
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Not a fire outcome."),
+    };
+
+    /// <summary>
+    /// The <c>guard_event.kind</c> for a guard trip (doc 06 guard_event, doc 38 guard table). Only the three refusals that pause a
+    /// trigger are trips; any other refusal is not.
+    /// </summary>
+    public static string GuardEventKind(RyuseiRefusal trip) => trip switch
+    {
+        RyuseiRefusal.ChainDepthExceeded => "ryusei_chain_depth",
+        RyuseiRefusal.DailyFireCapReached => "ryusei_daily_fire_cap",
+        RyuseiRefusal.AutoPauseTripped => "ryusei_refusal_streak",
+        _ => throw new ArgumentOutOfRangeException(nameof(trip), trip, "Not a guard trip."),
     };
 
     /// <summary>
@@ -186,6 +218,22 @@ public static class RyuseiTickRules
                 return Malformed(trigger, "The stored spec has no time-based schedule.");
         }
 
+        // Single flight comes first: a fire that finds another fire of this trigger in flight is skipped and moves nothing, so the
+        // schedule is left for the fire in flight to advance.
+        var flight = RyuseiGuards.CheckSingleFlight(input.FireInFlight);
+        if (!flight.IsAllowed)
+        {
+            return new RyuseiFireDecision(
+                RyuseiFireOutcome.SkippedInflight,
+                scheduledFor,
+                trigger.State,
+                trigger.NextFireAt,
+                trigger.ConsecutiveRefusals,
+                [],
+                null,
+                new JsonObject { ["reason"] = "another fire of this trigger is still in flight" });
+        }
+
         var wakeable = input.Targets.Where(t => t.Status == RyuseiFireTargetStatus.Wakeable).Select(t => t.AgentId).ToArray();
         var skipped = input.Targets.Where(t => t.Status != RyuseiFireTargetStatus.Wakeable).ToArray();
         var allGone = input.Targets.All(t => t.Status is RyuseiFireTargetStatus.Retired or RyuseiFireTargetStatus.Missing);
@@ -205,6 +253,24 @@ public static class RyuseiTickRules
                 [],
                 null,
                 SkippedCause(skipped, "no target can be woken"));
+        }
+
+        // Chain depth comes before the cooldown and the caps. A trigger deeper than the setting allows is a loop trip and pauses at once.
+        // It is checked only when someone can be woken, so a deep trigger whose targets are all resting is skipped, not tripped.
+        var chain = RyuseiGuards.CheckChainDepth(trigger.ChainDepth, limits.MaxChainDepth);
+        if (!chain.IsAllowed)
+        {
+            var consecutive = trigger.ConsecutiveRefusals + 1;
+            return new RyuseiFireDecision(
+                RyuseiFireOutcome.RefusedLoop,
+                scheduledFor,
+                RyuseiTriggerState.Paused,
+                onwardFireAt,
+                consecutive,
+                [],
+                null,
+                RefusedCause(chain.Refusal, consecutive, paused: true, missedCount),
+                Trip: chain.Refusal);
         }
 
         // Ping fan-out first: a ping names every woken target, so a fan-out above the cap is refused before any line is posted. The
@@ -231,8 +297,10 @@ public static class RyuseiTickRules
             var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
 
             // Only the daily fire cap pauses at once (doc 38 guard table). The wake cap, the cooldown and the ping fan-out do not;
-            // every refusal still counts toward the auto-pause streak.
-            var paused = guard.Refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
+            // every refusal still counts toward the auto-pause streak. A streak that reaches the threshold is the trip.
+            var dailyCap = guard.Refusal == RyuseiRefusal.DailyFireCapReached;
+            var paused = dailyCap || !streak.IsAllowed;
+            RyuseiRefusal? trip = dailyCap ? RyuseiRefusal.DailyFireCapReached : paused ? RyuseiRefusal.AutoPauseTripped : null;
             var cause = RefusedCause(guard.Refusal, consecutive, paused, missedCount);
             if (guard.Refusal == RyuseiRefusal.PingFanoutExceeded)
             {
@@ -250,7 +318,8 @@ public static class RyuseiTickRules
                 consecutive,
                 [],
                 null,
-                cause);
+                cause,
+                trip);
         }
 
         // A watcher that has reached its max fires is used up by the fire that woke its targets (doc 38, Trigger types).

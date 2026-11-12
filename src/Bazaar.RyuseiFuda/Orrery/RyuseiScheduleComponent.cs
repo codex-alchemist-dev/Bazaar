@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Components;
@@ -38,10 +39,25 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
 
     public ComponentManifest Manifest => ManifestDefinition;
 
-    public void AddServices(IServiceCollection services, IConfiguration configuration)
+    /// <summary>
+    /// The caps the scheduler reads, bound from <see cref="SectionName"/>. The wake cap is shared with the runtime (doc 06,
+    /// doc 38), so <c>runtime.guard.wakes_per_hour</c> from <see cref="LoopGuardOptions"/> is the one value used for it, whatever
+    /// the <c>Bazaar:Ryusei</c> section says.
+    /// </summary>
+    public static RyuseiLimits ResolveLimits(IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
         var limits = new RyuseiLimits();
         configuration.GetSection(SectionName).Bind(limits);
+
+        var guard = new LoopGuardOptions();
+        configuration.GetSection(LoopGuardOptions.SectionName).Bind(guard);
+        return limits with { MaxAgentWakesPerHour = guard.WakesPerHour };
+    }
+
+    public void AddServices(IServiceCollection services, IConfiguration configuration)
+    {
+        var limits = ResolveLimits(configuration);
         services.TryAddSingleton(limits);
 
         // The Observatory sink (doc 23, doc 38 WP-R10). The Observatory projector replaces this default when it lands.
@@ -61,7 +77,11 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             gcLog: sp.GetService<IGcLogWriter>(),
             gcCreate: sp.GetService<GcCreateService>(),
             audit: sp.GetService<ITransactionalAuditLog>(),
+            ward: sp.GetService<IPsychWardAdmission>(),
             observatory: sp.GetRequiredService<IRyuseiObservatory>()));
+
+        // The Psych Ward hook for guard trips (doc 38, WP-R8). The default admits nobody until the Psych Ward is built (doc 26).
+        services.TryAddSingleton<IPsychWardAdmission, NoOpPsychWardAdmission>();
         services.TryAddSingleton(sp => new GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
 
         // Chain depth of a fire-woken turn (doc 38, Chain depth): the trigger's chain_depth, read by fire id.
