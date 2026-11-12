@@ -429,8 +429,6 @@ Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuh
 
 ### The stages
 
-![Beta roadmap: nine stages with status, then the Zuhal gate](docs/assets/roadmap-stages.svg)
-
 Stages are labels, not version numbers. Stage 1 is done. Stage 2 is mostly done. Stages 3 to 7 are partly done, with the open parts named in the roadmap. Stage 8 is planned, with some code in place, and Stage 9, Hardening, has started. v1.0.0 "Zuhal" is the readiness gate: its scope is decided, its date is not.
 
 ### The technical milestones
