@@ -183,13 +183,14 @@ public sealed class RyuseiTickService
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var states = await RyuseiFireRepository.AgentStatesAsync(tx, trigger.TargetAgentIds, ct).ConfigureAwait(false);
-        var targets = trigger.TargetAgentIds
-            .Select(id => new RyuseiFireTarget(id, RyuseiFireWriter.TargetStatus(states.GetValueOrDefault(id))))
-            .ToArray();
-        var firesInDay = await RyuseiFireRepository.CountWokeSinceAsync(tx, trigger.TriggerId, now - TimeSpan.FromHours(24), ct).ConfigureAwait(false);
-        var lastWoke = await RyuseiFireRepository.LastWokeAtAsync(tx, trigger.TriggerId, ct).ConfigureAwait(false);
-        var wakesInHour = await RyuseiFireRepository.WakesSinceAsync(tx, trigger.TargetAgentIds, now - TimeSpan.FromHours(1), ct).ConfigureAwait(false);
-        return new RyuseiTickInput(trigger, spec, _zoneOf(trigger), targets, firesInDay, lastWoke, wakesInHour);
+        var context = await RyuseiFireRepository.LoadContextAsync(tx, trigger, now, ct).ConfigureAwait(false);
+        return new RyuseiTickInput(
+            trigger,
+            spec,
+            _zoneOf(trigger),
+            context.Targets,
+            context.FiresInLast24Hours,
+            context.LastWokeAt,
+            context.WakesInLastHour);
     }
 }

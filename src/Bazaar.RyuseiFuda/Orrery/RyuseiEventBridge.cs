@@ -4,7 +4,7 @@ using Npgsql;
 namespace Bazaar.RyuseiFuda.Orrery;
 
 /// <summary>What one event did to the triggers it matched.</summary>
-/// <param name="Fired">Event triggers that woke or skipped their targets (one fire row each).</param>
+/// <param name="Fired">Event triggers that wrote a fire row: woke, skipped or refused by a guard (one row each).</param>
 /// <param name="Armed">Watchers whose next fire time was set by this event.</param>
 /// <param name="Expired">Triggers that expired by time, or whose targets are all gone.</param>
 public sealed record RyuseiBridgeResult(int Fired, int Armed, int Expired);
@@ -24,12 +24,15 @@ public sealed class RyuseiEventBridge
     private readonly NpgsqlDataSource _dataSource;
     private readonly RyuseiTriggerRepository _triggers;
     private readonly RyuseiFireWriter _writer;
+    private readonly RyuseiLimits _limits;
 
+    /// <param name="limits">The configured guards an event wake passes (doc 38). Null uses the shipped defaults, never no guards.</param>
     /// <param name="audit">The fire audit log (doc 38). Null skips the fire audit line only; the fire rows are still written.</param>
-    public RyuseiEventBridge(NpgsqlDataSource dataSource, ITransactionalAuditLog? audit = null)
+    public RyuseiEventBridge(NpgsqlDataSource dataSource, RyuseiLimits? limits = null, ITransactionalAuditLog? audit = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
+        _limits = limits ?? new RyuseiLimits();
         _triggers = new RyuseiTriggerRepository(dataSource);
         _writer = new RyuseiFireWriter(dataSource, audit);
     }
@@ -107,18 +110,15 @@ public sealed class RyuseiEventBridge
         return new RyuseiBridgeResult(fired, armed, expired);
     }
 
-    private static async Task<RyuseiEventDecision> DecideEventAsync(
+    private async Task<RyuseiEventDecision> DecideEventAsync(
         NpgsqlTransaction tx,
         RyuseiTriggerRecord trigger,
         RyuseiEventEnvelope evt,
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var states = await RyuseiFireRepository.AgentStatesAsync(tx, trigger.TargetAgentIds, ct).ConfigureAwait(false);
-        var targets = trigger.TargetAgentIds
-            .Select(id => new RyuseiFireTarget(id, RyuseiFireWriter.TargetStatus(states.GetValueOrDefault(id))))
-            .ToArray();
-        return RyuseiEventRules.DecideEventMatch(trigger, targets, now, evt.Kind);
+        var context = await RyuseiFireRepository.LoadContextAsync(tx, trigger, now, ct).ConfigureAwait(false);
+        return RyuseiEventRules.DecideEventMatch(trigger, context, now, evt.Kind, _limits);
     }
 
     private async Task UpdateOrThrowAsync(NpgsqlTransaction tx, RyuseiTriggerRecord next, long expectedVersion, CancellationToken ct)

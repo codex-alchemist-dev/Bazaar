@@ -71,8 +71,10 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
         try
         {
             using var doc = JsonDocument.Parse(payload);
+            // TryGetInt64 throws on a value that is not a number, so the kind is checked first. A bad payload is dropped, never thrown.
             return doc.RootElement.ValueKind == JsonValueKind.Object
                 && doc.RootElement.TryGetProperty("seq", out var s)
+                && s.ValueKind == JsonValueKind.Number
                 && s.TryGetInt64(out seq);
         }
         catch (JsonException)
@@ -126,6 +128,21 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
             {
                 break;
             }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                // A wait that fails is logged and backed off, so the follower keeps running and never spins.
+                LogWaitFailed(_logger, ex);
+                try
+                {
+                    await Task.Delay(_options.ReconnectMin, _time, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                continue;
+            }
 
             if (wake is null)
             {
@@ -136,9 +153,17 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
             if (wake.Resync)
             {
                 // The listener reconnected, so hints may have been missed. Each GC this follower has seen is checked against its head.
-                foreach (var (gcId, head) in await ReadGcHeadsAsync(_gcCursors.Keys.ToArray(), ct).ConfigureAwait(false))
+                try
                 {
-                    heads[gcId] = Math.Max(heads.GetValueOrDefault(gcId), head);
+                    foreach (var (gcId, head) in await ReadGcHeadsAsync(_gcCursors.Keys.ToArray(), ct).ConfigureAwait(false))
+                    {
+                        heads[gcId] = Math.Max(heads.GetValueOrDefault(gcId), head);
+                    }
+                }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                {
+                    // The hints already in this wake still run. The next resync or hint checks these GCs again.
+                    LogResyncFailed(_logger, ex);
                 }
             }
 
@@ -148,10 +173,10 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
                 {
                     await ProcessGcAsync(gcId, head, ct).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is NpgsqlException or InvalidOperationException or IOException)
+                catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
-                    // The cursor did not move, so the next hint for this GC retries from the same place. Re-running a row is safe:
-                    // a fired event trigger is no longer active, and a watcher keeps the deadline it already has.
+                    // The cursor stops at the last row that was handled, so the next hint for this GC resumes at the row that failed.
+                    // A row that was not handled is retried; the rows before it are not replayed.
                     LogGcFailed(_logger, gcId, ex);
                 }
             }
@@ -174,6 +199,9 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
             {
                 await _bridge.HandleAsync(envelope, _time.GetUtcNow(), ct).ConfigureAwait(false);
             }
+
+            // The cursor moves row by row, so a row that fails is retried alone and the rows before it are not replayed.
+            _gcCursors[gcId] = row.Seq;
         }
 
         _gcCursors[gcId] = head;
@@ -249,8 +277,9 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
             {
                 break;
             }
-            catch (Exception ex) when (ex is NpgsqlException or InvalidOperationException or IOException or TimeoutException or ObjectDisposedException)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
+                // Any failure drops the connection and reconnects with backoff. Only shutdown ends this loop.
                 LogListenLost(_logger, delay, ex);
             }
 
@@ -296,8 +325,9 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
                 {
                     await ProcessTaskEventAsync(seq, ct).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is NpgsqlException or InvalidOperationException or IOException)
+                catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
+                    // One bad event is logged and dropped; the worker keeps draining the rest.
                     LogTaskEventFailed(_logger, seq, ex);
                 }
             }
@@ -354,4 +384,10 @@ public sealed partial class RyuseiEventListener : IHostedService, IAsyncDisposab
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Event bridge could not process task event seq {Seq}.")]
     private static partial void LogTaskEventFailed(ILogger logger, long seq, Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Event bridge could not read GC heads after a reconnect; the next hint checks them.")]
+    private static partial void LogResyncFailed(ILogger logger, Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Event bridge GC wait failed; it backs off and waits again.")]
+    private static partial void LogWaitFailed(ILogger logger, Exception ex);
 }

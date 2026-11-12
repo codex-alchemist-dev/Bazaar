@@ -207,34 +207,10 @@ public static class RyuseiTickRules
                 SkippedCause(skipped, "no target can be woken"));
         }
 
-        // Cooldown, then the daily cap, then the shared wake cap. The first refusal found decides the outcome.
-        var cooldown = RyuseiGuards.CheckCooldown(now, input.LastWokeAt, limits.CooldownSeconds);
-        var guard = cooldown.IsAllowed
-            ? RyuseiGuards.CheckDailyFireCap(input.FiresInLast24Hours, limits.MaxFiresPerDay)
-            : cooldown;
-        if (guard.IsAllowed)
-        {
-            guard = RyuseiGuards.CheckAgentWakeCap(input.WakesInLastHour, limits.MaxAgentWakesPerHour);
-        }
-
+        var guard = RyuseiGuards.CheckWake(now, input.LastWokeAt, input.FiresInLast24Hours, input.WakesInLastHour, limits);
         if (!guard.IsAllowed)
         {
-            var outcome = guard.Refusal == RyuseiRefusal.CooldownActive ? RyuseiFireOutcome.RefusedCooldown : RyuseiFireOutcome.RefusedCap;
-            var consecutive = trigger.ConsecutiveRefusals + 1;
-            var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
-
-            // Only the daily fire cap pauses at once (doc 38 guard table). The wake cap and the cooldown do not; every refusal
-            // still counts toward the auto-pause streak.
-            var paused = guard.Refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
-            return new RyuseiFireDecision(
-                outcome,
-                scheduledFor,
-                paused ? RyuseiTriggerState.Paused : onwardState,
-                onwardFireAt,
-                consecutive,
-                [],
-                null,
-                RefusedCause(guard.Refusal, consecutive, paused, missedCount));
+            return Refuse(trigger, guard.Refusal, scheduledFor, onwardState, onwardFireAt, missedCount, limits);
         }
 
         // A watcher that has reached its max fires is used up by the fire that woke its targets (doc 38, Trigger types).
@@ -271,6 +247,38 @@ public static class RyuseiTickRules
             [],
             null,
             new JsonObject { ["message"] = message });
+    }
+
+    /// <summary>
+    /// A fire refused by a wake guard (doc 38, guard table). The outcome is a cooldown or cap refusal. Only the daily fire cap, or
+    /// a streak at the auto-pause threshold, pauses the trigger; the other refusals keep <paramref name="onwardState"/>, so the
+    /// trigger is not lost. Every refusal counts toward the streak.
+    /// </summary>
+    public static RyuseiFireDecision Refuse(
+        RyuseiTriggerRecord trigger,
+        RyuseiRefusal refusal,
+        DateTimeOffset scheduledFor,
+        RyuseiTriggerState onwardState,
+        DateTimeOffset? onwardFireAt,
+        long missedCount,
+        RyuseiLimits limits)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        ArgumentNullException.ThrowIfNull(limits);
+
+        var outcome = refusal == RyuseiRefusal.CooldownActive ? RyuseiFireOutcome.RefusedCooldown : RyuseiFireOutcome.RefusedCap;
+        var consecutive = trigger.ConsecutiveRefusals + 1;
+        var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
+        var paused = refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
+        return new RyuseiFireDecision(
+            outcome,
+            scheduledFor,
+            paused ? RyuseiTriggerState.Paused : onwardState,
+            onwardFireAt,
+            consecutive,
+            [],
+            null,
+            RefusedCause(refusal, consecutive, paused, missedCount));
     }
 
     private static JsonObject WokeCause(long missedCount, IReadOnlyList<RyuseiFireTarget> skipped, string wakeReason) => new()

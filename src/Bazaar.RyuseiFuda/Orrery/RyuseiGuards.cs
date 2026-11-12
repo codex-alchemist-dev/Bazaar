@@ -61,6 +61,30 @@ public static class RyuseiGuards
         wakesInLastHour < maxWakesPerHour ? RyuseiDecision.Allow : RyuseiDecision.Refuse(RyuseiRefusal.AgentWakeCapReached);
 
     /// <summary>
+    /// The guards every wake passes, in this fixed order: cooldown, then the daily fire cap, then the shared wake cap. The first
+    /// refusal found decides the outcome. The scheduler tick and the event bridge both call it, so an event wake meets the same
+    /// limits as a timed one (doc 38, WP-R6).
+    /// </summary>
+    public static RyuseiDecision CheckWake(
+        DateTimeOffset now,
+        DateTimeOffset? lastWokeAt,
+        int firesInLast24Hours,
+        int wakesInLastHour,
+        RyuseiLimits limits)
+    {
+        ArgumentNullException.ThrowIfNull(limits);
+
+        var cooldown = CheckCooldown(now, lastWokeAt, limits.CooldownSeconds);
+        var guard = cooldown.IsAllowed ? CheckDailyFireCap(firesInLast24Hours, limits.MaxFiresPerDay) : cooldown;
+        if (guard.IsAllowed)
+        {
+            guard = CheckAgentWakeCap(wakesInLastHour, limits.MaxAgentWakesPerHour);
+        }
+
+        return guard;
+    }
+
+    /// <summary>
     /// Active triggers per agent. <paramref name="activeTriggers"/> counts the ones already active, not the one being
     /// created. So with a cap of 50 the 50th is allowed (49 active) and the 51st is refused (50 active).
     /// </summary>

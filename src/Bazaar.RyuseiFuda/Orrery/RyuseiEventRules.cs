@@ -69,16 +69,20 @@ public static class RyuseiEventRules
     /// <summary>
     /// An event trigger's predicate matched. It fires once: the first match wakes the wakeable targets and moves the trigger to
     /// <c>fired</c>. If no target can be woken, the fire is recorded as skipped, and the trigger is <c>expired</c> when every target
-    /// is retired or missing. A trigger past its <c>expiresAt</c> expires without firing, so it writes no fire row.
+    /// is retired or missing. A trigger past its <c>expiresAt</c> expires without firing, so it writes no fire row. A wake that
+    /// a guard refuses (cooldown, daily cap, shared wake cap) writes a refused fire row and keeps the trigger active, unless the
+    /// guard pauses it.
     /// </summary>
     public static RyuseiEventDecision DecideEventMatch(
         RyuseiTriggerRecord trigger,
-        IReadOnlyList<RyuseiFireTarget> targets,
+        RyuseiFireContext context,
         DateTimeOffset now,
-        string eventKind)
+        string eventKind,
+        RyuseiLimits limits)
     {
         ArgumentNullException.ThrowIfNull(trigger);
-        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(limits);
         ArgumentException.ThrowIfNullOrEmpty(eventKind);
 
         if (trigger.ExpiresAt is { } expiresAt && expiresAt <= now)
@@ -86,6 +90,7 @@ public static class RyuseiEventRules
             return new RyuseiEventDecision(RyuseiTriggerState.Expired, null);
         }
 
+        var targets = context.Targets;
         var wakeable = targets.Where(t => t.Status == RyuseiFireTargetStatus.Wakeable).Select(t => t.AgentId).ToArray();
         var skipped = targets.Count(t => t.Status != RyuseiFireTargetStatus.Wakeable);
 
@@ -103,6 +108,15 @@ public static class RyuseiEventRules
                 null,
                 new JsonObject { ["eventKind"] = eventKind, ["reason"] = "no target can be woken", ["skippedCount"] = skipped });
             return new RyuseiEventDecision(next, skippedFire);
+        }
+
+        // The wake guards apply to an event exactly as to a timed fire (doc 38, guard table). A refused event stays active, so a
+        // later match can still fire it, unless the guard pauses it. Only a fired wake consumes the one-shot trigger.
+        var guard = RyuseiGuards.CheckWake(now, context.LastWokeAt, context.FiresInLast24Hours, context.WakesInLastHour, limits);
+        if (!guard.IsAllowed)
+        {
+            var refused = RyuseiTickRules.Refuse(trigger, guard.Refusal, now, RyuseiTriggerState.Active, null, 0, limits);
+            return new RyuseiEventDecision(refused.NextState, refused);
         }
 
         var wakeReason = RyuseiTickRules.WakeReason(RyuseiTriggerKind.Event);

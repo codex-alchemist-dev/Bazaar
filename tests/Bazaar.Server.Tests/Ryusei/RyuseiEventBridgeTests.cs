@@ -120,6 +120,35 @@ public sealed class RyuseiEventBridgeTests(KanbanDb db) : IClassFixture<KanbanDb
     }
 
     [Fact]
+    public async Task An_event_refused_by_the_shared_wake_cap_stays_active_and_writes_no_inbox_item()
+    {
+        SkipWithoutDatabase();
+        var project = Guid.CreateVersion7();
+        var agent = Guid.CreateVersion7();
+        await InsertAgentAsync(agent, "active");
+        var row = await InsertCommittedAsync(NewTrigger(
+            new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }),
+            project,
+            null,
+            agent));
+
+        // A cap of zero refuses every wake, so the event must be recorded as refused and the trigger kept for a later match.
+        var capped = new RyuseiEventBridge(db.DataSource, new RyuseiLimits { MaxAgentWakesPerHour = 0 });
+        var result = await capped.HandleAsync(TaskEvent(project), _base, Ct);
+
+        Assert.Equal(1, result.Fired);
+        var stored = await Repo.GetAsync(row.TriggerId, Ct);
+        Assert.NotNull(stored);
+        Assert.Equal(RyuseiTriggerState.Active, stored.State);
+        Assert.Equal(0L, stored.FireCount);
+        Assert.Equal(1, stored.ConsecutiveRefusals);
+        var fires = await FiresOfAsync(row.TriggerId);
+        Assert.Single(fires);
+        Assert.Equal("refused_cap", fires[0].Outcome);
+        Assert.Empty(await InboxOfAsync(agent));
+    }
+
+    [Fact]
     public async Task An_event_in_another_project_does_not_touch_the_trigger()
     {
         SkipWithoutDatabase();

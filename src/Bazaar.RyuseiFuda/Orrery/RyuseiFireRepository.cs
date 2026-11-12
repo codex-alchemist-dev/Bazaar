@@ -7,6 +7,17 @@ namespace Bazaar.RyuseiFuda.Orrery;
 /// SQL-first access to <c>ryusei_fire</c> and the agent lookups the tick needs (doc 38, Data model). Every method takes the
 /// tick's transaction, so a fire row and the trigger change it records commit together.
 /// </summary>
+/// <summary>
+/// What a wake decision reads from the database, read in the decision's transaction: the targets' status, the fires and wakes
+/// the guards count, and the last woke fire. The tick and the event bridge both build it through
+/// <see cref="RyuseiFireRepository.LoadContextAsync"/>, so both apply the same guards to the same counts.
+/// </summary>
+public sealed record RyuseiFireContext(
+    IReadOnlyList<RyuseiFireTarget> Targets,
+    int FiresInLast24Hours,
+    DateTimeOffset? LastWokeAt,
+    int WakesInLastHour);
+
 public static class RyuseiFireRepository
 {
     // A fire already recorded for this trigger and instant is a no-op. The unique key is what makes a crash-retried fire safe.
@@ -40,6 +51,25 @@ public static class RyuseiFireRepository
         cmd.Parameters.AddWithValue("cause", cause.ToJsonString());
         cmd.Parameters.AddWithValue("at", at);
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+    }
+
+    /// <summary>Reads the inputs one wake decision needs, in the caller's transaction. See <see cref="RyuseiFireContext"/>.</summary>
+    public static async Task<RyuseiFireContext> LoadContextAsync(
+        NpgsqlTransaction tx,
+        RyuseiTriggerRecord trigger,
+        DateTimeOffset now,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        ArgumentNullException.ThrowIfNull(trigger);
+        var states = await AgentStatesAsync(tx, trigger.TargetAgentIds, ct).ConfigureAwait(false);
+        var targets = trigger.TargetAgentIds
+            .Select(id => new RyuseiFireTarget(id, RyuseiFireWriter.TargetStatus(states.GetValueOrDefault(id))))
+            .ToArray();
+        var firesInDay = await CountWokeSinceAsync(tx, trigger.TriggerId, now - TimeSpan.FromHours(24), ct).ConfigureAwait(false);
+        var lastWoke = await LastWokeAtAsync(tx, trigger.TriggerId, ct).ConfigureAwait(false);
+        var wakesInHour = await WakesSinceAsync(tx, trigger.TargetAgentIds, now - TimeSpan.FromHours(1), ct).ConfigureAwait(false);
+        return new RyuseiFireContext(targets, firesInDay, lastWoke, wakesInHour);
     }
 
     /// <summary>Counts the woke fires of a trigger made after <paramref name="since"/>. The daily cap reads it.</summary>
