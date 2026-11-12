@@ -249,7 +249,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
     {
         var handler = new GcEditHandler(
             new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data),
-            new Bazaar.Server.Gc.Edit.PgGcEditSource(connection.Data));
+            new Bazaar.Server.Gc.Edit.PgGcEditSource(connection.Data), SettingsFor());
         return await handler.HandleAsync(
             Context(connection, WireTypes.GcEdit, requestId, new GcEdit(gc, messageId, text)), TestContext.Current.CancellationToken);
     }
@@ -301,11 +301,16 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         Assert.False(reply.IsOk);
     }
 
+    // Defaults only: the registry's own defaults (any member may invite; edits are unlimited), as an operator who set nothing sees.
+    private static Bazaar.Server.Tests.Settings.InMemorySettingStore SettingsFor() =>
+        new Bazaar.Server.Tests.Settings.InMemorySettingStore(
+            Bazaar.Server.Settings.SettingRegistry.Known, new Bazaar.Server.Settings.InMemorySettingAuditSink());
+
     private static async Task<WireReply> AddMemberAsync(FakeWireConnection connection, Guid gc, Guid newMember, string requestId)
     {
         var handler = new GcMemberAddHandler(
             new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
-            new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data));
+            new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data), SettingsFor());
         return await handler.HandleAsync(
             Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, PrincipalKind.Human, "member")),
             TestContext.Current.CancellationToken);
