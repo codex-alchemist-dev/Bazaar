@@ -13,5 +13,6 @@ public sealed class VaultSearchPaneModule : IPaneModule
     {
         var vaultApi = context.Vault ?? VaultApiFactory.Create(ClientServer.Current);
         registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vaultApi));
+        registry.RegisterView<VaultSearchPaneViewModel>(pane => new VaultSearchView(pane));
     }
 }

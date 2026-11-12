@@ -46,7 +46,7 @@ public class WorkdayPaneTests
     {
         var pane = new WorkdayPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Workday, _model));
 
-        var view = PaneViews.Create(pane);
+        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Charles (2)", texts);

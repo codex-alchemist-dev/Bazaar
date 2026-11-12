@@ -15,21 +15,17 @@ namespace Bazaar.Client.Core.Panes;
 /// </summary>
 public static class PaneViews
 {
+    // Theme tokens (one theme file drives every head). Views bind to these, never to a fixed colour.
+    private const string _borderToken = "Bazaar.brush.color.border.default";
+    private const string _secondaryTextToken = "Bazaar.brush.color.text.secondary";
+
     public static Control Create(IPaneViewModel pane) => pane switch
     {
-        KanbanPaneViewModel kanban => WithTitle(kanban.Title, KanbanBoard(kanban)),
-        DashboardPaneViewModel dashboard => WithTitle(dashboard.Title, Dashboard(dashboard)),
-        ConstellationPaneViewModel constellation => WithTitle(constellation.Title, new ConstellationPaneView(constellation)),
-        GcPaneViewModel gc => WithTitle(gc.Title, GcPane(gc)),
-        RyuseiSchedulePaneViewModel schedule => WithTitle(schedule.Title, RyuseiSchedule(schedule)),
-        RoadmapPaneViewModel roadmap => WithTitle(roadmap.Title, Roadmap(roadmap)),
-        WorkdayPaneViewModel workday => WithTitle(workday.Title, Workday(workday)),
-        Vault.VaultSearchPaneViewModel vaultSearch => WithTitle(vaultSearch.Title, new Vault.VaultSearchView(vaultSearch)),
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
     };
 
-    private static StackPanel WithTitle(string title, Control body) => new StackPanel
+    internal static StackPanel WithTitle(string title, Control body) => new StackPanel
     {
         Spacing = 8,
         Children =
@@ -39,7 +35,7 @@ public static class PaneViews
         },
     };
 
-    private static ScrollViewer KanbanBoard(KanbanPaneViewModel kanban)
+    internal static ScrollViewer KanbanBoard(KanbanPaneViewModel kanban)
     {
         var board = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         foreach (var column in kanban.Columns)
@@ -49,14 +45,22 @@ public static class PaneViews
             foreach (var card in column.Cards)
             {
                 var label = card.IsBlocked ? $"{card.Title} [Blocked]" : card.Title;
-                cards.Children.Add(new Border
+                var content = new StackPanel { Spacing = 4 };
+                content.Children.Add(new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap });
+                foreach (var chip in kanban.ChipsFor(card.Id))
+                {
+                    content.Children.Add(TriggerChip(chip));
+                }
+
+                var cardBorder = new Border
                 {
                     Padding = new Thickness(8),
                     BorderThickness = new Thickness(1),
-                    BorderBrush = Brushes.Gray,
                     CornerRadius = new CornerRadius(4),
-                    Child = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap },
-                });
+                    Child = content,
+                };
+                SetThemeBrush(cardBorder, Border.BorderBrushProperty, _borderToken);
+                cards.Children.Add(cardBorder);
             }
 
             board.Children.Add(new Border { Width = 200, Child = cards });
@@ -65,7 +69,42 @@ public static class PaneViews
         return new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Content = board };
     }
 
-    private static Control GcPane(GcPaneViewModel gc)
+    /// <summary>
+    /// A read-only trigger chip on a card (doc 38, layer 1): kind, state and next fire on one line, the purpose below.
+    /// Colours come from the theme tokens, so the chip follows the active theme.
+    /// </summary>
+    private static Border TriggerChip(RyuseiTaskChip chip)
+    {
+        var status = new TextBlock { Text = RyuseiChipRules.Status(chip), FontSize = 11 };
+        var purpose = new TextBlock { Text = RyuseiChipRules.Purpose(chip), FontSize = 11, TextWrapping = TextWrapping.Wrap };
+        SetThemeBrush(purpose, TextBlock.ForegroundProperty, _secondaryTextToken);
+
+        var chipBorder = new Border
+        {
+            Padding = new Thickness(6, 4),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(3),
+            Child = new StackPanel { Spacing = 2, Children = { status, purpose } },
+        };
+        SetThemeBrush(chipBorder, Border.BorderBrushProperty, _borderToken);
+        return chipBorder;
+    }
+
+    /// <summary>
+    /// Sets a brush property from a theme token. The brush is read from the application resources when the view is
+    /// built, so the token must exist in the active theme. A token the theme does not define falls back to transparent,
+    /// so the view still renders.
+    /// </summary>
+    private static void SetThemeBrush(AvaloniaObject target, AvaloniaProperty property, string token)
+    {
+        var app = Application.Current;
+        var brush = app is not null && app.TryGetResource(token, app.ActualThemeVariant, out var value) && value is IBrush found
+            ? found
+            : Brushes.Transparent;
+        target.SetValue(property, brush);
+    }
+
+    internal static Control GcPane(GcPaneViewModel gc)
     {
         if (gc.Chat is null)
         {
@@ -76,39 +115,89 @@ public static class PaneViews
         return new Border { Height = 480, Child = new ChatView { DataContext = gc.Chat } };
     }
 
-    private static StackPanel RyuseiSchedule(RyuseiSchedulePaneViewModel schedule)
+    internal static StackPanel RyuseiSchedule(RyuseiSchedulePaneViewModel schedule)
     {
-        var rows = new StackPanel { Spacing = 6 };
-        if (schedule.Schedule.Rows.Count == 0)
-        {
-            rows.Children.Add(new TextBlock { Text = "No triggers scheduled.", Opacity = 0.7 });
-            return rows;
-        }
+        var body = new StackPanel { Spacing = 6 };
 
-        foreach (var row in schedule.Schedule.Rows)
+        // Rebuilds the rows from the view model. Called once now and again after each change the server confirms.
+        void Render()
         {
-            rows.Children.Add(new Border
+            body.Children.Clear();
+            if (schedule.Schedule.Rows.Count == 0)
             {
-                Padding = new Thickness(8),
-                BorderThickness = new Thickness(1),
-                BorderBrush = Brushes.Gray,
-                CornerRadius = new CornerRadius(4),
-                Child = new StackPanel
-                {
-                    Children =
-                    {
-                        new TextBlock { Text = $"{row.KindLabel} · {row.StateLabel}", FontWeight = FontWeight.SemiBold },
-                        new TextBlock { Text = row.Purpose, TextWrapping = TextWrapping.Wrap },
-                        new TextBlock { Text = $"{row.NextFireText} · {row.TargetsText}", Opacity = 0.7, TextWrapping = TextWrapping.Wrap },
-                    },
-                },
-            });
+                body.Children.Add(new TextBlock { Text = "No triggers scheduled.", Opacity = 0.7 });
+            }
+
+            foreach (var row in schedule.Schedule.Rows)
+            {
+                body.Children.Add(ScheduleRow(schedule, row, RenderAfter));
+            }
+
+            if (schedule.LastError is { } error)
+            {
+                body.Children.Add(new TextBlock { Text = error, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
+            }
         }
 
-        return rows;
+        async Task RenderAfter(Task change)
+        {
+            await change.ConfigureAwait(true);
+            Render();
+        }
+
+        Render();
+        return body;
     }
 
-    private static StackPanel Workday(WorkdayPaneViewModel workday)
+    /// <summary>
+    /// One trigger row with its Pause or Resume button. The button is disabled when no head supplied the actions, and
+    /// only offers the action the row's state allows.
+    /// </summary>
+    private static Border ScheduleRow(RyuseiSchedulePaneViewModel schedule, RyuseiMicroRow row, Func<Task, Task> renderAfter)
+    {
+        var details = new StackPanel
+        {
+            Children =
+            {
+                new TextBlock { Text = $"{row.KindLabel} · {row.StateLabel}", FontWeight = FontWeight.SemiBold },
+                new TextBlock { Text = row.Purpose, TextWrapping = TextWrapping.Wrap },
+                new TextBlock { Text = $"{row.NextFireText} · {row.TargetsText}", Opacity = 0.7, TextWrapping = TextWrapping.Wrap },
+            },
+        };
+
+        var stack = new StackPanel { Spacing = 6, Children = { details } };
+        if (string.Equals(row.State, "active", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(row.State, "paused", StringComparison.OrdinalIgnoreCase))
+        {
+            var paused = string.Equals(row.State, "paused", StringComparison.OrdinalIgnoreCase);
+            var button = new Button
+            {
+                Content = paused ? "Resume" : "Pause",
+                IsEnabled = schedule.CanChangeTriggers,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Tag = row.Id,
+            };
+            button.Click += (_, _) =>
+            {
+                var change = paused ? schedule.ResumeAsync(row.Id) : schedule.PauseAsync(row.Id);
+                _ = renderAfter(change);
+            };
+            stack.Children.Add(button);
+        }
+
+        var rowBorder = new Border
+        {
+            Padding = new Thickness(8),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Child = stack,
+        };
+        SetThemeBrush(rowBorder, Border.BorderBrushProperty, _borderToken);
+        return rowBorder;
+    }
+
+
+    internal static StackPanel Workday(WorkdayPaneViewModel workday)
     {
         var body = new StackPanel { Spacing = 10 };
         if (workday.Owners.Count == 0)
@@ -134,7 +223,7 @@ public static class PaneViews
         return body;
     }
 
-    private static StackPanel Roadmap(RoadmapPaneViewModel roadmap)
+    internal static StackPanel Roadmap(RoadmapPaneViewModel roadmap)
     {
         var body = new StackPanel { Spacing = 10 };
         if (roadmap.DependencyCycle is { Count: > 0 } cycle)
@@ -173,7 +262,7 @@ public static class PaneViews
         return body;
     }
 
-    private static StackPanel Dashboard(DashboardPaneViewModel dashboard)
+    internal static StackPanel Dashboard(DashboardPaneViewModel dashboard)
     {
         var sections = new StackPanel { Spacing = 12 };
         foreach (var section in dashboard.Sections)

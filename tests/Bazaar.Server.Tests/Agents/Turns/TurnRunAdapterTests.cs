@@ -18,7 +18,8 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
     private static void SkipWithoutDatabase() =>
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
 
-    private TurnRunner Runner(ScriptedModelGateway gateway, TurnRunnerOptions? options = null) => new(db.DataSource, gateway, options);
+    private TurnRunner Runner(ScriptedModelGateway gateway, TurnRunnerOptions? options = null) =>
+        new(db.DataSource, gateway, new RecordingToolDispatcher(), options);
 
     private TurnRepository Turns => new(db.DataSource);
 

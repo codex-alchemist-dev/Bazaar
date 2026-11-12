@@ -1,5 +1,5 @@
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Agents.Inbox;
-using Bazaar.Server.Kanban.Ryusei;
 
 namespace Bazaar.Server.Tests.Ryusei;
 
@@ -415,6 +415,105 @@ public sealed class RyuseiTickRulesTests
         var only = Assert.Single(skipped);
         Assert.Equal(_second.ToString("D"), only!["agentId"]!.GetValue<string>());
         Assert.Equal("resting", only["status"]!.GetValue<string>());
+    }
+
+    // Ping fan-out at fire time (WP-R7). The cap can be lowered after creation, so the fire checks it again.
+
+    private static RyuseiTriggerRecord AttachRow(DateTimeOffset nextFireAt, Guid[] targets) =>
+        Row(Timer(nextFireAt), nextFireAt, targets: targets) with
+        {
+            AttachGcId = Guid.Parse("22222222-2222-7222-8222-222222222222"),
+            PingMode = RyuseiPingMode.Attach,
+        };
+
+    [Fact]
+    public void An_attach_fire_above_a_lowered_fanout_cap_is_refused_with_the_ping_skipped()
+    {
+        var third = Guid.Parse("cccccccc-cccc-7ccc-8ccc-cccccccccccc");
+        var fireAt = _anchor.AddHours(1);
+        var row = AttachRow(fireAt, [_agent, _second, third]);
+
+        var lowered = _limits with { MaxPingFanout = 2 };
+        var refused = RyuseiTickRules.Decide(Input(row), fireAt.AddSeconds(5), lowered);
+
+        Assert.NotNull(refused);
+        Assert.Equal(RyuseiFireOutcome.RefusedCap, refused.Outcome);
+        Assert.False(refused.Woke);
+        Assert.Empty(refused.WakeAgentIds);
+        Assert.Null(refused.WakeReason);
+        Assert.Equal("PingFanoutExceeded", refused.Cause["refusal"]!.GetValue<string>());
+        Assert.True(refused.Cause["pingSkipped"]!.GetValue<bool>());
+        Assert.Equal(3, refused.Cause["fanout"]!.GetValue<int>());
+        Assert.Equal(2, refused.Cause["cap"]!.GetValue<int>());
+        // One refusal does not pause the trigger, and the timer keeps its schedule for the owner to see it.
+        Assert.Equal(RyuseiTriggerState.Fired, refused.NextState);
+        Assert.Equal(1, refused.ConsecutiveRefusals);
+    }
+
+    [Fact]
+    public void A_fanout_refusal_counts_toward_the_auto_pause_streak()
+    {
+        var third = Guid.Parse("cccccccc-cccc-7ccc-8ccc-cccccccccccc");
+        var fireAt = _anchor.AddHours(1);
+        var row = AttachRow(fireAt, [_agent, _second, third]) with { ConsecutiveRefusals = _limits.AutoPauseAfter - 1 };
+        var lowered = _limits with { MaxPingFanout = 2 };
+
+        var decision = RyuseiTickRules.Decide(Input(row), fireAt.AddSeconds(5), lowered);
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.RefusedCap, decision.Outcome);
+        Assert.Equal(RyuseiTriggerState.Paused, decision.NextState);
+        Assert.True(decision.Cause["autoPaused"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void An_attach_fire_at_the_fanout_cap_still_wakes_and_pings()
+    {
+        var third = Guid.Parse("cccccccc-cccc-7ccc-8ccc-cccccccccccc");
+        var fireAt = _anchor.AddHours(1);
+        var row = AttachRow(fireAt, [_agent, _second, third]);
+        var atCap = _limits with { MaxPingFanout = 3 };
+
+        var decision = RyuseiTickRules.Decide(Input(row), fireAt.AddSeconds(5), atCap);
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.Woke, decision.Outcome);
+        Assert.Equal(3, decision.WakeAgentIds.Count);
+    }
+
+    [Fact]
+    public void A_fire_with_no_ping_is_not_held_to_the_fanout_cap()
+    {
+        var third = Guid.Parse("cccccccc-cccc-7ccc-8ccc-cccccccccccc");
+        var fireAt = _anchor.AddHours(1);
+        var row = Row(Timer(fireAt), fireAt, targets: [_agent, _second, third]);
+        var lowered = _limits with { MaxPingFanout = 2 };
+
+        var decision = RyuseiTickRules.Decide(Input(row), fireAt.AddSeconds(5), lowered);
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.Woke, decision.Outcome);
+    }
+
+    [Fact]
+    public void Fanout_counts_only_the_wakeable_targets_of_the_ping()
+    {
+        var third = Guid.Parse("cccccccc-cccc-7ccc-8ccc-cccccccccccc");
+        var fireAt = _anchor.AddHours(1);
+        var row = AttachRow(fireAt, [_agent, _second, third]);
+        var targets = new[]
+        {
+            Wakeable(_agent),
+            Wakeable(_second),
+            new RyuseiFireTarget(third, RyuseiFireTargetStatus.Resting),
+        };
+        var lowered = _limits with { MaxPingFanout = 2 };
+
+        var decision = RyuseiTickRules.Decide(Input(row, targets), fireAt.AddSeconds(5), lowered);
+
+        Assert.NotNull(decision);
+        Assert.Equal(RyuseiFireOutcome.Woke, decision.Outcome);
+        Assert.Equal(2, decision.WakeAgentIds.Count);
     }
 
     // Wake kinds and outcome text.

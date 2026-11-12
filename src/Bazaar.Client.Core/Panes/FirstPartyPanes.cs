@@ -64,7 +64,7 @@ public static class FirstPartyPanes
     /// <summary>
     /// Pane bodies for the phone pager. The Kanban pane renders its real board from <paramref name="kanbanModel"/>
     /// (the server's board snapshot, Guid-parsed by the pane), or an empty board when none is given. The GC pane
-    /// renders the chat through <see cref="PaneViews"/>, or its empty state when no session is connected. Other kinds
+    /// renders the chat through the registry's view, or its empty state when no session is connected. Other kinds
     /// return null and keep the pager's kind-name placeholder until their phone views land.
     /// </summary>
     /// <param name="registry">The registry the shell pages through. Its factories build the view models.</param>
@@ -78,13 +78,13 @@ public static class FirstPartyPanes
             if (kind == GcPaneViewModel.PaneKind)
             {
                 // The GC pane has no model of its own: the registry's chat supplies it, or the pane shows its empty state.
-                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
             }
 
             if (kind == PaneKinds.Kanban)
             {
                 var model = kanbanModel ?? _emptyKanbanModel;
-                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
             }
 
             return null;
