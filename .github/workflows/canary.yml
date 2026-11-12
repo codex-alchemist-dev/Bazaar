@@ -57,10 +57,15 @@ jobs:
           dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
-      # global.json pins the SDK for real builds. On this runner copy only, remove it so
-      # the preview SDK can build. Nothing is committed and the pin stays as it is.
-      - name: Drop the pinned global.json (runner copy only)
-        run: rm -f global.json
+      # global.json pins the SDK for real builds. On this runner copy only, drop the "sdk" pin so
+      # the preview SDK can build. The "test" section stays: it opts in to Microsoft.Testing.Platform,
+      # which the .NET 10+ SDK requires for `dotnet test` (removing the whole file made VSTest run and fail).
+      # Nothing is committed and the pin stays as it is.
+      - name: Drop the SDK pin from global.json (runner copy only)
+        run: |
+          set -euo pipefail
+          jq 'del(.sdk)' global.json > global.json.tmp && mv global.json.tmp global.json
+          cat global.json
 
       - name: Show the SDK in use
         run: dotnet --info
@@ -85,7 +90,7 @@ jobs:
           set -euo pipefail
           dotnet restore Bazaar.slnx
           dotnet build Bazaar.slnx -c Release --no-restore
-          dotnet test Bazaar.slnx -c Release --no-build
+          dotnet test --solution Bazaar.slnx -c Release --no-build
 
       # Report only. Lists stable and prerelease updates so the tracking doc can be checked
       # against what NuGet actually offers. Never fails the job.
