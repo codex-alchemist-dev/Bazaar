@@ -37,4 +37,13 @@ public sealed class ManagedPostgresOptions
 
     /// <summary>Scheduled logical dumps of the managed cluster.</summary>
     public ManagedPostgresBackupOptions Backup { get; set; } = new();
+
+    /// <summary>Where the superuser password is kept. Empty means <c>DataRoot/secrets/managed-postgres-superuser</c>.</summary>
+    public string PasswordStorePath { get; set; } = string.Empty;
+
+    /// <summary>The password file path after the default is applied.</summary>
+    public string ResolvedPasswordStorePath =>
+        string.IsNullOrWhiteSpace(PasswordStorePath)
+            ? Path.Combine(DataRoot, "secrets", "managed-postgres-superuser")
+            : PasswordStorePath;
 }

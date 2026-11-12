@@ -1,6 +1,6 @@
 # Release pipeline for Bazaar (docs/design/37-distribution-matrix-and-packaging.md, section 4).
 #
-# Trigger: an annotated tag v00.MM.PP on a commit that is reachable from main.
+# Trigger: an annotated tag vMAJOR.MINOR.PATCH on a commit that is reachable from main.
 # Flow:
 #   1. validate  - checks the tag form, the annotation, main ancestry and VersionPrefix.
 #   2. builds    - windows, linux, macos (opt-in) and android (only when the project exists)
@@ -24,7 +24,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v00.[0-9][0-9].[0-9][0-9]'
+      - 'v*'
 
 permissions:
   contents: read
@@ -61,12 +61,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          # docs/VERSIONING.md: display form v00.MM.PP maps to SemVer 0.MM.PP.
-          if [[ ! "$TAG" =~ ^v00\.([0-9]{2})\.([0-9]{2})$ ]]; then
-            echo "::error::Tag '$TAG' does not match v00.MM.PP."
+          # docs/VERSIONING.md section 1: release tags are vMAJOR.MINOR.PATCH[-pre], with no commit suffix.
+          semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$'
+          if [[ ! "$TAG" =~ $semver_re ]]; then
+            echo "::error::Tag '$TAG' is not a SemVer release tag (expected v<MAJOR>.<MINOR>.<PATCH>[-pre])."
             exit 1
           fi
-          semver="0.$((10#${BASH_REMATCH[1]})).$((10#${BASH_REMATCH[2]}))"
+          semver="${TAG#v}"
 
           # Tags are annotated and immutable (doc 37 section 3).
           if [[ "$(git cat-file -t "refs/tags/$TAG")" != "tag" ]]; then

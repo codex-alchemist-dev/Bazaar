@@ -5,7 +5,7 @@ Status: PROPOSED (rewritten 2026-11-12 for the owner's one-click company build).
 ## 1. Principles
 
 - **Packaging is a component.** Each package format is a Bazaar Component: its own project under `packaging/`, one `AddBazaarX()`-style registration where it runs in code, contract-only dependencies, and `TODO(component)` markers until the component model merges.
-- **One version, many artifacts.** Every artifact carries the same product version (`VersionPrefix` in `Directory.Build.props`, see `docs/VERSIONING.md`). The display form is `v00.MM.PP`; the machine form is SemVer (`0.MM.PP`). Owner to confirm (section 6).
+- **One version, many artifacts.** Every artifact carries the same product version (`VersionPrefix` in `Directory.Build.props`, see `docs/VERSIONING.md`). The display form is plain SemVer with the commit appended (`0.MM.PP+commit`, owner, 2026-11-12), and the machine form is the same base version. `VERSIONING.md` section 1 is the source, so this doc follows it.
 - **The server is the build station (owner decision, 2026-11-12).** Each Bazaar company runs its own `Bazaar.Server`. The server installer builds that company's client installers in one click and leaves them in an output folder. No terminal, no scripts, no SDK setup, and no build steps happen outside the installer window. Section 4a defines this.
 - **This repo ships server builds only.** The shared source builds server packages and the build pipeline that a company server uses. Client packages are produced per company, never published as a single generic client.
 - **Signing is parked, not skipped.** Every artifact is produced unsigned by default and signed when the company supplies a certificate or signing account. Unsigned builds are labelled as such in the output folder.

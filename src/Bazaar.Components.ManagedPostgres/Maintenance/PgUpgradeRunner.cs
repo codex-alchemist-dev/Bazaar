@@ -76,7 +76,8 @@ public sealed class PgUpgradeRunner(IPostgresCommandRunner runner, BundleLayout 
         }
     }
 
-    private static async Task<bool> IsListeningAsync(int port, CancellationToken cancellationToken)
+    /// <summary>True when something accepts TCP connections on the loopback port within one second.</summary>
+    internal static async Task<bool> IsListeningAsync(int port, CancellationToken cancellationToken)
     {
         using var client = new TcpClient();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
