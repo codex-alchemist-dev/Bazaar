@@ -22,7 +22,7 @@
 
 ## Version
 
-Current version: **0.1.0 (Beta)**, displayed as `x00.01.00`. Project versions use the form `xAA.BB.CC`, with the build commit appended (`x00.01.00-a1b2c3d`). Details are in [For developers](#versioning).
+Current version: **0.1.0 (Beta)**, shown as `0.1.0+a1b2c3d` with the build commit appended. Details are in [For developers](#versioning).
 
 ---
 
@@ -369,9 +369,9 @@ Five principles rank above every other item in the design and the code. When two
 
 ### Versioning
 
-**Format.** Project versions are `xAA.BB.CC-commit`, with each part padded to two digits, for example `x00.01.00-a1b2c3d`. Release tags use the project form without the commit (`x00.01.00`). Internal components, APIs and modules use `vAA.BB.CC-commit`, for example `v00.01.00-a1b2c3d`. The commit suffix is display only.
+**Format.** Versions are plain SemVer 2.0, with no zero padding and no prefix: `0.1.0`. The build commit is appended as SemVer build metadata, for example `0.1.0+a1b2c3d`. Release tags carry a `v` prefix and no commit, for example `v0.1.0`. Every Bazaar component uses the same form.
 
-**SemVer underneath.** The padded form is display only. Tooling gets valid SemVer 2.0 with the leading zeros removed: `00.01.00` becomes `0.1.0`. NuGet, Docker, Git and the update feed use that form.
+**Commit suffix.** SemVer ignores build metadata when it orders versions, so `0.1.0+a1b2c3d` and `0.1.0` sort as the same release.
 
 **Source of truth.** `VersionPrefix` in [`Directory.Build.props`](Directory.Build.props). Code reads it through `Bazaar.Contracts.ProductVersion`.
 
@@ -381,7 +381,7 @@ Five principles rank above every other item in the design and the code. When two
 
 **Channels.** LTSC, Stable, Beta, Alpha and Latest-Commit. The server operator picks one per install.
 
-The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The separator before the commit is pending the owner's confirmation.
+The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The commit follows a `+`, the SemVer build-metadata marker.
 
 ### Module rules
 

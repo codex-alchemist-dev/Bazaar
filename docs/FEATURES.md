@@ -211,7 +211,7 @@ Owner-set naming, 2026-11-09, recorded in project memory. The code does not yet 
 
 ## 13. Codenames and versions
 
-Versions are SemVer. Pre-release builds are "Beta", displayed zero-padded as `v00.MM.PP`. Each major gets a codename, Z to A, with an alchemy-and-stars theme. Source: `docs/VERSIONING.md`.
+Versions are SemVer. Pre-release builds are "Beta", shown as plain SemVer, `0.MM.PP`, with the commit appended. Each major gets a codename, Z to A, with an alchemy-and-stars theme. Source: `docs/VERSIONING.md`.
 
 | Version | Codename | Status |
 |---|---|---|
