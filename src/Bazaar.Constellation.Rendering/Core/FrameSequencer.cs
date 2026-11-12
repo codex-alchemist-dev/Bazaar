@@ -1,4 +1,4 @@
-namespace Bazaar.Constellation.Rendering;
+namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>
 /// Drops frames that are not newer than the last one applied, ordered by (GraphVersion, LayoutSeq).

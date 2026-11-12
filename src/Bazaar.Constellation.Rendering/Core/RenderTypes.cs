@@ -1,4 +1,4 @@
-namespace Bazaar.Constellation.Rendering;
+namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>Native surface kinds a backend can attach to.</summary>
 public enum RenderSurfaceKind
@@ -27,7 +27,7 @@ public readonly record struct RenderSurface(
     int WidthPixels,
     int HeightPixels);
 
-/// <summary>Outcome of <see cref="IConstellationRenderer.Attach"/>.</summary>
+/// <summary>Outcome of the backend attach call (see the adapter interface).</summary>
 public readonly record struct RenderAttachResult(bool Attached, string Reason);
 
 /// <summary>What a backend can do. Optional features are only listed when the device reports them.</summary>
