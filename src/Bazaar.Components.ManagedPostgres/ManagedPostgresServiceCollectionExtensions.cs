@@ -27,11 +27,13 @@ public static class ManagedPostgresServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddHostedService<ManagedPostgresBackupService>();
 
-        // Linux and macOS keep the password in a 0600 file. Windows registers DPAPI before this call (see the host composition).
+        // Linux and macOS keep the password encrypted with AES-256-GCM. Windows registers DPAPI before this call (see the host composition).
         if (!OperatingSystem.IsWindows())
         {
             services.TryAddSingleton<Secrets.IManagedPasswordStore>(sp =>
-                new Secrets.FileManagedPasswordStore(sp.GetRequiredService<IOptions<ManagedPostgresOptions>>().Value.ResolvedPasswordStorePath));
+                new Secrets.AesGcmManagedPasswordStore(
+                    sp.GetRequiredService<IOptions<ManagedPostgresOptions>>().Value.ResolvedPasswordStorePath,
+                    new Secrets.LinuxManagedStoreKeyProvider()));
         }
 
         services.TryAddSingleton<Maintenance.ManagedPostgresMaintenance>();

@@ -72,11 +72,11 @@ public static class DbSubcommand
         }
     }
 
-    /// <summary>Windows keeps the password under DPAPI for the current account; other systems use the 0600 file.</summary>
+    /// <summary>Windows keeps the password under DPAPI for the current account; Linux keeps it AES-GCM encrypted under the store key.</summary>
     private static IManagedPasswordStore PasswordStore(ManagedPostgresOptions settings) =>
         OperatingSystem.IsWindows()
             ? new DpapiManagedPasswordStore(settings.ResolvedPasswordStorePath)
-            : new FileManagedPasswordStore(settings.ResolvedPasswordStorePath);
+            : new AesGcmManagedPasswordStore(settings.ResolvedPasswordStorePath, new LinuxManagedStoreKeyProvider());
 
     private static int? IntOption(string[] args, string name)
     {
