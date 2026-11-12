@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bazaar.Contracts.Gateway;
 
 namespace Bazaar.RyuseiFuda.Orrery;
 
@@ -57,6 +58,87 @@ public static class RyuseiToolContract
     public const string ListToolName = "ryusei.list";
     public const string PauseToolName = "ryusei.pause";
     public const string CancelToolName = "ryusei.cancel";
+
+    /// <summary>
+    /// What a model is told about the four tools. Each schema matches the parser for that tool in this class; the
+    /// <c>spec</c> object is described per kind because its fields depend on <c>kind</c> (<see cref="RyuseiSpecJson"/>).
+    /// </summary>
+    public static IReadOnlyList<ModelToolDefinition> Definitions { get; } =
+    [
+        new(
+            ScheduleToolName,
+            "Schedules a trigger that wakes one or more agents later: at a time (timer), repeatedly (interval), when a " +
+            "condition is seen by polling (watcher) or when an event arrives (event). Caps and permissions are checked; a " +
+            "refusal says why.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "enum": ["timer", "interval", "watcher", "event"] },
+                "purpose": { "type": "string", "description": "Why the trigger exists. Shown to the woken agents." },
+                "targets": { "type": "array", "minItems": 1, "items": { "type": "string", "format": "uuid" }, "description": "The agents to wake." },
+                "ping_mode": { "type": "string", "enum": ["none", "attach", "new_gc"], "description": "Where a fire is announced. Defaults to attach when attach_gc_id is given, otherwise none." },
+                "attach_gc_id": { "type": "string", "format": "uuid", "description": "The group chat a fire is announced in." },
+                "spec": {
+                  "type": "object",
+                  "description": "Depends on kind. timer: fireAt. interval: every and anchor. watcher: predicate, pollSeconds, debounceSeconds, and optionally expiresAt and maxFires. event: predicate.",
+                  "properties": {
+                    "fireAt": { "type": "string", "format": "date-time" },
+                    "every": { "type": "string", "description": "An ISO 8601 duration, for example PT30M." },
+                    "anchor": { "type": "string", "format": "date-time" },
+                    "pollSeconds": { "type": "integer" },
+                    "debounceSeconds": { "type": "integer" },
+                    "expiresAt": { "type": "string", "format": "date-time" },
+                    "maxFires": { "type": "integer" },
+                    "predicate": {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["task.transitioned", "task.due_passed", "task.blocked", "task.unblocked", "pr.merged", "pr.closed", "pr.review_requested", "gc.message", "vault.changed", "council.decision_recorded"] },
+                        "gcId": { "type": "string", "format": "uuid" },
+                        "authorAgentId": { "type": "string", "format": "uuid" },
+                        "pathGlob": { "type": "string" }
+                      },
+                      "required": ["kind"]
+                    }
+                  }
+                }
+              },
+              "required": ["kind", "purpose", "targets", "spec"]
+            }
+            """),
+        new(
+            ListToolName,
+            "Lists the triggers you may see, with their state and next fire time.",
+            """
+            {
+              "type": "object",
+              "properties": {
+                "state": { "type": "string", "enum": ["active", "paused", "fired", "expired", "cancelled"], "description": "Only triggers in this state." },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Page size. Defaults to 20." }
+              }
+            }
+            """),
+        new(
+            PauseToolName,
+            "Pauses a trigger so it stops firing until it is resumed.",
+            """
+            {
+              "type": "object",
+              "properties": { "trigger_id": { "type": "string", "format": "uuid" } },
+              "required": ["trigger_id"]
+            }
+            """),
+        new(
+            CancelToolName,
+            "Cancels a trigger for good.",
+            """
+            {
+              "type": "object",
+              "properties": { "trigger_id": { "type": "string", "format": "uuid" } },
+              "required": ["trigger_id"]
+            }
+            """),
+    ];
 
     /// <summary>The default page size for <c>ryusei.list</c>.</summary>
     public const int DefaultListLimit = 20;

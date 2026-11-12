@@ -51,6 +51,7 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<KanbanTransitionTool>();
         services.AddSingleton(sp => new ToolRegistration(KanbanTransitionTool.ToolName, sp.GetRequiredService<KanbanTransitionTool>()));
         services.AddSingleton(TransitionCapability);
+        services.AddSingleton(KanbanTransitionTool.Definition);
 
         // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
         services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();

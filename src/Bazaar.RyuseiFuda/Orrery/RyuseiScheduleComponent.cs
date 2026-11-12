@@ -103,6 +103,12 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             services.AddSingleton(new ToolCapability(RyuseiToolContract.CancelToolName, ToolTier.AutonomousWithNotice, CapabilityClass.Exec,
                 SessionRoles.Actor, new RateRule(30, TimeSpan.FromHours(1))));
 
+            // What a model is told about each tool. A turn is offered only the ones its allowlist names.
+            foreach (var definition in RyuseiToolContract.Definitions)
+            {
+                services.AddSingleton(definition);
+            }
+
             services.AddSingleton(sp => new ToolRegistration(RyuseiToolContract.ScheduleToolName, new RyuseiScheduleTool(
                 sp.GetRequiredService<RyuseiTriggerService>(),
                 sp.GetRequiredService<IRyuseiAgentDirectory>(),

@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
@@ -129,7 +130,9 @@ public sealed class AgentTurnsComponent : IBazaarComponent
         services.TryAddSingleton<ITurnRunner>(sp => new TurnRunAdapter(
             sp.GetRequiredService<TurnRunner>(),
             sp.GetRequiredService<ITurnContextAssembler>(),
-            TurnRoute(configuration)));
+            TurnRoute(configuration),
+            // Every tool definition a component added. A turn is offered only the ones its allowlist names.
+            ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())));
 
         AddScheduler(services, configuration);
     }

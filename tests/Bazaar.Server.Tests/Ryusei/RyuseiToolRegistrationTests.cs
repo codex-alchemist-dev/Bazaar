@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gateway;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Security.Policy;
@@ -43,6 +44,32 @@ public sealed class RyuseiToolRegistrationTests
         var services = Build(new Dictionary<string, string?>());
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(ToolCapability));
+    }
+
+    [Fact]
+    public void Each_ryusei_tool_has_one_definition_with_a_project_id_and_none_without()
+    {
+        Assert.DoesNotContain(Build(new Dictionary<string, string?>()), d => d.ServiceType == typeof(ModelToolDefinition));
+
+        var services = Build(new Dictionary<string, string?> { ["Bazaar:Ryusei:ProjectId"] = Guid.NewGuid().ToString() });
+        var names = services.Where(d => d.ServiceType == typeof(ModelToolDefinition))
+            .Select(d => ((ModelToolDefinition)d.ImplementationInstance!).Name)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(["ryusei.cancel", "ryusei.list", "ryusei.pause", "ryusei.schedule"], names);
+    }
+
+    [Fact]
+    public void The_ryusei_definitions_pass_the_catalogue_checks()
+    {
+        var registry = new ToolRegistry(RyuseiToolContract.Definitions.Select(d => (d.Name, (ITool)new NoTool())));
+
+        Assert.Equal(4, ToolCatalogue.Build(RyuseiToolContract.Definitions, registry).Count);
+    }
+
+    private sealed class NoTool : ITool
+    {
+        public Task<string> ExecuteAsync(System.Text.Json.JsonElement args, CancellationToken cancellationToken) => Task.FromResult("{}");
     }
 
     private static List<ServiceDescriptor> Build(Dictionary<string, string?> settings)

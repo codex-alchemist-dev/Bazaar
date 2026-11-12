@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Components;
 using Bazaar.Server.Kanban;
@@ -68,5 +70,26 @@ public class KanbanComponentTests
         Assert.Equal(ToolTier.AutonomousWithNotice, capability.Tier);
         Assert.Equal(SessionRoles.Actor, capability.Roles);
         Assert.NotNull(capability.Rate);
+    }
+
+    [Fact]
+    public void Kanban_transition_has_a_definition_the_catalogue_accepts()
+    {
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+        using var provider = services.BuildServiceProvider();
+        var registry = new ToolRegistry(provider.GetServices<ToolRegistration>().Select(r => (r.Name, r.Tool)));
+
+        var definition = Assert.Single(ToolCatalogue.Build(provider.GetServices<ModelToolDefinition>(), registry));
+
+        Assert.Equal("kanban.transition", definition.Name);
+        using var schema = JsonDocument.Parse(definition.ParametersJsonSchema);
+        var required = schema.RootElement.GetProperty("required").EnumerateArray().Select(e => e.GetString() ?? "").ToArray();
+        Assert.Equal(["taskId", "to", "expectedVersion"], required);
+        var columns = schema.RootElement.GetProperty("properties").GetProperty("to").GetProperty("enum")
+            .EnumerateArray().Select(e => e.GetString() ?? "").ToArray();
+        Assert.Equal(["backlog", "ready", "in_progress", "review", "done"], columns);
     }
 }
