@@ -195,6 +195,13 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Theme.** Athanor uses a Monaco theme generated from the Bazaar theme file, so the palette and fonts match with no seam.
 - **Diff.** Monaco's built-in diff editor is the diff view for the Git module (section 4.14).
 - **Gate.** The WebView2 island and standalone mode wait on spike S12 (doc 27).
+- **Embedding.** Athanor is a WebView2 island inside the native window. Native controls and the editor composite together, so there is no separate-window seam. Transparent background and no title bar inside the island.
+- **Start-up.** Create the WebView2 environment once at app start and keep it warm, so the first open is instant. Share one browser process across editor windows where the runtime allows it.
+- **Feel.** Keyboard and Vim-style controls inside Athanor follow the same key model as the rest of the client (section 4.12). Scrolling, cursor and input latency should match native text controls.
+- **Standalone.** Athanor opens as its own window with Bazaar's own title bar and chrome, the same editor and theme bundle, and the same key model. It replaces the system text editor (section 4.10).
+- **Theme.** One theme file drives Athanor's colours, fonts and syntax palette (section 3). The editor never ships a second palette.
+- **Diff.** The Git module (section 4.14) uses Monaco's built-in diff editor. No second diff component.
+- **Editor features.** Syntax highlighting, language-server completion and multi-cursor editing come from Monaco. The client adds no custom editing engine.
 
 ## 4.14 Defaults for open client items (added 2026-11-12, defaults, not owner decisions)
 
