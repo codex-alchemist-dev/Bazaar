@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" role="img" aria-labelledby="t d">
+  <title id="t">Bazaar.Client: native Avalonia apps built per company</title>
+  <desc id="d">The client is native Avalonia, with one shared Client.Core UI library. Each company builds its own client for each device, with its own interface and modules. Built-in Calcinato is the terminal and CLI, and built-in Athanor is the IDE and text editor. Both can also run standalone to replace the system terminal and text editor.</desc>
+  <rect width="960" height="300" rx="16" fill="#1a1426"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="40" y="60" fill="#f4edff" font-size="30" font-weight="700">Bazaar.Client</text>
+    <text x="40" y="92" fill="#c8b8ea" font-size="16">Native Avalonia apps, built per company. The repo ships server builds only.</text>
+    <g font-size="15" text-anchor="middle">
+      <rect x="40" y="128" width="200" height="64" rx="10" fill="#2a2140" stroke="#7d5fc4"/><text x="140" y="156" fill="#f4edff">Calcinato</text><text x="140" y="178" fill="#c8b8ea" font-size="13">terminal and CLI</text>
+      <rect x="260" y="128" width="200" height="64" rx="10" fill="#2a2140" stroke="#7d5fc4"/><text x="360" y="156" fill="#f4edff">Athanor</text><text x="360" y="178" fill="#c8b8ea" font-size="13">IDE and text editor</text>
+      <rect x="480" y="128" width="440" height="64" rx="10" fill="#2a2140" stroke="#7d5fc4"/><text x="700" y="156" fill="#f4edff">Company build: CDAX.msix, CDAX.apk</text><text x="700" y="178" fill="#c8b8ea" font-size="13">own interface, layout, modules</text>
+    </g>
+    <text x="40" y="236" fill="#c8b8ea" font-size="14">Calcinato and Athanor run inside the client, and also stand alone as the system terminal and text editor.</text>
+  </g>
+</svg>

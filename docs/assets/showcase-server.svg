@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" role="img" aria-labelledby="t d">
+  <title id="t">Bazaar.Server: the headless compute core</title>
+  <desc id="d">The server is one OS-agnostic .NET 11 program. It runs as a Windows Service or a systemd unit. It does all the compute: group chat log, agents, models, storage, and the managed PostgreSQL 18 and 19 with pgvector. Clients connect over one WebSocket per device.</desc>
+  <rect width="960" height="300" rx="16" fill="#0c1a1c"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="40" y="60" fill="#e8fbf7" font-size="30" font-weight="700">Bazaar.Server</text>
+    <text x="40" y="92" fill="#9ed8cc" font-size="16">Headless .NET 11 program. Windows Service or systemd. Does all the compute.</text>
+    <g font-size="15" text-anchor="middle">
+      <rect x="40" y="130" width="250" height="64" rx="10" fill="#133236" stroke="#2f7f74"/><text x="165" y="158" fill="#e8fbf7">GC log and fan-out</text><text x="165" y="180" fill="#9ed8cc" font-size="13">append-only, Postgres NOTIFY</text>
+      <rect x="310" y="130" width="250" height="64" rx="10" fill="#133236" stroke="#2f7f74"/><text x="435" y="158" fill="#e8fbf7">Agents and model gateway</text><text x="435" y="180" fill="#9ed8cc" font-size="13">per-agent model policy</text>
+      <rect x="580" y="130" width="250" height="64" rx="10" fill="#133236" stroke="#2f7f74"/><text x="705" y="158" fill="#e8fbf7">Managed PostgreSQL</text><text x="705" y="180" fill="#9ed8cc" font-size="13">18 and 19, with pgvector</text>
+    </g>
+    <text x="40" y="236" fill="#9ed8cc" font-size="14">One WebSocket per device. The server sends each client its layout variants; clients only render.</text>
+  </g>
+</svg>
