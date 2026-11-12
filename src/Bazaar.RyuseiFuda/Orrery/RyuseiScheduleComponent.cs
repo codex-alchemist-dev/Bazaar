@@ -99,6 +99,7 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
         // Event bridge (doc 38, WP-R6): GC and kanban events match event and watcher triggers. Watchers fire on the tick above.
         services.TryAddSingleton(sp => new RyuseiEventBridge(
             sp.GetRequiredService<NpgsqlDataSource>(),
+            sp.GetRequiredService<RyuseiLimits>(),
             sp.GetService<ITransactionalAuditLog>(),
             sp.GetRequiredService<IRyuseiObservatory>()));
         services.TryAddSingleton(sp => new RyuseiEventListener(

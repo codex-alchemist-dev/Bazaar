@@ -275,21 +275,13 @@ public static class RyuseiTickRules
 
         // Ping fan-out first: a ping names every woken target, so a fan-out above the cap is refused before any line is posted. The
         // cap is read at fire time, so a lowered setting takes effect on the next fire. Then cooldown, the daily cap and the shared
-        // wake cap. The first refusal found decides the outcome.
+        // wake cap (CheckWake). The first refusal found decides the outcome.
         var fanout = trigger.PingMode == RyuseiPingMode.None
             ? RyuseiDecision.Allow
             : RyuseiGuards.CheckPingFanout(wakeable.Length, limits.MaxPingFanout);
-        var guard = fanout.IsAllowed ? RyuseiGuards.CheckCooldown(now, input.LastWokeAt, limits.CooldownSeconds) : fanout;
-        if (guard.IsAllowed)
-        {
-            guard = RyuseiGuards.CheckDailyFireCap(input.FiresInLast24Hours, limits.MaxFiresPerDay);
-        }
-
-        if (guard.IsAllowed)
-        {
-            guard = RyuseiGuards.CheckAgentWakeCap(input.WakesInLastHour, limits.MaxAgentWakesPerHour);
-        }
-
+        var guard = fanout.IsAllowed
+            ? RyuseiGuards.CheckWake(now, input.LastWokeAt, input.FiresInLast24Hours, input.WakesInLastHour, limits)
+            : fanout;
         if (!guard.IsAllowed)
         {
             var outcome = guard.Refusal == RyuseiRefusal.CooldownActive ? RyuseiFireOutcome.RefusedCooldown : RyuseiFireOutcome.RefusedCap;
@@ -356,6 +348,48 @@ public static class RyuseiTickRules
             [],
             null,
             new JsonObject { ["message"] = message });
+    }
+
+    /// <summary>
+    /// A fire refused by a wake guard (doc 38, guard table). The outcome is a cooldown or cap refusal. Only the daily fire cap, or
+    /// a streak at the auto-pause threshold, pauses the trigger; the other refusals keep <paramref name="onwardState"/>, so the
+    /// trigger is not lost. Every refusal counts toward the streak.
+    /// </summary>
+    public static RyuseiFireDecision Refuse(
+        RyuseiTriggerRecord trigger,
+        RyuseiRefusal refusal,
+        DateTimeOffset scheduledFor,
+        RyuseiTriggerState onwardState,
+        DateTimeOffset? onwardFireAt,
+        long missedCount,
+        RyuseiLimits limits,
+        int fanout = 0)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        ArgumentNullException.ThrowIfNull(limits);
+
+        var outcome = refusal == RyuseiRefusal.CooldownActive ? RyuseiFireOutcome.RefusedCooldown : RyuseiFireOutcome.RefusedCap;
+        var consecutive = trigger.ConsecutiveRefusals + 1;
+        var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
+        var paused = refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
+        var cause = RefusedCause(refusal, consecutive, paused, missedCount);
+        if (refusal == RyuseiRefusal.PingFanoutExceeded)
+        {
+            // The fire is recorded with its reason. No line is posted and nobody is woken, so the ping is skipped, not dropped.
+            cause["pingSkipped"] = true;
+            cause["fanout"] = fanout;
+            cause["cap"] = Math.Clamp(limits.MaxPingFanout, 1, RyuseiDefaults.MaxPingFanout);
+        }
+
+        return new RyuseiFireDecision(
+            outcome,
+            scheduledFor,
+            paused ? RyuseiTriggerState.Paused : onwardState,
+            onwardFireAt,
+            consecutive,
+            [],
+            null,
+            cause);
     }
 
     private static JsonObject WokeCause(long missedCount, IReadOnlyList<RyuseiFireTarget> skipped, string wakeReason) => new()

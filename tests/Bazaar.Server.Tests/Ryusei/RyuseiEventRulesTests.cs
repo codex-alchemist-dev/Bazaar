@@ -49,6 +49,15 @@ public sealed class RyuseiEventRulesTests
     private static RyuseiEventEnvelope GcMessage(Guid gc, string authorKind, Guid author) =>
         RyuseiEventMapping.FromGcEvent("message", gc, authorKind, author, 7)!;
 
+    // The shipped guard defaults and an empty history, so a test that is not about guards sees no refusal.
+    private static RyuseiEventDecision Decide(
+        RyuseiTriggerRecord row,
+        IReadOnlyList<RyuseiFireTarget> targets,
+        DateTimeOffset now,
+        RyuseiFireContext? context = null,
+        RyuseiLimits? limits = null) =>
+        RyuseiEventRules.DecideEventMatch(row, context ?? new RyuseiFireContext(targets, 0, null, 0), now, "task.transitioned", limits ?? new RyuseiLimits());
+
     // Mapping from repo events to predicate kinds.
 
     [Theory]
@@ -224,11 +233,10 @@ public sealed class RyuseiEventRulesTests
     {
         var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
 
-        var decision = RyuseiEventRules.DecideEventMatch(
+        var decision = Decide(
             Row(spec),
             [new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)],
-            _now,
-            "task.transitioned");
+            _now);
 
         Assert.Equal(RyuseiTriggerState.Fired, decision.NextState);
         Assert.NotNull(decision.Fire);
@@ -245,14 +253,13 @@ public sealed class RyuseiEventRulesTests
     {
         var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
 
-        var decision = RyuseiEventRules.DecideEventMatch(
+        var decision = Decide(
             Row(spec, targets: [_agent, _other]),
             [
                 new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable),
                 new RyuseiFireTarget(_other, RyuseiFireTargetStatus.Resting),
             ],
-            _now,
-            "task.transitioned");
+            _now);
 
         Assert.NotNull(decision.Fire);
         Assert.Equal(RyuseiFireOutcome.Woke, decision.Fire.Outcome);
@@ -265,11 +272,10 @@ public sealed class RyuseiEventRulesTests
     {
         var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
 
-        var decision = RyuseiEventRules.DecideEventMatch(
+        var decision = Decide(
             Row(spec),
             [new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Resting)],
-            _now,
-            "task.transitioned");
+            _now);
 
         Assert.Equal(RyuseiTriggerState.Fired, decision.NextState);
         Assert.NotNull(decision.Fire);
@@ -283,14 +289,13 @@ public sealed class RyuseiEventRulesTests
     {
         var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
 
-        var decision = RyuseiEventRules.DecideEventMatch(
+        var decision = Decide(
             Row(spec, targets: [_agent, _other]),
             [
                 new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Retired),
                 new RyuseiFireTarget(_other, RyuseiFireTargetStatus.Missing),
             ],
-            _now,
-            "task.transitioned");
+            _now);
 
         Assert.Equal(RyuseiTriggerState.Expired, decision.NextState);
         Assert.NotNull(decision.Fire);
@@ -303,13 +308,103 @@ public sealed class RyuseiEventRulesTests
     {
         var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
 
-        var decision = RyuseiEventRules.DecideEventMatch(
+        var decision = Decide(
             Row(spec, expiresAt: _now),
             [new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)],
-            _now.AddSeconds(1),
-            "task.transitioned");
+            _now.AddSeconds(1));
 
         Assert.Equal(RyuseiTriggerState.Expired, decision.NextState);
         Assert.Null(decision.Fire);
+    }
+
+    [Fact]
+    public void An_event_inside_the_cooldown_is_refused_and_stays_active()
+    {
+        var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
+        var limits = new RyuseiLimits();
+        var context = new RyuseiFireContext([new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)], 0, _now.AddSeconds(-5), 0);
+
+        var decision = Decide(Row(spec), context.Targets, _now, context, limits);
+
+        Assert.Equal(RyuseiTriggerState.Active, decision.NextState);
+        Assert.NotNull(decision.Fire);
+        Assert.Equal(RyuseiFireOutcome.RefusedCooldown, decision.Fire.Outcome);
+        Assert.Equal(RyuseiTriggerState.Active, decision.Fire.NextState);
+        Assert.Equal(1, decision.Fire.ConsecutiveRefusals);
+        Assert.Empty(decision.Fire.WakeAgentIds);
+        Assert.Null(decision.Fire.WakeReason);
+    }
+
+    [Fact]
+    public void An_event_over_the_shared_wake_cap_is_refused_without_pausing_the_trigger()
+    {
+        var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
+        var limits = new RyuseiLimits();
+        var context = new RyuseiFireContext([new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)], 0, null, limits.MaxAgentWakesPerHour);
+
+        var decision = Decide(Row(spec), context.Targets, _now, context, limits);
+
+        Assert.Equal(RyuseiTriggerState.Active, decision.NextState);
+        Assert.NotNull(decision.Fire);
+        Assert.Equal(RyuseiFireOutcome.RefusedCap, decision.Fire.Outcome);
+        Assert.Equal(RyuseiTriggerState.Active, decision.Fire.NextState);
+        Assert.Empty(decision.Fire.WakeAgentIds);
+    }
+
+    [Fact]
+    public void An_event_over_the_daily_fire_cap_is_refused_and_paused()
+    {
+        var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
+        var limits = new RyuseiLimits();
+        var context = new RyuseiFireContext([new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)], limits.MaxFiresPerDay, null, 0);
+
+        var decision = Decide(Row(spec), context.Targets, _now, context, limits);
+
+        Assert.Equal(RyuseiTriggerState.Paused, decision.NextState);
+        Assert.NotNull(decision.Fire);
+        Assert.Equal(RyuseiFireOutcome.RefusedCap, decision.Fire.Outcome);
+        Assert.Equal(RyuseiTriggerState.Paused, decision.Fire.NextState);
+    }
+
+    [Fact]
+    public void A_refusal_that_reaches_the_auto_pause_streak_pauses_the_event()
+    {
+        var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
+        var limits = new RyuseiLimits();
+        var row = Row(spec) with { ConsecutiveRefusals = limits.AutoPauseAfter - 1 };
+        var context = new RyuseiFireContext([new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)], 0, _now.AddSeconds(-1), 0);
+
+        var decision = Decide(row, context.Targets, _now, context, limits);
+
+        Assert.Equal(RyuseiTriggerState.Paused, decision.NextState);
+        Assert.Equal(limits.AutoPauseAfter, decision.Fire!.ConsecutiveRefusals);
+    }
+
+    [Fact]
+    public void An_event_under_every_cap_wakes_even_with_prior_refusals_on_record()
+    {
+        var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
+        var limits = new RyuseiLimits();
+        var row = Row(spec) with { ConsecutiveRefusals = 1 };
+        var context = new RyuseiFireContext([new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Wakeable)], 0, _now.AddHours(-2), 0);
+
+        var decision = Decide(row, context.Targets, _now, context, limits);
+
+        Assert.Equal(RyuseiTriggerState.Fired, decision.NextState);
+        Assert.Equal(RyuseiFireOutcome.Woke, decision.Fire!.Outcome);
+        Assert.Equal(0, decision.Fire.ConsecutiveRefusals);
+    }
+
+    [Fact]
+    public void A_skipped_event_is_not_guarded_because_no_wake_is_attempted()
+    {
+        var spec = new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" });
+        var limits = new RyuseiLimits();
+        var context = new RyuseiFireContext([new RyuseiFireTarget(_agent, RyuseiFireTargetStatus.Resting)], limits.MaxFiresPerDay, _now.AddSeconds(-1), limits.MaxAgentWakesPerHour);
+
+        var decision = Decide(Row(spec), context.Targets, _now, context, limits);
+
+        Assert.Equal(RyuseiTriggerState.Fired, decision.NextState);
+        Assert.Equal(RyuseiFireOutcome.SkippedResting, decision.Fire!.Outcome);
     }
 }
