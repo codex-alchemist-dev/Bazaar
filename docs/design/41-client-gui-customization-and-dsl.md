@@ -135,7 +135,7 @@ Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout v
 - **Baked defaults.** Each company's build carries default variants for each device class and display, so a foldable works before any server connection.
 - **Scope.** The variant key is a document field. It does not add a scope, so the scope table in 4.4 is unchanged.
 
-**Cover screen (owner, 2026-11-12): a company-defined cover layout.** Each company defines it for glanceable triage. Until it is set, the cover screen falls back to the folded variant.
+**Cover screen (owner, 2026-11-12): a company-defined cover layout.** Each company defines it for glanceable triage. Until it is set, the cover screen falls back to the folded variant. Default content (owner, 2026-11-12): a count of unread GC items and of approvals waiting, with a tap to open the phone. No message content on the cover.
 
 ## 5. Modules and existing panes
 
