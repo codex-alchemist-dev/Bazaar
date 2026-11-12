@@ -8,6 +8,7 @@ using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -67,6 +68,16 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<ITransactionalAuditLog>(),
             sp.GetRequiredService<RyuseiLimits>(),
             sp.GetRequiredService<IRyuseiObservatory>()));
+
+        // Owner pause and resume over the wire (doc 38, Layer 2). Only the owner principal may change a trigger from a client.
+        services.AddSingleton<IWireRequestHandler>(sp => new RyuseiTriggerWireHandler(
+            sp.GetRequiredService<RyuseiTriggerService>(),
+            sp.GetRequiredService<TimeProvider>(),
+            RyuseiTriggerWireAction.Pause));
+        services.AddSingleton<IWireRequestHandler>(sp => new RyuseiTriggerWireHandler(
+            sp.GetRequiredService<RyuseiTriggerService>(),
+            sp.GetRequiredService<TimeProvider>(),
+            RyuseiTriggerWireAction.Resume));
 
         // Scheduler tick (doc 38, WP-R5): the job handler the poller runs for ryusei.trigger_tick.
         // The GC log takes attach pings (WP-R7). Null means no GC log is installed; attach fires then record an error.

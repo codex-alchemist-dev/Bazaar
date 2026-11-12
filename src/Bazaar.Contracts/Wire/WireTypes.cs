@@ -33,6 +33,12 @@ public static class WireTypes
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
+    /// <summary>Owner pauses one RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
+    public const string RyuseiPause = "ryusei.trigger.pause";
+
+    /// <summary>Owner resumes one paused RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
+    public const string RyuseiResume = "ryusei.trigger.resume";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
