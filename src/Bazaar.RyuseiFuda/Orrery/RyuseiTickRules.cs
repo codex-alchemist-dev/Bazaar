@@ -207,10 +207,18 @@ public static class RyuseiTickRules
                 SkippedCause(skipped, "no target can be woken"));
         }
 
-        var guard = RyuseiGuards.CheckWake(now, input.LastWokeAt, input.FiresInLast24Hours, input.WakesInLastHour, limits);
+        // Ping fan-out first: a ping names every woken target, so a fan-out above the cap is refused before any line is posted. The
+        // cap is read at fire time, so a lowered setting takes effect on the next fire. Then cooldown, the daily cap and the shared
+        // wake cap (CheckWake). The first refusal found decides the outcome.
+        var fanout = trigger.PingMode == RyuseiPingMode.None
+            ? RyuseiDecision.Allow
+            : RyuseiGuards.CheckPingFanout(wakeable.Length, limits.MaxPingFanout);
+        var guard = fanout.IsAllowed
+            ? RyuseiGuards.CheckWake(now, input.LastWokeAt, input.FiresInLast24Hours, input.WakesInLastHour, limits)
+            : fanout;
         if (!guard.IsAllowed)
         {
-            return Refuse(trigger, guard.Refusal, scheduledFor, onwardState, onwardFireAt, missedCount, limits);
+            return Refuse(trigger, guard.Refusal, scheduledFor, onwardState, onwardFireAt, missedCount, limits, wakeable.Length);
         }
 
         // A watcher that has reached its max fires is used up by the fire that woke its targets (doc 38, Trigger types).
@@ -261,7 +269,8 @@ public static class RyuseiTickRules
         RyuseiTriggerState onwardState,
         DateTimeOffset? onwardFireAt,
         long missedCount,
-        RyuseiLimits limits)
+        RyuseiLimits limits,
+        int fanout = 0)
     {
         ArgumentNullException.ThrowIfNull(trigger);
         ArgumentNullException.ThrowIfNull(limits);
@@ -270,6 +279,15 @@ public static class RyuseiTickRules
         var consecutive = trigger.ConsecutiveRefusals + 1;
         var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
         var paused = refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
+        var cause = RefusedCause(refusal, consecutive, paused, missedCount);
+        if (refusal == RyuseiRefusal.PingFanoutExceeded)
+        {
+            // The fire is recorded with its reason. No line is posted and nobody is woken, so the ping is skipped, not dropped.
+            cause["pingSkipped"] = true;
+            cause["fanout"] = fanout;
+            cause["cap"] = Math.Clamp(limits.MaxPingFanout, 1, RyuseiDefaults.MaxPingFanout);
+        }
+
         return new RyuseiFireDecision(
             outcome,
             scheduledFor,
@@ -278,7 +296,7 @@ public static class RyuseiTickRules
             consecutive,
             [],
             null,
-            RefusedCause(refusal, consecutive, paused, missedCount));
+            cause);
     }
 
     private static JsonObject WokeCause(long missedCount, IReadOnlyList<RyuseiFireTarget> skipped, string wakeReason) => new()
