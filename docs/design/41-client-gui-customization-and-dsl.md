@@ -166,6 +166,7 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 ## 4.12 Navigation grammar (added 2026-11-12, provisional)
 
 - **Syntax first.** Single-letter verbs for speed: `m` move or navigate, `n` next, `i` `j` `k` `l` for directional navigation, plus other vim-style keys. These run with no AI involved.
+- **Compound syntax (owner example, 2026-11-12).** `ngc1` + Enter means navigate, GC list, first (top) chat. `nrfdrm` + Enter means navigate to RyuseiFuda Roadmap. The verb letter comes first, then a short code for the target. Codes are per-module and configurable per company. The overlay (section 4.12, Enter rule) shows the full expansion before it runs.
 - **Named targets** typed then Enter: `topgc` (most recent activity GC), `ryuseifuda` or `kanban` (RyuseiFuda board), `constellation`, `unread`, `settings`. Aliases are configurable per company.
 - **AI fallback.** Unknown phrases go to AI matching, which suggests only (section 4.11). Latency and locality rules follow doc 31.
 - **Enter is always syntax (owner, 2026-11-12).** Enter runs the typed syntax or named target. Syntax input shows an overlay before it runs, stating exactly what it will do and where (for example "Move to: RyuseiFuda Workday"). The overlay sits beside the typed text.
