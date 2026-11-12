@@ -1,4 +1,4 @@
-namespace Bazaar.Constellation.Rendering;
+namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>Zoom tiers from doc 19: far shows clusters, mid shows shapes and focus labels, near shows all detail.</summary>
 public enum LodTier

@@ -1,4 +1,4 @@
-namespace Bazaar.Constellation.Rendering;
+namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>
 /// Uniform grid for pointer hit-testing. Rebuilt from each frame's positions; queries visit only the cells

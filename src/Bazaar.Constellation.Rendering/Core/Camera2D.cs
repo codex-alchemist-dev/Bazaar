@@ -1,4 +1,4 @@
-namespace Bazaar.Constellation.Rendering;
+namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>
 /// Pan and zoom over the 2D view. Screen space has its origin at the top left, y down, in pixels.

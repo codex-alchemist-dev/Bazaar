@@ -1,4 +1,4 @@
-namespace Bazaar.Constellation.Rendering;
+namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>Native surface kinds a backend can attach to.</summary>
 public enum RenderSurfaceKind

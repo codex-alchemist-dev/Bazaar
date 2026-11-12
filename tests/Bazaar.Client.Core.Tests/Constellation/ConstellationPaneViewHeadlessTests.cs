@@ -5,6 +5,7 @@ using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Panes;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
