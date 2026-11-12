@@ -152,6 +152,8 @@ The base GUI (the shell, palette, theme, layout renderer and start screen) is al
 
 **Module packaging (owner, 2026-11-12): built into a company client.** Each company's extra modules are baked into that company's client build. This is a per-company build, not one generic client that loads modules from the server. Doc 37 must be updated to match; the module packaging and signing consequences are open for that doc.
 
+**Consequence (owner, 2026-11-12): modules are compiled into each company's client.** Because each company builds its own client, company modules are compiled in, not loaded at runtime. That keeps startup static: the client does not load modules or build the GUI dynamically at each start, and preloading (doc 40) is simpler because the GUI is fixed at build time. The layout, theme and commands remain server documents, so per-company look still changes without a rebuild. Out-of-process loading (L3) remains only for engine panes (doc 20), not for company modules.
+
 Names for new module projects are the owner's call (section 10). The planned names follow the `Bazaar.Client.<F>` pattern from MODULARITY-AUDIT. None is decided here.
 
 ## 6. Security and sandboxing of custom UI
