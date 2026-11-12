@@ -169,7 +169,7 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Named targets** typed then Enter: `topgc` (most recent activity GC), `ryuseifuda` or `kanban` (RyuseiFuda board), `constellation`, `unread`, `settings`. Aliases are configurable per company.
 - **AI fallback.** Unknown phrases go to AI matching, which suggests only (section 4.11). Latency and locality rules follow doc 31.
 - **Enter is always syntax (owner, 2026-11-12).** Enter runs the typed syntax or named target. Syntax input shows an overlay before it runs, stating exactly what it will do and where (for example "Move to: RyuseiFuda Workday"). The overlay sits beside the typed text.
-- **AI matching is a separate key (owner, 2026-11-12, proposed).** As the user types, the overlay shows the syntax result immediately. AI loads slowly beside it and shows what the AI thinks the user wants, as a suggestion only (section 4.11). The AI key is either Shift+Enter or Ctrl+Enter (owner undecided). Ctrl+Enter conflicts with the decided no-Ctrl-chord rule, so the recommendation is Shift+Enter. Android needs a non-chord route too (open).
+- **AI matching is a separate key (owner, 2026-11-12, proposed).** As the user types, the overlay shows the syntax result immediately. AI loads slowly beside it and shows what the AI thinks the user wants, as a suggestion only (section 4.11). The AI key is Shift+Enter (owner decided, 2026-11-12). Ctrl+Enter was rejected because it conflicts with the no-Ctrl-chord rule. Android needs a non-chord route too (open).
 - **No Ctrl chords.** Mnemonics and the command bar are the only entry points. Open: exact verb set and whether abbreviations are per-module.
 
 ## 5. Modules and existing panes
