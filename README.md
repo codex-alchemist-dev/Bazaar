@@ -282,9 +282,19 @@ Packaging recipes for each target are in the repository (`packaging/`). Their pu
 
 The installer will ask which modules to enable, with sensible defaults. Bazaar does not have optional modules yet, so the wizard will have little to choose from until they exist. PostgreSQL is never a choice, because it is always included and always managed.
 
-### Clients come from your company
+### Clients come from the server installer
 
-Each company builds its own clients, with its own interface and modules, so the client you install is your company's build (for example `CDAX.msix` or `CDAX.apk`). See [Bazaar.Client](#bazaarclient-the-command-room).
+You never build a client. Running the server installer builds your company's clients in the same step, with the company's interface and modules compiled in. The client installers land in an output folder next to the server, for example `CDAX.msix` for Windows and `CDAX.apk` for Android. Packages for Linux package managers (apt, flatpak and the others) are staged in the same folder, so none of them needs preparing by hand.
+
+Nothing else is needed: no terminal, no build script, and nothing outside the installer window.
+
+*Status: planned. Per-company client builds and the output folder are not implemented yet. Today, clients are built from the repository with the developer scripts below.*
+
+### Pair your devices
+
+Once the server is running and a client is installed, pair the client with a short code shown on the server. Approve the code from a device you are already signed in on. Pairing is how a phone or a desktop gets its own key, and the server can revoke it later.
+
+*Status: pairing is shipped in the server routes and the Android client. The short-code flow on desktop and the installer's guided pairing are in progress. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md).*
 
 ---
 
