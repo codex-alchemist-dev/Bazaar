@@ -254,7 +254,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: allowed, with Tier 2 approval and validation (chosen).
    - Option 2: not allowed in v1. Settings only, created in the app.
 8. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
-   - Layout term: "Layout" (recommended), "Workspace" or "Arrangement".
+   - Layout term: DECIDED (owner, 2026-11-12): "Layout". Options were "Layout" (recommended), "Workspace" or "Arrangement".
    - Module term: "Client module" (recommended) or "Pane module".
    - Namespace: `Bazaar.Client.<F>` for every module, base shell included, as MODULARITY-AUDIT planned. Confirm or name the base shell differently.
 
