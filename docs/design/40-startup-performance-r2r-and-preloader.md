@@ -84,7 +84,7 @@ For each of win-x64 and linux-x64, publish framework-dependent and R2R variants 
 - publish size and publish time, R2R on and off;
 - peak working set of the preloaded idle process.
 
-Results go in a follow-up note in `docs/research/notes/startup-performance/`. A budget in doc 28 changes only from those numbers.
+Results go in a follow-up note in `docs/research/notes/startup-performance/`. The script that does it is `scripts/perf/startup-bench.ps1`. It publishes both variants with no window. It times launches only with `-MeasureLaunches -Desktop2`, which moves each window to virtual desktop 2 and never focuses it. Its VirtualDesktop cmdlet names must be checked before the first real run (marked VERIFY in the script). It has not been run. A budget in doc 28 changes only from those numbers.
 
 ## Decisions taken (coordinator, 2026-11-11; owner delegated)
 
