@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Bazaar.Constellation.Bench;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 
 // CPU-side Constellation benchmark. Not a PR gate (doc 19: nightly, on the owner's hardware).
 // GPU frame time, instancing and tile streaming are measured by the Vulkan backend on the PC and phone, not here.
