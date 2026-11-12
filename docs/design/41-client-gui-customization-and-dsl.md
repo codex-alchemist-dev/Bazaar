@@ -229,8 +229,8 @@ Table (planned, migration owned by doc 04): `ui_document (kind, scope_key, revis
 
 These are real design decisions. The owner asked to be asked, so none is settled by default here. Each has a recommendation. Work that depends on an open answer waits; the rest proceeds (section 12).
 
-1. **Module model.** Do all modules, including the base GUI, GC and RyuseiFuda, use one contract with trust from the manifest?
-   - Option 1: one contract, trust from the manifest (recommended). Consistent with total modularity.
+1. **Module model. DECIDED (owner, 2026-11-12): one contract, trust from the manifest.** Base GUI, GC, RyuseiFuda and third-party modules all use it.
+   - Option 1: one contract, trust from the manifest (chosen). Consistent with total modularity.
    - Option 2: first-party modules are privileged and skip some checks. Simpler start, but a second path to keep safe.
 2. **Loading mode for modules not shipped with the build.**
    - Option 1: compiled in only (L1). Simplest and trim-friendly, but no third-party modules without a rebuild.
