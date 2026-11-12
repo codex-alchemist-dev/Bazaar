@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Orrery timeline of a timer, an interval and a watcher</title>
+  <desc id="d">Three trigger rows on one timeline: a one-time timer, an interval firing every two hours, and a watcher on a file change. Each dot is one fire.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Orrery: a timer, an interval and a watcher, on one timeline</text>
+  <line x1="100" y1="150" x2="900" y2="150" stroke="#2c3a66" stroke-width="2"/>
+  <text x="40" y="105" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="start">Timer: 09:00 once</text>
+  <circle cx="220" cy="100" r="9" fill="#7fd36b"/>
+  <text x="40" y="157" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="start">Interval: every 2 h</text>
+  <circle cx="220" cy="152" r="9" fill="#7d5fc4"/>
+  <circle cx="360" cy="152" r="9" fill="#7d5fc4"/>
+  <circle cx="500" cy="152" r="9" fill="#7d5fc4"/>
+  <circle cx="640" cy="152" r="9" fill="#7d5fc4"/>
+  <circle cx="780" cy="152" r="9" fill="#7d5fc4"/>
+  <circle cx="920" cy="152" r="9" fill="#7d5fc4"/>
+  <text x="40" y="209" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="start">Watcher: file changed</text>
+  <circle cx="410" cy="204" r="9" fill="#7fb0ff"/>
+  <circle cx="660" cy="204" r="9" fill="#7fb0ff"/>
+  <text x="40" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Each dot is a fire. The wake goes to the agent, and the fire is written to the audit log.</text>
+
+</svg>
