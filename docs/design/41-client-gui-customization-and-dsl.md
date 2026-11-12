@@ -177,6 +177,14 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **AI matching is a separate key (owner, 2026-11-12, proposed).** As the user types, the overlay shows the syntax result immediately. AI loads slowly beside it and shows what the AI thinks the user wants, as a suggestion only (section 4.11). The AI key is Shift+Enter (owner decided, 2026-11-12). Ctrl+Enter was rejected because it conflicts with the no-Ctrl-chord rule. Android needs a non-chord route too (open).
 - **No Ctrl chords.** Mnemonics and the command bar are the only entry points. Open: exact verb set and whether abbreviations are per-module.
 
+## 4.13 Company client builds from the server (owner, 2026-11-12)
+
+- **One click on the server.** `Bazaar.Server` builds its company's clients itself. Running the server installer puts the client installers (for example `CDAX.msix`, `CDAX.apk`) in an output folder. Apt, flatpak and similar preparations are staged by the installer. The owner needs no terminal, script or SDK setup outside the installer window.
+- **Inputs the server supplies.** The company's module list, the baked default layout and theme, the channel, and signing settings. These are server configuration, not build files the user edits.
+- **Output.** One folder per build with the installers, a `SHA256SUMS` file and a `README.txt` that labels unsigned outputs.
+- **Pipeline and spikes.** The build pipeline and each feasibility question (Android SDK bundling and size, offline builds, signing key custody, Linux packaging without a terminal) are spelled out in doc 37 section 4a. None is assumed to work until its spike runs.
+- **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 pairs the device only.
+
 ## 5. Modules and existing panes
 
 The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
