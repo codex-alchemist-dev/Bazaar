@@ -69,6 +69,10 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<RyuseiLimits>(),
             sp.GetRequiredService<IRyuseiObservatory>()));
 
+        // Owner trigger list over the wire, as board chips (doc 38, Layer 2). Owner-only, like pause and resume.
+        services.AddSingleton<IWireRequestHandler>(sp => new RyuseiTriggerListWireHandler(
+            sp.GetRequiredService<NpgsqlDataSource>()));
+
         // Owner pause and resume over the wire (doc 38, Layer 2). Only the owner principal may change a trigger from a client.
         services.AddSingleton<IWireRequestHandler>(sp => new RyuseiTriggerWireHandler(
             sp.GetRequiredService<RyuseiTriggerService>(),

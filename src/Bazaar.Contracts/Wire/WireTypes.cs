@@ -39,6 +39,9 @@ public static class WireTypes
     /// <summary>Owner resumes one paused RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
     public const string RyuseiResume = "ryusei.trigger.resume";
 
+    /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
+    public const string RyuseiList = "ryusei.trigger.list";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
