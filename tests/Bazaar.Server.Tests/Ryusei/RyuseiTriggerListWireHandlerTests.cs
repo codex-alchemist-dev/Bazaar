@@ -108,6 +108,17 @@ public sealed class RyuseiTriggerListWireHandlerTests(KanbanDb db) : IClassFixtu
             await cmd.ExecuteNonQueryAsync(Ct);
         }
 
+        // The trigger's task_id references tasks, and a task needs an origin GC and the project it belongs to.
+        var (gcId, _) = await db.CreateGcWithMessageAsync();
+        await using (var cmd = db.DataSource.CreateCommand(
+            "INSERT INTO tasks (id, project_id, title, state, origin_gc_id) VALUES ($1, $2, 'list test task', 'ready', $3)"))
+        {
+            cmd.Parameters.AddWithValue(task);
+            cmd.Parameters.AddWithValue(project);
+            cmd.Parameters.AddWithValue(gcId);
+            await cmd.ExecuteNonQueryAsync(Ct);
+        }
+
         var spec = new RyuseiTimerTriggerSpec(_base.AddHours(1));
         var row = new NewRyuseiTrigger(
             Guid.CreateVersion7(), project, Guid.CreateVersion7(), spec.Kind, [agent], "check the build",
