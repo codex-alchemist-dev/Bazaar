@@ -135,7 +135,7 @@ Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout v
 - **Baked defaults.** Each company's build carries default variants for each device class and display, so a foldable works before any server connection.
 - **Scope.** The variant key is a document field. It does not add a scope, so the scope table in 4.4 is unchanged.
 
-Open for the owner: the cover-screen policy (section 10, question 9).
+**Cover screen (owner, 2026-11-12): a company-defined cover layout.** Each company defines it for glanceable triage. Until it is set, the cover screen falls back to the folded variant.
 
 ## 5. Modules and existing panes
 
@@ -275,7 +275,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
 7. **Importing layouts and themes from files. DECIDED (owner, 2026-11-12): allowed, with Tier 2 approval and validation.**
    - Option 1: allowed, with Tier 2 approval and validation (chosen).
    - Option 2: not allowed in v1. Settings only, created in the app.
-9. **Cover screen on foldables.** Default proposed: a company-defined cover layout, falling back to folded. Options: a company-defined cover layout (recommended), the folded layout on both screens, or no cover-screen support in v1.
+9. **Cover screen on foldables. DECIDED (owner, 2026-11-12): a company-defined cover layout, falling back to folded.**
 10. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
    - Layout term: DECIDED (owner, 2026-11-12): "Layout". Options were "Layout" (recommended), "Workspace" or "Arrangement".
    - Module term: DECIDED (owner, 2026-11-12): "Client module". Options were "Client module" (recommended) or "Pane module".
