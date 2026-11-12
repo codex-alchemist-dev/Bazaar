@@ -43,10 +43,14 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
         var limits = new RyuseiLimits();
         configuration.GetSection(SectionName).Bind(limits);
         services.TryAddSingleton(limits);
+
+        // The Observatory sink (doc 23, doc 38 WP-R10). The Observatory projector replaces this default when it lands.
+        services.TryAddSingleton<IRyuseiObservatory>(NullRyuseiObservatory.Instance);
         services.TryAddSingleton(sp => new RyuseiTriggerService(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<ITransactionalAuditLog>(),
-            sp.GetRequiredService<RyuseiLimits>()));
+            sp.GetRequiredService<RyuseiLimits>(),
+            sp.GetRequiredService<IRyuseiObservatory>()));
 
         // Scheduler tick (doc 38, WP-R5): the job handler the poller runs for ryusei.trigger_tick.
         // The GC log takes attach pings (WP-R7). Null means no GC log is installed; attach fires then record an error.
@@ -56,7 +60,8 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<TimeProvider>(),
             gcLog: sp.GetService<IGcLogWriter>(),
             gcCreate: sp.GetService<GcCreateService>(),
-            audit: sp.GetService<ITransactionalAuditLog>()));
+            audit: sp.GetService<ITransactionalAuditLog>(),
+            observatory: sp.GetRequiredService<IRyuseiObservatory>()));
         services.TryAddSingleton(sp => new GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
 
         // Chain depth of a fire-woken turn (doc 38, Chain depth): the trigger's chain_depth, read by fire id.
@@ -74,7 +79,8 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
         // Event bridge (doc 38, WP-R6): GC and kanban events match event and watcher triggers. Watchers fire on the tick above.
         services.TryAddSingleton(sp => new RyuseiEventBridge(
             sp.GetRequiredService<NpgsqlDataSource>(),
-            sp.GetService<ITransactionalAuditLog>()));
+            sp.GetService<ITransactionalAuditLog>(),
+            sp.GetRequiredService<IRyuseiObservatory>()));
         services.TryAddSingleton(sp => new RyuseiEventListener(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<RyuseiEventBridge>(),
