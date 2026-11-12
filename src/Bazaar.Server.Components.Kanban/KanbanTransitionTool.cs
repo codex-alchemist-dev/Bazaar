@@ -7,8 +7,8 @@ namespace Bazaar.Server.Kanban;
 /// <summary>
 /// The <c>kanban.transition</c> agent tool (doc 12, Interception at tool dispatch). It is the only agent path that moves a
 /// card: it calls <see cref="TaskService.TransitionAsync"/> as the calling agent, so the same guard, version check and
-/// refusal rules apply as for every other caller. Agents never write task tables. Not registered at startup; the host adds
-/// it to the tool registry (doc 12, WP5 registration follow-up).
+/// refusal rules apply as for every other caller. Agents never write task tables. The tool is not registered at startup;
+/// the host adds it to the tool registry in the turn-path composition (doc 12, WP5 registration follow-up).
 /// </summary>
 public sealed class KanbanTransitionTool(TaskService tasks) : IContextualTool
 {
