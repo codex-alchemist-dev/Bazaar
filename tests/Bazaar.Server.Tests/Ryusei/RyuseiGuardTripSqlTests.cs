@@ -9,7 +9,7 @@ namespace Bazaar.Server.Tests.Ryusei;
 /// <summary>
 /// The RyuseiFuda guard trips on real PostgreSQL (doc 38, WP-R8): a trip pauses the trigger, writes one <c>guard_event</c> row in the
 /// same transaction, calls the Psych Ward hook once after commit, and a second pass does not repeat it. Two concurrent ticks fire a
-/// timer once (single flight). Uses the Kanban fixture, which migrates every namespace and the common <c>guard_event</c> table.
+/// timer once (single flight). Uses the Kanban fixture, which migrates every namespace and the ryusei <c>guard_event</c> table.
 /// This container has no Docker, so these tests are not run here; CI is the verifier.
 /// </summary>
 public sealed class RyuseiGuardTripSqlTests(KanbanDb db) : IClassFixture<KanbanDb>

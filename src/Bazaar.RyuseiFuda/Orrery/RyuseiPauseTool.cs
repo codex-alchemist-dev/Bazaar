@@ -5,8 +5,8 @@ namespace Bazaar.RyuseiFuda.Orrery;
 
 /// <summary>
 /// The <c>ryusei.pause</c> agent tool (doc 38, WP-R9). Resolves the caller, then calls
-/// <see cref="RyuseiTriggerService.PauseAsync"/>, which applies the authority rule and writes the audit row. Not registered at
-/// startup; see <see cref="RyuseiScheduleTool"/> for the registration follow-up.
+/// <see cref="RyuseiTriggerService.PauseAsync"/>, which applies the authority rule and writes the audit row. Registered by
+/// <see cref="RyuseiScheduleComponent"/> only when <c>Bazaar:Ryusei:ProjectId</c> is set.
 /// </summary>
 public sealed class RyuseiPauseTool(RyuseiTriggerService triggers, IRyuseiAgentDirectory directory, TimeProvider time) : IContextualTool
 {
