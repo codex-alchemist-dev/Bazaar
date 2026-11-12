@@ -207,11 +207,18 @@ public static class RyuseiTickRules
                 SkippedCause(skipped, "no target can be woken"));
         }
 
-        // Cooldown, then the daily cap, then the shared wake cap. The first refusal found decides the outcome.
-        var cooldown = RyuseiGuards.CheckCooldown(now, input.LastWokeAt, limits.CooldownSeconds);
-        var guard = cooldown.IsAllowed
-            ? RyuseiGuards.CheckDailyFireCap(input.FiresInLast24Hours, limits.MaxFiresPerDay)
-            : cooldown;
+        // Ping fan-out first: a ping names every woken target, so a fan-out above the cap is refused before any line is posted. The
+        // cap is read at fire time, so a lowered setting takes effect on the next fire. Then cooldown, the daily cap and the shared
+        // wake cap. The first refusal found decides the outcome.
+        var fanout = trigger.PingMode == RyuseiPingMode.None
+            ? RyuseiDecision.Allow
+            : RyuseiGuards.CheckPingFanout(wakeable.Length, limits.MaxPingFanout);
+        var guard = fanout.IsAllowed ? RyuseiGuards.CheckCooldown(now, input.LastWokeAt, limits.CooldownSeconds) : fanout;
+        if (guard.IsAllowed)
+        {
+            guard = RyuseiGuards.CheckDailyFireCap(input.FiresInLast24Hours, limits.MaxFiresPerDay);
+        }
+
         if (guard.IsAllowed)
         {
             guard = RyuseiGuards.CheckAgentWakeCap(input.WakesInLastHour, limits.MaxAgentWakesPerHour);
@@ -223,9 +230,18 @@ public static class RyuseiTickRules
             var consecutive = trigger.ConsecutiveRefusals + 1;
             var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
 
-            // Only the daily fire cap pauses at once (doc 38 guard table). The wake cap and the cooldown do not; every refusal
-            // still counts toward the auto-pause streak.
+            // Only the daily fire cap pauses at once (doc 38 guard table). The wake cap, the cooldown and the ping fan-out do not;
+            // every refusal still counts toward the auto-pause streak.
             var paused = guard.Refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
+            var cause = RefusedCause(guard.Refusal, consecutive, paused, missedCount);
+            if (guard.Refusal == RyuseiRefusal.PingFanoutExceeded)
+            {
+                // The fire is recorded with its reason. No line is posted and nobody is woken, so the ping is skipped, not dropped.
+                cause["pingSkipped"] = true;
+                cause["fanout"] = wakeable.Length;
+                cause["cap"] = Math.Clamp(limits.MaxPingFanout, 1, RyuseiDefaults.MaxPingFanout);
+            }
+
             return new RyuseiFireDecision(
                 outcome,
                 scheduledFor,
@@ -234,7 +250,7 @@ public static class RyuseiTickRules
                 consecutive,
                 [],
                 null,
-                RefusedCause(guard.Refusal, consecutive, paused, missedCount));
+                cause);
         }
 
         // A watcher that has reached its max fires is used up by the fire that woke its targets (doc 38, Trigger types).
