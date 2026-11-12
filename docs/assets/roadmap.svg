@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1358" role="img" aria-labelledby="t d">
+  <title id="t">Roadmap: from Beta to v1.0.0 Zuhal</title>
+  <desc id="d">A vertical timeline of nine Beta stages, each listing its named features with shipped, in progress or planned status, ending at the v1.0.0 Zuhal readiness gate.</desc>
+  <rect width="960" height="1358" rx="16" fill="#0d1117"/>
+  <text x="24" y="44" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="26" font-weight="700" fill="#f0f6fc">Roadmap: from Beta to v1.0.0 Zuhal</text>
+  <text x="24" y="70" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" fill="#8b949e">Beta stages in order. v1.0.0 ships when the owner judges Bazaar ready, not on a date.</text>
+  <line x1="198" y1="165" x2="198" y2="1173" stroke="#3b4a63" stroke-width="2"/>
+  <rect x="24" y="124" width="160" height="82" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="146" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 1</text>
+  <text x="36" y="168" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Scaffold and</text>
+  <text x="36" y="186" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">design</text>
+  <circle cx="198" cy="165" r="6" fill="#9be38f"/>
+    <rect x="214" y="132" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="224" y="152" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Solution and CI</text>
+    <rect x="386" y="132" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="396" y="152" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Design set</text>
+    <rect x="558" y="132" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="568" y="152" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Versioning rules</text>
+  <rect x="24" y="220" width="160" height="82" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="242" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 2</text>
+  <text x="36" y="264" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Spikes, gate 1</text>
+  <circle cx="198" cy="261" r="6" fill="#9be38f"/>
+    <rect x="214" y="228" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="224" y="248" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Wire format (S6)</text>
+    <rect x="386" y="228" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="248" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Git engine (S23)</text>
+    <rect x="558" y="228" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="248" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Cache: Garnet (S2)</text>
+    <rect x="730" y="228" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="740" y="248" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">VM sizing (S8)</text>
+  <rect x="24" y="316" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="338" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 3</text>
+  <text x="36" y="360" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Foundation</text>
+  <circle cx="198" cy="363" r="6" fill="#9be38f"/>
+    <rect x="214" y="324" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="224" y="344" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">GC log and NOTIFY</text>
+    <rect x="386" y="324" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="396" y="344" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Managed PostgreSQL</text>
+    <rect x="558" y="324" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="568" y="344" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Migration runner</text>
+    <rect x="730" y="324" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="740" y="344" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Wire transport</text>
+    <rect x="214" y="360" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="224" y="380" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Model gateway</text>
+    <rect x="386" y="360" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="396" y="380" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Bazaar.Server.Host *</text>
+  <rect x="24" y="424" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="446" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 4</text>
+  <text x="36" y="468" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Company core</text>
+  <circle cx="198" cy="471" r="6" fill="#9be38f"/>
+    <rect x="214" y="432" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="452" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Agent runtime</text>
+    <rect x="386" y="432" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="452" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Souls</text>
+    <rect x="558" y="432" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="452" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Work-Life Simulation</text>
+    <rect x="730" y="432" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="452" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Council</text>
+    <rect x="214" y="468" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="488" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Reputation</text>
+    <rect x="386" y="468" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="488" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Taint and approvals</text>
+    <rect x="558" y="468" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="488" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Workday board</text>
+    <rect x="730" y="468" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="488" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Orrery scheduling</text>
+  <rect x="24" y="532" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="554" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 5</text>
+  <text x="36" y="576" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Knowledge and</text>
+  <text x="36" y="594" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">identity</text>
+  <circle cx="198" cy="579" r="6" fill="#9be38f"/>
+    <rect x="214" y="540" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="560" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Vault</text>
+    <rect x="386" y="540" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="560" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Constellation data</text>
+    <rect x="558" y="540" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="560" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">GitHub integration</text>
+    <rect x="730" y="540" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="560" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Agent email</text>
+    <rect x="214" y="576" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="596" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Identity and Passport</text>
+    <rect x="386" y="576" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="596" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Observatory</text>
+    <rect x="558" y="576" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="596" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Roadmap views *</text>
+    <rect x="730" y="576" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="596" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Memory</text>
+  <rect x="24" y="640" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="662" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 6</text>
+  <text x="36" y="684" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Windows client</text>
+  <circle cx="198" cy="687" r="6" fill="#9be38f"/>
+    <rect x="214" y="648" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="668" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Client.Core shell</text>
+    <rect x="386" y="648" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="668" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Constellation views</text>
+    <rect x="558" y="648" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="668" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Discord-style GC view</text>
+    <rect x="730" y="648" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="668" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Theme</text>
+    <rect x="214" y="684" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="224" y="704" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Command palette</text>
+    <rect x="386" y="684" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="704" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Start screen dashboard</text>
+    <rect x="558" y="684" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="704" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Git diff and PR panes</text>
+    <rect x="730" y="684" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="740" y="704" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">ConPTY terminal</text>
+  <rect x="24" y="748" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="770" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 7</text>
+  <text x="36" y="792" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Android and Linux</text>
+  <circle cx="198" cy="795" r="6" fill="#9be38f"/>
+    <rect x="214" y="756" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="776" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Android head</text>
+    <rect x="386" y="756" width="160" height="30" rx="8" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+    <text x="396" y="776" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Device pairing</text>
+    <rect x="558" y="756" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="776" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Radial menu</text>
+    <rect x="730" y="756" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="740" y="776" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Push wake-ups</text>
+    <rect x="214" y="792" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="812" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Linux head</text>
+    <rect x="386" y="792" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="812" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Velopack updates</text>
+  <rect x="24" y="856" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="878" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 8</text>
+  <text x="36" y="900" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Environments and</text>
+  <text x="36" y="918" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">engines</text>
+  <circle cx="198" cy="903" r="6" fill="#9be38f"/>
+    <rect x="214" y="864" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="884" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Agent VMs</text>
+    <rect x="386" y="864" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="884" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Guest agent</text>
+    <rect x="558" y="864" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="884" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Coding harness</text>
+    <rect x="730" y="864" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="884" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Godot adapter</text>
+    <rect x="214" y="900" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="920" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Roblox Studio bridge</text>
+    <rect x="386" y="900" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="920" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Browser profiles</text>
+    <rect x="558" y="900" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="568" y="920" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Fun systems</text>
+  <rect x="24" y="964" width="160" height="94" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
+  <text x="36" y="986" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 9</text>
+  <text x="36" y="1008" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Hardening</text>
+  <circle cx="198" cy="1011" r="6" fill="#9be38f"/>
+    <rect x="214" y="972" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="992" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Backup and restore</text>
+    <rect x="386" y="972" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="992" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Remote access and TLS</text>
+    <rect x="558" y="972" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="992" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Conduit transports *</text>
+    <rect x="730" y="972" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="992" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Erasure</text>
+    <rect x="214" y="1008" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="1028" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Rate limits</text>
+    <rect x="386" y="1008" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="1028" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Community tiers</text>
+    <rect x="558" y="1008" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="1028" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Data export</text>
+    <rect x="730" y="1008" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="740" y="1028" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Counsel items</text>
+  <rect x="24" y="1072" width="160" height="202" rx="10" fill="#161b22" stroke="#f2b84b" stroke-width="1.2"/>
+  <text x="36" y="1094" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">READINESS GATE</text>
+  <text x="36" y="1116" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">v1.0.0 Zuhal</text>
+  <text x="36" y="1134" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e">Readiness gate, no date</text>
+  <circle cx="198" cy="1173" r="6" fill="#f2b84b"/>
+    <rect x="214" y="1080" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="224" y="1100" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Company Constitution</text>
+    <rect x="386" y="1080" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="1100" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Health System</text>
+    <rect x="558" y="1080" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="1100" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Company Analytics</text>
+    <rect x="730" y="1080" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="1100" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Skimmer Bouncer</text>
+    <rect x="214" y="1116" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="224" y="1136" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Digital Twin</text>
+    <rect x="386" y="1116" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="1136" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Mirror Agent</text>
+    <rect x="558" y="1116" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="1136" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">What If Engine</text>
+    <rect x="730" y="1116" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="740" y="1136" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Time Machine</text>
+    <rect x="214" y="1152" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="224" y="1172" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Soul Marketplace</text>
+    <rect x="386" y="1152" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="1172" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Talent Pool</text>
+    <rect x="558" y="1152" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="1172" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Genetic Memory Transfer</text>
+    <rect x="730" y="1152" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="740" y="1172" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Hive Mind</text>
+    <rect x="214" y="1188" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="224" y="1208" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Bazaar Archive</text>
+    <rect x="386" y="1188" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="396" y="1208" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Company Memory</text>
+    <rect x="558" y="1188" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="568" y="1208" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">GC metadata</text>
+    <rect x="730" y="1188" width="160" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="740" y="1208" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Playtest Mode</text>
+    <rect x="214" y="1224" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="224" y="1244" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Bazaar SDK</text>
+    <rect x="386" y="1224" width="160" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+    <text x="396" y="1244" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#f0f6fc">Lucky mode</text>
+  <rect x="24" y="1310" width="28" height="16" rx="4" fill="#1f6f43" stroke="#9be38f" stroke-width="1.2"/>
+  <text x="62" y="1322" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#8b949e">Shipped</text>
+  <rect x="170" y="1310" width="28" height="16" rx="4" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
+  <text x="208" y="1322" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#8b949e">In progress</text>
+  <rect x="330" y="1310" width="28" height="16" rx="4" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="368" y="1322" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#8b949e">Planned</text>
+  <text x="480" y="1322" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#8b949e">* tentative placement, not stated in the sources</text>
+</svg>

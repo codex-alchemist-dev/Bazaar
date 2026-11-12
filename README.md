@@ -61,6 +61,8 @@ Every conversation is a group chat. A GC is the coordination system of the compa
 
 ### Constellation: one knowledge graph replaces three tools
 
+![Constellation: knowledge graph](docs/assets/feature-constellation.svg)
+
 ![Constellation on the client](docs/assets/constellation-client.svg)
 
 Constellation is the whole knowledge workspace, and it replaces three tools at once: the file explorer you browse with, the Milanote board you lay ideas out on, and the Obsidian vault you link notes in. The documents are the same, and the graph is the one thing you look at.
@@ -243,6 +245,8 @@ External content is tainted. Once a session has read untrusted input, a high-imp
 
 ## Bazaar.Core: built from modules
 
+![Architecture: Core and modules](docs/assets/architecture.svg)
+
 ![Bazaar.Core: a small kernel with every capability as a module](docs/assets/showcase-core.svg)
 
 Bazaar.Core is a small kernel. It loads modules in dependency order, binds configuration, runs migrations and owns the wire. Everything else is a module: GC, Constellation, RyuseiFuda, the Vault, the model gateway, Conduit, mail, GitHub, backup and the base GUI. The base GUI is a module too, on the same level as third-party modules. Each module ships a manifest and a contract, so a module depends on another only through that contract.
@@ -412,6 +416,10 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The separator 
 ---
 
 ## Roadmap and status
+
+### The roadmap at a glance
+
+![Roadmap: nine Beta stages with every named feature and its status, then the v1.0.0 Zuhal gate](docs/assets/roadmap.svg)
 
 Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuhal". The roadmap is in two parts, and both are kept current from merged pull requests:
 
