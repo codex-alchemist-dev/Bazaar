@@ -372,6 +372,11 @@ public static class RyuseiTickRules
         var consecutive = trigger.ConsecutiveRefusals + 1;
         var streak = RyuseiGuards.CheckRefusalStreak(consecutive, limits.AutoPauseAfter);
         var paused = refusal == RyuseiRefusal.DailyFireCapReached || !streak.IsAllowed;
+        // The same trip rule as Decide: the daily cap trips at once, a streak trips at its threshold. A trip is recorded in
+        // guard_event and admitted to the Psych Ward, for event fires as well as timed ones (doc 38, WP-R8 and WP-R6).
+        RyuseiRefusal? trip = refusal == RyuseiRefusal.DailyFireCapReached
+            ? RyuseiRefusal.DailyFireCapReached
+            : paused ? RyuseiRefusal.AutoPauseTripped : null;
         var cause = RefusedCause(refusal, consecutive, paused, missedCount);
         if (refusal == RyuseiRefusal.PingFanoutExceeded)
         {
@@ -389,7 +394,8 @@ public static class RyuseiTickRules
             consecutive,
             [],
             null,
-            cause);
+            cause,
+            Trip: trip);
     }
 
     private static JsonObject WokeCause(long missedCount, IReadOnlyList<RyuseiFireTarget> skipped, string wakeReason) => new()

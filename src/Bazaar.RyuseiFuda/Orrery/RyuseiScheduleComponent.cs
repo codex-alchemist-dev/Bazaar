@@ -101,7 +101,8 @@ public sealed class RyuseiScheduleComponent : IBazaarComponent
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<RyuseiLimits>(),
             sp.GetService<ITransactionalAuditLog>(),
-            sp.GetRequiredService<IRyuseiObservatory>()));
+            sp.GetRequiredService<IRyuseiObservatory>(),
+            ward: sp.GetService<IPsychWardAdmission>()));
         services.TryAddSingleton(sp => new RyuseiEventListener(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<RyuseiEventBridge>(),

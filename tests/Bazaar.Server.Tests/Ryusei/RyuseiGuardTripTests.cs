@@ -321,4 +321,19 @@ public sealed class RyuseiGuardTripTests
         Assert.Equal(RyuseiRefusal.ChainDepthExceeded, admission.Trip);
         await Assert.ThrowsAsync<ArgumentNullException>(() => ward.AdmitAsync(null!, TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public void An_event_refusal_that_pauses_is_a_trip_and_a_cooldown_refusal_is_not()
+    {
+        // The event path refuses through the same Refuse helper as the tick, so a daily-cap pause must carry its trip too.
+        var row = Row(new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }), _anchor);
+
+        var capped = RyuseiTickRules.Refuse(row, RyuseiRefusal.DailyFireCapReached, _anchor, RyuseiTriggerState.Active, null, 0, _limits);
+        Assert.Equal(RyuseiTriggerState.Paused, capped.NextState);
+        Assert.Equal(RyuseiRefusal.DailyFireCapReached, capped.Trip);
+
+        var cooling = RyuseiTickRules.Refuse(row, RyuseiRefusal.CooldownActive, _anchor, RyuseiTriggerState.Active, null, 0, _limits);
+        Assert.Equal(RyuseiTriggerState.Active, cooling.NextState);
+        Assert.Null(cooling.Trip);
+    }
 }
