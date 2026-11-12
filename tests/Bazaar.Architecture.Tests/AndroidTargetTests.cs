@@ -1,3 +1,4 @@
+// Re-triggers the Analyze checks after the bot merge of main (CodeQL does not run on bot merges).
 using System.Xml.Linq;
 
 namespace Bazaar.Architecture.Tests;
