@@ -358,6 +358,37 @@ public sealed class RyuseiTickServiceTests(KanbanDb db) : IClassFixture<KanbanDb
     }
 
     [Fact]
+    public async Task An_attach_fire_above_a_lowered_fanout_cap_is_recorded_and_its_ping_is_skipped()
+    {
+        SkipWithoutDatabase();
+        var first = Guid.CreateVersion7();
+        var second = Guid.CreateVersion7();
+        await InsertAgentAsync(first, "active");
+        await InsertAgentAsync(second, "active");
+        var attachGc = Guid.CreateVersion7();
+        await InsertGcAsync(attachGc);
+        var due = _base.AddMinutes(-1);
+        var trigger = NewTrigger(new RyuseiTimerTriggerSpec(due), due, first, second) with
+        {
+            AttachGcId = attachGc,
+            PingMode = RyuseiPingMode.Attach,
+        };
+        var row = await InsertCommittedAsync(trigger);
+
+        // The cap was 8 when the trigger was made; the operator has since lowered it to 1.
+        var gcLog = new RecordingGcLog(seq: 9);
+        var tick = new RyuseiTickService(db.DataSource, new RyuseiLimits { MaxPingFanout = 1 }, Clock(_base), gcLog: gcLog);
+        await tick.TickAsync(Ct);
+
+        // No line is posted and nobody is woken, but the fire is on record with its reason.
+        Assert.Empty(gcLog.Requests);
+        Assert.Empty(await InboxOfAsync(first));
+        Assert.Empty(await InboxOfAsync(second));
+        var fire = Assert.Single(await FiresOfAsync(row.TriggerId));
+        Assert.Equal("refused_cap", fire.Outcome);
+    }
+
+    [Fact]
     public async Task A_new_gc_fire_creates_the_gc_with_its_members_and_posts_into_it()
     {
         SkipWithoutDatabase();
