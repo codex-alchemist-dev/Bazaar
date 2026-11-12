@@ -155,7 +155,7 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **OS default handler.** The editor and terminal register as OS handlers, as decided in Bazaar.Windows §1. The person makes the default change in OS settings. Nothing is claimed silently.
 - **Gates.** Making the terminal the default console host waits on spike S10. A standalone Monaco editor waits on the free-route Monaco spike (doc 27, S12).
 - **Linux.** Handler registration uses `.desktop` and `xdg-mime` (doc 30).
-- **Names (owner, 2026-11-12).** The terminal is **Calcinatio** (owner chose it; clearance check needed before public use). The editor is **Athanor** (owner chose it, 2026-11-12; clearance check needed before public use). The editor and terminal share one naming family (owner, 2026-11-12).
+- **Names (owner, 2026-11-12).** The terminal is **Calcinatio**, with CLI **CaLcInato** (owner confirmed, 2026-11-12; clearance check needed before public use). The editor is **Athanor** (owner chose it, 2026-11-12; clearance check needed before public use). The editor and terminal share one naming family (owner, 2026-11-12).
 
 ## 4.11 Terminal autocomplete (added 2026-11-12)
 
