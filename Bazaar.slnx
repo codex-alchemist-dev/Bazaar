@@ -19,6 +19,7 @@
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
     <Project Path="src/Bazaar.Server.Components.Fun/Bazaar.Server.Components.Fun.csproj" />
     <Project Path="src/Bazaar.Server.Components.Kanban/Bazaar.Server.Components.Kanban.csproj" />
+    <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.Server.GitHub/Bazaar.Server.GitHub.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
