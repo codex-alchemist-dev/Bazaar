@@ -93,6 +93,8 @@ public sealed class GcAgentPostSink : IAgentPostSink
 
         var mentions = await ResolveMentionsAsync(agentId, gcGuid, text, cancellationToken).ConfigureAwait(false);
 
+        // Seal before the append, under the agent's own key (docs/design/04 Question 2).
+        var body = await _bodyCodec.SealAsync(agentId, text, cancellationToken).ConfigureAwait(false);
         var request = new AppendRequest(
             gcGuid,
             GcEventKinds.Message,
@@ -101,7 +103,7 @@ public sealed class GcAgentPostSink : IAgentPostSink
             SourceTrust.Agent,
             ClientMsgId(turnId, text))
         {
-            Message = _bodyCodec.Seal(text),
+            Message = body,
             Mentions = mentions.Targets,
         };
         var result = await _writer.AppendAsync(request, cancellationToken).ConfigureAwait(false);

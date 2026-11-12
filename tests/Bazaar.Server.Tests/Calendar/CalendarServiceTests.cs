@@ -76,7 +76,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
         var raw = await db.ScalarAsync<byte[]>("SELECT title_ct FROM calendar_event WHERE id = $1", row.Id);
         Assert.NotEqual(Encoding.UTF8.GetBytes("Leave"), raw);
         var service = Service();
-        Assert.Equal("Leave", service.OpenTitle(row));
+        Assert.Equal("Leave", await service.OpenTitleAsync(row, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
         Assert.Equal(3L, updated.Event!.Version);
         Assert.Equal(CalendarStatus.Confirmed, updated.Event.Status);
         Assert.Equal(_start.AddDays(5), updated.Event.EndsAt);
-        Assert.Equal("Leave, longer", service.OpenTitle(updated.Event));
+        Assert.Equal("Leave, longer", await service.OpenTitleAsync(updated.Event, TestContext.Current.CancellationToken));
 
         var lines = await db.GcLinesAsync(gc, id);
         Assert.Equal(new[] { ("created", 1L), ("confirmed", 2L), ("updated", 3L) }, lines.Select(l => (l.Change, l.Version)));
@@ -123,7 +123,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
 
         Assert.Equal(CalendarOutcome.Conflict, result.Outcome);
         Assert.Equal(1L, result.Event!.Version);
-        Assert.Equal("Leave", service.OpenTitle((await service.GetAsync(id, TestContext.Current.CancellationToken))!));
+        Assert.Equal("Leave", await service.OpenTitleAsync((await service.GetAsync(id, TestContext.Current.CancellationToken))!, TestContext.Current.CancellationToken));
         Assert.Single(await db.GcLinesAsync(gc, id));
     }
 
