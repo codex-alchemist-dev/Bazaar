@@ -85,7 +85,7 @@ jobs:
           set -euo pipefail
           dotnet restore Bazaar.slnx
           dotnet build Bazaar.slnx -c Release --no-restore
-          dotnet test --solution Bazaar.slnx -c Release --no-build
+          dotnet test Bazaar.slnx -c Release --no-build
 
       # Report only. Lists stable and prerelease updates so the tracking doc can be checked
       # against what NuGet actually offers. Never fails the job.
