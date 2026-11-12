@@ -99,7 +99,9 @@ internal static class GcMembershipWire
             var ev = planned.Event!;
             var append = new AppendRequest(gcId, ev.Kind, AuthorKindOf(viewer.Kind), principal.Id, TrustOf(viewer.Kind), clientMsgId)
             {
-                Membership = planned.Member,
+                Membership = planned.Member is { } m
+                    ? new MembershipChange(m.PrincipalId, GcEnumText.ToText(m.Role), m.LeftSeq is not null)
+                    : null,
                 PayloadJson = ev.PayloadJson,
                 ExpectedHeadSeq = snapshot.HeadSeq,
             };

@@ -1,5 +1,4 @@
 using Bazaar.Contracts.Gc;
-using Bazaar.Server.Gc.Model;
 
 namespace Bazaar.Server.Gc.Write;
 
@@ -61,7 +60,7 @@ public sealed record AppendRequest(
     /// The membership state this event writes (a join or a leave), or null. The writer sets its joined and left seqs to the
     /// event's own seq, so the caller's values are only a plan.
     /// </summary>
-    public GcMemberRecord? Membership { get; init; }
+    public MembershipChange? Membership { get; init; }
 
     /// <summary>
     /// The head the caller planned against. When set and the head under the lock differs, the writer throws

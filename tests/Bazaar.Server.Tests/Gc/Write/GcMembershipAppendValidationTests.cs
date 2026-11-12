@@ -19,7 +19,7 @@ public sealed class GcMembershipAppendValidationTests
     {
         var request = new AppendRequest(_gc, GcEventKinds.System, AuthorKind.Human, _actor, SourceTrust.MemberHuman, "m-1")
         {
-            Membership = new GcMemberRecord(_gc, Guid.CreateVersion7(), PrincipalKind.Human, GcMemberRole.Member, 1, null),
+            Membership = new MembershipChange(Guid.CreateVersion7(), "member", false),
             Message = new Bazaar.Server.Gc.Write.MessageBody(new byte[] { 1 }, Guid.CreateVersion7()),
         };
 

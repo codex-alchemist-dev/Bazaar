@@ -234,8 +234,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             if (r.Membership is { } member)
             {
                 // The state row takes the event's own seq. A leave keeps the same role and sets left_seq to that seq.
-                var left = member.LeftSeq is null ? (long?)null : seq;
-                batch.BatchCommands.Add(Cmd(_insertmembersql, P(gcId), P(member.PrincipalId), P(GcEnumText.ToText(member.Role)), P(seq), N(left)));
+                var left = member.Leaves ? seq : (long?)null;
+                batch.BatchCommands.Add(Cmd(_insertmembersql, P(gcId), P(member.PrincipalId), P(member.Role), P(seq), N(left)));
             }
 
             results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);
