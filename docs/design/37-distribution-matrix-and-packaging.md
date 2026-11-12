@@ -12,6 +12,9 @@ Status: PROPOSED. Scope: how every Bazaar component is packaged, installed, upda
 
 ## 2. Distribution matrix
 
+> **Owner decision (2026-11-12): each company builds its own clients.** This repo ships server builds only. Client packages (for example a company's MSIX or APK) are built by each company from the shared source. The CI rows below that publish client artifacts to GitHub Releases are superseded until this doc is revised. How a company's client is installed on a device (QR or link) is not yet designed.
+
+
 | Platform | Artifact | Who it serves | Built on | Status |
 |---|---|---|---|---|
 | Windows client | MSIX (sideload first) | Modern Windows, clean uninstall | PC | Build now |

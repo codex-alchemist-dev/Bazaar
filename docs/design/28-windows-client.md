@@ -59,6 +59,8 @@ Spike pass criteria: composition or HWND embedding; keyboard and focus handoff t
 
 **OS integration [PROPOSED].** The installer registers per-user ProgIDs and capabilities (HKCU). It never writes UserChoice. An in-app "Make Bazaar default" action opens Windows Settings default apps and explains the one step.
 
+> **Owner decision (2026-11-12):** each company builds its own Windows client; see doc 37.
+
 **Installer [PROPOSED].** Velopack per-user install, GitHub Releases feed, delta updates. No service. Velopack does not sign code or install machine-wide (C11), so the release pipeline signs with SignPath (round 4). WebView2 Runtime checked at first run (redistribution terms need a check).
 
 **Vim layer [PROPOSED].** A preview-key handler at the window root. The key-state machine lives in Client.Core so it can be unit tested without a window. Any focused text input is insert mode, so IME composition is never intercepted.
