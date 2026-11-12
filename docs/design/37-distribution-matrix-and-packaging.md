@@ -87,7 +87,7 @@ Feasibility questions are spikes, not assumptions. Each must be answered before 
 3. Velopack versus MSIX for the client (doc 28 decided Velopack; this doc keeps MSIX as an extra channel).
 4. Winget manifest publication rules are unverified (distribution research note).
 5. Signing key custody (S-B3): decided 2026-11-12, keys live on the company server, protected like other server secrets. Counsel still checks key custody (doc 28, round 4).
-6. Installer size and first-run download policy (S-B1). Owner to choose the trade-off.
+6. Android SDK (S-B1): decided 2026-11-12, downloaded on first run, so the server installer stays small. The first Android build needs network. Spike S-B1 still measures download size and time. Offline first-run builds (S-B2) now depend on a later cache decision.
 
 ## 7. Parked: needs the owner's accounts or secrets
 
