@@ -89,9 +89,9 @@ Bazaar.Core is a small kernel. It loads modules in dependency order, binds confi
 
 *Status: the kernel's component graph is shipped. Converting the remaining features into modules is in progress.*
 
-### 7. Clients: Windows and Android, Linux next
+### 7. Clients: built per company, for each device
 
-The clients are Avalonia applications. They share one UI library, `Bazaar.Client.Core`, and each head is thin.
+The clients are native Avalonia applications. They share one UI library, `Bazaar.Client.Core`, and each head is thin. Each company builds its own clients, with its own interface, layout and modules (for example `CDAX.msix` and `CDAX.apk`). The repository ships server builds only. See [Bazaar.Client](#bazaarclient-native-apps-one-purpose-per-device).
 
 - **Windows**: the desktop client, with a panes window.
 - **Android**: a phone client, with a GC pane and device pairing.
@@ -104,6 +104,50 @@ The clients are Avalonia applications. They share one UI library, `Bazaar.Client
 You should not need to administer a database to run Bazaar. The managed PostgreSQL component installs, pins and runs PostgreSQL 18 with pgvector for you. It supports PostgreSQL 19 from the same code, so the newest major and the stable one both work. Migrations run from the server. You can point Bazaar at your own database instead.
 
 *Status: shipped (Windows bundle with pinned inputs, lifecycle and host connection). The Linux path has a Compose stack for development.*
+
+---
+
+## Showcases
+
+### Bazaar.Core: built from modules
+
+![Bazaar.Core: a small kernel with every capability as a module](docs/assets/showcase-core.svg)
+
+Bazaar.Core is a small kernel. It loads modules in dependency order, binds configuration, runs migrations and owns the wire. Everything else is a module: GC, Constellation, RyuseiFuda, the Vault, the model gateway, Conduit, mail, GitHub, backup and the base GUI. The base GUI is a module too, on the same level as third-party modules. Each module ships a manifest and a contract, so a module depends on another only through that contract.
+
+### Bazaar.Server: the headless compute core
+
+![Bazaar.Server: the headless compute core](docs/assets/showcase-server.svg)
+
+- One OS-agnostic .NET 11 program, runs as a Windows Service or a systemd unit.
+- Does all the compute: the GC log, the agents, the model gateway, the Vault index and search.
+- Managed PostgreSQL 18 and 19 with pgvector, installed, pinned and run by Bazaar.
+- Clients connect over one WebSocket per device. The server sends each client its layouts; clients only render.
+
+### Bazaar.Client: native apps, one purpose per device
+
+![Bazaar.Client: native Avalonia apps built per company](docs/assets/showcase-client.svg)
+
+Each company builds its own client. The shared `Bazaar.Client.Core` UI is the same everywhere, and each device gets the head that fits its job.
+
+![Each device has its own purpose](docs/assets/showcase-devices.svg)
+
+- **Windows** is the desktop command room: panes, Constellation, RyuseiFuda, code and diffs.
+- **Android** is a development console for staying connected. Folded, it shows the chat and approvals. Unfolded, it shows the work.
+- **Linux** is a desktop head and packaging, following the Windows and Android heads.
+
+**Calcinato and Athanor.** Two built-ins ship with the client, and both also run on their own:
+
+- **Calcinato** is the built-in terminal and CLI. It runs inside the client, and standalone it replaces the default system terminal app.
+- **Athanor** is the built-in IDE and text editor. It runs inside the client, and standalone it replaces the default system text editor.
+
+---
+
+## Forward-facing by default
+
+![Forward-facing: day-0 support on the newest and the stable release](docs/assets/showcase-forward.svg)
+
+Bazaar supports the newest release and the stable one at the same time, from the same code. PostgreSQL 18 and 19 both run. .NET 11 is the target, and each next release is tracked from day 0. Where a release adds features, Bazaar uses them. Where an install is on the stable release, it keeps working with a graceful fallback. Neither version is dropped. The rules are in [`docs/FORWARD-FACING.md`](docs/FORWARD-FACING.md).
 
 ---
 
