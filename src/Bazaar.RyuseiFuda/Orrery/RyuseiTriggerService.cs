@@ -57,8 +57,14 @@ public sealed class RyuseiTriggerService
     private readonly RyuseiTriggerRepository _triggers;
     private readonly ITransactionalAuditLog _audit;
     private readonly RyuseiLimits _limits;
+    private readonly IRyuseiObservatory _observatory;
 
-    public RyuseiTriggerService(NpgsqlDataSource dataSource, ITransactionalAuditLog audit, RyuseiLimits? limits = null)
+    /// <param name="observatory">The Observatory sink (doc 23). Null emits nothing. Events go out only after a commit.</param>
+    public RyuseiTriggerService(
+        NpgsqlDataSource dataSource,
+        ITransactionalAuditLog audit,
+        RyuseiLimits? limits = null,
+        IRyuseiObservatory? observatory = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(audit);
@@ -66,6 +72,7 @@ public sealed class RyuseiTriggerService
         _audit = audit;
         _limits = limits ?? new RyuseiLimits();
         _triggers = new RyuseiTriggerRepository(dataSource);
+        _observatory = observatory ?? NullRyuseiObservatory.Instance;
     }
 
     /// <summary>
@@ -135,17 +142,12 @@ public sealed class RyuseiTriggerService
             expiresAt,
             chainDepth), ct).ConfigureAwait(false);
 
-        await AuditInTransactionAsync(conn, tx, creator, "ryusei.trigger.created", now, new JsonObject
-        {
-            ["triggerId"] = triggerId.ToString("D"),
-            ["projectId"] = projectId.ToString("D"),
-            ["kind"] = RyuseiText.ToSql(kind),
-            ["targets"] = new JsonArray(agentIds.Select(id => (JsonNode)id.ToString("D")).ToArray()),
-            ["pingMode"] = RyuseiText.ToSql(pingMode),
-            ["chainDepth"] = chainDepth,
-        }, ct).ConfigureAwait(false);
+        // The audit payload and the Observatory event share one set of fields: ids, kind and a purpose hash, never the text.
+        var created = RyuseiObservatoryEvents.CreatedFields(triggerId, projectId, kind, agentIds, pingMode, chainDepth, purpose);
+        await AuditInTransactionAsync(conn, tx, creator, "ryusei.trigger.created", now, created, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
 
+        await RyuseiObservatoryEvents.EmitAsync(_observatory, [RyuseiObservatoryEvents.Created(created, now)], ct).ConfigureAwait(false);
         return RyuseiTriggerResult.Ok(triggerId, stored.Version);
     }
 
@@ -232,15 +234,12 @@ public sealed class RyuseiTriggerService
             return RyuseiTriggerResult.Other(RyuseiTriggerStatus.Conflict, "The trigger changed while this request was running. Nothing was written.");
         }
 
-        await AuditInTransactionAsync(conn, tx, actor, $"ryusei.trigger.{ChangeVerb(change)}", now, new JsonObject
-        {
-            ["triggerId"] = triggerId.ToString("D"),
-            ["projectId"] = record.ProjectId.ToString("D"),
-            ["fromState"] = RyuseiText.ToSql(record.State),
-            ["toState"] = RyuseiText.ToSql(target.Value),
-        }, ct).ConfigureAwait(false);
+        var fields = RyuseiObservatoryEvents.StateChangedFields(triggerId, record.ProjectId, record.State, target.Value);
+        await AuditInTransactionAsync(conn, tx, actor, $"ryusei.trigger.{ChangeVerb(change)}", now, fields, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
 
+        var evt = new RyuseiObservatoryEvent(RyuseiObservatoryEvents.NameForStateChange(target.Value), now, fields);
+        await RyuseiObservatoryEvents.EmitAsync(_observatory, [evt], ct).ConfigureAwait(false);
         return RyuseiTriggerResult.Ok(triggerId, record.Version + 1);
     }
 

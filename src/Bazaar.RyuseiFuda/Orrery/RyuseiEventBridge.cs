@@ -25,16 +25,23 @@ public sealed class RyuseiEventBridge
     private readonly RyuseiTriggerRepository _triggers;
     private readonly RyuseiFireWriter _writer;
     private readonly RyuseiLimits _limits;
+    private readonly IRyuseiObservatory _observatory;
 
     /// <param name="limits">The configured guards an event wake passes (doc 38). Null uses the shipped defaults, never no guards.</param>
     /// <param name="audit">The fire audit log (doc 38). Null skips the fire audit line only; the fire rows are still written.</param>
-    public RyuseiEventBridge(NpgsqlDataSource dataSource, RyuseiLimits? limits = null, ITransactionalAuditLog? audit = null)
+    /// <param name="observatory">The Observatory sink (doc 23). Null emits nothing.</param>
+    public RyuseiEventBridge(
+        NpgsqlDataSource dataSource,
+        RyuseiLimits? limits = null,
+        ITransactionalAuditLog? audit = null,
+        IRyuseiObservatory? observatory = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
         _limits = limits ?? new RyuseiLimits();
         _triggers = new RyuseiTriggerRepository(dataSource);
         _writer = new RyuseiFireWriter(dataSource, audit);
+        _observatory = observatory ?? NullRyuseiObservatory.Instance;
     }
 
     /// <summary>Applies one event to every matching active event and watcher trigger. Commits once.</summary>
@@ -45,6 +52,7 @@ public sealed class RyuseiEventBridge
         var fired = 0;
         var armed = 0;
         var expired = 0;
+        var observed = new List<RyuseiObservatoryEvent>();
 
         await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -73,7 +81,7 @@ public sealed class RyuseiEventBridge
                 var decision = await DecideEventAsync(tx, trigger, evt, now, ct).ConfigureAwait(false);
                 if (decision.Fire is { } fire)
                 {
-                    await _writer.ApplyAsync(tx, trigger, fire, now, ct: ct).ConfigureAwait(false);
+                    await _writer.ApplyAsync(tx, trigger, fire, now, observed: observed, ct: ct).ConfigureAwait(false);
                     fired++;
                 }
                 else
@@ -107,6 +115,9 @@ public sealed class RyuseiEventBridge
         }
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
+
+        // Fires go out only after the commit, as in the tick (doc 38, Observability).
+        await RyuseiObservatoryEvents.EmitAsync(_observatory, observed, ct).ConfigureAwait(false);
         return new RyuseiBridgeResult(fired, armed, expired);
     }
 
