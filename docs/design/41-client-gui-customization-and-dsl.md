@@ -151,6 +151,8 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 
 ## 4.10 Standalone editor and terminal (added 2026-11-12)
 
+- **Desktop width switch (owner, 2026-11-12): 1200 px.** Below 1200 px the desktop shows the compact layout, one pane at a time. At 1200 px and above it shows the wide layout (GC rail, chat, pane tabs). Multi-monitor and density are still open.
+
 - **Process model (owner, 2026-11-12): same process, own windows.** The standalone editor and terminal are lightweight windows inside the same client process, as doc 28 describes. They share one connection and one Monaco bundle.
 - **OS default handler.** The editor and terminal register as OS handlers, as decided in Bazaar.Windows §1. The person makes the default change in OS settings. Nothing is claimed silently.
 - **Gates.** Making the terminal the default console host waits on spike S10. A standalone Monaco editor waits on the free-route Monaco spike (doc 27, S12).
