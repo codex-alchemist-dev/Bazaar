@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Workday board with five columns and an automatic Blocked card</title>
+  <desc id="d">A five-column board: Backlog, Ready, In progress, Review and Done. Cards sit in columns, and one card shows the Blocked marking applied automatically.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Workday: the company board, with the dependencies you can see</text>
+  <rect x="40" y="70" width="164" height="170" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="122" y="96" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">Backlog</text>
+  <rect x="218" y="70" width="164" height="170" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="300" y="96" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">Ready</text>
+  <rect x="396" y="70" width="164" height="170" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="478" y="96" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">In progress</text>
+  <rect x="574" y="70" width="164" height="170" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="656" y="96" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">Review</text>
+  <rect x="752" y="70" width="164" height="170" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="834" y="96" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">Done</text>
+  <rect x="52" y="112" width="140" height="36" rx="6" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="122" y="135" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#e8eefc" text-anchor="middle">Roadmap read model</text>
+  <rect x="230" y="112" width="140" height="36" rx="6" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="300" y="135" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#e8eefc" text-anchor="middle">Trigger chips</text>
+  <rect x="408" y="112" width="140" height="36" rx="6" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="478" y="135" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#e8eefc" text-anchor="middle">Board pane</text>
+  <rect x="586" y="112" width="140" height="36" rx="6" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="656" y="135" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#e8eefc" text-anchor="middle">Team view</text>
+  <rect x="764" y="112" width="140" height="36" rx="6" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="834" y="135" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#e8eefc" text-anchor="middle">Git Solar System</text>
+  <rect x="230" y="158" width="140" height="36" rx="6" fill="#3a2420" stroke="#e07a5f" stroke-width="2"/>
+  <text x="300" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#ffd5c8" text-anchor="middle">Blocked (auto)</text>
+  <text x="40" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">A card moves itself to Blocked while a dependency is open, and back when it clears.</text>
+
+</svg>

@@ -37,113 +37,220 @@ Current version: **0.1.0 (Beta)**, shown as `0.1.0+a1b2c3d` with the build commi
 
 ---
 
-## Features
+## Bazaar.Client: the command room
 
-### 1. The company workspace (Bazaar Company)
+![Bazaar.Client: the command room, built for each company](docs/assets/showcase-client.svg)
 
-Humans and agents work in one place. People own the goals and the approvals. Agents do the work, in their own accounts and under their own permissions. The server keeps the record.
+The client is where people work. It is a native Avalonia app, and every company builds its own. Your company gets its own interface, its own layouts and its own modules, compiled in, so the app matches how that company works. The repository ships server builds only. A company build looks like `CDAX.msix` on Windows or `CDAX.apk` on Android.
 
-*Status: shipped as the core server, clients and group chats. Team features are in progress.*
+The client has one shared UI library, `Bazaar.Client.Core`, and one thin head per device. Every surface is a module, so a company can add panes, change layouts and retheme without a fork.
 
-### 2. GC: group chats with a memory that never forgets
+### Group chats (GC): the record that never forgets
 
 ![GC: append-only group chat](docs/assets/feature-gc.svg)
 
-Every conversation is a group chat (GC): the coordination system and the agents' shared memory. Writes are append-only and every write is tagged for trust. When an agent wakes, it catches up on what it missed.
+Every conversation is a group chat. A GC is the coordination system of the company and the shared memory of its agents. Humans and agents post in the same place, and there is no master orchestrator. The conversation is the coordination.
 
-*Status: shipped (log, trust tagging, phone pane). Remaining client panes are in progress.*
+- **Append-only.** Nothing is purged. An edit adds a new version, and every version is kept with an "edited" marker.
+- **Trust-tagged.** Every message is tagged for where it came from, so an agent can tell a colleague's words from text pulled off the web.
+- **Discord-style, built for work.** Avatars, role and model badges, a cost chip, presence, timestamps, profile cards and status lines.
+- **Catch-up.** When an agent wakes, it reads what it missed, from its own cursor.
 
-### 3. Constellation: a knowledge graph you can fly through
+*Status: the log, trust tagging and the phone pane are shipped. The remaining desktop panes are in progress.*
 
-![Constellation: knowledge graph](docs/assets/feature-constellation.svg)
+### Constellation: one knowledge graph replaces three tools
 
-Your documents are a graph. Constellation draws them with a GPU renderer (Vulkan), with a CPU fallback (Skia), and centres the view on the document you are reading.
+![Constellation on the client](docs/assets/constellation-client.svg)
 
-*Status: shipped (renderer contract, Vulkan backend with present, 2D pane, level-of-detail feed). A GPU benchmark is in review.*
+Constellation is the whole knowledge workspace, and it replaces three tools at once: the file explorer you browse with, the Milanote board you lay ideas out on, and the Obsidian vault you link notes in. The documents are the same, and the graph is the one thing you look at.
 
-### 4. RyuseiFuda: the agent work board
+- **Reverse gravity layout.** The document you are reading becomes the centre. Everything else arranges itself around it, and the clusters move as you move. You are never looking at a fixed map.
+- **Vim-style navigation.** Keys move the centre. Navigating changes the layout itself, so a node becomes the centre of its own cluster, not just a camera move.
+- **Wiki-links and Markdown.** Notes are Markdown files with `[[wiki-links]]`, in a git repo. Every link is visible as an edge, so you can see what points at what.
+- **Fast on a GPU.** The renderer uses Vulkan with GPU instancing on capable machines, and Skia through Avalonia as the fallback. Level-of-detail keeps large graphs smooth.
+
+*Status: the renderer contract, the Vulkan backend with present, the 2D pane and level-of-detail are shipped. The GPU benchmark is in review and the layout clustering is in flight.*
+
+### RyuseiFuda (流星札): the company planner, on the client
 
 ![RyuseiFuda: agent work board](docs/assets/feature-ryuseifuda.svg)
 
-RyuseiFuda is the company planner, in three parts:
+RyuseiFuda is the planner the company runs on, and one of the three top priorities of Bazaar, alongside GC and Constellation. The name is Japanese. *Ryusei* (流星) is a shooting star, and *fuda* (札) is a card or a ticket. So RyuseiFuda is the **shooting-star ticket**: a small card that flies from an idea to a finished change, and lights up whoever it touches on the way.
 
-- **Workday**: the company board and the dev team's schedule. Cards show the triggers that wake agents for them.
-- **Orrery**: per-agent scheduling. An agent can queue a later wake for itself or a colleague, on a timer, an interval, a watcher or an event. Each fire is audited, and loops are capped.
-- **Roadmap**: objectives, phases and gates, read from Vault documents.
+**How it differs from a Kanban board.** A Kanban board is a set of columns that you move cards across by hand. Its cards are only notes about work. RyuseiFuda keeps the columns, but its cards know more than that:
 
-*Status: Orrery's trigger store, scheduler, fire audit and agent tools are shipped. Workday's team view and trigger chips are in review. Roadmap's views and front-matter contract are shipped, and its read model is in review.*
+- **A card knows what blocks it.** A card waits on its dependencies and moves itself to *Blocked* while one is open. You do not have to remember to mark it.
+- **A card can wake an agent.** Each card carries triggers. When a trigger fires, the agent that owns the work is woken to act on it.
+- **A card is tied to a plan.** Objectives and gates come from the Roadmap in the Vault. A card that serves an objective shows that link, so the board shows why the work matters.
+- **A card keeps a record.** Every wake is audited, so you can see what fired, when, and why.
 
-### 5. Conduit: reach your server from anywhere
+RyuseiFuda is three layers, and each one has its own spotlight below, in this order: **Roadmap**, **Workday**, **Orrery**.
 
-![Conduit: reach your server from anywhere](docs/assets/feature-conduit.svg)
+#### Roadmap: where the company is going
 
-Conduit will connect your devices to your server over a route that fits your setup: LAN discovery, port forwarding, UPnP, Cloudflare Tunnel, Tailscale or WireGuard, a relay, peer-to-peer, Tor or SSH. Every route is pinned to the server's key, so a route cannot silently change who you are talking to.
+![Roadmap timeline: nine Beta stages, then the Zuhal readiness gate](docs/assets/roadmap-timeline.svg)
 
-*Status: in flight. The contracts and offer rules are in review (design doc 39). No transport is built yet.*
+The Roadmap is the map of Bazaar's future, read from documents in the Vault, not typed into a tool. Bazaar moves through nine Beta stages, from Scaffold to Hardening, and then the **v1.0.0 Zuhal** readiness gate. Each stage is a label that says what is being built, not a version number. A stage is not finished until its gates pass.
 
-### 6. Everything is a module
+Objectives and gates link together, so you can see what has to be true before the next thing can begin:
 
-![Architecture: Core and modules](docs/assets/architecture.svg)
+![Roadmap objectives and gates as a graph](docs/assets/roadmap-objectives.svg)
 
-Bazaar.Core is a small kernel. It loads modules in dependency order, binds configuration, runs migrations and owns the wire. Everything else is a module: GC, Constellation, RyuseiFuda, the Vault, the model gateway, backup, mail, GitHub and more. Each module owns its own data and exposes a contract. Parts of a module are named `Module.Part`, for example `RyuseiFuda.Orrery`.
+An objective says what the company wants. A gate says what has to be true first. An arrow shows the order, and nothing is hidden in a spreadsheet.
 
-*Status: the kernel's component graph is shipped. Converting the remaining features into modules is in progress.*
+Then Constellation draws the whole plan as shape. Each objective becomes a cluster of its documents, around the readiness point, so progress shows up as a picture you can fly through:
 
-### 7. Clients: built per company, for each device
+![Roadmap clusters in Constellation](docs/assets/roadmap-constellation.svg)
 
-The clients are native Avalonia applications. They share one UI library, `Bazaar.Client.Core`, and each head is thin. Each company builds its own clients, with its own interface, layout and modules (for example `CDAX.msix` and `CDAX.apk`). The repository ships server builds only. See [Bazaar.Client](#bazaarclient-native-apps-one-purpose-per-device).
+What you get on the client: a view of every stage and gate, a click into any objective to read its documents, and the same view on every device. The plan lives in the Vault, so it is versioned like code.
 
-- **Windows**: the desktop client, with a panes window.
-- **Android**: a phone client, with a GC pane and device pairing.
-- **Linux**: a client head and packaging, following the other two.
+*Status: the Roadmap views and the front-matter contract are shipped. The read model is in review.*
 
-*Status: Windows and Android heads are shipped. Android pairing and the Windows launcher are in review.*
+#### Workday: the company board
 
-### 8. Managed PostgreSQL 18 with pgvector
+![Workday board with five columns and an automatic Blocked card](docs/assets/workday-board.svg)
 
-You should not need to administer a database to run Bazaar. The managed PostgreSQL component installs, pins and runs PostgreSQL 18 with pgvector for you. It supports PostgreSQL 19 from the same code, so the newest major and the stable one both work. Migrations run from the server. You can point Bazaar at your own database instead.
+Workday is the company board, the one you open each morning. It has five columns: **Backlog**, **Ready**, **In progress**, **Review** and **Done**. A card moves across them as the work moves. What makes it more than a Kanban board is that the board checks itself.
 
-*Status: shipped (Windows bundle with pinned inputs, lifecycle and host connection). The Linux path has a Compose stack for development.*
+Dependencies are real links. A card that waits on something else is held in *Blocked* automatically, and it returns to its column the moment the dependency clears:
+
+![Workday blocker graph](docs/assets/workday-dependencies.svg)
+
+**Done means merged.** A card moves to Done when its pull request is merged, not when someone says it is finished. The board and the repository agree.
+
+Every card can carry triggers, the wakes that move work along. A card can wake its owner when a PR merges, on a schedule, or when a file changes. The trigger chips sit on the card, so you can see what will wake the work and why:
+
+![Workday card with trigger chips](docs/assets/workday-triggers.svg)
+
+What you get on the client: the board, the dependency view, and the team view that shows who is on what. Tap a card to read its history and its triggers.
+
+*Status: the board, transitions and blocker graph are shipped. The trigger chips and the team view are in review.*
+
+#### Orrery: the schedule that wakes agents
+
+![Orrery: per-agent triggers, every fire audited](docs/assets/orrery.svg)
+
+Orrery is the per-agent scheduler. It is the part of RyuseiFuda that decides when an agent acts next. An agent can queue a later wake for itself or for a colleague, and the wake can be one of four kinds:
+
+- a **timer**, once at a set time;
+- an **interval**, again and again at a set rate;
+- a **watcher**, on a file or a record that changes;
+- an **event**, from something that happened in the company.
+
+These run side by side on one timeline, so you see the whole rhythm of the company at once:
+
+![Orrery timeline: a timer, an interval and a watcher](docs/assets/orrery-timeline.svg)
+
+Each agent has its own queue, and each has its own cap, so one busy agent cannot flood the rest of the company:
+
+![Orrery per-agent queues](docs/assets/orrery-queues.svg)
+
+Every fire is written to an audit row, with who fired it, why, and the outcome. A loop guard watches chains of wakes, so an agent that wakes another that wakes it again is stopped and recorded:
+
+![Orrery audit and loop guard](docs/assets/orrery-audit.svg)
+
+What you get on the client: a timeline of each agent's wakes, what is queued and what fired, with the reason for each fire one tap away.
+
+*Status: the trigger store, scheduler, fire audit and agent tools are shipped. The loop guard trips are logged. A hand-off of trips to the Psych Ward is planned.*
+
+### Calcinato: the terminal and CLI
+
+Calcinato is the built-in terminal and command line of the client. It runs your shells inside the client, next to the chat and the board, so an agent's build and your own shell share one window. It also runs on its own, as a replacement for the default system terminal app, so it is not only for working inside Bazaar.
+
+*Status: planned. The ConPTY pane and the system-terminal role are in the Windows design (doc 28).*
+
+### Athanor: the IDE and text editor
+
+Athanor is the built-in IDE and text editor. Inside the client, it opens a file from the Vault or a repository, shows diffs, and saves through the server, so a write is checked before it lands. Standalone, it replaces the default system text editor, for any file on the machine.
+
+*Status: planned. The editor host is in the Windows design (doc 28), built on Monaco behind a host interface.*
+
+### The heads: one purpose per device
+
+![Each device has its own purpose](docs/assets/showcase-devices.svg)
+
+- **Windows** is the desktop command room: panes, Constellation, RyuseiFuda, code and diffs, all at once.
+- **Android** is a development console for staying connected. Folded, it shows the chat and the approvals. Unfolded, it shows the work, with diffs and the board. It is not a place to write code.
+- **Linux** is a desktop head with its own packaging, following the Windows and Android heads.
+- **Calcinato** is the terminal for shells on any machine, and it runs standalone.
 
 ---
 
-## Showcases
+## Bazaar.Server: the headless brain
 
-### Bazaar.Core: built from modules
+![Bazaar.Server: the headless brain that does all the compute](docs/assets/showcase-server.svg)
+
+The server is a single .NET 11 program. It runs headless on Windows or Linux, as a Windows Service or a systemd unit. It does all the compute, so clients stay light and every device sees the same company. Its jobs are below.
+
+### The GC log and fan-out
+
+Each GC is stored in its own tables, with a sequence number per GC. Postgres `NOTIFY` pushes each new message to every connected client at once, and the cache and presence layer is Garnet on Windows or Valkey on Linux. The log is append-only, so the server can replay any conversation exactly as it happened.
+
+*Status: shipped.*
+
+### The knowledge graph behind memory and retrieval
+
+![Constellation on the server: the knowledge graph behind agent memory and retrieval](docs/assets/constellation-server.svg)
+
+This is the server half of Constellation, and it is the part agents use. The Vault's documents and wiki-links become a graph. When an agent asks a question, the server searches the text and the vectors together, merges the results with reciprocal rank fusion, then expands each hit to its neighbours in the graph. The agent gets context that is connected, not just similar. Memory writes land in the same graph, so an agent recalls what the company already knows.
+
+The graph-based retrieval is the GraphRAG direction for agent memory and RAG: retrieval that follows the links between ideas, not only the closest passage. It is a central part of how agents reason over the company's knowledge.
+
+*Status: the Vault index, hybrid search and the memory layer are partly shipped. Graph expansion and clustering are in flight.*
+
+### RyuseiFuda on the server: the planner's engine
+
+![Orrery: per-agent triggers, every fire audited](docs/assets/orrery.svg)
+
+The server runs all three RyuseiFuda layers, so every device sees the same plan:
+
+- **Roadmap (server).** The server reads objectives and gates from the Vault and builds the read model that the clients draw. Constellation receives the same graph.
+- **Workday (server).** The server holds the board state, applies the transitions, and works out what is Blocked from the dependency graph. A card moves to Done only when its PR merge is recorded.
+- **Orrery (server).** The scheduler ticks, fires due triggers, and wakes the agent. It writes the audit row for every fire and enforces the per-agent cap and the loop guard.
+
+*Status: the Orrery trigger store, scheduler, fire audit, per-agent wake cap and agent tools are shipped. Workday's board, transitions and blocker graph are shipped. The Roadmap read model and Workday's team view are in review.*
+
+### Agents, Souls and the model gateway
+
+An agent has its own identity, memory and accounts. Its Soul holds its personality, memory, reputation and credentials. Every model call goes through the gateway, which enforces a per-agent model whitelist. The gateway is pluggable: FreeLLMAPI has priority support, and direct provider keys, OmniRoute and custom proxies work too. Subscription logins never go through it.
+
+*Status: the gateway and model routes are shipped. The agent runtime and Souls are in progress.*
+
+### Managed PostgreSQL 18 and 19 with pgvector
+
+You should not need to administer a database to run Bazaar. The managed PostgreSQL component installs, pins and runs PostgreSQL with pgvector. It supports PostgreSQL 18 and 19 from the same code, so the stable release and the newest one both work. An advanced operator option can point Bazaar at an external database instead. It is never required.
+
+*Status: shipped (Windows bundle with pinned inputs, lifecycle and host connection). The Linux path has a Compose stack for development.*
+
+### Conduit: reach your server from anywhere
+
+![Conduit: reach your server from anywhere](docs/assets/feature-conduit.svg)
+
+Conduit connects your devices to your server over whichever route fits your setup: LAN discovery, port forwarding, UPnP, Cloudflare Tunnel, Tailscale or WireGuard, a relay, peer-to-peer, Tor or SSH. Every route is pinned to the server's key, so no route can quietly change who you are talking to.
+
+*Status: in flight. The contracts and offer rules are in review (design doc 39). No transport is built yet.*
+
+### Security: taint, approvals and SoulGuard
+
+External content is tainted. Once a session has read untrusted input, a high-impact action needs your approval. Agents' own text is tracked more softly. Every memory write goes through SoulGuard, which checks its structure, protects the Soul's core and scans for secrets. Approvals gate outward actions and PR merges, so daily work needs no human approval.
+
+*Status: taint tracking, the policy, the audit chain and the approval service are partly shipped. The approval card UI is open.*
+
+---
+
+## Bazaar.Core: built from modules
 
 ![Bazaar.Core: a small kernel with every capability as a module](docs/assets/showcase-core.svg)
 
 Bazaar.Core is a small kernel. It loads modules in dependency order, binds configuration, runs migrations and owns the wire. Everything else is a module: GC, Constellation, RyuseiFuda, the Vault, the model gateway, Conduit, mail, GitHub, backup and the base GUI. The base GUI is a module too, on the same level as third-party modules. Each module ships a manifest and a contract, so a module depends on another only through that contract.
 
-### Bazaar.Server: the headless compute core
+That is why a company can change its client without a fork, and why a module can be swapped without touching the rest.
 
-![Bazaar.Server: the headless compute core](docs/assets/showcase-server.svg)
-
-- One OS-agnostic .NET 11 program, runs as a Windows Service or a systemd unit.
-- Does all the compute: the GC log, the agents, the model gateway, the Vault index and search.
-- Managed PostgreSQL 18 and 19 with pgvector, installed, pinned and run by Bazaar.
-- Clients connect over one WebSocket per device. The server sends each client its layouts; clients only render.
-
-### Bazaar.Client: native apps, one purpose per device
-
-![Bazaar.Client: native Avalonia apps built per company](docs/assets/showcase-client.svg)
-
-Each company builds its own client. The shared `Bazaar.Client.Core` UI is the same everywhere, and each device gets the head that fits its job.
-
-![Each device has its own purpose](docs/assets/showcase-devices.svg)
-
-- **Windows** is the desktop command room: panes, Constellation, RyuseiFuda, code and diffs.
-- **Android** is a development console for staying connected. Folded, it shows the chat and approvals. Unfolded, it shows the work.
-- **Linux** is a desktop head and packaging, following the Windows and Android heads.
-
-**Calcinato and Athanor.** Two built-ins ship with the client, and both also run on their own:
-
-- **Calcinato** is the built-in terminal and CLI. It runs inside the client, and standalone it replaces the default system terminal app.
-- **Athanor** is the built-in IDE and text editor. It runs inside the client, and standalone it replaces the default system text editor.
+*Status: the kernel's component graph is shipped. Converting the remaining features into modules is in progress.*
 
 ---
 
-## Forward-facing by default
+## Forward-facing, on both versions
 
 ![Forward-facing: day-0 support on the newest and the stable release](docs/assets/showcase-forward.svg)
 
@@ -151,13 +258,55 @@ Bazaar supports the newest release and the stable one at the same time, from the
 
 ---
 
-## Quick start
+## Install
+
+Bazaar is meant to install in one step. Nothing else needs installing: no PostgreSQL, no database server, no runtime to set up. The database ships inside Bazaar and is managed for you.
+
+### What gets installed
+
+- **Bazaar.Server**, the headless server.
+- **PostgreSQL 18.7 with pgvector 0.8.2**, pinned and packaged with Bazaar. PostgreSQL is a separate OS process, because a database server cannot run inside another program. Bazaar supervises it as a child process: it starts it, stops it, backs it up and upgrades it. You never see or manage it.
+- **The clients** you need, for your devices, once your company has built them (see the next section).
+
+### Packages in the repository
+
+Packaging recipes for each target are in the repository (`packaging/`). Their public release status varies:
+
+- **Windows:** MSI, MSIX, Chocolatey, Scoop and winget manifests.
+- **Linux:** AppImage, RPM (for the server host), Flatpak, Snap and Debian packages.
+- **Containers:** an OCI image and a Compose stack in [`deploy/compose`](deploy/compose/README.md).
+
+> **Status: packaged, not yet a public release.** The packages build in CI. Signed public installers are planned, and no signed build exists yet. Install from a company build until the signed release ships.
+
+### Installation wizard (planned)
+
+The installer will ask which modules to enable, with sensible defaults. Bazaar does not have optional modules yet, so the wizard will have little to choose from until they exist. PostgreSQL is never a choice, because it is always included and always managed.
+
+### Clients come from the server installer
+
+You never build a client. Running the server installer builds your company's clients in the same step, with the company's interface and modules compiled in. The client installers land in an output folder next to the server, for example `CDAX.msix` for Windows and `CDAX.apk` for Android. Packages for Linux package managers (apt, flatpak and the others) are staged in the same folder, so none of them needs preparing by hand.
+
+Nothing else is needed: no terminal, no build script, and nothing outside the installer window.
+
+*Status: planned. Per-company client builds and the output folder are not implemented yet. Today, clients are built from the repository with the developer scripts below.*
+
+### Pair your devices
+
+Once the server is running and a client is installed, pair the client with a short code shown on the server. Approve the code from a device you are already signed in on. Pairing is how a phone or a desktop gets its own key, and the server can revoke it later.
+
+*Status: pairing is shipped in the server routes and the Android client. The short-code flow on desktop and the installer's guided pairing are in progress. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md).*
+
+---
+
+## Build from source (developers)
+
+Only needed if you are developing Bazaar itself. A normal install does not need any of this.
 
 ### What you need
 
 - The **.NET 11 SDK**. The exact version is pinned in `global.json`.
-- **PostgreSQL 18 (or 19) with pgvector**, or Docker for the Compose stack in [`deploy/compose`](deploy/compose/README.md).
 - A shell: bash on Linux and macOS, PowerShell on Windows.
+- Optional, for development only: a PostgreSQL 18 or 19 server with pgvector that you run yourself, or the Compose stack in [`deploy/compose`](deploy/compose/README.md). Development can point at your own server with `Bazaar:Database:Mode` set to `external`. Installed Bazaar never needs this.
 
 ### Build and test
 
@@ -173,37 +322,22 @@ Bazaar supports the newest release and the stable one at the same time, from the
 
 `build.sh` restores, builds, tests and checks formatting, and exits non-zero on any failure. `build.ps1` is the Windows equivalent.
 
-### Run a local server (Linux and macOS)
+### Run a development server (Linux and macOS)
 
 ```bash
 scripts/dev/up.sh
 ```
 
-This starts PostgreSQL (or uses your `BAZAAR_DB`), runs the migrations and starts the server with development sign-in. It also seeds one dev chat, so you can post a message and see an agent respond once a model route is set up.
+This starts a development database, runs the migrations and starts the server with development sign-in. It also seeds one dev chat. The server listens on loopback by default.
 
 When it is running:
 
 - Status page: `http://127.0.0.1:7390/status`
 - Readiness: `http://127.0.0.1:7390/health/ready`
 
-The server listens on loopback by default.
-
-### Use your own database
-
-```bash
-cd deploy/compose
-cp .env.example .env        # then set BAZAAR_DB_PASSWORD
-docker compose up -d
-```
-
-The stack runs PostgreSQL 18 with pgvector on `127.0.0.1` only. Point the server at it with `BAZAAR_DB`. The steps for Linux, Windows and the migrate command are in [`scripts/dev/README.md`](scripts/dev/README.md).
-
 > Development sign-in is for local use only. Do not expose a development server to a network.
 
-### Pair a phone or a client
-
-- **Android**: build the head with `scripts/build-android.sh`. It needs the .NET Android workload and the Android SDK, so it is kept out of the default solution. Pairing uses a short code, approved from a device you are signed in on. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md). The startup wiring is in review.
-- **Windows**: build with `./build.ps1`, then run the client project in `src/Bazaar.Client.Windows`.
+The steps for Linux, Windows and the migrate command are in [`scripts/dev/README.md`](scripts/dev/README.md).
 
 ---
 
@@ -267,29 +401,41 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The commit fol
 
 ## Roadmap and status
 
-Beta runs in nine stages, then the v1.0.0 Zuhal readiness gate. Stages are labels, not version numbers. Ordering follows [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuhal". The roadmap is in two parts, and both are kept current from merged pull requests:
 
-<p align="center">
-  <img src="docs/assets/roadmap.svg" alt="Roadmap timeline: Beta stages 1 to 9, then v1.0.0 Zuhal, with each named feature marked shipped, in progress or planned" width="100%">
-</p>
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta stages, what each one contains, and its exit check.
+- [`docs/ROADMAP-TECHNICAL.md`](docs/ROADMAP-TECHNICAL.md) lists the fourteen technical milestones the features rest on: the database, the wire, the modular core, performance, packaging, security, CI, clients, operations, environments and backup. Each row names its source.
+- [`docs/FEATURES.md`](docs/FEATURES.md) is the index of every named feature and its status.
 
-The same status in text:
+### The stages
 
-| Stage | Milestone | Named features and status |
-|---|---|---|
-| Stage 1 | Scaffold and design | Solution and CI (shipped); Design set (shipped); Versioning rules (shipped) |
-| Stage 2 | Spikes, gate 1 | Wire format (S6) (shipped); Git engine (S23) (in progress); Cache: Garnet (S2) (planned); VM sizing (S8) (planned) |
-| Stage 3 | Foundation | GC log and NOTIFY (shipped); Managed PostgreSQL (shipped); Migration runner (shipped); Wire transport (shipped); Model gateway (shipped); Bazaar.Server.Host * (shipped) |
-| Stage 4 | Company core | Agent runtime (in progress); Souls (in progress); Work-Life Simulation (in progress); Council (in progress); Reputation (in progress); Taint and approvals (in progress); Workday board (Kanban) (shipped); Orrery scheduling (in progress) |
-| Stage 5 | Knowledge and identity | Vault (in progress); Constellation data (in progress); GitHub integration (in progress); Agent email (in progress); Identity and Passport (in progress); Observatory (in progress); Roadmap views * (in progress); Memory (in progress) |
-| Stage 6 | Windows client | Client.Core shell (in progress); Constellation views (in progress); Discord-style GC view (in progress); Theme (in progress); Command palette (planned); Start screen dashboard (planned); Git diff and PR panes (planned); ConPTY terminal (planned) |
-| Stage 7 | Android and Linux | Android head (in progress); Device pairing (shipped); Radial menu (planned); Push wake-ups (planned); Linux head (in progress); Velopack updates (planned) |
-| Stage 8 | Environments and engines | Agent VMs (in progress); Guest agent (in progress); Coding harness (in progress); Godot adapter (in progress); Roblox Studio bridge (in progress); Browser profiles (planned); Fun systems (in progress) |
-| Stage 9 | Hardening | Backup and restore (in progress); Remote access and TLS (in progress); Conduit transports * (in progress); Erasure (in progress); Rate limits (in progress); Community tiers (in progress); Data export (planned); Counsel items (planned) |
-| v1.0.0 | Zuhal, the readiness gate (no date) | Company Constitution (planned); Health System (planned); Company Analytics (planned); Skimmer Bouncer (in progress); Digital Twin (planned); Mirror Agent (planned); What If Engine (planned); Time Machine (in progress); Soul Marketplace (planned); Talent Pool (planned); Genetic Memory Transfer (planned); Hive Mind (planned); Bazaar Archive (planned); Company Memory (planned); GC metadata (planned); Playtest Mode (planned); Bazaar SDK (in progress); Lucky mode (in progress) |
+![Beta roadmap: nine stages with status, then the Zuhal gate](docs/assets/roadmap-stages.svg)
 
-`*` marks a tentative placement that the sources do not state. The full feature index is in [`docs/FEATURES.md`](docs/FEATURES.md).
+Stages are labels, not version numbers. Stage 1 is done. Stage 2 is mostly done. Stages 3 to 7 are partly done, with the open parts named in the roadmap. Stage 8 is planned, with some code in place, and Stage 9, Hardening, has started. v1.0.0 "Zuhal" is the readiness gate: its scope is decided, its date is not.
 
+### The technical milestones
+
+![Fourteen technical milestones with status](docs/assets/roadmap-technical.svg)
+
+The headline milestone is **T1, the managed database**. Bazaar packages PostgreSQL 18.7 with pgvector 0.8.2 and runs it for you. The owner never installs or starts it.
+
+![Managed PostgreSQL inside the app](docs/assets/roadmap-postgres.svg)
+
+The server starts the database, stores its password in a managed store, runs migrations, schedules backups and refuses a major-version mismatch. The Windows smoke run on the owner's PC is the one open part of T1.
+
+Bazaar supports PostgreSQL 18 and 19 at the same time, from the same code. This is the dual-version forward-facing rule. PostgreSQL 18 is the stable default. PostgreSQL 19 runs in a report-only CI job, and its bundle and gated upgrade path are planned.
+
+![PostgreSQL 18 and 19 dual-version support](docs/assets/roadmap-dual-version.svg)
+
+### The clients
+
+![Client milestones: heads, built-ins and per-company builds](docs/assets/roadmap-clients.svg)
+
+The Windows, Linux and Android heads are done. Calcinato (the terminal and CLI) and Athanor (the IDE and text editor) are planned, and both run standalone too. Per-company client builds are planned: each company builds its own app, with its own modules.
+
+### Forward-facing support
+
+Bazaar builds for the newest supported .NET and for what comes next. Each dependency is tracked in [`docs/FORWARD-FACING.md`](docs/FORWARD-FACING.md), and both the newest release and the stable release run from the same code. Neither is dropped.
 
 ---
 
