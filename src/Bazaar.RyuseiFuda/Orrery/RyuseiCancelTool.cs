@@ -5,8 +5,8 @@ namespace Bazaar.RyuseiFuda.Orrery;
 
 /// <summary>
 /// The <c>ryusei.cancel</c> agent tool (doc 38, WP-R9). Resolves the caller, then calls
-/// <see cref="RyuseiTriggerService.CancelAsync"/>, which applies the creator-or-owner rule and writes the audit row. Not
-/// registered at startup; see <see cref="RyuseiScheduleTool"/> for the registration follow-up.
+/// <see cref="RyuseiTriggerService.CancelAsync"/>, which applies the creator-or-owner rule and writes the audit row.
+/// Registered by <see cref="RyuseiScheduleComponent"/> only when <c>Bazaar:Ryusei:ProjectId</c> is set.
 /// </summary>
 public sealed class RyuseiCancelTool(RyuseiTriggerService triggers, IRyuseiAgentDirectory directory, TimeProvider time) : IContextualTool
 {

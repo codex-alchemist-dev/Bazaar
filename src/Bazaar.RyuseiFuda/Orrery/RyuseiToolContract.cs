@@ -304,9 +304,12 @@ public static class RyuseiToolContract
     {
         ArgumentNullException.ThrowIfNull(result);
 
+        // executed is true only when the trigger change was made. A refused or failed call says so, so the model does not
+        // assume a schedule or a pause took effect.
         var node = new JsonObject
         {
             ["ok"] = result.IsOk,
+            ["executed"] = result.IsOk,
             ["status"] = StatusText(result.Status),
         };
 
@@ -378,6 +381,7 @@ public static class RyuseiToolContract
         return new JsonObject
         {
             ["ok"] = false,
+            ["executed"] = false,
             ["status"] = "invalid_arguments",
             ["message"] = reason,
         };

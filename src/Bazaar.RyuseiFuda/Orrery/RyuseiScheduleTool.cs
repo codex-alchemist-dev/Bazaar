@@ -10,16 +10,11 @@ namespace Bazaar.RyuseiFuda.Orrery;
 /// checks stay in the service and its rules; this adapter adds none.
 /// </summary>
 /// <remarks>
-/// Known gaps, to close before this tool is registered for agents:
-/// <list type="bullet">
-/// <item>Chain depth is the caller's context depth plus one. A trigger created here is one fire deeper than the turn that
-/// created it. Above the maximum, the trigger rules refuse the create (<c>ChainDepthExceeded</c>). The woken turn's depth
-/// reaches <see cref="ToolCallContext"/> only once the turn starter sets <see cref="TurnRunRequest.ChainDepth"/> from its
-/// fire, and that starter is not in the codebase yet.</item>
-/// <item>The interval and zone are UTC (zone null). Per-agent timezones are not on the agent row yet.</item>
-/// <item>Not registered at startup. No <see cref="ToolRegistry"/> is built at startup, so there is nothing to register into.
-/// Registration is a follow-up for the dispatcher wiring.</item>
-/// </list>
+/// Chain depth is the caller's context depth plus one, so a trigger created by a woken turn is one fire deeper than that turn.
+/// The depth of a woken turn reaches <see cref="ToolCallContext"/> from the turn starter (doc 38, Chain depth). Above the
+/// maximum, the trigger rules refuse the create (<c>ChainDepthExceeded</c>).
+/// The interval and zone are UTC (zone null). Per-agent timezones are not on the agent row yet.
+/// The tool is registered by <see cref="RyuseiScheduleComponent"/> only when <c>Bazaar:Ryusei:ProjectId</c> is set.
 /// </remarks>
 public sealed class RyuseiScheduleTool(
     RyuseiTriggerService triggers,
