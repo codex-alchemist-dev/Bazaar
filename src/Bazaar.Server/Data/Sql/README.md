@@ -48,6 +48,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `agent_turns/0001` | WP-TAINT | this PR | `session_taint`: append-only session taint snapshots, latest row per session, no-decrease trigger (doc 15); no foreign keys |
 | `turns_inflight/0001` | WP-INFLIGHT | this PR | `in_flight_call`: crash markers for non-idempotent tool calls (doc 06; `PostgresInFlightCallStore`). Own namespace, because `turns` is the taint store's folder and `common/` is frozen; no foreign keys |
 | `souls/0001` | SOUL-RET | this PR | `soul_retirement_step`: durable latest outcome per Soul, agent and step (doc 07, WP6). Lives in the `souls` namespace because `common/` is frozen |
+| `mentions/0001` | WP-HANDLES | this PR | `principal_handle`: optional unique lowercase handle per principal (agent or human id), the source of `@handle` mentions; backfills a slug of `agent.name` for existing agents. Lives in the `mentions` namespace because `common/` is frozen; no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces

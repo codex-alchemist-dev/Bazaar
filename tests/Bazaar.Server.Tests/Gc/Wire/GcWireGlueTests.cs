@@ -245,6 +245,62 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await Task.WhenAny(dispatching, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None));
     }
 
+    private static async Task<WireReply> EditAsync(FakeWireConnection connection, Guid gc, Guid messageId, string text, string requestId)
+    {
+        var handler = new GcEditHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Edit.PgGcEditSource(connection.Data));
+        return await handler.HandleAsync(
+            Context(connection, WireTypes.GcEdit, requestId, new GcEdit(gc, messageId, text)), TestContext.Current.CancellationToken);
+    }
+
+    private async Task<Guid> MessageIdAtSeqAsync(Guid gc, long seq)
+    {
+        await using var cmd = db.DataSource.CreateCommand("SELECT message_id FROM gc_event WHERE gc_id = $1 AND seq = $2");
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = seq });
+        return (Guid)(await cmd.ExecuteScalarAsync())!;
+    }
+
+    [Fact]
+    public async Task An_author_edit_adds_version_two_and_the_message_reads_back_with_the_new_text()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var author = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(author);
+        var connection = new FakeWireConnection(db.DataSource, author);
+        var sent = Decode<GcSendResult>(await SendAsync(connection, gc, "first draft", "send-1", ct: ct));
+        var messageId = await MessageIdAtSeqAsync(gc, sent.N);
+
+        var reply = await EditAsync(connection, gc, messageId, "second draft", "edit-1");
+
+        Assert.True(reply.IsOk);
+        var edited = Decode<GcSendResult>(reply);
+        Assert.Equal(2, edited.Ev);
+        await using var versions = db.DataSource.CreateCommand("SELECT COUNT(*) FROM gc_message_version WHERE gc_id = $1 AND message_id = $2");
+        versions.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        versions.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = messageId });
+        Assert.Equal(2L, await versions.ExecuteScalarAsync(ct));
+    }
+
+    [Fact]
+    public async Task Someone_who_is_not_the_author_cannot_edit_the_message()
+    {
+        GcTestSkip.WithoutDatabase();
+        var author = Human(Guid.CreateVersion7());
+        var other = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(author);
+        await AddMemberAsync(gc, other.Id);
+        var ct = TestContext.Current.CancellationToken;
+        var sent = Decode<GcSendResult>(await SendAsync(new FakeWireConnection(db.DataSource, author), gc, "mine", "send-2", ct: ct));
+        var messageId = await MessageIdAtSeqAsync(gc, sent.N);
+
+        var reply = await EditAsync(new FakeWireConnection(db.DataSource, other), gc, messageId, "not mine", "edit-2");
+
+        Assert.False(reply.IsOk);
+    }
+
     private static AppendRequest TextAppend(Guid gc, PrincipalRef author, string text, string clientMsgId) =>
         new(gc, GcEventKinds.Message, AuthorKind.Human, author.Id, SourceTrust.MemberHuman, clientMsgId)
         {

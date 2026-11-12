@@ -34,8 +34,8 @@ namespace Bazaar.Server.Agents.Turns.Posting;
 /// Not applied here: nested mention depth (<c>GcMessage</c> has no parent field, so the depth is always 0 and the
 /// <c>runtime.guard.mention_depth</c> guard never sees a chain); @here and @all (the parser reports them and they are ignored, so
 /// agents do not broadcast); the system notice, <c>guard_event</c> and Psych Ward admission on a trip (the caller only sees the
-/// exception). No <see cref="IGcMentionDirectory"/> is registered in production yet because the schema has no principal handle
-/// column, so today agent posts still carry no mentions.
+/// exception). <c>AddGcAgentPostSink</c> registers <see cref="SqlGcMentionDirectory"/>, which reads handles from
+/// <c>principal_handle</c>; a member without a handle cannot be mentioned.
 /// </remarks>
 public sealed class GcAgentPostSink : IAgentPostSink
 {

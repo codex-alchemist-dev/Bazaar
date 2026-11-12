@@ -34,6 +34,12 @@ public sealed record WireGcMessage(
 /// <param name="ReplyToN">Sequence number replied to.</param>
 public sealed record GcSend(Guid GcId, string Text, IReadOnlyList<Guid>? Mentions, long? ReplyToN);
 
+/// <summary>Request <c>gc.edit</c>: replaces the text of a message the sender wrote. The envelope <c>id</c> is the idempotency key.</summary>
+/// <param name="GcId">The group chat.</param>
+/// <param name="MessageId">The message to edit.</param>
+/// <param name="Text">The replacement text.</param>
+public sealed record GcEdit(Guid GcId, Guid MessageId, string Text);
+
 /// <summary>Response to <c>gc.send</c>.</summary>
 /// <param name="N">The assigned log sequence number.</param>
 /// <param name="Ev">The assigned version counter.</param>
