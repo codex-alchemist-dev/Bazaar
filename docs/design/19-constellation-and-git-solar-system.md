@@ -78,6 +78,14 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 | `constellation.orbit_radius` | enum `age` or `equal` | `age` | project | project owner or operator | No (audited) |
 | `constellation.screenshot_sources` | list of `gc_attachments`, `test_artifacts` | `gc_attachments` | install | operator | No (audited) |
 
+**Decided 2026-11-11 (safe default, coordinator).** These rules fix how `constellation.orbit_radius` maps to body radii. They are the shipped safe default, not an owner decision.
+1. `age`: a body's radius scales linearly between `MinOrbitRadius` and `MaxOrbitRadius` by its last-activity age. Older bodies sit on outer orbits. The ratio is clamped to 0 to 1.
+2. `equal`: every body uses one uniform radius, which is `MinOrbitRadius`.
+3. If all ages are equal, the radius is `MinOrbitRadius`.
+4. Defaults: `MinOrbitRadius` 10 (equal to the current `OrbitSpacing` default) and `MaxOrbitRadius` 100. Both live on `LayoutOptions`. The operator may change them. `OrbitSpacing`'s default is unchanged.
+
+`constellation.git_layout` (deterministic or force) is still a caller dispatch between `SolarOrbitLayout` and `ForceLayout`. It is not mapped onto `LayoutOptions`.
+
 ## Behaviour and edge cases
 - **Ordering.** Frames carry `GraphVersion` and `LayoutSeq`. The client drops any frame older than the newest applied.
 - **Node identity.** Nodes key on the Vault document ID, not the path, so a rename keeps the node's place. Unresolved links stay as dim ghost nodes.
@@ -117,6 +125,11 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - Merge commits draw as comets from the merged branch to its target.
 - Vault branches (`agent/<task>`) are planets. Writer-queue merges (18) are comets.
 - The layout is deterministic by default (`constellation.git_layout = deterministic`), so history does not jitter as it grows. `force` is available as a setting.
+
+**DECIDED 2026-11-11 (coordinator).** These defaults let WP11 build on the solar system without waiting on the owner:
+1. Comet direction runs from the merged branch tip to the merge commit.
+2. Every parent edge is kept, not only merge comets, so plain parent edges are drawn too.
+3. The git DAG indexer (`src/Bazaar.Server/Constellation/GitDag/`) is the source of these edges.
 
 ## Testing
 - **Layout engine:** xUnit v3, no Avalonia. Fixed seed. Invariants: no NaN, settling, hop ordering, determinism. Barnes-Hut matches brute force within tolerance at 1k nodes.

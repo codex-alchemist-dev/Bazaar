@@ -277,9 +277,45 @@ Defaults taken by the RyuseiFuda merge train (PRs #349 to #353, squash-merged). 
 | Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
 | Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |
 
-## Round 23 (2026-11-11): turn starter, post guards, mention handles and the wake loop
+Defaults taken by WP-TAINT for the session taint store behind `ISessionTaintStore` (doc 15). The coordinator chose them under the safe-defaults rule; the owner may change any of them.
 
-Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
+| Item | Decision | Owner may change |
+|---|---|---|
+| Storage | Taint is persisted in Postgres, table `session_taint` in namespace `agent_turns` (`agent_turns/0001`). Namespace folder follows the component id `agent-turns` with `-` replaced by `_`. | Yes. |
+| Keying and append-only | Keyed by `session_id`. Each save appends a full snapshot (level and every source so far). Update, delete and truncate are refused by the `gc_append_only` triggers. | Yes. |
+| Read rule | The session's taint is its latest row (highest `seq`). No rows gives `SessionTaint.Clean`. | Yes. |
+| No decrease | A trigger refuses a level below the session's latest level, serialised per session with an advisory lock. Taint never decreases (doc 15). | No (security invariant). |
+| Registration | `ISessionTaintStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, over `NpgsqlDataSource`. The tool dispatcher is not wired by this change. Policy is unchanged. | Yes. |
+
+Defaults taken by the in-flight call store (agent/wp-inflight), safe defaults on the coordinator's call. The owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Table | `in_flight_call` (migration `turns_inflight/0001`): `call_key` primary key (`{turnId:D}:{callId}`), `state` CHECK in (`begun`, `completed`), `begun_at`, `lease_expires_at`, `completed_at`. Own namespace `turns_inflight`, because `turns` belongs to the taint store and `common/` is frozen. | Yes, before first production write. |
+| Lease constant | `InFlightCallRows.Lease` = 10 minutes. It reclaims a row only; it never lets a call run again. | Yes. |
+| Unfinished rule | A call is unfinished when its row exists and `state = 'begun'`, whatever `lease_expires_at` says. A begun call may have run, so a lapsed lease does not make it safe to repeat. | No: this follows the Unknown rule in doc 06. |
+| Begin | Upsert to `begun` with a fresh lease from the database clock. A repeated begin after completion reopens the row. | Yes. |
+| Complete | Sets `completed`. A missing key is a no-op. | Yes. |
+| Registration | `PostgresInFlightCallStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, the file that holds the turn seams. The dispatcher is not wired. | Yes. |
+
+## Round 23 (2026-11-11): production turn runner and context sources
+
+Coordinator choices under the safe-defaults rule (the owner may change any of them). Marked DECIDED for the build; the owner's review can reopen any row.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Context sources | Three, in order: the charter seam (System), the GC backread (GcBackread), and the trigger message verbatim (Inbox). Workday board items are not a context source: the board is owner-only for reads (doc 12). | Yes (order and bounds). |
+| Charter text | `ISoulCharterSource`, default `NullSoulCharterSource` (no text). `soul_versions` holds only the charter's SHA-256 and the preferences JSON, and the charter is a Vault file with no reader yet, so the seam is documented and empty until a Vault reader and the agent-to-soul mapping land. | Yes, when the reader lands. |
+| GC read principal | The agent's own principal (`PrincipalKind.Agent`, id = agent id). `IGcReadAccess` decides membership, so an agent reads only GCs it is a member of, up to its left seq. A GC it may not read gets a fixed notice item, so the trigger thread is still found. | No (membership rule). |
+| GC backread bounds | Last 20 messages of the trigger GC, each cut to 1000 characters. The trigger message is always included. | Yes. |
+| Inbox section | The trigger message, verbatim, read at its GC seq. Inbox items are GC-backed in this build. | Yes. |
+| Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
+| Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
+| Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
+
+## Round 24 (2026-11-11): turn starter, post guards, mention handles and the wake loop
+
+Defaults taken by PRs #436, #438, #442, #443 and #446. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
 
 | Item | Default taken | Owner may change |
 |---|---|---|
@@ -291,12 +327,12 @@ Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mentio
 | Mentions in agent posts (#438) | Parsed from the text as `@handle`, validated against the GC roster, and written as mention inbox rows after the append. `@here` and `@all` are ignored. Without a mention directory the sink attaches no mentions. | Yes. |
 | Principal handle (#443) | Optional, unique, lowercase, in `principal_handle` (migration namespace `mentions/`). Shape `^[a-z0-9][a-z0-9_-]{1,31}$`; `here` and `all` are reserved. No row means not mentionable. | Shape and length: yes. Table and namespace: no. |
 | Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
-| Handles for new agents (#443) | Not assigned at creation. `EnsureAgentHandleAsync` exists, but nothing calls it yet. | Follow-up. |
+| Handles for new agents (#446) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
 | Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
-| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a turn runner or a loop guard stops the host at start. | Default off: yes. Fail at start: no. |
+| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
 | Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
 | Wake loop and the guard (#442) | The guard is asked before each wake. A tripped agent is skipped and held for 5 minutes (`GuardTripBackoff`, in memory) before the guard is asked again; its items stay pending. | Yes. |
 | Session per turn (#442) | Each woken turn gets a new session id, so taint does not carry from one turn to the next. Interim, until a session model exists (doc 06, doc 15). | Follow-up. |
-| Route and tools of a woken turn (#442) | One gateway route and one tool allowlist for every woken turn, from the scheduler settings. The route is required when the loop is enabled; the allowlist is empty by default. | Follow-up (per-agent policy). |
+| Route and tools of a woken turn (#442) | One gateway route and one tool allowlist for every woken turn, from the scheduler settings. The route is required when the loop is enabled and is separate from `Bazaar:Turns:Route` (round 23); the allowlist is empty by default. | Follow-up (per-agent policy). |
 
-**Open for owner:** none blocking. Before the wake loop is switched on, the host must register a turn runner and call `AddGcAgentPostSink()`, and new agents need a handle at creation.
+**Open for owner:** none blocking. The GC component calls `AddGcAgentPostSink()`, so mentions in agent posts are live once #443 merges. Before the wake loop is switched on, the host must supply a model gateway.
