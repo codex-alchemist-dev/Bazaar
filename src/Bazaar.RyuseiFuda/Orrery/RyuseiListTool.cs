@@ -5,8 +5,8 @@ namespace Bazaar.RyuseiFuda.Orrery;
 
 /// <summary>
 /// The <c>ryusei.list</c> agent tool (doc 38, WP-R9). Lists the triggers that name the calling agent as a target, optionally in
-/// one state, through <see cref="RyuseiTriggerService.ListForTargetAsync"/>. Not registered at startup; see
-/// <see cref="RyuseiScheduleTool"/> for the registration follow-up.
+/// one state, through <see cref="RyuseiTriggerService.ListForTargetAsync"/>. Registered by
+/// <see cref="RyuseiScheduleComponent"/> only when <c>Bazaar:Ryusei:ProjectId</c> is set.
 /// </summary>
 public sealed class RyuseiListTool(RyuseiTriggerService triggers, IRyuseiAgentDirectory directory) : IContextualTool
 {
