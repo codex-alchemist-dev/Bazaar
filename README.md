@@ -91,8 +91,6 @@ RyuseiFuda is three layers, and each one has its own spotlight below, in this or
 
 #### Roadmap: where the company is going
 
-![Roadmap timeline: nine Beta stages, then the Zuhal readiness gate](docs/assets/roadmap-timeline.svg)
-
 The Roadmap is the map of Bazaar's future, read from documents in the Vault, not typed into a tool. Bazaar moves through nine Beta stages, from Scaffold to Hardening, and then the **v1.0.0 Zuhal** readiness gate. Each stage is a label that says what is being built, not a version number. A stage is not finished until its gates pass.
 
 Objectives and gates link together, so you can see what has to be true before the next thing can begin:

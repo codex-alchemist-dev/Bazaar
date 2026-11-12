@@ -131,7 +131,8 @@
     <text x="776" y="434" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12.5" fill="#f0f6fc">Orrery scheduling</text>
   <rect x="24" y="468" width="160" height="82" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
   <text x="36" y="490" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 5</text>
-  <text x="36" y="512" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Knowledge and identity</text>
+  <text x="36" y="512" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Knowledge</text>
+  <text x="36" y="530" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">and identity</text>
   <circle cx="198" cy="509" r="6" fill="#f2b84b"/>
     <rect x="214" y="472" width="176" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
     <text x="224" y="492" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12.5" fill="#f0f6fc">Vault</text>
@@ -187,7 +188,8 @@
     <text x="408" y="722" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12.5" fill="#f0f6fc">Velopack updates</text>
   <rect x="24" y="756" width="160" height="82" rx="10" fill="#161b22" stroke="#3b4a63" stroke-width="1.2"/>
   <text x="36" y="778" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">STAGE 8</text>
-  <text x="36" y="800" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Environments and engines</text>
+  <text x="36" y="800" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">Environments</text>
+  <text x="36" y="818" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">and engines</text>
   <circle cx="198" cy="797" r="6" fill="#f2b84b"/>
     <rect x="214" y="760" width="176" height="30" rx="8" fill="#7a5a12" stroke="#f2b84b" stroke-width="1.2"/>
     <text x="224" y="780" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12.5" fill="#f0f6fc">Agent VMs</text>
