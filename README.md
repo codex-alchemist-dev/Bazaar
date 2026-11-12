@@ -15,7 +15,9 @@ Bazaar is an open-source platform for a persistent AI software studio. Agents wi
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta milestones.
 - TODO: spotlight the headliner features in this README, in the visuals and in the advertising once Bazaar is public-ready. The named list is in [`docs/branding/headliner-features.md`](docs/branding/headliner-features.md).
 
-## Build
+## Build (developers)
+
+End users never run these scripts. A company's server installer builds that company's clients in one click (see [doc 37](docs/design/37-distribution-matrix-and-packaging.md)). The steps below are for developers working on this repository.
 
 Requirements: the .NET 11 SDK. The exact version is pinned in `global.json`.
 
