@@ -32,6 +32,7 @@ Current version: **0.1.0 (Beta)**, shown as `0.1.0+a1b2c3d` with the build commi
 - **Agents that remember.** Every group chat is an append-only record. Nothing is purged, and edits keep every version.
 - **Work you can see.** A board, a schedule and a knowledge graph show what the agents are doing and why.
 - **Built to be extended.** Every capability is a module with a manifest and a contract. You can read, change and add to any of them.
+- **Humans and agents work in one place.** People own the goals and the approvals. Agents do the work, in their own accounts and under their own permissions. The server keeps the record. *Status: shipped as the core server, clients and group chats. Team features are in progress.*
 
 **Principles:** open source, modern, novel, performant, forward-facing. We write for the newest supported .NET and do not keep code for old runtimes.
 
@@ -60,6 +61,8 @@ Every conversation is a group chat. A GC is the coordination system of the compa
 
 ### Constellation: one knowledge graph replaces three tools
 
+![Constellation: knowledge graph](docs/assets/feature-constellation.svg)
+
 ![Constellation on the client](docs/assets/constellation-client.svg)
 
 Constellation is the whole knowledge workspace, and it replaces three tools at once: the file explorer you browse with, the Milanote board you lay ideas out on, and the Obsidian vault you link notes in. The documents are the same, and the graph is the one thing you look at.
@@ -87,8 +90,6 @@ RyuseiFuda is the planner the company runs on, and one of the three top prioriti
 RyuseiFuda is three layers, and each one has its own spotlight below, in this order: **Roadmap**, **Workday**, **Orrery**.
 
 #### Roadmap: where the company is going
-
-![Roadmap timeline: nine Beta stages, then the Zuhal readiness gate](docs/assets/roadmap-timeline.svg)
 
 The Roadmap is the map of Bazaar's future, read from documents in the Vault, not typed into a tool. Bazaar moves through nine Beta stages, from Scaffold to Hardening, and then the **v1.0.0 Zuhal** readiness gate. Each stage is a label that says what is being built, not a version number. A stage is not finished until its gates pass.
 
@@ -170,7 +171,7 @@ Athanor is the built-in IDE and text editor. Inside the client, it opens a file 
 ![Each device has its own purpose](docs/assets/showcase-devices.svg)
 
 - **Windows** is the desktop command room: panes, Constellation, RyuseiFuda, code and diffs, all at once.
-- **Android** is a development console for staying connected. Folded, it shows the chat and the approvals. Unfolded, it shows the work, with diffs and the board. It is not a place to write code.
+- **Android** is a development console for staying connected. Folded, it shows the chat and the approvals. Unfolded, it shows the work, with diffs and the board. It is not a place to write code. Its radial menu puts dictation at the centre (planned).
 - **Linux** is a desktop head with its own packaging, following the Windows and Android heads.
 - **Calcinato** is the terminal for shells on any machine, and it runs standalone.
 
@@ -181,6 +182,8 @@ Athanor is the built-in IDE and text editor. Inside the client, it opens a file 
 ![Bazaar.Server: the headless brain that does all the compute](docs/assets/showcase-server.svg)
 
 The server is a single .NET 11 program. It runs headless on Windows or Linux, as a Windows Service or a systemd unit. It does all the compute, so clients stay light and every device sees the same company. Its jobs are below.
+
+Clients connect over one WebSocket per device. The server sends each client its layouts, and clients only render.
 
 ### The GC log and fan-out
 
@@ -240,6 +243,8 @@ External content is tainted. Once a session has read untrusted input, a high-imp
 
 ## Bazaar.Core: built from modules
 
+![Architecture: Core and modules](docs/assets/architecture.svg)
+
 ![Bazaar.Core: a small kernel with every capability as a module](docs/assets/showcase-core.svg)
 
 Bazaar.Core is a small kernel. It loads modules in dependency order, binds configuration, runs migrations and owns the wire. Everything else is a module: GC, Constellation, RyuseiFuda, the Vault, the model gateway, Conduit, mail, GitHub, backup and the base GUI. The base GUI is a module too, on the same level as third-party modules. Each module ships a manifest and a contract, so a module depends on another only through that contract.
@@ -288,13 +293,22 @@ You never build a client. Running the server installer builds your company's cli
 
 Nothing else is needed: no terminal, no build script, and nothing outside the installer window.
 
+### Updates and offline installs (planned)
+
+Clients update in place from their own server, so you never reinstall one by hand. The server can regenerate the client packages at any time, for example after a module changes. If the server installs while offline, it finishes the install and defers the downloads (the Android SDK and similar) until the internet returns. Then the server builds the clients itself.
+
+*Status: planned. Update and offline deferral are not implemented yet.*
+
 *Status: planned. Per-company client builds and the output folder are not implemented yet. Today, clients are built from the repository with the developer scripts below.*
 
 ### Pair your devices
 
-Once the server is running and a client is installed, pair the client with a short code shown on the server. Approve the code from a device you are already signed in on. Pairing is how a phone or a desktop gets its own key, and the server can revoke it later.
+There are two ways a device joins your server. Company-built clients need no pairing code:
 
-*Status: pairing is shipped in the server routes and the Android client. The short-code flow on desktop and the installer's guided pairing are in progress. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md).*
+- **Company clients (planned).** Each client is built for one company, and it carries its server's address and key pin. On first run it trusts that server and connects. There is no code to type and nothing to approve.
+- **Other devices.** A device that was not built for your company still pairs through the approval flow. The server shows a short code, and you approve it from a device you are already signed in on. Pairing gives that device its own key, and the server can revoke it later.
+
+*Status: the short-code approval flow is shipped in the server routes and the Android client. The desktop short-code flow is in progress. The baked address and key pin for company clients are planned. See [`docs/design/32-remote-access-auth-and-privacy.md`](docs/design/32-remote-access-auth-and-privacy.md) and [`docs/design/37-distribution-matrix-and-packaging.md`](docs/design/37-distribution-matrix-and-packaging.md).*
 
 ---
 
@@ -401,6 +415,10 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The commit fol
 
 ## Roadmap and status
 
+### The roadmap at a glance
+
+![Roadmap: nine Beta stages with every named feature and its status, then the v1.0.0 Zuhal gate](docs/assets/roadmap.svg)
+
 Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuhal". The roadmap is in two parts, and both are kept current from merged pull requests:
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta stages, what each one contains, and its exit check.
@@ -409,21 +427,19 @@ Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuh
 
 ### The stages
 
-![Beta roadmap: nine stages with status, then the Zuhal gate](docs/assets/roadmap-stages.svg)
-
 Stages are labels, not version numbers. Stage 1 is done. Stage 2 is mostly done. Stages 3 to 7 are partly done, with the open parts named in the roadmap. Stage 8 is planned, with some code in place, and Stage 9, Hardening, has started. v1.0.0 "Zuhal" is the readiness gate: its scope is decided, its date is not.
 
 ### The technical milestones
 
 ![Fourteen technical milestones with status](docs/assets/roadmap-technical.svg)
 
-The headline milestone is **T1, the managed database**. Bazaar packages PostgreSQL 18.7 with pgvector 0.8.2 and runs it for you. The owner never installs or starts it.
+The headline milestone is **T1, the managed database**. Bazaar packages PostgreSQL 18.7 with pgvector 0.8.2 as its pinned default, and runs it for you. The owner never installs or starts it.
 
 ![Managed PostgreSQL inside the app](docs/assets/roadmap-postgres.svg)
 
 The server starts the database, stores its password in a managed store, runs migrations, schedules backups and refuses a major-version mismatch. The Windows smoke run on the owner's PC is the one open part of T1.
 
-Bazaar supports PostgreSQL 18 and 19 at the same time, from the same code. This is the dual-version forward-facing rule. PostgreSQL 18 is the stable default. PostgreSQL 19 runs in a report-only CI job, and its bundle and gated upgrade path are planned.
+Bazaar supports PostgreSQL 18 and 19 at the same time, from the same code. This is the dual-version forward-facing rule: both versions are supported equally, and the pinned version is only the default. Installers and company owners can move to the other version. The 18.7 and 0.8.2 pins are the current defaults. The next pgvector bump to 0.8.7 is tracked in [`docs/FORWARD-FACING.md`](docs/FORWARD-FACING.md). PostgreSQL 19 runs in a report-only CI job, and its bundle and gated upgrade path are planned.
 
 ![PostgreSQL 18 and 19 dual-version support](docs/assets/roadmap-dual-version.svg)
 
