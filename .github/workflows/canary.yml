@@ -57,10 +57,16 @@ jobs:
           dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
-      # global.json pins the SDK for real builds. On this runner copy only, remove it so
-      # the preview SDK can build. Nothing is committed and the pin stays as it is.
-      - name: Drop the pinned global.json (runner copy only)
-        run: rm -f global.json
+      # global.json pins the SDK for real builds. On this runner copy only, drop the sdk
+      # section so the preview SDK can build, and keep the test section: its
+      # test.runner (Microsoft.Testing.Platform) is the opt-in that dotnet test needs on
+      # .NET 10 SDK and later. Removing the whole file lost that opt-in and failed the job.
+      # Nothing is committed and the pin stays as it is.
+      - name: Drop the SDK pin from global.json (runner copy only)
+        run: |
+          set -euo pipefail
+          jq 'del(.sdk)' global.json > global.json.canary && mv global.json.canary global.json
+          cat global.json
 
       - name: Show the SDK in use
         run: dotnet --info
