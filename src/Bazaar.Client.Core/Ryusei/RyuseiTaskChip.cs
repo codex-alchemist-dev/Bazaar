@@ -1,4 +1,5 @@
 using System.Globalization;
+using Bazaar.Contracts.Ryusei;
 
 namespace Bazaar.Client.Core.Ryusei;
 
@@ -34,6 +35,24 @@ public static class RyuseiChipRules
             .ThenBy(c => c.NextFire)
             .ThenBy(c => c.TriggerId, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>
+    /// Joins the owner's trigger list (<c>ryusei.trigger.list</c>) to board cards by task id (doc 38, layer 1). A trigger with
+    /// no task is on no card and is left out. Each card's chips are then filtered and ordered by <see cref="Visible"/>.
+    /// Pure: no I/O.
+    /// </summary>
+    public static IReadOnlyDictionary<Guid, IReadOnlyList<RyuseiTaskChip>> ByTask(IEnumerable<RyuseiTriggerChip> triggers)
+    {
+        ArgumentNullException.ThrowIfNull(triggers);
+
+        return triggers
+            .Where(t => t.TaskId is not null)
+            .GroupBy(t => t.TaskId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => Visible(group.Select(t => new RyuseiTaskChip(
+                    t.TriggerId.ToString("D"), t.Kind, t.State, t.NextFireAt, t.Purpose))));
     }
 
     /// <summary>The first line of a chip: kind, state and the next fire time when there is one.</summary>
