@@ -150,6 +150,8 @@ The base GUI (the shell, palette, theme, layout renderer and start screen) is al
 | Engine panes | Out-of-process modules (L3, doc 20) | `EnginePaneView` | Kinds are namespaced by the engine, e.g. `godot.scene-tree`. |
 | Terminal | Head-owned | Windows head | Local terminal only (C17 exception). Hosted by the head, so it is not a module in the sense of this doc. |
 
+**Module packaging (owner, 2026-11-12): built into a company client.** Each company's extra modules are baked into that company's client build. This is a per-company build, not one generic client that loads modules from the server. Doc 37 must be updated to match; the module packaging and signing consequences are open for that doc.
+
 Names for new module projects are the owner's call (section 10). The planned names follow the `Bazaar.Client.<F>` pattern from MODULARITY-AUDIT. None is decided here.
 
 ## 6. Security and sandboxing of custom UI
