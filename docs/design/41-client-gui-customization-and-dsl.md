@@ -1,17 +1,18 @@
-# Client GUI customization, layout and DSL question
+# Client GUI customization, module contract and DSL question
 
-Status: PROPOSED (2026-11-12) · Owner questions: 8 (section 10) · Recommendations are defaults that the build may follow now; anything marked OPEN is a choice the owner has not made
+Status: PROPOSED, HELD FOR OWNER DECISIONS (2026-11-12, revised after owner correction) · Owner decisions needed: 8 (section 10) · This PR stays a draft until the owner answers. No default is applied to the decisions in section 10; work that depends on them waits.
 Depends on: 02-wire-protocol-and-sync.md (`ui.get`, `ui.changed`, `prefs.set`), 03-server-host-and-providers.md (settings registry), 15-security-taint-and-approvals.md (approval tiers, `audit_log`), 20-engine-integration-api.md (`PaneDescriptor`), 27-client-architecture.md (layout, theme, keyboard model), 28-windows-client.md, 29-android-client.md, 38-ryusei-fuda.md, 19-constellation-and-git-solar-system.md · Used by: 30-linux-client-and-packaging.md, 34-testing-strategy.md, 40-core-feature-modules-audit.md
 
 ## 1. Purpose
 
-Bazaar's clients have to be fully customizable per Bazaar company: theme, layout, which panes sit where, what the start screen shows, which commands the palette offers, and per-company configuration. The owner asked three things: how the GUI works, how it stays customizable without losing safety or performance, and whether a DSL is warranted. This doc answers those in one place, using the existing design set rather than a new stack.
+Bazaar's clients have to be fully customizable per Bazaar company: theme, layout, which panes sit where, what the start screen shows, which commands the palette offers, and per-company configuration. The owner asked three things: how the GUI works, how it stays customizable without losing safety or performance, and whether a DSL is warranted.
 
 The short answer:
 
-- **Customization is data, not code.** A small set of versioned, schema-checked JSON documents (theme, layout, start screen, command bindings, settings) describes the GUI. No document can carry code, markup, URLs or scripts.
-- **No DSL in v1.** A custom language adds a parser, a second place where behaviour lives, a security surface and a support burden, and it buys nothing the typed documents do not already give. One narrow expression sub-language for visibility and predicates is allowed later, if a real need shows up (section 4, option D).
-- **Panes stay compiled-in first-party code** in v1, each one an `IPaneModule` in its `Bazaar.Client.<F>` module. Layout documents place panes; they never define them.
+- **Modularity is total.** The base GUI and every pane are modules on `Bazaar.Core`, at the same level as third-party modules. There is no privileged first-party path. One module contract serves all of them (owner correction, 2026-11-12).
+- **Customization is data, not code.** Versioned, schema-checked JSON documents (theme, layout, start screen, command bindings, settings) describe the GUI. No document can carry code, markup, URLs or scripts.
+- **No DSL in v1.** A custom language adds a parser, a second place where behaviour lives, a security surface and a support burden, and the typed documents already cover the stated need. A narrow expression sub-language for visibility rules stays possible later (section 4.1, option D).
+- **Trust comes from the contract, not from the author.** A module declares what it needs (capabilities), and the host enforces that declaration the same way for every module.
 - **Config lives on the server**, revisioned, scoped (install, company, person, device), and synced through `ui.get` and `ui.changed`. Agents cannot edit it.
 
 ## 2. Decided inputs (not re-opened here)
@@ -22,14 +23,14 @@ The short answer:
 - Theme: one file drives Avalonia and Monaco; validation rejects URLs, scripts and remote fonts (27, `src/Bazaar.Client.Core/Theme/`).
 - Panes register through `IPaneModule` and are composed by `PaneRegistry.Compose` (`src/Bazaar.Client.Core/Panes/`). Unknown kinds render a placeholder and are reported once.
 - Keyboard: mnemonics only, no Ctrl chords for app commands, nothing focused by default (27, Windows doc 28 §4).
-- Configurability rule: a value left open becomes an operator setting with a safe default, audited on change. Floors and security invariants are not settings and settings may only tighten them (DECISIONS-LOG round 13).
-- Third-party module loading is deferred; v1 modules are first-party and compiled in (MODULARITY-AUDIT §5, doc 40).
-- Constellation's renderer is kept generic behind a boundary, with a Bazaar adapter, so it can be extracted later (owner, 2026-11-12). Layout documents refer to the Constellation pane by kind only, never to renderer internals.
+- Configurability rule: a value left open becomes an operator setting with a safe default, audited on change. Floors and security invariants are not settings, and settings may only tighten them (DECISIONS-LOG round 13).
+- Modularity is total (owner, 2026-11-12). The base GUI and every pane are modules on `Bazaar.Core`, the same level as third-party modules. Clients keep no privileged built-in path.
+- Constellation's renderer stays generic behind a boundary, with a Bazaar adapter, so it can be extracted later (owner, 2026-11-12). Layout documents refer to the Constellation pane by kind only, never to renderer internals.
 - Client builds target .NET 11, use JSON through `IWireCodec` with source-generated `System.Text.Json`, and follow the forward-facing rule (CLAUDE.md, DECISIONS-LOG).
 
 ## 3. What "customizable" covers
 
-| Surface | Example | Document | Default owner |
+| Surface | Example | Document | Who may override |
 |---|---|---|---|
 | Theme tokens | colours, fonts, spacing, radii, role and presence colours, reduced-motion flag | `theme` (exists in code: `ThemeModel`, `ThemeValidator`) | company, person may override |
 | Layout | split, stack, tabs and dock containers with pane leaves, per posture | `layout` | company default, person may override |
@@ -38,32 +39,41 @@ The short answer:
 | Pane configuration | filters, sort order, page size for a pane instance | `pane` options inside the layout leaf | person |
 | Preferences | hints delay, group window, clipboard rule | settings registry (27 table) | per the registry's "who may change" column |
 
-The pane set itself is **not** customizable at runtime. A company can hide, place or configure a pane; it cannot add a pane kind that the head does not ship.
+The set of pane kinds is **not** customizable at runtime. A company can hide, place or configure a pane. It cannot add a pane kind that no composed module provides.
 
-## 4. Options and recommendation
+## 4. Options and recommendations
 
 ### 4.1 Customization model
 
 | Option | What it is | Pros | Cons |
 |---|---|---|---|
-| **A. Typed JSON documents with schema versions** (recommended) | Each surface above is a JSON document, validated against a published JSON Schema 2020-12 and a C# model with source-generated `System.Text.Json`. | Same codec as the wire (`IWireCodec`). Validation, diff, export and import are plain. Trivially testable with golden files. No new language to learn or secure. | Users cannot write logic. Anything beyond the schema needs a new schema version. |
-| B. A custom DSL (new grammar, parser, interpreter) | A purpose-built language for layouts and rules. | Compact for humans who want to script their UI. | Parser and interpreter to maintain in every head, a second source of truth, error messages to design, and an attack surface. No need is shown in the design set. |
-| C. Embedded general-purpose scripting (Lua, JavaScript, C# scripting) | Run user scripts inside the client. | Maximum flexibility. | Sandboxing is hard; scripts can call the wire. Conflicts with the no-code-in-config rule, with trimming and ReadyToRun on clients, and with Android. Rejected. |
-| D. Constrained expression sub-language for predicates only (later, optional) | A CEL-style, non-Turing-complete expression for visibility ("show when unread > 0"), evaluated over a fixed set of variables. | Covers the one place typed data gets awkward. Easy to bound: no loops, no I/O, cost limit. | Needs a library choice (not made here). Not needed for v1. |
+| **A. Typed JSON documents with schema versions** (recommended) | Each surface in section 3 is a JSON document, validated against a published JSON Schema 2020-12 and a C# model with source-generated `System.Text.Json`. | Same codec as the wire (`IWireCodec`). Validation, diff, export and import are plain. Testable with golden files. No new language to learn or secure. | Users cannot write logic. Anything beyond the schema needs a new schema version. |
+| B. A custom DSL (new grammar, parser, interpreter) | A purpose-built language for layouts and rules. | Compact for people who want to script their UI. | Parser and interpreter in every head, a second source of truth, error messages to design, and an attack surface. The design set shows no need. |
+| C. Embedded general-purpose scripting (Lua, JavaScript, C# scripting) | Run user scripts inside the client. | Maximum flexibility. | Sandboxing is hard, and scripts could call the wire. Conflicts with the no-code-in-config rule, with trimming and ReadyToRun, and with Android. Rejected. |
+| D. Constrained expression sub-language for predicates only (later, optional) | A CEL-style, non-Turing-complete expression for visibility ("show when unread > 0"), evaluated over a fixed set of variables. | Covers the one place typed data is awkward. Easy to bound: no loops, no I/O, cost limit. | Needs a library choice (not made here). Not needed for v1. |
 
-**Recommendation:** A now. Keep D as a reserved schema field (`visibleWhen`, unused in v1). Reject B and C. Revisit D only when a second real use case appears in the design set.
+**Recommendation:** A now. Keep D as a reserved schema field (`visibleWhen`, unused in v1). Reject B and C. Revisit D only when a second real use case appears.
 
-**Answer to "is a DSL warranted":** no, not for v1. The customization the owner described (theme, per-company layout, panes, per-company config) is fully expressed by typed documents. A DSL would be justified only by user scripting of logic, which is a product decision, not a UI one.
+**Answer to "is a DSL warranted":** not for v1. The customization the owner described (theme, per-company layout, panes, per-company config) is fully expressed by typed documents. A DSL would be justified only by user scripting of logic, which is a product decision for the owner (section 10, question 1).
 
-### 4.2 Plugin-contributed panes
+### 4.2 Module contract and trust
 
-| Option | Meaning | Status |
+Every module, first-party or not, implements the same contract (section 8, `IClientModule` and `ModuleManifest`). The manifest declares the module's pane kinds, commands, settings keys, layout fragments and **capabilities**, meaning what it may call or read: wire requests by name, local storage, device services and notifications. The host enforces the manifest the same way for every module. Trust is a property of the manifest and of how the host runs the module, not of who wrote it.
+
+| Option | Meaning | Trade-off |
 |---|---|---|
-| P1. First-party compiled panes only (recommended for v1) | Each `Bazaar.Client.<F>` ships its pane kinds. Heads compose the list. | Default in 27 Q3 and MODULARITY-AUDIT. |
-| P2. In-process pane plugins via `AssemblyLoadContext` | Third-party DLLs loaded at runtime. | Rejected for v1: conflicts with trimming and ReadyToRun goals, adds signing and isolation work, and no v1 feature needs it (27 conflict 3). |
-| P3. Out-of-process engine panes described by `PaneDescriptor` | Engines (Godot, Roblox) send a namespaced descriptor and snapshots; the client renders them with a generic tree, log, form or table view. | Already in 20. Compatible with this design: the layout references the kind, and the view is generic. |
+| **M1. One contract, trust from the manifest** (recommended) | The base GUI, GC, Constellation, RyuseiFuda and any third-party module are all modules with the same manifest and the same host checks. | Consistent with the owner's modularity rule. Needs a capability model built once, for everyone. |
+| M2. Privileged first-party modules | Built-in modules skip some checks. | Simpler start. Contradicts the owner's rule and creates a second path to keep safe. Not recommended. |
 
-**Recommendation:** P1 for v1, P3 for engines (already designed). Third-party UI code is out of scope until doc 40's extension contract exists.
+**Loading mode** (how a module that is not compiled into the shipped build runs). This is the open choice, and the owner decides it:
+
+| Option | Meaning | Trade-off |
+|---|---|---|
+| L1. Compiled in only | Every module ships in the head build. No runtime loading. | Simplest and trim-friendly. No third-party modules without a rebuild. |
+| L2. In-process assemblies via `AssemblyLoadContext` | Modules loaded at runtime, inside the client process. | Full speed and rich UI. Conflicts with trimming and ReadyToRun. Isolation rests on the manifest, not on a process boundary, so a bad module can crash the client. |
+| L3. Out-of-process modules over a protocol (recommended for non-shipped modules) | A module runs in its own process and talks to the client through a versioned contract, the way engine adapters do in 20. Its UI is a descriptor (a layout kind with a model), rendered by generic views, or by a native view the head supplies for a whitelisted kind. | Isolation by process and by manifest. Keeps the shipped set trim- and R2R-friendly. More work per module, and a richer custom view needs more design. |
+
+**Recommendation:** M1, with L1 for the shipped set and L3 for modules that are not shipped with the build. L2 stays out until a real need and the trimming question are settled. Engines already follow L3 through `PaneDescriptor` (20).
 
 ### 4.3 Where configuration lives
 
@@ -75,13 +85,13 @@ The pane set itself is **not** customizable at runtime. A company can hide, plac
 
 ### 4.4 Scopes and who can edit
 
-Resolution order, later wins: **install defaults (shipped) → company → person → device**. Device scope holds only window geometry and cache. Each layer can only override what the layer above allows.
+Resolution order, later wins: **install defaults (shipped) → company → person → device**. Device scope holds only window geometry and cache. Each layer may override only what the layer above allows.
 
 | Scope | Who may change | Approval | Notes |
 |---|---|---|---|
 | Install (shipped defaults) | Build only | none | Read-only at runtime. |
-| Company | The owner, and operators with the owner's role | Tier 1 (applied at once, audited) | The "company" is one per install in v1 (the single-company model in doc 19). Keyed so multi-company is a later key, not a rewrite. |
-| Person | That person | none | Can override presentation and command bindings. Cannot override company rules that are marked locked (for example, a company's approval banner). |
+| Company | The owner, and operators with the owner's role | Tier 1 (applied at once, audited) | One company per install in v1 (doc 19). Keyed so multi-company is a later key, not a rewrite. Model is for the owner to confirm (section 10). |
+| Person | That person | none | Can override presentation and command bindings. Cannot override company rules marked locked. |
 | Device | That device | none | Local only. |
 | Agents | Nobody | n/a | No tool, endpoint or ability to change any GUI document. A suggested change arrives as a decision card for a human. |
 | Imported file | The owner | Tier 2 (held until approved) | An import is untrusted input (section 6). |
@@ -99,63 +109,70 @@ Resolution order, later wins: **install defaults (shipped) → company → perso
 | Concern | Windows | Linux | Android |
 |---|---|---|---|
 | Theme switch | Swap an Avalonia `ResourceDictionary` at runtime; no restart. Monaco theme regenerated from the same tokens (gated by S12). | Same as Windows. | Same as Windows. No Monaco. |
-| Layout build | Build the control tree in code from the layout document through the pane registry. Do not build XAML from user data at runtime. | Same. | Same. Posture variant chosen locally from fold state (29). |
+| Layout build | Build the control tree in code from the layout document through the module registry. Do not build XAML from user data at runtime. | Same. | Same. Posture variant chosen locally from fold state (29). |
 | Trimming and ReadyToRun | Registry and generators are plain code, so they are trim- and R2R-friendly. Avoid reflection-based XAML loading on paths the preloader uses (doc 40). | Same. | Verify on device before claiming trim safety (27 conflict 3, unverified). |
 | Fonts | Font families are names only. No remote font fetch. Fonts ship with the head or come from the OS. | Same. | Same. |
 | Accessibility | Theme contrast validation is mandatory (4.5:1 on text pairs, as 27). | Same. | Same. TalkBack unverified. |
 
 ### 4.7 Performance
 
-- Documents are small (target under 64 KB per document, under 256 KB per profile, both as operator-settable limits with those defaults). Validation runs once on load and on change, not per frame.
-- A layout change rebuilds one subtree, not the window. Pane view models survive a layout move, so a GC view keeps its scroll position.
+- Documents are small. Targets: under 64 KB per document and under 256 KB per profile. Both are operator-settable limits with those defaults. Validation runs once on load and on change, not per frame.
+- A layout change rebuilds one subtree, not the window. Module view models survive a layout move, so a GC view keeps its scroll position.
 - Theme changes update resources, so bound controls update without rebuilding the tree.
 - Target: the cached shell with layout and theme paints inside the 1 s budget already in 27. This is a target to measure, not a claim.
 
 ## 5. Modules and existing panes
 
-Each feature becomes a client module that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for customization.
+The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
 
 A client module, `Bazaar.Client.<F>`, exposes one registration call that gives:
 
-1. its pane kinds (`IPaneModule` with its view factory),
+1. its pane kinds (view factory per kind),
 2. its command contributions (id, title, mnemonic, keywords),
 3. its settings keys (typed, with defaults, through the registry),
-4. its default layout fragment (optional).
+4. its default layout fragment (optional),
+5. its manifest of capabilities (section 8).
 
-It references `Bazaar.Client.Core` only, never a head and never another feature's internals. Heads compose the list. A layout can place only kinds that the composed list provides; anything else renders the placeholder card.
+A module references `Bazaar.Client.Core` only, never a head and never another module's internals. Heads compose the list. A layout can place only kinds that the composed list provides; anything else renders the placeholder card.
 
-| Existing pane | Module | Current state | Notes |
+The base GUI (the shell, palette, theme, layout renderer and start screen) is also a module on `Bazaar.Core`, registered like the others. No pane or shell piece is wired into Core by name.
+
+| Module | Project (planned) | Current code | Notes |
 |---|---|---|---|
+| Base shell (layout renderer, palette, theme, settings UI) | `Bazaar.Client.Core` as the base module (planned split) | Core today | Same contract as every other module. |
 | GC | `Bazaar.Client.Gc` (planned) | `GcPaneModule` in Core | Core is the shared GC view today (doc 27 pipeline). |
 | Constellation | `Bazaar.Client.Constellation` (planned) | `ConstellationPaneModule` | Renderer behind `IConstellationRenderer`; layout refers to the kind only. |
 | RyuseiFuda (Workday, Orrery, Roadmap) | `Bazaar.Client.RyuseiFuda` (planned) | `WorkdayPaneModule`, `RyuseiSchedulePaneModule`, `RoadmapPaneModule` | Doc 38 names: Workday, Orrery, Roadmap. Workday board reads are owner-only (doc 12). |
 | Start dashboard | `Bazaar.Client.Dashboard` (planned) | `DashboardPaneModule` | Widgets come from the `client.dashboard.order` setting. |
 | Vault search, Soul profile | Their own modules (planned) | `VaultSearchPaneModule` and `SoulProfileView` | Soul profile is read-only in the client. |
-| Engine panes | Generic (doc 20) | `EnginePaneView` | Kinds are namespaced by the engine, e.g. `godot.scene-tree`. |
-| Terminal | Head-owned | Windows head | Local terminal only (C17 exception). |
+| Engine panes | Out-of-process modules (L3, doc 20) | `EnginePaneView` | Kinds are namespaced by the engine, e.g. `godot.scene-tree`. |
+| Terminal | Head-owned | Windows head | Local terminal only (C17 exception). Hosted by the head, so it is not a module in the sense of this doc. |
 
-Names for new module projects are the owner's call. The planned names above follow the owner's naming rule (`Bazaar.Client.<F>`, MODULARITY-AUDIT). No new name is decided here.
+Names for new module projects are the owner's call (section 10). The planned names follow the `Bazaar.Client.<F>` pattern from MODULARITY-AUDIT. None is decided here.
 
 ## 6. Security and sandboxing of custom UI
 
-Customization must not become a way to run code, leak data or escalate permissions.
+Customization must not become a way to run code, leak data or escalate permissions. These rules apply to every module and every document, whoever wrote them.
 
 1. **Data only.** Every document is JSON checked against its schema. Unknown top-level fields are rejected in an import and preserved (and ignored) when the document came from a newer server.
-2. **No markup or code.** No HTML, XAML, scripts, expressions (v1), templates or URLs. The validator extends the existing theme rule (`ThemeValidator`: no URL, markup, script or remote font in any string, including keys) to every document.
-3. **No new permissions.** A layout cannot grant access. A pane shows what its module's wire calls return, and those calls are already authorized server-side. A command bound in a document runs through the same approval tiers (doc 15) as the button it mirrors.
-4. **Taint.** An imported or shared document is external input. It is parsed as untrusted and cannot change permissions, can't be applied until the owner approves it (Tier 2), and its import is audited.
-5. **Limits.** Maximum document size, pane count per layout, nesting depth (default 16) and command count. Operators can tighten these, not loosen them below the shipped floor.
-6. **Failure mode.** A bad document is rejected with a path and code. The client keeps the last good profile and shows a notice. It never crashes on bad input.
-7. **No agent writes.** Agents hold no tool that changes these documents.
+2. **No markup or code in documents.** No HTML, XAML, scripts, expressions (v1), templates or URLs. The validator extends the theme rule (`ThemeValidator`: no URL, markup, script or remote font in any string, including keys) to every document.
+3. **Capabilities from the manifest.** A module can call, read or write only what its manifest declares. The host checks each call. Wire calls are still authorized server-side. A command bound in a document runs through the same approval tiers (doc 15) as the button it mirrors.
+4. **No layout grants access.** A layout places panes. It cannot add a capability to a module.
+5. **Taint.** An imported or shared document is external input. It is parsed as untrusted, cannot change permissions, and cannot be applied until the owner approves it (Tier 2). Its import is audited.
+6. **Limits.** Maximum document size, pane count per layout, nesting depth (default 16) and command count. Operators can tighten these, not loosen them below the shipped floor.
+7. **Failure mode.** A bad document is rejected with a path and code. The client keeps the last good profile and shows a notice. It never crashes on bad input. A failing module is isolated to its pane, which renders a failure card.
+8. **No agent writes.** Agents hold no tool that changes these documents.
+9. **Loading mode sets the isolation strength.** Under L1 the shipped set is trusted code and the manifest is checked in tests. Under L3 the process boundary adds isolation. Under L2 isolation is weakest, which is one reason it is not recommended.
 
 ## 7. Versioning and forward compatibility
 
 - Each document has `schemaVersion` (integer, starting at 1). Within a version, changes are additive only: new optional fields, new kinds, new containers.
-- Breaking changes bump the version. The server keeps a migration function per version step, tested with golden files in both directions where possible.
-- The client declares the highest version it understands in `hello`. The server returns documents in the highest version both sides know, and migrates down for old clients only when the migration is lossless. Otherwise the client gets a "client update required" notice, the same as the 4426 close rule in 27.
+- The module manifest has its own `contractVersion`. Modules built against an older contract keep working when the change is additive. Breaking changes bump the version, and the host keeps a shim for the previous version for one release.
+- Breaking changes to documents bump `schemaVersion`. The server keeps a migration function per step, tested with golden files in both directions where possible.
+- The client declares the highest versions it understands in `hello`. The server returns documents in the highest version both sides know, and migrates down for old clients only when the migration is lossless. Otherwise the client gets a "client update required" notice, the same as the 4426 close rule in 27.
 - Unknown containers stack their children vertically. Unknown pane kinds render the placeholder card. Unknown command keys are kept and ignored.
 - Published JSON Schema files are versioned in the repo and drive the golden tests. The C# models are the source of truth for the codec, and CI fails if they drift from the published schemas.
-- Forward-facing: use source-generated `System.Text.Json` only, no reflection-based serializers, and no deprecated APIs.
+- Forward-facing: source-generated `System.Text.Json` only, no reflection-based serializers, no deprecated APIs.
 
 ## 8. Data and interfaces
 
@@ -167,10 +184,18 @@ public sealed record UiDocument<T>(string Kind, int SchemaVersion, long Revision
 public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Children, string? PaneKind,
     string? PaneId, JsonElement? PaneConfig, string? VisibleWhen /* reserved, unused in v1 */);
 
+// Manifest every client module declares. The host enforces it identically for every module.
+public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
+    IReadOnlyList<string> PaneKinds, IReadOnlyList<string> Commands, IReadOnlyList<string> SettingKeys,
+    IReadOnlyList<string> Capabilities /* e.g. wire:gc.history, storage:local, device:notify */,
+    ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */);
+
+public enum ModuleIsolation { InProcessCompiled, OutOfProcess }   // names PROPOSED; open question 2
+
 // Module contract for Bazaar.Client.<F>. Heads call Register once with the context they supply.
 public interface IClientModule
 {
-    string Id { get; }
+    ModuleManifest Manifest { get; }
     void Register(ClientModuleBuilder builder);
 }
 
@@ -194,52 +219,75 @@ Table (planned, migration owned by doc 04): `ui_document (kind, scope_key, revis
 - A revision mismatch on save returns the current document. The client shows the difference and does not overwrite.
 - A document from a newer server with unknown fields is kept as-is in the cache and round-trips without loss.
 - Two clients editing the same person's layout: the second save gets a revision conflict, as above.
-- A pane that is in a layout but disabled by its module's setting renders a "not available" card, with the layout left unchanged so re-enabling restores it.
+- A pane whose module is disabled by its setting renders a "not available" card, with the layout unchanged so re-enabling restores it.
 - A command mnemonic clash inside one scope fails validation at save. Across scopes, the more specific scope wins and a notice is logged once.
+- A module that violates its manifest is stopped and its panes show a failure card. Other modules keep running.
 - Keyboard: a layout change never moves focus. Focus stays where it was or falls to the nearest pane.
 - Offline: the last cached profile renders. Edits made offline are not queued in v1. The client shows them as read-only until it reconnects.
 
-## 10. Open questions for the owner
+## 10. Decisions for the owner
 
-Each has a default that the build will use now. The owner does not need to answer for work to start.
+These are real design decisions. The owner asked to be asked, so none is settled by default here. Each has a recommendation. Work that depends on an open answer waits; the rest proceeds (section 12).
 
-1. **DSL in v1?** Default no. Option A (typed JSON). Revisit only if a use case needs user logic. [Decision needed only if the owner wants scripting.]
-2. **Expression sub-language later (option D)?** Default reserved field, unused. Library choice is open.
-3. **Pane plugins from third parties?** Default first-party only in v1 (P1), engines via descriptors (P3). Matches 27 Q3 and 20 Q7.
-4. **Company scope model.** Default one company per install, keyed for later multi-company. Naming of "company" in config UI is open.
-5. **Who may override company locks?** Default owner only. Person overrides cannot lift a locked company rule.
-6. **Import of layouts and themes from files.** Default allowed with Tier 2 approval and validation. Sharing across installs is out of scope.
-7. **Limits.** Defaults in section 4.7 and 6.5 are operator settings with floors. Owner may set the floors.
-8. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern and any product-facing term for a "layout" are the owner's call. Options for the layout term: "Layout", "Workspace", "Arrangement". Options for the module term: "Client module" (default), "Pane module". Recommendation: keep "Layout" and "Client module" unless the owner chooses otherwise.
+1. **Module model.** Do all modules, including the base GUI, GC and RyuseiFuda, use one contract with trust from the manifest?
+   - Option 1: one contract, trust from the manifest (recommended). Consistent with total modularity.
+   - Option 2: first-party modules are privileged and skip some checks. Simpler start, but a second path to keep safe.
+2. **Loading mode for modules not shipped with the build.**
+   - Option 1: compiled in only (L1). Simplest and trim-friendly, but no third-party modules without a rebuild.
+   - Option 2: out-of-process over a protocol (L3, recommended). Isolation by process and manifest; keeps the shipped set trim-friendly.
+   - Option 3: in-process runtime loading (L2). Richest, but conflicts with trimming and ReadyToRun, and a bad module can crash the client.
+3. **Customization model.** Typed, versioned JSON documents (recommended), a custom DSL, or embedded scripting?
+   - Option 1: typed JSON (recommended). Covers theme, layout, commands and start screen with no new language.
+   - Option 2: a custom DSL. Only if you want users to script logic.
+   - Option 3: embedded scripting. Not recommended: sandboxing is hard and it conflicts with trimming and Android.
+4. **DSL scope.** Is any expression language wanted, and if so, how far?
+   - Option 1: none in v1 (recommended). Reserve a `visibleWhen` field.
+   - Option 2: predicates only, a CEL-style subset for visibility rules, later.
+   - Option 3: a full DSL. Not recommended.
+5. **Company scope model.** One company per install, keyed for later multi-company (recommended), or multi-company now?
+   - Option 1: one company per install, keyed (recommended).
+   - Option 2: multi-company now, with its own tenancy and settings model. Larger scope.
+6. **Who may override company locks?**
+   - Option 1: the owner only (recommended).
+   - Option 2: any operator with the owner's role.
+7. **Importing layouts and themes from files.**
+   - Option 1: allowed, with Tier 2 approval and validation (recommended).
+   - Option 2: not allowed in v1. Settings only, created in the app.
+8. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
+   - Layout term: "Layout" (recommended), "Workspace" or "Arrangement".
+   - Module term: "Client module" (recommended) or "Pane module".
+   - Namespace: `Bazaar.Client.<F>` for every module, base shell included, as MODULARITY-AUDIT planned. Confirm or name the base shell differently.
 
 ## 11. Testing
 
-- **Pure tests (no Avalonia):** schema validation, golden files for each document kind and version, migration round trips, revision conflicts, layout tree parsing with unknown kinds and containers, command mnemonic clash detection, limit enforcement, reject markup and URL in every string position (including keys).
+- **Pure tests (no Avalonia):** schema validation, golden files for each document kind and version, migration round trips, revision conflicts, layout tree parsing with unknown kinds and containers, command mnemonic clash detection, limit enforcement, rejection of markup and URLs in every string position (including keys), manifest checks (a call outside the declared capabilities is refused).
 - **Server tests:** `IUiDocumentStore` against Postgres (Testcontainers): put, get, revision mismatch, audit row written, scope resolution order.
-- **Headless (Avalonia.Headless, `[AvaloniaFact]`):** a layout tree builds the expected control tree; a pane that is missing renders the placeholder; theme switch updates bound controls without rebuild; a moved pane keeps its view model; posture variant selected locally with no socket.
+- **Headless (Avalonia.Headless, `[AvaloniaFact]`):** a layout tree builds the expected control tree; a missing pane renders the placeholder; a failing module shows a failure card while others keep working; theme switch updates bound controls without rebuild; a moved pane keeps its view model; posture variant selected locally with no socket.
 - **Compatibility:** a newer document with unknown fields round-trips; an old client receives a lossless downgrade or the update notice.
 - **Device checklist (doc 34):** trimming and ReadyToRun on Android, theme switch on phone, TalkBack.
 
 ## 12. Work packages
 
-Each package needs its own tests (CLAUDE.md). Haiku sub-agents take the independent ones in parallel, one worktree each.
+Each package needs its own tests (CLAUDE.md). Haiku sub-agents take the independent ones in parallel, one worktree each. "Waits" means blocked on an answer in section 10.
 
-1. Document models and JSON Schemas for `theme`, `layout`, `commands`, `start`, with `schemaVersion` 1. Pure. No dependencies.
-2. `IUiDocumentValidator` covering all rules in section 6. Depends on 1.
-3. Theme pipeline: move the existing `ThemeModel` and validator behind the document model. Depends on 1.
-4. Layout tree builder through `PaneRegistry`, with placeholder fallback and posture selection. Depends on 1 and the pane registry (already merged).
-5. `IClientModule` and `ClientModuleBuilder`; migrate GC, Dashboard, Vault and RyuseiFuda panes to modules one at a time. Depends on 4. This is MODULARITY-AUDIT step 7.
-6. Server store `ui_document` with migration, revision checks, audit. Depends on doc 04 migration runner and doc 03 settings registry.
-7. `ui.get` and `ui.changed` for documents, with posture variants. Depends on 6 and doc 02 WP.
-8. Client cache for documents and counters. Depends on 7.
-9. Import and export with Tier 2 approval. Depends on 6 and doc 15.
-10. Headless tests and golden files for all of the above. Depends on 4 and 5.
+1. Document models and JSON Schemas for `theme`, `layout`, `commands`, `start`, with `schemaVersion` 1. Pure. Not blocked.
+2. `IUiDocumentValidator` covering the rules in section 6, excluding the module manifest rules. Depends on 1. Not blocked.
+3. Theme pipeline: move the existing `ThemeModel` and validator behind the document model. Depends on 1. Not blocked.
+4. Layout tree builder through the module registry (extends `PaneRegistry`), with placeholder fallback and posture selection. Depends on 1. Not blocked.
+5. `ModuleManifest`, `IClientModule` and `ClientModuleBuilder`. Waits on section 10 questions 1 and 2.
+6. Migrate GC, Dashboard, Vault and RyuseiFuda panes to modules one at a time, starting after 5. This is MODULARITY-AUDIT step 7. Waits on 5.
+7. Server store `ui_document` with migration, revision checks, audit. Depends on doc 04 migration runner and doc 03 settings registry. Waits on section 10 question 5 for scope keys only.
+8. `ui.get` and `ui.changed` for documents, with posture variants. Depends on 7 and doc 02 WP.
+9. Client cache for documents and counters. Depends on 8.
+10. Import and export with Tier 2 approval. Depends on 7, doc 15, and section 10 question 7.
+11. Headless and golden tests for all of the above. Depends on 4 and, for module tests, 5.
 
 Constellation and Workday renderer work is out of scope here, except that the Constellation module must reference the renderer through its abstraction only.
 
 ## 13. Conflicts
 
-1. **Config in the Vault would be the natural place for "editable" files, but agents can read and write the Vault.** Resolved here: config lives in Postgres (section 4.3). The Vault can hold an exported copy only if it is read-only to agents.
-2. **Pane plugins (doc 20, `AssemblyLoadContext`) vs the trim and ReadyToRun direction (owner, 2026-11-11).** Resolved for v1 by P1. The runtime loader stays out until doc 40 defines a contract.
+1. **Config in the Vault would be the natural place for "editable" files, but agents can read and write the Vault.** Resolved here: config lives in Postgres (section 4.3). The Vault can hold an exported copy only if agents cannot write to it.
+2. **Runtime module loading (doc 20, `AssemblyLoadContext`) vs the trim and ReadyToRun direction (owner, 2026-11-11).** Open. Section 10 question 2 decides it. Until then the shipped set is compiled in and non-shipped modules are not loaded.
 3. **Layout computed on the server (C17) vs client-side variant selection (C27).** Both hold: the server sends variants for every posture, and the client selects one locally with no round trip.
 4. **Per-person layouts vs single company layout.** Both exist as scopes. The company layout is the default. A person can override only what the company allows.
+5. **"First-party" wording in older docs (27 Q3, 20 Q7, MODULARITY-AUDIT §5).** Superseded by the owner's modularity rule (2026-11-12): there is no privileged first-party path. Those docs should be updated when section 10 question 1 is answered.
