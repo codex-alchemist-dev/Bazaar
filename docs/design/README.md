@@ -70,6 +70,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 29 | [29-android-client.md](29-android-client.md) | Development Console: fold layouts, radial menu, dictation, approvals, push | 13 | 27, 02, 15, 31, 32 |
 | 30 | [30-linux-client-and-packaging.md](30-linux-client-and-packaging.md) | Linux client, packaging, versioning, server upgrade and rollback, signing, release pipeline | 14 | 27, 28, 29, 02, 03, 04, 33 |
 | 31 | [31-local-coworker-npu.md](31-local-coworker-npu.md) | On-device inference: Intel and Qualcomm NPU paths, chips, voice cleanup, guards | 13 | 02, 05, 15, 34 |
+| 41 | [41-client-gui-customization-and-dsl.md](41-client-gui-customization-and-dsl.md) | Client GUI customization: typed, versioned JSON documents (theme, layout, commands, start) with scopes and sync; DSL question (not warranted in v1); client modules and plugin-pane options | 8 | 27, 02, 03, 15, 20, 38, 19 |
 
 ### Operations and quality
 

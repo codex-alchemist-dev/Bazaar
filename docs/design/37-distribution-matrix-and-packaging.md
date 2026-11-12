@@ -1,57 +1,83 @@
 # 37. Distribution matrix and packaging
 
-Status: PROPOSED. Scope: how every Bazaar component is packaged, installed, updated and published. Extends doc 30 (Linux client and packaging) and doc 28 (Windows client); where they disagree, this doc and `DECISIONS-LOG.md` win once the owner accepts it.
+Status: PROPOSED (rewritten 2026-11-12 for the owner's one-click company build). Scope: how every Bazaar component is packaged, installed, updated and produced. Extends doc 30 (Linux client and packaging) and doc 28 (Windows client); where they disagree, this doc and `DECISIONS-LOG.md` win once the owner accepts it.
 
 ## 1. Principles
 
 - **Packaging is a component.** Each package format is a Bazaar Component: its own project under `packaging/`, one `AddBazaarX()`-style registration where it runs in code, contract-only dependencies, and `TODO(component)` markers until the component model merges.
 - **One version, many artifacts.** Every artifact carries the same product version (`VersionPrefix` in `Directory.Build.props`, see `docs/VERSIONING.md`). The display form is plain SemVer with the commit appended (`0.MM.PP+commit`, owner, 2026-11-12), and the machine form is the same base version. `VERSIONING.md` section 1 is the source, so this doc follows it.
-- **Signing is parked, not skipped.** Every artifact is produced unsigned by default and signed when the owner supplies a certificate or signing account. Unsigned builds are labelled as such in release notes.
+- **The server is the build station (owner decision, 2026-11-12).** Each Bazaar company runs its own `Bazaar.Server`. The server installer builds that company's client installers in one click and leaves them in an output folder. No terminal, no scripts, no SDK setup, and no build steps happen outside the installer window. Section 4a defines this.
+- **This repo ships server builds only.** The shared source builds server packages and the build pipeline that a company server uses. Client packages are produced per company, never published as a single generic client.
+- **Signing is parked, not skipped.** Every artifact is produced unsigned by default and signed when the company supplies a certificate or signing account. Unsigned builds are labelled as such in the output folder.
 - **No silent defaults.** Registering a handler or a default app is declared in the package, then the user is sent to the OS settings page to make it the default. Never write UserChoice.
 - **Server and client are separate tracks.** A Windows service needs a machine-level installer. Velopack is for the per-user client only (doc 28, doc 30).
 
 ## 2. Distribution matrix
 
-| Platform | Artifact | Who it serves | Built on | Status |
+Who builds what: **company server** (on the operator's machine, via the server installer) or **repo CI** (server packages only).
+
+| Platform | Artifact | Who it serves | Produced by | Status |
 |---|---|---|---|---|
-| Windows client | MSIX (sideload first) | Modern Windows, clean uninstall | PC | Build now |
-| Windows client | winget manifest (points at the release installer URL and SHA-256) | `winget install` | PC (manifest generation) | Manifest now; submission parked |
-| Windows client | Velopack per-user installer, delta updates | Auto-update path | PC | Build now (doc 28) |
-| Windows client | Scoop manifest | Scoop users | PC | Build now |
-| Windows client | Chocolatey package (`.nuspec` and install script) | Chocolatey users | PC | Build now, push parked |
-| Windows client | Unpackaged zip (portable) | Anyone without an installer | PC | Build now |
-| Windows server | MSI (WiX v5), registers `Bazaar.Server` service, data under `%ProgramData%`, MajorUpgrade | Self-host (CKorvix_V1 target) | PC | Build now |
+| Windows server | MSI (WiX v5), registers `Bazaar.Server` service, data under `%ProgramData%`, MajorUpgrade | Self-host (operator's PC) | Repo CI | Build now |
 | Windows server | MSIX | Not for the service (doc 30 gap) | n/a | Out of v1 until spiked |
-| Linux client | Flatpak manifest (Flathub submission parked) | Desktop Linux | CI | Build now |
-| Linux client | AppImage | Portable Linux | CI | Build now |
-| Linux client | `.deb`, `.rpm` | Debian/Ubuntu, Fedora/RHEL | CI | Build now |
-| Linux client | Snap | Ubuntu Store users | CI | Manifest now; store push parked |
-| Linux server | systemd unit plus tarball, `.deb`, `.rpm` | Headless server | CI | Build now |
-| Server (any OS) | OCI image (Compose file, multi-arch) | Container hosts | CI | Build now |
-| macOS | `.pkg` and `.dmg`, Homebrew cask | macOS clients and server | CI (macOS runner) | Build when the docs allow; owner to confirm |
-| Android | APK (sideload) and AAB (Play) | Android client (doc 29) | CI | APK now; Play upload parked |
-| Package channels | Homebrew formula or cask, Scoop, Chocolatey, winget, Flathub, Snap | Discovery | Manifests in repo | Manifests now; submission parked |
+| Linux server | systemd unit plus tarball, `.deb`, `.rpm` | Headless server | Repo CI | Build now |
+| Server (any OS) | OCI image (Compose file, multi-arch) | Container hosts | Repo CI | Build now |
+| Windows client | MSIX (sideload first) | That company's Windows devices | Company server, one click | Build now (pipeline) |
+| Windows client | Velopack per-user installer, delta updates | Auto-update path | Company server, one click | Build now (doc 28) |
+| Windows client | Unpackaged zip (portable) | Anyone without an installer | Company server, one click | Build now |
+| Windows client | winget, Scoop, Chocolatey manifests for the company's own feed | Company devices | Company server, one click | Manifests now; publication parked |
+| Linux client | Flatpak bundle (local repo) | That company's Linux devices | Company server, one click | Build now |
+| Linux client | AppImage | Portable Linux | Company server, one click | Build now |
+| Linux client | `.deb`, `.rpm`, Snap manifest | Debian/Ubuntu, Fedora/RHEL, Snap | Company server, one click | Build now; store push parked |
+| Android | APK (sideload) and AAB (Play) | That company's Android devices | Company server, one click | APK now; Play upload parked |
+| macOS | `.pkg` and `.dmg`, Homebrew cask | macOS clients and server | Company server (macOS host) | Owner to confirm (section 6) |
 
 Parked items (need the owner's accounts or secrets) are listed in section 7.
+
+Each company build is a set built from the same source with that company's module list and baked layout and theme (doc 41 sections 4.1 and 4.13). Two companies never share a client binary.
 
 ## 3. Versions and channels
 
 - Tags: annotated, immutable, `v00.MM.PP` (`vX.Y.Z[-pre]` from v1.0.0). Tags map one-to-one to the machine version.
-- Channels follow `VERSIONING.md` section 3: LTSC, Stable, Beta, Alpha, Latest-Commit. Each channel is a separate feed: the GitHub Releases pre-release flag, the winget `Channel` field, the Flatpak branch and the Velopack channel name.
+- Channels follow `VERSIONING.md` section 3: LTSC, Stable, Beta, Alpha, Latest-Commit. The company server carries the channel it was installed on, and its client builds carry the same channel label.
 - Clients and the server read the channel from their own settings; the operator chooses it.
 - The installer refuses a downgrade and reads the installed schema version before replacing files (doc 30, section 5).
 
-## 4. Release pipeline
+## 4. Release pipeline (repo CI)
 
 1. A tag on `main` triggers `release.yml` (GitHub Actions).
-2. Build jobs run in parallel: Windows (PC or hosted Windows runner), Linux (CI), macOS (CI, when enabled), Android (CI).
-3. Each job builds its artifacts, runs its tests, and writes `SHA256SUMS`.
+2. Build jobs run in parallel: Windows (PC or hosted Windows runner), Linux (CI), macOS (CI, when enabled).
+3. Each job builds the server packages (section 2), runs its tests, and writes `SHA256SUMS`.
 4. Signing steps run only when the secrets exist. Without them, the artifact is published unsigned and the release notes say so.
-5. Manifest generation writes the winget, Scoop, Chocolatey, Homebrew, Flatpak and Snap files from the released URLs and hashes. A manifest is never generated before its artifact exists.
-6. The GitHub Release is created as a draft, then published after every required artifact is present.
-7. Submission jobs to external channels run only with their tokens (parked).
+5. The GitHub Release is created as a draft, then published after every required server artifact is present.
+6. The pipeline also publishes the company build pipeline itself (section 4a) as a server package, so every company server can build its own clients.
 
-No artifact is built on a developer machine and uploaded by hand.
+No artifact is built on a developer machine and uploaded by hand. No client binary is published from this repo.
+
+## 4a. Company build on the server (one click)
+
+Running the server installer produces the company's client installers in an output folder. The installer does all of the following, with no user action after the first click:
+
+- **Bundled toolchain.** The server installer carries (or fetches on first run, see the spikes) the build toolchain the clients need: the .NET SDK for the target, and the platform packaging tools. The user installs nothing separately.
+- **Platform packaging preparation.** The installer prepares what apt, flatpak and the other formats need (repository metadata, the local Flatpak repo, the `.desktop` and `xdg-mime` files) so the outputs are ready to install.
+- **Inputs.** The company's module list, the baked default layout and theme (doc 41), the channel, and the company's signing settings. The server writes these from its own company configuration; the user does not hand-edit build files.
+- **Outputs.** One output folder per build, for example `out/CDAX/` containing `CDAX.msix`, `CDAX.apk`, the Velopack feed, the Flatpak repo and a `SHA256SUMS` file. Unsigned outputs are labelled in a `README.txt` in the folder.
+- **Failure.** A failed platform build leaves the other outputs in place and writes a plain report in the output folder. The server never publishes partial builds as complete.
+- **Regenerate at will (owner, 2026-11-12).** The server is not limited to the installer step. Because the company's clients come from the same source, the server can rebuild `.msix`, `.exe`, `.apk` and the other outputs whenever a module, layout, theme or toolchain changes. The output folder is refreshed, and a build history is kept.
+- **In-place client updates (owner, 2026-11-12).** A client updates itself from its own company server, not from a public feed. The server publishes the new build and the client pulls it, verifies the hash and signature, and applies it through its platform's updater (Velopack on Windows, doc 28; the matching path on other heads). The client never fetches code from anywhere except its own server. Mechanism details are an open spike (S-B5).
+- **Trust at first run (owner decision, 2026-11-12).** A client built by its company's own server is trusted at first run, with no approval step. Other devices and accounts still go through the approval flow in doc 32.
+- **Discovery instead of manual pairing (owner, 2026-11-12).** Each company build carries that company's server identity (key pin and reachable address) baked in, so a freshly installed client finds its server without a pairing code. Connecting and pairing never need a LAN (owner, 2026-11-12). Doc 32's pairing flow is then only needed for other devices or accounts. The reachable path is an open spike (S-B6).
+- **No internet at install (owner, 2026-11-12). The installer never halts for lack of network. It finishes installing the server. The server then defers every download (SDKs, NuGet packages, Flatpak runtimes) until a connection is detected, and it builds the client installers once everything it needs is present and runnable. Until then the output folder shows the state (for example "waiting for network, 3 of 5 downloads done"). The server resumes on its own; the user does nothing.
+- **Scheduling.** A build runs on install, on an update of the server, or when the company changes its module list or baked layout. It is one job on the server, visible in the Observatory (doc 23), never a separate tool.
+
+Feasibility questions are spikes, not assumptions. Each must be answered before this section is built:
+
+- **S-B1 Android SDK bundling.** The Android SDK and the .NET Android workload are large. Measure the installer size if bundled, against the time to download on first run. Doc 29 keeps the Android head out of the default solution, so the company build must add it on demand.
+- **S-B2 Offline builds.** Whether a company server can build all clients with no network after install. The toolchain, NuGet packages and Android SDK must be cached in the installer.
+- **S-B3 Signing keys.** Where signing keys live. Keys held by the company server are convenient but put signing on the server. Keys held off-server need an extra step, which conflicts with "no user steps". See the open decision in doc 41.
+- **S-B5 In-place update.** Which updater each head uses, how the client verifies a server-issued build (hash plus signature), and whether a failed update rolls back.
+- **S-B6 Server discovery.** Decided 2026-11-12: a fresh client finds its company server through an address and key pin baked into the company build. No pairing code is needed. Owner rule (2026-11-12): connecting and pairing never need a LAN. The baked address must be reachable from any network. Reachability options, in order of preference: a tunnel such as Cloudflared (Conduit.Cloudflared) with a registered domain; Conduit relay options (doc 39, on PR #358); port forwarding last. Port forwarding is supported because the design is modular, but it is never assumed and never recommended unless the operator has proper networking and security in place. Open within the spike: how the address stays valid when it changes.
+- **S-B4 Linux packaging without a terminal.** Whether `.deb` and Flatpak outputs can be produced by a server running as a service, with no user shell.
 
 ## 5. Install, upgrade and rollback rules
 
@@ -59,13 +85,16 @@ No artifact is built on a developer machine and uploaded by hand.
 - A failed migration leaves the old binary in place (doc 30).
 - `CREATE INDEX CONCURRENTLY` runs as its own step.
 - Uninstall keeps data under `%ProgramData%` unless the user picks removal.
+- Client installation to a device (QR code or link from the company server) is not yet designed. Pairing (doc 32) covers the device credential only, not the app install.
 
 ## 6. Open questions
 
 1. Version form: `0.MM.PP` (VERSIONING.md) or the owner's "valid 0.0.N". Owner to choose.
-2. macOS: whether the docs allow it for v1 (owner).
+2. macOS: whether the docs allow it for v1, and whether a company server on macOS is a v1 target (owner).
 3. Velopack versus MSIX for the client (doc 28 decided Velopack; this doc keeps MSIX as an extra channel).
 4. Winget manifest publication rules are unverified (distribution research note).
+5. Signing key custody (S-B3): decided 2026-11-12, keys live on the company server, protected like other server secrets. Counsel still checks key custody (doc 28, round 4).
+6. Android SDK (S-B1): decided 2026-11-12, downloaded on first run, so the server installer stays small. The first Android build needs network. Spike S-B1 still measures download size and time. Offline first-run builds (S-B2) now depend on a later cache decision.
 
 ## 7. Parked: needs the owner's accounts or secrets
 

@@ -3,6 +3,8 @@
 Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 6
 Depends on: 02-wire-protocol-and-sync.md, 03-server-host-and-providers.md, 04-postgres-schema-and-migrations.md, 14-identity-service-and-passport.md, 21-github-integration.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md · Used by: 32-remote-access-auth-and-privacy.md, 33-backup-dr-and-export.md, 34-testing-strategy.md, 35-spikes-plan.md
 
+> **Owner decision (2026-11-12):** each company builds its own Linux client; the repo ships server builds only (doc 37).
+
 ## Purpose
 Defines the Linux desktop client (`Bazaar.Client.Linux`), built last on the shared Avalonia UI, and how every Bazaar component is packaged, versioned, updated and signed. Server installs (Windows Service and systemd) are included because they share the upgrade and rollback rules.
 
