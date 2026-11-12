@@ -260,6 +260,131 @@ public class SolarOrbitLayoutTests
         Assert.Throws<ArgumentOutOfRangeException>(() => SolarOrbitLayout.BodyOrbitRadius(options, 1, minAge: 5, maxAge: 2));
     }
 
+    [Fact]
+    public void Null_activity_ages_keep_the_legacy_ring_radii()
+    {
+        var graph = Graph(4, (0, 1), (1, 2), (2, 3));
+        var options = new LayoutOptions { OrbitSpacing = 5, OrbitRadiusMode = ConstellationOrbitRadius.Age };
+
+        var positions = SolarOrbitLayout.Layout(graph, 0, options, activityAges: null);
+
+        Assert.Equal(SolarOrbitLayout.Layout(graph, 0, options), positions);
+        Assert.InRange(Radius(positions, 1), 5 - _tolerance, 5 + _tolerance);
+        Assert.InRange(Radius(positions, 2), 10 - _tolerance, 10 + _tolerance);
+        Assert.InRange(Radius(positions, 3), 15 - _tolerance, 15 + _tolerance);
+    }
+
+    [Fact]
+    public void Age_mode_places_the_youngest_body_on_the_min_radius_and_the_oldest_on_the_max()
+    {
+        // Star: core 0 with three spokes. The core's age (999) is ignored.
+        var graph = Graph(4, (0, 1), (0, 2), (0, 3));
+        var ages = new double[] { 999, 0, 20, 40 };
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        var positions = SolarOrbitLayout.Layout(graph, 0, options, ages);
+
+        Assert.InRange(Radius(positions, 1), 10 - _tolerance, 10 + _tolerance);
+        Assert.InRange(Radius(positions, 2), 55 - _tolerance, 55 + _tolerance);
+        Assert.InRange(Radius(positions, 3), 100 - _tolerance, 100 + _tolerance);
+    }
+
+    [Fact]
+    public void Age_mode_keeps_each_node_on_its_ring_slot_angle()
+    {
+        // Same star. Only the radius should change; the angle comes from the ring slot as before.
+        var graph = Graph(4, (0, 1), (0, 2), (0, 3));
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Age, MinOrbitRadius = 10, MaxOrbitRadius = 100 };
+
+        var legacy = SolarOrbitLayout.Layout(graph, 0, options);
+        var aged = SolarOrbitLayout.Layout(graph, 0, options, new double[] { 0, 0, 20, 40 });
+
+        for (var i = 1; i < 4; i++)
+        {
+            Assert.InRange(Angle(aged, i) - Angle(legacy, i), -_tolerance, _tolerance);
+        }
+    }
+
+    [Fact]
+    public void Equal_mode_places_every_body_on_the_min_radius_whatever_its_age()
+    {
+        var graph = Graph(5, (0, 1), (0, 2), (1, 3), (2, 4));
+        var ages = new double[] { 0, 1, 50, 200, 9999 };
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Equal, MinOrbitRadius = 12, MaxOrbitRadius = 100 };
+
+        var positions = SolarOrbitLayout.Layout(graph, 0, options, ages);
+
+        for (var i = 1; i < 5; i++)
+        {
+            Assert.InRange(Radius(positions, i), 12 - _tolerance, 12 + _tolerance);
+        }
+    }
+
+    [Fact]
+    public void Equal_mode_with_min_radius_equal_to_spacing_matches_the_legacy_positions()
+    {
+        // With MinOrbitRadius equal to OrbitSpacing, depth-1 nodes land exactly where the legacy ring puts them.
+        var graph = Graph(5, (0, 1), (0, 2), (0, 3), (0, 4));
+        var options = new LayoutOptions { OrbitRadiusMode = ConstellationOrbitRadius.Equal, OrbitSpacing = 10, MinOrbitRadius = 10 };
+
+        var legacy = SolarOrbitLayout.Layout(graph, 0, options);
+        var equal = SolarOrbitLayout.Layout(graph, 0, options, new double[] { 0, 3, 7, 9, 100 });
+
+        for (var i = 0; i < legacy.Length; i++)
+        {
+            Assert.InRange(equal[i] - legacy[i], -_tolerance, _tolerance);
+        }
+    }
+
+    [Theory]
+    [InlineData(ConstellationOrbitRadius.Age)]
+    [InlineData(ConstellationOrbitRadius.Equal)]
+    public void Core_stays_at_the_origin_with_activity_ages(ConstellationOrbitRadius mode)
+    {
+        var graph = Graph(3, (0, 1), (1, 2));
+        var options = new LayoutOptions { OrbitRadiusMode = mode };
+
+        var positions = SolarOrbitLayout.Layout(graph, 1, options, new double[] { 5, 0, 30 });
+
+        Assert.Equal(0f, positions[2]);
+        Assert.Equal(0f, positions[3]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void Activity_ages_of_the_wrong_length_are_rejected(int length)
+    {
+        var graph = Graph(3, (0, 1), (1, 2));
+
+        var error = Assert.Throws<ArgumentException>(() => SolarOrbitLayout.Layout(graph, 0, null, new double[length]));
+
+        Assert.Equal("activityAges", error.ParamName);
+    }
+
+    [Fact]
+    public void Activity_ages_for_an_empty_graph_must_be_empty()
+    {
+        var graph = Graph(0);
+
+        Assert.Throws<ArgumentException>(() => SolarOrbitLayout.Layout(graph, 0, null, new double[] { 1 }));
+        Assert.Empty(SolarOrbitLayout.Layout(graph, 0, null, Array.Empty<double>()));
+    }
+
+    [Fact]
+    public void Non_finite_non_core_activity_age_is_rejected_in_age_mode()
+    {
+        var graph = Graph(3, (0, 1), (1, 2));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SolarOrbitLayout.Layout(graph, 0, new LayoutOptions(), new double[] { 0, double.NaN, 3 }));
+    }
+
+    private static double Angle(float[] positions, int node)
+    {
+        return Math.Atan2(positions[node * 2 + 1], positions[node * 2]);
+    }
+
     private static LayoutGraph Graph(int nodeCount, params (int From, int To)[] edges)
     {
         var ids = Enumerable.Range(0, nodeCount).Select(i => $"n{i}").ToArray();
