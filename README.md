@@ -374,29 +374,41 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The separator 
 
 ## Roadmap and status
 
-Beta runs in nine stages, then the v1.0.0 Zuhal readiness gate. Stages are labels, not version numbers. Ordering follows [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Bazaar stays in Beta (0.x) until the owner judges it truly ready for v1.0.0 "Zuhal". The roadmap is in two parts, and both are kept current from merged pull requests:
 
-<p align="center">
-  <img src="docs/assets/roadmap.svg" alt="Roadmap timeline: Beta stages 1 to 9, then v1.0.0 Zuhal, with each named feature marked shipped, in progress or planned" width="100%">
-</p>
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the Beta stages, what each one contains, and its exit check.
+- [`docs/ROADMAP-TECHNICAL.md`](docs/ROADMAP-TECHNICAL.md) lists the fourteen technical milestones the features rest on: the database, the wire, the modular core, performance, packaging, security, CI, clients, operations, environments and backup. Each row names its source.
+- [`docs/FEATURES.md`](docs/FEATURES.md) is the index of every named feature and its status.
 
-The same status in text:
+### The stages
 
-| Stage | Milestone | Named features and status |
-|---|---|---|
-| Stage 1 | Scaffold and design | Solution and CI (shipped); Design set (shipped); Versioning rules (shipped) |
-| Stage 2 | Spikes, gate 1 | Wire format (S6) (shipped); Git engine (S23) (in progress); Cache: Garnet (S2) (planned); VM sizing (S8) (planned) |
-| Stage 3 | Foundation | GC log and NOTIFY (shipped); Managed PostgreSQL (shipped); Migration runner (shipped); Wire transport (shipped); Model gateway (shipped); Bazaar.Server.Host * (shipped) |
-| Stage 4 | Company core | Agent runtime (in progress); Souls (in progress); Work-Life Simulation (in progress); Council (in progress); Reputation (in progress); Taint and approvals (in progress); Workday board (Kanban) (shipped); Orrery scheduling (in progress) |
-| Stage 5 | Knowledge and identity | Vault (in progress); Constellation data (in progress); GitHub integration (in progress); Agent email (in progress); Identity and Passport (in progress); Observatory (in progress); Roadmap views * (in progress); Memory (in progress) |
-| Stage 6 | Windows client | Client.Core shell (in progress); Constellation views (in progress); Discord-style GC view (in progress); Theme (in progress); Command palette (planned); Start screen dashboard (planned); Git diff and PR panes (planned); ConPTY terminal (planned) |
-| Stage 7 | Android and Linux | Android head (in progress); Device pairing (shipped); Radial menu (planned); Push wake-ups (planned); Linux head (in progress); Velopack updates (planned) |
-| Stage 8 | Environments and engines | Agent VMs (in progress); Guest agent (in progress); Coding harness (in progress); Godot adapter (in progress); Roblox Studio bridge (in progress); Browser profiles (planned); Fun systems (in progress) |
-| Stage 9 | Hardening | Backup and restore (in progress); Remote access and TLS (in progress); Conduit transports * (in progress); Erasure (in progress); Rate limits (in progress); Community tiers (in progress); Data export (planned); Counsel items (planned) |
-| v1.0.0 | Zuhal, the readiness gate (no date) | Company Constitution (planned); Health System (planned); Company Analytics (planned); Skimmer Bouncer (in progress); Digital Twin (planned); Mirror Agent (planned); What If Engine (planned); Time Machine (in progress); Soul Marketplace (planned); Talent Pool (planned); Genetic Memory Transfer (planned); Hive Mind (planned); Bazaar Archive (planned); Company Memory (planned); GC metadata (planned); Playtest Mode (planned); Bazaar SDK (in progress); Lucky mode (in progress) |
+![Beta roadmap: nine stages with status, then the Zuhal gate](docs/assets/roadmap-stages.svg)
 
-`*` marks a tentative placement that the sources do not state. The full feature index is in [`docs/FEATURES.md`](docs/FEATURES.md).
+Stages are labels, not version numbers. Stage 1 is done. Stage 2 is mostly done. Stages 3 to 7 are partly done, with the open parts named in the roadmap. Stage 8 is planned, with some code in place, and Stage 9, Hardening, has started. v1.0.0 "Zuhal" is the readiness gate: its scope is decided, its date is not.
 
+### The technical milestones
+
+![Fourteen technical milestones with status](docs/assets/roadmap-technical.svg)
+
+The headline milestone is **T1, the managed database**. Bazaar packages PostgreSQL 18.7 with pgvector 0.8.2 and runs it for you. The owner never installs or starts it.
+
+![Managed PostgreSQL inside the app](docs/assets/roadmap-postgres.svg)
+
+The server starts the database, stores its password in a managed store, runs migrations, schedules backups and refuses a major-version mismatch. The Windows smoke run on the owner's PC is the one open part of T1.
+
+Bazaar supports PostgreSQL 18 and 19 at the same time, from the same code. This is the dual-version forward-facing rule. PostgreSQL 18 is the stable default. PostgreSQL 19 runs in a report-only CI job, and its bundle and gated upgrade path are planned.
+
+![PostgreSQL 18 and 19 dual-version support](docs/assets/roadmap-dual-version.svg)
+
+### The clients
+
+![Client milestones: heads, built-ins and per-company builds](docs/assets/roadmap-clients.svg)
+
+The Windows, Linux and Android heads are done. Calcinato (the terminal and CLI) and Athanor (the IDE and text editor) are planned, and both run standalone too. Per-company client builds are planned: each company builds its own app, with its own modules.
+
+### Forward-facing support
+
+Bazaar builds for the newest supported .NET and for what comes next. Each dependency is tracked in [`docs/FORWARD-FACING.md`](docs/FORWARD-FACING.md), and both the newest release and the stable release run from the same code. Neither is dropped.
 
 ---
 
