@@ -145,5 +145,10 @@ jobs:
           [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
           echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
 
+      # Dump and restore from PostgreSQL 18 (with pgvector and an HNSW index) into the 19 RC, then compare
+      # a content checksum and check the index is used. Same path as `bazaar db upgrade` (#491).
+      - name: Upgrade test, PostgreSQL 18 to 19 RC
+        run: scripts/ci/pg-upgrade-dump-restore.sh pgvector/pgvector:pg18 bazaar-pg19rc
+
       - name: Build and test
         run: ./build.sh
