@@ -301,6 +301,69 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         Assert.False(reply.IsOk);
     }
 
+    private static async Task<WireReply> AddMemberAsync(FakeWireConnection connection, Guid gc, Guid newMember, string requestId)
+    {
+        var handler = new GcMemberAddHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data));
+        return await handler.HandleAsync(
+            Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, PrincipalKind.Human, "member")),
+            TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<WireReply> LeaveAsync(FakeWireConnection connection, Guid gc, Guid member, string requestId)
+    {
+        var handler = new GcMemberRemoveHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data));
+        return await handler.HandleAsync(
+            Context(connection, WireTypes.GcMemberRemove, requestId, new GcMemberRemove(gc, member)),
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_member_can_add_another_person_and_that_person_becomes_an_active_member()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var author = Human(Guid.CreateVersion7());
+        var invitee = Guid.CreateVersion7();
+        var gc = await GcWithMemberAsync(author);
+
+        var reply = await AddMemberAsync(new FakeWireConnection(db.DataSource, author), gc, invitee, "add-1");
+
+        Assert.True(reply.IsOk);
+        var added = Decode<GcSendResult>(reply);
+        await using var row = db.DataSource.CreateCommand(
+            "SELECT joined_seq, left_seq, role FROM gc_member_current WHERE gc_id = $1 AND principal_id = $2");
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = invitee });
+        await using var reader = await row.ExecuteReaderAsync(ct);
+        Assert.True(await reader.ReadAsync(ct));
+        Assert.Equal(added.N, reader.GetInt64(0));
+        Assert.True(reader.IsDBNull(1));
+        Assert.Equal("member", reader.GetString(2));
+    }
+
+    [Fact]
+    public async Task A_member_who_leaves_gets_a_removal_row_with_left_seq_set()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var leaver = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(leaver);
+
+        var reply = await LeaveAsync(new FakeWireConnection(db.DataSource, leaver), gc, leaver.Id, "leave-1");
+
+        Assert.True(reply.IsOk);
+        var left = Decode<GcSendResult>(reply);
+        await using var row = db.DataSource.CreateCommand(
+            "SELECT left_seq FROM gc_member_current WHERE gc_id = $1 AND principal_id = $2");
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = leaver.Id });
+        Assert.Equal(left.N, await row.ExecuteScalarAsync(ct));
+    }
+
     private static AppendRequest TextAppend(Guid gc, PrincipalRef author, string text, string clientMsgId) =>
         new(gc, GcEventKinds.Message, AuthorKind.Human, author.Id, SourceTrust.MemberHuman, clientMsgId)
         {

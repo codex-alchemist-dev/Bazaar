@@ -54,6 +54,9 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8)
         """;
 
+    // A join or a leave is a new state row keyed by its own seq (gc_member is append-only; the key includes joined_seq).
+    private const string _insertmembersql = "INSERT INTO gc_member (gc_id, principal_id, role, joined_seq, left_seq) VALUES ($1, $2, $3, $4, $5)";
+
     private const string _insertmentionssql = """
         INSERT INTO gc_mention (gc_id, seq, target_principal_id)
         SELECT $1, $2, t FROM unnest($3::uuid[]) AS t
@@ -95,6 +98,13 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 next++;
                 fresh.Add((i, next));
             }
+        }
+
+        // A plan made against an older head may no longer hold (a removal or a role change can land in between), so it is not written.
+        foreach (var (index, _) in fresh)
+        {
+            if (requests[index].ExpectedHeadSeq is { } expected && expected != head)
+                throw new GcStaleHeadException(gcId, expected, head);
         }
 
         if (fresh.Count > 0)
@@ -148,6 +158,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 throw new ArgumentException("An edit needs the message id and a version of 2 or more.", nameof(requests));
             if (r.Mentions.Count > 0 && !isMessage)
                 throw new ArgumentException("Only a message event carries mentions.", nameof(requests));
+            if (r.Membership is not null && r.Message is not null)
+                throw new ArgumentException("A membership event carries no message body.", nameof(requests));
         }
 
         return gcId;
@@ -217,6 +229,13 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                     if (r.Mentions.Count > 0)
                         batch.BatchCommands.Add(Cmd(_insertmentionssql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
                 }
+            }
+
+            if (r.Membership is { } member)
+            {
+                // The state row takes the event's own seq. A leave keeps the same role and sets left_seq to that seq.
+                var left = member.LeftSeq is null ? (long?)null : seq;
+                batch.BatchCommands.Add(Cmd(_insertmembersql, P(gcId), P(member.PrincipalId), P(GcEnumText.ToText(member.Role)), P(seq), N(left)));
             }
 
             results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);

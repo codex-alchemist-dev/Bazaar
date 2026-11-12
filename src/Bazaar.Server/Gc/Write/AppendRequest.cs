@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.Server.Gc.Model;
 
 namespace Bazaar.Server.Gc.Write;
 
@@ -55,6 +56,18 @@ public sealed record AppendRequest(
 
     /// <summary>The version a <c>message_edit</c> event creates (2 or more). Required for that kind, unused otherwise.</summary>
     public int? Version { get; init; }
+
+    /// <summary>
+    /// The membership state this event writes (a join or a leave), or null. The writer sets its joined and left seqs to the
+    /// event's own seq, so the caller's values are only a plan.
+    /// </summary>
+    public GcMemberRecord? Membership { get; init; }
+
+    /// <summary>
+    /// The head the caller planned against. When set and the head under the lock differs, the writer throws
+    /// <see cref="GcStaleHeadException"/> and writes nothing. A repeat of an earlier key is still answered with the original.
+    /// </summary>
+    public long? ExpectedHeadSeq { get; init; }
 
     /// <summary>Kind-specific payload as JSON text.</summary>
     public string? PayloadJson { get; init; }
