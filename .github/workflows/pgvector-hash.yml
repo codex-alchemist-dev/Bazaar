@@ -1,5 +1,6 @@
 # Temporary: computes the SHA-256 of the pgvector 0.8.2 source archive so it can be pinned in
 # packaging/postgres/versions.txt. Remove this workflow once the pin is merged.
+# Runs on push to claude/pgvector-082 only (no PR needed).
 
 name: pgvector hash (temporary)
 
