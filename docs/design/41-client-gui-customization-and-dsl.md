@@ -247,8 +247,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
 5. **Company scope model. DECIDED (owner, 2026-11-12): one company per install, keyed for later.**
    - Option 1: one company per install, keyed (chosen).
    - Option 2: multi-company now, with its own tenancy and settings model. Larger scope.
-6. **Who may override company locks?**
-   - Option 1: the owner only (recommended).
+6. **Who may override company locks? DECIDED (owner, 2026-11-12): the owner only.**
+   - Option 1: the owner only (chosen).
    - Option 2: any operator with the owner's role.
 7. **Importing layouts and themes from files.**
    - Option 1: allowed, with Tier 2 approval and validation (recommended).
