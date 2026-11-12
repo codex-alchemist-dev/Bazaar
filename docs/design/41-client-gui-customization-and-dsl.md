@@ -149,6 +149,13 @@ Docs 27 and 28 cover desktop only as windows, the start dashboard and mnemonic n
 
 Open for the owner: size-class breakpoints, the multi-monitor rule and the density default.
 
+## 4.10 Standalone editor and terminal (added 2026-11-12)
+
+- **Process model (owner, 2026-11-12): same process, own windows.** The standalone editor and terminal are lightweight windows inside the same client process, as doc 28 describes. They share one connection and one Monaco bundle.
+- **OS default handler.** The editor and terminal register as OS handlers, as decided in Bazaar.Windows §1. The person makes the default change in OS settings. Nothing is claimed silently.
+- **Gates.** Making the terminal the default console host waits on spike S10. A standalone Monaco editor waits on the free-route Monaco spike (doc 27, S12).
+- **Linux.** Handler registration uses `.desktop` and `xdg-mime` (doc 30).
+
 ## 5. Modules and existing panes
 
 The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
