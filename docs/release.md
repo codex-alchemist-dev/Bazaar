@@ -43,6 +43,6 @@ publish:
 
 - Tags are immutable. If a release is wrong, delete the draft, fix the cause, and cut a new PATCH or pre-release tag. Do not move a tag.
 - A second run for the same tag fails if a release already exists for it. Delete the old draft first.
-- Tag format: the workflow accepts SemVer tags such as `v0.2.0`. `docs/VERSIONING.md` section 1 describes a zero-padded display form (`v00.02.00`) for tags. That is an open question for the owner; until it is settled, this workflow rejects the padded form.
+- Tag format: plain SemVer with a `v` prefix, such as `v0.2.0` (owner, 2026-11-12; `docs/VERSIONING.md` section 1). Tags never carry the `+commit` suffix, and the workflow rejects any other form.
 - The source installer run is not built here. Its workflow is separate and must produce `installer-*` artifacts.
 - The `release` environment needs required reviewers set in repository settings. Without them the approval gate does nothing.

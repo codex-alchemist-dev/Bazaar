@@ -161,7 +161,7 @@
   <rect x="24" y="964" width="160" height="60" rx="10" fill="#1c2330" stroke="#7cc4ff" stroke-width="2"/>
   <text x="36" y="986" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" fill="#8b949e" letter-spacing="1">READINESS GATE</text>
   <text x="36" y="1008" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f0f6fc">v1.0.0 Zuhal</text>
-  <text x="214" y="978" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#c9d1d9">v1 scope still open (display x01.00.00). Anything tentative is marked *.</text>
+  <text x="214" y="978" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#c9d1d9">v1 scope still open (display 1.0.0). Anything tentative is marked *.</text>
     <rect x="214" y="990" width="176" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
     <text x="224" y="1010" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12.5" fill="#f0f6fc">Company Constitution</text>
     <rect x="398" y="990" width="176" height="30" rx="8" fill="#21262d" stroke="#6e7681" stroke-width="1.2" stroke-dasharray="4 3"/>
