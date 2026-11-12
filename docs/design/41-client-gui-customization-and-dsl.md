@@ -188,6 +188,14 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Pipeline and spikes.** The build pipeline and each feasibility question (Android SDK bundling and size, offline builds, signing key custody, Linux packaging without a terminal) are spelled out in doc 37 section 4a. None is assumed to work until its spike runs.
 - **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 pairs the device only.
 
+## 4.15 Athanor (Monaco) requirements (summary of owner notes, not quoted, 2026-11-12)
+
+- **Feels native.** Athanor inside the app should feel part of the app, not a separate page. Vim-style keys behave like the rest of the client. Standalone, it still looks uniquely Bazaar.
+- **Fast start.** Pre-warm the WebView2 environment at app start, and use the WebView2 island so native controls composite with the editor. Strip browser chrome.
+- **Theme.** Athanor uses a Monaco theme generated from the Bazaar theme file, so the palette and fonts match with no seam.
+- **Diff.** Monaco's built-in diff editor is the diff view for the Git module (section 4.14).
+- **Gate.** The WebView2 island and standalone mode wait on spike S12 (doc 27).
+
 ## 4.14 Defaults for open client items (added 2026-11-12, defaults, not owner decisions)
 
 - **Git view** is a client module (`Bazaar.Client.Git`) that uses the server's `IGitProvider` (doc 21). It links to the Constellation: a branch or commit opens as a node in its orbit (doc 19), and the Constellation opens a commit back in the Git view.
