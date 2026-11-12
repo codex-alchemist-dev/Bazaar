@@ -11,7 +11,7 @@ The short answer:
 
 - **Modularity is total.** The base GUI and every pane are modules on `Bazaar.Core`, at the same level as third-party modules. There is no privileged first-party path. One module contract serves all of them (owner correction, 2026-11-12).
 - **Customization is data, not code.** Versioned, schema-checked JSON documents (theme, layout, start screen, command bindings, settings) describe the GUI. No document can carry code, markup, URLs or scripts.
-- **No DSL in v1.** A custom language adds a parser, a second place where behaviour lives, a security surface and a support burden, and the typed documents already cover the stated need. A narrow expression sub-language for visibility rules stays possible later (section 4.1, option D).
+- **A full DSL, carried inside the typed JSON (owner, 2026-11-12).** Documents stay validated JSON with one codec and one validator. Layout logic and rules are written in a DSL whose source sits inside those documents, so the DSL never runs outside the document checks. The DSL is sandboxed: no I/O, no wire calls except declared read-only queries, and fixed step and time limits (section 4.1, option B').
 - **Trust comes from the contract, not from the author.** A module declares what it needs (capabilities), and the host enforces that declaration the same way for every module.
 - **Config lives on the server**, revisioned, scoped (install, company, person, device), and synced through `ui.get` and `ui.changed`. Agents cannot edit it.
 
@@ -52,9 +52,11 @@ The set of pane kinds is **not** customizable at runtime. A company can hide, pl
 | C. Embedded general-purpose scripting (Lua, JavaScript, C# scripting) | Run user scripts inside the client. | Maximum flexibility. | Sandboxing is hard, and scripts could call the wire. Conflicts with the no-code-in-config rule, with trimming and ReadyToRun, and with Android. Rejected. |
 | D. Constrained expression sub-language for predicates only (later, optional) | A CEL-style, non-Turing-complete expression for visibility ("show when unread > 0"), evaluated over a fixed set of variables. | Covers the one place typed data is awkward. Easy to bound: no loops, no I/O, cost limit. | Needs a library choice (not made here). Not needed for v1. |
 
-**Recommendation:** A now. Keep D as a reserved schema field (`visibleWhen`, unused in v1). Reject B and C. Revisit D only when a second real use case appears.
+| B'. Full DSL carried inside the typed JSON (owner choice, 2026-11-12) | Documents keep their typed JSON shape. Any field that holds logic (layout rules, visibility, derived values) holds DSL source, parsed and type-checked at save and on load. The DSL is a small, total language: no loops without bounds, no I/O, fixed step and time budgets, and a closed set of variables and functions that the module manifests declare. | One codec and one validator for everything. Rules can be checked at save, so bad logic is rejected before it reaches a device. Users can express layouts that the typed fields alone cannot. | A parser, type checker and evaluator in every head, which must give the same results. A new grammar to version. A larger security surface, handled by the sandbox limits above. |
 
-**Answer to "is a DSL warranted":** not for v1. The customization the owner described (theme, per-company layout, panes, per-company config) is fully expressed by typed documents. A DSL would be justified only by user scripting of logic, which is a product decision for the owner (section 10, question 1).
+**Recommendation (owner's choice, 2026-11-12):** A carries the structure, and B' carries the logic inside it. Option C is still rejected. Option D is absorbed into B': a visibility predicate is a DSL expression, not a separate language.
+
+**Owner decisions behind this (2026-11-12):** typed JSON as the document format; a full DSL for layouts and rules; the DSL lives inside the JSON documents. The DSL's name and its grammar are not decided. Naming is the owner's call, so the grammar is a work package to design, not a fixed spec.
 
 ### 4.2 Module contract and trust
 
@@ -155,7 +157,7 @@ Names for new module projects are the owner's call (section 10). The planned nam
 Customization must not become a way to run code, leak data or escalate permissions. These rules apply to every module and every document, whoever wrote them.
 
 1. **Data only.** Every document is JSON checked against its schema. Unknown top-level fields are rejected in an import and preserved (and ignored) when the document came from a newer server.
-2. **No markup or code in documents.** No HTML, XAML, scripts, expressions (v1), templates or URLs. The validator extends the theme rule (`ThemeValidator`: no URL, markup, script or remote font in any string, including keys) to every document.
+2. **No markup or code in documents, beyond the DSL.** No HTML, XAML, host scripts, templates or URLs. DSL source is the only permitted logic, and it is checked by the DSL sandbox: no I/O, no reflection, a closed function set, bounded steps and time, and a bounded output size. The validator extends the theme rule (`ThemeValidator`: no URL, markup, script or remote font in any string, including keys) to every document.
 3. **Capabilities from the manifest.** A module can call, read or write only what its manifest declares. The host checks each call. Wire calls are still authorized server-side. A command bound in a document runs through the same approval tiers (doc 15) as the button it mirrors.
 4. **No layout grants access.** A layout places panes. It cannot add a capability to a module.
 5. **Taint.** An imported or shared document is external input. It is parsed as untrusted, cannot change permissions, and cannot be applied until the owner approves it (Tier 2). Its import is audited.
@@ -240,8 +242,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: typed JSON (chosen).
    - Option 2: a custom DSL. Only if you want users to script logic.
    - Option 3: embedded scripting. Not recommended: sandboxing is hard and it conflicts with trimming and Android.
-4. **DSL scope. DECIDED (owner, 2026-11-12): a full DSL for layouts and rules.** This conflicts with the typed-JSON decision in question 3 and with section 6's no-expressions rule. How the two fit together is open (see the follow-up card in the thread). Sections 4.1, 6 and 12 are out of date until that is answered.
-   - Option 1: none in v1 (was recommended). Reserve a `visibleWhen` field.
+4. **DSL scope. DECIDED (owner, 2026-11-12): a full DSL for layouts and rules, carried inside the typed JSON documents (section 4.1, option B').** Its grammar, name and runtime limits are work to design and are not settled by this doc.
+   - Option 1: none in v1 (not chosen).
    - Option 2: predicates only, a CEL-style subset for visibility rules, later.
    - Option 3: a full DSL. Not recommended.
 5. **Company scope model. DECIDED (owner, 2026-11-12): one company per install, keyed for later.**
@@ -274,7 +276,8 @@ Each package needs its own tests (CLAUDE.md). Haiku sub-agents take the independ
 2. `IUiDocumentValidator` covering the rules in section 6, excluding the module manifest rules. Depends on 1. Not blocked.
 3. Theme pipeline: move the existing `ThemeModel` and validator behind the document model. Depends on 1. Not blocked.
 4. Layout tree builder through the module registry (extends `PaneRegistry`), with placeholder fallback and posture selection. Depends on 1. Not blocked.
-5. `ModuleManifest`, `IClientModule` and `ClientModuleBuilder`. Waits on section 10 questions 1 and 2.
+5. `ModuleManifest`, `IClientModule` and `ClientModuleBuilder`. Waits on section 10 questions 1 and 2. Decided: one contract and out-of-process loading for non-shipped modules.
+5a. DSL design: grammar, type system, closed function set, sandbox limits, and a golden-test suite shared by every head so the evaluators agree. Waits on the DSL name and grammar review (owner). A design doc comes first.
 6. Migrate GC, Dashboard, Vault and RyuseiFuda panes to modules one at a time, starting after 5. This is MODULARITY-AUDIT step 7. Waits on 5.
 7. Server store `ui_document` with migration, revision checks, audit. Depends on doc 04 migration runner and doc 03 settings registry. Waits on section 10 question 5 for scope keys only.
 8. `ui.get` and `ui.changed` for documents, with posture variants. Depends on 7 and doc 02 WP.
