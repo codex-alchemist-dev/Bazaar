@@ -167,8 +167,11 @@ public sealed class RyuseiFireWriter
         return array;
     }
 
-    /// <summary>Moves a trigger to <c>expired</c> without a fire row, for a watcher past its <c>expiresAt</c>.</summary>
-    public async Task ExpireAsync(NpgsqlTransaction tx, RyuseiTriggerRecord trigger, CancellationToken ct = default)
+    /// <summary>
+    /// Moves a trigger to <c>expired</c> without a fire row, for a watcher past its <c>expiresAt</c>, and audits the expiry in the
+    /// same transaction.
+    /// </summary>
+    public async Task ExpireAsync(NpgsqlTransaction tx, RyuseiTriggerRecord trigger, DateTimeOffset now, string reason, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(tx);
         ArgumentNullException.ThrowIfNull(trigger);
@@ -177,5 +180,28 @@ public sealed class RyuseiFireWriter
         {
             throw new InvalidOperationException($"Trigger {trigger.TriggerId:D} changed under the row lock.");
         }
+
+        await AuditExpiryAsync(tx, trigger, reason, now, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Appends the expiry audit row in the caller's transaction (doc 38, Authority, audit and taint). The caller has already moved
+    /// the trigger to <c>expired</c>. Nothing is written when no audit log is configured.
+    /// </summary>
+    public async Task AuditExpiryAsync(NpgsqlTransaction tx, RyuseiTriggerRecord trigger, string reason, DateTimeOffset now, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(tx);
+        ArgumentNullException.ThrowIfNull(trigger);
+        if (_audit is null)
+        {
+            return;
+        }
+
+        var entry = RyuseiFireAudit.BuildExpiry(trigger, reason, now);
+        await _audit.AppendInTransactionAsync(
+            tx.Connection ?? throw new InvalidOperationException("The expiry transaction has no connection."),
+            tx,
+            entry,
+            ct).ConfigureAwait(false);
     }
 }
