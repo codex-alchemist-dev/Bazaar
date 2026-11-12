@@ -21,7 +21,7 @@ public sealed class ServerKeyPinTests
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var request = new CertificateRequest($"CN={name}", key, HashAlgorithmName.SHA256);
         using var ephemeral = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
-        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx, string.Empty), string.Empty, X509KeyStorageFlags.EphemeralKeySet);
+        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx, string.Empty), string.Empty, X509KeyStorageFlags.UserKeySet);
     }
 
     private static ConduitOffer Offer(string hash, bool terminatesTls) =>
