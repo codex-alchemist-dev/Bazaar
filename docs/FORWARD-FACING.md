@@ -29,6 +29,16 @@ Verification levels used below:
 Facts about upcoming versions change quickly. Re-check this page at each wave start and
 update the "Last audit" date when you do.
 
+## Day-0 and dual-version rule (owner, 2026-11-12)
+
+This is the forward-facing principle, applied to every row below:
+
+- **Day-0 and day-1 support.** Bazaar develops for an upcoming dependency release as soon as a stable-enough beta or RC exists. We do not wait for GA. A year or a few months before a release is fine.
+- **Both versions, always.** Code and tests cover the newest release and the current stable or LTSC release at the same time. Neither is dropped. Example: PostgreSQL 18 and 19 both run, from the same code, with the same bundle layout.
+- **Newest features, graceful fallback.** Use the new features of the newest release, with a fallback path on the stable release.
+- **The pin is a default, not a limit.** Bazaar can bump a pin, and a server installer or company owner can update a dependency (possibly from inside Bazaar). The result must run on either version.
+- **Never "stay on the stable version" as the answer.** An upgrade is a pin change plus tests, not a reason to hold back.
+
 ## Dated audit: 2026-11-12
 
 Method: pins read from `global.json`, `Directory.Packages.props`, `packaging/postgres/versions.txt`
@@ -49,9 +59,9 @@ this session), and Docker Hub tags. Web search results were used only for contex
 | SkiaSharp (transitive via Avalonia.Skia) | Avalonia.Skia 12.1.6 resolves SkiaSharp 3.119.4 | SkiaSharp 4.156.0 (stable) | 4.157.0-rc.1, 4.158.0-preview.2 | Avalonia has not moved to SkiaSharp 4 yet, so Graphite is not reachable from Avalonia. Track with the Avalonia bump. |
 | Vortice.Vulkan | 3.3.0 | 3.3.0 | None | Current. |
 | Vulkan (API) | Renderer target per doc 19 | Vulkan 1.4.361 (2026-08-28, Khronos via Phoronix); later patches not verified | None verified | Keep the 1.4 baseline. Re-check the patch level at renderer build. |
-| PostgreSQL | 18.6 (`versions.txt`) | 18.7, released 2026-11-12 (postgresql.org `versions.json`, 18 `latestMinor` 7) | 19: RC2 scheduled 2026-11-12, GA scheduled 2026-11-19 (official target, conditional on no further RC) | Bump to 18.7 (issue). PG 19 path is an owner decision (question card). |
+| PostgreSQL | 18.6 (`versions.txt`; the default major, not the only one) | 18.7, released 2026-11-12 (postgresql.org `versions.json`, 18 `latestMinor` 7) | 19: RC2 scheduled 2026-11-12, GA scheduled 2026-11-19 (official target, conditional on no further RC) | Bump to 18.7 (#486). Build and test the managed layer on 18 and 19 together, using the PG 19 RC until GA (#491). The managed layer already lists `SupportedMajors = [18, 19]` (`BundleLayout.cs`). |
 | pgvector | 0.8.2 (`versions.txt`) | 0.8.7 (2026-10-01, CHANGELOG); Docker Hub has `pgvector/pgvector:0.8.7-pg18` | No 0.9.0 in the changelog mirror (not verified on GitHub) | Bump to 0.8.7 (issue). 0.8.3 fixed possible index corruption with HNSW vacuuming, so this is not cosmetic. |
-| pgvector image for PG 19 | None on Docker Hub at this audit | n/a | `pgvector/pgvector:pg19` not found | `deploy/compose/compose.pg19.yaml` stays opt-in until the tag exists. |
+| pgvector image for PG 19 | None on Docker Hub at this audit | n/a | `pgvector/pgvector:pg19` not found | Do not wait for the image. Build pgvector 0.8.7 against the PG 19 RC in CI, as the Windows bundle does (#491). `deploy/compose/compose.pg19.yaml` stays opt-in until the image exists. |
 | Npgsql | 10.0.3 | 10.0.3 (NuGet) | 11.0 preview builds on MyGet; `Npgsql.EntityFrameworkCore.PostgreSQL` 11.0.0-rc.3 on NuGet; core 11.0 stable not on NuGet | Stay on 10.0.3. Npgsql 11 plans to make synchronous `Open` throw by default. The repo has no synchronous `Open()` calls on connections (grep of `src` and `tests`). Canary when 11.0 is stable. |
 | StackExchange.Redis | 3.4.31 | 3.4.35 (NuGet) | 4.0 alpha builds only | Bump to 3.4.35 (issue). The 3.4.5 figure in the 11-11 inventory was wrong. |
 | Valkey (not pinned; cache provider is design-only) | None | 9.1 GA 2026-05-19 (Linux Foundation). Docker Hub has a `9.1.3` tag. The valkey.io download page showed 9.1.1, so the two conflict. | 9.2.0-rc2 (Docker Hub) | Pin the latest 9.1.x patch when the cache provider is built, after verifying the patch level on the Valkey release page. |
