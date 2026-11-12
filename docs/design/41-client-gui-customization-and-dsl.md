@@ -123,6 +123,20 @@ Resolution order, later wins: **install defaults (shipped) → company → perso
 - Theme changes update resources, so bound controls update without rebuilding the tree.
 - Target: the cached shell with layout and theme paints inside the 1 s budget already in 27. This is a target to measure, not a claim.
 
+## 4.8 Devices, displays and posture (added 2026-11-12)
+
+Docs 27 and 29 cover posture (folded, unfolded, half-open) and send one layout variant per posture. They do not model a foldable's two screens as separate displays, nor device classes beyond `deviceClass` in `ui.get`. This section fills that gap for doc 41.
+
+- **Display identity is a separate axis from posture.** A foldable's cover screen and inner screen are different displays with their own size and DPI. Posture describes the hinge state; display describes which screen the window is on. Layout variants are keyed by `(deviceClass, display, posture)`.
+- **Cover screen.** Small, usually one column, often used for glanceable triage. Its layout is a document like any other, with its own variant. Until a cover layout is set, it falls back to the folded variant.
+- **Inner screen.** Uses the unfolded or half-open variant, per the posture rules in 29.
+- **Device classes.** `phone`, `foldable`, `tablet`, `desktop`. A foldable is a phone-class device with two displays. The `deviceClass` value comes from the head and selects the default variant set.
+- **Window moves.** When a window moves between displays (fold or unfold), the client selects the variant for the new display with no round trip. Pane view models survive the move.
+- **Baked defaults.** Each company's build carries default variants for each device class and display, so a foldable works before any server connection.
+- **Scope.** The variant key is a document field. It does not add a scope, so the scope table in 4.4 is unchanged.
+
+Open for the owner: the cover-screen policy (section 10, question 9).
+
 ## 5. Modules and existing panes
 
 The base GUI and each feature are client modules that a head composes. This is the design in MODULARITY-AUDIT §4 and doc 40, restated for the single contract in 4.2.
@@ -261,7 +275,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
 7. **Importing layouts and themes from files. DECIDED (owner, 2026-11-12): allowed, with Tier 2 approval and validation.**
    - Option 1: allowed, with Tier 2 approval and validation (chosen).
    - Option 2: not allowed in v1. Settings only, created in the app.
-8. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
+9. **Cover screen on foldables.** Default proposed: a company-defined cover layout, falling back to folded. Options: a company-defined cover layout (recommended), the folded layout on both screens, or no cover-screen support in v1.
+10. **Names.** Document kinds (`theme`, `layout`, `commands`, `start`), the module namespace pattern, and the product-facing term for a layout.
    - Layout term: DECIDED (owner, 2026-11-12): "Layout". Options were "Layout" (recommended), "Workspace" or "Arrangement".
    - Module term: DECIDED (owner, 2026-11-12): "Client module". Options were "Client module" (recommended) or "Pane module".
    - Namespace: `Bazaar.Client.<F>` for every module, base shell included, as MODULARITY-AUDIT planned. Confirm or name the base shell differently.
