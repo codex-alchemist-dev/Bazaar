@@ -34,7 +34,7 @@ Code that was already in Client.Core before this work (theme, commands, chat, pa
 ## 4. Open questions for the owner
 
 1. Manifest location: decided by the coordinator (2026-11-13). The manifest types go in `Bazaar.Contracts`, and the builder moves with them.
-2. Module names: `Bazaar.Client.Layout` and `Bazaar.Michi` follow decision 10. Pending the owner's card.
+2. Module names (owner, 2026-11-13): the layout module is `Bazaar.Client.Layout`, and the first-run tour module is Michi (道), so `Bazaar.Michi`.
 
 Loading mode (resolved 2026-11-13, owner correction): the server builds each company's client with its first-party modules compiled in (per-company builds, docs 37 and 41). Layout and tour ship compiled in. Out-of-process loading (decision 2) applies only to sandboxed external modules, under the module trust tiers. It is not a question for first-party modules.
 
