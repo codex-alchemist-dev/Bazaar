@@ -55,6 +55,27 @@ if (args.Length > 0 && args[0] == "density")
     return 0;
 }
 
+if (args.Length > 0 && args[0] == "aggregate")
+{
+    // Per-tile aggregate path. The grid is built by streaming nodes in chunks, so the graph never has to fit on the GPU.
+    // Build cost is paid once per graph version. The per-frame cost is one shade of the finished grid.
+    const int chunk = 16_000_000;
+    foreach (long total in new[] { 100_000_000L, 1_000_000_000L })
+    {
+        for (int run = 1; run <= 3; run++)
+        {
+            double buildMs = bench.BuildAggregate(total, chunk);
+            Console.WriteLine(string.Join(',', "aggregate_build", total, run, buildMs.ToString("F1", CultureInfo.InvariantCulture)));
+            FrameStats frame = bench.MeasureAggregateFrame(20, 200);
+            Console.WriteLine(string.Join(',', "aggregate_frame", total, run,
+                frame.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), frame.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+                frame.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), frame.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length > 0 && args[0] == "passes")
 {
     // Does splitting one frame into several render passes remove the cliff? 10M nodes, 10M instances.
