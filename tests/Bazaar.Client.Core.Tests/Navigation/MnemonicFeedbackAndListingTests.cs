@@ -5,14 +5,14 @@ namespace Bazaar.Client.Core.Tests.Navigation;
 
 public class MnemonicFeedbackAndListingTests
 {
-    private static readonly IReadOnlyList<MnemonicAssignment> Effective =
+    private static readonly IReadOnlyList<MnemonicAssignment> _effective =
         MnemonicResolver.Resolve(NavigationDefaults.Assignments).Effective;
 
     [Fact]
     public void Pending_speaks_the_candidates_and_how_to_run_them()
     {
         var chord = new ChordState("n", []);
-        var text = MnemonicFeedback.For(new RouteResult(RouteOutcome.Pending, InputMode.Normal, chord), Effective);
+        var text = MnemonicFeedback.For(new RouteResult(RouteOutcome.Pending, InputMode.Normal, chord), _effective);
 
         Assert.NotNull(text);
         Assert.StartsWith("n. ", text);
@@ -25,7 +25,7 @@ public class MnemonicFeedbackAndListingTests
     {
         var extra = Enumerable.Range(0, 8)
             .Select(i => new MnemonicAssignment($"mod.{i}", $"Extra {i}", $"qq{i}", MnemonicTier.Module, "module:x"));
-        var all = Effective.Concat(extra).ToList();
+        var all = _effective.Concat(extra).ToList();
         var chord = new ChordState("q", []);
 
         var text = MnemonicFeedback.For(new RouteResult(RouteOutcome.Pending, InputMode.Normal, chord), all);
@@ -38,7 +38,7 @@ public class MnemonicFeedbackAndListingTests
     {
         var result = new RouteResult(RouteOutcome.Executed, InputMode.Normal, ChordState.Empty, null, NavigationDefaults.UnreadCommandId);
 
-        Assert.Equal("Unread.", MnemonicFeedback.For(result, Effective));
+        Assert.Equal("Unread.", MnemonicFeedback.For(result, _effective));
     }
 
     [Theory]
@@ -47,20 +47,20 @@ public class MnemonicFeedbackAndListingTests
     [InlineData(RouteOutcome.NoTarget, "Nothing here takes text input.")]
     public void Outcomes_have_fixed_spoken_text(RouteOutcome outcome, string expected)
     {
-        Assert.Equal(expected, MnemonicFeedback.For(new RouteResult(outcome, InputMode.Normal, ChordState.Empty), Effective));
+        Assert.Equal(expected, MnemonicFeedback.For(new RouteResult(outcome, InputMode.Normal, ChordState.Empty), _effective));
     }
 
     [Fact]
     public void Passthrough_and_consumed_outcomes_are_silent()
     {
-        Assert.Null(MnemonicFeedback.For(new RouteResult(RouteOutcome.Passthrough, InputMode.Normal, ChordState.Empty), Effective));
-        Assert.Null(MnemonicFeedback.For(new RouteResult(RouteOutcome.Consumed, InputMode.Normal, ChordState.Empty), Effective));
+        Assert.Null(MnemonicFeedback.For(new RouteResult(RouteOutcome.Passthrough, InputMode.Normal, ChordState.Empty), _effective));
+        Assert.Null(MnemonicFeedback.For(new RouteResult(RouteOutcome.Consumed, InputMode.Normal, ChordState.Empty), _effective));
     }
 
     [Fact]
     public void Listing_puts_navigation_first_and_marks_locks()
     {
-        var assignments = Effective.Concat([new MnemonicAssignment("client.lock", "Locked", "ab", MnemonicTier.CompanyLocked, "company")]).ToList();
+        var assignments = _effective.Concat([new MnemonicAssignment("client.lock", "Locked", "ab", MnemonicTier.CompanyLocked, "company")]).ToList();
 
         var rows = MnemonicListing.Build(assignments);
 

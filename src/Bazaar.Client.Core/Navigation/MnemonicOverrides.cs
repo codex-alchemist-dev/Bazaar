@@ -27,7 +27,7 @@ public interface IMnemonicOverrideStore
 /// <summary>JSON file store. Saves go to a temp file, then replace the target, so a crash never leaves a half-written file.</summary>
 public sealed class FileMnemonicOverrideStore : IMnemonicOverrideStore
 {
-    private static readonly JsonSerializerOptions Options = new()
+    private static readonly JsonSerializerOptions _options = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -51,7 +51,7 @@ public sealed class FileMnemonicOverrideStore : IMnemonicOverrideStore
         try
         {
             await using var stream = File.OpenRead(_path);
-            var document = await JsonSerializer.DeserializeAsync<MnemonicOverrideDocument>(stream, Options, ct).ConfigureAwait(false);
+            var document = await JsonSerializer.DeserializeAsync<MnemonicOverrideDocument>(stream, _options, ct).ConfigureAwait(false);
             if (document is null || document.Version != MnemonicOverrideDocument.CurrentVersion)
             {
                 return new MnemonicOverrideLoad(MnemonicOverrideDocument.Empty, "Mnemonic overrides file has an unknown version and was ignored.");
@@ -78,7 +78,7 @@ public sealed class FileMnemonicOverrideStore : IMnemonicOverrideStore
         var temp = _path + ".tmp";
         await using (var stream = File.Create(temp))
         {
-            await JsonSerializer.SerializeAsync(stream, document with { Version = MnemonicOverrideDocument.CurrentVersion }, Options, ct)
+            await JsonSerializer.SerializeAsync(stream, document with { Version = MnemonicOverrideDocument.CurrentVersion }, _options, ct)
                 .ConfigureAwait(false);
         }
 
