@@ -4,8 +4,8 @@ namespace Bazaar.Server.Tests.Modules.Trust;
 
 public class PermissionApprovalTests
 {
-    private static readonly string[] AddedForWidening = ["fs:write:/data", "secret:token"];
-    private static readonly string[] AddedProcess = ["process:spawn"];
+    private static readonly string[] _addedForWidening = ["fs:write:/data", "secret:token"];
+    private static readonly string[] _addedProcess = ["process:spawn"];
 
     private static HashSet<string> Set(params string[] items) => new(items, StringComparer.Ordinal);
 
@@ -44,7 +44,7 @@ public class PermissionApprovalTests
             Set("gc.post", "network:api.example"));
 
         Assert.False(result.IsApproved);
-        Assert.Equal(AddedForWidening, result.Unapproved);
+        Assert.Equal(_addedForWidening, result.Unapproved);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class PermissionApprovalTests
         var result = PermissionApproval.Evaluate(widenedVersion, approvedForPrevious);
 
         Assert.False(result.IsApproved);
-        Assert.Equal(AddedProcess, result.Unapproved);
+        Assert.Equal(_addedProcess, result.Unapproved);
     }
 
     [Fact]

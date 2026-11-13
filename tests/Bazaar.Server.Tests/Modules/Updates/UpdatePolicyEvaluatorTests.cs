@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Modules.Updates;
 public sealed class UpdatePolicyEvaluatorTests
 {
     // Monday 2026-11-16 11:00 UTC. Unless a test says otherwise, this is inside a Monday 10:00-12:00 UTC window.
-    private static readonly DateTimeOffset InsideMondayWindow = new(2026, 11, 16, 11, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _insideMondayWindow = new(2026, 11, 16, 11, 0, 0, TimeSpan.Zero);
 
     private static MaintenanceWindow MondayUtcWindow() => Window([DayOfWeek.Monday], "10:00", "12:00");
 
@@ -39,7 +39,7 @@ public sealed class UpdatePolicyEvaluatorTests
 
     private static (UpdatePolicyEvaluator Evaluator, FakeTimeProvider Clock) Make(DateTimeOffset? now = null)
     {
-        var clock = new FakeTimeProvider(now ?? InsideMondayWindow);
+        var clock = new FakeTimeProvider(now ?? _insideMondayWindow);
         return (new UpdatePolicyEvaluator(clock), clock);
     }
 

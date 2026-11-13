@@ -8,7 +8,7 @@ namespace Bazaar.Server.Modules.Deps;
 /// </summary>
 public static partial class DependencyManifestValidator
 {
-    private const int MaxIdLength = 64;
+    private const int _maxIdLength = 64;
 
     /// <summary>Validates one manifest and returns every issue found, errors and warnings together. Empty means clean.</summary>
     public static IReadOnlyList<DependencyManifestIssue> Validate(DependencyManifest manifest)
@@ -20,7 +20,7 @@ public static partial class DependencyManifestValidator
         if (!IsSafeSlug(manifest.Id))
         {
             Add(issues, DependencyManifestIssueCode.InvalidModuleId, DependencyManifestIssueSeverity.Error,
-                $"Module id '{manifest.Id}' is not a safe slug (lowercase letters, digits and single hyphens, up to {MaxIdLength} characters).");
+                $"Module id '{manifest.Id}' is not a safe slug (lowercase letters, digits and single hyphens, up to {_maxIdLength} characters).");
         }
 
         if (string.IsNullOrWhiteSpace(manifest.DisplayName))
@@ -79,7 +79,7 @@ public static partial class DependencyManifestValidator
 
     /// <summary>Whether an id is a safe slug: lowercase letters and digits in hyphen-separated runs, at most 64 characters.</summary>
     public static bool IsSafeSlug(string? value) =>
-        value is not null && value.Length <= MaxIdLength && SlugPattern().IsMatch(value);
+        value is not null && value.Length <= _maxIdLength && SlugPattern().IsMatch(value);
 
     private static void ValidateLines(DependencyManifest manifest, List<DependencyManifestIssue> issues)
     {

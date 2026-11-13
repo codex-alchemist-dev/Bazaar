@@ -114,7 +114,7 @@ public sealed record MaintenanceWindowValidation(IReadOnlyList<MaintenanceWindow
 /// </summary>
 public static class MaintenanceWindowValidator
 {
-    private static readonly DateOnly ReferenceMonday = new(2026, 1, 5);
+    private static readonly DateOnly _referenceMonday = new(2026, 1, 5);
 
     /// <summary>Checks each window, then every pair for overlap. Returns all problems found, not just the first.</summary>
     public static MaintenanceWindowValidation Validate(IReadOnlyList<MaintenanceWindow> windows)
@@ -176,7 +176,7 @@ public static class MaintenanceWindowValidator
         foreach (var day in window.Days.Distinct())
         {
             // Monday is the first day of the reference week; Sunday (0) is the last.
-            var date = ReferenceMonday.AddDays(((int)day + 6) % 7);
+            var date = _referenceMonday.AddDays(((int)day + 6) % 7);
             slots.Add((window.Zone.ToInstant(date.ToDateTime(window.Start)), window.Zone.ToInstant(date.ToDateTime(window.End))));
         }
 

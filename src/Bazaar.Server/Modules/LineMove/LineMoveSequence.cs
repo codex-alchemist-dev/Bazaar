@@ -7,7 +7,7 @@ namespace Bazaar.Server.Modules.LineMove;
 /// </summary>
 public static class LineMoveSequence
 {
-    private static readonly LineMoveStep[] ForwardOrder =
+    private static readonly LineMoveStep[] _forwardOrder =
     [
         LineMoveStep.Preflight,
         LineMoveStep.Snapshot,
@@ -18,14 +18,14 @@ public static class LineMoveSequence
     ];
 
     /// <summary>The forward order, excluding the rollback step.</summary>
-    public static IReadOnlyList<LineMoveStep> Forward => ForwardOrder;
+    public static IReadOnlyList<LineMoveStep> Forward => _forwardOrder;
 
     /// <summary>The step that must have succeeded before <paramref name="step"/> may run; null for Preflight.</summary>
     public static LineMoveStep? PredecessorOf(LineMoveStep step) => step switch
     {
         LineMoveStep.Preflight => null,
         LineMoveStep.RolledBack => LineMoveStep.Switch,
-        _ => ForwardOrder[Array.IndexOf(ForwardOrder, step) - 1],
+        _ => _forwardOrder[Array.IndexOf(_forwardOrder, step) - 1],
     };
 
     /// <summary>True when <paramref name="step"/> may run after <paramref name="lastSucceeded"/> (null when nothing has succeeded).</summary>

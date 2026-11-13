@@ -6,11 +6,11 @@ namespace Bazaar.Server.Tests.Modules.Updates;
 /// <summary>Defer aging (doc 42 section 10.2): how long a deferred update has waited, against the warning threshold.</summary>
 public sealed class DeferAgingTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _now = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
 
     private static DeferAging Make(out FakeTimeProvider clock)
     {
-        clock = new FakeTimeProvider(Now);
+        clock = new FakeTimeProvider(_now);
         return new DeferAging(clock);
     }
 
@@ -26,7 +26,7 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        var report = aging.Measure(Now, DeferAging.DefaultDeferWarnDays);
+        var report = aging.Measure(_now, DeferAging.DefaultDeferWarnDays);
 
         Assert.Equal(new DeferAgeReport(0, false), report);
     }
@@ -36,7 +36,7 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        var report = aging.Measure(Now.AddDays(-30), 30);
+        var report = aging.Measure(_now.AddDays(-30), 30);
 
         Assert.Equal(new DeferAgeReport(30, false), report);
     }
@@ -46,7 +46,7 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        var report = aging.Measure(Now.AddDays(-30).AddMinutes(-1), 30);
+        var report = aging.Measure(_now.AddDays(-30).AddMinutes(-1), 30);
 
         Assert.Equal(new DeferAgeReport(30, true), report);
     }
@@ -56,7 +56,7 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        var report = aging.Measure(Now.AddDays(-7).AddHours(-23), 30);
+        var report = aging.Measure(_now.AddDays(-7).AddHours(-23), 30);
 
         Assert.Equal(7, report.AgeDays);
         Assert.False(report.IsAging);
@@ -66,7 +66,7 @@ public sealed class DeferAgingTests
     public void Age_follows_the_injected_clock()
     {
         var aging = Make(out var clock);
-        var since = Now;
+        var since = _now;
 
         clock.Advance(TimeSpan.FromDays(45));
 
@@ -78,7 +78,7 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        var report = aging.Measure(Now.AddDays(3), 30);
+        var report = aging.Measure(_now.AddDays(3), 30);
 
         Assert.Equal(new DeferAgeReport(0, false), report);
     }
@@ -88,8 +88,8 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        Assert.True(aging.Measure(Now.AddHours(-1), 0).IsAging);
-        Assert.False(aging.Measure(Now, 0).IsAging);
+        Assert.True(aging.Measure(_now.AddHours(-1), 0).IsAging);
+        Assert.False(aging.Measure(_now, 0).IsAging);
     }
 
     [Fact]
@@ -97,6 +97,6 @@ public sealed class DeferAgingTests
     {
         var aging = Make(out _);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => aging.Measure(Now, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => aging.Measure(_now, -1));
     }
 }
