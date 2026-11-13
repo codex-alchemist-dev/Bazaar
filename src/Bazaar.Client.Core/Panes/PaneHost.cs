@@ -18,7 +18,7 @@ public static class PaneHost
         var stack = new StackPanel { Orientation = Orientation.Vertical, Spacing = 24, Margin = new Avalonia.Thickness(16) };
         foreach (var descriptor in descriptors)
         {
-            stack.Children.Add(PaneViews.Create(registry.Create(descriptor)));
+            stack.Children.Add(registry.CreateView(registry.Create(descriptor)));
         }
 
         return stack;

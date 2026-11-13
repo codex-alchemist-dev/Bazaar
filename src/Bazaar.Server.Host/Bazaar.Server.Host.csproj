@@ -2,6 +2,14 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Server GC with DATAS (doc 40, owner decision 2026-11-11): scales heaps to load instead of one heap per core. -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+  </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.DynamicAdaptationMode" Value="1" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
@@ -14,6 +22,7 @@
     <ProjectReference Include="..\Bazaar.Server.Components.Backup\Bazaar.Server.Components.Backup.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Components.Fun\Bazaar.Server.Components.Fun.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Components.Kanban\Bazaar.Server.Components.Kanban.csproj" />
+    <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>

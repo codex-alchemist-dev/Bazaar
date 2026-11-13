@@ -21,57 +21,34 @@ public sealed class PostgresProcessControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task InitDb_builds_arguments_without_the_password_and_deletes_the_password_file()
+    public async Task InitDb_sets_the_password_over_stdin_and_leaves_no_trust_rule()
     {
         var runner = new FakePostgresCommandRunner();
-        string? passwordFileDuringRun = null;
-        string? passwordFileContent = null;
-        runner.OnRun = (fileName, arguments) =>
-        {
-            passwordFileDuringRun = arguments[IndexOf(arguments, "--pwfile") + 1];
-            passwordFileContent = File.ReadAllText(passwordFileDuringRun);
-            return new PostgresCommandResult(0, "The database cluster will be initialized.");
-        };
         var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
         string? persisted = null;
 
         await controller.InitDbAsync((password, _) => { persisted = password; return ValueTask.CompletedTask; }, TestContext.Current.CancellationToken);
 
-        var run = Assert.Single(runner.Runs);
-        Assert.Equal("initdb", Path.GetFileNameWithoutExtension(run.FileName));
-        Assert.Equal(_dataDirectory, Argument(run.Arguments, "-D"));
-        Assert.Equal("bazaar_admin", Argument(run.Arguments, "-U"));
-        Assert.Equal("scram-sha-256", Argument(run.Arguments, "-A"));
-        Assert.Equal("UTF8", Argument(run.Arguments, "-E"));
         Assert.NotNull(persisted);
-        Assert.DoesNotContain(persisted, string.Join(' ', run.Arguments), StringComparison.Ordinal);
-        Assert.Equal(persisted + "\n", passwordFileContent);
-        Assert.False(File.Exists(passwordFileDuringRun));
-    }
+        var initdb = runner.Runs.Single(run => Path.GetFileNameWithoutExtension(run.FileName) == "initdb");
+        Assert.Equal("trust", Argument(initdb.Arguments, "-A"));
+        Assert.Equal("bazaar_admin", Argument(initdb.Arguments, "-U"));
+        Assert.Equal("UTF8", Argument(initdb.Arguments, "-E"));
+        Assert.DoesNotContain("--pwfile", initdb.Arguments);
 
-    [Fact]
-    public async Task InitDb_removes_abandoned_password_files_and_keeps_recent_ones()
-    {
-        var stale = Path.Combine(Path.GetTempPath(), $"bazaar-pg-{Guid.NewGuid():N}.pwfile");
-        var recent = Path.Combine(Path.GetTempPath(), $"bazaar-pg-{Guid.NewGuid():N}.pwfile");
-        File.WriteAllText(stale, "abandoned\n");
-        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow - TimeSpan.FromHours(2));
-        File.WriteAllText(recent, "in progress\n");
-        try
-        {
-            var runner = new FakePostgresCommandRunner();
-            var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
+        // The password reaches the tools only on stdin, never in an argument list.
+        Assert.All(runner.Runs, run => Assert.DoesNotContain(persisted, string.Join(' ', run.Arguments), StringComparison.Ordinal));
+        var setter = Assert.Single(runner.StandardInputs, input => input is not null && input.Contains("ALTER ROLE", StringComparison.Ordinal));
+        Assert.Contains($"ALTER ROLE \"bazaar_admin\" PASSWORD '{persisted}';", setter, StringComparison.Ordinal);
 
-            await controller.InitDbAsync((_, _) => ValueTask.CompletedTask, TestContext.Current.CancellationToken);
+        // The bootstrap server is stopped, and pg_hba.conf no longer allows trust.
+        Assert.Contains(runner.Runs, run => Path.GetFileNameWithoutExtension(run.FileName) == "pg_ctl" && run.Arguments.Contains("stop"));
+        var hba = File.ReadAllText(Path.Combine(_dataDirectory, "pg_hba.conf"));
+        Assert.False(PgHbaRules.HasTrustRule(hba));
+        Assert.Contains("scram-sha-256", hba, StringComparison.Ordinal);
 
-            Assert.False(File.Exists(stale));
-            Assert.True(File.Exists(recent));
-        }
-        finally
-        {
-            File.Delete(stale);
-            File.Delete(recent);
-        }
+        // The pending marker is gone once the bootstrap has finished.
+        Assert.False(File.Exists(_dataDirectory + ".bootstrap-pending"));
     }
 
     [Fact]
@@ -80,11 +57,11 @@ public sealed class PostgresProcessControllerTests : IDisposable
         var runner = new FakePostgresCommandRunner();
         string? persisted = null;
         var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
-        runner.OnRun = (_, arguments) =>
-        {
-            var passwordFile = arguments[IndexOf(arguments, "--pwfile") + 1];
-            return new PostgresCommandResult(1, "leaked: " + File.ReadAllText(passwordFile));
-        };
+        // Only the password statement (psql -f -) fails. The readiness probe (psql -c) succeeds.
+        runner.OnRun = (fileName, arguments) =>
+            Path.GetFileNameWithoutExtension(fileName) == "psql" && arguments.Contains("-f")
+                ? new PostgresCommandResult(1, "leaked: " + persisted)
+                : new PostgresCommandResult(0, string.Empty);
 
         var ex = await Assert.ThrowsAsync<PostgresProcessException>(() =>
             controller.InitDbAsync((password, _) => { persisted = password; return ValueTask.CompletedTask; }, TestContext.Current.CancellationToken));
@@ -92,6 +69,27 @@ public sealed class PostgresProcessControllerTests : IDisposable
         Assert.NotNull(persisted);
         Assert.DoesNotContain(persisted, ex.Message, StringComparison.Ordinal);
         Assert.Contains("[redacted]", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_pending_bootstrap_marker_blocks_start()
+    {
+        ProcessTestSupport.MarkAsCluster(_dataDirectory);
+        File.WriteAllText(_dataDirectory + ".bootstrap-pending", "in progress\n");
+        try
+        {
+            var runner = new FakePostgresCommandRunner();
+            var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, ProcessTestSupport.FreePort()), runner);
+
+            var ex = await Assert.ThrowsAsync<PostgresProcessException>(() => controller.StartAsync(TestContext.Current.CancellationToken));
+
+            Assert.Contains("did not finish", ex.Message, StringComparison.Ordinal);
+            Assert.Empty(runner.Children);
+        }
+        finally
+        {
+            File.Delete(_dataDirectory + ".bootstrap-pending");
+        }
     }
 
     [Fact]
@@ -353,9 +351,9 @@ public sealed class PostgresProcessControllerTests : IDisposable
         Assert.Throws<ArgumentException>(() => inverted.Validate());
     }
 
-    private static int IndexOf(IReadOnlyList<string> arguments, string value)
+    private static int IndexOf(string[] arguments, string value)
     {
-        for (var i = 0; i < arguments.Count; i++)
+        for (var i = 0; i < arguments.Length; i++)
         {
             if (arguments[i] == value)
             {

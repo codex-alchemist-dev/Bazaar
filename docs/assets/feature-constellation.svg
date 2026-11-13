@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220" role="img" aria-labelledby="t d">
+  <title id="t">Constellation: knowledge graph</title>
+  <desc id="d">A graph of documents as nodes with links between them, centred on the focused document.</desc>
+  <rect width="480" height="220" rx="14" fill="#0d1117"/>
+  <g stroke="#3b4a63" stroke-width="1.5" fill="none">
+    <path d="M240 110 L120 60 L60 150"/>
+    <path d="M240 110 L370 50 L430 150"/>
+    <path d="M240 110 L300 180 L160 190"/>
+    <path d="M120 60 L60 150 L160 190"/>
+    <path d="M370 50 L300 180"/>
+  </g>
+  <circle cx="240" cy="110" r="26" fill="#f2b84b" opacity="0.25"/>
+  <circle cx="240" cy="110" r="14" fill="#f2b84b"/>
+  <circle cx="120" cy="60" r="8" fill="#7cc4ff"/>
+  <circle cx="370" cy="50" r="8" fill="#9be38f"/>
+  <circle cx="60" cy="150" r="7" fill="#7cc4ff"/>
+  <circle cx="430" cy="150" r="7" fill="#9be38f"/>
+  <circle cx="300" cy="180" r="9" fill="#7cc4ff"/>
+  <circle cx="160" cy="190" r="6" fill="#9be38f"/>
+  <text x="256" y="104" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#f0f6fc">focused doc</text>
+  <text x="24" y="210" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#8b949e">GPU rendered (Vulkan), Skia fallback</text>
+</svg>

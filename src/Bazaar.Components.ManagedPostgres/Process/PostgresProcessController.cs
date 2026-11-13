@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
 using System.Net.Sockets;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 
 namespace Bazaar.Components.ManagedPostgres;
@@ -48,14 +51,30 @@ public sealed class PostgresProcessController : IAsyncDisposable
     public event Action<PostgresProcessEvent>? ProcessEvent;
 
     /// <summary>
-    /// Creates the cluster with initdb (scram-sha-256, UTF-8). A random superuser password is generated, handed to
-    /// <paramref name="persistSuperuserPassword"/> before initdb runs, and written only to a temp password file that is
-    /// deleted afterwards. It never appears in arguments, events or exceptions.
+    /// Creates the cluster. A random superuser password is generated and handed to <paramref name="persistSuperuserPassword"/>
+    /// before anything else runs. The bootstrap then runs initdb with trust rules, starts a bootstrap server reachable only
+    /// locally, sets the password over SQL on stdin, and rewrites pg_hba.conf to scram-sha-256. The password never appears in
+    /// arguments, files, events or exceptions. Until the bootstrap finishes, a pending marker blocks <see cref="StartAsync"/>.
     /// </summary>
     public async Task InitDbAsync(Func<string, CancellationToken, ValueTask> persistSuperuserPassword, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(persistSuperuserPassword);
+        await InitDbCoreAsync(null, persistSuperuserPassword, cancellationToken);
+    }
 
+    /// <summary>
+    /// initdb with a superuser password the caller already holds. A major upgrade uses this for the new cluster: pg_upgrade
+    /// connects to both clusters with one password, and the role data (including this password) is carried over from the old
+    /// cluster when it runs, so the new cluster ends up with the same credentials it had before.
+    /// </summary>
+    public Task InitDbWithPasswordAsync(string superuserPassword, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(superuserPassword);
+        return InitDbCoreAsync(superuserPassword, null, cancellationToken);
+    }
+
+    private async Task InitDbCoreAsync(string? existingPassword, Func<string, CancellationToken, ValueTask>? persistSuperuserPassword, CancellationToken cancellationToken)
+    {
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
@@ -64,11 +83,12 @@ public sealed class PostgresProcessController : IAsyncDisposable
                 throw new PostgresProcessException($"The data directory {_options.DataDirectory} already holds a cluster; initdb runs once.");
             }
 
-            // Password files from runs that were killed mid-initdb are removed before a new one is written.
-            PasswordFile.SweepStale(DateTime.UtcNow);
+            var password = existingPassword ?? Convert.ToHexString(RandomNumberGenerator.GetBytes(_passwordByteCount));
+            if (persistSuperuserPassword is not null)
+            {
+                await persistSuperuserPassword(password, cancellationToken);
+            }
 
-            var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(_passwordByteCount));
-            await persistSuperuserPassword(password, cancellationToken);
             await RunInitDbAsync(password, cancellationToken);
         }
         finally
@@ -99,6 +119,13 @@ public sealed class PostgresProcessController : IAsyncDisposable
             if (!File.Exists(ClusterMarkerPath))
             {
                 throw new PostgresProcessException($"No cluster in {_options.DataDirectory}; run InitDbAsync first.");
+            }
+
+            if (File.Exists(BootstrapPendingPath))
+            {
+                throw new PostgresProcessException(
+                    $"The bootstrap of {_options.DataDirectory} did not finish, so the cluster may still trust local connections without a password. " +
+                    "Remove the data directory and the marker next to it, then run InitDbAsync again.");
             }
 
             var (child, adopted) = await StartCoreAsync(cancellationToken);
@@ -190,36 +217,211 @@ public sealed class PostgresProcessController : IAsyncDisposable
         var address => address,
     };
 
+    private string BootstrapPendingPath =>
+        Path.GetFullPath(_options.DataDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + ".bootstrap-pending";
+
     private async Task RunInitDbAsync(string password, CancellationToken cancellationToken)
     {
-        string? passwordFile = null;
+        // The marker sits beside the data directory, not inside it, because initdb refuses a non-empty directory.
+        var parent = Path.GetDirectoryName(BootstrapPendingPath);
+        if (!string.IsNullOrEmpty(parent))
+        {
+            Directory.CreateDirectory(parent);
+        }
+
+        await File.WriteAllTextAsync(BootstrapPendingPath, "Bootstrap in progress: trust rules may be active. Do not start this cluster.\n", cancellationToken);
+
+        // Trust is only for the bootstrap. The password is set over this trust, then pg_hba is switched to scram-sha-256.
+        IReadOnlyList<string> arguments =
+        [
+            "-D", _options.DataDirectory,
+            "-U", _options.SuperuserName,
+            "-A", "trust",
+            "-E", "UTF8",
+        ];
+
+        var result = await _runner.RunAsync(ToolPath("initdb"), arguments, cancellationToken);
+        if (result.ExitCode != 0)
+        {
+            throw new PostgresProcessException(
+                $"initdb failed with exit code {result.ExitCode}: {result.Output.Replace(password, _redactedText, StringComparison.Ordinal)}");
+        }
+
+        await SetPasswordThenRequireScramAsync(password, cancellationToken);
+        File.Delete(BootstrapPendingPath);
+    }
+
+    /// <summary>
+    /// Starts a bootstrap server that accepts only local connections, sets the superuser password over stdin, stops the server,
+    /// and switches pg_hba.conf from trust to scram-sha-256. On Linux the server listens on a private unix socket directory only.
+    /// On Windows it listens on loopback at a free port, and the data directory is restricted to the current user.
+    /// </summary>
+    private async Task SetPasswordThenRequireScramAsync(string password, CancellationToken cancellationToken)
+    {
+        var socketDirectory = OperatingSystem.IsWindows() ? null : CreatePrivateSocketDirectory();
+        var port = socketDirectory is null ? _options.Port : FreeLoopbackPort();
+        var host = socketDirectory ?? "127.0.0.1";
+        IPostgresChild? child = null;
         try
         {
-            passwordFile = PasswordFile.Create(password);
+            if (OperatingSystem.IsWindows())
+            {
+                RestrictDataDirectoryToCurrentUser(_options.DataDirectory);
+            }
 
-            IReadOnlyList<string> arguments =
-            [
-                "-D", _options.DataDirectory,
-                "-U", _options.SuperuserName,
-                "-A", "scram-sha-256",
-                "-E", "UTF8",
-                "--pwfile", passwordFile,
-            ];
+            IReadOnlyList<string> serverArguments = socketDirectory is null
+                ? ["-D", _options.DataDirectory, "-p", port.ToString(CultureInfo.InvariantCulture), "-c", "listen_addresses=127.0.0.1"]
+                : ["-D", _options.DataDirectory, "-p", port.ToString(CultureInfo.InvariantCulture), "-c", "listen_addresses=", "-c", $"unix_socket_directories={socketDirectory}"];
+            child = _runner.Start(ToolPath("postgres"), serverArguments);
 
-            var result = await _runner.RunAsync(ToolPath("initdb"), arguments, cancellationToken);
-            if (result.ExitCode != 0)
+            await WaitForBootstrapServerAsync(child, host, port, cancellationToken);
+
+            var sql = $"ALTER ROLE {QuoteIdentifier(_options.SuperuserName)} PASSWORD '{password.Replace("'", "''", StringComparison.Ordinal)}';\n";
+            var set = await _runner.RunAsync(ToolPath("psql"), PsqlArguments(host, port, "postgres", "-f", "-"), cancellationToken, standardInput: sql);
+            if (set.ExitCode != 0)
             {
                 throw new PostgresProcessException(
-                    $"initdb failed with exit code {result.ExitCode}: {result.Output.Replace(password, _redactedText, StringComparison.Ordinal)}");
+                    $"Setting the superuser password failed with exit code {set.ExitCode}: {set.Output.Replace(password, _redactedText, StringComparison.Ordinal)}");
             }
+
+            var stop = await _runner.RunAsync(ToolPath("pg_ctl"), ["stop", "-D", _options.DataDirectory, "-m", "fast", "-s", "-w"], cancellationToken);
+            if (stop.ExitCode != 0)
+            {
+                throw new PostgresProcessException($"Stopping the bootstrap server failed with exit code {stop.ExitCode}.");
+            }
+
+            child.Dispose();
+            child = null;
         }
         finally
         {
-            if (passwordFile is not null)
+            if (child is not null)
             {
-                File.Delete(passwordFile);
+                child.Kill();
+                child.Dispose();
+            }
+
+            if (socketDirectory is not null)
+            {
+                TryDeleteDirectory(socketDirectory);
             }
         }
+
+        await SwitchPgHbaToScramAsync(cancellationToken);
+    }
+
+    private async Task SwitchPgHbaToScramAsync(CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(_options.DataDirectory, "pg_hba.conf");
+        if (!File.Exists(path))
+        {
+            throw new PostgresProcessException($"initdb did not write {path}; the cluster was not secured.");
+        }
+
+        var secured = PgHbaRules.SwitchTrustToScram(await File.ReadAllTextAsync(path, cancellationToken));
+        if (PgHbaRules.HasTrustRule(secured))
+        {
+            throw new PostgresProcessException($"pg_hba.conf still has a trust rule after switching to {PgHbaRules.Scram}.");
+        }
+
+        await File.WriteAllTextAsync(path, secured, cancellationToken);
+    }
+
+    private async Task WaitForBootstrapServerAsync(IPostgresChild child, string host, int port, CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(_options.StartupTimeout);
+
+        try
+        {
+            while (true)
+            {
+                if (child.HasExited)
+                {
+                    throw new PostgresProcessException("The bootstrap server exited before it accepted connections. See the server log in the data directory.");
+                }
+
+                var probe = await _runner.RunAsync(ToolPath("psql"), [.. PsqlArguments(host, port, "postgres"), "-c", "SELECT 1"], deadline.Token);
+                if (probe.ExitCode == 0)
+                {
+                    return;
+                }
+
+                await Task.Delay(_readinessPollInterval, deadline.Token);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new PostgresProcessException($"The bootstrap server did not accept connections within {_options.StartupTimeout}.");
+        }
+    }
+
+    private List<string> PsqlArguments(string host, int port, string database, params string[] extra)
+    {
+        var arguments = new List<string>
+        {
+            "-X", "-q", "-v", "ON_ERROR_STOP=1",
+            "-h", host,
+            "-p", port.ToString(CultureInfo.InvariantCulture),
+            "-U", _options.SuperuserName,
+            "-d", database,
+        };
+        arguments.AddRange(extra);
+        return arguments;
+    }
+
+    private static string QuoteIdentifier(string name) => "\"" + name.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+
+    private static string CreatePrivateSocketDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "bazaar-pgboot-" + Guid.NewGuid().ToString("N")[..12]);
+        Directory.CreateDirectory(path);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        return path;
+    }
+
+    private static int FreeLoopbackPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best effort: the temp directory is harmless once the server is gone.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Best effort: the temp directory is harmless once the server is gone.
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static void RestrictDataDirectoryToCurrentUser(string path)
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        security.AddAccessRule(new FileSystemAccessRule(
+            identity.User!,
+            FileSystemRights.FullControl,
+            InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+            PropagationFlags.None,
+            AccessControlType.Allow));
+        new DirectoryInfo(path).SetAccessControl(security);
     }
 
     private async Task<(IPostgresChild Child, bool Adopted)> StartCoreAsync(CancellationToken cancellationToken)

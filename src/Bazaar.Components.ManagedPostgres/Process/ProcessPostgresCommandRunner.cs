@@ -9,15 +9,40 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
     private static readonly TimeSpan _attachedPollInterval = TimeSpan.FromMilliseconds(250);
 
     /// <inheritdoc />
-    public async Task<PostgresCommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    public async Task<PostgresCommandResult> RunAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? environment = null,
+        string? workingDirectory = null,
+        string? standardInput = null)
     {
         var startInfo = CreateStartInfo(fileName, arguments);
+        if (environment is not null)
+        {
+            foreach (var (name, value) in environment)
+            {
+                startInfo.Environment[name] = value;
+            }
+        }
+
+        if (workingDirectory is not null)
+        {
+            startInfo.WorkingDirectory = workingDirectory;
+        }
+
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
+        startInfo.RedirectStandardInput = standardInput is not null;
 
         using var process = StartProcess(fileName, startInfo);
         var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
+        if (standardInput is not null)
+        {
+            await process.StandardInput.WriteAsync(standardInput.AsMemory(), cancellationToken);
+            process.StandardInput.Close();
+        }
 
         try
         {
@@ -109,7 +134,10 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
 
     private sealed class ProcessChild(Process process) : IPostgresChild
     {
-        public int ProcessId => process.Id;
+        // Read once while the process object is live: Process.Id throws after Dispose, and callers log it on the way out.
+        private readonly int _processId = process.Id;
+
+        public int ProcessId => _processId;
 
         public bool HasExited => process.HasExited;
 

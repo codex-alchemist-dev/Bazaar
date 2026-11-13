@@ -1,7 +1,9 @@
+using Bazaar.Constellation.Rendering.Core;
+
 namespace Bazaar.Constellation.Rendering;
 
 /// <summary>
-/// Thin boundary between the Constellation view and a drawing backend (doc 19, WP7).
+/// Thin boundary between the Constellation view and a drawing backend.
 /// The server computes layout and clustering; a backend only draws the frames it is given.
 /// </summary>
 public interface IConstellationRenderer : IDisposable

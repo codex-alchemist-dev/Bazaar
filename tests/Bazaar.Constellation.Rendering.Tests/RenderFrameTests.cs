@@ -1,3 +1,5 @@
+using Bazaar.Constellation.Rendering.Core;
+
 namespace Bazaar.Constellation.Rendering.Tests;
 
 public class RenderFrameTests
@@ -15,6 +17,15 @@ public class RenderFrameTests
         Assert.Throws<ArgumentException>(() => new RenderFrame(1, 1, 2, new float[] { 1, 2, 3 }));
         Assert.Throws<ArgumentException>(() => new RenderFrame(1, 1, 2, new float[] { 1, float.NaN }));
         Assert.Throws<ArgumentException>(() => new RenderFrame(1, 1, 2, new float[] { float.PositiveInfinity, 0 }));
+    }
+
+    [Fact]
+    public void Keeps_epoch_and_sequence_as_given()
+    {
+        var frame = new RenderFrame(7, 3, 2, new float[] { 1, 2 });
+
+        Assert.Equal(7, frame.Epoch);
+        Assert.Equal(3, frame.Sequence);
     }
 
     [Fact]

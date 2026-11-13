@@ -1,13 +1,13 @@
 using System.Diagnostics;
+using Bazaar.Constellation.Bench;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 
 // CPU-side Constellation benchmark. Not a PR gate (doc 19: nightly, on the owner's hardware).
 // GPU frame time, instancing and tile streaming are measured by the Vulkan backend on the PC and phone, not here.
-// Usage: dotnet run -c Release -- [nodeCounts comma-separated, default 10000,100000,1000000]
+// Usage: dotnet run -c Release -- [--large] [nodeCounts comma-separated, default 5000,10000; --large adds 100000,1000000]
 
-int[] counts = args.Length > 0
-    ? args[0].Split(',').Select(int.Parse).ToArray()
-    : [10_000, 100_000, 1_000_000];
+int[] counts = BenchNodeCounts.Resolve(args);
 
 const int Repeats = 5;
 const float CellSize = 16f;
@@ -44,9 +44,9 @@ foreach (int nodes in counts)
     }), 2.0);
 
     var grid = new SpatialGrid(CellSize);
-    Report(nodes, "grid_build", Median(() => grid.Build(positions, 2)), 8.0);
+    Report(nodes, "grid_build", Median(() => grid.Rebuild(positions)), 8.0);
 
-    grid.Build(positions, 2);
+    grid.Rebuild(positions);
     Report(nodes, "grid_query_x1000", Median(() =>
     {
         for (int q = 0; q < Queries; q++)

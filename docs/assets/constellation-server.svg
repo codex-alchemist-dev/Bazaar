@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" role="img" aria-labelledby="t d">
+  <title id="t">Constellation on the server: the knowledge graph behind agent memory and retrieval</title>
+  <desc id="d">A pipeline shows how the server answers an agent. A question goes through lexical search and vector search, the results are merged with reciprocal rank fusion, the graph expands each hit to its neighbours, and the top passages are returned as context. The graph is built from wiki-links and clusters in the Vault.</desc>
+  <rect width="960" height="300" rx="16" fill="#0c1a1c"/>
+  <text x="48" y="54" fill="#e8fbf7" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Constellation on the server: retrieval over the graph</text>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="15" text-anchor="middle" stroke="#2f7f74" stroke-width="2" fill="#133236">
+    <rect x="30" y="110" width="150" height="56" rx="10"/><text x="105" y="144" fill="#e8fbf7" stroke="none">Agent question</text>
+    <rect x="215" y="70" width="170" height="50" rx="10"/><text x="300" y="101" fill="#e8fbf7" stroke="none">Lexical search</text>
+    <rect x="215" y="150" width="170" height="50" rx="10"/><text x="300" y="181" fill="#e8fbf7" stroke="none">Vector search</text>
+    <rect x="420" y="110" width="170" height="56" rx="10"/><text x="505" y="136" fill="#e8fbf7" stroke="none">Rank fusion</text><text x="505" y="156" fill="#9ed8cc" font-size="12" stroke="none">reciprocal rank</text>
+    <rect x="625" y="110" width="170" height="56" rx="10"/><text x="710" y="136" fill="#e8fbf7" stroke="none">Graph expansion</text><text x="710" y="156" fill="#9ed8cc" font-size="12" stroke="none">neighbours, clusters</text>
+    <rect x="800" y="110" width="140" height="56" rx="10"/><text x="870" y="144" fill="#e8fbf7" stroke="none">Context</text>
+  </g>
+  <g stroke="#6fb8aa" stroke-width="2" fill="none">
+    <line x1="180" y1="138" x2="215" y2="95"/><line x1="180" y1="138" x2="215" y2="175"/>
+    <line x1="385" y1="95" x2="420" y2="130"/><line x1="385" y1="175" x2="420" y2="150"/>
+    <line x1="590" y1="138" x2="625" y2="138"/><line x1="795" y1="138" x2="800" y2="138"/>
+  </g>
+  <text x="48" y="250" fill="#9ed8cc" font-family="Segoe UI, Arial, sans-serif" font-size="14">Memory writes land in the same graph, so an agent recalls what the company already knows.</text>
+</svg>

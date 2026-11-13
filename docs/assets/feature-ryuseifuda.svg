@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220" role="img" aria-labelledby="t d">
+  <title id="t">RyuseiFuda: agent work board</title>
+  <desc id="d">A board with five columns: Backlog, Ready, In progress, Review and Done. Cards sit in columns, with one card marked blocked.</desc>
+  <rect width="480" height="220" rx="14" fill="#0d1117"/>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#8b949e">
+    <text x="24" y="28">Backlog</text>
+    <text x="120" y="28">Ready</text>
+    <text x="216" y="28">In progress</text>
+    <text x="330" y="28">Review</text>
+    <text x="410" y="28">Done</text>
+  </g>
+  <g>
+    <rect x="18" y="38" width="90" height="34" rx="6" fill="#1c2330"/>
+    <rect x="18" y="80" width="90" height="34" rx="6" fill="#1c2330"/>
+    <rect x="114" y="38" width="90" height="34" rx="6" fill="#1c2330"/>
+    <rect x="210" y="38" width="100" height="34" rx="6" fill="#1c2330" stroke="#f2b84b" stroke-width="1.5"/>
+    <rect x="210" y="80" width="100" height="34" rx="6" fill="#1c2330"/>
+    <rect x="324" y="38" width="76" height="34" rx="6" fill="#1c2330"/>
+    <rect x="404" y="38" width="60" height="34" rx="6" fill="#1c2330" stroke="#9be38f" stroke-width="1.5"/>
+    <rect x="404" y="80" width="60" height="34" rx="6" fill="#1c2330" stroke="#9be38f" stroke-width="1.5"/>
+  </g>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#f0f6fc">
+    <text x="28" y="60">Login tests</text>
+    <text x="28" y="102">Vault index</text>
+    <text x="124" y="60">Mail parser</text>
+    <text x="220" y="60">Roadmap view</text>
+    <text x="220" y="102">Constellation LOD</text>
+    <text x="334" y="60">Pairing UI</text>
+    <text x="414" y="60">PR #369</text>
+    <text x="414" y="102">Schema</text>
+  </g>
+  <text x="210" y="134" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#f2b84b">blocked: waits on Schema</text>
+  <text x="24" y="196" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" fill="#8b949e">Orrery wakes agents on timers, events and watchers</text>
+</svg>

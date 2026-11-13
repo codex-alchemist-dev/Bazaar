@@ -128,6 +128,7 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | Versions | **RESOLVED (owner)**: SemVer `vMAJOR.MINOR.PATCH`; pre-release builds are `v0.x` with the placeholder codename "Beta"; v1.0.0 is a deliberate jump. Inspired by RESIBO V3. | `docs/VERSIONING.md`; `VersionPrefix` in `Directory.Build.props`; `Bazaar.Contracts.ProductVersion`. |
 | Codenames | **RESOLVED (owner)**: majors named Z to A, theme "words that belong to both alchemy and the stars". Owner rejected Claude's first pick "Zodiac" and chose **"Zuhal"** (Arabic name of Saturn; Saturn is lead in alchemy) for v1.0.0; owner accepted Yliaster (v2), Xerion (v3) and Venus (v5) and rejected "Wandering Star" (v4); the owner rejected "Wolf" and accepted Wormwood (v4). **Update (owner pick, 2026-11-08): v4 is now "Weltseele" (anima mundi, the world soul), replacing Wormwood.** Owner pick (2026-11-08): v5 is now "Valthyrzmthl", replacing Venus; its meaning note is pending. Owner pick (2026-11-08): v3 is now "Xylokrator" ("ruler of the wood"), replacing Xerion. | `docs/VERSIONING.md` section 2. |
 | Channels | **RESOLVED (owner)**: LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel; the operator picks per install. Stable, Beta and Alpha are immutable tags on `main`; LTSC is a real branch. | `docs/VERSIONING.md` section 4; doc 30. |
+| Version display | **RESOLVED (owner, 2026-11-12)**: plain SemVer with the commit appended, for example `0.1.0+a1b2c3d`. No `x` or `v` prefix and no zero padding. Release tags are `vMAJOR.MINOR.PATCH` with no commit. Applies to every CDAX project. Supersedes the zero-padded `xAA.BB.CC` and `vAA.BB.CC` forms of 2026-10-29 and 2026-11-08. | `docs/VERSIONING.md` section 1; `docs/release.md`. |
 | Merging | **RESOLVED (owner)**: during full development Claude may merge PRs that pass the requirements (green CI on the head, no conflict, no blocking review). DCO sign-off for these merges is OPEN until before the first public release. | CLAUDE.md repo rules; `docs/VERSIONING.md` section 3. |
 | Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta stages 1 to 9, extendable (relabelled from v0.1 to v0.9 on 2026-10-29, because stage numbers are not release versions). | `docs/ROADMAP.md`. |
 | Provenance placement | **RESOLVED by Claude (schema shape, within C09)**: `source_trust`, `tainted_at_write`, `taint_sources`, `derived_from` live on `gc_event`; an edit is a `message_edit` event, so each version carries its editor's provenance. | Docs 01, 04, 15 aligned. |
@@ -151,7 +152,7 @@ Entries come from the Consequence sections of the merged spike docs in `docs/spi
 | S14 Graph layout tick | **inconclusive** | Layout stays server-side (C17 unchanged). Cloud 4 vCPU on .NET 11: 10k-node steady tick about 9.7 ms single-threaded and 4.8 ms parallel, against the 8 ms NUC budget. | **OPEN:** the 8 ms gate on the NUC (Wave B runbook step in the doc), the render half (owner Windows), Android, and whether the server ships single-threaded or parallel layout. |
 | S16 SOCKS5 via `SocketsHttpHandler` | **pass** | `socks5://` works on .NET 11 (Linux) and .NET 10 (Windows), including user/pass. The outbound proxy setting is usable and not schema-only. Keep to `socks5://`. | `socks5h://` is rejected on Windows .NET 10 but accepted on Linux .NET 11: re-run on Windows .NET 11. `https://` proxy URIs worked only with validation bypassed: test a trusted chain and credentials. dotnet/runtime#102441 not checked. |
 | S17 FreeLLMAPI surface (read-only half) | **partial** | The source read shows fallback can reach any enabled chain member and there is no caller exclusion list, so the "unpolicied upstream" branch applies. Bazaar.Server's own gateway enforces per-agent model policy and checks the served model and `X-Fallback-Trail`/`X-Fallback-Attempts` after every call (doc 05; no design change). Do not rely on `sk-cp-` profile keys for per-agent scoping until the v0.16.6 conflict is settled. | **OPEN:** the live forced-fallback test with a pinned version and non-Claude free keys (owner-supplied), plus the prompt-logging, usage and health checks. |
-| S25 Postgres base backup, WAL archive and restore drill | **pass** (Linux and Windows, PostgreSQL 18.6) | The C10 restore policy (PITR to a timestamp, sequence floor above the surviving head, a `system` recovery entry recording the lost range, no sequence reuse) works on both paths tested: 3 of 3 runs each, P1 to P4 pass, restore to promotion about 2 to 3 s on 400k rows. Doc 04 WP4 and doc 33 WP8/WP9 can rely on this shape. | **OPEN:** the service-account run on the NUC (doc 35 Wave B), pgBackRest or WAL-G as the engine (neither tested), a real RTO at realistic volume, an offsite archive for the RPO, and a live-crash loss window (the kill came after the archive caught up). |
+| S25 Postgres base backup, WAL archive and restore drill | **pass** (Linux and Windows, PostgreSQL 18.6) | The C10 restore policy (PITR to a timestamp, sequence floor above the surviving head, a `system` recovery entry recording the lost range, no sequence reuse) works on both paths tested: 3 of 3 runs each, P1 to P4 pass, restore to promotion about 2 to 3 s on 400k rows. Doc 04 WP4 and doc 33 WP8/WP9 can rely on this shape. | **OPEN:** a registered Windows service run (the owner's PC run used a non-admin local account, `docs/spikes/S25.md`); the NUC run is void, the NUC is gone, pgBackRest or WAL-G as the engine (neither tested), a real RTO at realistic volume, an offsite archive for the RPO, and a live-crash loss window (the kill came after the archive caught up). |
 | S23 LibGit2Sharp vs git CLI | **pass** (Windows) | LibGit2Sharp stays the default `IGitProvider` (C12 stands). `IGitProvider` states: one writer per checkout (host lock per worktree and a single merge lane); a startup step aborts unfinished merges and prunes stale worktrees. Engines can be mixed per operation. | **OPEN (design call):** LibGit2Sharp has no sparse checkout, so the `paths` argument of doc 18 `AddWorktreeAsync` needs a decision: CLI for that call, materialise only allowed paths, or enforce privacy at the Vault read layer. Not run on Linux; 10k+ commit histories, SMB shares, submodules, LFS, hooks and push/fetch not covered. |
 | S3 GC log at scale | **pass** (Linux baseline; owner-PC run owed) | On Postgres 18.6 with 1M events and 16 hash partitions, median append p95 is 7.1 ms at 500 appends/s (limit 50 ms); 12 forced listener kills lost 0 of 28,800 events; 200-message page p95 4.4 ms; 10k replay 122 ms and contiguous. **Changes (coordinator, per owner defaults):** (1) NOTIFY is sent after commit by a coalescing notifier (newest seq per GC, one transaction every few ms), not by `pg_notify` inside the append transaction, which gave unstable tails (p95 115 ms in one repeat of three). (2) Consumers treat NOTIFY as a hint and read from a per-GC cursor that advances only over contiguous seq; a periodic head-versus-cursor sweep backs up the reconnect catch-up. (3) Default partition count 16 (64 made page reads about 4x slower). (4) No `(gc_id, created_at)` index by default; time-range reads resolve to a seq. (5) One GC tops out near 400 to 700 appends/s (`head_seq` row lock); bulk writers batch. Thresholds proposed in the doc are accepted. | **OPEN:** the same run on the owner's PC (replaces the NUC); the periodic sweep and multi-server fan-out were not tested. See `docs/spikes/S3.md`. |
 
@@ -241,3 +242,98 @@ Defaults taken by WP-R6 (PR #344, squash-merged) for the event and watcher bridg
 | Idle watcher expiry | Accepted for v1 (expires at next match or tick). |
 | GC and kanban catch-up | Accepted for v1. A catch-up read is added later. |
 | Second LISTEN connection | Accepted. This deviates from doc 04, which is noted there. |
+
+## Round 21 (2026-11-09): RyuseiFuda WP-R7 to WP-R11 defaults
+
+Defaults taken by the RyuseiFuda merge train (PRs #349 to #353, squash-merged). The owner may change any of them.
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Per-agent wake cap (WP-R8, #349) | 30 wakes per agent per hour (`ryusei.max_agent_wakes_per_hour`, no floor). Counted from `inbox_item` rows of any kind, so digest-class rows overcount. | Yes. |
+| Wake cap and pausing | The wake cap does not pause the trigger. Only the daily fire cap pauses at once. The refusal streak still auto-pauses. | Yes. |
+| Refused one-shot timer (WP-R8) | Ends as `fired`, not retried. Same as cooldown refusals today. | Yes. |
+| Fire audit (WP-R10, #350) | Every fire is audited in the fire transaction: `ryusei.trigger.fired` when woken, `ryusei.trigger.fire_refused` otherwise. Actor is `system`; the trigger creator goes in the payload. Payload carries ids, outcome and cause, never purpose text. | Yes. |
+| Skipped and error outcomes (WP-R10) | Audited as `fire_refused`, since they wake nobody. | Yes. |
+| Observatory events (WP-R10) | Not emitted. No publisher seam exists yet (doc 23). | Follow-up. |
+| Micro pane view model (WP-R11, #351) | Ordering: active with next fire (soonest first), then paused (no fire last), then the rest. Client-side record only; not registered as a pane and has no Avalonia control. | Follow-up (WP-R4 supplies the wire shape). |
+| Tool contract (WP-R9, #352) | `ryusei.schedule`, `ryusei.list`, `ryusei.pause`, `ryusei.cancel`. Parsing only. Authority, caps and target rules stay in the trigger rules and service. | Yes. |
+| Tool caller context (WP-R9, #353) | Companion interface `IContextualTool : ITool` carries a `ToolCallContext` (agent, session, turn). The plain `ITool` path throws, so a bypass fails loudly. | Yes. |
+| Agent directory (WP-R9, #353) | `IRyuseiAgentDirectory` resolves caller and targets. A retired caller counts as unknown. No project link exists in the schema yet, so the SQL directory takes a project id in its constructor. | Yes. |
+| Tool registration | Not registered at startup. No `ToolRegistry` is built yet. | Follow-up. |
+| Schedule tool chain depth | Passes depth 0. `ToolCallContext` does not carry chain depth, so a loop woken by a fire could reset depth. **Must be fixed before the schedule tool is registered for agents.** | Follow-up (blocking for registration). |
+| New GC from a fire (WP-R7, #346) | Title is the purpose, trimmed to 120 characters. Member cap 9. The GC id is deterministic from the trigger and its scheduled instant, so a retry does not create a second GC. | Yes. |
+
+**Open for owner:** none blocking. The chain-depth fix is a prerequisite for registering the schedule tool, not for the merged code.
+
+## Round 22 (2026-11-09): turn-path stores
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Agent post API | `GcAgentPostSink` (`src/Bazaar.Server/Agents/Turns/Posting/`) calls the raw `IGcLogWriter.AppendAsync`. No higher-level GC post service exists, and the wire `gc.send` handler needs a session principal and client-parsed mentions, so it cannot serve an agent post. | Yes, when a post service exists. |
+| Mention parsing | Not applied. The sink attaches no mentions. Mention parsing and loop guards from doc 06 step 5 are a follow-up that must land before turns post to live GCs. | Needs a follow-up. |
+| Loop guards | Not applied on the post path. `ILoopGuard` is not wired to the GC append. | Needs a follow-up. |
+| Author and trust | Author kind `agent`, author id = agent id, source trust `agent` (soft taint, round 2). No session id. | No. |
+| Body | Sealed by `IGcBodyCodec` before the writer, as the judgment poster does. | No. |
+| Client message id | `turn:{turnId}:{sha256(text) hex}`, 106 characters at most. A retry of the same turn and text returns the original event. A different text in the same turn is a new event, not a silent duplicate. | Yes. |
+| Text limit | Same as the wire send: `GcSendHandler.MaxTextLength` (64 KiB). Empty or whitespace text is refused. | Follows the `gc.message_max_bytes` setting when it is wired. |
+| Registration | `AddGcAgentPostSink()` uses `TryAddSingleton<IAgentPostSink>`. The host supplies `IGcLogWriter` and `IGcBodyCodec`. The dispatcher and turn runner are not wired here. | No. |
+
+Defaults taken by WP-TAINT for the session taint store behind `ISessionTaintStore` (doc 15). The coordinator chose them under the safe-defaults rule; the owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Storage | Taint is persisted in Postgres, table `session_taint` in namespace `agent_turns` (`agent_turns/0001`). Namespace folder follows the component id `agent-turns` with `-` replaced by `_`. | Yes. |
+| Keying and append-only | Keyed by `session_id`. Each save appends a full snapshot (level and every source so far). Update, delete and truncate are refused by the `gc_append_only` triggers. | Yes. |
+| Read rule | The session's taint is its latest row (highest `seq`). No rows gives `SessionTaint.Clean`. | Yes. |
+| No decrease | A trigger refuses a level below the session's latest level, serialised per session with an advisory lock. Taint never decreases (doc 15). | No (security invariant). |
+| Registration | `ISessionTaintStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, over `NpgsqlDataSource`. The tool dispatcher is not wired by this change. Policy is unchanged. | Yes. |
+
+Defaults taken by the in-flight call store (agent/wp-inflight), safe defaults on the coordinator's call. The owner may change any of them.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Table | `in_flight_call` (migration `turns_inflight/0001`): `call_key` primary key (`{turnId:D}:{callId}`), `state` CHECK in (`begun`, `completed`), `begun_at`, `lease_expires_at`, `completed_at`. Own namespace `turns_inflight`, because `turns` belongs to the taint store and `common/` is frozen. | Yes, before first production write. |
+| Lease constant | `InFlightCallRows.Lease` = 10 minutes. It reclaims a row only; it never lets a call run again. | Yes. |
+| Unfinished rule | A call is unfinished when its row exists and `state = 'begun'`, whatever `lease_expires_at` says. A begun call may have run, so a lapsed lease does not make it safe to repeat. | No: this follows the Unknown rule in doc 06. |
+| Begin | Upsert to `begun` with a fresh lease from the database clock. A repeated begin after completion reopens the row. | Yes. |
+| Complete | Sets `completed`. A missing key is a no-op. | Yes. |
+| Registration | `PostgresInFlightCallStore` is registered with `TryAddSingleton` in `AgentTurnsComponent`, the file that holds the turn seams. The dispatcher is not wired. | Yes. |
+
+## Round 23 (2026-11-11): production turn runner and context sources
+
+Coordinator choices under the safe-defaults rule (the owner may change any of them). Marked DECIDED for the build; the owner's review can reopen any row.
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Context sources | Three, in order: the charter seam (System), the GC backread (GcBackread), and the trigger message verbatim (Inbox). Workday board items are not a context source: the board is owner-only for reads (doc 12). | Yes (order and bounds). |
+| Charter text | `ISoulCharterSource`, default `NullSoulCharterSource` (no text). `soul_versions` holds only the charter's SHA-256 and the preferences JSON, and the charter is a Vault file with no reader yet, so the seam is documented and empty until a Vault reader and the agent-to-soul mapping land. | Yes, when the reader lands. |
+| GC read principal | The agent's own principal (`PrincipalKind.Agent`, id = agent id). `IGcReadAccess` decides membership, so an agent reads only GCs it is a member of, up to its left seq. A GC it may not read gets a fixed notice item, so the trigger thread is still found. | No (membership rule). |
+| GC backread bounds | Last 20 messages of the trigger GC, each cut to 1000 characters. The trigger message is always included. | Yes. |
+| Inbox section | The trigger message, verbatim, read at its GC seq. Inbox items are GC-backed in this build. | Yes. |
+| Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
+| Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
+| Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
+
+## Round 24 (2026-11-11): turn starter, post guards, mention handles and the wake loop
+
+Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Turn starter (#436) | One turn per call from the agent's due pending inbox items, read without claiming (`InboxRepository.PeekDueAsync`); the runner claims them by id. The wake reason is the kind of the highest-priority item. The trigger GC line comes from the first GC-backed item. | Yes. |
+| Chain depth of a woken turn (#436) | The largest depth any item reports. A `ryusei_*` item carries its fire id in `source_ref`, and the depth is read from that fire. | Yes. |
+| Unreadable fire depth (#436) | Fails closed: counted as `TurnStarterOptions.UnknownRyuseiDepth` (3, the maximum), never as 0, so the turn cannot schedule deeper. | No (security floor; the value may only be tightened). |
+| Loop guard on agent posts (#438) | `GcAgentPostSink` checks `ILoopGuard` before the append. A tripped post is refused (`AgentPostRefusedException`), the turn ends as `PostRefused`, and its items and lease are released. The mention depth passed to the guard is always 0, and a retry is counted again. | Yes. |
+| Guard trip record (#438) | Logged only. The guard kind and reason are not stored, and there is no Psych Ward hand-off yet. | Follow-up. |
+| Mentions in agent posts (#438) | Parsed from the text as `@handle`, validated against the GC roster, and written as mention inbox rows after the append. `@here` and `@all` are ignored. Without a mention directory the sink attaches no mentions. | Yes. |
+| Principal handle (#443) | Optional, unique, lowercase, in `principal_handle` (migration namespace `mentions/`). Shape `^[a-z0-9][a-z0-9_-]{1,31}$`; `here` and `all` are reserved. No row means not mentionable. | Shape and length: yes. Table and namespace: no. |
+| Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
+| Handles for new agents (#443) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
+| Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
+| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
+| Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
+| Wake loop and the guard (#442) | The guard is asked before each wake. A tripped agent is skipped and held for 5 minutes (`GuardTripBackoff`, in memory) before the guard is asked again; its items stay pending. | Yes. |
+| Session per turn (#442) | Each woken turn gets a new session id, so taint does not carry from one turn to the next. Interim, until a session model exists (doc 06, doc 15). | Follow-up. |
+| Route and tools of a woken turn (#442) | One gateway route and one tool allowlist for every woken turn, from the scheduler settings. The route is required when the loop is enabled and is separate from `Bazaar:Turns:Route` (round 23); the allowlist is empty by default. | Follow-up (per-agent policy). |
+
+**Open for owner:** none blocking. The GC component calls `AddGcAgentPostSink()`, so mentions in agent posts are live once #443 merges. Before the wake loop is switched on, the host must supply a model gateway.

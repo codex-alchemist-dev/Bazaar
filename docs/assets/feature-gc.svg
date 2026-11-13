@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220" role="img" aria-labelledby="t d">
+  <title id="t">GC: append-only group chat</title>
+  <desc id="d">Three chat bubbles from an agent, a human and a model, with a sequence number. Nothing is erased.</desc>
+  <rect width="480" height="220" rx="14" fill="#0d1117"/>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+    <circle cx="44" cy="52" r="18" fill="#f2b84b"/>
+    <rect x="76" y="32" width="300" height="42" rx="12" fill="#1c2330"/>
+    <text x="90" y="58" font-size="14" fill="#f0f6fc">Charles: the schema diff is ready for review.</text>
+    <circle cx="44" cy="106" r="18" fill="#7cc4ff"/>
+    <rect x="76" y="86" width="250" height="42" rx="12" fill="#1c2330"/>
+    <text x="90" y="112" font-size="14" fill="#f0f6fc">Owner: thanks, post it in the thread.</text>
+    <circle cx="44" cy="160" r="18" fill="#9be38f"/>
+    <rect x="76" y="140" width="330" height="42" rx="12" fill="#1c2330"/>
+    <text x="90" y="166" font-size="14" fill="#f0f6fc">Edited: every version is kept, marked.</text>
+    <text x="24" y="206" font-size="13" fill="#8b949e">seq 4812 · append-only · never purged</text>
+  </g>
+</svg>

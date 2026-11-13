@@ -70,6 +70,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 29 | [29-android-client.md](29-android-client.md) | Development Console: fold layouts, radial menu, dictation, approvals, push | 13 | 27, 02, 15, 31, 32 |
 | 30 | [30-linux-client-and-packaging.md](30-linux-client-and-packaging.md) | Linux client, packaging, versioning, server upgrade and rollback, signing, release pipeline | 14 | 27, 28, 29, 02, 03, 04, 33 |
 | 31 | [31-local-coworker-npu.md](31-local-coworker-npu.md) | On-device inference: Intel and Qualcomm NPU paths, chips, voice cleanup, guards | 13 | 02, 05, 15, 34 |
+| 41 | [41-client-gui-customization-and-dsl.md](41-client-gui-customization-and-dsl.md) | Client GUI customization: typed, versioned JSON documents (theme, layout, commands, start) with scopes and sync; DSL question (not warranted in v1); client modules and plugin-pane options | 8 | 27, 02, 03, 15, 20, 38, 19 |
 
 ### Operations and quality
 
@@ -81,6 +82,14 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 39 | [39-conduit-remote-connectivity.md](39-conduit-remote-connectivity.md) | Conduit: remote connectivity as modules (`Bazaar.Conduit`): LAN mDNS, port forward, UPnP, cloudflared, overlays, relay, P2P ICE, Tor, SSH, bootstrap; offer rules and pins | 4 | 02, 03, 14, 15, 32 |
 | 34 | [34-testing-strategy.md](34-testing-strategy.md) | Test layers, real-Postgres fixtures, fake gateway and cassettes, verification gate, evals | 13 | 02, 04, 05, 06, 15, 17 |
 | 35 | [35-spikes-plan.md](35-spikes-plan.md) | 25 time-boxed spikes (S1 to S25) with pass criteria, fallbacks and run locations | 12 | spans 02 to 33 |
+
+### Rendering (prepared, not extracted)
+
+Not part of the numbered set. Status PROPOSED.
+
+| # | Doc | Purpose | Qs | Key dependencies |
+|---|---|---|---|---|
+| - | [constellation-render-core.md](constellation-render-core.md) | Boundary of the generic bulk-node render core (`Bazaar.Constellation.Rendering.Core`) and its future extraction steps; enforced by the architecture test `ConstellationRenderCoreBoundaryTests` | - | 19, constellation-scale-and-lod |
 
 ## How to review these docs
 

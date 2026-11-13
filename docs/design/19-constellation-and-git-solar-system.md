@@ -78,6 +78,14 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 | `constellation.orbit_radius` | enum `age` or `equal` | `age` | project | project owner or operator | No (audited) |
 | `constellation.screenshot_sources` | list of `gc_attachments`, `test_artifacts` | `gc_attachments` | install | operator | No (audited) |
 
+**Decided 2026-11-11 (safe default, coordinator).** These rules fix how `constellation.orbit_radius` maps to body radii. They are the shipped safe default, not an owner decision.
+1. `age`: a body's radius scales linearly between `MinOrbitRadius` and `MaxOrbitRadius` by its last-activity age. Older bodies sit on outer orbits. The ratio is clamped to 0 to 1.
+2. `equal`: every body uses one uniform radius, which is `MinOrbitRadius`.
+3. If all ages are equal, the radius is `MinOrbitRadius`.
+4. Defaults: `MinOrbitRadius` 10 (equal to the current `OrbitSpacing` default) and `MaxOrbitRadius` 100. Both live on `LayoutOptions`. The operator may change them. `OrbitSpacing`'s default is unchanged.
+
+`constellation.git_layout` (deterministic or force) is still a caller dispatch between `SolarOrbitLayout` and `ForceLayout`. It is not mapped onto `LayoutOptions`.
+
 ## Behaviour and edge cases
 - **Ordering.** Frames carry `GraphVersion` and `LayoutSeq`. The client drops any frame older than the newest applied.
 - **Node identity.** Nodes key on the Vault document ID, not the path, so a rename keeps the node's place. Unresolved links stay as dim ghost nodes.
@@ -106,7 +114,7 @@ Full design, budgets and benchmark plan: `constellation-scale-and-lod.md`.
 | Client render, 1M aggregated instances, PC | 60 fps, ≤ 12 ms draw (PROPOSED; measured on PC) |
 | Client render, phone (Android Vulkan) | 60 fps at the phone tier, ≤ 14 ms draw (PROPOSED; measured on device) |
 | CPU interpolation, 1M nodes | ≤ 2 ms per frame (benchmark: tests/Bazaar.Constellation.Bench) |
-| Server layout tick, 10k nodes | ≤ 8 ms per tick on the NUC (absolute budget; S14 measures it on the NUC) |
+| Server layout tick, 10k nodes | ≤ 8 ms per tick on the owner's PC (absolute budget; S14 measures it on the owner's PC) |
 | Focus change to settled layout, 5k nodes | ≤ 1 s |
 | Android | not gated until the spike |
 
@@ -118,6 +126,11 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - Vault branches (`agent/<task>`) are planets. Writer-queue merges (18) are comets.
 - The layout is deterministic by default (`constellation.git_layout = deterministic`), so history does not jitter as it grows. `force` is available as a setting.
 
+**DECIDED 2026-11-11 (coordinator).** These defaults let WP11 build on the solar system without waiting on the owner:
+1. Comet direction runs from the merged branch tip to the merge commit.
+2. Every parent edge is kept, not only merge comets, so plain parent edges are drawn too.
+3. The git DAG indexer (`src/Bazaar.Server/Constellation/GitDag/`) is the source of these edges.
+
 ## Testing
 - **Layout engine:** xUnit v3, no Avalonia. Fixed seed. Invariants: no NaN, settling, hop ordering, determinism. Barnes-Hut matches brute force within tolerance at 1k nodes.
 - **Clustering:** two cliques joined by one edge yield two communities.
@@ -125,7 +138,7 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 - **Git DAG:** fixture repo with a merge yields one comet edge, read through `IGitProvider`.
 - **Client:** Avalonia.Headless with the Vulkan renderer on a software Vulkan device (CI-capable). Golden image at 200 nodes. Hit-test and keyboard-only walk produce the expected `FocusRequest` sequence.
 - **Settings:** each setting's default and bounds are tested; a change writes an audit entry.
-- **Performance:** benchmark at 1k, 5k and 10k on the NUC (spike S14), nightly, not a PR gate.
+- **Performance:** benchmark at 1k, 5k and 10k on the owner's PC (spike S14), nightly, not a PR gate.
 
 ## Work packages
 1. `Bazaar.Contracts`: graph and layout records, JSON source generation; register `graph:<id>` in 02's registry.
@@ -153,7 +166,7 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 ANSWERED: layout runs on the server; clients render only (DECISIONS-LOG round 4, C17).
 ANSWERED: DM nodes appear to members, and the owner sees all DMs, per the decided DM rule (CLAUDE.md).
 
-1. **Performance gate.** 5k or 10k at 60 fps on the NUC? Default: 5k must pass on the Windows NUC desktop; 10k is a stretch. Stays a question: it is an acceptance gate set against the owner's 10k direction (Conflict 2).
+1. **Performance gate.** 5k or 10k at 60 fps on the owner's PC? Default: 5k must pass on the Windows owner's PC desktop; 10k is a stretch. Stays a question: it is an acceptance gate set against the owner's 10k direction (Conflict 2).
 2. **Drafts.** Visible to all viewers, or only the owner and author? Default: owner and author, the same rule as DMs. Also confirm `draft` as a Vault document type (18 lists it as [PROPOSED]). Stays a question: visibility is an access rule and the type is a file-layout choice.
 3. **Accessibility.** Is the keyboard list mirror required for v1? Default: yes. Product scope.
 4. **Memory and Thinking GCs in the graph.** Should other human members see agent memory notes (18's default is owner and owning agent only)? Should Thinking GCs ever be nodes? Default: no and no; the owner can see both through the Vault and GC views. Stays a question: this is an access rule for private material (DECISIONS-LOG round 3, C11).
