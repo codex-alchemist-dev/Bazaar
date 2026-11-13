@@ -12,6 +12,17 @@ namespace Bazaar.Client.Core.Tests.Mobile;
 public class PhoneKanbanPaneTests
 {
     [AvaloniaFact]
+    public void Gc_page_renders_the_empty_state_with_no_session()
+    {
+        var registry = FirstPartyPanes.CreateRegistry();
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        var window = new Window { Content = shell, Width = 360, Height = 740 };
+        window.Show();
+
+        Assert.Contains("No group chat is connected.", ShownText(window));
+    }
+
+    [AvaloniaFact]
     public void Kanban_page_renders_the_board_with_no_snapshot()
     {
         var registry = FirstPartyPanes.CreateRegistry();
@@ -20,7 +31,7 @@ public class PhoneKanbanPaneTests
         window.Show();
 
         var texts = ShownText(window);
-        Assert.Contains("Kanban", texts);
+        Assert.Contains("RyuseiFuda · Board", texts);
         Assert.Contains("Backlog (0)", texts);
         Assert.Contains("Done (0)", texts);
         Assert.DoesNotContain(PaneKinds.Kanban, texts);
@@ -56,12 +67,11 @@ public class PhoneKanbanPaneTests
     }
 
     [Fact]
-    public void Kanban_body_is_null_for_other_kinds_so_they_keep_the_placeholder()
+    public void Other_kinds_get_no_body_so_they_keep_the_placeholder()
     {
         var registry = FirstPartyPanes.CreateRegistry();
         var bodies = FirstPartyPanes.PhonePaneBodies(registry);
 
-        Assert.Null(bodies(GcPaneViewModel.PaneKind));
         Assert.Null(bodies(PaneKinds.Dashboard));
     }
 

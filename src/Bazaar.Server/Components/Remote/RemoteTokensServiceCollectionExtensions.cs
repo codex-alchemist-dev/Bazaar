@@ -23,4 +23,19 @@ public static class RemoteTokensServiceCollectionExtensions
         services.TryAddSingleton<ITokenService, TokenService>();
         return services;
     }
+
+    /// <summary>
+    /// Registers the pairing service (doc 32 section 3): <see cref="IPairingService"/>, the Postgres offer store and
+    /// <see cref="PairingOptions"/>. It shares the refresh store and token service, so call <see cref="AddBazaarRemoteTokens"/> first.
+    /// </summary>
+    public static IServiceCollection AddBazaarPairing(this IServiceCollection services, Action<PairingOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        var options = services.AddOptions<PairingOptions>();
+        if (configure is not null)
+            options.Configure(configure);
+        services.TryAddSingleton<IPairingOfferStore, PostgresPairingOfferStore>();
+        services.TryAddSingleton<IPairingService, PairingService>();
+        return services;
+    }
 }

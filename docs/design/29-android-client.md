@@ -20,6 +20,7 @@ Bazaar.Android is the phone and foldable head of the Bazaar client: a Developmen
 - Done means the PR is merged. Reviewer approval is a visible flag (DECISIONS-LOG round 8, C28).
 - Monaco is not supported on mobile (UI framework contingency note, 2026-10-25). Phone diffs need a native surface (see Conflicts).
 - Google Play closed test is the first distribution (CLAUDE.md).
+- **Owner decision (2026-11-12):** each company builds its own Android client; the repo ships server builds only (doc 37). The APK and Play steps below apply per company.
 - No web client. GCs are append-only with kept edit versions. Kanban is a dependency board (CLAUDE.md).
 
 ## Design

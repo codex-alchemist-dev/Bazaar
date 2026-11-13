@@ -2,6 +2,7 @@ using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Panes;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Constellation;

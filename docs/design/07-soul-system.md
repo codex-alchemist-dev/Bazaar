@@ -159,3 +159,18 @@ ANSWERED: Charles and juniors use `custom/*` over a cheap whitelist with FreeLLM
 ANSWERED: Promotion, hiring and retirement are Council votes; the owner decides only split or tied bigger changes; there is no owner approval step for promotion (DECISIONS-LOG round 9, C32).
 ANSWERED: Decision records are Vault files `decisions/NNNN-slug.md` written through `VaultWriter` (DECISIONS-LOG round 7, C24).
 ANSWERED: Edited messages keep every version with an "edited" marker (CLAUDE.md; DECISIONS-LOG round 1, C09).
+
+## Soul Marketplace: memory exclusion (2026-11-13)
+
+> Framing (owner, 2026-11-13): agent memory is not a separate store. Memory items are artefacts held in Constellation and in the contents of a Soul. The memory export below selects those artefacts; it does not add a new store.
+
+Status: DECIDED (owner, 2026-11-13). PLANNED to build. The marketplace itself is OPEN for v1 scope (see Questions for the owner).
+
+1. **Rule.** Agent memory and agent reputation must never be part of anything published to the Soul Marketplace. This covers Vault memory files, the memory index, memory kinds from doc 08, reputation history from doc 11, and any excerpt, summary or embedding of them.
+2. **The marketplace export is memory-free by design.** The Soul marketplace bundle is the Soul export of doc 33, which has no memory, no reputation and no Passport. Its schema has no field for memory or reputation, so the bundle cannot carry them.
+3. **Memory-free by enforcement, and tested.** The publish path refuses any bundle that contains a memory file, a memory index row, a reputation row or a Passport reference, even if the schema allowed it. The check runs on the bundle contents, not on the caller's intent. A test publishes a Soul that has memory and reputation and asserts that the bundle contains neither.
+4. **Separate memory export has no marketplace target.** The memory export (doc 44, section 4.x) is private to the company and its owner. It is permissioned and audited (doc 48). It has no upload target and no marketplace destination, and the publish path refuses it as a source.
+5. **Preset and profile content only.** A marketplace listing carries behavioural presets only (already in the rule above). It carries no personal data and no project context.
+6. **Audit.** Each marketplace publish writes an audit record with the bundle hash and the enforcement check result (doc 48).
+
+Link: the memory export format and its permissions are in doc 44 (section 4.x). The Soul export scope is in doc 33 (update note, 2026-11-13). Constellation memory governance is in doc 19 (section "Agent memory governance").

@@ -3,9 +3,20 @@ using Npgsql;
 namespace Bazaar.Server.Agents.Data;
 
 /// <summary>SQL-first access to the <c>agent</c> table (doc 06, "Lifecycle").</summary>
-public sealed class AgentRepository(NpgsqlDataSource dataSource)
+public sealed class AgentRepository(
+    NpgsqlDataSource dataSource,
+    IAgentLifecycleObserver? lifecycleObserver = null,
+    IAgentHandleAssigner? handles = null)
 {
-    /// <summary>Creates an agent in <see cref="AgentState.Created"/>. Returns its id.</summary>
+    /// <summary>
+    /// Creates an agent in <see cref="AgentState.Created"/>. Returns its id. With an <see cref="IAgentHandleAssigner"/>, the new
+    /// agent also gets its default mention handle (a slug of <paramref name="name"/>); a name with no usable slug leaves it
+    /// without one.
+    /// </summary>
+    /// <remarks>
+    /// The handle is written after the agent row, not in one transaction. If that write throws, the agent exists without a
+    /// handle: do not create it again; call <see cref="IAgentHandleAssigner.EnsureAgentHandleAsync"/> for the same id instead.
+    /// </remarks>
     public async Task<Guid> CreateAsync(string name, Guid? soulVersionId = null, CancellationToken ct = default)
     {
         await using var cmd = dataSource.CreateCommand("""
@@ -15,7 +26,10 @@ public sealed class AgentRepository(NpgsqlDataSource dataSource)
             """);
         cmd.Parameters.AddWithValue("name", name);
         cmd.Parameters.AddWithValue("soul_version_id", AgentSql.Nullable(soulVersionId));
-        return (Guid)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+        var agentId = (Guid)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+        if (handles is not null)
+            await handles.EnsureAgentHandleAsync(agentId, name, ct).ConfigureAwait(false);
+        return agentId;
     }
 
     public async Task<AgentRecord?> GetAsync(Guid agentId, CancellationToken ct = default)
@@ -50,6 +64,9 @@ public sealed class AgentRepository(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("agent_id", agentId);
         cmd.Parameters.AddWithValue("from", AgentSql.ToDb(from));
         cmd.Parameters.AddWithValue("to", AgentSql.ToDb(to));
-        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+        var changed = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+        if (changed && to == AgentState.Retired && lifecycleObserver is not null)
+            await lifecycleObserver.AgentRetiredAsync(agentId, ct).ConfigureAwait(false);
+        return changed;
     }
 }

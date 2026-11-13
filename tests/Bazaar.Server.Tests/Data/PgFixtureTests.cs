@@ -68,10 +68,13 @@ public sealed class PgFixtureTests(DbA a, DbB b) : IClassFixture<DbA>, IClassFix
     }
 
     [Fact]
-    public async Task Server_is_postgres_18_with_pgvector_available()
+    public async Task Server_is_a_supported_postgres_major_with_pgvector_available()
     {
         SkipWithoutDatabase();
-        Assert.Equal(18, await ScalarAsync(a.DataSource, "SELECT current_setting('server_version_num')::int / 10000"));
+        // The test database may be any supported major (18 or 19 RC), so the test follows the managed layer's list
+        // rather than a fixed number. See #491: both majors build and test from the same code.
+        var major = await ScalarAsync(a.DataSource, "SELECT current_setting('server_version_num')::int / 10000");
+        Assert.Contains((int)major, Bazaar.Components.ManagedPostgres.Bundle.BundleLayout.SupportedMajors);
         Assert.Equal(1, await ScalarAsync(a.DataSource, "SELECT count(*) FROM pg_available_extensions WHERE name = 'vector'"));
     }
 

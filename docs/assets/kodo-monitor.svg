@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Kodo Monitor pane: status, live metrics, time travel and a system map</title>
+  <desc id="d">The Monitor pane lists module states, plots live metrics, offers a time-travel scrubber over the audit history, and shows a system map. Controls such as restart and roll back are role-gated.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc">The Monitor pane: in every client, with time travel</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="40" y="66" width="250" height="180" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="60" y="92" font-size="13" font-weight="600" fill="#9fb3d9">Status</text>
+    <circle cx="66" cy="116" r="6" fill="#9be38f"/><text x="82" y="120" font-size="13" fill="#e8eefc">GC log · healthy</text>
+    <circle cx="66" cy="144" r="6" fill="#f2b84b"/><text x="82" y="148" font-size="13" fill="#e8eefc">Vault sync · degraded</text>
+    <circle cx="66" cy="172" r="6" fill="#9be38f"/><text x="82" y="176" font-size="13" fill="#e8eefc">Postgres · healthy</text>
+    <circle cx="66" cy="200" r="6" fill="#ff7b72"/><text x="82" y="204" font-size="13" fill="#e8eefc">Conduit route · failing</text>
+    <rect x="310" y="66" width="330" height="180" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="330" y="92" font-size="13" font-weight="600" fill="#9fb3d9">Live metrics</text>
+    <polyline points="330,200 370,176 410,184 450,150 490,160 530,128 570,140 610,112" fill="none" stroke="#7cc4ff" stroke-width="3"/>
+    <polyline points="330,214 370,210 410,206 450,212 490,204 530,208 570,200 610,206" fill="none" stroke="#9be38f" stroke-width="2"/>
+    <text x="330" y="236" font-size="12" fill="#9fb3d9">latency · throughput · errors</text>
+    <rect x="660" y="66" width="260" height="180" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="680" y="92" font-size="13" font-weight="600" fill="#9fb3d9">System map</text>
+    <circle cx="700" cy="130" r="14" fill="#14291f" stroke="#9be38f" stroke-width="2"/>
+    <circle cx="800" cy="112" r="14" fill="#2a2414" stroke="#f2b84b" stroke-width="2"/>
+    <circle cx="880" cy="150" r="14" fill="#14291f" stroke="#9be38f" stroke-width="2"/>
+    <circle cx="760" cy="200" r="14" fill="#14291f" stroke="#9be38f" stroke-width="2"/>
+    <line x1="714" y1="130" x2="786" y2="116" stroke="#3b4a63" stroke-width="2"/>
+    <line x1="814" y1="120" x2="866" y2="142" stroke="#3b4a63" stroke-width="2"/>
+    <line x1="706" y1="142" x2="752" y2="190" stroke="#3b4a63" stroke-width="2"/>
+    <text x="680" y="232" font-size="11" fill="#9fb3d9">server · Postgres · clients</text>
+    <rect x="40" y="252" width="880" height="24" rx="8" fill="#0d1117" stroke="#2c3a66" stroke-width="1.5"/>
+    <line x1="120" y1="264" x2="840" y2="264" stroke="#3b4a63" stroke-width="2"/>
+    <circle cx="840" cy="264" r="7" fill="#7cc4ff"/>
+    <text x="60" y="268" font-size="11" fill="#9fb3d9">-1 day</text>
+    <text x="800" y="268" font-size="11" fill="#7cc4ff">now</text>
+  </g>
+  <text x="480" y="284" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#f2b84b" text-anchor="middle">Planned. Example values. Time travel scrubs the audit history; role-gated controls: restart, isolate, roll back.</text>
+</svg>

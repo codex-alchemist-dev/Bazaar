@@ -1,0 +1,10 @@
+# Override: run PostgreSQL 19 with pgvector instead of the default 18.
+# Usage: docker compose -f compose.yaml -f compose.pg19.yaml up -d
+# PostgreSQL 19 is the upcoming major (GA planned 2026-11-19). Use this only after the pgvector/pgvector:pg19
+# tag is published and verified; until then this override fails to pull.
+# It uses its own data volume (bazaar-pgdata-pg19), so it never touches the PostgreSQL 18 data.
+services:
+  postgres:
+    image: pgvector/pgvector:pg19
+    volumes:
+      - bazaar-pgdata-pg19:/var/lib/postgresql
