@@ -19,7 +19,7 @@ Code that was already in Client.Core before this work (theme, commands, chat, pa
 | Target | Holds | Why |
 |---|---|---|
 | `Bazaar.Client.Layout` (module) | Layout documents, validator, resolver, scope merger, tree, selection | Layout is a feature with its own document kind and tests. It is a module, not core. |
-| `Bazaar.Client.Tour` (module) | Tour definition, session, progress store interface | First-run tour is a feature (doc 41 onboarding). The tour's store is a module capability, not core. |
+| `Bazaar.Michi` (module) | Tour definition, session, progress store interface | First-run tour is a feature (doc 41 onboarding). The tour's store is a module capability, not core. |
 | `Bazaar.Rubedo` (module) | Rubedo engine (pure library) | Owner decision (2026-11-13). Shared by the server and every head. |
 | `Bazaar.Contracts` (existing shared project) | `ModuleManifest`, `ModuleManifestValidator`, `ModuleIsolation` | The manifest is a shared contract. Every host and every module references it, so it cannot sit in one module. Contracts is already the shared project for client and server messages. |
 | `Bazaar.Client.Core` (adapter) | Host that loads modules, the manifest check at load, the pane-registry adapter, the Avalonia shell | Holds no features. `ClientModuleBuilder` and `IClientModule` are host-side plumbing and stay here. |
@@ -27,14 +27,14 @@ Code that was already in Client.Core before this work (theme, commands, chat, pa
 ## 3. Dependencies after the move
 
 - `Bazaar.Client.Layout` → `Bazaar.Contracts`, `Bazaar.Rubedo` (for `visibleWhen`, when wired).
-- `Bazaar.Client.Tour` → `Bazaar.Contracts`.
+- `Bazaar.Michi` → `Bazaar.Contracts`.
 - `Bazaar.Rubedo` → nothing (pure library, no Avalonia, no I/O).
 - `Bazaar.Client.Core` → `Bazaar.Contracts`, and loads modules by manifest. It does not reference any feature module directly; heads wire modules in.
 
 ## 4. Open questions for the owner
 
 1. Manifest location: decided by the coordinator (2026-11-13). The manifest types go in `Bazaar.Contracts`, and the builder moves with them.
-2. Module names: `Bazaar.Client.Layout` and `Bazaar.Client.Tour` follow decision 10. Pending the owner's card.
+2. Module names: `Bazaar.Client.Layout` and `Bazaar.Michi` follow decision 10. Pending the owner's card.
 
 Loading mode (resolved 2026-11-13, owner correction): the server builds each company's client with its first-party modules compiled in (per-company builds, docs 37 and 41). Layout and tour ship compiled in. Out-of-process loading (decision 2) applies only to sandboxed external modules, under the module trust tiers. It is not a question for first-party modules.
 
