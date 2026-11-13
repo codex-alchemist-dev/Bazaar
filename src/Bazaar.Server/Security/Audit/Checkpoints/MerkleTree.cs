@@ -27,8 +27,8 @@ public sealed class MerkleTree
     /// <summary>Byte length of every leaf and root hash (SHA-256).</summary>
     public const int HashSize = SHA256.HashSizeInBytes;
 
-    private const byte LeafPrefix = 0x00;
-    private const byte NodePrefix = 0x01;
+    private const byte _leafPrefix = 0x00;
+    private const byte _nodePrefix = 0x01;
 
     private readonly List<byte[]> _leafHashes;
     private readonly List<byte[][]> _levels;
@@ -171,7 +171,7 @@ public sealed class MerkleTree
     private static byte[] HashLeaf(ReadOnlySpan<byte> leafHash)
     {
         Span<byte> input = stackalloc byte[1 + HashSize];
-        input[0] = LeafPrefix;
+        input[0] = _leafPrefix;
         leafHash.CopyTo(input[1..]);
         return SHA256.HashData(input);
     }
@@ -179,7 +179,7 @@ public sealed class MerkleTree
     private static byte[] HashNode(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
     {
         Span<byte> input = stackalloc byte[1 + 2 * HashSize];
-        input[0] = NodePrefix;
+        input[0] = _nodePrefix;
         left.CopyTo(input[1..]);
         right.CopyTo(input[(1 + HashSize)..]);
         return SHA256.HashData(input);
