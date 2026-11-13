@@ -1,6 +1,6 @@
 # Rubedo DSL: language design for layout rules and visibility
 
-Status: PROPOSED (2026-11-13). Owner decided "full DSL in v1, built properly, no temporary shortcuts" (2026-11-13). Grammar, types and limits below are a draft for owner review before code lands. Name: Rubedo (owner, 2026-11-12). Clearance is open, so the name lives in one constant (`RubedoLanguage.Name`).
+Status: DECIDED (owner, 2026-11-13) for the answers in section 11. Owner decided "full DSL in v1, built properly, no temporary shortcuts" (2026-11-13). Name: Rubedo (owner, 2026-11-12). Clearance is open, so the name lives in one constant (`RubedoLanguage.Name`).
 Depends on: 41-client-gui-customization-and-dsl.md (sections 4.1, 6, 7, 8 and decision 4 in section 10), 15-security-taint-and-approvals.md (approval tiers).
 
 ## 1. Purpose and non-goals
@@ -112,12 +112,13 @@ Owner correction (2026-11-13): an earlier draft offered "inside Client.Core" as 
 - Commands may use `enabledWhen` the same way (later WP).
 - The document's `dslVersion` (integer, 1 for v1) is checked on load. An unknown version is a document-level rejection.
 
-## 11. Open questions for the owner
+## 11. Questions for the owner (answered 2026-11-13)
 
-1. Engine location: resolved in section 9 (module `Bazaar.Rubedo`).
-2. Number type: decimal (proposed) or binary double.
-3. Whether `inSet` and the string functions are in v1, or the set is smaller (proposed: as listed).
-4. Failure policy for a visibility rule that errors: hidden (proposed) or shown with a placeholder card.
+Owner answers (2026-11-13, by card):
+1. Engine location: its own pure library inside the `Bazaar.Rubedo` module (section 9).
+2. Number type: decimal (section 2).
+3. String and set functions are in v1 (section 5).
+4. Failure policy: a visibility rule that errors hides the pane and raises a notice (fail closed; section 7).
 
 ## 12. Work packages after approval
 
