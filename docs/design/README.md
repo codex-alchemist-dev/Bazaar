@@ -1,4 +1,4 @@
-# Bazaar design set (docs 01 to 36)
+# Bazaar design set (docs 01 to 39)
 
 Status: DRAFT for owner review (2026-10-25) · 36 design docs · 487 owner questions in total · cross-cutting issues are in [CONFLICT-REGISTER.md](CONFLICT-REGISTER.md)
 
@@ -79,6 +79,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 23 | [23-observatory-and-usage.md](23-observatory-and-usage.md) | Live agent activity, presence, usage accounting, quota surfacing, telemetry | 14 | 05, 06, 09, 04, 02 |
 | 33 | [33-backup-dr-and-export.md](33-backup-dr-and-export.md) | What is restored, recreated or escrowed; PITR; keys; rollback rule; instance migration | 14 | 01, 03, 04, 08, 14, 16, 18 |
 | 38 | [38-ryusei-fuda.md](38-ryusei-fuda.md) | RyuseiFuda ("shooting star ticket"): macro board, micro agent schedule and re-invocation, objective roadmap; owns agent scheduling and loop limits for it | 5 | 06, 09, 12, 15, 18, 19 |
+| 39 | [39-conduit-remote-connectivity.md](39-conduit-remote-connectivity.md) | Conduit: remote connectivity as modules (`Bazaar.Conduit`): LAN mDNS, port forward, UPnP, cloudflared, overlays, relay, P2P ICE, Tor, SSH, bootstrap; offer rules and pins | 4 | 02, 03, 14, 15, 32 |
 | 34 | [34-testing-strategy.md](34-testing-strategy.md) | Test layers, real-Postgres fixtures, fake gateway and cassettes, verification gate, evals | 13 | 02, 04, 05, 06, 15, 17 |
 | 35 | [35-spikes-plan.md](35-spikes-plan.md) | 25 time-boxed spikes (S1 to S25) with pass criteria, fallbacks and run locations | 12 | spans 02 to 33 |
 
