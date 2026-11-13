@@ -12,12 +12,13 @@ description = "Fake secret-shaped literals used as SoulGuard negative and positi
 # d07f48d (WP14-8) added Base32Tests.cs with one fake Base32 input literal. Same scope as above: this commit only.
 # 8fbd6b6c5 and 01ef61d92 each re-added the same fake GCP-shaped SoulGuard literal in SoulGuardTests.cs (#210 and later).
 # Same scope: these commits only, and the literal is not a credential.
-# SoulGuardTests.cs gcp-api-key InlineData at line 62 is a fake placeholder ("AIza" + sequential characters).
-# 406952b2 (#383, on main) and fc939ae2 re-added it. Commit-scoped, same as the entries above.
-commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c", "8fbd6b6c5080e4bcaa02a9ee182562946ab42de2", "01ef61d92c2a37bf705546d84afbb86d73b66a95", "9ce11f1a3d05a73c4fbe04c7a17aa6f6e82c54b8", "406952b244732c126685600660597e3c3c6dab62", "fc939ae24a6f5216702741bb4525cdfd82406ea2"]
+# 406952b2 (#383, on main) re-added the fake SoulGuard literal; main's allowlist missed it, so it is listed here.
+commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cfd6f2dd3eb06ac38b", "d07f48d27b58255c57171db7caad5e81b363ca8c", "8fbd6b6c5080e4bcaa02a9ee182562946ab42de2", "01ef61d92c2a37bf705546d84afbb86d73b66a95", "9ce11f1a3d05a73c4fbe04c7a17aa6f6e82c54b8", "9a3e33645c784275973aa2f14eca08dd8b5a4409", "2977bbd20d214716bac00de06bbb4e02a2709565", "525c4ef7a70ee654636626267dcada1c219f95ac", "fc939ae24a6f5216702741bb4525cdfd82406ea2", "cc75f1deaa17e6a3f161d8f8941bc4e3342a87e7", "406952b244732c126685600660597e3c3c6dab62"]
 # Base32Tests.cs holds fake Base32 test vectors (for example JBSWY3DP1SECRET), not credentials.
 # Path-scoped, so later edits to this file do not need new commit entries.
+# 9a3e336 (WP2 redaction corpus, branch history) and 2977bbd (the same corpus on main via #519) hold the fake PEM literals
+# that the corpus used before it was rebuilt at test time (#530). Commit-scoped, not path-scoped: the current file has no literals.
+# 525c4ef and fc939ae add the same fake SoulGuard inputs (ghp_, github_pat_, AKIA, AIza placeholders) to SoulGuardTests.cs.
+# cc75f1d holds a code identifier (MnemonicKeyMapper), flagged by the generic-api-key rule. Commit-scoped, not a credential.
 # 9ce11f1 (lan-mdns, doc 39) added MdnsCodecTests.cs with fake mDNS TXT literals (keyhash=0123456789abcdef). Not credentials.
-# Redaction corpus (doc 43 WP2): PEM-shaped strings are fake negative and positive inputs for the redactor, not keys.
-# Path-scoped to the corpus file only.
-paths = ['''tests/Bazaar\.Server\.Tests/Identity/Totp/Base32Tests\.cs$''', '''tests/Bazaar\.Server\.Transports\.Tests/LanMdns/MdnsCodecTests\.cs$''', '''tests/Bazaar\.Diagnostics\.Tests/Redaction/RedactionCorpus/redaction-v1\.json$''']
+paths = ['''tests/Bazaar\.Server\.Tests/Identity/Totp/Base32Tests\.cs$''', '''tests/Bazaar\.Server\.Transports\.Tests/LanMdns/MdnsCodecTests\.cs$''']
