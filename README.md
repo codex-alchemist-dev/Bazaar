@@ -166,6 +166,22 @@ Athanor is the built-in IDE and text editor. Inside the client, it opens a file 
 
 *Status: planned. The editor host is in the Windows design (doc 28), built on Monaco behind a host interface.*
 
+### Kodo on the client: the Monitor pane, the score and guided recovery
+
+Every Bazaar client has a Monitor pane. Open it and the whole company is on one screen: which modules are healthy, which are degraded, and why. Live metrics, logs and traces sit next to a system map of your server, its database, its routes and its clients. Scrub back through the retention window and the pane rebuilds the state of that moment, with the audit and update events laid over it. Controls such as restart, isolate and roll back appear only for the roles allowed to use them.
+
+![Kodo Monitor pane: status, live metrics, a system map and time travel](docs/assets/kodo-monitor.svg)
+
+The company gets one health score from 0 to 100, with green, amber and red bands and the reasons behind it. Service level objectives show how much error budget is left, and two-window burn-rate alerts warn early, fast or slow. A public status page is optional and off by default.
+
+![Kodo health score with service level objectives and an optional status page](docs/assets/kodo-score.svg)
+
+When something goes wrong, incident mode takes over. It opens an incident record, freezes risky changes, snapshots the evidence, notifies the right roles and walks you through recovery with runbooks. A one-click fix shows exactly what it will change before you approve it, and every step is audited.
+
+![Kodo incident mode: freeze, snapshot, guided recovery and an approved runbook](docs/assets/kodo-incident.svg)
+
+*Status: planned. Kodo is designed in [doc 46](docs/design/46-kodo-health-module.md) and is not yet built. The Monitor pane, the score and incident mode ship with the Kodo module.*
+
 ### The heads: one purpose per device
 
 ![Each device has its own purpose](docs/assets/showcase-devices.svg)
@@ -232,6 +248,26 @@ You should not need to administer a database to run Bazaar. The managed PostgreS
 Conduit connects your devices to your server over whichever route fits your setup: LAN discovery, port forwarding, UPnP, Cloudflare Tunnel, Tailscale or WireGuard, a relay, peer-to-peer, Tor or SSH. Every route is pinned to the server's key, so no route can quietly change who you are talking to.
 
 *Status: in flight. The contracts and offer rules are in review (design doc 39). No transport is built yet.*
+
+### Kodo: the health module that is hard to break
+
+Kodo (鼓動, heartbeat) is the named health module. It keeps the server, its modules and its clients under one watch, and it is built to keep running when parts of them fail.
+
+Its runtime is the most immutable part of Bazaar. Kodo checks a signed manifest on every start. It runs from a read-only runtime, keeps its writable data apart, and holds two runtime slots, A and B. A new version is staged in one slot, checked, and switched in. If it misbehaves, it rolls back to the previous slot at once. Runtime tamper detection watches for changes the manifest does not allow.
+
+![Kodo runtime: signed manifest, A/B slots and instant rollback](docs/assets/kodo-immutable.svg)
+
+When a part of the system fails, Kodo contains it first. A supervised restart brings the component back, with backoff. A bulkhead keeps the rest running. A circuit breaker stops calls to a component that keeps failing, and raises an incident. If the primary node fails, an optional warm standby takes over automatically.
+
+![Kodo failure handling: supervised restart, bulkheads, circuit breakers and a warm standby](docs/assets/kodo-failure.svg)
+
+Kodo watches more than the server. Every module must expose the mandatory module health contract (liveness, readiness, dependencies and a self-test), and contract tests enforce it. Kodo also watches the environment around the company: disk health, temperature and power, Conduit network paths, certificates, clock drift, backups and AI model endpoints. Prediction runs in two layers. Threshold rules come first, learned per-install baselines spot drift, and model explanations are optional and off by default.
+
+![Kodo scope: server, modules, client fleet, environment, and forecasts](docs/assets/kodo-scope.svg)
+
+Kodo also tests itself. Continuous integration runs fault tests. Scheduled self-checks restore backups, verify checksums and test key recovery. The owner can enable chaos runs in a sandbox copy, which produce a resilience score. A read API, live streams, webhooks, and Prometheus and OpenTelemetry export let your own tools see what Kodo sees.
+
+*Status: planned. Kodo is designed in [doc 46](docs/design/46-kodo-health-module.md) and is not yet built. Nothing in this section ships today.*
 
 ### Security: taint, approvals and SoulGuard
 
@@ -375,7 +411,7 @@ Bazaar is built to be extended, and we welcome contributions.
 
 Five principles rank above every other item in the design and the code. When two choices conflict, the one that serves more of them wins, and the owner breaks any tie. They are set out in [`docs/deep-dives/Bazaar.md`](docs/deep-dives/Bazaar.md).
 
-1. **Open Source.** The platform is public. The server and clients are AGPL-3.0, and `Bazaar.Sdk` and `Bazaar.Contracts` are Apache-2.0. Each install's private data stays private.
+1. **Open Source.** The platform is public. The server, clients, `Bazaar.Sdk` and `Bazaar.Contracts` are all AGPL-3.0. Each install's private data stays private.
 2. **Modern.** Use current, supported APIs and standards. No obsolete or deprecated APIs, and no code paths kept for older runtimes.
 3. **Novel.** Go past the usual agent pattern: agents with persistent identity, group chats as the coordination system, and no master orchestrator.
 4. **Performant.** The server does the compute and clients stay light. Budgets are measured on real hardware, not assumed.
@@ -409,7 +445,7 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The commit fol
 - **Read first.** [`CONTRIBUTING.md`](CONTRIBUTING.md) has the workflow. [`docs/design/`](docs/design/README.md) holds the design, one subsystem per file. Each decision is tagged DECIDED, PROPOSED, RESEARCHED, OPEN or REJECTED. Only DECIDED items are settled. [`docs/design/DECISIONS-LOG.md`](docs/design/DECISIONS-LOG.md) wins where documents disagree.
 - **Tests.** Every behaviour change ships with a test. UI changes get an Avalonia.Headless test. Run `./build.sh` before you push.
 - **Writing a module.** Start from the component model in [`docs/design/BAZAAR-COMPONENTS.md`](docs/design/BAZAAR-COMPONENTS.md). Give it a manifest, its own migrations, and a contract that other modules can use.
-- **Licences.** The server and clients are AGPL-3.0. `Bazaar.Sdk` and `Bazaar.Contracts` are Apache-2.0. Contributions use the Developer Certificate of Origin. Human contributors sign off with `git commit -s`, and the owner adds the sign-off at squash merge.
+- **Licences.** The whole repository is AGPL-3.0, including `Bazaar.Sdk` and `Bazaar.Contracts`. Contributions use the Developer Certificate of Origin, and a contributor licence agreement is planned for core code. Human contributors sign off with `git commit -s`, and the owner adds the sign-off at squash merge.
 
 ---
 
@@ -458,10 +494,20 @@ Bazaar builds for the newest supported .NET and for what comes next. Each depend
 ## Licence
 
 - The server and clients are licensed under the **GNU Affero General Public License, version 3** (AGPL-3.0). See [LICENSE](LICENSE).
-- `src/Bazaar.Sdk/` and `src/Bazaar.Contracts/` are licensed under the **Apache License, version 2.0**. Each directory has its own `LICENSE`.
+- `src/Bazaar.Sdk/` and `src/Bazaar.Contracts/` are licensed under the **GNU AGPL-3.0** too (owner, 2026-11-13). Each directory has its own copy of `LICENSE`.
 - [NOTICE](NOTICE) explains the split. Licensing is pending counsel review before the first public release.
 
 ## Community
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - Security problems: report them privately, as described in [SECURITY.md](SECURITY.md).
+
+## Platform, modules and governance
+
+Added 2026-11-13. This section adds to the sections above and changes none of them.
+
+- **Bazaar.KODO (planned).** Kodo (鼓動, heartbeat) is the named health module. It keeps the server, its modules and its clients healthy and recoverable, and it has a monitor pane in every client. It is designed in [doc 46](docs/design/46-kodo-health-module.md) and is planned, not yet built. Kodo is a normal first-party module for now.
+- **Modules.** Bazaar is built from modules, including its dependencies. Dependencies such as PostgreSQL and pgvector are modules too (doc 42). Users do not install anything from outside Bazaar.
+- **Release channels.** Stable, beta, nightly and LTS releases, plus staged rings tied to health signals. A bad release halts automatically. The channels are defined in doc 49.
+- **Community and security programme.** The project is owner-led, with a public roadmap and design RFCs, and the owner keeps the final say. Security problems go through the private reporting path in [SECURITY.md](SECURITY.md), with advisories. A bug bounty comes later. The full programme is in doc 49, which is in preparation.
+- **Licence: AGPL-3.0.** The server, clients, `Bazaar.Sdk` and `Bazaar.Contracts` are licensed under AGPL-3.0 (owner, 2026-11-13). Earlier Apache-2.0 wording is superseded by this decision and updated in this PR (see doc 47, section 4). Commercial licences are available for parties that cannot accept AGPL terms. Pricing is decided later, and until then, contact the project. Commercial licence terms and the module exception are pending counsel review.

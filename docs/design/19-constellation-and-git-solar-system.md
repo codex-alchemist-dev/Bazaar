@@ -172,3 +172,18 @@ ANSWERED: DM nodes appear to members, and the owner sees all DMs, per the decide
 4. **Memory and Thinking GCs in the graph.** Should other human members see agent memory notes (18's default is owner and owning agent only)? Should Thinking GCs ever be nodes? Default: no and no; the owner can see both through the Vault and GC views. Stays a question: this is an access rule for private material (DECISIONS-LOG round 3, C11).
 
 MOVED TO SETTINGS: constellation.node_cap, constellation.ring_depth, constellation.git_layout, constellation.orbit_radius, constellation.screenshot_sources (DECISIONS-LOG round 13)
+
+## Agent memory governance (GraphDRAG, 2026-11-13)
+
+> Framing (owner, 2026-11-13): agent memory is not a separate store. Memory items are artefacts held in Constellation and in the contents of a Soul. The memory export below selects those artefacts; it does not add a new store.
+
+Status: DECIDED (owner, 2026-11-13) for the placement and the governance rules below. PLANNED to build. Nothing here is built.
+
+- **Placement.** Agent memory and GraphDRAG belong to the Constellation's server side, `Server.Constellation`. They are not a separate module. The client renders the graph and never holds the memory store.
+- **Server-held and owner-visible.** Memory is stored on the server. The owner can see all of it. Other humans see only what their role allows.
+- **Isolation and roles.** Each agent's memory is isolated from every other agent. Access is scoped by role, and an agent reads only its own scope unless a role grant says otherwise.
+- **Retention and crypto-erase.** Retention periods, soft delete, legal hold and crypto-erase from doc 48 apply to memory items in the same way as to other records.
+- **Provenance.** Every memory item records its source and its author. The source and author are written to the audit log (doc 48), so each item can be traced to where it came from.
+- **Correction and rollback.** A memory item can be corrected or rolled back. A correction keeps the earlier version, as the GC log does.
+- **Portability.** Memory moves between servers through the separate memory export in doc 44 (section 4.x). The Soul export does not carry memory (doc 33).
+- **Never on the Soul Marketplace.** Memory is never published to the Soul Marketplace (doc 07, "Soul Marketplace: memory exclusion").
