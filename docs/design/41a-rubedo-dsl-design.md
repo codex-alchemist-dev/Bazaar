@@ -100,11 +100,11 @@ Exceeding a compile limit is a compile error. Exceeding the step budget at run t
 - One golden corpus, JSON cases of `{ source, context, expectedValue | expectedErrorCode }`, lives in the repo and is run by every head's tests. A head that disagrees fails CI.
 - The engine is one pure C# implementation. Heads reference it. There is no second evaluator in Avalonia, Android or the terminal.
 
-## 9. Where the engine lives (owner question)
+## 9. Where the engine lives (owner decision, 2026-11-13)
 
-The engine must run on the client (visibility) and on the server (document validation, doc 41 section 8). Options:
-1. Put it in `Bazaar.Client.Core/Rubedo` now, and move it to a shared pure project later. Smallest change, but the server would reference an Avalonia project.
-2. Create `Bazaar.Rubedo` now, a pure library with no Avalonia reference, that both sides reference. Recommended: the server needs it and it has no UI.
+Rubedo is a module, `Bazaar.Rubedo`, loaded through the standard module contract (doc 41 section 8). The engine is a pure library inside that module, with no Avalonia and no I/O reference. The server and every head reference the same library, so there is one evaluator. `Bazaar.Client.Core` holds no DSL code: it is an adapter, and every function is a module.
+
+Owner correction (2026-11-13): an earlier draft offered "inside Client.Core" as an option. That option is withdrawn.
 
 ## 10. Document integration
 
@@ -114,7 +114,7 @@ The engine must run on the client (visibility) and on the server (document valid
 
 ## 11. Open questions for the owner
 
-1. Engine location: option 1 or option 2 in section 9 (recommended: option 2).
+1. Engine location: resolved in section 9 (module `Bazaar.Rubedo`).
 2. Number type: decimal (proposed) or binary double.
 3. Whether `inSet` and the string functions are in v1, or the set is smaller (proposed: as listed).
 4. Failure policy for a visibility rule that errors: hidden (proposed) or shown with a placeholder card.
