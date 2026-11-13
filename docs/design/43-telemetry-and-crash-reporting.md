@@ -83,6 +83,8 @@ Release builds (doc 37) keep line tables in a symbol bundle that the company ser
 Capture runs in-process. It hooks the unhandled-exception events of the runtime (`AppDomain` and unobserved task exceptions on Windows and Linux; the uncaught-exception handler on Android). Handled exceptions are captured only when the code calls the reporting API with an error code. It does no I/O on the failing thread. It copies the capture into a bounded in-memory structure and writes one file to the local report queue on a background thread at the next safe point. If the process dies before the write, the report is lost; that is accepted, and the crash-on-last-run path (section 7.4) covers what it can.
 
 ## 5. Data model and wire format
+> WORKING NAME, pending owner naming decision. The schema id `bazaar.crash/1` and the fingerprint prefix `fp1` are proposals, not owner-named.
+
 
 ### 5.1 Report (`bazaar.crash/1`)
 

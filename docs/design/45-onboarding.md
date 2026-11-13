@@ -68,7 +68,7 @@ Every path compiles its input into a **setup plan**: one normalized JSON documen
 - **Audit:** an apply writes one `setup.plan.applied` row to `audit_log` (doc 15) with the plan hash, the entry path (`wizard`, `cli`, `file`, `api`), the operator identity, the template id and version when one was used, and the Kodo result. Each changed setting writes its own `setting.changed` row (doc 03). Secret references are logged by name and resolution status, never by value.
 - **Equivalence test (section Testing):** the same plan entered through each of the four doors produces the same plan hash and the same audit rows, differing only in the entry-path field.
 
-The audit view that shows these rows is doc 48 (not yet in `docs/design/`). The hash chain, signed checkpoints and external anchoring of `audit_log` are doc 15's.
+The audit view that shows these rows is doc 48. The hash chain, signed checkpoints and external anchoring of `audit_log` are doc 15's.
 
 ## 1.3 Order of setup steps [PLANNED]
 
@@ -122,6 +122,8 @@ The audit view that shows these rows is doc 48 (not yet in `docs/design/`). The 
 | Module set | Yes | Bazaar.GC plus the core modules | Each module's licence is shown before install. |
 
 ## 1.5 Declarative config file [PLANNED; sketch only]
+> WORKING NAME, pending owner naming decision. The key names and file shape in this sketch are proposals.
+
 
 The file is one JSON document named `bazaar-setup.json`. The answer to the format question is JSON, through `System.Text.Json`. It matches the wire format (CLAUDE.md), it needs no second parser, and it lets the server publish one JSON Schema per `schemaVersion`. YAML and TOML are not supported. JSON has no comments, so the schema carries the descriptions.
 
@@ -243,7 +245,7 @@ The brief names this step "Nigerian Prince Protocol". Doc 22 calls the same opti
 - **Automatic stop.** Any sign of a real third party, any threat, any request for credentials or money stops the protocol and disables it.
 - **Setting.** `security.scam_mail.protocol_enabled` (doc 15), false by default, changed only through the risk wizard, which is an owner-tier change.
 
-## 1.12 Kodo verifies the finished setup [PLANNED; doc 46 is not yet in `docs/design/`]
+## 1.12 Kodo verifies the finished setup [PLANNED; doc 46]
 
 Kodo is the Health API module (module name Bazaar.KODO). It runs as the final setup step and can be run again at any time with `bazaar-admin kodo verify`.
 
@@ -326,7 +328,7 @@ Each row names the place where the sources disagree, and the resolution this doc
 | 4 | Doc 05b line 17 (`env:<VAR>` or `file:<path>` for the FreeLLMAPI key) against doc 14 and doc 03 (every non-bootstrap secret goes through `ISecretStore`) | Two reference forms for one provider key. | Config holds `secret://` references for provider keys. `env:` and `file:` are bootstrap-only (section 1.6). Doc 05b to be updated. |
 | 5 | Doc 02 HTTP surface (C15) and doc 32 line 52 ("exactly three" sign-in routes) | Provisioning routes are a new HTTP surface. | They sit outside the sign-in routes and under the authenticated HTTP surface (section 1.9). Docs 02 and 32 must list them. |
 | 6 | Doc 22 line 180 (rename proposal) against the brief | The brief's name is "Nigerian Prince Protocol"; doc 22 proposes a neutral name. | This doc keeps the brief's name until the owner decides. Owner question 6. |
-| 7 | README (docs 01 to 38 only) | Docs 41, 44, 46 and 48 are named by the brief but do not exist in `docs/design/` on this branch. | Links are kept and marked "not yet in docs/design/". Their content must not be assumed here. |
+| 7 | README (docs 01 to 38 only) | Docs 41, 44, 46 and 48 are named by the brief but did not exist in `docs/design/` when this row was written. They are in the same PR now. | Links are kept and marked "not yet in docs/design/". Their content must not be assumed here. |
 | 8 | CLAUDE.md (Apache-2.0 for Bazaar.Sdk and Bazaar.Contracts) against the brief (AGPL-3.0 across all repos, plus a module exception and a CLA for core code) | Not an onboarding question, but the module licence check at install (step 14) depends on it. | Not resolved here. Recorded for the owner to confirm, and for doc 37 and the NOTICE file. |
 | 9 | Doc 03 Q2 (admin CLI in v1, default: small non-TUI `bazaar-admin`) against the brief's "interactive wizard" | The wizard's home is not fixed: console prompts or a client. | Both: console prompts for the first install (no client exists yet), and the same wizard in a paired client afterwards (section 1.1). |
 
@@ -360,4 +362,4 @@ Each question has a default, the one this doc uses.
 - Server: [03](03-server-host-and-providers.md), [04](04-postgres-schema-and-migrations.md), [14](14-identity-service-and-passport.md), [15](15-security-taint-and-approvals.md), [22](22-email-subsystem.md), [33](33-backup-dr-and-export.md).
 - Clients: [27](27-client-architecture.md), [28](28-windows-client.md), [29](29-android-client.md), [32](32-remote-access-auth-and-privacy.md).
 - Packaging: [37](37-distribution-matrix-and-packaging.md).
-- Not yet in `docs/design/`: 41 (mnemonics), 44 (data portability), 46 (Kodo), 48 (audit view).
+- Update 2026-11-13: 41 (mnemonics), 44 (data portability), 46 (Kodo) and 48 (audit view) are now in the same PR.

@@ -130,7 +130,7 @@ Each wave builds on the previous one. Within a wave, the order is the suggested 
 
 ### Added 2026-11-13 (owner decisions)
 
-Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as their own status lines say. Doc 49 is in preparation and is not yet in the repo.
+Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as their own status lines say. Doc 49 is in the same PR, with the status shown in its own header.
 
 | # | Doc | Purpose | Qs | Key dependencies |
 |---|---|---|---|---|

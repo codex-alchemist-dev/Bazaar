@@ -2,7 +2,7 @@
 
 Status: PLANNED. Design intent only. Nothing in this document is built, and no code, migration, probe or pane exists yet. Owner decisions of 2026-11-13 are DECIDED; every detail below them is PROPOSED unless marked otherwise. Owner questions: 6 (section 23).
 Depends on: 02-wire-protocol-and-sync.md (authenticated HTTP, `/ws` stream registry, `/status` format), 03-server-host-and-providers.md (`/health/live`, `/health/ready`, provider seam, settings registry, status listener bind floor), 04-postgres-schema-and-migrations.md (conventions, NOTIFY, migrations), 05-model-gateway.md (provider and lane health, quota states), 15-security-taint-and-approvals.md (approval tiers, taint, `audit_log` in its current form), 19-constellation-and-git-solar-system.md (renderer seam and server-side layout for the system map), 23-observatory-and-usage.md (telemetry pipeline, presence, usage), 33-backup-dr-and-export.md (backups, restore wizard, recovery bundle), 39-conduit-remote-connectivity.md (`IConduitProvider.ProbeAsync`, rate limits), 40-core-feature-modules-audit.md (component manifests, `SoftDependsOn`), 41-client-gui-customization-and-dsl.md (pane registry, mnemonics, keyboard-first rule).
-Not yet written, referenced here: 42 (module contract), 48 (audit log), 49 (update system). See section 19.
+Referenced here: 42 (module contract), 48 (audit log), 49 (update system). All three are in the same PR. See section 19.
 Used by: 27, 28, 29, 30 (client Monitor panes), 34 (test strategy), 35 (spikes), 37 (packaging and signed releases).
 
 ## 1. Purpose
@@ -17,7 +17,7 @@ Scope of the name: "Kodo" (鼓動, heartbeat) is the module and the prose name. 
 
 - Kodo is the Health API module. Its name is Kodo; its module id is `kodo` (brief: Bazaar.KODO).
 - Immutability, failure handling, a monitor pane in every client, testing, prediction, scope, scoring, the API (including the mandatory module health contract), recovery and incident mode are all in scope, at maximal depth.
-- Kodo is a normal first-party module for now. Extraction (a Bazaar-free core, split packages, its own repository) waits until the owner asks for it. The extraction rule is copied from the brief; doc 49 is not yet written to confirm it (section 19).
+- Kodo is a normal first-party module for now. Extraction (a Bazaar-free core, split packages, its own repository) waits until the owner asks for it. The extraction rule is copied from the brief; doc 49 section 10 now confirms it (section 19).
 - Deps are modules. Postgres and pgvector are modules Kodo monitors, not packages Kodo installs. Install is a Bazaar-only action with zero external installs for users.
 - Telemetry and crash reports: on-device redaction is never model-dependent, and every server-side model explanation is labelled "unverified diagnosis" (see section 13).
 - Configurability rule (DECISIONS-LOG round 13): every open value is an operator setting with a safe default. DECIDED items and security invariants are not settings. Settings may tighten, never loosen.
@@ -39,6 +39,8 @@ Scope of the name: "Kodo" (鼓動, heartbeat) is the module and the prose name. 
 - Remote access and step-up mechanics (32). Kodo names the step-up requirement only.
 
 ## 4. Identity and naming
+> WORKING NAME, pending owner naming decision. The owner's name is Kodo (Bazaar.KODO). The project and component names in the table below (`Bazaar.Kodo.Abstractions`, `Bazaar.Kodo.Testing`, `Bazaar.Kodo.Sentinel`, `Bazaar.Client.Kodo`) are proposals, not owner-named.
+
 
 | Item | Value |
 |---|---|
@@ -96,6 +98,8 @@ Kodo's responsibilities are split so that no single component can silence the ot
 - **Sentinel** is a second process that does not share code with Kodo beyond the verifier. It is the only component allowed to restart Kodo or the server host, and the only one that can switch an immutable slot.
 
 ### 5.2 Process layout
+> WORKING NAME, pending owner naming decision: "Sentinel" for the watchdog process below.
+
 
 | Process | Runs as | Purpose | Shares code with Bazaar |
 |---|---|---|---|
@@ -717,7 +721,7 @@ Doc 23 and Kodo both look at the running system, so the line is drawn by questio
 - **Overlap in the Monitor pane and Observatory.** Doc 23's Observatory remains the agent view. Kodo's Monitor pane is the system view. The dashboard start screen (doc 27) shows one health tile from Kodo and one agents tile from doc 23.
 - **Audience.** Doc 23 is owner-only for agent details in v1. Kodo's fleet and environment views are owner-visible by default, and role-gated for any other role.
 
-### 18.3 Audit log (doc 48, not yet written)
+### 18.3 Audit log (doc 48)
 
 - Kodo writes to the audit log for every admin and security event it causes or observes: settings changes, control actions, runbook approvals, incident entry and exit, slot switches, rollbacks, tamper findings, webhook changes, exports, and step-up results.
 - Kodo's own journal is separate from the audit log. The journal holds high-volume health history (state changes, observations that changed a value, probe results at their cadence), and it is kept per the Kodo retention settings. The audit log holds the admin and security record with all data reads and writes by humans and agents, kept by its own policy.
@@ -734,11 +738,11 @@ The system map is a graph view, not a new renderer. Node positions come from the
 - Conduit's built-in rate limits and auth lockouts (brief) are counted by Kodo and shown in the fleet and security views. Kodo does not change the lockout policy.
 - The isolate control, when applied to a Conduit path, calls Conduit's own disable method through its provider. Kodo never opens a connection, never picks a route and never stores Conduit credentials.
 
-### 18.6 Module contract (doc 42, not yet written)
+### 18.6 Module contract (doc 42)
 
 Section 10 is the health part of the contract. When doc 42 is written, its module lifecycle, dependency rules and compatibility shims must include section 10 unchanged, or this document changes with it.
 
-### 18.7 Extraction (doc 49, not yet written)
+### 18.7 Extraction (doc 49)
 
 Kodo and Constellation.Renderer stay first-party modules until the owner asks for extraction. When asked, the plan (copied from the brief) is:
 
@@ -752,9 +756,9 @@ Until then, nothing in this document depends on being outside Bazaar. The contra
 
 ## 19. Conflicts and gaps (not silently resolved)
 
-1. **Docs 42, 48 and 49 are not in the repository.** The brief cites them. They are not on the working branch or the owner branch (`claude/project-thread-b9omz8`, which holds docs 39 and 40 and the Constellation doc). This document marks each dependency and does not invent their content. Owner or the doc owners should confirm the section 10 and section 18 interfaces.
+1. **Update 2026-11-13: docs 42, 48 and 49 are in the same PR.** Earlier drafts of this document said they were missing. This document still marks each dependency and does not invent their content. Owner or the doc owners should confirm the section 10 and section 18 interfaces.
 2. **Audit log owner.** Doc 03 and doc 15 name the audit log `audit_log` and place it in doc 15. The brief names it as doc 48. Section 18.3 keeps Kodo's journal separate either way; the owner should say which doc owns the audit log's storage.
-3. **Licence for Bazaar.Sdk and Bazaar.Contracts.** CLAUDE.md (2026-10-25) says Apache-2.0. The 2026-11-13 brief says AGPL-3.0 everywhere, with a module exception and a dual licence. The repository's NOTICE still says Apache-2.0 for `src/Bazaar.Sdk` and `src/Bazaar.Contracts`, pending counsel review. Kodo's manifest signing and its contract base class live in `Bazaar.Kodo.Abstractions` and `Bazaar.Kodo.Testing`, so the owner must choose a licence for those two packages before they ship. Options: (a) Apache-2.0 as before, which lets third-party modules use them without AGPL obligations; (b) AGPL-3.0 with the module exception, as the brief describes. Not decided here.
+3. **Licence for Bazaar.Sdk and Bazaar.Contracts.** Update 2026-11-13: the owner chose AGPL-3.0 everywhere (option b below). NOTICE and the csproj files now match. Earlier text follows. CLAUDE.md (2026-10-25) said Apache-2.0. The 2026-11-13 brief says AGPL-3.0 everywhere, with a module exception and a dual licence. The repository's NOTICE still says Apache-2.0 for `src/Bazaar.Sdk` and `src/Bazaar.Contracts`, pending counsel review. Kodo's manifest signing and its contract base class live in `Bazaar.Kodo.Abstractions` and `Bazaar.Kodo.Testing`, so the owner must choose a licence for those two packages before they ship. Options: (a) Apache-2.0 as before, which lets third-party modules use them without AGPL obligations; (b) AGPL-3.0 with the module exception, as the brief describes. Not decided here.
 4. **Contributions.** CONTRIBUTING.md is DCO only. The brief adds a CLA for core code. Kodo's core is core code, so its contributions need the CLA once it is adopted. Not decided here.
 5. **Status page contents (DECIDED C40 versus this proposal).** DECISIONS-LOG C40 gives doc 23 the contents of the status page. Section 12.4 and section 18.2 propose a `health` section from Kodo, composed into the same endpoint. This is a change to a DECIDED item and needs owner ratification.
 6. **Public status page versus the bind floor.** Doc 03 keeps the status listener on loopback unless the owner approves a wide bind, and CLAUDE.md allows a read-only status page. Section 12.4 proposes a public page, which needs that owner approval. Off by default in this document.

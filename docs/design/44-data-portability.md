@@ -150,7 +150,17 @@ Agent memory and reputation have their own export. It is separate from the Soul 
 - **Never on the Soul Marketplace (owner, 2026-11-13):** agent memory and reputation must never be part of anything published to the Soul Marketplace. The marketplace export is memory-free by design and by enforcement: the publish path refuses any bundle that contains memory or reputation items, and the check is tested. The memory export is private to the company and its owner, and it has no publish target.
 - **Together:** the Soul export plus the memory export cover everything a Soul holds except the Passport and VM disks (section 7). Nothing is unexportable.
 
+### 4.y RyuseiFuda data classes: Roadmap, Workday, Orrery (added 2026-11-13)
+
+Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday and Orrery (doc 38, doc 40). Status: the rule that these are exportable is DECIDED (decision 1, section 2). The mapping below is PROPOSED in this doc and PLANNED to build.
+
+- **Roadmap (objective layer, doc 38 layer 3).** Objectives and phases are Vault Markdown documents written through `VaultWriter`. Export route: the Vault export in section 4.3 (Markdown in git). No separate format. Derived views are recomputed, not exported (section 7).
+- **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
+- **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
+
 ## 5. The export bundle
+> WORKING NAME, pending owner naming decision. The bundle layout and file names in this section are proposals.
+
 
 A full export is one bundle. A bundle is a directory tree, optionally wrapped as one encrypted archive.
 
@@ -394,7 +404,7 @@ Conflicts are listed, not silently resolved. Where a conflict needs the owner, i
 - **C1. "Everything is exportable" (D1) vs the Soul export scope (doc 33, "Soul export (`07`)"; doc 07).** Doc 33 says a Soul export has no Passport, Vault memory, reputation or VM disks. D1 says everything is exportable. RESOLVED by the owner (2026-11-13): the Soul export keeps doc 33's exact scope (no Vault memory, no reputation, no Passport). Agent memory and reputation get their own separate export, the memory export, which is permissioned and audited (section 4). Together the two exports mean nothing is unexportable. The Passport stays excluded from every portability export (section 7).
 - **C2. Export vs instance bundle (doc 33, "Instance export and migration").** Doc 33 defines an instance bundle that contains the database base backup, WAL, Vault bundle, Soul folders and sealed KEK. This doc defines a different artifact with the same name family. Resolution: doc 33 keeps the instance bundle, and this doc calls its own artifact a portability export. Doc 33 should add a one-line pointer to this doc. Not a silent rename.
 - **C3. Vault plaintext vs personal encryption.** Doc 33 Q6 and doc 18 keep Vault files outside KEK encryption. D1 and the personal-field rule (doc 04) imply personal content is protected. A Vault export carries Vault text in plaintext until Q6 is answered (section 10, rule 6). Needs counsel and owner decision.
-- **C4. Erasure flow owner.** Doc 04 line 71 and doc 33 say erasure is "owned by docs 32 and 33". The brief assigns erasure to doc 48, which is not yet written. This doc follows doc 48 for the flow, and doc 04 and doc 33 must be updated when it exists.
+- **C4. Erasure flow owner.** Doc 04 line 71 and doc 33 say erasure is "owned by docs 32 and 33". The brief assigns erasure to doc 48, which is in the same PR. This doc follows doc 48 for the flow, and doc 04 and doc 33 must be updated when it exists.
 - **C5. Erasure "backup window" vs exports.** Doc 04 and doc 33 bound erasure reach by the backup window. Exports are a copy outside the window. Section 10 rule 2 and rule 3 cover this. The window does not cover exports, and counsel must be told.
 - **C6. Doc 15 audit export vs this doc's audit export.** Doc 15 says the audit export is daily and signed by default (`security.audit.export_target`, default `local`). Section 4.6 defines the files of the audit export. Both agree on signing. Doc 15 keeps its daily export schedule and retention. This doc owns the file layout and the verifier.
 - **C7. Cookie profiles.** Doc 15 excludes cookie profiles from backups by default (`security.backup.include_cookie_profiles`). Under D1 they would be exportable. Section 7 excludes them from every portability export, with no setting, because they are live sessions. Doc 15 should note this. Owner may disagree (Q5).
