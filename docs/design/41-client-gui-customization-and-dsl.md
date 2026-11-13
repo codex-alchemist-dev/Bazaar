@@ -367,6 +367,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
 
 Each package needs its own tests (CLAUDE.md). Haiku sub-agents take the independent ones in parallel, one worktree each. "Waits" means blocked on an answer in section 10.
 
+**Status (2026-11-13, code in `src/Bazaar.Client.Core/Layout` and `Tour`):** WP1 partly done: layout model in C# (`LayoutDocument`, slots, nodes), no published JSON Schema yet; `theme`, `commands` and `start` models not started. WP2 done for layouts (`LayoutValidator`: schemaVersion 1, known fields only, size, depth 16, pane and child limits, forbidden content). WP4 done as pure logic: `LayoutResolver` (exact match, then most specific wildcard), `LayoutTree` (unknown containers stack, unknown panes become placeholders) and `LayoutScopeMerger` (owner-only lock override). Head wiring to `PaneRegistry` is not done. The first-run tour framework (`TourDefinition`, `TourSession`, `ITourStateStore`) is done with text held as localisation keys. Owner decisions in section 10 are applied; DSL grammar (WP5a) and the module manifest (WP5) are not started.
+
 1. Document models and JSON Schemas for `theme`, `layout`, `commands`, `start`, with `schemaVersion` 1. Pure. Not blocked.
 2. `IUiDocumentValidator` covering the rules in section 6, excluding the module manifest rules. Depends on 1. Not blocked.
 3. Theme pipeline: move the existing `ThemeModel` and validator behind the document model. Depends on 1. Not blocked.
@@ -389,3 +391,25 @@ Constellation and Workday renderer work is out of scope here, except that the Co
 3. **Layout computed on the server (C17) vs client-side variant selection (C27).** Both hold: the server sends variants for every posture, and the client selects one locally with no round trip.
 4. **Per-person layouts vs single company layout.** Both exist as scopes. The company layout is the default. A person can override only what the company allows.
 5. **"First-party" wording in older docs (27 Q3, 20 Q7, MODULARITY-AUDIT §5).** Superseded by the owner's modularity rule (2026-11-12): there is no privileged first-party path. Those docs should be updated when section 10 question 1 is answered.
+
+## Client-wide mnemonic navigation (2026-11-13)
+
+Status: DECIDED for the decision (owner, 2026-11-13). PLANNED for building. Nothing in this section is built.
+
+**Decision.** The whole client is navigable by mnemonics, on every head and every pane, not only inside Calcinato. Examples: `ngc1` (open GC 1), `nrfdrm` (open the RyuseiFuda roadmap), `topgc` (jump to the top GC by activity), `unread` (list unread items), `settings` (open settings). A mnemonic is a short, typed, memorable sequence of letters. It is never a chord.
+
+**Principles.**
+
+1. **Keyboard-first accessibility.** Every action reachable by mouse or touch is reachable by keyboard and mnemonic. Focus order, screen reader names and i18n are covered by doc 49 (accessibility from day one). Mnemonics must not depend on a pointer, a modifier key or a locale-specific key layout.
+2. **Command palette.** A fuzzy, searchable command palette lists every command the client knows, including commands from modules that are not loaded in the current layout. It is opened by a mnemonic, with no Ctrl chords. Each entry shows its mnemonic, its module and whether it is currently available.
+3. **No Ctrl chords.** The client does not use Ctrl-, Alt- or Cmd-based chords for navigation or commands. Single keys and typed sequences only. Platform text-editing shortcuts that the operating system owns (copy, paste, select all) are not navigation and are not redefined.
+4. **Remapping.** Users remap any mnemonic. A remap is a per-person setting by default, and a company layout may set a default that the person can override (doc 41 section 4, scopes). A remap is stored as a commands document (section 3 of this doc, `commands` kind) and is versioned like every other document.
+5. **Modules register and remap their own.** A client module (section 5, `Bazaar.Client.<F>`) registers its commands and their default mnemonics through its manifest. The module can remap its own commands. A module cannot remap a command it does not own, and cannot take over a core mnemonic (`settings`, `unread`, the palette opener).
+6. **Conflict detection.** Two commands with the same mnemonic in the same scope are a conflict. The validator refuses the document that introduces it, and the palette shows the conflict when a module is installed later. The first-party base shell wins a tie only where its mnemonic is listed as reserved. Otherwise the user chooses which one keeps the mnemonic, and the choice is stored as a remap.
+7. **Accessible names.** Every mnemonic is also a spoken name for screen readers. The palette announces the command and its mnemonic in one line.
+
+**Calcinato (terminal).** Calcinato uses a Vim-style modal model: normal mode for navigation and command entry, insert mode for typing into the shell. It has no Ctrl chords. Mnemonics from the client-wide set work inside Calcinato through the palette, so a user never has to leave the terminal to reach the rest of the client.
+
+**Local NPU suggestions.** Inline suggestions produced by a local NPU (doc 31) are off by default in Calcinato and in every other input that offers them. A person turns them on in settings. The default is off because on-device inference costs battery and is not needed for navigation.
+
+**Open for the build (PLANNED).** The exact mnemonic grammar (length limits, digits, how a mnemonic is disambiguated when a prefix matches several commands) is a build detail. It must be decided in the commands document schema before the palette ships.

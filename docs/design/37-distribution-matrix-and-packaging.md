@@ -111,3 +111,18 @@ Listed once. Everything else is built.
 - Scoop bucket repo (needs a repo to host it).
 - Container registry push credentials (for example GHCR under the org).
 - Release-signing key for Velopack feeds.
+
+## Build flow (2026-11-13)
+
+Status: DECIDED for the owner decisions below. PLANNED for building. Section 4a describes the mechanism already; this section fixes the user-facing rules the owner set on 2026-11-13.
+
+1. **The server builds the packages.** The company server builds or regenerates `.msix`, `.apk` and `.exe` packages, and the other outputs in section 2. A client never builds itself and no user builds anything.
+2. **Signing keys stay on the server.** The company server holds the signing keys (decision 2026-11-12, section 6 item 5). Keys never leave the server and are never sent to a client, a developer machine or the repo.
+3. **Clients update in place.** An installed client updates from its own company server (section 4a). The update keeps the user's settings and data, and it follows the update policy of doc 49.
+4. **No manual pairing.** A fresh client finds its company server through the address and key pin baked into the company build (section 4a, S-B6). Pairing is only needed for other devices and accounts (doc 32, doc 45).
+5. **Per-company builds, one company per install.** Each build is for one company. One install serves one company. Only the owner overrides company locks. The company build carries the company's module list, layout, theme and channel.
+6. **Install and build-from-source are separate documents.** The install document is for operators and users. The build-from-source document is for developers. Neither replaces the other, and this doc does not describe the install steps.
+7. **Zero external installs for users.** A user installs nothing from outside Bazaar. Runtime dependencies (PostgreSQL, pgvector, language runtimes) are bundled and supervised by the server as modules (doc 42, section 6). The user never runs a package manager, a store or an external installer for Bazaar or its dependencies. Store publication (Play, Flathub, winget and the others in section 7) is a later channel, not a requirement for installing.
+8. **Release channels.** The release channels (stable, beta, nightly, LTS, and the staged rings) are defined in doc 49. Section 3 above keeps the channel labels from `VERSIONING.md`. Doc 49 is the source for how a channel reaches a company build.
+
+Link: the install rules for users are in doc 42 (zero external installs, bundled and supervised dependencies) and doc 45 (server setup and client first run).
