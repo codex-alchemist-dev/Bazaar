@@ -465,3 +465,13 @@ Bazaar builds for the newest supported .NET and for what comes next. Each depend
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - Security problems: report them privately, as described in [SECURITY.md](SECURITY.md).
+
+## Platform, modules and governance
+
+Added 2026-11-13. This section adds to the sections above and changes none of them.
+
+- **Bazaar.KODO (planned).** Kodo (鼓動, heartbeat) is the named health module. It keeps the server, its modules and its clients healthy and recoverable, and it has a monitor pane in every client. It is designed in [doc 46](docs/design/46-kodo-health-module.md) and is planned, not yet built. Kodo is a normal first-party module for now.
+- **Modules.** Bazaar is built from modules, including its dependencies. Dependencies such as PostgreSQL and pgvector are modules too (doc 42). Users do not install anything from outside Bazaar.
+- **Release channels.** Stable, beta, nightly and LTS releases, plus staged rings tied to health signals. A bad release halts automatically. The channels are defined in doc 49, which is in preparation.
+- **Community and security programme.** The project is owner-led, with a public roadmap and design RFCs, and the owner keeps the final say. Security problems go through the private reporting path in [SECURITY.md](SECURITY.md), with advisories. A bug bounty comes later. The full programme is in doc 49, which is in preparation.
+- **Licence: AGPL-3.0.** The server, clients, `Bazaar.Sdk` and `Bazaar.Contracts` are licensed under AGPL-3.0 (owner, 2026-11-13). The lines above about Apache-2.0 for the SDK and contracts are superseded by this decision, and the repo files that still say Apache-2.0 are being updated (see doc 47, section 4). Commercial licences are available for parties that cannot accept AGPL terms. Pricing is decided later, and until then, contact the project. Commercial licence terms and the module exception are pending counsel review.

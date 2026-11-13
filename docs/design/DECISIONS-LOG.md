@@ -337,3 +337,37 @@ Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mentio
 | Route and tools of a woken turn (#442) | One gateway route and one tool allowlist for every woken turn, from the scheduler settings. The route is required when the loop is enabled and is separate from `Bazaar:Turns:Route` (round 23); the allowlist is empty by default. | Follow-up (per-agent policy). |
 
 **Open for owner:** none blocking. The GC component calls `AddGcAgentPostSink()`, so mentions in agent posts are live once #443 merges. Before the wake loop is switched on, the host must supply a model gateway.
+
+## Round 25 (2026-11-13): owner decisions of the 2026-11-13 docs set
+
+Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 24 (2026-11-11) already exist above, so the number repeats. The owner may renumber this round. Each row names the doc that carries the decision. Rows marked "Follow-up" list a repo file that still disagrees and needs its own small change.
+
+| Item | Decision | Doc that carries it |
+|---|---|---|
+| Licence | AGPL-3.0 for every repo, including `Bazaar.Sdk` and `Bazaar.Contracts`. Apache-2.0 is retired for those two packages. Csproj licence fields are AGPL-3.0-only. Follow-up: `NOTICE`, `README.md` (licence section and lines 29 to 30), `CLAUDE.md` decisions line, the `LICENSE` files in `src/Bazaar.Sdk` and `src/Bazaar.Contracts`, and `CONTRIBUTING.md` still say Apache-2.0 or the directory split. | 47 (section 3 and status of M1) |
+| Module exception | The AGPL core carries a written module exception. Modules that use only the public module API may be under any licence, including closed commercial. Wording is for counsel. | 47 (section 6) |
+| Contributions | DCO sign-off for modules and small fixes. CLA for core code, which keeps the right to relicense and to offer commercial licences. The CLA also applies to extracted repos. Follow-up: `CONTRIBUTING.md` has DCO only. | 47 (section 7) |
+| Commercial licence | Dual licence. Pricing is decided later. Until customers exist: AGPL plus "contact us". No prices in any doc. | 47 (section 1 and 3) |
+| Trademarks | A published trademark policy. Core marks (Bazaar, CDAX, key module names) are registered after clearance. "Codex" and "RUBEDO" need clearance before use in public names. | 47 (section 9) |
+| Dependencies | Must be AGPL-compatible. Bundled dependencies are modules, with no separate dependency manager. | 47 (section 8), 42 |
+| Agent budgets | Token and quota budgets only. No money caps. Cost is shown for display and analysis only. Doc 48 says "token and cost budgets"; read that as the cost part being display only. | 48 (AI agent safety), 23 |
+| Soul export | Keeps the exact scope of doc 33: no memory, no reputation, no Passport. | 33 (update note), 07 |
+| Memory export | A separate export of agent memory and reputation. Permissioned, audited, private to the company and its owner. Encrypted per subject. | 44 (section 4.x), 33 (update note) |
+| Memory never on the Soul Marketplace | Agent memory and reputation are never part of anything published to the Soul Marketplace. The marketplace export is memory-free by design and by enforcement, and tested. The memory export has no marketplace target. | 07 (memory exclusion section), 44 |
+| Agent memory and GraphDRAG | Belong to Constellation's server side (Server.Constellation), not a separate module. Server-held, owner-visible, per-agent isolation with role scoping, retention and crypto-erase, provenance on every item, correction and rollback, portable between servers. | 19 and Bazaar.Constellation.md (governance section) |
+| Release channels | Stable, beta, nightly and LTS releases. Staged rings (canary, early, broad) follow Kodo health signals. A bad release auto-halts. Update policies can follow any channel. | 49, 37 (build flow) |
+| Governance | Owner-led, with a public roadmap and design RFCs. The owner keeps the final say. | 49 |
+| Security programme | Security policy, private vulnerability reporting, advisories. Bug bounty later. | 49 |
+| Client mnemonics | The whole client is navigable by mnemonics, not only Calcinato. A command palette lists every command, opened by a mnemonic with no Ctrl chords. Users remap; modules register and remap their own; conflicts are detected. Calcinato is Vim-style. Local NPU suggestions are off by default. | 41 (client-wide mnemonic navigation) |
+| Kodo | The named Health API module, Bazaar.KODO (write as Bazaar.Kodo in code naming). Immutable runtime with A/B rollback, monitor pane in every client, health contract for every module, incident mode. A normal first-party module for now. | 46 |
+| Data portability | Everything is exportable. Import any mass dump of docx, md and txt, plus Milanote, Miro, Trello, Obsidian and similar. Importers and exporters are modules. | 44 |
+| Onboarding | Server setup is headless-first (wizard, declarative config, CLI, provisioning API, dry-run validation, Kodo verification), with one audit trail. Client first run is automatic pairing, an intro and a skippable keyboard-first tour. No sample-data sandbox. | 45 |
+| Deps as modules | No separate dependency manager. PostgreSQL, pgvector and runtimes are modules tagged Deps. PG 18 and PG 19 are two versions of one module. Zero external installs for users. | 42 |
+| Telemetry and crash reports | Per-company setting off, ask or auto, default ask. On-device redaction. Server files issues with fingerprint deduplication. Server-side diagnosis is labelled "unverified diagnosis". | 43 |
+| Gap decisions | Module trust, roles, audit hash chain, disaster recovery, owner recovery, biometrics, retention, secrets, updates, AI agent safety, privacy law and the other gap cards. | 48 |
+| Build flow | The server builds or regenerates `.msix`, `.apk` and `.exe`. Signing keys stay on the server. Clients update in place. No manual pairing. One company per install. Install and build-from-source are separate documents. | 37 (build flow), 41 |
+| Onboarding and portability names | Pilot company is Bazaar.CDAX. Module names: Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda, Bazaar.Conduit, Bazaar.KODO. CALCINATO is the terminal and ATHANOR is the IDE. | 41, 47 |
+| Extraction | Kodo and Constellation.Renderer stay first-party modules until the owner asks for extraction. | 46, 19 |
+| Principles | Open source, modern, novel, performant, forward-facing, modular first. Beta 0.x. | 42, 49, FORWARD-FACING.md |
+
+**Open for owner:** the licence pricing (decided later); whether the module exception wording and the CLA mechanism (47, M4) are accepted by counsel; the number of this round.

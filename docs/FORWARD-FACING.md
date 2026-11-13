@@ -199,3 +199,16 @@ A new version is adopted when all of these are true:
 
 Preview versions are tracked and tested through the canary and Renovate. They are not
 adopted into the production pin until they are stable.
+
+## Decided 2026-11-13
+
+Owner decisions of 2026-11-13. Each bullet links the design doc that carries it. Doc 46 is the Kodo doc. Doc 49 is the release and governance doc, in preparation.
+
+- **Dependencies are modules.** No separate dependency manager. PostgreSQL, pgvector and runtimes are modules tagged Deps, bundled and supervised by the server. See [doc 42](design/42-deps-as-modules.md).
+- **Immutable Kodo with A/B rollback.** Kodo is signed and verified on every start, runs from a read-only runtime with separate writable data, and rolls back atomically to the previous version. See [doc 46](design/46-kodo-health-module.md).
+- **Module API semver contract.** Modules depend on a versioned public module API with compatibility shims, contract tests and a compatibility matrix. See doc 49 (in preparation, not yet in the repo).
+- **SBOM and signed releases.** Every release ships a software bill of materials and signed artifacts. See doc 49 (in preparation) and [doc 47](design/47-licensing-and-trademarks.md) for the licence check that reads the SBOM.
+- **PostgreSQL 18 and 19 dual-version.** Both versions are supported as one module. Newest and stable are always supported, with day-0 support for betas. See [doc 42](design/42-deps-as-modules.md).
+- **Accessibility from day one.** Keyboard, screen reader and i18n support are required from the first release, not added later. See doc 49 (in preparation) and [doc 41](design/41-client-gui-customization-and-dsl.md) for mnemonic navigation.
+- **Data portability.** Everything is exportable, and any mass dump or common tool export can be imported through importer modules. See [doc 44](design/44-data-portability.md).
+- **Release channels.** Stable, beta, nightly and LTS releases, plus staged rings tied to health signals, with automatic halt on a bad release. See doc 49 (in preparation) and [doc 37](design/37-distribution-matrix-and-packaging.md).

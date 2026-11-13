@@ -127,3 +127,18 @@ Each wave builds on the previous one. Within a wave, the order is the suggested 
 8. **Clients and packaging:** 27, 31, 28, 29, 30. Shared core, on-device inference, then the three heads.
 9. **Operations and fun:** 23, 33, 34, 26.
 10. **Spikes last, but plan them early:** 35. Several register blockers (C07, C12, C13) are settled by a spike (S2, S23, S22); the cloud spikes can start before the owner has answered everything.
+
+### Added 2026-11-13 (owner decisions)
+
+Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as their own status lines say. Doc 49 is in preparation and is not yet in the repo.
+
+| # | Doc | Purpose | Qs | Key dependencies |
+|---|---|---|---|---|
+| 42 | [42-deps-as-modules.md](42-deps-as-modules.md) | Dependencies as modules: PostgreSQL, pgvector and runtimes as Deps modules, dual-version PG 18 and 19, zero external installs, supervised child process | - | 03, 04, 37, 46, 47, 49 |
+| 43 | [43-telemetry-and-crash-reporting.md](43-telemetry-and-crash-reporting.md) | Client telemetry and crash reporting: deterministic capture, on-device redaction, per-company off, ask or auto, server-side issue filing and labelled diagnosis | 4 | 15, 23, 37, 46, 48 |
+| 44 | [44-data-portability.md](44-data-portability.md) | Data portability: export bundles by data class, the separate memory export (4.x), import pipeline, importer and exporter modules | 6 | 04, 07, 08, 11, 14, 15, 18, 33, 48 |
+| 45 | [45-onboarding.md](45-onboarding.md) | Onboarding: headless-first server setup with one audit trail, client first run with automatic pairing and a keyboard-first tour | 6 | 03, 32, 41, 44, 46 |
+| 46 | [46-kodo-health-module.md](46-kodo-health-module.md) | Kodo (Bazaar.KODO), the health module: immutable runtime with A/B rollback, monitor pane, module health contract, incident mode | 6 | 03, 23, 33, 37, 42, 48, 49 |
+| 47 | [47-licensing-and-trademarks.md](47-licensing-and-trademarks.md) | Licensing, contributions and trademarks: AGPL-3.0 everywhere, module exception, DCO and CLA, marks and marketplace licence rules | 13 (M1 to M13) | 37, 42, 48, 49 |
+| 48 | [48-gap-decisions-security-identity.md](48-gap-decisions-security-identity.md) | Gap decisions for security, identity, recovery, privacy, retention, updates and AI agent safety | 6 | 14, 15, 33, 32, 37, 46 |
+| 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |

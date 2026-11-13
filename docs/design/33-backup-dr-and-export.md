@@ -191,3 +191,8 @@ Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, do
 6. Erasure in Vault history (C38 FOLLOW-UP). The options are undecided: encrypted personal notes or a history rewrite. Needs counsel. Recommended: the erasure window also applies to Vault bundles and remotes; the mechanism stays open.
 
 MOVED TO SETTINGS: backup.offsite_target, backup.wal_archive_timeout, backup.offsite_rpo_target, backup.base_sets_kept, backup.offsite_keep_daily, backup.offsite_keep_weekly, backup.golden_parent_offsite, backup.include_child_vm_disks, backup.audit_head_offsite, backup.vault_bundle_hours, backup.drill_interval_days, backup.check_interval_hours, backup.volume_warn_pct, backup.volume_red_pct; referenced from other docs: erasure.backup_window_days (04), security.backup.include_cookie_profiles (15), vault.push_cadence (18) (DECISIONS-LOG round 13)
+
+## Update 2026-11-13
+
+- The Soul export keeps its scope exactly as designed above: no agent memory, no reputation and no Passport.
+- The separate memory export (agent memory and reputation) is defined in doc 44 (section 4.x). It is permissioned and audited (doc 48). It is private to the company and its owner, and it has no Soul Marketplace target (doc 07, "Soul Marketplace: memory exclusion").
