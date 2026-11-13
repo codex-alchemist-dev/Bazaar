@@ -14,10 +14,10 @@ public static class JournalCodec
     /// <summary>Format version, the first byte of every canonical encoding.</summary>
     public const byte Version = 1;
 
-    private const int _SequenceOffset = 1;
-    private const int _TicksOffset = 9;
-    private const int _KindLengthOffset = 17;
-    private const int _KindOffset = 19;
+    private const int _sequenceOffset = 1;
+    private const int _ticksOffset = 9;
+    private const int _kindLengthOffset = 17;
+    private const int _kindOffset = 19;
 
     /// <summary>Encodes the fields of <paramref name="record"/>. The two hash fields are ignored.</summary>
     /// <exception cref="ArgumentException">The kind is empty or longer than 65535 UTF-8 bytes.</exception>
@@ -31,15 +31,15 @@ public static class JournalCodec
             throw new ArgumentException("Kind must be 1 to 65535 UTF-8 bytes.", nameof(record));
         }
 
-        int payloadLengthOffset = _KindOffset + kind.Length;
+        int payloadLengthOffset = _kindOffset + kind.Length;
         byte[] result = new byte[payloadLengthOffset + sizeof(uint) + record.Payload.Length];
         Span<byte> span = result;
 
         span[0] = Version;
-        BinaryPrimitives.WriteInt64BigEndian(span[_SequenceOffset..], record.Sequence);
-        BinaryPrimitives.WriteInt64BigEndian(span[_TicksOffset..], record.At.UtcTicks);
-        BinaryPrimitives.WriteUInt16BigEndian(span[_KindLengthOffset..], (ushort)kind.Length);
-        kind.CopyTo(span[_KindOffset..]);
+        BinaryPrimitives.WriteInt64BigEndian(span[_sequenceOffset..], record.Sequence);
+        BinaryPrimitives.WriteInt64BigEndian(span[_ticksOffset..], record.At.UtcTicks);
+        BinaryPrimitives.WriteUInt16BigEndian(span[_kindLengthOffset..], (ushort)kind.Length);
+        kind.CopyTo(span[_kindOffset..]);
         BinaryPrimitives.WriteUInt32BigEndian(span[payloadLengthOffset..], (uint)record.Payload.Length);
         record.Payload.CopyTo(span[(payloadLengthOffset + sizeof(uint))..]);
 
@@ -50,7 +50,7 @@ public static class JournalCodec
     /// <exception cref="InvalidDataException">The bytes are not a well-formed canonical record.</exception>
     public static JournalRecord Decode(ReadOnlySpan<byte> canonical, byte[] previousHash, byte[] hash)
     {
-        if (canonical.Length < _KindOffset + sizeof(uint))
+        if (canonical.Length < _kindOffset + sizeof(uint))
         {
             throw new InvalidDataException("Canonical journal record is truncated.");
         }
@@ -60,21 +60,21 @@ public static class JournalCodec
             throw new InvalidDataException($"Unknown journal record version {canonical[0]}.");
         }
 
-        long sequence = BinaryPrimitives.ReadInt64BigEndian(canonical[_SequenceOffset..]);
-        long ticks = BinaryPrimitives.ReadInt64BigEndian(canonical[_TicksOffset..]);
+        long sequence = BinaryPrimitives.ReadInt64BigEndian(canonical[_sequenceOffset..]);
+        long ticks = BinaryPrimitives.ReadInt64BigEndian(canonical[_ticksOffset..]);
         if (ticks < 0 || ticks > DateTime.MaxValue.Ticks)
         {
             throw new InvalidDataException("Journal record timestamp is out of range.");
         }
 
-        int kindLength = BinaryPrimitives.ReadUInt16BigEndian(canonical[_KindLengthOffset..]);
-        int payloadLengthOffset = _KindOffset + kindLength;
+        int kindLength = BinaryPrimitives.ReadUInt16BigEndian(canonical[_kindLengthOffset..]);
+        int payloadLengthOffset = _kindOffset + kindLength;
         if (canonical.Length < payloadLengthOffset + sizeof(uint))
         {
             throw new InvalidDataException("Canonical journal record is truncated.");
         }
 
-        string kind = Encoding.UTF8.GetString(canonical.Slice(_KindOffset, kindLength));
+        string kind = Encoding.UTF8.GetString(canonical.Slice(_kindOffset, kindLength));
         uint payloadLength = BinaryPrimitives.ReadUInt32BigEndian(canonical[payloadLengthOffset..]);
         int payloadOffset = payloadLengthOffset + sizeof(uint);
         if ((uint)(canonical.Length - payloadOffset) != payloadLength)

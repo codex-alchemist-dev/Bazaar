@@ -7,19 +7,19 @@ namespace Bazaar.Kodo.Tests.Evaluator;
 /// </summary>
 public sealed class KodoEvaluatorHysteresisTests
 {
-    private static readonly DateTimeOffset _Start = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
-    private static readonly KodoEvaluatorSettings _Settings = new();
+    private static readonly DateTimeOffset _start = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
+    private static readonly KodoEvaluatorSettings _settings = new();
 
-    private static readonly KodoObservation _Green = new();
-    private static readonly KodoObservation _Amber = new() { NonCriticalAmberBeyondGrace = true };
-    private static readonly KodoObservation _CriticalRed = new() { CriticalRed = true };
-    private static readonly KodoObservation _RecoveryRunning = new() { CriticalRed = true, Recovery = RecoveryStatus.Running };
-    private static readonly KodoObservation _RecoveryFailed = new() { CriticalRed = true, Recovery = RecoveryStatus.Failed };
+    private static readonly KodoObservation _green = new();
+    private static readonly KodoObservation _amber = new() { NonCriticalAmberBeyondGrace = true };
+    private static readonly KodoObservation _criticalRed = new() { CriticalRed = true };
+    private static readonly KodoObservation _recoveryRunning = new() { CriticalRed = true, Recovery = RecoveryStatus.Running };
+    private static readonly KodoObservation _recoveryFailed = new() { CriticalRed = true, Recovery = RecoveryStatus.Failed };
 
     /// <summary>Evaluates one sample and carries the memory forward, as the caller does.</summary>
     private static KodoEvaluation Step(ref KodoEvaluatorMemory memory, KodoObservation observation, DateTimeOffset at)
     {
-        KodoEvaluation result = KodoEvaluator.Evaluate(memory, observation, at, _Settings);
+        KodoEvaluation result = KodoEvaluator.Evaluate(memory, observation, at, _settings);
         memory = result.Next;
         return result;
     }
@@ -30,9 +30,9 @@ public sealed class KodoEvaluatorHysteresisTests
         // Section 8.2, hysteresis: degraded -> healthy needs all rules green for the whole stability window.
         KodoEvaluatorMemory memory = new(KodoState.Degraded, null, [], false);
 
-        Assert.Equal(KodoState.Degraded, Step(ref memory, _Green, _Start).Underlying);
-        Assert.Equal(KodoState.Degraded, Step(ref memory, _Green, _Start.AddMinutes(4)).Underlying);
-        Assert.Equal(KodoState.Healthy, Step(ref memory, _Green, _Start.AddMinutes(5)).Underlying);
+        Assert.Equal(KodoState.Degraded, Step(ref memory, _green, _start).Underlying);
+        Assert.Equal(KodoState.Degraded, Step(ref memory, _green, _start.AddMinutes(4)).Underlying);
+        Assert.Equal(KodoState.Healthy, Step(ref memory, _green, _start.AddMinutes(5)).Underlying);
     }
 
     [Fact]
@@ -41,12 +41,12 @@ public sealed class KodoEvaluatorHysteresisTests
         // Section 8.2, hysteresis: a sample that is not all green resets the run, so the window starts again.
         KodoEvaluatorMemory memory = new(KodoState.Degraded, null, [], false);
 
-        Step(ref memory, _Green, _Start);
-        Step(ref memory, _Amber, _Start.AddMinutes(2));
-        Step(ref memory, _Green, _Start.AddMinutes(3));
+        Step(ref memory, _green, _start);
+        Step(ref memory, _amber, _start.AddMinutes(2));
+        Step(ref memory, _green, _start.AddMinutes(3));
 
-        Assert.Equal(KodoState.Degraded, Step(ref memory, _Green, _Start.AddMinutes(7)).Underlying);
-        Assert.Equal(KodoState.Healthy, Step(ref memory, _Green, _Start.AddMinutes(8)).Underlying);
+        Assert.Equal(KodoState.Degraded, Step(ref memory, _green, _start.AddMinutes(7)).Underlying);
+        Assert.Equal(KodoState.Healthy, Step(ref memory, _green, _start.AddMinutes(8)).Underlying);
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public sealed class KodoEvaluatorHysteresisTests
         // Section 8.2: failing -> healthy is not used directly. A green sample, however long, is not a recovery.
         KodoEvaluatorMemory memory = new(KodoState.Failing, null, [], false);
 
-        Assert.Equal(KodoState.Failing, Step(ref memory, _Green, _Start).Underlying);
-        Assert.Equal(KodoState.Failing, Step(ref memory, _Green, _Start.AddMinutes(10)).Underlying);
+        Assert.Equal(KodoState.Failing, Step(ref memory, _green, _start).Underlying);
+        Assert.Equal(KodoState.Failing, Step(ref memory, _green, _start.AddMinutes(10)).Underlying);
     }
 
     [Fact]
@@ -65,9 +65,9 @@ public sealed class KodoEvaluatorHysteresisTests
         // Section 8.2: recovering -> healthy needs the stability window with all rules green.
         KodoEvaluatorMemory memory = new(KodoState.Recovering, null, [], false);
 
-        Assert.Equal(KodoState.Recovering, Step(ref memory, _Green, _Start).Underlying);
-        Assert.Equal(KodoState.Recovering, Step(ref memory, _Green, _Start.AddMinutes(4)).Underlying);
-        Assert.Equal(KodoState.Healthy, Step(ref memory, _Green, _Start.AddMinutes(5)).Underlying);
+        Assert.Equal(KodoState.Recovering, Step(ref memory, _green, _start).Underlying);
+        Assert.Equal(KodoState.Recovering, Step(ref memory, _green, _start.AddMinutes(4)).Underlying);
+        Assert.Equal(KodoState.Healthy, Step(ref memory, _green, _start.AddMinutes(5)).Underlying);
     }
 
     [Fact]
@@ -81,19 +81,19 @@ public sealed class KodoEvaluatorHysteresisTests
         // Failing, then recovering and failing again, one minute apart: each step is a transition.
         KodoObservation[] steps =
         [
-            _CriticalRed,
-            _RecoveryRunning,
-            _RecoveryFailed,
-            _RecoveryRunning,
-            _RecoveryFailed,
-            _RecoveryRunning,
-            _RecoveryFailed,
-            _RecoveryRunning,
+            _criticalRed,
+            _recoveryRunning,
+            _recoveryFailed,
+            _recoveryRunning,
+            _recoveryFailed,
+            _recoveryRunning,
+            _recoveryFailed,
+            _recoveryRunning,
         ];
 
         for (int i = 0; i < steps.Length; i++)
         {
-            KodoEvaluation result = Step(ref memory, steps[i], _Start.AddMinutes(i));
+            KodoEvaluation result = Step(ref memory, steps[i], _start.AddMinutes(i));
             flags.Add(result.Flapping);
             alerts.Add(result.RaiseFlapAlert);
         }
@@ -113,26 +113,26 @@ public sealed class KodoEvaluatorHysteresisTests
         KodoEvaluatorMemory memory = KodoEvaluator.Initial;
         var schedule = new (int Minute, KodoObservation Observation)[]
         {
-            (0, _Amber), (1, _Green), (6, _Green), (7, _Amber), (8, _Green), (13, _Green), (14, _Amber),
-            (15, _Green), (20, _Green), (21, _Amber), // seventh transition: flapping starts here
+            (0, _amber), (1, _green), (6, _green), (7, _amber), (8, _green), (13, _green), (14, _amber),
+            (15, _green), (20, _green), (21, _amber), // seventh transition: flapping starts here
         };
         foreach ((int minute, KodoObservation observation) in schedule)
         {
-            Step(ref memory, observation, _Start.AddMinutes(minute));
+            Step(ref memory, observation, _start.AddMinutes(minute));
         }
 
         Assert.True(memory.Flapping);
 
         // Healthy would be eligible here (green since minute 22, for 5 minutes), but flapping holds it degraded.
-        KodoEvaluation held = Step(ref memory, _Green, _Start.AddMinutes(22));
-        KodoEvaluation heldLater = Step(ref memory, _Green, _Start.AddMinutes(27));
+        KodoEvaluation held = Step(ref memory, _green, _start.AddMinutes(22));
+        KodoEvaluation heldLater = Step(ref memory, _green, _start.AddMinutes(27));
         Assert.Equal(KodoState.Degraded, held.Underlying);
         Assert.Equal(KodoState.Degraded, heldLater.Underlying);
         Assert.True(heldLater.Flapping);
         Assert.False(heldLater.RaiseFlapAlert);
 
         // Once every transition has left the 30 minute window, the normal rules apply again.
-        KodoEvaluation released = Step(ref memory, _Green, _Start.AddMinutes(52));
+        KodoEvaluation released = Step(ref memory, _green, _start.AddMinutes(52));
         Assert.Equal(KodoState.Healthy, released.Underlying);
         Assert.False(released.Flapping);
     }
@@ -141,9 +141,9 @@ public sealed class KodoEvaluatorHysteresisTests
     public void FlapDoesNotHideCriticalRed()
     {
         // Section 8.2 forces degraded only over healthy or degraded. A critical red stays failing.
-        KodoEvaluatorMemory memory = new(KodoState.Healthy, null, [.. Enumerable.Range(0, 6).Select(i => _Start.AddMinutes(i))], true);
+        KodoEvaluatorMemory memory = new(KodoState.Healthy, null, [.. Enumerable.Range(0, 6).Select(i => _start.AddMinutes(i))], true);
 
-        KodoEvaluation result = Step(ref memory, _CriticalRed, _Start.AddMinutes(7));
+        KodoEvaluation result = Step(ref memory, _criticalRed, _start.AddMinutes(7));
 
         Assert.True(result.Flapping);
         Assert.Equal(KodoState.Failing, result.Underlying);
@@ -154,9 +154,9 @@ public sealed class KodoEvaluatorHysteresisTests
     {
         // Section 8.1 and 16.3: frozen is shown beside the underlying health, which is still computed.
         KodoEvaluatorMemory memory = new(KodoState.Failing, null, [], false);
-        KodoObservation incident = _CriticalRed with { IncidentActive = true };
+        KodoObservation incident = _criticalRed with { IncidentActive = true };
 
-        KodoEvaluation result = Step(ref memory, incident, _Start);
+        KodoEvaluation result = Step(ref memory, incident, _start);
 
         Assert.Equal(KodoState.Frozen, result.State);
         Assert.Equal(KodoState.Failing, result.Underlying);
@@ -167,9 +167,9 @@ public sealed class KodoEvaluatorHysteresisTests
     {
         // Section 8.2: frozen -> previous or re-evaluated state once incident mode exits.
         KodoEvaluatorMemory memory = new(KodoState.Failing, null, [], false);
-        Step(ref memory, _CriticalRed with { IncidentActive = true }, _Start);
+        Step(ref memory, _criticalRed with { IncidentActive = true }, _start);
 
-        KodoEvaluation result = Step(ref memory, _CriticalRed, _Start.AddMinutes(1));
+        KodoEvaluation result = Step(ref memory, _criticalRed, _start.AddMinutes(1));
 
         Assert.Equal(KodoState.Failing, result.State);
         Assert.Equal(KodoState.Failing, result.Underlying);
@@ -179,10 +179,10 @@ public sealed class KodoEvaluatorHysteresisTests
     public void EvaluationIsDeterministicForTheSameTime()
     {
         // The evaluator reads no clock, so the same inputs always give the same result.
-        KodoEvaluatorMemory memory = new(KodoState.Degraded, _Start, [], false);
+        KodoEvaluatorMemory memory = new(KodoState.Degraded, _start, [], false);
 
-        KodoEvaluation first = KodoEvaluator.Evaluate(memory, _Green, _Start.AddMinutes(5), _Settings);
-        KodoEvaluation second = KodoEvaluator.Evaluate(memory, _Green, _Start.AddMinutes(5), _Settings);
+        KodoEvaluation first = KodoEvaluator.Evaluate(memory, _green, _start.AddMinutes(5), _settings);
+        KodoEvaluation second = KodoEvaluator.Evaluate(memory, _green, _start.AddMinutes(5), _settings);
 
         Assert.Equal(first.State, second.State);
         Assert.Equal(first.Underlying, second.Underlying);
@@ -196,7 +196,7 @@ public sealed class KodoEvaluatorHysteresisTests
         // Section 20: kodo.state.stability_window_s has a floor of 60 seconds.
         var settings = new KodoEvaluatorSettings { StabilityWindow = TimeSpan.FromSeconds(30) };
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => KodoEvaluator.Evaluate(KodoEvaluator.Initial, _Green, _Start, settings));
+        Assert.Throws<ArgumentOutOfRangeException>(() => KodoEvaluator.Evaluate(KodoEvaluator.Initial, _green, _start, settings));
     }
 
     [Theory]
@@ -207,7 +207,7 @@ public sealed class KodoEvaluatorHysteresisTests
         // Section 20: kodo.state.flap_limit must allow at least one transition.
         var settings = new KodoEvaluatorSettings { FlapLimit = limit };
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => KodoEvaluator.Evaluate(KodoEvaluator.Initial, _Green, _Start, settings));
+        Assert.Throws<ArgumentOutOfRangeException>(() => KodoEvaluator.Evaluate(KodoEvaluator.Initial, _green, _start, settings));
     }
 
     [Fact]

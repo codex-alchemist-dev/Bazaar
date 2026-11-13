@@ -75,9 +75,9 @@ public static class KodoSettingKey
             "Minutes before an unacknowledged critical alert escalates (doc 46 section 20). Floor 15."),
     ];
 
-    private static readonly Dictionary<string, KodoSettingDefinition> _ByKey =
+    private static readonly Dictionary<string, KodoSettingDefinition> _byKey =
         All.ToDictionary(definition => definition.Key, StringComparer.Ordinal);
 
     /// <summary>Looks up a setting by key, or returns null when the key is not in the catalogue.</summary>
-    public static KodoSettingDefinition? Find(string key) => _ByKey.GetValueOrDefault(key);
+    public static KodoSettingDefinition? Find(string key) => _byKey.GetValueOrDefault(key);
 }

@@ -4,8 +4,8 @@ namespace Bazaar.Kodo.Tests.Settings;
 
 public sealed class KodoSettingsTests
 {
-    private static readonly int[] _DefaultBackoff = [1, 2, 5, 15, 60, 300];
-    private static readonly int[] _TightBackoff = [1, 2, 10, 30];
+    private static readonly int[] _defaultBackoff = [1, 2, 5, 15, 60, 300];
+    private static readonly int[] _tightBackoff = [1, 2, 10, 30];
 
     public static TheoryData<string> AllKeys()
     {
@@ -57,7 +57,7 @@ public sealed class KodoSettingsTests
     {
         var defaults = KodoSettings.Defaults;
 
-        Assert.Equal(_DefaultBackoff, defaults.GetIntList(KodoSettingKey.RestartBackoffSeconds));
+        Assert.Equal(_defaultBackoff, defaults.GetIntList(KodoSettingKey.RestartBackoffSeconds));
         Assert.Equal(5, defaults.GetInt(KodoSettingKey.CrashLoopStarts));
         Assert.Equal(10, defaults.GetInt(KodoSettingKey.CrashLoopWindowMinutes));
         Assert.Equal(8, defaults.GetInt(KodoSettingKey.PoolLocalConcurrency));
@@ -179,7 +179,7 @@ public sealed class KodoSettingsTests
 
         Assert.True(result.IsValid);
         Assert.Equal("1,2,10,30", result.Settings.Values[KodoSettingKey.RestartBackoffSeconds]);
-        Assert.Equal(_TightBackoff, result.Settings.GetIntList(KodoSettingKey.RestartBackoffSeconds));
+        Assert.Equal(_tightBackoff, result.Settings.GetIntList(KodoSettingKey.RestartBackoffSeconds));
     }
 
     [Fact]

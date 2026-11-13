@@ -5,7 +5,7 @@ namespace Bazaar.Kodo.Tests.Probes;
 
 public sealed class ProbeRunnerTests
 {
-    private static readonly TimeSpan _ProbeTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan _probeTimeout = TimeSpan.FromSeconds(5);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -17,7 +17,7 @@ public sealed class ProbeRunnerTests
 
         for (var i = 0; i < CircuitBreaker.DefaultFailureThreshold; i++)
         {
-            ProbeResult failed = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Red("down")), _ProbeTimeout, Ct);
+            ProbeResult failed = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Red("down")), _probeTimeout, Ct);
             Assert.Equal(ProbeStatus.Red, failed.Status);
         }
 
@@ -28,7 +28,7 @@ public sealed class ProbeRunnerTests
                 ran = true;
                 return Task.FromResult(ProbeResult.Green());
             },
-            _ProbeTimeout, Ct);
+            _probeTimeout, Ct);
 
         Assert.False(ran);
         Assert.Equal(ProbeStatus.Unknown, result.Status);
@@ -40,13 +40,13 @@ public sealed class ProbeRunnerTests
     {
         var runner = NewRunner(new FakeTimeProvider(), failureThreshold: 1);
 
-        ProbeResult result = await runner.RunAsync(_ => throw new IOException("reset"), _ProbeTimeout, Ct);
+        ProbeResult result = await runner.RunAsync(_ => throw new IOException("reset"), _probeTimeout, Ct);
 
         Assert.Equal(ProbeStatus.Red, result.Status);
         Assert.Equal(ProbeCauses.ProbeException, result.Cause);
         Assert.IsType<IOException>(result.Error);
 
-        ProbeResult next = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _ProbeTimeout, Ct);
+        ProbeResult next = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _probeTimeout, Ct);
         Assert.Equal(ProbeCauses.BreakerOpen, next.Cause);
     }
 
@@ -69,7 +69,7 @@ public sealed class ProbeRunnerTests
         Assert.Equal(ProbeStatus.Unknown, timedOut.Status);
         Assert.Equal(ProbeCauses.Timeout, timedOut.Cause);
 
-        ProbeResult next = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _ProbeTimeout, Ct);
+        ProbeResult next = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _probeTimeout, Ct);
         Assert.Equal(ProbeCauses.BreakerOpen, next.Cause);
     }
 
@@ -78,13 +78,13 @@ public sealed class ProbeRunnerTests
     {
         var time = new FakeTimeProvider();
         var runner = NewRunner(time, failureThreshold: 1);
-        await runner.RunAsync(_ => Task.FromResult(ProbeResult.Red("down")), _ProbeTimeout, Ct);
+        await runner.RunAsync(_ => Task.FromResult(ProbeResult.Red("down")), _probeTimeout, Ct);
 
         time.Advance(CircuitBreaker.DefaultCooldown);
-        ProbeResult trial = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _ProbeTimeout, Ct);
+        ProbeResult trial = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _probeTimeout, Ct);
 
         Assert.Equal(ProbeStatus.Green, trial.Status);
-        Assert.Equal(ProbeStatus.Green, (await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _ProbeTimeout, Ct)).Status);
+        Assert.Equal(ProbeStatus.Green, (await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _probeTimeout, Ct)).Status);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class ProbeRunnerTests
         var bulkhead = new Bulkhead("external", maxConcurrency: 1, timeProvider: time);
         var breaker = new CircuitBreaker(failureThreshold: 1, timeProvider: time);
         var runner = new ProbeRunner(bulkhead, breaker);
-        await runner.RunAsync(_ => Task.FromResult(ProbeResult.Red("down")), _ProbeTimeout, Ct);
+        await runner.RunAsync(_ => Task.FromResult(ProbeResult.Red("down")), _probeTimeout, Ct);
         time.Advance(CircuitBreaker.DefaultCooldown);
 
         // Another caller holds the only slot, so the trial cannot run.
@@ -105,9 +105,9 @@ public sealed class ProbeRunnerTests
                 await release.Task;
                 return ProbeResult.Green();
             },
-            _ProbeTimeout, Ct);
+            _probeTimeout, Ct);
 
-        ProbeResult full = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _ProbeTimeout, Ct);
+        ProbeResult full = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _probeTimeout, Ct);
         Assert.Equal(ProbeCauses.BulkheadFull, full.Cause);
         Assert.Equal(BreakerState.HalfOpen, breaker.State);
 
@@ -115,7 +115,7 @@ public sealed class ProbeRunnerTests
         await holder;
 
         // The trial slot was released, so the next caller gets the trial and closes the breaker.
-        ProbeResult trial = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _ProbeTimeout, Ct);
+        ProbeResult trial = await runner.RunAsync(_ => Task.FromResult(ProbeResult.Green()), _probeTimeout, Ct);
         Assert.Equal(ProbeStatus.Green, trial.Status);
         Assert.Equal(BreakerState.Closed, breaker.State);
     }

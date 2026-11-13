@@ -5,7 +5,7 @@ namespace Bazaar.Kodo.Tests.Journal;
 /// <summary>Deterministic chain builder for tests: the same seed always gives the same records.</summary>
 internal static class JournalSamples
 {
-    private static readonly string[] _Kinds = ["state.change", "observation", "kodo.self.spill", "鼓動.observation"];
+    private static readonly string[] _kinds = ["state.change", "observation", "kodo.self.spill", "鼓動.observation"];
 
     public static List<JournalRecord> Chain(int seed, int count)
     {
@@ -21,7 +21,7 @@ internal static class JournalSamples
             byte[] payload = new byte[random.Next(0, 48)];
             random.NextBytes(payload);
             at = at.AddMilliseconds(random.Next(1, 5000));
-            JournalRecord record = JournalChain.Create(index, at, _Kinds[random.Next(_Kinds.Length)], payload, previous);
+            JournalRecord record = JournalChain.Create(index, at, _kinds[random.Next(_kinds.Length)], payload, previous);
             records.Add(record);
             previous = record.Hash;
         }
