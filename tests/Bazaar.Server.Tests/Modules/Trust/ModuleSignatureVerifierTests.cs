@@ -7,9 +7,9 @@ namespace Bazaar.Server.Tests.Modules.Trust;
 
 public class ModuleSignatureVerifierTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
-    private const string KeyId = "publisher-key-1";
-    private const string Digest = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+    private static readonly DateTimeOffset _now = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
+    private const string _keyId = "publisher-key-1";
+    private const string _digest = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
     private static ECDsa NewKey() => ECDsa.Create(ECCurve.NamedCurves.nistP256);
 
@@ -17,8 +17,8 @@ public class ModuleSignatureVerifierTests
         IReadOnlySet<string>? permissions = null,
         string moduleId = "bazaar.weather",
         string version = "1.2.0",
-        string digest = Digest,
-        string keyId = KeyId) =>
+        string digest = _digest,
+        string keyId = _keyId) =>
         new(moduleId, version, permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, []);
 
     private static ModulePackage Sign(ModulePackage unsigned, ECDsa signer)
@@ -28,7 +28,7 @@ public class ModuleSignatureVerifierTests
         return unsigned with { Signature = signature };
     }
 
-    private static (EcdsaModuleSignatureVerifier Verifier, ECDsa Key) Setup(string keyId = KeyId, bool revoked = false, DateTimeOffset? notBefore = null, DateTimeOffset? notAfter = null, FakeTimeProvider? time = null)
+    private static (EcdsaModuleSignatureVerifier Verifier, ECDsa Key) Setup(string keyId = _keyId, bool revoked = false, DateTimeOffset? notBefore = null, DateTimeOffset? notAfter = null, FakeTimeProvider? time = null)
     {
         var key = NewKey();
         var store = new InMemoryTrustedKeyStore();
@@ -36,10 +36,10 @@ public class ModuleSignatureVerifierTests
             keyId,
             "publisher-1",
             key,
-            notBefore ?? Now.AddYears(-1),
-            notAfter ?? Now.AddYears(1),
+            notBefore ?? _now.AddYears(-1),
+            notAfter ?? _now.AddYears(1),
             revoked));
-        return (new EcdsaModuleSignatureVerifier(store, time ?? new FakeTimeProvider(Now)), key);
+        return (new EcdsaModuleSignatureVerifier(store, time ?? new FakeTimeProvider(_now)), key);
     }
 
     [Fact]
@@ -140,8 +140,8 @@ public class ModuleSignatureVerifierTests
     [Fact]
     public void Key_outside_its_validity_dates_never_verifies()
     {
-        var (early, earlyKey) = Setup(notBefore: Now.AddDays(1));
-        var (late, lateKey) = Setup(notAfter: Now);
+        var (early, earlyKey) = Setup(notBefore: _now.AddDays(1));
+        var (late, lateKey) = Setup(notAfter: _now);
 
         Assert.Equal(ModuleSignatureStatus.KeyNotValid, early.Verify(Sign(Unsigned(), earlyKey)));
         Assert.Equal(ModuleSignatureStatus.KeyNotValid, late.Verify(Sign(Unsigned(), lateKey)));
@@ -180,7 +180,7 @@ public class ModuleSignatureVerifierTests
         using var p384 = ECDsa.Create(ECCurve.NamedCurves.nistP384);
         var store = new InMemoryTrustedKeyStore();
 
-        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(KeyId, "publisher-1", p384, Now.AddDays(-1), Now.AddDays(1))));
+        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(_keyId, "publisher-1", p384, _now.AddDays(-1), _now.AddDays(1))));
     }
 
     [Fact]
@@ -189,9 +189,9 @@ public class ModuleSignatureVerifierTests
         using var first = NewKey();
         using var second = NewKey();
         var store = new InMemoryTrustedKeyStore();
-        store.Add(new TrustedModuleKey(KeyId, "publisher-1", first, Now.AddDays(-1), Now.AddDays(1)));
+        store.Add(new TrustedModuleKey(_keyId, "publisher-1", first, _now.AddDays(-1), _now.AddDays(1)));
 
-        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(KeyId, "publisher-1", second, Now.AddDays(-1), Now.AddDays(1))));
+        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(_keyId, "publisher-1", second, _now.AddDays(-1), _now.AddDays(1))));
         Assert.Null(store.Find("no-such-key"));
     }
 }

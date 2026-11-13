@@ -4,7 +4,7 @@ namespace Bazaar.Server.Tests.Modules.Deps;
 
 public class DependencyManifestValidatorTests
 {
-    private static readonly IReadOnlyList<string> Tags = ["Deps", "3rd party"];
+    private static readonly IReadOnlyList<string> _tags = ["Deps", "3rd party"];
 
     private static DependencyLine Newest(string line = "19", string version = "19.0.0") =>
         new(line, version, DependencyLineRole.Newest);
@@ -22,7 +22,7 @@ public class DependencyManifestValidatorTests
         IReadOnlyList<string>? extensions = null,
         string licence = "PostgreSQL",
         DependencyLicenceVerdict verdict = DependencyLicenceVerdict.Compatible) =>
-        new(id, "PostgreSQL", tags ?? Tags, lines ?? [Newest(), Stable()], extensions ?? ["pgvector"], licence, verdict);
+        new(id, "PostgreSQL", tags ?? _tags, lines ?? [Newest(), Stable()], extensions ?? ["pgvector"], licence, verdict);
 
     private static IEnumerable<DependencyManifestIssueCode> Codes(IEnumerable<DependencyManifestIssue> issues) =>
         issues.Select(i => i.Code);

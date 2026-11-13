@@ -76,9 +76,9 @@ internal sealed class FakeSteps
 
 internal static class LineMoveTestData
 {
-    public static readonly DateTimeOffset Now = new(2026, 11, 13, 9, 0, 0, TimeSpan.Zero);
+    public static readonly DateTimeOffset _now = new(2026, 11, 13, 9, 0, 0, TimeSpan.Zero);
 
-    public static FakeTimeProvider Clock() => new(Now);
+    public static FakeTimeProvider Clock() => new(_now);
 
     /// <summary>Healthy preflight facts: every rule passes.</summary>
     public static LineMovePreflightInputs HealthyPreflight() => new(

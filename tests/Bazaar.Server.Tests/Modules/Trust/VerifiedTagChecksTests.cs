@@ -4,10 +4,10 @@ namespace Bazaar.Server.Tests.Modules.Trust;
 
 public class VerifiedTagChecksTests
 {
-    private static readonly DateTimeOffset Checked = new(2026, 11, 13, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _checked = new(2026, 11, 13, 9, 0, 0, TimeSpan.Zero);
 
     private static VerifiedTagResults AllPass(string version) =>
-        new(version, Checked, LicenceOk: true, MalwareOk: true, VulnerabilityOk: true, SignatureOk: true, HumanReviewRecorded: true, MonitoredSandboxRunPassed: true);
+        new(version, _checked, LicenceOk: true, MalwareOk: true, VulnerabilityOk: true, SignatureOk: true, HumanReviewRecorded: true, MonitoredSandboxRunPassed: true);
 
     /// <summary>Returns the results with exactly one check failed, named as in <see cref="VerifiedTagChecks.FailedChecks"/>.</summary>
     private static VerifiedTagResults FailOne(string version, string check)

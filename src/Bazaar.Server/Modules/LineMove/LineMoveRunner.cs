@@ -70,7 +70,7 @@ public sealed record LineMoveOutcome(
 /// </summary>
 public sealed class LineMoveRunner
 {
-    private static readonly LineMoveStep[] ForwardAfterPreflight =
+    private static readonly LineMoveStep[] _forwardAfterPreflight =
     [
         LineMoveStep.Snapshot,
         LineMoveStep.DryRun,
@@ -99,7 +99,7 @@ public sealed class LineMoveRunner
                 throw new ArgumentException($"More than one executor for {executor.ForStep}.", nameof(executors));
         }
 
-        foreach (var step in ForwardAfterPreflight.Append(LineMoveStep.RolledBack))
+        foreach (var step in _forwardAfterPreflight.Append(LineMoveStep.RolledBack))
         {
             if (!map.ContainsKey(step))
                 throw new ArgumentException($"No executor supplied for {step}.", nameof(executors));
@@ -134,7 +134,7 @@ public sealed class LineMoveRunner
         await AuditAsync(context, LineMoveStep.Preflight, LineMoveAuditKind.Succeeded, "All preflight rules passed.");
         lastSucceeded = LineMoveStep.Preflight;
 
-        foreach (var step in ForwardAfterPreflight)
+        foreach (var step in _forwardAfterPreflight)
         {
             LineMoveSequence.EnsureCanRun(step, lastSucceeded);
 

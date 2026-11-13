@@ -88,7 +88,7 @@ public sealed class LineMoveRunnerTests
         Assert.All(audit.Events, e => Assert.Equal(LineMoveAuditKind.Succeeded, e.Kind));
         Assert.All(audit.Events, e => Assert.Equal("owner", e.ApprovingRole));
         Assert.All(audit.Events, e => Assert.Equal("move-1", e.MoveId));
-        Assert.All(audit.Events, e => Assert.Equal(LineMoveTestData.Now, e.At));
+        Assert.All(audit.Events, e => Assert.Equal(LineMoveTestData._now, e.At));
     }
 
     [Fact]
