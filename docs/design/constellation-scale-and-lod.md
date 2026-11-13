@@ -173,3 +173,51 @@ Same bench, Release build, Intel Arc B580, Vulkan 1.4.356. GPU p50 and p95 in ms
 The cliff reproduces. Above about 2M instances per frame the cost grows about linearly with instance count, at about 50 ms per million. The 100M-instance row takes 5.1 s per frame.
 
 Small-count rows vary between the two runs. The largest gap is the 10M-node, 2M-instance row (1.72 against 1.02 ms), and some 1M-instance rows differ by about 1.3 ms. Treat differences under about 2 ms, or any single-run number, as noise until a repeat-run spread is measured (section 10.4 once added).
+
+### 10.4 Root-cause controls for the cliff, and the density fix (2026-11-14)
+Bench modes `rootcause` and `passes`, `density`. Release build, Intel Arc B580, 10M nodes in one frame unless noted. GPU p50 in ms.
+
+**Controls.** Each row changes one thing against the baseline:
+
+| Control | GPU p50 (ms) |
+|---|---|
+| Triangles, 10M instances, on screen (three repeats: 322.3, 323.4, 323.7) | ~323 |
+| Triangles, 10M instances, all moved off screen | 5.0 |
+| One point per node, on screen | 162 |
+| One point per node, off screen | 4.2 |
+| One point per node, on screen, colour writes disabled | 4.2 |
+| Triangles, 2M or 1M per render pass (5 or 10 passes per frame) | 323 / 322 |
+| Points, 2M or 1M per render pass | 162 / 161 |
+
+What this rules out: vertex fetch and clipping (off-screen draws are cheap), per-draw-call and per-render-pass overhead (splitting changes nothing), and scattered writes (clustering the nodes changes nothing). Colour writes to the target are what cost time: with writes disabled the on-screen points cost the same as the off-screen ones.
+
+**Root cause, not proven.** The cost is about flat up to about 4M instances per frame, then rises roughly linearly at about 50 ns per instance, whatever the frame is split into. The likely cause is a per-frame limit inside the driver or hardware for on-screen primitive or fragment work. The controls do not show which. Solving it inside the driver is not in our hands, so the fix below avoids it.
+
+**Fix: density path (section 5, far zoom).** A compute pass bins every node into a 512 x 288 grid of counters with atomic adds. One fullscreen triangle then shades the grid. Per-frame cost no longer depends on per-node rasterisation. Code: `NodeBenchmark.Density.cs`, `Shaders/density.*`.
+
+| Nodes in the frame | Before: every node drawn (GPU p50 / p95, ms) | After: density grid (GPU p50 / p95, ms) | Speed-up |
+|---|---|---|---|
+| 1M | 1.01 / 2.58 | 0.040 / 0.040 | about 25x |
+| 10M | 321.7 / 323.4 | 4.40 / 4.42 | about 73x |
+| 100M | 5 107.7 / 5 146.4 | 68.7 / 68.9 | about 74x |
+
+**What the fix does not solve.** The density cost still grows with node count, at about 0.69 ns per node. At 100M nodes it is about 69 ms per frame, which is about five times the 14 ms PC budget in section 6. At the 1B target it would be about 690 ms. The 1B target needs tile-level aggregates, so the grid is built from precomputed per-tile counts, not per-node atomics. That is the next step, and it belongs with the server tile format in section 3.
+
+**Run-to-run variance.** Three repeats of the 10M triangle baseline gave 322.3, 323.4 and 323.7 ms, a spread of about 1.4 ms. The earlier full re-run gave 318 to 326 ms for the same row. Each density row was measured in a single run; repeat spread for the density path is not yet measured.
+
+### 10.5 Per-tile aggregate path (2026-11-14)
+Bench mode `aggregate`. Release build, Intel Arc B580. Nodes are generated from their global index and streamed in chunks of 16M nodes (256 MB). Each chunk is binned into one 512 x 288 grid, then discarded, so the whole graph never sits on the GPU at once. The per-frame cost is one fullscreen shade of the finished grid.
+
+| Nodes | Build, one-time (wall ms, 3 runs) | Per-frame GPU p50 / p95 (ms, 3 runs) | Per-frame wall p50 (ms) |
+|---|---|---|---|
+| 100M | 1 017 / 873 / 902 | 0.025 / 0.030, 0.020 / 0.023, 0.025 / 0.025 | 0.27, 0.12, 0.14 |
+| 1B | 9 660 / 9 648 / 9 632 | 0.059 / 0.060, 0.060 / 0.060, 0.059 / 0.060 | 0.33, 0.33, 0.32 |
+
+**Against the budget.** The per-frame cost is about 0.06 ms at 1B, far inside the 14 ms PC budget in section 6. It no longer depends on node count.
+
+**What the number does not include.**
+- The build is paid once per graph version, not per frame. At 1B it is about 9.6 s on this PC, mostly CPU generation and copy. The GPU part is about 0.7 s. The server builds aggregates in batch, per section 3, so this cost moves there.
+- The grid is built in the layout's fixed frame with the transform in force at build time. Panning or zooming does not re-bin it, so a view change needs either a re-bin or per-tile levels. Per-tile levels for zoom are the next step and are not built yet.
+- Hit-testing and focus are not covered here.
+
+**Variance.** Build time at 100M varies by about 15% across three runs (873 to 1 017 ms). At 1B it varies by about 0.3% (9 632 to 9 660 ms). Per-frame GPU p50 varies by about 25% at 100M (0.020 to 0.025 ms), and by under 2% at 1B. Earlier per-node density rows (section 10.4) were single runs, so their spread is still unmeasured.
