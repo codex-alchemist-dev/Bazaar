@@ -375,7 +375,7 @@ Bazaar is built to be extended, and we welcome contributions.
 
 Five principles rank above every other item in the design and the code. When two choices conflict, the one that serves more of them wins, and the owner breaks any tie. They are set out in [`docs/deep-dives/Bazaar.md`](docs/deep-dives/Bazaar.md).
 
-1. **Open Source.** The platform is public. The server and clients are AGPL-3.0, and `Bazaar.Sdk` and `Bazaar.Contracts` are Apache-2.0. Each install's private data stays private.
+1. **Open Source.** The platform is public. The server, clients, `Bazaar.Sdk` and `Bazaar.Contracts` are all AGPL-3.0. Each install's private data stays private.
 2. **Modern.** Use current, supported APIs and standards. No obsolete or deprecated APIs, and no code paths kept for older runtimes.
 3. **Novel.** Go past the usual agent pattern: agents with persistent identity, group chats as the coordination system, and no master orchestrator.
 4. **Performant.** The server does the compute and clients stay light. Budgets are measured on real hardware, not assumed.
@@ -409,7 +409,7 @@ The full rules are in [`docs/VERSIONING.md`](docs/VERSIONING.md). The commit fol
 - **Read first.** [`CONTRIBUTING.md`](CONTRIBUTING.md) has the workflow. [`docs/design/`](docs/design/README.md) holds the design, one subsystem per file. Each decision is tagged DECIDED, PROPOSED, RESEARCHED, OPEN or REJECTED. Only DECIDED items are settled. [`docs/design/DECISIONS-LOG.md`](docs/design/DECISIONS-LOG.md) wins where documents disagree.
 - **Tests.** Every behaviour change ships with a test. UI changes get an Avalonia.Headless test. Run `./build.sh` before you push.
 - **Writing a module.** Start from the component model in [`docs/design/BAZAAR-COMPONENTS.md`](docs/design/BAZAAR-COMPONENTS.md). Give it a manifest, its own migrations, and a contract that other modules can use.
-- **Licences.** The server and clients are AGPL-3.0. `Bazaar.Sdk` and `Bazaar.Contracts` are Apache-2.0. Contributions use the Developer Certificate of Origin. Human contributors sign off with `git commit -s`, and the owner adds the sign-off at squash merge.
+- **Licences.** The whole repository is AGPL-3.0, including `Bazaar.Sdk` and `Bazaar.Contracts`. Contributions use the Developer Certificate of Origin, and a contributor licence agreement is planned for core code. Human contributors sign off with `git commit -s`, and the owner adds the sign-off at squash merge.
 
 ---
 
@@ -458,7 +458,7 @@ Bazaar builds for the newest supported .NET and for what comes next. Each depend
 ## Licence
 
 - The server and clients are licensed under the **GNU Affero General Public License, version 3** (AGPL-3.0). See [LICENSE](LICENSE).
-- `src/Bazaar.Sdk/` and `src/Bazaar.Contracts/` are licensed under the **Apache License, version 2.0**. Each directory has its own `LICENSE`.
+- `src/Bazaar.Sdk/` and `src/Bazaar.Contracts/` are licensed under the **GNU AGPL-3.0** too (owner, 2026-11-13). Each directory has its own copy of `LICENSE`.
 - [NOTICE](NOTICE) explains the split. Licensing is pending counsel review before the first public release.
 
 ## Community
