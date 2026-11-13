@@ -33,10 +33,10 @@ Code that was already in Client.Core before this work (theme, commands, chat, pa
 
 ## 4. Open questions for the owner
 
-1. Manifest location: `Bazaar.Contracts` (recommended, shared by host and modules) or a new `Bazaar.ModuleContract` library.
-2. Whether `ClientModuleBuilder` stays in Client.Core (recommended: host plumbing) or moves to Contracts with the manifest.
-3. Module names: `Bazaar.Client.Layout` and `Bazaar.Client.Tour` follow decision 10. Confirm or rename.
-4. Whether the first-party layout module is loaded like any third-party module (out-of-process, per decision 2 for non-shipped modules) or compiled in (shipped set). Recommended: compiled in as a shipped module, with the same manifest checks.
+1. Manifest location: decided by the coordinator (2026-11-13). The manifest types go in `Bazaar.Contracts`, and the builder moves with them.
+2. Module names: `Bazaar.Client.Layout` and `Bazaar.Client.Tour` follow decision 10. Pending the owner's card.
+
+Loading mode (resolved 2026-11-13, owner correction): the server builds each company's client with its first-party modules compiled in (per-company builds, docs 37 and 41). Layout and tour ship compiled in. Out-of-process loading (decision 2) applies only to sandboxed external modules, under the module trust tiers. It is not a question for first-party modules.
 
 ## 5. Move plan (after the owner answers)
 
