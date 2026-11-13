@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Components.Navigation;
+namespace Bazaar.Ex;
 
 /// <summary>Writes each mnemonic notice once per client session, so a repeated clash does not repeat in the log.</summary>
 public sealed class MnemonicNoticeLog

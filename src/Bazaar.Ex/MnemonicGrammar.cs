@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Components.Navigation;
+namespace Bazaar.Ex;
 
 /// <summary>The verb a typed mnemonic carries. Only navigation is defined in v1.</summary>
 public enum MnemonicVerb

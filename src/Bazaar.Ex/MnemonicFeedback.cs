@@ -1,6 +1,6 @@
 using Bazaar.Client.Core.Input;
 
-namespace Bazaar.Client.Components.Navigation;
+namespace Bazaar.Ex;
 
 /// <summary>Priority of a screen-reader announcement. Polite waits its turn; assertive interrupts.</summary>
 public enum AnnouncePriority

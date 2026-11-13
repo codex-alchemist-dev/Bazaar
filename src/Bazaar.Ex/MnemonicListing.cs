@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Components.Navigation;
+namespace Bazaar.Ex;
 
 /// <summary>One row of the palette's mnemonic list.</summary>
 public sealed record MnemonicListRow(string Mnemonic, string Title, string CommandId, MnemonicTier Tier, string Source, bool Locked, bool Alias);

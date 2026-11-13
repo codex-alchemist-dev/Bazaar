@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Components.Navigation;
+namespace Bazaar.Ex;
 
 /// <summary>
 /// Where a mnemonic assignment comes from, lowest to highest precedence. A higher tier wins a clash.

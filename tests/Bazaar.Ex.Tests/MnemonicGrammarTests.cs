@@ -1,7 +1,7 @@
 using Bazaar.Client.Core.Input;
-using Bazaar.Client.Components.Navigation;
+using Bazaar.Ex;
 
-namespace Bazaar.Client.Components.Navigation.Tests;
+namespace Bazaar.Ex.Tests;
 
 public class MnemonicGrammarTests
 {
