@@ -90,6 +90,16 @@ branch. The repository setting "Default commit message for squash merges" must b
 `.github/workflows/pr-sponsor.yml` runs on non-draft pull requests. Do not add
 that line on someone else's behalf.
 
+## Contributor licence agreement (planned)
+
+Modules and small fixes need only the DCO sign-off above. Core code will also need a
+contributor licence agreement (CLA), so the project can keep its option to offer
+commercial licences. Bazaar is AGPL-3.0 with paid commercial licences available by
+agreement. Modules that use the public module API may be under any licence. The CLA
+process is planned and not yet live: there is no signing tool yet. Until it is,
+contact the project before sending a core change. The full policy is in
+`docs/design/47-licensing-and-trademarks.md`, and counsel review is pending.
+
 ## AI-agent contributions
 
 Bazaar is built with AI agents. Agent-authored commits carry a `Co-Authored-By:`
@@ -119,8 +129,7 @@ Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Licence
 
-By contributing, you agree that your contribution is licensed under the licence
-of the directory it changes: GNU AGPL-3.0 for most of the repository, and
-Apache-2.0 for `src/Bazaar.Sdk/` and `src/Bazaar.Contracts/`. See
-[LICENSE](LICENSE) and [NOTICE](NOTICE). The licensing is pending counsel
-review.
+By contributing, you agree that your contribution is licensed under GNU AGPL-3.0,
+the licence of the whole repository, including `src/Bazaar.Sdk/` and
+`src/Bazaar.Contracts/` (owner decision, 2026-11-13). See [LICENSE](LICENSE) and
+[NOTICE](NOTICE). The licensing is pending counsel review.
