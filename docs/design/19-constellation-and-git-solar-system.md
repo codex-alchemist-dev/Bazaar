@@ -175,6 +175,8 @@ MOVED TO SETTINGS: constellation.node_cap, constellation.ring_depth, constellati
 
 ## Agent memory governance (GraphDRAG, 2026-11-13)
 
+> Framing (owner, 2026-11-13): agent memory is not a separate store. Memory items are artefacts held in Constellation and in the contents of a Soul. The memory export below selects those artefacts; it does not add a new store.
+
 Status: DECIDED (owner, 2026-11-13) for the placement and the governance rules below. PLANNED to build. Nothing here is built.
 
 - **Placement.** Agent memory and GraphDRAG belong to the Constellation's server side, `Server.Constellation`. They are not a separate module. The client renders the graph and never holds the memory store.

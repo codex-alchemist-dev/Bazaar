@@ -158,6 +158,8 @@ OPEN: the default threshold values, which are settings and start from safe draft
 
 ## 6. Disaster recovery
 
+Update 2026-11-13: the whole-company export in doc 44 section 4.z uses this encrypted bundle format for transfer to a new install, and the restore wizard below restores it.
+
 **Status: DECIDED.** Disaster recovery uses an encrypted recovery bundle, scheduled PostgreSQL backups, and a restore wizard. The same restore wizard is used for server migration.
 
 Design consequences:

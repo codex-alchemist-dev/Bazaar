@@ -162,6 +162,8 @@ ANSWERED: Edited messages keep every version with an "edited" marker (CLAUDE.md;
 
 ## Soul Marketplace: memory exclusion (2026-11-13)
 
+> Framing (owner, 2026-11-13): agent memory is not a separate store. Memory items are artefacts held in Constellation and in the contents of a Soul. The memory export below selects those artefacts; it does not add a new store.
+
 Status: DECIDED (owner, 2026-11-13). PLANNED to build. The marketplace itself is OPEN for v1 scope (see Questions for the owner).
 
 1. **Rule.** Agent memory and agent reputation must never be part of anything published to the Soul Marketplace. This covers Vault memory files, the memory index, memory kinds from doc 08, reputation history from doc 11, and any excerpt, summary or embedding of them.

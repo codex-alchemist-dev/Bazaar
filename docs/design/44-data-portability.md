@@ -141,6 +141,8 @@ The audit export is read-only evidence. It is never imported as live audit data 
 
 ### 4.x Memory export (separate from the Soul export, DECIDED 2026-11-13)
 
+> Framing (owner, 2026-11-13): agent memory is not a separate store. Memory items are artefacts held in Constellation and in the contents of a Soul. The memory export below selects those artefacts; it does not add a new store.
+
 Agent memory and reputation have their own export. It is separate from the Soul export on purpose: the Soul export stays exactly as doc 33 designs it, for sharing one Soul, and it never carries memory or reputation.
 
 - **Scope:** a Soul's Vault memory, its memory index, and its reputation history (doc 11), as written, with provenance for every item.
@@ -157,6 +159,20 @@ Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday an
 - **Roadmap (objective layer, doc 38 layer 3).** Objectives and phases are Vault Markdown documents written through `VaultWriter`. Export route: the Vault export in section 4.3 (Markdown in git). No separate format. Derived views are recomputed, not exported (section 7).
 - **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
 - **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
+
+### 4.z Whole-company export (added 2026-11-13, DECIDED)
+
+The owner's requirement: a company can be exported as one transferable file, and can also be transferred directly to a new install. The export covers the whole company: config, all agents, all GCs and all data.
+
+- **Scope.** The company configuration (settings and their audit trail, without secret values). Every agent, with its Soul, all Souls' contents including their memory artefacts and reputation (for server migration, ALL Souls are included). Every GC with its full log, versions and sequences. The Vault, Workday, Roadmap and Orrery data (section 4.y), Constellation artefacts, usage and configuration. The audit log as evidence (section 4.6).
+- **Exclusions.** The section 7 exclusions still apply: live credentials, data keys, passport contents, cookie profiles, VM disks, logs, caches and indexes. Keys and secrets travel only in the sealed recovery material of doc 48 section 6, not in the company file.
+- **One file.** A single encrypted archive with a manifest, a SHA-256 digest for each part, and a company signature. It is encrypted with the owner's recovery key material (doc 48 section 7). The file name and layout are a WORKING NAME, pending owner naming decision.
+- **Direct transfer.** The same content can move from the old install to a new one over an authenticated connection, with cutover fencing and the digest check of doc 33. Conduit (doc 39) is the network path when it is used.
+- **Permissions and audit.** Owner-only by default. It is a high-risk action: it needs the biometric step-up of doc 48 section 8 and writes an audit record with the file digest (doc 48 section 5).
+- **Marketplace.** A whole-company export is never published to the Soul Marketplace (doc 07). It is private to the company and its owner.
+- **Relationship to other exports.** The Soul export (doc 33) stays memory-free and is for one Soul. The memory export (section 4.x) is for artefacts of selected Souls. The whole-company export is the only export that carries all Souls' memory, and it is for the company's own migration or recovery.
+- **Relationship to doc 33.** Doc 33's instance bundle is the migration bundle that holds the cutover mechanics. The whole-company export is the portable form of the same company data. Doc 33 stays authoritative for cutover, fencing and the digest rules. Where the two lists differ, this section adds data classes and does not remove doc 33 items.
+- **Restore.** The file is restored through the restore wizard of doc 48 section 6 (the same wizard as disaster recovery and server migration). The restore runs the setup checks of doc 45, and Kodo verifies the result (doc 46).
 
 ## 5. The export bundle
 > WORKING NAME, pending owner naming decision. The bundle layout and file names in this section are proposals.
