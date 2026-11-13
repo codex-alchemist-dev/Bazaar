@@ -8,7 +8,7 @@ namespace Bazaar.Kodo.Tests.Evaluator;
 /// </summary>
 public sealed class KodoEvaluatorTransitionTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _Now = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
 
     /// <summary>
     /// Builds an observation from the table's columns. <c>AllRulesGreen</c> is derived, not given.
@@ -107,10 +107,10 @@ public sealed class KodoEvaluatorTransitionTests
 
         // A green run that began one minute ago has not yet lasted the 5 minute window; one begun six minutes
         // ago has. Only green rows read this value.
-        DateTimeOffset greenStart = windowPassed ? Now.AddMinutes(-6) : Now.AddMinutes(-1);
+        DateTimeOffset greenStart = windowPassed ? _Now.AddMinutes(-6) : _Now.AddMinutes(-1);
         KodoEvaluatorMemory previous = new(from, greenStart, [], false);
 
-        KodoEvaluation result = KodoEvaluator.Evaluate(previous, observation, Now, new KodoEvaluatorSettings());
+        KodoEvaluation result = KodoEvaluator.Evaluate(previous, observation, _Now, new KodoEvaluatorSettings());
 
         Assert.True(expected == result.Underlying, $"{docRow}: expected {expected}, got {result.Underlying}");
         Assert.Equal(expected, result.State);
@@ -124,7 +124,7 @@ public sealed class KodoEvaluatorTransitionTests
         KodoObservation observation = Observe() with { NonCriticalWithinGrace = true };
         Assert.False(observation.AllRulesGreen);
 
-        KodoEvaluation result = KodoEvaluator.Evaluate(KodoEvaluator.Initial, observation, Now, new KodoEvaluatorSettings());
+        KodoEvaluation result = KodoEvaluator.Evaluate(KodoEvaluator.Initial, observation, _Now, new KodoEvaluatorSettings());
 
         Assert.Equal(KodoState.Healthy, result.Underlying);
         Assert.Null(result.Next.GreenSince);
@@ -137,10 +137,10 @@ public sealed class KodoEvaluatorTransitionTests
         KodoEvaluation result = KodoEvaluator.Evaluate(
             new KodoEvaluatorMemory(KodoState.Recovering, null, [], false),
             Observe(),
-            Now,
+            _Now,
             new KodoEvaluatorSettings());
 
         Assert.Equal(KodoState.Recovering, result.Underlying);
-        Assert.Equal(Now, result.Next.GreenSince);
+        Assert.Equal(_Now, result.Next.GreenSince);
     }
 }

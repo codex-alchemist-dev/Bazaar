@@ -16,9 +16,9 @@ public sealed record JournalSpillRead(IReadOnlyList<JournalRecord> Records, bool
 /// </summary>
 public static class JournalSpill
 {
-    private const char LineSeparator = ' ';
-    private const byte NewLine = (byte)'\n';
-    private const int FieldCount = 3;
+    private const char _LineSeparator = ' ';
+    private const byte _NewLine = (byte)'\n';
+    private const int _FieldCount = 3;
 
     /// <summary>Reads every complete record in <paramref name="path"/>. A missing file reads as empty.</summary>
     /// <exception cref="InvalidDataException">A complete line is malformed.</exception>
@@ -40,7 +40,7 @@ public static class JournalSpill
         while ((next = stream.ReadByte()) >= 0)
         {
             consumed++;
-            if (next == NewLine)
+            if (next == _NewLine)
             {
                 records.Add(ParseLine(line.ToArray(), records.Count));
                 line.SetLength(0);
@@ -60,7 +60,7 @@ public static class JournalSpill
     public static byte[] FormatLine(JournalRecord record)
     {
         string text = string.Join(
-            LineSeparator,
+            _LineSeparator,
             Convert.ToHexString(record.PreviousHash),
             Convert.ToHexString(record.Hash),
             Convert.ToBase64String(JournalCodec.Encode(record))) + '\n';
@@ -69,8 +69,8 @@ public static class JournalSpill
 
     private static JournalRecord ParseLine(byte[] bytes, int recordIndex)
     {
-        string[] fields = Encoding.ASCII.GetString(bytes).Split(LineSeparator);
-        if (fields.Length != FieldCount)
+        string[] fields = Encoding.ASCII.GetString(bytes).Split(_LineSeparator);
+        if (fields.Length != _FieldCount)
         {
             throw new InvalidDataException($"Spill record {recordIndex} is malformed.");
         }
