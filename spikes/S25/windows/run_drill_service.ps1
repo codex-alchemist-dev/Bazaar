@@ -83,6 +83,9 @@ Log 'batch B archived; service postmaster killed next'
 $pmPid = (Get-Content "$Data\postmaster.pid" -TotalCount 1)
 & sudo taskkill.exe /F /T /PID $pmPid | Out-Null
 for ($i = 0; $i -lt 60; $i++) { & "$PgBin\pg_isready.exe" -q -h 127.0.0.1 -p $SrcPort; if ($LASTEXITCODE -ne 0) { break }; Start-Sleep -Milliseconds 250 }
+# A cancelled elevation prompt leaves the postmaster running; that is not a crash test, so stop here.
+& "$PgBin\pg_isready.exe" -q -h 127.0.0.1 -p $SrcPort
+if ($LASTEXITCODE -eq 0) { throw 'service postmaster is still running; the elevated kill did not happen (UAC cancelled?)' }
 Log 'service postmaster killed'
 
 # ---- Restore to T ----
