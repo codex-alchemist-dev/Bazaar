@@ -27,7 +27,12 @@ public sealed class KanbanPaneViewModel : IPaneViewModel
 
     private readonly Dictionary<Guid, IReadOnlyList<RyuseiTaskChip>> _chips = [];
 
-    public KanbanPaneViewModel(PaneDescriptor descriptor)
+    /// <param name="descriptor">The board pane descriptor, with the board snapshot as its model.</param>
+    /// <param name="triggersByTask">
+    /// The owner's live chips by task id, from <see cref="RyuseiChipRules.ByTask"/>. When given, these are the chips shown on each
+    /// card, and any <c>triggers</c> array in the snapshot is ignored. When null, the snapshot's array is read as before.
+    /// </param>
+    public KanbanPaneViewModel(PaneDescriptor descriptor, IReadOnlyDictionary<Guid, IReadOnlyList<RyuseiTaskChip>>? triggersByTask = null)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         Kind = descriptor.Kind;
@@ -40,7 +45,9 @@ public sealed class KanbanPaneViewModel : IPaneViewModel
             if (TryCard(element, out var card))
             {
                 cards.Add(card);
-                _chips[card.Id] = RyuseiChipRules.Visible(ReadChips(element));
+                _chips[card.Id] = triggersByTask is null
+                    ? RyuseiChipRules.Visible(ReadChips(element))
+                    : triggersByTask.TryGetValue(card.Id, out var joined) ? joined : [];
             }
             else
             {
