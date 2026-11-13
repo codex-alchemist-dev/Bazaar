@@ -44,6 +44,26 @@ internal static class PaneValues
         };
     }
 
+    public static bool RequiredBool(JsonElement parent, string name)
+    {
+        if (!parent.TryGetProperty(name, out var value) || value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new PaneModelException($"model field '{name}' must be a boolean");
+        }
+
+        return value.ValueKind == JsonValueKind.True;
+    }
+
+    public static int RequiredInt(JsonElement parent, string name)
+    {
+        if (!parent.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number))
+        {
+            throw new PaneModelException($"model field '{name}' must be an integer");
+        }
+
+        return number;
+    }
+
     public static bool Flag(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
 }

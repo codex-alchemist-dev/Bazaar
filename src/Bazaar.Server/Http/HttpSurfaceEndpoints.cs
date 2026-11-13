@@ -25,7 +25,7 @@ namespace Bazaar.Server.Http;
 /// <item><c>GET /search?gc=&amp;q=</c> searches one GC, answering only what the caller can read.</item>
 /// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19).</item>
 /// </list>
-/// Pairing routes (<c>/pair/*</c>) are not part of this package: doc 32 leaves their detail to a spike.
+/// Pairing routes (<c>/pair/*</c>, see <see cref="PairingEndpoints"/>) are mapped here too; they need the pairing service registered.
 /// </summary>
 public static class HttpSurfaceEndpoints
 {
@@ -42,11 +42,12 @@ public static class HttpSurfaceEndpoints
         routes.MapPost("/constellation/tiles", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, ConstellationTileAsync)));
         routes.MapGet("/vault/search", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, SearchVaultAsync)));
         routes.MapGet("/vault/doc", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, ReadVaultDocAsync)));
-        // TODO(component): pairing routes (POST /pair/offers, POST /pair/token) wait for the doc 32 spike.
+        routes.MapBazaarPairingRoutes();
+        routes.MapBazaarAuthRefreshRoutes();
         return routes;
     }
 
-    private static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
@@ -315,5 +316,5 @@ public static class HttpSurfaceEndpoints
         return Error(StatusCodes.Status401Unauthorized, "unauthorized");
     }
 
-    private static IResult Error(int status, string code) => Results.Json(new { error = code }, statusCode: status);
+    internal static IResult Error(int status, string code) => Results.Json(new { error = code }, statusCode: status);
 }

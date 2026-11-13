@@ -1,4 +1,4 @@
-# Bazaar design set (docs 01 to 36)
+# Bazaar design set (docs 01 to 39)
 
 Status: DRAFT for owner review (2026-10-25) · 36 design docs · 487 owner questions in total · cross-cutting issues are in [CONFLICT-REGISTER.md](CONFLICT-REGISTER.md)
 
@@ -70,6 +70,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 29 | [29-android-client.md](29-android-client.md) | Development Console: fold layouts, radial menu, dictation, approvals, push | 13 | 27, 02, 15, 31, 32 |
 | 30 | [30-linux-client-and-packaging.md](30-linux-client-and-packaging.md) | Linux client, packaging, versioning, server upgrade and rollback, signing, release pipeline | 14 | 27, 28, 29, 02, 03, 04, 33 |
 | 31 | [31-local-coworker-npu.md](31-local-coworker-npu.md) | On-device inference: Intel and Qualcomm NPU paths, chips, voice cleanup, guards | 13 | 02, 05, 15, 34 |
+| 41 | [41-client-gui-customization-and-dsl.md](41-client-gui-customization-and-dsl.md) | Client GUI customization: typed, versioned JSON documents (theme, layout, commands, start) with scopes and sync; DSL question (not warranted in v1); client modules and plugin-pane options | 8 | 27, 02, 03, 15, 20, 38, 19 |
 
 ### Operations and quality
 
@@ -77,8 +78,18 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 |---|---|---|---|---|
 | 23 | [23-observatory-and-usage.md](23-observatory-and-usage.md) | Live agent activity, presence, usage accounting, quota surfacing, telemetry | 14 | 05, 06, 09, 04, 02 |
 | 33 | [33-backup-dr-and-export.md](33-backup-dr-and-export.md) | What is restored, recreated or escrowed; PITR; keys; rollback rule; instance migration | 14 | 01, 03, 04, 08, 14, 16, 18 |
+| 38 | [38-ryusei-fuda.md](38-ryusei-fuda.md) | RyuseiFuda ("shooting star ticket"): macro board, micro agent schedule and re-invocation, objective roadmap; owns agent scheduling and loop limits for it | 5 | 06, 09, 12, 15, 18, 19 |
+| 39 | [39-conduit-remote-connectivity.md](39-conduit-remote-connectivity.md) | Conduit: remote connectivity as modules (`Bazaar.Conduit`): LAN mDNS, port forward, UPnP, cloudflared, overlays, relay, P2P ICE, Tor, SSH, bootstrap; offer rules and pins | 4 | 02, 03, 14, 15, 32 |
 | 34 | [34-testing-strategy.md](34-testing-strategy.md) | Test layers, real-Postgres fixtures, fake gateway and cassettes, verification gate, evals | 13 | 02, 04, 05, 06, 15, 17 |
 | 35 | [35-spikes-plan.md](35-spikes-plan.md) | 25 time-boxed spikes (S1 to S25) with pass criteria, fallbacks and run locations | 12 | spans 02 to 33 |
+
+### Rendering (prepared, not extracted)
+
+Not part of the numbered set. Status PROPOSED.
+
+| # | Doc | Purpose | Qs | Key dependencies |
+|---|---|---|---|---|
+| - | [constellation-render-core.md](constellation-render-core.md) | Boundary of the generic bulk-node render core (`Bazaar.Constellation.Rendering.Core`) and its future extraction steps; enforced by the architecture test `ConstellationRenderCoreBoundaryTests` | - | 19, constellation-scale-and-lod |
 
 ## How to review these docs
 
@@ -116,3 +127,18 @@ Each wave builds on the previous one. Within a wave, the order is the suggested 
 8. **Clients and packaging:** 27, 31, 28, 29, 30. Shared core, on-device inference, then the three heads.
 9. **Operations and fun:** 23, 33, 34, 26.
 10. **Spikes last, but plan them early:** 35. Several register blockers (C07, C12, C13) are settled by a spike (S2, S23, S22); the cloud spikes can start before the owner has answered everything.
+
+### Added 2026-11-13 (owner decisions)
+
+Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as their own status lines say. Doc 49 is in the same PR, with the status shown in its own header.
+
+| # | Doc | Purpose | Qs | Key dependencies |
+|---|---|---|---|---|
+| 42 | [42-deps-as-modules.md](42-deps-as-modules.md) | Dependencies as modules: PostgreSQL, pgvector and runtimes as Deps modules, dual-version PG 18 and 19, zero external installs, supervised child process | - | 03, 04, 37, 46, 47, 49 |
+| 43 | [43-telemetry-and-crash-reporting.md](43-telemetry-and-crash-reporting.md) | Client telemetry and crash reporting: deterministic capture, on-device redaction, per-company off, ask or auto, server-side issue filing and labelled diagnosis | 4 | 15, 23, 37, 46, 48 |
+| 44 | [44-data-portability.md](44-data-portability.md) | Data portability: export bundles by data class, the separate memory export (4.x), import pipeline, importer and exporter modules | 6 | 04, 07, 08, 11, 14, 15, 18, 33, 48 |
+| 45 | [45-onboarding.md](45-onboarding.md) | Onboarding: headless-first server setup with one audit trail, client first run with automatic pairing and a keyboard-first tour | 6 | 03, 32, 41, 44, 46 |
+| 46 | [46-kodo-health-module.md](46-kodo-health-module.md) | Kodo (Bazaar.KODO), the health module: immutable runtime with A/B rollback, monitor pane, module health contract, incident mode | 6 | 03, 23, 33, 37, 42, 48, 49 |
+| 47 | [47-licensing-and-trademarks.md](47-licensing-and-trademarks.md) | Licensing, contributions and trademarks: AGPL-3.0 everywhere, module exception, DCO and CLA, marks and marketplace licence rules | 13 (M1 to M13) | 37, 42, 48, 49 |
+| 48 | [48-gap-decisions-security-identity.md](48-gap-decisions-security-identity.md) | Gap decisions for security, identity, recovery, privacy, retention, updates and AI agent safety | 6 | 14, 15, 33, 32, 37, 46 |
+| 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |

@@ -3,18 +3,22 @@ Copyright (c) 2026 The Bazaar Authors
 
 Licensing
 
-This repository uses more than one licence, split by directory:
+The whole repository, including the Bazaar server, the clients, the SDK
+(src/Bazaar.Sdk/), the shared contracts (src/Bazaar.Contracts/), the design
+documents and all other files, is licensed under the GNU Affero General
+Public License, version 3 (AGPL-3.0). The full text is in the LICENSE file
+at the repository root, and a copy sits in each of the SDK, contracts and GC abstractions
+directories.
 
-- The repository as a whole, including the Bazaar server, the clients, the
-  design documents and all other files, is licensed under the GNU Affero
-  General Public License, version 3 (AGPL-3.0). The full text is in the
-  LICENSE file at the repository root.
-- The SDK (src/Bazaar.Sdk/) and the shared contracts (src/Bazaar.Contracts/)
-  are licensed under the Apache License, version 2.0. The full text is in
-  the LICENSE file in each of those directories.
+Modules that use the public module API may be under any licence, including
+closed commercial licences. This is the module exception, a written
+exception to the AGPL core that is still being finalised with counsel.
 
-A file is under the licence of the directory it sits in, unless the file
-itself says otherwise.
+Commercial licences are available from the project owner. This is a dual
+licence: AGPL-3.0 for open use, and paid commercial licences by agreement.
+
+A file is under the licence of the repository unless the file itself says
+otherwise.
 
 Third-party software
 
@@ -23,5 +27,6 @@ be added to this file as dependencies are added to the project.
 
 Status
 
-The licensing arrangement in this file is pending review by counsel. It may
-change before the first public release.
+The AGPL-3.0 arrangement above was decided by the owner on 2026-11-13. It is
+pending review by counsel before the first public release, and the module
+exception wording is still to be finalised.

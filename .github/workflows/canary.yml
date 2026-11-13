@@ -1,0 +1,160 @@
+# Forward-facing canary. Builds and tests Bazaar against the newest .NET 11 preview SDK
+# instead of the pinned GA/RC SDK in global.json, and reports outdated and prerelease
+# NuGet packages in the job summary.
+#
+# This workflow is NOT a required check. It runs weekly and on demand, never on pull
+# requests, so a preview regression is seen early without blocking merges. The job is
+# marked continue-on-error, so a red canary does not turn the workflow into a failure
+# that someone must act on immediately. Look at it, file a follow-up, and move on.
+#
+# The canary never commits and never changes the pinned SDK. The global.json removal
+# below happens on the runner's checkout only.
+#
+# Every third-party action is pinned to a full commit SHA; the version tag is kept in a
+# trailing comment. Do not switch them to tags. Read-only token; no secrets are used.
+# See docs/FORWARD-FACING.md for what the canary covers and what is still to be added.
+
+name: Canary
+
+on:
+  schedule:
+    # Weekly, Monday 07:23 UTC: after the Dependabot run (06:00) and the CI queue is quiet.
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+
+jobs:
+  dotnet-preview-sdk:
+    name: "Canary: .NET 11 preview SDK (ubuntu-latest)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Non-required. A failure here is information, not a blocked merge.
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The newest .NET 11 preview build, not the GA pin. The preview quality channel
+      # is the earliest signal for regressions and new analyzer warnings.
+      - name: Set up the newest .NET 11 preview SDK
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      # global.json pins the SDK for real builds. On this runner copy only, drop the sdk
+      # section so the preview SDK can build, and keep the test section: its
+      # test.runner (Microsoft.Testing.Platform) is the opt-in that dotnet test needs on
+      # .NET 10 SDK and later. Removing the whole file lost that opt-in and failed the job.
+      # Nothing is committed and the pin stays as it is.
+      - name: Drop the SDK pin from global.json (runner copy only)
+        run: |
+          set -euo pipefail
+          jq 'del(.sdk)' global.json > global.json.canary && mv global.json.canary global.json
+          cat global.json
+
+      - name: Show the SDK in use
+        run: dotnet --info
+
+      # Same database as ci.yml, so the canary exercises the SQL tests too.
+      - name: Start PostgreSQL 18 with pgvector
+        run: |
+          set -euo pipefail
+          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+            --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
+            pgvector/pgvector:pg18
+          for _ in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            sleep 1
+          done
+          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
+          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+
+      # Mirrors build.sh without the format check. Format is enforced by the required CI job.
+      - name: Restore, build and test with the preview SDK
+        run: |
+          set -euo pipefail
+          dotnet restore Bazaar.slnx
+          dotnet build Bazaar.slnx -c Release --no-restore
+          dotnet test Bazaar.slnx -c Release --no-build
+
+      # Report only. Lists stable and prerelease updates so the tracking doc can be checked
+      # against what NuGet actually offers. Never fails the job.
+      - name: Report outdated and prerelease packages
+        if: always()
+        run: |
+          {
+            echo '## Outdated and prerelease NuGet packages (canary report)'
+            echo ''
+            echo '```'
+            dotnet list Bazaar.slnx package --outdated --include-prerelease || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # PostgreSQL 19 release candidate, against the same tests as CI (18). Report only: a red run
+  # means the 19 leg needs follow-up (for example a pgvector package for 19), not a blocked merge.
+  # See #491 (dual-version PostgreSQL: 18 and 19 from the same code).
+  postgres-19-rc:
+    name: Tests on PostgreSQL 19 RC (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      # The packaged image: the official PostgreSQL 19 RC base plus pgvector from PGDG (packaging/postgres/Dockerfile).
+      - name: Build PostgreSQL 19 RC with pgvector
+        run: |
+          set -euo pipefail
+          docker build --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm \
+            -t bazaar-pg19rc packaging/postgres
+
+      - name: Start PostgreSQL 19 RC
+        run: |
+          set -euo pipefail
+          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+            --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
+            bazaar-pg19rc
+          for _ in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            sleep 1
+          done
+          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
+          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+
+      # Dump and restore from PostgreSQL 18 (with pgvector and an HNSW index) into the 19 RC, then compare
+      # a content checksum and check the index is used. Same path as `bazaar db upgrade` (#491).
+      - name: Upgrade test, PostgreSQL 18 to 19 RC
+        run: scripts/ci/pg-upgrade-dump-restore.sh pgvector/pgvector:pg18 bazaar-pg19rc
+
+      - name: Build and test
+        run: ./build.sh

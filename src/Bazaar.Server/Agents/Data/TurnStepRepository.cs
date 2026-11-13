@@ -78,6 +78,41 @@ public sealed class TurnStepRepository(NpgsqlDataSource dataSource)
         return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) as string;
     }
 
+    /// <summary>
+    /// The newest tool step with this request hash in an abandoned turn of the same agent (doc 06, "Concurrency and recovery").
+    /// Recovery has already settled those steps: a completed one is reused, an unknown one is reported to the model, and an
+    /// abandoned idempotent one is run again. Returns null when no such step exists.
+    /// </summary>
+    public async Task<TurnStepRecord?> FindAbandonedToolStepAsync(Guid agentId, string requestHash, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestHash);
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT s.turn_id, s.n, s.kind, s.status, s.request_hash, s.response::text, s.idempotent, s.started_at, s.completed_at
+            FROM turn_step AS s
+            JOIN turn AS t ON t.turn_id = s.turn_id
+            WHERE t.agent_id = @agent_id AND t.status = 'abandoned'
+              AND s.kind = 'tool' AND s.request_hash = @request_hash
+            ORDER BY s.started_at DESC, s.turn_id, s.n
+            LIMIT 1
+            """);
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        cmd.Parameters.AddWithValue("request_hash", requestHash);
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (!await reader.ReadAsync(ct).ConfigureAwait(false))
+            return null;
+
+        return new TurnStepRecord(
+            reader.GetGuid(0),
+            reader.GetInt32(1),
+            AgentSql.FromDb<TurnStepKind>(reader.GetString(2)),
+            AgentSql.FromDb<TurnStepStatus>(reader.GetString(3)),
+            reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetString(5),
+            reader.GetBoolean(6),
+            reader.GetFieldValue<DateTimeOffset>(7),
+            reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8));
+    }
+
     /// <summary>All steps of a turn in step order.</summary>
     public async Task<IReadOnlyList<TurnStepRecord>> ListAsync(Guid turnId, CancellationToken ct = default)
     {

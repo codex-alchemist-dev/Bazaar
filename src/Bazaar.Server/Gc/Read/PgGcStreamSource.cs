@@ -132,7 +132,7 @@ public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec b
                 ReadOnlyMemory<byte> ciphertext = reader.GetFieldValue<byte[]>(5);
                 ReadOnlyMemory<byte> nonce = reader.IsDBNull(6) ? ReadOnlyMemory<byte>.Empty : reader.GetFieldValue<byte[]>(6);
                 var keyId = reader.IsDBNull(7) ? Guid.Empty : reader.GetGuid(7);
-                text = bodies.Open(ciphertext, keyId, nonce);
+                text = await bodies.OpenAsync(ciphertext, keyId, nonce, ct).ConfigureAwait(false) ?? GcBodyText.ErasedText;
             }
 
             items.Add(new WireGcMessage(

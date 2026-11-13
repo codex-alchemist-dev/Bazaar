@@ -128,6 +128,42 @@ public sealed class StatusEndpointsTests
         }
     }
 
+    [Theory]
+    [InlineData("/pair/offers")]
+    [InlineData("/pair/offers/0197a000-0000-7000-8000-00000000a001/approve")]
+    [InlineData("/pair/offers/0197a000-0000-7000-8000-00000000a001/deny")]
+    [InlineData("/pair/device-authorization")]
+    [InlineData("/pair/token")]
+    [InlineData("/auth/refresh")]
+    public async Task Pairing_and_refresh_paths_accept_post(string path)
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // No route is mapped in this test app, so the guard lets POST through and routing answers 404.
+            var response = await client.PostAsync(path, new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        }
+    }
+
+    [Theory]
+    [InlineData("GET", "/pair/token")]
+    [InlineData("PUT", "/pair/token")]
+    [InlineData("DELETE", "/pair/offers")]
+    [InlineData("PATCH", "/auth/refresh")]
+    [InlineData("GET", "/auth/refresh")]
+    [InlineData("POST", "/status")]
+    [InlineData("PUT", "/status")]
+    public async Task Other_methods_on_pairing_refresh_and_status_paths_are_405(string method, string path)
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        }
+    }
+
     [Fact]
     public async Task Every_registered_route_is_get_only()
     {

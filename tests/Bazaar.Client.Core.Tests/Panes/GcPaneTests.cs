@@ -59,7 +59,7 @@ public class GcPaneTests
     public void Gc_pane_builds_with_its_empty_state_and_with_a_chat()
     {
         var empty = FirstPartyPanes.CreateRegistry().Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
-        var emptyWindow = new Window { Content = PaneViews.Create(empty), Width = 400, Height = 600 };
+        var emptyWindow = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(empty), Width = 400, Height = 600 };
         emptyWindow.Show();
 
         Assert.Contains("No group chat is connected.", emptyWindow.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text));
@@ -73,7 +73,7 @@ public class GcPaneTests
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://h/ws"), "t", _gc, "me"), timeline);
         var chat = new ChatViewModel(session);
         var withChat = FirstPartyPanes.CreateRegistry(chat: chat).Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
-        var chatWindow = new Window { Content = PaneViews.Create(withChat), Width = 400, Height = 600 };
+        var chatWindow = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(withChat), Width = 400, Height = 600 };
         chatWindow.Show();
 
         Assert.Equal(1, chatWindow.GetVisualDescendants().OfType<ListBox>().Single().ItemCount);

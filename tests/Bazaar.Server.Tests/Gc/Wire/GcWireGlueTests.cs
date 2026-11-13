@@ -56,9 +56,32 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         IReadOnlyList<Guid>? mentions = null, CancellationToken ct = default)
     {
         var handler = new GcSendHandler(
-            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data));
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Mentions.InboxRowWriter(connection.Data));
         return await handler.HandleAsync(
             Context(connection, WireTypes.GcSend, requestId, new GcSend(gc, text, mentions, null)), ct);
+    }
+
+    [Fact]
+    public async Task A_human_mention_of_an_agent_writes_an_inbox_row_that_wakes_it()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var agentId = Guid.CreateVersion7();
+        var gc = await GcWithMemberAsync(member);
+        await AddMemberAsync(gc, agentId);
+        await using (var agent = db.DataSource.CreateCommand("INSERT INTO agent (agent_id, name, state) VALUES ($1, 'mention wake test', 'active')"))
+        {
+            agent.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = agentId });
+            await agent.ExecuteNonQueryAsync(ct);
+        }
+        var connection = new FakeWireConnection(db.DataSource, member);
+
+        var reply = await SendAsync(connection, gc, "@agent please look", "mention-1", [agentId], ct);
+
+        Assert.True(reply.IsOk);
+        Assert.Equal(1, await db.ScalarAsync<long>("SELECT count(*) FROM inbox_item WHERE agent_id = $1 AND gc_id = $2", agentId, gc));
     }
 
     [Fact]
@@ -222,10 +245,135 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await Task.WhenAny(dispatching, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None));
     }
 
+    private static async Task<WireReply> EditAsync(FakeWireConnection connection, Guid gc, Guid messageId, string text, string requestId)
+    {
+        var handler = new GcEditHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Edit.PgGcEditSource(connection.Data), SettingsFor());
+        return await handler.HandleAsync(
+            Context(connection, WireTypes.GcEdit, requestId, new GcEdit(gc, messageId, text)), TestContext.Current.CancellationToken);
+    }
+
+    private async Task<Guid> MessageIdAtSeqAsync(Guid gc, long seq)
+    {
+        await using var cmd = db.DataSource.CreateCommand("SELECT message_id FROM gc_event WHERE gc_id = $1 AND seq = $2");
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = seq });
+        return (Guid)(await cmd.ExecuteScalarAsync())!;
+    }
+
+    [Fact]
+    public async Task An_author_edit_adds_version_two_and_the_message_reads_back_with_the_new_text()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var author = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(author);
+        var connection = new FakeWireConnection(db.DataSource, author);
+        var sent = Decode<GcSendResult>(await SendAsync(connection, gc, "first draft", "send-1", ct: ct));
+        var messageId = await MessageIdAtSeqAsync(gc, sent.N);
+
+        var reply = await EditAsync(connection, gc, messageId, "second draft", "edit-1");
+
+        Assert.True(reply.IsOk);
+        var edited = Decode<GcSendResult>(reply);
+        Assert.Equal(2, edited.Ev);
+        await using var versions = db.DataSource.CreateCommand("SELECT COUNT(*) FROM gc_message_version WHERE gc_id = $1 AND message_id = $2");
+        versions.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        versions.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = messageId });
+        Assert.Equal(2L, await versions.ExecuteScalarAsync(ct));
+    }
+
+    [Fact]
+    public async Task Someone_who_is_not_the_author_cannot_edit_the_message()
+    {
+        GcTestSkip.WithoutDatabase();
+        var author = Human(Guid.CreateVersion7());
+        var other = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(author);
+        await AddMemberAsync(gc, other.Id);
+        var ct = TestContext.Current.CancellationToken;
+        var sent = Decode<GcSendResult>(await SendAsync(new FakeWireConnection(db.DataSource, author), gc, "mine", "send-2", ct: ct));
+        var messageId = await MessageIdAtSeqAsync(gc, sent.N);
+
+        var reply = await EditAsync(new FakeWireConnection(db.DataSource, other), gc, messageId, "not mine", "edit-2");
+
+        Assert.False(reply.IsOk);
+    }
+
+    // Defaults only: the registry's own defaults (any member may invite; edits are unlimited), as an operator who set nothing sees.
+    private static Bazaar.Server.Tests.Settings.InMemorySettingStore SettingsFor() =>
+        new Bazaar.Server.Tests.Settings.InMemorySettingStore(
+            Bazaar.Server.Settings.SettingRegistry.Known, new Bazaar.Server.Settings.InMemorySettingAuditSink());
+
+    private static async Task<WireReply> AddMemberAsync(FakeWireConnection connection, Guid gc, Guid newMember, string requestId)
+    {
+        var handler = new GcMemberAddHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data), SettingsFor());
+        return await handler.HandleAsync(
+            Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, PrincipalKind.Human, "member")),
+            TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<WireReply> LeaveAsync(FakeWireConnection connection, Guid gc, Guid member, string requestId)
+    {
+        var handler = new GcMemberRemoveHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data));
+        return await handler.HandleAsync(
+            Context(connection, WireTypes.GcMemberRemove, requestId, new GcMemberRemove(gc, member)),
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_member_can_add_another_person_and_that_person_becomes_an_active_member()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var author = Human(Guid.CreateVersion7());
+        var invitee = Guid.CreateVersion7();
+        var gc = await GcWithMemberAsync(author);
+
+        var reply = await AddMemberAsync(new FakeWireConnection(db.DataSource, author), gc, invitee, "add-1");
+
+        Assert.True(reply.IsOk);
+        var added = Decode<GcSendResult>(reply);
+        await using var row = db.DataSource.CreateCommand(
+            "SELECT joined_seq, left_seq, role FROM gc_member_current WHERE gc_id = $1 AND principal_id = $2");
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = invitee });
+        await using var reader = await row.ExecuteReaderAsync(ct);
+        Assert.True(await reader.ReadAsync(ct));
+        Assert.Equal(added.N, reader.GetInt64(0));
+        Assert.True(reader.IsDBNull(1));
+        Assert.Equal("member", reader.GetString(2));
+    }
+
+    [Fact]
+    public async Task A_member_who_leaves_gets_a_removal_row_with_left_seq_set()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var leaver = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(leaver);
+
+        var reply = await LeaveAsync(new FakeWireConnection(db.DataSource, leaver), gc, leaver.Id, "leave-1");
+
+        Assert.True(reply.IsOk);
+        var left = Decode<GcSendResult>(reply);
+        await using var row = db.DataSource.CreateCommand(
+            "SELECT left_seq FROM gc_member_current WHERE gc_id = $1 AND principal_id = $2");
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        row.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = leaver.Id });
+        Assert.Equal(left.N, await row.ExecuteScalarAsync(ct));
+    }
+
     private static AppendRequest TextAppend(Guid gc, PrincipalRef author, string text, string clientMsgId) =>
         new(gc, GcEventKinds.Message, AuthorKind.Human, author.Id, SourceTrust.MemberHuman, clientMsgId)
         {
-            Message = new PlaintextGcBodyCodec().Seal(text),
+            // Plaintext sealing never awaits, so blocking on the value here is safe in a synchronous helper.
+            Message = new PlaintextGcBodyCodec().SealAsync(author.Id, text, default).AsTask().GetAwaiter().GetResult(),
         };
 
     /// <summary>A fake connection: enough of <see cref="IWireConnection"/> for the handlers and the subscription session.</summary>

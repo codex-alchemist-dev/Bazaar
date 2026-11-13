@@ -11,7 +11,8 @@ public static class InboxPriority
         InboxKind.Mention => 1,
         InboxKind.Assignment => 2,
         InboxKind.VoteRequest => 3,
-        InboxKind.Scheduled => 4,
+        // RyuseiFuda wakes are scheduled wakes (doc 38 says the normal wake priority applies); the doc 06 order is PROPOSED.
+        InboxKind.Scheduled or InboxKind.RyuseiTimer or InboxKind.RyuseiInterval or InboxKind.RyuseiWatcher or InboxKind.RyuseiEvent or InboxKind.RyuseiPing => 4,
         InboxKind.Brainstorm => 5,
         InboxKind.SkimmerPromoted => 6,
         InboxKind.GcDigest => 7,

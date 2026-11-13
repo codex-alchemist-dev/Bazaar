@@ -1,4 +1,5 @@
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Constellation.Vulkan;

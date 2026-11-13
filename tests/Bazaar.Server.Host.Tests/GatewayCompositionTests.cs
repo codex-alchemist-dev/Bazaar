@@ -3,6 +3,7 @@ using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
@@ -32,7 +33,7 @@ public sealed class GatewayCompositionTests
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarSecrets();
-        services.AddBazaarAgentSafety();
+        services.AddBazaarAgentSafety(new ConfigurationBuilder().Build());
         beforeGateway?.Invoke(services);
         services.AddBazaarGateway();
         return services.BuildServiceProvider(validateScopes: true);
@@ -111,6 +112,39 @@ public sealed class GatewayCompositionTests
         {
             await using var sp = Build(services => services.AddSingleton<IProviderSecretSource, FixedSecretSource>());
             Assert.IsType<FixedSecretSource>(sp.GetRequiredService<IProviderSecretSource>());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(_envName, null);
+        }
+    }
+
+    [Fact]
+    public async Task Anthropic_direct_is_absent_by_default_and_adds_its_provider_and_route_when_enabled()
+    {
+        Environment.SetEnvironmentVariable(_envName, _connectionString);
+        try
+        {
+            // Off (the default): the stored directory is used as it is.
+            await using (var off = Build(s => s.AddBazaarComponents(new ConfigurationBuilder().Build(), [new AnthropicDirectComponent()])))
+            {
+                Assert.IsType<GatewayDirectoryRepository>(off.GetRequiredService<IGatewayDirectory>());
+                Assert.IsType<GatewaySecretSource>(off.GetRequiredService<IProviderSecretSource>());
+            }
+
+            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"{AnthropicDirectOptions.SectionName}:Enabled"] = "true",
+                [$"{AnthropicDirectOptions.SectionName}:ApiKey"] = "env:BAZAAR_TEST_ANTHROPIC_KEY_NOT_SET",
+            }).Build();
+            await using var on = Build(s => s.AddBazaarComponents(configuration, [new AnthropicDirectComponent()]));
+            var directory = on.GetRequiredService<IGatewayDirectory>();
+            Assert.IsType<AnthropicDirectGatewayDirectory>(directory);
+            var provider = await directory.GetProviderAsync(AnthropicDirectProvider.ProviderId, TestContext.Current.CancellationToken);
+            Assert.NotNull(provider);
+            Assert.Equal(GatewayCompositionExtensions.AnthropicMessagesAdapterName, provider.Adapter);
+            Assert.NotNull(await directory.GetRouteAsync(AnthropicDirectOptions.DefaultModel, TestContext.Current.CancellationToken));
+            Assert.IsType<AnthropicDirectSecretSource>(on.GetRequiredService<IProviderSecretSource>());
         }
         finally
         {

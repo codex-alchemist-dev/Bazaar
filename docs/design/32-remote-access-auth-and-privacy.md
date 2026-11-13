@@ -45,6 +45,8 @@ RFC 8628 supplies the shape: a high-entropy polled `device_code`, a short `user_
 
 Bootstrap: until the first owner device exists, the host console prints a one-time owner code.
 
+**Getting the client onto a device (owner, 2026-11-12).** Pairing only creates the device credential; it does not install the app. Users never run build scripts. Each company's server installer builds that company's clients in one click and leaves the installers (for example `.msix`, `.apk`) in an output folder (doc 37 section 4a). Installing a built client on a device, by QR code or link, is not yet designed.
+
 ### 4. Interactive sign-in page [DECIDED scope (C42, 2026-10-25); route details PROPOSED]
 **Tension, resolved by the owner:** CLAUDE.md's "no web client, ever" allowed only a read-only status page. The owner's 2026-10-24 exception allows a narrow sign-in page, and round 11 approved this three-route scope (off by default, no content shown). CLAUDE.md's wording is still to be corrected (Conflicts). The fence below stops the page growing into a client.
 

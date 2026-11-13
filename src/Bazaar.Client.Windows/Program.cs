@@ -6,6 +6,10 @@ using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
 
 namespace Bazaar.Client.Windows;
@@ -15,6 +19,8 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
+        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).
@@ -50,22 +56,41 @@ internal static class Program
 
         var chatSettings = ChatSettings(args);
         GcChatSession? chat = null;
+        ChatViewModel? chatView = null;
         using var chatStop = new CancellationTokenSource();
 
+        // Panes come from the first-party registry; the Constellation tiles come from the server the head is paired with.
+        var registry = FirstPartyPanes.CreateRegistry(
+            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
+            tiles: HttpConstellationTileSource.Create(ClientServer.Current));
+        var showPanes = args.Contains("--panes", StringComparer.Ordinal);
+        var preloadStart = PreloadArguments.IsPreload(args);
+
         // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
+        // With --panes it shows the Kanban and Constellation panes instead of the start content (chat keeps running).
         Window CreateMainWindow()
         {
-            if (chatSettings is null)
+            if (chatSettings is not null)
             {
-                return new MainWindow();
+                chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
+                chatView = new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action));
+                _ = chat.StartAsync(chatStop.Token).ContinueWith(
+                    task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
+                    TaskContinuationOptions.OnlyOnFaulted);
             }
 
-            chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
-            var view = new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action));
-            _ = chat.StartAsync(chatStop.Token).ContinueWith(
-                task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
-                TaskContinuationOptions.OnlyOnFaulted);
-            return new MainWindow(view);
+            var window = chatView is null ? new MainWindow() : new MainWindow(chatView);
+            if (preloadStart)
+            {
+                // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).
+                window.Opened += (_, _) => window.Hide();
+            }
+            if (showPanes)
+            {
+                window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
+            }
+
+            return window;
         }
 
         try
@@ -102,6 +127,11 @@ internal static class Program
     {
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
+            if (!window.IsVisible)
+            {
+                window.Show();
+            }
+
             window.WindowState = WindowState.Normal;
             window.Activate();
         }

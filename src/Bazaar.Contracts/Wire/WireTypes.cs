@@ -21,6 +21,27 @@ public static class WireTypes
     /// <summary>Client posts a message.</summary>
     public const string GcSend = "gc.send";
 
+    /// <summary>Client edits its own message, adding a version. Answered with a <c>GcSendResult</c>: the edit event's seq and the new version.</summary>
+    public const string GcEdit = "gc.edit";
+
+    /// <summary>Client invites a principal into a GC. Answered with a <c>GcSendResult</c>: the membership event's seq.</summary>
+    public const string GcMemberAdd = "gc.member.add";
+
+    /// <summary>Client removes a principal, or leaves a GC itself. Answered with a <c>GcSendResult</c>: the membership event's seq.</summary>
+    public const string GcMemberRemove = "gc.member.remove";
+
+    /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
+    public const string BoardSnapshot = "board.snapshot";
+
+    /// <summary>Owner pauses one RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
+    public const string RyuseiPause = "ryusei.trigger.pause";
+
+    /// <summary>Owner resumes one paused RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
+    public const string RyuseiResume = "ryusei.trigger.resume";
+
+    /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
+    public const string RyuseiList = "ryusei.trigger.list";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
