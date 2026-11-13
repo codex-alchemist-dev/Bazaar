@@ -1,5 +1,5 @@
-using Bazaar.Ex;
 using Bazaar.Client.Core.Input;
+using Bazaar.Ex;
 
 namespace Bazaar.Ex.Tests;
 

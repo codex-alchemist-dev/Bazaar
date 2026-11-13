@@ -1,8 +1,8 @@
 using Avalonia.Input;
 using Bazaar.Client.Core.Input;
 using AvaloniaKey = Avalonia.Input.Key;
-using CoreModifiers = Bazaar.Client.Core.Input.KeyModifiers;
 using AvaloniaModifiers = Avalonia.Input.KeyModifiers;
+using CoreModifiers = Bazaar.Client.Core.Input.KeyModifiers;
 
 namespace Bazaar.Ex.Head;
 
