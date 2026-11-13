@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Rubedo: the declarative expression language of Bazaar (doc 41a). A pure library with no UI and no I/O.</Description>
+  </PropertyGroup>
+</Project>
