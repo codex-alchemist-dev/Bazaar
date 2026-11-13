@@ -22,6 +22,10 @@ public static class FoldPosture
     /// 4. Half-opened: <see cref="PostureKind.HalfOpen"/>. PostureKind has no unfolded-with-hinge value, so a
     ///    vertical hinge also maps to HalfOpen, so <paramref name="hingeIsHorizontal"/> does not change the result.
     /// </remarks>
+    /// <summary>Maps one platform snapshot. Same rules as the four-argument overload.</summary>
+    public static PostureKind Map(FoldSnapshot snapshot) =>
+        Map(snapshot.HasFoldingFeature, snapshot.State, snapshot.HingeIsHorizontal, snapshot.HingeIsSeparating);
+
     public static PostureKind Map(bool hasFoldingFeature, FoldState state, bool hingeIsHorizontal, bool hingeIsSeparating)
     {
         if (!hasFoldingFeature)
