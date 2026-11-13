@@ -1,6 +1,6 @@
 using Bazaar.Client.Core.Input;
 
-namespace Bazaar.Client.Core.Navigation;
+namespace Bazaar.Client.Components.Navigation;
 
 /// <summary>A clash that dropped an assignment. <see cref="Key"/> identifies it for log-once.</summary>
 public sealed record MnemonicNotice(string Key, string Message);

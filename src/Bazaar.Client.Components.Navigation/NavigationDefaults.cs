@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Navigation;
+namespace Bazaar.Client.Components.Navigation;
 
 /// <summary>
 /// First-party navigation targets. Modules add their own through the module contract; the company

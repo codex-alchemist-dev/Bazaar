@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Bazaar.Client.Core.Navigation;
+namespace Bazaar.Client.Components.Navigation;
 
 /// <summary>One person's remap of a command's mnemonic on one device.</summary>
 public sealed record MnemonicOverride(string CommandId, string Mnemonic);

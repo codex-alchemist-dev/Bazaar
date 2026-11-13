@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Navigation;
+using Bazaar.Client.Components.Navigation;
 
-namespace Bazaar.Client.Core.Tests.Navigation;
+namespace Bazaar.Client.Components.Navigation.Tests;
 
 public class MnemonicOverrideStoreTests : IDisposable
 {
