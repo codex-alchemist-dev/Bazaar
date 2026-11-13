@@ -4,6 +4,7 @@
     <Project Path="src/Bazaar.Client.Components.Launcher/Bazaar.Client.Components.Launcher.csproj" />
     <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
+    <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
     <Project Path="src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj" />
@@ -41,6 +42,7 @@
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Windows.Tests/Bazaar.Client.Windows.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Linux.Tests/Bazaar.Client.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
