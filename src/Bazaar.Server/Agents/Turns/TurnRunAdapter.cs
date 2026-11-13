@@ -6,25 +6,36 @@ namespace Bazaar.Server.Agents.Turns;
 /// Runs the <see cref="ITurnRunner"/> seam over the production <see cref="TurnRunner"/> (doc 06 WP5). The context is built
 /// through <see cref="ITurnContextAssembler"/> after the turn row exists, so the manifest records the turn id.
 /// <para>
-/// Not yet covered, and rejected or left out rather than approximated: claiming specific inbox items (the runner claims
-/// by count only, so a request that names items throws), tool dispatch (a tool call still fails the turn, and no tools are
-/// offered to the model), and recording the parent turn and depth. Those follow in the next consolidation PRs.
+/// A request that names inbox items claims exactly those items (pending and due ones; the rest are left alone). The tool
+/// definitions in the catalogue named by the request's allowlist are offered to an actor turn; a reader turn offers none.
+/// </para>
+/// <para>
+/// A tool call the model makes is dispatched by the runner through <see cref="IToolDispatcher"/>, and its result goes back to the
+/// model on the next step. Not yet covered, and left out rather than approximated: recording the parent turn and depth. Those
+/// follow in the next consolidation PRs.
 /// </para>
 /// </summary>
-public sealed class TurnRunAdapter(TurnRunner runner, ITurnContextAssembler assembler, string route) : ITurnRunner
+/// <param name="runner">The consolidated runner that runs the loop.</param>
+/// <param name="assembler">Builds the context once the turn row exists.</param>
+/// <param name="route">The model route every turn uses.</param>
+/// <param name="toolCatalogue">The tool definitions a turn may be offered. Empty by default, so no tools are offered.</param>
+public sealed class TurnRunAdapter(
+    TurnRunner runner,
+    ITurnContextAssembler assembler,
+    string route,
+    IReadOnlyList<ModelToolDefinition>? toolCatalogue = null) : ITurnRunner
 {
     private readonly TurnRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
     private readonly ITurnContextAssembler _assembler = assembler ?? throw new ArgumentNullException(nameof(assembler));
     private readonly string _route = !string.IsNullOrWhiteSpace(route)
         ? route
         : throw new ArgumentException("A route is required.", nameof(route));
+    private readonly IReadOnlyList<ModelToolDefinition> _toolCatalogue = toolCatalogue ?? [];
 
     /// <inheritdoc />
     public async Task<TurnRunOutcome> RunAsync(TurnRunRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.InboxItemIds.Count > 0)
-            throw new NotSupportedException("Claiming specific inbox items is not supported by the consolidated runner yet.");
 
         var result = await _runner.RunAsync(
             new TurnRequest(
@@ -33,10 +44,13 @@ public sealed class TurnRunAdapter(TurnRunner runner, ITurnContextAssembler asse
                 request.WakeReason,
                 _route,
                 Messages: [],
+                Tools: TurnToolOffer.Select(request.Role, _toolCatalogue, request.ToolAllowlist),
                 InboxClaimLimit: 0,
                 MessageBuilder: (turnId, ct) => BuildMessagesAsync(request, turnId, ct),
                 Role: request.Role,
-                StepCapOverride: request.StepCapOverride),
+                StepCapOverride: request.StepCapOverride,
+                InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null,
+                ChainDepth: request.ChainDepth),
             cancellationToken).ConfigureAwait(false);
 
         return new TurnRunOutcome(

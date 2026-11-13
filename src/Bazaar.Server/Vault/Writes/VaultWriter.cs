@@ -26,7 +26,7 @@ namespace Bazaar.Server.Vault.Writes;
 /// <b>Not yet here:</b> memory batching, the conflict card itself, and the indexer hook (owned by other threads).
 /// </para>
 /// </remarks>
-public sealed partial class VaultWriter : IDisposable
+public sealed partial class VaultWriter : IVaultWriter, IDisposable
 {
     private const string _decisionsFolder = "decisions";
 
@@ -35,12 +35,18 @@ public sealed partial class VaultWriter : IDisposable
     private readonly GitIdentity _writer;
     private readonly SemaphoreSlim _vaultLane = new(1, 1);
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _documentQueues = new();
+    private readonly IVaultCommitObserver? _observer;
 
-    public VaultWriter(IGitProvider git, string repoPath, GitIdentity writer)
+    /// <param name="observer">
+    /// Told about every commit the writer lands (the indexer hook). Null for no hook. Runs inside the vault lane, so the
+    /// observer must not call back into this writer.
+    /// </param>
+    public VaultWriter(IGitProvider git, string repoPath, GitIdentity writer, IVaultCommitObserver? observer = null)
     {
         _git = git ?? throw new ArgumentNullException(nameof(git));
         _repoPath = repoPath ?? throw new ArgumentNullException(nameof(repoPath));
         _writer = writer ?? throw new ArgumentNullException(nameof(writer));
+        _observer = observer;
     }
 
     /// <summary>
@@ -91,7 +97,13 @@ public sealed partial class VaultWriter : IDisposable
         }
 
         var outcome = merge.Outcome == GitMergeOutcome.UpToDate ? VaultEditOutcome.UpToDate : VaultEditOutcome.Merged;
-        return new VaultEditResult(outcome, oldCommit, merge.CommitSha ?? oldCommit, [], null);
+        var newCommit = merge.CommitSha ?? oldCommit;
+        if (outcome == VaultEditOutcome.Merged)
+        {
+            await NotifyAsync(oldCommit, newCommit, ct);
+        }
+
+        return new VaultEditResult(outcome, oldCommit, newCommit, [], null);
     }
 
     /// <summary>
@@ -122,8 +134,17 @@ public sealed partial class VaultWriter : IDisposable
         message.Append("\n\n");
         AppendTrailers(message, draft.AgentId, gcId: null, taskId: null, baseCommit: oldCommit);
         var newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+        await NotifyAsync(oldCommit, newCommit, ct);
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], number);
+    }
+
+    private async Task NotifyAsync(string oldCommit, string newCommit, CancellationToken ct)
+    {
+        if (_observer is not null)
+        {
+            await _observer.OnCommitAsync(oldCommit, newCommit, ct);
+        }
     }
 
     /// <summary>Releases the vault lane. In-flight submissions should finish before the writer is disposed.</summary>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Kodo: an immutable runtime with A/B slots and instant rollback</title>
+  <desc id="d">A signed manifest is verified on every start. Two runtime slots, A active and B staged, can switch or roll back instantly. Writable data sits apart from the read-only runtime.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc">Kodo: the most immutable health module, verified on every start</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="40" y="72" width="200" height="164" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="140" y="98" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">Signed manifest</text>
+    <text x="140" y="130" font-size="13" fill="#e8eefc" text-anchor="middle">Checked at every start</text>
+    <text x="140" y="158" font-size="28" fill="#9be38f" text-anchor="middle">&#10003;</text>
+    <text x="140" y="184" font-size="12" fill="#9fb3d9" text-anchor="middle">Tamper detection at run time</text>
+    <rect x="290" y="72" width="250" height="74" rx="10" fill="#14291f" stroke="#9be38f" stroke-width="2"/>
+    <text x="415" y="100" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Slot A · active</text>
+    <text x="415" y="126" font-size="12" fill="#9fb3d9" text-anchor="middle">read-only runtime</text>
+    <rect x="290" y="162" width="250" height="74" rx="10" fill="#151d30" stroke="#7cc4ff" stroke-width="2"/>
+    <text x="415" y="190" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Slot B · staged</text>
+    <text x="415" y="216" font-size="12" fill="#9fb3d9" text-anchor="middle">next version, checked first</text>
+    <path d="M 240 110 L 290 110" stroke="#9fb3d9" stroke-width="2" fill="none"/>
+    <path d="M 290 200 L 240 200" stroke="#7cc4ff" stroke-width="2" stroke-dasharray="5 4" fill="none"/>
+    <path d="M 540 120 Q 590 120 590 170 Q 590 200 540 200" stroke="#f2b84b" stroke-width="2" fill="none" stroke-dasharray="6 4"/>
+    <text x="604" y="150" font-size="12" fill="#f2b84b">instant</text>
+    <text x="604" y="166" font-size="12" fill="#f2b84b">rollback</text>
+    <rect x="690" y="72" width="230" height="164" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="805" y="98" font-size="14" font-weight="600" fill="#9fb3d9" text-anchor="middle">Writable data</text>
+    <text x="805" y="130" font-size="13" fill="#e8eefc" text-anchor="middle">Kept apart from the runtime</text>
+    <text x="805" y="158" font-size="13" fill="#e8eefc" text-anchor="middle">Journal with integrity checks</text>
+    <text x="805" y="184" font-size="12" fill="#9fb3d9" text-anchor="middle">Separate from every update</text>
+  </g>
+  <text x="480" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#f2b84b" text-anchor="middle">Planned. Kodo is designed (doc 46) and not yet built.</text>
+</svg>

@@ -1,6 +1,9 @@
 using System.Text.Json.Serialization;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Roadmap;
+
+using Bazaar.Contracts.Ryusei;
 
 namespace Bazaar.Contracts.Wire;
 
@@ -26,11 +29,20 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(WireGcMessage))]
 [JsonSerializable(typeof(GcSend))]
 [JsonSerializable(typeof(GcSendResult))]
+[JsonSerializable(typeof(GcEdit))]
+[JsonSerializable(typeof(GcMemberAdd))]
+[JsonSerializable(typeof(GcMemberRemove))]
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
+[JsonSerializable(typeof(KanbanBoardRequest))]
+[JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
+[JsonSerializable(typeof(RyuseiTriggerChangeReply))]
+[JsonSerializable(typeof(RyuseiTriggerListRequest))]
+[JsonSerializable(typeof(RyuseiTriggerListReply))]
+[JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
 [JsonSerializable(typeof(GraphLodFrame))]

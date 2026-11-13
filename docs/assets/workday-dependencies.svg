@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="t d">
+  <title id="t">Workday blocker graph: a card waits on its dependencies</title>
+  <desc id="d">Trigger chips and the board pane are linked. A dashed link shows an open dependency that makes the team view Blocked. Done when the PR merged.</desc>
+  <rect width="960" height="320" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Workday dependencies: the blocker graph that moves cards for you</text>
+  <line x1="160" y1="140" x2="420" y2="140" stroke="#7fd36b" stroke-width="2"/>
+  <line x1="420" y1="140" x2="680" y2="140" stroke="#e07a5f" stroke-width="2" stroke-dasharray="6 6"/>
+  <line x1="420" y1="230" x2="420" y2="160" stroke="#7fd36b" stroke-width="2"/>
+  <rect x="60" y="118" width="200" height="44" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="160" y="145" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#eefbe9" text-anchor="middle">Trigger chips</text>
+  <rect x="320" y="118" width="200" height="44" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="420" y="145" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#eefbe9" text-anchor="middle">Board pane</text>
+  <rect x="580" y="118" width="200" height="44" rx="10" fill="#3a2420" stroke="#e07a5f" stroke-width="2"/>
+  <text x="680" y="145" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#eefbe9" text-anchor="middle">Team view</text>
+  <rect x="320" y="208" width="200" height="44" rx="10" fill="#23402a" stroke="#7fd36b" stroke-width="2"/>
+  <text x="420" y="235" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#eefbe9" text-anchor="middle">Done: PR merged</text>
+  <text x="40" y="290" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Solid green: the blocker is done. Dashed red: the blocker is open, so the card shows Blocked.</text>
+
+</svg>

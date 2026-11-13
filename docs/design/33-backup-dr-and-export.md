@@ -63,7 +63,7 @@ Losing the KEK means rotating every credential and losing unwrap for encrypted p
 **Objectives [PROPOSED].**
 - RPO for PostgreSQL: `backup.offsite_rpo_target` (1 h), measured as the age of the newest WAL segment in the offsite store. A local-only archive does not count.
 - Vault RPO: the age of the last successful push or bundle, set by `vault.push_cadence` (15 min, doc 18) and `backup.vault_bundle_hours` (24 h).
-- RTO about 1 day for a full NUC rebuild, from first restore command to first agent turn.
+- RTO about 1 day for a full owner's PC rebuild, from first restore command to first agent turn.
 - One agent VM: recreate from golden parent; target hours; unmeasured.
 
 **Restore rules.**
@@ -144,7 +144,7 @@ Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, do
 - Settings validation refuses offsite retention that exceeds `erasure.backup_window_days`.
 - Vault: bundle and push restore to the remote head; private memory notes are present and no older commit is restored.
 - Erasure: after window expiry, an old snapshot's ciphertext and its DEK are unreadable; before it, the gap is asserted and documented.
-- KEK export round trip; wrong passphrase rejected; real DPAPI on the NUC (`Category=Windows-host`).
+- KEK export round trip; wrong passphrase rejected; real DPAPI on the owner's PC (`Category=Windows-host`).
 - Instance bundle digest mismatch refused; old instance holds no leases after cutover.
 - Avalonia.Headless: stale RPO shows red.
 
@@ -191,3 +191,8 @@ Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, do
 6. Erasure in Vault history (C38 FOLLOW-UP). The options are undecided: encrypted personal notes or a history rewrite. Needs counsel. Recommended: the erasure window also applies to Vault bundles and remotes; the mechanism stays open.
 
 MOVED TO SETTINGS: backup.offsite_target, backup.wal_archive_timeout, backup.offsite_rpo_target, backup.base_sets_kept, backup.offsite_keep_daily, backup.offsite_keep_weekly, backup.golden_parent_offsite, backup.include_child_vm_disks, backup.audit_head_offsite, backup.vault_bundle_hours, backup.drill_interval_days, backup.check_interval_hours, backup.volume_warn_pct, backup.volume_red_pct; referenced from other docs: erasure.backup_window_days (04), security.backup.include_cookie_profiles (15), vault.push_cadence (18) (DECISIONS-LOG round 13)
+
+## Update 2026-11-13
+
+- The Soul export keeps its scope exactly as designed above: no agent memory, no reputation and no Passport.
+- The separate memory export (agent memory and reputation) is defined in doc 44 (section 4.x). It is permissioned and audited (doc 48). It is private to the company and its owner, and it has no Soul Marketplace target (doc 07, "Soul Marketplace: memory exclusion").

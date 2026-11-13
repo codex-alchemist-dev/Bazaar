@@ -1,0 +1,905 @@
+{
+ "rulesVersion": "1.0.0",
+ "cases": [
+  {
+   "rule": "secret.pem-block",
+   "kind": "positive",
+   "input": "key: ~DASH5~BEGIN RSA PRIVATE KEY~DASH5~\nMIIEpAIBAAKCAQEA\n~DASH5~END RSA PRIVATE KEY~DASH5~",
+   "expected": "key: <redacted:pattern>"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "positive",
+   "input": "~DASH5~BEGIN PRIVATE KEY~DASH5~\nMHcCAQEEI\n~DASH5~END PRIVATE KEY~DASH5~",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "positive",
+   "input": "~DASH5~BEGIN EC PRIVATE KEY~DASH5~\nMHQCAQEEIAbc\n~DASH5~END EC PRIVATE KEY~DASH5~",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "positive",
+   "input": "pem=~DASH5~BEGIN OPENSSH PRIVATE KEY~DASH5~\nb3BlbnNzaA\n~DASH5~END OPENSSH PRIVATE KEY~DASH5~",
+   "expected": "pem=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "positive",
+   "input": "~DASH5~BEGIN RSA PRIVATE KEY~DASH5~\nMIIEow",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "negative",
+   "input": "~DASH5~BEGIN CERTIFICATE~DASH5~\nMIIDdzCCAl8\n~DASH5~END CERTIFICATE~DASH5~",
+   "expected": "~DASH5~BEGIN CERTIFICATE~DASH5~\nMIIDdzCCAl8\n~DASH5~END CERTIFICATE~DASH5~"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "negative",
+   "input": "the private key is stored in the vault",
+   "expected": "the private key is stored in the vault"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "negative",
+   "input": "~DASH5~BEGIN PUBLIC KEY~DASH5~",
+   "expected": "~DASH5~BEGIN PUBLIC KEY~DASH5~"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "negative",
+   "input": "PRIVATE KEY",
+   "expected": "PRIVATE KEY"
+  },
+  {
+   "rule": "secret.pem-block",
+   "kind": "negative",
+   "input": "~DASH5~END PRIVATE KEY~DASH5~",
+   "expected": "~DASH5~END PRIVATE KEY~DASH5~"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "positive",
+   "input": "token ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+   "expected": "token <redacted:pattern>"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "positive",
+   "input": "gho_1234567890abcdefghijABCDEF",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "positive",
+   "input": "remote github_pat_11AAAAAAA0abcdefghijklmnop",
+   "expected": "remote <redacted:pattern>"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "positive",
+   "input": "ghs_ZZZZZZZZZZZZZZZZZZZZ",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "positive",
+   "input": "ghu_0123456789012345678901 and more",
+   "expected": "<redacted:pattern> and more"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "negative",
+   "input": "ghp_short",
+   "expected": "ghp_short"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "negative",
+   "input": "ghx_abcdefghijklmnopqrstuvwxyz",
+   "expected": "ghx_abcdefghijklmnopqrstuvwxyz"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "negative",
+   "input": "the ghp_ prefix is documented",
+   "expected": "the ghp_ prefix is documented"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "negative",
+   "input": "commit 4f9c2b7a1d3e5f60718293a4b5c6d7e8f9012345",
+   "expected": "commit 4f9c2b7a1d3e5f60718293a4b5c6d7e8f9012345"
+  },
+  {
+   "rule": "secret.github-token",
+   "kind": "negative",
+   "input": "ghp_abc-def",
+   "expected": "ghp_abc-def"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "positive",
+   "input": "auth eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.c2lnbmF0dXJl",
+   "expected": "auth <redacted:pattern>"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "positive",
+   "input": "eyJ0eXAiOiJKV1Qi.abcdefgh.ijklmnop",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "positive",
+   "input": "x=eyJhbGciOi.AAAAA.BBBBB",
+   "expected": "x=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "positive",
+   "input": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOi.abcd",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "positive",
+   "input": "[eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOi.sig_part-9]",
+   "expected": "[<redacted:pattern>]"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "negative",
+   "input": "eyJhbGci",
+   "expected": "eyJhbGci"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "negative",
+   "input": "data:image/png;base64,iVBORw0KGgo",
+   "expected": "data:image/png;base64,iVBORw0KGgo"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "negative",
+   "input": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ",
+   "expected": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "negative",
+   "input": "see eyJa.b.c in docs",
+   "expected": "see eyJa.b.c in docs"
+  },
+  {
+   "rule": "secret.app-jwt",
+   "kind": "negative",
+   "input": "version 1.2.3 build a1b2c3",
+   "expected": "version 1.2.3 build a1b2c3"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "positive",
+   "input": "sk-ant-api03-abcdefghijklmnopqrstuvwx",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "positive",
+   "input": "key sk-proj-AAAAAAAAAAAAAAAAAAAAAAAA",
+   "expected": "key <redacted:pattern>"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "positive",
+   "input": "sk-0123456789abcdefghij",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "positive",
+   "input": "[sk-ABCDEFGHIJKLMNOPQRST]",
+   "expected": "[<redacted:pattern>]"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "positive",
+   "input": "a=sk-ant-XXXXXXXXXXXXXXXXXXXX;b",
+   "expected": "a=<redacted:pattern>;b"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "negative",
+   "input": "sk-short",
+   "expected": "sk-short"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "negative",
+   "input": "task-manager-configuration-value",
+   "expected": "task-manager-configuration-value"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "negative",
+   "input": "risk-assessment-report-2026",
+   "expected": "risk-assessment-report-2026"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "negative",
+   "input": "sk-",
+   "expected": "sk-"
+  },
+  {
+   "rule": "secret.provider-key",
+   "kind": "negative",
+   "input": "disk-usage-percentage-high",
+   "expected": "disk-usage-percentage-high"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "positive",
+   "input": "AKIAABCDEFGHIJKLMNOP",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "positive",
+   "input": "id=ASIAZZ99ZZ99ZZ99ZZ99",
+   "expected": "id=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "positive",
+   "input": "keys AKIA0123456789ABCDEF.",
+   "expected": "keys <redacted:pattern>."
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "positive",
+   "input": "[AKIAABCDEFGHIJKLMNOP]",
+   "expected": "[<redacted:pattern>]"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "positive",
+   "input": "ASIA1234567890ABCDEF end",
+   "expected": "<redacted:pattern> end"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "negative",
+   "input": "AKIAabcdefghijklmnop",
+   "expected": "AKIAabcdefghijklmnop"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "negative",
+   "input": "AKIAABCDEFGHIJKLMNOPQ",
+   "expected": "AKIAABCDEFGHIJKLMNOPQ"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "negative",
+   "input": "AKIA12",
+   "expected": "AKIA12"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "negative",
+   "input": "BAKIAABCDEFGHIJKLMNOP",
+   "expected": "BAKIAABCDEFGHIJKLMNOP"
+  },
+  {
+   "rule": "secret.aws-access-key",
+   "kind": "negative",
+   "input": "TASIA0123456789ABCDEF",
+   "expected": "TASIA0123456789ABCDEF"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "positive",
+   "input": "Authorization: Basic dXNlcjpwYXNz",
+   "expected": "Authorization: <redacted:pattern>"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "positive",
+   "input": "headers Proxy-Authorization=token123 end",
+   "expected": "headers Proxy-Authorization=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "positive",
+   "input": "authorization: abc",
+   "expected": "authorization: <redacted:pattern>"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "positive",
+   "input": "  Authorization: xyz\nnext line",
+   "expected": "  Authorization: <redacted:pattern>\nnext line"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "positive",
+   "input": "req.Authorization = value",
+   "expected": "req.Authorization = <redacted:pattern>"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "negative",
+   "input": "Authorization header is required",
+   "expected": "Authorization header is required"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "negative",
+   "input": "the Authorization flow failed",
+   "expected": "the Authorization flow failed"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "negative",
+   "input": "AuthorizationCode",
+   "expected": "AuthorizationCode"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "negative",
+   "input": "MyAuthorization: x",
+   "expected": "MyAuthorization: x"
+  },
+  {
+   "rule": "secret.authorization",
+   "kind": "negative",
+   "input": "authorizations: 5",
+   "expected": "authorizations: 5"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "positive",
+   "input": "Bearer abc.def-ghi_jkl",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "positive",
+   "input": "sent bearer XYZ123 to host",
+   "expected": "sent <redacted:pattern> to host"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "positive",
+   "input": "value=Bearer tok123==",
+   "expected": "value=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "positive",
+   "input": "Bearer 0123456789",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "positive",
+   "input": "BEARER ABCDEF",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "negative",
+   "input": "bearers are heavy",
+   "expected": "bearers are heavy"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "negative",
+   "input": "Bearer",
+   "expected": "Bearer"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "negative",
+   "input": "a bear hunt",
+   "expected": "a bear hunt"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "negative",
+   "input": "tokenBearer x",
+   "expected": "tokenBearer x"
+  },
+  {
+   "rule": "secret.bearer",
+   "kind": "negative",
+   "input": "beard trimmer",
+   "expected": "beard trimmer"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "positive",
+   "input": "https://alice:hunter2@example.org/x",
+   "expected": "https://<redacted:pattern>@example.org/x"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "positive",
+   "input": "git clone ssh://deploy@git.example.com/repo",
+   "expected": "git clone ssh://<redacted:pattern>@git.example.com/repo"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "positive",
+   "input": "ftp://user:pass@host",
+   "expected": "ftp://<redacted:pattern>@host"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "positive",
+   "input": "postgres://app:secret@db:5432/bazaar",
+   "expected": "postgres://<redacted:pattern>@db:5432/bazaar"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "positive",
+   "input": "HTTP://x:y@z",
+   "expected": "HTTP://<redacted:pattern>@z"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "negative",
+   "input": "https://example.org/path",
+   "expected": "https://example.org/path"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "negative",
+   "input": "see https://example.org/users/alice@corp mention",
+   "expected": "see https://example.org/users/alice@corp mention"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "negative",
+   "input": "@handle mention",
+   "expected": "@handle mention"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "negative",
+   "input": "no scheme user:pass@host here",
+   "expected": "no scheme user:pass@host here"
+  },
+  {
+   "rule": "secret.url-userinfo",
+   "kind": "negative",
+   "input": "file C:/repo/x",
+   "expected": "file C:/repo/x"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "positive",
+   "input": "GET /cb?token=abc123&x=1",
+   "expected": "GET /cb?token=<redacted:pattern>&x=1"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "positive",
+   "input": "/auth?code=zz9&state=5",
+   "expected": "/auth?code=<redacted:pattern>&state=5"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "positive",
+   "input": "https://h/x?sig=AAAA%2Bzz#frag",
+   "expected": "https://h/x?sig=<redacted:pattern>#frag"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "positive",
+   "input": "?password=hunter2",
+   "expected": "?password=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "positive",
+   "input": "&access_token=xyz",
+   "expected": "&access_token=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "negative",
+   "input": "?tokenizer=bert",
+   "expected": "?tokenizer=bert"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "negative",
+   "input": "?keyboard=us",
+   "expected": "?keyboard=us"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "negative",
+   "input": "?secretary=jane",
+   "expected": "?secretary=jane"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "negative",
+   "input": "?code_review=1",
+   "expected": "?code_review=1"
+  },
+  {
+   "rule": "secret.sensitive-query",
+   "kind": "negative",
+   "input": "?page=2&sort=asc",
+   "expected": "?page=2&sort=asc"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "positive",
+   "input": "password: hunter2",
+   "expected": "password: <redacted:pattern>"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "positive",
+   "input": "api_key=AKX12",
+   "expected": "api_key=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "positive",
+   "input": "client-secret = s3cr3t!",
+   "expected": "client-secret = <redacted:pattern>"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "positive",
+   "input": "token: abc, next",
+   "expected": "token: <redacted:pattern>, next"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "positive",
+   "input": "passwd=abc",
+   "expected": "passwd=<redacted:pattern>"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "negative",
+   "input": "tokens: 3",
+   "expected": "tokens: 3"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "negative",
+   "input": "tokenizer: bert",
+   "expected": "tokenizer: bert"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "negative",
+   "input": "password policy: strong",
+   "expected": "password policy: strong"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "negative",
+   "input": "secret",
+   "expected": "secret"
+  },
+  {
+   "rule": "secret.keyed-assignment",
+   "kind": "negative",
+   "input": "the token count is 5",
+   "expected": "the token count is 5"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "positive",
+   "input": "C:\\Users\\alice\\AppData\\x",
+   "expected": "<home>\\AppData\\x"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "positive",
+   "input": "path /home/bob/src/app",
+   "expected": "path <home>/src/app"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "positive",
+   "input": "/Users/carol/Library/log",
+   "expected": "<home>/Library/log"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "positive",
+   "input": "D:\\Users\\dave",
+   "expected": "<home>"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "positive",
+   "input": "at /home/erin",
+   "expected": "at <home>"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "negative",
+   "input": "C:\\Program Files\\x",
+   "expected": "C:\\Program Files\\x"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "negative",
+   "input": "/usr/homework/x",
+   "expected": "/usr/homework/x"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "negative",
+   "input": "/home",
+   "expected": "/home"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "negative",
+   "input": "/Users",
+   "expected": "/Users"
+  },
+  {
+   "rule": "pii.home-path",
+   "kind": "negative",
+   "input": "c:\\users",
+   "expected": "c:\\users"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "positive",
+   "input": "mail alice.smith@example.com now",
+   "expected": "mail <redacted:pattern> now"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "positive",
+   "input": "owner: bob+tag@corp.co.uk",
+   "expected": "owner: <redacted:pattern>"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "positive",
+   "input": "x_y%z@host.io",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "positive",
+   "input": "contact support@bazaar.dev.",
+   "expected": "contact <redacted:pattern>."
+  },
+  {
+   "rule": "pii.email",
+   "kind": "positive",
+   "input": "a@b.cd",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "negative",
+   "input": "user at example dot com",
+   "expected": "user at example dot com"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "negative",
+   "input": "@here and @all",
+   "expected": "@here and @all"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "negative",
+   "input": "version@2",
+   "expected": "version@2"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "negative",
+   "input": "package@1.2",
+   "expected": "package@1.2"
+  },
+  {
+   "rule": "pii.email",
+   "kind": "negative",
+   "input": "a plain sentence with no at sign.",
+   "expected": "a plain sentence with no at sign."
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "positive",
+   "input": "from 10.20.30.40 port",
+   "expected": "from <redacted:pattern> port"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "positive",
+   "input": "203.0.113.7",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "positive",
+   "input": "host 192.168.1.10:8080",
+   "expected": "host <redacted:pattern>:8080"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "positive",
+   "input": "addr=8.8.8.8",
+   "expected": "addr=<redacted:pattern>"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "positive",
+   "input": "ip 172.16.0.1.",
+   "expected": "ip <redacted:pattern>."
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "negative",
+   "input": "127.0.0.1 loopback",
+   "expected": "127.0.0.1 loopback"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "negative",
+   "input": "version 0.1.0+a1b2c3d",
+   "expected": "version 0.1.0+a1b2c3d"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "negative",
+   "input": "build 10.0.26100",
+   "expected": "build 10.0.26100"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "negative",
+   "input": "commit 4f9c2b7",
+   "expected": "commit 4f9c2b7"
+  },
+  {
+   "rule": "pii.ipv4",
+   "kind": "negative",
+   "input": "ratio 1.25 of 3.5",
+   "expected": "ratio 1.25 of 3.5"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "positive",
+   "input": "peer 2001:db8:85a3:0:0:8a2e:370:7334 up",
+   "expected": "peer <redacted:pattern> up"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "positive",
+   "input": "fe80::1 link",
+   "expected": "<redacted:pattern> link"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "positive",
+   "input": "dst 2001:db8::8a2e:370:7334",
+   "expected": "dst <redacted:pattern>"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "positive",
+   "input": "addr 2001:db8::",
+   "expected": "addr <redacted:pattern>"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "positive",
+   "input": "node fe80::abcd%eth0",
+   "expected": "node <redacted:pattern>%eth0"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "negative",
+   "input": "peer ::1 ok",
+   "expected": "peer ::1 ok"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "negative",
+   "input": "12:34:56 time",
+   "expected": "12:34:56 time"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "negative",
+   "input": "a :: b",
+   "expected": "a :: b"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "negative",
+   "input": "ratio 3:2 and 10:45",
+   "expected": "ratio 3:2 and 10:45"
+  },
+  {
+   "rule": "pii.ipv6",
+   "kind": "negative",
+   "input": "time 09:14:02 then",
+   "expected": "time 09:14:02 then"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "positive",
+   "input": "nic 00:1A:2B:3C:4D:5E up",
+   "expected": "nic <redacted:pattern> up"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "positive",
+   "input": "aa-bb-cc-dd-ee-ff",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "positive",
+   "input": "mac=00:11:22:33:44:55.",
+   "expected": "mac=<redacted:pattern>."
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "positive",
+   "input": "ids 0a:0b:0c:0d:0e:0f ok",
+   "expected": "ids <redacted:pattern> ok"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "positive",
+   "input": "FF:EE:DD:CC:BB:AA",
+   "expected": "<redacted:pattern>"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "negative",
+   "input": "12:34:56",
+   "expected": "12:34:56"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "negative",
+   "input": "1a:2b:3c:4d:5e",
+   "expected": "1a:2b:3c:4d:5e"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "negative",
+   "input": "commit a1b2c3d4",
+   "expected": "commit a1b2c3d4"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "negative",
+   "input": "build 00-11-22",
+   "expected": "build 00-11-22"
+  },
+  {
+   "rule": "pii.mac",
+   "kind": "negative",
+   "input": "ab:cd:ef:01:23:4567",
+   "expected": "ab:cd:ef:01:23:4567"
+  }
+ ]
+}

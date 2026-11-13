@@ -1,6 +1,6 @@
 # Kanban and Dependencies
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3 · Layer 1 (macro board) of RyuseiFuda (`38-ryusei-fuda.md`); agent scheduling and re-invocation belong to RyuseiFuda, not this board
 Depends on: `01-gc-data-model.md` (GC rows, pinned messages), `02-wire-protocol-and-sync.md` (board stream and resync), `04-postgres-schema-and-migrations.md` (conventions, NOTIFY), `06-agent-runtime.md` (agent ids, wake reasons), `09-work-life-simulation.md` (work-life scheduler), `10-council-and-voting.md` (gates), `15-security-taint-and-approvals.md` (tool dispatch, approvals, taint), `18-vault.md` (VaultWriter, Vault links), `21-github-integration.md` (PR events, merge). Used by: `23-observatory-and-usage.md` (events), `24-company-systems-core.md` (Interrupt System and Calendar consume events), `17-coding-agent-harness.md` (work-start guard), `11-reputation-and-peer-review.md` (outcomes), `27-client-architecture.md`, `28-windows-client.md`, `29-android-client.md` (board UI).
 
 ## Purpose
@@ -146,3 +146,8 @@ No models or displays needed. Real Postgres via an xUnit v3 fixture; `Avalonia.H
 3. **Task GCs**: does each task get its own GC? Default: no; it uses its origin GC, and a child GC is created on request. (Changes the GC creation model, so it is one answer, not a setting.)
 
 MOVED TO SETTINGS: kanban.auto_ready, kanban.reopen_downstream, kanban.blocked_start_roles, kanban.review_min_links, kanban.reviewer_ungated_done, kanban.abandoned_satisfies_blockers, kanban.due_mode, kanban.pin_permission, kanban.pr_closed_unmerged, kanban.board_scope, kanban.max_blockers_per_task, kanban.max_tasks_per_project (DECISIONS-LOG round 13)
+
+## Board read over the wire (decided default, 2026-11-11)
+- **Request:** `board.snapshot` (`WireTypes.BoardSnapshot`) with `KanbanBoardRequest { projectId }`. Answered with `KanbanBoardSnapshot`. Clients re-request on each board event; a live `board:<id>` stream with revisions is still to come (doc 02).
+- **Access (default):** only the owner principal reads a board. No table links people or agents to a project, so there is no membership source to check. A denied read and a missing project both answer `not_found`, so membership does not leak. Widening the rule (project members, GC members, or agents in the project) needs a membership source and an owner decision. It is not a flag. Policy: `IBoardAccessPolicy` (`OwnerOnlyBoardAccess`).
+- **Agent moves:** `kanban.transition` (`KanbanTransitionTool`) calls `TaskService.TransitionAsync` as the calling agent. Its JSON result is `applied`, `conflict` (with `currentVersion`), `refused` (with `outcome` and `unfinishedBlockers`) or `invalid_arguments`. `KanbanComponent` registers it with the turn path's tool registry and adds its policy entry (doc 15): autonomous with a notice, actor sessions only, 60 calls per hour per agent, and owner approval once the session is hard-tainted.

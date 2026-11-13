@@ -1,4 +1,5 @@
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 
 namespace Bazaar.Constellation.Vulkan.Tests;
 
