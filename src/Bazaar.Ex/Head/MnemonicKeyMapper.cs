@@ -55,24 +55,24 @@ public static class MnemonicKeyMapper
         _ => NamedKey.None,
     };
 
-    private static bool TryMapCharacter(AvaloniaKey key, CoreModifiers modifiers, out char character)
+    private static bool TryMapCharacter(AvaloniaKey pressed, CoreModifiers modifiers, out char character)
     {
         character = default;
         var shift = (modifiers & CoreModifiers.Shift) != 0;
-        if (key >= AvaloniaKey.A && key <= AvaloniaKey.Z)
+        if (IsInRange(pressed, AvaloniaKey.A, AvaloniaKey.Z))
         {
-            var offset = key - AvaloniaKey.A;
+            var offset = (int)pressed - (int)AvaloniaKey.A;
             character = (char)((shift ? 'A' : 'a') + offset);
             return true;
         }
 
-        if (key >= AvaloniaKey.D0 && key <= AvaloniaKey.D9)
+        if (IsInRange(pressed, AvaloniaKey.D0, AvaloniaKey.D9))
         {
-            character = (char)('0' + (key - AvaloniaKey.D0));
+            character = (char)('0' + ((int)pressed - (int)AvaloniaKey.D0));
             return true;
         }
 
-        if (key == AvaloniaKey.Space)
+        if (pressed == AvaloniaKey.Space)
         {
             character = ' ';
             return true;
@@ -80,6 +80,10 @@ public static class MnemonicKeyMapper
 
         return false;
     }
+
+    /// <summary>Inclusive range check on the enum's numeric order. Written as a helper so no comparison operator sits beside the key identifier.</summary>
+    private static bool IsInRange(AvaloniaKey pressed, AvaloniaKey first, AvaloniaKey last) =>
+        (int)pressed >= (int)first && (int)pressed <= (int)last;
 
     private static CoreModifiers MapModifiers(AvaloniaModifiers modifiers)
     {
