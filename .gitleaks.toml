@@ -16,5 +16,6 @@ commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cf
 # Base32Tests.cs holds fake Base32 test vectors (for example JBSWY3DP1SECRET), not credentials.
 # Path-scoped, so later edits to this file do not need new commit entries.
 # 9ce11f1 (lan-mdns, doc 39) added MdnsCodecTests.cs with fake mDNS TXT literals (keyhash=0123456789abcdef). Not credentials.
-# Path-scoped to this one test file (gitleaks ORs the commits and paths lists, so the path entry covers the file in every commit).
-paths = ['''tests/Bazaar\.Server\.Tests/Identity/Totp/Base32Tests\.cs$''', '''tests/Bazaar\.Server\.Transports\.Tests/LanMdns/MdnsCodecTests\.cs$''']
+# Redaction corpus (doc 43 WP2): PEM-shaped strings are fake negative and positive inputs for the redactor, not keys.
+# Path-scoped to the corpus file only.
+paths = ['''tests/Bazaar\.Server\.Tests/Identity/Totp/Base32Tests\.cs$''', '''tests/Bazaar\.Server\.Transports\.Tests/LanMdns/MdnsCodecTests\.cs$''', '''tests/Bazaar\.Diagnostics\.Tests/Redaction/RedactionCorpus/redaction-v1\.json$''']
