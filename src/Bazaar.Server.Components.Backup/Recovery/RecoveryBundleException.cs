@@ -26,6 +26,9 @@ public enum RecoveryBundleFailure
 
     /// <summary>The authenticated plaintext is not a valid payload.</summary>
     InvalidPayload,
+
+    /// <summary>The bundle is larger than <see cref="RecoveryBundleSealer.MaxBundleBytes"/>. Rejected before any key work.</summary>
+    TooLarge,
 }
 
 /// <summary>Thrown when a recovery bundle cannot be unsealed. Messages never include the passphrase or key bytes.</summary>

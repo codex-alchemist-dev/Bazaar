@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -20,6 +21,11 @@ public sealed record RecoveryModuleEntry(string Id, string Version, string Signa
 /// <param name="BackupSets">Backup sets with their checksums.</param>
 /// <param name="Modules">Installed modules with versions and signatures.</param>
 /// <param name="OwnerRecoveryMaterial">Owner recovery material. Empty when none is included.</param>
+/// <remarks>
+/// <see cref="KekExport"/> and <see cref="OwnerRecoveryMaterial"/> are secret material. Dispose the payload when done
+/// with it to zero both arrays. <see cref="RecoveryBundleSealer.Unseal"/> returns a payload that the caller owns and
+/// must dispose.
+/// </remarks>
 public sealed record RecoveryBundlePayload(
     int Version,
     IReadOnlyDictionary<string, string> BootstrapReferences,
@@ -27,10 +33,28 @@ public sealed record RecoveryBundlePayload(
     byte[]? AuditCheckpointHead,
     IReadOnlyList<RecoveryBackupSetEntry> BackupSets,
     IReadOnlyList<RecoveryModuleEntry> Modules,
-    byte[] OwnerRecoveryMaterial)
+    byte[] OwnerRecoveryMaterial) : IDisposable
 {
     /// <summary>The only payload version this build reads and writes.</summary>
     public const int CurrentVersion = 1;
+
+    /// <summary>
+    /// Zeroes the secret arrays. Safe to call more than once and on null or empty arrays. The arrays are overwritten in
+    /// place, so copies made by the caller are not affected.
+    /// </summary>
+    public void Dispose()
+    {
+        ZeroIfNotEmpty(KekExport);
+        ZeroIfNotEmpty(OwnerRecoveryMaterial);
+    }
+
+    private static void ZeroIfNotEmpty(byte[]? secret)
+    {
+        if (secret is { Length: > 0 })
+        {
+            CryptographicOperations.ZeroMemory(secret);
+        }
+    }
 }
 
 /// <summary>Source-generated JSON for <see cref="RecoveryBundlePayload"/> (no reflection serializer).</summary>

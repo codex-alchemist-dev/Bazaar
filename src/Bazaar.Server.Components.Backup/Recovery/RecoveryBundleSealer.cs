@@ -23,6 +23,9 @@ public static class RecoveryBundleSealer
     /// <summary>KDF id for PBKDF2-HMAC-SHA256, the only KDF in version 1.</summary>
     public const byte KdfPbkdf2HmacSha256 = 1;
 
+    /// <summary>The largest bundle <see cref="Unseal"/> accepts. Larger input is rejected before any allocation or key derivation.</summary>
+    public const int MaxBundleBytes = 64 * 1024 * 1024;
+
     private const int _keySize = 32;
     private const int _saltSize = 16;
     private const int _nonceSize = 12;
@@ -80,12 +83,20 @@ public static class RecoveryBundleSealer
     }
 
     /// <summary>Unseals a bundle. Every header field and the ciphertext are checked; any alteration fails.</summary>
-    /// <exception cref="RecoveryBundleException">The bundle is invalid, altered, or the passphrase is wrong.</exception>
+    /// <remarks>
+    /// The returned payload holds secret material and is owned by the caller, who must dispose it.
+    /// </remarks>
+    /// <exception cref="RecoveryBundleException">The bundle is invalid, altered, too large, or the passphrase is wrong.</exception>
     /// <exception cref="ArgumentException">The passphrase is empty.</exception>
     public static RecoveryBundlePayload Unseal(byte[] bundle, string passphrase)
     {
         ArgumentNullException.ThrowIfNull(bundle);
         ArgumentException.ThrowIfNullOrEmpty(passphrase);
+
+        if (bundle.Length > MaxBundleBytes)
+        {
+            throw new RecoveryBundleException(RecoveryBundleFailure.TooLarge, "Recovery bundle is larger than the supported maximum.");
+        }
 
         if (bundle.Length < _headerSize)
         {
@@ -163,6 +174,7 @@ public static class RecoveryBundleSealer
 
         if (payload.Version != RecoveryBundlePayload.CurrentVersion)
         {
+            payload.Dispose();
             throw new RecoveryBundleException(RecoveryBundleFailure.UnknownVersion, "Recovery bundle payload version is not supported.");
         }
 

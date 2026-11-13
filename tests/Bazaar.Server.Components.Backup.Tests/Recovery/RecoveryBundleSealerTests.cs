@@ -183,4 +183,71 @@ public sealed class RecoveryBundleSealerTests
         Assert.Throws<ArgumentException>(() => RecoveryBundleSealer.Seal(SamplePayload(), "", KdfOptions.Default));
         Assert.Throws<ArgumentException>(() => RecoveryBundleSealer.Seal(SamplePayload(version: 2), _passphrase, KdfOptions.Default));
     }
+
+    [Fact]
+    public void Dispose_zeroes_the_secret_arrays_and_is_idempotent()
+    {
+        var kek = new byte[] { 1, 2, 3, 4 };
+        var owner = new byte[] { 9, 8, 7 };
+        var payload = new RecoveryBundlePayload(
+            RecoveryBundlePayload.CurrentVersion,
+            new Dictionary<string, string>(),
+            kek,
+            null,
+            [],
+            [],
+            owner);
+
+        payload.Dispose();
+        payload.Dispose();
+
+        Assert.All(kek, b => Assert.Equal(0, b));
+        Assert.All(owner, b => Assert.Equal(0, b));
+    }
+
+    [Fact]
+    public void Dispose_tolerates_null_and_empty_secret_arrays()
+    {
+        var payload = new RecoveryBundlePayload(
+            RecoveryBundlePayload.CurrentVersion,
+            new Dictionary<string, string>(),
+            [],
+            null,
+            [],
+            [],
+            null!);
+
+        var ex = Record.Exception(() =>
+        {
+            payload.Dispose();
+            payload.Dispose();
+        });
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Oversized_bundle_is_TooLarge_before_any_key_work()
+    {
+        // A zeroed buffer one byte over the cap. It carries no valid header, so a check that ran later would fail differently.
+        var oversized = new byte[RecoveryBundleSealer.MaxBundleBytes + 1];
+
+        var ex = Assert.Throws<RecoveryBundleException>(() => RecoveryBundleSealer.Unseal(oversized, _passphrase));
+
+        Assert.Equal(RecoveryBundleFailure.TooLarge, ex.Failure);
+    }
+
+    [Fact]
+    public void Bundle_at_the_size_cap_is_not_TooLarge()
+    {
+        // Magic and version are valid and the iteration count is zero, so the file passes the size check and then fails the header check before derivation.
+        var atCap = new byte[RecoveryBundleSealer.MaxBundleBytes];
+        "BZRB"u8.CopyTo(atCap);
+        atCap[_versionOffset] = RecoveryBundleSealer.FormatVersion;
+        atCap[_kdfOffset] = RecoveryBundleSealer.KdfPbkdf2HmacSha256;
+
+        var ex = Assert.Throws<RecoveryBundleException>(() => RecoveryBundleSealer.Unseal(atCap, _passphrase));
+
+        Assert.Equal(RecoveryBundleFailure.InvalidHeader, ex.Failure);
+    }
 }
