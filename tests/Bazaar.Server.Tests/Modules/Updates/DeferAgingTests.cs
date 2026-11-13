@@ -18,7 +18,7 @@ public sealed class DeferAgingTests
     public void Setting_key_and_default_match_the_design()
     {
         Assert.Equal("deps.update.deferWarnDays", DeferAging.DeferWarnDaysSettingKey);
-        Assert.Equal(30, DeferAging.DefaultDeferWarnDays);
+        Assert.Equal(60, DeferAging.DefaultDeferWarnDays);
     }
 
     [Fact]

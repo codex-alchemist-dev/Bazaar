@@ -15,7 +15,7 @@ public sealed class DeferAging
     public const string DeferWarnDaysSettingKey = "deps.update.deferWarnDays";
 
     /// <summary>The shipped default for <see cref="DeferWarnDaysSettingKey"/>.</summary>
-    public const int DefaultDeferWarnDays = 30;
+    public const int DefaultDeferWarnDays = 60;
 
     private readonly TimeProvider _timeProvider;
 
