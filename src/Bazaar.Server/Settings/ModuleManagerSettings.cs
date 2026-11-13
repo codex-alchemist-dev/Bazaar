@@ -14,7 +14,7 @@ public static class ModuleManagerSettings
     public static readonly SettingKey<int> DeferWarnDays = new(
         DeferAging.DeferWarnDaysSettingKey, DeferAging.DefaultDeferWarnDays, SettingScope.Install, SettingRole.Operator,
         "Days a deferred update may wait before the module manager and Kodo show it as aging.",
-        validate: AtLeast(1, "deps.update.deferWarnDays"));
+        validate: Between(7, 365, "deps.update.deferWarnDays"));
 
     public static readonly SettingKey<bool> AutoSecurityPatches = new(
         "deps.update.autoSecurityPatches", true, SettingScope.Install, SettingRole.Operator,
@@ -78,6 +78,9 @@ public static class ModuleManagerSettings
 
     private static Func<int, string?> AtLeast(int min, string name) =>
         value => value >= min ? null : $"'{name}' must be at least {min}; got {value}.";
+
+    private static Func<int, string?> Between(int min, int max, string name) =>
+        value => value >= min && value <= max ? null : $"'{name}' must be from {min} to {max}; got {value}.";
 
     private static Func<int, string?> Percent(string name) =>
         value => value is >= 0 and <= 100 ? null : $"'{name}' must be from 0 to 100; got {value}.";

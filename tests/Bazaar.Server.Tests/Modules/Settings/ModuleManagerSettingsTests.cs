@@ -63,7 +63,7 @@ public sealed class ModuleManagerSettingsTests
     [Fact]
     public void Defaults_match_the_design_values()
     {
-        Assert.Equal(30, ModuleManagerSettings.DeferWarnDays.Default);
+        Assert.Equal(60, ModuleManagerSettings.DeferWarnDays.Default);
         Assert.True(ModuleManagerSettings.AutoSecurityPatches.Default);
         Assert.Equal(1, ModuleManagerSettings.RingCanaryPercent.Default);
         Assert.Equal(10, ModuleManagerSettings.RingEarlyPercent.Default);
@@ -100,12 +100,14 @@ public sealed class ModuleManagerSettingsTests
     }
 
     [Theory]
-    [InlineData("0", SettingWriteOutcome.Rejected)]
-    [InlineData("1", SettingWriteOutcome.Accepted)]
-    [InlineData("30", SettingWriteOutcome.Accepted)]
+    [InlineData("6", SettingWriteOutcome.Rejected)]
+    [InlineData("7", SettingWriteOutcome.Accepted)]
+    [InlineData("60", SettingWriteOutcome.Accepted)]
+    [InlineData("365", SettingWriteOutcome.Accepted)]
+    [InlineData("366", SettingWriteOutcome.Rejected)]
     [InlineData("-1", SettingWriteOutcome.Rejected)]
-    [InlineData("\"30\"", SettingWriteOutcome.Rejected)]
-    public void Defer_warn_days_is_at_least_one_day(string json, SettingWriteOutcome expected)
+    [InlineData("\"60\"", SettingWriteOutcome.Rejected)]
+    public void Defer_warn_days_is_from_seven_to_365_days(string json, SettingWriteOutcome expected)
     {
         Assert.Equal(expected, Eval("deps.update.deferWarnDays", json).Outcome);
     }
