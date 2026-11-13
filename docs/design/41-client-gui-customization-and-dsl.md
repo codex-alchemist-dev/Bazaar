@@ -367,6 +367,8 @@ These are real design decisions. The owner asked to be asked, so none is settled
 
 Each package needs its own tests (CLAUDE.md). Haiku sub-agents take the independent ones in parallel, one worktree each. "Waits" means blocked on an answer in section 10.
 
+**Status (2026-11-13, code in `src/Bazaar.Client.Core/Layout` and `Tour`):** WP1 partly done: layout model in C# (`LayoutDocument`, slots, nodes), no published JSON Schema yet; `theme`, `commands` and `start` models not started. WP2 done for layouts (`LayoutValidator`: schemaVersion 1, known fields only, size, depth 16, pane and child limits, forbidden content). WP4 done as pure logic: `LayoutResolver` (exact match, then most specific wildcard), `LayoutTree` (unknown containers stack, unknown panes become placeholders) and `LayoutScopeMerger` (owner-only lock override). Head wiring to `PaneRegistry` is not done. The first-run tour framework (`TourDefinition`, `TourSession`, `ITourStateStore`) is done with text held as localisation keys. Owner decisions in section 10 are applied; DSL grammar (WP5a) and the module manifest (WP5) are not started.
+
 1. Document models and JSON Schemas for `theme`, `layout`, `commands`, `start`, with `schemaVersion` 1. Pure. Not blocked.
 2. `IUiDocumentValidator` covering the rules in section 6, excluding the module manifest rules. Depends on 1. Not blocked.
 3. Theme pipeline: move the existing `ThemeModel` and validator behind the document model. Depends on 1. Not blocked.

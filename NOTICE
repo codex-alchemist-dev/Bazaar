@@ -7,7 +7,7 @@ The whole repository, including the Bazaar server, the clients, the SDK
 (src/Bazaar.Sdk/), the shared contracts (src/Bazaar.Contracts/), the design
 documents and all other files, is licensed under the GNU Affero General
 Public License, version 3 (AGPL-3.0). The full text is in the LICENSE file
-at the repository root, and a copy sits in each of the SDK and contracts
+at the repository root, and a copy sits in each of the SDK, contracts and GC abstractions
 directories.
 
 Modules that use the public module API may be under any licence, including

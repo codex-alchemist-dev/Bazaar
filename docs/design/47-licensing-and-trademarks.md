@@ -1,6 +1,6 @@
 # 47. Licensing, contributions and trademarks
 
-Status: DECIDED for the owner decision of 2026-11-13 (section 3), including the SDK and Contracts licence: AGPL-3.0 everywhere (M1). OPEN for the repo mismatches in section 4 that do not follow from M1 (M2 to M8 follow M1 and are confirmed in their own small PRs). PROPOSED for the module exception wording (section 6) and the CLA text outline (section 7). PLANNED for everything not yet built (marketplace checks, trademark policy, CLA bot).
+Status: DECIDED for the owner decision of 2026-11-13 (section 3), including the SDK and Contracts licence: AGPL-3.0 everywhere (M1). Follow-up 2026-11-13: `src/Bazaar.GC.Abstractions` also moved to AGPL-3.0-only (owner choice, relayed by the coordinator), with its own LICENSE copy and csproj field. OPEN for the repo mismatches in section 4 that do not follow from M1 (M2 to M8 follow M1 and are confirmed in their own small PRs). PROPOSED for the module exception wording (section 6) and the CLA text outline (section 7). PLANNED for everything not yet built (marketplace checks, trademark policy, CLA bot).
 
 This document is a product and engineering design. It is not legal advice. Counsel review is required before the first public release, and every legal text in this file is a draft for counsel.
 
