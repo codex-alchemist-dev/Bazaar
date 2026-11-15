@@ -450,69 +450,110 @@ public class WizardStateTests
     }
 
     [Fact]
-    public void Collision_choice_keeps_one_record_and_drops_the_others_from_the_plan()
+    public void Collisions_keep_every_record_by_default()
     {
-        var state = AtCollisionPreview(out var wizard);
+        var state = AtCollisionPreview(out _);
+
+        Assert.Empty(state.CollisionChoices);
+        Assert.Equal(["c1", "c2", "c3"], state.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
+        Assert.Empty(state.Plan.Preview.ReplaceSourceKeys);
+        Assert.Equal(CollisionAction.KeepBoth, ImportWizard.ActionFor(state, "c1"));
+    }
+
+    [Fact]
+    public void Skip_incoming_drops_that_record_from_the_plan()
+    {
+        var state = AtCollisionPreview(out _);
         var originalHash = state.Plan!.MappingHash;
 
-        var chosen = ImportWizard.ChooseCollisionKeep(state, "card", "Same title", "c2");
+        var chosen = ImportWizard.ChooseCollisionAction(state, "c2", CollisionAction.SkipIncoming);
 
         Assert.Equal(WizardStep.Preview, chosen.Step);
         Assert.Null(chosen.Notice);
         var decision = Assert.Single(chosen.CollisionChoices);
-        Assert.Equal("c2", decision.KeepSourceKey);
-        Assert.Equal(["c2", "c3"], chosen.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
+        Assert.Equal(CollisionAction.SkipIncoming, decision.Action);
+        Assert.Equal(["c1", "c3"], chosen.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
         Assert.NotEqual(originalHash, chosen.Plan.MappingHash);
         // The preview still lists the collision so the choice stays visible.
         Assert.Single(chosen.Preview!.Collisions);
     }
 
     [Fact]
-    public void Collision_choice_replaces_an_earlier_choice_for_the_same_collision()
+    public void Replace_keeps_the_record_and_lists_it_for_the_audited_write()
     {
-        var state = AtCollisionPreview(out var wizard);
+        var state = AtCollisionPreview(out _);
 
-        var first = ImportWizard.ChooseCollisionKeep(state, "card", "Same title", "c1");
-        var second = ImportWizard.ChooseCollisionKeep(first, "card", "Same title", "c2");
+        var chosen = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
 
-        Assert.Equal("c2", Assert.Single(second.CollisionChoices).KeepSourceKey);
-        Assert.Equal(["c2", "c3"], second.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
+        Assert.Null(chosen.Notice);
+        Assert.Equal(["c1", "c2", "c3"], chosen.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
+        Assert.Equal(["c1"], chosen.Plan.Preview.ReplaceSourceKeys);
+        Assert.Equal(CollisionAction.Replace, Assert.Single(chosen.CollisionChoices).Action);
+    }
+
+    [Fact]
+    public void Keep_both_removes_an_earlier_choice_and_restores_the_original_plan()
+    {
+        var state = AtCollisionPreview(out _);
+        var originalHash = state.Plan!.MappingHash;
+
+        var skipped = ImportWizard.ChooseCollisionAction(state, "c2", CollisionAction.SkipIncoming);
+        var restored = ImportWizard.ChooseCollisionAction(skipped, "c2", CollisionAction.KeepBoth);
+
+        Assert.Empty(restored.CollisionChoices);
+        Assert.Equal(["c1", "c2", "c3"], restored.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
+        Assert.Equal(originalHash, restored.Plan.MappingHash);
+    }
+
+    [Fact]
+    public void Each_record_in_a_collision_has_its_own_choice()
+    {
+        var state = AtCollisionPreview(out _);
+
+        var chosen = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
+        chosen = ImportWizard.ChooseCollisionAction(chosen, "c2", CollisionAction.SkipIncoming);
+
+        Assert.Equal(CollisionAction.Replace, ImportWizard.ActionFor(chosen, "c1"));
+        Assert.Equal(CollisionAction.SkipIncoming, ImportWizard.ActionFor(chosen, "c2"));
+        Assert.Equal(["c1", "c3"], chosen.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
+        Assert.Equal(["c1"], chosen.Plan.Preview.ReplaceSourceKeys);
     }
 
     [Fact]
     public void Collision_choice_clears_the_dry_run_because_the_mapping_changed()
     {
-        var state = AtCollisionPreview(out var wizard);
+        var state = AtCollisionPreview(out _);
         var dryRun = ImportWizard.StartDryRun(state);
         dryRun = ImportWizard.CompleteDryRun(dryRun, new ImportDryRunReport(true, dryRun.Plan!.MappingHash, 3, 0));
         Assert.True(dryRun.CanCommit);
 
         // A collision choice is only offered in the preview, so the dry-run step refuses it.
-        var refused = ImportWizard.ChooseCollisionKeep(dryRun, "card", "Same title", "c1");
+        var refused = ImportWizard.ChooseCollisionAction(dryRun, "c1", CollisionAction.Replace);
         Assert.Equal(WizardStep.DryRun, refused.Step);
         Assert.NotNull(refused.Notice);
         Assert.True(refused.CanCommit);
+
+        var preview = ImportWizard.StartDryRun(state);
+        Assert.Null(preview.DryRun);
     }
 
     [Fact]
-    public void Collision_choice_refuses_a_key_outside_the_collision_and_an_unknown_collision()
+    public void Collision_choice_refuses_a_record_that_is_not_in_a_collision()
     {
-        var state = AtCollisionPreview(out var wizard);
+        var state = AtCollisionPreview(out _);
 
-        var wrongKey = ImportWizard.ChooseCollisionKeep(state, "card", "Same title", "c3");
-        var unknown = ImportWizard.ChooseCollisionKeep(state, "card", "No such title", "c1");
+        var refused = ImportWizard.ChooseCollisionAction(state, "c3", CollisionAction.SkipIncoming);
 
-        Assert.Empty(wrongKey.CollisionChoices);
-        Assert.Equal("that record is not part of this collision", wrongKey.Notice);
-        Assert.Equal("there is no such collision", unknown.Notice);
-        Assert.Equal(state.Plan!.MappingHash, wrongKey.Plan!.MappingHash);
+        Assert.Empty(refused.CollisionChoices);
+        Assert.Equal("that record is not part of a collision", refused.Notice);
+        Assert.Equal(state.Plan!.MappingHash, refused.Plan!.MappingHash);
     }
 
     [Fact]
     public void Retry_after_a_failed_commit_returns_to_the_preview_with_the_plan_and_choices()
     {
         var state = AtCollisionPreview(out var wizard);
-        state = ImportWizard.ChooseCollisionKeep(state, "card", "Same title", "c1");
+        state = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
         var dryRun = ImportWizard.CompleteDryRun(ImportWizard.StartDryRun(state), new ImportDryRunReport(true, state.Plan!.MappingHash, 2, 0));
         var commit = ImportWizard.StartCommit(dryRun);
         var failed = ImportWizard.CompleteCommit(commit, new ImportCommitReport(false, 0, "disk full"));

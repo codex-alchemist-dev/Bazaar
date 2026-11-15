@@ -37,7 +37,7 @@
 
       <!-- Collisions: two or more new records share a target and title; the user picks the one to keep -->
       <TextBlock Text="Collisions" FontWeight="SemiBold" />
-      <TextBlock Text="Two or more new records share a target and title. Choose the one to keep." TextWrapping="Wrap" />
+      <TextBlock Text="Two or more new records share a target and title. Choose what happens to each one." TextWrapping="Wrap" />
       <ItemsControl ItemsSource="{Binding Collisions}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="wiz:CollisionChoice">
@@ -45,10 +45,9 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
                 <TextBlock Text="{Binding Target}" Opacity="0.7" />
-                <TextBlock Text="Keep" />
-                <ComboBox ItemsSource="{Binding SourceKeys}"
-                          SelectedItem="{Binding SelectedKey, Mode=TwoWay}"
-                          PlaceholderText="Keep both (flagged)"
+                <TextBlock Text="{Binding SourceKey, StringFormat='Record: {0}'}" Opacity="0.7" />
+                <ComboBox ItemsSource="{Binding Labels}"
+                          SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
               </StackPanel>
             </Border>

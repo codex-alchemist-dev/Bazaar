@@ -51,7 +51,14 @@ public static class SourceKeys
 /// <summary>Result of previewing an import against the keys already committed.</summary>
 public sealed record ImportPreview(
     IReadOnlyList<SourceRecord> New,
-    IReadOnlyList<SourceRecord> Duplicates);
+    IReadOnlyList<SourceRecord> Duplicates)
+{
+    /// <summary>
+    /// Source keys of new records whose owner choice is replace (doc 44 section 8.10). The committer must write
+    /// each one as <c>portability.import.replace</c> in the batch audit, with the replaced object's version.
+    /// </summary>
+    public IReadOnlyList<string> ReplaceSourceKeys { get; init; } = [];
+}
 
 public static class ImportPlanner
 {

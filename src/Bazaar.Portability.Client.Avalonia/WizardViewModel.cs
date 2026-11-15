@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows.Input;
 using Bazaar.Portability;
+using Bazaar.Portability.Client;
 
 namespace Bazaar.Portability.Client.Avalonia;
 
@@ -137,9 +138,9 @@ public sealed class WizardViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Applies one collision choice from the preview. A refused choice leaves the step as it was.</summary>
-    private void ChooseCollisionKeep(CollisionChoice choice, string key)
+    private void ChooseCollision(CollisionChoice choice, CollisionAction action)
     {
-        State = ImportWizard.ChooseCollisionKeep(State, choice.Target, choice.Title, key);
+        State = ImportWizard.ChooseCollisionAction(State, choice.SourceKey, action);
     }
 
     private void Retry()
@@ -155,10 +156,11 @@ public sealed class WizardViewModel : INotifyPropertyChanged
         _collisions = state.Preview is null
             ? []
             : state.Preview.Collisions
-                .Select(c => new CollisionChoice(
+                .SelectMany(c => c.SourceKeys.Select(key => new CollisionChoice(
                     c,
-                    state.CollisionChoices.FirstOrDefault(d => d.Target == c.Target && d.Title == c.Title)?.KeepSourceKey,
-                    (choice, key) => ChooseCollisionKeep(choice, key)))
+                    key,
+                    ImportWizard.ActionFor(state, key),
+                    (choice, action) => ChooseCollision(choice, action))))
                 .ToList();
     }
 

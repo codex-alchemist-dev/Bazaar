@@ -48,25 +48,29 @@ public class ImportWizardViewHeadlessTests
         Dispatcher.UIThread.RunJobs();
 
         var preview = window.GetVisualDescendants().OfType<PreviewStepView>().Single();
-        var choice = window.GetVisualDescendants().OfType<ComboBox>().Single();
+        // One choice box per colliding record: the fixture has two.
+        var choices = window.GetVisualDescendants().OfType<ComboBox>().ToList();
+        Assert.Equal(2, choices.Count);
+        var choice = choices[0];
 
         Assert.True(preview.IsVisible);
-        Assert.Null(choice.SelectedItem);
-        Assert.Equal("Keep both (flagged)", choice.PlaceholderText);
-        Assert.Equal(2, choice.ItemCount);
+        Assert.Equal("Keep both (flagged)", choice.SelectedItem);
+        Assert.Equal(3, choice.ItemCount);
         Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Plan");
     }
 
     [AvaloniaFact]
-    public void Choosing_a_collision_record_updates_the_wizard_state()
+    public void Choosing_skip_or_replace_for_a_collision_record_updates_the_wizard_state()
     {
         var viewModel = ViewModelAt(PreviewWithCollision());
 
-        viewModel.Collisions[0].SelectedKey = "b.md#1";
+        viewModel.Collisions[0].SelectedLabel = "Skip incoming";
 
         var decision = Assert.Single(viewModel.State.CollisionChoices);
-        Assert.Equal("b.md#1", decision.KeepSourceKey);
-        Assert.Equal("b.md#1", viewModel.Collisions[0].SelectedKey);
+        Assert.Equal("a.md#1", decision.SourceKey);
+        Assert.Equal(CollisionAction.SkipIncoming, decision.Action);
+        Assert.Equal("Skip incoming", viewModel.Collisions[0].SelectedLabel);
+        Assert.Equal("Keep both (flagged)", viewModel.Collisions[1].SelectedLabel);
     }
 
     [AvaloniaFact]

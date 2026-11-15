@@ -1,32 +1,37 @@
+using Bazaar.Portability.Client;
+
 namespace Bazaar.Portability.Client.Avalonia;
 
 /// <summary>
-/// One collision in the preview with the per-item choice: which source record to keep. A null selection keeps every
-/// record and flags the collision. A change is passed to <paramref name="onChoose"/>, which applies it to the wizard.
+/// One colliding record in the preview with its per-item choice (doc 44 section 8.10). Keep both is the default.
+/// A change is passed to <paramref name="onChoose"/>, which applies it to the wizard state.
 /// </summary>
-public sealed class CollisionChoice(PreviewCollision collision, string? keepKey, Action<CollisionChoice, string> onChoose)
+public sealed class CollisionChoice(PreviewCollision collision, string sourceKey, CollisionAction action, Action<CollisionChoice, CollisionAction> onChoose)
 {
-    private string? _selectedKey = keepKey;
+    private CollisionAction _action = action;
+
+    /// <summary>The labels offered in the choice box, in the order of <see cref="CollisionAction"/>.</summary>
+    public static IReadOnlyList<string> Labels { get; } = ["Keep both (flagged)", "Skip incoming", "Replace (audited)"];
 
     public string Target => collision.Target;
 
     public string Title => collision.Title;
 
-    public IReadOnlyList<string> SourceKeys => collision.SourceKeys;
+    public string SourceKey => sourceKey;
 
-    /// <summary>The source key the user keeps. Null means keep every record.</summary>
-    public string? SelectedKey
+    /// <summary>The label of the current choice. Setting it applies the matching action.</summary>
+    public string SelectedLabel
     {
-        get => _selectedKey;
+        get => Labels[(int)_action];
         set
         {
-            if (string.Equals(_selectedKey, value, StringComparison.Ordinal) || value is null)
+            var index = Labels.ToList().IndexOf(value);
+            if (index < 0 || (CollisionAction)index == _action)
             {
-                _selectedKey = value;
                 return;
             }
-            _selectedKey = value;
-            onChoose(this, value);
+            _action = (CollisionAction)index;
+            onChoose(this, _action);
         }
     }
 }
