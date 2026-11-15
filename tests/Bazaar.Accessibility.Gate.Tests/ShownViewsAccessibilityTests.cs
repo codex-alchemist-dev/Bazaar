@@ -1,0 +1,131 @@
+using System.Text.Json;
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Bazaar.Accessibility.Avalonia;
+using Bazaar.Client.Core;
+using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Core.Pairing;
+using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Core.Souls;
+using Bazaar.Client.Core.Vault;
+using Bazaar.Client.Core.Wire;
+using Bazaar.Contracts.Engines;
+using Bazaar.Contracts.Soul;
+using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Testing;
+
+namespace Bazaar.Accessibility.Gate.Tests;
+
+/// <summary>
+/// CI gate for doc 49 section 2: every view a person is shown must have an accessible name on each interactive
+/// control. Each test builds one shown view headlessly with in-memory fakes (no network, no device) and asserts that
+/// <see cref="AccessibleControlScan.Find"/> returns nothing. Failures are not silenced: a failing view fails the build.
+/// </summary>
+/// <remarks>
+/// Covered: the shared Client.Core views that the Windows and Linux heads show (start window, group chat window,
+/// phone shell, Soul profile card, pairing form, vault search pane, engine pane).
+/// Skipped: the Android head (<c>Bazaar.Client.Android</c>). Its <c>App.axaml</c> and <c>MainActivity</c> need the
+/// Android runtime and cannot be constructed on a desktop CI host. The Windows and Linux heads define no windows of
+/// their own (<c>Program.cs</c> only calls into Client.Core), so nothing else is skipped.
+/// </remarks>
+public class ShownViewsAccessibilityTests
+{
+    private static readonly Guid _gc = Guid.Parse("0196a6f0-0000-7000-8000-000000000001");
+    private static readonly Guid _soul = Guid.Parse("0196a6f0-0000-7000-8000-000000000002");
+    private static readonly Guid _vault = Guid.Parse("0196a6f0-0000-7000-8000-000000000003");
+
+    [AvaloniaFact]
+    public void Start_window_has_named_controls()
+    {
+        var window = new MainWindow();
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Group_chat_window_has_named_controls()
+    {
+        // The session is never started, so no connection is opened. The transport below fails if anything tries.
+        var client = new WireClient(new NoConnectionTransport(), new JsonWireCodec(), new InMemoryCursorStore(),
+            new WireClientOptions { DeviceId = "accessibility-gate", DeviceClass = "linux", ClientBuild = "gate" }, new FakeClock());
+        var timeline = new ChatTimeline(new Dictionary<Guid, ChatMember>(), "me", TimeZoneInfo.Utc);
+        var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://gate.invalid/ws"), "t", _gc, "me"), timeline);
+        using var chat = new ChatViewModel(session);
+
+        var window = new MainWindow(chat);
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Phone_shell_has_named_controls()
+    {
+        var window = new Window { Content = new PhoneShell(), Width = 360, Height = 740 };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Soul_profile_view_has_named_controls()
+    {
+        var profile = new SoulProfile(_soul, "Sample Soul", "Reviewer", "haiku");
+        var version = new SoulVersion(_soul, 1, null, new string('a', 64), "{}", new string('b', 64), "gate", "initial",
+            null, DateTimeOffset.UnixEpoch);
+        var window = new Window { Content = new SoulProfileView { DataContext = new SoulProfileViewModel(profile, [version]) } };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Pairing_view_has_named_controls()
+    {
+        var flow = new PairingFlow(new NoCredentialStore(), _ => new PairingClient(new HttpClient(), (_, _) => Task.CompletedTask));
+        var window = new Window { Content = new PairingView(new PairingViewModel(flow, "linux")) };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Vault_search_view_has_named_controls()
+    {
+        using var http = new HttpClient();
+        var descriptor = new Bazaar.Contracts.Panes.PaneDescriptor("vault.search", "Vault", "vault.read", JsonElement.Parse($$"""{"vault":"{{_vault}}"}"""));
+        var window = new Window { Content = new VaultSearchView(new VaultSearchPaneViewModel(descriptor, new VaultApi(http, () => null))) };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Engine_pane_view_has_named_controls()
+    {
+        var descriptor = new PaneDescriptor("engine.scene", "Scene", EngineCapability.Scenes, JsonElement.Parse("{}"));
+        var window = new Window { Content = new EnginePaneView(new EnginePaneViewModel(descriptor)) };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+}
+
+/// <summary>A transport that fails the test if a connection is attempted. Views here must not open sockets.</summary>
+internal sealed class NoConnectionTransport : IWireTransportFactory
+{
+    public ValueTask<IWireConnection> ConnectAsync(CancellationToken cancellationToken) =>
+        throw new InvalidOperationException("The accessibility gate must not open a connection.");
+}
+
+/// <summary>An in-memory refresh-credential store with nothing saved, so the pairing view starts unpaired.</summary>
+internal sealed class NoCredentialStore : IRefreshCredentialStore
+{
+    public Task<string?> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+
+    public Task SaveAsync(string refreshCredential, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task ClearAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
