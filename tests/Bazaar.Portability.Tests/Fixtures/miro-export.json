@@ -1,9 +1,0 @@
-{
-  "data": [
-    {"type": "sticky_note", "data": {"content": "<p>Ship <b>beta</b></p>"}},
-    {"type": "text", "data": {"content": "Retro notes"}},
-    {"type": "shape", "data": {"content": ""}},
-    {"type": "sticky_note", "data": "Plain string"}
-  ],
-  "frames": ["Sprint 12", {"title": "Retro"}]
-}

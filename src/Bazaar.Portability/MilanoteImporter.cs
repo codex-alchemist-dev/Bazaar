@@ -1,132 +1,108 @@
 // Source docs (checked 2026-11-15):
 //   https://help.milanote.com/en/articles/111395-exporting-your-work
-// The article lists PDF (Standard and Large), PNG, Word, Markdown and plain text exports, plus a
-// "Generate ZIP" action that packages a board's images and files. It documents no JSON or CSV board
-// export and publishes no schema for any file, so no field names are taken from it. The item list
-// names ("items", "cards", "notes") and the keys read below (type, title, name, text, content, milanote)
-// are kept defensive and are NOT vendor-documented. Do not add fields without a documented source.
+// The article lists Markdown among the board export formats, alongside PDF, PNG, Word and plain text,
+// and a "Generate ZIP" action. It gives no layout for the Markdown file. The layout below (one card per
+// heading, the card's text as the body) is MODELLED, not verified against a real Milanote export. The
+// fixture is modelled too. Verify against a real sample before relying on it.
+// ZIP packages are not read here: the article names the ZIP but does not describe its contents.
 using System.Globalization;
-using System.Text.Json;
+using System.Text;
 
 namespace Bazaar.Portability;
 
 /// <summary>
-/// Milanote board export (JSON, unofficial). Milanote publishes no JSON export schema, so this importer is defensive:
-/// it accepts a root array, or an object holding an "items", "cards" or "notes" array, and reads the
-/// first string of title, name, text or content from each item. Non-object items yield empty records.
+/// Milanote board export as Markdown. Each heading line starts a card: its text becomes the title and the
+/// lines below it, up to the next heading, become the body. Text before the first heading becomes one card
+/// titled by its first line. Blank cards are skipped.
 /// </summary>
 public sealed class MilanoteImporter : IPortabilityImporter
 {
     private const int _titleLimit = 80;
     private const string _marker = "milanote";
-    private static readonly string[] _itemListNames = ["items", "cards", "notes"];
 
     public string Id => "bazaar.import.milanote";
     public string Version => "1.0.0";
 
     public DetectResult Detect(ImportSource source)
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(source.Content);
-            if (!TryGetItems(doc.RootElement, out var items)) return new DetectResult(0, "no milanote item list");
+        if (!IsMarkdownName(source.Name)) return new DetectResult(0, "not a Markdown file");
 
-            var nameHasMarker = source.Name.Contains(_marker, StringComparison.OrdinalIgnoreCase);
-            var itemHasMarker = false;
-            foreach (var item in items.EnumerateArray())
-            {
-                if (item.ValueKind == JsonValueKind.Object && item.TryGetProperty(_marker, out _))
-                {
-                    itemHasMarker = true;
-                    break;
-                }
-            }
-
-            return itemHasMarker || nameHasMarker
-                ? new DetectResult(0.8, "milanote marker")
-                : new DetectResult(0.4, "item list shape only");
-        }
-        catch (JsonException)
-        {
-            return new DetectResult(0, "not JSON");
-        }
+        var text = Encoding.UTF8.GetString(source.Content);
+        if (source.Name.Contains(_marker, StringComparison.OrdinalIgnoreCase))
+            return new DetectResult(0.8, "milanote file name");
+        return HeadingCount(text) > 0
+            ? new DetectResult(0.3, "Markdown headings only")
+            : new DetectResult(0, "no headings");
     }
 
     public IReadOnlyList<SourceRecord> Parse(ImportSource source)
     {
-        try
+        var text = Encoding.UTF8.GetString(source.Content);
+        var cards = SplitCards(text);
+        var records = new List<SourceRecord>();
+        for (var index = 0; index < cards.Count; index++)
         {
-            using var doc = JsonDocument.Parse(source.Content);
-            if (!TryGetItems(doc.RootElement, out var items)) return [];
+            var (title, body) = cards[index];
+            if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(body)) continue;
 
-            var records = new List<SourceRecord>();
-            var index = 0;
-            foreach (var item in items.EnumerateArray())
-            {
-                // Body is the item's text or content; a card with neither falls back to its title or name.
-                var explicitTitle = FirstString(item, "title", "name");
-                var text = FirstString(item, "text", "content") ?? explicitTitle ?? string.Empty;
-                var kind = FirstString(item, "type") ?? "note";
-                var title = explicitTitle ?? Truncate(text);
-                var key = SourceKeys.For(source.Name + "#" + index.ToString(CultureInfo.InvariantCulture), text);
-                records.Add(new SourceRecord(
-                    key,
-                    kind,
-                    title,
-                    text,
-                    new Dictionary<string, string>
-                    {
-                        ["format"] = "milanote",
-                        ["source"] = source.Name,
-                        ["type"] = kind,
-                    }));
-                index++;
-            }
-            return records;
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
-
-    private static bool TryGetItems(JsonElement root, out JsonElement items)
-    {
-        if (root.ValueKind == JsonValueKind.Array)
-        {
-            items = root;
-            return true;
-        }
-        if (root.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var name in _itemListNames)
-            {
-                if (root.TryGetProperty(name, out var list) && list.ValueKind == JsonValueKind.Array)
+            var key = SourceKeys.For(source.Name + "#" + index.ToString(CultureInfo.InvariantCulture), body);
+            records.Add(new SourceRecord(
+                key,
+                "note",
+                string.IsNullOrWhiteSpace(title) ? Truncate(body.Trim()) : title,
+                body.Trim(),
+                new Dictionary<string, string>
                 {
-                    items = list;
-                    return true;
-                }
-            }
+                    ["format"] = "milanote",
+                    ["source"] = source.Name,
+                    ["type"] = "note",
+                }));
         }
-        items = default;
-        return false;
+        return records;
     }
 
-    /// <summary>First non-blank string property among the given names; null for non-objects or when none match.</summary>
-    private static string? FirstString(JsonElement item, params string[] names)
+    /// <summary>Splits the text into (title, body) pairs at each heading line.</summary>
+    private static List<(string Title, string Body)> SplitCards(string text)
     {
-        if (item.ValueKind != JsonValueKind.Object) return null;
-        foreach (var name in names)
+        var cards = new List<(string Title, string Body)>();
+        string? title = null;
+        var body = new StringBuilder();
+
+        foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
         {
-            if (item.TryGetProperty(name, out var value)
-                && value.ValueKind == JsonValueKind.String
-                && !string.IsNullOrWhiteSpace(value.GetString()))
+            if (TryHeading(line, out var heading))
             {
-                return value.GetString();
+                if (title is not null || body.Length > 0) cards.Add((title ?? string.Empty, body.ToString()));
+                title = heading;
+                body.Clear();
+                continue;
             }
+            body.AppendLine(line);
         }
-        return null;
+
+        if (title is not null || body.Length > 0) cards.Add((title ?? string.Empty, body.ToString()));
+        return cards;
     }
+
+    private static bool TryHeading(string line, out string heading)
+    {
+        heading = string.Empty;
+        var trimmed = line.TrimStart();
+        var hashes = 0;
+        while (hashes < trimmed.Length && trimmed[hashes] == '#') hashes++;
+        if (hashes is 0 or > 6) return false;
+        if (hashes >= trimmed.Length || trimmed[hashes] != ' ') return false;
+
+        heading = Truncate(trimmed[(hashes + 1)..].Trim());
+        return true;
+    }
+
+    private static int HeadingCount(string text) =>
+        text.Split('\n').Count(line => TryHeading(line, out _));
+
+    private static bool IsMarkdownName(string name) =>
+        name.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith(".markdown", StringComparison.OrdinalIgnoreCase);
 
     private static string Truncate(string text) =>
         text.Length <= _titleLimit ? text : text[.._titleLimit];
