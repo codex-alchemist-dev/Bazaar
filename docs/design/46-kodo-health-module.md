@@ -206,6 +206,7 @@ The brief's requirement: supervised restart, crash-only design, bulkheads, circu
 
 - If Postgres is unreachable, Kodo writes its journal to a local append-only spill file in `kodo-data` with the same record format and hash chain. When Postgres returns, the spill is replayed into the database idempotently by record hash, then the spill is sealed and kept for the retention window.
 - The spill is bounded (default 512 MB); at the bound Kodo keeps the newest records and marks the gap as a journal observation. A gap is never filled with invented data.
+- **PROPOSED (package 5 review).** The `kodo.self.spill` probe reports the age of the oldest unsent spill record. A sealed or unreadable spill counts as Red, never Green. Owner to ratify.
 
 ### 7.6 Warm standby with automatic failover (optional)
 
@@ -265,6 +266,8 @@ Kodo's scope is the server, its modules, the fleet of clients and the whole envi
 Probe criticality: **critical** probes can make the state `failing`. **Non-critical** probes can make it `degraded` only. A probe may be `unknown` (timeout, breaker open, provider missing) and `unknown` never counts as green.
 
 ### 9.1 Built-in probes (PROPOSED catalogue)
+
+Thresholds for `host.disk.free`, `host.memory.pressure` and `host.clock.drift` are PROPOSED defaults, passed as constructor options and overridable in config. Owner to ratify the values.
 
 | Probe id | Category | Critical | Cadence | Pool | Method and provider |
 |---|---|---|---|---|---|
@@ -326,6 +329,7 @@ Probe criticality: **critical** probes can make the state `failing`. **Non-criti
 | `kodo.self.sentinel` | Kodo | yes | 10 s | local | Sentinel heartbeat and verifier check |
 | `kodo.self.pools` | Kodo | no | 30 s | local | Bulkhead saturation (7.3) |
 | `kodo.self.spill` | Kodo | no | 1 min | local | Spill file size and replay state (7.5) |
+| `kodo.self.journal_writable` | Kodo | yes | 30 s | local | Journal writer can append and fsync; added in package 5 (PROPOSED) |
 
 Adding a probe is a change to the catalogue, which lives in the signed runtime slot, so a new probe is an update, not a setting.
 
