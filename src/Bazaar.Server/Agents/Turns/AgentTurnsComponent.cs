@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
@@ -122,14 +123,18 @@ public sealed class AgentTurnsComponent : IBazaarComponent
         // The production turn runner (doc 06 WP5). It is built only when something resolves ITurnRunner. The wake loop (#442)
         // is off by default and is the only thing that resolves it, so no turn starts unless the operator turns it on. The route is the model route every turn
         // uses; the operator sets Bazaar:Turns:Route, and the default is the Haiku 5.5 model id.
+        // Tool calls the model makes go through the same dispatcher as every other tool call (grants, taint, audit).
         services.TryAddSingleton(sp => new TurnRunner(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<IModelGateway>(),
+            sp.GetRequiredService<IToolDispatcher>(),
             sp.GetRequiredService<TurnRunnerOptions>()));
         services.TryAddSingleton<ITurnRunner>(sp => new TurnRunAdapter(
             sp.GetRequiredService<TurnRunner>(),
             sp.GetRequiredService<ITurnContextAssembler>(),
-            TurnRoute(configuration)));
+            TurnRoute(configuration),
+            // Every tool definition a component added. A turn is offered only the ones its allowlist names.
+            ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())));
 
         AddScheduler(services, configuration);
     }

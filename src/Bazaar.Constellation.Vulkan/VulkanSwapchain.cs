@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 

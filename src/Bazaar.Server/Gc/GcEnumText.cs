@@ -54,4 +54,12 @@ internal static class GcEnumText
         "observer" => Model.GcMemberRole.Observer,
         _ => throw new InvalidDataException($"Unknown gc_member role '{text}'."),
     };
+
+    /// <summary>The <c>gc_member.role</c> column text for a role.</summary>
+    public static string ToText(Model.GcMemberRole role) => role switch
+    {
+        Model.GcMemberRole.Member => "member",
+        Model.GcMemberRole.Observer => "observer",
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown member role."),
+    };
 }

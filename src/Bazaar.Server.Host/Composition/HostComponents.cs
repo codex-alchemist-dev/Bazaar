@@ -1,3 +1,4 @@
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Community;
 using Bazaar.Server.Company;
@@ -9,12 +10,12 @@ using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
-using Bazaar.Server.Kanban.Ryusei;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Roadmap;
 using Bazaar.Server.Vault;
@@ -48,5 +49,6 @@ public static class HostComponents
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
+        new AnthropicDirectComponent(),
     ];
 }

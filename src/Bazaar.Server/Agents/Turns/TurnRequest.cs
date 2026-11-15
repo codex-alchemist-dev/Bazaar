@@ -11,6 +11,7 @@ namespace Bazaar.Server.Agents.Turns;
 /// <see cref="Tools"/> are offered to the model on an actor turn; a reader turn offers none.
 /// <see cref="MessageBuilder"/>, when set, builds the messages after the turn row exists and receives its id, so the context
 /// manifest can record it (doc 06). It then takes the place of <see cref="Messages"/>, which may be empty.
+/// <see cref="ChainDepth"/> is the wake chain depth the tool dispatcher receives with each call (doc 15); zero for no chain.
 /// </summary>
 public sealed record TurnRequest(
     Guid AgentId,
@@ -23,7 +24,8 @@ public sealed record TurnRequest(
     Func<Guid, CancellationToken, Task<IReadOnlyList<ModelMessage>>>? MessageBuilder = null,
     TurnRole Role = TurnRole.Actor,
     int? StepCapOverride = null,
-    IReadOnlyList<Guid>? InboxItemIds = null);
+    IReadOnlyList<Guid>? InboxItemIds = null,
+    int ChainDepth = 0);
 
 /// <summary>How a turn run ended.</summary>
 public enum TurnOutcome

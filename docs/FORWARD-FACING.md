@@ -2,7 +2,7 @@
 
 Status: PROPOSED (tracking doc and mechanisms; adoption items are follow-up issues).
 Owner: Bazaar maintainers (per-row owner to be confirmed by the owner).
-Last audit: 2026-11-11.
+Last audit: 2026-11-12 (dated table below; the 2026-11-11 inventory is kept and corrected by it).
 
 ## Why this exists
 
@@ -28,6 +28,53 @@ Verification levels used below:
 
 Facts about upcoming versions change quickly. Re-check this page at each wave start and
 update the "Last audit" date when you do.
+
+## Day-0 and dual-version rule (owner, 2026-11-12)
+
+This is the forward-facing principle, applied to every row below:
+
+- **Day-0 and day-1 support.** Bazaar develops for an upcoming dependency release as soon as a stable-enough beta or RC exists. We do not wait for GA. A year or a few months before a release is fine.
+- **Both versions, always.** Code and tests cover the newest release and the current stable or LTSC release at the same time. Neither is dropped. Example: PostgreSQL 18 and 19 both run, from the same code, with the same bundle layout.
+- **Newest features, graceful fallback.** Use the new features of the newest release, with a fallback path on the stable release.
+- **The pin is a default, not a limit.** Bazaar can bump a pin, and a server installer or company owner can update a dependency (possibly from inside Bazaar). The result must run on either version.
+- **Never "stay on the stable version" as the answer.** An upgrade is a pin change plus tests, not a reason to hold back.
+
+## Dated audit: 2026-11-12
+
+Method: pins read from `global.json`, `Directory.Packages.props`, `packaging/postgres/versions.txt`
+and the project files. Newest stable versions were read from the NuGet flat-container index
+(api.nuget.org), the .NET release metadata (builds.dotnet.microsoft.com), the PostgreSQL
+`versions.json`, the pgvector CHANGELOG (via the pgxn mirror, since GitHub was not reachable from
+this session), and Docker Hub tags. Web search results were used only for context. Items marked
+"not verified" were not confirmed from a primary source.
+
+| Dependency | Repo pin (2026-11-12) | Newest stable | Upcoming (RC/preview) | Action |
+|---|---|---|---|---|
+| .NET SDK and runtime | SDK 11.0.100, `allowPrerelease: false` (`global.json`) | 11.0.0 runtime, SDK 11.0.100, GA 2026-11-10 (release metadata) | None found past 11.0 | Current. The RC pins from the 11-11 inventory are gone. |
+| Microsoft.Extensions.Hosting, Configuration, DependencyInjection, Options, Hosting.WindowsServices/Systemd, ProtectedData, EventLog | 11.0.0 | 11.0.0 (NuGet) | None | Current. |
+| Microsoft.Extensions.AI.Abstractions | 10.11.0 | 11.0.0 (NuGet, depends on System.Text.Json 11.0.0) | None | Bump to 11.0.0 (issue). |
+| Microsoft.Extensions.TimeProvider.Testing | 10.11.0 | 11.0.0 | None | Bump with the row above (issue). |
+| Microsoft.AspNetCore.Mvc.Testing | 11.0.0 | 11.0.0 | None | Current. |
+| Avalonia, Avalonia.Desktop, Avalonia.Skia, Avalonia.Themes.Fluent, Avalonia.Headless.XUnit | 12.1.5 | 12.1.6 (NuGet) | 12.2: not on NuGet at this audit | Bump all to 12.1.6 in one change (issue). Avalonia.Android and Avalonia.Fonts.Inter are at 12.1.4 and should move too. |
+| SkiaSharp (transitive via Avalonia.Skia) | Avalonia.Skia 12.1.6 resolves SkiaSharp 3.119.4 | SkiaSharp 4.156.0 (stable) | 4.157.0-rc.1, 4.158.0-preview.2 | Avalonia has not moved to SkiaSharp 4 yet, so Graphite is not reachable from Avalonia. Track with the Avalonia bump. |
+| Vortice.Vulkan | 3.3.0 | 3.3.0 | None | Current. |
+| Vulkan (API) | Renderer target per doc 19 | Vulkan 1.4.361 (2026-08-28, Khronos via Phoronix); later patches not verified | None verified | Keep the 1.4 baseline. Re-check the patch level at renderer build. |
+| PostgreSQL | 18.6 (`versions.txt`; the default major, not the only one) | 18.7, released 2026-11-12 (postgresql.org `versions.json`, 18 `latestMinor` 7) | 19: RC2 scheduled 2026-11-12, GA scheduled 2026-11-19 (official target, conditional on no further RC) | Bump to 18.7 (#486). Build and test the managed layer on 18 and 19 together, using the PG 19 RC until GA (#491). The managed layer already lists `SupportedMajors = [18, 19]` (`BundleLayout.cs`). |
+| pgvector | 0.8.2 (`versions.txt`) | 0.8.7 (2026-10-01, CHANGELOG); Docker Hub has `pgvector/pgvector:0.8.7-pg18` | No 0.9.0 in the changelog mirror (not verified on GitHub) | Bump to 0.8.7 (issue). 0.8.3 fixed possible index corruption with HNSW vacuuming, so this is not cosmetic. |
+| pgvector image for PG 19 | None on Docker Hub at this audit | n/a | `pgvector/pgvector:pg19` not found | Do not wait for the image. Build pgvector 0.8.7 against the PG 19 RC in CI, as the Windows bundle does (#491). `deploy/compose/compose.pg19.yaml` stays opt-in until the image exists. |
+| Npgsql | 10.0.3 | 10.0.3 (NuGet) | 11.0 preview builds on MyGet; `Npgsql.EntityFrameworkCore.PostgreSQL` 11.0.0-rc.3 on NuGet; core 11.0 stable not on NuGet | Stay on 10.0.3. Npgsql 11 plans to make synchronous `Open` throw by default. The repo has no synchronous `Open()` calls on connections (grep of `src` and `tests`). Canary when 11.0 is stable. |
+| StackExchange.Redis | 3.4.31 | 3.4.35 (NuGet) | 4.0 alpha builds only | Bump to 3.4.35 (issue). The 3.4.5 figure in the 11-11 inventory was wrong. |
+| Valkey (not pinned; cache provider is design-only) | None | 9.1 GA 2026-05-19 (Linux Foundation). Docker Hub has a `9.1.3` tag. The valkey.io download page showed 9.1.1, so the two conflict. | 9.2.0-rc2 (Docker Hub) | Pin the latest 9.1.x patch when the cache provider is built, after verifying the patch level on the Valkey release page. |
+| MailKit, MimeKit | 4.18.2 | 5.0.0 (NuGet, stable, major) | None | Major bump. Review the 5.0 breaking changes before moving (issue). |
+| Testcontainers.PostgreSql | 4.16.0 | 4.16.0 (last stable on NuGet) | None | Current. The "2.1.0-beta" row in the 11-11 inventory was wrong. |
+| xunit.v3.mtp-v2 | 3.2.2 | 4.0.3 (NuGet) | None | Stay on 3.2.x. Avalonia.Headless.XUnit 12.1.6 still depends on xunit.v3.extensibility.core 3.2.2. Re-check when Avalonia moves (issue). |
+| Microsoft.ML.OnnxRuntime | 1.31.1 | 1.31.1 (NuGet) | 1.32 not verified | Current. |
+| Markdig, YamlDotNet, LibGit2Sharp | 1.6.0, 18.1.0, 0.32.0 | Same | None | Current. |
+| Android (`net11.0-android`) | `SupportedOSPlatformVersion` 35; no `TargetSdkVersion` set in `Bazaar.Client.Android.csproj` | Android 17 (API 37), stable since June 2026 (developer.android.com "Android 17 is here") | Android 17 minor SDK expected Q4 2026 (secondary source) | Target API 37 once the Android client builds and passes the emulator run (issue). NDK version not verified. |
+
+Corrections to the 2026-11-11 inventory: the .NET SDK and Microsoft.Extensions rows (now GA),
+the StackExchange.Redis version (3.4.31 pinned, not 3.4.5), the Testcontainers row, and the PG
+18 and pgvector "next" rows (both were behind). Item 1 of the follow-up list is done.
 
 ## Mechanisms
 
@@ -55,6 +102,8 @@ Known limits:
   the follow-up list.
 
 ## Inventory and status
+
+The rows below are the 2026-11-11 inventory. Where the dated table above differs, the dated table wins.
 
 Pins are read from `global.json`, `Directory.Packages.props`, `packaging/postgres/versions.txt`,
 `packaging/oci/Dockerfile`, `packaging/oci/docker-compose.yml`, `.github/workflows/*.yml`,
@@ -150,3 +199,16 @@ A new version is adopted when all of these are true:
 
 Preview versions are tracked and tested through the canary and Renovate. They are not
 adopted into the production pin until they are stable.
+
+## Decided 2026-11-13
+
+Owner decisions of 2026-11-13. Each bullet links the design doc that carries it. Doc 46 is the Kodo doc. Doc 49 is the operations, release and governance doc.
+
+- **Dependencies are modules.** No separate dependency manager. PostgreSQL, pgvector and runtimes are modules tagged Deps, bundled and supervised by the server. See [doc 42](design/42-deps-as-modules.md).
+- **Immutable Kodo with A/B rollback.** Kodo is signed and verified on every start, runs from a read-only runtime with separate writable data, and rolls back atomically to the previous version. See [doc 46](design/46-kodo-health-module.md).
+- **Module API semver contract.** Modules depend on a versioned public module API with compatibility shims, contract tests and a compatibility matrix. See doc 49.
+- **SBOM and signed releases.** Every release ships a software bill of materials and signed artifacts. See doc 49 and [doc 47](design/47-licensing-and-trademarks.md) for the licence check that reads the SBOM.
+- **PostgreSQL 18 and 19 dual-version.** Both versions are supported as one module. Newest and stable are always supported, with day-0 support for betas. See [doc 42](design/42-deps-as-modules.md).
+- **Accessibility from day one.** Keyboard, screen reader and i18n support are required from the first release, not added later. See doc 49 and [doc 41](design/41-client-gui-customization-and-dsl.md) for mnemonic navigation.
+- **Data portability.** Everything is exportable, and any mass dump or common tool export can be imported through importer modules. See [doc 44](design/44-data-portability.md).
+- **Release channels.** Stable, beta, nightly and LTS releases, plus staged rings tied to health signals, with automatic halt on a bad release. See doc 49 and [doc 37](design/37-distribution-matrix-and-packaging.md).

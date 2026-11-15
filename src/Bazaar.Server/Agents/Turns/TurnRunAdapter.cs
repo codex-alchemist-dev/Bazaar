@@ -10,9 +10,9 @@ namespace Bazaar.Server.Agents.Turns;
 /// definitions in the catalogue named by the request's allowlist are offered to an actor turn; a reader turn offers none.
 /// </para>
 /// <para>
-/// Not yet covered, and left out rather than approximated: tool dispatch (a tool call still fails the turn, so offering
-/// tools only helps when the model answers without calling one), and recording the parent turn and depth. Those follow in
-/// the next consolidation PRs.
+/// A tool call the model makes is dispatched by the runner through <see cref="IToolDispatcher"/>, and its result goes back to the
+/// model on the next step. Not yet covered, and left out rather than approximated: recording the parent turn and depth. Those
+/// follow in the next consolidation PRs.
 /// </para>
 /// </summary>
 /// <param name="runner">The consolidated runner that runs the loop.</param>
@@ -49,7 +49,8 @@ public sealed class TurnRunAdapter(
                 MessageBuilder: (turnId, ct) => BuildMessagesAsync(request, turnId, ct),
                 Role: request.Role,
                 StepCapOverride: request.StepCapOverride,
-                InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null),
+                InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null,
+                ChainDepth: request.ChainDepth),
             cancellationToken).ConfigureAwait(false);
 
         return new TurnRunOutcome(

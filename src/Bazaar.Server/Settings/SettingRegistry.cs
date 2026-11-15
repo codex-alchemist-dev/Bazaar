@@ -26,6 +26,7 @@ public sealed class SettingRegistry
     public static SettingRegistry Known { get; } = new(
         HostSettings.All
             .Concat(Calendar.CalendarSettings.All)
+            .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
             .Concat(Gateway.GatewaySettings.All)

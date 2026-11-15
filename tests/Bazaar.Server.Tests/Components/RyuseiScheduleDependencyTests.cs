@@ -1,5 +1,5 @@
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Components;
-using Bazaar.Server.Kanban.Ryusei;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="t d">
+  <title id="t">Bazaar.Server: the headless brain that does all the compute</title>
+  <desc id="d">A teal banner for the server category. It shows a headless .NET 11 program that runs as a Windows Service or a systemd unit. Around it are the server's main jobs: the group chat log, the knowledge graph that serves agent memory and retrieval, the RyuseiFuda scheduler, the model gateway, and managed PostgreSQL 18 and 19 with pgvector.</desc>
+  <defs>
+    <radialGradient id="glowS" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#0f4a4a" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0c1a1c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="960" height="320" rx="16" fill="#0c1a1c"/>
+  <rect width="960" height="320" rx="16" fill="url(#glowS)"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="48" y="92" fill="#e8fbf7" font-size="40" font-weight="800">Bazaar.Server</text>
+    <text x="48" y="128" fill="#9ed8cc" font-size="17">The headless brain. One .NET 11 program,</text>
+    <text x="48" y="150" fill="#9ed8cc" font-size="17">Windows Service or systemd, doing all the compute.</text>
+    <text x="48" y="206" fill="#6fb8aa" font-size="14">GC log  ·  Knowledge graph  ·  RyuseiFuda scheduler</text>
+    <text x="48" y="228" fill="#6fb8aa" font-size="14">Model gateway  ·  PostgreSQL 18 and 19</text>
+    <g font-size="16" text-anchor="middle">
+      <rect x="500" y="40" width="200" height="110" rx="12" fill="#133236" stroke="#2f7f74" stroke-width="2"/>
+      <text x="600" y="90" fill="#e8fbf7" font-weight="700">GC log</text>
+      <text x="600" y="116" fill="#9ed8cc" font-size="13">append-only, NOTIFY</text>
+      <rect x="720" y="40" width="200" height="110" rx="12" fill="#133236" stroke="#2f7f74" stroke-width="2"/>
+      <text x="820" y="90" fill="#e8fbf7" font-weight="700">Knowledge graph</text>
+      <text x="820" y="116" fill="#9ed8cc" font-size="13">memory and retrieval</text>
+      <rect x="500" y="170" width="200" height="110" rx="12" fill="#133236" stroke="#2f7f74" stroke-width="2"/>
+      <text x="600" y="220" fill="#e8fbf7" font-weight="700">Model gateway</text>
+      <text x="600" y="246" fill="#9ed8cc" font-size="13">per-agent model policy</text>
+      <rect x="720" y="170" width="200" height="110" rx="12" fill="#133236" stroke="#2f7f74" stroke-width="2"/>
+      <text x="820" y="212" fill="#e8fbf7" font-weight="700">PostgreSQL</text>
+      <text x="820" y="234" fill="#9ed8cc" font-size="13">18 and 19, with pgvector</text>
+    </g>
+  </g>
+</svg>

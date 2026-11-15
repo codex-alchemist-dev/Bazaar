@@ -15,15 +15,15 @@ namespace Bazaar.Server.Gc.Wire;
 /// the state, opens the current version, seals the new text under the author's key, and appends the event and any note.
 /// </summary>
 /// <remarks>
-/// Not yet wired: the edit window (unlimited here, because no <c>gc.edit_window</c> setting exists yet) and the
-/// "messageWasActedOn" input (always false, because reaction and trigger tracking does not record acted-on messages yet).
-/// Both are documented in the PR so the defaults are visible.
+/// The edit window comes from the <c>gc.edit_window_hours</c> setting (0 means unlimited). Not yet wired: the
+/// "messageWasActedOn" input, which is always false because reaction and trigger tracking does not record acted-on messages yet.
 /// </remarks>
 public sealed class GcEditHandler(
     IGcLogWriter writer,
     IGcBodyCodec bodies,
     GcReadAccess access,
     PgGcEditSource source,
+    Bazaar.Server.Settings.ISettingStore settings,
     TimeProvider? timeProvider = null) : IWireRequestHandler
 {
     /// <inheritdoc />
@@ -57,6 +57,9 @@ public sealed class GcEditHandler(
         if (currentBody is null)
             return WireReply.Fail(WireErrorCodes.BadRequest, "This message can no longer be edited.");
 
+        var editWindowHours = await settings.GetAsync(GcSettings.EditWindowHoursKey, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var editWindow = editWindowHours == 0 ? (TimeSpan?)null : TimeSpan.FromHours(editWindowHours);
+
         var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
         var plan = MessageEditPlanner.Plan(
             snapshot.Gc,
@@ -69,7 +72,7 @@ public sealed class GcEditHandler(
             snapshot.CreatedAt,
             request.Text,
             now,
-            editWindow: null,
+            editWindow,
             MessageEditPlanner.DefaultMaxBodyBytes,
             viewer.Kind == PrincipalKind.Agent ? SourceTrust.Agent : viewer.Kind == PrincipalKind.Owner ? SourceTrust.Owner : SourceTrust.MemberHuman,
             messageWasActedOn: false);
