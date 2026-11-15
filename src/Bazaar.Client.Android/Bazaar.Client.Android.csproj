@@ -31,6 +31,7 @@
   <ItemGroup Condition="'$(BazaarAndroid)' == 'true'">
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Xamarin.AndroidX.Window" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
