@@ -56,6 +56,7 @@
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Windows.Tests/Bazaar.Client.Windows.Tests.csproj" />
+    <Project Path="tests/Bazaar.Secrets.Windows.Tests/Bazaar.Secrets.Windows.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Linux.Tests/Bazaar.Client.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Michi.Tests/Bazaar.Michi.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
