@@ -58,6 +58,13 @@ public sealed class VaultImportTarget(IGitProvider git, string repoPath, string 
                     {
                         throw new IOException("Replace refused: the stored note is gone: " + location);
                     }
+                    // Optimistic concurrency: the note must still read as it did when it was looked up (its version is that commit).
+                    var atLookup = await git.ReadTextAsync(repoPath, existing.Version, location, ct);
+                    var atHead = await git.ReadTextAsync(repoPath, await git.HeadAsync(checkoutPath, ct), location, ct);
+                    if (!string.Equals(atLookup, atHead, StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException("Replace refused: the stored note changed after it was looked up: " + location);
+                    }
                     restored.Add((target, await File.ReadAllTextAsync(target, ct)));
                     await File.WriteAllTextAsync(target, VaultMarkdown.Render(item, existing.ObjectId), new UTF8Encoding(false), ct);
                     replaced.Add(item);

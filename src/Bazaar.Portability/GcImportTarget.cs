@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gc;
 using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Edit;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 
@@ -30,41 +31,61 @@ public sealed class GcImportTarget(
     Guid gcId,
     Guid authorId,
     AuthorKind authorKind,
-    GcPrincipal viewer)
+    GcPrincipal viewer,
+    IGcMessageEditor? editor = null)
 {
-    /// <summary>Appends one batch as a single append call. Throws when the batch cannot be appended.</summary>
+    /// <summary>
+    /// Appends one batch. Replace items go first, one at a time, through <see cref="IGcMessageEditor"/>, the same path a manual
+    /// edit takes, so the same planner checks apply. The other items are appended in one call. A replace without an editor, a
+    /// replace by another author, or a refused edit fails the batch. Edits that already went through stay in the log.
+    /// </summary>
     public async Task AppendBatchAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(items);
-        var requests = new List<AppendRequest>(items.Count);
-        foreach (var item in items)
+        var replaces = items.Where(i => i.Replaces is not null).ToList();
+        if (replaces.Count > 0 && editor is null)
         {
-            var body = await codec.SealAsync(authorId, item.Record.Body, ct);
-            var payload = PayloadFor(jobId, batchIndex, item.Record);
-            if (item.Replaces is null)
-            {
-                requests.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
-                {
-                    Message = body,
-                    PayloadJson = payload,
-                });
-                continue;
-            }
+            throw new NotSupportedException("Replace needs a GC message editor; the batch is refused.");
+        }
 
-            // A replace appends a new version of the stored message. Earlier versions stay in the log (doc 01, edits).
-            var stored = item.Replaces;
+        foreach (var item in replaces)
+        {
+            var stored = item.Replaces!;
             if (!string.Equals(stored.Owner, authorId.ToString("D"), StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Replace refused: the stored message was written by another author.");
             }
             var version = int.Parse(stored.Version, CultureInfo.InvariantCulture) + 1;
-            requests.Add(new AppendRequest(gcId, GcEventKinds.MessageEdit, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + version.ToString(CultureInfo.InvariantCulture))
+            var outcome = await editor!.EditAsync(
+                new GcMessageEdit(gcId, Guid.Parse(stored.ObjectId), authorId, PrincipalKindOf(authorKind), item.Record.Body,
+                    ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + version.ToString(CultureInfo.InvariantCulture)),
+                ct);
+            switch (outcome)
+            {
+                case GcMessageEditAccepted:
+                    break;
+                case GcMessageEditRefused refused:
+                    throw new InvalidOperationException("Replace refused: " + refused.Reason);
+                case GcMessageEditUnopenable:
+                    throw new InvalidOperationException("Replace refused: the stored message can no longer be opened.");
+                default:
+                    throw new InvalidOperationException("Replace refused: the stored message was not found.");
+            }
+        }
+
+        var requests = new List<AppendRequest>(items.Count);
+        foreach (var item in items.Where(i => i.Replaces is null))
+        {
+            var body = await codec.SealAsync(authorId, item.Record.Body, ct);
+            requests.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
             {
                 Message = body,
-                MessageId = Guid.Parse(stored.ObjectId),
-                Version = version,
-                PayloadJson = payload,
+                PayloadJson = PayloadFor(jobId, batchIndex, item.Record),
             });
+        }
+        if (requests.Count == 0)
+        {
+            return;
         }
 
         var results = await appender.AppendManyAsync(requests, ct);
@@ -74,6 +95,13 @@ public sealed class GcImportTarget(
                 + " results for " + requests.Count.ToString(CultureInfo.InvariantCulture) + " requests");
         }
     }
+
+    private static PrincipalKind PrincipalKindOf(AuthorKind kind) => kind switch
+    {
+        AuthorKind.Owner => PrincipalKind.Owner,
+        AuthorKind.Agent => PrincipalKind.Agent,
+        _ => PrincipalKind.Human,
+    };
 
     /// <summary>Reads the GC log from the start and returns the source keys of this job's import messages, in log order.</summary>
     public async Task<IReadOnlyList<string>> ReadSourceKeysAsync(string jobId, CancellationToken ct)
