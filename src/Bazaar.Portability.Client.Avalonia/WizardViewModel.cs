@@ -36,6 +36,7 @@ public sealed class WizardViewModel : INotifyPropertyChanged
         ChooseImporterCommand = new WizardCommand(id => ChooseImporter(id as string), () => State.Step is WizardStep.Detect or WizardStep.Preview or WizardStep.DryRun);
         DryRunCommand = new WizardCommand(p => { _ = RunDryRunAsync(); }, () => State.Step == WizardStep.Preview);
         CommitCommand = new WizardCommand(p => { _ = RunCommitAsync(); }, () => State.CanCommit);
+        RetryCommand = new WizardCommand(p => Retry(), () => State.Step == WizardStep.Failed);
 
         _state = initial ?? WizardState.Initial;
         Rebuild(_state);
@@ -90,6 +91,8 @@ public sealed class WizardViewModel : INotifyPropertyChanged
 
     public ICommand CommitCommand { get; }
 
+    public ICommand RetryCommand { get; }
+
     private async Task PickSourceAsync()
     {
         var source = await _pickSource().ConfigureAwait(true);
@@ -133,6 +136,17 @@ public sealed class WizardViewModel : INotifyPropertyChanged
         State = ImportWizard.CompleteCommit(State, report);
     }
 
+    /// <summary>Applies one collision choice from the preview. A refused choice leaves the step as it was.</summary>
+    private void ChooseCollisionKeep(CollisionChoice choice, string key)
+    {
+        State = ImportWizard.ChooseCollisionKeep(State, choice.Target, choice.Title, key);
+    }
+
+    private void Retry()
+    {
+        State = _wizard.Retry(State);
+    }
+
     private void Rebuild(WizardState state)
     {
         _candidates = state.Step == WizardStep.Detect
@@ -140,7 +154,12 @@ public sealed class WizardViewModel : INotifyPropertyChanged
             : [];
         _collisions = state.Preview is null
             ? []
-            : state.Preview.Collisions.Select(c => new CollisionChoice(c)).ToList();
+            : state.Preview.Collisions
+                .Select(c => new CollisionChoice(
+                    c,
+                    state.CollisionChoices.FirstOrDefault(d => d.Target == c.Target && d.Title == c.Title)?.KeepSourceKey,
+                    (choice, key) => ChooseCollisionKeep(choice, key)))
+                .ToList();
     }
 
     private void RaiseAll()

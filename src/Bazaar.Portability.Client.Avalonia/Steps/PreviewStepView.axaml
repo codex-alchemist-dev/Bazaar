@@ -48,6 +48,7 @@
                 <TextBlock Text="Keep" />
                 <ComboBox ItemsSource="{Binding SourceKeys}"
                           SelectedItem="{Binding SelectedKey, Mode=TwoWay}"
+                          PlaceholderText="Keep both (flagged)"
                           HorizontalAlignment="Stretch" />
               </StackPanel>
             </Border>

@@ -34,10 +34,16 @@ public sealed record WizardState
     /// <summary>The pipeline result for the current mapping. Null until a single importer is chosen.</summary>
     public ImportPipelineResult? Plan { get; init; }
 
+    /// <summary>The pipeline result as planned, before any collision choice. Decisions are always applied to this.</summary>
+    public ImportPipelineResult? BasePlan { get; init; }
+
     public PreviewSummary? Preview { get; init; }
 
     /// <summary>The dry-run for the current mapping. Null until the dry-run runs; cleared by any mapping change.</summary>
     public ImportDryRunReport? DryRun { get; init; }
+
+    /// <summary>The per-item collision choices made in the preview. Any mapping change clears them.</summary>
+    public IReadOnlyList<CollisionDecision> CollisionChoices { get; init; } = [];
 
     public ImportCommitReport? Commit { get; init; }
 
