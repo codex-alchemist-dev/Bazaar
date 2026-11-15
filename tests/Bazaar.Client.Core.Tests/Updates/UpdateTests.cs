@@ -5,7 +5,7 @@ namespace Bazaar.Client.Core.Tests.Updates;
 
 public sealed class UpdateTests
 {
-    private static readonly Uri Https = new("https://company.example/updates/Bazaar.msix");
+    private static Uri Https => new("https://company.example/updates/Bazaar.msix");
 
     [Theory]
     [InlineData("0.1.0", 0, 1, 0, "")]
