@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -22,11 +23,10 @@ public sealed class VaultSearchView : UserControl
         _pane = pane ?? throw new ArgumentNullException(nameof(pane));
         _pane.Changed += (_, _) => Redraw();
 
-        _query = new TextBox { PlaceholderText = "Search the Vault", Text = pane.Query, MinWidth = 220 };
-        _query.Name = "QueryBox";
+        _query = new TextBox { PlaceholderText = "Search the Vault", Text = pane.Query, MinWidth = 220, [AutomationProperties.NameProperty] = "Search the Vault" };
         _query.TextChanged += (_, _) => _pane.Query = _query.Text ?? string.Empty;
 
-        var search = new Button { Content = "Search", Name = "SearchButton" };
+        var search = new Button { Content = "Search", Name = "SearchButton", [AutomationProperties.NameProperty] = "Run vault search" };
         search.Click += (_, _) => _ = _pane.SearchAsync(CancellationToken.None);
         _query.KeyDown += (_, e) =>
         {

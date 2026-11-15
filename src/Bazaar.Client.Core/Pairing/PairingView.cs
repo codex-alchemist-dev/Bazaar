@@ -1,3 +1,4 @@
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Layout;
@@ -18,13 +19,13 @@ public sealed class PairingView : UserControl
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = _viewModel;
 
-        var serverAddress = new TextBox { PlaceholderText = "Server address" };
+        var serverAddress = new TextBox { PlaceholderText = "Server address", [AutomationProperties.NameProperty] = "Server address" };
         serverAddress.Bind(TextBox.TextProperty, new Binding(nameof(PairingViewModel.ServerAddress)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
 
-        var userCode = new TextBox { PlaceholderText = "Code from your other device" };
+        var userCode = new TextBox { PlaceholderText = "Code from your other device", [AutomationProperties.NameProperty] = "Code from your other device" };
         userCode.Bind(TextBox.TextProperty, new Binding(nameof(PairingViewModel.UserCode)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
 
-        var pair = new Button { Content = "Pair", HorizontalAlignment = HorizontalAlignment.Left };
+        var pair = new Button { Content = "Pair", HorizontalAlignment = HorizontalAlignment.Left, [AutomationProperties.NameProperty] = "Pair this device" };
         pair.Bind(Button.IsEnabledProperty, new Binding(nameof(PairingViewModel.CanPair)));
         pair.Click += (_, _) => _ = _viewModel.PairAsync();
 
