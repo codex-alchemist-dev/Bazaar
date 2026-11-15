@@ -1,0 +1,29 @@
+{
+    "version": "{{MACHINE_VERSION}}",
+    "description": "Native client for the Bazaar platform.",
+    "homepage": "https://github.com/codex-alchemist-dev/Bazaar",
+    "license": "AGPL-3.0-only",
+    "architecture": {
+        "64bit": {
+            "url": "{{PORTABLE_ZIP_URL}}",
+            "hash": "{{PORTABLE_ZIP_SHA256}}"
+        }
+    },
+    "bin": "Bazaar.Client.Windows.exe",
+    "shortcuts": [
+        [
+            "Bazaar.Client.Windows.exe",
+            "Bazaar Client"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/codex-alchemist-dev/Bazaar"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "{{PORTABLE_ZIP_URL_TEMPLATE}}"
+            }
+        }
+    }
+}

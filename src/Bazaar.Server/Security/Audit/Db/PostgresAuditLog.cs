@@ -8,7 +8,7 @@ namespace Bazaar.Server.Security.Audit.Db;
 /// only persists the records and reads them back. Works under the runtime role (<c>bazaar_app</c>): it needs INSERT and
 /// SELECT, never UPDATE or DELETE.
 /// </summary>
-public sealed class PostgresAuditLog(NpgsqlDataSource dataSource) : IAuditLog
+public sealed class PostgresAuditLog(NpgsqlDataSource dataSource) : ITransactionalAuditLog
 {
     /// <summary>Advisory-lock key that serialises appends. Distinct from the migration lock and the GC locks ("BAUDITLG").</summary>
     private const long _appendLockKey = 0x4241554449544C47;
@@ -22,14 +22,36 @@ public sealed class PostgresAuditLog(NpgsqlDataSource dataSource) : IAuditLog
     /// </summary>
     public async Task AppendAsync(AuditEntry e, CancellationToken ct = default)
     {
+        ValidateEntry(e);
+
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await AppendCoreAsync(conn, tx, e, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Appends one entry inside the caller's transaction (<see cref="ITransactionalAuditLog"/>). The same advisory lock
+    /// and head read apply, so the entry joins the chain in commit order with every other appender.
+    /// </summary>
+    public Task AppendInTransactionAsync(NpgsqlConnection conn, NpgsqlTransaction tx, AuditEntry e, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(conn);
+        ArgumentNullException.ThrowIfNull(tx);
+        ValidateEntry(e);
+        return AppendCoreAsync(conn, tx, e, ct);
+    }
+
+    private static void ValidateEntry(AuditEntry e)
+    {
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(e.Actor);
         ArgumentNullException.ThrowIfNull(e.Kind);
         ArgumentNullException.ThrowIfNull(e.Payload);
+    }
 
-        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
-        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
-
+    private static async Task AppendCoreAsync(NpgsqlConnection conn, NpgsqlTransaction tx, AuditEntry e, CancellationToken ct)
+    {
         await using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock($1)", conn, tx))
         {
             lockCmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = _appendLockKey });
@@ -52,8 +74,6 @@ public sealed class PostgresAuditLog(NpgsqlDataSource dataSource) : IAuditLog
             insert.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = record.Hash });
             await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
-
-        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>The newest record, or null for an empty log.</summary>

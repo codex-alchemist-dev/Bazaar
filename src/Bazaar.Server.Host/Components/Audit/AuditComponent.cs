@@ -29,6 +29,7 @@ public sealed class AuditComponent : IBazaarComponent
         services.TryAddSingleton(sp => SharedDataSource(sp));
         services.TryAddSingleton<PostgresAuditLog>();
         services.TryAddSingleton<IAuditLog>(sp => sp.GetRequiredService<PostgresAuditLog>());
+        services.TryAddSingleton<ITransactionalAuditLog>(sp => sp.GetRequiredService<PostgresAuditLog>());
     }
 
     /// <summary>

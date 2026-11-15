@@ -1,16 +1,25 @@
 using System.Text;
 using Bazaar.Server.Vault.Links;
 using Bazaar.Server.Vault.Markdown;
+using Bazaar.Server.Vault.Search;
 
 namespace Bazaar.Server.Vault.Writes;
 
 /// <summary>
-/// Move and rename with link rewrite (doc 18, work package 8). The move runs in the main checkout under the vault lane,
-/// so it lands as one commit: the file moves, and every wiki-link that resolved to it by path points at the new path.
+/// Move and rename with link rewrite (doc 18, work packages 8 and 12). The move runs in the main checkout under the vault
+/// lane, so it lands as one commit: the file moves, and every wiki-link that resolves to it by path points at the new path.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>Principal checks.</b> The caller must be able to read the moved document. Links are resolved only through documents
+/// the caller can read, so a private document of another agent never resolves and never counts as ambiguity. A move that
+/// would rewrite a document the caller cannot read is refused whole, with the blocked paths listed, so no partial rename
+/// reaches the Vault.
+/// </para>
+/// <para>
 /// Only links that match by path are rewritten. A link that matched by title or alias still resolves after the move, so
 /// it keeps its text. Ambiguous links are left alone; a warning would hide a real choice from the author.
+/// </para>
 /// </remarks>
 public sealed partial class VaultWriter
 {
@@ -23,6 +32,7 @@ public sealed partial class VaultWriter
     public async Task<VaultEditResult> MoveAsync(VaultMoveRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Caller);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.AgentId);
         ValidateTrailerValue(request.AgentId, nameof(request.AgentId));
         ValidateOptionalTrailerValue(request.GcId, nameof(request.GcId));
@@ -56,8 +66,18 @@ public sealed partial class VaultWriter
             return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
         }
 
-        var index = await BuildIndexAsync(ct);
-        var rewrites = await PlanLinkRewritesAsync(index, request.FromPath, request.ToPath, ct);
+        if (!VaultAccess.CanRead(OwnerOf(fromText), request.Caller))
+        {
+            return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
+        }
+
+        var (index, owners) = await BuildIndexAsync(ct);
+        var (rewrites, blocked) = await PlanLinkRewritesAsync(index, owners, request, ct);
+        if (blocked)
+        {
+            // Only the moved path is named: listing a private document that links to it would reveal that document.
+            return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
+        }
 
         Directory.CreateDirectory(Path.GetDirectoryName(toFull)!);
         File.Move(fromFull, toFull);
@@ -72,14 +92,19 @@ public sealed partial class VaultWriter
         message.Append("\n\n");
         AppendTrailers(message, request.AgentId, request.GcId, request.TaskId, oldCommit);
         var newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+        await NotifyAsync(oldCommit, newCommit, ct);
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], null);
     }
 
-    /// <summary>Builds the index entries for every Markdown file in the main checkout, ordinal-sorted by path.</summary>
-    private async Task<List<VaultIndexEntry>> BuildIndexAsync(CancellationToken ct)
+    /// <summary>
+    /// Builds the index entries for every Markdown file in the main checkout, ordinal-sorted by path, and the owner of each
+    /// document (null for shared documents).
+    /// </summary>
+    private async Task<(List<VaultIndexEntry> Index, Dictionary<string, string?> Owners)> BuildIndexAsync(CancellationToken ct)
     {
         var entries = new List<VaultIndexEntry>();
+        var owners = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var full in Directory.EnumerateFiles(_repoPath, "*" + _markdownExtension, SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(_repoPath, full).Replace('\\', '/');
@@ -99,24 +124,31 @@ public sealed partial class VaultWriter
                 front?.Project,
                 [],
                 []));
+            owners[relative] = front?.Owner;
         }
 
-        return entries.OrderBy(entry => entry.Path, StringComparer.Ordinal).ToList();
+        return (entries.OrderBy(entry => entry.Path, StringComparer.Ordinal).ToList(), owners);
     }
 
     /// <summary>
     /// Works out the rewritten text of every document that links to the moved one by path. Returns the new text keyed by
-    /// the path it has before the move; the moved document is included when it links to itself.
+    /// the path it has before the move. <c>blocked</c> is true when the move would rewrite a document the caller cannot
+    /// read; the caller then refuses the whole move.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, string>> PlanLinkRewritesAsync(
+    private async Task<(IReadOnlyDictionary<string, string> Rewrites, bool Blocked)> PlanLinkRewritesAsync(
         List<VaultIndexEntry> index,
-        string fromPath,
-        string toPath,
+        Dictionary<string, string?> owners,
+        VaultMoveRequest request,
         CancellationToken ct)
     {
         var rewrites = new Dictionary<string, string>(StringComparer.Ordinal);
-        var oldTarget = StripExtension(fromPath);
-        var newTarget = StripExtension(toPath);
+        var blocked = false;
+        var oldTarget = StripExtension(request.FromPath);
+        var newTarget = StripExtension(request.ToPath);
+
+        // Entries the caller cannot read are removed before resolution, so they never match and never cause ambiguity.
+        bool CanSee(VaultIndexEntry entry) => VaultAccess.CanRead(owners[entry.Path], request.Caller);
+
         foreach (var entry in index)
         {
             var text = await File.ReadAllTextAsync(ResolveInside(_repoPath, entry.Path), ct);
@@ -130,9 +162,9 @@ public sealed partial class VaultWriter
                 }
 
                 // The resolver decides what the link means; only an unambiguous path match is rewritten.
-                var resolution = VaultLinkResolver.Resolve(link, entry, index, _ => true, VaultAmbiguousLinkPolicy.Refuse);
+                var resolution = VaultLinkResolver.Resolve(link, entry, index, CanSee, VaultAmbiguousLinkPolicy.Refuse);
                 if (!resolution.Resolved || resolution.Warning is not null
-                    || !string.Equals(resolution.Target?.Path, fromPath, StringComparison.Ordinal))
+                    || !string.Equals(resolution.Target?.Path, request.FromPath, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -145,24 +177,48 @@ public sealed partial class VaultWriter
                     continue;
                 }
 
-                var replacementTarget = link.Target.EndsWith(_markdownExtension, StringComparison.Ordinal) ? toPath : newTarget;
+                var replacementTarget = link.Target.EndsWith(_markdownExtension, StringComparison.Ordinal) ? request.ToPath : newTarget;
                 var replaced = linkText.Remove(targetAt, link.Target.Length).Insert(targetAt, replacementTarget);
                 edits.Add(new SourceEdit(link.Start, link.Length, replaced));
             }
 
-            if (edits.Count > 0)
+            if (edits.Count == 0)
             {
-                rewrites[entry.Path] = document.Render(edits);
+                continue;
             }
+
+            // A link inside a document the caller cannot read would have to change, which the caller may not do.
+            if (!CanSee(entry))
+            {
+                blocked = true;
+                break;
+            }
+
+            rewrites[entry.Path] = document.Render(edits);
         }
 
-        return rewrites;
+        return (rewrites, blocked);
     }
 
     private static bool IsFrozenDecision(string path, string text) =>
         path.StartsWith("decisions/", StringComparison.Ordinal)
         && DecisionImmutability.StatusOf(text) is { } status
         && status != "proposed";
+
+    /// <summary>The owner named in front matter, in the form <see cref="VaultAccess"/> compares; null for shared documents.</summary>
+    private static string? OwnerOf(string text)
+    {
+        try
+        {
+            return VaultMarkdown.Parse(text).FrontMatter?.Owner;
+        }
+        catch (VaultFormatException)
+        {
+            // A document with broken front matter is treated as private to nobody it can name: no owner means shared,
+            // so the caller must not be able to move it past the check. Fail closed instead.
+            throw new InvalidOperationException("Cannot check access on a document with invalid front matter.");
+        }
+    }
 
     private static void ValidateVaultPath(string path, string paramName)
     {
@@ -192,11 +248,15 @@ public sealed partial class VaultWriter
         path.EndsWith(_markdownExtension, StringComparison.Ordinal) ? path[..^_markdownExtension.Length] : path;
 }
 
-/// <summary>A request to move or rename a document. Paths are relative to the Vault root, using '/'.</summary>
+/// <summary>
+/// A request to move or rename a document. Paths are relative to the Vault root, using '/'. <see cref="Caller"/> is the
+/// principal making the change; the move checks it against every document it would touch.
+/// </summary>
 public sealed record VaultMoveRequest(
     Guid DocId,
     string FromPath,
     string ToPath,
     string AgentId,
     string? GcId,
-    string? TaskId);
+    string? TaskId,
+    VaultCaller Caller);

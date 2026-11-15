@@ -1,3 +1,5 @@
+using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Read;
@@ -46,6 +48,20 @@ public class GcComponentTests
         Assert.NotNull(provider.GetRequiredService<IGcLogWriter>());
         Assert.NotNull(provider.GetRequiredService<IGcLogReader>());
         Assert.NotNull(provider.GetRequiredService<IGcReadAccess>());
+    }
+
+    [Fact]
+    public void Gc_component_registers_the_gc_agent_post_sink()
+    {
+        // The sink needs ILoopGuard, which the host registers, so this checks the registration rather than resolving it.
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+
+        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new GcComponent()]);
+
+        Assert.Contains(services, d => d.ServiceType == typeof(IAgentPostSink)
+            && d.ImplementationType == typeof(GcAgentPostSink));
     }
 
     [Fact]

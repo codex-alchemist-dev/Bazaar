@@ -108,6 +108,7 @@ Systems with their own dedicated doc are marked; read there for full detail.
 | **Resource Economy** | **REJECTED 2026-10-24 (owner)** | No money budgets or wallet. Limits come from quotas and the Work-Life Simulation. |
 | **Interrupt System** | PROPOSED (5★) | Formal interrupt/resume stack. |
 | **Company Calendar** | PROPOSED (4★) | Internal planning/release/vacation calendar. |
+| **RyuseiFuda** (流星札, "shooting star ticket") | PROPOSED | The company planner, named by the owner. Three layers: the macro board (team schedule and workflow; today's Kanban, doc 12), the micro schedule (per-agent timers, intervals, watchers and events that re-invoke an agent), and the objective roadmap (Vault objectives and phases, shown in the Constellation). It is the formal answer to agent loop and scheduling; "GC and Kanban handle that" is superseded. Doc 38. |
 | **Office Spaces** | **REJECTED** | GCs self-organize; no fixed floor plan. |
 | **Company Memory** | PROPOSED (5★) | Institutional memory, decision chains. Vault-backed decision chain; no free-standing company facts (DECISIONS-LOG round 11, C38). |
 | **Health System** | PROPOSED (5★) | Per-project tech debt/morale/coverage metrics. |

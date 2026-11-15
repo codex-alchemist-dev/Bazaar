@@ -10,7 +10,7 @@ using Npgsql;
 namespace Bazaar.Server.Tests.Components.Remote;
 
 /// <summary>
-/// A cloned database with the remote component's pairing and auth tables (<c>components/remote/0001_pairing_auth.sql</c>).
+/// A cloned database with the remote component's pairing and auth tables (<c>remote/0001_pairing_auth.sql</c>).
 /// The component SQL is not applied by the migration runner yet, so the test applies the embedded script itself.
 /// Runs only when <c>BAZAAR_TEST_PG</c> is set; otherwise it does nothing and the tests skip.
 /// </summary>

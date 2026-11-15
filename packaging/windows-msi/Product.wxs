@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bazaar Server (Windows service) installer.
+  - Registers the Bazaar.Server service (name matches AddWindowsService in Bazaar.Server.Host).
+  - Stops the service before any file is replaced, starts it after install.
+  - Keeps state under %ProgramData%\Bazaar\Server. Uninstall never removes it.
+  - MajorUpgrade replaces older versions; the downgrade is refused.
+  Build: dotnet build packaging/windows-msi/Bazaar.Server.Windows.wixproj
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="Bazaar Server"
+           Manufacturer="The Bazaar Authors"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="5519B9B3-B823-4055-B22F-8AEFA59E2369"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Compressed="yes"
+           Language="1033">
+
+    <SummaryInformation Description="Bazaar Server, Windows service host" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Bazaar Server is already installed. Uninstall it before installing this older version." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ServerFeature" Title="Bazaar Server" Level="1" Description="The Bazaar.Server service and its binaries.">
+      <ComponentRef Id="ServerExe" />
+      <ComponentRef Id="ServerDataFolder" />
+      <ComponentGroupRef Id="ServerPayload" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="BazaarVendorFolder" Name="Bazaar">
+        <Directory Id="INSTALLFOLDER" Name="Server" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Data lives outside the install folder so upgrades and uninstalls never touch it. -->
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="BazaarProgramDataFolder" Name="Bazaar">
+        <Directory Id="BazaarServerDataFolder" Name="Server" />
+      </Directory>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <!-- The service executable. ServiceInstall and ServiceControl sit in the component that owns the file. -->
+    <Component Id="ServerExe" Directory="INSTALLFOLDER" Guid="*">
+      <File Id="BazaarServerHostExe" Source="$(var.ServerExePath)" KeyPath="yes" />
+
+      <!-- Stop before files are swapped (install and uninstall), and wait until the service is down. -->
+      <ServiceControl Id="StopBazaarServer"
+                      Name="Bazaar.Server"
+                      Stop="both"
+                      Remove="uninstall"
+                      Wait="yes" />
+
+      <ServiceInstall Id="InstallBazaarServer"
+                      Name="Bazaar.Server"
+                      DisplayName="Bazaar Server"
+                      Description="Runs the Bazaar company server (Bazaar.Server.Host)."
+                      Start="auto"
+                      Type="ownProcess"
+                      ErrorControl="normal"
+                      Account="NT AUTHORITY\LocalService"
+                      Interactive="no"
+                      Vital="yes">
+        <!-- Restart on crash, twice, then a third time after a day. Doc 30 section 6 and doc 03 require unattended uptime. -->
+        <util:ServiceConfig FirstFailureActionType="restart"
+                            SecondFailureActionType="restart"
+                            ThirdFailureActionType="restart"
+                            RestartServiceDelayInSeconds="60"
+                            ResetPeriodInDays="1" />
+      </ServiceInstall>
+
+      <!-- Start after the new files are in place. -->
+      <ServiceControl Id="StartBazaarServer"
+                      Name="Bazaar.Server"
+                      Start="install"
+                      Wait="no" />
+    </Component>
+
+    <!-- Creates the data folder and lets the service account write to it. Not removed on uninstall. -->
+    <Component Id="ServerDataFolder" Directory="BazaarServerDataFolder" Guid="9495F006-FAFA-42DC-83F6-33C371779EDC" NeverOverwrite="yes">
+      <CreateFolder>
+        <util:PermissionEx User="NT AUTHORITY\LocalService" GenericRead="yes" GenericWrite="yes" GenericExecute="yes" />
+      </CreateFolder>
+    </Component>
+  </Fragment>
+</Wix>

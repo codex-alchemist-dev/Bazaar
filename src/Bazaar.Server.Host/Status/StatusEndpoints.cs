@@ -43,19 +43,44 @@ public static class StatusEndpoints
         return routes;
     }
 
-    /// <summary>Rejects every method but GET and HEAD with 405 before routing, so no write route can exist on this listener.</summary>
+    /// <summary>The authenticated API routes that also take writes: blob uploads and the Constellation tile endpoint.</summary>
     private static bool IsApiRoute(PathString path) =>
         path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
 
+    /// <summary>
+    /// The pairing routes (<c>/pair/*</c>, doc 32 section 3) and the refresh route (<c>/auth/refresh</c>, section 5). Each takes POST and
+    /// nothing else; any other method on these paths is a 405.
+    /// </summary>
+    private static bool IsPostOnlyRoute(PathString path) =>
+        path.Value is { } value
+        && (value.StartsWith("/pair/", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and
+    /// Constellation API routes also take POST and PATCH. The pairing and refresh routes take POST only. No other write route is allowed here.
+    /// </summary>
     public static IApplicationBuilder UseBazaarGetOnly(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {
-        // The status page stays read-only. The authenticated API routes (blob uploads, the Constellation tile endpoint) also take writes.
-        var isApi = IsApiRoute(context.Request.Path);
+        var path = context.Request.Path;
         var method = context.Request.Method;
-        var allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || (isApi && (HttpMethods.IsPost(method) || HttpMethods.IsPatch(method)));
+        bool allowed;
+        string allow;
+        if (IsPostOnlyRoute(path))
+        {
+            allowed = HttpMethods.IsPost(method);
+            allow = "POST";
+        }
+        else
+        {
+            var isApi = IsApiRoute(path);
+            allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || (isApi && (HttpMethods.IsPost(method) || HttpMethods.IsPatch(method)));
+            allow = isApi ? "GET, HEAD, POST, PATCH" : "GET, HEAD";
+        }
+
         if (!allowed)
         {
-            context.Response.Headers.Allow = isApi ? "GET, HEAD, POST, PATCH" : "GET, HEAD";
+            context.Response.Headers.Allow = allow;
             context.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
             return;
         }

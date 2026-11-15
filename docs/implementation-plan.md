@@ -43,7 +43,7 @@ Status: DRAFT for owner review. Built from the status-tagged design docs in `doc
 
 ### Wave 2 — the company core
 
-Agent runtime (Souls, private and shared memory with pgvector, presence, work-life simulation, async inboxes, loop guards), Kanban with dependency (blocked-by) enforcement, Council voting, reputation, GC nesting and @mentions. The Skimmer Bouncer is built only after measuring on real GC transcripts.
+Agent runtime (Souls, private and shared memory with pgvector, presence, work-life simulation, async inboxes, loop guards), Kanban with dependency (blocked-by) enforcement (the RyuseiFuda macro board), RyuseiFuda agent scheduling and re-invocation (doc 38), Council voting, reputation, GC nesting and @mentions. The Skimmer Bouncer is built only after measuring on real GC transcripts.
 
 ### Wave 3 — knowledge and identity
 

@@ -4,7 +4,7 @@ using NpgsqlTypes;
 
 namespace Bazaar.Server.Tests.Remote;
 
-/// <summary>Applies components/remote/0001 to a clean database and checks the constraints doc 32 relies on.</summary>
+/// <summary>Applies remote/0001 to a clean database and checks the constraints doc 32 relies on.</summary>
 public sealed class RemotePairingSchemaTests : PgFixture, IAsyncLifetime
 {
     public override async ValueTask InitializeAsync()
@@ -19,8 +19,8 @@ public sealed class RemotePairingSchemaTests : PgFixture, IAsyncLifetime
     private static string ReadMigration()
     {
         var assembly = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly;
-        using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Data.Sql.components.remote.0001_pairing_auth.sql")
-            ?? throw new InvalidOperationException("components/remote/0001_pairing_auth.sql is not embedded.");
+        using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Data.Sql.remote.0001_pairing_auth.sql")
+            ?? throw new InvalidOperationException("remote/0001_pairing_auth.sql is not embedded.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }

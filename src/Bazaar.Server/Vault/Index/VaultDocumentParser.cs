@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Bazaar.Server.Vault.Data;
 using Bazaar.Server.Vault.Links;
 using Bazaar.Server.Vault.Markdown;
+using Bazaar.Server.Vault.Search;
 
 namespace Bazaar.Server.Vault.Index;
 
@@ -47,6 +48,13 @@ public static class VaultDocumentParser
         }
 
         var frontMatter = parsed.FrontMatter;
+        if (!VaultOwner.IsWellFormed(frontMatter.Owner))
+        {
+            // Fail closed: a malformed owner would never match its agent, so the document is left out of the index
+            // and reported as invalid, rather than being indexed as if it were shared.
+            throw new VaultFormatException($"Front matter 'owner' must be 'agent:<guid>' or absent, got '{frontMatter.Owner}'.");
+        }
+
         var blocks = VaultBlocks.Split(source);
         var blockRecords = blocks
             .Select(block => new VaultBlockRecord(

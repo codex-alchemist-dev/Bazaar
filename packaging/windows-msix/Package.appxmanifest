@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bazaar.Client.Windows MSIX manifest (doc 37, section 2).
+  PLACEHOLDER: Publisher must equal the subject of the signing certificate.
+  Signing is parked (doc 37, section 7); build-msix.ps1 produces an UNSIGNED package.
+  Version is the four-part MSIX form of VersionPrefix in Directory.Build.props (0.MM.PP -> 0.MM.PP.0).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="TheBazaarAuthors.Bazaar.Client"
+    Publisher="CN=PLACEHOLDER-PUBLISHER"
+    Version="0.1.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Bazaar</DisplayName>
+    <PublisherDisplayName>The Bazaar Authors</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Bazaar desktop client for Windows.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="BazaarClient"
+      Executable="Bazaar.Client.Windows.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Bazaar"
+        Description="Bazaar desktop client for Windows."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Square71x71Logo="Assets\Square71x71Logo.png" Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

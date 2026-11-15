@@ -1,0 +1,37 @@
+# Bazaar: PostgreSQL with pgvector for a Linux host (external mode).
+#
+# Run from this folder:    docker compose up -d
+# Opt in to PostgreSQL 19: docker compose -f compose.yaml -f compose.pg19.yaml up -d
+# See README.md for the password setup and how to point the Bazaar host at this database.
+#
+# Default is PostgreSQL 18 because the pgvector pg19 image tag did not exist on Docker Hub when this was
+# written (2026-10-30). The default flips to 19 once that tag is published and verified; see
+# docs/research/notes/Bazaar server packaging/packaging.md.
+#
+# PG_MAJOR (default 18) selects the image tag and the data volume, so 18 and 19 data never share a directory.
+# The Bazaar schema uses uuidv7(), which needs PostgreSQL 18 or later.
+services:
+  postgres:
+    image: pgvector/pgvector:pg${PG_MAJOR:-18}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bazaar
+      POSTGRES_DB: bazaar
+      # Required: compose stops with this message when the variable is unset or empty (set it in .env).
+      POSTGRES_PASSWORD: ${BAZAAR_DB_PASSWORD:?Set BAZAAR_DB_PASSWORD in deploy/compose/.env (copy .env.example) before running compose}
+    ports:
+      # Loopback only. Never publish on 0.0.0.0; remote access goes through the Bazaar host, not this port.
+      - "127.0.0.1:${BAZAAR_DB_PORT:-5432}:5432"
+    volumes:
+      # Mounted at the parent directory: PostgreSQL 18+ images keep data in a versioned subdirectory.
+      - bazaar-pgdata-pg${PG_MAJOR:-18}:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bazaar -d bazaar"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  bazaar-pgdata-pg18:
+  bazaar-pgdata-pg19:

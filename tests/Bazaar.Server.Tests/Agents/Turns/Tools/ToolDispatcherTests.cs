@@ -32,8 +32,9 @@ public class ToolDispatcherTests
         string args = _args,
         TurnRole role = TurnRole.Actor,
         bool idempotent = false,
-        string callId = "call-1") =>
-        new(_agentId, _turnId, _sessionId, role, new ModelToolCall(callId, tool, args), idempotent);
+        string callId = "call-1",
+        int chainDepth = 0) =>
+        new(_agentId, _turnId, _sessionId, role, new ModelToolCall(callId, tool, args), idempotent, chainDepth);
 
     private static string Sha256Hex(string text) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
@@ -96,6 +97,44 @@ public class ToolDispatcherTests
         Assert.Equal("general", context.Args.GetProperty("gc").GetString());
         Assert.Equal(taint, context.Taint);
         Assert.Equal(_now, context.Now);
+    }
+
+    [Fact]
+    public async Task A_contextual_tool_gets_the_verified_caller_and_the_plain_call_is_not_used()
+    {
+        var tool = new FakeContextualTool();
+        var policy = new FakePolicyEngine(_allow);
+
+        var result = await Dispatcher(policy, new FakeToolRegistry((_tool, tool)), new FakeAuditLog())
+            .InvokeAsync(Request(), CancellationToken.None);
+
+        // The plain overload throws on a contextual tool, which would surface as the fixed tool-failed result.
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal("""{"ok":true}""", result.ResultJson);
+        Assert.Equal(new ToolCallContext(_agentId, _sessionId, _turnId), tool.LastContext);
+    }
+
+    [Fact]
+    public async Task A_contextual_tool_gets_the_chain_depth_of_the_request()
+    {
+        var tool = new FakeContextualTool();
+
+        var result = await Dispatcher(new FakePolicyEngine(_allow), new FakeToolRegistry((_tool, tool)), new FakeAuditLog())
+            .InvokeAsync(Request(chainDepth: 2), CancellationToken.None);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal(new ToolCallContext(_agentId, _sessionId, _turnId, ChainDepth: 2), tool.LastContext);
+    }
+
+    private sealed class FakeContextualTool : IContextualTool
+    {
+        public ToolCallContext? LastContext { get; private set; }
+
+        public Task<string> ExecuteAsync(JsonElement args, ToolCallContext context, CancellationToken cancellationToken)
+        {
+            LastContext = context;
+            return Task.FromResult("""{"ok":true}""");
+        }
     }
 
     [Fact]

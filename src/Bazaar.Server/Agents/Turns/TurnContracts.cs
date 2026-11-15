@@ -51,7 +51,8 @@ public sealed record ToolDispatchRequest(
     Guid SessionId,
     TurnRole Role,
     ModelToolCall Call,
-    bool Idempotent);
+    bool Idempotent,
+    int ChainDepth = 0);
 
 /// <summary>The result of one dispatch. <see cref="ResultJson"/> is set only for <see cref="ToolDispatchOutcome.Executed"/>.</summary>
 public sealed record ToolDispatchResult(ToolDispatchOutcome Outcome, string? ResultJson = null, string? Reason = null);
@@ -62,7 +63,12 @@ public interface IToolDispatcher
     Task<ToolDispatchResult> InvokeAsync(ToolDispatchRequest request, CancellationToken cancellationToken);
 }
 
-/// <summary>Where an agent's post goes. The implementation calls the GC append API so mention parsing and loop guards apply (doc 06 "Turn loop" step 5).</summary>
+/// <summary>
+/// Where an agent's post goes (doc 06 "Turn loop" step 5). The implementation runs the loop guard, then parses and validates
+/// mentions, then appends through the GC log writer. A guard trip throws <see cref="Posting.AgentPostRefusedException"/> and appends
+/// nothing. Mention depth, broadcasts and the trip's system notice and guard_event are not applied yet; see
+/// <see cref="Posting.GcAgentPostSink"/> for the exact list.
+/// </summary>
 public interface IAgentPostSink
 {
     Task PostAsync(Guid agentId, Guid turnId, string gcId, string text, CancellationToken cancellationToken);
@@ -78,6 +84,9 @@ public enum TurnEndReason
     Interrupted,
     GatewayFailed,
     LeaseLost,
+
+    /// <summary>The final message could not be posted because a loop guard refused it. Nothing was appended; the turn fails and its items are released.</summary>
+    PostRefused,
 }
 
 /// <summary>Result of running one turn loop, including subagent children (doc 06 WP5, WP8).</summary>
@@ -100,7 +109,8 @@ public sealed record TurnRunRequest(
     int Depth = 0,
     string? TriggerGcId = null,
     long? TriggerGcSeq = null,
-    int? StepCapOverride = null);
+    int? StepCapOverride = null,
+    int ChainDepth = 0);
 
 /// <summary>Runs one turn loop for an agent: claim, assemble, call the model, dispatch, post, commit (doc 06 "Turn loop").</summary>
 public interface ITurnRunner

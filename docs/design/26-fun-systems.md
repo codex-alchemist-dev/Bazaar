@@ -32,6 +32,7 @@ The creative and social systems that make the company feel like a team: recovery
 ### 1. Psych Ward (The Asylum) [PROPOSED]
 Purpose: a real recovery state for agents that repeatedly fail or spiral. It changes availability, session and permissions.
 - **Triggers** (deterministic first): loop-guard trip (06); three consecutive failed outcomes on one tag (11); denied-call or canary anomaly (15); token hard stop (15 shared limits); self-referral; owner referral. A classifier hit alone never admits.
+- **RyuseiFuda [PROPOSED, doc 38]:** trigger ping-pong and chain-depth trips use this same ward path (doc 38, loop limits table).
 - **Admission:** opens a `ward` GC (registered type); Work-Life state becomes BREAK with overlay WARD (09); the session ends and a fresh one starts, seeded only with the check-in (15). Who may admit follows `ward.admission_mode`; the owner can always admit or discharge.
 - **While admitted:** pushes, merges and public posts are refused (fixed, not a setting); the 09 cover takes the inbox.
 - **Check-in:** a `checkin` entry: attempted, believed failing, needed, will not touch.

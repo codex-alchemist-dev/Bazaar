@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gateway;
 
 namespace Bazaar.Server.Agents.Turns.Runner;
@@ -19,7 +20,8 @@ namespace Bazaar.Server.Agents.Turns.Runner;
 /// Every step is written as pending before its action and completed in place before the runner acts on its result, so a crash
 /// leaves a record. A run that finds no lease returns <see cref="TurnEndReason.LeaseLost"/> with <see cref="TurnRunOutcome.TurnId"/>
 /// set to <see cref="Guid.Empty"/>: no turn was started and no inbox item was touched. Cancellation during a run ends it as
-/// <see cref="TurnEndReason.Interrupted"/>; cleanup then runs without the cancelled token. An unexpected exception ends the turn as
+/// <see cref="TurnEndReason.Interrupted"/>; cleanup then runs without the cancelled token. A post refused by a loop guard ends the
+/// turn as <see cref="TurnEndReason.PostRefused"/> (failed, items released, not rethrown). An unexpected exception ends the turn as
 /// failed, releases the items and lease, and is rethrown.
 /// </remarks>
 public sealed class TurnRunner : ITurnRunner
@@ -285,7 +287,7 @@ public sealed class TurnRunner : ITurnRunner
         run.StepCount++;
         run.InFlight = new InFlight(n, TurnStepKind.Tool, idempotent);
 
-        var request = new ToolDispatchRequest(run.Request.AgentId, run.TurnId, run.Request.SessionId, run.Request.Role, call, idempotent);
+        var request = new ToolDispatchRequest(run.Request.AgentId, run.TurnId, run.Request.SessionId, run.Request.Role, call, idempotent, run.Request.ChainDepth);
         var result = await _dispatcher.InvokeAsync(request, ct).ConfigureAwait(false);
         await CompleteStepAsync(
             run.TurnId, n, JsonSerializer.Serialize(new ToolStepPayload(call.Id, result.Outcome, result.ResultJson, result.Reason), TurnRunnerJson.Default.ToolStepPayload), ct)
@@ -305,7 +307,19 @@ public sealed class TurnRunner : ITurnRunner
         var n = await _steps.BeginAsync(run.TurnId, TurnStepKind.Post, TurnStepHash.Post(gcId, text), false, ct).ConfigureAwait(false);
         run.StepCount++;
         run.InFlight = new InFlight(n, TurnStepKind.Post, false);
-        await _posts.PostAsync(run.Request.AgentId, run.TurnId, gcId, text, ct).ConfigureAwait(false);
+        try
+        {
+            await _posts.PostAsync(run.Request.AgentId, run.TurnId, gcId, text, ct).ConfigureAwait(false);
+        }
+        catch (AgentPostRefusedException)
+        {
+            // A refusal is raised before anything is appended, so the step is abandoned, not unknown. The turn ends refused.
+            run.InFlight = null;
+            await MarkUnfinishedAsync(run.TurnId, n, TurnStepStatus.Abandoned, ct).ConfigureAwait(false);
+            run.Reason = TurnEndReason.PostRefused;
+            return;
+        }
+
         await CompleteStepAsync(run.TurnId, n, JsonSerializer.Serialize(new PostStepPayload(gcId), TurnRunnerJson.Default.PostStepPayload), ct)
             .ConfigureAwait(false);
         run.InFlight = null;

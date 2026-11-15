@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-labelledby="t d">
+  <title id="t">Constellation on the client: one knowledge graph replaces the file explorer, Milanote and Obsidian</title>
+  <desc id="d">A constellation of documents on a dark field. The focused document sits at the centre of its cluster, with linked notes orbiting it. Labels show the roles it replaces: the file explorer for browsing, a Milanote-style board for layout, and an Obsidian-style vault of wiki-linked Markdown. Vim-style keys move the focus, and the layout rearranges around the new centre.</desc>
+  <rect width="960" height="400" rx="16" fill="#0d1020"/>
+  <g stroke="#2c3a66" stroke-width="2" fill="none">
+    <line x1="480" y1="200" x2="250" y2="110"/><line x1="480" y1="200" x2="300" y2="300"/>
+    <line x1="480" y1="200" x2="660" y2="110"/><line x1="480" y1="200" x2="700" y2="290"/>
+    <line x1="250" y1="110" x2="130" y2="190"/><line x1="660" y1="110" x2="830" y2="120"/>
+    <line x1="700" y1="290" x2="560" y2="360"/><line x1="300" y1="300" x2="150" y2="330"/>
+  </g>
+  <circle cx="480" cy="200" r="70" fill="#f5c451" opacity="0.18"/>
+  <circle cx="480" cy="200" r="22" fill="#f5c451"/>
+  <g fill="#7fb0ff"><circle cx="250" cy="110" r="11"/><circle cx="300" cy="300" r="11"/><circle cx="130" cy="190" r="8"/></g>
+  <g fill="#7fd6a0"><circle cx="660" cy="110" r="11"/><circle cx="700" cy="290" r="11"/><circle cx="830" cy="120" r="8"/><circle cx="560" cy="360" r="8"/></g>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#e8eefc">
+    <text x="500" y="196">focused doc</text>
+    <text x="48" y="60" fill="#f5c451" font-size="17" font-weight="700">Constellation</text>
+    <text x="48" y="84" fill="#b8c4e6" font-size="14">Replaces the file explorer, Milanote and Obsidian</text>
+    <text x="48" y="372" fill="#b8c4e6" font-size="14">Vim-style keys move the centre. The cluster rearranges around it.</text>
+  </g>
+</svg>

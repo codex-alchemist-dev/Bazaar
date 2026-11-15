@@ -15,5 +15,6 @@
     <ProjectReference Include="..\..\src\Bazaar.Sdk\Bazaar.Sdk.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Constellation.Rendering\Bazaar.Constellation.Rendering.csproj" />
   </ItemGroup>
 </Project>

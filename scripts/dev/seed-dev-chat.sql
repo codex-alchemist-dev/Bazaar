@@ -12,3 +12,8 @@ WHERE NOT EXISTS (
     SELECT 1 FROM gc_member existing
     WHERE existing.gc_id = :'gc_id' AND existing.principal_id = m.principal_id AND existing.left_seq IS NULL
 );
+
+-- Charles may use the FreeLLMAPI route and nothing else (deny by default). Inserted once; later edits go through the policy store.
+INSERT INTO agent_model_policy (agent_id, allowed, default_route, version, changed_by, changed_at)
+VALUES (:'agent_id', '["agent-default"]'::jsonb, 'agent-default', 1, 'dev-seed', now())
+ON CONFLICT (agent_id) DO NOTHING;

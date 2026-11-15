@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Wire;
 using Microsoft.Extensions.Configuration;
@@ -33,5 +34,9 @@ public sealed class GcComponent : IBazaarComponent
         services.AddGcLog();
         services.AddGcReadAccess();
         services.AddBazaarGcWire();
+
+        // Agent posts go to the GC log (doc 06 "Turn loop" step 5). Registered here, not only in the host, so the sink is live
+        // with the GC component. TryAdd keeps any sink the host already set.
+        services.AddGcAgentPostSink();
     }
 }

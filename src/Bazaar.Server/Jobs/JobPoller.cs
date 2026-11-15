@@ -10,11 +10,18 @@ public sealed class JobPoller
     private readonly JobStore _store;
     private readonly Dictionary<string, IJobHandler> _handlers;
     private readonly TimeProvider _time;
+    private readonly RecurringJobScheduler? _recurring;
 
-    public JobPoller(JobStore store, IEnumerable<IJobHandler> handlers, TimeProvider time, JobPollerOptions? options = null)
+    public JobPoller(
+        JobStore store,
+        IEnumerable<IJobHandler> handlers,
+        TimeProvider time,
+        JobPollerOptions? options = null,
+        RecurringJobScheduler? recurring = null)
     {
         _store = store;
         _time = time;
+        _recurring = recurring;
         Options = options ?? new JobPollerOptions();
         Options.Validate();
         _handlers = new Dictionary<string, IJobHandler>(StringComparer.Ordinal);
@@ -37,6 +44,9 @@ public sealed class JobPoller
     /// <summary>Runs one pass: fails exhausted leases, claims due jobs and runs each one in claim order. Returns the number claimed.</summary>
     public async Task<int> PollOnceAsync(CancellationToken ct = default)
     {
+        if (_recurring is not null)
+            await _recurring.EnqueueDueAsync(_time.GetUtcNow(), ct).ConfigureAwait(false);
+
         await _store.FailExhaustedAsync(Options.MaxAttempts, ct).ConfigureAwait(false);
         var claimed = await _store.ClaimDueAsync(Owner, Options.LeaseDuration, Options.BatchSize, ct).ConfigureAwait(false);
         foreach (var job in claimed)

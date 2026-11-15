@@ -11,6 +11,31 @@ public interface ITool
     Task<string> ExecuteAsync(JsonElement args, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// The caller of one tool call, as the dispatcher knows it. Carried to a tool that needs to know who is calling (for
+/// example a tool that acts for the calling agent), so the calling identity is never taken from the model's arguments.
+/// <see cref="ChainDepth"/> is how many trigger fires deep the calling turn is: 0 for a turn no fire woke, and the woken
+/// turn's fire depth otherwise. A tool that creates work from this turn adds one to it, so a loop cannot reset its depth.
+/// </summary>
+public sealed record ToolCallContext(Guid AgentId, Guid SessionId, Guid TurnId, int ChainDepth = 0);
+
+/// <summary>
+/// A tool that also needs the caller (<see cref="ToolCallContext"/>). Added as a companion interface, not a change to
+/// <see cref="ITool"/>, so existing tools keep their shape. <see cref="ToolDispatcher"/> calls the context overload when a
+/// registered tool implements this interface, and the plain <see cref="ITool.ExecuteAsync"/> is never called for it.
+/// Because it derives from <see cref="ITool"/> (the registry holds <see cref="ITool"/>), the plain overload is a default
+/// implementation that throws, so a caller that bypasses the dispatcher fails loudly instead of running without a caller.
+/// </summary>
+public interface IContextualTool : ITool
+{
+    /// <summary>Runs the tool for the given caller. The same result rules as <see cref="ITool.ExecuteAsync"/> apply.</summary>
+    Task<string> ExecuteAsync(JsonElement args, ToolCallContext context, CancellationToken cancellationToken);
+
+    /// <summary>Refuses a call that bypasses the dispatcher, because such a call has no caller to act for.</summary>
+    Task<string> ITool.ExecuteAsync(JsonElement args, CancellationToken cancellationToken) =>
+        throw new InvalidOperationException("A contextual tool must be run through the dispatcher, which supplies the caller.");
+}
+
 /// <summary>Finds a tool by its exact name. A name that is not registered returns false.</summary>
 public interface IToolRegistry
 {

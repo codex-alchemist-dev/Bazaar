@@ -133,10 +133,11 @@ public sealed partial class AgentResponder(
         if (text is null)
             return;
 
+        var body = await bodies.SealAsync(persona.AgentId, text, ct).ConfigureAwait(false);
         var request = new AppendRequest(gcId, GcEventKinds.Message, AuthorKind.Agent, persona.AgentId, SourceTrust.Agent, key)
         {
             ReplyToSeq = trigger.Seq,
-            Message = bodies.Seal(text),
+            Message = body,
         };
 
         try

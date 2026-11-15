@@ -1,14 +1,15 @@
 # Keeps open pull requests moving without a person on hand.
 #
-#   keep-current:  every hour, merges main into each open PR branch that is behind main
-#                  (update-branch, a merge commit, never a force push) and starts the
-#                  required checks on the new head. Logic: .github/scripts/pr-keep-current.sh
+#   keep-current:  every hour, reports open PRs that are behind main. It does not push to
+#                  any branch: a GITHUB_TOKEN push leaves the CodeQL pull_request run as
+#                  action_required and blocks the required Analyze checks. Logic:
+#                  .github/scripts/pr-keep-current.sh
 #   rerun-flaky:   every 30 minutes, re-runs the failed jobs once when the only failure is the
 #                  Windows WebSocket test flake. Logic: .github/scripts/pr-rerun-flaky.sh
 #
 # Neither job weakens a check or changes a required check. A re-run keeps the original
 # run's required check names, so the required checks still have to pass.
-# Actions write access is needed to re-run runs and to start workflow_dispatch runs.
+# Actions write access is needed to re-run runs.
 
 name: PR maintenance
 
@@ -36,7 +37,7 @@ concurrency:
 
 jobs:
   keep-current:
-    name: Keep open pull requests current with main
+    name: Report pull requests behind main
     if: github.event_name == 'schedule' && github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch' && (inputs.job == 'both' || inputs.job == 'keep-current')
     runs-on: ubuntu-latest
     timeout-minutes: 30

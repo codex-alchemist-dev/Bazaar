@@ -7,6 +7,9 @@ namespace Bazaar.Server.Agents.LoopGuard;
 /// </summary>
 public sealed class LoopGuardOptions
 {
+    /// <summary>Configuration section for runtime loop guards.</summary>
+    public const string SectionName = "Bazaar:Runtime:Guard";
+
     /// <summary><c>runtime.guard.pingpong_limit</c>: largest alternating run of messages between two agents.</summary>
     public int PingPongLimit { get; init; } = 6;
 

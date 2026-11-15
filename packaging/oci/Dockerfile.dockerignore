@@ -1,0 +1,26 @@
+# Build-context filter for packaging/oci/Dockerfile (BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile
+# in preference to the root .dockerignore, which the context root would otherwise use).
+# Allow-list: exclude everything at the repository root, then add back only what the image build reads.
+
+*
+
+!global.json
+!NuGet.config
+!Directory.Build.props
+!Directory.Packages.props
+!src
+
+# Client projects are not part of the server image.
+src/Bazaar.Client.*
+
+# Build output, IDE state and local artefacts, anywhere under src.
+**/bin
+**/obj
+**/.vs
+**/*.user
+**/TestResults
+
+# Never ship local secret material, even if a file lands under src.
+**/secrets
+**/*.env
+**/appsettings.Development.json

@@ -29,7 +29,8 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
     private static void SkipWithoutDatabase() =>
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
 
-    private TurnRunner Runner(ScriptedModelGateway gateway, TurnRunnerOptions? options = null) => new(db.DataSource, gateway, options);
+    private TurnRunner Runner(ScriptedModelGateway gateway, TurnRunnerOptions? options = null) =>
+        new(db.DataSource, gateway, new RecordingToolDispatcher(), options);
 
     private static TurnRequest Request(Guid agentId, int claim = 0, string text = "hello") =>
         new(agentId, Guid.CreateVersion7(), "mention", _route, [new ModelMessage(ModelRole.User, text)], null, claim);
@@ -151,34 +152,6 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
         Assert.Equal(1, await CountTurnsAsync(agent, "failed"));
         Assert.Equal(1, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
         Assert.Null(await Leases.GetAsync(agent, Ct));
-    }
-
-    [Fact]
-    public async Task A_tool_call_ends_the_turn_as_failed_and_releases_the_claims()
-    {
-        SkipWithoutDatabase();
-        var agent = await AgentWithItemsAsync(2);
-        var gateway = new ScriptedModelGateway().Reply(
-            new ModelEvent.ToolCallStart("call-1", "read_file"),
-            new ModelEvent.ToolCallArgsDelta("call-1", "{\"path\":"),
-            new ModelEvent.ToolCallArgsDelta("call-1", "\"notes.md\"}"),
-            new ModelEvent.ToolCallEnd("call-1"),
-            DoneEvent(StopReason.ToolUse));
-
-        var result = await Runner(gateway).RunAsync(Request(agent, claim: 5), Ct);
-
-        Assert.Equal(TurnOutcome.Failed, result.Outcome);
-        Assert.Contains("read_file", result.FailureReason);
-        Assert.Equal(1, gateway.Calls);
-        Assert.Equal(1, await CountTurnsAsync(agent, "failed"));
-        Assert.Equal(2, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
-        Assert.Equal(0, await Inbox.CountAsync(agent, InboxState.Claimed, Ct));
-        Assert.Null(await Leases.GetAsync(agent, Ct));
-
-        // The model's tool call is stored before the turn acted on it.
-        var step = Assert.Single(await Steps.ListAsync(result.TurnId!.Value, Ct));
-        Assert.Equal(TurnStepStatus.Completed, step.Status);
-        Assert.Contains("read_file", step.ResponseJson);
     }
 
     [Fact]
@@ -317,5 +290,17 @@ public sealed class TurnRunnerOptionsTests
     public void The_defaults_are_valid()
     {
         new TurnRunnerOptions().Validate();
+    }
+
+    [Fact]
+    public void A_blank_idempotent_tool_name_is_refused()
+    {
+        Assert.Throws<ArgumentException>(new TurnRunnerOptions { IdempotentTools = [" "] }.Validate);
+    }
+
+    [Fact]
+    public void No_tool_is_idempotent_by_default()
+    {
+        Assert.Empty(new TurnRunnerOptions().IdempotentTools);
     }
 }

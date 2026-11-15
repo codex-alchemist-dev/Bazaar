@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Chocolatey package for the Bazaar Windows client (docs/design/37-distribution-matrix-and-packaging.md).
+  Placeholders in {{double braces}} are filled by the release pipeline from the released portable zip
+  and its SHA-256. The install script refuses to run while they remain unreplaced.
+  Not pushed to chocolatey.org: the push step is parked until the owner supplies an API key.
+-->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>bazaar-client</id>
+    <version>{{MACHINE_VERSION}}</version>
+    <title>Bazaar Client</title>
+    <authors>The Bazaar Authors</authors>
+    <owners>The Bazaar Authors</owners>
+    <projectUrl>https://github.com/codex-alchemist-dev/Bazaar</projectUrl>
+    <projectSourceUrl>https://github.com/codex-alchemist-dev/Bazaar</projectSourceUrl>
+    <packageSourceUrl>https://github.com/codex-alchemist-dev/Bazaar/tree/main/packaging/chocolatey</packageSourceUrl>
+    <licenseUrl>https://github.com/codex-alchemist-dev/Bazaar/blob/main/LICENSE</licenseUrl>
+    <license type="expression">AGPL-3.0-only</license>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>Native client for the Bazaar platform.</summary>
+    <description>Bazaar Client is the native Windows client for Bazaar, an open-source platform for a persistent AI software company. Agents with their own identity, memory and accounts coordinate in group chats; this client renders the server's state and never does the server's compute.
+
+This package installs the portable build (unpacked to the Chocolatey tools folder) and adds a Start Menu shortcut. Your data stays under your user profile; uninstalling the package does not remove it.
+
+Unsigned build unless the release notes say otherwise.</description>
+    <releaseNotes>See https://github.com/codex-alchemist-dev/Bazaar/releases for release notes.</releaseNotes>
+    <tags>bazaar ai agents client windows</tags>
+    <copyright>Copyright The Bazaar Authors</copyright>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

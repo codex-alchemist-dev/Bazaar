@@ -1,12 +1,17 @@
+using Bazaar.RyuseiFuda.Orrery;
+using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Community;
+using Bazaar.Server.Company;
 using Bazaar.Server.Components;
 using Bazaar.Server.Components.Backup;
+using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
@@ -28,17 +33,22 @@ public static class HostComponents
         new AuditComponent(),
         new SettingsComponent(),
         new GcComponent(),
+        new CompanyComponent(),
         new FunComponent(),
         new KanbanComponent(),
+        new RyuseiScheduleComponent(),
+        new RoadmapComponent(),
         new CommunityComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
+        new AnthropicDirectComponent(),
     ];
 }

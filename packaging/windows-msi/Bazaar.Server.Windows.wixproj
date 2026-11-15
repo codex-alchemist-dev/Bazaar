@@ -1,0 +1,59 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <!-- Package versions are pinned here; the root Directory.Packages.props is out of scope for this project. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <OutputName>Bazaar.Server-$(VersionPrefix)-win-x64</OutputName>
+    <!-- Server host build used for the payload. Self-contained so the service does not need a machine-wide .NET runtime. -->
+    <ServerConfiguration>Release</ServerConfiguration>
+    <ServerRuntimeIdentifier>win-x64</ServerRuntimeIdentifier>
+    <ServerPublishDir>$(MSBuildProjectDirectory)\obj\server-publish\</ServerPublishDir>
+    <BindRoot>$(MSBuildProjectDirectory)\obj\server-bind\</BindRoot>
+    <PayloadDir>$(BindRoot)SourceDir\</PayloadDir>
+    <!-- ProductVersion is the machine SemVer from Directory.Build.props (0.MM.PP). MSI takes the 3-part form. -->
+    <ServerExePath>$(ServerPublishDir)Bazaar.Server.Host.exe</ServerExePath>
+    <DefineConstants>ProductVersion=$(VersionPrefix);ServerExePath=$(ServerExePath)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Heat" Version="5.0.2" />
+  </ItemGroup>
+
+  <!-- 1. Publish the server host into a staging folder. -->
+  <!-- Exec, not the MSBuild task: `dotnet publish` restores the host project first, which a nested Publish call would skip. -->
+  <Target Name="PublishServerHost" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\..\src\Bazaar.Server.Host\Bazaar.Server.Host.csproj&quot; -c $(ServerConfiguration) -r $(ServerRuntimeIdentifier) --self-contained true -o &quot;$(ServerPublishDir.TrimEnd('\'))&quot;" />
+  </Target>
+
+  <!-- 2. Stage everything except the service executable. The executable is declared by hand in Product.wxs,
+          because the ServiceInstall element must sit in the same component as the service file. -->
+  <Target Name="StageServerPayload" AfterTargets="PublishServerHost">
+    <ItemGroup>
+      <_ServerPayloadFile Include="$(ServerPublishDir)**\*" Exclude="$(ServerExePath)" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PayloadDir)" />
+    <Copy SourceFiles="@(_ServerPayloadFile)"
+          DestinationFiles="@(_ServerPayloadFile->'$(PayloadDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Heat writes Source="SourceDir\..." for harvested files. The payload is staged under a folder named SourceDir,
+       and that parent folder is the bind path, so the relative sources resolve. -->
+  <ItemGroup>
+    <BindPath Include="$(BindRoot)" />
+  </ItemGroup>
+
+  <!-- 3. Harvest the staged payload into the ServerPayload component group (WixToolset.Heat). -->
+  <ItemGroup>
+    <HarvestDirectory Include="$(PayloadDir)">
+      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
+      <ComponentGroupName>ServerPayload</ComponentGroupName>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <!-- Plain file harvest. COM and registry scanning would try to load every DLL of the self-contained runtime. -->
+      <SuppressCom>true</SuppressCom>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+  </ItemGroup>
+</Project>

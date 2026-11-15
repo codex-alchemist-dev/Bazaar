@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Bazaar.Server.Interrupts;
 using Bazaar.Testing;
 using Bazaar.Testing.Postgres;
@@ -14,11 +16,17 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
 
     private static Guid NewGuid() => Guid.CreateVersion7();
 
+    /// <summary>A fixed test key. Production keys come from the personal-data key service (doc 01 WP6).</summary>
+    private static readonly Guid _testKeyId = Guid.Parse("0f0e0d0c-0b0a-0908-0706-050403020100");
+    private static readonly IInterruptReasonCipher _testCipher = new AesGcmInterruptReasonCipher(_testKeyId, TestKey());
+
+    private static byte[] TestKey() => Enumerable.Range(1, AesGcmInterruptReasonCipher.KeySize).Select(i => (byte)i).ToArray();
+
     /// <summary>Each test gets its own clock and stack over the shared class database; agents are fresh per test.</summary>
     private static (InterruptStackService Stack, FakeClock Clock) NewStack(NpgsqlDataSource dataSource)
     {
         var clock = new FakeClock();
-        return (new InterruptStackService(dataSource, clock), clock);
+        return (new InterruptStackService(dataSource, _testCipher, clock), clock);
     }
 
     [Fact]
@@ -277,6 +285,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         {
             first.Parameters.AddWithValue("id", NewGuid());
             first.Parameters.AddWithValue("agent_id", agent);
+            first.Parameters.AddWithValue("key_id", _testKeyId);
             first.Parameters.AddWithValue("gc_id", gc);
             await first.ExecuteNonQueryAsync(Ct);
         }
@@ -284,8 +293,71 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         await using var second = db.DataSource.CreateCommand(_insertActive);
         second.Parameters.AddWithValue("id", NewGuid());
         second.Parameters.AddWithValue("agent_id", agent);
+        second.Parameters.AddWithValue("key_id", _testKeyId);
         second.Parameters.AddWithValue("gc_id", gc);
         await Assert.ThrowsAsync<PostgresException>(() => second.ExecuteNonQueryAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_reason_is_stored_sealed_and_reads_back_in_plain_form()
+    {
+        SkipWithoutDatabase();
+        var (stack, _) = NewStack(db.DataSource);
+        var agent = NewGuid();
+        const string reason = "payment-service build red on main";
+
+        var frame = await stack.PushAsync(agent, InterruptSource.SystemBuild, reason, NewGuid(), ct: Ct);
+
+        await using var cmd = db.DataSource.CreateCommand(
+            "SELECT reason_sealed, reason_key_id FROM interrupt_frame WHERE id = @id");
+        cmd.Parameters.AddWithValue("id", frame.Id);
+        await using var reader = await cmd.ExecuteReaderAsync(Ct);
+        Assert.True(await reader.ReadAsync(Ct));
+        var stored = (byte[])reader.GetValue(0);
+        Assert.Equal(_testKeyId, reader.GetGuid(1));
+        Assert.DoesNotContain("payment-service", Encoding.UTF8.GetString(stored));
+        Assert.Equal(reason, (await stack.GetStackAsync(agent, Ct)).Single().Reason);
+    }
+
+    [Fact]
+    public async Task The_plaintext_reason_column_is_gone()
+    {
+        SkipWithoutDatabase();
+        await using var cmd = db.DataSource.CreateCommand(
+            "SELECT count(*) FROM information_schema.columns WHERE table_name = 'interrupt_frame' AND column_name = 'reason'");
+
+        Assert.Equal(0L, await cmd.ExecuteScalarAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_sealed_reason_moved_to_another_frame_fails_to_open()
+    {
+        SkipWithoutDatabase();
+        var (stack, _) = NewStack(db.DataSource);
+        var agent = NewGuid();
+        var gc = NewGuid();
+        var first = await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, InterruptSource.Owner, "Second", gc, ct: Ct);
+        await using (var copy = db.DataSource.CreateCommand(
+            "UPDATE interrupt_frame SET reason_sealed = (SELECT reason_sealed FROM interrupt_frame WHERE id = @from), " +
+            "reason_nonce = (SELECT reason_nonce FROM interrupt_frame WHERE id = @from) WHERE id = @to"))
+        {
+            copy.Parameters.AddWithValue("from", first.Id);
+            copy.Parameters.AddWithValue("to", second.Id);
+            await copy.ExecuteNonQueryAsync(Ct);
+        }
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => stack.GetStackAsync(agent, Ct));
+    }
+
+    [Fact]
+    public async Task A_reason_longer_than_500_characters_is_refused()
+    {
+        SkipWithoutDatabase();
+        var (stack, _) = NewStack(db.DataSource);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => stack.PushAsync(NewGuid(), InterruptSource.Owner, new string('x', 501), NewGuid(), ct: Ct));
     }
 
     [Fact]
@@ -298,7 +370,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
     }
 
     private const string _insertActive = """
-        INSERT INTO interrupt_frame (id, agent_id, source, reason, gc_id, state, pushed_at, version)
-        VALUES (@id, @agent_id, 'owner', 'direct', @gc_id, 'active', now(), 1)
+        INSERT INTO interrupt_frame (id, agent_id, source, reason_sealed, reason_nonce, reason_key_id, gc_id, state, pushed_at, version)
+        VALUES (@id, @agent_id, 'owner', decode(repeat('ab', 20), 'hex'), decode(repeat('cd', 12), 'hex'), @key_id, @gc_id, 'active', now(), 1)
         """;
 }

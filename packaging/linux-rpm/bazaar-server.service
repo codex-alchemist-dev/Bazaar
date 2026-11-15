@@ -1,0 +1,45 @@
+[Unit]
+Description=Bazaar server host
+Documentation=https://github.com/codex-alchemist-dev/Bazaar
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Microsoft.Extensions.Hosting.Systemd sends READY=1 once the host has started.
+Type=notify
+User=bazaar
+Group=bazaar
+WorkingDirectory=/opt/bazaar/current
+# Bootstrap values only (database credential, KEK reference). Owned root:bazaar, mode 0640.
+EnvironmentFile=/etc/bazaar/bazaar.env
+ExecStart=/opt/bazaar/current/Bazaar.Server.Host
+Restart=on-failure
+RestartSec=5s
+# A host that keeps failing is stopped by systemd rather than restarted forever.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+TimeoutStopSec=30s
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Directories created and owned by the package, see %files in bazaar-server.spec.
+StateDirectory=bazaar
+StateDirectoryMode=0750
+ConfigurationDirectory=bazaar
+ConfigurationDirectoryMode=0750
+
+# Hardening. The host needs no privilege, no new privileges, and writes only to its state directory.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/bazaar
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

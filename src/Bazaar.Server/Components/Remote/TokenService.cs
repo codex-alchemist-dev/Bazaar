@@ -55,6 +55,11 @@ public sealed class TokenService(
         var nextExpiresAt = Min(now + TimeSpan.FromDays(_options.RefreshSlidingDays), absoluteEnd);
         var nextId = Guid.CreateVersion7(now);
 
+        // Issue the access token before rotating. If the issuer is unavailable it throws here, and the presented secret stays
+        // live for a retry. Rotating first would retire the secret, lose the new one, and make the retry look like reuse.
+        var accessExpiresAt = now + TimeSpan.FromMinutes(_options.AccessTokenMinutes);
+        var accessToken = accessTokens.Issue(record.Id, record.HumanId, accessExpiresAt);
+
         var rotated = await store.TryRotateAsync(
             record.Id,
             credential.Id,
@@ -74,8 +79,6 @@ public sealed class TokenService(
             throw new TokenRefreshException(TokenRefreshFailure.ReuseDetected);
         }
 
-        var accessExpiresAt = now + TimeSpan.FromMinutes(_options.AccessTokenMinutes);
-        var accessToken = accessTokens.Issue(record.Id, record.HumanId, accessExpiresAt);
         return new TokenPair(accessToken, accessExpiresAt, nextSecret, nextExpiresAt);
     }
 

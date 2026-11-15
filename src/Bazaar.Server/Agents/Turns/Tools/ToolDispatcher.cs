@@ -119,7 +119,10 @@ public sealed class ToolDispatcher(
         string? failure = null;
         try
         {
-            resultJson = await implementation.ExecuteAsync(args, cancellationToken);
+            // A contextual tool gets the caller the dispatcher already verified (doc 15). Other tools keep the plain call.
+            resultJson = implementation is IContextualTool contextual
+                ? await contextual.ExecuteAsync(args, new ToolCallContext(request.AgentId, request.SessionId, request.TurnId, request.ChainDepth), cancellationToken)
+                : await implementation.ExecuteAsync(args, cancellationToken);
         }
         catch (OperationCanceledException)
         {

@@ -14,7 +14,7 @@ Scope: the Bazaar.Client.Android head (doc 29). Status: the project does not exi
 ## Prerequisites (not verified in this environment)
 - .NET 10 SDK and the .NET for Android workload (`dotnet workload install android`).
 - Android SDK and JDK as required by the workload.
-- Minimum API 35, target API 36 (doc 29, open question 3).
+- Minimum API 35, target API 37 (issue #423; pinned by `TargetPlatformVersion` in the Android project).
 
 ## Unverified
 - The `AndroidPackageFormats` value syntax (`aab;apk`) and the `env:` password form have not been tested against a real .NET for Android build.

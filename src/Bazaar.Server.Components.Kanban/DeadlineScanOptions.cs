@@ -16,6 +16,9 @@ public sealed class DeadlineScanOptions
 
     /// <summary><see cref="DeadlineMode.Notify"/> is the default: an event only, no state change.</summary>
     public DeadlineMode Mode { get; set; } = DeadlineMode.Notify;
+
+    /// <summary>How often the scanner is enqueued as a recurring job. Whole seconds, at least one second.</summary>
+    public TimeSpan Interval { get; set; } = TimeSpan.FromMinutes(5);
 }
 
 /// <summary>How a passed due date is handled.</summary>

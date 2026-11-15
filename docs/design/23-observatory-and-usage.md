@@ -45,6 +45,7 @@ The custom-status line is an enumerated activity kind plus, when `observatory.ac
 
 ### Event sources and subscription
 - **Activity projector** (one writer per agent) consumes: availability transitions (09), turn and tool lifecycle events (06), quota changes (05), `gc` NOTIFY (04, to learn the current turn's GC) and Kanban state changes (12).
+- **RyuseiFuda events** [PROPOSED, doc 38] consumed by Observatory: `ryusei.trigger_created`, `ryusei.trigger_paused`, `ryusei.trigger_cancelled`, `ryusei.fire` (with `outcome`), `ryusei.auto_paused`.
 - Each accepted event upserts `agent_activity`, increments `revision`, and publishes a `presence` delta on the cache provider (C07). Events older than the last applied source time are dropped, so duplicates and reordering are harmless.
 - **Clients** subscribe to `presence` (02): a snapshot of all rows, then deltas by revision. Any gap triggers a snapshot re-fetch. Presence is state, not history, so there is no replay.
 - **Restart**: the projector rebuilds rows from availability and open turns. A row with no turn event for 10 minutes shows as `unknown`.
