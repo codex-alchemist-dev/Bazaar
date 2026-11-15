@@ -34,5 +34,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
   </ItemGroup>
 </Project>

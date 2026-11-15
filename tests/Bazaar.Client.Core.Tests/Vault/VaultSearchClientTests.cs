@@ -137,7 +137,7 @@ public class VaultSearchClientTests
     [Fact]
     public void Registry_without_an_explicit_api_builds_one_for_the_configured_endpoint()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = Panes.TestPanes.CreateRegistry();
 
         Assert.True(registry.Contains(PaneKinds.VaultSearch));
         Assert.IsType<VaultSearchPaneViewModel>(registry.Create(Descriptor()));
@@ -177,7 +177,7 @@ public class VaultSearchClientTests
     public void Registry_with_a_vault_api_builds_the_search_pane_and_rejects_a_bad_vault_field()
     {
         var (api, _) = Client(_ => Json(_searchJson));
-        var registry = FirstPartyPanes.CreateRegistry(vault: api);
+        var registry = Panes.TestPanes.CreateRegistry(vault: api);
 
         Assert.IsType<VaultSearchPaneViewModel>(registry.Create(Descriptor()));
 
