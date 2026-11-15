@@ -50,6 +50,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `souls/0001` | SOUL-RET | this PR | `soul_retirement_step`: durable latest outcome per Soul, agent and step (doc 07, WP6). Lives in the `souls` namespace because `common/` is frozen |
 | `mentions/0001` | WP-HANDLES | this PR | `principal_handle`: optional unique lowercase handle per principal (agent or human id), the source of `@handle` mentions; backfills a slug of `agent.name` for existing agents. Lives in the `mentions` namespace because `common/` is frozen; no foreign keys |
 | `modules/0001` | MM-WP-PERSIST (wave 2) | this PR | Module manager (doc 42): `module_update_decision` and `module_line_move_event`, both append-only with a refuse trigger; CHECK lists mirror the `UpdateDecision`, `LineMoveStep` and `LineMoveAuditKind` enums. Lives in the `modules` namespace because `common/` is frozen; no foreign keys |
+| `agent_safety/0001` | WP-BUDGET | this PR | `agent_token_spend`: per-agent token spend log behind `ITokenBudgetStore` (doc 15 quota table; `PostgresTokenBudgetStore`). Own namespace, because `common/` is frozen; no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
