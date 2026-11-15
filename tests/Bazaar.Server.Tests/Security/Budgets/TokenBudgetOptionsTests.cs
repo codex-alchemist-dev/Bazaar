@@ -45,9 +45,9 @@ public class TokenBudgetOptionsTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["HourlyTokens"] = "500",
-                ["DailyTokens"] = "5000",
-                ["WeeklyTokens"] = "50000",
+                ["Bazaar:Safety:Budgets:HourlyTokens"] = "500",
+                ["Bazaar:Safety:Budgets:DailyTokens"] = "5000",
+                ["Bazaar:Safety:Budgets:WeeklyTokens"] = "50000",
             })
             .Build();
         var services = new ServiceCollection();
@@ -66,9 +66,54 @@ public class TokenBudgetOptionsTests
     public void AddAgentTokenBudgets_rejects_a_configured_limit_below_one()
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["HourlyTokens"] = "0" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Safety:Budgets:HourlyTokens"] = "0" })
             .Build();
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceCollection().AddAgentTokenBudgets(configuration));
+    }
+
+    [Fact]
+    public void AddAgentTokenBudgets_ignores_root_level_keys_and_uses_the_defaults()
+    {
+        // Root-level keys are not the budget section, so they must not bind or be validated.
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["HourlyTokens"] = "0",
+                ["DailyTokens"] = "7",
+            })
+            .Build();
+        var services = new ServiceCollection();
+
+        services.AddAgentTokenBudgets(configuration);
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<TokenBudgetOptions>();
+        Assert.Equal(200_000, options.HourlyTokens);
+        Assert.Equal(2_000_000, options.DailyTokens);
+    }
+
+    [Fact]
+    public void AddAgentTokenBudgets_binds_only_the_named_section_when_root_keys_are_also_present()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["WeeklyTokens"] = "1",
+                ["Bazaar:Safety:Budgets:WeeklyTokens"] = "42",
+            })
+            .Build();
+        var services = new ServiceCollection();
+
+        services.AddAgentTokenBudgets(configuration);
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Equal(42, provider.GetRequiredService<TokenBudgetOptions>().WeeklyTokens);
+    }
+
+    [Fact]
+    public void The_configuration_section_key_is_bazaar_safety_budgets()
+    {
+        Assert.Equal("Bazaar:Safety:Budgets", TokenBudgetServiceCollectionExtensions.ConfigurationSection);
     }
 }
