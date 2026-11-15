@@ -73,8 +73,32 @@ public sealed class AuditAnchorRegistrationTests
         Assert.IsType<PostgresAuditAnchorStore>(provider.GetRequiredService<IAuditAnchorStore>());
     }
 
+    [Fact]
+    public void Enabled_anchoring_over_an_audit_log_that_cannot_join_a_transaction_is_refused_on_resolve()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(NpgsqlDataSource.Create("Host=db.example.invalid;Database=bazaar"));
+        services.AddSingleton<IAuditLog, NonTransactionalAuditLog>();
+        services.AddAuditAnchoring(Config(
+            ("AuditAnchor:Enabled", "true"),
+            ("AuditAnchor:Rfc3161:Endpoint", "https://tsa.example.invalid/tsr"),
+            ("AuditAnchor:OffsiteGit:Enabled", "false")));
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<AuditAnchorService>());
+    }
+
     /// <summary>Accepts entries without storing them. Registration does not write, so nothing reaches it here.</summary>
-    private sealed class NullAuditLog : IAuditLog
+    private sealed class NullAuditLog : ITransactionalAuditLog
+    {
+        public Task AppendAsync(AuditEntry e, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task AppendInTransactionAsync(NpgsqlConnection conn, NpgsqlTransaction tx, AuditEntry e, CancellationToken ct = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class NonTransactionalAuditLog : IAuditLog
     {
         public Task AppendAsync(AuditEntry e, CancellationToken ct = default) => Task.CompletedTask;
     }

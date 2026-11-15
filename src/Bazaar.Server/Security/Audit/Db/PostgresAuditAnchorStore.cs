@@ -27,6 +27,28 @@ public sealed class PostgresAuditAnchorStore(NpgsqlDataSource dataSource) : IAud
     /// <inheritdoc />
     public async Task AppendAsync(AuditCheckpoint checkpoint, AuditAnchorReceipt receipt, CancellationToken ct = default)
     {
+        Validate(checkpoint, receipt);
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await InsertAsync(conn, tx, checkpoint, receipt, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Inserts the receipt on <paramref name="conn"/> inside the caller's <paramref name="tx"/>. Nothing is visible to other sessions
+    /// until the caller commits, so the receipt and a related audit row commit or roll back together. The caller owns the transaction.
+    /// </summary>
+    public static Task AppendInTransactionAsync(
+        NpgsqlConnection conn, NpgsqlTransaction tx, AuditCheckpoint checkpoint, AuditAnchorReceipt receipt, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(conn);
+        ArgumentNullException.ThrowIfNull(tx);
+        Validate(checkpoint, receipt);
+        return InsertAsync(conn, tx, checkpoint, receipt, ct);
+    }
+
+    private static void Validate(AuditCheckpoint checkpoint, AuditAnchorReceipt receipt)
+    {
         ArgumentNullException.ThrowIfNull(checkpoint);
         ArgumentNullException.ThrowIfNull(receipt);
         ValidateCheckpoint(checkpoint);
@@ -38,9 +60,12 @@ public sealed class PostgresAuditAnchorStore(NpgsqlDataSource dataSource) : IAud
         // differ from the one the target returned.
         if (receipt.AnchoredAt.ToUniversalTime().UtcTicks % 10 != 0)
             throw new ArgumentException("Receipt AnchoredAt must be aligned to whole microseconds.", nameof(receipt));
+    }
 
-        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
-        await using var insert = new NpgsqlCommand(_insertSql, conn);
+    private static async Task InsertAsync(
+        NpgsqlConnection conn, NpgsqlTransaction tx, AuditCheckpoint checkpoint, AuditAnchorReceipt receipt, CancellationToken ct)
+    {
+        await using var insert = new NpgsqlCommand(_insertSql, conn, tx);
         insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = receipt.TargetId });
         insert.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = receipt.ReceiptBytes });
         insert.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = receipt.AnchoredAt });

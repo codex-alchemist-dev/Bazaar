@@ -85,4 +85,73 @@ public sealed class PostgresAuditAnchorStoreTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => store.AppendAsync(unknown, Receipt("rfc3161", 0x31), Ct));
         Assert.Empty(await store.ReadForCheckpointAsync(unknown, Ct));
     }
+
+    [Fact]
+    public async Task A_receipt_and_an_audit_row_written_in_one_transaction_roll_back_together()
+    {
+        SkipWithoutDatabase();
+        await using var db = await AuditTestDb.CreateAsync(Ct);
+        var checkpoint = await StoreCheckpointAsync(db);
+        var store = new PostgresAuditAnchorStore(db.DataSource);
+        var log = new PostgresAuditLog(db.DataSource);
+        var entry = new AuditEntry(_t0.AddMinutes(7), "system", AuditAnchorService.RecoveredKind, "{\"last_seq\": 5, \"target_id\": \"rfc3161\"}");
+
+        await using (var conn = await db.DataSource.OpenConnectionAsync(Ct))
+        await using (var tx = await conn.BeginTransactionAsync(Ct))
+        {
+            await PostgresAuditAnchorStore.AppendInTransactionAsync(conn, tx, checkpoint, Receipt("rfc3161", 0x31), Ct);
+            await log.AppendInTransactionAsync(conn, tx, entry, Ct);
+            await tx.RollbackAsync(Ct);
+        }
+
+        Assert.Empty(await store.ReadForCheckpointAsync(checkpoint, Ct));
+        Assert.False(await new PostgresAuditAnchorFailureLog(db.DataSource).HasRecordedFailureAsync(5, "rfc3161", Ct));
+        Assert.Equal(5, await CountAuditRowsAsync(db));
+    }
+
+    [Fact]
+    public async Task The_atomic_writer_commits_the_receipt_and_the_recovered_event_together()
+    {
+        SkipWithoutDatabase();
+        await using var db = await AuditTestDb.CreateAsync(Ct);
+        var checkpoint = await StoreCheckpointAsync(db);
+        var store = new PostgresAuditAnchorStore(db.DataSource);
+        var log = new PostgresAuditLog(db.DataSource);
+        await log.AppendAsync(new AuditEntry(_t0.AddMinutes(6), "system", AuditAnchorService.FailedKind, "{\"last_seq\": 5, \"target_id\": \"rfc3161\", \"reason\": \"timeout\"}"), Ct);
+        var writer = new PostgresAuditAnchorAtomicWriter(db.DataSource, log);
+
+        await using (var scope = await writer.BeginAsync(Ct))
+        {
+            await scope.AppendReceiptAsync(checkpoint, Receipt("rfc3161", 0x31), Ct);
+            Assert.True(await scope.HasRecordedFailureAsync(5, "rfc3161", Ct));
+            await scope.AppendAuditAsync(new AuditEntry(_t0.AddMinutes(7), "system", AuditAnchorService.RecoveredKind, "{\"last_seq\": 5, \"target_id\": \"rfc3161\"}"), Ct);
+            await scope.CommitAsync(Ct);
+        }
+
+        Assert.Single(await store.ReadForCheckpointAsync(checkpoint, Ct));
+        Assert.Equal(7, await CountAuditRowsAsync(db));
+    }
+
+    [Fact]
+    public async Task A_scope_disposed_without_commit_leaves_no_receipt()
+    {
+        SkipWithoutDatabase();
+        await using var db = await AuditTestDb.CreateAsync(Ct);
+        var checkpoint = await StoreCheckpointAsync(db);
+        var store = new PostgresAuditAnchorStore(db.DataSource);
+        var writer = new PostgresAuditAnchorAtomicWriter(db.DataSource, new PostgresAuditLog(db.DataSource));
+
+        await using (var scope = await writer.BeginAsync(Ct))
+        {
+            await scope.AppendReceiptAsync(checkpoint, Receipt("rfc3161", 0x31), Ct);
+        }
+
+        Assert.Empty(await store.ReadForCheckpointAsync(checkpoint, Ct));
+    }
+
+    private static async Task<long> CountAuditRowsAsync(AuditTestDb db)
+    {
+        await using var cmd = db.DataSource.CreateCommand("SELECT count(*) FROM audit_log");
+        return (long)(await cmd.ExecuteScalarAsync(Ct))!;
+    }
 }

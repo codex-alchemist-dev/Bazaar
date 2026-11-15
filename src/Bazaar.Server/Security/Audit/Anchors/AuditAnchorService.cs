@@ -16,6 +16,12 @@ namespace Bazaar.Server.Security.Audit.Anchors;
 /// records the recovered event. The in-memory set is only a cache that saves the log read for failures in this process.
 /// Host cancellation is not swallowed. A failure to write the audit event itself is not swallowed either: an unrecorded failure
 /// would hide a gap.
+/// <para>
+/// Two write modes, chosen once by the constructor and never inferred per call. With an <see cref="IAuditAnchorAtomicWriter"/>
+/// (the Postgres host) the receipt, the failure check and the <c>audit.anchor.recovered</c> event run in one transaction, so a crash
+/// cannot leave a receipt without its recovered event: the retry would skip a target that already has a receipt and the event would
+/// be lost. Without a writer (in-memory test doubles) the receipt and the event are written in two separate steps.
+/// </para>
 /// </remarks>
 public sealed class AuditAnchorService
 {
@@ -33,6 +39,7 @@ public sealed class AuditAnchorService
     private readonly IAuditAnchorStore _store;
     private readonly IAuditLog _auditLog;
     private readonly IAuditAnchorFailureLog _failures;
+    private readonly IAuditAnchorAtomicWriter? _atomic;
     private readonly TimeProvider _time;
     private readonly TimeSpan _timeout;
     private readonly HashSet<(long LastSeq, string TargetId)> _failed = [];
@@ -45,7 +52,8 @@ public sealed class AuditAnchorService
         IAuditLog auditLog,
         IAuditAnchorFailureLog failures,
         TimeProvider time,
-        TimeSpan targetTimeout)
+        TimeSpan targetTimeout,
+        IAuditAnchorAtomicWriter? atomicWriter = null)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(store);
@@ -66,6 +74,7 @@ public sealed class AuditAnchorService
         _store = store;
         _auditLog = auditLog;
         _failures = failures;
+        _atomic = atomicWriter;
         _time = time;
         _timeout = targetTimeout;
     }
@@ -96,7 +105,15 @@ public sealed class AuditAnchorService
             try
             {
                 var receipt = await AnchorOneAsync(target, digest, ct).ConfigureAwait(false);
-                await _store.AppendAsync(checkpoint, receipt, ct).ConfigureAwait(false);
+                if (_atomic is not null)
+                {
+                    await RecordAtomicallyAsync(_atomic, checkpoint, receipt, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _store.AppendAsync(checkpoint, receipt, ct).ConfigureAwait(false);
+                }
+
                 anchored.Add(target.TargetId);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -111,7 +128,8 @@ public sealed class AuditAnchorService
                 continue;
             }
 
-            if (await WasFailedAsync(checkpoint.LastSeq, target.TargetId, ct).ConfigureAwait(false))
+            // The atomic path has already written the recovered event together with the receipt.
+            if (_atomic is null && await WasFailedAsync(checkpoint.LastSeq, target.TargetId, ct).ConfigureAwait(false))
             {
                 await AppendEventAsync(RecoveredKind, checkpoint.LastSeq, target.TargetId, reason: null, ct).ConfigureAwait(false);
             }
@@ -133,6 +151,34 @@ public sealed class AuditAnchorService
         }
 
         return receipt;
+    }
+
+    /// <summary>
+    /// Writes the receipt and, when this checkpoint and target failed earlier, the recovered event in one transaction. The failure
+    /// check runs inside it. If any step throws, the scope is disposed without a commit and neither row is recorded.
+    /// </summary>
+    private async Task RecordAtomicallyAsync(IAuditAnchorAtomicWriter writer, AuditCheckpoint checkpoint, AuditAnchorReceipt receipt, CancellationToken ct)
+    {
+        var key = (checkpoint.LastSeq, receipt.TargetId);
+        await using var scope = await writer.BeginAsync(ct).ConfigureAwait(false);
+        await scope.AppendReceiptAsync(checkpoint, receipt, ct).ConfigureAwait(false);
+
+        bool cached;
+        lock (_gate)
+        {
+            cached = _failed.Contains(key);
+        }
+
+        if (cached || await scope.HasRecordedFailureAsync(checkpoint.LastSeq, receipt.TargetId, ct).ConfigureAwait(false))
+        {
+            await scope.AppendAuditAsync(BuildEntry(RecoveredKind, checkpoint.LastSeq, receipt.TargetId, reason: null), ct).ConfigureAwait(false);
+        }
+
+        await scope.CommitAsync(ct).ConfigureAwait(false);
+        lock (_gate)
+        {
+            _failed.Remove(key);
+        }
     }
 
     private void MarkFailed(long lastSeq, string targetId)
@@ -160,7 +206,10 @@ public sealed class AuditAnchorService
         return await _failures.HasRecordedFailureAsync(lastSeq, targetId, ct).ConfigureAwait(false);
     }
 
-    private Task AppendEventAsync(string kind, long lastSeq, string targetId, string? reason, CancellationToken ct)
+    private Task AppendEventAsync(string kind, long lastSeq, string targetId, string? reason, CancellationToken ct) =>
+        _auditLog.AppendAsync(BuildEntry(kind, lastSeq, targetId, reason), ct);
+
+    private AuditEntry BuildEntry(string kind, long lastSeq, string targetId, string? reason)
     {
         var payload = new JsonObject
         {
@@ -172,7 +221,7 @@ public sealed class AuditAnchorService
             payload["reason"] = reason;
         }
 
-        return _auditLog.AppendAsync(new AuditEntry(_time.GetUtcNow(), _actor, kind, payload.ToJsonString()), ct);
+        return new AuditEntry(_time.GetUtcNow(), _actor, kind, payload.ToJsonString());
     }
 
     /// <summary>

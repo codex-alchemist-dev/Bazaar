@@ -30,4 +30,29 @@ public sealed class PostgresAuditAnchorFailureLog(NpgsqlDataSource dataSource) :
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = targetId });
         return (bool)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
     }
+
+    /// <summary>
+    /// The same check inside the caller's transaction, after taking the audit append lock. A failure row is written under that lock,
+    /// so a concurrent failure write is either committed and seen here, or waits until this transaction ends.
+    /// </summary>
+    public static async Task<bool> HasRecordedFailureInTransactionAsync(
+        NpgsqlConnection conn, NpgsqlTransaction tx, long lastSeq, string targetId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(conn);
+        ArgumentNullException.ThrowIfNull(tx);
+        ArgumentException.ThrowIfNullOrEmpty(targetId);
+
+        await using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock($1)", conn, tx))
+        {
+            lockCmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = PostgresAuditLog.AppendLockKey });
+            await lockCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await using var cmd = new NpgsqlCommand(_existsSql, conn, tx);
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = lastSeq });
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = AuditAnchorService.FailedKind });
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = lastSeq.ToString(CultureInfo.InvariantCulture) });
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = targetId });
+        return (bool)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+    }
 }
