@@ -11,7 +11,7 @@ namespace Bazaar.Server.Security.Audit.Db;
 public sealed record StoredAuditCheckpoint(AuditCheckpoint Checkpoint, string KeyId, byte[] Signature);
 
 /// <summary>
-/// Writes and reads the <c>audit_checkpoint</c> table (migration 0021, design doc 48 section 5.2). The writer enforces the
+/// Writes and reads the <c>audit_checkpoint</c> table (migration audit/0001, design doc 48 section 5.2). The writer enforces the
 /// rules that make the checkpoints a usable chain of their own: each checkpoint covers the rows right after the previous
 /// one, and its chain head must match the <c>audit_log</c> row at its last sequence number. Both checks run in the same
 /// transaction as the insert, under an advisory lock, so two writers cannot interleave.

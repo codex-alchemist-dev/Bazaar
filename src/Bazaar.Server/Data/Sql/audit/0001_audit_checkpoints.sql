@@ -1,4 +1,4 @@
--- 0021: audit checkpoints (design doc 48 section 5.2, doc 15). Owner: audit checkpoint persistence.
+-- audit/0001: audit checkpoints (design doc 48 section 5.2, doc 15). Namespace audit: new migrations go in their component's namespace, not common/ (frozen).
 --
 -- One row per signed checkpoint over the audit_log chain. PostgresAuditCheckpointStore (Security/Audit/Db) is the only
 -- writer. The signature is made outside this table, by the Identity Service (doc 14); this table stores the signed bytes'
