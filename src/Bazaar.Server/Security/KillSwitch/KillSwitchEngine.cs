@@ -89,17 +89,20 @@ public sealed class KillSwitchEngine
     }
 
     /// <summary>
-    /// Resumes the global stop. The record is written before the state is lifted, so a resume that cannot be audited does not
-    /// happen. The stored stop is removed before the cache is cleared. Agent stops are not affected.
+    /// Resumes the global stop. The stored stop is removed first, then the cache is cleared, then the record is written. If the
+    /// record cannot be written the stop is restored, so a stop is never lifted without a record. A failed removal writes nothing.
+    /// Agent stops are not affected.
     /// </summary>
     public async Task ResumeGlobalAsync(string actorId, string reason, CancellationToken ct = default)
     {
         ValidateActorAndReason(actorId, reason);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-        var now = _time.GetUtcNow();
-        await _audit.RecordAsync(new KillSwitchAuditEntry(now, actorId, KillSwitchAction.Resumed, KillSwitchScope.Global, null, reason), ct)
-            .ConfigureAwait(false);
+        KillSwitchStop? previous;
+        lock (_gate)
+        {
+            previous = _global;
+        }
 
         await _lane.RunAsync(async () =>
         {
@@ -109,6 +112,17 @@ public sealed class KillSwitchEngine
                 _global = null;
             }
         }, ct).ConfigureAwait(false);
+
+        try
+        {
+            await _audit.RecordAsync(new KillSwitchAuditEntry(_time.GetUtcNow(), actorId, KillSwitchAction.Resumed, KillSwitchScope.Global, null, reason), ct)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            await RestoreAsync(previous, agentId: null, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary>
@@ -135,13 +149,14 @@ public sealed class KillSwitchEngine
 
         await _audit.RecordAsync(new KillSwitchAuditEntry(now, actorId, KillSwitchAction.Engaged, KillSwitchScope.Agent, agentId, reason), ct)
             .ConfigureAwait(false);
-        await _containment.ContainAsync(agentId, ct).ConfigureAwait(false);
+        await _containment.ContainAsync(agentId, actorId, ct).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Resumes an agent stop with a request signed by an owner device (see <see cref="IAgentContainment.IssueReleaseChallengeAsync"/>).
-    /// The record is written first, then the host hook verifies the request and releases containment, then the state is lifted.
-    /// If the hook fails or denies the request, the agent stays denied. Leases revoked by the engage are not restored here.
+    /// The stored stop is removed first, so a failed removal releases nothing. Then the host hook verifies the request and releases
+    /// containment. If the hook fails or denies the request, the stored stop is restored and the agent stays denied. The record is
+    /// written last, once the release has completed. Leases revoked by the engage are not restored here.
     /// </summary>
     public async Task ResumeAgentAsync(string agentId, string reason, ContainmentReleaseRequest request, CancellationToken ct = default)
     {
@@ -151,24 +166,37 @@ public sealed class KillSwitchEngine
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-        var now = _time.GetUtcNow();
-        await _audit.RecordAsync(new KillSwitchAuditEntry(now, actorId, KillSwitchAction.Resumed, KillSwitchScope.Agent, agentId, reason), ct)
-            .ConfigureAwait(false);
-        var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
-        if (release.Outcome == ContainmentReleaseOutcome.Denied)
+        KillSwitchStop? previous;
+        lock (_gate)
         {
-            // The agent stays denied: only the owner may lift containment.
-            throw new UnauthorizedAccessException("Only the owner may resume a contained agent.");
+            _agentStops.TryGetValue(agentId, out previous);
         }
 
-        await _lane.RunAsync(async () =>
+        await _lane.RunAsync(() => _store.ClearAgentStopAsync(agentId, ct), ct).ConfigureAwait(false);
+
+        try
         {
-            await _store.ClearAgentStopAsync(agentId, ct).ConfigureAwait(false);
+            var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
+            if (release.Outcome == ContainmentReleaseOutcome.Denied)
+            {
+                // The agent stays denied: only the owner may lift containment.
+                throw new UnauthorizedAccessException("Only the owner may resume a contained agent.");
+            }
+
             lock (_gate)
             {
                 _agentStops.Remove(agentId);
             }
-        }, ct).ConfigureAwait(false);
+
+            await _audit.RecordAsync(new KillSwitchAuditEntry(_time.GetUtcNow(), actorId, KillSwitchAction.Resumed, KillSwitchScope.Agent, agentId, reason), ct)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // The release or the record did not complete, so the stop goes back in place.
+            await RestoreAsync(previous, agentId, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary>
@@ -222,6 +250,35 @@ public sealed class KillSwitchEngine
         {
             return new KillSwitchStatus(_global, _agentStops.Values.ToArray());
         }
+    }
+
+    /// <summary>Puts a stop back in the store and the cache after a resume could not complete. Nothing is put back when there was no stop.</summary>
+    private async Task RestoreAsync(KillSwitchStop? previous, string? agentId, CancellationToken ct)
+    {
+        if (previous is null)
+        {
+            return;
+        }
+
+        await _lane.RunAsync(async () =>
+        {
+            if (agentId is null)
+            {
+                await _store.SetGlobalAsync(previous, ct).ConfigureAwait(false);
+                lock (_gate)
+                {
+                    _global = previous;
+                }
+            }
+            else
+            {
+                await _store.SetAgentStopAsync(previous, ct).ConfigureAwait(false);
+                lock (_gate)
+                {
+                    _agentStops[agentId] = previous;
+                }
+            }
+        }, ct).ConfigureAwait(false);
     }
 
     /// <summary>Reads the stored stops into the cache. Runs once from the constructor, and again after a failed load.</summary>

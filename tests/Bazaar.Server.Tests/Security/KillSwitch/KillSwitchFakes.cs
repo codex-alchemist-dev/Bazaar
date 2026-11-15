@@ -26,7 +26,7 @@ internal sealed class RecordingContainment : IAgentContainment
     /// <summary>When set, <see cref="ReleaseAsync"/> throws, to test a failing host hook.</summary>
     public bool FailRelease { get; set; }
 
-    public Task ContainAsync(string agentId, CancellationToken ct = default)
+    public Task ContainAsync(string agentId, string actorId, CancellationToken ct = default)
     {
         lock (_gate)
         {

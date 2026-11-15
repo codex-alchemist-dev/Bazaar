@@ -149,7 +149,7 @@ public class KillSwitchPersistenceTests
         var order = new List<string>();
         var (owners, key) = Owners();
         var first = new AgentContainmentAdapter(new OrderedVmPauser(order), new OrderedTokenRevoker(order), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
-        await first.ContainAsync("agent-a", Ct);
+        await first.ContainAsync("agent-a", "owner-1", Ct);
         order.Clear();
 
         var restarted = new AgentContainmentAdapter(new OrderedVmPauser(order), new OrderedTokenRevoker(order), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
@@ -167,13 +167,28 @@ public class KillSwitchPersistenceTests
         var (owners, key) = Owners();
         var order = new List<string>();
         var first = new AgentContainmentAdapter(new OrderedVmPauser(order), new OrderedTokenRevoker(order), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
-        await first.ContainAsync("agent-a", Ct);
+        await first.ContainAsync("agent-a", "owner-1", Ct);
         await ReleaseAsync(first, key, "agent-a", Ct);
 
         var restarted = new AgentContainmentAdapter(new OrderedVmPauser(order), new OrderedTokenRevoker(order), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
 
         Assert.Empty(await store.LoadAsync(Ct));
         Assert.Equal(ContainmentReleaseOutcome.NotContained, (await ReleaseAsync(restarted, key, "agent-a", Ct)).Outcome);
+    }
+
+    [Fact]
+    public async Task The_containment_row_records_the_engaging_actor()
+    {
+        var store = new InMemoryContainmentStateStore();
+        var (owners, _) = Owners();
+        var adapter = new AgentContainmentAdapter(new OrderedVmPauser([]), new OrderedTokenRevoker([]), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
+
+        await adapter.ContainAsync("agent-a", "owner-1", Ct);
+        await adapter.ContainAsync("agent-b", "system:breach", Ct);
+
+        var rows = (await store.LoadAsync(Ct)).ToDictionary(r => r.AgentId, r => r.ActorId);
+        Assert.Equal("owner-1", rows["agent-a"]);
+        Assert.Equal("system:breach", rows["agent-b"]);
     }
 
     [Fact]
@@ -184,7 +199,7 @@ public class KillSwitchPersistenceTests
         var (owners, key) = Owners();
         var adapter = new AgentContainmentAdapter(new OrderedVmPauser(order), new OrderedTokenRevoker(order), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.ContainAsync("agent-a", Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.ContainAsync("agent-a", "owner-1", Ct));
 
         Assert.Empty(order);
         Assert.Equal(ContainmentReleaseOutcome.NotContained, (await ReleaseAsync(adapter, key, "agent-a", Ct)).Outcome);
@@ -197,7 +212,7 @@ public class KillSwitchPersistenceTests
         var order = new List<string>();
         var (owners, key) = Owners();
         var adapter = new AgentContainmentAdapter(new OrderedVmPauser(order), new OrderedTokenRevoker(order), owners, new RecordingAuditLog(), new InMemoryNonceStore(), store);
-        await adapter.ContainAsync("agent-a", Ct);
+        await adapter.ContainAsync("agent-a", "owner-1", Ct);
         store.FailWrites = true;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => ReleaseAsync(adapter, key, "agent-a", Ct));

@@ -35,12 +35,6 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     /// <summary>Audit kind of every release attempt record.</summary>
     public const string ReleaseKind = "containment.release";
 
-    /// <summary>
-    /// Actor recorded in the containment store. <see cref="IAgentContainment.ContainAsync"/> does not carry the engaging actor;
-    /// the kill switch audit records hold it.
-    /// </summary>
-    public const string ContainActorId = "system:containment";
-
     private readonly IVmPauser _pauser;
     private readonly IAgentTokenRevoker _revoker;
     private readonly IOwnerKeyRegistry _owners;
@@ -100,16 +94,17 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     }
 
     /// <inheritdoc />
-    public async Task ContainAsync(string agentId, CancellationToken ct = default)
+    public async Task ContainAsync(string agentId, string actorId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         // Store and mark first: a contain that fails half way still needs a release afterwards. A failed store write
         // stops the contain before the VMs or tokens are touched.
         await _lane.RunAsync(async () =>
         {
-            await _store.AddAsync(new ContainedAgent(agentId, _time.GetUtcNow(), ContainActorId), ct).ConfigureAwait(false);
+            await _store.AddAsync(new ContainedAgent(agentId, _time.GetUtcNow(), actorId), ct).ConfigureAwait(false);
             _contained[agentId] = 0;
         }, ct).ConfigureAwait(false);
 

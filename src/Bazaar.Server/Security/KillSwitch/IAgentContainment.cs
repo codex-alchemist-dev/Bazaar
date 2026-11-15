@@ -6,8 +6,11 @@ namespace Bazaar.Server.Security.KillSwitch;
 /// </summary>
 public interface IAgentContainment
 {
-    /// <summary>Pauses the agent's VMs, revokes its leases and tokens, and blocks its egress. Called when an agent stop is engaged.</summary>
-    Task ContainAsync(string agentId, CancellationToken ct = default);
+    /// <summary>
+    /// Pauses the agent's VMs, revokes its leases and tokens, and blocks its egress. Called when an agent stop is engaged.
+    /// <paramref name="actorId"/> is the engaging actor (an owner device, or the breach actor for an automatic stop), recorded with the containment.
+    /// </summary>
+    Task ContainAsync(string agentId, string actorId, CancellationToken ct = default);
 
     /// <summary>
     /// Issues a single-use release challenge for an agent to a registered, unrevoked owner device. The server generates the
