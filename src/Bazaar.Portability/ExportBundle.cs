@@ -19,8 +19,8 @@ public sealed record ExportBundle(string Manifest, IReadOnlyList<BundleFile> Fil
 /// </summary>
 /// <remarks>
 /// Encryption and signing live in <see cref="ExportBundleCipher"/> and <see cref="BundleSigner"/>.
-/// NOT IMPLEMENTED YET (later slices): the Argon2id key derivation that section 5 proposes (the current cipher
-/// uses PBKDF2-SHA256), README.txt, splitting into parts of at most 4 GiB, and resumable chunks.
+/// Encryption uses Argon2id (see <see cref="ExportBundleCipher"/>). NOT IMPLEMENTED YET (later slices): README.txt,
+/// splitting into parts of at most 4 GiB, and resumable chunks.
 /// Nothing built here is encrypted or signed unless the caller applies those steps.
 /// </remarks>
 public static class ExportBundleWriter

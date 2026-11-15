@@ -1,36 +1,63 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using Konscious.Security.Cryptography;
 
 namespace Bazaar.Portability;
 
 /// <summary>
+/// Argon2id cost parameters for the passphrase key (doc 44 section 5). They are written into every archive header,
+/// so an archive stays readable when the defaults change.
+/// </summary>
+/// <param name="MemoryKiB">Memory cost in KiB.</param>
+/// <param name="TimeCost">Number of passes over memory.</param>
+/// <param name="Parallelism">Lanes (degree of parallelism).</param>
+public readonly record struct Argon2Parameters(int MemoryKiB, int TimeCost, int Parallelism)
+{
+    /// <summary>RFC 9106 second recommended profile: 64 MiB, three passes, four lanes.</summary>
+    public static Argon2Parameters Default { get; } = new(65_536, 3, 4);
+}
+
+/// <summary>
 /// Wraps a whole export bundle into one encrypted archive (doc 44 section 5). The key is derived from a passphrase
-/// with PBKDF2-SHA256 and the archive is sealed with AES-256-GCM.
+/// with Argon2id (RFC 9106) and the archive is sealed with AES-256-GCM.
 /// </summary>
 /// <remarks>
 /// Archive layout (all integers big-endian):
 /// <code>
-/// magic "BZEX" (4) | format version (1) | KDF id (1) | PBKDF2 iterations (4) | salt (16) | nonce (12) | tag (16) | ciphertext
+/// magic "BZEX" (4) | format version (1) | KDF id (1) | KDF parameter version (1) | memory KiB (4) |
+/// time cost (4) | parallelism (1) | salt (16) | nonce (12) | tag (16) | ciphertext
 /// </code>
-/// The first 38 bytes (everything before the tag) are the AES-GCM associated data, so a change to the version,
-/// KDF, iteration count, salt or nonce fails authentication just like a change to the ciphertext.
-/// The ciphertext is a length-prefixed list of the bundle's files, including manifest.json and any signature files.
-/// The passphrase is never logged, stored or included in an error message.
+/// The KDF id 1 means Argon2id, and the KDF parameter version 1 means the three cost fields above. Every byte
+/// before the tag (44 bytes) is the AES-GCM associated data, so a change to any header field fails authentication
+/// just like a change to the ciphertext. The ciphertext is a length-prefixed list of the bundle's files, including
+/// manifest.json and any signature files. The passphrase is never logged, stored or included in an error message.
 /// </remarks>
 public static class ExportBundleCipher
 {
-    /// <summary>Archive format version written by this code.</summary>
-    public const byte FormatVersion = 1;
+    /// <summary>Archive format version written by this code. The earlier PBKDF2 draft (version 1) is not read.</summary>
+    public const byte FormatVersion = 2;
 
-    /// <summary>Iteration count used when the caller does not pass one.</summary>
-    public const int DefaultIterations = 600_000;
+    /// <summary>KDF id for Argon2id.</summary>
+    public const byte KdfArgon2id = 1;
 
-    /// <summary>Lowest iteration count accepted, for encrypting and for decrypting an archive.</summary>
-    public const int MinIterations = 600_000;
+    /// <summary>Version of the Argon2id parameter block that follows the KDF id.</summary>
+    public const byte KdfParametersVersion = 1;
 
-    /// <summary>Highest iteration count accepted, so a hostile archive cannot stall the reader.</summary>
-    public const int MaxIterations = 10_000_000;
+    /// <summary>Smallest memory cost accepted, for encrypting and for decrypting (19 MiB, the OWASP Argon2id minimum).</summary>
+    public const int MinMemoryKiB = 19_456;
+
+    /// <summary>Largest memory cost accepted, so a hostile archive cannot exhaust the reader (1 GiB).</summary>
+    public const int MaxMemoryKiB = 1_048_576;
+
+    /// <summary>Smallest time cost accepted.</summary>
+    public const int MinTimeCost = 2;
+
+    /// <summary>Largest time cost accepted.</summary>
+    public const int MaxTimeCost = 10;
+
+    /// <summary>Largest parallelism accepted.</summary>
+    public const int MaxParallelism = 16;
 
     /// <summary>Salt length in bytes.</summary>
     public const int SaltBytes = 16;
@@ -41,42 +68,50 @@ public static class ExportBundleCipher
     /// <summary>AES-GCM tag length in bytes.</summary>
     public const int TagBytes = 16;
 
-    private const byte KdfPbkdf2Sha256 = 1;
-    private const int KeyBytes = 32;
-    private const int MagicBytes = 4;
-    private const int IterationsOffset = 6;
-    private const int SaltOffset = 10;
-    private const int NonceOffset = SaltOffset + SaltBytes;
-    private const int TagOffset = NonceOffset + NonceBytes;
-    private const int HeaderBytes = TagOffset + TagBytes;
-    private const int AadBytes = TagOffset;
-    private const int MaxFileCount = 1_000_000;
-    private const int MaxPathBytes = 4096;
+    private const int _keyBytes = 32;
+    private const int _magicBytes = 4;
+    private const int _kdfIdOffset = 5;
+    private const int _kdfParametersVersionOffset = 6;
+    private const int _memoryOffset = 7;
+    private const int _timeCostOffset = 11;
+    private const int _parallelismOffset = 15;
+    private const int _saltOffset = 16;
+    private const int _nonceOffset = _saltOffset + SaltBytes;
+    private const int _tagOffset = _nonceOffset + NonceBytes;
+    private const int _headerBytes = _tagOffset + TagBytes;
+    private const int _aadBytes = _tagOffset;
+    private const int _maxFileCount = 1_000_000;
+    private const int _maxPathBytes = 4096;
 
     private static ReadOnlySpan<byte> Magic => "BZEX"u8;
 
     /// <summary>
     /// Encrypts the bundle with a fresh random salt and nonce. The bundle must pass <see cref="ExportBundleWriter.Verify"/>.
     /// </summary>
-    public static byte[] Encrypt(ExportBundle bundle, string passphrase, int iterations = DefaultIterations)
+    public static byte[] Encrypt(ExportBundle bundle, string passphrase, Argon2Parameters? parameters = null)
     {
         ArgumentNullException.ThrowIfNull(bundle);
         var salt = RandomNumberGenerator.GetBytes(SaltBytes);
         var nonce = RandomNumberGenerator.GetBytes(NonceBytes);
-        return EncryptWithParameters(bundle, passphrase, iterations, salt, nonce);
+        return EncryptWithParameters(bundle, passphrase, parameters ?? Argon2Parameters.Default, salt, nonce);
     }
 
     /// <summary>
     /// Encrypts with caller-supplied salt and nonce. Only the test vectors use this; production code must call
     /// <see cref="Encrypt"/>, because reusing a salt and nonce breaks AES-GCM.
     /// </summary>
-    internal static byte[] EncryptWithParameters(ExportBundle bundle, string passphrase, int iterations, byte[] salt, byte[] nonce)
+    internal static byte[] EncryptWithParameters(
+        ExportBundle bundle,
+        string passphrase,
+        Argon2Parameters parameters,
+        byte[] salt,
+        byte[] nonce)
     {
         ArgumentNullException.ThrowIfNull(bundle);
         ArgumentNullException.ThrowIfNull(salt);
         ArgumentNullException.ThrowIfNull(nonce);
         ArgumentException.ThrowIfNullOrEmpty(passphrase);
-        ValidateIterations(iterations);
+        ValidateParameters(parameters);
         ArgumentOutOfRangeException.ThrowIfNotEqual(salt.Length, SaltBytes);
         ArgumentOutOfRangeException.ThrowIfNotEqual(nonce.Length, NonceBytes);
 
@@ -87,25 +122,28 @@ public static class ExportBundleCipher
         }
 
         var plaintext = SerializeFiles(bundle.Files);
-        var output = new byte[HeaderBytes + plaintext.Length];
-        var header = output.AsSpan(0, HeaderBytes);
+        var output = new byte[_headerBytes + plaintext.Length];
+        var header = output.AsSpan(0, _headerBytes);
         Magic.CopyTo(header);
-        header[MagicBytes] = FormatVersion;
-        header[MagicBytes + 1] = KdfPbkdf2Sha256;
-        BinaryPrimitives.WriteUInt32BigEndian(header.Slice(IterationsOffset, 4), (uint)iterations);
-        salt.CopyTo(header.Slice(SaltOffset, SaltBytes));
-        nonce.CopyTo(header.Slice(NonceOffset, NonceBytes));
+        header[_magicBytes] = FormatVersion;
+        header[_kdfIdOffset] = KdfArgon2id;
+        header[_kdfParametersVersionOffset] = KdfParametersVersion;
+        BinaryPrimitives.WriteUInt32BigEndian(header.Slice(_memoryOffset, 4), (uint)parameters.MemoryKiB);
+        BinaryPrimitives.WriteUInt32BigEndian(header.Slice(_timeCostOffset, 4), (uint)parameters.TimeCost);
+        header[_parallelismOffset] = (byte)parameters.Parallelism;
+        salt.CopyTo(header.Slice(_saltOffset, SaltBytes));
+        nonce.CopyTo(header.Slice(_nonceOffset, NonceBytes));
 
-        var key = DeriveKey(passphrase, salt, iterations);
+        var key = DeriveKey(passphrase, salt, parameters);
         try
         {
             using var aes = new AesGcm(key, TagBytes);
             aes.Encrypt(
                 nonce,
                 plaintext,
-                output.AsSpan(HeaderBytes),
-                header.Slice(TagOffset, TagBytes),
-                header[..AadBytes]);
+                output.AsSpan(_headerBytes),
+                header.Slice(_tagOffset, TagBytes),
+                header[.._aadBytes]);
         }
         finally
         {
@@ -123,40 +161,48 @@ public static class ExportBundleCipher
     public static ExportBundle Decrypt(ReadOnlySpan<byte> archive, string passphrase)
     {
         ArgumentException.ThrowIfNullOrEmpty(passphrase);
-        if (archive.Length <= HeaderBytes)
+        if (archive.Length <= _headerBytes)
         {
             throw new InvalidDataException("Not an encrypted export bundle, or it is truncated.");
         }
 
-        if (!archive[..MagicBytes].SequenceEqual(Magic))
+        if (!archive[.._magicBytes].SequenceEqual(Magic))
         {
             throw new InvalidDataException("Not an encrypted export bundle: magic does not match.");
         }
 
-        if (archive[MagicBytes] != FormatVersion)
+        if (archive[_magicBytes] != FormatVersion)
         {
-            throw new InvalidDataException("Unsupported export bundle format version: " + archive[MagicBytes]);
+            throw new InvalidDataException("Unsupported export bundle format version: " + archive[_magicBytes]);
         }
 
-        if (archive[MagicBytes + 1] != KdfPbkdf2Sha256)
+        if (archive[_kdfIdOffset] != KdfArgon2id)
         {
             throw new InvalidDataException("Unsupported export bundle key derivation.");
         }
 
-        long iterations = BinaryPrimitives.ReadUInt32BigEndian(archive.Slice(IterationsOffset, 4));
-        if (iterations < MinIterations || iterations > MaxIterations)
+        if (archive[_kdfParametersVersionOffset] != KdfParametersVersion)
         {
-            throw new InvalidDataException("Export bundle iteration count is outside the accepted range.");
+            throw new InvalidDataException("Unsupported export bundle key derivation parameters.");
         }
 
-        var salt = archive.Slice(SaltOffset, SaltBytes).ToArray();
-        var nonce = archive.Slice(NonceOffset, NonceBytes).ToArray();
-        var tag = archive.Slice(TagOffset, TagBytes).ToArray();
-        var ciphertext = archive[HeaderBytes..].ToArray();
-        var aad = archive[..AadBytes].ToArray();
+        var parameters = new Argon2Parameters(
+            (int)BinaryPrimitives.ReadUInt32BigEndian(archive.Slice(_memoryOffset, 4)),
+            (int)BinaryPrimitives.ReadUInt32BigEndian(archive.Slice(_timeCostOffset, 4)),
+            archive[_parallelismOffset]);
+        if (!IsValid(parameters))
+        {
+            throw new InvalidDataException("Export bundle key derivation parameters are outside the accepted range.");
+        }
+
+        var salt = archive.Slice(_saltOffset, SaltBytes).ToArray();
+        var nonce = archive.Slice(_nonceOffset, NonceBytes).ToArray();
+        var tag = archive.Slice(_tagOffset, TagBytes).ToArray();
+        var ciphertext = archive[_headerBytes..].ToArray();
+        var aad = archive[.._aadBytes].ToArray();
 
         var plaintext = new byte[ciphertext.Length];
-        var key = DeriveKey(passphrase, salt, (int)iterations);
+        var key = DeriveKey(passphrase, salt, parameters);
         try
         {
             using var aes = new AesGcm(key, TagBytes);
@@ -188,22 +234,36 @@ public static class ExportBundleCipher
         return bundle;
     }
 
-    private static void ValidateIterations(int iterations)
+    private static bool IsValid(Argon2Parameters parameters) =>
+        parameters.MemoryKiB is >= MinMemoryKiB and <= MaxMemoryKiB
+        && parameters.TimeCost is >= MinTimeCost and <= MaxTimeCost
+        && parameters.Parallelism is >= 1 and <= MaxParallelism
+        && parameters.MemoryKiB >= 8 * parameters.Parallelism;
+
+    private static void ValidateParameters(Argon2Parameters parameters)
     {
-        if (iterations < MinIterations || iterations > MaxIterations)
+        if (!IsValid(parameters))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(iterations),
-                $"Iterations must be between {MinIterations} and {MaxIterations}.");
+                nameof(parameters),
+                $"Memory must be {MinMemoryKiB}-{MaxMemoryKiB} KiB, time cost {MinTimeCost}-{MaxTimeCost}, " +
+                $"parallelism 1-{MaxParallelism} with at least 8 KiB of memory per lane.");
         }
     }
 
-    private static byte[] DeriveKey(string passphrase, byte[] salt, int iterations)
+    private static byte[] DeriveKey(string passphrase, byte[] salt, Argon2Parameters parameters)
     {
         var passphraseBytes = Encoding.UTF8.GetBytes(passphrase);
         try
         {
-            return Rfc2898DeriveBytes.Pbkdf2(passphraseBytes, salt, iterations, HashAlgorithmName.SHA256, KeyBytes);
+            using var argon2 = new Argon2id(passphraseBytes)
+            {
+                Salt = salt,
+                DegreeOfParallelism = parameters.Parallelism,
+                Iterations = parameters.TimeCost,
+                MemorySize = parameters.MemoryKiB,
+            };
+            return argon2.GetBytes(_keyBytes);
         }
         finally
         {
@@ -237,7 +297,7 @@ public static class ExportBundleCipher
             using var stream = new MemoryStream(payload, writable: false);
             using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
             var count = reader.ReadInt32();
-            if (count < 0 || count > MaxFileCount)
+            if (count < 0 || count > _maxFileCount)
             {
                 throw new InvalidDataException("Export bundle file count is out of range.");
             }
@@ -246,7 +306,7 @@ public static class ExportBundleCipher
             for (var i = 0; i < count; i++)
             {
                 var pathLength = reader.ReadInt32();
-                if (pathLength <= 0 || pathLength > MaxPathBytes)
+                if (pathLength <= 0 || pathLength > _maxPathBytes)
                 {
                     throw new InvalidDataException("Export bundle path length is out of range.");
                 }

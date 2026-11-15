@@ -20,7 +20,7 @@ public static class BundleSigner
     /// <summary>Path of the public key (DER SubjectPublicKeyInfo) that verifies <see cref="SignatureFileName"/>.</summary>
     public const string PublicKeyFileName = "manifest.pub";
 
-    private const int CurveKeySize = 256;
+    private const int _curveKeySize = 256;
     private static readonly HashAlgorithmName _hash = HashAlgorithmName.SHA256;
     private static readonly DSASignatureFormat _format = DSASignatureFormat.IeeeP1363FixedFieldConcatenation;
 
@@ -79,7 +79,7 @@ public static class BundleSigner
         {
             using var ecdsa = ECDsa.Create();
             ecdsa.ImportSubjectPublicKeyInfo(publicKey, out _);
-            if (ecdsa.KeySize != CurveKeySize)
+            if (ecdsa.KeySize != _curveKeySize)
             {
                 return false;
             }
