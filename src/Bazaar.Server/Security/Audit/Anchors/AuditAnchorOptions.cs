@@ -6,6 +6,9 @@ namespace Bazaar.Server.Security.Audit.Anchors;
 /// </summary>
 public sealed record AuditAnchorOptions
 {
+    /// <summary>The configuration section these options bind from.</summary>
+    public const string SectionName = "AuditAnchor";
+
     /// <summary>Shortest time one target may take to answer, in seconds.</summary>
     public static readonly TimeSpan MinTargetTimeout = TimeSpan.FromSeconds(1);
 

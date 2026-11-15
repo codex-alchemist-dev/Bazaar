@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Text.Json.Nodes;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Anchors;
 using Bazaar.Server.Security.Audit.Checkpoints;
@@ -17,7 +18,7 @@ public sealed class AuditAnchorServiceTests
         InMemoryAnchorStore store,
         RecordingAuditLog audit,
         TimeSpan? timeout = null) =>
-        new(targets, store, audit, new FixedTime(), timeout ?? TimeSpan.FromSeconds(30));
+        new(targets, store, audit, new AuditLogFailureLog(audit), new FixedTime(), timeout ?? TimeSpan.FromSeconds(30));
 
     [Fact]
     public async Task Every_target_anchors_the_digest_of_the_signed_bytes_and_stores_its_receipt()
@@ -82,6 +83,41 @@ public sealed class AuditAnchorServiceTests
         Assert.Equal(2, (await store.ReadForCheckpointAsync(stored.Checkpoint, Ct)).Count);
         // The target that already holds a receipt is skipped, not anchored a second time.
         Assert.Equal(1, steady.AnchorCalls);
+    }
+
+    [Fact]
+    public async Task A_new_service_instance_after_a_restart_still_records_recovery_from_the_audit_log()
+    {
+        var stored = AnchorFixtures.Stored();
+        var flaky = new ScriptedTarget("rfc3161") { AnchorFailure = new HttpRequestException("down") };
+        var store = new InMemoryAnchorStore();
+        var audit = new RecordingAuditLog();
+        await Service([flaky], store, audit).AnchorAsync(stored, Ct);
+
+        // Restart: the new instance has no in-memory failure state, only the audit log the first instance wrote.
+        flaky.AnchorFailure = null;
+        var outcome = await Service([flaky], store, audit).AnchorAsync(stored, Ct);
+
+        Assert.Equal(["rfc3161"], outcome.Anchored);
+        Assert.Equal([AuditAnchorService.FailedKind, AuditAnchorService.RecoveredKind], audit.Entries.Select(e => e.Kind));
+        var recovered = JsonNode.Parse(audit.Entries[1].Payload)!;
+        Assert.Equal(stored.Checkpoint.LastSeq, recovered["last_seq"]!.GetValue<long>());
+        Assert.Equal("rfc3161", recovered["target_id"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task A_failure_recorded_for_another_target_or_checkpoint_does_not_cause_a_recovery()
+    {
+        var stored = AnchorFixtures.Stored();
+        var target = new ScriptedTarget("rfc3161");
+        var audit = new RecordingAuditLog();
+        audit.Entries.Add(new AuditEntry(AnchorFixtures.Now, "system", AuditAnchorService.FailedKind, "{\"last_seq\": 5, \"target_id\": \"offsite-git\", \"reason\": \"timeout\"}"));
+        audit.Entries.Add(new AuditEntry(AnchorFixtures.Now, "system", AuditAnchorService.FailedKind, "{\"last_seq\": 4, \"target_id\": \"rfc3161\", \"reason\": \"timeout\"}"));
+
+        var outcome = await Service([target], new InMemoryAnchorStore(), audit).AnchorAsync(stored, Ct);
+
+        Assert.Equal(["rfc3161"], outcome.Anchored);
+        Assert.Equal(2, audit.Entries.Count);
     }
 
     [Fact]
@@ -280,6 +316,22 @@ public sealed class AuditAnchorServiceTests
     private sealed class FixedTime : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => AnchorFixtures.Now;
+    }
+
+    /// <summary>Answers from the failure rows in the recording log, as the Postgres reader answers from <c>audit_log</c>.</summary>
+    private sealed class AuditLogFailureLog(RecordingAuditLog audit) : IAuditAnchorFailureLog
+    {
+        public Task<bool> HasRecordedFailureAsync(long lastSeq, string targetId, CancellationToken ct = default) =>
+            Task.FromResult(audit.Entries.Any(e =>
+            {
+                if (e.Kind != AuditAnchorService.FailedKind)
+                {
+                    return false;
+                }
+
+                var payload = JsonNode.Parse(e.Payload)!;
+                return payload["last_seq"]!.GetValue<long>() == lastSeq && payload["target_id"]!.GetValue<string>() == targetId;
+            }));
     }
 
     private sealed class NoGit : IGitRunner

@@ -12,7 +12,8 @@ namespace Bazaar.Server.Security.Audit.Anchors;
 /// <remarks>
 /// A target failure is recorded as an <c>audit.anchor.failed</c> event and is not thrown, so the audit chain keeps writing. The failed
 /// target is anchored again on the next call for the same checkpoint. A success then records <c>audit.anchor.recovered</c>. Failure
-/// state is kept in memory, so a restart between a failure and its recovery loses the recovered event, not the receipt.
+/// state is read from the audit log (<see cref="IAuditAnchorFailureLog"/>), so a restart between a failure and its recovery still
+/// records the recovered event. The in-memory set is only a cache that saves the log read for failures in this process.
 /// Host cancellation is not swallowed. A failure to write the audit event itself is not swallowed either: an unrecorded failure
 /// would hide a gap.
 /// </remarks>
@@ -31,6 +32,7 @@ public sealed class AuditAnchorService
     private readonly IReadOnlyList<IAuditAnchorTarget> _targets;
     private readonly IAuditAnchorStore _store;
     private readonly IAuditLog _auditLog;
+    private readonly IAuditAnchorFailureLog _failures;
     private readonly TimeProvider _time;
     private readonly TimeSpan _timeout;
     private readonly HashSet<(long LastSeq, string TargetId)> _failed = [];
@@ -41,12 +43,14 @@ public sealed class AuditAnchorService
         IReadOnlyList<IAuditAnchorTarget> targets,
         IAuditAnchorStore store,
         IAuditLog auditLog,
+        IAuditAnchorFailureLog failures,
         TimeProvider time,
         TimeSpan targetTimeout)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(auditLog);
+        ArgumentNullException.ThrowIfNull(failures);
         ArgumentNullException.ThrowIfNull(time);
         if (targets.Count == 0)
         {
@@ -61,6 +65,7 @@ public sealed class AuditAnchorService
         _targets = targets;
         _store = store;
         _auditLog = auditLog;
+        _failures = failures;
         _time = time;
         _timeout = targetTimeout;
     }
@@ -106,7 +111,7 @@ public sealed class AuditAnchorService
                 continue;
             }
 
-            if (TakeFailure(checkpoint.LastSeq, target.TargetId))
+            if (await WasFailedAsync(checkpoint.LastSeq, target.TargetId, ct).ConfigureAwait(false))
             {
                 await AppendEventAsync(RecoveredKind, checkpoint.LastSeq, target.TargetId, reason: null, ct).ConfigureAwait(false);
             }
@@ -138,12 +143,21 @@ public sealed class AuditAnchorService
         }
     }
 
-    private bool TakeFailure(long lastSeq, string targetId)
+    /// <summary>
+    /// True when this checkpoint and target failed earlier. The cache answers first; on a miss (for example after a restart) the
+    /// audit log is asked, so the answer does not depend on what this process remembers.
+    /// </summary>
+    private async Task<bool> WasFailedAsync(long lastSeq, string targetId, CancellationToken ct)
     {
         lock (_gate)
         {
-            return _failed.Remove((lastSeq, targetId));
+            if (_failed.Remove((lastSeq, targetId)))
+            {
+                return true;
+            }
         }
+
+        return await _failures.HasRecordedFailureAsync(lastSeq, targetId, ct).ConfigureAwait(false);
     }
 
     private Task AppendEventAsync(string kind, long lastSeq, string targetId, string? reason, CancellationToken ct)
