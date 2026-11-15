@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Bazaar.Client.Core.Localisation;
+namespace Bazaar.Localisation;
 
 /// <summary>
 /// One locale's messages, keyed by stable message ids such as <c>tour.chat.title</c>. Immutable. Values may hold

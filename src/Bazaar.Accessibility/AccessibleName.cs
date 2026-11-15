@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Accessibility;
+namespace Bazaar.Accessibility;
 
 /// <summary>
 /// The accessible name a control exposes to screen readers (UI Automation, AT-SPI, Android accessibility), checked

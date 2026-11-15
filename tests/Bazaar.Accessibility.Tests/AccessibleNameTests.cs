@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Accessibility;
+using Bazaar.Accessibility;
 
-namespace Bazaar.Client.Core.Tests.Accessibility;
+namespace Bazaar.Accessibility.Tests;
 
 public class AccessibleNameTests
 {

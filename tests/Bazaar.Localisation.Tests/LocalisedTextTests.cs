@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Localisation;
+using Bazaar.Localisation;
 
-namespace Bazaar.Client.Core.Tests.Localisation;
+namespace Bazaar.Localisation.Tests;
 
 public class LocalisedTextTests
 {
