@@ -9,13 +9,13 @@ namespace Bazaar.Secrets;
 /// </summary>
 public sealed class SoftwareKekProvider : IKekProvider, IDisposable
 {
-    private const int KeyBytes = 32;
+    private const int _keyBytes = 32;
     private readonly byte[] _key;
 
     public SoftwareKekProvider(string keyId, ReadOnlySpan<byte> key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
-        if (key.Length != KeyBytes)
+        if (key.Length != _keyBytes)
         {
             throw new ArgumentException("A KEK must be exactly 32 bytes.", nameof(key));
         }

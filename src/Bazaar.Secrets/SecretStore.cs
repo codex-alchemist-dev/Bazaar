@@ -15,7 +15,7 @@ public sealed class SecretStore(
     ISecretAuditSink audit,
     TimeProvider time) : ISecretStore
 {
-    private const int DataKeyBytes = 32;
+    private const int _dataKeyBytes = 32;
 
     public async Task PutAsync(SecretCaller caller, SecretScope scope, SecretName name, SecretValue value, CancellationToken ct)
     {
@@ -151,7 +151,7 @@ public sealed class SecretStore(
                 throw new SecretNotFoundException($"Scope '{scope.Key}' has no data key.");
             }
 
-            var fresh = RandomNumberGenerator.GetBytes(DataKeyBytes);
+            var fresh = RandomNumberGenerator.GetBytes(_dataKeyBytes);
             var wrapped = await kek.WrapAsync(fresh, SecretCrypto.DataKeyAad(scope.Key, kek.CurrentKeyId), ct);
             var record = new ScopeKeyRecord(scope.Key, kek.CurrentKeyId, wrapped, time.GetUtcNow(), null);
             if (await records.TryInsertScopeKeyAsync(record, ct))
