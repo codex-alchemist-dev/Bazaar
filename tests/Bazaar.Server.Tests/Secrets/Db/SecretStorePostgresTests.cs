@@ -23,7 +23,7 @@ public sealed class SecretStorePostgresTests : IAsyncLifetime
         _db = await SecretsTestDb.CreateAsync(CancellationToken.None);
         _auditLog = new PostgresAuditLog(_db.DataSource);
         _records = new PostgresSecretRecordRepository(_db.DataSource);
-        _agents = new PostgresAgentRegistry(_db.DataSource, TimeProvider.System);
+        _agents = new PostgresAgentRegistry(_db.DataSource, _auditLog, TimeProvider.System);
     }
 
     public async ValueTask DisposeAsync() => await _db.DisposeAsync();
@@ -81,12 +81,53 @@ public sealed class SecretStorePostgresTests : IAsyncLifetime
     public async Task RegistrationIsIdempotentAndStateChangesStick()
     {
         var first = await _agents.RegisterAsync(_alpha, CancellationToken.None);
-        await _agents.SetStateAsync(_alpha, AgentState.Quarantined, CancellationToken.None);
+        await _agents.TransitionAsync(_alpha, AgentState.Quarantined, null, CancellationToken.None);
         var again = await _agents.RegisterAsync(_alpha, CancellationToken.None);
 
         Assert.Equal(AgentState.Active, first.State);
         Assert.Equal(AgentState.Quarantined, again.State);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _agents.SetStateAsync(new AgentId("nobody"), AgentState.Revoked, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _agents.TransitionAsync(new AgentId("nobody"), AgentState.Revoked, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task QuarantineNeedsAnOwnerReleaseToLeave()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        await _agents.TransitionAsync(_alpha, AgentState.Quarantined, null, CancellationToken.None);
+
+        await Assert.ThrowsAsync<AgentTransitionException>(() => _agents.TransitionAsync(_alpha, AgentState.Active, null, CancellationToken.None));
+        Assert.Equal(AgentState.Quarantined, (await _agents.GetAsync(_alpha, CancellationToken.None))!.State);
+
+        var released = await _agents.TransitionAsync(_alpha, AgentState.Active, new OwnerRelease("dom", "reviewed the incident"), CancellationToken.None);
+
+        Assert.Equal(AgentState.Active, released.State);
+        Assert.Equal(1, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.agent.transition' AND payload->>'from' = 'Quarantined' AND payload->>'to' = 'Active' AND actor = 'dom'"));
+    }
+
+    [Fact]
+    public async Task RevokedIsTerminalAndSameStateIsANoOp()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        await _agents.TransitionAsync(_alpha, AgentState.Revoked, null, CancellationToken.None);
+        var transitionsBefore = await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.agent.transition'");
+
+        await Assert.ThrowsAsync<AgentTransitionException>(() => _agents.TransitionAsync(_alpha, AgentState.Active, new OwnerRelease("dom", "try to revive"), CancellationToken.None));
+        await Assert.ThrowsAsync<AgentTransitionException>(() => _agents.TransitionAsync(_alpha, AgentState.Quarantined, null, CancellationToken.None));
+        var same = await _agents.TransitionAsync(_alpha, AgentState.Revoked, null, CancellationToken.None);
+
+        Assert.Equal(AgentState.Revoked, same.State);
+        Assert.Equal(transitionsBefore, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.agent.transition'"));
+    }
+
+    [Fact]
+    public async Task EveryAllowedTransitionIsAuditedWithItsEndpoints()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        await _agents.TransitionAsync(_alpha, AgentState.Quarantined, null, CancellationToken.None);
+        await _agents.TransitionAsync(_alpha, AgentState.Revoked, null, CancellationToken.None);
+
+        Assert.Equal(2, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.agent.transition' AND payload->>'agent' = 'alpha'"));
+        Assert.Equal(1, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE payload->>'from' = 'Quarantined' AND payload->>'to' = 'Revoked'"));
     }
 
     [Fact]

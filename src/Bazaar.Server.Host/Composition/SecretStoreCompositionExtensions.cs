@@ -57,7 +57,7 @@ public static class SecretStoreCompositionExtensions
             return services;
         }
 
-        services.TryAddSingleton<IAgentRegistry>(sp => new PostgresAgentRegistry(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IAgentRegistry>(sp => new PostgresAgentRegistry(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ITransactionalAuditLog>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<ISecretRecordRepository>(sp => new PostgresSecretRecordRepository(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ISecretAuditSink>(sp => new AuditLogSecretSink(sp.GetRequiredService<IAuditLog>()));
         services.TryAddSingleton<ISecretPolicy>(sp => BuildPolicy(sp.GetRequiredService<IOptions<SecretStoreOptions>>().Value));
