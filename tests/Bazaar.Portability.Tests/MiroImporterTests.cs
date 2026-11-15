@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Bazaar.Portability.Tests;
@@ -8,9 +7,9 @@ public class MiroImporterTests
 {
     private static ImportSource Src(string name, string text) => new(name, Encoding.UTF8.GetBytes(text));
 
-    /// <summary>Reads a fixture from the source tree next to this file, so no csproj copy rule is needed.</summary>
-    private static ImportSource Fixture(string name, [CallerFilePath] string here = "") =>
-        new(name, File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(here)!, "Fixtures", name)));
+    /// <summary>Reads a fixture copied next to the test binary (see the csproj Fixtures item).</summary>
+    private static ImportSource Fixture(string name) =>
+        new(name, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", name)));
 
     [Fact]
     public void Csv_with_text_column_and_miro_name_is_detected_at_0_8()

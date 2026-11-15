@@ -77,7 +77,7 @@ public sealed class MilanoteImporter : IPortabilityImporter
                 body.Clear();
                 continue;
             }
-            body.AppendLine(line);
+            body.Append(line).Append('\n');  // explicit \n: AppendLine would write \r\n on Windows
         }
 
         if (title is not null || body.Length > 0) cards.Add((title ?? string.Empty, body.ToString()));
