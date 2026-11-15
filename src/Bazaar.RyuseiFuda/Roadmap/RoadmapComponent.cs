@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>
 /// The objective roadmap (doc 38, Layer 3) as a Bazaar Component. Registers <see cref="RoadmapSnapshotService"/>, which reads
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Roadmap;
 /// documents) and <c>kanban</c> (the task links and states).
 /// </summary>
 /// <remarks>
-/// The component's SQL (migration <c>roadmap/0001</c>, views only) stays in <c>Data/Sql/roadmap/</c>. That file has been applied
+/// The component's SQL (migration <c>roadmap/0001</c>, views only) stays in <c>Data/Sql/roadmap/</c> of <c>Bazaar.Server</c>. That file has been applied
 /// on live databases, and the runner refuses a recorded migration whose file is gone, so it cannot move to another namespace.
 /// The component therefore has no migration folder of its own: its id is <c>ryusei-roadmap</c> as doc 38 names it.
 /// </remarks>

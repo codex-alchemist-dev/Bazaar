@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Graph;
 using Bazaar.Server.Constellation.Tiles;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>
 /// The roadmap as a Constellation graph (doc 19, "Constellation" in doc 38). Phases and objectives are nodes; an objective has an

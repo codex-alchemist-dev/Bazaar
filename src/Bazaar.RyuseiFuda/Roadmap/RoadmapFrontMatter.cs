@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>Objective status (docs/design/38-ryusei-fuda.md, "Objectives are Vault documents").</summary>
 public enum RoadmapStatus

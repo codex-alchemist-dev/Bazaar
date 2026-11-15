@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Roadmap;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>Maps the server's read model to the wire snapshot. Pure.</summary>
 public static class RoadmapSnapshotMapper

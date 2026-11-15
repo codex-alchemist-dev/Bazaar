@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Roadmap;
 using Npgsql;
 
-namespace Bazaar.Server.Roadmap;
+namespace Bazaar.RyuseiFuda.Roadmap;
 
 /// <summary>
 /// Reads the rows the roadmap needs: the objective and phase documents of one Vault, and the states of the tasks linked to each
