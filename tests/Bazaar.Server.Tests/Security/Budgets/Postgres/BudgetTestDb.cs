@@ -14,13 +14,20 @@ internal sealed class BudgetTestDb : IAsyncDisposable
     /// <summary>Superuser connection: the test-only owner of the database.</summary>
     public NpgsqlDataSource DataSource { get; }
 
+    /// <summary>
+    /// The connection string this database was opened with, password included. Tests that need their own pools use it:
+    /// <see cref="NpgsqlDataSource.ConnectionString"/> omits the password, so a pool built from it cannot log in.
+    /// </summary>
+    public string ConnectionString { get; }
+
     private readonly string _name;
     private readonly string _adminConnectionString;
 
-    private BudgetTestDb(string name, string adminConnectionString, NpgsqlDataSource dataSource)
+    private BudgetTestDb(string name, string adminConnectionString, string connectionString, NpgsqlDataSource dataSource)
     {
         _name = name;
         _adminConnectionString = adminConnectionString;
+        ConnectionString = connectionString;
         DataSource = dataSource;
     }
 
@@ -30,8 +37,9 @@ internal sealed class BudgetTestDb : IAsyncDisposable
         var name = $"budget_{Guid.NewGuid():N}";
         await AdminAsync(source.AdminConnectionString, $"CREATE DATABASE \"{name}\" TEMPLATE template0", ct).ConfigureAwait(false);
 
-        var dataSource = NpgsqlDataSource.Create(source.ConnectionStringFor(name));
-        var db = new BudgetTestDb(name, source.AdminConnectionString, dataSource);
+        var connectionString = source.ConnectionStringFor(name);
+        var dataSource = NpgsqlDataSource.Create(connectionString);
+        var db = new BudgetTestDb(name, source.AdminConnectionString, connectionString, dataSource);
         try
         {
             await new MigrationRunner(dataSource).MigrateAsync(

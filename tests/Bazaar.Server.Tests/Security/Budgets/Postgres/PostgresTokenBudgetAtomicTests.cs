@@ -93,7 +93,7 @@ public sealed class PostgresTokenBudgetAtomicTests
     {
         SkipWithoutDatabase();
         await using var db = await BudgetTestDb.CreateAsync(Ct);
-        await using var pooled = PooledSource(db.DataSource.ConnectionString);
+        await using var pooled = PooledSource(db.ConnectionString);
         var store = new PostgresTokenBudgetStore(pooled);
 
         var admitted = await HammerAsync([store], calls: 120, tokensPerCall: 7, limits: Limits(500, 1_000_000, 1_000_000));
@@ -110,9 +110,9 @@ public sealed class PostgresTokenBudgetAtomicTests
         await using var db = await BudgetTestDb.CreateAsync(Ct);
 
         // Each data source has its own connection pool, standing in for a separate server process on one database.
-        await using var firstSource = PooledSource(db.DataSource.ConnectionString);
-        await using var secondSource = PooledSource(db.DataSource.ConnectionString);
-        await using var thirdSource = PooledSource(db.DataSource.ConnectionString);
+        await using var firstSource = PooledSource(db.ConnectionString);
+        await using var secondSource = PooledSource(db.ConnectionString);
+        await using var thirdSource = PooledSource(db.ConnectionString);
         var stores = new[]
         {
             new PostgresTokenBudgetStore(firstSource),
