@@ -27,7 +27,7 @@ public static class ExportBundleWriter
     public const string SchemaVersion = "1.0.0";
     public const string ManifestFileName = "manifest.json";
 
-    private static readonly JsonSerializerOptions ManifestOptions = new()
+    private static readonly JsonSerializerOptions _manifestOptions = new()
     {
         WriteIndented = false,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -64,7 +64,7 @@ public static class ExportBundleWriter
             entries.Sum(e => e.Bytes),
             entries);
 
-        var manifest = JsonSerializer.Serialize(document, ManifestOptions);
+        var manifest = JsonSerializer.Serialize(document, _manifestOptions);
         var all = sorted
             .Append(new BundleFile(ManifestFileName, Encoding.UTF8.GetBytes(manifest)))
             .OrderBy(f => f.Path, StringComparer.Ordinal)

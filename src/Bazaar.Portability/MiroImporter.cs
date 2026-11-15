@@ -11,7 +11,7 @@ namespace Bazaar.Portability;
 /// </summary>
 public sealed class MiroImporter : IPortabilityImporter
 {
-    private const int TitleLength = 80;
+    private const int _titleLength = 80;
     private static readonly string[] _itemArrayNames = ["data", "items", "nodes"];
     private static readonly string[] _textPropertyNames = ["data", "content"];
     private static readonly HashSet<string> _knownTypes = new(StringComparer.Ordinal)
@@ -134,7 +134,7 @@ public sealed class MiroImporter : IPortabilityImporter
         records.Add(new SourceRecord(
             SourceKeys.For(source.Name + "#" + position, raw),
             kind,
-            body.Length > TitleLength ? body[..TitleLength] : body,
+            body.Length > _titleLength ? body[.._titleLength] : body,
             body,
             new Dictionary<string, string>
             {
