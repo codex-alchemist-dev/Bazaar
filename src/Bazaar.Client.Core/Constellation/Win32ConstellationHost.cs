@@ -14,8 +14,8 @@ namespace Bazaar.Client.Core.Constellation;
 [SupportedOSPlatform("windows")]
 public sealed partial class Win32ConstellationHost : NativeControlHost
 {
-    private const uint WsChild = 0x40000000;
-    private const uint WsVisible = 0x10000000;
+    private const uint _wsChild = 0x40000000;
+    private const uint _wsVisible = 0x10000000;
 
     private nint _childHandle;
 
@@ -30,7 +30,7 @@ public sealed partial class Win32ConstellationHost : NativeControlHost
             0,
             "STATIC",
             null,
-            WsChild | WsVisible,
+            _wsChild | _wsVisible,
             0,
             0,
             PixelOf(Bounds.Width),
