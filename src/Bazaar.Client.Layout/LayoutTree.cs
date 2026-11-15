@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Bazaar.Client.Core.Layout;
+namespace Bazaar.Client.Layout;
 
 /// <summary>What a placed node renders as. Unknown containers stack their children (doc 41 section 7).</summary>
 public enum PlacedKind

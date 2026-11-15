@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Bazaar.Client.Core.Layout;
+namespace Bazaar.Client.Layout;
 
 /// <summary>
 /// A client layout document (doc 41 section 8): which panes appear where, per device class, display and posture.
