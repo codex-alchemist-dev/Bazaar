@@ -35,9 +35,10 @@ public sealed class GcImportTarget(
     IGcMessageEditor? editor = null)
 {
     /// <summary>
-    /// Appends one batch. Replace items go first, one at a time, through <see cref="IGcMessageEditor"/>, the same path a manual
-    /// edit takes, so the same planner checks apply. The other items are appended in one call. A replace without an editor, a
-    /// replace by another author, or a refused edit fails the batch. Edits that already went through stay in the log.
+    /// Appends one batch in one transaction. Replace items are planned through <see cref="IGcMessageEditor"/>, the same path a
+    /// manual edit takes, so the same planner checks apply. A replace without an editor, a replace by another author, or any
+    /// refused edit fails the batch before anything is written. The edit rows and the new messages go in one append, so a
+    /// failure after planning rolls back the whole batch.
     /// </summary>
     public async Task AppendBatchAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
     {
@@ -48,6 +49,7 @@ public sealed class GcImportTarget(
             throw new NotSupportedException("Replace needs a GC message editor; the batch is refused.");
         }
 
+        var edits = new List<GcMessageEdit>(replaces.Count);
         foreach (var item in replaces)
         {
             var stored = item.Replaces!;
@@ -55,46 +57,54 @@ public sealed class GcImportTarget(
             {
                 throw new InvalidOperationException("Replace refused: the stored message was written by another author.");
             }
-            var version = int.Parse(stored.Version, CultureInfo.InvariantCulture) + 1;
-            var outcome = await editor!.EditAsync(
-                new GcMessageEdit(gcId, Guid.Parse(stored.ObjectId), authorId, PrincipalKindOf(authorKind), item.Record.Body,
-                    ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + version.ToString(CultureInfo.InvariantCulture)),
-                ct);
-            switch (outcome)
+            edits.Add(new GcMessageEdit(gcId, Guid.Parse(stored.ObjectId), authorId, PrincipalKindOf(authorKind), item.Record.Body,
+                ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + (int.Parse(stored.Version, CultureInfo.InvariantCulture) + 1).ToString(CultureInfo.InvariantCulture)));
+        }
+
+        var rows = new List<AppendRequest>(items.Count);
+        if (edits.Count > 0)
+        {
+            var plan = await editor!.PlanAsync(edits, ct);
+            switch (plan)
             {
-                case GcMessageEditAccepted:
+                case GcMessageEditPlanned planned:
+                    rows.AddRange(planned.Rows);
                     break;
-                case GcMessageEditRefused refused:
-                    throw new InvalidOperationException("Replace refused: " + refused.Reason);
-                case GcMessageEditUnopenable:
-                    throw new InvalidOperationException("Replace refused: the stored message can no longer be opened.");
+                case GcMessageEditPlanRefused refused:
+                    throw new InvalidOperationException("Replace refused for " + replaces[refused.Index].Provenance.SourceKey + ": " + DescribeRefusal(refused.Outcome));
                 default:
-                    throw new InvalidOperationException("Replace refused: the stored message was not found.");
+                    throw new InvalidOperationException("Replace plan returned no result.");
             }
         }
 
-        var requests = new List<AppendRequest>(items.Count);
         foreach (var item in items.Where(i => i.Replaces is null))
         {
             var body = await codec.SealAsync(authorId, item.Record.Body, ct);
-            requests.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
+            rows.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
             {
                 Message = body,
                 PayloadJson = PayloadFor(jobId, batchIndex, item.Record),
             });
         }
-        if (requests.Count == 0)
+        if (rows.Count == 0)
         {
             return;
         }
 
-        var results = await appender.AppendManyAsync(requests, ct);
-        if (results.Count != requests.Count)
+        var results = await appender.AppendManyAsync(rows, ct);
+        if (results.Count != rows.Count)
         {
             throw new InvalidOperationException("GC append returned " + results.Count.ToString(CultureInfo.InvariantCulture)
-                + " results for " + requests.Count.ToString(CultureInfo.InvariantCulture) + " requests");
+                + " results for " + rows.Count.ToString(CultureInfo.InvariantCulture) + " requests");
         }
     }
+
+    private static string DescribeRefusal(GcMessageEditOutcome outcome) => outcome switch
+    {
+        GcMessageEditRefused refused => refused.Reason,
+        GcMessageEditUnopenable => "the stored message can no longer be opened",
+        _ => "the stored message was not found",
+    };
 
     private static PrincipalKind PrincipalKindOf(AuthorKind kind) => kind switch
     {

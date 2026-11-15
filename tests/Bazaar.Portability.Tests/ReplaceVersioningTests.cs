@@ -31,30 +31,38 @@ public class ReplaceVersioningTests : IDisposable
     private static GcImportTarget GcTarget(InMemoryGcLog gc, Guid author, IGcMessageEditor? editor = null) =>
         new(gc, new PlainGcBodyCodec(), gc, _gcId, author, AuthorKind.Owner, new GcPrincipal(author, PrincipalKind.Owner, "owner"), editor);
 
-    /// <summary>Stands in for the server's editor: accepts every edit with the next version, or refuses with a reason.</summary>
-    private sealed class FakeEditor(InMemoryGcLog gc, string? refuse = null) : IGcMessageEditor
+    /// <summary>
+    /// Stands in for the server's editor: plans every edit with the next version, or refuses. An edit whose text is
+    /// "refuse-me" is refused, so a test can make one edit of a batch fail.
+    /// </summary>
+    private sealed class FakeEditor(string? refuse = null) : IGcMessageEditor
     {
         private readonly Dictionary<Guid, int> _versions = [];
 
         public int Calls { get; private set; }
 
-        public async Task<GcMessageEditOutcome> EditAsync(GcMessageEdit request, CancellationToken ct)
+        public Task<GcMessageEditPlanResult> PlanAsync(IReadOnlyList<GcMessageEdit> edits, CancellationToken ct)
         {
             Calls++;
-            if (refuse is not null)
+            var rows = new List<AppendRequest>();
+            var versions = new List<int>();
+            for (var i = 0; i < edits.Count; i++)
             {
-                return new GcMessageEditRefused(refuse);
-            }
-            var next = (_versions.TryGetValue(request.MessageId, out var current) ? current : 1) + 1;
-            _versions[request.MessageId] = next;
-            var results = await gc.AppendManyAsync(
-                [new AppendRequest(request.GcId, GcEventKinds.MessageEdit, AuthorKind.Owner, request.EditorId, SourceTrust.Owner, request.ClientMsgId)
+                var edit = edits[i];
+                if (refuse is not null || edit.Text == "refuse-me")
                 {
-                    MessageId = request.MessageId,
+                    return Task.FromResult<GcMessageEditPlanResult>(new GcMessageEditPlanRefused(i, new GcMessageEditRefused(refuse ?? "refused by the editor")));
+                }
+                var next = (_versions.TryGetValue(edit.MessageId, out var current) ? current : 1) + 1;
+                _versions[edit.MessageId] = next;
+                versions.Add(next);
+                rows.Add(new AppendRequest(edit.GcId, GcEventKinds.MessageEdit, AuthorKind.Owner, edit.EditorId, SourceTrust.Owner, edit.ClientMsgId)
+                {
+                    MessageId = edit.MessageId,
                     Version = next,
-                }],
-                ct);
-            return new GcMessageEditAccepted(next, results[0].Seq);
+                });
+            }
+            return Task.FromResult<GcMessageEditPlanResult>(new GcMessageEditPlanned(rows, versions));
         }
     }
 
@@ -62,7 +70,7 @@ public class ReplaceVersioningTests : IDisposable
     public async Task Gc_index_finds_an_imported_message_and_replace_appends_a_new_version()
     {
         var gc = new InMemoryGcLog();
-        var target = GcTarget(gc, _author, new FakeEditor(gc));
+        var target = GcTarget(gc, _author, new FakeEditor());
         var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner"));
         await target.AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
 
@@ -90,13 +98,13 @@ public class ReplaceVersioningTests : IDisposable
     public async Task Gc_replace_by_another_author_is_refused_and_writes_nothing()
     {
         var gc = new InMemoryGcLog();
-        await GcTarget(gc, _author, new FakeEditor(gc)).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
         var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner"));
         var stored = Assert.Single(await index.FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
         var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };
-        var editor = new FakeEditor(gc);
+        var editor = new FakeEditor();
         await Assert.ThrowsAsync<InvalidOperationException>(() => GcTarget(gc, _other, editor).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
 
         Assert.Equal(0, editor.Calls);
@@ -104,10 +112,30 @@ public class ReplaceVersioningTests : IDisposable
     }
 
     [Fact]
+    public async Task Gc_batch_with_a_refused_edit_writes_nothing_not_even_its_new_messages()
+    {
+        var gc = new InMemoryGcLog();
+        await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
+        var before = gc.Count;
+
+        // Edit one is valid, edit two is refused by the editor, and there is also a new message in the batch.
+        var batch = new List<ImportItem>
+        {
+            new(Note("n1", "New", "a new message"), new ImportProvenance("job-2", "n1")),
+            new(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored },
+            new(Note("g2", "Other", "refuse-me"), new ImportProvenance("job-2", "g2")) { Replaces = stored with { ObjectId = Guid.NewGuid().ToString("D") } },
+        };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-2", 0, batch, CancellationToken.None));
+
+        Assert.Equal(before, gc.Count);
+    }
+
+    [Fact]
     public async Task Gc_replace_without_an_editor_is_refused_before_anything_is_written()
     {
         var gc = new InMemoryGcLog();
-        await GcTarget(gc, _author, new FakeEditor(gc)).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
         var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
@@ -121,13 +149,13 @@ public class ReplaceVersioningTests : IDisposable
     public async Task Gc_replace_refused_by_the_editor_fails_the_batch_and_writes_nothing()
     {
         var gc = new InMemoryGcLog();
-        await GcTarget(gc, _author, new FakeEditor(gc)).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
         var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
         var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            GcTarget(gc, _author, new FakeEditor(gc, "The edit window has closed.")).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
+            GcTarget(gc, _author, new FakeEditor("The edit window has closed.")).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
 
         Assert.Contains("The edit window has closed.", ex.Message);
         Assert.Equal(before, gc.Count);
