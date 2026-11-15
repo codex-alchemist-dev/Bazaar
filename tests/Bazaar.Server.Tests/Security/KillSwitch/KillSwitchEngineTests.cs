@@ -5,9 +5,9 @@ namespace Bazaar.Server.Tests.Security.KillSwitch;
 
 public class KillSwitchEngineTests
 {
-    private static readonly DateTimeOffset Start = new(2026, 11, 15, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset _start = new(2026, 11, 15, 9, 0, 0, TimeSpan.Zero);
 
-    private readonly FakeTimeProvider _time = new(Start);
+    private readonly FakeTimeProvider _time = new(_start);
     private readonly InMemoryKillSwitchAuditSink _audit = new();
     private readonly RecordingContainment _containment = new();
     private readonly KillSwitchEngine _engine;
@@ -127,7 +127,7 @@ public class KillSwitchEngineTests
         var entry = Assert.Single(_audit.Entries);
         Assert.Equal("owner-1", entry.ActorId);
         Assert.Equal("Rate breach", entry.Reason);
-        Assert.Equal(Start, entry.Ts);
+        Assert.Equal(_start, entry.Ts);
     }
 
     [Fact]
@@ -247,9 +247,9 @@ public class KillSwitchEngineTests
         var status = _engine.GetStatus();
 
         Assert.NotNull(status.Global);
-        Assert.Equal(Start, status.Global.Since);
+        Assert.Equal(_start, status.Global.Since);
         Assert.Equal(["agent-a", "agent-b"], status.AgentStops.Select(s => s.AgentId));
-        Assert.Equal(Start.AddMinutes(5), status.AgentStops[0].Since);
+        Assert.Equal(_start.AddMinutes(5), status.AgentStops[0].Since);
     }
 
     [Fact]
