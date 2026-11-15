@@ -314,7 +314,8 @@ A move from line 18 to line 19 runs as one audited procedure:
 3. Dry run: restore the snapshot into a scratch data directory running the target line. Run the migrations of doc 04 and the GC consistency checks (row counts and maximum sequence per GC, as in doc 33). The dry run result is shown to the owner.
 4. Switch: stop the old line, upgrade the data directory with the method in Q6, start the new line, run migrations.
 5. Verify: the health contract (section 11) must be green for the new line, and GC consistency checks must pass. The new line becomes `newest` and the old line becomes `stable` only after this step passes.
-6. Rollback: because downgrade is not supported, rollback means stopping the new line, restoring the snapshot into the data directory, and starting the old line. Automatic rollback applies inside the window set by doc 49. After the window, rollback is a manual runbook step.
+6. Rollback: because downgrade is not supported, rollback means stopping the new line, restoring the snapshot into the data directory, and starting the old line. A failed Verify or a failed Switch rolls back automatically inside the window set by doc 49 (owner decision, 2026-11-15; a failed Switch may have partly changed the data directory). Failures in Preflight, Snapshot or DryRun change nothing live and do not roll back. After the window, rollback is a manual runbook step.
+7. Retry (owner decision, 2026-11-15): after an automatic rollback the move runs again from Preflight, with bounded attempts and exponential backoff (PLANNED defaults: 3 attempts, waits of 10 then 20 minutes, never more than an hour, all operator-configurable). Only a rolled-back move is retried. When every attempt rolls back, the move halts and the owner and Kodo are told; no further attempt runs without the owner.
 
 Every step writes an audit event (doc 15) with the snapshot id and the approving role.
 
