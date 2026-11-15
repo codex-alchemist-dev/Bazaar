@@ -14,27 +14,42 @@ public sealed record ImportProvenance(string JobId, string SourceKey);
 public sealed record ImportItem(SourceRecord Record, ImportProvenance Provenance);
 
 /// <summary>
-/// Write side of the commit path. Each call writes one batch and succeeds or fails as a whole:
-/// an implementation throws when the batch cannot be written and records nothing for that call.
-/// The real implementations sit behind GC (doc 04) and VaultWriter (doc 18); this module names no storage.
+/// Write side of the commit path. Each call writes one batch and succeeds or fails as a whole: an implementation
+/// throws when the batch cannot be written and records nothing for that call.
 /// </summary>
 public interface IImportTargetWriter
 {
-    /// <summary>Source keys already written by an earlier commit. A re-run skips them.</summary>
-    IReadOnlySet<string> CommittedSourceKeys { get; }
+    /// <summary>Source keys this job already wrote (GC and Vault). A re-run skips them.</summary>
+    Task<IReadOnlySet<string>> ReadCommittedSourceKeysAsync(string jobId, CancellationToken ct);
 
     /// <summary>Appends one batch of GC entries. Throws if the batch cannot be written.</summary>
-    void AppendGcMessages(string jobId, int batchIndex, IReadOnlyList<ImportItem> items);
+    Task AppendGcMessagesAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct);
 
     /// <summary>Writes one batch of Vault Markdown files. Throws if the batch cannot be written.</summary>
-    void WriteVaultFiles(string jobId, int batchIndex, IReadOnlyList<ImportItem> items);
+    Task WriteVaultFilesAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct);
+
+    /// <summary>Source keys currently readable in the GC for this job.</summary>
+    Task<IReadOnlyList<string>> ReadGcSourceKeysAsync(string jobId, CancellationToken ct);
+
+    /// <summary>Source keys currently readable in the Vault for this job.</summary>
+    Task<IReadOnlyList<string>> ReadVaultSourceKeysAsync(string jobId, CancellationToken ct);
 }
 
-/// <summary>The first batch that failed: its index, the target it was writing to, and the writer's message.</summary>
-public sealed record ImportBatchFailure(int BatchIndex, ImportTargetKind Target, string Message);
+/// <summary>Which step of a batch failed.</summary>
+public enum ImportBatchStage
+{
+    /// <summary>The target write failed. Nothing was written for the batch.</summary>
+    Write,
+
+    /// <summary>The batch was written but its audit entry was not. The job stops and the batch needs review.</summary>
+    Audit,
+}
+
+/// <summary>The first failure: batch index (0-based), target, stage and the error message.</summary>
+public sealed record ImportBatchFailure(int BatchIndex, ImportTargetKind Target, ImportBatchStage Stage, string Message);
 
 /// <summary>
-/// Outcome of a commit. <see cref="BatchCount"/> is the number of batches written successfully.
+/// Outcome of a commit. <see cref="BatchCount"/> is the number of batches whose write succeeded.
 /// <see cref="CommittedSourceKeys"/> lists the records written by this run. Refused means nothing was written.
 /// </summary>
 public sealed record ImportCommitResult(
@@ -49,8 +64,8 @@ public sealed record ImportCommitResult(
 }
 
 /// <summary>
-/// Commit path for a ready import dry-run (doc 44 section 8.1, stages 8 and 9). Pure orchestration:
-/// it chooses batches and targets, and delegates every write to <see cref="IImportTargetWriter"/>.
+/// Commit path for a ready import dry-run (doc 44 section 8.1, stages 8 and 9). It chooses batches and targets,
+/// delegates writes to <see cref="IImportTargetWriter"/>, and audits each written batch through <see cref="IAuditSink"/>.
 /// </summary>
 public static class ImportCommitter
 {
@@ -58,20 +73,24 @@ public static class ImportCommitter
     public const string GcEntryKind = "chat-entry";
 
     /// <summary>
-    /// Commits the new records of a dry-run in batches of at most <paramref name="batchSize"/> records.
-    /// Batches never mix targets. The first failing batch stops the job and is reported; it is not retried.
-    /// Records whose source key the writer already holds are skipped, so a re-run after success writes nothing.
+    /// Commits the new records of a dry-run in batches of at most <paramref name="batchSize"/> records. Batches never mix
+    /// targets. The first failing batch stops the job and is reported; it is not retried. A write that succeeds but whose
+    /// audit entry fails also stops the job. Records the writer already holds for this job are skipped.
     /// </summary>
-    public static ImportCommitResult Commit(
+    public static async Task<ImportCommitResult> CommitAsync(
         ImportPipelineResult dryRun,
         string currentMappingHash,
         IImportTargetWriter writer,
+        IAuditSink audit,
         string jobId,
-        int batchSize)
+        int batchSize,
+        CancellationToken ct,
+        TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(dryRun);
         ArgumentNullException.ThrowIfNull(currentMappingHash);
         ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(audit);
         ArgumentException.ThrowIfNullOrWhiteSpace(jobId);
         ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
 
@@ -80,7 +99,7 @@ public static class ImportCommitter
             return Refused("dry-run is not ready or its mapping hash does not match the current mapping");
         }
 
-        var alreadyWritten = writer.CommittedSourceKeys;
+        var alreadyWritten = await writer.ReadCommittedSourceKeysAsync(jobId, ct);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var pending = new List<ImportItem>();
         var skipped = 0;
@@ -94,8 +113,10 @@ public static class ImportCommitter
             pending.Add(new ImportItem(record, new ImportProvenance(jobId, record.SourceKey)));
         }
 
+        var now = clock ?? TimeProvider.System;
         var batches = Batch(pending, batchSize);
         var committedKeys = new List<string>();
+        var written = 0;
         for (var index = 0; index < batches.Count; index++)
         {
             var (target, items) = batches[index];
@@ -103,23 +124,41 @@ public static class ImportCommitter
             {
                 if (target == ImportTargetKind.GcMessage)
                 {
-                    writer.AppendGcMessages(jobId, index, items);
+                    await writer.AppendGcMessagesAsync(jobId, index, items, ct);
                 }
                 else
                 {
-                    writer.WriteVaultFiles(jobId, index, items);
+                    await writer.WriteVaultFilesAsync(jobId, index, items, ct);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                var failure = new ImportBatchFailure(index, target, ex.Message);
-                return new ImportCommitResult(false, null, index, committedKeys, skipped, failure);
+                var failure = new ImportBatchFailure(index, target, ImportBatchStage.Write, ex.Message);
+                return new ImportCommitResult(false, null, written, committedKeys, skipped, failure);
             }
 
+            written++;
             committedKeys.AddRange(items.Select(item => item.Record.SourceKey));
+
+            var entry = new ImportAuditRecord(
+                ImportAuditRecord.BatchKind,
+                jobId,
+                index + 1,
+                items.Count,
+                ImportBatchHash.Of(items),
+                now.GetUtcNow());
+            try
+            {
+                await audit.AppendAsync(entry, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                var failure = new ImportBatchFailure(index, target, ImportBatchStage.Audit, ex.Message);
+                return new ImportCommitResult(false, null, written, committedKeys, skipped, failure);
+            }
         }
 
-        return new ImportCommitResult(false, null, batches.Count, committedKeys, skipped, null);
+        return new ImportCommitResult(false, null, written, committedKeys, skipped, null);
     }
 
     /// <summary>The target a record is written to.</summary>

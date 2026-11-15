@@ -15,28 +15,31 @@ public class ImportCommitterTests
         new(ImportStatus.Ready, "bazaar.import.a", [], new ImportPreview(records, []), _hash);
 
     [Fact]
-    public void Refuses_on_hash_mismatch_and_writes_nothing()
+    public async Task Refuses_on_hash_mismatch_and_writes_nothing()
     {
         var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
 
-        var result = ImportCommitter.Commit(Ready(Vault("a")), "other-hash", writer, _jobId, 10);
+        var result = await ImportCommitter.CommitAsync(Ready(Vault("a")), "other-hash", writer, audit, _jobId, 10, CancellationToken.None);
 
         Assert.True(result.Refused);
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.BatchCount);
         Assert.Empty(writer.VaultFiles);
         Assert.Empty(writer.GcMessages);
+        Assert.Empty(audit.Records);
     }
 
     [Fact]
-    public void Refuses_when_the_dry_run_is_not_ready()
+    public async Task Refuses_when_the_dry_run_is_not_ready()
     {
         var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
         var ambiguous = new ImportPipelineResult(ImportStatus.Ambiguous, null, [], null, string.Empty);
         var failed = new ImportPipelineResult(ImportStatus.Failed, "bazaar.import.a", [], null, string.Empty, "boom");
 
-        var fromAmbiguous = ImportCommitter.Commit(ambiguous, _hash, writer, _jobId, 10);
-        var fromFailed = ImportCommitter.Commit(failed, _hash, writer, _jobId, 10);
+        var fromAmbiguous = await ImportCommitter.CommitAsync(ambiguous, _hash, writer, audit, _jobId, 10, CancellationToken.None);
+        var fromFailed = await ImportCommitter.CommitAsync(failed, _hash, writer, audit, _jobId, 10, CancellationToken.None);
 
         Assert.True(fromAmbiguous.Refused);
         Assert.True(fromFailed.Refused);
@@ -45,12 +48,13 @@ public class ImportCommitterTests
     }
 
     [Fact]
-    public void Splits_records_into_batches_and_attaches_provenance()
+    public async Task Splits_records_into_batches_and_attaches_provenance()
     {
         var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
         var dryRun = Ready(Vault("a"), Vault("b"), Vault("c"), Vault("d"), Vault("e"));
 
-        var result = ImportCommitter.Commit(dryRun, _hash, writer, _jobId, 2);
+        var result = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 2, CancellationToken.None);
 
         Assert.True(result.Succeeded);
         Assert.Equal(3, result.BatchCount);
@@ -61,12 +65,13 @@ public class ImportCommitterTests
     }
 
     [Fact]
-    public void Batches_never_mix_targets()
+    public async Task Batches_never_mix_targets()
     {
         var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
         var dryRun = Ready(Vault("v1"), Vault("v2"), Gc("g1"), Vault("v3"));
 
-        var result = ImportCommitter.Commit(dryRun, _hash, writer, _jobId, 10);
+        var result = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 10, CancellationToken.None);
 
         Assert.True(result.Succeeded);
         Assert.Equal(3, result.BatchCount);
@@ -75,33 +80,36 @@ public class ImportCommitterTests
     }
 
     [Fact]
-    public void Stops_at_a_failing_batch_and_reports_its_index()
+    public async Task Stops_at_a_failing_batch_and_reports_its_index()
     {
         var writer = new InMemoryImportTargetWriter { FailOnBatchIndex = 1 };
+        var audit = new InMemoryAuditSink();
         var dryRun = Ready(Vault("a"), Vault("b"), Vault("c"), Vault("d"), Vault("e"));
 
-        var result = ImportCommitter.Commit(dryRun, _hash, writer, _jobId, 2);
+        var result = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 2, CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.False(result.Refused);
         Assert.NotNull(result.FirstFailure);
         Assert.Equal(1, result.FirstFailure.BatchIndex);
         Assert.Equal(ImportTargetKind.VaultFile, result.FirstFailure.Target);
+        Assert.Equal(ImportBatchStage.Write, result.FirstFailure.Stage);
         Assert.Equal(1, result.BatchCount);
         Assert.Equal(["a", "b"], result.CommittedSourceKeys);
         // Batch 0 is written; batch 1 is rejected; batch 2 is never attempted.
         Assert.Equal(["a", "b"], writer.VaultFiles.Select(item => item.Record.SourceKey));
-        Assert.DoesNotContain("e", writer.CommittedSourceKeys);
+        Assert.Single(audit.Records);
     }
 
     [Fact]
-    public void Rerun_after_success_commits_nothing_new()
+    public async Task Rerun_after_success_commits_nothing_new()
     {
         var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
         var dryRun = Ready(Vault("a"), Vault("b"), Gc("g1"));
 
-        var first = ImportCommitter.Commit(dryRun, _hash, writer, _jobId, 10);
-        var second = ImportCommitter.Commit(dryRun, _hash, writer, _jobId, 10);
+        var first = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 10, CancellationToken.None);
+        var second = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 10, CancellationToken.None);
 
         Assert.True(first.Succeeded);
         Assert.Equal(2, first.BatchCount);
@@ -111,13 +119,53 @@ public class ImportCommitterTests
         Assert.Equal(3, second.SkippedCount);
         Assert.Equal(2, writer.VaultFiles.Count);
         Assert.Single(writer.GcMessages);
+        Assert.Equal(2, audit.Records.Count);
     }
 
     [Fact]
-    public void Rejects_a_batch_size_below_one()
+    public async Task Writes_one_audit_record_per_batch_with_count_and_hash()
     {
         var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
+        var dryRun = Ready(Vault("a"), Vault("b"), Vault("c"));
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => ImportCommitter.Commit(Ready(Vault("a")), _hash, writer, _jobId, 0));
+        var result = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 2, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, audit.Records.Count);
+        Assert.All(audit.Records, r => Assert.Equal(ImportAuditRecord.BatchKind, r.Kind));
+        Assert.All(audit.Records, r => Assert.Equal(_jobId, r.JobId));
+        Assert.Equal([1, 2], audit.Records.Select(r => r.BatchNumber));
+        Assert.Equal([2, 1], audit.Records.Select(r => r.ItemCount));
+        Assert.Equal(ImportBatchHash.Of(writer.VaultFiles.Take(2).ToList()), audit.Records[0].ContentHash);
+        Assert.Matches("^[0-9a-f]{64}$", audit.Records[0].ContentHash);
+    }
+
+    [Fact]
+    public async Task Failed_audit_write_stops_the_job_and_reports_the_audit_stage()
+    {
+        var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink { FailAppends = true };
+        var dryRun = Ready(Vault("a"), Vault("b"), Vault("c"));
+
+        var result = await ImportCommitter.CommitAsync(dryRun, _hash, writer, audit, _jobId, 2, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.NotNull(result.FirstFailure);
+        Assert.Equal(0, result.FirstFailure.BatchIndex);
+        Assert.Equal(ImportBatchStage.Audit, result.FirstFailure.Stage);
+        // The first batch was written before its audit failed; the second batch is never attempted.
+        Assert.Equal(["a", "b"], writer.VaultFiles.Select(item => item.Record.SourceKey));
+        Assert.Equal(["a", "b"], result.CommittedSourceKeys);
+    }
+
+    [Fact]
+    public async Task Rejects_a_batch_size_below_one()
+    {
+        var writer = new InMemoryImportTargetWriter();
+        var audit = new InMemoryAuditSink();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            ImportCommitter.CommitAsync(Ready(Vault("a")), _hash, writer, audit, _jobId, 0, CancellationToken.None));
     }
 }

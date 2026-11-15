@@ -8,7 +8,7 @@ namespace Bazaar.Portability.Tests;
 /// </summary>
 public sealed class InMemoryImportTargetWriter : IImportTargetWriter
 {
-    private readonly HashSet<string> _committed = new(StringComparer.Ordinal);
+    private readonly HashSet<(string JobId, string Key)> _written = [];
 
     public List<ImportItem> GcMessages { get; } = [];
 
@@ -17,13 +17,26 @@ public sealed class InMemoryImportTargetWriter : IImportTargetWriter
     /// <summary>Batch index whose write throws. Null means no failure is injected.</summary>
     public int? FailOnBatchIndex { get; set; }
 
-    public IReadOnlySet<string> CommittedSourceKeys => _committed;
+    public Task<IReadOnlySet<string>> ReadCommittedSourceKeysAsync(string jobId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlySet<string>>(_written.Where(w => w.JobId == jobId).Select(w => w.Key).ToHashSet(StringComparer.Ordinal));
 
-    public void AppendGcMessages(string jobId, int batchIndex, IReadOnlyList<ImportItem> items) =>
+    public Task AppendGcMessagesAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
+    {
         Write(GcMessages, batchIndex, items);
+        return Task.CompletedTask;
+    }
 
-    public void WriteVaultFiles(string jobId, int batchIndex, IReadOnlyList<ImportItem> items) =>
+    public Task WriteVaultFilesAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
+    {
         Write(VaultFiles, batchIndex, items);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<string>> ReadGcSourceKeysAsync(string jobId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>(GcMessages.Where(i => i.Provenance.JobId == jobId).Select(i => i.Record.SourceKey).ToList());
+
+    public Task<IReadOnlyList<string>> ReadVaultSourceKeysAsync(string jobId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>(VaultFiles.Where(i => i.Provenance.JobId == jobId).Select(i => i.Record.SourceKey).ToList());
 
     private void Write(List<ImportItem> sink, int batchIndex, IReadOnlyList<ImportItem> items)
     {
@@ -35,7 +48,7 @@ public sealed class InMemoryImportTargetWriter : IImportTargetWriter
         sink.AddRange(items);
         foreach (var item in items)
         {
-            _committed.Add(item.Record.SourceKey);
+            _written.Add((item.Provenance.JobId, item.Record.SourceKey));
         }
     }
 }
