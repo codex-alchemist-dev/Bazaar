@@ -151,16 +151,20 @@ jobs:
 
       # Runs the gate app on an API 35 x86_64 emulator (the head's minimum, SupportedOSPlatformVersion 35) and fails
       # unless the app logs RESULT=PASS. The script installs the app with dotnet build -t:Install.
-      # Pinned by tag only: the commit SHA could not be resolved when this was written. Replace with the SHA of the tag.
+      # Inline emulator steps: no third-party action to pin (doc 49 section 2, supply chain).
+      - name: Install Android emulator and system image
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          echo "no" | avdmanager create avd -n ci -k "system-images;android-35;google_apis;x86_64" -d pixel_6 --force
+
+      - name: Start emulator
+        run: |
+          nohup "$ANDROID_SDK_ROOT/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim \
+            -gpu swiftshader_indirect -no-snapshot > "$RUNNER_TEMP/emulator.log" 2>&1 &
+
       - name: Run Android accessibility gate on emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          disable-animations: true
-          script: bash scripts/ci/android-a11y-gate.sh
+        run: bash scripts/ci/android-a11y-gate.sh
 
   secret-scan:
     name: Secret scan (full history)
