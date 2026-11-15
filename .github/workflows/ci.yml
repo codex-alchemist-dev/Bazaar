@@ -154,9 +154,18 @@ jobs:
       # Inline emulator steps: no third-party action to pin (doc 49 section 2, supply chain).
       - name: Install Android emulator and system image
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
-          echo "no" | avdmanager create avd -n ci -k "system-images;android-35;google_apis;x86_64" -d pixel_6 --force
+          # No pipefail here: `yes |` gets SIGPIPE once sdkmanager stops reading, which is expected.
+          set -eu
+          # The runner image does not put cmdline-tools on PATH, so call the SDK tools by full path.
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:?no Android SDK on this runner}}"
+          tools="$sdk/cmdline-tools/latest/bin"
+          test -x "$tools/sdkmanager" || { echo "cmdline-tools not found under $sdk"; exit 1; }
+          yes | "$tools/sdkmanager" --licenses >/dev/null
+          "$tools/sdkmanager" --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          echo "no" | "$tools/avdmanager" create avd -n ci -k "system-images;android-35;google_apis;x86_64" -d pixel_6 --force
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "$sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "$sdk/emulator" >> "$GITHUB_PATH"
 
       - name: Start emulator
         run: |
