@@ -1,6 +1,8 @@
 using System.Text;
 using Bazaar.Contracts.Gc;
+using Bazaar.Server.Gc.Edit;
 using Bazaar.Server.Gc.Read;
+using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Vault.Git;
 
 namespace Bazaar.Portability.Tests;
@@ -26,14 +28,41 @@ public class ReplaceVersioningTests : IDisposable
     private static SourceRecord Note(string key, string title, string body) =>
         new(key, "document", title, body, new Dictionary<string, string>());
 
-    private static GcImportTarget GcTarget(InMemoryGcLog gc, Guid author) =>
-        new(gc, new PlainGcBodyCodec(), gc, _gcId, author, AuthorKind.Owner, new GcPrincipal(author, PrincipalKind.Owner, "owner"));
+    private static GcImportTarget GcTarget(InMemoryGcLog gc, Guid author, IGcMessageEditor? editor = null) =>
+        new(gc, new PlainGcBodyCodec(), gc, _gcId, author, AuthorKind.Owner, new GcPrincipal(author, PrincipalKind.Owner, "owner"), editor);
+
+    /// <summary>Stands in for the server's editor: accepts every edit with the next version, or refuses with a reason.</summary>
+    private sealed class FakeEditor(InMemoryGcLog gc, string? refuse = null) : IGcMessageEditor
+    {
+        private readonly Dictionary<Guid, int> _versions = [];
+
+        public int Calls { get; private set; }
+
+        public async Task<GcMessageEditOutcome> EditAsync(GcMessageEdit request, CancellationToken ct)
+        {
+            Calls++;
+            if (refuse is not null)
+            {
+                return new GcMessageEditRefused(refuse);
+            }
+            var next = (_versions.TryGetValue(request.MessageId, out var current) ? current : 1) + 1;
+            _versions[request.MessageId] = next;
+            var results = await gc.AppendManyAsync(
+                [new AppendRequest(request.GcId, GcEventKinds.MessageEdit, AuthorKind.Owner, request.EditorId, SourceTrust.Owner, request.ClientMsgId)
+                {
+                    MessageId = request.MessageId,
+                    Version = next,
+                }],
+                ct);
+            return new GcMessageEditAccepted(next, results[0].Seq);
+        }
+    }
 
     [Fact]
     public async Task Gc_index_finds_an_imported_message_and_replace_appends_a_new_version()
     {
         var gc = new InMemoryGcLog();
-        var target = GcTarget(gc, _author);
+        var target = GcTarget(gc, _author, new FakeEditor(gc));
         var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner"));
         await target.AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
 
@@ -61,15 +90,68 @@ public class ReplaceVersioningTests : IDisposable
     public async Task Gc_replace_by_another_author_is_refused_and_writes_nothing()
     {
         var gc = new InMemoryGcLog();
-        await GcTarget(gc, _author).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        await GcTarget(gc, _author, new FakeEditor(gc)).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
         var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner"));
         var stored = Assert.Single(await index.FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
         var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => GcTarget(gc, _other).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
+        var editor = new FakeEditor(gc);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => GcTarget(gc, _other, editor).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
+
+        Assert.Equal(0, editor.Calls);
+        Assert.Equal(before, gc.Count);
+    }
+
+    [Fact]
+    public async Task Gc_replace_without_an_editor_is_refused_before_anything_is_written()
+    {
+        var gc = new InMemoryGcLog();
+        await GcTarget(gc, _author, new FakeEditor(gc)).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
+        var before = gc.Count;
+
+        var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };
+        await Assert.ThrowsAsync<NotSupportedException>(() => GcTarget(gc, _author).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
 
         Assert.Equal(before, gc.Count);
+    }
+
+    [Fact]
+    public async Task Gc_replace_refused_by_the_editor_fails_the_batch_and_writes_nothing()
+    {
+        var gc = new InMemoryGcLog();
+        await GcTarget(gc, _author, new FakeEditor(gc)).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
+        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
+        var before = gc.Count;
+
+        var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            GcTarget(gc, _author, new FakeEditor(gc, "The edit window has closed.")).AppendBatchAsync("job-2", 0, [replace], CancellationToken.None));
+
+        Assert.Contains("The edit window has closed.", ex.Message);
+        Assert.Equal(before, gc.Count);
+    }
+
+    [Fact]
+    public async Task Vault_replace_is_refused_when_the_note_changed_after_it_was_looked_up()
+    {
+        var git = new InMemoryVaultGit();
+        var identity = new GitIdentity("Bazaar Import", "import@example.invalid");
+        var target = new VaultImportTarget(git, _checkout, _checkout, identity);
+        await target.WriteBatchAsync("job-1", 0, [new ImportItem(Note("v1", "Plan", "first"), new ImportProvenance("job-1", "v1"))], CancellationToken.None);
+        var stored = Assert.Single(await new VaultExistingObjectIndex(git, _checkout).FindAsync([("document", "Plan")], CancellationToken.None));
+
+        // Someone else edits the note after the lookup.
+        var path = Path.Combine(_checkout, stored.Location!);
+        await File.WriteAllTextAsync(path, "---\nid: " + stored.ObjectId + "\ntype: draft\ntitle: Plan\n---\nedited by someone else\n", new UTF8Encoding(false), TestContext.Current.CancellationToken);
+        await git.CommitAsync(_checkout, "someone edits", identity, TestContext.Current.CancellationToken);
+        var before = await File.ReadAllTextAsync(path, CancellationToken.None);
+
+        var replace = new ImportItem(Note("v2", "Plan", "second"), new ImportProvenance("job-2", "v2")) { Replaces = stored };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => target.WriteBatchAsync("job-2", 0, [replace], CancellationToken.None));
+
+        Assert.Equal(before, await File.ReadAllTextAsync(path, CancellationToken.None));
     }
 
     [Fact]
