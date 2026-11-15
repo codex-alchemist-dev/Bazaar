@@ -102,11 +102,17 @@ public class ViewValidatorTests
         Assert.Contains("view.unexpected_children", Codes(document));
     }
 
+    private static Dictionary<string, ViewDataSource> FeedSource() =>
+        new() { ["feed"] = new("gc.feed", null, new Dictionary<string, RubedoType> { ["id"] = RubedoType.Text }) };
+
+    private static Dictionary<string, object?> ListProps() =>
+        new() { ["over"] = "feed", ["key"] = "id" };
+
     [Fact]
     public void A_list_needs_exactly_one_item_template()
     {
-        var none = Doc(Node("list"));
-        var two = Doc(Node("list", null, Node("text", new() { ["label"] = "a" }), Node("text", new() { ["label"] = "b" })));
+        var none = Doc(Node("list", ListProps()), data: FeedSource());
+        var two = Doc(Node("list", ListProps(), Node("text", new() { ["label"] = "a" }), Node("text", new() { ["label"] = "b" })), data: FeedSource());
 
         Assert.Contains("view.list_template", Codes(none));
         Assert.Contains("view.list_template", Codes(two));
@@ -115,7 +121,7 @@ public class ViewValidatorTests
     [Fact]
     public void A_list_with_one_template_is_accepted()
     {
-        var document = Doc(Node("list", null, Node("text", new() { ["label"] = "a" })));
+        var document = Doc(Node("list", ListProps(), Node("text", new() { ["label"] = "a" })), data: FeedSource());
 
         Assert.Empty(ViewValidator.Validate(document));
     }

@@ -1,3 +1,4 @@
+using Bazaar.Rubedo;
 using Bazaar.Rubedo.Semantics;
 
 namespace Bazaar.Rubedo.Views;
@@ -40,7 +41,7 @@ public static class ViewValidator
             problems.Add(new RubedoDiagnostic("view.bad_name", $"View name '{document.Name}' must be dotted lower-case segments, such as 'bazaar.gc.feed'."));
         }
 
-        var schema = BuildSchema(document, problems);
+        var scope = BuildScope(document, problems);
         foreach (var (id, action) in document.Actions)
         {
             if (!Enum.IsDefined(action.Kind))
@@ -49,11 +50,15 @@ public static class ViewValidator
             }
         }
 
-        Walk(document.Root, "root", document, schema, problems);
+        Walk(document.Root, "root", document, scope, problems);
         return problems;
     }
 
-    private static RubedoSchema BuildSchema(ViewDocument document, List<RubedoDiagnostic> problems)
+    /// <summary>
+    /// The names in scope at the root: the context identifiers plus every scalar data source. List sources are not
+    /// expression names; a keyed list brings their fields into scope inside its template.
+    /// </summary>
+    private static RubedoSchema BuildScope(ViewDocument document, List<RubedoDiagnostic> problems)
     {
         var identifiers = new Dictionary<string, RubedoType>(RubedoSchema.Standard.Identifiers, StringComparer.Ordinal);
         foreach (var (name, source) in document.Data)
@@ -70,13 +75,16 @@ public static class ViewValidator
                 continue;
             }
 
-            identifiers[name] = source.Type;
+            if (source.Type is { } scalar)
+            {
+                identifiers[name] = scalar;
+            }
         }
 
         return new RubedoSchema(identifiers);
     }
 
-    private static void Walk(ViewNode node, string path, ViewDocument document, RubedoSchema schema, List<RubedoDiagnostic> problems)
+    private static void Walk(ViewNode node, string path, ViewDocument document, RubedoSchema scope, List<RubedoDiagnostic> problems)
     {
         if (!ViewWidgets.TryParse(node.Widget, out var widget))
         {
@@ -101,7 +109,7 @@ public static class ViewValidator
         {
             if (value is ViewExpr expr)
             {
-                CheckExpression(expr, propName, path, schema, problems);
+                CheckExpression(expr, propName, path, scope, problems);
             }
         }
 
@@ -110,21 +118,66 @@ public static class ViewValidator
             problems.Add(new RubedoDiagnostic("view.unexpected_children", $"{path}: {node.Widget} takes no children."));
         }
 
-        if (widget == ViewWidget.List && node.Children.Count != 1)
+        var childScope = scope;
+        if (widget == ViewWidget.List)
         {
-            problems.Add(new RubedoDiagnostic("view.list_template", $"{path}: a list takes exactly one item template (doc 41c, section 9.4)."));
+            if (node.Children.Count != 1)
+            {
+                problems.Add(new RubedoDiagnostic("view.list_template", $"{path}: a list takes exactly one item template (doc 41c, section 9.4)."));
+            }
+
+            childScope = CheckList(node, path, document, scope, problems) ?? scope;
         }
 
         for (var i = 0; i < node.Children.Count; i++)
         {
-            Walk(node.Children[i], $"{path}/{i}", document, schema, problems);
+            Walk(node.Children[i], $"{path}/{i}", document, childScope, problems);
         }
     }
 
-    private static void CheckExpression(ViewExpr expr, string propName, string path, RubedoSchema schema, List<RubedoDiagnostic> problems)
+    /// <summary>
+    /// Checks a keyed list: <c>over</c> names a list source, <c>key</c> names one of its fields, and the fields come into
+    /// scope in the template. Returns the template's scope, or null when the list's source is not usable.
+    /// </summary>
+    private static RubedoSchema? CheckList(ViewNode node, string path, ViewDocument document, RubedoSchema scope, List<RubedoDiagnostic> problems)
+    {
+        if (!node.Props.TryGetValue("over", out var overValue) || overValue is not string overName ||
+            !document.Data.TryGetValue(overName, out var source) || source.Fields is null)
+        {
+            problems.Add(new RubedoDiagnostic("view.list_source", $"{path}: a list's 'over' must name a declared list source."));
+            return null;
+        }
+
+        if (!node.Props.TryGetValue("key", out var keyValue) || keyValue is not string keyName || !source.Fields.ContainsKey(keyName))
+        {
+            problems.Add(new RubedoDiagnostic("view.list_key", $"{path}: a list's 'key' must name a field of '{overName}'."));
+        }
+
+        var itemIdentifiers = new Dictionary<string, RubedoType>(scope.Identifiers, StringComparer.Ordinal);
+        foreach (var (field, type) in source.Fields)
+        {
+            if (!IsIdentifier(field))
+            {
+                problems.Add(new RubedoDiagnostic("view.bad_field_name", $"{path}: field '{field}' of '{overName}' is not a valid identifier."));
+                continue;
+            }
+
+            if (scope.Identifiers.ContainsKey(field))
+            {
+                problems.Add(new RubedoDiagnostic("view.item_field_shadows", $"{path}: field '{field}' of '{overName}' shadows a name in scope."));
+                continue;
+            }
+
+            itemIdentifiers[field] = type;
+        }
+
+        return new RubedoSchema(itemIdentifiers);
+    }
+
+    private static void CheckExpression(ViewExpr expr, string propName, string path, RubedoSchema scope, List<RubedoDiagnostic> problems)
     {
         var requiredType = propName is "visibleWhen" or "enabledWhen" ? RubedoType.Bool : (RubedoType?)null;
-        var compiled = RubedoEngine.Compile(expr.Source, schema, requiredType);
+        var compiled = RubedoEngine.Compile(expr.Source, scope, requiredType);
         foreach (var diagnostic in compiled.Diagnostics)
         {
             problems.Add(diagnostic with { Message = $"{path}.{propName}: {diagnostic.Message}" });

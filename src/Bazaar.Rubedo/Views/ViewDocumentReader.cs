@@ -58,15 +58,38 @@ public static class ViewDocumentReader
         RequireObject(element, path);
         string capability = RequireString(element, "capability", path);
         string type = RequireString(element, "type", path);
-        RubedoType rubedoType = type switch
+        if (type == "list")
+        {
+            if (!element.TryGetProperty("fields", out JsonElement fieldsElement))
+            {
+                throw new FormatException($"{path}: a list source needs 'fields'.");
+            }
+
+            RequireObject(fieldsElement, $"{path}.fields");
+            var fields = new Dictionary<string, RubedoType>(StringComparer.Ordinal);
+            foreach (JsonProperty field in fieldsElement.EnumerateObject())
+            {
+                fields[field.Name] = ReadScalarType(field.Value, $"{path}.fields.{field.Name}");
+            }
+
+            return new ViewDataSource(capability, null, fields);
+        }
+
+        return new ViewDataSource(capability, ReadScalarType(element.GetProperty("type"), $"{path}.type"));
+    }
+
+    private static RubedoType ReadScalarType(JsonElement element, string path)
+    {
+        string type = element.ValueKind == JsonValueKind.String
+            ? element.GetString()!
+            : throw new FormatException($"{path}: must be a string.");
+        return type switch
         {
             "bool" => RubedoType.Bool,
             "number" => RubedoType.Number,
             "text" => RubedoType.Text,
             _ => throw new FormatException($"{path}: unknown data type '{type}'."),
         };
-
-        return new ViewDataSource(capability, rubedoType);
     }
 
     private static ViewAction ReadAction(JsonElement element, string path)
