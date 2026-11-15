@@ -1,3 +1,5 @@
+using Bazaar.Server.Modules.Health;
+
 namespace Bazaar.Server.Security.KillSwitch;
 
 /// <summary>
@@ -34,6 +36,7 @@ public sealed class KillSwitchEngine
     private readonly SortedDictionary<string, KillSwitchStop> _agentStops = new(StringComparer.Ordinal);
     private KillSwitchStop? _global;
     private bool _loaded; // guarded by _gate
+    private string? _loadFailure; // guarded by _gate; exception type of the last failed load, null once loaded
     private Task _loadTask; // guarded by _gate; replaced when a load fails
 
     /// <summary>Creates an engine with an in-memory state store, so stops last only as long as the process.</summary>
@@ -284,16 +287,53 @@ public sealed class KillSwitchEngine
     /// <summary>Reads the stored stops into the cache. Runs once from the constructor, and again after a failed load.</summary>
     private async Task LoadStateAsync(CancellationToken ct)
     {
-        var status = await _store.LoadAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var status = await _store.LoadAsync(ct).ConfigureAwait(false);
+            lock (_gate)
+            {
+                _global = status.Global;
+                _agentStops.Clear();
+                foreach (var stop in status.AgentStops)
+                {
+                    _agentStops[stop.AgentId!] = stop;
+                }
+                _loaded = true;
+                _loadFailure = null;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Only the exception type is kept: a message can carry connection details.
+            lock (_gate)
+            {
+                _loadFailure = ex.GetType().Name;
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Health of the stored stop state, for the host's health reporting (doc 46 section 10). Healthy once the stops are loaded;
+    /// Failing while the last load failed (effects stay denied); Unknown while the first load is still running. Never throws.
+    /// </summary>
+    public ModuleHealthCheck CheckStateHealth()
+    {
+        var now = _time.GetUtcNow();
         lock (_gate)
         {
-            _global = status.Global;
-            _agentStops.Clear();
-            foreach (var stop in status.AgentStops)
+            if (_loaded)
             {
-                _agentStops[stop.AgentId!] = stop;
+                return new ModuleHealthCheck(ModuleHealthStatus.Healthy, "Kill switch stop state is loaded.", now);
             }
-            _loaded = true;
+
+            if (_loadFailure is not null)
+            {
+                return new ModuleHealthCheck(ModuleHealthStatus.Failing, $"Kill switch stop state failed to load ({_loadFailure}); effects are denied.", now);
+            }
+
+            return new ModuleHealthCheck(ModuleHealthStatus.Unknown, "Kill switch stop state is loading; effects are denied.", now);
         }
     }
 

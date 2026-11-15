@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Bazaar.Server.Modules.Health;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Time.Testing;
@@ -128,6 +129,36 @@ public class KillSwitchPersistenceTests
         await Task.Delay(50, Ct);
 
         Assert.True(engine.Evaluate("agent-a", ToolEffect.Read).Allowed);
+    }
+
+    [Fact]
+    public async Task State_health_is_unknown_while_loading_then_healthy_once_loaded()
+    {
+        var load = new TaskCompletionSource();
+        var store = new ControllableKillSwitchStateStore(new InMemoryKillSwitchStateStore()) { LoadGate = load.Task };
+        var engine = new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), new RecordingContainment(), store, _time);
+
+        var loading = engine.CheckStateHealth();
+        Assert.Equal(ModuleHealthStatus.Unknown, loading.Status);
+
+        load.SetResult();
+        await Task.Delay(50, Ct);
+
+        Assert.Equal(ModuleHealthStatus.Healthy, engine.CheckStateHealth().Status);
+    }
+
+    [Fact]
+    public async Task State_health_is_failing_with_a_cause_when_the_load_fails()
+    {
+        var store = new ControllableKillSwitchStateStore(new InMemoryKillSwitchStateStore()) { FailNextLoad = true };
+        var engine = new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), new RecordingContainment(), store, _time);
+        await Task.Delay(50, Ct);
+
+        var health = engine.CheckStateHealth();
+
+        Assert.Equal(ModuleHealthStatus.Failing, health.Status);
+        Assert.Contains("failed to load", health.Reason, StringComparison.Ordinal);
+        Assert.Contains("effects are denied", health.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
