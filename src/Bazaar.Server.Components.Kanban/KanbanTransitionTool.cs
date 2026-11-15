@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Turns.Tools;
 
 namespace Bazaar.Server.Kanban;
@@ -7,13 +8,33 @@ namespace Bazaar.Server.Kanban;
 /// <summary>
 /// The <c>kanban.transition</c> agent tool (doc 12, Interception at tool dispatch). It is the only agent path that moves a
 /// card: it calls <see cref="TaskService.TransitionAsync"/> as the calling agent, so the same guard, version check and
-/// refusal rules apply as for every other caller. Agents never write task tables. The tool is not registered at startup;
-/// the host adds it to the tool registry in the turn-path composition (doc 12, WP5 registration follow-up).
+/// refusal rules apply as for every other caller. Agents never write task tables. <see cref="KanbanComponent"/> registers
+/// it with the turn path's tool registry, together with its policy entry.
 /// </summary>
 public sealed class KanbanTransitionTool(TaskService tasks) : IContextualTool
 {
     /// <summary>The exact registered name.</summary>
     public const string ToolName = "kanban.transition";
+
+    /// <summary>What a model is told about the tool. The schema matches the checks in <see cref="ExecuteAsync(JsonElement, ToolCallContext, CancellationToken)"/>.</summary>
+    public static ModelToolDefinition Definition { get; } = new(
+        ToolName,
+        "Moves a task card to another column on the board. The move is checked by the board's rules: an unfinished blocker, " +
+        "a missing link or a missing permission refuses it, and the result says why. Pass the card's current version; a " +
+        "conflict result returns the newer version to retry with.",
+        """
+        {
+          "type": "object",
+          "properties": {
+            "taskId": { "type": "string", "format": "uuid", "description": "The task to move." },
+            "to": { "type": "string", "enum": ["backlog", "ready", "in_progress", "review", "done"], "description": "The column to move the task to." },
+            "expectedVersion": { "type": "integer", "minimum": 1, "description": "The task's version as last read." },
+            "reason": { "type": "string", "description": "Why the task moves. Some moves require it." }
+          },
+          "required": ["taskId", "to", "expectedVersion"],
+          "additionalProperties": false
+        }
+        """);
 
     private readonly TaskService _tasks = tasks ?? throw new ArgumentNullException(nameof(tasks));
 

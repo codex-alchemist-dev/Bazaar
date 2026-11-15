@@ -16,7 +16,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 | GC (`gc`) | Folder `Bazaar.Server/Gc/` in core assembly | GC pane in `Client.Core` (`GcPaneViewModel`) | none | 13 files outside `Gc/` import it (Agents, Calendar, Org, Http, Souls, Kanban, Ryusei). Kanban and Ryusei use it. |
 | Constellation (`constellation`) | Folder `Bazaar.Server/Constellation/` in core | `Client.Core/Constellation/` | none | Its Vault graph source reads `Vault.Data` types. Used by `Http/HttpSurfaceEndpoints.cs`. |
 | Kanban (`kanban`) | Own project `Bazaar.Server.Components.Kanban` | Board pane in `Client.Core` | none | Uses GC (optional: `IGcLogWriter`, `IGcExistence`). Works without GC. |
-| RyuseiFuda schedule (`ryusei`, formerly `ryusei-schedule`) | Code in the Kanban project, namespace `Bazaar.Server.Kanban.Ryusei` | `Client.Core/Ryusei/RyuseiMicroPaneViewModel` | `kanban` (plus `gc` and `audit` after this PR) | Hard: `GcNotifyListener`, `ITransactionalAuditLog`. Optional: `IGcLogWriter`, `GcCreateService`. |
+| RyuseiFuda schedule (`ryusei`, formerly `ryusei-schedule`) | Project `Bazaar.RyuseiFuda` (split from the Kanban project in #384), namespace `Bazaar.RyuseiFuda.Orrery` (was `Bazaar.Server.Kanban.Ryusei`) | `Client.Core/Ryusei/RyuseiMicroPaneViewModel` | `kanban` (plus `gc` and `audit` after this PR) | Hard: `GcNotifyListener`, `ITransactionalAuditLog`. Optional: `IGcLogWriter`, `GcCreateService`. |
 
 ## 3. Gaps
 
@@ -29,7 +29,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 7. **Migration namespace mismatch (DECIDED 2026-11-09: rename the id to `ryusei`; applied as code, see PR #360 follow-up).** The `ryusei-schedule` component maps to namespace `ryusei_schedule`, but its SQL folder is `ryusei`. The runner still applies it (after the component namespaces, by name), so nothing breaks today, but the ordering and ownership are not what the manifest says. `DECISIONS-LOG.md` already records this as an owner choice: rename the component id or the folder. Renaming the folder would change applied history, so the component id is the safer side. Owner to choose.
 8. **GC, Constellation and Vault tables sit in `common/`**, which is frozen (see `BAZAAR-COMPONENTS.md` section 5). Their components own no migration namespace yet. This is correct under the freeze, and moving it would re-run applied files, so it stays until a wave decides otherwise.
 9. **Client panes are hard-wired.** `FirstPartyPanes.CreateRegistry` names each pane. Heads cannot add or drop a feature pane without editing Client.Core.
-10. **Version format.** Manifests use SemVer (`0.1.0`). The owner's rule (2026-11-08) is `vAA.BB.CC-commit` for internal modules, with SemVer under the hood. The manifest keeps SemVer, and the display derives the other form. No code change is needed, but the rule belongs in `BAZAAR-COMPONENTS.md`.
+10. **Version format.** Manifests use SemVer (`0.1.0`). The owner's rule (2026-11-12) is plain SemVer with the commit appended (`0.1.0+a1b2c3d`) for internal modules too, so the manifest and the display show the same string. No code change is needed, but the rule belongs in `BAZAAR-COMPONENTS.md`.
 
 ## 4. Target layout
 
@@ -58,7 +58,7 @@ Applied to the three features:
 
 | Now | Target | Notes |
 |---|---|---|
-| `ryusei` component (layer 2 code in `Bazaar.Server.Components.Kanban`) | `Bazaar.RyuseiFuda` with `RyuseiFuda.Orrery` and `RyuseiFuda.Workday`/`Roadmap` parts | Module split is step 5 in section 5. Namespace and type rename `Ryusei*` stays as is until then. |
+| `ryusei` component (layer 2 code in `Bazaar.Server.Components.Kanban`) | `Bazaar.RyuseiFuda` with `RyuseiFuda.Orrery` and `RyuseiFuda.Workday`/`Roadmap` parts | Module split done (#384). The scheduling layer's namespace is `Bazaar.RyuseiFuda.Orrery`; the `Ryusei*` type names, the `ryusei` id and the `Bazaar:Ryusei` settings section stay. |
 | Roadmap code in `Bazaar.Server/Roadmap`, namespace `Bazaar.Server.Roadmap` | `Bazaar.RyuseiFuda/Roadmap`, namespace `Bazaar.RyuseiFuda.Roadmap` | Done. The `ryusei-roadmap` id and the `roadmap/0001` migration in `Bazaar.Server` stay where they are. |
 | Layer 1 kanban (`kanban`) | Under `RyuseiFuda.Workday` or kept as `Bazaar.Kanban`, owner to confirm | Id and stored settings keys stay (doc 38 R4 defers renaming). |
 | No connectivity code yet | `Bazaar.Conduit` with `Conduit.Cloudflared`, `Conduit.P2P` | New code only; nothing to rename. |
@@ -73,7 +73,7 @@ Each step is a small PR with tests, per `CLAUDE.md`.
 4. **GC abstractions project**, and move its consumers onto it.
 5. **Split RyuseiFuda** out of the Kanban project.
 6. **Constellation and Vault** projects and abstractions.
-7. **Client modules** for GC, Constellation and RyuseiFuda, with the pane registry taking modules instead of named panes. Heads compose them.
+7. **Client modules** for GC, Constellation and RyuseiFuda, with the pane registry taking modules instead of named panes. Heads compose them. Progress: the registry composes `IPaneModule`s (#373); a module also registers its view (`PaneRegistry.RegisterView`) and can read a head-supplied service from `PaneModuleContext.Get<T>()`, so Client.Core no longer needs a feature's view model type to render it. Next: move each feature's pane code into `Bazaar.Client.<F>`.
 
 Not now: a runtime plugin loader, a module framework with its own container, or splitting every folder before step 3 exists.
 

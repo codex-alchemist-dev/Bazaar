@@ -7,6 +7,9 @@ public sealed class WorkdayPaneModule : IPaneModule
 {
     public string Id => PaneKinds.Workday;
 
-    public void Register(PaneRegistry registry, PaneModuleContext context) =>
+    public void Register(PaneRegistry registry, PaneModuleContext context)
+    {
         registry.Register(PaneKinds.Workday, descriptor => new WorkdayPaneViewModel(descriptor));
+        registry.RegisterView<WorkdayPaneViewModel>(PaneViews.Workday);
+    }
 }

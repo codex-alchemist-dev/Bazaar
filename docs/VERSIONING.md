@@ -5,7 +5,7 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 
 ## 1. Version numbers [DECIDED]
 
-**SemVer 2.0:** `vMAJOR.MINOR.PATCH[-pre][+build]`.
+**SemVer 2.0:** `MAJOR.MINOR.PATCH[-pre][+build]`. Release tags add a `v` prefix (`v0.1.0`); the version string itself does not carry it.
 
 | Part | Meaning (from v1.0.0) |
 |---|---|
@@ -15,16 +15,16 @@ Inspired by RESIBO V3 (`domtrifoundation/Receipt-System-V3`, `docs/MAINTENANCE.m
 | `-pre` | Pre-release identifier: `-alpha.N`, `-beta.N`, `-rc.N`. It also selects the channel (section 4). |
 | `+build` | The short commit hash. The .NET SDK appends it to `AssemblyInformationalVersion` automatically, so it is never a constant in the repo (same reason as RESIBO). |
 
-**Before v1.0.0 [DECIDED]:** builds carry the placeholder codename **Beta** (RESIBO's `x00` period). The machine version is `0.MINOR.PATCH`, and its display form is zero-padded (next paragraph). Roadmap stages (`docs/ROADMAP.md`) are labels and are not tied to version numbers: completing a stage bumps nothing by itself. `MINOR` is bumped when a release adds backward-compatible features, and `PATCH` counts merged changes since the last `MINOR` (owner, 2026-10-29: this decouples the milestone tie). During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `MINOR` may grow past 9.
+**Before v1.0.0 [DECIDED]:** builds carry the placeholder codename **Beta** (RESIBO's 0.x period). The version is `0.MINOR.PATCH`, written plainly with no zero padding (next paragraph). Roadmap stages (`docs/ROADMAP.md`) are labels and are not tied to version numbers: completing a stage bumps nothing by itself. `MINOR` is bumped when a release adds backward-compatible features, and `PATCH` counts merged changes since the last `MINOR` (owner, 2026-10-29: this decouples the milestone tie). During 0.x anything may change. `v1.0.0` is a deliberate jump, taken only when the owner judges Bazaar truly ready (owner, 2026-10-25: Beta will last a long while, through the first real projects). It is never reached by ordinary counting, and `MINOR` may grow past 9.
 
-**Display format: zero-padded, with the commit at the end [DECIDED, owner, 2026-10-29 and 2026-11-08].** Each part is padded to two digits so early numbers never run out. The owner's 2026-11-08 directive sets two display forms:
+**Display format: plain SemVer with the commit appended [DECIDED, owner, 2026-11-12].** The owner replaced the zero-padded `xAA.BB.CC` form (2026-10-29 and 2026-11-08) with plain SemVer. Nothing is padded and nothing is prefixed:
 
-- **Project version** (the product, shown to people and used on release tags): `xAA.BB.CC-commit`, for example `x00.01.02-a1b2c3d`. The `x` marks the product line, and the short commit hash closes the string.
-- **Internal components, APIs and modules** (SDK, Contracts, Server.Host, plugins, wire and schema lines where they are displayed): `vAA.BB.CC-commit`, for example `v00.01.02-a1b2c3d`.
+- **Build version** (the product, the About screen, the status page, release file names): `MAJOR.MINOR.PATCH+commit`, for example `0.1.0+a1b2c3d`.
+- **Internal components, APIs and modules** (SDK, Contracts, Server.Host, plugins, wire and schema lines where they are displayed): the same form.
 
-The `-commit` suffix is the short hash of the commit the build came from. It is display only and never part of a release tag. Tags on `main` use the project form without the commit (`x00.01.02`), because a tag names a commit already.
+The `+commit` part is the short hash of the commit the build came from. It is SemVer build metadata, so the whole string is valid SemVer 2.0, and it is display only. It never appears in a release tag, because a tag names a commit already. Release tags are `vMAJOR.MINOR.PATCH[-pre]`, for example `v0.1.0`. This applies to every CDAX project, Resibo included when it adopts the scheme.
 
-Tradeoff: SemVer 2.0 forbids leading zeros, and NuGet and .NET normalise them away (`00.01.00` becomes `0.1.0`). So the padded forms are display only. `VersionPrefix` in `Directory.Build.props` stays the valid SemVer machine form (`0.1.0`), and both padded forms are derived from it one-to-one. Velopack, NuGet and any SemVer comparer use the machine form, with the commit in `+build` metadata. A part that passes 99 widens to three digits for that part only, which needs a line here.
+No part has a fixed width, so no part needs a width rule. SemVer ignores build metadata when it orders versions, so `0.1.0+a1b2c3d` and `0.1.0` sort as the same release. NuGet, .NET and Velopack use the machine form, with the commit in `+build` metadata.
 
 **Source of truth:** `VersionPrefix` in `Directory.Build.props`. Code reads it through `Bazaar.Contracts.ProductVersion` (`Informational`, `Codename(major)`, `CurrentCodename`). Every build carries the same product version: server, clients, SDK and Contracts.
 
@@ -36,7 +36,7 @@ Tradeoff: SemVer 2.0 forbids leading zeros, and NuGet and .NET normalise them aw
 | Database schema | migration number; startup refuses a mismatch (C44) | doc 04 |
 | Settings registry | one entry per key; removing a key is a product MAJOR | doc 03 |
 
-**Bumping:** the PR that merges into `main` bumps `VersionPrefix`: `PATCH` for a merged change, `MINOR` when a release adds features (0.x), and `MAJOR` for a breaking change (1.x and later). Stage completion is not a bump. A release is an annotated tag on `main`, in project display form (`x00.MM.PP`, without the commit, or `xX.Y.Z[-pre]` from v1.0.0); tags are immutable. The `-pre` suffix keeps its SemVer form.
+**Bumping:** the PR that merges into `main` bumps `VersionPrefix`: `PATCH` for a merged change, `MINOR` when a release adds features (0.x), and `MAJOR` for a breaking change (1.x and later). Stage completion is not a bump. A release is an annotated tag on `main` in the form `vMAJOR.MINOR.PATCH[-pre]`, without the commit (for example `v0.1.0`); tags are immutable. The `-pre` suffix keeps its SemVer form.
 
 ## 2. Major-version codenames [DECIDED theme; all names through v5 owner-accepted]
 
@@ -44,7 +44,7 @@ Codex Alchemist names majors **Z to A**. Bazaar's theme (owner, 2026-10-25) is *
 
 | Version | Codename | Why it fits both |
 |---|---|---|
-| 0.x (shown `v00.MM.PP`) | Beta | Placeholder for the pre-release period. |
+| 0.x (shown `0.MM.PP`) | Beta | Placeholder for the pre-release period. |
 | v1.0.0 | **Zuhal** (owner-picked, 2026-10-25) | Arabic name of Saturn, a wandering star; alchemists tied Saturn to lead, the base metal the Great Work starts from. |
 | v2.0.0 | **Yliaster** (owner-accepted, 2026-10-25) | Paracelsus's prime matter, which he also described in an astral (sidereal) form. |
 | v3.0.0 | **Xylokrator** (owner pick, 2026-11-08; replaces Xerion) | "Ruler of the wood" (Greek *xylon*, wood, and *kratos*, rule). The philosophers' tree of the Great Work, made cosmic: the tree of the heavens. |

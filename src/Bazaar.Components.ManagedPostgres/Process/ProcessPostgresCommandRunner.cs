@@ -14,7 +14,8 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken,
         IReadOnlyDictionary<string, string>? environment = null,
-        string? workingDirectory = null)
+        string? workingDirectory = null,
+        string? standardInput = null)
     {
         var startInfo = CreateStartInfo(fileName, arguments);
         if (environment is not null)
@@ -32,10 +33,16 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
 
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
+        startInfo.RedirectStandardInput = standardInput is not null;
 
         using var process = StartProcess(fileName, startInfo);
         var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
+        if (standardInput is not null)
+        {
+            await process.StandardInput.WriteAsync(standardInput.AsMemory(), cancellationToken);
+            process.StandardInput.Close();
+        }
 
         try
         {

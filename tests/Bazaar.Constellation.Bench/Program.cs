@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Bazaar.Constellation.Bench;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 
 // CPU-side Constellation benchmark. Not a PR gate (doc 19: nightly, on the owner's hardware).
 // GPU frame time, instancing and tile streaming are measured by the Vulkan backend on the PC and phone, not here.
@@ -43,9 +44,9 @@ foreach (int nodes in counts)
     }), 2.0);
 
     var grid = new SpatialGrid(CellSize);
-    Report(nodes, "grid_build", Median(() => grid.Build(positions, 2)), 8.0);
+    Report(nodes, "grid_build", Median(() => grid.Rebuild(positions)), 8.0);
 
-    grid.Build(positions, 2);
+    grid.Rebuild(positions);
     Report(nodes, "grid_query_x1000", Median(() =>
     {
         for (int q = 0; q < Queries; q++)

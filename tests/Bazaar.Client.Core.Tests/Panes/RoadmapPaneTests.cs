@@ -48,7 +48,7 @@ public class RoadmapPaneTests
         var pane = new RoadmapPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Roadmap,
             """{"phases":[],"unphasedObjectives":[{"title":"Loose","status":"planned","linkedTasks":0,"doneTasks":0,"dependsOn":["x"]}],"dependencyCycle":["a","b","a"]}"""));
 
-        var view = PaneViews.Create(pane);
+        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Dependency cycle: a → b → a", texts);

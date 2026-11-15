@@ -1,4 +1,4 @@
-using Bazaar.Server.Kanban.Ryusei;
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Tests.Kanban.Data;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Time.Testing;
@@ -23,6 +23,18 @@ public sealed class RyuseiEventBridgeTests(KanbanDb db) : IClassFixture<KanbanDb
     private RyuseiTriggerRepository Repo => new(db.DataSource);
 
     private RyuseiEventBridge Bridge => new(db.DataSource);
+
+    /// <summary>Records each trip the bridge admits, so a test can check the trip reached the Psych Ward hook.</summary>
+    private sealed class RecordingWard : IPsychWardAdmission
+    {
+        public List<PsychWardAdmission> Admissions { get; } = [];
+
+        public Task AdmitAsync(PsychWardAdmission admission, CancellationToken ct)
+        {
+            Admissions.Add(admission);
+            return Task.CompletedTask;
+        }
+    }
 
     private static RyuseiEventEnvelope TaskEvent(Guid projectId, string kind = "task.transitioned") =>
         RyuseiEventMapping.FromTaskEvent(kind, projectId, Guid.CreateVersion7(), "{}")!;
@@ -117,6 +129,66 @@ public sealed class RyuseiEventBridgeTests(KanbanDb db) : IClassFixture<KanbanDb
         var inbox = await InboxOfAsync(agent);
         Assert.Single(inbox);
         Assert.Equal("ryusei_event", inbox[0].Kind);
+    }
+
+    [Fact]
+    public async Task A_daily_cap_refusal_of_an_event_pauses_the_trigger_records_the_trip_and_admits_it_to_the_ward()
+    {
+        SkipWithoutDatabase();
+        var project = Guid.CreateVersion7();
+        var agent = Guid.CreateVersion7();
+        await InsertAgentAsync(agent, "active");
+        var row = await InsertCommittedAsync(NewTrigger(
+            new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }),
+            project,
+            null,
+            agent));
+        var ward = new RecordingWard();
+
+        // A daily cap of zero refuses the first event. The cap is a guard trip: it pauses, writes guard_event and reaches the ward.
+        var capped = new RyuseiEventBridge(db.DataSource, new RyuseiLimits { MaxFiresPerDay = 0 }, ward: ward);
+        await capped.HandleAsync(TaskEvent(project), _base, Ct);
+
+        var stored = await Repo.GetAsync(row.TriggerId, Ct);
+        Assert.NotNull(stored);
+        Assert.Equal(RyuseiTriggerState.Paused, stored.State);
+        var fires = await FiresOfAsync(row.TriggerId);
+        Assert.Single(fires);
+        Assert.Equal("refused_cap", fires[0].Outcome);
+        var admission = Assert.Single(ward.Admissions);
+        Assert.Equal(row.TriggerId, admission.TriggerId);
+        Assert.Equal(RyuseiRefusal.DailyFireCapReached, admission.Trip);
+        Assert.Equal("ryusei_daily_fire_cap", admission.GuardKind);
+        Assert.Equal([agent], admission.AgentIds);
+    }
+
+    [Fact]
+    public async Task An_event_refused_by_the_shared_wake_cap_stays_active_and_writes_no_inbox_item()
+    {
+        SkipWithoutDatabase();
+        var project = Guid.CreateVersion7();
+        var agent = Guid.CreateVersion7();
+        await InsertAgentAsync(agent, "active");
+        var row = await InsertCommittedAsync(NewTrigger(
+            new RyuseiEventTriggerSpec(new RyuseiPredicate { Kind = "task.transitioned" }),
+            project,
+            null,
+            agent));
+
+        // A cap of zero refuses every wake, so the event must be recorded as refused and the trigger kept for a later match.
+        var capped = new RyuseiEventBridge(db.DataSource, new RyuseiLimits { MaxAgentWakesPerHour = 0 });
+        var result = await capped.HandleAsync(TaskEvent(project), _base, Ct);
+
+        Assert.Equal(1, result.Fired);
+        var stored = await Repo.GetAsync(row.TriggerId, Ct);
+        Assert.NotNull(stored);
+        Assert.Equal(RyuseiTriggerState.Active, stored.State);
+        Assert.Equal(0L, stored.FireCount);
+        Assert.Equal(1, stored.ConsecutiveRefusals);
+        var fires = await FiresOfAsync(row.TriggerId);
+        Assert.Single(fires);
+        Assert.Equal("refused_cap", fires[0].Outcome);
+        Assert.Empty(await InboxOfAsync(agent));
     }
 
     [Fact]

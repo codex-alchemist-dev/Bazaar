@@ -7,6 +7,9 @@ public sealed class RoadmapPaneModule : IPaneModule
 {
     public string Id => PaneKinds.Roadmap;
 
-    public void Register(PaneRegistry registry, PaneModuleContext context) =>
+    public void Register(PaneRegistry registry, PaneModuleContext context)
+    {
         registry.Register(PaneKinds.Roadmap, descriptor => new RoadmapPaneViewModel(descriptor));
+        registry.RegisterView<RoadmapPaneViewModel>(PaneViews.Roadmap);
+    }
 }

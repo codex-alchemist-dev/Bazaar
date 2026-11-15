@@ -7,6 +7,9 @@ public sealed class DashboardPaneModule : IPaneModule
 {
     public string Id => PaneKinds.Dashboard;
 
-    public void Register(PaneRegistry registry, PaneModuleContext context) =>
+    public void Register(PaneRegistry registry, PaneModuleContext context)
+    {
         registry.Register(PaneKinds.Dashboard, descriptor => new DashboardPaneViewModel(descriptor));
+        registry.RegisterView<DashboardPaneViewModel>(PaneViews.Dashboard);
+    }
 }
