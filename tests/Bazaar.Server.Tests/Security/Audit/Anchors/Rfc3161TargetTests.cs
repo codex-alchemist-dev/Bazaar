@@ -1,5 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
 using Bazaar.Server.Security.Audit.Anchors;
 
 namespace Bazaar.Server.Tests.Security.Audit.Anchors;
@@ -128,16 +131,117 @@ public sealed class Rfc3161TargetTests
         await Assert.ThrowsAsync<FormatException>(() => Target(tsa).AnchorAsync(_digest, Ct));
     }
 
+    private static Rfc3161Target VerifyingTarget(params X509Certificate2[] roots) =>
+        new(
+            new HttpClient(new StubTsa([])),
+            new Rfc3161TargetOptions { Endpoint = _endpoint, TrustedRoots = roots },
+            new FixedTime(AnchorFixtures.Now));
+
+    private static AuditAnchorReceipt Receipt(byte[] token) => new("rfc3161", token, AnchorFixtures.Now);
+
     [Fact]
-    public async Task Verify_accepts_its_own_receipt_and_rejects_another_digest()
+    public async Task Verify_accepts_a_signed_token_that_chains_to_a_pinned_root()
     {
-        var tsa = new StubTsa(AnchorFixtures.Response(0, AnchorFixtures.Token(AnchorFixtures.TstInfo(_digest, [0x01, 0x02]))));
-        var target = Target(tsa);
+        using var pki = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, [0x01, 0x02]));
+        var target = new Rfc3161Target(
+            new HttpClient(new StubTsa(AnchorFixtures.Response(0, token))),
+            new Rfc3161TargetOptions { Endpoint = _endpoint, TrustedRoots = [pki.PublicRoot] },
+            new FixedTime(AnchorFixtures.Now),
+            () => [0x01, 0x02]);
+
         var receipt = await target.AnchorAsync(_digest, Ct);
-        var other = Enumerable.Repeat((byte)0xCD, 32).ToArray();
 
         Assert.True(await target.VerifyAsync(receipt, _digest, Ct));
-        Assert.False(await target.VerifyAsync(receipt, other, Ct));
+        Assert.False(await target.VerifyAsync(receipt, Enumerable.Repeat((byte)0xCD, 32).ToArray(), Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_a_flipped_signature_byte()
+    {
+        using var pki = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null));
+        token[^1] ^= 0x01;
+
+        Assert.False(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_accepts_the_unmodified_token_used_by_the_negative_tests()
+    {
+        using var pki = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null));
+
+        Assert.True(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_a_token_signed_under_a_root_that_is_not_pinned()
+    {
+        using var pki = TestPki.Create();
+        using var other = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null));
+
+        Assert.False(await VerifyingTarget(other.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_everything_when_no_roots_are_pinned()
+    {
+        using var pki = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null));
+
+        Assert.False(await VerifyingTarget().VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_a_token_over_a_different_digest()
+    {
+        using var pki = TestPki.Create();
+        var other = Enumerable.Repeat((byte)0xCD, 32).ToArray();
+        var token = pki.Sign(AnchorFixtures.TstInfo(other, null));
+
+        Assert.False(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_an_ess_hash_that_names_a_different_certificate()
+    {
+        using var pki = TestPki.Create();
+        using var decoy = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null), essCertificate: decoy.Tsa);
+
+        Assert.False(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_a_token_whose_signing_certificate_has_no_ess_attribute()
+    {
+        using var pki = TestPki.Create();
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null), includeEss: false);
+
+        Assert.False(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_a_gentime_outside_the_tsa_certificate_validity()
+    {
+        // The TSA certificate was valid for 2025 only; genTime in the token is 2026-11-15.
+        using var pki = TestPki.Create(
+            tsaNotBefore: new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            tsaNotAfter: new DateTimeOffset(2025, 12, 31, 0, 0, 0, TimeSpan.Zero));
+        var token = pki.Sign(AnchorFixtures.TstInfo(_digest, null));
+
+        Assert.False(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
+    }
+
+    [Fact]
+    public async Task Verify_rejects_an_unsigned_placeholder_token()
+    {
+        using var pki = TestPki.Create();
+        var token = AnchorFixtures.Token(AnchorFixtures.TstInfo(_digest, null));
+
+        Assert.False(await VerifyingTarget(pki.PublicRoot).VerifyAsync(Receipt(token), _digest, Ct));
     }
 
     [Fact]
@@ -162,6 +266,81 @@ public sealed class Rfc3161TargetTests
     public void An_endpoint_that_is_not_a_plain_http_url_is_refused(string endpoint)
     {
         Assert.Throws<ArgumentException>(() => new Rfc3161Target(new HttpClient(), Options(endpoint), new FixedTime(AnchorFixtures.Now)));
+    }
+
+    /// <summary>A throwaway root CA and TSA certificate, generated in code, and a signer that builds real TimeStampTokens.</summary>
+    private sealed class TestPki : IDisposable
+    {
+        private const string _tstInfoOid = "1.2.840.113549.1.9.16.1.4";
+        private const string _essV2Oid = "1.2.840.113549.1.9.16.2.47";
+
+        private readonly X509Certificate2 _root;
+
+        private TestPki(X509Certificate2 root, X509Certificate2 tsa)
+        {
+            _root = root;
+            Tsa = tsa;
+            PublicRoot = X509CertificateLoader.LoadCertificate(root.RawData);
+        }
+
+        public X509Certificate2 Tsa { get; }
+
+        public X509Certificate2 PublicRoot { get; }
+
+        public static TestPki Create(DateTimeOffset? tsaNotBefore = null, DateTimeOffset? tsaNotAfter = null)
+        {
+            var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var to = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            using var rootKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var rootRequest = new CertificateRequest($"CN=Test Root {Guid.NewGuid():N}", rootKey, HashAlgorithmName.SHA256);
+            rootRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
+            rootRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign, true));
+            using var rootSelfSigned = rootRequest.CreateSelfSigned(new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            var root = X509CertificateLoader.LoadPkcs12(rootSelfSigned.Export(X509ContentType.Pfx), null);
+
+            using var tsaKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var tsaRequest = new CertificateRequest($"CN=Test TSA {Guid.NewGuid():N}", tsaKey, HashAlgorithmName.SHA256);
+            tsaRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+            tsaRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
+            tsaRequest.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.8")], true));
+            using var tsaPublic = tsaRequest.Create(root, tsaNotBefore ?? from, tsaNotAfter ?? to, RandomNumberGenerator.GetBytes(8));
+            using var tsaWithKey = tsaPublic.CopyWithPrivateKey(tsaKey);
+            var tsa = X509CertificateLoader.LoadPkcs12(tsaWithKey.Export(X509ContentType.Pfx), null);
+
+            return new TestPki(root, tsa);
+        }
+
+        /// <summary>
+        /// A TimeStampToken: CMS SignedData over the TSTInfo, signed by the TSA certificate, with the signingCertificateV2
+        /// attribute naming <paramref name="essCertificate"/> (default the signer) by SHA-256 hash.
+        /// </summary>
+        public byte[] Sign(byte[] tstInfo, X509Certificate2? essCertificate = null, bool includeEss = true)
+        {
+            var cms = new SignedCms(new ContentInfo(new Oid(_tstInfoOid), tstInfo));
+            var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, Tsa)
+            {
+                DigestAlgorithm = new Oid("2.16.840.1.101.3.4.2.1"),
+                IncludeOption = X509IncludeOption.EndCertOnly,
+            };
+            if (includeEss)
+            {
+                var certHash = SHA256.HashData((essCertificate ?? Tsa).RawData);
+                var essCertId = AnchorFixtures.Seq(AnchorFixtures.Tlv(0x04, certHash));
+                var attribute = AnchorFixtures.Seq(AnchorFixtures.Seq(essCertId));
+                signer.SignedAttributes.Add(new AsnEncodedData(new Oid(_essV2Oid), attribute));
+            }
+
+            cms.ComputeSignature(signer);
+            return cms.Encode();
+        }
+
+        public void Dispose()
+        {
+            _root.Dispose();
+            Tsa.Dispose();
+            PublicRoot.Dispose();
+        }
     }
 
     /// <summary>A TSA stub: records the request and answers with fixed bytes.</summary>

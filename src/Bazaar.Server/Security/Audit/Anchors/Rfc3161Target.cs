@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Bazaar.Server.Security.Audit.Anchors;
 
@@ -9,8 +11,9 @@ namespace Bazaar.Server.Security.Audit.Anchors;
 /// </summary>
 /// <remarks>
 /// Only the SHA-256 digest and a random nonce are sent. A response is accepted only when its TSTInfo carries the same digest
-/// and nonce. The token's signature and certificate chain are not checked here: the verifier checks the token offline
-/// against the TSA certificate. <see cref="VerifyAsync"/> checks the digest inside the stored token.
+/// and nonce. <see cref="AnchorAsync"/> does not check the token's signature; <see cref="VerifyAsync"/> does, fully offline:
+/// the CMS signature over the signed attributes, a chain to a pinned TSA root (<see cref="Rfc3161TargetOptions.TrustedRoots"/>),
+/// the ESS signing-certificate-v2 hash (RFC 5035), the message imprint, and genTime inside the TSA certificate validity.
 /// </remarks>
 public sealed class Rfc3161Target : IAuditAnchorTarget
 {
@@ -25,6 +28,7 @@ public sealed class Rfc3161Target : IAuditAnchorTarget
     private const string _sha256Oid = "2.16.840.1.101.3.4.2.1";
     private const string _signedDataOid = "1.2.840.113549.1.7.2";
     private const string _tstInfoOid = "1.2.840.113549.1.9.16.1.4";
+    private const string _signingCertificateV2Oid = "1.2.840.113549.1.9.16.2.47";
 
     private const int _digestSize = SHA256.HashSizeInBytes;
     private const int _nonceSize = 8;
@@ -36,6 +40,8 @@ public sealed class Rfc3161Target : IAuditAnchorTarget
     private readonly Uri _endpoint;
     private readonly TimeProvider _time;
     private readonly Func<byte[]> _nonceSource;
+    private readonly X509Certificate2Collection _trustedRoots;
+    private readonly X509RevocationMode _revocationMode;
 
     /// <summary>
     /// Creates the target. Throws <see cref="ArgumentException"/> when the options do not name a usable endpoint.
@@ -52,6 +58,8 @@ public sealed class Rfc3161Target : IAuditAnchorTarget
         _endpoint = new Uri(options.Endpoint, UriKind.Absolute);
         _time = time;
         _nonceSource = nonceSource ?? RandomNonce;
+        _revocationMode = options.RevocationMode;
+        _trustedRoots = options.LoadTrustedRoots();
     }
 
     /// <inheritdoc />
@@ -113,15 +121,130 @@ public sealed class Rfc3161Target : IAuditAnchorTarget
             return Task.FromResult(false);
         }
 
+        return Task.FromResult(VerifyToken(receipt.ReceiptBytes, checkpointDigest.Span));
+    }
+
+    /// <summary>
+    /// Full offline verification of a TimeStampToken. Any failure, including a malformed token, returns false. An empty pinned
+    /// root set always returns false.
+    /// </summary>
+    private bool VerifyToken(byte[] tokenBytes, ReadOnlySpan<byte> digest)
+    {
+        if (_trustedRoots.Count == 0)
+        {
+            return false;
+        }
+
         try
         {
-            var info = ReadTstInfo(receipt.ReceiptBytes);
-            return Task.FromResult(info.HashedMessage.AsSpan().SequenceEqual(checkpointDigest.Span));
+            if (!Rfc3161TimestampToken.TryDecode(tokenBytes, out var token, out var bytesRead) || bytesRead != tokenBytes.Length)
+            {
+                return false;
+            }
+
+            var info = token.TokenInfo;
+
+            // (d) message imprint: SHA-256 over the checkpoint digest.
+            if (info.HashAlgorithmId.Value != _sha256Oid || !info.GetMessageHash().Span.SequenceEqual(digest))
+            {
+                return false;
+            }
+
+            // (a) CMS signature over the signed attributes, with the signer certificate carried in the token (certReq TRUE).
+            if (!token.VerifySignatureForHash(digest, HashAlgorithmName.SHA256, out var signer, null) || signer is null)
+            {
+                return false;
+            }
+
+            using (signer)
+            {
+                var cms = token.AsSignedCms();
+                if (cms.SignerInfos.Count != 1)
+                {
+                    return false;
+                }
+
+                // (c) ESS signing-certificate-v2 (RFC 5035) names this exact certificate by SHA-256 hash.
+                if (!EssMatches(cms.SignerInfos[0], signer))
+                {
+                    return false;
+                }
+
+                // (e) genTime inside the TSA certificate validity period.
+                var genTime = info.Timestamp;
+                if (genTime < new DateTimeOffset(signer.NotBefore) || genTime > new DateTimeOffset(signer.NotAfter))
+                {
+                    return false;
+                }
+
+                // (b) chain to a pinned root, evaluated at genTime so an expired TSA certificate still verifies old tokens.
+                return ChainsToPinnedRoot(signer, cms.Certificates, genTime);
+            }
         }
-        catch (FormatException)
+        catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException
+            or InvalidOperationException or InvalidDataException)
         {
-            return Task.FromResult(false);
+            return false;
         }
+    }
+
+    private bool ChainsToPinnedRoot(X509Certificate2 signer, X509Certificate2Collection embedded, DateTimeOffset at)
+    {
+        using var chain = new X509Chain();
+        chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+        chain.ChainPolicy.CustomTrustStore.AddRange(_trustedRoots);
+        chain.ChainPolicy.ExtraStore.AddRange(embedded);
+        chain.ChainPolicy.RevocationMode = _revocationMode;
+        chain.ChainPolicy.VerificationTime = at.UtcDateTime;
+        if (!chain.Build(signer))
+        {
+            return false;
+        }
+
+        var root = chain.ChainElements[^1].Certificate;
+        foreach (var pinned in _trustedRoots)
+        {
+            if (pinned.RawData.AsSpan().SequenceEqual(root.RawData))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Checks the signingCertificateV2 signed attribute: SigningCertificateV2 ::= SEQUENCE { certs SEQUENCE OF ESSCertIDv2, ... },
+    /// ESSCertIDv2 ::= SEQUENCE { hashAlgorithm DEFAULT sha256, certHash OCTET STRING, ... }. The first certificate must be the signer.
+    /// </summary>
+    private static bool EssMatches(SignerInfo signerInfo, X509Certificate2 signer)
+    {
+        foreach (var attribute in signerInfo.SignedAttributes)
+        {
+            if (attribute.Oid?.Value != _signingCertificateV2Oid || attribute.Values.Count != 1)
+            {
+                continue;
+            }
+
+            var certs = new AsnReader(attribute.Values[0].RawData).Open(AsnDer.SequenceTag).Open(AsnDer.SequenceTag);
+            var essCertId = certs.Open(AsnDer.SequenceTag);
+            var first = essCertId.Read();
+            if (first.Tag == AsnDer.SequenceTag)
+            {
+                var algorithmOid = AsnReader.Expect(new AsnReader(first.Content).Read(), AsnDer.ObjectIdentifierTag);
+                if (!algorithmOid.Encoded.AsSpan().SequenceEqual(AsnDer.ObjectIdentifier(_sha256Oid)))
+                {
+                    return false;
+                }
+
+                first = essCertId.Read();
+            }
+
+            var hash = AsnReader.Expect(first, AsnDer.OctetStringTag).Content;
+            return CryptographicOperations.FixedTimeEquals(hash, SHA256.HashData(signer.RawData));
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -258,6 +381,38 @@ public sealed record Rfc3161TargetOptions
 
     /// <summary>Absolute http or https URL of the time-stamp authority. Empty until the operator sets it.</summary>
     public string Endpoint { get; init; } = "";
+
+    /// <summary>
+    /// Pinned TSA trust anchors (root certificates). Verification chains the token's signing certificate to one of these only.
+    /// With none configured (here and in <see cref="TrustedRootsFile"/>), <c>VerifyAsync</c> returns false for every receipt.
+    /// </summary>
+    public IReadOnlyList<X509Certificate2> TrustedRoots { get; init; } = [];
+
+    /// <summary>Optional path to a PEM bundle of pinned TSA roots, added to <see cref="TrustedRoots"/>.</summary>
+    public string? TrustedRootsFile { get; init; }
+
+    /// <summary>
+    /// Revocation checking while verifying. Default <see cref="X509RevocationMode.NoCheck"/>: offline verification cannot fetch
+    /// CRLs or OCSP responses, so revocation is not checked unless the operator opts in and the host can reach the responders.
+    /// </summary>
+    public X509RevocationMode RevocationMode { get; init; } = X509RevocationMode.NoCheck;
+
+    /// <summary>Collects the pinned roots from <see cref="TrustedRoots"/> and <see cref="TrustedRootsFile"/>.</summary>
+    internal X509Certificate2Collection LoadTrustedRoots()
+    {
+        var roots = new X509Certificate2Collection();
+        foreach (var certificate in TrustedRoots)
+        {
+            roots.Add(certificate);
+        }
+
+        if (!string.IsNullOrWhiteSpace(TrustedRootsFile))
+        {
+            roots.ImportFromPemFile(TrustedRootsFile);
+        }
+
+        return roots;
+    }
 
     /// <summary>Throws <see cref="ArgumentException"/> when the endpoint is missing, relative, not http(s) or carries credentials.</summary>
     public void Validate()
