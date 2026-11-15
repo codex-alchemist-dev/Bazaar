@@ -43,6 +43,7 @@ public static class HttpSurfaceEndpoints
         routes.MapGet("/vault/search", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, SearchVaultAsync)));
         routes.MapGet("/vault/doc", (Func<HttpContext, Task<IResult>>)(http => Guarded(http, ReadVaultDocAsync)));
         routes.MapBazaarPairingRoutes();
+        routes.MapBazaarAuthRefreshRoutes();
         return routes;
     }
 

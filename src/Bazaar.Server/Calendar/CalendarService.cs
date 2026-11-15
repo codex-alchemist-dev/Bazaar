@@ -21,7 +21,7 @@ public interface ICalendarService
     /// <summary>Cancels an event. Cancel is a status change; the row stays.</summary>
     Task<CalendarResult> CancelAsync(Guid id, long expectedVersion, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default);
 
-    /// <summary>Reads one event. The title stays sealed; see <see cref="CalendarService.OpenTitle"/>.</summary>
+    /// <summary>Reads one event. The title stays sealed; see <see cref="CalendarService.OpenTitleAsync"/>.</summary>
     Task<CalendarEventRecord?> GetAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Lists events overlapping [<paramref name="from"/>, <paramref name="until"/>), including cancelled rows.</summary>
@@ -63,7 +63,7 @@ public sealed class CalendarService(
         if (!CalendarRules.MayCreate(actor, draft.Kind, draft.AgentId, _policy))
             return new CalendarResult(CalendarOutcome.Refused, Reason: "The actor may not create this kind of event.");
 
-        var record = BuildRecord(Guid.CreateVersion7(), draft, version: 1, CalendarRules.InitialStatus(actor, draft.Kind, _policy));
+        var record = await BuildRecord(Guid.CreateVersion7(), draft, actor.PrincipalId, version: 1, CalendarRules.InitialStatus(actor, draft.Kind, _policy), ct);
 
         await using (var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false))
         await using (var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false))
@@ -104,7 +104,7 @@ public sealed class CalendarService(
             if (draft.Kind != seen.Kind)
                 return new CalendarResult(CalendarOutcome.Invalid, seen, "An event keeps its kind.");
 
-            next = BuildRecord(id, draft, seen.Version + 1, seen.Status);
+            next = await BuildRecord(id, draft, actor.PrincipalId, seen.Version + 1, seen.Status, ct);
             if (!await CalendarRepository.UpdateAsync(conn, tx, next, expectedVersion, ct).ConfigureAwait(false))
                 return new CalendarResult(CalendarOutcome.Conflict, seen, "Stored version changed during the update.");
             await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -129,11 +129,15 @@ public sealed class CalendarService(
     public Task<IReadOnlyList<CalendarEventRecord>> ListOverlappingAsync(DateTimeOffset from, DateTimeOffset until, Guid? agentId, CancellationToken ct = default) =>
         _events.ListOverlappingAsync(from, until, agentId, ct);
 
-    /// <summary>Opens the sealed title of a stored event with the body codec. Throws when the codec does not hold its key.</summary>
-    public string OpenTitle(CalendarEventRecord record)
+    /// <summary>
+    /// Opens the sealed title of a stored event with the body codec. Returns <c>null</c> when the author's key was erased.
+    /// Throws when the codec does not hold its key.
+    /// </summary>
+    public async ValueTask<string?> OpenTitleAsync(CalendarEventRecord record, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        return bodies.Open(record.TitleCiphertext, record.TitleKeyId, record.TitleNonce ?? ReadOnlyMemory<byte>.Empty);
+        return await bodies.OpenAsync(record.TitleCiphertext, record.TitleKeyId, record.TitleNonce ?? ReadOnlyMemory<byte>.Empty, ct)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -218,9 +222,9 @@ public sealed class CalendarService(
         _ = CalendarRules.SourceTrustFor(actor.Kind);
     }
 
-    private CalendarEventRecord BuildRecord(Guid id, CalendarDraft draft, long version, CalendarStatus status)
+    private async Task<CalendarEventRecord> BuildRecord(Guid id, CalendarDraft draft, Guid authorId, long version, CalendarStatus status, CancellationToken ct)
     {
-        var sealedTitle = bodies.Seal(draft.Title.Trim());
+        var sealedTitle = await bodies.SealAsync(authorId, draft.Title.Trim(), ct).ConfigureAwait(false);
         return new CalendarEventRecord
         {
             Id = id,

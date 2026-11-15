@@ -29,8 +29,20 @@ public static class GcWireServiceCollectionExtensions
         services.TryAddSingleton<GcReadAccess>();
         services.TryAddSingleton<IGcReadAccess>(sp => sp.GetRequiredService<GcReadAccess>());
 
-        // INTERIM: plaintext bodies until the per-person key codec lands (docs/design/04 Question 2).
-        services.TryAddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
+        // Per-person AES-256-GCM bodies (docs/design/04 Question 2). The KEK provider is optional at registration: without one the
+        // codec fails closed when it seals, so no body is stored in plaintext (see AesGcmGcBodyCodec).
+        services.TryAddSingleton<IGcBodyCodec>(sp => new AesGcmGcBodyCodec(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
+            sp.GetService<Bazaar.Server.Identity.Keys.IKekProvider>()));
+
+        // The operator's settings store. The settings component registers the audited store first; this fallback keeps a GC-only
+        // host working (reads need no audit sink; writes only come from the settings component).
+        services.TryAddSingleton<Bazaar.Server.Settings.ISettingStore>(sp => new Bazaar.Server.Settings.NpgsqlSettingStore(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
+            sp.GetService<Bazaar.Server.Settings.ISettingAuditSink>() ?? new Bazaar.Server.Settings.InMemorySettingAuditSink()));
+
+        services.TryAddSingleton<Bazaar.Server.Gc.Mentions.IInboxRowWriter>(sp => new Bazaar.Server.Gc.Mentions.InboxRowWriter(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
 
         services.TryAddSingleton<PgGcStreamSource>();
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
@@ -39,7 +51,12 @@ public static class GcWireServiceCollectionExtensions
         services.AddSingleton<IHostedService, GcDispatcherService>();
 
         services.AddSingleton<IWireRequestHandler, SubscribeHandler>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();
         services.AddSingleton<IWireRequestHandler, GcSendHandler>();
+        services.AddSingleton<IWireRequestHandler, GcEditHandler>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.PgGcMembershipSource>();
+        services.AddSingleton<IWireRequestHandler, GcMemberAddHandler>();
+        services.AddSingleton<IWireRequestHandler, GcMemberRemoveHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();
         return services;
     }

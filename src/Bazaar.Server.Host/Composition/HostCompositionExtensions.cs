@@ -1,4 +1,5 @@
 using Bazaar.Components.ManagedPostgres;
+using Bazaar.Components.ManagedPostgres.Secrets;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Recovery;
 using Bazaar.Server.Gateway.Usage;
@@ -8,10 +9,12 @@ using Bazaar.Server.Host.Status;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
+using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -28,6 +31,14 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<HostState>();
         services.TryAddSingleton<HostExitCode>();
         // Managed PostgreSQL (packaging.md P5). External mode is the default and leaves the configured secret reference in charge.
+        // Windows keeps the managed superuser password under DPAPI. The component's file store refuses to run there.
+        if (OperatingSystem.IsWindows())
+        {
+            var passwordPath = (configuration.GetSection(ManagedPostgresOptions.SectionName).Get<ManagedPostgresOptions>() ?? new ManagedPostgresOptions())
+                .ResolvedPasswordStorePath;
+            services.TryAddSingleton<IManagedPasswordStore>(new DpapiManagedPasswordStore(passwordPath));
+        }
+
         services.AddBazaarManagedPostgres(configuration);
         services.TryAddSingleton<DatabaseConnection>();
         // Module repositories take the shared data source; resolving it blocks once on the bootstrap secret read.
@@ -114,11 +125,28 @@ public static class HostCompositionExtensions
     }
 
     /// <summary>Taint policy, loop guard and usage accounting. In-memory stores stand in until the database repositories (GW3, GW8) are wired.</summary>
-    public static IServiceCollection AddBazaarAgentSafety(this IServiceCollection services)
+    public static IServiceCollection AddBazaarAgentSafety(this IServiceCollection services, IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
         services.TryAddSingleton(TaintPolicy.Default);
         services.TryAddSingleton(TimeProvider.System);
-        services.TryAddSingleton<ILoopGuard>(sp => new LoopGuardFacade(sp.GetRequiredService<TimeProvider>()));
+        services.AddOptions<LoopGuardOptions>()
+            .BindConfiguration(LoopGuardOptions.SectionName)
+            .Validate(options =>
+            {
+                try
+                {
+                    options.Validate();
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    return false;
+                }
+            }, "Loop guard limits are invalid.");
+        services.TryAddSingleton<ILoopGuard>(sp => new LoopGuardFacade(
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<IOptions<LoopGuardOptions>>().Value));
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
         return services;

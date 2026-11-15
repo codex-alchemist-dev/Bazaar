@@ -6,6 +6,9 @@ namespace Bazaar.Server.Fun.Vent;
 /// </summary>
 public sealed class VentSettings
 {
+    /// <summary>Configuration section for vent settings.</summary>
+    public const string SectionName = "Bazaar:Vent";
+
     /// <summary><c>vent.required_before_card</c>: a draft is written before an agent claims a new card after a failure.</summary>
     public bool RequiredBeforeCard { get; init; } = true;
 

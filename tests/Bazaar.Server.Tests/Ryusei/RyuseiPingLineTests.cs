@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.Server.Agents.Inbox;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Kanban.Ryusei;
 
 namespace Bazaar.Server.Tests.Ryusei;
 

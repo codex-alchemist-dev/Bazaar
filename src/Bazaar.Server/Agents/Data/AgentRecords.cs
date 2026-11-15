@@ -13,6 +13,9 @@ public sealed record InboxEnqueue(
 /// <summary>An inbox item returned by a claim.</summary>
 public sealed record InboxRow(Guid InboxItemId, string Kind, short Priority, Guid? GcId, long? GcSeq, string? SourceRef);
 
+/// <summary>An agent with due pending items, with its best (lowest) due priority and the oldest due time among those items.</summary>
+public sealed record DueAgent(Guid AgentId, short BestPriority, DateTimeOffset OldestDueAt);
+
 /// <summary>The fields needed to start a turn. <see cref="ManifestJson"/> stores ids and hashes, never text (doc 06).</summary>
 public sealed record TurnStart(
     Guid AgentId,

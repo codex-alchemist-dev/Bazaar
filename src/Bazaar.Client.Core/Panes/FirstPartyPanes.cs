@@ -21,6 +21,22 @@ public static class FirstPartyPanes
     /// <summary>An empty Constellation model: no graph loaded yet.</summary>
     private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
+    /// <summary>
+    /// The first-party pane modules, in registration order. The phone pager lists panes in this order (doc 29).
+    /// A head that wants a different set composes its own list with <see cref="PaneRegistry.Compose"/>.
+    /// </summary>
+    public static IReadOnlyList<IPaneModule> Modules { get; } =
+    [
+        new KanbanPaneModule(),
+        new DashboardPaneModule(),
+        new ConstellationPaneModule(),
+        new VaultSearchPaneModule(),
+        new GcPaneModule(),
+        new RyuseiSchedulePaneModule(),
+        new RoadmapPaneModule(),
+        new WorkdayPaneModule(),
+    ];
+
     // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI
     // container yet. Decide how client components register (a head composition root or a client kernel), then turn this
     // into per-component registrations. Until then the heads call CreateRegistry.
@@ -32,19 +48,8 @@ public static class FirstPartyPanes
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
-        ChatViewModel? chat = null)
-    {
-        var registry = new PaneRegistry(report);
-        registry.Register(PaneKinds.Kanban, descriptor => new KanbanPaneViewModel(descriptor));
-        registry.Register(PaneKinds.Dashboard, descriptor => new DashboardPaneViewModel(descriptor));
-        registry.Register(PaneKinds.Constellation, descriptor =>
-            new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));
-        var vaultApi = vault ?? VaultApiFactory.Create(ClientServer.Current);
-        registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vaultApi));
-
-        registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, chat));
-        return registry;
-    }
+        ChatViewModel? chat = null) =>
+        PaneRegistry.Compose(Modules, new PaneModuleContext(tiles, vault, chat, report));
 
     /// <summary>
     /// The panes the Windows head shows when started with <c>--panes</c>: the Kanban board and the Constellation
@@ -59,7 +64,7 @@ public static class FirstPartyPanes
     /// <summary>
     /// Pane bodies for the phone pager. The Kanban pane renders its real board from <paramref name="kanbanModel"/>
     /// (the server's board snapshot, Guid-parsed by the pane), or an empty board when none is given. The GC pane
-    /// renders the chat through <see cref="PaneViews"/>, or its empty state when no session is connected. Other kinds
+    /// renders the chat through the registry's view, or its empty state when no session is connected. Other kinds
     /// return null and keep the pager's kind-name placeholder until their phone views land.
     /// </summary>
     /// <param name="registry">The registry the shell pages through. Its factories build the view models.</param>
@@ -73,13 +78,13 @@ public static class FirstPartyPanes
             if (kind == GcPaneViewModel.PaneKind)
             {
                 // The GC pane has no model of its own: the registry's chat supplies it, or the pane shows its empty state.
-                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
             }
 
             if (kind == PaneKinds.Kanban)
             {
                 var model = kanbanModel ?? _emptyKanbanModel;
-                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
             }
 
             return null;

@@ -25,7 +25,7 @@ public class PaneViewsHeadlessTests
 
         foreach (var pane in panes)
         {
-            var window = new Window { Content = PaneViews.Create(pane), Width = 800, Height = 600 };
+            var window = new Window { Content = registry.CreateView(pane), Width = 800, Height = 600 };
             window.Show();
 
             using var frame = window.CaptureRenderedFrame();
@@ -41,7 +41,7 @@ public class PaneViewsHeadlessTests
             "bazaar.kanban",
             "{\"cards\":[{\"id\":\"0196a6f0-0000-7000-8000-000000000001\",\"title\":\"Schema\",\"state\":\"ready\",\"unfinishedBlockerIds\":[\"0196a6f0-0000-7000-8000-000000000009\"],\"blockerTitles\":[\"Other\"]}]}"));
 
-        var view = PaneViews.Create(pane);
+        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Ready (1)", texts);

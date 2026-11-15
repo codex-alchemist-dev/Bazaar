@@ -2,7 +2,7 @@
 
 Status: DRAFT (2026-10-25). **Bazaar stays in Beta (v0.x) for a long while** (owner, 2026-10-25): the owner will run the first few real projects on it during Beta, and v1.0.0 ships only when it is truly ready. The roadmap therefore plans Beta milestones, not a v1.0.0 date. The v1.0.0 scope is DECIDED (CLAUDE.md, "v1.0 scope") and serves as the readiness target. The milestone split is [PROPOSED] until the owner confirms. Numbering and codenames: `docs/VERSIONING.md`. Build order and work packages: `docs/implementation-plan.md` and each design doc's "Work packages".
 
-Each milestone ships when its exit check passes on the server's clean build (C37: agent self-reports never count). Stages are roadmap labels and set no version numbers. Version bumps follow `docs/VERSIONING.md` section 1; the display form is zero-padded (`v00.MM.PP`).
+Each milestone ships when its exit check passes on the server's clean build (C37: agent self-reports never count). Stages are roadmap labels and set no version numbers. Version bumps follow `docs/VERSIONING.md` section 1; the display form is plain SemVer with the commit appended (`0.MM.PP+commit`).
 
 ## Beta: stages
 
@@ -24,7 +24,7 @@ Stage numbers are roadmap labels, not release versions. Releases are SemVer tags
 
 ## v1.0.0 "Zuhal": the readiness gate [scope DECIDED, date none]
 
-v1.0.0 is not a milestone on this list. It ships only when the owner judges Bazaar truly ready: the full v1.0 scope below works, the first real projects have run on it, the open design questions and counsel items are closed, and the owner says go. Until then every build stays 0.x "Beta". Scope: the full v1.0 scope from CLAUDE.md. Server, Windows, Android and Linux clients. GCs, Kanban, Council, reputation, memory and the Vault, Constellation, gateway with FreeLLMAPI, GitHub and email. Observatory, Company Constitution, Org Chart, Interrupt System, Company Calendar, Health and Analytics, Digital Twin, Skimmer Bouncer (starting defer-only), Psych Ward and vent post, What If and Time Machine, Mirror Agent, Lucky mode and Playtest. Identity Service, Bazaar Archive, Talent Pool, Genetic Memory Transfer, Hive Mind, Company Memory, Bazaar SDK and GC metadata. Nigerian Prince Protocol stays optional behind the setup wizard. First supported host: Windows (the NUC). Ships on Stable; v1.x minors add features compatibly.
+v1.0.0 is not a milestone on this list. It ships only when the owner judges Bazaar truly ready: the full v1.0 scope below works, the first real projects have run on it, the open design questions and counsel items are closed, and the owner says go. Until then every build stays 0.x "Beta". Scope: the full v1.0 scope from CLAUDE.md. Server, Windows, Android and Linux clients. GCs, Kanban, Council, reputation, memory and the Vault, Constellation, gateway with FreeLLMAPI, GitHub and email. Observatory, Company Constitution, Org Chart, Interrupt System, Company Calendar, Health and Analytics, Digital Twin, Skimmer Bouncer (starting defer-only), Psych Ward and vent post, What If and Time Machine, Mirror Agent, Lucky mode and Playtest. Identity Service, Bazaar Archive, Talent Pool, Genetic Memory Transfer, Hive Mind, Company Memory, Bazaar SDK and GC metadata. Nigerian Prince Protocol stays optional behind the setup wizard. First supported host: Windows (the owner's PC). Ships on Stable; v1.x minors add features compatibly.
 
 ## After v1 [PROPOSED candidates, not scheduled]
 

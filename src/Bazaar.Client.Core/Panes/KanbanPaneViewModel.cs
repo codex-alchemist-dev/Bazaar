@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.Json;
 using Bazaar.Client.Core.Kanban;
+using Bazaar.Client.Core.Ryusei;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Panes;
 
@@ -16,12 +18,21 @@ public sealed record KanbanColumn(string Name, IReadOnlyList<KanbanCard> Cards);
 /// <c>{ "projectId", "cards": [ { "id", "title", "state", "ownerAgentId", "unfinishedBlockerIds", "blockerTitles" } ] }</c>.
 /// Ids are Guid strings and states are <c>backlog</c>, <c>ready</c>, <c>in_progress</c>, <c>review</c> or <c>done</c>.
 /// A card with a missing field, a bad id or any other state is left out and counted in <see cref="SkippedTaskCount"/>.
+/// A card may carry an optional <c>triggers</c> array of RyuseiFuda micro triggers (doc 38, layer 1 chips):
+/// <c>{ "id", "kind", "state", "nextFire", "purpose" }</c>. A malformed chip is left out; the card stays.
 /// </summary>
 public sealed class KanbanPaneViewModel : IPaneViewModel
 {
     private static readonly string[] _states = ["backlog", "ready", "in_progress", "review", "done"];
 
-    public KanbanPaneViewModel(PaneDescriptor descriptor)
+    private readonly Dictionary<Guid, IReadOnlyList<RyuseiTaskChip>> _chips = [];
+
+    /// <param name="descriptor">The board pane descriptor, with the board snapshot as its model.</param>
+    /// <param name="triggersByTask">
+    /// The owner's live chips by task id, from <see cref="RyuseiChipRules.ByTask"/>. When given, these are the chips shown on each
+    /// card, and any <c>triggers</c> array in the snapshot is ignored. When null, the snapshot's array is read as before.
+    /// </param>
+    public KanbanPaneViewModel(PaneDescriptor descriptor, IReadOnlyDictionary<Guid, IReadOnlyList<RyuseiTaskChip>>? triggersByTask = null)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         Kind = descriptor.Kind;
@@ -34,6 +45,9 @@ public sealed class KanbanPaneViewModel : IPaneViewModel
             if (TryCard(element, out var card))
             {
                 cards.Add(card);
+                _chips[card.Id] = triggersByTask is null
+                    ? RyuseiChipRules.Visible(ReadChips(element))
+                    : triggersByTask.TryGetValue(card.Id, out var joined) ? joined : [];
             }
             else
             {
@@ -60,6 +74,70 @@ public sealed class KanbanPaneViewModel : IPaneViewModel
 
     /// <summary>Cards left out because a field was missing or malformed, or their state was not one of the five.</summary>
     public int SkippedTaskCount { get; }
+
+    /// <summary>The live trigger chips of one card (active and paused only), or none when the card has none.</summary>
+    public IReadOnlyList<RyuseiTaskChip> ChipsFor(Guid cardId) =>
+        _chips.TryGetValue(cardId, out var chips) ? chips : [];
+
+    /// <summary>Reads the optional <c>triggers</c> array. A missing array reads as empty; a bad chip is left out.</summary>
+    private static List<RyuseiTaskChip> ReadChips(JsonElement card)
+    {
+        var chips = new List<RyuseiTaskChip>();
+        if (!card.TryGetProperty("triggers", out var array) || array.ValueKind != JsonValueKind.Array)
+        {
+            return chips;
+        }
+
+        foreach (var element in array.EnumerateArray())
+        {
+            if (TryChip(element, out var chip))
+            {
+                chips.Add(chip);
+            }
+        }
+
+        return chips;
+    }
+
+    private static bool TryChip(JsonElement element, out RyuseiTaskChip chip)
+    {
+        chip = null!;
+        if (element.ValueKind != JsonValueKind.Object ||
+            !TryText(element, "id", out var id) ||
+            !TryText(element, "kind", out var kind) ||
+            !TryText(element, "state", out var state) ||
+            !TryText(element, "purpose", out var purpose))
+        {
+            return false;
+        }
+
+        DateTimeOffset? nextFire = null;
+        if (element.TryGetProperty("nextFire", out var fire) && fire.ValueKind != JsonValueKind.Null)
+        {
+            if (fire.ValueKind != JsonValueKind.String ||
+                !DateTimeOffset.TryParse(fire.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
+            {
+                return false;
+            }
+
+            nextFire = parsed;
+        }
+
+        chip = new RyuseiTaskChip(id, kind, state, nextFire, purpose);
+        return true;
+    }
+
+    private static bool TryText(JsonElement element, string name, out string value)
+    {
+        value = string.Empty;
+        if (!element.TryGetProperty(name, out var property) || property.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        value = property.GetString() ?? string.Empty;
+        return value.Length > 0;
+    }
 
     private static bool TryCard(JsonElement element, out KanbanBoardCard card)
     {

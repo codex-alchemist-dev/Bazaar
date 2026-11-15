@@ -14,6 +14,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net11.0-android</TargetFramework>
     <SupportedOSPlatformVersion>35</SupportedOSPlatformVersion>
+    <!-- Target API 37 (Android 17), pinned explicitly so a newer installed platform does not change the manifest targetSdkVersion silently (#423). -->
+    <TargetPlatformVersion>37.0</TargetPlatformVersion>
     <ApplicationId>org.bazaar.client</ApplicationId>
     <ApplicationTitle>Bazaar</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion>

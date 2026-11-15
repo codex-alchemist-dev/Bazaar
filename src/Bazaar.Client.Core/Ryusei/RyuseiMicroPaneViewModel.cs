@@ -15,11 +15,15 @@ public sealed record RyuseiTriggerSummary(
     IReadOnlyList<string> TargetNames,
     string Purpose);
 
-/// <summary>One display row of the micro schedule pane. All text is plain English, ready to bind.</summary>
+/// <summary>
+/// One display row of the micro schedule pane. All text is plain English, ready to bind. <see cref="State"/> is the wire
+/// state, so the view can choose between Pause and Resume.
+/// </summary>
 public sealed record RyuseiMicroRow(
     string Id,
     string KindLabel,
     string StateLabel,
+    string State,
     DateTimeOffset? NextFire,
     string NextFireText,
     string TargetsText,
@@ -74,6 +78,7 @@ public sealed class RyuseiMicroPaneViewModel
             trigger.Id,
             KindLabel(trigger.Kind),
             StateLabel(trigger.State),
+            trigger.State,
             trigger.NextFire,
             NextFireText(trigger),
             TargetsText(trigger.TargetNames),

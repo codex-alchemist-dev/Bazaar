@@ -56,6 +56,70 @@ public sealed class InboxRepository(NpgsqlDataSource dataSource)
     }
 
     /// <summary>
+    /// Reads up to <paramref name="limit"/> due pending items, in the same order <see cref="ClaimAsync"/> claims them
+    /// (priority, due time, id). Nothing is claimed or locked, so a caller can read the batch and claim it later by id.
+    /// </summary>
+    public async Task<IReadOnlyList<InboxRow>> PeekDueAsync(Guid agentId, int limit, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT inbox_item_id, kind, priority, gc_id, gc_seq, source_ref
+            FROM inbox_item
+            WHERE agent_id = @agent_id AND state = 'pending' AND due_at <= now()
+            ORDER BY priority, due_at, inbox_item_id
+            LIMIT @limit
+            """);
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        var rows = new List<InboxRow>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            rows.Add(new InboxRow(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                reader.GetInt16(2),
+                reader.IsDBNull(3) ? null : reader.GetGuid(3),
+                reader.IsDBNull(4) ? null : reader.GetInt64(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Reads up to <paramref name="limit"/> agents that have at least one due pending item and whose agent state allows waking
+    /// (only <c>active</c>; resting, onboarding, created and retired agents do not wake, doc 06 "Lifecycle"). Ordered by each
+    /// agent's best due priority, then its oldest due time. Read only: no lock and no claim.
+    /// </summary>
+    public async Task<IReadOnlyList<DueAgent>> PeekDueAgentsAsync(int limit, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT i.agent_id, min(i.priority) AS best_priority, min(i.due_at) AS oldest_due_at
+            FROM inbox_item AS i
+            JOIN agent AS a ON a.agent_id = i.agent_id
+            WHERE i.state = 'pending' AND i.due_at <= now() AND a.state = 'active'
+            GROUP BY i.agent_id
+            ORDER BY best_priority, oldest_due_at, i.agent_id
+            LIMIT @limit
+            """);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        var agents = new List<DueAgent>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            agents.Add(new DueAgent(reader.GetGuid(0), reader.GetInt16(1), reader.GetFieldValue<DateTimeOffset>(2)));
+        }
+
+        return agents;
+    }
+
+    /// <summary>
     /// Claims up to <paramref name="limit"/> due pending items for <paramref name="holder"/>, highest priority first.
     /// Rows locked by another claim are skipped, so two claims never get the same item.
     /// </summary>

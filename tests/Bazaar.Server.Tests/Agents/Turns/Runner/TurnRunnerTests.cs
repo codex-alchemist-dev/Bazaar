@@ -3,13 +3,14 @@ using System.Text.Json;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents;
 using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Agents.Turns.Runner;
 using Bazaar.Server.Gateway.Fakes;
 using Bazaar.Server.Tests.Agents.Data;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Time.Testing;
-
 using TurnRunner = Bazaar.Server.Agents.Turns.Runner.TurnRunner;
 using TurnRunnerOptions = Bazaar.Server.Agents.Turns.Runner.TurnRunnerOptions;
 
@@ -114,6 +115,29 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
         Assert.All(steps, s => Assert.Equal(TurnStepStatus.Completed, s.Status));
         Assert.Null(await Leases.GetAsync(agent, Ct));
         Assert.Equal(1, await Inbox.CountAsync(agent, InboxState.Done, Ct));
+    }
+
+    [Fact]
+    public async Task A_post_refused_by_a_loop_guard_ends_the_turn_as_post_refused_and_releases_the_items()
+    {
+        SkipWithoutDatabase();
+        var h = new Harness();
+        h.Posts.ThrowOnPost = new AgentPostRefusedException(GuardKind.PingPong, "Two agents alternated.");
+        var agent = await NewAgentAsync();
+        var item = await EnqueueMentionAsync(agent);
+        h.Provider.EnqueueCall(Text("Done."), Finish(StopReason.EndTurn));
+
+        var outcome = await h.Create(db, Options()).RunAsync(Request(agent, [item]), Ct);
+
+        Assert.Equal(TurnEndReason.PostRefused, outcome.Reason);
+        Assert.Equal("Done.", outcome.Summary);
+        Assert.Empty(h.Posts.Posts);
+        var steps = await Steps.ListAsync(outcome.TurnId, Ct);
+        Assert.Equal(new[] { TurnStepKind.Model, TurnStepKind.Post }, steps.Select(s => s.Kind).ToArray());
+        Assert.Equal(new[] { TurnStepStatus.Completed, TurnStepStatus.Abandoned }, steps.Select(s => s.Status).ToArray());
+        Assert.Equal(TurnStatus.Failed, (await Turns.GetAsync(outcome.TurnId, Ct))!.Status);
+        Assert.Equal(1, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
+        Assert.Null(await Leases.GetAsync(agent, Ct));
     }
 
     [Fact]

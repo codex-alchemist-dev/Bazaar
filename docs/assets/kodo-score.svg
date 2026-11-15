@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Kodo health score: green, amber and red, with SLOs and an optional status page</title>
+  <desc id="d">A 0 to 100 health score sits in a green, amber and red band. Service level objectives show error budgets, and an optional public status page is off by default.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc">One score for the whole company: 0 to 100, with the reasons behind it</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="40" y="72" width="280" height="170" rx="12" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="180" y="100" font-size="13" font-weight="600" fill="#9fb3d9" text-anchor="middle">Health score</text>
+    <text x="180" y="168" font-size="56" font-weight="700" fill="#9be38f" text-anchor="middle">92</text>
+    <text x="180" y="196" font-size="13" fill="#e8eefc" text-anchor="middle">example value · out of 100</text>
+    <rect x="60" y="212" width="80" height="12" rx="4" fill="#ff7b72"/>
+    <rect x="144" y="212" width="80" height="12" rx="4" fill="#f2b84b"/>
+    <rect x="228" y="212" width="72" height="12" rx="4" fill="#9be38f"/>
+    <text x="100" y="236" font-size="11" fill="#9fb3d9" text-anchor="middle">red</text>
+    <text x="184" y="236" font-size="11" fill="#9fb3d9" text-anchor="middle">amber</text>
+    <text x="264" y="236" font-size="11" fill="#9fb3d9" text-anchor="middle">green</text>
+    <rect x="344" y="72" width="330" height="170" rx="12" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="364" y="100" font-size="13" font-weight="600" fill="#9fb3d9">Service level objectives</text>
+    <text x="364" y="130" font-size="13" fill="#e8eefc">Uptime · 99.9% target</text>
+    <rect x="364" y="140" width="290" height="10" rx="5" fill="#2c3a66"/>
+    <rect x="364" y="140" width="250" height="10" rx="5" fill="#9be38f"/>
+    <text x="364" y="170" font-size="13" fill="#e8eefc">Error budget · 62% left</text>
+    <rect x="364" y="180" width="290" height="10" rx="5" fill="#2c3a66"/>
+    <rect x="364" y="180" width="180" height="10" rx="5" fill="#7cc4ff"/>
+    <text x="364" y="218" font-size="12" fill="#9fb3d9">Two-window burn-rate alerts, fast and slow</text>
+    <rect x="704" y="72" width="216" height="170" rx="12" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="812" y="100" font-size="13" font-weight="600" fill="#9fb3d9" text-anchor="middle">Public status page</text>
+    <rect x="732" y="116" width="160" height="60" rx="8" fill="#0d1117" stroke="#3b4a63" stroke-width="1.5"/>
+    <text x="812" y="142" font-size="12" fill="#e8eefc" text-anchor="middle">All systems</text>
+    <text x="812" y="162" font-size="12" fill="#9be38f" text-anchor="middle">operational</text>
+    <text x="812" y="212" font-size="12" fill="#f2b84b" text-anchor="middle">Off by default</text>
+  </g>
+  <text x="480" y="270" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#f2b84b" text-anchor="middle">Planned. Scores, SLOs and the status page are designed in doc 46 and not yet built.</text>
+</svg>

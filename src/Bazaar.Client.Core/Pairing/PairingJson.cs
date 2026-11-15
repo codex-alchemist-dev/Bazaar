@@ -27,6 +27,18 @@ internal sealed record TokenResponse(
 /// <summary>An error answer from the token endpoint, such as <c>authorization_pending</c>.</summary>
 internal sealed record TokenErrorResponse([property: JsonPropertyName("error")] string Error);
 
+/// <summary>Cold-start refresh: exchanges the stored refresh credential for a new pair (doc 32, section 5).</summary>
+internal sealed record RefreshRequest(
+    [property: JsonPropertyName("refresh_token")] string RefreshToken,
+    [property: JsonPropertyName("device_class")] string DeviceClass,
+    [property: JsonPropertyName("client_build")] string ClientBuild);
+
+/// <summary>A successful refresh answer: a new access token and the rotated refresh credential that replaces the stored one.</summary>
+internal sealed record RefreshResponse(
+    [property: JsonPropertyName("access_token")] string AccessToken,
+    [property: JsonPropertyName("refresh_token")] string RefreshToken,
+    [property: JsonPropertyName("expires_in")] int ExpiresIn);
+
 /// <summary>Source-generated JSON for the pairing wire messages (CLAUDE.md: System.Text.Json source generation).</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.Unspecified)]
 [JsonSerializable(typeof(DeviceAuthorizationRequest))]
@@ -34,4 +46,6 @@ internal sealed record TokenErrorResponse([property: JsonPropertyName("error")] 
 [JsonSerializable(typeof(TokenRequest))]
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(TokenErrorResponse))]
+[JsonSerializable(typeof(RefreshRequest))]
+[JsonSerializable(typeof(RefreshResponse))]
 internal sealed partial class PairingJsonContext : JsonSerializerContext;

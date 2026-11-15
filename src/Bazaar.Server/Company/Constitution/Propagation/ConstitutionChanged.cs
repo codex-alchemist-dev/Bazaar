@@ -1,4 +1,5 @@
-// TODO(component): move to the Company component project when PR #125 merges.
+using Bazaar.Server.Company.Constitution;
+
 namespace Bazaar.Server.Company.Constitution.Propagation;
 
 /// <summary>
@@ -6,6 +7,16 @@ namespace Bazaar.Server.Company.Constitution.Propagation;
 /// </summary>
 public sealed record ConstitutionChanged
 {
+    /// <summary>
+    /// Creates a change event by deriving changed sections from the previous and accepted documents.
+    /// </summary>
+    public static ConstitutionChanged FromDocuments(
+        string? from,
+        string to,
+        ConstitutionDocument? previous,
+        ConstitutionDocument current) =>
+        new(from, to, ConstitutionSectionChanges.Diff(previous, current));
+
     /// <summary>Creates the event after checking every field.</summary>
     /// <param name="from">The commit the Constitution was at before, or null for the first activation.</param>
     /// <param name="to">The accepted commit now in force.</param>

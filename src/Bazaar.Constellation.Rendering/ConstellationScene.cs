@@ -2,7 +2,7 @@ namespace Bazaar.Constellation.Rendering;
 
 /// <summary>
 /// Topology for one graph version: node count, edges as index pairs, and an optional cluster id per node.
-/// Edge indices and cluster ids come from the server's graph projection and Louvain pass.
+/// Edge indices and cluster ids come from the server projection and clustering pass.
 /// </summary>
 public sealed class ConstellationScene
 {

@@ -36,7 +36,19 @@ public static class ComponentGraph
                     throw new ComponentGraphException($"Component '{manifest.Id}' depends on unknown component '{dependency}'.");
                 }
             }
+
+            foreach (var soft in manifest.Soft)
+            {
+                if (soft == manifest.Id)
+                {
+                    throw new ComponentGraphException($"Component '{manifest.Id}' softly depends on itself.");
+                }
+            }
         }
+
+        // A soft dependency orders the two components only when the dependency is present, so it is an edge to a present id only.
+        bool Ready(string id, HashSet<string> placedIds) =>
+            byId[id].DependsOn.All(placedIds.Contains) && byId[id].Soft.Where(byId.ContainsKey).All(placedIds.Contains);
 
         // Kahn's algorithm over ids sorted ordinally, so ties resolve the same way on every start.
         var remaining = byId.Keys.Order(StringComparer.Ordinal).ToList();
@@ -45,7 +57,7 @@ public static class ComponentGraph
 
         while (remaining.Count > 0)
         {
-            var ready = remaining.FirstOrDefault(id => byId[id].DependsOn.All(placed.Contains));
+            var ready = remaining.FirstOrDefault(id => Ready(id, placed));
             if (ready is null)
             {
                 throw new ComponentGraphException(

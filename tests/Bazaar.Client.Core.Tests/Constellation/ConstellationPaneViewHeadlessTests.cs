@@ -5,6 +5,7 @@ using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Panes;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
@@ -20,7 +21,7 @@ public class ConstellationPaneViewHeadlessTests
              "edges":[{"from":"a","to":"b"}]}
             """));
         var view = new ConstellationPaneView(pane);
-        var window = new Window { Content = PaneViews.Create(pane), Width = 800, Height = 600 };
+        var window = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(pane), Width = 800, Height = 600 };
         window.Show();
 
         Assert.True(view.ApplyFrame(new RenderFrame(1, 1, 2, new float[] { 0, 0, 80, 40 })));
@@ -40,7 +41,7 @@ public class ConstellationPaneViewHeadlessTests
         var pane = new ConstellationPaneViewModel(
             PaneRegistryTests.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""), source, 500);
         var view = new ConstellationPaneView(pane);
-        var window = new Window { Content = PaneViews.Create(pane), Width = 800, Height = 600 };
+        var window = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(pane), Width = 800, Height = 600 };
         window.Show();
 
         Assert.True(view.ShowsPlaceholder);
@@ -59,7 +60,7 @@ public class ConstellationPaneViewHeadlessTests
     public void Pane_without_a_frame_still_renders_its_chrome()
     {
         var pane = new ConstellationPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""));
-        var window = new Window { Content = PaneViews.Create(pane), Width = 400, Height = 300 };
+        var window = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(pane), Width = 400, Height = 300 };
         window.Show();
 
         using var frame = window.CaptureRenderedFrame();
