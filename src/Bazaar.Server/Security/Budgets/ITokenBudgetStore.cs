@@ -16,8 +16,9 @@ public sealed record TokenBudgetSpend(DateTimeOffset At, long Tokens);
 /// instant, oldest first. <see cref="PruneOlderThan"/> removes spends at or before the given instant, since no sliding
 /// window that starts there can count them. Implementations must be safe to call from several tasks at once.
 /// <para>
-/// <see cref="TokenBudgetService"/> serialises its own calls in one process. A store shared by several processes must
-/// make the read-decide-append sequence safe itself, for example with a per-agent lock in the database.
+/// <see cref="TryConsume"/> is the only operation the service uses to admit spend: it checks all three windows and records
+/// the spend as one atomic unit, so no combination of tasks or processes sharing the store can overspend a window.
+/// <see cref="Append"/> records unconditionally and exists for tests and tooling.
 /// </para>
 /// </remarks>
 public interface ITokenBudgetStore
@@ -33,4 +34,15 @@ public interface ITokenBudgetStore
 
     /// <summary>Removes every agent's spends at or before <paramref name="instant"/>. Spends after it are kept.</summary>
     Task PruneOlderThan(DateTimeOffset instant, CancellationToken ct = default);
+
+    /// <summary>
+    /// Atomically checks the hour, day and week windows ending at <paramref name="at"/> against <paramref name="limits"/> and,
+    /// only if <paramref name="tokens"/> fit in all three, records the spend. A denied call records nothing. Concurrent calls
+    /// for one agent, from any number of processes sharing the store, are serialised so admitted spend never exceeds a limit.
+    /// A zero-token call is checked but never recorded.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="agentId"/> is null, empty or whitespace.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tokens"/> is negative.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="limits"/> is null.</exception>
+    Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, long tokens, TokenBudgetOptions limits, CancellationToken ct = default);
 }
