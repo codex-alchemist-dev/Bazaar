@@ -12,6 +12,8 @@ internal sealed class RecordingAuditLog : IAuditLog
 
     public IReadOnlyList<AuditEntry> Entries => _entries;
 
+    public void Reset() => _entries.Clear();
+
     public Task AppendAsync(AuditEntry e, CancellationToken ct = default)
     {
         _entries.Add(e);
@@ -67,7 +69,7 @@ public class KillSwitchAuditAdapterTests
     public async Task Engaging_and_resuming_an_agent_stop_writes_one_record_each_with_the_agent_id()
     {
         await _engine.EngageAgentAsync("owner-1", "agent-a", "Budget breach", TestContext.Current.CancellationToken);
-        await _engine.ResumeAgentAsync("owner-1", "agent-a", "Reviewed", TestContext.Current.CancellationToken);
+        await _engine.ResumeAgentAsync("agent-a", "Reviewed", ReleaseRequests.Unsigned("agent-a", "owner-1"), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, _log.Entries.Count);
         foreach (var entry in _log.Entries)

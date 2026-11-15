@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Audit;
@@ -49,6 +50,10 @@ public class AgentContainmentAdapterTests
 {
     private static readonly string[] _containOrder = ["revoke:agent-a", "pause:agent-a"];
 
+    private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero));
+    private readonly ECDsa _ownerKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private readonly ECDsa _revokedKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private readonly ECDsa _otherKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly List<string> _order = [];
     private readonly OrderedVmPauser _pauser;
     private readonly OrderedTokenRevoker _revoker;
@@ -60,9 +65,9 @@ public class AgentContainmentAdapterTests
         _pauser = new OrderedVmPauser(_order);
         _revoker = new OrderedTokenRevoker(_order);
         var owners = new InMemoryOwnerKeyRegistry();
-        owners.Register(new OwnerDeviceKey("owner-1", "dev-owner", [1]));
-        owners.Register(new OwnerDeviceKey("owner-1", "dev-revoked", [2], Revoked: true));
-        _adapter = new AgentContainmentAdapter(_pauser, _revoker, owners, _log);
+        owners.Register(new OwnerDeviceKey("owner-1", "dev-owner", _ownerKey.ExportSubjectPublicKeyInfo()));
+        owners.Register(new OwnerDeviceKey("owner-1", "dev-revoked", _revokedKey.ExportSubjectPublicKeyInfo(), Revoked: true));
+        _adapter = new AgentContainmentAdapter(_pauser, _revoker, owners, _log, new InMemoryNonceStore(_clock), _clock);
     }
 
     [Fact]
@@ -94,14 +99,42 @@ public class AgentContainmentAdapterTests
 
     private static string Step(AuditEntry e) => JsonNode.Parse(e.Payload)!["step"]!.GetValue<string>();
 
+    private static byte[] SignWith(ECDsa key, string agentId, string deviceId, ReleaseChallenge c) =>
+        key.SignData(
+            ApprovalSignature.ReleaseMessage(agentId, deviceId, c.Nonce, c.ExpiresAt),
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+
+    private async Task<(ReleaseChallenge Challenge, ContainmentReleaseRequest Request)> SignedAsync(
+        string agent = "agent-a", string device = "dev-owner", ECDsa? key = null)
+    {
+        var challenge = await _adapter.IssueReleaseChallengeAsync(agent, device, TestContext.Current.CancellationToken);
+        Assert.NotNull(challenge);
+        var request = new ContainmentReleaseRequest(agent, device, challenge.Nonce, challenge.ExpiresAt, SignWith(key ?? _ownerKey, agent, device, challenge));
+        return (challenge, request);
+    }
+
+    private async Task AssertDeniedAsync(ContainmentReleaseRequest request, string agent = "agent-a")
+    {
+        _order.Clear();
+        _log.Reset();
+        var result = await _adapter.ReleaseAsync(agent, request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ContainmentReleaseOutcome.Denied, result.Outcome);
+        Assert.Empty(_order);
+        Assert.Equal("denied", Step(Assert.Single(_log.Entries)));
+    }
+
     [Fact]
-    public async Task Owner_release_resumes_vms_then_tokens_with_one_audit_record_per_step()
+    public async Task A_valid_signed_request_releases_vms_then_tokens_with_one_audit_record_per_step()
     {
         var ct = TestContext.Current.CancellationToken;
         await _adapter.ContainAsync("agent-a", ct);
+        var (_, request) = await SignedAsync();
         _order.Clear();
+        _log.Reset();
 
-        var result = await _adapter.ReleaseAsync("agent-a", "dev-owner", ct);
+        var result = await _adapter.ReleaseAsync("agent-a", request, ct);
 
         Assert.Equal(ContainmentReleaseOutcome.Released, result.Outcome);
         Assert.False(result.TokensRestored);
@@ -114,23 +147,156 @@ public class AgentContainmentAdapterTests
         });
     }
 
+    [Fact]
+    public async Task The_challenge_nonce_is_128_bits_random_and_expires_in_the_future()
+    {
+        var a = await _adapter.IssueReleaseChallengeAsync("agent-a", "dev-owner", TestContext.Current.CancellationToken);
+        var b = await _adapter.IssueReleaseChallengeAsync("agent-a", "dev-owner", TestContext.Current.CancellationToken);
+
+        Assert.NotNull(a);
+        Assert.NotNull(b);
+        Assert.Equal(16, a.Nonce.Length);
+        Assert.NotEqual(a.Nonce, b.Nonce);
+        Assert.True(a.ExpiresAt > _clock.GetUtcNow());
+    }
+
     [Theory]
     [InlineData("dev-unknown")]
     [InlineData("dev-revoked")]
     [InlineData("agent-a")]
-    public async Task Non_owner_release_is_denied_resumes_nothing_and_is_audited_once(string caller)
+    public async Task A_challenge_is_not_issued_to_an_unregistered_or_revoked_device(string device)
+    {
+        var challenge = await _adapter.IssueReleaseChallengeAsync("agent-a", device, TestContext.Current.CancellationToken);
+
+        Assert.Null(challenge);
+        Assert.Equal("challenge_denied", Step(Assert.Single(_log.Entries)));
+    }
+
+    [Fact]
+    public async Task A_bad_signature_is_denied_audited_and_resumes_nothing()
     {
         var ct = TestContext.Current.CancellationToken;
         await _adapter.ContainAsync("agent-a", ct);
+        var (challenge, _) = await SignedAsync();
+        var forged = new ContainmentReleaseRequest("agent-a", "dev-owner", challenge.Nonce, challenge.ExpiresAt, SignWith(_otherKey, "agent-a", "dev-owner", challenge));
+
+        await AssertDeniedAsync(forged);
+    }
+
+    [Fact]
+    public async Task A_forged_request_does_not_burn_the_owners_nonce()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var (challenge, genuine) = await SignedAsync();
+        await _adapter.ReleaseAsync("agent-a", genuine with { Signature = new byte[64] }, ct);
+
+        var result = await _adapter.ReleaseAsync("agent-a", genuine, ct);
+
+        Assert.Equal(ContainmentReleaseOutcome.Released, result.Outcome);
+        Assert.NotNull(challenge);
+    }
+
+    [Fact]
+    public async Task A_tampered_expiry_is_denied()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var (_, request) = await SignedAsync();
+
+        await AssertDeniedAsync(request with { ExpiresAt = request.ExpiresAt.AddHours(1) });
+    }
+
+    [Fact]
+    public async Task A_replayed_nonce_is_denied()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var (_, request) = await SignedAsync();
+        Assert.Equal(ContainmentReleaseOutcome.Released, (await _adapter.ReleaseAsync("agent-a", request, ct)).Outcome);
+        await _adapter.ContainAsync("agent-a", ct);
+
+        await AssertDeniedAsync(request);
+    }
+
+    [Fact]
+    public async Task An_expired_nonce_is_denied()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var (_, request) = await SignedAsync();
+        _clock.Advance(AgentContainmentAdapter.ChallengeLifetime + TimeSpan.FromSeconds(1));
+
+        await AssertDeniedAsync(request);
+    }
+
+    [Fact]
+    public async Task A_nonce_that_was_never_issued_is_denied()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var challenge = new ReleaseChallenge(RandomNumberGenerator.GetBytes(16), _clock.GetUtcNow().AddMinutes(1));
+        var request = new ContainmentReleaseRequest("agent-a", "dev-owner", challenge.Nonce, challenge.ExpiresAt, SignWith(_ownerKey, "agent-a", "dev-owner", challenge));
+
+        await AssertDeniedAsync(request);
+    }
+
+    [Theory]
+    [InlineData("dev-unknown")]
+    [InlineData("dev-revoked")]
+    public async Task An_unregistered_or_revoked_device_is_denied(string device)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var (challenge, _) = await SignedAsync();
+        var key = device == "dev-revoked" ? _revokedKey : _otherKey;
+        var request = new ContainmentReleaseRequest("agent-a", device, challenge.Nonce, challenge.ExpiresAt, SignWith(key, "agent-a", device, challenge));
+
+        await AssertDeniedAsync(request);
+    }
+
+    [Fact]
+    public async Task A_device_revoked_after_the_challenge_is_denied()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var owners = new InMemoryOwnerKeyRegistry();
+        var spki = _ownerKey.ExportSubjectPublicKeyInfo();
+        owners.Register(new OwnerDeviceKey("owner-1", "dev-owner", spki));
+        var adapter = new AgentContainmentAdapter(_pauser, _revoker, owners, _log, new InMemoryNonceStore(_clock), _clock);
+        await adapter.ContainAsync("agent-a", ct);
+        var challenge = (await adapter.IssueReleaseChallengeAsync("agent-a", "dev-owner", ct))!;
+        owners.Register(new OwnerDeviceKey("owner-1", "dev-owner", spki, Revoked: true));
+        var request = new ContainmentReleaseRequest("agent-a", "dev-owner", challenge.Nonce, challenge.ExpiresAt, SignWith(_ownerKey, "agent-a", "dev-owner", challenge));
         _order.Clear();
 
-        var result = await _adapter.ReleaseAsync("agent-a", caller, ct);
+        var result = await adapter.ReleaseAsync("agent-a", request, ct);
 
         Assert.Equal(ContainmentReleaseOutcome.Denied, result.Outcome);
         Assert.Empty(_order);
-        var entry = Assert.Single(_log.Entries);
-        Assert.Equal("denied", Step(entry));
-        Assert.Equal(caller, entry.Actor);
+    }
+
+    [Fact]
+    public async Task A_nonce_issued_for_one_agent_cannot_release_another()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        await _adapter.ContainAsync("agent-b", ct);
+        var (challenge, _) = await SignedAsync("agent-a");
+        // The owner key signs a request for agent-b over agent-a's nonce.
+        var request = new ContainmentReleaseRequest("agent-b", "dev-owner", challenge.Nonce, challenge.ExpiresAt, SignWith(_ownerKey, "agent-b", "dev-owner", challenge));
+
+        await AssertDeniedAsync(request, "agent-b");
+    }
+
+    [Fact]
+    public async Task A_request_signed_for_one_agent_cannot_release_another()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        await _adapter.ContainAsync("agent-b", ct);
+        var (_, request) = await SignedAsync("agent-a");
+
+        await AssertDeniedAsync(request, "agent-b");
     }
 
     [Fact]
@@ -138,80 +304,103 @@ public class AgentContainmentAdapterTests
     {
         var ct = TestContext.Current.CancellationToken;
         await _adapter.ContainAsync("agent-a", ct);
-        await _adapter.ReleaseAsync("agent-a", "dev-unknown", ct);
+        var (challenge, _) = await SignedAsync();
+        await _adapter.ReleaseAsync("agent-a", new ContainmentReleaseRequest("agent-a", "dev-unknown", challenge.Nonce, challenge.ExpiresAt, new byte[64]), ct);
+        var (_, request) = await SignedAsync();
 
-        var result = await _adapter.ReleaseAsync("agent-a", "dev-owner", ct);
+        var result = await _adapter.ReleaseAsync("agent-a", request, ct);
 
         Assert.Equal(ContainmentReleaseOutcome.Released, result.Outcome);
     }
 
     [Fact]
-    public async Task Releasing_an_agent_that_was_never_contained_is_a_no_op_with_one_audit_record()
+    public async Task Releasing_an_agent_that_was_never_contained_is_a_no_op_that_still_consumes_the_nonce()
     {
-        var result = await _adapter.ReleaseAsync("agent-a", "dev-owner", TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+        var (_, request) = await SignedAsync();
+        _log.Reset();
+
+        var result = await _adapter.ReleaseAsync("agent-a", request, ct);
 
         Assert.Equal(ContainmentReleaseOutcome.NotContained, result.Outcome);
         Assert.Empty(_order);
         Assert.Equal("not_contained", Step(Assert.Single(_log.Entries)));
+        await _adapter.ContainAsync("agent-a", ct);
+        await AssertDeniedAsync(request);
     }
 
     [Fact]
-    public async Task A_failing_vm_resume_stops_the_token_resume_and_is_audited()
+    public async Task A_failing_vm_resume_stops_the_token_resume_is_audited_and_the_nonce_is_spent()
     {
         var ct = TestContext.Current.CancellationToken;
         await _adapter.ContainAsync("agent-a", ct);
+        var (_, request) = await SignedAsync();
         _order.Clear();
+        _log.Reset();
         _pauser.FailResume = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _adapter.ReleaseAsync("agent-a", "dev-owner", ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _adapter.ReleaseAsync("agent-a", request, ct));
 
         Assert.Equal(["vm-resume:agent-a"], _order);
         Assert.Equal("vm_resume_failed", Step(Assert.Single(_log.Entries)));
 
-        // The agent is still contained, so a retry runs again.
+        // The agent is still contained, but the old nonce is spent: the owner needs a fresh signed request.
         _pauser.FailResume = false;
-        var retry = await _adapter.ReleaseAsync("agent-a", "dev-owner", ct);
-        Assert.Equal(ContainmentReleaseOutcome.Released, retry.Outcome);
+        await AssertDeniedAsync(request);
+        var (_, fresh) = await SignedAsync();
+        Assert.Equal(ContainmentReleaseOutcome.Released, (await _adapter.ReleaseAsync("agent-a", fresh, ct)).Outcome);
     }
 
     [Fact]
-    public async Task A_second_release_after_a_completed_release_is_a_no_op()
+    public async Task A_second_release_after_a_completed_release_is_denied_by_the_spent_nonce()
     {
         var ct = TestContext.Current.CancellationToken;
         await _adapter.ContainAsync("agent-a", ct);
-        await _adapter.ReleaseAsync("agent-a", "dev-owner", ct);
-        _order.Clear();
+        var (_, request) = await SignedAsync();
+        await _adapter.ReleaseAsync("agent-a", request, ct);
 
-        var result = await _adapter.ReleaseAsync("agent-a", "dev-owner", ct);
-
-        Assert.Equal(ContainmentReleaseOutcome.NotContained, result.Outcome);
-        Assert.Empty(_order);
+        await AssertDeniedAsync(request);
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task Contain_and_release_reject_a_blank_agent_id(string agentId)
+    public async Task Contain_issue_and_release_reject_a_blank_agent_id(string agentId)
     {
+        var request = ReleaseRequests.Unsigned("agent-a", "dev-owner");
         await Assert.ThrowsAnyAsync<ArgumentException>(() => _adapter.ContainAsync(agentId, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => _adapter.ReleaseAsync(agentId, "dev-owner", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => _adapter.IssueReleaseChallengeAsync(agentId, "dev-owner", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => _adapter.ReleaseAsync(agentId, request, TestContext.Current.CancellationToken));
         Assert.Empty(_order);
     }
 
     [Fact]
-    public async Task Release_rejects_a_blank_owner_actor_id()
+    public async Task A_malformed_request_is_denied_not_thrown()
     {
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => _adapter.ReleaseAsync("agent-a", " ", TestContext.Current.CancellationToken));
-        Assert.Empty(_log.Entries);
+        await _adapter.ContainAsync("agent-a", TestContext.Current.CancellationToken);
+
+        await AssertDeniedAsync(new ContainmentReleaseRequest("agent-a", "dev-owner", [1, 2, 3], _clock.GetUtcNow(), new byte[64]));
+        await AssertDeniedAsync(new ContainmentReleaseRequest("agent-a", "dev owner\nx", new byte[16], _clock.GetUtcNow(), new byte[64]));
+    }
+
+    [Fact]
+    public async Task An_approval_signature_cannot_be_replayed_as_a_release_signature()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _adapter.ContainAsync("agent-a", ct);
+        var (challenge, _) = await SignedAsync();
+        var approvalSig = _ownerKey.SignData(
+            ApprovalSignature.Message(Guid.Empty, ApprovalDecision.Approve, new byte[32], challenge.ExpiresAt, "dev-owner"),
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+
+        await AssertDeniedAsync(new ContainmentReleaseRequest("agent-a", "dev-owner", challenge.Nonce, challenge.ExpiresAt, approvalSig));
     }
 
     [Fact]
     public async Task An_agent_stop_through_the_engine_contains_the_agent_once()
     {
-        var engine = new KillSwitchEngine(
-            new KillSwitchAuditAdapter(_log),
-            _adapter,
-            new FakeTimeProvider(new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero)));
+        var engine = new KillSwitchEngine(new KillSwitchAuditAdapter(_log), _adapter, _clock);
 
         await engine.EngageAgentAsync("owner-1", "agent-a", "Suspicious output", TestContext.Current.CancellationToken);
 
@@ -220,28 +409,30 @@ public class AgentContainmentAdapterTests
     }
 
     [Fact]
-    public async Task An_engine_resume_by_a_non_owner_is_refused_and_the_agent_stays_stopped()
+    public async Task An_engine_resume_with_an_unsigned_request_is_refused_and_the_agent_stays_stopped()
     {
         var ct = TestContext.Current.CancellationToken;
-        var engine = new KillSwitchEngine(new KillSwitchAuditAdapter(_log), _adapter, new FakeTimeProvider(new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero)));
+        var engine = new KillSwitchEngine(new KillSwitchAuditAdapter(_log), _adapter, _clock);
         await engine.EngageAgentAsync("owner-1", "agent-a", "Stop", ct);
         _order.Clear();
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => engine.ResumeAgentAsync("dev-unknown", "agent-a", "Back", ct));
+        // A registered device id alone, with no valid signature, does not resume.
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => engine.ResumeAgentAsync("agent-a", "Back", ReleaseRequests.Unsigned("agent-a", "dev-owner"), ct));
 
         Assert.Empty(_order);
         Assert.False(engine.Evaluate("agent-a", ToolEffect.Read).Allowed);
     }
 
     [Fact]
-    public async Task An_engine_resume_by_the_owner_releases_and_lifts_the_stop()
+    public async Task An_engine_resume_with_a_signed_request_releases_and_lifts_the_stop()
     {
         var ct = TestContext.Current.CancellationToken;
-        var engine = new KillSwitchEngine(new KillSwitchAuditAdapter(_log), _adapter, new FakeTimeProvider(new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero)));
+        var engine = new KillSwitchEngine(new KillSwitchAuditAdapter(_log), _adapter, _clock);
         await engine.EngageAgentAsync("owner-1", "agent-a", "Stop", ct);
+        var (_, request) = await SignedAsync();
         _order.Clear();
 
-        await engine.ResumeAgentAsync("dev-owner", "agent-a", "Back", ct);
+        await engine.ResumeAgentAsync("agent-a", "Back", request, ct);
 
         Assert.Equal(["vm-resume:agent-a", "token-resume:agent-a"], _order);
         Assert.True(engine.Evaluate("agent-a", ToolEffect.Read).Allowed);

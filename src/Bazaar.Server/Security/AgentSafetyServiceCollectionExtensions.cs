@@ -29,6 +29,7 @@ public static class AgentSafetyServiceCollectionExtensions
 
         services.AddAgentTokenBudgets(configuration);
         services.TryAddSingleton<IKillSwitchAuditSink, KillSwitchAuditAdapter>();
+        services.TryAddSingleton<INonceStore, InMemoryNonceStore>();
         services.TryAddSingleton<IAgentContainment, AgentContainmentAdapter>();
         services.TryAddSingleton<KillSwitchEngine>();
         return services;

@@ -82,18 +82,21 @@ public sealed class KillSwitchEngine(IKillSwitchAuditSink audit, IAgentContainme
     }
 
     /// <summary>
-    /// Resumes an agent stop. The record is written first, then the host hook releases containment, then the state is lifted.
-    /// If the hook fails or denies the caller, the agent stays denied. Leases revoked by the engage are not restored here.
+    /// Resumes an agent stop with a request signed by an owner device (see <see cref="IAgentContainment.IssueReleaseChallengeAsync"/>).
+    /// The record is written first, then the host hook verifies the request and releases containment, then the state is lifted.
+    /// If the hook fails or denies the request, the agent stays denied. Leases revoked by the engage are not restored here.
     /// </summary>
-    public async Task ResumeAgentAsync(string actorId, string agentId, string reason, CancellationToken ct = default)
+    public async Task ResumeAgentAsync(string agentId, string reason, ContainmentReleaseRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        var actorId = request.DeviceId;
         ValidateActorAndReason(actorId, reason);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
 
         var now = _time.GetUtcNow();
         await _audit.RecordAsync(new KillSwitchAuditEntry(now, actorId, KillSwitchAction.Resumed, KillSwitchScope.Agent, agentId, reason), ct)
             .ConfigureAwait(false);
-        var release = await _containment.ReleaseAsync(agentId, actorId, ct).ConfigureAwait(false);
+        var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
         if (release.Outcome == ContainmentReleaseOutcome.Denied)
         {
             // The agent stays denied: only the owner may lift containment.
