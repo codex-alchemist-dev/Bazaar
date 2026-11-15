@@ -1,10 +1,17 @@
+// Source docs (checked 2026-11-15):
+//   https://help.milanote.com/en/articles/111395-exporting-your-work
+// The article lists PDF (Standard and Large), PNG, Word, Markdown and plain text exports, plus a
+// "Generate ZIP" action that packages a board's images and files. It documents no JSON or CSV board
+// export and publishes no schema for any file, so no field names are taken from it. The item list
+// names ("items", "cards", "notes") and the keys read below (type, title, name, text, content, milanote)
+// are kept defensive and are NOT vendor-documented. Do not add fields without a documented source.
 using System.Globalization;
 using System.Text.Json;
 
 namespace Bazaar.Portability;
 
 /// <summary>
-/// Milanote board export (JSON). The export schema is not published, so this importer is defensive:
+/// Milanote board export (JSON, unofficial). Milanote publishes no JSON export schema, so this importer is defensive:
 /// it accepts a root array, or an object holding an "items", "cards" or "notes" array, and reads the
 /// first string of title, name, text or content from each item. Non-object items yield empty records.
 /// </summary>

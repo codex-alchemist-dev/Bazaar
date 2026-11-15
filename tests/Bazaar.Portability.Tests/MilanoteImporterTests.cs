@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Bazaar.Portability.Tests;
@@ -20,6 +21,10 @@ public class MilanoteImporterTests
         """;
 
     private static ImportSource Src(string name, string text) => new(name, Encoding.UTF8.GetBytes(text));
+
+    /// <summary>Reads a fixture from the source tree next to this file, so no csproj copy rule is needed.</summary>
+    private static ImportSource Fixture(string name, [CallerFilePath] string here = "") =>
+        new(name, File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(here)!, "Fixtures", name)));
 
     [Fact]
     public void Detect_with_marker_returns_0_8()
@@ -121,5 +126,16 @@ public class MilanoteImporterTests
     {
         var importer = new MilanoteImporter();
         Assert.Empty(importer.Parse(Src("milanote.json", "not json")));
+    }
+
+    [Fact]
+    public void Fixture_milanote_export_parses_count_titles_and_bodies()
+    {
+        var importer = new MilanoteImporter();
+        var records = importer.Parse(Fixture("milanote-export.json"));
+
+        Assert.Equal(4, records.Count);
+        Assert.Equal(["Launch plan", "Write changelog", "Moodboard", "https://example.com/spec"], records.Select(r => r.Title).ToArray());
+        Assert.Equal(["Ship the beta on Friday", "Write changelog", "Moodboard", "https://example.com/spec"], records.Select(r => r.Body).ToArray());
     }
 }

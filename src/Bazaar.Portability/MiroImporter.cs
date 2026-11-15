@@ -1,3 +1,13 @@
+// Source docs (checked 2026-11-15):
+//   Board export help article: https://help.miro.com/hc/en-us/articles/360017572754-Board-export
+//     (direct fetch returned 403; the export formats were confirmed from the search summary only).
+//     It documents image, PDF and CSV exports. CSV covers tables and does not keep board structure.
+//     It documents no JSON board export and no JSON schema, so no field names are taken from it.
+//   Board items overview: https://developers.miro.com/docs/board-items (lists display names such as
+//     "Sticky note" and "Frame"; it does not give the API type strings or data fields). The items
+//     reference pages returned 404 and were not read.
+// The "data"/"items"/"nodes" array names, the sticky_note/text/shape/frame type strings, and the
+// data.content and frames keys below are assumptions kept for defensive parsing. Not vendor-documented.
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -5,7 +15,7 @@ using System.Text.Json;
 namespace Bazaar.Portability;
 
 /// <summary>
-/// Miro board export (JSON). The export schema is assumed, not specified: a root object whose "data",
+/// Miro board export (JSON, unofficial). Miro publishes no JSON export schema. The shape is assumed: a root object whose "data",
 /// "items" or "nodes" array holds objects with a "type" and text in "data" or "content". Frame titles may
 /// also come from a top-level "frames" array. Anything unreadable is skipped rather than failing the source.
 /// </summary>

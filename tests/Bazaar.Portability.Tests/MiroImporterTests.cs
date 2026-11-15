@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Bazaar.Portability.Tests;
@@ -5,6 +6,10 @@ namespace Bazaar.Portability.Tests;
 public class MiroImporterTests
 {
     private static ImportSource Src(string name, string json) => new(name, Encoding.UTF8.GetBytes(json));
+
+    /// <summary>Reads a fixture from the source tree next to this file, so no csproj copy rule is needed.</summary>
+    private static ImportSource Fixture(string name, [CallerFilePath] string here = "") =>
+        new(name, File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(here)!, "Fixtures", name)));
 
     [Fact]
     public void Shape_with_known_item_type_is_detected_at_half_confidence()
@@ -132,5 +137,17 @@ public class MiroImporterTests
         var importer = new MiroImporter();
         Assert.Equal("bazaar.import.miro", importer.Id);
         Assert.Equal("1.0.0", importer.Version);
+    }
+
+    [Fact]
+    public void Fixture_miro_export_parses_count_titles_and_bodies()
+    {
+        var importer = new MiroImporter();
+        var records = importer.Parse(Fixture("miro-export.json"));
+
+        Assert.Equal(5, records.Count);
+        Assert.Equal(["Ship beta", "Retro notes", "Plain string", "Sprint 12", "Retro"], records.Select(r => r.Title).ToArray());
+        Assert.Equal(["Ship beta", "Retro notes", "Plain string", "Sprint 12", "Retro"], records.Select(r => r.Body).ToArray());
+        Assert.Equal(["sticky_note", "text", "sticky_note", "frame", "frame"], records.Select(r => r.Kind).ToArray());
     }
 }

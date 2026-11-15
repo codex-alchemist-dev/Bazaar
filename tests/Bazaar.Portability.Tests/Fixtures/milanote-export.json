@@ -1,0 +1,8 @@
+{
+  "items": [
+    {"milanote": true, "type": "text", "title": "Launch plan", "text": "Ship the beta on Friday"},
+    {"milanote": true, "type": "list", "text": "Write changelog"},
+    {"type": "image", "name": "Moodboard"},
+    {"type": "link", "content": "https://example.com/spec"}
+  ]
+}
