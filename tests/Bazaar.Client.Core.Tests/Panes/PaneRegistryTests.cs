@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -38,7 +39,7 @@ public class PaneRegistryTests
     public void Malformed_model_falls_back_to_generic_with_reason()
     {
         var reports = new List<string>();
-        var registry = FirstPartyPanes.CreateRegistry(reports.Add);
+        var registry = TestPanes.CreateRegistry(reports.Add);
 
         var pane = registry.Create(Descriptor(PaneKinds.Kanban, "{\"cards\":\"nope\"}"));
 
@@ -70,7 +71,7 @@ public class PaneRegistryTests
     [Fact]
     public void First_party_registry_covers_kanban_and_dashboard()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
 
         Assert.True(registry.Contains(PaneKinds.Kanban));
         Assert.True(registry.Contains(PaneKinds.Dashboard));
