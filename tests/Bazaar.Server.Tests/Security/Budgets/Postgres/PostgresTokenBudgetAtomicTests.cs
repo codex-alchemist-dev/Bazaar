@@ -21,6 +21,13 @@ public sealed class PostgresTokenBudgetAtomicTests
     private static TokenBudgetOptions Limits(long hour, long day, long week) =>
         new() { HourlyTokens = hour, DailyTokens = day, WeeklyTokens = week };
 
+    /// <summary>Most TryConsume calls in flight at once: each holds a connection while it waits on the agent's advisory lock.</summary>
+    private const int _maxInFlight = 8;
+
+    /// <summary>Caps the pool so a test cannot open more connections than the shared test server allows.</summary>
+    private static NpgsqlDataSource PooledSource(string connectionString) =>
+        NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(connectionString) { MaxPoolSize = 10 }.ConnectionString);
+
     [Fact]
     public async Task Try_consume_records_a_fitting_spend_and_reports_what_is_left()
     {
@@ -86,7 +93,8 @@ public sealed class PostgresTokenBudgetAtomicTests
     {
         SkipWithoutDatabase();
         await using var db = await BudgetTestDb.CreateAsync(Ct);
-        var store = new PostgresTokenBudgetStore(db.DataSource);
+        await using var pooled = PooledSource(db.DataSource.ConnectionString);
+        var store = new PostgresTokenBudgetStore(pooled);
 
         var admitted = await HammerAsync([store], calls: 120, tokensPerCall: 7, limits: Limits(500, 1_000_000, 1_000_000));
 
@@ -102,11 +110,12 @@ public sealed class PostgresTokenBudgetAtomicTests
         await using var db = await BudgetTestDb.CreateAsync(Ct);
 
         // Each data source has its own connection pool, standing in for a separate server process on one database.
-        await using var secondSource = new NpgsqlDataSourceBuilder(db.DataSource.ConnectionString).Build();
-        await using var thirdSource = new NpgsqlDataSourceBuilder(db.DataSource.ConnectionString).Build();
+        await using var firstSource = PooledSource(db.DataSource.ConnectionString);
+        await using var secondSource = PooledSource(db.DataSource.ConnectionString);
+        await using var thirdSource = PooledSource(db.DataSource.ConnectionString);
         var stores = new[]
         {
-            new PostgresTokenBudgetStore(db.DataSource),
+            new PostgresTokenBudgetStore(firstSource),
             new PostgresTokenBudgetStore(secondSource),
             new PostgresTokenBudgetStore(thirdSource),
         };
@@ -146,8 +155,20 @@ public sealed class PostgresTokenBudgetAtomicTests
     /// <summary>Fires <paramref name="calls"/> parallel spends for one agent round-robin over the stores; returns tokens admitted.</summary>
     private static async Task<long> HammerAsync(PostgresTokenBudgetStore[] stores, int calls, long tokensPerCall, TokenBudgetOptions limits)
     {
+        using var gate = new SemaphoreSlim(_maxInFlight);
         var decisions = await Task.WhenAll(Enumerable.Range(0, calls).Select(i =>
-            Task.Run(() => stores[i % stores.Length].TryConsume("agent-a", _t0, tokensPerCall, limits, Ct), Ct)));
+            Task.Run(async () =>
+            {
+                await gate.WaitAsync(Ct);
+                try
+                {
+                    return await stores[i % stores.Length].TryConsume("agent-a", _t0, tokensPerCall, limits, Ct);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }, Ct)));
         return decisions.Count(decision => decision.Allowed) * tokensPerCall;
     }
 
