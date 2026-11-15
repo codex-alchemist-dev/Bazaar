@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;
 using Bazaar.Server.Settings;
 
@@ -19,6 +20,10 @@ public sealed class ModuleManagerSettingsTests
         "releases.gate.minimumSamples",
         "releases.gate.maxErrorRate",
         "lineMove.drillMaxAgeDays",
+        "lineMove.retry.maxAttempts",
+        "lineMove.retry.initialBackoffMinutes",
+        "lineMove.retry.multiplier",
+        "lineMove.retry.maxBackoffMinutes",
     ];
 
     private static SettingEvaluation Eval(string name, string json, SettingActor? actor = null)
@@ -71,6 +76,38 @@ public sealed class ModuleManagerSettingsTests
         Assert.Equal(30, ModuleManagerSettings.GateMinimumSamples.Default);
         Assert.Equal(0.01, ModuleManagerSettings.GateMaxErrorRate.Default);
         Assert.Equal(90, ModuleManagerSettings.LineMoveDrillMaxAgeDays.Default);
+        Assert.Equal(3, ModuleManagerSettings.LineMoveRetryMaxAttempts.Default);
+        Assert.Equal(10, ModuleManagerSettings.LineMoveRetryInitialBackoffMinutes.Default);
+        Assert.Equal(2.0, ModuleManagerSettings.LineMoveRetryMultiplier.Default);
+        Assert.Equal(60, ModuleManagerSettings.LineMoveRetryMaxBackoffMinutes.Default);
+    }
+
+    [Fact]
+    public void Default_retry_settings_build_the_default_retry_policy()
+    {
+        var policy = ModuleManagerSettings.RetryPolicyFrom(
+            ModuleManagerSettings.LineMoveRetryMaxAttempts.Default,
+            ModuleManagerSettings.LineMoveRetryInitialBackoffMinutes.Default,
+            ModuleManagerSettings.LineMoveRetryMultiplier.Default,
+            ModuleManagerSettings.LineMoveRetryMaxBackoffMinutes.Default);
+
+        Assert.Equal(LineMoveRetryPolicy.Default, policy);
+    }
+
+    [Fact]
+    public void A_maximum_backoff_below_the_initial_backoff_is_refused()
+    {
+        Assert.NotNull(ModuleManagerSettings.RetryOrderError(initialBackoffMinutes: 30, maxBackoffMinutes: 10));
+        Assert.Null(ModuleManagerSettings.RetryOrderError(initialBackoffMinutes: 10, maxBackoffMinutes: 10));
+
+        Assert.Throws<ArgumentException>(() => ModuleManagerSettings.RetryPolicyFrom(3, 30, 2.0, 10));
+    }
+
+    [Fact]
+    public void A_retry_policy_outside_its_ranges_is_refused_before_any_move_runs()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ModuleManagerSettings.RetryPolicyFrom(11, 10, 2.0, 60));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ModuleManagerSettings.RetryPolicyFrom(3, 10, 0.5, 60));
     }
 
     [Fact]
