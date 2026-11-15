@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Tour;
+namespace Bazaar.Michi;
 
 /// <summary>One step of an interactive tour. Text is held as keys so every head can localise it (doc 41 accessibility, i18n from day one).</summary>
 /// <param name="Id">Stable step id, unique within the tour.</param>

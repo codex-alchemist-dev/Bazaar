@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Tour;
+using Bazaar.Michi;
 
-namespace Bazaar.Client.Core.Tests.Tour;
+namespace Bazaar.Michi.Tests;
 
 public class TourSessionTests
 {

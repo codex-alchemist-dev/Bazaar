@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Tour;
+namespace Bazaar.Michi;
 
 /// <summary>Where a tour stands. A finished tour can be re-run with <see cref="TourSession.Restart"/>.</summary>
 public enum TourStatus
