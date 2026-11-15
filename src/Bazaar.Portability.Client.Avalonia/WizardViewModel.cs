@@ -16,6 +16,10 @@ public sealed class WizardViewModel : INotifyPropertyChanged
     private readonly IImportCommitter _committer;
     private readonly IReadOnlySet<string> _committedKeys;
     private readonly Func<Task<ImportSource?>> _pickSource;
+    private readonly IExistingObjectIndex? _existingIndex;
+
+    /// <summary>The plan whose stored-object lookup has been started, so a new plan starts one and nothing else does.</summary>
+    private ImportPipelineResult? _lookedUpPlan;
     private WizardState _state;
     private IReadOnlyList<CandidateChoice> _candidates = [];
     private IReadOnlyList<CollisionChoice> _collisions = [];
@@ -25,7 +29,8 @@ public sealed class WizardViewModel : INotifyPropertyChanged
         IImportCommitter committer,
         IReadOnlySet<string> committedKeys,
         Func<Task<ImportSource?>> pickSource,
-        WizardState? initial = null)
+        WizardState? initial = null,
+        IExistingObjectIndex? existingIndex = null)
     {
         _wizard = wizard ?? throw new ArgumentNullException(nameof(wizard));
         _committer = committer ?? throw new ArgumentNullException(nameof(committer));
@@ -39,8 +44,10 @@ public sealed class WizardViewModel : INotifyPropertyChanged
         CommitCommand = new WizardCommand(p => { _ = RunCommitAsync(); }, () => State.CanCommit);
         RetryCommand = new WizardCommand(p => Retry(), () => State.Step == WizardStep.Failed);
 
+        _existingIndex = existingIndex;
         _state = initial ?? WizardState.Initial;
         Rebuild(_state);
+        StartStoredObjectLookup(_state);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -53,6 +60,7 @@ public sealed class WizardViewModel : INotifyPropertyChanged
             _state = value;
             Rebuild(value);
             RaiseAll();
+            StartStoredObjectLookup(value);
         }
     }
 
@@ -146,6 +154,35 @@ public sealed class WizardViewModel : INotifyPropertyChanged
     private void Retry()
     {
         State = _wizard.Retry(State);
+    }
+
+    /// <summary>
+    /// Looks up the objects already stored for a new preview and feeds them back into it (doc 44 section 8.10). It runs once per
+    /// plan, when the preview is first shown. A lookup that finishes after the plan has changed is dropped; that plan starts its own.
+    /// </summary>
+    private void StartStoredObjectLookup(WizardState state)
+    {
+        if (_existingIndex is null || state.Step != WizardStep.Preview || state.BasePlan?.Preview is null
+            || ReferenceEquals(state.BasePlan, _lookedUpPlan))
+        {
+            return;
+        }
+        _ = LookUpStoredObjectsAsync(state);
+    }
+
+    private async Task LookUpStoredObjectsAsync(WizardState looked)
+    {
+        _lookedUpPlan = looked.BasePlan;
+        var wanted = ExistingCollisions.WantedFor(looked.BasePlan!.Preview!);
+        var found = await _existingIndex!.FindAsync(wanted, CancellationToken.None).ConfigureAwait(true);
+        if (!ReferenceEquals(State.BasePlan, looked.BasePlan) || State.Step != WizardStep.Preview)
+        {
+            return;
+        }
+        var next = ImportWizard.WithExistingObjects(State, found);
+        // WithExistingObjects rebuilds the base plan; mark it as looked up so the new state does not start another lookup.
+        _lookedUpPlan = next.BasePlan;
+        State = next;
     }
 
     private void Rebuild(WizardState state)

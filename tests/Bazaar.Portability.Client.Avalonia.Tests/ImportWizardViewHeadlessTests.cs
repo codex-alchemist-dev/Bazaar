@@ -86,6 +86,38 @@ public class ImportWizardViewHeadlessTests
         Assert.False(viewModel.RetryCommand.CanExecute(null));
     }
 
+    private sealed class FakeIndex(params ExistingObject[] stored) : IExistingObjectIndex
+    {
+        public int Calls { get; private set; }
+
+        public Task<IReadOnlyList<ExistingObject>> FindAsync(IReadOnlyList<(string Kind, string Title)> wanted, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult<IReadOnlyList<ExistingObject>>(stored.Where(s => wanted.Contains((s.Kind, s.Title))).ToList());
+        }
+    }
+
+    [AvaloniaFact]
+    public void Showing_a_preview_looks_up_stored_objects_once_and_lists_them_as_collisions()
+    {
+        var index = new FakeIndex(new ExistingObject("document", "Plan", "obj-1", "rev-9"));
+        var viewModel = new WizardViewModel(
+            new ImportWizard(new ImportPipeline([])),
+            new NoopCommitter(),
+            _noKeys,
+            () => Task.FromResult<ImportSource?>(null),
+            PreviewWithCollision(),
+            index);
+
+        Assert.Equal(1, index.Calls);
+        Assert.Equal(2, viewModel.State.Preview!.ExistingCollisions.Count);
+        Assert.Equal(2, viewModel.Collisions.Count);
+
+        // A choice changes only the plan, so it does not look up again.
+        viewModel.Collisions[0].SelectedLabel = "Skip incoming";
+        Assert.Equal(1, index.Calls);
+    }
+
     private static ImportPipelineResult PlanForPreview() =>
         new(ImportStatus.Ready, "bazaar.import.a", [], new ImportPreview(
             [
