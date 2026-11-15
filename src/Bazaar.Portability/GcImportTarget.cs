@@ -39,16 +39,31 @@ public sealed class GcImportTarget(
         var requests = new List<AppendRequest>(items.Count);
         foreach (var item in items)
         {
-            if (item.Replaces is not null)
-            {
-                // Replacing a GC message is not implemented yet. Refuse the batch rather than append a copy the audit calls a replace.
-                throw new NotSupportedException("Replace is not implemented for the GC target; the batch is refused.");
-            }
             var body = await codec.SealAsync(authorId, item.Record.Body, ct);
-            requests.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
+            var payload = PayloadFor(jobId, batchIndex, item.Record);
+            if (item.Replaces is null)
+            {
+                requests.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
+                {
+                    Message = body,
+                    PayloadJson = payload,
+                });
+                continue;
+            }
+
+            // A replace appends a new version of the stored message. Earlier versions stay in the log (doc 01, edits).
+            var stored = item.Replaces;
+            if (!string.Equals(stored.Owner, authorId.ToString("D"), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Replace refused: the stored message was written by another author.");
+            }
+            var version = int.Parse(stored.Version, CultureInfo.InvariantCulture) + 1;
+            requests.Add(new AppendRequest(gcId, GcEventKinds.MessageEdit, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + version.ToString(CultureInfo.InvariantCulture))
             {
                 Message = body,
-                PayloadJson = PayloadFor(jobId, batchIndex, item.Provenance.SourceKey),
+                MessageId = Guid.Parse(stored.ObjectId),
+                Version = version,
+                PayloadJson = payload,
             });
         }
 
@@ -97,12 +112,14 @@ public sealed class GcImportTarget(
         return "import:" + hash;
     }
 
-    private static string PayloadFor(string jobId, int batchIndex, string sourceKey) =>
+    private static string PayloadFor(string jobId, int batchIndex, SourceRecord record) =>
         JsonSerializer.Serialize(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["import_job"] = jobId,
             ["import_batch"] = batchIndex.ToString(CultureInfo.InvariantCulture),
-            ["source_key"] = sourceKey,
+            ["source_key"] = record.SourceKey,
+            ["kind"] = record.Kind,
+            ["title"] = record.Title,
         });
 
     private static bool TryReadPayload(string? json, out string jobId, out string sourceKey)
@@ -123,6 +140,90 @@ public sealed class GcImportTarget(
             }
             jobId = job;
             sourceKey = key;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+}
+
+/// <summary>
+/// Finds imported GC messages by kind and title, with the version each one is at now. Only messages written by the import
+/// carry a title in their payload, so ordinary chat is not matched. A message's version is the highest edit seen in the log.
+/// </summary>
+public sealed class GcExistingObjectIndex(IGcLogReader reader, Guid gcId, GcPrincipal viewer) : IExistingObjectIndex
+{
+    public async Task<IReadOnlyList<ExistingObject>> FindAsync(IReadOnlyList<(string Kind, string Title)> wanted, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(wanted);
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var stored = new Dictionary<Guid, (string Kind, string Title, Guid Author, int Version)>();
+        var after = 0L;
+        while (true)
+        {
+            var page = new List<GcEvent>();
+            await foreach (var ev in reader.ReadAsync(gcId, after, IGcLogReader.MaxLimit, viewer, ct))
+            {
+                page.Add(ev);
+            }
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var ev in page)
+            {
+                after = ev.Seq;
+                if (ev.Kind == GcEventKinds.Message && ev.MessageId is { } id && TryReadStored(ev.PayloadJson, out var kind, out var title))
+                {
+                    stored.TryAdd(id, (kind, title, ev.AuthorId, 1));
+                }
+                else if (ev.Kind == GcEventKinds.MessageEdit && ev.MessageId is { } editOf && ev.Version is { } version
+                    && stored.TryGetValue(editOf, out var current) && version > current.Version)
+                {
+                    stored[editOf] = current with { Version = version };
+                }
+            }
+        }
+
+        var found = new List<ExistingObject>();
+        var seen = new HashSet<(string, string)>();
+        foreach (var (id, item) in stored)
+        {
+            if (wanted.Contains((item.Kind, item.Title)) && seen.Add((item.Kind, item.Title)))
+            {
+                found.Add(new ExistingObject(item.Kind, item.Title, id.ToString("D"), item.Version.ToString(CultureInfo.InvariantCulture))
+                {
+                    Owner = item.Author.ToString("D"),
+                });
+            }
+        }
+        return found;
+    }
+
+    private static bool TryReadStored(string? json, out string kind, out string title)
+    {
+        kind = string.Empty;
+        title = string.Empty;
+        if (string.IsNullOrEmpty(json))
+        {
+            return false;
+        }
+        try
+        {
+            var values = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (values is null || !values.ContainsKey("import_job") || !values.TryGetValue("kind", out var k) || !values.TryGetValue("title", out var t))
+            {
+                return false;
+            }
+            kind = k;
+            title = t;
             return true;
         }
         catch (JsonException)

@@ -31,11 +31,16 @@ public sealed class VaultImportTarget(IGitProvider git, string repoPath, string 
         return "imports/" + jobId + "/" + sourceKey + ".md";
     }
 
-    /// <summary>Writes one batch and commits it. Throws when any file cannot be written or the commit fails.</summary>
+    /// <summary>
+    /// Writes one batch and commits it. A replace overwrites the stored note in place, so its earlier content stays in the git
+    /// history of the Vault. A failed batch removes the files it created and restores the files it replaced.
+    /// </summary>
     public async Task WriteBatchAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(items);
         var created = new List<string>();
+        var restored = new List<(string Path, string Text)>();
+        var replaced = new List<ImportItem>();
         try
         {
             foreach (var item in items)
@@ -45,10 +50,18 @@ public sealed class VaultImportTarget(IGitProvider git, string repoPath, string 
                     throw new ArgumentException("Item belongs to a different import job.", nameof(items));
                 }
 
-                if (item.Replaces is not null)
+                if (item.Replaces is { } existing)
                 {
-                    // Replacing a Vault note is not implemented yet. Refuse the batch rather than write a copy that the audit calls a replace.
-                    throw new NotSupportedException("Replace is not implemented for the Vault target; the batch is refused.");
+                    var location = existing.Location ?? throw new InvalidOperationException("Replace refused: the stored note has no Vault path.");
+                    var target = SafeVaultFile(location);
+                    if (!File.Exists(target))
+                    {
+                        throw new IOException("Replace refused: the stored note is gone: " + location);
+                    }
+                    restored.Add((target, await File.ReadAllTextAsync(target, ct)));
+                    await File.WriteAllTextAsync(target, VaultMarkdown.Render(item, existing.ObjectId), new UTF8Encoding(false), ct);
+                    replaced.Add(item);
+                    continue;
                 }
 
                 var full = Path.Combine(checkoutPath, PathFor(jobId, item.Provenance.SourceKey));
@@ -65,6 +78,10 @@ public sealed class VaultImportTarget(IGitProvider git, string repoPath, string 
             var message = "import " + jobId + " batch " + batchIndex.ToString(CultureInfo.InvariantCulture)
                 + "\n\nBazaar-Import-Job: " + jobId
                 + "\nBazaar-Import-Batch: " + batchIndex.ToString(CultureInfo.InvariantCulture);
+            foreach (var item in replaced)
+            {
+                message += "\nBazaar-Import-Replace: " + item.Replaces!.ObjectId + " " + item.Replaces.Version;
+            }
             await git.CommitAsync(checkoutPath, message, identity, ct);
         }
         catch
@@ -76,24 +93,44 @@ public sealed class VaultImportTarget(IGitProvider git, string repoPath, string 
                     File.Delete(path);
                 }
             }
+            foreach (var (path, text) in restored)
+            {
+                await File.WriteAllTextAsync(path, text, new UTF8Encoding(false), CancellationToken.None);
+            }
             throw;
         }
     }
 
-    /// <summary>Reads the HEAD commit and returns the source keys of this job's import files.</summary>
+    /// <summary>A checkout path for a stored note, refusing anything rooted or climbing out of the checkout.</summary>
+    private string SafeVaultFile(string relative)
+    {
+        if (Path.IsPathRooted(relative) || relative.Contains("..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Vault path is not a safe relative path.", nameof(relative));
+        }
+        return Path.Combine(checkoutPath, relative);
+    }
+
+    /// <summary>
+    /// Reads the HEAD commit and returns the source keys of this job's notes. A note belongs to the job when its front matter
+    /// says so, which also covers notes a replace wrote in place outside the job's folder.
+    /// </summary>
     public async Task<IReadOnlyList<string>> ReadSourceKeysAsync(string jobId, CancellationToken ct)
     {
         var head = await git.HeadAsync(checkoutPath, ct);
-        var prefix = "imports/" + jobId + "/";
         var keys = new List<string>();
         foreach (var path in await git.ListFilesAsync(repoPath, head, ct))
         {
-            if (!path.StartsWith(prefix, StringComparison.Ordinal) || !path.EndsWith(".md", StringComparison.Ordinal))
+            if (!path.EndsWith(".md", StringComparison.Ordinal))
             {
                 continue;
             }
 
             var text = await git.ReadTextAsync(repoPath, head, path, ct);
+            if (!string.Equals(VaultMarkdown.ReadFront(text, "imported_job"), jobId, StringComparison.Ordinal))
+            {
+                continue;
+            }
             var key = VaultMarkdown.ReadSourceKey(text) ?? throw new InvalidDataException("Front matter has no source_key: " + path);
             keys.Add(key);
         }
@@ -116,13 +153,13 @@ public static class VaultMarkdown
     /// Renders the file: a front matter block (id, type, title, source_trust, imported_job, source_key) and the body, with LF
     /// line endings and no byte-order mark. Keys are fixed in this order.
     /// </summary>
-    public static string Render(ImportItem item)
+    public static string Render(ImportItem item, string? idOverride = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         var jobId = item.Provenance.JobId;
         var sourceKey = item.Provenance.SourceKey;
         var front = new VaultFrontMatter(
-            Id: UlidFor(jobId, sourceKey),
+            Id: idOverride ?? UlidFor(jobId, sourceKey),
             Type: ImportType,
             Title: SafeTitle(item.Record.Title, sourceKey),
             Project: null,
@@ -146,7 +183,10 @@ public static class VaultMarkdown
     }
 
     /// <summary>The source_key value of a rendered file, or null when the front matter has none.</summary>
-    public static string? ReadSourceKey(string text)
+    public static string? ReadSourceKey(string text) => ReadFront(text, "source_key");
+
+    /// <summary>The value of one key in a note's leading front matter block, or null when absent.</summary>
+    public static string? ReadFront(string text, string key)
     {
         ArgumentNullException.ThrowIfNull(text);
         var lines = text.Split('\n');
@@ -154,9 +194,9 @@ public static class VaultMarkdown
         {
             return null;
         }
+        var prefix = key + ": ";
         for (var i = 1; i < lines.Length && lines[i] != "---"; i++)
         {
-            const string prefix = "source_key: ";
             if (lines[i].StartsWith(prefix, StringComparison.Ordinal))
             {
                 return lines[i][prefix.Length..];
@@ -233,7 +273,7 @@ public sealed class VaultExistingObjectIndex(IGitProvider git, string repoPath) 
         {
             if (byTitle.TryGetValue(title, out var match))
             {
-                found.Add(new ExistingObject(kind, title, match.Id, head));
+                found.Add(new ExistingObject(kind, title, match.Id, head) { Location = match.Path });
             }
         }
         return found;

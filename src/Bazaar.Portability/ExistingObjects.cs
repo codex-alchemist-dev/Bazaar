@@ -4,7 +4,14 @@ namespace Bazaar.Portability;
 /// An object already stored for the target, found by kind and title. <see cref="Version"/> is the revision the store
 /// reports for it (for the Vault, the HEAD commit it was read at); a replace records it in the audit.
 /// </summary>
-public sealed record ExistingObject(string Kind, string Title, string ObjectId, string Version);
+public sealed record ExistingObject(string Kind, string Title, string ObjectId, string Version)
+{
+    /// <summary>The GC author of the stored message, as a GUID string. Set by the GC index; a GC replace needs the same author.</summary>
+    public string? Owner { get; init; }
+
+    /// <summary>The Vault path of the stored note, relative to the checkout. Set by the Vault index; a Vault replace writes there.</summary>
+    public string? Location { get; init; }
+}
 
 /// <summary>An incoming record that has the same kind and title as an existing object (doc 44 section 8.10).</summary>
 public sealed record ExistingCollision(SourceRecord Incoming, ExistingObject Existing);
