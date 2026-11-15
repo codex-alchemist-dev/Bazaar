@@ -9,6 +9,8 @@ public enum GraphNodeKind
     Unspecified = 0,
     Objective = 1,
     Phase = 2,
+    /// <summary>A Vault document (doc 19: Vault nodes).</summary>
+    Vault = 3,
 }
 
 /// <summary>
@@ -21,4 +23,6 @@ public enum GraphEdgeKind
     DependsOn = 1,
     /// <summary>An objective belongs to a phase (the <c>phase</c> front-matter key).</summary>
     PhaseMembership = 2,
+    /// <summary>A resolved [[wiki-link]] between two Vault documents.</summary>
+    WikiLink = 3,
 }
