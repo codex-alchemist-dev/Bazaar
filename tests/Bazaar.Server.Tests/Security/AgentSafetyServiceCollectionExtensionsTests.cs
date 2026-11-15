@@ -1,4 +1,5 @@
 using Bazaar.Server.Security;
+using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Budgets;
 using Bazaar.Server.Security.KillSwitch;
@@ -22,6 +23,7 @@ public class AgentSafetyServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IAuditLog>(new RecordingAuditLog());
+        services.AddSingleton<IOwnerKeyRegistry>(new InMemoryOwnerKeyRegistry());
         services.AddSingleton<IVmPauser>(new RecordingVmPauser());
         services.AddSingleton<IAgentTokenRevoker>(new RecordingAgentTokenRevoker());
         return services;

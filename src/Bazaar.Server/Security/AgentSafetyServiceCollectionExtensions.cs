@@ -16,7 +16,8 @@ public static class AgentSafetyServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// The caller must register these first: <see cref="Bazaar.Server.Security.Audit.IAuditLog"/>,
-    /// <see cref="Quarantine.IVmPauser"/>, <see cref="Quarantine.IAgentTokenRevoker"/>, and a durable
+    /// <see cref="Quarantine.IVmPauser"/>, <see cref="Quarantine.IAgentTokenRevoker"/>,
+    /// <see cref="Approvals.IOwnerKeyRegistry"/> (the owner check for release), and a durable
     /// <see cref="ITokenBudgetStore"/> so budget counters survive a restart. Nothing here registers them. The host is not
     /// changed by this call; it calls this method when it composes the server.
     /// </remarks>

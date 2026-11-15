@@ -36,14 +36,16 @@ internal sealed class RecordingContainment : IAgentContainment
         return FailContain ? Task.FromException(new InvalidOperationException("containment failed")) : Task.CompletedTask;
     }
 
-    public Task ReleaseAsync(string agentId, CancellationToken ct = default)
+    public Task<ContainmentReleaseResult> ReleaseAsync(string agentId, string ownerActorId, CancellationToken ct = default)
     {
         lock (_gate)
         {
             _calls.Add("release:" + agentId);
         }
 
-        return FailRelease ? Task.FromException(new InvalidOperationException("release failed")) : Task.CompletedTask;
+        return FailRelease
+            ? Task.FromException<ContainmentReleaseResult>(new InvalidOperationException("release failed"))
+            : Task.FromResult(new ContainmentReleaseResult(ContainmentReleaseOutcome.Released));
     }
 }
 
