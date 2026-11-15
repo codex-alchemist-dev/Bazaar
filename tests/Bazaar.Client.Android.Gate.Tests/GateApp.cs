@@ -14,10 +14,11 @@ using Bazaar.Client.Core.Pairing;
 namespace Bazaar.Client.Android.Gate;
 
 /// <summary>
-/// Runs the accessible-name scan on the Android head's first screen (the pairing view, doc 32 section 3) and logs one
-/// result line for the CI step to read. The head builds that screen in App.OnFrameworkInitializationCompleted, which is
-/// private, so this app builds the same view from the same Client.Core types with an empty credential store and no
-/// network. The phone shell is not scanned here: it needs a paired endpoint, and the desktop gate already scans it.
+/// Runs the accessible-name scan on the Android head's two screens: the pairing view (doc 32 section 3) and the phone shell
+/// (doc 29) that replaces it after pairing. Both are built from the same Client.Core types as the head, with no network: the
+/// pairing view starts with an empty credential store, and the phone shell gets a fake paired endpoint (GatePhoneShell).
+/// It logs one combined result line for the CI step to read. The head builds its first screen in
+/// App.OnFrameworkInitializationCompleted, which is private, so this app rebuilds it here.
 /// </summary>
 public sealed class GateApp : Avalonia.Application
 {
@@ -43,30 +44,38 @@ public sealed class GateApp : Avalonia.Application
 
         base.OnFrameworkInitializationCompleted();
 
-        // Scan once the view is in the tree. A scan that finds no interactive control would pass vacuously, so it fails too.
-        Dispatcher.UIThread.Post(() => Report(root), DispatcherPriority.Loaded);
+        // Scan once the pairing view is in the tree. Then swap in the phone shell, as the head does after pairing, and scan it.
+        Dispatcher.UIThread.Post(() =>
+        {
+            var pairingScan = GateViewScan.Of("pairing", root);
+            root.Content = GatePhoneShell.Create();
+            Dispatcher.UIThread.Post(() => Report([pairingScan, GateViewScan.Of("phone-shell", root)]), DispatcherPriority.Loaded);
+        }, DispatcherPriority.Loaded);
     }
 
-    private static void Report(Control root)
+    private static void Report(IReadOnlyList<GateViewScan> views)
     {
-        int interactive = root.GetSelfAndLogicalDescendants().OfType<Control>()
-            .Count(c => AccessibleControlScan.InteractiveTypes.Any(t => t.IsInstanceOfType(c)));
-        IReadOnlyList<AccessibleControlProblem> problems = AccessibleControlScan.Find(root);
-
-        if (interactive == 0)
+        bool passed = true;
+        foreach (GateViewScan view in views)
         {
-            Log.Error(LogTag, "no interactive controls found on the pairing view; the scan would be vacuous");
-            Log.Error(LogTag, "RESULT=FAIL vacuous");
-            return;
+            // A view with no interactive controls would pass vacuously, so it fails here.
+            if (view.Interactive == 0)
+            {
+                Log.Error(LogTag, $"view={view.View}: no interactive controls found; the scan would be vacuous");
+                passed = false;
+                continue;
+            }
+
+            foreach (AccessibleControlProblem problem in view.Problems)
+            {
+                Log.Error(LogTag, $"view={view.View} {problem.ControlType} name={problem.Name ?? "(none)"}: {problem.Problem}");
+            }
+
+            Log.Info(LogTag, $"view={view.View} checked {view.Interactive} interactive controls, problems={view.Problems.Count}");
+            passed &= view.Passed;
         }
 
-        foreach (AccessibleControlProblem problem in problems)
-        {
-            Log.Error(LogTag, $"{problem.ControlType} name={problem.Name ?? "(none)"}: {problem.Problem}");
-        }
-
-        Log.Info(LogTag, $"checked {interactive} interactive controls");
-        Log.Info(LogTag, problems.Count == 0 ? "RESULT=PASS" : $"RESULT=FAIL problems={problems.Count}");
+        Log.Info(LogTag, passed ? "RESULT=PASS" : "RESULT=FAIL");
     }
 }
 

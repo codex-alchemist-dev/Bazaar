@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Android accessibility gate (doc 49 section 2): installs the gate app on the running emulator or device, launches it,
-# and fails unless it logs RESULT=PASS. The app runs AccessibleControlScan on the Android head's pairing view
-# (tests/Bazaar.Client.Android.Gate.Tests). Run by the build-android job in .github/workflows/ci.yml, inside
+# and fails unless it logs RESULT=PASS. The app runs AccessibleControlScan on the Android head's pairing view and
+# phone shell (tests/Bazaar.Client.Android.Gate.Tests). Run by the build-android job in .github/workflows/ci.yml, inside
 # reactivecircus/android-emulator-runner. Needs the .NET Android workload and adb on PATH.
 set -euo pipefail
 
