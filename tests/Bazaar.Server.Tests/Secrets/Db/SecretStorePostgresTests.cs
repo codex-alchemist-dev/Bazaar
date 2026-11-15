@@ -131,6 +131,59 @@ public sealed class SecretStorePostgresTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task IssuesAnOpaqueTokenOnlyForAnActiveAgent()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        var issuer = new PostgresAgentCredentialIssuer(_db.DataSource, _auditLog, TimeProvider.System);
+
+        var credential = await issuer.IssueAsync(_alpha, "gateway.call", TimeSpan.FromMinutes(10), CancellationToken.None);
+
+        Assert.False(string.IsNullOrEmpty(credential.Token));
+        Assert.DoesNotContain(credential.Token, credential.ToString(), StringComparison.Ordinal);
+        Assert.Equal(0, await ScalarIntAsync($"SELECT count(*)::int FROM audit_log WHERE payload::text LIKE '%{credential.Token}%'"));
+        Assert.Equal(1, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.credential.issued' AND payload->>'issuance' = '" + credential.IssuanceId + "'"));
+    }
+
+    [Fact]
+    public async Task RefusesQuarantinedAndRevokedAgentsAndAuditsTheRefusal()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        var issuer = new PostgresAgentCredentialIssuer(_db.DataSource, _auditLog, TimeProvider.System);
+        await _agents.TransitionAsync(_alpha, AgentState.Quarantined, null, CancellationToken.None);
+
+        await Assert.ThrowsAsync<AgentCredentialDeniedException>(() => issuer.IssueAsync(_alpha, "gateway.call", TimeSpan.FromMinutes(10), CancellationToken.None));
+        await _agents.TransitionAsync(_alpha, AgentState.Revoked, null, CancellationToken.None);
+        await Assert.ThrowsAsync<AgentCredentialDeniedException>(() => issuer.IssueAsync(_alpha, "gateway.call", TimeSpan.FromMinutes(10), CancellationToken.None));
+
+        Assert.Equal(2, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.credential.denied' AND payload->>'agent' = 'alpha'"));
+        Assert.Equal(0, await ScalarIntAsync("SELECT count(*)::int FROM secret_agent_credential"));
+    }
+
+    [Fact]
+    public async Task RevokeIsIdempotentAndAuditedOnce()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        var issuer = new PostgresAgentCredentialIssuer(_db.DataSource, _auditLog, TimeProvider.System);
+        var credential = await issuer.IssueAsync(_alpha, "gateway.call", TimeSpan.FromMinutes(10), CancellationToken.None);
+
+        await issuer.RevokeAsync(_alpha, credential.IssuanceId, CancellationToken.None);
+        await issuer.RevokeAsync(_alpha, credential.IssuanceId, CancellationToken.None);
+
+        Assert.Equal(1, await ScalarIntAsync("SELECT count(*)::int FROM audit_log WHERE kind = 'secrets.credential.revoked'"));
+        Assert.Equal(1, await ScalarIntAsync("SELECT count(*)::int FROM secret_agent_credential WHERE revoked_at IS NOT NULL"));
+    }
+
+    [Fact]
+    public async Task RejectsLifetimesOutsideOneMinuteToOneDay()
+    {
+        await _agents.RegisterAsync(_alpha, CancellationToken.None);
+        var issuer = new PostgresAgentCredentialIssuer(_db.DataSource, _auditLog, TimeProvider.System);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => issuer.IssueAsync(_alpha, "gateway.call", TimeSpan.FromSeconds(30), CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => issuer.IssueAsync(_alpha, "gateway.call", TimeSpan.FromDays(2), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ScopeKeyIsWrittenOnceUnderRacingInserts()
     {
         var record = new ScopeKeyRecord("installation", "kek-1", new byte[] { 1, 2, 3 }, DateTimeOffset.UtcNow, null);

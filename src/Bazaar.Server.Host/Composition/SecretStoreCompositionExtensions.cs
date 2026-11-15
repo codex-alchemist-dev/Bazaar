@@ -62,6 +62,8 @@ public static class SecretStoreCompositionExtensions
         services.TryAddSingleton<ISecretAuditSink>(sp => new AuditLogSecretSink(sp.GetRequiredService<IAuditLog>()));
         services.TryAddSingleton<ISecretPolicy>(sp => BuildPolicy(sp.GetRequiredService<IOptions<SecretStoreOptions>>().Value));
         services.TryAddSingleton<IKekProvider>(sp => OpenKek(sp.GetRequiredService<IOptions<SecretStoreOptions>>().Value));
+        services.TryAddSingleton<IAgentCredentialIssuer>(sp => new PostgresAgentCredentialIssuer(
+            sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ITransactionalAuditLog>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<ISecretStore>(sp => new SecretStore(
             sp.GetRequiredService<IKekProvider>(),
             sp.GetRequiredService<ISecretRecordRepository>(),
