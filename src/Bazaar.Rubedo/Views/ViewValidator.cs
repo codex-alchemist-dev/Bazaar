@@ -84,8 +84,17 @@ public static class ViewValidator
         return new RubedoSchema(identifiers);
     }
 
+    /// <summary>The structural child of <c>tabs</c>. It is not a widget, so the closed set stays at 13 (doc 41c, section 3).</summary>
+    private static readonly string _tabNode = "tab";
+
     private static void Walk(ViewNode node, string path, ViewDocument document, RubedoSchema scope, List<RubedoDiagnostic> problems)
     {
+        if (node.Widget == _tabNode)
+        {
+            problems.Add(new RubedoDiagnostic("view.tab_placement", $"{path}: a tab is only valid as a child of tabs."));
+            return;
+        }
+
         if (!ViewWidgets.TryParse(node.Widget, out var widget))
         {
             problems.Add(new RubedoDiagnostic("view.unknown_widget", $"{path}: widget '{node.Widget}' is not in the v1 set."));
@@ -118,6 +127,12 @@ public static class ViewValidator
             problems.Add(new RubedoDiagnostic("view.unexpected_children", $"{path}: {node.Widget} takes no children."));
         }
 
+        if (widget == ViewWidget.Tabs)
+        {
+            CheckTabs(node, path, document, scope, problems);
+            return;
+        }
+
         var childScope = scope;
         if (widget == ViewWidget.List)
         {
@@ -132,6 +147,44 @@ public static class ViewValidator
         for (var i = 0; i < node.Children.Count; i++)
         {
             Walk(node.Children[i], $"{path}/{i}", document, childScope, problems);
+        }
+    }
+
+    /// <summary>
+    /// Checks a tab set: at least one child, every child a <c>tab</c>. Each tab has a non-empty <c>title</c> and exactly
+    /// one page child, which is walked like any other node.
+    /// </summary>
+    private static void CheckTabs(ViewNode node, string path, ViewDocument document, RubedoSchema scope, List<RubedoDiagnostic> problems)
+    {
+        if (node.Children.Count == 0)
+        {
+            problems.Add(new RubedoDiagnostic("view.tabs_empty", $"{path}: tabs needs at least one tab."));
+        }
+
+        for (var i = 0; i < node.Children.Count; i++)
+        {
+            var tab = node.Children[i];
+            var tabPath = $"{path}/{i}";
+            if (tab.Widget != _tabNode)
+            {
+                problems.Add(new RubedoDiagnostic("view.tab_child", $"{tabPath}: a child of tabs must be a tab, not '{tab.Widget}'."));
+                continue;
+            }
+
+            if (!(tab.Props.TryGetValue("title", out var title) && title is string text && text.Length > 0))
+            {
+                problems.Add(new RubedoDiagnostic("view.tab_title", $"{tabPath}: a tab needs a title (a localisation key or literal)."));
+            }
+
+            if (tab.Children.Count != 1)
+            {
+                problems.Add(new RubedoDiagnostic("view.tab_page", $"{tabPath}: a tab takes exactly one page child."));
+            }
+
+            for (var j = 0; j < tab.Children.Count; j++)
+            {
+                Walk(tab.Children[j], $"{tabPath}/{j}", document, scope, problems);
+            }
         }
     }
 

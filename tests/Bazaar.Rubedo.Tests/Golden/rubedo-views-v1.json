@@ -115,13 +115,21 @@
               "widget": "tabs",
               "children": [
                 {
-                  "widget": "grid",
+                  "widget": "tab",
                   "props": {
-                    "columns": 2
+                    "title": "Grid"
                   },
                   "children": [
                     {
-                      "widget": "divider"
+                      "widget": "grid",
+                      "props": {
+                        "columns": 2
+                      },
+                      "children": [
+                        {
+                          "widget": "divider"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -1188,6 +1196,364 @@
       },
       "expect": {
         "readError": true
+      }
+    },
+    {
+      "name": "tabs_with_two_tabs",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            },
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Settings"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "tabs_without_tabs_is_empty",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tabs_empty"
+        ]
+      }
+    },
+    {
+      "name": "tabs_child_is_not_a_tab",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "Page"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_child"
+        ]
+      }
+    },
+    {
+      "name": "tab_missing_title",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {},
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_title"
+        ]
+      }
+    },
+    {
+      "name": "tab_empty_title",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": ""
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_title"
+        ]
+      }
+    },
+    {
+      "name": "tab_without_page",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": []
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_page"
+        ]
+      }
+    },
+    {
+      "name": "tab_with_two_pages",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                },
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_page"
+        ]
+      }
+    },
+    {
+      "name": "tab_as_root",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tab",
+          "props": {
+            "title": "Feed"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "Page"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_placement"
+        ]
+      }
+    },
+    {
+      "name": "tab_inside_stack",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "stack",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_placement"
+        ]
+      }
+    },
+    {
+      "name": "tab_nested_inside_tab_page",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "tab",
+                  "props": {
+                    "title": "Inner"
+                  },
+                  "children": [
+                    {
+                      "widget": "text",
+                      "props": {
+                        "label": "Page"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_placement"
+        ]
+      }
+    },
+    {
+      "name": "tab_page_unknown_widget_is_still_walked",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "carousel"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.unknown_widget"
+        ]
+      }
+    },
+    {
+      "name": "tab_title_is_not_a_widget_prop_on_tabs",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "props": {
+            "title": "x"
+          },
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
       }
     }
   ]
