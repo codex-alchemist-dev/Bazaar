@@ -24,10 +24,21 @@ public sealed class SecretStoreTests : IDisposable
     public SecretStoreTests()
     {
         _agents = new InMemoryAgentRegistry(_time);
-        _store = new SecretStore(_kek, _records, _agents, _audit, _time);
+        _store = new SecretStore(_kek, _records, _agents, GatewayPolicy(), _audit, _time);
     }
 
     public void Dispose() => _kek.Dispose();
+
+    // Grants the gateway every purpose these tests use, on the installation and both test agents.
+    private static StaticSecretPolicy GatewayPolicy() => new(
+    [
+        new SecretGrant("gateway", SecretScope.Installation.Key, null, SecretPurposes.Manage),
+        new SecretGrant("gateway", SecretScope.Installation.Key, null, _callPurpose),
+        new SecretGrant("gateway", SecretScope.ForAgent(_alpha).Key, null, SecretPurposes.Manage),
+        new SecretGrant("gateway", SecretScope.ForAgent(_alpha).Key, null, _callPurpose),
+        new SecretGrant("gateway", SecretScope.ForAgent(_beta).Key, null, SecretPurposes.Manage),
+        new SecretGrant("gateway", SecretScope.ForAgent(_beta).Key, null, _callPurpose),
+    ]);
 
     [Fact]
     public async Task HostRoundTripReturnsTheStoredValue()
@@ -317,7 +328,11 @@ public sealed class RevokedAgentTests
         var agents = new InMemoryAgentRegistry(time);
         var audit = new InMemorySecretAuditSink();
         using var kek = new SoftwareKekProvider("kek-1", System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-        var store = new SecretStore(kek, records, agents, audit, time);
+        var store = new SecretStore(kek, records, agents, new StaticSecretPolicy(
+            [
+                new SecretGrant("gateway", "agent:alpha", null, SecretPurposes.Manage),
+                new SecretGrant("gateway", "agent:alpha", null, new SecretPurpose("gateway.call")),
+            ]), audit, time);
         var alpha = new AgentId("alpha");
         var scope = SecretScope.ForAgent(alpha);
         var gateway = new HostCaller("gateway");
