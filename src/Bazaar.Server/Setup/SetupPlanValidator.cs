@@ -193,7 +193,10 @@ public static partial class SetupPlanValidator
         {
             if (!backups.AcknowledgeNoTarget)
             {
-                issues.Add(Error("backups.target", "is required unless backups.acknowledgeNoTarget is true."));
+                issues.Add(new SetupValidationIssue(
+                    SetupConstants.MissingBackupTargetSeverity,
+                    "backups.target",
+                    "is required unless backups.acknowledgeNoTarget is true."));
             }
         }
         else if (IsBlank(backups.Target))

@@ -247,7 +247,9 @@ public sealed class SetupPlanLoaderTests
             "\"target\": \"file:/mnt/backup/bazaar\", \"drillIntervalDays\": 30, \"acknowledgeNoTarget\": false",
             "\"target\": null, \"drillIntervalDays\": 30, \"acknowledgeNoTarget\": true"));
 
-        Assert.True(HasError(missing, "backups.target"));
+        Assert.Contains(missing.Issues, issue =>
+            issue.Path == "backups.target" && issue.Severity == SetupConstants.MissingBackupTargetSeverity);
+        Assert.Equal(SetupExitCode.Held, SetupExitCodes.ForIssues(missing.Issues));
         Assert.Empty(acknowledged.Issues);
     }
 
