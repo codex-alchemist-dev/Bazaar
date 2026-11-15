@@ -20,7 +20,7 @@ public class GcPaneTests
     [Fact]
     public void Gc_pane_is_registered_once_in_first_party_registry()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
 
         Assert.True(registry.Contains(GcPaneViewModel.PaneKind));
         Assert.Single(registry.Kinds, kind => kind == GcPaneViewModel.PaneKind);
@@ -30,7 +30,7 @@ public class GcPaneTests
     [Fact]
     public void Gc_pane_without_a_chat_has_no_session_and_uses_the_descriptor_title()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
 
         var pane = Assert.IsType<GcPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind)));
 
@@ -50,7 +50,7 @@ public class GcPaneTests
     [AvaloniaFact]
     public void Gc_pane_is_listed_in_the_phone_pager_from_the_registry()
     {
-        var shell = new PhoneShell(FirstPartyPanes.CreateRegistry());
+        var shell = new PhoneShell(TestPanes.CreateRegistry());
 
         Assert.Contains(shell.Pages, page => page.Contains(GcPaneViewModel.PaneKind));
     }
@@ -58,8 +58,8 @@ public class GcPaneTests
     [AvaloniaFact]
     public void Gc_pane_builds_with_its_empty_state_and_with_a_chat()
     {
-        var empty = FirstPartyPanes.CreateRegistry().Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
-        var emptyWindow = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(empty), Width = 400, Height = 600 };
+        var empty = TestPanes.CreateRegistry().Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
+        var emptyWindow = new Window { Content = TestPanes.CreateRegistry().CreateView(empty), Width = 400, Height = 600 };
         emptyWindow.Show();
 
         Assert.Contains("No group chat is connected.", emptyWindow.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text));
@@ -72,8 +72,8 @@ public class GcPaneTests
             new WireClientOptions { DeviceId = "android-test", DeviceClass = "android", ClientBuild = "test" }, new FakeClock());
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://h/ws"), "t", _gc, "me"), timeline);
         var chat = new ChatViewModel(session);
-        var withChat = FirstPartyPanes.CreateRegistry(chat: chat).Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
-        var chatWindow = new Window { Content = FirstPartyPanes.CreateRegistry().CreateView(withChat), Width = 400, Height = 600 };
+        var withChat = TestPanes.CreateRegistry(chat: chat).Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
+        var chatWindow = new Window { Content = TestPanes.CreateRegistry().CreateView(withChat), Width = 400, Height = 600 };
         chatWindow.Show();
 
         Assert.Equal(1, chatWindow.GetVisualDescendants().OfType<ListBox>().Single().ItemCount);

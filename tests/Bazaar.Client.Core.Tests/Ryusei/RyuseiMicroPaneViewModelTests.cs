@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Ryusei;
+using Bazaar.Client.RyuseiFuda.Orrery;
 
 namespace Bazaar.Client.Core.Tests.Ryusei;
 
