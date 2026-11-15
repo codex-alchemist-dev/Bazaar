@@ -141,7 +141,13 @@ public static class ViewValidator
             return false;
         }
 
-        foreach (var segment in name.Split('.'))
+        var segments = name.Split('.');
+        if (segments.Length < 2)
+        {
+            return false;
+        }
+
+        foreach (var segment in segments)
         {
             if (segment.Length == 0 || !segment.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c)))
             {
