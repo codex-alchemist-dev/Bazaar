@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Bazaar.Client.Core.Modules;
+namespace Bazaar.Contracts.Modules;
 
 /// <summary>How a module is loaded (doc 41 section 10, decision 2, owner 2026-11-12: out-of-process for non-shipped modules).</summary>
 public enum ModuleIsolation

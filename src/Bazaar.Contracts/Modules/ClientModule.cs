@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Modules;
+namespace Bazaar.Contracts.Modules;
 
 /// <summary>
 /// Registration surface a module writes to. The head creates one per module, after the manifest validates, and

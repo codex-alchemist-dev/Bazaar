@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Modules;
+using Bazaar.Contracts.Modules;
 
-namespace Bazaar.Client.Core.Tests.Modules;
+namespace Bazaar.Contracts.Tests.Modules;
 
 public class ModuleManifestTests
 {
