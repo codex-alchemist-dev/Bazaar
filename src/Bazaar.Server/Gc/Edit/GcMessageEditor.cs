@@ -18,19 +18,65 @@ public sealed class GcMessageEditor(
     ISettingStore settings,
     TimeProvider? timeProvider = null) : IGcMessageEditor
 {
+    /// <summary>
+    /// A single edit: plans it and appends its rows in one transaction. Used by the manual edit handler.
+    /// </summary>
     public async Task<GcMessageEditOutcome> EditAsync(GcMessageEdit request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var plan = await PlanAsync([request], ct).ConfigureAwait(false);
+        if (plan is GcMessageEditPlanRefused refused)
+            return refused.Outcome;
 
+        var rows = ((GcMessageEditPlanned)plan).Rows;
+        try
+        {
+            var results = await writer.AppendManyAsync(rows, ct).ConfigureAwait(false);
+            return new GcMessageEditAccepted(((GcMessageEditPlanned)plan).Versions[0], results[0].Seq);
+        }
+        catch (GcNotFoundException)
+        {
+            return new GcMessageEditNotFound();
+        }
+        catch (GcArchivedException)
+        {
+            return new GcMessageEditRefused("The GC is archived.");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<GcMessageEditPlanResult> PlanAsync(IReadOnlyList<GcMessageEdit> edits, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(edits);
+        var seen = new HashSet<Guid>();
+        var rows = new List<AppendRequest>();
+        var versions = new List<int>();
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var edit = edits[i];
+            if (!seen.Add(edit.MessageId))
+                return new GcMessageEditPlanRefused(i, new GcMessageEditRefused("Two edits of one message in a batch."));
+
+            var planned = await PlanOneAsync(edit, ct).ConfigureAwait(false);
+            if (planned.Refusal is { } refusal)
+                return new GcMessageEditPlanRefused(i, refusal);
+            rows.AddRange(planned.Rows);
+            versions.Add(planned.Version);
+        }
+        return new GcMessageEditPlanned(rows, versions);
+    }
+
+    private async Task<(GcMessageEditOutcome? Refusal, IReadOnlyList<AppendRequest> Rows, int Version)> PlanOneAsync(GcMessageEdit request, CancellationToken ct)
+    {
         var snapshot = await source.LoadAsync(request.GcId, request.MessageId, ct).ConfigureAwait(false);
         if (snapshot is null)
-            return new GcMessageEditNotFound();
+            return (new GcMessageEditNotFound(), [], 0);
 
         // The current text is needed for the unchanged-body check. A version whose key was shredded cannot be opened, so the
         // message can no longer be edited (the author's key is gone; a new key would not decrypt the old text).
         var currentBody = await bodies.OpenAsync(snapshot.BodyCiphertext, snapshot.KeyId, snapshot.Nonce, ct).ConfigureAwait(false);
         if (currentBody is null)
-            return new GcMessageEditUnopenable();
+            return (new GcMessageEditUnopenable(), [], 0);
 
         var editWindowHours = await settings.GetAsync(GcSettings.EditWindowHoursKey, cancellationToken: ct).ConfigureAwait(false);
         var editWindow = editWindowHours == 0 ? (TimeSpan?)null : TimeSpan.FromHours(editWindowHours);
@@ -53,11 +99,11 @@ public sealed class GcMessageEditor(
             messageWasActedOn: false);
 
         if (plan is MessageEditRefused refused)
-            return new GcMessageEditRefused(RefusalText(refused.Reason));
+            return (new GcMessageEditRefused(RefusalText(refused.Reason)), [], 0);
 
         var accepted = ((MessageEditAccepted)plan).Plan;
         var sealedBody = await bodies.SealAsync(request.EditorId, request.Text, ct).ConfigureAwait(false);
-        var appends = new List<AppendRequest>
+        var rows = new List<AppendRequest>
         {
             new(
                 request.GcId,
@@ -76,7 +122,7 @@ public sealed class GcMessageEditor(
         if (accepted.SystemNote is { } note)
         {
             // The note is written in the same transaction and keyed off the edit's request id, so a retry does not add it twice.
-            appends.Add(new AppendRequest(
+            rows.Add(new AppendRequest(
                 request.GcId,
                 GcEventKinds.System,
                 AuthorKind.System,
@@ -88,20 +134,7 @@ public sealed class GcMessageEditor(
                 PayloadJson = note.PayloadJson,
             });
         }
-
-        try
-        {
-            var results = await writer.AppendManyAsync(appends, ct).ConfigureAwait(false);
-            return new GcMessageEditAccepted(accepted.NewVersion.Version, results[0].Seq);
-        }
-        catch (GcNotFoundException)
-        {
-            return new GcMessageEditNotFound();
-        }
-        catch (GcArchivedException)
-        {
-            return new GcMessageEditRefused("The GC is archived.");
-        }
+        return (null, rows, accepted.NewVersion.Version);
     }
 
     private static AuthorKind AuthorKindOf(PrincipalKind kind) => kind switch
