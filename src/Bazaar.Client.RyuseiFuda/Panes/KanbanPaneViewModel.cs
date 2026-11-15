@@ -1,11 +1,12 @@
 using System.Globalization;
 using System.Text.Json;
-using Bazaar.Client.Core.Kanban;
-using Bazaar.Client.Core.Ryusei;
+using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Orrery;
+using Bazaar.Client.RyuseiFuda.Workday;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>One card on the board. <see cref="IsBlocked"/> is the derived Blocked marking, not a column.</summary>
 public sealed record KanbanCard(Guid Id, string Title, bool IsBlocked);

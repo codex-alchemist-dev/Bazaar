@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Ryusei;
+namespace Bazaar.Client.RyuseiFuda.Orrery;
 
 /// <summary>
 /// The pause and resume actions of the micro schedule pane (doc 38, layer 2). A head supplies the implementation through

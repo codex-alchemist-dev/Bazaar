@@ -1,7 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
-namespace Bazaar.Client.Core.Kanban;
+namespace Bazaar.Client.RyuseiFuda.Workday;
 
 /// <summary>
 /// Renders a <see cref="KanbanBoardViewModel"/>: five column headers, the cards, and the last refusal.

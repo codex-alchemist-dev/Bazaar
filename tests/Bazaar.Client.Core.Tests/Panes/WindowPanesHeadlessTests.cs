@@ -32,7 +32,7 @@ public class WindowPanesHeadlessTests
     public void Panes_flag_shows_the_kanban_and_constellation_panes_in_order()
     {
         var window = new MainWindow();
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
 
         window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
         window.Show();
@@ -51,7 +51,7 @@ public class WindowPanesHeadlessTests
     {
         var window = new MainWindow();
 
-        window.ShowPanes(FirstPartyPanes.WindowPanes(), FirstPartyPanes.CreateRegistry());
+        window.ShowPanes(FirstPartyPanes.WindowPanes(), TestPanes.CreateRegistry());
         window.Show();
 
         Assert.Single(window.GetLogicalDescendants().OfType<ConstellationPaneView>());

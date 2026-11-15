@@ -1,7 +1,7 @@
 using System.Globalization;
 using Bazaar.Contracts.Ryusei;
 
-namespace Bazaar.Client.Core.Ryusei;
+namespace Bazaar.Client.RyuseiFuda.Orrery;
 
 /// <summary>
 /// One micro trigger as a task card shows it (doc 38, layer 1: micro links on a card). The shape mirrors the server's

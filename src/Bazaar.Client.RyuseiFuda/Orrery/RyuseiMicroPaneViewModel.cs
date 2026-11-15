@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Bazaar.Client.Core.Ryusei;
+namespace Bazaar.Client.RyuseiFuda.Orrery;
 
 /// <summary>
 /// One micro-schedule trigger as the server sent it (doc 38, layer 2). Kinds and states use the wire spelling:

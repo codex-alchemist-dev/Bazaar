@@ -1,6 +1,7 @@
 using System.Globalization;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Ryusei;
+using Bazaar.Client.RyuseiFuda.Orrery;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 using Bazaar.Contracts.Ryusei;
 

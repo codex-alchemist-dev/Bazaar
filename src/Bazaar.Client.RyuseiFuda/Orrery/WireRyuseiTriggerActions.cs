@@ -2,7 +2,7 @@ using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Ryusei;
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Ryusei;
+namespace Bazaar.Client.RyuseiFuda.Orrery;
 
 /// <summary>
 /// Pause and resume over the wire (doc 38, Layer 2): sends <c>ryusei.trigger.pause</c> or <c>ryusei.trigger.resume</c> for

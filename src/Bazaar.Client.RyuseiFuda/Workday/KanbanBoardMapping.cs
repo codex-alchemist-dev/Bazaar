@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Kanban;
 
-namespace Bazaar.Client.Core.Kanban;
+namespace Bazaar.Client.RyuseiFuda.Workday;
 
 /// <summary>
 /// Maps the server's board snapshot (doc 12, board view) into the client board. The ids arrive as Guids, so the

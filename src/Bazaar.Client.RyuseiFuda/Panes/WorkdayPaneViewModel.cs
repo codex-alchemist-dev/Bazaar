@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>
 /// The RyuseiFuda Workday pane (pane kind <see cref="PaneKinds.Workday"/>, doc 38 layer 1): the team schedule from the

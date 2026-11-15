@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Kanban;
+namespace Bazaar.Client.RyuseiFuda.Workday;
 
 /// <summary>
 /// The five stored Kanban states. Blocked is a derived badge, never a state.

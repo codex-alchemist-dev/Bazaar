@@ -1,7 +1,8 @@
-using Bazaar.Client.Core.Ryusei;
+using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>
 /// Registers the RyuseiFuda schedule pane (<see cref="PaneKinds.RyuseiSchedule"/>). The pause and resume actions come
@@ -15,6 +16,6 @@ public sealed class RyuseiSchedulePaneModule : IPaneModule
     {
         var actions = context.Get<IRyuseiTriggerActions>();
         registry.Register(PaneKinds.RyuseiSchedule, descriptor => new RyuseiSchedulePaneViewModel(descriptor, actions));
-        registry.RegisterView<RyuseiSchedulePaneViewModel>(PaneViews.RyuseiSchedule);
+        registry.RegisterView<RyuseiSchedulePaneViewModel>(RyuseiFudaPaneViews.RyuseiSchedule);
     }
 }

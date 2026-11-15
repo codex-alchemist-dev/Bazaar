@@ -1,6 +1,7 @@
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>Registers the RyuseiFuda Workday pane (<see cref="PaneKinds.Workday"/>).</summary>
 public sealed class WorkdayPaneModule : IPaneModule
@@ -10,6 +11,6 @@ public sealed class WorkdayPaneModule : IPaneModule
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
         registry.Register(PaneKinds.Workday, descriptor => new WorkdayPaneViewModel(descriptor));
-        registry.RegisterView<WorkdayPaneViewModel>(PaneViews.Workday);
+        registry.RegisterView<WorkdayPaneViewModel>(RyuseiFudaPaneViews.Workday);
     }
 }
