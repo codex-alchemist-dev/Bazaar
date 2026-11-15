@@ -24,6 +24,10 @@ on:
         description: 'pgvector version whose tag archive is hashed (#487)'
         required: true
         default: '0.8.7'
+      pg19_binaries_url:
+        description: 'EDB PostgreSQL 19 Windows binaries zip to hash on both runners (#491 step 2). Empty skips the job.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -282,3 +286,38 @@ jobs:
           echo "pgvector $VERSION: Linux=$L Windows=$W" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$L" = "$W" ] || { echo "hashes differ; do not pin" >&2; exit 1; }
           echo "Both runners agree. Check the tag commit against upstream before pinning PGVECTOR_SHA256 in packaging/postgres/versions.txt." | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # PostgreSQL 19 Windows binaries hash (#491 step 2). Fetches the EDB zip on Linux and Windows and prints the
+  # SHA-256 from each, so the pin only goes in when both runners agree. Owner checks the URL and digest upstream.
+  pg19-binaries-sha256:
+    name: PostgreSQL 19 Windows binaries hash (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' && inputs.pg19_binaries_url != ''
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Fetch the zip and hash it (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          URL: ${{ inputs.pg19_binaries_url }}
+        run: |
+          set -uo pipefail
+          curl -sSLf -o pg19.zip "$URL" || { echo "fetch failed for $URL" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+          echo "os=Linux sha256=$(sha256sum pg19.zip | cut -d' ' -f1) bytes=$(stat -c %s pg19.zip)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Fetch the zip and hash it (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          URL: ${{ inputs.pg19_binaries_url }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try { Invoke-WebRequest -Uri $env:URL -OutFile pg19.zip -UseBasicParsing } catch { "fetch failed for $env:URL : $_" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append; throw }
+          $h = (Get-FileHash pg19.zip -Algorithm SHA256).Hash
+          "os=Windows sha256=$h bytes=$((Get-Item pg19.zip).Length)" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
