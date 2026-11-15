@@ -33,9 +33,9 @@ function Get-BazaarSignerConfig {
         }
     }
 
-    if ($env:BAZAAR_SIGNER)               { $config.signer = $env:BAZAAR_SIGNER }
-    if ($env:BAZAAR_SIGN_PFX_PATH)        { $config.pfxPath = $env:BAZAAR_SIGN_PFX_PATH }
-    if ($env:BAZAAR_SIGN_TIMESTAMP_URL)   { $config.timestampUrl = $env:BAZAAR_SIGN_TIMESTAMP_URL }
+    if ($env:BAZAAR_SIGNER)             { $config.signer = $env:BAZAAR_SIGNER }
+    if ($env:BAZAAR_SIGN_PFX_PATH)      { $config.pfxPath = $env:BAZAAR_SIGN_PFX_PATH }
+    if ($env:BAZAAR_SIGN_TIMESTAMP_URL) { $config.timestampUrl = $env:BAZAAR_SIGN_TIMESTAMP_URL }
 
     if ($config.signer -notin 'none', 'pfx') {
         throw "Unknown signer '$($config.signer)'. Use 'none' or 'pfx'."
@@ -67,11 +67,11 @@ function Invoke-BazaarSigner {
                 Select-Object -First 1
             if (-not $signtool) { throw 'signtool.exe not found. Install the Windows 10/11 SDK.' }
 
-            $args = @('sign', '/fd', 'SHA256', '/f', $Config.pfxPath, '/p', $env:BAZAAR_SIGN_PFX_PASSWORD)
-            if ($Config.timestampUrl) { $args += @('/tr', $Config.timestampUrl, '/td', 'SHA256') }
-            $args += $Package
+            $signArgs = @('sign', '/fd', 'SHA256', '/f', $Config.pfxPath, '/p', $env:BAZAAR_SIGN_PFX_PASSWORD)
+            if ($Config.timestampUrl) { $signArgs += @('/tr', $Config.timestampUrl, '/td', 'SHA256') }
+            $signArgs += $Package
 
-            & $signtool.FullName @args
+            & $signtool.FullName @signArgs
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed ($LASTEXITCODE)." }
             Write-Host "Signed $Package with the company certificate."
             return $true
