@@ -10,6 +10,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Souls;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.RyuseiFuda.Workday;
 using Bazaar.Contracts.Engines;
 using Bazaar.Contracts.Soul;
 using Bazaar.Contracts.Wire.Codec;
@@ -97,6 +98,20 @@ public class ShownViewsAccessibilityTests
         using var http = new HttpClient();
         var descriptor = new Bazaar.Contracts.Panes.PaneDescriptor("vault.search", "Vault", "vault.read", JsonElement.Parse($$"""{"vault":"{{_vault}}"}"""));
         var window = new Window { Content = new VaultSearchView(new VaultSearchPaneViewModel(descriptor, new VaultApi(http, () => null))) };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void Kanban_board_view_has_named_controls()
+    {
+        // KanbanBoardView builds from a plain view model: no services, sockets or files are involved.
+        var card = new KanbanCard(Guid.Parse("0196a6f0-0000-7000-8000-000000000004"), "Sample task", KanbanStates.Ready,
+            null, [], []);
+        var board = new KanbanBoardViewModel([card]);
+        board.Refuse(card.Id, "Sample refusal");
+        var window = new Window { Content = new KanbanBoardView { DataContext = board } };
         window.Show();
 
         Assert.Empty(AccessibleControlScan.Find(window));
