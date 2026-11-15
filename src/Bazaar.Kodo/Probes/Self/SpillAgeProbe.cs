@@ -1,10 +1,9 @@
 namespace Bazaar.Kodo.Probes.Self;
 
 /// <summary>
-/// <c>kodo.self.spill</c> (doc 46 sections 7.5 and 9.1), non-critical. No spill file is green, and so is a spill that has
-/// been replayed and sealed. An unsealed spill is amber once its oldest unreplayed record is older than the warning age.
-/// The age is measured from that oldest record, not from the file's last write, so a long outage stays visible while
-/// the spill still grows. The default warning age is PROPOSED.
+/// <c>kodo.self.spill</c> (doc 46 sections 7.5 and 9.1), non-critical. The reading is the age of the oldest unsent spill
+/// record. No spill file is green. A sealed spill is red, and so is an unreadable one: a spill that cannot be read is never
+/// reported green. An unsent record older than the warning age is amber. The default warning age is PROPOSED.
 /// </summary>
 public sealed class SpillAgeProbe
 {
@@ -30,7 +29,7 @@ public sealed class SpillAgeProbe
 
     public TimeSpan WarnAge { get; }
 
-    /// <summary>Reads the spill state and returns the observation. Read failures are unknown, never green.</summary>
+    /// <summary>Reads the spill state and returns the observation. An unreadable spill is red, never green.</summary>
     public async Task<ProbeResult> RunAsync(CancellationToken cancellationToken)
     {
         SpillFileReading? reading;
@@ -40,7 +39,7 @@ public sealed class SpillAgeProbe
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            return ProbeResult.Unknown(ProbeCauses.Unreadable);
+            return ProbeResult.Red(ProbeCauses.Unreadable);
         }
 
         return Evaluate(reading, _timeProvider.GetUtcNow(), WarnAge);
@@ -49,12 +48,17 @@ public sealed class SpillAgeProbe
     /// <summary>The pure rule. A future timestamp is unknown, because the clock or the file cannot be trusted.</summary>
     public static ProbeResult Evaluate(SpillFileReading? reading, DateTimeOffset now, TimeSpan warnAge)
     {
-        if (reading is not { } spill || spill.Sealed)
+        if (reading is not { } spill)
         {
             return ProbeResult.Green();
         }
 
-        TimeSpan age = now - spill.OldestUnreplayedUtc;
+        if (spill.Sealed)
+        {
+            return ProbeResult.Red(ProbeCauses.SpillSealed);
+        }
+
+        TimeSpan age = now - spill.OldestUnsentUtc;
         if (age < TimeSpan.Zero)
         {
             return ProbeResult.Unknown(ProbeCauses.SpillTimestampFuture);

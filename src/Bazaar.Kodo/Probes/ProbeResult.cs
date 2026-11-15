@@ -48,10 +48,13 @@ public static class ProbeCauses
     /// <summary>A test write to the journal directory was refused (section 9.1, <c>kodo.self.journal_writable</c>).</summary>
     public const string JournalNotWritable = "journal_not_writable";
 
-    /// <summary>The oldest unreplayed spill record is older than the warning age (section 7.5, <c>kodo.self.spill</c>).</summary>
+    /// <summary>The oldest unsent spill record is older than the warning age (section 7.5, <c>kodo.self.spill</c>).</summary>
     public const string SpillAge = "spill_age";
 
-    /// <summary>The oldest unreplayed spill record is stamped in the future, so the clock or the file is wrong.</summary>
+    /// <summary>The spill is sealed while records still wait in it. Red, never green (doc 46 section 7.5).</summary>
+    public const string SpillSealed = "spill_sealed";
+
+    /// <summary>The oldest unsent spill record is stamped in the future, so the clock or the file is wrong.</summary>
     public const string SpillTimestampFuture = "spill_timestamp_future";
 }
 

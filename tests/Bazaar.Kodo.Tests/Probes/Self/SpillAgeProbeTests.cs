@@ -20,21 +20,11 @@ public sealed class SpillAgeProbeTests
         Assert.Equal(ProbeStatus.Green, result.Status);
     }
 
-    [Fact]
-    public void ASealedSpillIsGreenHoweverOld()
-    {
-        var sealedSpill = new SpillFileReading(_now.AddDays(-30), Sealed: true);
-
-        ProbeResult result = SpillAgeProbe.Evaluate(sealedSpill, _now, _warnAge);
-
-        Assert.Equal(ProbeStatus.Green, result.Status);
-    }
-
     [Theory]
     [InlineData(59, ProbeStatus.Green, null)]
     [InlineData(60, ProbeStatus.Amber, ProbeCauses.SpillAge)]
     [InlineData(600, ProbeStatus.Amber, ProbeCauses.SpillAge)]
-    public void UnsealedAgeMapsToStatusAtTheWarningEdge(int ageMinutes, ProbeStatus status, string? cause)
+    public void UnsentAgeMapsToStatusAtTheWarningEdge(int ageMinutes, ProbeStatus status, string? cause)
     {
         var spill = new SpillFileReading(_now.AddMinutes(-ageMinutes), Sealed: false);
 
@@ -42,6 +32,17 @@ public sealed class SpillAgeProbeTests
 
         Assert.Equal(status, result.Status);
         Assert.Equal(cause, result.Cause);
+    }
+
+    [Fact]
+    public void SealedSpillIsRedHoweverNew()
+    {
+        var sealedSpill = new SpillFileReading(_now, Sealed: true);
+
+        ProbeResult result = SpillAgeProbe.Evaluate(sealedSpill, _now, _warnAge);
+
+        Assert.Equal(ProbeStatus.Red, result.Status);
+        Assert.Equal(ProbeCauses.SpillSealed, result.Cause);
     }
 
     [Fact]
@@ -56,7 +57,7 @@ public sealed class SpillAgeProbeTests
     }
 
     [Fact]
-    public async Task RunAsyncAgesTheSpillWithTheInjectedClock()
+    public async Task RunAsyncAgesTheOldestUnsentRecordWithTheInjectedClock()
     {
         var time = new FakeTimeProvider(_now);
         var readings = new FakeKodoSelfReadings
@@ -75,7 +76,7 @@ public sealed class SpillAgeProbeTests
     }
 
     [Fact]
-    public async Task ReadFailureIsUnknownNeverGreen()
+    public async Task UnreadableSpillIsRedNeverGreen()
     {
         var readings = new FakeKodoSelfReadings
         {
@@ -84,7 +85,7 @@ public sealed class SpillAgeProbeTests
 
         ProbeResult result = await new SpillAgeProbe(readings, timeProvider: new FakeTimeProvider(_now)).RunAsync(Ct);
 
-        Assert.Equal(ProbeStatus.Unknown, result.Status);
+        Assert.Equal(ProbeStatus.Red, result.Status);
         Assert.Equal(ProbeCauses.Unreadable, result.Cause);
     }
 

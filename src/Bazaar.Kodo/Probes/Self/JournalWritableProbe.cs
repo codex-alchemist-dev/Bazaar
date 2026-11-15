@@ -1,8 +1,8 @@
 namespace Bazaar.Kodo.Probes.Self;
 
 /// <summary>
-/// <c>kodo.self.journal_writable</c>. A refused test write to the journal is red, because Kodo cannot record its own
-/// history. This id is not in the section 9.1 catalogue, so it needs a catalogue change before the probe is scheduled.
+/// <c>kodo.self.journal_writable</c> (doc 46 section 9.1, added in package 5 as PROPOSED). Critical, 30 s cadence, local
+/// pool. A refused append or fsync is red, because Kodo cannot record its own history. A check that cannot run is unknown.
 /// </summary>
 public sealed class JournalWritableProbe
 {
