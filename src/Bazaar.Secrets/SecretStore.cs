@@ -12,6 +12,7 @@ public sealed class SecretStore(
     IKekProvider kek,
     ISecretRecordRepository records,
     IAgentRegistry agents,
+    ISecretPolicy policy,
     ISecretAuditSink audit,
     TimeProvider time) : ISecretStore
 {
@@ -126,6 +127,15 @@ public sealed class SecretStore(
             else if (requireActive && registered.State != AgentState.Active)
             {
                 denial = $"agent is {registered.State}";
+            }
+        }
+
+        if (denial is null && caller is HostCaller policed)
+        {
+            var effective = purpose ?? SecretPurposes.Manage;
+            if (!await policy.AllowsAsync(policed.Component, scope, name, effective, ct))
+            {
+                denial = $"purpose '{effective.Value}' is not granted to '{policed.Component}' in this scope";
             }
         }
 
