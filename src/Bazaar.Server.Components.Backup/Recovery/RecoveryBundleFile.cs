@@ -138,6 +138,13 @@ public static class RecoveryBundleFile
                 stream.Flush(flushToDisk: true);
             }
 
+            // A directory at the target is refused here so every OS reports the same exception type.
+            // Windows throws UnauthorizedAccessException from File.Move, POSIX throws IOException.
+            if (Directory.Exists(target))
+            {
+                throw new IOException("Recovery bundle target is a directory.");
+            }
+
             // overwrite:false makes the move fail if the target appeared after the existence check.
             File.Move(temp, target, overwrite);
             FsyncDirectory(directory);
