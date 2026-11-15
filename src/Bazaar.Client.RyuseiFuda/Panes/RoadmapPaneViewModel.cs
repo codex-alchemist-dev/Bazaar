@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>
 /// The objective roadmap pane (pane kind <see cref="PaneKinds.Roadmap"/>, doc 38 layer 3). The server derives the roadmap

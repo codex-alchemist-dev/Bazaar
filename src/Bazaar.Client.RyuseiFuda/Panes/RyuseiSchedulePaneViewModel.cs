@@ -1,9 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
-using Bazaar.Client.Core.Ryusei;
+using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>
 /// The RyuseiFuda micro schedule pane (pane kind <see cref="PaneKinds.RyuseiSchedule"/>, doc 38 layer 2). Model:

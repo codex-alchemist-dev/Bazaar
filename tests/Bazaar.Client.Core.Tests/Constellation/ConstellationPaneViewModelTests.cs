@@ -85,7 +85,7 @@ public class ConstellationPaneViewModelTests
     [Fact]
     public void Unknown_kind_still_routes_through_the_registry_to_this_view_model()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
 
         Assert.IsType<ConstellationPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Constellation, _model)));
     }

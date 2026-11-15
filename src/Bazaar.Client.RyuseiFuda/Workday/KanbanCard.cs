@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Kanban;
+namespace Bazaar.Client.RyuseiFuda.Workday;
 
 /// <summary>
 /// One task card as the board shows it. Plain data, built without I/O; the wire layer fills it later

@@ -1,6 +1,7 @@
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.RyuseiFuda.Panes;
 
 /// <summary>Registers the RyuseiFuda objective roadmap pane (<see cref="PaneKinds.Roadmap"/>).</summary>
 public sealed class RoadmapPaneModule : IPaneModule
@@ -10,6 +11,6 @@ public sealed class RoadmapPaneModule : IPaneModule
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
         registry.Register(PaneKinds.Roadmap, descriptor => new RoadmapPaneViewModel(descriptor));
-        registry.RegisterView<RoadmapPaneViewModel>(PaneViews.Roadmap);
+        registry.RegisterView<RoadmapPaneViewModel>(RyuseiFudaPaneViews.Roadmap);
     }
 }
