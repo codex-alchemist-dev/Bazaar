@@ -8,8 +8,8 @@ namespace Bazaar.RyuseiFuda.Roadmap;
 /// edge to its phase and an edge to each objective it depends on. Pure: no I/O.
 /// </summary>
 /// <remarks>
-/// <see cref="GraphNode"/> carries only an id, so the node kind is the id prefix: <c>phase:&lt;slug&gt;</c> or
-/// <c>objective:&lt;path&gt;</c>. Doc 19 will add typed node and edge kinds; until then clients read the prefix. Self-dependencies
+/// Node ids keep their prefix (<c>phase:&lt;slug&gt;</c> or <c>objective:&lt;path&gt;</c>) so ids stay stable across versions. Each node
+/// and edge also carries its typed kind (<see cref="GraphNodeKind"/>, <see cref="GraphEdgeKind"/>); clients draw by kind. Self-dependencies
 /// and dependencies on unknown objectives add no edge, as in <see cref="VaultGraphProjection"/>.
 /// </remarks>
 public static class RoadmapGraphProjection
@@ -38,14 +38,14 @@ public static class RoadmapGraphProjection
         {
             var from = ObjectivePrefix + objective.Path;
             if (view.Phases.Any(p => p.Slug == objective.PhaseSlug))
-                edges.Add(new GraphEdge(from, PhasePrefix + objective.PhaseSlug));
+                edges.Add(new GraphEdge(from, PhasePrefix + objective.PhaseSlug, GraphEdgeKind.PhaseMembership));
 
             foreach (var slug in objective.DependsOn)
             {
                 var target = RoadmapReadModel.ResolveDependency(paths, slug);
                 if (target is null || target == objective.Path)
                     continue;
-                edges.Add(new GraphEdge(from, ObjectivePrefix + target));
+                edges.Add(new GraphEdge(from, ObjectivePrefix + target, GraphEdgeKind.DependsOn));
             }
         }
 
@@ -55,6 +55,10 @@ public static class RoadmapGraphProjection
             .ThenBy(e => e.To, StringComparer.Ordinal)
             .ToList();
 
-        return new GraphSnapshot(VaultGraphProjection.VersionOf(nodeIds, sortedEdges), nodeIds.Select(id => new GraphNode(id)).ToList(), sortedEdges);
+        var nodes = nodeIds
+            .Select(id => new GraphNode(id, id.StartsWith(PhasePrefix, StringComparison.Ordinal) ? GraphNodeKind.Phase : GraphNodeKind.Objective))
+            .ToList();
+
+        return new GraphSnapshot(VaultGraphProjection.VersionOf(nodeIds, sortedEdges), nodes, sortedEdges);
     }
 }
