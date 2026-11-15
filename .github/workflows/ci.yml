@@ -133,6 +133,35 @@ jobs:
           dotnet build src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
             -c Release -p:BazaarAndroid=true
 
+      # Accessibility gate on Android (doc 49 section 2). The desktop gate cannot construct the Android views, so the
+      # gate app runs the same AccessibleControlScan on an emulator. Build only here; the emulator step installs it.
+      - name: Build Android accessibility gate (Release)
+        run: |
+          set -euo pipefail
+          dotnet build tests/Bazaar.Client.Android.Gate.Tests/Bazaar.Client.Android.Gate.Tests.csproj \
+            -c Release -p:BazaarAndroid=true
+
+      - name: Enable KVM for the emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Runs the gate app on an API 35 x86_64 emulator (the head's minimum, SupportedOSPlatformVersion 35) and fails
+      # unless the app logs RESULT=PASS. The script installs the app with dotnet build -t:Install.
+      # Pinned by tag only: the commit SHA could not be resolved when this was written. Replace with the SHA of the tag.
+      - name: Run Android accessibility gate on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash scripts/ci/android-a11y-gate.sh
+
   secret-scan:
     name: Secret scan (full history)
     runs-on: ubuntu-latest
