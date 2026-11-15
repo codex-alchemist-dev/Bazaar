@@ -59,7 +59,7 @@ public class TokenBudgetOptionsTests
         Assert.Equal(500, options.HourlyTokens);
         Assert.Equal(5000, options.DailyTokens);
         Assert.Equal(50000, options.WeeklyTokens);
-        Assert.IsType<InMemoryTokenBudgetService>(provider.GetRequiredService<ITokenBudgetService>());
+        Assert.IsType<TokenBudgetService>(provider.GetRequiredService<ITokenBudgetService>());
     }
 
     [Fact]
