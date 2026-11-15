@@ -58,6 +58,9 @@ public sealed record ImportPreview(
     /// each one as <c>portability.import.replace</c> in the batch audit, with the replaced object's version.
     /// </summary>
     public IReadOnlyList<string> ReplaceSourceKeys { get; init; } = [];
+
+    /// <summary>Incoming records that collide with an object already stored. Empty until the host looks them up.</summary>
+    public IReadOnlyList<ExistingCollision> ExistingCollisions { get; init; } = [];
 }
 
 public static class ImportPlanner

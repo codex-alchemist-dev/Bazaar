@@ -13,7 +13,7 @@ public class PaneHostHeadlessTests
     public void Main_window_shows_panes_in_order_and_survives_an_unknown_kind()
     {
         var window = new MainWindow();
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
         var panes = new[]
         {
             PaneRegistryTests.Descriptor(PaneKinds.Dashboard, "{\"sections\":[{\"title\":\"Awaiting you\",\"items\":[]}]}"),
@@ -37,7 +37,7 @@ public class PaneHostHeadlessTests
     {
         var host = PaneHost.Build(
             [PaneRegistryTests.Descriptor(PaneKinds.Dashboard, "{\"sections\":[]}"), PaneRegistryTests.Descriptor(PaneKinds.Kanban, "{\"tasks\":[]}")],
-            FirstPartyPanes.CreateRegistry());
+            TestPanes.CreateRegistry());
 
         var stack = Assert.IsType<StackPanel>(host);
         Assert.Equal(2, stack.Children.Count);
