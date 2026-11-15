@@ -39,6 +39,11 @@ public sealed class GcImportTarget(
         var requests = new List<AppendRequest>(items.Count);
         foreach (var item in items)
         {
+            if (item.Replaces is not null)
+            {
+                // Replacing a GC message is not implemented yet. Refuse the batch rather than append a copy the audit calls a replace.
+                throw new NotSupportedException("Replace is not implemented for the GC target; the batch is refused.");
+            }
             var body = await codec.SealAsync(authorId, item.Record.Body, ct);
             requests.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
             {

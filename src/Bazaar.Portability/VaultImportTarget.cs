@@ -45,6 +45,12 @@ public sealed class VaultImportTarget(IGitProvider git, string repoPath, string 
                     throw new ArgumentException("Item belongs to a different import job.", nameof(items));
                 }
 
+                if (item.Replaces is not null)
+                {
+                    // Replacing a Vault note is not implemented yet. Refuse the batch rather than write a copy that the audit calls a replace.
+                    throw new NotSupportedException("Replace is not implemented for the Vault target; the batch is refused.");
+                }
+
                 var full = Path.Combine(checkoutPath, PathFor(jobId, item.Provenance.SourceKey));
                 if (File.Exists(full))
                 {
@@ -188,5 +194,66 @@ public static class VaultMarkdown
         }
         cleaned = string.Join(' ', cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         return cleaned.Length > 0 ? cleaned : fallback;
+    }
+}
+
+/// <summary>
+/// Finds Vault notes by title at HEAD. Vault files do not store the source kind, so the match is on title and the
+/// returned kind echoes the wanted one. The version is the HEAD commit the note was read at.
+/// </summary>
+public sealed class VaultExistingObjectIndex(IGitProvider git, string repoPath) : IExistingObjectIndex
+{
+    public async Task<IReadOnlyList<ExistingObject>> FindAsync(IReadOnlyList<(string Kind, string Title)> wanted, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(wanted);
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var head = await git.HeadAsync(repoPath, ct);
+        var byTitle = new Dictionary<string, (string Id, string Path)>(StringComparer.Ordinal);
+        foreach (var path in await git.ListFilesAsync(repoPath, head, ct))
+        {
+            if (!path.EndsWith(".md", StringComparison.Ordinal))
+            {
+                continue;
+            }
+            var text = await git.ReadTextAsync(repoPath, head, path, ct);
+            var front = FrontMatterOf(text);
+            if (front.Title is null || front.Id is null)
+            {
+                continue;
+            }
+            byTitle.TryAdd(front.Title, (front.Id, path));
+        }
+
+        var found = new List<ExistingObject>();
+        foreach (var (kind, title) in wanted)
+        {
+            if (byTitle.TryGetValue(title, out var match))
+            {
+                found.Add(new ExistingObject(kind, title, match.Id, head));
+            }
+        }
+        return found;
+    }
+
+    /// <summary>The id and title lines of a note's leading front matter block, or nulls when there is none.</summary>
+    private static (string? Id, string? Title) FrontMatterOf(string text)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        if (lines.Length == 0 || lines[0] != "---")
+        {
+            return (null, null);
+        }
+        string? id = null;
+        string? title = null;
+        for (var i = 1; i < lines.Length && lines[i] != "---"; i++)
+        {
+            if (lines[i].StartsWith("id: ", StringComparison.Ordinal)) id = lines[i]["id: ".Length..].Trim();
+            else if (lines[i].StartsWith("title: ", StringComparison.Ordinal)) title = lines[i]["title: ".Length..].Trim();
+        }
+        return (id, title);
     }
 }

@@ -13,10 +13,16 @@ public sealed record ImportAuditRecord(
     int BatchNumber,
     int ItemCount,
     string ContentHash,
-    DateTimeOffset At)
+    DateTimeOffset At,
+    string? SourceKey = null,
+    string? ReplacedObjectId = null,
+    string? ReplacedVersion = null)
 {
     /// <summary>The audit kind written for each batch.</summary>
     public const string BatchKind = "portability.import.batch";
+
+    /// <summary>The audit kind written for each owner replace (doc 44 section 8.10), with the replaced object's version.</summary>
+    public const string ReplaceKind = "portability.import.replace";
 }
 
 /// <summary>Sink for import audit entries. The host wires it to the audit log (doc 15).</summary>

@@ -11,7 +11,11 @@ public enum ImportTargetKind
 public sealed record ImportProvenance(string JobId, string SourceKey);
 
 /// <summary>One record to write, with the provenance the written object must carry.</summary>
-public sealed record ImportItem(SourceRecord Record, ImportProvenance Provenance);
+public sealed record ImportItem(SourceRecord Record, ImportProvenance Provenance)
+{
+    /// <summary>The stored object this item replaces. Set only for an owner's replace choice; writers must replace it or refuse.</summary>
+    public ExistingObject? Replaces { get; init; }
+}
 
 /// <summary>
 /// Write side of the commit path. Each call writes one batch and succeeds or fails as a whole: an implementation
@@ -99,6 +103,16 @@ public static class ImportCommitter
             return Refused("dry-run is not ready or its mapping hash does not match the current mapping");
         }
 
+        var replacedBy = new Dictionary<string, ExistingObject>(StringComparer.Ordinal);
+        var replaceKeys = dryRun.Preview!.ReplaceSourceKeys.ToHashSet(StringComparer.Ordinal);
+        foreach (var collision in dryRun.Preview.ExistingCollisions)
+        {
+            if (replaceKeys.Contains(collision.Incoming.SourceKey))
+            {
+                replacedBy.TryAdd(collision.Incoming.SourceKey, collision.Existing);
+            }
+        }
+
         var alreadyWritten = await writer.ReadCommittedSourceKeysAsync(jobId, ct);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var pending = new List<ImportItem>();
@@ -110,7 +124,8 @@ public static class ImportCommitter
                 skipped++;
                 continue;
             }
-            pending.Add(new ImportItem(record, new ImportProvenance(jobId, record.SourceKey)));
+            var replaces = replacedBy.TryGetValue(record.SourceKey, out var existing) ? existing : null;
+            pending.Add(new ImportItem(record, new ImportProvenance(jobId, record.SourceKey)) { Replaces = replaces });
         }
 
         var now = clock ?? TimeProvider.System;
@@ -150,6 +165,21 @@ public static class ImportCommitter
             try
             {
                 await audit.AppendAsync(entry, ct);
+                // Each replace is audited after its batch is written, with the replaced object's version.
+                foreach (var item in items.Where(i => i.Replaces is not null))
+                {
+                    var replace = new ImportAuditRecord(
+                        ImportAuditRecord.ReplaceKind,
+                        jobId,
+                        index + 1,
+                        1,
+                        ImportBatchHash.Of([item]),
+                        now.GetUtcNow(),
+                        item.Record.SourceKey,
+                        item.Replaces!.ObjectId,
+                        item.Replaces.Version);
+                    await audit.AppendAsync(replace, ct);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
