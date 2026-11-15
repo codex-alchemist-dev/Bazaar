@@ -9,6 +9,9 @@ public sealed record PreviewCollision(string Target, string Title, IReadOnlyList
 /// <summary>A new record the mapping cannot place, with the reason.</summary>
 public sealed record UnmappedItem(string SourceKey, string Reason);
 
+/// <summary>An incoming record that has the same kind and title as an object already stored, with that object's id.</summary>
+public sealed record PreviewExistingCollision(string Target, string Title, string SourceKey, string ExistingObjectId);
+
 /// <summary>Read-only view of an import preview: counts, samples, collisions and unmapped items.</summary>
 public sealed record PreviewSummary(
     int NewCount,
@@ -18,6 +21,9 @@ public sealed record PreviewSummary(
     IReadOnlyList<UnmappedItem> Unmapped)
 {
     public const int SampleLimit = 20;
+
+    /// <summary>Incoming records that collide with stored objects. Empty until the host looks them up.</summary>
+    public IReadOnlyList<PreviewExistingCollision> ExistingCollisions { get; init; } = [];
 
     /// <summary>Builds the summary from a planner output. Pure.</summary>
     public static PreviewSummary From(ImportPreview preview)
@@ -47,6 +53,10 @@ public sealed record PreviewSummary(
             else if (record.Title.Length == 0) unmapped.Add(new UnmappedItem(record.SourceKey, "no title"));
         }
 
-        return new PreviewSummary(preview.New.Count, preview.Duplicates.Count, targets, collisions, unmapped);
+        var existing = preview.ExistingCollisions
+            .Select(c => new PreviewExistingCollision(c.Incoming.Kind, c.Incoming.Title, c.Incoming.SourceKey, c.Existing.ObjectId))
+            .ToList();
+
+        return new PreviewSummary(preview.New.Count, preview.Duplicates.Count, targets, collisions, unmapped) { ExistingCollisions = existing };
     }
 }

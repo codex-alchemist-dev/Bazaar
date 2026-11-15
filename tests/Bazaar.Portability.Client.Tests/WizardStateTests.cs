@@ -449,6 +449,10 @@ public class WizardStateTests
         return wizard.ChooseSource(WizardState.Initial, Src(), _noKeys);
     }
 
+    /// <summary>The same preview with a stored object for the colliding title, so replace is allowed.</summary>
+    private static WizardState WithStored(WizardState state) =>
+        ImportWizard.WithExistingObjects(state, [new ExistingObject("card", "Same title", "obj-1", "rev-7")]);
+
     [Fact]
     public void Collisions_keep_every_record_by_default()
     {
@@ -483,7 +487,7 @@ public class WizardStateTests
     {
         var state = AtCollisionPreview(out _);
 
-        var chosen = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
+        var chosen = ImportWizard.ChooseCollisionAction(WithStored(state), "c1", CollisionAction.Replace);
 
         Assert.Null(chosen.Notice);
         Assert.Equal(["c1", "c2", "c3"], chosen.Plan!.Preview!.New.Select(r => r.SourceKey).ToList());
@@ -510,7 +514,7 @@ public class WizardStateTests
     {
         var state = AtCollisionPreview(out _);
 
-        var chosen = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
+        var chosen = ImportWizard.ChooseCollisionAction(WithStored(state), "c1", CollisionAction.Replace);
         chosen = ImportWizard.ChooseCollisionAction(chosen, "c2", CollisionAction.SkipIncoming);
 
         Assert.Equal(CollisionAction.Replace, ImportWizard.ActionFor(chosen, "c1"));
@@ -553,7 +557,7 @@ public class WizardStateTests
     public void Retry_after_a_failed_commit_returns_to_the_preview_with_the_plan_and_choices()
     {
         var state = AtCollisionPreview(out var wizard);
-        state = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
+        state = ImportWizard.ChooseCollisionAction(WithStored(state), "c1", CollisionAction.Replace);
         var dryRun = ImportWizard.CompleteDryRun(ImportWizard.StartDryRun(state), new ImportDryRunReport(true, state.Plan!.MappingHash, 2, 0));
         var commit = ImportWizard.StartCommit(dryRun);
         var failed = ImportWizard.CompleteCommit(commit, new ImportCommitReport(false, 0, "disk full"));
@@ -597,5 +601,56 @@ public class WizardStateTests
 
         Assert.Equal(WizardStep.Preview, refused.Step);
         Assert.Equal("retry is allowed only after a failure", refused.Notice);
+    }
+
+    [Fact]
+    public void Existing_objects_are_listed_as_collisions_that_can_be_replaced()
+    {
+        var state = AtCollisionPreview(out _);
+        var existing = new[] { new ExistingObject("card", "Same title", "obj-1", "rev-7") };
+
+        var checkedState = ImportWizard.WithExistingObjects(state, existing);
+
+        Assert.Equal(2, checkedState.Preview!.ExistingCollisions.Count);
+        Assert.Equal("obj-1", checkedState.Preview.ExistingCollisions[0].ExistingObjectId);
+        var replaced = ImportWizard.ChooseCollisionAction(checkedState, "c1", CollisionAction.Replace);
+        Assert.Null(replaced.Notice);
+        Assert.Equal(["c1"], replaced.Plan!.Preview!.ReplaceSourceKeys);
+        Assert.Equal(["c1", "c2", "c3"], replaced.Plan.Preview.New.Select(r => r.SourceKey).ToList());
+    }
+
+    [Fact]
+    public void Replace_is_refused_for_a_record_with_no_stored_object()
+    {
+        var state = AtCollisionPreview(out _);
+
+        var refused = ImportWizard.ChooseCollisionAction(state, "c1", CollisionAction.Replace);
+
+        Assert.Empty(refused.CollisionChoices);
+        Assert.Equal("replace needs an object already stored with the same title", refused.Notice);
+    }
+
+    [Fact]
+    public void A_replace_whose_stored_object_has_gone_is_dropped_when_the_lookup_is_repeated()
+    {
+        var state = AtCollisionPreview(out _);
+        var existing = new[] { new ExistingObject("card", "Same title", "obj-1", "rev-7") };
+        var replaced = ImportWizard.ChooseCollisionAction(ImportWizard.WithExistingObjects(state, existing), "c1", CollisionAction.Replace);
+
+        var rechecked = ImportWizard.WithExistingObjects(replaced, []);
+
+        Assert.Empty(rechecked.CollisionChoices);
+        Assert.Empty(rechecked.Plan!.Preview!.ReplaceSourceKeys);
+        Assert.Empty(rechecked.Preview!.ExistingCollisions);
+    }
+
+    [Fact]
+    public void Existing_object_lookup_is_refused_outside_the_preview()
+    {
+        var state = WizardState.Initial;
+
+        var refused = ImportWizard.WithExistingObjects(state, []);
+
+        Assert.Equal("existing objects can be checked only in the preview", refused.Notice);
     }
 }

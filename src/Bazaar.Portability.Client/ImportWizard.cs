@@ -73,16 +73,26 @@ public sealed class ImportWizard
         {
             return Refuse(state, "collision choices can be made only in the preview");
         }
-        var collision = state.Preview.Collisions.FirstOrDefault(c => c.SourceKeys.Contains(sourceKey, StringComparer.Ordinal));
-        if (collision is null)
+        var inIncomingCollision = state.Preview.Collisions.Any(c => c.SourceKeys.Contains(sourceKey, StringComparer.Ordinal));
+        var existing = state.BasePlan.Preview!.ExistingCollisions.FirstOrDefault(e => string.Equals(e.Incoming.SourceKey, sourceKey, StringComparison.Ordinal));
+        if (!inIncomingCollision && existing is null)
         {
             return Refuse(state, "that record is not part of a collision");
+        }
+        if (action == CollisionAction.Replace && existing is null)
+        {
+            return Refuse(state, "replace needs an object already stored with the same title");
+        }
+        var record = state.BasePlan.Preview.New.FirstOrDefault(r => string.Equals(r.SourceKey, sourceKey, StringComparison.Ordinal));
+        if (record is null)
+        {
+            return Refuse(state, "that record is not part of the plan");
         }
 
         var rest = state.CollisionChoices.Where(d => !string.Equals(d.SourceKey, sourceKey, StringComparison.Ordinal));
         var decisions = (action == CollisionAction.KeepBoth
                 ? rest
-                : rest.Append(new CollisionDecision(collision.Target, collision.Title, sourceKey, action)))
+                : rest.Append(new CollisionDecision(record.Kind, record.Title, sourceKey, action)))
             .OrderBy(d => d.Target, StringComparer.Ordinal)
             .ThenBy(d => d.Title, StringComparer.Ordinal)
             .ThenBy(d => d.SourceKey, StringComparer.Ordinal)
@@ -101,6 +111,44 @@ public sealed class ImportWizard
     public static CollisionAction ActionFor(WizardState state, string sourceKey) =>
         state.CollisionChoices.FirstOrDefault(d => string.Equals(d.SourceKey, sourceKey, StringComparison.Ordinal))?.Action
         ?? CollisionAction.KeepBoth;
+
+    /// <summary>
+    /// Feeds the host's lookup of stored objects back into the preview (doc 44 section 8.10). Each incoming record with a
+    /// stored object of the same kind and title is listed as a collision that may be replaced. A replace choice that no
+    /// longer matches a stored object is dropped; the plan and its mapping hash are rebuilt, so any dry-run is cleared.
+    /// </summary>
+    public static WizardState WithExistingObjects(WizardState state, IReadOnlyList<ExistingObject> existing)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(existing);
+
+        if (state.Step != WizardStep.Preview || state.BasePlan?.Preview is null)
+        {
+            return Refuse(state, "existing objects can be checked only in the preview");
+        }
+
+        var basePreview = state.BasePlan.Preview with { ExistingCollisions = ExistingCollisions.Find(state.BasePlan.Preview, existing) };
+        var stillCollides = basePreview.ExistingCollisions.Select(c => c.Incoming.SourceKey).ToHashSet(StringComparer.Ordinal);
+        var decisions = state.CollisionChoices
+            .Where(d => d.Action != CollisionAction.Replace || stillCollides.Contains(d.SourceKey))
+            .ToList();
+
+        var basePlan = state.BasePlan with { Preview = basePreview };
+        var plan = basePlan with
+        {
+            Preview = ApplyDecisions(basePreview, decisions),
+            MappingHash = DecidedMappingHash(basePlan.MappingHash, decisions),
+        };
+        return state with
+        {
+            BasePlan = basePlan,
+            Plan = plan,
+            Preview = PreviewSummary.From(basePreview),
+            CollisionChoices = decisions,
+            DryRun = null,
+            Notice = null,
+        };
+    }
 
     /// <summary>
     /// Failed -> the step the failure came from. A failed dry-run or commit goes back to the preview with the same

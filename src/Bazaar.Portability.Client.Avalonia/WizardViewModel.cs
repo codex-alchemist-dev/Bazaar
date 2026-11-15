@@ -153,16 +153,30 @@ public sealed class WizardViewModel : INotifyPropertyChanged
         _candidates = state.Step == WizardStep.Detect
             ? state.Candidates.Select(c => new CandidateChoice(c, ChooseImporterCommand)).ToList()
             : [];
-        _collisions = state.Preview is null
-            ? []
-            : state.Preview.Collisions
-                .SelectMany(c => c.SourceKeys.Select(key => new CollisionChoice(
-                    c,
-                    key,
-                    ImportWizard.ActionFor(state, key),
-                    (choice, action) => ChooseCollision(choice, action))))
-                .ToList();
+        _collisions = state.Preview is null ? [] : CollisionRows(state);
     }
+
+    /// <summary>One row per colliding record: incoming collisions, then records that collide with a stored object.</summary>
+    private List<CollisionChoice> CollisionRows(WizardState state)
+    {
+        var rows = new List<CollisionChoice>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var collision in state.Preview!.Collisions)
+        {
+            foreach (var key in collision.SourceKeys.Where(seen.Add))
+            {
+                rows.Add(Row(collision.Target, collision.Title, key, state));
+            }
+        }
+        foreach (var existing in state.Preview.ExistingCollisions.Where(e => seen.Add(e.SourceKey)))
+        {
+            rows.Add(Row(existing.Target, existing.Title, existing.SourceKey, state));
+        }
+        return rows;
+    }
+
+    private CollisionChoice Row(string target, string title, string key, WizardState state) =>
+        new(new PreviewCollision(target, title, [key]), key, ImportWizard.ActionFor(state, key), (choice, action) => ChooseCollision(choice, action));
 
     private void RaiseAll()
     {

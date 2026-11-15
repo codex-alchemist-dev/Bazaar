@@ -87,7 +87,12 @@ public class ImportWizardViewHeadlessTests
     }
 
     private static ImportPipelineResult PlanForPreview() =>
-        new(ImportStatus.Ready, "bazaar.import.a", [], new ImportPreview([], []), "hash");
+        new(ImportStatus.Ready, "bazaar.import.a", [], new ImportPreview(
+            [
+                new SourceRecord("a.md#1", "document", "Plan", "body", new Dictionary<string, string>()),
+                new SourceRecord("b.md#1", "document", "Plan", "body", new Dictionary<string, string>()),
+            ],
+            []), "hash");
 
     [AvaloniaFact]
     public void Only_the_view_for_the_current_step_is_visible()
