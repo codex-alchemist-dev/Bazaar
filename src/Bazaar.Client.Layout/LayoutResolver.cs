@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Layout;
+namespace Bazaar.Client.Layout;
 
 /// <summary>
 /// Picks the slot for the current device class, display and posture. Pure: no Avalonia and no I/O, so the same

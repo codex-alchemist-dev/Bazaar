@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Layout;
+namespace Bazaar.Client.Layout;
 
 /// <summary>Result of merging a person's layout over the company's. Issues list rejected person slots.</summary>
 public sealed record LayoutMergeResult(LayoutDocument Effective, IReadOnlyList<LayoutIssue> Issues);

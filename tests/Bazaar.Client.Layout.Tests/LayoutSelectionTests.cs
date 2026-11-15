@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Layout;
+using Bazaar.Client.Layout;
 
-namespace Bazaar.Client.Core.Tests.Layout;
+namespace Bazaar.Client.Layout.Tests;
 
 public class LayoutSelectionTests
 {

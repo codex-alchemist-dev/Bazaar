@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Bazaar.Client.Core.Layout;
+namespace Bazaar.Client.Layout;
 
 /// <summary>
 /// Parses and validates a layout document. Pure: no Avalonia types and no I/O. Never throws on bad input.

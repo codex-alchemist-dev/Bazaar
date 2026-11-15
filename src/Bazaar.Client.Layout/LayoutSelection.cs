@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Layout;
+namespace Bazaar.Client.Layout;
 
 /// <summary>
 /// Chooses the layout a head shows for the current device class, display and posture, and turns it into a placed tree.
