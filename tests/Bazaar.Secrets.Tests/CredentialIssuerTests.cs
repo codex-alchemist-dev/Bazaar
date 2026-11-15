@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Bazaar.Secrets.Tests;
 
 public sealed class CredentialIssuerTests
@@ -15,33 +13,30 @@ public sealed class CredentialIssuerTests
     {
         FailClosedAgentCredentialIssuer issuer = new();
 
-        CredentialIssueResult result = await issuer.IssueAsync(new AgentId(agent), CancellationToken.None);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            issuer.IssueAsync(new AgentId(agent), SecretScope.Installation, TimeSpan.FromMinutes(5), CancellationToken.None));
 
-        Assert.Equal(CredentialIssueOutcome.NotAvailable, result.Outcome);
-        Assert.Equal("no credential issuer is configured", result.Detail);
+        Assert.Equal("no credential issuer is configured", ex.Message);
     }
 
     [Fact]
-    public async Task FailClosedIssuerNeverReturnsIssuedForDistinctAgents()
+    public async Task FailClosedIssuerRevokeCompletesBecauseNothingWasIssued()
     {
         FailClosedAgentCredentialIssuer issuer = new();
 
-        CredentialIssueResult first = await issuer.IssueAsync(_alpha, CancellationToken.None);
-        CredentialIssueResult second = await issuer.IssueAsync(_beta, CancellationToken.None);
-
-        Assert.NotEqual(CredentialIssueOutcome.Issued, first.Outcome);
-        Assert.NotEqual(CredentialIssueOutcome.Issued, second.Outcome);
+        await issuer.RevokeAsync(_alpha, "issuance-1", CancellationToken.None);
+        await issuer.RevokeAsync(_beta, "issuance-1", CancellationToken.None);
     }
 
     [Fact]
-    public void CredentialIssueResultCarriesOnlyOutcomeAndDetail()
+    public void AgentCredentialRedactsTheTokenInItsStringForm()
     {
-        string[] properties = typeof(CredentialIssueResult)
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Select(p => p.Name)
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToArray();
+        using var token = SecretValue.FromText("super-secret-token");
+        var credential = new AgentCredential("issuance-1", token, SecretScope.Installation, DateTimeOffset.UnixEpoch);
 
-        Assert.Equal(["Detail", "Outcome"], properties);
+        var text = credential.ToString();
+
+        Assert.DoesNotContain("super-secret-token", text, StringComparison.Ordinal);
+        Assert.Contains("[redacted]", text, StringComparison.Ordinal);
     }
 }

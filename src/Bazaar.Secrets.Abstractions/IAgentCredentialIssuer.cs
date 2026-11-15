@@ -1,40 +1,34 @@
 namespace Bazaar.Secrets;
 
 /// <summary>
-/// Re-issues an agent's credential (for example after a release from quarantine). The real issuer is built
-/// behind this contract by the secrets work; until one is configured, <see cref="FailClosedAgentCredentialIssuer"/> answers.
+/// Issues and revokes an agent's credentials (for example when an agent is released from quarantine). The real issuer is built
+/// behind this contract by the secrets work; until one is configured, <see cref="FailClosedAgentCredentialIssuer"/> refuses.
 /// </summary>
 /// <remarks>
-/// Callers must only call <see cref="IssueAsync"/> for an agent that is <see cref="AgentState.Active"/>, or that was just released.
+/// <see cref="IssueAsync"/> must only issue for an agent that is <see cref="AgentState.Active"/>, or that was just released.
 /// An issuer must never return a credential for a <see cref="AgentState.Revoked"/> agent. A revoked agent gets a new
-/// <see cref="AgentId"/> through <see cref="IAgentRegistry.RegisterAsync"/> instead.
+/// <see cref="AgentId"/> through <see cref="IAgentRegistry.RegisterAsync"/> instead. A returned <see cref="AgentCredential"/>
+/// carries its token, so the caller disposes it as soon as the token has been used.
 /// </remarks>
 public interface IAgentCredentialIssuer
 {
-    /// <summary>Asks the issuer for a fresh credential for the agent. The result carries an outcome and a short detail only, never a secret.</summary>
-    Task<CredentialIssueResult> IssueAsync(AgentId id, CancellationToken ct);
-}
+    /// <summary>Issues a fresh credential for the agent, valid for <paramref name="lifetime"/> within <paramref name="scope"/>.</summary>
+    /// <exception cref="InvalidOperationException">No issuer is configured, or the agent may not be issued a credential.</exception>
+    Task<AgentCredential> IssueAsync(AgentId agent, SecretScope scope, TimeSpan lifetime, CancellationToken ct);
 
-/// <summary>What the issuer did with a request for a credential.</summary>
-public enum CredentialIssueOutcome
-{
-    /// <summary>A credential was issued and stored by the issuer. The value itself is never part of the result.</summary>
-    Issued,
-
-    /// <summary>No credential was issued. The detail says why.</summary>
-    NotAvailable,
+    /// <summary>
+    /// Revokes one credential issued to the agent. Idempotent: revoking an issuance that is already revoked, or that was never
+    /// issued, completes without error.
+    /// </summary>
+    Task RevokeAsync(AgentId agent, string issuanceId, CancellationToken ct);
 }
 
 /// <summary>
-/// The outcome of a credential re-issue request. It carries no token or key: only an <see cref="Outcome"/> and a short <see cref="Detail"/>.
+/// A credential issued to an agent. <see cref="Token"/> is secret: its <see cref="SecretValue.ToString"/> is redacted, so the
+/// record's <see cref="object.ToString"/> never shows it, and the caller disposes the token once it has been used.
 /// </summary>
-/// <param name="Outcome">Whether a credential was issued.</param>
-/// <param name="Detail">A short, secret-free explanation for logs and the owner's view.</param>
-public sealed record CredentialIssueResult(CredentialIssueOutcome Outcome, string Detail)
-{
-    /// <summary>A credential was issued. The detail must not contain the credential.</summary>
-    public static CredentialIssueResult Issued(string detail) => new(CredentialIssueOutcome.Issued, detail);
-
-    /// <summary>No credential could be issued, for the stated reason.</summary>
-    public static CredentialIssueResult NotAvailable(string detail) => new(CredentialIssueOutcome.NotAvailable, detail);
-}
+/// <param name="IssuanceId">Identifies this issuance, for <see cref="IAgentCredentialIssuer.RevokeAsync"/>.</param>
+/// <param name="Token">The secret credential value.</param>
+/// <param name="Scope">The scope the credential was issued for.</param>
+/// <param name="ExpiresAt">When the credential stops being valid.</param>
+public sealed record AgentCredential(string IssuanceId, SecretValue Token, SecretScope Scope, DateTimeOffset ExpiresAt);
