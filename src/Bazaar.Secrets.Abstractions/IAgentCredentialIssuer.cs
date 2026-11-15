@@ -1,22 +1,34 @@
 namespace Bazaar.Secrets;
 
-/// <summary>A short-lived, per-agent, scoped token. The plaintext <see cref="Token"/> is returned once and never stored.</summary>
-public sealed record AgentCredential(string IssuanceId, string Token, string Scope, DateTimeOffset ExpiresAt)
-{
-    /// <summary>The token is redacted here, so logging or interpolating a credential never leaks it.</summary>
-    public override string ToString() =>
-        $"AgentCredential {{ IssuanceId = {IssuanceId}, Scope = {Scope}, ExpiresAt = {ExpiresAt:O}, Token = [redacted] }}";
-}
-
-/// <summary>Raised when a credential is refused, for example because the agent is Quarantined or Revoked.</summary>
-public sealed class AgentCredentialDeniedException(string message) : InvalidOperationException(message);
-
-/// <summary>Issues and revokes per-agent credentials (doc 14). Only Active agents can receive one.</summary>
+/// <summary>
+/// Issues and revokes an agent's credentials (for example when an agent is released from quarantine). The real issuer is built
+/// behind this contract by the secrets work; until one is configured, <see cref="FailClosedAgentCredentialIssuer"/> refuses.
+/// </summary>
+/// <remarks>
+/// <see cref="IssueAsync"/> must only issue for an agent that is <see cref="AgentState.Active"/>, or that was just released.
+/// An issuer must never return a credential for a <see cref="AgentState.Revoked"/> agent. A revoked agent gets a new
+/// <see cref="AgentId"/> through <see cref="IAgentRegistry.RegisterAsync"/> instead. A returned <see cref="AgentCredential"/>
+/// carries its token, so the caller disposes it as soon as the token has been used.
+/// </remarks>
 public interface IAgentCredentialIssuer
 {
-    /// <summary>Issues a credential for an Active agent. Refused for any other state. Lifetime must be between one minute and 24 hours.</summary>
-    Task<AgentCredential> IssueAsync(AgentId agent, string scope, TimeSpan lifetime, CancellationToken ct);
+    /// <summary>Issues a fresh credential for the agent, valid for <paramref name="lifetime"/> within <paramref name="scope"/>.</summary>
+    /// <exception cref="InvalidOperationException">No issuer is configured, or the agent may not be issued a credential.</exception>
+    Task<AgentCredential> IssueAsync(AgentId agent, SecretScope scope, TimeSpan lifetime, CancellationToken ct);
 
-    /// <summary>Revokes one issuance. Idempotent: revoking again changes nothing and is not audited twice.</summary>
+    /// <summary>
+    /// Revokes one credential issued to the agent. Idempotent: revoking an issuance that is already revoked, or that was never
+    /// issued, completes without error.
+    /// </summary>
     Task RevokeAsync(AgentId agent, string issuanceId, CancellationToken ct);
 }
+
+/// <summary>
+/// A credential issued to an agent. <see cref="Token"/> is secret: its <see cref="SecretValue.ToString"/> is redacted, so the
+/// record's <see cref="object.ToString"/> never shows it, and the caller disposes the token once it has been used.
+/// </summary>
+/// <param name="IssuanceId">Identifies this issuance, for <see cref="IAgentCredentialIssuer.RevokeAsync"/>.</param>
+/// <param name="Token">The secret credential value.</param>
+/// <param name="Scope">The scope the credential was issued for.</param>
+/// <param name="ExpiresAt">When the credential stops being valid.</param>
+public sealed record AgentCredential(string IssuanceId, SecretValue Token, SecretScope Scope, DateTimeOffset ExpiresAt);

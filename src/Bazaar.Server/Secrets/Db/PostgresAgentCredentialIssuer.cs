@@ -15,17 +15,10 @@ public sealed class PostgresAgentCredentialIssuer(NpgsqlDataSource dataSource, I
 {
     private static readonly TimeSpan _minLifetime = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan _maxLifetime = TimeSpan.FromHours(24);
-    private const int _maxScopeLength = 64;
-
-    public async Task<AgentCredential> IssueAsync(AgentId agent, string scope, TimeSpan lifetime, CancellationToken ct)
+    public async Task<AgentCredential> IssueAsync(AgentId agent, SecretScope scope, TimeSpan lifetime, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(agent);
-        ArgumentException.ThrowIfNullOrWhiteSpace(scope);
-        if (scope.Length > _maxScopeLength)
-        {
-            throw new ArgumentException($"Credential scopes are at most {_maxScopeLength} characters.", nameof(scope));
-        }
-
+        ArgumentNullException.ThrowIfNull(scope);
         if (lifetime < _minLifetime || lifetime > _maxLifetime)
         {
             throw new ArgumentOutOfRangeException(nameof(lifetime), "Credential lifetime must be between one minute and 24 hours.");
@@ -49,16 +42,15 @@ public sealed class PostgresAgentCredentialIssuer(NpgsqlDataSource dataSource, I
 
         if (state != nameof(AgentState.Active))
         {
-            await AuditAsync(conn, tx, now, agent, "secrets.credential.denied", scope, reason: $"agent is {state}", issuanceId: null, ct).ConfigureAwait(false);
+            await AuditAsync(conn, tx, now, agent, "secrets.credential.denied", scope.Key, reason: $"agent is {state}", issuanceId: null, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
             throw new AgentCredentialDeniedException($"Agent '{agent.Value}' is {state}; no credential is issued.");
         }
 
         var tokenBytes = RandomNumberGenerator.GetBytes(32);
-        var token = Convert.ToBase64String(tokenBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
         var issuanceId = Guid.NewGuid().ToString("N");
         var expiresAt = now + lifetime;
-        var tokenHash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token));
+        var tokenHash = SHA256.HashData(tokenBytes);
 
         await using (var insert = new NpgsqlCommand(
             "INSERT INTO secret_agent_credential (issuance_id, agent_id, token_hash, scope, issued_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)", conn, tx))
@@ -66,14 +58,16 @@ public sealed class PostgresAgentCredentialIssuer(NpgsqlDataSource dataSource, I
             insert.Parameters.AddWithValue(issuanceId);
             insert.Parameters.AddWithValue(agent.Value);
             insert.Parameters.AddWithValue(tokenHash);
-            insert.Parameters.AddWithValue(scope);
+            insert.Parameters.AddWithValue(scope.Key);
             insert.Parameters.AddWithValue(now);
             insert.Parameters.AddWithValue(expiresAt);
             await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
-        await AuditAsync(conn, tx, now, agent, "secrets.credential.issued", scope, reason: null, issuanceId, ct).ConfigureAwait(false);
+        await AuditAsync(conn, tx, now, agent, "secrets.credential.issued", scope.Key, reason: null, issuanceId, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
+        var token = new SecretValue(tokenBytes);
+        CryptographicOperations.ZeroMemory(tokenBytes);
         return new AgentCredential(issuanceId, token, scope, expiresAt);
     }
 

@@ -7,7 +7,7 @@ CREATE TABLE secret_agent_credential (
     issuance_id text        PRIMARY KEY CHECK (issuance_id <> ''),
     agent_id    text        NOT NULL REFERENCES secret_agent (agent_id),
     token_hash  bytea       NOT NULL CHECK (octet_length(token_hash) = 32),
-    scope       text        NOT NULL CHECK (scope <> '' AND length(scope) <= 64),
+    scope       text        NOT NULL CHECK (scope <> '' AND length(scope) <= 96),
     issued_at   timestamptz NOT NULL,
     expires_at  timestamptz NOT NULL,
     revoked_at  timestamptz NULL,
