@@ -289,7 +289,7 @@ public class TokenBudgetServiceTests
         var denied = await Consume(service, "agent-a", 20);
 
         Assert.False(denied.Allowed);
-        Assert.Equal(1, store.AppendCount);
+        Assert.Equal(0, store.AppendCount);
         var entries = await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
         Assert.Equal(90, Assert.Single(entries).Tokens);
     }
@@ -327,18 +327,20 @@ public class TokenBudgetServiceTests
     }
 
     [Fact]
-    public async Task The_store_is_only_called_with_the_consumed_agent_and_the_widest_window_start()
+    public async Task The_service_decides_only_through_the_atomic_store_call_for_the_consumed_agent()
     {
         var store = new RecordingStore(new InMemoryTokenBudgetStore());
-        var service = Service(Limits(100, 1000, 5000), new FakeTimeProvider(_start), store);
+        var time = new FakeTimeProvider(_start);
+        var service = Service(Limits(100, 1000, 5000), time, store);
 
         await Consume(service, "agent-a", 10);
         await Consume(service, "agent-a", 500);
 
-        Assert.NotEmpty(store.AgentIds);
+        Assert.Equal(2, store.TryConsumeCount);
+        Assert.Equal(0, store.AppendCount);
+        Assert.Equal(0, store.LoadSinceCount);
         Assert.All(store.AgentIds, agentId => Assert.Equal("agent-a", agentId));
-        Assert.NotEmpty(store.LoadSinces);
-        Assert.All(store.LoadSinces, since => Assert.Equal(_start - TimeSpan.FromDays(7), since));
+        Assert.All(store.ConsumeInstants, at => Assert.Equal(_start, at));
     }
 
     /// <summary>Forwards to an inner store and records which agents and window starts the service asked for.</summary>
@@ -348,7 +350,13 @@ public class TokenBudgetServiceTests
 
         public List<DateTimeOffset> LoadSinces { get; } = [];
 
+        public List<DateTimeOffset> ConsumeInstants { get; } = [];
+
         public int AppendCount { get; private set; }
+
+        public int TryConsumeCount { get; private set; }
+
+        public int LoadSinceCount { get; private set; }
 
         public Task Append(string agentId, DateTimeOffset at, long tokens, CancellationToken ct = default)
         {
@@ -357,9 +365,18 @@ public class TokenBudgetServiceTests
             return inner.Append(agentId, at, tokens, ct);
         }
 
+        public Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, long tokens, TokenBudgetOptions limits, CancellationToken ct = default)
+        {
+            AgentIds.Add(agentId);
+            ConsumeInstants.Add(at);
+            TryConsumeCount++;
+            return inner.TryConsume(agentId, at, tokens, limits, ct);
+        }
+
         public Task<IReadOnlyList<TokenBudgetSpend>> LoadSince(string agentId, DateTimeOffset since, CancellationToken ct = default)
         {
             AgentIds.Add(agentId);
+            LoadSinceCount++;
             LoadSinces.Add(since);
             return inner.LoadSince(agentId, since, ct);
         }

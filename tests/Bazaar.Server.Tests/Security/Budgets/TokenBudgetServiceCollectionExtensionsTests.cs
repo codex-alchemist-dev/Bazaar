@@ -8,7 +8,7 @@ public class TokenBudgetServiceCollectionExtensionsTests
 {
     private static IConfiguration Configuration() =>
         new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["HourlyTokens"] = "100" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Safety:Budgets:HourlyTokens"] = "100" })
             .Build();
 
     [Fact]
