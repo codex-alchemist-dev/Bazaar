@@ -20,16 +20,14 @@ namespace Bazaar.Server.Security.KillSwitch;
 /// attempt writes to <see cref="IAuditLog"/> with kind <see cref="ReleaseKind"/>: one record per step, one record for a
 /// denial, one for a release of an agent that was never contained. A VM resume failure is audited and rethrown, and the
 /// token resume does not run. Token revocation is not reversible yet (see <see cref="IAgentTokenRevoker.ResumeAsync"/>), so a
-/// completed release reports <see cref="ContainmentReleaseResult.TokensRestored"/> as false. Containment is tracked in
-/// memory, so a restarted host treats every agent as not contained until a durable store replaces the set.
+/// completed release reports <see cref="ContainmentReleaseResult.TokensRestored"/> as false.
 /// </remarks>
-public sealed class AgentContainmentAdapter(
-    IVmPauser pauser,
-    IAgentTokenRevoker revoker,
-    IOwnerKeyRegistry owners,
-    IAuditLog audit,
-    INonceStore nonces,
-    TimeProvider? timeProvider = null) : IAgentContainment
+/// <remarks>
+/// The contained set is kept in an <see cref="IContainmentStateStore"/>. The adapter writes each contain and release through it
+/// and loads the set when it is constructed, so a restarted host still releases the agents it contained. Until the first load
+/// succeeds, containment operations wait for it and a failed load is retried by the next call.
+/// </remarks>
+public sealed class AgentContainmentAdapter : IAgentContainment
 {
     /// <summary>How long a release challenge stays valid.</summary>
     public static readonly TimeSpan ChallengeLifetime = TimeSpan.FromMinutes(2);
@@ -37,21 +35,84 @@ public sealed class AgentContainmentAdapter(
     /// <summary>Audit kind of every release attempt record.</summary>
     public const string ReleaseKind = "containment.release";
 
-    private readonly IVmPauser _pauser = pauser ?? throw new ArgumentNullException(nameof(pauser));
-    private readonly IAgentTokenRevoker _revoker = revoker ?? throw new ArgumentNullException(nameof(revoker));
-    private readonly IOwnerKeyRegistry _owners = owners ?? throw new ArgumentNullException(nameof(owners));
-    private readonly INonceStore _nonces = nonces ?? throw new ArgumentNullException(nameof(nonces));
-    private readonly IAuditLog _audit = audit ?? throw new ArgumentNullException(nameof(audit));
-    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+    /// <summary>
+    /// Actor recorded in the containment store. <see cref="IAgentContainment.ContainAsync"/> does not carry the engaging actor;
+    /// the kill switch audit records hold it.
+    /// </summary>
+    public const string ContainActorId = "system:containment";
+
+    private readonly IVmPauser _pauser;
+    private readonly IAgentTokenRevoker _revoker;
+    private readonly IOwnerKeyRegistry _owners;
+    private readonly IAuditLog _audit;
+    private readonly INonceStore _nonces;
+    private readonly IContainmentStateStore _store;
+    private readonly TimeProvider _time;
     private readonly ConcurrentDictionary<string, byte> _contained = new(StringComparer.Ordinal);
+    private readonly SerialLane _lane = new();
+    private readonly Lock _gate = new();
+    private bool _loaded; // guarded by _gate
+    private Task _loadTask; // guarded by _gate; replaced when a load fails
+
+    /// <summary>Creates an adapter with an in-memory containment store, so the contained set lasts only as long as the process.</summary>
+    /// <param name="pauser">Pauses and resumes the agent's VMs.</param>
+    /// <param name="revoker">Revokes and (where possible) restores the agent's tokens.</param>
+    /// <param name="owners">Owner device registry, which gates release.</param>
+    /// <param name="audit">Receives one record per release step.</param>
+    /// <param name="nonces">Holds the single-use release nonces.</param>
+    /// <param name="timeProvider">Clock for audit and containment instants. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public AgentContainmentAdapter(
+        IVmPauser pauser,
+        IAgentTokenRevoker revoker,
+        IOwnerKeyRegistry owners,
+        IAuditLog audit,
+        INonceStore nonces,
+        TimeProvider? timeProvider = null)
+        : this(pauser, revoker, owners, audit, nonces, new InMemoryContainmentStateStore(), timeProvider)
+    {
+    }
+
+    /// <summary>Creates an adapter over a durable containment store and loads the agents it holds.</summary>
+    /// <param name="pauser">Pauses and resumes the agent's VMs.</param>
+    /// <param name="revoker">Revokes and (where possible) restores the agent's tokens.</param>
+    /// <param name="owners">Owner device registry, which gates release.</param>
+    /// <param name="audit">Receives one record per release step.</param>
+    /// <param name="nonces">Holds the single-use release nonces.</param>
+    /// <param name="store">Durable contained-agent set. Every contain and release is written here first.</param>
+    /// <param name="timeProvider">Clock for audit and containment instants. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public AgentContainmentAdapter(
+        IVmPauser pauser,
+        IAgentTokenRevoker revoker,
+        IOwnerKeyRegistry owners,
+        IAuditLog audit,
+        INonceStore nonces,
+        IContainmentStateStore store,
+        TimeProvider? timeProvider = null)
+    {
+        _pauser = pauser ?? throw new ArgumentNullException(nameof(pauser));
+        _revoker = revoker ?? throw new ArgumentNullException(nameof(revoker));
+        _owners = owners ?? throw new ArgumentNullException(nameof(owners));
+        _audit = audit ?? throw new ArgumentNullException(nameof(audit));
+        _nonces = nonces ?? throw new ArgumentNullException(nameof(nonces));
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _time = timeProvider ?? TimeProvider.System;
+        _loadTask = LoadStateAsync(CancellationToken.None);
+    }
 
     /// <inheritdoc />
     public async Task ContainAsync(string agentId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-        // Mark first: a contain that fails half way still needs a release afterwards.
-        _contained[agentId] = 0;
+        // Store and mark first: a contain that fails half way still needs a release afterwards. A failed store write
+        // stops the contain before the VMs or tokens are touched.
+        await _lane.RunAsync(async () =>
+        {
+            await _store.AddAsync(new ContainedAgent(agentId, _time.GetUtcNow(), ContainActorId), ct).ConfigureAwait(false);
+            _contained[agentId] = 0;
+        }, ct).ConfigureAwait(false);
+
         await _revoker.RevokeAsync(agentId, ct).ConfigureAwait(false);
         await _pauser.PauseAsync(agentId, ct).ConfigureAwait(false);
     }
@@ -61,6 +122,7 @@ public sealed class AgentContainmentAdapter(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         var key = ApprovalSignature.IsValidDeviceId(deviceId) ? await _owners.FindAsync(deviceId, ct).ConfigureAwait(false) : null;
         if (key is null || key.Revoked)
@@ -84,6 +146,7 @@ public sealed class AgentContainmentAdapter(
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentNullException.ThrowIfNull(request);
         var claimed = request.DeviceId ?? string.Empty;
+        await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         // The agent id in the request is what was signed, so it must be the agent being released.
         if (!string.Equals(request.AgentId, agentId, StringComparison.Ordinal))
@@ -159,7 +222,7 @@ public sealed class AgentContainmentAdapter(
         var restored = tokens.Outcome == TokenResumeOutcome.Restored;
         await AuditAsync(actor, agentId, restored ? "tokens_restored" : "tokens_not_reversible", tokens.Detail, ct).ConfigureAwait(false);
 
-        _contained.TryRemove(agentId, out _);
+        await RemoveContainedAsync(agentId, ct).ConfigureAwait(false);
         return new ContainmentReleaseResult(ContainmentReleaseOutcome.Released, restored);
     }
 
@@ -167,6 +230,51 @@ public sealed class AgentContainmentAdapter(
     {
         await AuditAsync(actor, agentId, "denied", detail, ct).ConfigureAwait(false);
         return new ContainmentReleaseResult(ContainmentReleaseOutcome.Denied);
+    }
+
+    /// <summary>Reads the stored contained set into the cache. Runs once from the constructor, and again after a failed load.</summary>
+    private async Task LoadStateAsync(CancellationToken ct)
+    {
+        var agents = await _store.LoadAsync(ct).ConfigureAwait(false);
+        lock (_gate)
+        {
+            _contained.Clear();
+            foreach (var agent in agents)
+            {
+                _contained[agent.AgentId] = 0;
+            }
+            _loaded = true;
+        }
+    }
+
+    /// <summary>Waits for the state load. A load that failed is started again, so a transient store outage does not stay fatal.</summary>
+    private async Task EnsureLoadedAsync(CancellationToken ct)
+    {
+        Task pending;
+        lock (_gate)
+        {
+            if (_loaded)
+            {
+                return;
+            }
+            if (_loadTask.IsFaulted || _loadTask.IsCanceled)
+            {
+                _loadTask = LoadStateAsync(CancellationToken.None);
+            }
+            pending = _loadTask;
+        }
+
+        await pending.WaitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Removes the agent from the stored set, then from the cache. A failed store write keeps the agent contained.</summary>
+    private async Task RemoveContainedAsync(string agentId, CancellationToken ct)
+    {
+        await _lane.RunAsync(async () =>
+        {
+            await _store.RemoveAsync(agentId, ct).ConfigureAwait(false);
+            _contained.TryRemove(agentId, out _);
+        }, ct).ConfigureAwait(false);
     }
 
     private Task AuditAsync(string actor, string agentId, string step, string detail, CancellationToken ct)

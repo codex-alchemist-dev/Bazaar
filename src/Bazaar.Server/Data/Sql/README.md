@@ -52,6 +52,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `modules/0001` | MM-WP-PERSIST (wave 2) | this PR | Module manager (doc 42): `module_update_decision` and `module_line_move_event`, both append-only with a refuse trigger; CHECK lists mirror the `UpdateDecision`, `LineMoveStep` and `LineMoveAuditKind` enums. Lives in the `modules` namespace because `common/` is frozen; no foreign keys |
 | `agent_safety/0001` | WP-BUDGET | this PR | `agent_token_spend`: per-agent token spend log behind `ITokenBudgetStore` (doc 15 quota table; `PostgresTokenBudgetStore`). Own namespace, because `common/` is frozen; no foreign keys |
 | `agent_safety/0002` | WP-BUDGET-ATOMIC | this PR | Index `agent_token_spend (at)` for the cross-agent prune (`DELETE ... WHERE at <= $1`); the 0001 `(agent_id, at)` index cannot serve it |
+| `agent_safety/0003` | KS-PERSIST | this PR | `kill_switch_global` (single row), `kill_switch_agent_stop`, `agent_containment`: the kill switch and containment state, reloaded on start (`PostgresKillSwitchStateStore`, `PostgresContainmentStateStore`). Own namespace, because `common/` is frozen; no foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces

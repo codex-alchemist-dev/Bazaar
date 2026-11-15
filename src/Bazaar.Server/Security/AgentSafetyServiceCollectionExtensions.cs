@@ -11,12 +11,14 @@ public static class AgentSafetyServiceCollectionExtensions
 {
     /// <summary>
     /// Registers <see cref="KillSwitchEngine"/>, the token budget service (through <see cref="TokenBudgetServiceCollectionExtensions.AddAgentTokenBudgets"/>),
-    /// <see cref="KillSwitchAuditAdapter"/> and <see cref="AgentContainmentAdapter"/>. All are singletons and use TryAdd, so a
-    /// host registration made before this call wins.
+    /// <see cref="KillSwitchAuditAdapter"/> and <see cref="AgentContainmentAdapter"/>, with the in-memory kill switch and
+    /// containment stores unless the host registers durable ones (Postgres: Bazaar.Server.Security.KillSwitch.Postgres) first.
+    /// All are singletons and use TryAdd, so a host registration made before this call wins.
     /// </summary>
     /// <remarks>
     /// The caller must register these first: <see cref="Bazaar.Server.Security.Audit.IAuditLog"/>,
     /// <see cref="Quarantine.IVmPauser"/>, <see cref="Quarantine.IAgentTokenRevoker"/>,
+    /// a durable <see cref="IKillSwitchStateStore"/> and <see cref="IContainmentStateStore"/> so stops survive a restart,
     /// <see cref="Approvals.IOwnerKeyRegistry"/> (the owner check for release), and a durable
     /// <see cref="ITokenBudgetStore"/> so budget counters survive a restart. Nothing here registers them. The host is not
     /// changed by this call; it calls this method when it composes the server.
@@ -28,6 +30,8 @@ public static class AgentSafetyServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddAgentTokenBudgets(configuration);
+        services.TryAddSingleton<IKillSwitchStateStore, InMemoryKillSwitchStateStore>();
+        services.TryAddSingleton<IContainmentStateStore, InMemoryContainmentStateStore>();
         services.TryAddSingleton<IKillSwitchAuditSink, KillSwitchAuditAdapter>();
         services.TryAddSingleton<INonceStore, InMemoryNonceStore>();
         services.TryAddSingleton<IAgentContainment, AgentContainmentAdapter>();
