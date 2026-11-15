@@ -57,6 +57,36 @@ public sealed class SecretServiceKekProviderTests
         await Assert.ThrowsAsync<KekCustodyException>(() => SecretServiceKekProvider.OpenAsync(keyring, "kek-1", CancellationToken.None));
     }
 
+    /// <summary>
+    /// Runs against the real Secret Service through <c>secret-tool</c>. Set BAZAAR_TEST_KEYRING=1 inside a session that has an
+    /// unlocked keyring (for example: dbus-run-session -- sh -c 'echo -n pw | gnome-keyring-daemon --unlock --components=secrets; ...').
+    /// The item is removed afterwards.
+    /// </summary>
+    [Fact]
+    public async Task LiveKeyringKeepsTheSameKekAcrossOpens()
+    {
+        if (Environment.GetEnvironmentVariable("BAZAAR_TEST_KEYRING") != "1")
+        {
+            Assert.Skip("Set BAZAAR_TEST_KEYRING=1 under an unlocked Secret Service session to run this test.");
+        }
+
+        var runner = new ProcessSecretToolRunner();
+        var keyId = "live-test-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            using var first = await SecretServiceKekProvider.OpenAsync(runner, keyId, CancellationToken.None);
+            var wrapped = await first.WrapAsync(new byte[] { 9, 8, 7 }, _aad, CancellationToken.None);
+            using var second = await SecretServiceKekProvider.OpenAsync(runner, keyId, CancellationToken.None);
+            var unwrapped = await second.UnwrapAsync(keyId, wrapped, _aad, CancellationToken.None);
+
+            Assert.Equal(new byte[] { 9, 8, 7 }, unwrapped.ToArray());
+        }
+        finally
+        {
+            await runner.RunAsync(["clear", "service", "bazaar-kek", "account", keyId], null, CancellationToken.None);
+        }
+    }
+
     /// <summary>In-memory stand-in for secret-tool lookup and store, with the exit codes the real tool uses.</summary>
     private sealed class FakeSecretTool : ISecretToolRunner
     {
