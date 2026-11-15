@@ -28,7 +28,7 @@ public static class AvaloniaThemeGenerator
             switch (spec.Kind)
             {
                 case TokenKind.Colour:
-                    sb.Append("  <Color x:Key=\"").Append(key).Append("\">").Append(value).Append("</Color>\n");
+                    sb.Append("  <Color x:Key=\"").Append(key).Append("\">").Append(AvaloniaColour(value)).Append("</Color>\n");
                     sb.Append("  <SolidColorBrush x:Key=\"Bazaar.brush.").Append(spec.Name)
                         .Append("\" Color=\"{StaticResource ").Append(key).Append("}\" />\n");
                     break;
@@ -48,4 +48,11 @@ public static class AvaloniaThemeGenerator
         sb.Append("</ResourceDictionary>\n");
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Theme colours are #RRGGBB or #RRGGBBAA (alpha last, as in CSS and Monaco). Avalonia's Color.Parse reads
+    /// #AARRGGBB, so the alpha pair moves to the front. Opaque #RRGGBB is already valid for Avalonia.
+    /// </summary>
+    internal static string AvaloniaColour(string value) =>
+        value.Length == 9 ? string.Concat("#", value.AsSpan(7, 2), value.AsSpan(1, 6)) : value;
 }
