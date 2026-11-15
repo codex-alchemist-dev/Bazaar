@@ -6,13 +6,13 @@ namespace Bazaar.Client.Core.Tests.Mobile;
 
 public class PostureShellBinderTests
 {
-    private static readonly FoldSnapshot Flat = new(true, FoldState.Flat, false, false);
-    private static readonly FoldSnapshot HalfOpen = new(true, FoldState.HalfOpened, true, false);
+    private static readonly FoldSnapshot _flat = new(true, FoldState.Flat, false, false);
+    private static readonly FoldSnapshot _halfOpen = new(true, FoldState.HalfOpened, true, false);
 
     [AvaloniaFact]
     public void Binding_applies_the_initial_posture_at_once()
     {
-        using var source = new FakePostureSource(Flat);
+        using var source = new FakePostureSource(_flat);
         var shell = new PhoneShell(Registry("a", "b"));
 
         using var binder = new PostureShellBinder(source, shell, () => 900, HalfOpenLayoutPolicy.UnfoldedIfWide);
@@ -28,7 +28,7 @@ public class PostureShellBinderTests
         var shell = new PhoneShell(Registry("a", "b"));
         using var binder = new PostureShellBinder(source, shell, () => 900, HalfOpenLayoutPolicy.UnfoldedIfWide);
 
-        source.Push(Flat);
+        source.Push(_flat);
         Assert.Equal(LayoutVariant.Unfolded, shell.Layout);
 
         source.Push(FoldSnapshot.NoFold);
@@ -44,7 +44,7 @@ public class PostureShellBinderTests
         var shell = new PhoneShell(Registry("a", "b"));
         using var binder = new PostureShellBinder(source, shell, () => width, HalfOpenLayoutPolicy.UnfoldedIfWide);
 
-        source.Push(HalfOpen);
+        source.Push(_halfOpen);
         Assert.Equal(LayoutVariant.Folded, shell.Layout);
 
         width = 700;
@@ -60,7 +60,7 @@ public class PostureShellBinderTests
         var binder = new PostureShellBinder(source, shell, () => 900, HalfOpenLayoutPolicy.UnfoldedIfWide);
         binder.Dispose();
 
-        source.Push(Flat);
+        source.Push(_flat);
 
         Assert.Equal(LayoutVariant.Folded, shell.Layout);
     }
