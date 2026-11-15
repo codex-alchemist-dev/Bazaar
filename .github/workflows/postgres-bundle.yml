@@ -276,8 +276,9 @@ jobs:
           VERSION: ${{ inputs.pgvector_version }}
         run: |
           set -euo pipefail
-          L="$(tr -d '[:space:]' < hashes/hash-Linux.txt)"
-          W="$(tr -d '[:space:]' < hashes/hash-Windows.txt)"
+          # Windows prints the digest in upper case; compare case-insensitively.
+          L="$(tr -d '[:space:]' < hashes/hash-Linux.txt | tr '[:upper:]' '[:lower:]')"
+          W="$(tr -d '[:space:]' < hashes/hash-Windows.txt | tr '[:upper:]' '[:lower:]')"
           echo "pgvector $VERSION: Linux=$L Windows=$W" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$L" = "$W" ] || { echo "hashes differ; do not pin" >&2; exit 1; }
           echo "Both runners agree. Check the tag commit against upstream before pinning PGVECTOR_SHA256 in packaging/postgres/versions.txt." | tee -a "$GITHUB_STEP_SUMMARY"
