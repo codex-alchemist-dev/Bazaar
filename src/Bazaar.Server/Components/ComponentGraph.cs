@@ -46,9 +46,9 @@ public static class ComponentGraph
             }
         }
 
-        // A soft dependency orders the two components only when the dependency is present, so it is an edge to a present id only.
-        bool Ready(string id, HashSet<string> placedIds) =>
-            byId[id].DependsOn.All(placedIds.Contains) && byId[id].Soft.Where(byId.ContainsKey).All(placedIds.Contains);
+        // Only hard edges set start order (docs/design/BAZAAR-COMPONENTS.md section 4.1, owner 2026-11-16). Soft edges are feature
+        // links resolved from metadata, so they may form cycles and never reorder components.
+        bool Ready(string id, HashSet<string> placedIds) => byId[id].DependsOn.All(placedIds.Contains);
 
         // Kahn's algorithm over ids sorted ordinally, so ties resolve the same way on every start.
         var remaining = byId.Keys.Order(StringComparer.Ordinal).ToList();

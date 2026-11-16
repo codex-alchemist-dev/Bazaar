@@ -24,11 +24,23 @@ public class ComponentGraphTests
     }
 
     [Fact]
-    public void A_soft_dependency_orders_the_pair_when_present()
+    public void A_soft_dependency_does_not_set_start_order()
     {
-        var ordered = ComponentGraph.Order([new ComponentManifest("kanban", "0.1.0", ComponentKind.Feature, [], [], ["gc"]), M("gc")]);
+        // "aaa" softly depends on "zzz". A soft edge would start "zzz" first. Id order must win, so "aaa" starts first.
+        var ordered = ComponentGraph.Order([new ComponentManifest("aaa", "0.1.0", ComponentKind.Feature, [], [], ["zzz"]), M("zzz")]);
 
-        Assert.Equal(["gc", "kanban"], ordered.Select(m => m.Id));
+        Assert.Equal(["aaa", "zzz"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void Mutual_soft_links_are_allowed_and_ordered_by_id()
+    {
+        var ordered = ComponentGraph.Order(
+            [new ComponentManifest("a", "0.1.0", ComponentKind.Feature, ["c"], [], ["b"]),
+             new ComponentManifest("b", "0.1.0", ComponentKind.Feature, ["c"], [], ["a"]),
+             M("c")]);
+
+        Assert.Equal(["c", "a", "b"], ordered.Select(m => m.Id));
     }
 
     [Fact]
@@ -40,10 +52,10 @@ public class ComponentGraphTests
     }
 
     [Fact]
-    public void A_soft_cycle_is_still_a_cycle()
+    public void A_hard_cycle_is_rejected_even_when_soft_links_exist()
     {
         var ex = Assert.Throws<ComponentGraphException>(() => ComponentGraph.Order(
-            [new ComponentManifest("a", "0.1.0", ComponentKind.Feature, [], [], ["b"]),
+            [new ComponentManifest("a", "0.1.0", ComponentKind.Feature, ["b"], [], ["c"]),
              new ComponentManifest("b", "0.1.0", ComponentKind.Feature, ["a"], [])]));
 
         Assert.Contains("cycle", ex.Message, StringComparison.Ordinal);
