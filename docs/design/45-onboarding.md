@@ -341,7 +341,7 @@ Each question has a default, the one this doc uses.
 3. **Provisioning access.** Loopback plus a one-time bootstrap code until the owner exists (default), or a signed installer token? Reason: no network surface before the owner exists.
 4. **Second factor to finish setup. DECIDED (owner, 2026-11-16): optional with a warning.** Setup can finish without a second factor, with a warning. Recovery and high-risk actions stay blocked until one is added (docs 14, 32).
 5. **Backup target. DECIDED (owner, 2026-11-16): finishing without a target is allowed only with a recorded acknowledgement.** The acknowledgement is written to the audit log, and Kodo keeps flagging the missing target (doc 33, doc 46). The operator's choice of target is kept.
-6. **Scam-mail protocol name.** Keep "Nigerian Prince Protocol" (brief, default for this doc), or adopt a neutral name such as "Bait protocol" (doc 22 proposal)? Reason: the name refers to a nationality; the choice affects public naming, so counsel may need to see it.
+6. **Scam-mail protocol name. CLOSED (owner, 2026-11-16):** keep "Nigerian Prince Protocol". The doc 22 rename proposal is dropped.
 
 ## Testing [PLANNED]
 
