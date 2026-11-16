@@ -1,7 +1,7 @@
 using System.Net;
-using Bazaar.Server.Components.Tls;
+using Bazaar.Tls;
 
-namespace Bazaar.Server.Tests.Components.Tls;
+namespace Bazaar.Tls.Tests;
 
 /// <summary>The plain-text loopback rule and the <c>tls.certificate_source</c> parser. Pure: no files, no network.</summary>
 public sealed class TlsPolicyAndSourceTests

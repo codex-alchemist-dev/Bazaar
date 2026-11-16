@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Bazaar.Server.Secrets;
 
-namespace Bazaar.Server.Components.Tls;
+namespace Bazaar.Tls;
 
 /// <summary>
 /// Loads an operator-supplied PKCS#12 (PFX) file. The password is never in configuration: it is a secret reference

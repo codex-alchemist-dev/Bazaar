@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components.Tls;
+namespace Bazaar.Tls;
 
 /// <summary>
 /// The overlay-issued certificate source (docs/design/32 section 2, unverified). Not implemented in this build: every load fails with

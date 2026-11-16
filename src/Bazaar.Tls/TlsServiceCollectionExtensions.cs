@@ -1,7 +1,7 @@
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Server.Components.Tls;
+namespace Bazaar.Tls;
 
 /// <summary>What the operator configured for the TLS certificate. Paths and references only, never secret values.</summary>
 /// <param name="Source">The configured <c>tls.certificate_source</c>.</param>
