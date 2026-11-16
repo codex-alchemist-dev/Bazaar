@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components.Tls;
+namespace Bazaar.Tls;
 
 /// <summary>Supplies the TLS server certificate for the listener (docs/design/32 section 2). Each implementation owns one source.</summary>
 public interface ICertificateProvider
