@@ -65,7 +65,9 @@ required=("bin/postgres$exe_suffix" "bin/initdb$exe_suffix" "bin/pg_ctl$exe_suff
 for rel in "${required[@]}"; do
   [ -f "$bundle/$rel" ] || failures+=("bundle is missing $rel")
 done
-if ! compgen -G "$bundle/$ext_dir/vector--*.sql" >/dev/null; then
+# Use find, not a shell glob: on Windows the bundle path arrives with backslashes (D:\a\_temp\...), and a glob would read
+# each backslash as an escape and never match.
+if [ -z "$(find "$bundle/$ext_dir" -maxdepth 1 -name 'vector--*.sql' -print -quit 2>/dev/null)" ]; then
   failures+=("bundle has no pgvector SQL scripts in $ext_dir")
 fi
 [ -e "$bundle/include" ] && failures+=("bundle ships development headers (include/)")
