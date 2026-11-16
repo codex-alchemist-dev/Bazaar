@@ -16,7 +16,7 @@ Bazaar.Android is the phone and foldable head of the Bazaar client: a Developmen
 - Push: content-free. A bare wake hint carries no chat id and no sequence number. Three wake kinds (mention, DM, owner decision) plus opt-in quota alerts. Content is fetched over the authenticated connection (CLAUDE.md; DECISIONS-LOG round 5, C41). FCM and UnifiedPush sit behind one provider interface.
 - Transport: WebSocket for realtime; authenticated HTTP for blobs (screenshots), search and pairing (DECISIONS-LOG round 6, C15; doc 02).
 - Taint: external content taints hard; agent text taints softly. Tier 2 actions are gated on hard taint. Outward high-impact actions (posting, sending, spending, repo push or merge) need owner approval; routine internal work does not (DECISIONS-LOG rounds 2 and 6, C06 and C18; doc 15 ladder).
-- The owner merges from the apps. The client holds no GitHub credential; the server performs the squash merge on the owner's signed approval, with the `Signed-off-by` line (DECISIONS-LOG round 8, C25; credential choice in docs 14 and 21, round 12).
+- The owner merges from the apps. The client holds no provider credential (GitHub or GitLab); the server performs the squash merge on the owner's signed approval, with the `Signed-off-by` line (DECISIONS-LOG round 8, C25; credential choice in docs 14 and 21, round 12).
 - Done means the PR is merged. Reviewer approval is a visible flag (DECISIONS-LOG round 8, C28).
 - Monaco is not supported on mobile (UI framework contingency note, 2026-10-25). Phone diffs need a native surface (see Conflicts).
 - Google Play closed test is the first distribution (CLAUDE.md).
