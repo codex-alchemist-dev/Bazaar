@@ -9,14 +9,14 @@ public sealed class ErasureCoordinatorTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static readonly FakeLegalHoldReader NotHeld = new(held: false);
+    private static readonly FakeLegalHoldReader _notHeld = new(held: false);
 
     [Fact]
     public async Task Key_destruction_runs_first_then_participants_in_registration_order()
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 1, AlreadyDestroyed: 0));
-        var coordinator = new ErasureCoordinator(keys, NotHeld, [
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [
             new FakeParticipant("memory", log, ErasureParticipantResult.Removed(3)),
             new FakeParticipant("vault", log, ErasureParticipantResult.NothingToDo()),
             new FakeParticipant("mail", log, ErasureParticipantResult.Removed(1)),
@@ -37,7 +37,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 2, AlreadyDestroyed: 0));
-        var coordinator = new ErasureCoordinator(keys, NotHeld, [
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [
             new FakeParticipant("first", log, ErasureParticipantResult.Removed(1)),
             new FakeParticipant("broken", log, new InvalidOperationException("disk unavailable")),
             new FakeParticipant("last", log, ErasureParticipantResult.NothingToDo()),
@@ -60,7 +60,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new InvalidOperationException("permission denied to set role"));
-        var coordinator = new ErasureCoordinator(keys, NotHeld, [new FakeParticipant("memory", log, ErasureParticipantResult.Removed(4))]);
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [new FakeParticipant("memory", log, ErasureParticipantResult.Removed(4))]);
 
         var report = await coordinator.EraseAsync(_person, Ct);
 
@@ -77,7 +77,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 0, AlreadyDestroyed: 1));
-        var coordinator = new ErasureCoordinator(keys, NotHeld, [new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo())]);
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo())]);
 
         var first = await coordinator.EraseAsync(_person, Ct);
         var second = await coordinator.EraseAsync(_person, Ct);
@@ -94,7 +94,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 0, AlreadyDestroyed: 0));
-        var coordinator = new ErasureCoordinator(keys, NotHeld, []);
+        var coordinator = new ErasureCoordinator(keys, _notHeld, []);
 
         var report = await coordinator.EraseAsync(_person, Ct);
 
@@ -110,7 +110,7 @@ public sealed class ErasureCoordinatorTests
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(1, 0));
 
-        Assert.Throws<ArgumentException>(() => new ErasureCoordinator(keys, NotHeld, [
+        Assert.Throws<ArgumentException>(() => new ErasureCoordinator(keys, _notHeld, [
             new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo()),
             new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo()),
         ]));
@@ -119,7 +119,7 @@ public sealed class ErasureCoordinatorTests
     [Fact]
     public async Task An_empty_person_id_is_refused()
     {
-        var coordinator = new ErasureCoordinator(new FakeKeyEraser([], new PersonKeyEraseResult(1, 0)), NotHeld, []);
+        var coordinator = new ErasureCoordinator(new FakeKeyEraser([], new PersonKeyEraseResult(1, 0)), _notHeld, []);
 
         await Assert.ThrowsAsync<ArgumentException>(() => coordinator.EraseAsync(Guid.Empty, Ct));
     }
