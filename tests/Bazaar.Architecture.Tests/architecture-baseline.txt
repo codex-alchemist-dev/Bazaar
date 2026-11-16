@@ -42,12 +42,6 @@ src/Bazaar.Client.Core/Mobile/PhoneWidgetPolicy.cs
 src/Bazaar.Client.Core/Mobile/PostureLayout.cs
 src/Bazaar.Client.Core/Mobile/PostureShellBinder.cs
 src/Bazaar.Client.Core/Mobile/RadialMenu.cs
-src/Bazaar.Client.Core/Pairing/PairingClient.cs
-src/Bazaar.Client.Core/Pairing/PairingFlow.cs
-src/Bazaar.Client.Core/Pairing/PairingJson.cs
-src/Bazaar.Client.Core/Pairing/PairingView.cs
-src/Bazaar.Client.Core/Pairing/PairingViewModel.cs
-src/Bazaar.Client.Core/Pairing/RefreshCredentialStore.cs
 src/Bazaar.Client.Core/Panes/ConstellationPaneModule.cs
 src/Bazaar.Client.Core/Panes/DashboardPaneModule.cs
 src/Bazaar.Client.Core/Panes/DashboardPaneViewModel.cs
@@ -236,13 +230,9 @@ src/Bazaar.Server/Components/RateLimits/IRateLimiter.cs
 src/Bazaar.Server/Components/RateLimits/InMemoryRateLimiter.cs
 src/Bazaar.Server/Components/RateLimits/RateLimitPolicy.cs
 src/Bazaar.Server/Components/RateLimits/RateLimitServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Remote/IPairingOfferStore.cs
 src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
 src/Bazaar.Server/Components/Remote/ITokenService.cs
 src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/PairingCodes.cs
-src/Bazaar.Server/Components/Remote/PairingService.cs
-src/Bazaar.Server/Components/Remote/PostgresPairingOfferStore.cs
 src/Bazaar.Server/Components/Remote/PostgresRefreshCredentialStore.cs
 src/Bazaar.Server/Components/Remote/RefreshCredentialSecret.cs
 src/Bazaar.Server/Components/Remote/RemoteComponent.cs
@@ -520,7 +510,6 @@ src/Bazaar.Server/Http/HttpRateLimiter.cs
 src/Bazaar.Server/Http/HttpSurfaceEndpoints.cs
 src/Bazaar.Server/Http/HttpSurfaceOptions.cs
 src/Bazaar.Server/Http/HttpSurfaceServiceCollectionExtensions.cs
-src/Bazaar.Server/Http/PairingEndpoints.cs
 src/Bazaar.Server/Identity/BrowserProfiles/AesGcmProfileEncryptor.cs
 src/Bazaar.Server/Identity/BrowserProfiles/BrowserCookie.cs
 src/Bazaar.Server/Identity/BrowserProfiles/BrowserLease.cs

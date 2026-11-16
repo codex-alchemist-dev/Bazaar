@@ -19,37 +19,6 @@ public sealed class PrivacyAuditRecorderTests
     private static JsonObject PayloadOf(AuditEntry entry) => JsonNode.Parse(entry.Payload)!.AsObject();
 
     [Fact]
-    public async Task Offer_created_writes_kind_actor_and_role_ttl_fields()
-    {
-        var (recorder, log, _) = Create();
-
-        await recorder.OfferCreatedAsync("human:owner", "offer-1", "member", 10, TestContext.Current.CancellationToken);
-
-        var entry = Assert.Single(log.Entries);
-        Assert.Equal(PrivacyAuditKinds.PairingOfferCreated, entry.Kind);
-        Assert.Equal("human:owner", entry.Actor);
-        var payload = PayloadOf(entry);
-        Assert.Equal("offer-1", payload["offer_id"]!.GetValue<string>());
-        Assert.Equal("member", payload["role"]!.GetValue<string>());
-        Assert.Equal(10, payload["ttl_minutes"]!.GetValue<int>());
-    }
-
-    [Fact]
-    public async Task Pairing_issued_writes_offer_device_and_class()
-    {
-        var (recorder, log, _) = Create();
-
-        await recorder.PairingIssuedAsync("human:owner", "offer-1", "device-7", "android", TestContext.Current.CancellationToken);
-
-        var entry = Assert.Single(log.Entries);
-        Assert.Equal(PrivacyAuditKinds.PairingIssued, entry.Kind);
-        var payload = PayloadOf(entry);
-        Assert.Equal("offer-1", payload["offer_id"]!.GetValue<string>());
-        Assert.Equal("device-7", payload["device_id"]!.GetValue<string>());
-        Assert.Equal("android", payload["device_class"]!.GetValue<string>());
-    }
-
-    [Fact]
     public async Task Device_revoked_writes_device_and_reason()
     {
         var (recorder, log, _) = Create();
@@ -295,22 +264,10 @@ public sealed class PrivacyAuditRecorderTests
     }
 
     [Fact]
-    public async Task Payload_is_canonical_json_with_keys_sorted()
-    {
-        var (recorder, log, _) = Create();
-
-        await recorder.OfferCreatedAsync("human:owner", "offer-1", "member", 10, TestContext.Current.CancellationToken);
-
-        Assert.Equal("{\"offer_id\":\"offer-1\",\"role\":\"member\",\"ttl_minutes\":10}", log.Entries[0].Payload);
-    }
-
-    [Fact]
     public async Task Every_recorded_payload_passes_the_redaction_guard()
     {
         var (recorder, log, _) = Create();
 
-        await recorder.OfferCreatedAsync("human:owner", "offer-1", "member", 10, TestContext.Current.CancellationToken);
-        await recorder.PairingIssuedAsync("human:owner", "offer-1", "device-7", "android", TestContext.Current.CancellationToken);
         await recorder.DeviceRevokedAsync("human:owner", "device-7", "owner_request", TestContext.Current.CancellationToken);
         await recorder.TokenReuseDetectedAsync("device:device-7", "device-7", "cred-42", TestContext.Current.CancellationToken);
         await recorder.SignInSucceededAsync("human:owner", "human:owner", "passkey", TestContext.Current.CancellationToken);
@@ -353,7 +310,7 @@ public sealed class PrivacyAuditRecorderTests
     public void Kinds_are_unique_dotted_lowercase_and_match_the_documented_list()
     {
         Assert.Equal(PrivacyAuditKinds.All.Count, PrivacyAuditKinds.All.Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(18, PrivacyAuditKinds.All.Count);
+        Assert.Equal(16, PrivacyAuditKinds.All.Count);
         foreach (var kind in PrivacyAuditKinds.All)
         {
             Assert.Matches("^[a-z_]+(\\.[a-z_]+)+$", kind);

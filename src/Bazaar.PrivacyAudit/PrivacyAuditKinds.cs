@@ -7,12 +7,6 @@ namespace Bazaar.PrivacyAudit;
 /// </summary>
 public static class PrivacyAuditKinds
 {
-    // Doc 32 section 8 "offers" and section 3 step 1.
-    public const string PairingOfferCreated = "pairing.offer_created";
-
-    // Doc 32 section 8 "pairing" and section 3 step 4 (approval mints the device record and credentials).
-    public const string PairingIssued = "pairing.issued";
-
     // Doc 32 section 8 "revocation" and section 5 (revocation is immediate).
     public const string DeviceRevoked = "device.revoked";
 
@@ -56,8 +50,6 @@ public static class PrivacyAuditKinds
     /// <summary>Every kind in this class, in declaration order.</summary>
     public static IReadOnlyList<string> All { get; } =
     [
-        PairingOfferCreated,
-        PairingIssued,
         DeviceRevoked,
         TokenReuseDetected,
         SignInSucceeded,
