@@ -95,6 +95,16 @@ public interface IRestoreAuditSink
 }
 
 /// <summary>
+/// Verifies the owner's biometric check on the new device (doc 48 section 7, completion step). Contract only: the
+/// assertion format and the liveness rules come from the biometric spike (doc 48 section 8), so the assertion is opaque here.
+/// </summary>
+public interface IOwnerBiometricVerifier
+{
+    /// <summary>True when <paramref name="assertion"/> is a valid biometric assertion by <paramref name="ownerId"/>.</summary>
+    bool Verify(string ownerId, ReadOnlyMemory<byte> assertion);
+}
+
+/// <summary>
 /// Persists the read-only state of a restoring install in the install config, so a restart does not enable writes
 /// (doc 48 section 6). Contract only.
 /// </summary>

@@ -115,11 +115,13 @@ public sealed class RestoreWizard
     private readonly object _lock = new();
     private readonly IRestoreReadOnlyStateStore _readOnlyState;
     private readonly IHardwareKeyAssertionVerifier? _assertionVerifier;
+    private readonly IOwnerBiometricVerifier? _biometricVerifier;
     private RestoreState _state = RestoreState.NotStarted;
     private string? _recoveryCaseId;
 
     /// <param name="readOnlyState">Persists the read-only state in the install config.</param>
     /// <param name="assertionVerifier">Verifies the owner's FIDO2 assertion at confirmation. Null means writes can never be confirmed.</param>
+    /// <param name="biometricVerifier">Verifies the owner's biometric check at confirmation. Null means writes can never be confirmed.</param>
     public RestoreWizard(
         IRestoreTargetProbe probe,
         ILiveDataPreserver? preserver,
@@ -134,6 +136,7 @@ public sealed class RestoreWizard
         IRestoreWriteGate gate,
         IRestoreReadOnlyStateStore readOnlyState,
         IHardwareKeyAssertionVerifier? assertionVerifier,
+        IOwnerBiometricVerifier? biometricVerifier,
         RestoreWizardOptions? options = null,
         string? restoreId = null)
     {
@@ -150,6 +153,7 @@ public sealed class RestoreWizard
         _gate = gate ?? throw new ArgumentNullException(nameof(gate));
         _readOnlyState = readOnlyState ?? throw new ArgumentNullException(nameof(readOnlyState));
         _assertionVerifier = assertionVerifier;
+        _biometricVerifier = biometricVerifier;
         _options = options ?? new RestoreWizardOptions();
         RestoreId = string.IsNullOrWhiteSpace(restoreId) ? Guid.CreateVersion7().ToString("N") : restoreId;
     }
@@ -358,6 +362,7 @@ public sealed class RestoreWizard
         OwnerWriteConfirmation confirmation,
         RecoveryCase? recoveryCase,
         ReadOnlyMemory<byte> assertion,
+        ReadOnlyMemory<byte> biometricAssertion,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(confirmation);
@@ -375,7 +380,7 @@ public sealed class RestoreWizard
                 throw new InvalidOperationException("The confirmation does not name this restore or has no owner.");
             }
 
-            refused = Refusal(confirmation, recoveryCase, assertion);
+            refused = Refusal(confirmation, recoveryCase, assertion, biometricAssertion);
 
             // Claim the transition so a second confirmation cannot run the gate twice. A refusal leaves the restore confirmable later.
             if (refused is null)
@@ -425,11 +430,16 @@ public sealed class RestoreWizard
     }
 
     /// <summary>Why writes may not be enabled, or null when they may. Call under the lock.</summary>
-    private string? Refusal(OwnerWriteConfirmation confirmation, RecoveryCase? c, ReadOnlyMemory<byte> assertion)
+    private string? Refusal(OwnerWriteConfirmation confirmation, RecoveryCase? c, ReadOnlyMemory<byte> assertion, ReadOnlyMemory<byte> biometricAssertion)
     {
         if (_assertionVerifier is null)
         {
             return "no-assertion-verifier-configured";
+        }
+
+        if (_biometricVerifier is null)
+        {
+            return "no-biometric-verifier-configured";
         }
 
         if (c is null)
@@ -456,6 +466,12 @@ public sealed class RestoreWizard
         if (assertion.IsEmpty || !_assertionVerifier.Verify(c.CaseId, confirmation.ConfirmedBy, assertion))
         {
             return "owner-assertion-invalid";
+        }
+
+        // Both checks are needed (doc 48 section 7): the hardware key and the owner's biometric check on the new device.
+        if (biometricAssertion.IsEmpty || !_biometricVerifier.Verify(confirmation.ConfirmedBy, biometricAssertion))
+        {
+            return "owner-biometric-invalid";
         }
 
         return null;
