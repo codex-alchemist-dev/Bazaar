@@ -187,7 +187,7 @@ Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, do
 2. KEK holders. Key custody. Recommended: one sealed copy held by you; optional second holder named by you.
 3. Rollback policy (C10 FOLLOW-UP; still PROPOSED per DECISIONS-LOG round 13). It changes sequence semantics, so one answer is needed. Recommended: point-in-time recovery to the last recoverable point; unrecoverable ranges recorded, never reconstructed.
 4. Migration credentials. Key custody; depends on Q1. Recommended: move the KEK by sealed export, then rotate provider and GitHub App keys held by the Identity Service (`14`).
-5. Soul Marketplace in v1? Product scope. Recommended: no; the format is designed only (`07` Q2).
+5. Soul Marketplace in v1? Decided (owner, 2026-11-16): yes, in scope for v1 while in beta (`07` Q1). Its mechanism is OPEN and is not decided here.
 6. Erasure in Vault history (C38 FOLLOW-UP). The options are undecided: encrypted personal notes or a history rewrite. Needs counsel. Recommended: the erasure window also applies to Vault bundles and remotes; the mechanism stays open.
 
 MOVED TO SETTINGS: backup.offsite_target, backup.wal_archive_timeout, backup.offsite_rpo_target, backup.base_sets_kept, backup.offsite_keep_daily, backup.offsite_keep_weekly, backup.golden_parent_offsite, backup.include_child_vm_disks, backup.audit_head_offsite, backup.vault_bundle_hours, backup.drill_interval_days, backup.check_interval_hours, backup.volume_warn_pct, backup.volume_red_pct; referenced from other docs: erasure.backup_window_days (04), security.backup.include_cookie_profiles (15), vault.push_cadence (18) (DECISIONS-LOG round 13)

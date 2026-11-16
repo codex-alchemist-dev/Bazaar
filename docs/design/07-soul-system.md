@@ -144,7 +144,7 @@ Remaining after reconciliation:
 7. **FOLLOW-UP (C38):** erasure inside Vault Markdown and git history is unanswered (Q5).
 
 ## Questions for the owner
-1. Marketplace in v1? Default: no. The format is designed, not built; any bundle is optional, user-generated and behavioural only.
+1. **Decided (owner, 2026-11-16): the Soul Marketplace is in scope for v1, while the product is in beta.** It opens so that others can build and present their own modules. Bundles stay optional, user-generated and behavioural only, with the memory exclusion rule above. **OPEN:** how the marketplace works (listing, review, distribution and pricing mechanism). The owner is still debating this. No design is decided here.
 2. Constitution v1 seed: who writes it? Default: you write a one-page seed; Claude drafts the structure.
 3. ChatGPT's role? Default: read-only planning reviewer, no write tools, until you decide.
 4. Do judgments pin the exact charter version? Default: yes.
@@ -164,7 +164,7 @@ ANSWERED: Edited messages keep every version with an "edited" marker (CLAUDE.md;
 
 > Framing (owner, 2026-11-13): agent memory is not a separate store. Memory items are artefacts held in Constellation and in the contents of a Soul. The memory export below selects those artefacts; it does not add a new store.
 
-Status: DECIDED (owner, 2026-11-13). PLANNED to build. The marketplace itself is OPEN for v1 scope (see Questions for the owner).
+Status: DECIDED (owner, 2026-11-13). PLANNED to build. The marketplace is in scope for v1 (owner, 2026-11-16, beta). Its mechanism is OPEN (see Questions for the owner).
 
 1. **Rule.** Agent memory and agent reputation must never be part of anything published to the Soul Marketplace. This covers Vault memory files, the memory index, memory kinds from doc 08, reputation history from doc 11, and any excerpt, summary or embedding of them.
 2. **The marketplace export is memory-free by design.** The Soul marketplace bundle is the Soul export of doc 33, which has no memory, no reputation and no Passport. Its schema has no field for memory or reputation, so the bundle cannot carry them.
