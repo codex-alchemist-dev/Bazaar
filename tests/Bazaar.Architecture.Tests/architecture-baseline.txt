@@ -226,10 +226,6 @@ src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
 src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
 src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
-src/Bazaar.Server/Components/PrivacyAudit/AuditPayloadGuard.cs
-src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditKinds.cs
-src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditRecorder.cs
-src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/RateLimits/IRateLimiter.cs
 src/Bazaar.Server/Components/RateLimits/InMemoryRateLimiter.cs
 src/Bazaar.Server/Components/RateLimits/RateLimitPolicy.cs
@@ -789,7 +785,6 @@ src/Bazaar.Server/Security/Audit/Db/PostgresAuditAnchorFailureLog.cs
 src/Bazaar.Server/Security/Audit/Db/PostgresAuditAnchorStore.cs
 src/Bazaar.Server/Security/Audit/Db/PostgresAuditCheckpointStore.cs
 src/Bazaar.Server/Security/Audit/Db/PostgresAuditLog.cs
-src/Bazaar.Server/Security/Audit/IAuditLog.cs
 src/Bazaar.Server/Security/Audit/ITransactionalAuditLog.cs
 src/Bazaar.Server/Security/Budgets/ITokenBudgetService.cs
 src/Bazaar.Server/Security/Budgets/ITokenBudgetStore.cs
