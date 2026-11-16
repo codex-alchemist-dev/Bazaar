@@ -5,7 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Windows.Constellation;
 
 /// <summary>
 /// The Windows host for the Constellation view: a native child window that Avalonia places in the layout, so a GPU surface

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net11.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <!-- Client: workstation concurrent GC with TieredPGO (doc 40, owner decision 2026-11-11). Latency mode is set at start-up. -->
