@@ -74,7 +74,7 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         Assert.True(outcome.IsSuccess);
         Assert.Equal(RestoreState.AwaitingOwnerConfirmation, wizard.State);
         Assert.Equal(
-            ["read-only", "keys", "database", "soul", "vault", "indexes"],
+            ["read-only", "persist", "keys", "database", "soul", "vault", "indexes"],
             h.Calls);
         Assert.False(h.WritesEnabled);
         Assert.Equal(3, outcome.AuditVerification!.RowsChecked);
@@ -91,7 +91,7 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         var wizard = h.Wizard();
         await wizard.RunAsync(h.Request(), CancellationToken.None);
 
-        var outcome = await wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), CancellationToken.None);
+        var outcome = await wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), h.Completed(), h.Assertion, CancellationToken.None);
 
         Assert.Equal(RestoreState.WritesEnabled, outcome.State);
         Assert.True(h.WritesEnabled);
@@ -106,13 +106,13 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         var wizard = h.Wizard();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), CancellationToken.None));
+            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), h.Completed(), h.Assertion, CancellationToken.None));
 
         await wizard.RunAsync(h.Request(), CancellationToken.None);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation("someone-else", "owner"), CancellationToken.None));
+            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation("someone-else", "owner"), h.Completed(), h.Assertion, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, " "), CancellationToken.None));
+            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, " "), h.Completed(), h.Assertion, CancellationToken.None));
 
         Assert.False(h.WritesEnabled);
         Assert.Equal(RestoreState.AwaitingOwnerConfirmation, wizard.State);
@@ -124,10 +124,10 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         var h = new Harness(fixture);
         var wizard = h.Wizard();
         await wizard.RunAsync(h.Request(), CancellationToken.None);
-        await wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), CancellationToken.None);
+        await wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), h.Completed(), h.Assertion, CancellationToken.None);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), CancellationToken.None));
+            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), h.Completed(), h.Assertion, CancellationToken.None));
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         await wizard.RunAsync(h.Request(), CancellationToken.None);
 
         await Assert.ThrowsAsync<IOException>(() =>
-            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), CancellationToken.None));
+            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), h.Completed(), h.Assertion, CancellationToken.None));
 
         Assert.Equal(RestoreState.AwaitingOwnerConfirmation, wizard.State);
         Assert.False(h.WritesEnabled);
@@ -207,7 +207,8 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         Assert.True(outcome.IsSuccess);
         Assert.True(h.Preserved);
         Assert.Equal("read-only", h.Calls[0]);
-        Assert.Equal("preserve", h.Calls[1]);
+        Assert.Equal("persist", h.Calls[1]);
+        Assert.Equal("preserve", h.Calls[2]);
         Assert.Contains(h.Events, e => e.Kind == "restore.overwrite_confirmed");
     }
 
@@ -301,7 +302,7 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         Assert.DoesNotContain("soul", h.Calls);
         Assert.False(h.WritesEnabled);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), CancellationToken.None));
+            wizard.ConfirmWritesAsync(new OwnerWriteConfirmation(wizard.RestoreId, "owner"), h.Completed(), h.Assertion, CancellationToken.None));
     }
 
     [Fact]
@@ -417,10 +418,130 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         Assert.False(h.WritesEnabled);
     }
 
+    private static async Task<(Harness H, RestoreWizard W)> RanAsync(Harness h)
+    {
+        var w = h.Wizard();
+        await w.RunAsync(h.Request(), CancellationToken.None);
+        return (h, w);
+    }
+
+    private static OwnerWriteConfirmation Confirm(RestoreWizard w) => new(w.RestoreId, "m1");
+
+    [Fact]
+    public async Task Confirmation_without_a_recovery_case_is_refused_audited_and_writes_stay_off()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w.ConfirmWritesAsync(Confirm(w), null, h.Assertion, CancellationToken.None));
+
+        Assert.False(h.WritesEnabled);
+        Assert.Equal(RestoreState.AwaitingOwnerConfirmation, w.State);
+        var e = Assert.Single(h.Events, x => x.Kind == "restore.writes_refused");
+        Assert.Contains("no-recovery-case", e.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Confirmation_with_a_case_that_is_not_completed_is_refused()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w.ConfirmWritesAsync(Confirm(w), Harness.Waiting(), h.Assertion, CancellationToken.None));
+
+        Assert.False(h.WritesEnabled);
+        Assert.Contains(h.Events, x => x.Kind == "restore.writes_refused" && x.Payload.Contains("not-completed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Confirmation_with_a_forged_completed_state_but_no_quorum_is_refused()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture));
+        var forged = Harness.Waiting() with { State = RecoveryState.Completed };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w.ConfirmWritesAsync(Confirm(w), forged, h.Assertion, CancellationToken.None));
+
+        Assert.False(h.WritesEnabled);
+        Assert.Contains(h.Events, x => x.Payload.Contains("quorum-not-met", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Confirmation_with_a_case_for_another_restore_is_refused()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w.ConfirmWritesAsync(Confirm(w), h.Completed("other-case"), h.Assertion, CancellationToken.None));
+
+        Assert.False(h.WritesEnabled);
+        Assert.Contains(h.Events, x => x.Payload.Contains("not-bound-to-this-restore", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Confirmation_without_an_assertion_verifier_is_refused()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture) { NoVerifier = true });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w.ConfirmWritesAsync(Confirm(w), h.Completed(), h.Assertion, CancellationToken.None));
+
+        Assert.False(h.WritesEnabled);
+        Assert.Contains(h.Events, x => x.Payload.Contains("no-assertion-verifier", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Confirmation_with_an_invalid_or_empty_assertion_is_refused()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture) { AssertionValid = false });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w.ConfirmWritesAsync(Confirm(w), h.Completed(), h.Assertion, CancellationToken.None));
+        Assert.False(h.WritesEnabled);
+
+        var (h2, w2) = await RanAsync(new Harness(fixture));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => w2.ConfirmWritesAsync(Confirm(w2), h2.Completed(), ReadOnlyMemory<byte>.Empty, CancellationToken.None));
+        Assert.False(h2.WritesEnabled);
+    }
+
+    [Fact]
+    public async Task Confirmation_with_assertion_and_completed_bound_case_enables_writes_after_the_audit_entry()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture));
+        Assert.True(h.Persisted);
+
+        var outcome = await w.ConfirmWritesAsync(Confirm(w), h.Completed(), h.Assertion, CancellationToken.None);
+
+        Assert.Equal(RestoreState.WritesEnabled, outcome.State);
+        Assert.True(h.WritesEnabled);
+        Assert.True(h.AuditedBeforeEnable);
+        Assert.False(h.Persisted);
+        Assert.Contains(Harness.CaseId, h.Events[^1].Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failing_to_persist_read_only_state_fails_the_restore_before_any_restore_step()
+    {
+        var h = new Harness(fixture) { PersistThrows = true };
+        var wizard = h.Wizard();
+
+        var outcome = await wizard.RunAsync(h.Request(), CancellationToken.None);
+
+        Assert.Equal(RestoreState.Failed, outcome.State);
+        Assert.Equal("enter-read-only", outcome.FailedStep);
+        Assert.DoesNotContain("keys", h.Calls);
+        Assert.DoesNotContain("database", h.Calls);
+        Assert.False(h.WritesEnabled);
+    }
+
+    [Fact]
+    public async Task Failing_to_clear_the_persisted_state_returns_the_install_to_read_only()
+    {
+        var (h, w) = await RanAsync(new Harness(fixture) { ClearThrows = true });
+
+        await Assert.ThrowsAsync<IOException>(() => w.ConfirmWritesAsync(Confirm(w), h.Completed(), h.Assertion, CancellationToken.None));
+
+        Assert.Equal(RestoreState.AwaitingOwnerConfirmation, w.State);
+        Assert.Equal("read-only", h.Calls[^1]);
+    }
+
     /// <summary>Fakes for every wizard dependency, recording the order of the restore calls.</summary>
     private sealed class Harness : IRestoreTargetProbe, ILiveDataPreserver, IRestoreBackupSource, IRestoreKeyRestorer,
         IRestoreDatabaseRestorer, IRestoreFilesRestorer, IRestoreIndexRebuilder, IRestoreAuditEvidenceSource,
-        IRestoreAuditSink, IRestoreWriteGate, IAuditCheckpointSigner
+        IRestoreAuditSink, IRestoreWriteGate, IAuditCheckpointSigner, IRestoreReadOnlyStateStore, IHardwareKeyAssertionVerifier
     {
         private readonly RestoreBundleFixture _fixture;
 
@@ -430,6 +551,66 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
             Anchor = fixture.Anchor;
             Rows = [.. fixture.After];
         }
+
+        public const string CaseId = "case-1";
+
+        private static readonly DateTimeOffset _caseStart = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+
+        public byte[] Assertion { get; } = [5, 5];
+
+        public bool NoVerifier { get; init; }
+
+        public bool AssertionValid { get; init; } = true;
+
+        public bool PersistThrows { get; init; }
+
+        public bool ClearThrows { get; init; }
+
+        public bool Persisted { get; private set; }
+
+        /// <summary>A case taken through the real transitions to Completed: two distinct members, lock elapsed.</summary>
+        public RecoveryCase Completed(string id = CaseId)
+        {
+            var c = RecoveryCase.Initiate(id, QuorumPolicy.Default, "m1", ["dev1"], ["m1", "m2", "m3"], _caseStart).Case;
+            c = c.StartTimeLock(_caseStart).Case;
+            c = c.AcceptAssertion("m1", Assertion, new Always(), _caseStart).Case;
+            c = c.AcceptAssertion("m2", Assertion, new Always(), _caseStart).Case;
+            var done = c.Complete(_caseStart + QuorumPolicy.Default.RecoveryTimeLock);
+            Assert.Equal(RecoveryState.Completed, done.Case.State);
+            return done.Case;
+        }
+
+        /// <summary>A case that has quorum but is still waiting (the lock has not elapsed).</summary>
+        public static RecoveryCase Waiting()
+        {
+            var c = RecoveryCase.Initiate(CaseId, QuorumPolicy.Default, "m1", ["dev1"], ["m1", "m2", "m3"], _caseStart).Case;
+            return c.StartTimeLock(_caseStart).Case;
+        }
+
+        public Task PersistAsync(string restoreId, CancellationToken ct)
+        {
+            if (PersistThrows)
+            {
+                throw new IOException("config unwritable");
+            }
+
+            Persisted = true;
+            Calls.Add("persist");
+            return Task.CompletedTask;
+        }
+
+        public Task ClearAsync(string restoreId, CancellationToken ct)
+        {
+            if (ClearThrows)
+            {
+                throw new IOException("config unwritable");
+            }
+
+            Persisted = false;
+            return Task.CompletedTask;
+        }
+
+        public bool Verify(string caseId, string memberId, ReadOnlyMemory<byte> assertion) => AssertionValid;
 
         public List<string> Calls { get; } = [];
 
@@ -472,9 +653,9 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         string IAuditCheckpointSigner.KeyId => "test-key";
 
         public RestoreWizard Wizard(RestoreWizardOptions? options = null) =>
-            new(this, NoPreserver ? null : this, this, this, this, this, this, this, this, this, this, options);
+            new(this, NoPreserver ? null : this, this, this, this, this, this, this, this, this, this, this, NoVerifier ? null : this, options);
 
-        public RestoreWizardRequest Request() => new(_fixture.BundlePath, RestoreBundleFixture.Passphrase);
+        public RestoreWizardRequest Request() => new(_fixture.BundlePath, RestoreBundleFixture.Passphrase, Harness.CaseId);
 
         public Task<bool> IsPopulatedAsync(CancellationToken ct) => Task.FromResult(Populated);
 
@@ -567,4 +748,9 @@ public sealed class RestoreWizardTests(RestoreBundleFixture fixture) : IClassFix
         bool IAuditCheckpointSigner.Verify(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> signature) =>
             signature.Span.SequenceEqual(new byte[] { 1, 2, 3, 4 });
     }
+}
+
+internal sealed class Always : IHardwareKeyAssertionVerifier
+{
+    public bool Verify(string caseId, string memberId, ReadOnlyMemory<byte> assertion) => true;
 }

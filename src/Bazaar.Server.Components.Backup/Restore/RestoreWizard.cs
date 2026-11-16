@@ -33,10 +33,15 @@ public sealed record OwnerWriteConfirmation(string RestoreId, string ConfirmedBy
 /// <param name="BundlePath">The sealed recovery bundle file.</param>
 /// <param name="Passphrase">The passphrase the bundle is sealed under.</param>
 /// <param name="PointInTime">Restore the database to this UTC time, or null for the end of the last backup set.</param>
+/// <param name="RecoveryCaseId">
+/// The owner recovery case (doc 48 section 7) this restore is bound to. <see cref="RecoveryCase"/> has no restore id, so
+/// the wizard holds the binding: writes are enabled only for a completed case with this id.
+/// </param>
 /// <param name="OverwriteConfirmation">Required, and only honoured, when the install already holds data.</param>
 public sealed record RestoreWizardRequest(
     string BundlePath,
     string Passphrase,
+    string RecoveryCaseId,
     DateTimeOffset? PointInTime = null,
     OwnerOverwriteConfirmation? OverwriteConfirmation = null);
 
@@ -69,6 +74,7 @@ internal sealed record RestoreAuditPayload(
     long? FailedSeq = null,
     int? RowsVerified = null,
     string? ConfirmedBy = null,
+    string? RecoveryCaseId = null,
     DateTimeOffset? PointInTime = null);
 
 [JsonSourceGenerationOptions(
@@ -88,6 +94,9 @@ internal sealed partial class RestoreAuditJsonContext : JsonSerializerContext;
 /// is refused unless the owner confirmed that exact restore id and live data could be preserved; a missing anchor, a
 /// checkpoint that differs from the bundle's head, or any chain mismatch fails the restore and is audited. Audit events
 /// carry the restore id and step names only. One wizard instance runs one restore.
+/// An empty audit chain is not restorable: a bundle that names no audit head fails closed (doc 48 defines no restore
+/// without an anchor). The read-only state is persisted through <see cref="IRestoreReadOnlyStateStore"/> before any restore
+/// step, so a restart does not clear it; a failure to persist fails the restore closed.
 /// </remarks>
 public sealed class RestoreWizard
 {
@@ -104,8 +113,13 @@ public sealed class RestoreWizard
     private readonly IRestoreWriteGate _gate;
     private readonly RestoreWizardOptions _options;
     private readonly object _lock = new();
+    private readonly IRestoreReadOnlyStateStore _readOnlyState;
+    private readonly IHardwareKeyAssertionVerifier? _assertionVerifier;
     private RestoreState _state = RestoreState.NotStarted;
+    private string? _recoveryCaseId;
 
+    /// <param name="readOnlyState">Persists the read-only state in the install config.</param>
+    /// <param name="assertionVerifier">Verifies the owner's FIDO2 assertion at confirmation. Null means writes can never be confirmed.</param>
     public RestoreWizard(
         IRestoreTargetProbe probe,
         ILiveDataPreserver? preserver,
@@ -118,6 +132,8 @@ public sealed class RestoreWizard
         IAuditCheckpointSigner signer,
         IRestoreAuditSink audit,
         IRestoreWriteGate gate,
+        IRestoreReadOnlyStateStore readOnlyState,
+        IHardwareKeyAssertionVerifier? assertionVerifier,
         RestoreWizardOptions? options = null,
         string? restoreId = null)
     {
@@ -132,6 +148,8 @@ public sealed class RestoreWizard
         _signer = signer ?? throw new ArgumentNullException(nameof(signer));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _gate = gate ?? throw new ArgumentNullException(nameof(gate));
+        _readOnlyState = readOnlyState ?? throw new ArgumentNullException(nameof(readOnlyState));
+        _assertionVerifier = assertionVerifier;
         _options = options ?? new RestoreWizardOptions();
         RestoreId = string.IsNullOrWhiteSpace(restoreId) ? Guid.CreateVersion7().ToString("N") : restoreId;
     }
@@ -157,6 +175,7 @@ public sealed class RestoreWizard
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrEmpty(request.BundlePath);
         ArgumentException.ThrowIfNullOrEmpty(request.Passphrase);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.RecoveryCaseId);
         if (request.PointInTime is { } t && t.Offset != TimeSpan.Zero)
         {
             throw new ArgumentException("Point in time must be UTC.", nameof(request));
@@ -170,6 +189,7 @@ public sealed class RestoreWizard
             }
 
             _state = RestoreState.Running;
+            _recoveryCaseId = request.RecoveryCaseId;
         }
 
         var step = "start";
@@ -177,7 +197,7 @@ public sealed class RestoreWizard
         try
         {
             // If the start cannot be audited, nothing has been touched yet and the restore stops.
-            await AuditAsync("restore.started", new RestoreAuditPayload(RestoreId, PointInTime: request.PointInTime), ct).ConfigureAwait(false);
+            await AuditAsync("restore.started", new RestoreAuditPayload(RestoreId, PointInTime: request.PointInTime, RecoveryCaseId: request.RecoveryCaseId), ct).ConfigureAwait(false);
 
             step = "verify-bundle";
             var read = RecoveryBundleFile.Read(request.BundlePath, request.Passphrase);
@@ -236,6 +256,9 @@ public sealed class RestoreWizard
             // Writes go off before the first restore step and stay off until the owner confirms.
             step = "enter-read-only";
             await _gate.EnterReadOnlyAsync(RestoreId, ct).ConfigureAwait(false);
+
+            // Persisted before any restore step: a failure here fails the restore, and a restart keeps the install read-only.
+            await _readOnlyState.PersistAsync(RestoreId, ct).ConfigureAwait(false);
             await StepDoneAsync(step, ct).ConfigureAwait(false);
 
             if (populated)
@@ -322,13 +345,24 @@ public sealed class RestoreWizard
     }
 
     /// <summary>
-    /// Enables writes. Valid only after a successful run, and only for the owner's confirmation naming this restore id.
-    /// Any other call is refused and leaves the install read-only.
+    /// Enables writes (doc 48 section 7). Needs all of: a successful run, the owner's confirmation naming this restore id,
+    /// a configured hardware-key assertion verifier and a valid assertion from the confirming owner, and a completed
+    /// recovery case whose id is the one this restore was bound to. Any other call is refused, audited, and leaves the
+    /// install read-only. The wizard never completes a case; the quorum flow does.
     /// </summary>
-    public async Task<RestoreWizardOutcome> ConfirmWritesAsync(OwnerWriteConfirmation confirmation, CancellationToken ct)
+    /// <remarks>
+    /// <see cref="RecoveryCase"/> carries no restore id, so the binding is the wizard's: <see cref="RestoreWizardRequest.RecoveryCaseId"/>
+    /// must equal <see cref="RecoveryCase.CaseId"/>.
+    /// </remarks>
+    public async Task<RestoreWizardOutcome> ConfirmWritesAsync(
+        OwnerWriteConfirmation confirmation,
+        RecoveryCase? recoveryCase,
+        ReadOnlyMemory<byte> assertion,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(confirmation);
 
+        string? refused;
         lock (_lock)
         {
             if (_state != RestoreState.AwaitingOwnerConfirmation)
@@ -341,15 +375,36 @@ public sealed class RestoreWizard
                 throw new InvalidOperationException("The confirmation does not name this restore or has no owner.");
             }
 
-            // Claim the transition so a second confirmation cannot run the gate twice.
-            _state = RestoreState.Running;
+            refused = Refusal(confirmation, recoveryCase, assertion);
+
+            // Claim the transition so a second confirmation cannot run the gate twice. A refusal leaves the restore confirmable later.
+            if (refused is null)
+            {
+                _state = RestoreState.Running;
+            }
+        }
+
+        if (refused is not null)
+        {
+            await AuditAsync("restore.writes_refused", new RestoreAuditPayload(RestoreId, Reason: refused, RecoveryCaseId: recoveryCase?.CaseId), CancellationToken.None).ConfigureAwait(false);
+            throw new InvalidOperationException($"Writes cannot be enabled: {refused}.");
         }
 
         try
         {
             // Audit first: the chain shows the confirmation before the writes it permits.
-            await AuditAsync("restore.writes_confirmed", new RestoreAuditPayload(RestoreId, ConfirmedBy: confirmation.ConfirmedBy), ct).ConfigureAwait(false);
+            await AuditAsync("restore.writes_confirmed", new RestoreAuditPayload(RestoreId, ConfirmedBy: confirmation.ConfirmedBy, RecoveryCaseId: recoveryCase!.CaseId), ct).ConfigureAwait(false);
             await _gate.EnableWritesAsync(RestoreId, ct).ConfigureAwait(false);
+            try
+            {
+                await _readOnlyState.ClearAsync(RestoreId, ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Writes were turned on but the persisted flag could not be cleared. Go back to read-only so the live and persisted states agree.
+                await _gate.EnterReadOnlyAsync(RestoreId, CancellationToken.None).ConfigureAwait(false);
+                throw;
+            }
         }
         catch
         {
@@ -368,6 +423,44 @@ public sealed class RestoreWizard
 
         return new RestoreWizardOutcome(RestoreId, RestoreState.WritesEnabled, null, null, null);
     }
+
+    /// <summary>Why writes may not be enabled, or null when they may. Call under the lock.</summary>
+    private string? Refusal(OwnerWriteConfirmation confirmation, RecoveryCase? c, ReadOnlyMemory<byte> assertion)
+    {
+        if (_assertionVerifier is null)
+        {
+            return "no-assertion-verifier-configured";
+        }
+
+        if (c is null)
+        {
+            return "no-recovery-case";
+        }
+
+        if (!string.Equals(c.CaseId, _recoveryCaseId, StringComparison.Ordinal))
+        {
+            return "recovery-case-not-bound-to-this-restore";
+        }
+
+        // The state and count checks repeat what RecoveryCase.Complete enforces, because a record can be copied with any state.
+        if (c.State != RecoveryState.Completed)
+        {
+            return "recovery-case-not-completed";
+        }
+
+        if (c.LockEndsAt is null || c.AcceptedMembers.Count < c.Policy.Threshold)
+        {
+            return "recovery-case-quorum-not-met";
+        }
+
+        if (assertion.IsEmpty || !_assertionVerifier.Verify(c.CaseId, confirmation.ConfirmedBy, assertion))
+        {
+            return "owner-assertion-invalid";
+        }
+
+        return null;
+    }
+
 
     private Task StepDoneAsync(string step, CancellationToken ct) =>
         AuditAsync("restore.step_completed", new RestoreAuditPayload(RestoreId, Step: step), ct);

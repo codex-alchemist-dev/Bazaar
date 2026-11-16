@@ -95,6 +95,19 @@ public interface IRestoreAuditSink
 }
 
 /// <summary>
+/// Persists the read-only state of a restoring install in the install config, so a restart does not enable writes
+/// (doc 48 section 6). Contract only.
+/// </summary>
+public interface IRestoreReadOnlyStateStore
+{
+    /// <summary>Durably records that the install is read-only because of this restore. Must throw if it cannot.</summary>
+    Task PersistAsync(string restoreId, CancellationToken ct);
+
+    /// <summary>Clears the record after the owner's confirmation enabled writes.</summary>
+    Task ClearAsync(string restoreId, CancellationToken ct);
+}
+
+/// <summary>
 /// The write switch of the install. The wizard turns writes off before any restore step and turns them on only after the
 /// owner confirms (doc 48 section 6).
 /// </summary>
