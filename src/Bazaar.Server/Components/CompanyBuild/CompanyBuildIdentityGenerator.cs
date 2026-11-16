@@ -7,9 +7,6 @@ namespace Bazaar.Server.Components.CompanyBuild;
 /// </summary>
 public static class CompanyBuildIdentityGenerator
 {
-    /// <summary>The path of the generated file, relative to the Bazaar.Client.Core project directory.</summary>
-    public const string RelativePath = "Server/CompanyBuildIdentity.cs";
-
     /// <summary>Renders the complete C# source for the identity.</summary>
     public static string RenderSource(CompanyServerIdentity identity)
     {
@@ -40,7 +37,8 @@ public static class CompanyBuildIdentityGenerator
     public static string WriteSource(CompanyServerIdentity identity, string clientCoreDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientCoreDirectory);
-        var path = Path.Combine(clientCoreDirectory, RelativePath);
+        // Segments, not the RelativePath string: Path.Combine uses the platform separator, so the path is right on Windows too.
+        var path = Path.Combine(clientCoreDirectory, "Server", "CompanyBuildIdentity.cs");
         var directory = Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(directory);
         File.WriteAllText(path, RenderSource(identity), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
