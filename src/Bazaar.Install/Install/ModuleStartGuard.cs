@@ -1,6 +1,6 @@
-using Bazaar.Server.Modules.Trust;
+using Bazaar.Install.Trust;
 
-namespace Bazaar.Server.Modules.Install;
+namespace Bazaar.Install;
 
 /// <summary>The outcome of <see cref="ModuleStartGuard.EnsureStartable"/>. Anything but <see cref="Startable"/> must not start.</summary>
 public abstract record ModuleStartDecision

@@ -1,10 +1,9 @@
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Modules;
-using Bazaar.Server.Components.PrivacyAudit;
-using Bazaar.Server.Modules.Trust;
-using Bazaar.Server.Security.Audit;
+using Bazaar.Install.Abstractions;
+using Bazaar.Install.Trust;
 
-namespace Bazaar.Server.Modules.Install;
+namespace Bazaar.Install;
 
 /// <summary>The outcome of <see cref="ModuleInstallService.InstallAsync"/>. Every refusal writes nothing.</summary>
 public abstract record ModuleInstallResult
@@ -31,7 +30,7 @@ public abstract record ModuleInstallResult
 /// host), then <see cref="PermissionApproval"/> against the owner's approved set. Only when both pass does it write the
 /// <c>module.installed</c> audit entry, which is the install record. Any refusal writes nothing.
 /// </summary>
-public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IAuditLog audit, TimeProvider time)
+public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IModuleInstallStore store, TimeProvider time)
 {
     /// <summary>Checks the package and installs it when it passes.</summary>
     /// <param name="package">The package to install, as downloaded.</param>
@@ -74,8 +73,7 @@ public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IAud
             ["signer"] = package.SignerKeyId,
             ["version"] = package.Version,
         };
-        AuditPayloadGuard.Ensure(payload);
-        await audit.AppendAsync(new AuditEntry(time.GetUtcNow(), actor, ModuleAuditKinds.Installed, payload.ToJsonString()), ct).ConfigureAwait(false);
+        await store.RecordInstalledAsync(new InstallAuditEntry(time.GetUtcNow(), actor, ModuleAuditKinds.Installed, payload), ct).ConfigureAwait(false);
 
         return new ModuleInstallResult.Installed(package.ModuleId, package.Version);
     }

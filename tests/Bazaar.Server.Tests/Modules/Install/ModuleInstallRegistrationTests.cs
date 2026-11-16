@@ -1,6 +1,6 @@
-using Bazaar.Server.Modules.Install;
-using Bazaar.Server.Modules.Trust;
-using Bazaar.Server.Security.Audit;
+using Bazaar.Install;
+using Bazaar.Install.Abstractions;
+using Bazaar.Install.Trust;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -11,20 +11,11 @@ public class ModuleInstallRegistrationTests
     private static ServiceCollection Host()
     {
         var services = new ServiceCollection();
-        // The host supplies the database, the audit sinks and the trust. The gate registers none of them.
+        // The host supplies the database, the store and the trust. The gate registers none of them.
         services.AddSingleton(NpgsqlDataSource.Create("Host=localhost;Database=unused"));
-        services.AddSingleton<IAuditLog, InstallAuditLog>();
-        services.AddSingleton<ITransactionalAuditLog, TransactionalNoop>();
+        services.AddSingleton<IModuleInstallStore, InstallAuditLog>();
         services.AddSingleton<IModuleSignatureVerifier>(_ => new EcdsaModuleSignatureVerifier(new InMemoryTrustedKeyStore()));
         return services;
-    }
-
-    private sealed class TransactionalNoop : ITransactionalAuditLog
-    {
-        public Task AppendAsync(AuditEntry e, CancellationToken ct = default) => Task.CompletedTask;
-
-        public Task AppendInTransactionAsync(Npgsql.NpgsqlConnection conn, Npgsql.NpgsqlTransaction tx, AuditEntry e, CancellationToken ct = default) =>
-            Task.CompletedTask;
     }
 
     [Fact]

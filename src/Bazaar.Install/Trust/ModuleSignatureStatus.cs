@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Modules.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>The typed outcome of verifying a module package signature. A module is installable only when it is <see cref="Valid"/>.</summary>
 public enum ModuleSignatureStatus

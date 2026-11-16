@@ -1,10 +1,8 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
-using Bazaar.Server.Components.PrivacyAudit;
-using Bazaar.Server.Modules.Persistence;
-using Bazaar.Server.Security.Audit;
+using Bazaar.Install.Abstractions;
 
-namespace Bazaar.Server.Modules.Install;
+namespace Bazaar.Install;
 
 /// <summary>The outcome of <see cref="ModuleApprovalService.ApproveAsync"/>. Every refusal records nothing.</summary>
 public abstract record ModuleApprovalResult
@@ -32,8 +30,7 @@ public abstract record ModuleApprovalResult
 /// entry commit in one transaction. The signer is required: there is no path that records an approval without a signature.
 /// </summary>
 public sealed class ModuleApprovalService(
-    ModuleManagerRepository repository,
-    ITransactionalAuditLog audit,
+    IModuleInstallStore store,
     IOwnerApprovalSigner signer,
     TimeProvider time)
 {
@@ -90,10 +87,9 @@ public sealed class ModuleApprovalService(
             ["signer"] = signed.SignerKeyId,
             ["version"] = version,
         };
-        AuditPayloadGuard.Ensure(payload);
-        var entry = new AuditEntry(at, ownerActor, ModuleAuditKinds.PermissionsApproved, payload.ToJsonString());
+        var entry = new InstallAuditEntry(at, ownerActor, ModuleAuditKinds.PermissionsApproved, payload);
 
-        await repository.AppendPermissionApprovalAsync(record, audit, entry, ct).ConfigureAwait(false);
+        await store.RecordPermissionApprovalAsync(record, entry, ct).ConfigureAwait(false);
         return new ModuleApprovalResult.Recorded(record);
     }
 }

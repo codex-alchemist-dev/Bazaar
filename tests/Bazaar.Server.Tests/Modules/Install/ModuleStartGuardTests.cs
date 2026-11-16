@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Modules;
-using Bazaar.Server.Modules.Install;
-using Bazaar.Server.Modules.Trust;
+using Bazaar.Install;
+using Bazaar.Install.Trust;
 using Bazaar.Server.Tests.Modules.Trust;
 using Microsoft.Extensions.Time.Testing;
 

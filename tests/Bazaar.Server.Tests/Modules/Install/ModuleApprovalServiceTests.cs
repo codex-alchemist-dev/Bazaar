@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Modules.Install;
+using Bazaar.Install;
+using Bazaar.Install.Abstractions;
 using Bazaar.Server.Modules.Persistence;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Time.Testing;
@@ -30,7 +31,7 @@ public class ModuleApprovalServiceTests
     }
 
     private static ModuleApprovalService Build(IOwnerApprovalSigner signer, NpgsqlDataSource source) =>
-        new(new ModuleManagerRepository(source), new NeverCalledAudit(), signer, new FakeTimeProvider(_t0));
+        new(new ModuleManagerRepository(source, new NeverCalledAudit()), signer, new FakeTimeProvider(_t0));
 
     /// <summary>The refusals must never reach the audit path; any call here fails the test.</summary>
     private sealed class NeverCalledAudit : ITransactionalAuditLog

@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Modules.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>Maps a publisher key id to its trusted public key. Lookups return null for unknown ids; they never throw.</summary>
 public interface ITrustedKeyStore

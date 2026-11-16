@@ -1,7 +1,6 @@
-using System.Text.Json.Nodes;
 using Bazaar.Contracts.Modules;
-using Bazaar.Server.Modules.Install;
-using Bazaar.Server.Modules.Trust;
+using Bazaar.Install;
+using Bazaar.Install.Trust;
 using Bazaar.Server.Tests.Modules.Trust;
 using Microsoft.Extensions.Time.Testing;
 
@@ -88,7 +87,7 @@ public class ModuleInstallServiceTests
         var entry = Assert.Single(audit.Entries);
         Assert.Equal(ModuleAuditKinds.Installed, entry.Kind);
         Assert.Equal("owner", entry.Actor);
-        var payload = JsonNode.Parse(entry.Payload)!.AsObject();
+        var payload = entry.Payload;
         Assert.Equal("bazaar.sandbox", payload["module_id"]!.GetValue<string>());
         Assert.Equal("0.1.0", payload["version"]!.GetValue<string>());
     }

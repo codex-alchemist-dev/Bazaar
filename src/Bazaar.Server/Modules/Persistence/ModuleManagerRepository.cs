@@ -1,4 +1,6 @@
 using System.Globalization;
+using Bazaar.Install.Abstractions;
+using Bazaar.Server.Components.PrivacyAudit;
 using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;
 using Bazaar.Server.Security.Audit;
@@ -10,7 +12,7 @@ namespace Bazaar.Server.Modules.Persistence;
 /// SQL-first access to the module manager's append-only tables (<c>modules/0001</c>): update decisions and line-move audit
 /// events, and permission approvals (<c>modules/0002</c>). All tables refuse UPDATE, DELETE and TRUNCATE, so this repository only inserts and reads.
 /// </summary>
-public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource)
+public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource, ITransactionalAuditLog audit) : IModuleInstallStore
 {
     /// <summary>The largest page <see cref="ListDecisionsAsync"/> returns in one call.</summary>
     public const int MaxListLimit = 500;
@@ -108,15 +110,15 @@ public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource)
     /// Appends one permission approval and its audit entry in one transaction (doc 48 section 1). Both commit or neither does, so an
     /// approval is never recorded without its audit row. The caller has already checked the approval and signed it.
     /// </summary>
-    public async Task AppendPermissionApprovalAsync(
+    public async Task RecordPermissionApprovalAsync(
         ModulePermissionApprovalRecord record,
-        ITransactionalAuditLog audit,
-        AuditEntry auditEntry,
+        InstallAuditEntry entry,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        ArgumentNullException.ThrowIfNull(audit);
-        ArgumentNullException.ThrowIfNull(auditEntry);
+        ArgumentNullException.ThrowIfNull(entry);
+        AuditPayloadGuard.Ensure(entry.Payload);
+        var auditEntry = new AuditEntry(entry.Ts, entry.Actor, entry.Kind, entry.Payload.ToJsonString());
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -136,6 +138,14 @@ public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource)
 
         await audit.AppendInTransactionAsync(conn, tx, auditEntry, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Appends one <c>module.installed</c> audit entry after the payload guard passes.</summary>
+    public Task RecordInstalledAsync(InstallAuditEntry entry, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        AuditPayloadGuard.Ensure(entry.Payload);
+        return audit.AppendAsync(new AuditEntry(entry.Ts, entry.Actor, entry.Kind, entry.Payload.ToJsonString()), ct);
     }
 
     /// <summary>The approvals recorded for one module version, oldest first.</summary>

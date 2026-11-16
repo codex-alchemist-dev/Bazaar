@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Modules.Install;
+using Bazaar.Install;
+using Bazaar.Install.Abstractions;
 using Bazaar.Server.Modules.Persistence;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
@@ -43,7 +44,7 @@ public sealed class ModuleApprovalPersistenceTests(GcDb db) : IClassFixture<GcDb
     }
 
     private ModuleApprovalService Build(IOwnerApprovalSigner signer, ITransactionalAuditLog? audit = null) =>
-        new(new ModuleManagerRepository(db.DataSource), audit ?? new PostgresAuditLog(db.DataSource), signer, new FakeTimeProvider(_t0));
+        new(new ModuleManagerRepository(db.DataSource, audit ?? new PostgresAuditLog(db.DataSource)), signer, new FakeTimeProvider(_t0));
 
     [Fact]
     public async Task An_approval_is_signed_stored_and_audited()
@@ -60,7 +61,7 @@ public sealed class ModuleApprovalPersistenceTests(GcDb db) : IClassFixture<GcDb
         Assert.True(key.VerifyData(signer.LastForm!, signer.LastSignature!, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(signer.LastForm!)), recorded.ApprovalDigestSha256Hex);
 
-        var stored = Assert.Single(await new ModuleManagerRepository(db.DataSource).ListPermissionApprovalsAsync(module, "0.1.0", Ct));
+        var stored = Assert.Single(await new ModuleManagerRepository(db.DataSource, new PostgresAuditLog(db.DataSource)).ListPermissionApprovalsAsync(module, "0.1.0", Ct));
         Assert.Equal(recorded.Permissions, stored.Permissions);
         Assert.Equal("owner-device-1", stored.SignerKeyId);
         Assert.Equal(signer.LastSignature, stored.Signature);
@@ -91,7 +92,7 @@ public sealed class ModuleApprovalPersistenceTests(GcDb db) : IClassFixture<GcDb
         await Build(new TestOwnerSigner(ECDsa.Create(ECCurve.NamedCurves.nistP256)))
             .ApproveAsync(module, "1.0.0", ["network:b", "storage:local", "network:b"], "owner", Ct);
 
-        var stored = Assert.Single(await new ModuleManagerRepository(db.DataSource).ListPermissionApprovalsAsync(module, "1.0.0", Ct));
+        var stored = Assert.Single(await new ModuleManagerRepository(db.DataSource, new PostgresAuditLog(db.DataSource)).ListPermissionApprovalsAsync(module, "1.0.0", Ct));
         Assert.Equal(["network:b", "storage:local"], stored.Permissions);
     }
 
@@ -106,7 +107,7 @@ public sealed class ModuleApprovalPersistenceTests(GcDb db) : IClassFixture<GcDb
         await service.ApproveAsync(module, "2.0.0", ["storage:local"], "owner", Ct);
         await service.ApproveAsync(module, "2.0.0", ["storage:local", "process:spawn"], "owner", Ct);
 
-        var listed = await new ModuleManagerRepository(db.DataSource).ListPermissionApprovalsAsync(module, "2.0.0", Ct);
+        var listed = await new ModuleManagerRepository(db.DataSource, new PostgresAuditLog(db.DataSource)).ListPermissionApprovalsAsync(module, "2.0.0", Ct);
         Assert.Equal(2, listed.Count);
         Assert.Equal(["storage:local"], listed[0].Permissions);
         Assert.Equal(["process:spawn", "storage:local"], listed[1].Permissions);
