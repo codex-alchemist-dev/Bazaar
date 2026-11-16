@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Identity.Kek;
 using Npgsql;
 
 namespace Bazaar.Server.Gc.Body;

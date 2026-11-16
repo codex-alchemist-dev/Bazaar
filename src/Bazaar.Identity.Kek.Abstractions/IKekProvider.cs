@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Identity.Keys;
+namespace Bazaar.Identity.Kek;
 
 /// <summary>
 /// Wraps and unwraps data-encryption keys (DEKs) under the host key-encryption key (doc 14, envelope encryption).

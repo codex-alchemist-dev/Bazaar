@@ -53,6 +53,7 @@ Applied to the three features:
 - **GC:** `Bazaar.GC.Abstractions` (log reader and writer contracts, access policy), `Bazaar.GC` (the log). Its consumers (Kanban, RyuseiFuda, Calendar, Org, Agents) reference the abstractions only. Biggest payoff, so first.
 - **Constellation:** `Bazaar.Constellation` with its Vault graph source going through a Vault abstractions project. Its client pane goes in `Bazaar.Client.Constellation`.
 - **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.GC.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
+- **Identity KEK (doc 14, `identity.kek_provider`, DECIDED 2026-11-16):** `Bazaar.Identity.Kek.Abstractions` (`IKekProvider`, `KekUnwrapException`) and `Bazaar.Identity.Kek` (file and DPAPI providers, `KekProviderFactory`, `KekComponent` with id `identity-kek`, registered through `Bazaar.Core`). Server code depends on the abstractions only.
 
 ## 4a. Renames (planned, small PRs)
 

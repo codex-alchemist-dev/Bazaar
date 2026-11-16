@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Identity.Keys;
+namespace Bazaar.Identity.Kek;
 
 /// <summary>Thrown when a wrapped DEK cannot be unwrapped. The message names the failure, never the key material.</summary>
 public sealed class KekUnwrapException : Exception

@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Identity.Kek;
 
 namespace Bazaar.Server.Tests.Identity;
 
