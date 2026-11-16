@@ -50,18 +50,23 @@ else
 fi
 
 # 2. The files the host probes for at startup, named per platform.
+# Linux keeps PostgreSQL's relocatable layout (lib/postgresql, share/postgresql), because the server finds its
+# extension files relative to bin/. Windows uses the flat layout (lib, share/extension), as the EDB bundle does.
 if [ "$platform" = "linux" ]; then
-  vector_lib="lib/vector.so"
+  exe_suffix=""
+  vector_lib="lib/postgresql/vector.so"
+  ext_dir="share/postgresql/extension"
 else
+  exe_suffix=".exe"
   vector_lib="lib/vector.dll"
+  ext_dir="share/extension"
 fi
-required=("bin/postgres" "bin/initdb" "bin/pg_ctl" "$vector_lib" "share/extension/vector.control")
-[ "$platform" = "windows" ] && required=("bin/postgres.exe" "bin/initdb.exe" "bin/pg_ctl.exe" "$vector_lib" "share/extension/vector.control")
+required=("bin/postgres$exe_suffix" "bin/initdb$exe_suffix" "bin/pg_ctl$exe_suffix" "$vector_lib" "$ext_dir/vector.control")
 for rel in "${required[@]}"; do
   [ -f "$bundle/$rel" ] || failures+=("bundle is missing $rel")
 done
-if ! compgen -G "$bundle/share/extension/vector--*.sql" >/dev/null; then
-  failures+=("bundle has no pgvector SQL scripts")
+if ! compgen -G "$bundle/$ext_dir/vector--*.sql" >/dev/null; then
+  failures+=("bundle has no pgvector SQL scripts in $ext_dir")
 fi
 [ -e "$bundle/include" ] && failures+=("bundle ships development headers (include/)")
 

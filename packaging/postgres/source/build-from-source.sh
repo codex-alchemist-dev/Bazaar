@@ -101,6 +101,8 @@ tar -xzf "$work/dl/$PGVECTOR_TARBALL" -C "$pgv" --strip-components=1
 )
 
 # Stage: keep what the host needs, drop headers and documentation (the build used them).
+# Layout: PostgreSQL installs its libraries in lib/postgresql and its extension files in share/postgresql/extension.
+# The server finds them relative to bin/, so the bundle keeps that layout (the Windows bundle is flat instead).
 dest="$out/$major"
 rm -rf "$dest"
 mkdir -p "$dest"
