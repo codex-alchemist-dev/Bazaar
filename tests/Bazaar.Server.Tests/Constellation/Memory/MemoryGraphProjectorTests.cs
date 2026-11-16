@@ -14,7 +14,7 @@ public sealed class MemoryGraphProjectorTests
     private const string _otherId = "01OTHER";
     private const string _thirdId = "01THIRD";
 
-    private static readonly IReadOnlyDictionary<string, string> Titles = new Dictionary<string, string>
+    private static readonly IReadOnlyDictionary<string, string> _titles = new Dictionary<string, string>
     {
         ["Other note"] = _otherId,
         ["Third note"] = _thirdId,
@@ -44,7 +44,7 @@ public sealed class MemoryGraphProjectorTests
             Supersedes: supersedes ?? []);
 
     private static MemoryGraphRevision Project(string body, MemoryNote? note = null) =>
-        MemoryGraphProjector.Project(note ?? Note(), body, _path, _agent, Titles);
+        MemoryGraphProjector.Project(note ?? Note(), body, _path, _agent, _titles);
 
     [Fact]
     public void Revision_fields_come_from_the_note_and_arguments()
@@ -217,7 +217,7 @@ public sealed class MemoryGraphProjectorTests
         };
         var body = "[[Other note]] [[Third note]] [[Other note]]";
 
-        var first = MemoryGraphProjector.Project(Note(), body, _path, _agent, Titles);
+        var first = MemoryGraphProjector.Project(Note(), body, _path, _agent, _titles);
         var second = MemoryGraphProjector.Project(Note(), body, _path, _agent, reversed);
 
         Assert.Equal(first.Edges, second.Edges);
@@ -228,14 +228,14 @@ public sealed class MemoryGraphProjectorTests
     public void Null_note_throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            MemoryGraphProjector.Project(null!, "", _path, _agent, Titles));
+            MemoryGraphProjector.Project(null!, "", _path, _agent, _titles));
     }
 
     [Fact]
     public void Null_body_throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            MemoryGraphProjector.Project(Note(), null!, _path, _agent, Titles));
+            MemoryGraphProjector.Project(Note(), null!, _path, _agent, _titles));
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed class MemoryGraphProjectorTests
     public void Blank_vault_path_throws(string? vaultPath)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            MemoryGraphProjector.Project(Note(), "", vaultPath!, _agent, Titles));
+            MemoryGraphProjector.Project(Note(), "", vaultPath!, _agent, _titles));
     }
 
     [Theory]
@@ -262,6 +262,6 @@ public sealed class MemoryGraphProjectorTests
     public void Blank_scope_agent_throws(string? agentId)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            MemoryGraphProjector.Project(Note(), "", _path, agentId!, Titles));
+            MemoryGraphProjector.Project(Note(), "", _path, agentId!, _titles));
     }
 }
