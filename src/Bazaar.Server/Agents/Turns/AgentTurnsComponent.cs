@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
@@ -9,7 +10,6 @@ using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Agents.Turns.Tools.Db;
-using Bazaar.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Mentions;

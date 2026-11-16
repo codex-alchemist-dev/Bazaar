@@ -1,5 +1,5 @@
-using Bazaar.Server.Agents.Responder;
 using Bazaar.Core;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
