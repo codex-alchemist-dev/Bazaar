@@ -96,3 +96,12 @@ The earlier open questions are kept below for reference.
 2. **Optional dependencies** (item 2): RESOLVED (owner, 2026-11-16, unified graph #614, #616): optional links are `SoftDependsOn`, already in `ComponentManifest`. Hard edges are acyclic and set start order; soft edges may be mutual and never set order; a missing dependency degrades only the features that need it. See section 6.2.
 3. **RyuseiFuda migration name** (item 7): rename the component id to `ryusei` (no stored data uses the id, so this is the cheaper side), or the folder to `ryusei_schedule`. Recommend the id.
 4. **Scope of wave 2.** Whether Calendar, Org and Agents become components before GC is split, since they are the GC consumers.
+
+## Owner approvals module (doc 32 section 5a)
+
+The owner-signature contract is its own module, not server code. It moved out of `Bazaar.Server` in the PR that adds the durable nonce store:
+
+- `Bazaar.Approvals.Abstractions`: `OwnerSignedPayload` (the `bazaar.owner.v1` byte layout), `IOwnerSignatureVerifier` and its verdicts, `IOwnerNonceStore`, `IOwnerKeyRegistry` and `OwnerDeviceKey`, and `OwnerSignatureCrypto` (the ECDSA P-256 check).
+- `Bazaar.Approvals`: `OwnerSignatureVerifier`, `InMemoryOwnerNonceStore` (tests and dev runs only), and the Postgres stores `Db.PostgresOwnerKeyRegistry` and `Db.PostgresOwnerNonceStore`.
+
+The migration (`remote/0003_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. The module does not yet register an `IBazaarComponent`; that comes with the merge gate work.
