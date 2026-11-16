@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Bazaar.Server.Components.RateLimits;
+namespace Bazaar.RateLimits;
 
 public static class RateLimitServiceCollectionExtensions
 {
