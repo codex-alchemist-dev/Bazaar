@@ -26,24 +26,6 @@ public sealed class PrivacyAuditRecorder
         _time = time;
     }
 
-    /// <summary>A pairing offer was created by a signed-in human (doc 32 section 3 step 1).</summary>
-    public Task OfferCreatedAsync(string actorId, string offerId, string role, int ttlMinutes, CancellationToken ct = default) =>
-        AppendAsync(actorId, PrivacyAuditKinds.PairingOfferCreated, new JsonObject
-        {
-            ["offer_id"] = Id(offerId, nameof(offerId)),
-            ["role"] = Label(role, nameof(role)),
-            ["ttl_minutes"] = ttlMinutes,
-        }, ct);
-
-    /// <summary>A native approval minted a device record and credentials (doc 32 section 3 step 4).</summary>
-    public Task PairingIssuedAsync(string actorId, string offerId, string deviceId, string deviceClass, CancellationToken ct = default) =>
-        AppendAsync(actorId, PrivacyAuditKinds.PairingIssued, new JsonObject
-        {
-            ["offer_id"] = Id(offerId, nameof(offerId)),
-            ["device_id"] = Id(deviceId, nameof(deviceId)),
-            ["device_class"] = Label(deviceClass, nameof(deviceClass)),
-        }, ct);
-
     /// <summary>A device was revoked (doc 32 section 5). <paramref name="reason"/> is a short code-free label, not free text.</summary>
     public Task DeviceRevokedAsync(string actorId, string deviceId, string reason, CancellationToken ct = default) =>
         AppendAsync(actorId, PrivacyAuditKinds.DeviceRevoked, new JsonObject
