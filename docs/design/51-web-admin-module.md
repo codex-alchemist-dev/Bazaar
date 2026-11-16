@@ -41,7 +41,7 @@ Kodo's own rule holds: Kodo adds no interactive browser surface of its own (doc 
 ## Open questions for the owner
 1. **Who may use the panel. DECIDED (owner, 2026-11-16): any account with admin rights.** Any admin account can sign in to the panel, with the same permissions as the client admin views. Doc 32 section 6 has one owner per instance and no admin permission yet. The admin permission is named in the roles model of doc 48 section 4 (custom roles win over the fixed table in doc 32 section 6), and doc 32 section 6 must list it as a built-in role template. No new role name is introduced here.
 2. **Can the panel change the module selection and start a rebuild. DECIDED (owner, 2026-11-16): yes, and every rebuild is recorded in the audit log.** Admins can change the module selection and start rebuilds from the web panel, with the same permission check as the client (section 2) and an audit entry for each rebuild (doc 15).
-3. Should the panel be on by default for a company server, or off until enabled? Default: off until enabled, as with the sign-in page (doc 32 settings).
+3. **Is the panel on by default. DECIDED (owner, 2026-11-16): on for every server.** The panel is on wherever the server is reachable. Admin-only passkey sign-in (doc 32 section 4) still applies, so nobody gets in without it.
 
 ## Testing
 - Authorization: a coworker and a regular user get 403 on every panel route. An admin gets the same results as the apps for the same action.
