@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
 
-namespace Bazaar.Remote.Tests;
+namespace Bazaar.Server.Remote.Tests;
 
 /// <summary>
 /// A cloned database with the remote component's pairing and auth tables (<c>remote/0001_pairing_auth.sql</c>).

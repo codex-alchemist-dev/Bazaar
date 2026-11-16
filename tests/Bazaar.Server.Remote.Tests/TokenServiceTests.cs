@@ -6,7 +6,7 @@ using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Bazaar.Remote.Tests;
+namespace Bazaar.Server.Remote.Tests;
 
 /// <summary>Records each access token request; the real issuer lives in the identity service (doc 14).</summary>
 internal sealed class FakeAccessTokenIssuer : IAccessTokenIssuer
