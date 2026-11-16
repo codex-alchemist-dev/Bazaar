@@ -340,7 +340,7 @@ Each question has a default, the one this doc uses.
 2. **PostgreSQL. DECIDED (owner, 2026-11-16):** bundled by default. An external database is a hidden advanced or headless setting, and it never appears in the install wizard (doc 42 section 18 Q2).
 3. **Provisioning access.** Loopback plus a one-time bootstrap code until the owner exists (default), or a signed installer token? Reason: no network surface before the owner exists.
 4. **Second factor to finish setup. DECIDED (owner, 2026-11-16): optional with a warning.** Setup can finish without a second factor, with a warning. Recovery and high-risk actions stay blocked until one is added (docs 14, 32).
-5. **Backup target.** Finishing without a target only with a recorded acknowledgement (default), or refused? Reason: the most protective default for data loss; the operator's choice of target is kept.
+5. **Backup target. DECIDED (owner, 2026-11-16): finishing without a target is allowed only with a recorded acknowledgement.** The acknowledgement is written to the audit log, and Kodo keeps flagging the missing target (doc 33, doc 46). The operator's choice of target is kept.
 6. **Scam-mail protocol name.** Keep "Nigerian Prince Protocol" (brief, default for this doc), or adopt a neutral name such as "Bait protocol" (doc 22 proposal)? Reason: the name refers to a nationality; the choice affects public naming, so counsel may need to see it.
 
 ## Testing [PLANNED]
