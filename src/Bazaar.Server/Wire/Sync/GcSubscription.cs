@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Server.Wire.Sync;
@@ -23,12 +24,13 @@ internal sealed class GcSubscription : IDisposable
     private long _lastEv;
 
     public GcSubscription(
-        Guid gcId, string stream, Guid principalId, long after, long editAfter,
+        Guid gcId, string stream, Guid principalId, PrincipalKind principalKind, long after, long editAfter,
         IConnectionOutbound outbound, SyncFrames frames, SyncOptions options, CancellationToken sessionCt)
     {
         GcId = gcId;
         Stream = stream;
         PrincipalId = principalId;
+        Kind = principalKind;
         After = after;
         EditAfter = editAfter;
         _lastN = after;
@@ -45,6 +47,9 @@ internal sealed class GcSubscription : IDisposable
     public string Stream { get; }
 
     public Guid PrincipalId { get; }
+
+    /// <summary>The viewer's kind, from the authenticated session. Defaults to human until identity supplies it (doc 14).</summary>
+    public PrincipalKind Kind { get; }
 
     public long After { get; }
 

@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Server.Wire.Sync;
@@ -36,8 +37,8 @@ public interface IGcStreamSource
 /// <summary>Who may read a GC stream (membership, DM rules). Denied and missing must look the same to the client.</summary>
 public interface IGcAccessPolicy
 {
-    /// <summary>True when the principal may read the GC.</summary>
-    ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct);
+    /// <summary>True when the viewer may read the GC. The viewer's kind decides the owner shortcut.</summary>
+    ValueTask<bool> CanReadAsync(GcPrincipal viewer, Guid gcId, CancellationToken ct);
 }
 
 /// <summary>One notification from the post-commit <c>NOTIFY</c> (doc 04): the GC and its new <c>n</c>.</summary>

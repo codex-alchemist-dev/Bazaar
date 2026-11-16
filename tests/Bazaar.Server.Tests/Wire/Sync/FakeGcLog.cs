@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 using Bazaar.Server.Wire.Sync;
 
@@ -113,9 +114,9 @@ internal sealed class FakeGcLog : IGcStreamSource, IGcAccessPolicy, IGcNotificat
 
     public ValueTask<int> CountUnreadAsync(Guid gcId, Guid viewerId, CancellationToken ct) => ValueTask.FromResult(7);
 
-    public ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct)
+    public ValueTask<bool> CanReadAsync(GcPrincipal viewer, Guid gcId, CancellationToken ct)
     {
-        lock (_gate) { return ValueTask.FromResult(_members.Contains((principalId, gcId))); }
+        lock (_gate) { return ValueTask.FromResult(_members.Contains((viewer.Id, gcId))); }
     }
 
     public IAsyncEnumerable<GcNotification> ReadAllAsync(CancellationToken ct) => _notes.Reader.ReadAllAsync(ct);

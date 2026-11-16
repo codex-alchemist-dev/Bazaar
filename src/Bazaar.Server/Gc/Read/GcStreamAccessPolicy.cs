@@ -9,15 +9,15 @@ namespace Bazaar.Server.Gc.Read;
 /// replay-to-leave-seq: they keep what they saw in the log, but a live socket is not a read path for them.
 /// </summary>
 /// <remarks>
-/// The policy receives only the principal id, so the owner shortcut (docs/design/01: the owner reads all) does not apply on
-/// this path yet; the owner must be a member or approved. Wire sessions will pass the principal kind once doc 14 supplies it.
+/// The viewer's kind comes from the authenticated session (<c>SubscriptionEngine.CreateSession</c>), so an owner-kind
+/// session reads every GC (docs/design/01). Until doc 14 supplies kinds, sessions default to human, which fails closed.
 /// </remarks>
 public sealed class GcStreamAccessPolicy(IGcReadAccess access) : IGcAccessPolicy
 {
     /// <inheritdoc />
-    public async ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct)
+    public async ValueTask<bool> CanReadAsync(GcPrincipal viewer, Guid gcId, CancellationToken ct)
     {
-        var grant = await access.GetGrantAsync(gcId, new GcPrincipal(principalId, PrincipalKind.Human, string.Empty), ct)
+        var grant = await access.GetGrantAsync(gcId, viewer, ct)
             .ConfigureAwait(false);
         return grant is { Allowed: true, ThroughSeq: null };
     }

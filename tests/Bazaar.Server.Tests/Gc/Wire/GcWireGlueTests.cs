@@ -182,7 +182,22 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await AddMemberAsync(gc, former, joinedSeq: 0, leftSeq: 2);
         var policy = new GcStreamAccessPolicy(Access);
 
-        Assert.False(await policy.CanReadAsync(former, gc, ct));
+        Assert.False(await policy.CanReadAsync(new GcPrincipal(former, PrincipalKind.Human, string.Empty), gc, ct));
+    }
+
+    [Fact]
+    public async Task The_owner_kind_reads_a_dm_it_is_not_a_member_of_and_a_human_does_not()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var someone = Guid.CreateVersion7();
+        var dmId = Guid.CreateVersion7();
+        var dm = await db.ScalarAsync<Guid>("INSERT INTO gc (gc_id, type_key, title, created_by) VALUES ($1, 'dm', 'dm', $1) RETURNING gc_id", dmId);
+        await AddMemberAsync(dm, someone, joinedSeq: 0, leftSeq: null);
+        var policy = new GcStreamAccessPolicy(Access);
+
+        Assert.True(await policy.CanReadAsync(new GcPrincipal(Guid.CreateVersion7(), PrincipalKind.Owner, string.Empty), dm, ct));
+        Assert.False(await policy.CanReadAsync(new GcPrincipal(Guid.CreateVersion7(), PrincipalKind.Human, string.Empty), dm, ct));
     }
 
     [Fact]

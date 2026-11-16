@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Server.Wire.Sync;
@@ -84,7 +85,7 @@ public sealed class GcDispatcher : IDisposable
 
         foreach (var sub in feed.Snapshot())
         {
-            if (!await access.CanReadAsync(sub.PrincipalId, gcId, ct).ConfigureAwait(false))
+            if (!await access.CanReadAsync(new GcPrincipal(sub.PrincipalId, sub.Kind, string.Empty), gcId, ct).ConfigureAwait(false))
             {
                 sub.Revoke();
             }
