@@ -389,6 +389,8 @@ Doc 47 and CONTRIBUTING.md govern contributions. CONTRIBUTING.md uses DCO only; 
 
 - Each dep line has a recipe in the repo: upstream source pinned by tag and commit SHA, toolchain versions, build flags, and the expected output hashes.
 - Upstream verification: source archives are checked against a pinned SHA-256 and against the upstream signature where one is published. For Windows binaries the source of truth is Q1 in section 18.
+- Source-compile pipeline (Q1 path a, built in parallel with path b): `packaging/postgres/source/` holds the pins (`sources.txt`, PostgreSQL 18 and 19 candidate, pgvector), the Linux build (`build-from-source.sh`), the Windows build (`build-from-source-windows.ps1`, Meson and Ninja under MSVC, pgvector with nmake), a bundle checker, and a throwaway-cluster smoke test. Output has the same folder layout as the upstream bundle and a `SHA256SUMS` file. Its manifest says `signed=false` until the module signing key and its format are defined (open item, see section 18).
+- Known difference (Windows source build): no OpenSSL or zlib is pinned for Windows yet, so that build uses `-Dssl=none -Dzlib=disabled`. The Linux build uses `--with-openssl --with-zlib`. Parity is an open item.
 - The build runs in CI on a clean image. The output gets an SBOM, a provenance record (inputs, recipe hash, toolchain), and a signature by the Bazaar module signing key. Signing keys stay on the build side (brief, releases), and an operator's own build signs with the operator's key.
 
 ### 14.2 Signing and trust
@@ -452,7 +454,7 @@ These conflict with the 2026-11-13 decisions. The owner decision governs, and ea
 
 Each OPEN item has options and the default the design would use until the owner decides, per the configurability rule.
 
-- **Q1. Windows PostgreSQL binaries: source of truth.** (a) Build from source in CI and sign (most control, slowest, needs a Windows toolchain in CI). (b) Verified upstream binary archives pinned by SHA-256 and upstream signature where published (fastest). Default until decided: (b) for the install path, with (a) as the Build-from-source path.
+- **Q1. Windows PostgreSQL binaries: source of truth. DECIDED (owner, 2026-11-16).** Both paths. (b) Ship pinned upstream binary archives first, verified by SHA-256 and by the upstream signature where published (fastest; the install path). (a) Build from source in CI and sign (most control; needs a Windows toolchain in CI). The owner asked that the source-compile pipeline for PostgreSQL 18 and 19 plus pgvector, signed, be coded now, not later; it is built in parallel with path (b) and does not block it.
 - **Q2. Bring-your-own database.** (a) Never; the database is always bundled. (b) Allowed as a hidden advanced setting (`deps.postgresql.external`), never in the install wizard, never installs anything, same health contract. Default until decided: (a).
 - **Q3. .NET runtime as its own record.** (a) A registry record `host-runtime` with `embedded: true`, updated with server releases. (b) No record; the server version carries it. Default: (a), so the module manager can show it.
 - **Q4. LTSC channel and the stable line.** The brief says never stay on stable. LTSC intends a long-term pin. (a) LTSC pins the stable line and receives security patches only, the one deliberate stay. (b) LTSC follows the forward rule with longer deferral windows. Default: (b), so the no-parking rule holds everywhere.
