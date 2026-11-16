@@ -2,7 +2,7 @@
 //   dotnet run packaging/postgres/source/SignBundle.cs -- sign   --bundle <major dir> --module-id postgresql \
 //       --version 18.7.0 --permission fs.dataRoot --key-id <id> --private-key <pem file> --out <json file>
 //   dotnet run packaging/postgres/source/SignBundle.cs -- verify --package <json file> --public-key <pem file> --key-id <id> --publisher-id <id>
-// The package is the canonical form of ModulePackage, signed with ECDSA P-256 (ModulePackageSigner). The content digest
+// The package is the canonical form of ModulePackage, signed with ECDSA P-256 (SignPackage below). The content digest
 // is the SHA-256 of the bundle's SHA256SUMS file, which lists every file's hash, so the signature covers the whole bundle.
 // Signing covers SHA256SUMS, which lists every file of the bundle. A changed file fails sha256sum in
 // test-source-bundle.sh, and a changed SHA256SUMS fails the signature. Verify with --bundle to check the digest too.
@@ -20,6 +20,22 @@ using Bazaar.Server.Modules.Trust;
 
 static string Arg(string[] args, string name) => args.SkipWhile(a => a != name).Skip(1).FirstOrDefault()
     ?? throw new ArgumentException($"missing {name}");
+
+// Release-side producer of a module signature: it signs the canonical form with ECDSA P-256 (IEEE P1363), the signature
+// EcdsaModuleSignatureVerifier checks. It lives here, not in Bazaar.Server, because the server only verifies (doc 49 section 3).
+// The private key is an input. This tool never generates or stores one.
+static ModulePackage SignPackage(ModulePackage package, ECDsa privateKey)
+{
+    ArgumentNullException.ThrowIfNull(package);
+    ArgumentNullException.ThrowIfNull(privateKey);
+    if (privateKey.KeySize != 256 || privateKey.ExportParameters(includePrivateParameters: false).Curve.Oid.Value != ECCurve.NamedCurves.nistP256.Oid.Value)
+    {
+        throw new ArgumentException("The module signing key must be ECDSA P-256.", nameof(privateKey));
+    }
+    var message = ModuleCanonicalForm.Build(package);
+    var signature = privateKey.SignData(message, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+    return package with { Signature = signature };
+}
 
 static IReadOnlySet<string> Permissions(string[] args) =>
     new HashSet<string>(args.Select((a, i) => (a, i)).Where(t => t.a == "--permission").Select(t => args[t.i + 1]), StringComparer.Ordinal);
@@ -49,7 +65,7 @@ if (args[0] == "sign")
         Arg(args, "--key-id"),
         new HostRequirements(HostRequirements.CurrentSchemaVersion, ["linux", "windows"], ["x64"], []),
         []);
-    var signed = ModulePackageSigner.Sign(unsigned, key);
+    var signed = SignPackage(unsigned, key);
 
     var record = new JsonObject
     {

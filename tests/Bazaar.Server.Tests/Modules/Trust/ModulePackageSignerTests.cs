@@ -28,7 +28,7 @@ public class ModulePackageSignerTests
     {
         var (verifier, key) = Setup();
 
-        var signed = ModulePackageSigner.Sign(Unsigned(), key);
+        var signed = TestPackageSigner.Sign(Unsigned(), key);
 
         Assert.Equal(64, signed.Signature.Length);
         Assert.Equal(ModuleSignatureStatus.Valid, verifier.Verify(signed));
@@ -40,7 +40,7 @@ public class ModulePackageSignerTests
         var (_, key) = Setup();
         var unsigned = Unsigned();
 
-        var signed = ModulePackageSigner.Sign(unsigned, key);
+        var signed = TestPackageSigner.Sign(unsigned, key);
 
         Assert.Equal(unsigned.ModuleId, signed.ModuleId);
         Assert.Equal(unsigned.Version, signed.Version);
@@ -53,7 +53,7 @@ public class ModulePackageSignerTests
     public void A_changed_digest_after_signing_is_a_bad_signature()
     {
         var (verifier, key) = Setup();
-        var signed = ModulePackageSigner.Sign(Unsigned(), key);
+        var signed = TestPackageSigner.Sign(Unsigned(), key);
 
         var tampered = signed with { ContentDigestSha256Hex = new string('b', 64) };
 
@@ -68,7 +68,7 @@ public class ModulePackageSignerTests
         store.Add(new TrustedModuleKey(_keyId, "publisher-test", key, _now.AddDays(-1), _now.AddYears(1), Revoked: true));
         var verifier = new EcdsaModuleSignatureVerifier(store, new FakeTimeProvider(_now));
 
-        var signed = ModulePackageSigner.Sign(Unsigned(), key);
+        var signed = TestPackageSigner.Sign(Unsigned(), key);
 
         Assert.NotEqual(ModuleSignatureStatus.Valid, verifier.Verify(signed));
     }
@@ -78,6 +78,26 @@ public class ModulePackageSignerTests
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP384);
 
-        Assert.Throws<ArgumentException>(() => ModulePackageSigner.Sign(Unsigned(), key));
+        Assert.Throws<ArgumentException>(() => TestPackageSigner.Sign(Unsigned(), key));
+    }
+}
+
+/// <summary>
+/// The test's own reference signer. The production signer lives in packaging/postgres/source/SignBundle.cs, outside
+/// Bazaar.Server, because the server only verifies (doc 49 section 3). This copy exists so the verifier tests can produce
+/// packages to check. It is test code and never ships.
+/// </summary>
+internal static class TestPackageSigner
+{
+    public static ModulePackage Sign(ModulePackage package, ECDsa privateKey)
+    {
+        if (privateKey.KeySize != 256 || privateKey.ExportParameters(includePrivateParameters: false).Curve.Oid.Value != ECCurve.NamedCurves.nistP256.Oid.Value)
+        {
+            throw new ArgumentException("The module signing key must be ECDSA P-256.", nameof(privateKey));
+        }
+
+        var message = ModuleCanonicalForm.Build(package);
+        var signature = privateKey.SignData(message, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        return package with { Signature = signature };
     }
 }
