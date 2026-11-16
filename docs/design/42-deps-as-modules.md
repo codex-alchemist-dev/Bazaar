@@ -38,7 +38,8 @@ Everything marked PLANNED below is design intent. Anything marked OPEN is listed
 
 ## 3. Vocabulary
 
-- **Module**: the unit the owner talks about. Repo design docs call the same unit a Bazaar Component (BAZAAR-COMPONENTS.md, PROPOSED). This doc uses "module" as the brief does. The term is OPEN for the design set (section 18, Q8).
+- **Module** (owner, 2026-11-16, DECIDED): anything that plugs into core. Each named feature is its own module, for example GC, Constellation, Kanban or a dependency such as PostgreSQL. A module is the unit users and the owner see, and it is the unit the marketplace lists.
+- **Component** (owner, 2026-11-16, DECIDED): a code part that builds a module. A module is made of one or more components, and the manifest of a module lists its components. Components are internal to the kernel and do not appear in product text.
 - **Dependency module** (dep): a module whose origin is a third-party project and whose purpose is to be used by other modules or by the host. It carries the tag Deps.
 - **Tag "Deps"**: role. The module exists to support other modules.
 - **Tag "3rd party"**: origin. Its code, or the binary it wraps, is written by someone outside Bazaar. A dep is almost always both. A first-party module is never tagged 3rd party. A third-party engine that users run on purpose (for example a marketplace module) is tagged 3rd party but not Deps.
@@ -459,7 +460,7 @@ Each OPEN item has options and the default the design would use until the owner 
 - **Q5. Meaning of "stable".** This doc reads "stable" as the previous major line, still supported upstream and fully tested by Bazaar. (a) Confirm. (b) "Stable" means something else (for example an upstream-designated stable release). Default: (a).
 - **Q6. Data upgrade method for a major move.** (a) `pg_upgrade` with the snapshot as rollback. (b) Dump and restore. (c) Logical replication to a new line. Default: (a) for speed, with (b) as the fallback when `pg_upgrade` preflight fails, and both recorded in the audit trail.
 - **Q7. Module exception for deps.** Does the AGPL module exception cover deps, or does ordinary AGPL compatibility apply? Default: ordinary compatibility (stricter).
-- **Q8. Term and kind.** One word for the unit (module or component), and whether `dependency` is a new `kind` value. Default: "module" in product text, `kind: dependency` added to the manifest.
+- **Q8. Term and kind. DECIDED (owner, 2026-11-16) for the term:** a module is anything that plugs into core. Each named feature is its own module. A component is a code part that builds a module (section 3). The kind question is still open: whether `dependency` is a new `kind` value. Default: `kind: dependency` added to the manifest.
 - **Q9. NuGet visibility.** Is the read-only compile-time summary enough, or should compile-time packages become listed items? Default: summary only.
 - **Q10. Mnemonic for Deps.** To be set in doc 41's mnemonic map. Default: a short mnemonic such as `deps`, assigned there.
 - **Q11. Extension lines when the database line moves.** If pgvector has no artifact for the target line, options are: block the move (default), or keep the old line with a warning and a deadline. Default: block.

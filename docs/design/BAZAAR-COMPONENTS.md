@@ -8,7 +8,8 @@ Every capability the server or a client offers is a **Bazaar Component**, includ
 
 Terms used below:
 
-- **Component**: a unit with a manifest, an entry point that registers its services, its own data (migrations), and a contract surface other components may use.
+- **Module** (owner, 2026-11-16): anything that plugs into core. A named feature is its own module. Modules are the unit users and the owner see. A module is built from one or more components.
+- **Component**: a code part that builds a module: a unit with a manifest, an entry point that registers its services, its own data (migrations), and a contract surface other components may use. Components are internal to the kernel.
 - **Contract**: the public types another component may reference. A contract lives in a component's `*.Abstractions` project (or in `Bazaar.Contracts` for wire types). Contracts never reference implementation code.
 - **Kernel**: the host runtime. It loads components, orders them, runs their registration and migrations, and enforces the rules in section 6.
 
