@@ -35,8 +35,12 @@ public enum ViewActionKind
 /// <summary>A Rubedo expression written as a prop value, in the form <c>{ "expr": "..." }</c> on the wire (doc 41c, section 2).</summary>
 public sealed record ViewExpr(string Source);
 
-/// <summary>A typed data source a view reads (doc 41c, section 4). Views declare sources; they never fetch data.</summary>
-public sealed record ViewDataSource(string Capability, RubedoType Type);
+/// <summary>
+/// A typed data source a view reads (doc 41c, section 4). Views declare sources; they never fetch data. A scalar source
+/// sets <see cref="Type"/>. A list source sets <see cref="Fields"/>: the typed fields of each record, which a keyed list
+/// puts in scope in its item template. Exactly one of the two is set.
+/// </summary>
+public sealed record ViewDataSource(string Capability, RubedoType? Type, IReadOnlyDictionary<string, RubedoType>? Fields = null);
 
 /// <summary>A named action the nodes refer to (doc 41c, section 6). <see cref="Target"/> is a pane, command or setting key.</summary>
 public sealed record ViewAction(ViewActionKind Kind, string? Target);
