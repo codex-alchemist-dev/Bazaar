@@ -9,7 +9,7 @@ How a client reaches a home-hosted server, how humans prove who they are, what e
 ## Decided inputs
 - Remote access is the operator's choice; the setup guide documents Tailscale, Headscale, WireGuard and Cloudflare Tunnel. Tailscale's Personal plan is non-commercial per its terms (owner, 2026-10-24).
 - Ingress: the home host accepts no inbound connections by default. It polls GitHub and mail providers; an overlay or tunnel is optional for real-time webhooks (owner, DECISIONS-LOG round 8, C30, 2026-10-25).
-- No web client, ever (CLAUDE.md, owner 2026-10-24). A read-only status page is allowed and never shows chat, code or Vault content (Server.md §1). A narrow interactive sign-in page is allowed, separate from the status page (owner, 2026-10-24). Its three-route scope is decided (DECISIONS-LOG round 11, C42, 2026-10-25; section 4).
+- A read-only status page is allowed and never shows chat, code or Vault content (Server.md §1). A narrow interactive sign-in page is allowed, separate from the status page (owner, 2026-10-24). Its three-route scope is decided (DECISIONS-LOG round 11, C42, 2026-10-25; section 4).
 - No device pairing (owner, 2026-11-16). Every client is built by its company's server and bound to it, so it connects automatically. A person signs in as a user, and each sign-in mints a revocable per-device credential.
 - Other humans join as coworkers treated as seniors; DMs are two-member GCs; the owner reads all, others may request access (CLAUDE.md; 01).
 - An instance is normally one person's or company's private workspace; with several human members, global privacy-law compliance settings apply (Server.md item 17).
@@ -44,7 +44,7 @@ Bootstrap: owner creation uses the one-time code printed at the first start, fro
 **Getting the client onto a device.** Users never run build scripts. Each company's server installer builds that company's clients in one click and leaves the installers (for example `.msix`, `.apk`) in an output folder (doc 37 section 4a). Installing a built client on a device, by QR code or link, is not yet designed (Question 4).
 
 ### 4. Interactive sign-in page [DECIDED scope (C42, 2026-10-25); route details PROPOSED]
-**Tension, resolved by the owner:** CLAUDE.md's "no web client, ever" allowed only a read-only status page. The owner's 2026-10-24 exception allows a narrow sign-in page, and round 11 approved this three-route scope (off by default, no content shown). CLAUDE.md's wording is still to be corrected (Conflicts). The fence below stops the page growing into a client.
+**Tension, resolved by the owner:** the owner's 2026-10-24 exception allows a narrow sign-in page, and round 11 approved this three-route scope (off by default, no content shown). An earlier CLAUDE.md line, "no web client, ever", was an agent's paraphrase and the owner removed it on 2026-11-17 (DECISIONS-LOG round 26). The fence below stops the page growing into a client.
 
 Purpose: sign a human in from a new device with a passkey, then hand off to a native client. Separate listener and routes from `/status` (02).
 - Routes, exactly three, covering sign-in, pairing approval and recovery:
@@ -177,7 +177,7 @@ Real Postgres, fake clock, in-memory WebSocket host, Avalonia.Headless for the A
 13. Owner approval key enrolment, `approval_key` table and signature verification (needs 15 package 3, and Question 4; section 5a).
 
 ## Conflicts
-- CLAUDE.md still reads "No web client, ever (a read-only server status page is allowed)" without the sign-in exception (C42). Fix in the CLAUDE.md pass; the scope itself is decided.
+- The CLAUDE.md "No web client" line that this item flagged (C42) was removed on 2026-11-17 (DECISIONS-LOG round 26). The sign-in scope itself is decided.
 - Cloudflare Tunnel puts a third party in the TLS path against the self-hosted posture. Remains as an operator option only (C30).
 - Tailscale Personal terms vs a company instance (needs counsel).
 - Append-only log vs erasure rights: the mechanism is decided (C01), but backup retention (33) and legal sufficiency remain open.
