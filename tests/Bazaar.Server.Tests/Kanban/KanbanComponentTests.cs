@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Turns.Tools;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Kanban.Data;
 using Bazaar.Server.Security.Policy;

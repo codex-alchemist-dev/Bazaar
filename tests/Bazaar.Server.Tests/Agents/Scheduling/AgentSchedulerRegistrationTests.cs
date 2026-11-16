@@ -1,7 +1,7 @@
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.Agents.Turns;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

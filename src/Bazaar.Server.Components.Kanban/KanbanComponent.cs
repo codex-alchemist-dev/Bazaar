@@ -1,5 +1,5 @@
 using Bazaar.Server.Agents.Turns.Tools;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Kanban.Data;
 using Bazaar.Server.Kanban.Wire;

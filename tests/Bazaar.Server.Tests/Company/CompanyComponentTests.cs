@@ -1,7 +1,7 @@
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Company;
 using Bazaar.Server.Company.Org;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Org.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components;
+namespace Bazaar.Core;
 
 /// <summary>
 /// Declares one Bazaar Component: its identity, what it needs and what it provides (docs/design/BAZAAR-COMPONENTS.md section 2).
