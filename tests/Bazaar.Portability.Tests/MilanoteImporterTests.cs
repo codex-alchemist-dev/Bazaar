@@ -2,124 +2,138 @@ using System.Text;
 
 namespace Bazaar.Portability.Tests;
 
+// The Markdown layout and the fixture are modelled, not verified against a real Milanote export.
 public class MilanoteImporterTests
 {
-    private const string _markedExport = """
-        {"items": [
-          {"milanote": true, "type": "text", "title": "Intro", "text": "Hello board"},
-          {"type": "list", "text": "Buy milk"},
-          {"type": "link", "content": "https://example.com"}
-        ]}
-        """;
-
-    private const string _unmarkedExport = """
-        {"notes": [
-          {"text": "First"},
-          {"text": "Second"}
-        ]}
-        """;
-
     private static ImportSource Src(string name, string text) => new(name, Encoding.UTF8.GetBytes(text));
 
-    [Fact]
-    public void Detect_with_marker_returns_0_8()
-    {
-        var importer = new MilanoteImporter();
-        Assert.Equal(0.8, importer.Detect(Src("board.json", _markedExport)).Confidence);
-    }
+    /// <summary>Reads a fixture copied next to the test binary (see the csproj Fixtures item).</summary>
+    private static ImportSource Fixture(string name) =>
+        new(name, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", name)));
 
     [Fact]
     public void Detect_with_name_marker_returns_0_8()
     {
         var importer = new MilanoteImporter();
-        Assert.Equal(0.8, importer.Detect(Src("MILANOTE-board.json", _unmarkedExport)).Confidence);
+        Assert.Equal(0.8, importer.Detect(Src("milanote-board.md", "plain text")).Confidence);
     }
 
     [Fact]
-    public void Detect_with_shape_only_returns_0_4()
+    public void Detect_with_headings_only_returns_0_3()
     {
         var importer = new MilanoteImporter();
-        Assert.Equal(0.4, importer.Detect(Src("board.json", _unmarkedExport)).Confidence);
+        Assert.Equal(0.3, importer.Detect(Src("board.md", "# Card\n\nBody")).Confidence);
     }
 
     [Fact]
-    public void Detect_rejects_malformed_json()
+    public void Detect_rejects_markdown_without_headings()
     {
         var importer = new MilanoteImporter();
-        Assert.Equal(0, importer.Detect(Src("milanote.json", "{\"items\": [")).Confidence);
+        Assert.Equal(0, importer.Detect(Src("notes.md", "just prose, no headings")).Confidence);
     }
 
     [Fact]
-    public void Detect_rejects_json_without_item_list()
+    public void Detect_rejects_other_file_types()
     {
         var importer = new MilanoteImporter();
-        Assert.Equal(0, importer.Detect(Src("milanote.json", "{\"a\": 1}")).Confidence);
+        Assert.Equal(0, importer.Detect(Src("milanote.json", "# Card")).Confidence);
+        Assert.Equal(0, importer.Detect(Src("milanote.zip", "# Card")).Confidence);
     }
 
     [Fact]
-    public void Parse_returns_one_record_per_item()
+    public void Parse_makes_one_card_per_heading()
     {
         var importer = new MilanoteImporter();
-        var records = importer.Parse(Src("board.json", _markedExport));
+        var records = importer.Parse(Src("board.md", "# Intro\nHello board\n\n## List\n- Buy milk\n"));
 
-        Assert.Equal(3, records.Count);
-        Assert.Equal(["text", "list", "link"], records.Select(r => r.Kind).ToArray());
-        Assert.Equal("Intro", records[0].Title);
+        Assert.Equal(["Intro", "List"], records.Select(r => r.Title).ToArray());
         Assert.Equal("Hello board", records[0].Body);
-        Assert.Equal("Buy milk", records[1].Title);
-        Assert.Equal("https://example.com", records[2].Body);
+        Assert.Equal("- Buy milk", records[1].Body);
+        Assert.Equal(["note", "note"], records.Select(r => r.Kind).ToArray());
     }
 
     [Fact]
-    public void Parse_defaults_kind_to_note_and_sets_attributes()
+    public void Text_before_first_heading_becomes_a_card_titled_by_its_start()
     {
         var importer = new MilanoteImporter();
-        var records = importer.Parse(Src("board.json", _unmarkedExport));
+        var record = Assert.Single(importer.Parse(Src("board.md", "Loose note at the top\n")));
 
+        Assert.Equal("Loose note at the top", record.Title);
+        Assert.Equal("Loose note at the top", record.Body);
+    }
+
+    [Fact]
+    public void Heading_needs_a_space_and_at_most_six_hashes()
+    {
+        var importer = new MilanoteImporter();
+        var records = importer.Parse(Src("board.md", "#NoSpace\n####### Seven\n# Real\nBody"));
+
+        // The two non-headings stay in the preamble card; only "# Real" starts a card.
         Assert.Equal(2, records.Count);
-        var first = records[0];
-        Assert.Equal("note", first.Kind);
-        Assert.Equal("milanote", first.Attributes["format"]);
-        Assert.Equal("board.json", first.Attributes["source"]);
-        Assert.Equal("note", first.Attributes["type"]);
+        Assert.Equal("#NoSpace\n####### Seven", records[0].Body);
+        Assert.Equal("Real", records[1].Title);
+        Assert.Equal("Body", records[1].Body);
     }
 
     [Fact]
-    public void Parse_gives_identical_items_distinct_source_keys()
+    public void Empty_heading_card_is_skipped()
     {
         var importer = new MilanoteImporter();
-        var records = importer.Parse(Src("board.json", """{"items": [{"text": "same"}, {"text": "same"}]}"""));
+        Assert.Empty(importer.Parse(Src("board.md", "# \n\n")));
+    }
+
+    [Fact]
+    public void Crlf_line_endings_are_handled()
+    {
+        var importer = new MilanoteImporter();
+        var records = importer.Parse(Src("board.md", "# One\r\nFirst\r\n# Two\r\nSecond\r\n"));
+
+        Assert.Equal(["One", "Two"], records.Select(r => r.Title).ToArray());
+        Assert.Equal("First", records[0].Body);
+        Assert.Equal("Second", records[1].Body);
+    }
+
+    [Fact]
+    public void Attributes_are_set()
+    {
+        var importer = new MilanoteImporter();
+        var record = Assert.Single(importer.Parse(Src("board.md", "# Card\nBody")));
+
+        Assert.Equal("milanote", record.Attributes["format"]);
+        Assert.Equal("board.md", record.Attributes["source"]);
+        Assert.Equal("note", record.Attributes["type"]);
+    }
+
+    [Fact]
+    public void Identical_cards_get_distinct_source_keys()
+    {
+        var importer = new MilanoteImporter();
+        var records = importer.Parse(Src("board.md", "# Same\nbody\n# Same\nbody\n"));
 
         Assert.Equal(2, records.Count);
         Assert.NotEqual(records[0].SourceKey, records[1].SourceKey);
     }
 
     [Fact]
-    public void Parse_truncates_title_to_80_characters_when_no_title()
+    public void Long_card_text_is_truncated_to_80_characters_for_the_title()
     {
         var importer = new MilanoteImporter();
         var longText = new string('a', 100);
-        var records = importer.Parse(Src("board.json", $"{{\"items\": [{{\"text\": \"{longText}\"}}]}}"));
+        var record = Assert.Single(importer.Parse(Src("board.md", longText)));
 
-        Assert.Equal(80, records[0].Title.Length);
-        Assert.Equal(longText, records[0].Body);
+        Assert.Equal(80, record.Title.Length);
+        Assert.Equal(longText, record.Body);
     }
 
     [Fact]
-    public void Parse_accepts_root_array()
+    public void Fixture_milanote_export_parses_titles_and_bodies()
     {
         var importer = new MilanoteImporter();
-        var records = importer.Parse(Src("board.json", """[{"name": "Card", "content": "Body"}]"""));
+        var records = importer.Parse(Fixture("milanote-export.md"));
 
-        var record = Assert.Single(records);
-        Assert.Equal("Card", record.Title);
-        Assert.Equal("Body", record.Body);
-    }
-
-    [Fact]
-    public void Parse_of_malformed_json_returns_nothing()
-    {
-        var importer = new MilanoteImporter();
-        Assert.Empty(importer.Parse(Src("milanote.json", "not json")));
+        Assert.Equal(["Launch plan", "Write changelog", "Moodboard"], records.Select(r => r.Title).ToArray());
+        Assert.Equal(
+            ["Ship the beta on Friday.", "Summarise the portability work.", "https://example.com/spec"],
+            records.Select(r => r.Body).ToArray());
     }
 }
