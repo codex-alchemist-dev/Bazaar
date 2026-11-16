@@ -226,10 +226,6 @@ src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
 src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
 src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
-src/Bazaar.Server/Components/PrivacyAudit/AuditPayloadGuard.cs
-src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditKinds.cs
-src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditRecorder.cs
-src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
 src/Bazaar.Server/Components/Remote/ITokenService.cs
 src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
@@ -239,17 +235,6 @@ src/Bazaar.Server/Components/Remote/RemoteComponent.cs
 src/Bazaar.Server/Components/Remote/RemoteTokenOptions.cs
 src/Bazaar.Server/Components/Remote/RemoteTokensServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Remote/TokenService.cs
-src/Bazaar.Server/Components/Tls/AcmeCertificateProvider.cs
-src/Bazaar.Server/Components/Tls/ICertificateProvider.cs
-src/Bazaar.Server/Components/Tls/OverlayCertificateProvider.cs
-src/Bazaar.Server/Components/Tls/PemCertificateProvider.cs
-src/Bazaar.Server/Components/Tls/PfxCertificateProvider.cs
-src/Bazaar.Server/Components/Tls/ServerCertificate.cs
-src/Bazaar.Server/Components/Tls/TlsCertificateException.cs
-src/Bazaar.Server/Components/Tls/TlsPolicy.cs
-src/Bazaar.Server/Components/Tls/TlsServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Tls/TlsSettings.cs
-src/Bazaar.Server/Components/Tls/TlsSourceKind.cs
 src/Bazaar.Server/Constellation/Clustering/LouvainClustering.cs
 src/Bazaar.Server/Constellation/Clustering/WeightedEdge.cs
 src/Bazaar.Server/Constellation/ConstellationComponent.cs
@@ -748,8 +733,6 @@ src/Bazaar.Server/Sanitization/SanitizedText.cs
 src/Bazaar.Server/Sanitization/SensitiveTerms.cs
 src/Bazaar.Server/Sanitization/TextSanitizer.cs
 src/Bazaar.Server/Secrets/BootstrapSecretResolver.cs
-src/Bazaar.Server/Secrets/ISecretResolver.cs
-src/Bazaar.Server/Secrets/SecretResolutionException.cs
 src/Bazaar.Server/Security/AgentSafetyServiceCollectionExtensions.cs
 src/Bazaar.Server/Security/Approvals/ApprovalCardMapper.cs
 src/Bazaar.Server/Security/Approvals/ApprovalDecisionMapper.cs
@@ -785,7 +768,6 @@ src/Bazaar.Server/Security/Audit/Db/PostgresAuditAnchorFailureLog.cs
 src/Bazaar.Server/Security/Audit/Db/PostgresAuditAnchorStore.cs
 src/Bazaar.Server/Security/Audit/Db/PostgresAuditCheckpointStore.cs
 src/Bazaar.Server/Security/Audit/Db/PostgresAuditLog.cs
-src/Bazaar.Server/Security/Audit/IAuditLog.cs
 src/Bazaar.Server/Security/Audit/ITransactionalAuditLog.cs
 src/Bazaar.Server/Security/Budgets/ITokenBudgetService.cs
 src/Bazaar.Server/Security/Budgets/ITokenBudgetStore.cs

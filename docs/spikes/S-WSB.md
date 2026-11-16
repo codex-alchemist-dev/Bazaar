@@ -6,7 +6,7 @@ Branch: `agent/wsb-spike`. Design source: `docs/design/50-windows-sandbox-provid
 
 **Verified: a second Windows Sandbox cannot start while one is running.** With one instance running, `wsb start` for a second one fails with `Application cannot be run more than once (0x800401F6 CO_E_APPSINGLEUSE)`, exit `-2147221002`. This happened twice, with the minimal config and the full config. The first start of each pair succeeded.
 
-Not verified: whether the limit is per user or per host. Testing that needs a second Windows account. The refusal came from the `WindowsSandboxServer` COM server, which may be per user session. Until a second account is tested, treat the limit as host-wide, which is the safe reading. This supports the doc 50 decision that `MaxConcurrentInstances = 1`.
+Not measured: whether the limit is per user or per host. The provider treats it as host-wide (see Scope decision below). The refusal came from the `WindowsSandboxServer` COM server, which may be per user session. Until a second account is tested, treat the limit as host-wide, which is the safe reading. This supports the doc 50 decision that `MaxConcurrentInstances = 1`.
 
 ## Environment
 
@@ -81,8 +81,8 @@ So a warm start from the zygote is fast, about 1 s to exec-ready. **Verified, on
 
 The real `IWindowsSandboxHost` adapter is in `src/Bazaar.Server.Vms.WindowsSandbox/WsbCli/` (`WsbCliSandboxHost`, `ProcessWsbCommandRunner`). It is not registered in any host composition, so `auto` still never selects it. The opt-in live test `Live_round_trip_runs_only_when_explicitly_enabled` ran on this PC with `BAZAAR_WSB_LIVE=1`: it wrote a config, started a sandbox, saw it in `list`, stopped it, and deleted the config. The full suite passed 38 of 38 with it, and no sandbox was left running.
 
-## Pending
+## Scope decision and remaining items
 
-- Second-account test of the limit scope.
-- Service-account stop test.
-- Logon command, headless window and Hyper-V coexistence.
+- **Limit scope (decided, host-wide).** Whether the one-instance limit is per user or per host is not measured. The provider treats it as host-wide: `MaxConcurrentInstances = 1` per host, enforced in the backend and in the selector. This is the fail-closed reading, and it holds whichever way the limit really works. A per-user measurement could only loosen it later, through a documented change to the declared capacity. No second-account test is needed to ship the provider.
+- **Service-account stop.** Not needed for this provider. The VM role runs from the interactive server user, and no service-hosted sandbox path exists. Revisit it only if a service host starts sandboxes.
+- **Still open:** logon command (`LogonCommand` did not run), headless window, and Hyper-V coexistence. None of them affects the capacity rule, and none is needed while the sandbox is the only VM candidate.
