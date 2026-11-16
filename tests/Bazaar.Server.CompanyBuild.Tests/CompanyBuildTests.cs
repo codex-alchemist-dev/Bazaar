@@ -143,3 +143,25 @@ public sealed class CompanyBuildTests
         Assert.Equal("company-build", Assert.Single(ordered).Id);
     }
 }
+
+public sealed class DotnetPublishBuildStepTests
+{
+    [Fact]
+    public void Arguments_are_a_publish_list_with_no_shell()
+    {
+        var args = DotnetPublishBuildStep.BuildArguments("src/Client/Client.csproj", "out/acme");
+
+        Assert.Equal(["publish", "src/Client/Client.csproj", "-c", "Release", "-o", "out/acme", "--nologo"], args);
+    }
+
+    [Fact]
+    public async Task A_missing_project_fails_with_the_exit_code()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), "bazaar-missing-" + Guid.NewGuid().ToString("N") + ".csproj");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            DotnetPublishBuildStep.RunAsync(missing, Path.GetTempPath(), TestContext.Current.CancellationToken));
+
+        Assert.Contains("exited with code", ex.Message);
+    }
+}
