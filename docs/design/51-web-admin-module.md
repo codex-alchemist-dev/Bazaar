@@ -4,10 +4,10 @@ Status: DECIDED for the rule and scope (owner, 2026-11-16: "Allow admin-only web
 Depends on: 02 (HTTP surface), 03 (listeners, bind floor), 15 (approvals, audit), 32 (roles, passkey sign-in page), 37 (company build), 41 (module selection and rebuild), 46 (Kodo health) · Used by: CLAUDE.md, 45 (setup wizard hand-off)
 
 ## Purpose
-An admin-only web panel the server hosts for administration and health: users, Kodo health, module selection and rebuild, and similar admin views. It sits beside the in-client admin views, which admin accounts see inside the apps. It is a web page for admins, not a web client for people. Regular users still get no web client. The rule that says so is CLAUDE.md's "No web client", which is narrowed on 2026-11-16 to "no web client for regular users".
+An admin-only web panel the server hosts for administration and health: users, Kodo health, module selection and rebuild, and similar admin views. It sits beside the in-client admin views, which admin accounts see inside the apps. It is a web page for admins, served by the server. Clients stay native, as already built (CLAUDE.md, doc 27). The owner removed the earlier "no web client" rule on 2026-11-17, because it was an agent's paraphrase (DECISIONS-LOG round 26), so this panel needs no exception.
 
 ## Decided inputs
-- **Rule change (owner, 2026-11-16).** "No web client, ever" is narrowed to "no web client for regular users". An admin-only web panel, written as plain HTML, CSS and JavaScript, is allowed. The read-only status page (doc 02, doc 23) and the narrow sign-in page (doc 32 section 4) keep their existing scope.
+- **Panel form (owner, 2026-11-16).** An admin-only web panel, written as plain HTML, CSS and JavaScript. The read-only status page (doc 02, doc 23) and the narrow sign-in page (doc 32 section 4) keep their existing scope.
 - **Same permissions as the apps.** An admin sees and does what the same account can do in a client. Every action goes through the same authorization checks and the same audit log (doc 15). The panel adds no privilege.
 - **Sign-in.** Admins sign in through the existing passkey page (doc 32 section 4, route `/signin`). That page is the only sign-in path for the panel. There are no passwords and no separate panel login.
 - **Zero external installs.** The server serves the panel. Its assets are embedded in the server assembly. The panel loads no CDN script, font or framework, and needs no build step, package install or extra download on the admin's machine.
