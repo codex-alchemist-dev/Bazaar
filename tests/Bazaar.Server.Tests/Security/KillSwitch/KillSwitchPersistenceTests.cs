@@ -132,6 +132,33 @@ public class KillSwitchPersistenceTests
     }
 
     [Fact]
+    public async Task Startup_gate_lets_agents_start_once_a_failed_load_succeeds_on_retry()
+    {
+        var store = new ControllableKillSwitchStateStore(new InMemoryKillSwitchStateStore()) { FailNextLoad = true };
+        var engine = new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), new RecordingContainment(), store, _time);
+
+        await engine.WaitUntilStateLoadedAsync(Ct);
+
+        Assert.Equal(ModuleHealthStatus.Healthy, engine.CheckStateHealth().Status);
+    }
+
+    [Fact]
+    public async Task Startup_gate_refuses_while_the_stop_store_cannot_be_read()
+    {
+        var store = new ControllableKillSwitchStateStore(new InMemoryKillSwitchStateStore()) { FailLoads = true };
+        var engine = new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), new RecordingContainment(), store, _time);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => engine.WaitUntilStateLoadedAsync(Ct));
+        Assert.False(engine.Evaluate("agent-a", ToolEffect.Read).Allowed);
+        Assert.Equal(ModuleHealthStatus.Failing, engine.CheckStateHealth().Status);
+
+        store.FailLoads = false;
+        await engine.WaitUntilStateLoadedAsync(Ct);
+
+        Assert.True(engine.Evaluate("agent-a", ToolEffect.Read).Allowed);
+    }
+
+    [Fact]
     public async Task State_health_is_unknown_while_loading_then_healthy_once_loaded()
     {
         var load = new TaskCompletionSource();
