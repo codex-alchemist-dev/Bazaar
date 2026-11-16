@@ -355,6 +355,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Layout term: DECIDED (owner, 2026-11-12): "Layout". Options were "Layout" (recommended), "Workspace" or "Arrangement".
    - Module term: DECIDED (owner, 2026-11-12): "Client module". Options were "Client module" (recommended) or "Pane module".
    - Namespace: `Bazaar.Client.<F>` for every module, base shell included, as MODULARITY-AUDIT planned. Confirm or name the base shell differently.
+11. **Removing a module keeps its data. DECIDED (owner, 2026-11-16): keep data, disable module.** Removing a module from a company keeps its data, which stays exportable, and disables the module. Re-adding it restores that data. Erasing data is a separate action that needs confirmation and is a crypto-erase (doc 15, doc 33).
 
 ## 11. Testing
 
