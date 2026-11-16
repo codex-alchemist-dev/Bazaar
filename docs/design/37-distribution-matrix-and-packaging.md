@@ -58,7 +58,7 @@ No artifact is built on a developer machine and uploaded by hand. No client bina
 
 Running the server installer produces the company's client installers in an output folder. The installer does all of the following, with no user action after the first click:
 
-- **Bundled toolchain.** The server installer carries (or fetches on first run, see the spikes) the build toolchain the clients need: the .NET SDK for the target, and the platform packaging tools. The user installs nothing separately.
+- **Bundled toolchain (owner, 2026-11-16) [DECIDED].** Bazaar ships its own pinned .NET SDK plus the MSIX and APK tooling as a Deps module (doc 42 section 18, Q14). Company rebuilds compile the selected modules in for real, and the operator installs nothing. The toolchain is pinned by version and checked by hash. Earlier wording that let the installer fetch it on first run is replaced; any fetch that does happen is part of the deferred-download rule below.
 - **Platform packaging preparation.** The installer prepares what apt, flatpak and the other formats need (repository metadata, the local Flatpak repo, the `.desktop` and `xdg-mime` files) so the outputs are ready to install.
 - **Inputs.** The company's module list, the baked default layout and theme (doc 41), the channel, and the company's signing settings. The server writes these from its own company configuration; the user does not hand-edit build files.
 - **Outputs.** One output folder per build, for example `out/CDAX/` containing `CDAX.msix`, `CDAX.apk`, the Velopack feed, the Flatpak repo and a `SHA256SUMS` file. Unsigned outputs are labelled in a `README.txt` in the folder.

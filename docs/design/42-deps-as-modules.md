@@ -464,6 +464,7 @@ Each OPEN item has options and the default the design would use until the owner 
 - **Q10. Mnemonic for Deps.** To be set in doc 41's mnemonic map. Default: a short mnemonic such as `deps`, assigned there.
 - **Q11. Extension lines when the database line moves.** If pgvector has no artifact for the target line, options are: block the move (default), or keep the old line with a warning and a deadline. Default: block.
 - **Q12. Beta availability for extensions.** Should pgvector and pg_search betas follow the same channel rule as the database, or be treated as separate candidates? Default: same rule, a candidate set is only installable when every required extension has a candidate artifact.
+- **Q14. Build toolchain for company rebuilds. DECIDED (owner, 2026-11-16): bundled signed toolchain.** Bazaar ships its own pinned .NET SDK plus the MSIX and APK tooling as a Deps module, so company rebuilds compile the selected modules in and the operator installs nothing (doc 37 section 4a).
 - **Q13. Snapshot retention after a major move.** Doc 33 sets retention for backups. Options: the pre-move snapshot kept for the doc 33 window (default), or kept until the owner confirms the new line for N days. Default: doc 33 window, with the owner's confirmation required before deletion.
 
 ## 19. Build plan (PLANNED, nothing built)
