@@ -81,6 +81,20 @@ try {
     Pop-Location
 }
 
+# Meson installs the server headers under include\postgresql\server (pkgincludedir), but pgvector's Makefile.win
+# includes from PGROOT\include\server. Give it that layout by copying the server header tree, so the build finds
+# postgres.h where pgvector looks for it.
+$pgInclude = Join-Path $prefix 'include'
+$serverInclude = Join-Path $pgInclude 'server'
+if (-not (Test-Path (Join-Path $serverInclude 'postgres.h'))) {
+    $found = Get-ChildItem $pgInclude -Recurse -Filter 'postgres.h' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Directory.Name -eq 'server' } | Select-Object -First 1
+    if (-not $found) { throw 'postgres.h not found under the PostgreSQL install' }
+    New-Item -ItemType Directory -Force -Path $serverInclude | Out-Null
+    Copy-Item -Path (Join-Path $found.Directory.FullName '*') -Destination $serverInclude -Recurse -Force
+}
+if (-not (Test-Path (Join-Path $serverInclude 'postgres.h'))) { throw 'server headers are not in include\server' }
+
 # pgvector, built against this PostgreSQL's headers and import libraries.
 $pgv = Join-Path $Work "pgvector-$pgvector"
 Remove-Item $pgv -Recurse -Force -ErrorAction SilentlyContinue
