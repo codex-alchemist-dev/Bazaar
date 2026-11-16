@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace Bazaar.Server.Components.PrivacyAudit;
+namespace Bazaar.PrivacyAudit;
 
 /// <summary>
 /// Redaction guard for audit payloads (doc 32 section 8, doc 15). A payload must never hold tokens, passwords, recovery

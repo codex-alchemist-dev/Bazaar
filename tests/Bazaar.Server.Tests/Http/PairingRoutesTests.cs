@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Bazaar.Server.Components.PrivacyAudit;
+using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Http;
 using Bazaar.Server.Tests.Components.PrivacyAudit;

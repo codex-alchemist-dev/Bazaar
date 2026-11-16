@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using Bazaar.Server.Security.Audit;
 
-namespace Bazaar.Server.Components.PrivacyAudit;
+namespace Bazaar.PrivacyAudit;
 
 /// <summary>
 /// Writes the privacy and remote-access audit events (doc 32 section 8, doc 15 <c>IAuditLog</c>) as <see cref="AuditEntry"/>
