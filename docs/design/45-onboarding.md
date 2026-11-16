@@ -337,7 +337,7 @@ Each row names the place where the sources disagree, and the resolution this doc
 Each question has a default, the one this doc uses.
 
 1. **Pairing approval.** Should the first device be approved during setup at the server console (default), or should automatic approval be allowed for devices that present a valid offer on the local network? Reason for the default: pairing mints credentials, so approval stays a human act.
-2. **PostgreSQL.** Bundled child process as the only default, with bring-your-own as an operator option (default), or bring-your-own as a first-class path? Reason: the brief's zero-install rule.
+2. **PostgreSQL. DECIDED (owner, 2026-11-16):** bundled by default. An external database is a hidden advanced or headless setting, and it never appears in the install wizard (doc 42 section 18 Q2).
 3. **Provisioning access.** Loopback plus a one-time bootstrap code until the owner exists (default), or a signed installer token? Reason: no network surface before the owner exists.
 4. **Second factor to finish setup.** Required (default), or optional with a warning? Reason: recovery and high-risk actions depend on it.
 5. **Backup target.** Finishing without a target only with a recorded acknowledgement (default), or refused? Reason: the most protective default for data loss; the operator's choice of target is kept.
