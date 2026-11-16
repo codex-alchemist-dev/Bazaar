@@ -1,7 +1,7 @@
-using Bazaar.Client.Core.Souls;
+using Bazaar.Client.Souls;
 using Bazaar.Contracts.Soul;
 
-namespace Bazaar.Client.Core.Tests.Souls;
+namespace Bazaar.Client.Souls.Tests;
 
 public class SoulProfileViewModelTests
 {

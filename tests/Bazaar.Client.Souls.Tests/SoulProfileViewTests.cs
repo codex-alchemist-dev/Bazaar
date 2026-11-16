@@ -2,12 +2,12 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
-using Bazaar.Client.Core.Souls;
-using Bazaar.Client.Core.Tests.Theme;
 using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Souls;
+using Bazaar.Client.Souls.Tests.Theme;
 using Bazaar.Contracts.Soul;
 
-namespace Bazaar.Client.Core.Tests.Souls;
+namespace Bazaar.Client.Souls.Tests;
 
 public class SoulProfileViewTests
 {

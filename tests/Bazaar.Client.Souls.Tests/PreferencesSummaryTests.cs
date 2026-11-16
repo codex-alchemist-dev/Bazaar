@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Souls;
+using Bazaar.Client.Souls;
 
-namespace Bazaar.Client.Core.Tests.Souls;
+namespace Bazaar.Client.Souls.Tests;
 
 public class PreferencesSummaryTests
 {

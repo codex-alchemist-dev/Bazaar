@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Souls;
+namespace Bazaar.Client.Souls;
 
 /// <summary>
 /// Identity fields the profile card shows for one Soul. The server builds it from the agent row; the card

@@ -15,6 +15,7 @@
     <Project Path="src/Bazaar.Michi/Bazaar.Michi.csproj" />
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
     <Project Path="src/Bazaar.Client.RyuseiFuda/Bazaar.Client.RyuseiFuda.csproj" />
+    <Project Path="src/Bazaar.Client.Souls/Bazaar.Client.Souls.csproj" />
     <Project Path="src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj" />
     <Project Path="src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj" />
     <Project Path="src/Bazaar.Components.ManagedPostgres/Bazaar.Components.ManagedPostgres.csproj" />
@@ -68,6 +69,7 @@
     <Project Path="tests/Bazaar.Secrets.Tests/Bazaar.Secrets.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Souls.Tests/Bazaar.Client.Souls.Tests.csproj" />
     <Project Path="tests/Bazaar.Localisation.Tests/Bazaar.Localisation.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Tests/Bazaar.Accessibility.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Avalonia.Tests/Bazaar.Accessibility.Avalonia.Tests.csproj" />

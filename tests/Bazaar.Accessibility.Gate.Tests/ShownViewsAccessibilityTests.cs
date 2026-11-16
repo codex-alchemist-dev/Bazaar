@@ -6,7 +6,7 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Souls;
+using Bazaar.Client.Souls;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Client.RyuseiFuda.Workday;
