@@ -171,6 +171,9 @@ public sealed class AgentTurnsComponent : IBazaarComponent
                 $"{AgentSchedulerOptions.SectionName}:Enabled is true, but no ILoopGuard is registered. " +
                 "The wake loop does not wake agents without a loop guard.");
 
+            var schedulerOptions = sp.GetRequiredService<AgentSchedulerOptions>();
+            WakeToolAllowlist.EnsureOffered(schedulerOptions.ToolAllowlist, sp.GetServices<ModelToolDefinition>());
+
             return new InboxAgentScheduler(
                 sp.GetRequiredService<IDueAgentReader>(),
                 sp.GetRequiredService<TurnStarter>(),

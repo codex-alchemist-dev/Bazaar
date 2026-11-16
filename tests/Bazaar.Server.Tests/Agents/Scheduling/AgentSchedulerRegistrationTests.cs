@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.Agents.Turns;
@@ -67,6 +68,7 @@ public sealed class AgentSchedulerRegistrationTests
             ("ToolAllowlist:0", "gc.post"));
         services.AddSingleton<ITurnRunner>(new FakeTurnRunner());
         services.AddSingleton<ILoopGuard>(new FakeLoopGuard());
+        services.AddSingleton(new ModelToolDefinition("gc.post", "Posts a message.", "{\"type\":\"object\"}"));
 
         Assert.True(RegistersHostedLoop(services));
 
@@ -161,5 +163,30 @@ public sealed class AgentSchedulerRegistrationTests
     private sealed class OtherScheduler : IAgentScheduler
     {
         public Task<AgentSchedulerPass> RunOnceAsync(CancellationToken ct) => Task.FromResult(AgentSchedulerPass.Empty);
+    }
+
+    [Fact]
+    public async Task Enabled_with_an_allowlisted_tool_no_component_offers_fails_when_the_hosted_loop_is_resolved()
+    {
+        // ryusei.* is offered only with Bazaar:Ryusei:ProjectId, so naming it without the project must stop the loop at start.
+        var services = Compose(("Enabled", "true"), ("Route", "claude"), ("ToolAllowlist:0", "ryusei.list"));
+        services.AddSingleton<ITurnRunner>(new FakeTurnRunner());
+        services.AddSingleton<ILoopGuard>(new FakeLoopGuard());
+        await using var provider = services.BuildServiceProvider();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => provider.GetServices<IHostedService>().ToList());
+
+        Assert.Contains("ryusei.list", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Bazaar:Ryusei:ProjectId", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Disabled_with_an_unknown_allowlisted_tool_still_starts_the_composition()
+    {
+        // Off by default means off: the allowlist is checked only when the loop is enabled, so a disabled loop never fails start.
+        var services = Compose(("ToolAllowlist:0", "ryusei.list"));
+        await using var provider = services.BuildServiceProvider();
+
+        Assert.False(provider.GetRequiredService<AgentSchedulerOptions>().Enabled);
     }
 }
