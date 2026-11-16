@@ -177,7 +177,7 @@ Order: 1; then 2, 3 and 10 in parallel; then 4; then 5 and 6; then 7 to 9; then 
 3. Are quarantined messages visible to agents? Default: no; agents see a count. (Loosening it would breach the quarantine invariant.)
 4. Who releases quarantine? Default: owner only; release keeps the taint.
 5. Can the reader model release mail? Default: no; it can only add quarantine.
-6. Rename "Nigerian Prince Protocol"? Default: a neutral name such as "Bait protocol"; the current name names a nationality.
+6. Rename "Nigerian Prince Protocol"? Closed (owner, 2026-11-16): keep the name "Nigerian Prince Protocol". The proposal to rename it is dropped.
 7. Bait identity: fictional persona or owner's name? Default: fictional persona with its own mailbox. (Using the owner's name would break this doc's rule against real names.)
 8. Sign-up verification codes to the agent? Default: yes, via the Identity Service at Tier 2. (Touches secret handling.)
 

@@ -66,7 +66,7 @@ Running the server installer produces the company's client installers in an outp
 - **Regenerate at will (owner, 2026-11-12).** The server is not limited to the installer step. Because the company's clients come from the same source, the server can rebuild `.msix`, `.exe`, `.apk` and the other outputs whenever a module, layout, theme or toolchain changes. The output folder is refreshed, and a build history is kept.
 - **In-place client updates (owner, 2026-11-12).** A client updates itself from its own company server, not from a public feed. The server publishes the new build and the client pulls it, verifies the hash and signature, and applies it through its platform's updater (Velopack on Windows, doc 28; the matching path on other heads). The client never fetches code from anywhere except its own server. Mechanism details are an open spike (S-B5).
 - **Trust at first run (owner decision, 2026-11-12).** A client built by its company's own server is trusted at first run, with no approval step. Other devices and accounts still go through the approval flow in doc 32.
-- **Discovery instead of manual pairing (owner, 2026-11-12).** Each company build carries that company's server identity (key pin and reachable address) baked in, so a freshly installed client finds its server without a pairing code. Connecting and pairing never need a LAN (owner, 2026-11-12). Doc 32's pairing flow is then only needed for other devices or accounts. The reachable path is an open spike (S-B6).
+- **Discovery instead of pairing (owner, 2026-11-12; no device pairing, owner 2026-11-16).** Each company build carries that company's server identity (key pin and reachable address) baked in, so a freshly installed client connects to its server with no pairing step. Connecting never needs a LAN (owner, 2026-11-12). Doc 32 no longer has a pairing flow. The reachable path is an open spike (S-B6).
 - **No internet at install (owner, 2026-11-12). The installer never halts for lack of network. It finishes installing the server. The server then defers every download (SDKs, NuGet packages, Flatpak runtimes) until a connection is detected, and it builds the client installers once everything it needs is present and runnable. Until then the output folder shows the state (for example "waiting for network, 3 of 5 downloads done"). The server resumes on its own; the user does nothing.
 - **Scheduling.** A build runs on install, on an update of the server, or when the company changes its module list or baked layout. It is one job on the server, visible in the Observatory (doc 23), never a separate tool.
 
@@ -85,7 +85,7 @@ Feasibility questions are spikes, not assumptions. Each must be answered before 
 - A failed migration leaves the old binary in place (doc 30).
 - `CREATE INDEX CONCURRENTLY` runs as its own step.
 - Uninstall keeps data under `%ProgramData%` unless the user picks removal.
-- Client installation to a device (QR code or link from the company server) is not yet designed. Pairing (doc 32) covers the device credential only, not the app install.
+- Client installation to a device (QR code or link from the company server) is not yet designed. Sign-in (doc 32) issues the device credential; it does not install the app.
 
 ## 6. Open questions
 
@@ -119,7 +119,7 @@ Status: DECIDED for the owner decisions below. PLANNED for building. Section 4a 
 1. **The server builds the packages.** The company server builds or regenerates `.msix`, `.apk` and `.exe` packages, and the other outputs in section 2. A client never builds itself and no user builds anything.
 2. **Signing keys stay on the server.** The company server holds the signing keys (decision 2026-11-12, section 6 item 5). Keys never leave the server and are never sent to a client, a developer machine or the repo.
 3. **Clients update in place.** An installed client updates from its own company server (section 4a). The update keeps the user's settings and data, and it follows the update policy of doc 49.
-4. **No manual pairing.** A fresh client finds its company server through the address and key pin baked into the company build (section 4a, S-B6). Pairing is only needed for other devices and accounts (doc 32, doc 45).
+4. **No pairing.** A fresh client connects to its company server through the address and key pin baked into the company build (section 4a, S-B6). There is no pairing step for any Bazaar client (owner, 2026-11-16; doc 45 section 2.1).
 5. **Per-company builds, one company per install.** Each build is for one company. One install serves one company. Only the owner overrides company locks. The company build carries the company's module list, layout, theme and channel.
 6. **Install and build-from-source are separate documents.** The install document is for operators and users. The build-from-source document is for developers. Neither replaces the other, and this doc does not describe the install steps.
 7. **Zero external installs for users.** A user installs nothing from outside Bazaar. Runtime dependencies (PostgreSQL, pgvector, language runtimes) are bundled and supervised by the server as modules (doc 42, section 6). The user never runs a package manager, a store or an external installer for Bazaar or its dependencies. Store publication (Play, Flathub, winget and the others in section 7) is a later channel, not a requirement for installing.
