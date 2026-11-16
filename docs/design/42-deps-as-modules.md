@@ -270,6 +270,7 @@ Consequence: the pgvector package is not ready for a database line until an arti
 4. Every third-party dep has `Deps` and `3rd party` in `tags`. The manifest is rejected at load otherwise.
 5. A dep with `visibility: hidden` must have no pane, palette entry or launcher tile. The manifest validator enforces this by checking the component's registered surfaces.
 6. The manifest is data. The kernel reads it before any dep code runs, so a bad graph fails at start with the ids named (BAZAAR-COMPONENTS.md section 3).
+7. A dep or module that fails verification during a company rebuild is retried a bounded number of times. If it still fails, the rebuild stops and the failure is reported. If a retry passes, the build proceeds, and the report still says that it needed several retries. Clients stay on their current build until a rebuild succeeds (owner, 2026-11-16; bounded retry as in #558, doc 41 section 10.2).
 
 ## 9. Version ranges and resolution (PLANNED)
 
