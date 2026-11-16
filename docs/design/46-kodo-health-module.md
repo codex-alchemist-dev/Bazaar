@@ -22,7 +22,7 @@ Scope of the name: "Kodo" (鼓動, heartbeat) is the module and the prose name. 
 - Telemetry and crash reports: on-device redaction is never model-dependent, and every server-side model explanation is labelled "unverified diagnosis" (see section 13).
 - Configurability rule (DECISIONS-LOG round 13): every open value is an operator setting with a safe default. DECIDED items and security invariants are not settings. Settings may tighten, never loosen.
 - Server build is one OS-agnostic .NET build. Anything OS-specific sits behind a provider interface (doc 03). Kodo follows the same rule for SMART, sensors, power, service state and Windows ACLs.
-- Clients are Avalonia (`Bazaar.Client.Core` plus thin heads). No web client. The only browser-facing surface is the read-only status page, which is allowed by CLAUDE.md and governed by section 15.5.
+- Clients are Avalonia (`Bazaar.Client.Core` plus thin heads). The only browser-facing surface is the read-only status page, governed by section 15.5.
 - Signing keys stay on the server. The server builds and signs packages, and clients update in place.
 - Audit: hash chain, signed checkpoints, external anchoring and Merkle proofs. Records admin and security events and all data reads and writes by humans and agents.
 - Role model: custom roles. Biometric step-up (face, voice, fingerprint, hardware keys) is required for sign-in, recovery and high-risk actions. Templates never leave the device.

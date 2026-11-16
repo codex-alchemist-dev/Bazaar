@@ -70,7 +70,7 @@ public sealed class PgSource : IAsyncDisposable
             {
                 throw new PgUnavailableException(
                     $"No test PostgreSQL: {EnvConnectionString} is not set and Testcontainers could not start a container " +
-                    "(is a Docker daemon running?). Set BAZAAR_TEST_PG to a PostgreSQL 18 connection string, " +
+                    "(is a Docker daemon running?). Set BAZAAR_TEST_PG to a PostgreSQL 18 or 19 connection string, " +
                     "for example 'Host=localhost;Username=postgres;Password=...'.", ex);
             }
 

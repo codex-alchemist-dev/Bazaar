@@ -67,7 +67,7 @@ Every module, first-party or not, implements the same contract (section 8, `ICli
 | **M1. One contract, trust from the manifest** (recommended) | The base GUI, GC, Constellation, RyuseiFuda and any third-party module are all modules with the same manifest and the same host checks. | Consistent with the owner's modularity rule. Needs a capability model built once, for everyone. |
 | M2. Privileged first-party modules | Built-in modules skip some checks. | Simpler start. Contradicts the owner's rule and creates a second path to keep safe. Not recommended. |
 
-**Loading mode** (how a module that is not compiled into the shipped build runs). This is the open choice, and the owner decides it:
+**Loading mode** (how a module runs in a company build). Decided by the owner on 2026-11-16, see the recommendation below. The table lists the options as they were weighed:
 
 | Option | Meaning | Trade-off |
 |---|---|---|
@@ -75,7 +75,7 @@ Every module, first-party or not, implements the same contract (section 8, `ICli
 | L2. In-process assemblies via `AssemblyLoadContext` | Modules loaded at runtime, inside the client process. | Full speed and rich UI. Conflicts with trimming and ReadyToRun. Isolation rests on the manifest, not on a process boundary, so a bad module can crash the client. |
 | L3. Out-of-process modules over a protocol (recommended for non-shipped modules) | A module runs in its own process and talks to the client through a versioned contract, the way engine adapters do in 20. Its UI is a descriptor (a layout kind with a model), rendered by generic views, or by a native view the head supplies for a whitelisted kind. | Isolation by process and by manifest. Keeps the shipped set trim- and R2R-friendly. More work per module, and a richer custom view needs more design. |
 
-**Recommendation:** M1, with L1 for the shipped set and L3 for modules that are not shipped with the build. L2 stays out until a real need and the trimming question are settled. Engines already follow L3 through `PaneDescriptor` (20).
+**Decided (owner, 2026-11-16):** modules are picked per company. Every selected module, marketplace modules included, is compiled into that company's build. An admin changes the selection from the client, which triggers a server-side rebuild and an update pushed to the clients. Nothing is sideloaded at runtime, so L1 applies to all company modules. L2 stays out. L3 applies only to engine panes through `PaneDescriptor` (20), as section 5 says.
 
 ### 4.3 Where configuration lives
 
@@ -183,10 +183,10 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Inputs the server supplies.** The company's module list, the baked default layout and theme, the channel, and signing settings. These are server configuration, not build files the user edits.
 - **Output.** One folder per build with the installers, a `SHA256SUMS` file and a `README.txt` that labels unsigned outputs.
 - **Access anywhere, anytime, whenever the server is up (owner, 2026-11-12).** Clients reach the company server from any network while it is up. When it is down, clients show only cached state (doc 28), and no offline write queue is built in v1. Offline work with synced writes is a later, larger design.
-- **Regenerate and update (owner, 2026-11-12).** The server regenerates client installers whenever its modules or layout change. Clients update in place from their own server (doc 37 section 4a, S-B5), and find their server without manual pairing (S-B6, with the server identity baked into each build). Connecting and pairing never need a LAN (owner, 2026-11-12). Reachability guidance is in doc 37 S-B6: tunnels such as Cloudflared with a registered domain come first, port forwarding is supported but never assumed or recommended without proper networking and security.
+- **Regenerate and update (owner, 2026-11-12).** The server regenerates client installers whenever its modules or layout change. Clients update in place from their own server (doc 37 section 4a, S-B5), and connect to their server with no pairing step (S-B6, with the server identity baked into each build; owner, 2026-11-16). Connecting never needs a LAN (owner, 2026-11-12). Reachability guidance is in doc 37 S-B6: tunnels such as Cloudflared with a registered domain come first, port forwarding is supported but never assumed or recommended without proper networking and security.
 - **No internet at install (owner, 2026-11-12).** The server installer never halts for lack of network. It finishes, and the server defers downloads until a connection is detected, then builds the client installers once everything is runnable. The user does nothing in between.
 - **Pipeline and spikes.** The build pipeline and each feasibility question (Android SDK bundling and size, offline builds, signing key custody, Linux packaging without a terminal) are spelled out in doc 37 section 4a. None is assumed to work until its spike runs.
-- **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 pairs the device only.
+- **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 sign-in issues the device credential only; there is no pairing (owner, 2026-11-16).
 
 ## 4.15 Athanor (Monaco) requirements (summary of owner notes, not quoted, 2026-11-12)
 
@@ -205,7 +205,7 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 
 ## 4.14 Defaults for open client items (added 2026-11-12, defaults, not owner decisions)
 
-- **Git view** is a client module (`Bazaar.Client.Git`) that uses the server's `IGitProvider` (doc 21). It links to the Constellation: a branch or commit opens as a node in its orbit (doc 19), and the Constellation opens a commit back in the Git view.
+- **Git is four modules (owner, 2026-11-16).** `Bazaar.Server.Git` is the server module: the git engine behind `IGitProvider` and the provider-neutral PR contract (doc 21), with the GitHub and GitLab forge adapters behind it. `Bazaar.Client.GitGui` is the client module for diffs, PR panes and the Git view. It is provider-neutral and uses Monaco's diff editor (section 4.15). `Bazaar.Client.GitGui.Github` and `Bazaar.Client.GitGui.Gitlab` are the provider client modules. Each of the four has its own manifest, version and metadata, and can be side-loaded, edited or replaced on its own. GitLab is in v1 on the same contract as GitHub. The Git view links to the Constellation: a branch or commit opens as a node in its orbit (doc 19), and the Constellation opens a commit back in the Git view.
 - **Folded drawer** (cover screen, bottom edge) holds the GC rail's quick actions and the RyuseiFuda shortcut only. Anything heavier stays on the inner screen.
 - **Fold ritual.** A fold is a deliberate context switch (triage on the cover, building on the inner screen). The client does not auto-switch panes on fold, and it keeps the last pane per posture.
 - **QR or link install** is superseded by auto-find and auto-trust (doc 37, section 4a and section 5). The install handoff is a download from the company server's output folder, with no device step beyond running the installer.
@@ -283,8 +283,9 @@ public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Chi
 // Manifest every client module declares. The host enforces it identically for every module.
 public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
     IReadOnlyList<string> PaneKinds, IReadOnlyList<string> Commands, IReadOnlyList<string> SettingKeys,
-    IReadOnlyList<string> Capabilities /* e.g. wire:gc.history, storage:local, device:notify */,
-    ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */);
+    IReadOnlyList<string> Capabilities /* every doc 48 section 1 class (owner, 2026-11-16): wire:gc.history = data read (GC), wire:kanban.read = data read (Kanban), wire:kanban.write = data write (Kanban), wire:vault.read = data read (Vault), wire:constellation.read = data read (Constellation), wire:gc.post = GC post, storage:local = filesystem path, network:host = network host, secret:name = secret name, ui:pane = UI pane, background:job = background job, process:spawn = process spawn, device:notify = device capability */,
+    ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */,
+    HostRequirements Host /* required, owner 2026-11-16: OS, architecture and features (doc 50 section 5) */);
 
 public enum ModuleIsolation { InProcessCompiled, OutOfProcess }   // names PROPOSED; open question 2
 
@@ -328,8 +329,10 @@ These are real design decisions. The owner asked to be asked, so none is settled
 1. **Module model. DECIDED (owner, 2026-11-12): one contract, trust from the manifest.** Base GUI, GC, RyuseiFuda and third-party modules all use it.
    - Option 1: one contract, trust from the manifest (chosen). Consistent with total modularity.
    - Option 2: first-party modules are privileged and skip some checks. Simpler start, but a second path to keep safe.
-2. **Loading mode for modules not shipped with the build. DECIDED (owner, 2026-11-12): out-of-process over a protocol (L3).**
-   - Option 1: compiled in only (L1). Simplest and trim-friendly, but no third-party modules without a rebuild.
+2. **Loading mode for modules not shipped with the build. DECIDED (owner, 2026-11-16, superseding the 2026-11-12 answer): compiled into each company build (L1).** Modules are picked per company. The admin selects them in the client, and the server rebuilds the company client and pushes an update. Marketplace modules are compiled in the same way. Engine panes stay out-of-process (L3, doc 20).
+   - **Verification failure during a rebuild (owner, 2026-11-16).** A module that fails verification is retried a bounded number of times, as in the bounded auto-retry for module updates (#558). If it still fails, the rebuild stops and the failure is reported. If a retry passes, the build proceeds, and the report still says that it needed several retries. Clients stay on their current build until a rebuild succeeds.
+   - Option 1: compiled in only (L1, chosen). Simplest and trim-friendly, and no runtime sideloading.
+   - Superseded (2026-11-12): out-of-process over a protocol (L3) for modules not shipped with the build.
    - Option 2: out-of-process over a protocol (L3, chosen). Isolation by process and manifest; keeps the shipped set trim-friendly.
    - Option 3: in-process runtime loading (L2). Richest, but conflicts with trimming and ReadyToRun, and a bad module can crash the client.
 3. **Customization model. DECIDED (owner, 2026-11-12): typed, versioned JSON documents.** Covers theme, layout, commands and start screen with no new language.
@@ -367,7 +370,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
 
 Each package needs its own tests (CLAUDE.md). Haiku sub-agents take the independent ones in parallel, one worktree each. "Waits" means blocked on an answer in section 10.
 
-**Status (2026-11-13, code in `src/Bazaar.Client.Core/Layout` and `Tour`):** WP1 partly done: layout model in C# (`LayoutDocument`, slots, nodes), no published JSON Schema yet; `theme`, `commands` and `start` models not started. WP2 done for layouts (`LayoutValidator`: schemaVersion 1, known fields only, size, depth 16, pane and child limits, forbidden content). WP4 done as pure logic: `LayoutResolver` (exact match, then most specific wildcard), `LayoutTree` (unknown containers stack, unknown panes become placeholders) and `LayoutScopeMerger` (owner-only lock override). Head wiring to `PaneRegistry` is not done. The first-run tour framework (`TourDefinition`, `TourSession`, `ITourStateStore`) is done with text held as localisation keys. Owner decisions in section 10 are applied; DSL grammar (WP5a) and the module manifest (WP5) are not started.
+**Status (2026-11-13, code in `src/Bazaar.Client.Layout` (moved from Client.Core) and `Tour`):** WP1 partly done: layout model in C# (`LayoutDocument`, slots, nodes), no published JSON Schema yet; `theme`, `commands` and `start` models not started. WP2 done for layouts (`LayoutValidator`: schemaVersion 1, known fields only, size, depth 16, pane and child limits, forbidden content). WP4 done as pure logic: `LayoutResolver` (exact match, then most specific wildcard), `LayoutTree` (unknown containers stack, unknown panes become placeholders) and `LayoutScopeMerger` (owner-only lock override for slots, nodes and settings; codes `locked-slot`, `locked-node`, `locked-setting`; lock entries `node:<paneId>` and `setting:<paneId>/<key>` are additive within schema 1). `LayoutSelection` picks the slot (effective layout first, then the baked default) and builds the placed tree from a `Func<string,bool>` pane-kind check, so a head passes `PaneRegistry.Contains`. Avalonia head wiring is not done. The first-run tour framework (`TourDefinition`, `TourSession`, `ITourStateStore`) is done with text held as localisation keys. WP5 done: `ModuleManifest`, `ModuleManifestValidator` (known capability vocabulary, SemVer, bounded lists), `ClientModuleBuilder` (registers only what the manifest declares) and `IClientModule` in `Bazaar.Client.Core/Modules`. Owner decisions in section 10 are applied; DSL grammar (WP5a) is not started: the owner asked for the full DSL, not a shortcut, so it needs a design doc before code.
 
 1. Document models and JSON Schemas for `theme`, `layout`, `commands`, `start`, with `schemaVersion` 1. Pure. Not blocked.
 2. `IUiDocumentValidator` covering the rules in section 6, excluding the module manifest rules. Depends on 1. Not blocked.

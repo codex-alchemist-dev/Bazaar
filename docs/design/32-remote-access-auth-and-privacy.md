@@ -9,8 +9,8 @@ How a client reaches a home-hosted server, how humans prove who they are, what e
 ## Decided inputs
 - Remote access is the operator's choice; the setup guide documents Tailscale, Headscale, WireGuard and Cloudflare Tunnel. Tailscale's Personal plan is non-commercial per its terms (owner, 2026-10-24).
 - Ingress: the home host accepts no inbound connections by default. It polls GitHub and mail providers; an overlay or tunnel is optional for real-time webhooks (owner, DECISIONS-LOG round 8, C30, 2026-10-25).
-- No web client, ever (CLAUDE.md, owner 2026-10-24). A read-only status page is allowed and never shows chat, code or Vault content (Server.md §1). A narrow interactive sign-in page is allowed, separate from the status page (owner, 2026-10-24). Its three-route scope is decided (DECISIONS-LOG round 11, C42, 2026-10-25; section 4).
-- Device pairing by one-time QR/code mints a revocable per-device credential (owner).
+- A read-only status page is allowed and never shows chat, code or Vault content (Server.md §1). A narrow interactive sign-in page is allowed, separate from the status page (owner, 2026-10-24). Its three-route scope is decided (DECISIONS-LOG round 11, C42, 2026-10-25; section 4).
+- No device pairing (owner, 2026-11-16). Every client is built by its company's server and bound to it, so it connects automatically. A person signs in as a user, and each sign-in mints a revocable per-device credential.
 - Other humans join as coworkers treated as seniors; DMs are two-member GCs; the owner reads all, others may request access (CLAUDE.md; 01).
 - An instance is normally one person's or company's private workspace; with several human members, global privacy-law compliance settings apply (Server.md item 17).
 - Erasure: personal fields are stored as per-person encrypted payloads from day 1; erasure destroys the key and appends a tombstone; structure, authorship and timestamps stay (owner, DECISIONS-LOG round 2, C01, 2026-10-25). Legal sufficiency is OPEN (needs counsel).
@@ -36,19 +36,15 @@ The server opens no inbound ports or tunnels itself. Options are documentation p
 ### 2. TLS for a home server [PROPOSED]
 `ICertificateProvider` sources: operator PEM/PFX; ACME for an operator domain; overlay-issued certificate (unverified). Plain `ws://` only on loopback. Pairing may record the server key hash (trust-on-first-use pin). No mTLS in v1.
 
-### 3. Pairing flow (RFC 8628 semantics, native approval) [PROPOSED]
-RFC 8628 supplies the shape: a high-entropy polled `device_code`, a short `user_code`, approval by an already-trusted party. Its `verification_uri` is normally a web page; Bazaar keeps approval inside a native client (or the host CLI), so no approval web page exists. Route shapes are listed in the HTTP surface of 02 (C15); the rules here govern them.
-1. A signed-in human creates an offer: `POST /pair/offers` (role, label, TTL from `pairing.offer_ttl_minutes`). Server returns an 8-char Crockford base32 `user_code` (format fixed in v1 [PROPOSED]) and QR payload `bazaar://pair?h=<host>&c=<user_code>&k=<key hash>`.
-2. The new device calls `POST /pair/device-authorization` with the code, gets a 256-bit `device_code` and `interval` 5 s, and polls `POST /pair/token` (`authorization_pending`, `slow_down`, `expired_token`, `access_denied`).
-3. The approver's native Approvals panel shows device name, class, IP and `user_code` and must confirm. The offer is bound to its creator and single use, which answers RFC 8628's remote-phishing risk.
-4. Approval mints a device record and the credential pair (section 5). An owner device that is enrolled for approvals also gets its approval key here (section 5a).
+### 3. Device pairing [REMOVED, owner 2026-11-16]
+There is no pairing flow: no offer, no `user_code`, no `device_code`, no pairing QR code, and no native approval of a new device. The owner's rule covers every Bazaar client, because each client is built by its company's server and bound to it (docs 37 section 4a, 41, 45 section 2.1). A client connects to its server automatically and signs in as a user (section 4 for the browser path, and section 5 for the credentials that sign-in issues).
 
-Bootstrap: until the first owner device exists, the host console prints a one-time owner code.
+Bootstrap: owner creation uses the one-time code printed at the first start, from loopback only (doc 45 section 1).
 
-**Getting the client onto a device (owner, 2026-11-12).** Pairing only creates the device credential; it does not install the app. Users never run build scripts. Each company's server installer builds that company's clients in one click and leaves the installers (for example `.msix`, `.apk`) in an output folder (doc 37 section 4a). Installing a built client on a device, by QR code or link, is not yet designed.
+**Getting the client onto a device.** Users never run build scripts. Each company's server installer builds that company's clients in one click and leaves the installers (for example `.msix`, `.apk`) in an output folder (doc 37 section 4a). Installing a built client on a device, by QR code or link, is not yet designed (Question 4).
 
 ### 4. Interactive sign-in page [DECIDED scope (C42, 2026-10-25); route details PROPOSED]
-**Tension, resolved by the owner:** CLAUDE.md's "no web client, ever" allowed only a read-only status page. The owner's 2026-10-24 exception allows a narrow sign-in page, and round 11 approved this three-route scope (off by default, no content shown). CLAUDE.md's wording is still to be corrected (Conflicts). The fence below stops the page growing into a client.
+**Tension, resolved by the owner:** the owner's 2026-10-24 exception allows a narrow sign-in page, and round 11 approved this three-route scope (off by default, no content shown). An earlier CLAUDE.md line, "no web client, ever", was an agent's paraphrase and the owner removed it on 2026-11-17 (DECISIONS-LOG round 26). The fence below stops the page growing into a client.
 
 Purpose: sign a human in from a new device with a passkey, then hand off to a native client. Separate listener and routes from `/status` (02).
 - Routes, exactly three, covering sign-in, pairing approval and recovery:
@@ -81,7 +77,7 @@ Doc 14 and doc 28 defer the key class for a signed owner approval to this sectio
 - **Algorithm:** ECDSA P-256, chosen for hardware support [PROPOSED; unverified per platform].
 - **Signed payload:** approval id, action, `args_hash`, PR head SHA where the action is a merge (a new head invalidates the approval, 29), deciding human id, device id, issued-at, expiry and a server nonce. The server checks signature, key not revoked, nonce unused and expiry before it acts.
 - **Holders:** the owner only in v1 (Q1). A coworker gets an approval key only if the owner delegates a scope (`approval.coworker_scopes`). Agents never hold one.
-- **Lifecycle:** enrolment happens inside pairing (section 3) and is audited. Device revocation revokes the key at once. Keystore loss or device reset forces re-pairing (29). Rotation means a new pairing.
+- **Lifecycle:** enrolment path is open, because section 3 (pairing) is removed (Question 4). It is audited when it exists. Device revocation revokes the key at once. Keystore loss or device reset requires a new enrolment, by the path in Question 4. Rotation means a new enrolment.
 - **Data:** `approval_key` (section Data and interfaces). Enrolment, each use and revocation go to `audit_log` (15).
 
 ### 6. Roles and permissions [PROPOSED]
@@ -100,10 +96,10 @@ Per-GC: `gc_member` (01) decides reads and writes; owner read-all is a server ru
 The owner's merge approval is a signed human approval (15), signed by the key in section 5a. The GitHub credential that performs the merge is held by 14 (a dedicated owner GitHub App or the owner's linked credential, chosen in setup; DECISIONS-LOG round 12, C25).
 
 ### 7. Rate limiting [PROPOSED]
-ASP.NET rate limiter, separate buckets for `/ws`, `/pair`, `/signin`, `/status`. Shared values (socket frames, sockets per device) belong in 15's quota table (C36). This doc's own pairing and sign-in limits are the `pairing.*` and `signin.*` settings above; their starting values are unsourced draft values. Socket starting values (20 frames/s, 1 MiB per socket, 4 sockets per device) move to 15. Breaches are audited.
+ASP.NET rate limiter, separate buckets for `/ws`, `/signin`, `/status`. Shared values (socket frames, sockets per device) belong in 15's quota table (C36). This doc's own sign-in limits are the `signin.*` settings above; their starting values are unsourced draft values. Socket starting values (20 frames/s, 1 MiB per socket, 4 sockets per device) move to 15. Breaches are audited.
 
 ### 8. Audit
-Hash-chained audit log `audit_log`, owned by 15 (`IAuditLog`). Events: offers, pairing, revocation, refresh reuse, sign-in, role change, DM access request/grant/deny, owner DM read, export, erasure.
+Hash-chained audit log `audit_log`, owned by 15 (`IAuditLog`). Events: revocation, refresh reuse, sign-in, role change, DM access request/grant/deny, owner DM read, export, erasure.
 
 ### 9. Privacy settings model [PROPOSED]
 One `privacy_settings` record per instance; one-person defaults, stricter profile when a second human joins.
@@ -124,7 +120,6 @@ Tables owned here (C16). `gc_member`, `gc_access_request` and the GC log are own
 ```sql
 human(id, display_name, role, status)
 device(id, human_id, label, class, refresh_hash, revision, revoked_at)
-pairing_offer(id, created_by, role, user_code_hash, device_code_hash, expires_at, state, attempts)
 passkey_credential(id, human_id, credential_id, public_key, sign_count)
 recovery_code(id, human_id, hash, used_at)
 privacy_settings(instance_id, profile, overlays jsonb, contact, retention jsonb)
@@ -132,7 +127,6 @@ privacy_request(id, subject_ref, kind, status, due_at, completed_at)
 approval_key(id, human_id, device_id, public_key, alg, created_at, revoked_at)
 ```
 ```csharp
-interface IPairingService { Task<PairingOffer> CreateOfferAsync(PrincipalRef by, Role role, TimeSpan ttl); Task<DeviceGrant> RedeemAsync(string deviceCode); }
 interface ITokenService { Task<TokenPair> RefreshAsync(string refresh, DeviceInfo d); Task RevokeDeviceAsync(Guid deviceId, PrincipalRef by); }
 interface IAuthorizer { ValueTask<bool> CanAsync(PrincipalRef p, string action, ResourceRef r); }
 interface IErasureParticipant { Task<ErasurePlan> PlanAsync(PersonRef p); Task ExecuteAsync(ErasurePlan plan); }
@@ -146,10 +140,6 @@ Registered in doc 03's settings registry and surfaced in the setup wizard or adv
 | `auth.access_token_minutes` | int | 15 | install | owner | no |
 | `auth.refresh_sliding_days` | int | 30 | install | owner | yes, if lengthened |
 | `auth.refresh_absolute_days` | int | 90 | install | owner | yes, if lengthened |
-| `pairing.offer_ttl_minutes` | int | 10 | install | owner | no |
-| `pairing.max_attempts_per_ip_10min` | int | 5 | install | owner | yes, if raised |
-| `pairing.max_wrong_codes_per_offer` | int | 5 | install | owner | yes, if raised (then the offer burns) |
-| `pairing.coworker_approves` | enum: `own_devices`, `none` | `own_devices` | install | owner | yes, if widened |
 | `approval.coworker_scopes` | list | empty (no coworker approvals) | install | owner | yes |
 | `signin.enabled` | bool | false | install | owner | yes, when enabled |
 | `signin.bind_address` | string | unset (required when enabled) | install | owner | yes |
@@ -162,47 +152,48 @@ Registered in doc 03's settings registry and surfaced in the setup wizard or adv
 | `privacy.owner_dm_read_marker` | bool | true | install | owner | yes, if turned off; needs counsel |
 
 ## Behaviour and edge cases
-- Lost device: revoke from another device, or from the host CLI, which also issues a new bootstrap code.
+- Lost device: revoke from another device, or from the host CLI. The CLI does not issue a new bootstrap code once the owner exists.
 - Revoked coworker: devices close; they keep what they saw (01).
 - Privacy requests carry a due date; missed ones notify the owner.
 - Push wake-ups carry no content and no ids; the device fetches over the authenticated connection (02, 29).
 - Public ingress: GitHub and mail are polled (21, 22); no port is opened for them by default.
 
 ## Testing
-Real Postgres, fake clock, in-memory WebSocket host, Avalonia.Headless for the Approvals panel. Cases: offer single use, expiry, burn after wrong codes; `slow_down`; refresh reuse revokes device; revoked socket closes 4403; header and first-frame auth; rate caps; DM unreadable until granted; owner DM read audited; agent cannot approve; sign-in page exposes exactly three routes; sign-in page snapshot has no forbidden content; handoff single use; inventory matches schema; erasure plan on fake participants, including key destruction and tombstone. Owner approval key: signature verifies; wrong device, revoked key, reused nonce, expired approval and a changed PR head are each rejected; a software-only key is refused for merge; the Android path requires a fresh biometric prompt (fake Keystore).
+Real Postgres, fake clock, in-memory WebSocket host, Avalonia.Headless for the Approvals panel. Cases: refresh reuse revokes device; revoked socket closes 4403; header and first-frame auth; rate caps; DM unreadable until granted; owner DM read audited; agent cannot approve; sign-in page exposes exactly three routes; sign-in page snapshot has no forbidden content; handoff single use; inventory matches schema; erasure plan on fake participants, including key destruction and tombstone. Owner approval key: signature verifies; wrong device, revoked key, reused nonce, expired approval and a changed PR head are each rejected; a software-only key is refused for merge; the Android path requires a fresh biometric prompt (fake Keystore).
 
 ## Work packages
 1. Schema and migrations (needs 04).
 2. `TokenService` with rotation and reuse detection.
-3. `PairingService`, `/pair/*`, bootstrap console code.
-4. `IConnectionAuthenticator` implementation (needs 2, 3, 02).
+3. Bootstrap console code for the owner's first start (no pairing service; owner 2026-11-16).
+4. `IConnectionAuthenticator` implementation (needs 2, 02).
 5. `IAuthorizer` over `gc_member`; DM access-request flow (needs 01).
 6. Rate-limiter configuration (shared values from 15).
-7. Approvals panel in Client.Core (needs 3, 27).
+7. Approvals panel in Client.Core (needs 27, and Question 4 for how it is reached).
 8. Sign-in page, passkeys, handoff, recovery codes (needs 2; scope decided, route details to spike).
 9. `ICertificateProvider`, TLS and network setup guide.
 10. Audit integration (needs 15).
 11. Privacy settings, data-inventory registry, export job (needs 33).
 12. Erasure participants and the per-person key table in the first migration (needs 04; legal sufficiency with counsel).
-13. Owner approval key enrolment, `approval_key` table and signature verification (needs 3, 15 package 3; section 5a).
+13. Owner approval key enrolment, `approval_key` table and signature verification (needs 15 package 3, and Question 4; section 5a).
 
 ## Conflicts
-- CLAUDE.md still reads "No web client, ever (a read-only server status page is allowed)" without the sign-in exception (C42). Fix in the CLAUDE.md pass; the scope itself is decided.
+- The CLAUDE.md "No web client" line that this item flagged (C42) was removed on 2026-11-17 (DECISIONS-LOG round 26). The sign-in scope itself is decided.
 - Cloudflare Tunnel puts a third party in the TLS path against the self-hosted posture. Remains as an operator option only (C30).
 - Tailscale Personal terms vs a company instance (needs counsel).
 - Append-only log vs erasure rights: the mechanism is decided (C01), but backup retention (33) and legal sufficiency remain open.
 - Owner reads all DMs vs coworkers' expectations and employer-monitoring law (`privacy.owner_dm_read_marker`, `privacy.overlays`; needs counsel).
-- For 02 (C15): its HTTP surface must list `/pair/*`, `/signin`, `/signin/register`, `/signin/recover`, `/auth/handoff`, and its "socket is the only channel" line must go.
+- For 02 (C15): its HTTP surface must list `/signin`, `/signin/register`, `/signin/recover`, `/auth/handoff` (no `/pair/*`, owner 2026-11-16), and its "socket is the only channel" line must go.
 - For 01 (C09): the `gc_access_request` and `system` event for DM access must exist in its log model.
 - For 33 (C01): backup retention must equal the erasure window; its "until every snapshot expires" wording must follow.
-- Section 3 keeps approval native, while the decided scope includes a `/signin/register` pairing step. Read as: the browser enrolls a passkey only after native approval (Question 3).
+- Section 3 is removed (no pairing, owner 2026-11-16). The decided sign-in scope still lists a `/signin/register` route as "pairing approval". Its meaning is open (Question 3).
 
 ## Questions for the owner
 1. Is the owner the only human approver in v1 (one owner per instance)? Default: yes. Changing this changes the principal model (section 6) and the approval key holders (5a).
 2. May the other DM member approve an access request alone? Default: no; the owner approves, and the other member is notified and can object (matches 01 Q4). This touches the owner-reads-all DM rule.
-3. Is `/signin/register` (passkey enrolment after native approval) the "pairing approval" route of the decided scope, with the approval itself staying native? Default: yes.
+3. The decided sign-in scope has three routes, one of them "pairing approval" (`/signin/register`). With device pairing removed (owner 2026-11-16), should that route be passkey enrolment for an already signed-in owner, with no approval step? Default: yes, and the scope wording changes with it. This changes a DECIDED item (C42), so it needs the owner's word.
+4. How is the owner approval key (5a) enrolled, and how is a new client sign-in approved, now that pairing is removed? Options: during owner sign-in on the device, with a second factor; or only at the server console. Default until decided: owner sign-in plus second factor on the device, which is not yet designed.
 
-MOVED TO SETTINGS: auth.access_token_minutes, auth.refresh_sliding_days, auth.refresh_absolute_days, pairing.offer_ttl_minutes, pairing.coworker_approves, approval.coworker_scopes, tls.certificate_source, recovery.printed_codes_enabled, privacy.overlays, privacy.owner_dm_read_marker (DECISIONS-LOG round 13)
+MOVED TO SETTINGS: auth.access_token_minutes, auth.refresh_sliding_days, auth.refresh_absolute_days, approval.coworker_scopes, tls.certificate_source, recovery.printed_codes_enabled, privacy.overlays, privacy.owner_dm_read_marker (DECISIONS-LOG round 13)
 
 ANSWERED: The sign-in page exception is approved with the three-route scope (sign-in, pairing approval, recovery), off by default, showing no content (DECISIONS-LOG round 11, C42).
 ANSWERED: GC-log erasure uses per-person encrypted personal fields from day 1, with key destruction and a tombstone; the legal position goes to counsel (DECISIONS-LOG round 2, C01).

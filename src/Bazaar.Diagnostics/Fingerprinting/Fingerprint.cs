@@ -50,9 +50,7 @@ public static class Fingerprint
 
         foreach (var frame in SelectFrames(input.Frames))
         {
-            builder.Append(frame.ModuleId).Append('|')
-                .Append(NormaliseType(frame.Type)).Append('|')
-                .Append(NormaliseMethod(frame.Method)).Append('\n');
+            builder.Append(FrameKey(frame)).Append('\n');
         }
 
         if (string.IsNullOrEmpty(input.ErrorCode))
@@ -63,6 +61,10 @@ public static class Fingerprint
         return builder.ToString();
     }
 
+    /// <summary>The normalised form of one frame as it appears in the canonical input, without the line end.</summary>
+    internal static string FrameKey(FingerprintFrame frame) =>
+        frame.ModuleId + "|" + NormaliseType(frame.Type) + "|" + NormaliseMethod(frame.Method);
+
     /// <summary>App frames in order, at most five. Without app frames, the first five frames of any kind.</summary>
     private static IEnumerable<FingerprintFrame> SelectFrames(IReadOnlyList<FingerprintFrame> frames)
     {
@@ -71,7 +73,7 @@ public static class Fingerprint
     }
 
     /// <summary>Removes generic arity (<c>Name`1</c>) and state-machine wrappers (<c>&lt;Name&gt;d__12</c> becomes <c>Name</c>).</summary>
-    private static string NormaliseType(string type)
+    internal static string NormaliseType(string type)
     {
         var withoutArity = _arity.Replace(type, string.Empty);
         return _asyncWrapper.Replace(withoutArity, match => match.Groups[1].Value);
@@ -81,7 +83,7 @@ public static class Fingerprint
     /// Strips the parameter list and maps compiler-generated names to their source names: async state machines
     /// to the method, local functions to their name, lambdas to <c>Owner.lambda</c>.
     /// </summary>
-    private static string NormaliseMethod(string method)
+    internal static string NormaliseMethod(string method)
     {
         var name = method.Trim();
         var parameters = name.IndexOf('(', StringComparison.Ordinal);
