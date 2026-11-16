@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Pipeline;

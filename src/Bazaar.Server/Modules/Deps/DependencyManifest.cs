@@ -12,6 +12,7 @@ namespace Bazaar.Server.Modules.Deps;
 /// <param name="Extensions">Extension names loaded into this dependency, for example <c>pgvector</c>.</param>
 /// <param name="LicenceSpdx">SPDX identifier of the licence, as recorded in the manifest. A claim alone is never enough (section 13.1).</param>
 /// <param name="LicenceVerdict">Verdict from the licence check (D8). The validator takes it as input and never decides it.</param>
+/// <param name="Origin">Who wrote the code (owner, 2026-11-16, doc 42 section 8.1). A third-party dep must carry the <see cref="ThirdPartyTag"/>.</param>
 public sealed record DependencyManifest(
     string Id,
     string DisplayName,
@@ -19,10 +20,24 @@ public sealed record DependencyManifest(
     IReadOnlyList<DependencyLine> Lines,
     IReadOnlyList<string> Extensions,
     string LicenceSpdx,
-    DependencyLicenceVerdict LicenceVerdict)
+    DependencyLicenceVerdict LicenceVerdict,
+    DependencyOrigin Origin)
 {
-    /// <summary>Tags every bundled third-party dependency carries (section 8.4, rule 4). Both are fixed and case-sensitive.</summary>
-    public static IReadOnlyList<string> RequiredTags { get; } = ["Deps", "3rd party"];
+    /// <summary>Tag every dependency carries, first-party or third-party: its role (doc 42 section 3). Fixed and case-sensitive.</summary>
+    public static IReadOnlyList<string> RequiredTags { get; } = ["Deps"];
+
+    /// <summary>Tag a third-party dependency carries (doc 42 section 8.4, rule 4). Fixed and case-sensitive.</summary>
+    public const string ThirdPartyTag = "3rd party";
+}
+
+/// <summary>Who wrote the dependency's code (doc 42 section 8.1, owner 2026-11-16).</summary>
+public enum DependencyOrigin
+{
+    /// <summary>Written by Bazaar. Carries no third-party tag.</summary>
+    FirstParty,
+
+    /// <summary>Written by someone outside Bazaar. Carries the third-party tag.</summary>
+    ThirdParty,
 }
 
 /// <summary>One version line of a dependency, for example PostgreSQL 19 at <c>19.0.0</c>.</summary>

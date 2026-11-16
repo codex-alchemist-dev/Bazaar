@@ -208,7 +208,7 @@ Owner-set naming, 2026-11-09, recorded in project memory. The code now uses most
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Bazaar.Core | The core module every other module slots into. | Planned (target name; `Bazaar.Server/Components` is today's kernel) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
+| Bazaar.Core | The core module every other module slots into. | Planned (target name; the kernel still lives in `Bazaar.Server/Components`, see doc 40 section 4) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
 | Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda | Server modules that slot into Bazaar.Core. | Partial (`Bazaar.GC.Abstractions`, `Bazaar.Constellation.*`, `Bazaar.RyuseiFuda`; the full code split is wave 3) | `BAZAAR-COMPONENTS.md` §10 |
 | Bazaar.Client.<Feature> | Client modules, one per feature area. | Partial (`Bazaar.Client.Layout`, `.Kodo`, `.RyuseiFuda`, `.Components.Chat`, `.Components.Launcher`, `.LocalInference`, `.Terminal`, plus the platform heads) | `BAZAAR-COMPONENTS.md` §10 |
 | Parts: `<Module>.<Part>` | Parts of a module, such as RyuseiFuda.Workday. | Planned | project memory |

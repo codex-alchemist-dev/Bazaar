@@ -209,7 +209,7 @@ Defaults taken by WP-R4 (PR #339, squash-merged) for doc 38 open questions. Two 
 | Authority | Pause and resume: owner or a target agent. Cancel: creator or owner. Owner may target resting agents (the fire skips them). Agents may not target resting or retired agents. | Yes. |
 | Idempotent create | Not implemented. Doc 38's per-(created_by, purpose, spec) minute window is deferred. | Yes. |
 | Component dependency | `ryusei-schedule` depends on `kanban` only. It resolves `IAuditLog`, so audit must be enabled. | Owner may add `audit` to DependsOn. |
-| Migration namespace | Component id `ryusei-schedule` maps to namespace `ryusei_schedule`, while the SQL folder is `ryusei`. | Owner may rename either. |
+| Migration namespace | Closed 2026-11-16. The SQL folder `Data/Sql/ryusei` is the namespace `ryusei`. The folder is not renamed, because renaming it would change applied migration history (keyed by folder name). Doc 40 item 7 holds the component-id side. | None. |
 
 **Open for owner:** none from WP-R4. The owner may still change any default above.
 
@@ -368,6 +368,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Build flow | The server builds or regenerates `.msix`, `.apk` and `.exe`. Signing keys stay on the server. Clients update in place. No manual pairing. One company per install. Install and build-from-source are separate documents. | 37 (build flow), 41 |
 | Onboarding and portability names | Pilot company is Bazaar.CDAX. Module names: Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda, Bazaar.Conduit, Bazaar.KODO. CALCINATO is the terminal and ATHANOR is the IDE. | 41, 47 |
 | Extraction | Kodo and Constellation.Renderer stay first-party modules until the owner asks for extraction. | 46, 19 |
+| KEK custody default (doc 14, `identity.kek_provider`) | **DECIDED 2026-11-16 (owner card):** the KEK is protected by DPAPI on a Windows host, tied to the machine or service account. Other OSes use a protected key file (`file`). Supersedes the random key file default in code. | 14, 33 |
 | Principles | Open source, modern, novel, performant, forward-facing, modular first. Beta 0.x. | 42, 49, FORWARD-FACING.md |
 
 **Open for owner:** the licence pricing (decided later); whether the module exception wording and the CLA mechanism (47, M4) are accepted by counsel; the number of this round.
