@@ -65,7 +65,8 @@ public sealed class TurnRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.WakeReason);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Route);
+        // A blank route is valid: the gateway resolves the agent's own policy default route (doc 05, per-agent routing).
+        ArgumentNullException.ThrowIfNull(request.Route);
         ArgumentOutOfRangeException.ThrowIfNegative(request.InboxClaimLimit);
         if (request.InboxItemIds is { Count: > 0 } && request.InboxClaimLimit > 0)
             throw new ArgumentException("A turn claims named inbox items or a count of them, not both.", nameof(request));
