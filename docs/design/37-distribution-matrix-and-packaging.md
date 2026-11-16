@@ -126,3 +126,13 @@ Status: DECIDED for the owner decisions below. PLANNED for building. Section 4a 
 8. **Release channels.** The release channels (stable, beta, nightly, LTS, and the staged rings) are defined in doc 49. Section 3 above keeps the channel labels from `VERSIONING.md`. Doc 49 is the source for how a channel reaches a company build.
 
 Link: the install rules for users are in doc 42 (zero external installs, bundled and supervised dependencies) and doc 45 (server setup and client first run).
+
+## 4b. Update feed contract (provisional, closes S-B5 for the first release)
+
+Status: PROPOSED by the Client.Windows thread, 2026-11-17, pending owner review. It fills the open spike S-B5 with the most conservative option the decided docs support. It is provisional until the owner confirms it.
+
+- **Route.** The company server serves `GET /updates/latest` on its own address, over the pinned connection of section 4a. No other host is ever contacted for an update. A client that receives no manifest stays on its current build.
+- **Manifest.** JSON, UTF-8, with these fields: `version` (SemVer string, section 3), `packageUrl` (an HTTPS URL on the same company server, or plain HTTP only on loopback), `sha256` (64 lowercase hex characters, the SHA-256 of the package bytes), and `signature` (base64 of an RSASSA-PKCS1-v1_5 signature over SHA-256 of the package bytes, made with the company signing key).
+- **Trust.** The client checks the hash first, then the signature, against the company certificate pinned into its build (section 4a). A downgrade or a same-version offer is refused; the client does not install it. Each failed check leaves the installed build in place.
+- **Rollback.** Unresolved here, as S-B5 asks. This contract does not change the installed build until both checks pass, so a failed check never leaves a half-applied update.
+- **Changes.** Any change to the route, the field names or the algorithm is a new docs section, not an edit to this one, so both sides can move together.
