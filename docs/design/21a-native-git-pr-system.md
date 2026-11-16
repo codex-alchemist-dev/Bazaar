@@ -1,6 +1,6 @@
 # Native git and PR system (sub-doc of 21)
 
-Status: PROPOSED (three of four open questions resolved from the docs, section 9; question 4 open). Written 2026-11-16 from the owner's git-model statement (recorded as DECIDED in doc 21, "Decided inputs") and docs 05, 06, 07, 14, 15, 17, 18 and 21. Not built. Items below marked OPEN need the owner's answer before code. Doc 21 keeps GitHub-specific detail; this sub-doc holds the provider-neutral design so the two do not conflict.
+Status: PROPOSED (all four open questions resolved, section 9; owner to mark DECIDED). Written 2026-11-16 from the owner's git-model statement (recorded as DECIDED in doc 21, "Decided inputs") and docs 05, 06, 07, 14, 15, 17, 18 and 21. Not built. Items below marked OPEN need the owner's answer before code. Doc 21 keeps GitHub-specific detail; this sub-doc holds the provider-neutral design so the two do not conflict.
 
 ## 1. The owner's statement (source of this design)
 
@@ -84,9 +84,7 @@ Each question was checked against the existing docs and the project principles (
 1. **Default repository mode for an agent's work. RESOLVED: mirrored.** The owner's statement makes the native forge the single endpoint and says "the server and agents keep their own internal git flow", so the native forge is authoritative. GitHub and GitLab are "providers behind it" (doc 21, "Decided inputs"). A remote is therefore an optional copy, which is the mirrored mode in section 3.
 2. **Where native branches live. RESOLVED: each project's code lives in its own repository.** The Vault is "Markdown files in a git repo" holding company knowledge only (doc 18; doc 33; DECISIONS-LOG C38). Doc 25 names "the project repos" as a separate source from the Vault. The Vault repo is therefore not used for project code. Native branches for a project go in that project's own repository, with one repository per project and no mixing with the Vault.
 3. **Which provider operations need the owner's credential. RESOLVED: merge and repository settings.** Owner-class credentials are held by the Identity Service, and "no agent lease can name an owner-class credential"; the server merges "only on signed owner approval" (doc 14, Design, owner-class credentials bullet; doc 21, "Decided inputs"; C25). Repository settings are the owner's controls (doc 15, tier 3 and grant-scope), so they use the same owner-class credential. Agents keep only their own App, which has no merge or settings rights (doc 21, "Identity").
-4. **GitLab in v1. OPEN, owner decides.** The v1 scope in `docs/ROADMAP.md` names GitHub and not GitLab. The owner's 2026-11-16 statement says "support GitHub and gitlab EXTENSIVELY". Options:
-   - **A. GitLab in v1, after GitHub is stable (recommended).** Matches the owner's words and the over-engineered, no-shortcut principle. The same `IForgeProvider` contract (section 7) means GitLab adds one module, not a redesign.
-   - **B. GitHub only in v1, GitLab in a v1.x release.** Smaller first release. It needs a roadmap entry, and the owner's words would then be read as a later goal, not v1 scope.
+4. **GitLab in v1. RESOLVED: option A.** The owner's 2026-11-16 statement is "support GitHub and gitlab EXTENSIVELY", and the owner asked for both to control repository settings through the same endpoint. GitLab is therefore in v1 scope, as a provider module on the `IForgeProvider` contract (section 7). The v1 scope in `docs/ROADMAP.md` is updated to match.
 
 ## 10. Work packages (after DECIDED)
 
@@ -95,7 +93,7 @@ Each question was checked against the existing docs and the project principles (
 3. `pr.open` and `pr.read` tools and their grants, against the native store.
 4. GitHub module behind `IForgeProvider` (reuse `src/Bazaar.Server.GitHub`).
 5. Client PR list and review pane (doc 27 to 29), reading the native forge only.
-6. GitLab module.
+6. GitLab module (in v1 scope, after the GitHub module is stable).
 
 Each package ships with tests, and the agent flow in section 5 gets one end-to-end test on the fake provider.
 
