@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Settings;
