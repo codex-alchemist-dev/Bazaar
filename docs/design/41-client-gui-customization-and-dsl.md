@@ -283,7 +283,7 @@ public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Chi
 // Manifest every client module declares. The host enforces it identically for every module.
 public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
     IReadOnlyList<string> PaneKinds, IReadOnlyList<string> Commands, IReadOnlyList<string> SettingKeys,
-    IReadOnlyList<string> Capabilities /* each maps to one permission class in doc 48 section 1: wire:gc.history = data read (GC), wire:gc.post = GC post, wire:kanban.read = data read (Kanban), wire:kanban.write = data write (Kanban), wire:vault.read = data read (Vault), wire:constellation.read = data read (Constellation), storage:local = filesystem path (module-local), device:notify = device capability */,
+    IReadOnlyList<string> Capabilities /* every doc 48 section 1 class (owner, 2026-11-16): wire:gc.history = data read (GC), wire:kanban.read = data read (Kanban), wire:kanban.write = data write (Kanban), wire:vault.read = data read (Vault), wire:constellation.read = data read (Constellation), wire:gc.post = GC post, storage:local = filesystem path, network:host = network host, secret:name = secret name, ui:pane = UI pane, background:job = background job, process:spawn = process spawn, device:notify = device capability */,
     ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */,
     HostRequirements Host /* required, owner 2026-11-16: OS, architecture and features (doc 50 section 5) */);
 
