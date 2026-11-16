@@ -1,6 +1,6 @@
 # Native git and PR system (sub-doc of 21)
 
-Status: PROPOSED. Written 2026-11-16 from the owner's git-model statement (recorded as DECIDED in doc 21, "Decided inputs") and docs 05, 06, 07, 14, 15, 17, 18 and 21. Not built. Items below marked OPEN need the owner's answer before code. Doc 21 keeps GitHub-specific detail; this sub-doc holds the provider-neutral design so the two do not conflict.
+Status: PROPOSED (three of four open questions resolved from the docs, section 9; question 4 open). Written 2026-11-16 from the owner's git-model statement (recorded as DECIDED in doc 21, "Decided inputs") and docs 05, 06, 07, 14, 15, 17, 18 and 21. Not built. Items below marked OPEN need the owner's answer before code. Doc 21 keeps GitHub-specific detail; this sub-doc holds the provider-neutral design so the two do not conflict.
 
 ## 1. The owner's statement (source of this design)
 
@@ -20,7 +20,7 @@ The engine is local. The forge is the contract. A provider is a mirror and an en
 ## 3. Repositories and mirrors
 
 - A **repository** record belongs to the native forge. It names its provider (`native`, `github`, `gitlab`) and, for a remote one, the provider's repository id.
-- A repository may be **native-only** (no remote), **mirrored** (Bazaar holds the authoritative branches, pushed to a remote) or **remote-hosted** (the remote is authoritative and the forge reads and writes through the provider). OPEN: which default applies to an agent's own work (see question 1).
+- A repository may be **native-only** (no remote), **mirrored** (Bazaar holds the authoritative branches, pushed to a remote) or **remote-hosted** (the remote is authoritative and the forge reads and writes through the provider). The default for agent work is **mirrored**: the native forge is authoritative, and a remote is an optional provider copy (question 1, resolved).
 - Repository settings (default branch, protection, required checks, collaborators, webhooks) are read and written through the native forge. For a provider repository, the forge calls the provider. Settings the provider cannot express are refused with a clear reason, never silently dropped.
 - Credentials for each provider are held by the Identity Service (doc 14, `ISecretStore`). Git pushes to a remote run host-side, so no token enters a VM (doc 21, "Decided inputs").
 
@@ -77,12 +77,16 @@ The GitHub module keeps the App-per-agent identity (doc 21, "Identity"). A GitLa
 - Forks: the fork-and-PR flow of doc 21 applies to GitHub only and stays gated on spike S22.
 - Quotas: per-agent write caps come from doc 15's table (`security.quota.*`). Doc 21 keeps the GitHub-specific numbers.
 
-## 9. Open questions (answer each once)
+## 9. Open questions
 
-1. **Default repository mode for an agent's work.** Native-only, mirrored to a remote, or remote-hosted? The owner's statement implies the native forge is primary, which points to *mirrored*. Default proposal: mirrored, with the remote optional.
-2. **Where native branches live.** In the Vault git repo (doc 18), in a separate repo per project, or both? Default proposal: separate repo per project, with the Vault repo untouched.
-3. **Which provider operations need the owner's own credential instead of an agent App.** Default proposal: merge and settings always use the owner's credential (doc 21, "Decided inputs").
-4. **GitLab scope at first release.** Default proposal: the same contract, behind the GitHub module's tests, with GitLab shipped after GitHub is stable.
+Each question was checked against the existing docs and the project principles (CLAUDE.md; the owner's statements of 2026-11-16) before it was kept here.
+
+1. **Default repository mode for an agent's work. RESOLVED: mirrored.** The owner's statement makes the native forge the single endpoint and says "the server and agents keep their own internal git flow", so the native forge is authoritative. GitHub and GitLab are "providers behind it" (doc 21, "Decided inputs"). A remote is therefore an optional copy, which is the mirrored mode in section 3.
+2. **Where native branches live. RESOLVED: each project's code lives in its own repository.** The Vault is "Markdown files in a git repo" holding company knowledge only (doc 18; doc 33; DECISIONS-LOG C38). Doc 25 names "the project repos" as a separate source from the Vault. The Vault repo is therefore not used for project code. Native branches for a project go in that project's own repository, with one repository per project and no mixing with the Vault.
+3. **Which provider operations need the owner's credential. RESOLVED: merge and repository settings.** Owner-class credentials are held by the Identity Service, and "no agent lease can name an owner-class credential"; the server merges "only on signed owner approval" (doc 14, Design, owner-class credentials bullet; doc 21, "Decided inputs"; C25). Repository settings are the owner's controls (doc 15, tier 3 and grant-scope), so they use the same owner-class credential. Agents keep only their own App, which has no merge or settings rights (doc 21, "Identity").
+4. **GitLab in v1. OPEN, owner decides.** The v1 scope in `docs/ROADMAP.md` names GitHub and not GitLab. The owner's 2026-11-16 statement says "support GitHub and gitlab EXTENSIVELY". Options:
+   - **A. GitLab in v1, after GitHub is stable (recommended).** Matches the owner's words and the over-engineered, no-shortcut principle. The same `IForgeProvider` contract (section 7) means GitLab adds one module, not a redesign.
+   - **B. GitHub only in v1, GitLab in a v1.x release.** Smaller first release. It needs a roadmap entry, and the owner's words would then be read as a later goal, not v1 scope.
 
 ## 10. Work packages (after DECIDED)
 
