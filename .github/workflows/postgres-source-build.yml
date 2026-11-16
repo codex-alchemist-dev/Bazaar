@@ -105,9 +105,22 @@ jobs:
             if ($_ -match '^([^=]+)=(.*)$') { Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])" }
           }
 
-      - name: Install flex and bison for Windows (win_flex, win_bison)
+      - name: Install flex and bison for Windows (win_flex, win_bison), pinned and checksum-verified
         shell: pwsh
-        run: choco install winflexbison3 --yes --no-progress
+        env:
+          # winflexbison3 2.5.24.20210105 from the Chocolatey feed. SHA-512 is the feed's PackageHash (base64).
+          WINFLEXBISON_VERSION: '2.5.24.20210105'
+          WINFLEXBISON_SHA512_BASE64: 'np0yvphgaNeVRLXH2lhKBaDi5MsIjmKhEQ2toV2tGCHzPb9eufl8U99GgLQzqtbo5WPuMBb/FOcNOU4iOak7Bw=='
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'winflexbison-pkg'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $nupkg = Join-Path $dir "winflexbison3.$env:WINFLEXBISON_VERSION.nupkg"
+          Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/winflexbison3/$env:WINFLEXBISON_VERSION" -OutFile $nupkg -UseBasicParsing
+          $actual = [Convert]::ToBase64String([Security.Cryptography.SHA512]::HashData([IO.File]::ReadAllBytes($nupkg)))
+          if ($actual -ne $env:WINFLEXBISON_SHA512_BASE64) { throw "winflexbison3 SHA-512 mismatch: expected $env:WINFLEXBISON_SHA512_BASE64, got $actual" }
+          Write-Host 'winflexbison3 SHA-512 verified.'
+          choco install winflexbison3 --version $env:WINFLEXBISON_VERSION --source $dir --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "choco install winflexbison3 failed ($LASTEXITCODE)" }
 
       - name: Install Meson and Ninja
         shell: pwsh
