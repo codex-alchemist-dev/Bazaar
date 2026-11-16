@@ -7,7 +7,7 @@ using Bazaar.Server.Company;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
-using Bazaar.Server.Fun;
+using Bazaar.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;

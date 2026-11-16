@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Ward;
+namespace Bazaar.Fun.Ward;
 
 /// <summary>What admitted an agent to the Psych Ward (doc 26, section 1). A classifier hit alone is not a trigger.</summary>
 public enum WardTrigger

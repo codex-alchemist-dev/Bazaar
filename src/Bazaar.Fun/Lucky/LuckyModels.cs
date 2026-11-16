@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Bazaar.Server.Fun.Lucky;
+namespace Bazaar.Fun.Lucky;
 
 /// <summary>An agent the controller may invite.</summary>
 /// <param name="AgentId">The agent.</param>

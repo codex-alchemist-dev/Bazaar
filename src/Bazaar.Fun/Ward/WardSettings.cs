@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Ward;
+namespace Bazaar.Fun.Ward;
 
 /// <summary>
 /// The ward settings from doc 26 (<c>ward.*</c>), with the shipped defaults. Changes are checked by the settings layer
