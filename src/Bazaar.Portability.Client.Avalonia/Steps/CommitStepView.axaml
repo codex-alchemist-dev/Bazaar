@@ -1,0 +1,10 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wiz="using:Bazaar.Portability.Client.Avalonia"
+             x:Class="Bazaar.Portability.Client.Avalonia.CommitStepView"
+             x:DataType="wiz:WizardViewModel">
+  <StackPanel Margin="16" Spacing="12">
+    <TextBlock Text="Writing" FontSize="18" FontWeight="Bold" />
+    <TextBlock Text="Writing the import. Failed batches are rolled back." TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>
