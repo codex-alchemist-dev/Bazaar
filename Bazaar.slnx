@@ -7,6 +7,8 @@
     <Project Path="src/Bazaar.Localisation/Bazaar.Localisation.csproj" />
     <Project Path="src/Bazaar.Accessibility/Bazaar.Accessibility.csproj" />
     <Project Path="src/Bazaar.Accessibility.Avalonia/Bazaar.Accessibility.Avalonia.csproj" />
+    <Project Path="src/Bazaar.CompanyBuild/Bazaar.CompanyBuild.csproj" />
+    <Project Path="src/Bazaar.CompanyBuild.Abstractions/Bazaar.CompanyBuild.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
@@ -68,6 +70,7 @@
     <Project Path="tests/Bazaar.Accessibility.Tests/Bazaar.Accessibility.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Avalonia.Tests/Bazaar.Accessibility.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
+    <Project Path="tests/Bazaar.CompanyBuild.Tests/Bazaar.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
