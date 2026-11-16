@@ -14,20 +14,9 @@ public class ModuleInstallCheckTests
     private static readonly HostFacts _windowsHost = new("windows", "x64", new HashSet<string>(["windows-sandbox"], StringComparer.Ordinal));
     private static readonly HostFacts _linuxHost = new("linux", "x64", new HashSet<string>(StringComparer.Ordinal));
 
-    private static (EcdsaModuleSignatureVerifier Verifier, ECDsa Key) Setup()
-    {
-        var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var store = new InMemoryTrustedKeyStore();
-        store.Add(new TrustedModuleKey(_keyId, "publisher-2", key, _now.AddYears(-1), _now.AddYears(1), false));
-        return (new EcdsaModuleSignatureVerifier(store, new FakeTimeProvider(_now)), key);
-    }
+    private static (EcdsaModuleSignatureVerifier Verifier, ECDsa Key) Setup() => ModuleSigningTestHelper.Setup();
 
-    private static ModulePackage Sign(HostRequirements host, ECDsa key)
-    {
-        var unsigned = new ModulePackage("bazaar.sandbox", "0.1.0", new HashSet<string>(StringComparer.Ordinal) { "storage:local" }, _digest, _keyId, host, []);
-        var signature = key.SignData(ModuleCanonicalForm.Build(unsigned), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        return unsigned with { Signature = signature };
-    }
+    private static ModulePackage Sign(HostRequirements host, ECDsa key) => ModuleSigningTestHelper.Sign(host, key);
 
     [Fact]
     public void A_signed_package_runs_on_a_matching_host()

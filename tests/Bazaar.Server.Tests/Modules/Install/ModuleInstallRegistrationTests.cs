@@ -1,0 +1,56 @@
+using Bazaar.Server.Modules.Install;
+using Bazaar.Server.Modules.Trust;
+using Bazaar.Server.Security.Audit;
+using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
+
+namespace Bazaar.Server.Tests.Modules.Install;
+
+public class ModuleInstallRegistrationTests
+{
+    private static ServiceCollection Host()
+    {
+        var services = new ServiceCollection();
+        // The host supplies the database, the audit sinks and the trust. The gate registers none of them.
+        services.AddSingleton(NpgsqlDataSource.Create("Host=localhost;Database=unused"));
+        services.AddSingleton<IAuditLog, InstallAuditLog>();
+        services.AddSingleton<ITransactionalAuditLog, TransactionalNoop>();
+        services.AddSingleton<IModuleSignatureVerifier>(_ => new EcdsaModuleSignatureVerifier(new InMemoryTrustedKeyStore()));
+        return services;
+    }
+
+    private sealed class TransactionalNoop : ITransactionalAuditLog
+    {
+        public Task AppendAsync(AuditEntry e, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task AppendInTransactionAsync(Npgsql.NpgsqlConnection conn, Npgsql.NpgsqlTransaction tx, AuditEntry e, CancellationToken ct = default) =>
+            Task.CompletedTask;
+    }
+
+    [Fact]
+    public void The_gate_does_not_register_a_signer_a_key_store_or_a_verifier()
+    {
+        var services = Host().AddModuleInstallGate();
+
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IOwnerApprovalSigner));
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(ITrustedKeyStore));
+    }
+
+    [Fact]
+    public void The_install_service_resolves_once_the_host_supplies_the_verifier_and_audit()
+    {
+        using var provider = Host().AddModuleInstallGate().BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ModuleInstallService>());
+    }
+
+    [Fact]
+    public void The_approval_service_cannot_be_built_without_an_owner_signer()
+    {
+        using var provider = Host().AddModuleInstallGate().BuildServiceProvider();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ModuleApprovalService>());
+
+        Assert.Contains(nameof(IOwnerApprovalSigner), ex.Message, StringComparison.Ordinal);
+    }
+}

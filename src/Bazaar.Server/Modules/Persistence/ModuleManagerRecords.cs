@@ -23,3 +23,25 @@ public sealed record ModuleUpdateDecisionRecord(
     string? PolicyId,
     DateTimeOffset DecidedAt,
     string Actor);
+
+/// <summary>
+/// One owner approval of a module version's permission set, as stored in <c>module_permission_approval</c> (<c>modules/0002</c>).
+/// The signature is the owner's over the approval form (<c>ModuleApprovalForm</c>); the digest is that form's SHA-256, for audit.
+/// </summary>
+/// <param name="ModuleId">The module the approval covers.</param>
+/// <param name="Version">The module version the approval covers.</param>
+/// <param name="Permissions">The approved permissions, sorted ordinally with no duplicates.</param>
+/// <param name="ApprovalDigestSha256Hex">SHA-256 of the approval form, in lowercase hex.</param>
+/// <param name="SignerKeyId">The owner device key id that signed the form.</param>
+/// <param name="Signature">The owner's signature bytes over the approval form.</param>
+/// <param name="OwnerActor">The owner who approved.</param>
+/// <param name="ApprovedAt">When the approval was recorded.</param>
+public sealed record ModulePermissionApprovalRecord(
+    string ModuleId,
+    string Version,
+    IReadOnlyList<string> Permissions,
+    string ApprovalDigestSha256Hex,
+    string SignerKeyId,
+    byte[] Signature,
+    string OwnerActor,
+    DateTimeOffset ApprovedAt);
