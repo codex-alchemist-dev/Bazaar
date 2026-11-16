@@ -37,6 +37,64 @@ public sealed class GitHubAdapterTests
         InMemoryGitHubRateState Rates,
         CapturingLogger<GitHubAdapter> Logs);
 
+    [Fact]
+    public async Task A_merge_without_a_verified_owner_approval_sends_no_merge_request()
+    {
+        var h = Build();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new FailClosedOwnerApprovalVerifier());
+
+        await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(), Merge(), CancellationToken.None));
+
+        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task A_verified_approval_merges_once_while_the_head_is_still_the_approved_sha()
+    {
+        var h = Build();
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
+        h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": true}"""));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new FixedVerifier(true));
+
+        await gate.MergeAsync(Approval(), Merge(), CancellationToken.None);
+
+        Assert.Single(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task A_moved_head_voids_the_approval_and_sends_no_merge_request()
+    {
+        var h = Build();
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, "ffffffffffffffffffffffffffffffffffffffff")));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new FixedVerifier(true));
+
+        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(), Merge(), CancellationToken.None));
+
+        Assert.Contains("approve again", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task An_approval_for_a_different_head_than_the_merge_is_refused_before_any_call()
+    {
+        var h = Build();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new FixedVerifier(true));
+        var otherHead = new MergeRequest("0000000000000000000000000000000000000000", "t", "m");
+
+        await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(), otherHead, CancellationToken.None));
+
+        Assert.Empty(h.Http.Requests);
+    }
+
+    private static OwnerMergeApproval Approval() => new(_pr, _headSha, "owner-key-1", "sig", DateTimeOffset.UnixEpoch);
+
+    private static MergeRequest Merge() => new(_headSha, "Add x (#42)", "Body\n\nSigned-off-by: _owner <owner@example.test>");
+
+    private sealed class FixedVerifier(bool verdict) : IOwnerApprovalVerifier
+    {
+        public Task<bool> VerifyAsync(OwnerMergeApproval approval, CancellationToken cancellationToken) => Task.FromResult(verdict);
+    }
+
     private static Harness Build(RecordingTimeProvider? time = null)
     {
         var http = new ScriptedHttpHandler();
@@ -238,7 +296,7 @@ public sealed class GitHubAdapterTests
             Reply.Json(HttpStatusCode.OK, $$"""{"merged": true, "sha": "{{_headSha}}", "message": "Merged"}"""));
         const string message = "Body of the change\n\nSigned-off-by: _owner <owner@example.test>";
 
-        await h.Adapter.SquashMergeAsync(_pr, new MergeRequest(_headSha, "Add x (#42)", message), CancellationToken.None);
+        await ((IGitHubMergeExecutor)h.Adapter).SquashMergeAsync(_pr, new MergeRequest(_headSha, "Add x (#42)", message), CancellationToken.None);
 
         var put = Assert.Single(h.Http.Requests);
         using var body = JsonDocument.Parse(put.Body!);
@@ -256,7 +314,7 @@ public sealed class GitHubAdapterTests
         h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": false}"""));
 
         await Assert.ThrowsAsync<GitHubApiException>(() =>
-            h.Adapter.SquashMergeAsync(_pr, new MergeRequest(_headSha, "t", "m"), CancellationToken.None));
+            ((IGitHubMergeExecutor)h.Adapter).SquashMergeAsync(_pr, new MergeRequest(_headSha, "t", "m"), CancellationToken.None));
     }
 
     [Fact]
