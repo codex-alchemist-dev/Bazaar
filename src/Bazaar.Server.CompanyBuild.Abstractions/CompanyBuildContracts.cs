@@ -1,6 +1,6 @@
 using Bazaar.Core;
 
-namespace Bazaar.CompanyBuild.Abstractions;
+namespace Bazaar.Server.CompanyBuild.Abstractions;
 
 /// <summary>
 /// A company's build request (docs/design/37-distribution-matrix-and-packaging.md section 4a): the company and the modules it

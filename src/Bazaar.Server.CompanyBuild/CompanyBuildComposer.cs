@@ -1,7 +1,7 @@
 using Bazaar.Core;
-using Bazaar.CompanyBuild.Abstractions;
+using Bazaar.Server.CompanyBuild.Abstractions;
 
-namespace Bazaar.CompanyBuild;
+namespace Bazaar.Server.CompanyBuild;
 
 /// <summary>
 /// Composes a company's build from its selected modules through Bazaar.Core's graph (docs/design/BAZAAR-COMPONENTS.md section 4.1).

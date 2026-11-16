@@ -1,9 +1,9 @@
 using Bazaar.Core;
-using Bazaar.CompanyBuild;
-using Bazaar.CompanyBuild.Abstractions;
+using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyBuild.Abstractions;
 using Bazaar.CompanyIdentity;
 
-namespace Bazaar.CompanyBuild.Tests;
+namespace Bazaar.Server.CompanyBuild.Tests;
 
 public sealed class CompanyBuildTests
 {

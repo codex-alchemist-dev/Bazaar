@@ -1,7 +1,7 @@
-using Bazaar.CompanyBuild.Abstractions;
+using Bazaar.Server.CompanyBuild.Abstractions;
 using Bazaar.CompanyIdentity;
 
-namespace Bazaar.CompanyBuild;
+namespace Bazaar.Server.CompanyBuild;
 
 /// <summary>
 /// Runs one company build with its identity baked in (docs/design/37 section 4a, doc 45 section 2.1). The identity source is

@@ -2,7 +2,7 @@ using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.CompanyBuild;
+namespace Bazaar.Server.CompanyBuild;
 
 /// <summary>
 /// The company-build module. It composes a company's modules through the kernel graph and runs the build with bounded retries.
