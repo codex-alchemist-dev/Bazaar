@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components;
+namespace Bazaar.Core;
 
 /// <summary>What a Bazaar Component is for (docs/design/BAZAAR-COMPONENTS.md section 2).</summary>
 public enum ComponentKind

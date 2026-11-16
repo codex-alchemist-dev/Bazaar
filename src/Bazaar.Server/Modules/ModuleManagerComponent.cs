@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Modules.Releases;
 using Bazaar.Server.Modules.Updates;
 using Microsoft.Extensions.Configuration;

@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components;
+namespace Bazaar.Core;
 
 /// <summary>Validates and orders component manifests (docs/design/BAZAAR-COMPONENTS.md section 3, steps 2 and 3).</summary>
 public static class ComponentGraph
