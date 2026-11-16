@@ -13,6 +13,12 @@ public enum PersonKeyOutcome
 
     /// <summary>Key destruction threw. The message is in <see cref="ErasureReport.KeyError"/>.</summary>
     Failed,
+
+    /// <summary>
+    /// An active legal hold covers the person. No key was destroyed and no participant ran. The erasure is queued, not refused,
+    /// and is not complete.
+    /// </summary>
+    HeldQueued,
 }
 
 /// <summary>One participant's name and what it reported.</summary>
@@ -47,6 +53,9 @@ public sealed record ErasureReport(
                     break;
                 case PersonKeyOutcome.NoKeyOnFile:
                     reasons.Add("no key on file for this person");
+                    break;
+                case PersonKeyOutcome.HeldQueued:
+                    reasons.Add("legal hold active; erasure queued");
                     break;
             }
 

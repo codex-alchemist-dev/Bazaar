@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;

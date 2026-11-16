@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 
 namespace Bazaar.Server.Tests.Components;
 

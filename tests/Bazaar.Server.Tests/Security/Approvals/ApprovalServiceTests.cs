@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Bazaar.Approvals;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Policy;
 using static Bazaar.Server.Tests.Security.Approvals.ApprovalTestData;

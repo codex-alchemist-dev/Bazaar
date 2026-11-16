@@ -183,10 +183,10 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **Inputs the server supplies.** The company's module list, the baked default layout and theme, the channel, and signing settings. These are server configuration, not build files the user edits.
 - **Output.** One folder per build with the installers, a `SHA256SUMS` file and a `README.txt` that labels unsigned outputs.
 - **Access anywhere, anytime, whenever the server is up (owner, 2026-11-12).** Clients reach the company server from any network while it is up. When it is down, clients show only cached state (doc 28), and no offline write queue is built in v1. Offline work with synced writes is a later, larger design.
-- **Regenerate and update (owner, 2026-11-12).** The server regenerates client installers whenever its modules or layout change. Clients update in place from their own server (doc 37 section 4a, S-B5), and find their server without manual pairing (S-B6, with the server identity baked into each build). Connecting and pairing never need a LAN (owner, 2026-11-12). Reachability guidance is in doc 37 S-B6: tunnels such as Cloudflared with a registered domain come first, port forwarding is supported but never assumed or recommended without proper networking and security.
+- **Regenerate and update (owner, 2026-11-12).** The server regenerates client installers whenever its modules or layout change. Clients update in place from their own server (doc 37 section 4a, S-B5), and connect to their server with no pairing step (S-B6, with the server identity baked into each build; owner, 2026-11-16). Connecting never needs a LAN (owner, 2026-11-12). Reachability guidance is in doc 37 S-B6: tunnels such as Cloudflared with a registered domain come first, port forwarding is supported but never assumed or recommended without proper networking and security.
 - **No internet at install (owner, 2026-11-12).** The server installer never halts for lack of network. It finishes, and the server defers downloads until a connection is detected, then builds the client installers once everything is runnable. The user does nothing in between.
 - **Pipeline and spikes.** The build pipeline and each feasibility question (Android SDK bundling and size, offline builds, signing key custody, Linux packaging without a terminal) are spelled out in doc 37 section 4a. None is assumed to work until its spike runs.
-- **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 pairs the device only.
+- **Device install.** Getting a built client onto a device (QR code or link from the company server) is still undesigned. Doc 32 sign-in issues the device credential only; there is no pairing (owner, 2026-11-16).
 
 ## 4.15 Athanor (Monaco) requirements (summary of owner notes, not quoted, 2026-11-12)
 
@@ -283,7 +283,7 @@ public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Chi
 // Manifest every client module declares. The host enforces it identically for every module.
 public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
     IReadOnlyList<string> PaneKinds, IReadOnlyList<string> Commands, IReadOnlyList<string> SettingKeys,
-    IReadOnlyList<string> Capabilities /* each maps to one permission class in doc 48 section 1: wire:gc.history = data read (GC), wire:gc.post = GC post, wire:kanban.read = data read (Kanban), wire:kanban.write = data write (Kanban), wire:vault.read = data read (Vault), wire:constellation.read = data read (Constellation), storage:local = filesystem path (module-local), device:notify = device capability */,
+    IReadOnlyList<string> Capabilities /* every doc 48 section 1 class (owner, 2026-11-16): wire:gc.history = data read (GC), wire:kanban.read = data read (Kanban), wire:kanban.write = data write (Kanban), wire:vault.read = data read (Vault), wire:constellation.read = data read (Constellation), wire:gc.post = GC post, storage:local = filesystem path, network:host = network host, secret:name = secret name, ui:pane = UI pane, background:job = background job, process:spawn = process spawn, device:notify = device capability */,
     ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */,
     HostRequirements Host /* required, owner 2026-11-16: OS, architecture and features (doc 50 section 5) */);
 
@@ -330,6 +330,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: one contract, trust from the manifest (chosen). Consistent with total modularity.
    - Option 2: first-party modules are privileged and skip some checks. Simpler start, but a second path to keep safe.
 2. **Loading mode for modules not shipped with the build. DECIDED (owner, 2026-11-16, superseding the 2026-11-12 answer): compiled into each company build (L1).** Modules are picked per company. The admin selects them in the client, and the server rebuilds the company client and pushes an update. Marketplace modules are compiled in the same way. Engine panes stay out-of-process (L3, doc 20).
+   - **Verification failure during a rebuild (owner, 2026-11-16).** A module that fails verification is retried a bounded number of times, as in the bounded auto-retry for module updates (#558). If it still fails, the rebuild stops and the failure is reported. If a retry passes, the build proceeds, and the report still says that it needed several retries. Clients stay on their current build until a rebuild succeeds.
    - Option 1: compiled in only (L1, chosen). Simplest and trim-friendly, and no runtime sideloading.
    - Superseded (2026-11-12): out-of-process over a protocol (L3) for modules not shipped with the build.
    - Option 2: out-of-process over a protocol (L3, chosen). Isolation by process and manifest; keeps the shipped set trim-friendly.

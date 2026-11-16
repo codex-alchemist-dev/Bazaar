@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Bazaar.Approvals;
 
 namespace Bazaar.Server.Security.Approvals;
 
@@ -91,31 +92,6 @@ public static partial class ApprovalSignature
     /// <summary>
     /// Verifies a signature against a device's public key. Returns false, never throws, for any malformed key or signature.
     /// </summary>
-    public static bool Verify(byte[] publicKeySpki, byte[] message, byte[] signature)
-    {
-        ArgumentNullException.ThrowIfNull(publicKeySpki);
-        ArgumentNullException.ThrowIfNull(message);
-        ArgumentNullException.ThrowIfNull(signature);
-
-        if (signature.Length != SignatureLength)
-        {
-            return false;
-        }
-
-        try
-        {
-            using var key = ECDsa.Create();
-            key.ImportSubjectPublicKeyInfo(publicKeySpki, out _);
-            if (key.KeySize != 256)
-            {
-                return false;
-            }
-
-            return key.VerifyData(message, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        }
-        catch (CryptographicException)
-        {
-            return false;
-        }
-    }
+    public static bool Verify(byte[] publicKeySpki, byte[] message, byte[] signature) =>
+        OwnerSignatureCrypto.Verify(publicKeySpki, message, signature);
 }
