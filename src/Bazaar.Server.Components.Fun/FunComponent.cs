@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Fun.Vent;
 using Bazaar.Server.Fun.Ward;
 using Bazaar.Server.Sanitization;

@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Anchors;

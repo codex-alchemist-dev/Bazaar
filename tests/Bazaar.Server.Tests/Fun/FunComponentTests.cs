@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Fun.Ward;
 using Microsoft.Extensions.Configuration;

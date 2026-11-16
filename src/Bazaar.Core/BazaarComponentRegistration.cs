@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Server.Components;
+namespace Bazaar.Core;
 
 public static class BazaarComponentRegistration
 {
