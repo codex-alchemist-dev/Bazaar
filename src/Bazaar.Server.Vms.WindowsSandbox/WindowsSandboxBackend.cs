@@ -10,8 +10,10 @@ namespace Bazaar.Server.Vms.WindowsSandbox;
 /// and <see cref="IVmProvider"/> so the selector can choose it for the VM role. Operations Windows Sandbox cannot do throw
 /// <see cref="NotSupportedException"/>, matching <see cref="WindowsSandboxModule.Capabilities"/>. Saved state and checkpoints are never faked.
 /// </summary>
-public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, IDisposable
+public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IDisposable
 {
+    private readonly int _maxConcurrentInstances = WindowsSandboxModule.Capabilities.MaxConcurrentInstances;
+
     private readonly IWindowsSandboxHost _host;
     private readonly IHostFactsSource _facts;
     private readonly WindowsSandboxOptions _options;
@@ -30,6 +32,9 @@ public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, IDisposable
 
     /// <inheritdoc />
     public string Kind => WindowsSandboxModule.Kind;
+
+    /// <inheritdoc />
+    public int MaxConcurrentInstances => _maxConcurrentInstances;
 
     /// <summary>
     /// Checks the host against <see cref="WindowsSandboxModule.Requirements"/>. Synchronous and read-only.
@@ -87,10 +92,10 @@ public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, IDisposable
         {
             // The host is the authority: a sandbox started outside this server also counts against the single-instance limit.
             var running = await _host.CountRunningAsync(ct).ConfigureAwait(false);
-            if (running >= WindowsSandboxModule.Capabilities.MaxConcurrentInstances)
+            if (running >= _maxConcurrentInstances)
             {
                 throw new InvalidOperationException(
-                    $"Windows Sandbox allows {WindowsSandboxModule.Capabilities.MaxConcurrentInstances} running instance per host and {running} is running now.");
+                    $"Windows Sandbox allows {_maxConcurrentInstances} running instance per host and {running} is running now.");
             }
 
             var sandboxId = await _host.LaunchAsync(instance.ConfigPath, ct).ConfigureAwait(false);

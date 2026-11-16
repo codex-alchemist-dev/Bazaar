@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Server.Modules.Trust;
 
@@ -68,6 +69,11 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             || string.IsNullOrWhiteSpace(package.Version)
             || string.IsNullOrWhiteSpace(package.ContentDigestSha256Hex)
             || string.IsNullOrWhiteSpace(package.SignerKeyId))
+        {
+            return false;
+        }
+
+        if (package.Host is null || HostCompatibility.ValidateRequirements(package.Host).Count > 0)
         {
             return false;
         }

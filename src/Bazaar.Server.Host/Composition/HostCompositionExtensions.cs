@@ -105,7 +105,7 @@ public static class HostCompositionExtensions
             return new ProviderCapabilityReport(
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
-                ProviderSelector.Select(ProviderRole.Vm, options.Vm, Array.Empty<IVmProvider>()),
+                ProviderSelector.Select(ProviderRole.Vm, options.Vm, Array.Empty<IVmProvider>(), ProviderRequirements.AgentPairConcurrency),
                 ProviderSelector.Select(ProviderRole.Cache, options.Cache, caches),
                 ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
             ]);
