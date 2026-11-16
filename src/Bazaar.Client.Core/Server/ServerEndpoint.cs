@@ -15,31 +15,44 @@ public sealed record ServerEndpoint(Uri BaseAddress, string? Credential = null, 
     public static ServerEndpoint Development { get; } = new(new Uri("http://127.0.0.1:8080/"));
 
     /// <summary>
-    /// Creates an HTTP client for this endpoint. An https endpoint gets a pinned handler. Fails closed: an https endpoint with no
-    /// pin, or a plaintext endpoint that is not on loopback, is refused.
+    /// The reason this endpoint must not be contacted, or null when it may be. An https endpoint needs a pin. Plain http is
+    /// allowed only on loopback. Fails closed without throwing, so building a client never fails; each request is refused instead.
     /// </summary>
-    /// <exception cref="InvalidOperationException">The endpoint is not safe to connect to.</exception>
-    public HttpClient CreateHttpClient()
-    {
-        var http = new HttpClient(CreateHandler()) { BaseAddress = BaseAddress };
-        return http;
-    }
-
-    /// <summary>The handler for this endpoint: a pinned handler for https, or the platform default for loopback http.</summary>
-    /// <exception cref="InvalidOperationException">The endpoint is not safe to connect to.</exception>
-    public HttpMessageHandler CreateHandler()
+    public string? RefusalReason()
     {
         if (string.Equals(BaseAddress.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        {
-            if (!ServerPin.IsWellFormed(KeyHashPin))
-                throw new InvalidOperationException("This server address is https but the build carries no valid key-hash pin. Refusing to connect.");
-            return ServerPin.CreatePinnedHandler(KeyHashPin!);
-        }
+            return ServerPin.IsWellFormed(KeyHashPin)
+                ? null
+                : "This server address is https but the build carries no valid key-hash pin. Refusing to connect.";
 
         if (string.Equals(BaseAddress.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && BaseAddress.IsLoopback)
-            return new HttpClientHandler();
+            return null;
 
-        throw new InvalidOperationException("Plain http is allowed only on loopback. Refusing to connect.");
+        return "Plain http is allowed only on loopback. Refusing to connect.";
+    }
+
+    /// <summary>Creates an HTTP client for this endpoint. Requests to a refused endpoint fail without touching the network.</summary>
+    public HttpClient CreateHttpClient() => new(CreateHandler()) { BaseAddress = BaseAddress };
+
+    /// <summary>
+    /// The handler for this endpoint: a pinned handler for https, the platform default for loopback http, and a handler that
+    /// refuses every request for anything else.
+    /// </summary>
+    public HttpMessageHandler CreateHandler()
+    {
+        var refusal = RefusalReason();
+        if (refusal is not null) return new RefusingHandler(refusal);
+
+        return string.Equals(BaseAddress.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            ? ServerPin.CreatePinnedHandler(KeyHashPin!)
+            : new HttpClientHandler();
+    }
+
+    /// <summary>Refuses every request with the reason, before any connection is made.</summary>
+    private sealed class RefusingHandler(string reason) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromException<HttpResponseMessage>(new InvalidOperationException(reason));
     }
 }
 
@@ -76,7 +89,8 @@ public static class ClientServer
             if (!ServerPin.IsWellFormed(pin))
                 throw new InvalidOperationException("This client build has a server address but no valid key-hash pin. Refusing to connect.");
             var endpoint = new ServerEndpoint(address, KeyHashPin: pin);
-            _ = endpoint.CreateHandler(); // throws when the address is not https or loopback http
+            var refusal = endpoint.RefusalReason();
+            if (refusal is not null) throw new InvalidOperationException(refusal);
             Use(endpoint);
             return;
         }
