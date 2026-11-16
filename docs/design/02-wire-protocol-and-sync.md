@@ -17,7 +17,7 @@ Defines how clients talk to Bazaar.Server: one raw WebSocket per device, plus an
 - Push is a bare wake; content is fetched over the authenticated connection (round 5, C41).
 - This doc owns the wire and status format and the protocol version scheme; doc 03 owns live/ready probes; doc 23 owns status contents (round 12, C40).
 - Shared rate and quota defaults come from doc 15's table (round 10, C36). No inbound mail or webhook connections by default (round 8, C30).
-- No web client; the narrow sign-in page is doc 32's (round 11, C42). Auth design belongs to docs 14 and 32.
+- The narrow sign-in page is doc 32's (round 11, C42). Auth design belongs to docs 14 and 32.
 
 ## Design
 
