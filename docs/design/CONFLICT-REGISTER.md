@@ -529,7 +529,7 @@ The 36 design drafts were written in parallel, so they contradict each other and
 ### C42. Sign-in page scope vs CLAUDE.md wording
 **Severity** MINOR · **Docs** 02, 15, 32, 35 (CLAUDE.md)
 
-**Conflict.** CLAUDE.md: "No web client, ever (a read-only server status page is allowed)". Server.md §1 (DECIDED 2026-10-24): "An interactive sign-in page (for example passkeys) is also allowed as a narrow exception". 15: "Needs the CLAUDE.md wording reconciled". 32 §4 fences it to three routes, off by default, with a 60-second handoff code. 35 Q10 asks whether embedded Monaco counts (Server.md §1 says no).
+**Conflict (resolved 2026-11-17).** The CLAUDE.md "No web client" line was an agent's paraphrase and the owner removed it (DECISIONS-LOG round 26). Server.md §1 (DECIDED 2026-10-24): "An interactive sign-in page (for example passkeys) is also allowed as a narrow exception". 15: "Needs the CLAUDE.md wording reconciled". 32 §4 fences it to three routes, off by default, with a 60-second handoff code. 35 Q10 asks whether embedded Monaco counts (Server.md §1 says no).
 
 **Evidence.** ASP.NET Core passkeys scoped to authentication; exact .NET 10 API names unverified (32).
 

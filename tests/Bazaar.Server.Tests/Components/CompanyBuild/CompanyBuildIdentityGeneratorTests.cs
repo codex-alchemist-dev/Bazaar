@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Bazaar.CompanyIdentity;
-using Bazaar.Server.Components.Tls;
+using Bazaar.Tls;
 
 namespace Bazaar.Server.Tests.Components.CompanyBuild;
 
