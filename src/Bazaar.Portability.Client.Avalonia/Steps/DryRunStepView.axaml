@@ -13,6 +13,6 @@
       <TextBlock Text="{Binding State.DryRun.Message}" TextWrapping="Wrap" />
     </StackPanel>
     <!-- CanExecute on CommitCommand disables this until the dry-run matches the current mapping. -->
-    <Button Content="Commit" Command="{Binding CommitCommand}" HorizontalAlignment="Left" />
+    <Button Content="Commit" AutomationProperties.Name="Commit import" Command="{Binding CommitCommand}" HorizontalAlignment="Left" />
   </StackPanel>
 </UserControl>

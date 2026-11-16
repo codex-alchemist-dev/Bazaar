@@ -46,7 +46,7 @@
                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
                 <TextBlock Text="{Binding Target}" Opacity="0.7" />
                 <TextBlock Text="{Binding SourceKey, StringFormat='Record: {0}'}" Opacity="0.7" />
-                <ComboBox ItemsSource="{Binding Labels}"
+                <ComboBox ItemsSource="{Binding Labels}" AutomationProperties.Name="Collision choice for this record"
                           SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
               </StackPanel>
@@ -68,7 +68,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <Button Content="Run dry-run" Command="{Binding DryRunCommand}" HorizontalAlignment="Left" />
+      <Button Content="Run dry-run" AutomationProperties.Name="Run dry-run" Command="{Binding DryRunCommand}" HorizontalAlignment="Left" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

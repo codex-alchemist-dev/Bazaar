@@ -14,7 +14,7 @@
               <TextBlock Text="{Binding Id}" FontWeight="SemiBold" />
               <TextBlock Text="{Binding Confidence, StringFormat='Confidence {0}'}" />
               <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" />
-              <Button Content="Use this importer" Command="{Binding ChooseCommand}" CommandParameter="{Binding Id}" />
+              <Button Content="Use this importer" AutomationProperties.Name="{Binding Id, StringFormat='Use importer {0}'}" Command="{Binding ChooseCommand}" CommandParameter="{Binding Id}" />
             </StackPanel>
           </Border>
         </DataTemplate>

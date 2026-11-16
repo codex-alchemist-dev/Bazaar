@@ -8,6 +8,7 @@
     <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
@@ -16,6 +17,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Accessibility.Avalonia\Bazaar.Accessibility.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Portability.Client.Avalonia\Bazaar.Portability.Client.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>
