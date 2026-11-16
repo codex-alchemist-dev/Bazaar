@@ -341,7 +341,7 @@ Each question has a default, the one this doc uses.
 3. **Provisioning access.** Loopback plus a one-time bootstrap code until the owner exists (default), or a signed installer token? Reason: no network surface before the owner exists.
 4. **Second factor to finish setup.** Required (default), or optional with a warning? Reason: recovery and high-risk actions depend on it.
 5. **Backup target.** Finishing without a target only with a recorded acknowledgement (default), or refused? Reason: the most protective default for data loss; the operator's choice of target is kept.
-6. **Scam-mail protocol name.** Keep "Nigerian Prince Protocol" (brief, default for this doc), or adopt a neutral name such as "Bait protocol" (doc 22 proposal)? Reason: the name refers to a nationality; the choice affects public naming, so counsel may need to see it.
+6. **Scam-mail protocol name. CLOSED (owner, 2026-11-16):** keep "Nigerian Prince Protocol". The doc 22 rename proposal is dropped.
 
 ## Testing [PLANNED]
 
