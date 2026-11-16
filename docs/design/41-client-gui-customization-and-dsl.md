@@ -330,6 +330,7 @@ These are real design decisions. The owner asked to be asked, so none is settled
    - Option 1: one contract, trust from the manifest (chosen). Consistent with total modularity.
    - Option 2: first-party modules are privileged and skip some checks. Simpler start, but a second path to keep safe.
 2. **Loading mode for modules not shipped with the build. DECIDED (owner, 2026-11-16, superseding the 2026-11-12 answer): compiled into each company build (L1).** Modules are picked per company. The admin selects them in the client, and the server rebuilds the company client and pushes an update. Marketplace modules are compiled in the same way. Engine panes stay out-of-process (L3, doc 20).
+   - **Verification failure during a rebuild (owner, 2026-11-16).** A module that fails verification is retried a bounded number of times, as in the bounded auto-retry for module updates (#558). If it still fails, the rebuild stops and the failure is reported. If a retry passes, the build proceeds, and the report still says that it needed several retries. Clients stay on their current build until a rebuild succeeds.
    - Option 1: compiled in only (L1, chosen). Simplest and trim-friendly, and no runtime sideloading.
    - Superseded (2026-11-12): out-of-process over a protocol (L3) for modules not shipped with the build.
    - Option 2: out-of-process over a protocol (L3, chosen). Isolation by process and manifest; keeps the shipped set trim-friendly.
