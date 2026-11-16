@@ -372,3 +372,12 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Principles | Open source, modern, novel, performant, forward-facing, modular first. Beta 0.x. | 42, 49, FORWARD-FACING.md |
 
 **Open for owner:** the licence pricing (decided later); whether the module exception wording and the CLA mechanism (47, M4) are accepted by counsel; the number of this round.
+
+## Round 26 (2026-11-17): "No web client" rule removed
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| "No web client" rule | Removed entirely (owner, decision card, 2026-11-17). The owner did not write it. It first appeared in CLAUDE.md in the foundation commit 71ee1047 (2026-10-25, PR #2) as an agent's paraphrase, under a "(owner's words ...)" label. The owner recognised it as not theirs. | CLAUDE.md; docs 02, 03, 20, 27, 29, 32, 35, 39, 46; CONFLICT-REGISTER; Bazaar.Server.md; Bazaar.Windows.md |
+| Clients | Clients stay native, as already built. Native clients may embed web components such as Monaco (Bazaar.Server.md §1). | 27, 35 |
+| Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
+| Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |

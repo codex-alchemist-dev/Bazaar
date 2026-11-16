@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <!-- Bazaar-free core (doc 46 section 19): no reference to Bazaar.Server, so it can be extracted later. -->
+  </PropertyGroup>
+</Project>
