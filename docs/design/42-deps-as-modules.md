@@ -161,6 +161,8 @@ Doc 37 remains the distribution matrix: which artifact exists for which platform
 
 A dep uses the Bazaar Component manifest (BAZAAR-COMPONENTS.md section 2) with the dependency fields below added. There is one manifest format, `bazaar-component.json`, for first-party and third-party modules. The first-party form is a static `ComponentManifest` on the type, and the file form is the same data.
 
+Deps and written modules share one graph (BAZAAR-COMPONENTS.md section 4.1, owner 2026-11-16). A dep's `requires` may name a written module, and a written module's `dependsOn` may name a dep, in either direction. Hard edges stay acyclic and are checked at install. Soft edges may be mutual and never set start order. The dependency manifest is the same record as the component manifest with `kind: dependency`, not a second format.
+
 ### 8.1 Fields added for deps
 
 | Field | Type | Meaning |

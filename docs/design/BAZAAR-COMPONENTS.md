@@ -62,6 +62,15 @@ Enablement comes from settings (`Bazaar:Components:<id>:Enabled`). A disabled co
 - Wire messages (client and server) stay in `Bazaar.Contracts` with the JSON codec (doc 02). A component that adds a wire message adds its contract types there, namespaced by component.
 - Providers and adapters are a `provides` role. A role has one selected implementation, chosen by settings with the existing `auto` or explicit rule (doc 03). Adapters are many: each registers under its wire family name (for example `openai_chat`) and the gateway looks them up by name.
 
+### 4.1 One dependency graph for Deps and written modules (owner, 2026-11-16, PLANNED)
+
+Dependency modules (doc 42, tagged `Deps`) and written modules (first-party and third-party components) are one graph. Any node may depend on any other node, in either direction. There is no separate dependency manager and no one-way rule from modules to deps.
+
+- **Hard edges** (`dependsOn`, and `requires` for kernel capabilities) mean the dependent cannot work without the target. Hard edges form a directed acyclic graph. The kernel checks this at install and at start, and names the cycle's ids when it fails. Hard edges set start order.
+- **Soft edges** (`softDependsOn`) mean a feature works better with the target. Soft edges may form cycles, for example A and B each softly depend on each other while both hard-depend on C. Soft edges never set start order. A missing or disabled soft target degrades only the features that name it. The rest of the module still runs.
+- Resolution happens from metadata before anything loads. The kernel reads all manifests, validates the hard graph, then computes start order from hard edges alone. Soft edges are wired after start, from the readiness of each target.
+- Kodo readiness gates (doc 46 §10) follow hard edges. A failed hard target opens the readiness gate of every node that hard-depends on it. Soft targets raise an amber state, not a red one.
+
 ## 5. Data ownership: migrations per component
 
 - Each component owns a migration namespace: `src/<Component>/Data/Sql/<component-id>/NNNN_name.sql`. Numbers are local to the namespace.
