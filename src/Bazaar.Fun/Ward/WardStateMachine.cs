@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Ward;
+namespace Bazaar.Fun.Ward;
 
 /// <summary>The outcome of an admission or discharge request.</summary>
 /// <param name="Accepted">True when the transition happened.</param>

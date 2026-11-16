@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Vent;
+namespace Bazaar.Fun.Vent;
 
 /// <summary>Stores vent drafts keyed by failure reference (doc 26: restarts are idempotent).</summary>
 public interface IVentStore
