@@ -9,7 +9,7 @@ Used by: 30-linux-client-and-packaging.md, 34-testing-strategy.md
 A new Bazaar install must reach a correct, safe, running company without a manual checklist, and the owner must be able to do it from a terminal with no client at all. This doc covers two halves that are designed together but built separately:
 
 1. **Server setup** (Part 1): how a Bazaar.Server install is created. It is headless first. Every route ends in the same result and the same audit trail. A server has no tour.
-2. **Client first run** (Part 2): what a person sees the first time a Bazaar client opens against a company. It pairs automatically, shows a short intro, and offers a keyboard-first tour that can be skipped and re-run.
+2. **Client first run** (Part 2): what a person sees the first time a Bazaar client opens against a company. It connects to its company server automatically (each client is built already bound to the server that built it, so there is no pairing), shows a short intro, and offers a keyboard-first tour that can be skipped and re-run.
 
 ## Decided inputs
 
@@ -17,7 +17,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 |---|---|
 | Server setup is headless-first: interactive wizard, declarative headless config file, CLI flags and environment variables, provisioning API, reusable company templates, config validation with dry-run, and Kodo verifies a finished setup. Every path yields the same result and the same audit trail. | Owner brief, 2026-11-13 |
 | Server setup must be fully headless. Tours are for client apps only. | Owner brief, 2026-11-13 |
-| Client first run: automatic pairing, an intro, and an interactive keyboard-first tour (mnemonics, panes, layouts). Skippable and re-runnable. | Owner brief, 2026-11-13 |
+| Client first run: automatic connection to the server that built the client (no pairing), an intro, and an interactive keyboard-first tour (mnemonics, panes, layouts). Skippable and re-runnable. | Owner brief, 2026-11-13; owner, 2026-11-16 (no device pairing) |
 | No sample-data sandbox company. | Owner brief, 2026-11-13 |
 | The import wizard still exists, through data portability. | Owner brief, 2026-11-13; doc 44 |
 | One company per install. Per-company client packages; signing keys stay on the server. | Owner brief; doc 37 |
@@ -48,7 +48,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 | Entry point | Who uses it | Notes |
 |---|---|---|
 | Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). |
-| Wizard in a paired client | Owner, after pairing | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
+| Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
 | Environment variables | Containers, service managers | `BAZAAR__SETUP__...`, the same double-underscore convention as doc 03. Values and references only. |
@@ -80,7 +80,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 3 | Data root and bundled PostgreSQL | Creates the data root, starts the bundled PostgreSQL 18 or 19 with pgvector as a hidden supervised child on loopback, and sets the data directory ACL. Choice of major version: section 1.4. | 03, 04, owner brief |
 | 4 | Schema | Runs the explicit `migrate` command once on the empty database under the instance lock. Records fixed values (partition count) in `schema_setting`. | 04 (C44) |
 | 5 | Custody | Sets the key-encryption-key provider, bootstraps the Identity Service, and sets the audit anchor target. Mounts stay disabled until the anchor is set. | 14, 15 |
-| 6 | Owner | Creates the owner identity, enrols at least one passkey or hardware key, creates the encrypted recovery bundle, and offers the first device pairing (section 2.1). | 32, 14 |
+| 6 | Owner | Creates the owner identity, enrols at least one passkey or hardware key, and creates the encrypted recovery bundle. There is no device pairing (section 2.1). | 32, 14 |
 | 7 | Privacy and retention | Privacy profile, retention periods, legal-hold defaults, erasure window. Each option that touches law is marked "needs counsel". | 32, 15, 33 |
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
@@ -250,7 +250,7 @@ The brief names this step "Nigerian Prince Protocol". Doc 22 calls the same opti
 Kodo is the Health API module (module name Bazaar.KODO). It runs as the final setup step and can be run again at any time with `bazaar-admin kodo verify`.
 
 - **Read-only.** Kodo's verification never changes state. A check that needs a write is a test, and it runs only in a sandbox copy.
-- **Checks:** schema version and migration state; the instance lock; PostgreSQL and pgvector health; each provider role's usability (doc 03); every secret reference resolves, with no value shown; the audit chain head is writable and the anchor target is reachable (docs 14, 15); the backup target is reachable and a restore drill is scheduled (doc 33); the status bind is inside its floor; clock sync; disk headroom; each model source is reachable (doc 05); at least one owner second factor exists; a pairing offer can be created.
+- **Checks:** schema version and migration state; the instance lock; PostgreSQL and pgvector health; each provider role's usability (doc 03); every secret reference resolves, with no value shown; the audit chain head is writable and the anchor target is reachable (docs 14, 15); the backup target is reachable and a restore drill is scheduled (doc 33); the status bind is inside its floor; clock sync; disk headroom; each model source is reachable (doc 05); at least one owner second factor exists; the server's identity and key hash match the identity baked into the company build (section 2.1).
 - **Result.** Green, amber or red, plus the 0 to 100 score described in doc 46. Red blocks "setup complete" but does not stop the running server. Amber completes only with a recorded acknowledgement that names each amber item.
 - **Shown in** the wizard, the Monitor pane of every client (doc 46), and the read-only status page (summary only, doc 23).
 
@@ -270,13 +270,13 @@ The server has no tour, no first-run screen and no onboarding page. Setup is com
 
 # Part 2: Client first run
 
-## 2.1 Automatic pairing [DECIDED automatic; PLANNED mechanics]
+## 2.1 Automatic connection, no pairing [DECIDED, owner 2026-11-16]
 
-- **Per-company packages.** The package built for a company (doc 37) carries the company identity, the server address and a pin of the server's key hash (doc 32, trust-on-first-use pin).
-- **What is automatic.** On first launch the client finds the server from the package, sends a pairing request, and receives its device credential. The person types no host, no code and no key.
-- **What still needs an owner.** The device's approval is native (doc 32, section 3). The first device is approved at the server console during setup (step 6). Later devices are approved on an already-paired owner device. Approval is never automatic, because pairing mints credentials.
-- **Keys.** The client holds only its device credential. It never holds a GitHub credential (doc 27, doc 14).
-- **Conflict.** The brief's wording for packages ("no manual pairing") is read here as "no manual pairing steps for the person". Section Conflicts and Open questions record this.
+- **Per-company packages.** The package built for a company (doc 37) is bound to the server that built it. It carries the company identity, the server address and a pin of the server's key hash (doc 32, trust-on-first-use pin).
+- **What is automatic.** On first launch the client connects to the server it was built for. The person types no host, no code and no key. There is no pairing request, no pairing code and no device approval step, because the client is not a separately enrolled device.
+- **Who signs in.** The person signs in as a user (doc 32). The second factor stays a separate step (doc 14, step 6). Neither one is a pairing step.
+- **Keys.** The client holds only what it needs to sign in as a user. It never holds a GitHub credential (doc 27, doc 14).
+- **Other devices.** Doc 32 section 3 describes a pairing flow for other devices and accounts. The owner's 2026-11-16 answer removes device pairing from the client path. Whether doc 32 section 3 is removed or kept for another purpose is open (Open question 1).
 
 ## 2.2 Intro [PLANNED]
 
@@ -323,23 +323,23 @@ Each row names the place where the sources disagree, and the resolution this doc
 | # | Where | Conflict | Resolution used here |
 |---|---|---|---|
 | 1 | Doc 03 line 23 and line 146 (NUC checklist); doc 04 line 10 | Those docs assume a PostgreSQL 18 service on the host. The brief says bundled, run as a hidden supervised child process, with zero external installs. | Bundled child is the default (section 1.10). Bring-your-own is an operator option. Owner question 2. |
-| 2 | Doc 32 lines 39 to 44 (native approval); brief ("automatic pairing", "no manual pairing") | Automatic pairing and native approval pull in different directions. | Discovery and key pinning are automatic. Approval stays native (section 2.1). Owner question 1. |
+| 2 | Doc 32 lines 39 to 44 (native approval); brief ("automatic pairing", "no manual pairing") | Automatic pairing and native approval pulled in different directions. | Resolved by the owner, 2026-11-16: there is no device pairing for clients. Each client is built for one server and connects to it automatically (section 2.1). |
 | 3 | Doc 04 line 67 (`db.migrate_on_fresh_install`) against doc 03 line 15 and doc 04 line 16 (C44: explicit `migrate` only) | A setting that migrates on a fresh install could read as an automatic migration at startup. | Setup runs `migrate` as an explicit step on an empty database (section 1.3, step 4). The setting is only a setup default. Startup still only checks the schema version. |
 | 4 | Doc 05b line 17 (`env:<VAR>` or `file:<path>` for the FreeLLMAPI key) against doc 14 and doc 03 (every non-bootstrap secret goes through `ISecretStore`) | Two reference forms for one provider key. | Config holds `secret://` references for provider keys. `env:` and `file:` are bootstrap-only (section 1.6). Doc 05b to be updated. |
 | 5 | Doc 02 HTTP surface (C15) and doc 32 line 52 ("exactly three" sign-in routes) | Provisioning routes are a new HTTP surface. | They sit outside the sign-in routes and under the authenticated HTTP surface (section 1.9). Docs 02 and 32 must list them. |
 | 6 | Doc 22 line 180 (rename proposal) against the brief | The brief's name is "Nigerian Prince Protocol"; doc 22 proposes a neutral name. | This doc keeps the brief's name until the owner decides. Owner question 6. |
 | 7 | README (docs 01 to 38 only) | Docs 41, 44, 46 and 48 are named by the brief but did not exist in `docs/design/` when this row was written. They are in the same PR now. | Links are kept and marked "not yet in docs/design/". Their content must not be assumed here. |
 | 8 | CLAUDE.md (Apache-2.0 for Bazaar.Sdk and Bazaar.Contracts) against the brief (AGPL-3.0 across all repos, plus a module exception and a CLA for core code) | Not an onboarding question, but the module licence check at install (step 14) depends on it. | Not resolved here. Recorded for the owner to confirm, and for doc 37 and the NOTICE file. |
-| 9 | Doc 03 Q2 (admin CLI in v1, default: small non-TUI `bazaar-admin`) against the brief's "interactive wizard" | The wizard's home is not fixed: console prompts or a client. | Both: console prompts for the first install (no client exists yet), and the same wizard in a paired client afterwards (section 1.1). |
+| 9 | Doc 03 Q2 (admin CLI in v1, default: small non-TUI `bazaar-admin`) against the brief's "interactive wizard" | The wizard's home is not fixed: console prompts or a client. | Both: console prompts for the first install (no client exists yet), and the same wizard in a connected client afterwards (section 1.1). |
 
 ## Open questions for the owner
 
 Each question has a default, the one this doc uses.
 
-1. **Pairing approval.** Should the first device be approved during setup at the server console (default), or should automatic approval be allowed for devices that present a valid offer on the local network? Reason for the default: pairing mints credentials, so approval stays a human act.
+1. **Device pairing. DECIDED (owner, 2026-11-16): none for clients.** Each client is built for its server and connects to it automatically (section 2.1). Open for the owner: whether doc 32 section 3 (offer and approval flow) is removed, or kept only for other devices and accounts. Default until decided: keep it, unused by clients.
 2. **PostgreSQL. DECIDED (owner, 2026-11-16):** bundled by default. An external database is a hidden advanced or headless setting, and it never appears in the install wizard (doc 42 section 18 Q2).
 3. **Provisioning access.** Loopback plus a one-time bootstrap code until the owner exists (default), or a signed installer token? Reason: no network surface before the owner exists.
-4. **Second factor to finish setup.** Required (default), or optional with a warning? Reason: recovery and high-risk actions depend on it.
+4. **Second factor to finish setup. DECIDED (owner, 2026-11-16): optional with a warning.** Setup can finish without a second factor, with a warning. Recovery and high-risk actions stay blocked until one is added (docs 14, 32).
 5. **Backup target.** Finishing without a target only with a recorded acknowledgement (default), or refused? Reason: the most protective default for data loss; the operator's choice of target is kept.
 6. **Scam-mail protocol name.** Keep "Nigerian Prince Protocol" (brief, default for this doc), or adopt a neutral name such as "Bait protocol" (doc 22 proposal)? Reason: the name refers to a nationality; the choice affects public naming, so counsel may need to see it.
 
