@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace Bazaar.Client.Core.Souls;
+namespace Bazaar.Client.Souls;
 
 /// <summary>
 /// Turns a Soul's canonical preferences JSON into a one-line summary for the profile card. Pure: no I/O.

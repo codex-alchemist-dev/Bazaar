@@ -1,7 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
-namespace Bazaar.Client.Core.Souls;
+namespace Bazaar.Client.Souls;
 
 /// <summary>
 /// Profile card and version history for one Soul. Set <see cref="Control.DataContext"/> to a

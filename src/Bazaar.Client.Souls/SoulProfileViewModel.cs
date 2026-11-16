@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Soul;
 
-namespace Bazaar.Client.Core.Souls;
+namespace Bazaar.Client.Souls;
 
 /// <summary>
 /// The profile card and version history for one Soul, built from a profile and its version chain.

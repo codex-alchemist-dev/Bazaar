@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Soul;
 
-namespace Bazaar.Client.Core.Souls;
+namespace Bazaar.Client.Souls;
 
 /// <summary>
 /// Supplies a Soul's version chain to the client. The implementation is a server call or a fixture; the

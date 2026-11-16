@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Bazaar.Client.Core.Souls;
+namespace Bazaar.Client.Souls;
 
 /// <summary>
 /// One line of the version history, already in display form. Built by <see cref="SoulProfileViewModel"/>.
