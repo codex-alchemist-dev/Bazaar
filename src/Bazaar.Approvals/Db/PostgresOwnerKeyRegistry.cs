@@ -1,10 +1,11 @@
+using Bazaar.Approvals;
 using Npgsql;
 
-namespace Bazaar.Server.Security.Approvals.Db;
+namespace Bazaar.Approvals.Db;
 
 /// <summary>
 /// The owner key registry over the <c>approval_key</c> table (doc 32 section 5a). A device id is the device's uuid in its
-/// "D" form, which matches <see cref="ApprovalSignature.DeviceIdPattern"/>. A device is revoked when either its key or the
+/// "D" form, which matches <c>^[A-Za-z0-9._-]{1,128}\z</c>. A device is revoked when either its key or the
 /// device row is revoked. Works under the runtime role: it needs SELECT only.
 /// </summary>
 public sealed class PostgresOwnerKeyRegistry(NpgsqlDataSource dataSource) : IOwnerKeyRegistry

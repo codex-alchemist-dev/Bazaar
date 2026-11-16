@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Bazaar.Server.Security.Approvals;
+namespace Bazaar.Approvals;
 
 /// <summary>
 /// One owner-gated action as the owner's device signs it (doc 32 section 5a). Every action class uses this one shape:
@@ -39,6 +39,9 @@ public static partial class OwnerSignedPayload
     [GeneratedRegex(ActionPattern, RegexOptions.CultureInvariant)]
     private static partial Regex ActionRegex();
 
+    [GeneratedRegex(@"^[A-Za-z0-9._-]{1,128}\z", RegexOptions.CultureInvariant)]
+    private static partial Regex DeviceIdRegex();
+
     [GeneratedRegex(@"^[0-9a-f]{40}\z", RegexOptions.CultureInvariant)]
     private static partial Regex HeadShaRegex();
 
@@ -63,7 +66,7 @@ public static partial class OwnerSignedPayload
             throw new ArgumentException("Head sha must be 40 lower-case hex characters.", nameof(payload));
         }
 
-        if (!ApprovalSignature.IsValidDeviceId(payload.DeviceId))
+        if (payload.DeviceId is null || !DeviceIdRegex().IsMatch(payload.DeviceId))
         {
             throw new ArgumentException("Device id has a disallowed shape.", nameof(payload));
         }

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Bazaar.Approvals;
 using Bazaar.Server.Security.Approvals;
 
 namespace Bazaar.Server.Tests.Security.Approvals;

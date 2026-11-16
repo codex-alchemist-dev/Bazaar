@@ -1,6 +1,7 @@
+using Bazaar.Approvals;
 using Npgsql;
 
-namespace Bazaar.Server.Security.Approvals.Db;
+namespace Bazaar.Approvals.Db;
 
 /// <summary>
 /// The durable owner nonce store over <c>owner_nonce</c> (doc 32 section 5a). Spending a nonce is one insert; a second
