@@ -54,6 +54,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `agent_safety/0002` | WP-BUDGET-ATOMIC | this PR | Index `agent_token_spend (at)` for the cross-agent prune (`DELETE ... WHERE at <= $1`); the 0001 `(agent_id, at)` index cannot serve it |
 | `agent_safety/0003` | KS-PERSIST | this PR | `kill_switch_global` (single row), `kill_switch_agent_stop`, `agent_containment`: the kill switch and containment state, reloaded on start (`PostgresKillSwitchStateStore`, `PostgresContainmentStateStore`). Own namespace, because `common/` is frozen; no foreign keys |
 | `constellation/0001` | WP-D (memory graph) | this PR | `constellation_memory_revision` and `constellation_memory_edge`: append-only memory graph revisions with one active revision per note (docs/design/constellation-memory-graph.md, "Store"). Owned by `ConstellationComponent`; the migration lives in the `constellation` namespace because `common/` is frozen; no foreign keys |
+| `erasure/0001` | ERASE-HOLD | this PR | `legal_hold_event` (append-only, refuse trigger, `bazaar_app` insert and select only) and view `active_legal_hold`: legal holds (doc 48 section 9). Holds are created and released only through the owner's signed path, which is not on main yet. No foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
