@@ -12,6 +12,9 @@ internal sealed class RecordingAgentTokenRevoker : IAgentTokenRevoker
         Revoked.Add(agentId);
         return Task.CompletedTask;
     }
+
+    public Task<TokenResumeResult> ResumeAsync(string agentId, CancellationToken ct = default) =>
+        Task.FromResult(TokenResumeResult.NotReversible);
 }
 
 /// <summary>Records every pause call, in order.</summary>
@@ -24,4 +27,6 @@ internal sealed class RecordingVmPauser : IVmPauser
         Paused.Add(agentId);
         return Task.CompletedTask;
     }
+
+    public Task ResumeAsync(string agentId, CancellationToken ct = default) => Task.CompletedTask;
 }
