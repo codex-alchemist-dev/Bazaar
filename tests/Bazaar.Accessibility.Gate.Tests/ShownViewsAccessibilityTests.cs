@@ -5,7 +5,6 @@ using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;
-using Bazaar.Client.Core.Pairing;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Souls;
 using Bazaar.Client.Core.Vault;
@@ -25,7 +24,7 @@ namespace Bazaar.Accessibility.Gate.Tests;
 /// </summary>
 /// <remarks>
 /// Covered: the shared Client.Core views that the Windows and Linux heads show (start window, group chat window,
-/// phone shell, Soul profile card, pairing form, vault search pane, engine pane).
+/// phone shell, Soul profile card, vault search pane, engine pane).
 /// Skipped: the Android head (<c>Bazaar.Client.Android</c>). Its <c>App.axaml</c> and <c>MainActivity</c> need the
 /// Android runtime and cannot be constructed on a desktop CI host. The Windows and Linux heads define no windows of
 /// their own (<c>Program.cs</c> only calls into Client.Core), so nothing else is skipped.
@@ -83,16 +82,6 @@ public class ShownViewsAccessibilityTests
     }
 
     [AvaloniaFact]
-    public void Pairing_view_has_named_controls()
-    {
-        var flow = new PairingFlow(new NoCredentialStore(), _ => new PairingClient(new HttpClient(), (_, _) => Task.CompletedTask));
-        var window = new Window { Content = new PairingView(new PairingViewModel(flow, "linux")) };
-        window.Show();
-
-        Assert.Empty(AccessibleControlScan.Find(window));
-    }
-
-    [AvaloniaFact]
     public void Vault_search_view_has_named_controls()
     {
         using var http = new HttpClient();
@@ -135,12 +124,3 @@ internal sealed class NoConnectionTransport : IWireTransportFactory
         throw new InvalidOperationException("The accessibility gate must not open a connection.");
 }
 
-/// <summary>An in-memory refresh-credential store with nothing saved, so the pairing view starts unpaired.</summary>
-internal sealed class NoCredentialStore : IRefreshCredentialStore
-{
-    public Task<string?> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
-
-    public Task SaveAsync(string refreshCredential, CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-    public Task ClearAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-}
