@@ -1,7 +1,7 @@
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Hosting;
 
-namespace Bazaar.Server.Host.Safety;
+namespace Bazaar.Server.AgentSafety.Startup;
 
 /// <summary>
 /// Startup gate (owner decision): agents do not start until the stored kill switch state can be read. It is registered before the

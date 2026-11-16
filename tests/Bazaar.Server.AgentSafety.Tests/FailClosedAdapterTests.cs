@@ -1,7 +1,8 @@
-using Bazaar.Server.Host.Safety;
+using Bazaar.Server.AgentSafety.Containment;
+using Bazaar.Server.AgentSafety.Startup;
 using Bazaar.Server.Security.Quarantine;
 
-namespace Bazaar.Server.Host.Tests.Safety;
+namespace Bazaar.Server.AgentSafety.Tests;
 
 public sealed class FailClosedAdapterTests
 {

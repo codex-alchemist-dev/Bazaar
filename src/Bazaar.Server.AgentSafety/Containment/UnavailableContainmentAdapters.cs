@@ -1,6 +1,6 @@
 using Bazaar.Server.Security.Quarantine;
 
-namespace Bazaar.Server.Host.Safety;
+namespace Bazaar.Server.AgentSafety.Containment;
 
 /// <summary>
 /// <see cref="IVmPauser"/> for a host with no VM backend configured. It never reports a pause as done. Containment then fails

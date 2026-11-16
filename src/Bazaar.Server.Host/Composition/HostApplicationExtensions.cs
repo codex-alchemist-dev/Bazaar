@@ -1,5 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Responder;
+using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -33,7 +34,7 @@ public static class HostApplicationExtensions
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
-        services.AddBazaarKillSwitch(configuration);
+        services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();

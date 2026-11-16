@@ -1,7 +1,7 @@
 using Bazaar.Server.Security.KillSwitch;
 using Npgsql;
 
-namespace Bazaar.Server.Host.Safety;
+namespace Bazaar.Server.AgentSafety.Persistence;
 
 /// <summary>
 /// Postgres <see cref="INonceStore"/> over the <c>release_nonces</c> table (agent_safety migration 0004). A restart keeps every
