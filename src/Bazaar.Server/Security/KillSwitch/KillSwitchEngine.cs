@@ -337,6 +337,13 @@ public sealed class KillSwitchEngine
         }
     }
 
+    /// <summary>
+    /// Startup gate (owner decision): agents do not start until the stored stop state can be read. Waits for the load, retrying a
+    /// failed one, and throws while the store still cannot be read. The host calls it before any agent starts.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The store could not be read on this attempt; the caller decides whether to try again.</exception>
+    public Task WaitUntilStateLoadedAsync(CancellationToken ct = default) => EnsureLoadedAsync(ct);
+
     /// <summary>Waits for the state load. A load that failed is started again, so a transient store outage does not stay fatal.</summary>
     private async Task EnsureLoadedAsync(CancellationToken ct)
     {
