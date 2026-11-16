@@ -1,3 +1,5 @@
+using Bazaar.CompanyIdentity;
+
 namespace Bazaar.Client.Core.Server;
 
 /// <summary>

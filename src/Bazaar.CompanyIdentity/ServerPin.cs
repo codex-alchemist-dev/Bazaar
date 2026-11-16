@@ -3,7 +3,7 @@ using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Bazaar.Client.Core.Server;
+namespace Bazaar.CompanyIdentity;
 
 /// <summary>
 /// The key-hash pin of the company server (doc 37 section 4a, doc 32 section 2). The pin is the lowercase hex SHA-256 of the

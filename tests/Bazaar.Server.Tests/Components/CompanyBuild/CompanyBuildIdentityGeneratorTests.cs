@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Bazaar.Server.Components.CompanyBuild;
+using Bazaar.CompanyIdentity;
 using Bazaar.Server.Components.Tls;
 
 namespace Bazaar.Server.Tests.Components.CompanyBuild;
@@ -52,7 +52,7 @@ public sealed class CompanyBuildIdentityGeneratorTests
         using var cert = SelfSigned();
         var serverCert = new ServerCertificate(cert, PublicKeyPin.Compute(cert));
 
-        var identity = CompanyServerIdentity.FromCertificate(new Uri("https://company.example/"), serverCert);
+        var identity = CompanyServerIdentity.Create(new Uri("https://company.example/"), serverCert.PublicKeyHash);
 
         Assert.Equal(PublicKeyPin.Compute(cert), identity.KeyHashPin);
     }
@@ -64,8 +64,8 @@ public sealed class CompanyBuildIdentityGeneratorTests
 
         var source = CompanyBuildIdentityGenerator.RenderSource(identity);
 
-        Assert.Contains("namespace Bazaar.Client.Core.Server;", source);
-        Assert.Contains("internal static class CompanyBuildIdentity", source);
+        Assert.Contains("namespace Bazaar.CompanyIdentity;", source);
+        Assert.Contains("public static class CompanyBuildIdentity", source);
         Assert.Contains("new Uri(\"https://company.example/\")", source);
         Assert.Contains($"\"{_pin}\"", source);
     }
@@ -80,7 +80,7 @@ public sealed class CompanyBuildIdentityGeneratorTests
 
             var path = CompanyBuildIdentityGenerator.WriteSource(identity, root);
 
-            Assert.Equal(Path.Combine(root, "Server", "CompanyBuildIdentity.cs"), path);
+            Assert.Equal(Path.Combine(root, "CompanyBuildIdentity.cs"), path);
             Assert.Equal(CompanyBuildIdentityGenerator.RenderSource(identity), File.ReadAllText(path));
         }
         finally

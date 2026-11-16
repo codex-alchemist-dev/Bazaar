@@ -2,6 +2,7 @@ using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Bazaar.Client.Core.Server;
+using Bazaar.CompanyIdentity;
 
 namespace Bazaar.Client.Core.Tests.Server;
 

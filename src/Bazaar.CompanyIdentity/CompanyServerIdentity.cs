@@ -1,6 +1,4 @@
-using Bazaar.Server.Components.Tls;
-
-namespace Bazaar.Server.Components.CompanyBuild;
+namespace Bazaar.CompanyIdentity;
 
 /// <summary>
 /// The identity a company build carries (doc 37 section 4a): the server's address and the SHA-256 pin of its key. Built only by
@@ -40,13 +38,6 @@ public sealed record CompanyServerIdentity
             throw new ArgumentException("The key-hash pin must be 64 lowercase hex characters.", nameof(keyHashPin));
 
         return new CompanyServerIdentity(address, keyHashPin);
-    }
-
-    /// <summary>Builds the identity from the server's own certificate, so the pin is the key the server really serves.</summary>
-    public static CompanyServerIdentity FromCertificate(Uri address, ServerCertificate certificate)
-    {
-        ArgumentNullException.ThrowIfNull(certificate);
-        return Create(address, certificate.PublicKeyHash);
     }
 
     private static bool IsLoopback(Uri address) =>
