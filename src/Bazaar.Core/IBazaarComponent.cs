@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Server.Components;
+namespace Bazaar.Core;
 
 /// <summary>
 /// The entry point of a Bazaar Component. The kernel calls <see cref="AddServices"/> in dependency order, and only for enabled

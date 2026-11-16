@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;

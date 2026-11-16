@@ -51,7 +51,7 @@ Core never references a head or `Bazaar.Server`. Platform services are interface
 This doc owns the cached offline profile and the minimal built-in shell (DECISIONS-LOG round 5, C27).
 1. Read the cached `UiProfile` (with revision and age) and paint the shell at once.
 2. Connect, then reconcile on `ui.changed`.
-3. With no cache, show the built-in fallback: Connecting, Settings and Pairing only (02 Q5).
+3. With no cache, show the built-in fallback: Connecting and Settings only (02 Q5; no pairing screen, owner 2026-11-16).
 4. Cache writes are atomic (temp file, then rename). A corrupt cache is discarded silently.
 5. The cache holds the profile and derived counters (unread, mention counts). It never holds message bodies. This is a test, not a convention.
 
