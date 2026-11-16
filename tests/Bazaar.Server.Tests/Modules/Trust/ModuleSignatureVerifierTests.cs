@@ -21,9 +21,9 @@ public class ModuleSignatureVerifierTests
         string digest = _digest,
         string keyId = _keyId,
         HostRequirements? host = null) =>
-        new(moduleId, version, permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, host ?? WindowsX64, []);
+        new(moduleId, version, permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, host ?? _windowsX64, []);
 
-    private static readonly HostRequirements WindowsX64 = new(1, ["windows"], ["x64"], []);
+    private static readonly HostRequirements _windowsX64 = new(1, ["windows"], ["x64"], []);
 
     private static ModulePackage Sign(ModulePackage unsigned, ECDsa signer)
     {
