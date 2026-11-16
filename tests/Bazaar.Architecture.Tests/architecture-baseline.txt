@@ -21,8 +21,6 @@ src/Bazaar.Client.Core/Constellation/ConstellationPaneViewModel.cs
 src/Bazaar.Client.Core/Constellation/HttpConstellationTileSource.cs
 src/Bazaar.Client.Core/Constellation/IConstellationTileSource.cs
 src/Bazaar.Client.Core/Constellation/TileFrameDecoder.cs
-src/Bazaar.Client.Core/Gc/GcEntryBuilder.cs
-src/Bazaar.Client.Core/Gc/GcEntryViewModel.cs
 src/Bazaar.Client.Core/Input/KeyRouter.cs
 src/Bazaar.Client.Core/Input/KeyStroke.cs
 src/Bazaar.Client.Core/Input/Mnemonic.cs

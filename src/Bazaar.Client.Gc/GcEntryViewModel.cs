@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Gc;
 
-namespace Bazaar.Client.Core.Gc;
+namespace Bazaar.Client.Gc;
 
 /// <summary>
 /// Header fields shared by every timeline entry. Built by <see cref="GcEntryBuilder"/>.
