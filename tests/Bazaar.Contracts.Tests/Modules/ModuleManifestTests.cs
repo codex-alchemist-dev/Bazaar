@@ -12,7 +12,8 @@ public class ModuleManifestTests
         Commands: ["bazaar.gc.open"],
         SettingKeys: ["gc.density"],
         Capabilities: ["wire:gc.history", "storage:local"],
-        Isolation: ModuleIsolation.InProcessCompiled);
+        Isolation: ModuleIsolation.InProcessCompiled,
+        Host: new HostRequirements(1, ["windows", "linux"], ["x64"], []));
 
     [Fact]
     public void Valid_manifest_passes()
