@@ -1,6 +1,6 @@
 # Rubedo view declarations: how the client GUI is declared
 
-Status: PROPOSED (2026-11-13). The owner's direction (2026-11-13): the client GUI is written declaratively in Rubedo. Rubedo is the foundation (doc 41a, DECIDED). This doc defines the view layer on top of the expression language. Questions in section 9 go to the owner by card before the code is built.
+Status: ACCEPTED (owner, 2026-11-15; answers recorded in section 9). Originally PROPOSED (2026-11-13). The owner's direction (2026-11-13): the client GUI is written declaratively in Rubedo. Rubedo is the foundation (doc 41a, DECIDED). This doc defines the view layer on top of the expression language. Questions in section 9 go to the owner by card before the code is built.
 Depends on: 41a-rubedo-dsl-design.md (expressions, typed context, limits), 41-client-gui-customization-and-dsl.md (sections 4.8, 6, 7, 8), 41b-client-module-boundaries.md (modules, compiled-in first-party), 15-security-taint-and-approvals.md (approval tiers).
 
 ## 1. Purpose
@@ -40,6 +40,8 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 | `divider` | no | Separator |
 | `placeholder` | no | Failure card (doc 41 section 6, rule 7) |
 
+**Tab items (structural, not a widget).** A `tabs` node takes only `tab` children, and a `tab` is valid only directly under `tabs`. A tab has a required non-empty `title` prop (a localisation key or literal) and exactly one child, the page. The page is an ordinary node. `tab` is not in the closed set, so the widget set stays at 13. Validator codes: `view.tabs_empty` (no tabs), `view.tab_child` (a child of `tabs` that is not a `tab`), `view.tab_title`, `view.tab_page` (not exactly one page), `view.tab_placement` (a `tab` anywhere else).
+
 Unknown widgets in a newer document render as `placeholder`, never as a crash (doc 41 section 7).
 
 ## 4. Data
@@ -77,12 +79,17 @@ Unknown widgets in a newer document render as `placeholder`, never as a crash (d
 ## 9. Questions for the owner (cards)
 
 1. **Widget set.** Accept the v1 list in section 3, or change it. Adding a widget later is a version change.
+   - **Answer (owner, 2026-11-15): ACCEPTED.** The 13 widgets in section 3, as listed.
 2. **Data model.** Pull by binding over named sources (proposed), or push-only streams? Pull keeps views pure.
+   - **Answer (owner, 2026-11-15): ACCEPTED.** Pull by binding over named sources.
 3. **Actions.** Accept the four closed actions in section 6 (proposed), or add more.
+   - **Answer (owner, 2026-11-15): ACCEPTED.** The four closed actions: navigate, invoke, openPane, setSetting.
 4. **Lists.** Keyed list with one item template (proposed), or virtualised list with a separate item view?
+   - **Answer (owner, 2026-11-15): ACCEPTED.** A keyed list with one item template.
 5. **Authoring.** Views are shipped by modules and company builds only (proposed). Should people import view documents, under Tier 2 approval, as layouts are planned to?
+   - **Answer (owner, 2026-11-15): ACCEPTED.** Views ship from modules and company builds only. There are no runtime imports.
 
-## 10. Work after the owner answers
+## 10. Work after the owner answers (accepted 2026-11-15, work started)
 
 1. Widget and action schemas as C# records, with the validator (in the Rubedo module, pure).
 2. Golden corpus for views, shared by heads.

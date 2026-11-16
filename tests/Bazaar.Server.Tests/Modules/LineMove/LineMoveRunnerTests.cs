@@ -180,16 +180,33 @@ public sealed class LineMoveRunnerTests
     }
 
     [Fact]
-    public async Task A_switch_failure_is_a_manual_rollback_decision_and_never_rolls_back_automatically()
+    public async Task A_switch_failure_inside_the_window_restores_the_snapshot_automatically()
+    {
+        var steps = new FakeSteps().Fail(LineMoveStep.Switch, "Old line did not stop cleanly.");
+        var audit = new InMemoryAuditSink();
+
+        var outcome = await Runner(steps, audit).RunAsync(LineMoveTestData.Request(windowOpen: true), CancellationToken.None);
+
+        Assert.Equal(LineMoveStatus.RolledBack, outcome.Status);
+        Assert.Equal(LineMoveStep.Switch, outcome.LastStep);
+        Assert.False(outcome.RollbackRequired);
+        Assert.DoesNotContain(LineMoveStep.Verify, steps.Ran);
+        Assert.Equal(
+            [LineMoveStep.Snapshot, LineMoveStep.DryRun, LineMoveStep.Switch, LineMoveStep.RolledBack],
+            steps.Ran);
+        Assert.Contains(audit.Events, e => e.Step == LineMoveStep.RolledBack && e.Kind == LineMoveAuditKind.Succeeded && e.SnapshotId == "snap-1");
+    }
+
+    [Fact]
+    public async Task A_switch_failure_outside_the_window_stops_with_manual_rollback_required()
     {
         var steps = new FakeSteps().Fail(LineMoveStep.Switch, "Old line did not stop cleanly.");
 
-        var outcome = await Runner(steps, new InMemoryAuditSink()).RunAsync(LineMoveTestData.Request(windowOpen: true), CancellationToken.None);
+        var outcome = await Runner(steps, new InMemoryAuditSink()).RunAsync(LineMoveTestData.Request(windowOpen: false), CancellationToken.None);
 
         Assert.Equal(LineMoveStatus.ManualRollbackRequired, outcome.Status);
         Assert.Equal(LineMoveStep.Switch, outcome.LastStep);
         Assert.True(outcome.RollbackRequired);
-        Assert.DoesNotContain(LineMoveStep.Verify, steps.Ran);
         Assert.DoesNotContain(LineMoveStep.RolledBack, steps.Ran);
     }
 

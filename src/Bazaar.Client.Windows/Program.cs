@@ -11,6 +11,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Windows;
 
@@ -60,7 +61,10 @@ internal static class Program
         using var chatStop = new CancellationTokenSource();
 
         // Panes come from the first-party registry; the Constellation tiles come from the server the head is paired with.
+        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
         var registry = FirstPartyPanes.CreateRegistry(
+            modules,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             tiles: HttpConstellationTileSource.Create(ClientServer.Current));
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);

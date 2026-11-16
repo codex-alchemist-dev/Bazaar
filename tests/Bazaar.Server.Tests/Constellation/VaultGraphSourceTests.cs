@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Bazaar.Contracts.Graph;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Tests.Vault.Data;
 using Bazaar.Server.Vault.Data;
@@ -46,6 +47,17 @@ public sealed class VaultGraphProjectionTests
         Assert.Equal(first.GraphVersion, again.GraphVersion);
         Assert.NotEqual(first.GraphVersion, changed.GraphVersion);
         Assert.True(first.GraphVersion >= 0);
+    }
+
+    [Fact]
+    public void Nodes_carry_the_Vault_kind_and_edges_carry_the_WikiLink_kind()
+    {
+        var graph = VaultGraphProjection.Build([_a, _b, _c], [(_a, _b), (_b, _c)]);
+
+        Assert.Equal(3, graph.Nodes.Count);
+        Assert.All(graph.Nodes, node => Assert.Equal(GraphNodeKind.Vault, node.Kind));
+        Assert.Equal(2, graph.Edges.Count);
+        Assert.All(graph.Edges, edge => Assert.Equal(GraphEdgeKind.WikiLink, edge.Kind));
     }
 
     [Fact]

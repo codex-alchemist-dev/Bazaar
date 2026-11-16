@@ -1,6 +1,6 @@
 # Bazaar named features
 
-Status: DRAFT (2026-11-09). A compiled index of every named feature, component, codename and module the repo, the design set and the project plans mention. It is a map, not a decision record: each row points to the doc that owns the detail.
+Status: DRAFT (refreshed 2026-11-16 against `origin/main` at `5b69cf7`). A compiled index of every named feature, component, codename and module the repo, the design set and the project plans mention. It is a map, not a decision record: each row points to the doc that owns the detail.
 
 ## How to read the status column
 
@@ -14,7 +14,7 @@ Status: DRAFT (2026-11-09). A compiled index of every named feature, component, 
 
 Design-decision tags (DECIDED, PROPOSED, OPEN, REJECTED, RESEARCHED) come from `docs/deep-dives/Bazaar.md` and `docs/design/DECISIONS-LOG.md`. Only DECIDED items are settled. Where a design tag and a code status differ, the row shows both.
 
-Code status is judged from the source tree and merged PR titles at `origin/main` (commit `b9ccc1c`, 2026-11-09). Open pull requests were not re-checked live, so a row marked Planned may already have an open PR.
+Code status is judged from the source tree and merged PR titles at `origin/main` (commit `5b69cf7`, 2026-11-16). The first draft used `b9ccc1c` (2026-11-09); 119 PRs merged after it and this refresh covers them. Open pull requests were not re-checked live, so a row marked Planned may already have an open PR.
 
 ---
 
@@ -28,8 +28,8 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Bazaar Kernel | The component runtime: discovery, graph validation, ordering and lifecycle. | Partial (`Components/ComponentGraph.cs`, `IBazaarComponent.cs`) | `docs/design/BAZAAR-COMPONENTS.md` §9 |
 | Bazaar.Server | The headless, OS-agnostic .NET 11 server that does all the compute. | Shipped | `docs/deep-dives/Bazaar.Server.md`, `src/Bazaar.Server` |
 | Bazaar.Server.Host | The host executable: service host, options, status listener. | Shipped | `src/Bazaar.Server.Host` |
-| Bazaar SDK (`Bazaar.Sdk`) | One shared API every subsystem uses. Apache-2.0. | Partial (project exists) | `src/Bazaar.Sdk`, `Bazaar.Server.md` |
-| Bazaar.Contracts | Shared wire and contract types for client and server. Apache-2.0. | Shipped | `src/Bazaar.Contracts` |
+| Bazaar SDK (`Bazaar.Sdk`) | One shared API every subsystem uses. AGPL-3.0 (owner card, 2026-11-13). | Partial (project exists) | `src/Bazaar.Sdk`, `Bazaar.Server.md` |
+| Bazaar.Contracts | Shared wire and contract types for client and server. AGPL-3.0 (owner card, 2026-11-13). | Shipped | `src/Bazaar.Contracts` |
 | Company Constitution | The `/company` docs: culture, principles, mission and decision records that every Soul onboards with. | Planned (v1 scope). No text drafted yet. | `docs/design/24` §1 |
 | Org Chart | Relationship structure for the company, not a rigid hierarchy. | Partial (`src/Bazaar.Server/Org`) | `docs/design/24` §2 |
 | Interrupt System | A formal interrupt and resume stack for work. | Partial (`src/Bazaar.Server/Interrupts`; stack service merged) | `docs/design/24` §3 |
@@ -69,14 +69,16 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Genetic Memory Transfer | Temporary subagents pass candidate lessons back before they end. Candidates need review before entering a Soul. | Planned | `docs/design/07`, `docs/design/25` |
 | Council | Whole-team voting and debate. Votes are independent first, then revealed together. Ties go to the owner. | Partial (`src/Bazaar.Server/Council`: lifecycle, tally, eligibility, pilot) | `docs/design/10` |
 | Reputation | Scores that combine peer review with hard outcomes (CI, reverts, owner accept or reject). | Partial (`src/Bazaar.Server/Reputation`; weights OPEN) | `docs/design/11` |
-| Psych Ward (The Asylum) | The recovery workflow for stuck or spiralling agents. Loop-guard trips go there. | Partial (`src/Bazaar.Components.Fun/Ward`; workflow semi-serious and PROPOSED) | `docs/design/26` §1, `docs/design/06` |
+| Psych Ward (The Asylum) | The recovery workflow for stuck or spiralling agents. Loop-guard trips go there, including RyuseiFuda event-fire guard trips (#469). | Partial (`src/Bazaar.Server.Components.Fun`; workflow semi-serious and PROPOSED) | `docs/design/26` §1, `docs/design/06` |
 | Vent post | A mandatory, public reflective post after a failure. | Partial (`Fun/Vent`) | `docs/design/26` §2 |
-| Loop guards | Server-side counters that stop agents looping, tripping into the Psych Ward. | Partial (`src/Bazaar.Server/Agents/LoopGuard`) | `docs/design/06`, `docs/design/09` |
+| Loop guards | Server-side counters that stop agents looping, tripping into the Psych Ward. | Partial (`src/Bazaar.Server/Agents/LoopGuard`; RyuseiFuda chain-depth and single-flight guards, #467) | `docs/design/06`, `docs/design/09` |
 | Agent runtime and turn loop | The wake model, turn path and agent tools. Turn adapter claims named inbox items and offers tools (#379); agent post sink over the GC log (#382). | Partial | `docs/design/06`, `src/Bazaar.Server/Agents` |
 | SoulGuard | The validator that runs on every memory write: structure, Soul core protection and a secrets scan. | Partial (`src/Bazaar.Server/Memory`, `Security`) | `docs/design/08` §6 |
 | Mirror Agent | Learns your style and filters agent suggestions. Its profile is never exported. | Planned (v1 scope) | `docs/design/26` §5 |
 | Digital Twin | A continuously updated, per-project self-understanding. | Planned (v1 scope). No dedicated design doc; location Unclear. | `Bazaar.md` §4 |
-| Taint and approvals | Server-side taint tracking. Once a session has seen untrusted input, high-impact actions need owner approval. Reader sessions handle untrusted input. | Partial (`src/Bazaar.Server/Security`: rules, policy, audit chain, approval service; card UI open) | `docs/design/15` |
+| Taint and approvals | Server-side taint tracking. Once a session has seen untrusted input, high-impact actions need owner approval. Reader sessions handle untrusted input. | Partial (`src/Bazaar.Server/Security`: rules, policy, audit chain, approval service; Postgres-backed safety adapters merged, #566; card UI open) | `docs/design/15` |
+| Kill switch | Per-agent and global stop. A global stop denies writes and egress for every agent. Engage and resume are audited, and stops persist across restarts. Release of a contained agent is owner-only and needs a signed, single-use nonce. | Shipped (engine, audit, containment, state store, #545, #566) | `docs/design/48` §11, `src/Bazaar.Server/Security`, `Bazaar.Server` safety adapters |
+| Agent token budgets | Per-agent token quotas per hour, day and week. The check and record are atomic in Postgres. Cost never gates work. Limits are provisional (OPEN 11.1). | Shipped (#545, #566); the settings key is proposed | `docs/design/48` §11, `docs/design/15` |
 | Owner emergency bypass | Owner emergency rule for vacation, recorded as DECIDED in doc 24. | Decided (rule recorded in docs, PR #336); runtime enforcement not checked | `docs/design/24` WP6 |
 
 ## 4. Knowledge and planning
@@ -91,7 +93,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | RyuseiFuda (流星札) | The company planner, formerly Kanban. Three layers: Workday (company board), Orrery (per-agent scheduling) and Roadmap (tied to Constellation). Also called the "shooting star ticket". | Partial (triggers, scheduler, event bridge, audit, agent tools, board pane; see layer rows) | `docs/design/38` |
 | RyuseiFuda: Workday (company board) | The macro board and schedule, previously Kanban. | Partial (Kanban tables, transitions, blocker graph shipped) | `docs/design/12`, `src/Bazaar.Server.Components.Kanban` |
 | RyuseiFuda: Orrery (per-agent scheduling) | Per-agent timers, intervals, watchers and events that re-invoke an agent. Earlier wording called it "Micro". | Partial (trigger repository, scheduler tick, fire recording, per-agent wake cap, audit, chain depth carried into tool calls and fire-woken turns, #359, #370) | `docs/design/38` |
-| RyuseiFuda: Roadmap | Objectives and phases in the Vault, shown in the Constellation. Earlier wording called it "Objective". | Partial (layer 3 views and front-matter contract, pure objective roadmap read model #364, `src/Bazaar.Server/Roadmap`) | `docs/design/38` WP-R12 |
+| RyuseiFuda: Roadmap | Objectives and phases in the Vault, shown in the Constellation. Earlier wording called it "Objective". | Partial (layer 3 views and front-matter contract, pure objective roadmap read model #364, `src/Bazaar.RyuseiFuda/Roadmap`) | `docs/design/38` WP-R12 |
 | Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Being renamed RyuseiFuda. | Shipped (columns, transitions, blocker graph; rename in progress) | `docs/design/12` |
 | Macro and Micro (old names) | Earlier names for RyuseiFuda's Workday and Orrery layers. | Superseded. Do not use in new code or docs. | project memory, `docs/design/38` |
 | GC metadata | Typed GCs with structured metadata. Types live in a registry table. | Planned (types decided; concept proposed) | `docs/design/01` |
@@ -114,8 +116,8 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Bazaar.Client.Core | Shared Avalonia UI library: shell, theme model, connection client, key router, panes. | Partial | `src/Bazaar.Client.Core`, `docs/design/27` |
-| Command palette | Fuzzy palette opened by a mnemonic. No Ctrl chords. | Planned | `docs/design/27`, CLAUDE.md |
+| Bazaar.Client.Core | Shared Avalonia UI library: shell, theme model, connection client, key router, panes, module manifest validator (#521), self-update core (#552). | Partial | `src/Bazaar.Client.Core`, `docs/design/27` |
+| Command palette (Ex) | Fuzzy palette opened by a mnemonic. No Ctrl chords. Client-wide mnemonic navigation is `Bazaar.Ex` (#511); the palette filters mnemonic rows (#553). | Partial (`src/Bazaar.Ex`); remapping and the full palette UI open | `docs/design/27`, CLAUDE.md |
 | Theme | One theme file drives Avalonia and Monaco. | Partial (theme model merged) | `docs/design/27` |
 | Discord-style GC view | GC messages with avatar, role badge, model badge, cost chip, presence, timestamp, profile cards. | Partial (`Bazaar.Client.Components.Chat`) | CLAUDE.md, `docs/design/27` |
 | Start screen dashboard | What changed while away: unread GCs and mentions, PRs and decisions awaiting you, agents and board, build health and usage. | Planned | CLAUDE.md |
@@ -132,20 +134,20 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Monaco editor | Editor component hosted in the Windows head. Gated by spike S12. | Planned (gate open) | `docs/design/27`, `docs/design/28` |
 | Git diff and PR panes | Diff and PR UI in the Windows head. | Planned (blocked on S12) | `docs/design/28` |
 | ConPTY terminal pane | Windows terminal pane. | Planned (blocked on spike S11 and widget choice) | `docs/design/28` |
-| Pane registry (client) | Client panes registered per head and rendered by a generic renderer. | Partial (`src/Bazaar.Client.Core/Panes`) | `docs/design/27`, `docs/design/20` |
+| Pane registry (client) | Client panes registered per head and rendered by a generic renderer. Pane modules register their own views (#455). | Partial (`src/Bazaar.Client.Core/Panes`) | `docs/design/27`, `docs/design/20` |
 | Bazaar.Guest.Agent | Guest-side agent baked into VM images. | Partial (project exists) | `src/Bazaar.Guest.Agent` |
 
 ## 7. Connectivity and remote access
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Conduit | The connectivity feature: reachability and transport modules. Sub-parts named in project memory: Conduit.Cloudflared, Conduit.P2P, Conduit.Lan. | In flight. Doc 39 (PR #358) defines `IReachabilityProvider` and `ITransportModule`; it is not on `main` yet. | project memory; doc 39 (PR #358) |
+| Conduit | The connectivity feature: reachability and transport modules. Sub-parts named in project memory: Conduit.Cloudflared, Conduit.P2P, Conduit.Lan. | Partial (`src/Bazaar.Conduit`: doc 39 contracts merged, #358; per-listener rate limits and auth lockout, #545). Cloudflared, P2P and LAN transports are Planned. | `docs/design/39`, `src/Bazaar.Conduit` |
 | Remote access and auth | Remote access, authentication, authorization and privacy settings. | Partial (`src/Bazaar.Server/Remote`, `Tls`, `RateLimits`) | `docs/design/32` |
-| Pairing | Device authorization and pairing for clients (`/pair/*` routes). | Shipped (state machine, device-authorization client, HTTP routes) | `docs/design/32` §3 |
+| Pairing | Device authorization and pairing for clients (`/pair/*` routes). Linux keeps the refresh credential in the Secret Service keyring (#509, #518). | Shipped (state machine, device-authorization client, HTTP routes) | `docs/design/32` §3 |
 | Privacy audit | Audit of privacy-relevant events. | Partial (`src/Bazaar.Server/Components/PrivacyAudit`) | `docs/design/32` |
 | Erasure | Per-person erasure mechanics. | Partial (`Components/Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
 | Tls | TLS termination and key pinning. | Partial (`Components/Tls`) | project memory, `docs/design/32` |
-| Rate limits | Server rate limiting. | Partial (`Components/RateLimits`) | `docs/design/32` |
+| Rate limits | Server rate limiting. Conduit auth lockout uses exponential backoff with shipped floors (#545). | Partial (`Components/RateLimits`) | `docs/design/32` |
 | Status listener | Read-only server status page and listener. | Partial (`Bazaar.Server.Host`) | `docs/design/03` |
 
 ## 8. Models and gateway
@@ -156,14 +158,14 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Adapters (`openai_chat`, `anthropic_messages`, `gemini_generate_content`) | Wire-family adapters the gateway looks up by name. | Shipped | `docs/design/05` |
 | FreeLLMAPI provider | First-class FreeLLMAPI provider with priority support. Live key check (S17) pending. | Partial | `docs/design/05b` |
 | Routing methods (`custom/*`) | Automatic switching, custom rules and a whitelist of cheaper code-capable models. No unbounded global auto. | Planned (rules OPEN) | CLAUDE.md |
-| Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (API-key path; Anthropic key cap parked for the owner) | CLAUDE.md |
+| Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (owner's Anthropic key is a config-defined gateway source, #451; dev responder agents get a Haiku route, #456; the $30 cap is parked for the owner) | CLAUDE.md |
 | Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server/Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
 
 ## 9. Environments, engines and coding
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Agent VMs | Each agent gets a Windows VM and a Linux VM, headless by default. | Partial (`src/Bazaar.Server.Vms`: environments, images, lifecycle, reconciliation; Hyper-V provider blocked on spike S8) | `docs/design/16` |
+| Agent VMs | Each agent gets a Windows VM and a Linux VM, headless by default. | Partial (`src/Bazaar.Server.Vms`: environments, images, lifecycle, reconciliation; guest agent project `Bazaar.Guest.Agent`; Hyper-V provider blocked on spike S8) | `docs/design/16` |
 | Browser profiles | Full Chromium with an anonymous profile and Passport-backed account profiles. | Planned (credential leases in flight) | `docs/design/16`, `docs/design/14` |
 | Coding-Agent Harness | The coding harness agents use to build and test. | Partial (`src/Bazaar.Server/Coding`) | `docs/design/17` |
 | Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
@@ -176,7 +178,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| PostgreSQL (managed) | PostgreSQL 18 plus pgvector, packaged and managed by Bazaar. The owner never touches it. | Shipped (managed connection, Windows bundle pinned; P5 and P7 merged; P8 smoke and P9 pg_upgrade open) | `src/Bazaar.Components.ManagedPostgres`, `docs/design/04` |
+| PostgreSQL (managed) | PostgreSQL 18 plus pgvector, packaged and managed by Bazaar. The owner never touches it. | Shipped (managed connection; bundle at PostgreSQL 18.7, #494; pgvector 0.8.2 pinned by SHA-256, #480; PG 19 RC CI leg and upgrade test, #539, #501; scheduled logical dumps, #460; `bazaar db backup` and `upgrade` CLI, #482) | `src/Bazaar.Components.ManagedPostgres`, `docs/design/04` |
 | Migration runner | Embedded, versioned SQL migrations; `migrate` command. | Shipped | `docs/design/04`, `src/Bazaar.Server/Data` |
 | Backup | Backup engine and restore drill. | Partial (`src/Bazaar.Server/Backup`, `Bazaar.Server.Components.Backup`) | `docs/design/33` |
 | Export | Data export. | Planned (part of doc 33) | `docs/design/33` |
@@ -184,8 +186,8 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Cache and presence | Garnet on Windows, Valkey on Linux; GC fan-out via Postgres NOTIFY. | Planned (Garnet blocked on spike S2) | `docs/design/03` |
 | Windows provider | Windows Service host and Windows providers. | Partial (`src/Bazaar.Server.Providers.Windows`) | `docs/design/03` |
 | Linux provider | systemd host and Linux providers. | Partial (`src/Bazaar.Server/Providers/Linux`) | `docs/design/03` |
-| Bazaar.Server.MSI, Chocolatey, MSIX, AppImage, RPM, OCI image | Packaging artifacts for the server and clients. | Shipped (scripts and packaging merged; signing open) | `docs/design/37`, `packaging/` |
-| Release workflow and channels | Version-tag release workflow. Channels: LTSC, Stable, Beta, Alpha, Latest-Commit, chosen by the operator. | Shipped (workflow); LTSC planned | `docs/VERSIONING.md`, `docs/release.md` |
+| Bazaar.Server.MSI, Chocolatey, MSIX, AppImage, RPM, OCI image | Packaging artifacts for the server and clients. | Shipped (scripts and packaging merged; MSIX signed with the company server certificate, #510 and #551; CycloneDX SBOM for tagged releases, #538) | `docs/design/37`, `packaging/` |
+| Release workflow and channels | Version-tag release workflow. Channels: LTSC, Stable, Beta, Alpha, Latest-Commit, chosen by the operator. Plain SemVer with the commit appended (#505). | Shipped (workflow); LTSC planned | `docs/VERSIONING.md`, `docs/release.md` |
 | Community and external platforms | Community posting tiers and external-platform adapters. | Partial (`src/Bazaar.Server.Community`); forum, Discord and Reddit adapters blocked | `docs/design/36` |
 | Testing harness | Bazaar.Testing, PgFixture, protocol harness, architecture tests, live-eval harness. | Shipped | `docs/design/34`, `src/Bazaar.Testing`, `tests/Bazaar.Architecture.Tests` |
 
@@ -198,16 +200,44 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Protobuf codec | Rejected by the S6 decision. | Rejected | `docs/design/02` WP13 |
 | Bazaar.Architecture.Tests | Architecture rules: migration namespace freeze, boundary checks. | Shipped | `tests/Bazaar.Architecture.Tests` |
 
-## 12. Modules (planned naming)
+## 12. Modules (naming)
 
-Owner-set naming, 2026-11-09, recorded in project memory. The code does not yet use these names; the rows describe the target.
+Owner-set naming, 2026-11-09, recorded in project memory. The code now uses most of these names: RyuseiFuda moved to `Bazaar.RyuseiFuda` (#452, #454), and `Bazaar.Client.<Feature>` projects exist. `Bazaar.Core` is still a target name.
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
 | Bazaar.Core | The core module every other module slots into. | Planned (target name; `Bazaar.Server/Components` is today's kernel) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
-| Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda | Server modules that slot into Bazaar.Core. | Planned (naming final; code split is wave 3) | `BAZAAR-COMPONENTS.md` §10 |
-| Bazaar.Client.<Feature> | Client modules, one per feature area. | Planned | `BAZAAR-COMPONENTS.md` §10 |
+| Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda | Server modules that slot into Bazaar.Core. | Partial (`Bazaar.GC.Abstractions`, `Bazaar.Constellation.*`, `Bazaar.RyuseiFuda`; the full code split is wave 3) | `BAZAAR-COMPONENTS.md` §10 |
+| Bazaar.Client.<Feature> | Client modules, one per feature area. | Partial (`Bazaar.Client.Layout`, `.Kodo`, `.RyuseiFuda`, `.Components.Chat`, `.Components.Launcher`, `.LocalInference`, `.Terminal`, plus the platform heads) | `BAZAAR-COMPONENTS.md` §10 |
 | Parts: `<Module>.<Part>` | Parts of a module, such as RyuseiFuda.Workday. | Planned | project memory |
+
+## 12a. Named features added since the first draft
+
+These merged after the 2026-11-09 baseline. Each row names the PRs that landed it. Statuses are from merged code only.
+
+| Name | What it is | Status | Owning doc or code |
+|---|---|---|---|
+| Rubedo | The declarative UI DSL. Its own module with a pure engine library inside, used by the server and every head. Covers the expression engine with a typed checker, a golden corpus (#527), and view document schemas with a structural validator (#557). | Partial (engine, checker and validator merged; the view reader and the Avalonia mapping are in review, #561 and #559) | `docs/design/41a`, `41c`, `src/Bazaar.Rubedo` |
+| Layout (Client) | Foldable, per-device layout documents with a validator, a resolver, scope merging, company locks for nodes and settings, and fail-closed fallbacks. | Partial (#512, #520, #576, #579, #580 merged; the Avalonia mapping is in review) | `docs/design/41`, `src/Bazaar.Client.Layout` |
+| Ex (mnemonic navigation) | Client-wide mnemonic navigation and the palette filter over mnemonic rows. | Partial (#511, #553) | `src/Bazaar.Ex` |
+| Michi (first-run tour) | The skippable first-run tour, moved out of the client into its own module. | Partial (#542) | `src/Bazaar.Michi` |
+| Kodo (client) | The client-side health header and status feed for the Kodo runtime health module. | Partial (#515, #525, #531, #533). The server ring health gate (`Modules/Releases`) reads Kodo health; the wider Kodo runtime is Planned (doc 46). | `docs/design/46`, `src/Bazaar.Client.Kodo` |
+| Accessibility | Accessible names for controls, a CI gate for them, spoken mnemonic names and command announcements. | Partial (#560, #564, #572, #574, #585, #587) | `src/Bazaar.Accessibility`, `src/Bazaar.Accessibility.Avalonia` |
+| Localisation | Localisation and accessible-name modules. | Partial (#543) | `src/Bazaar.Localisation` |
+| Secrets | A per-agent secret store with scopes and audit-first gating (#546), a per-purpose policy table that denies by default (#568), a Secret Service key-encryption provider on Linux (#569) and a Windows key-encryption provider on CNG, using TPM where available (#570). | Partial (store, policy and both key providers merged; the agent credential issuer is still a fail-closed default) | `src/Bazaar.Secrets`, `src/Bazaar.Secrets.Windows`, `docs/design/14` |
+| Audit | Audit rows with a hash chain, signed checkpoints persisted in Postgres (#554), Merkle checkpoints (#532), an inclusion-proof file with an offline verifier (#582) and external anchoring of checkpoints (#573). | Partial (checkpoints and proofs shipped; anchoring slice 2 merged) | `docs/design/48` §10, `src/Bazaar.Server/Security` |
+| Recovery | A sealed recovery bundle with file export and import (#583), a backup-owner quorum policy and a recovery case state machine (#571), and a FIDO2 hardware-key assertion verifier (#584). | Partial (bundle, quorum and verifier merged; applying a restore is out of scope for now) | `docs/design/48`, `docs/design/49` |
+| Module manager | Update policy, channels, dependencies, trust and line moves (#526, #549); auto-restore after a failed line-move switch and bounded retries (#558); operator-configurable retry policy (#567); owner policy document. | Partial (foundations, rollback, dry-run steps and release rings with a health gate are in code; full canary rollout and dry-run migrations still open) | `src/Bazaar.Server/Modules`, `docs/design/42`, `docs/design/41b` |
+| Setup plan | Headless setup plan, canonical hash and `bazaar-setup.json` validation (#548). | Partial (plan and validation merged; the wizard is open) | `src/Bazaar.Server/Setup`, `docs/design/45` |
+| Client self-update | A platform-neutral self-update core (#552). | Partial (core merged; per-platform install open) | `src/Bazaar.Client.Core`, `docs/design/37` |
+| Telemetry and crash reporting | Wave 1 (error codes, redaction, fingerprints, #519) and wave 2 (crash DTOs, capture core, consent model, #550). | Partial (waves 1 and 2 merged as contracts and capture core; server-side GitHub filing and LLM diagnosis are Planned, not in code) | `docs/design/43` |
+| Portability | Importer and exporter module core (#540). | Partial (core merged; the Milanote, Miro, Trello and Obsidian importers are Planned) | `src/Bazaar.Portability`, `docs/design/44` |
+| Diagnostics | Diagnostics module and tests. | Partial | `src/Bazaar.Diagnostics` |
+| Token budgets and kill switch | See sections 3 and 9 for the safety rows (#545, #566). | Partial | `src/Bazaar.Server/Security` |
+| Linux and Windows heads | Linux display backend chosen from the session environment (#534), headless smoke tests (#541), and a single-instance forwarder for the warm process (#458). | Partial | `src/Bazaar.Client.Linux`, `src/Bazaar.Client.Windows` |
+| Android device posture | Posture source contract with a fake and shell binder (#536); the Android head builds on every PR (#513). | Partial | `src/Bazaar.Client.Android` |
+| Graph kinds (Constellation) | Typed node and edge kinds for the roadmap graph (#555) and Vault graph kinds (#562). | Partial | `docs/design/19`, `src/Bazaar.Constellation.Abstractions` |
+| RyuseiFuda panes and Orrery | Panes moved into `Bazaar.Client.RyuseiFuda` (#547); the Orrery scheduling namespace is `Bazaar.RyuseiFuda.Orrery` (#452); pane pause and resume over the wire (#476, #478); owner trigger list (#477). | Partial | `docs/design/38`, `src/Bazaar.Client.RyuseiFuda` |
 
 ## 13. Codenames and versions
 
@@ -251,3 +281,6 @@ From the wave scan (2026-10-30). Listed so the status above is not read as more 
 - GitHub fork paths and live harness: blocked on S22 and owner throwaway repos.
 - Anthropic live runs and coding benchmark: blocked on S18, the owner's API key and cap.
 - `pg_search` provider: blocked on counsel review.
+- Rubedo view reader (#561) and the Avalonia view mapping (#559): both in review, and #559 is stacked on #561.
+- Secrets agent credential issuer: a fail-closed default until a real issuer is configured.
+- Telemetry server-side filing and diagnosis, and the Kodo server runtime (doc 46): Planned.

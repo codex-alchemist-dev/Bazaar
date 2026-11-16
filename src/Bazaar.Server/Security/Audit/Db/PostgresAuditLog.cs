@@ -11,7 +11,7 @@ namespace Bazaar.Server.Security.Audit.Db;
 public sealed class PostgresAuditLog(NpgsqlDataSource dataSource) : ITransactionalAuditLog
 {
     /// <summary>Advisory-lock key that serialises appends. Distinct from the migration lock and the GC locks ("BAUDITLG").</summary>
-    private const long _appendLockKey = 0x4241554449544C47;
+    internal const long AppendLockKey = 0x4241554449544C47;
 
     private const string _columns = "seq, ts, actor, kind, payload::text, prev_hash, hash";
 
@@ -54,7 +54,7 @@ public sealed class PostgresAuditLog(NpgsqlDataSource dataSource) : ITransaction
     {
         await using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock($1)", conn, tx))
         {
-            lockCmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = _appendLockKey });
+            lockCmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = AppendLockKey });
             await lockCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 

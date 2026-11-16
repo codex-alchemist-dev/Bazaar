@@ -8,7 +8,7 @@ Depends on: 41-client-gui-customization-and-dsl.md (section 8 module contract, d
 
 | Code now in `Bazaar.Client.Core` | Source | What it is |
 |---|---|---|
-| `Layout/LayoutDocument`, `LayoutValidator`, `LayoutResolver`, `LayoutScopeMerger`, `LayoutTree`, `LayoutSelection` | #512, #520 | Layout documents, rules and placement (pure) |
+| `Bazaar.Client.Layout` (moved from `Layout/` in Client.Core; namespace `Bazaar.Client.Layout`): `LayoutDocument`, `LayoutValidator`, `LayoutResolver`, `LayoutScopeMerger`, `LayoutTree`, `LayoutSelection` | #512, #520 | Layout documents, rules and placement (pure) |
 | `Tour/TourDefinition`, `TourSession`, `ITourStateStore` | #512 | First-run tour framework (pure) |
 | `Modules/ModuleManifest`, `ModuleManifestValidator`, `ClientModuleBuilder`, `IClientModule` | #521 | Module contract: the manifest and its checks (pure) |
 
