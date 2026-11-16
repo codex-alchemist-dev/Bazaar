@@ -21,6 +21,15 @@ on:
       - 'packaging/postgres/**'
       - '.github/workflows/postgres-source-build.yml'
   workflow_dispatch:
+    inputs:
+      release_key_id:
+        description: 'Publisher key id the bundle is signed under (doc 49 section 3). Configurable.'
+        required: false
+        default: 'bazaar-release'
+      release_public_key_path:
+        description: 'Repository path of the public key the signature is verified with. Not a secret.'
+        required: false
+        default: 'packaging/signing/bazaar-release-public.pem'
 
 permissions:
   contents: read
@@ -117,3 +126,51 @@ jobs:
           path: ${{ runner.temp }}\pg-src-bundle\${{ matrix.major }}
           if-no-files-found: error
           retention-days: 14
+
+  sign-linux-18:
+    # Release signing (doc 49 section 3). Runs only on a manual dispatch from the release environment, never on a pull
+    # request, because a pull request could read the release secret. The key comes from the environment secret and is
+    # written to a file that is removed when the job ends. Publisher and key id are inputs, so they stay configurable.
+    name: Sign the Linux PostgreSQL 18 bundle (release only)
+    if: github.event_name == 'workflow_dispatch'
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    env:
+      RELEASE_KEY_PEM: ${{ secrets.BAZAAR_RELEASE_SIGNING_KEY_PEM }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Fetch the bundle built by the Linux job
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4.3.0
+        with:
+          name: pg-src-bundle-linux-18
+          path: ${{ runner.temp }}/pg-src-bundle/18
+
+      - name: Check the bundle before signing
+        run: packaging/postgres/source/test-source-bundle.sh --bundle "$RUNNER_TEMP/pg-src-bundle/18" --major 18 --platform linux
+
+      - name: Sign the bundle as a module package
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/release-signing-key.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$RELEASE_KEY_PEM" > "$key"
+          chmod 600 "$key"
+          dotnet run packaging/postgres/source/SignBundle.cs -- sign \
+            --bundle "$RUNNER_TEMP/pg-src-bundle/18" --module-id postgresql --version 18.7.0 \
+            --permission fs.dataRoot --key-id "${{ inputs.release_key_id || 'bazaar-release' }}" \
+            --private-key "$key" --out "$RUNNER_TEMP/pg-src-bundle/18.package.json"
+          dotnet run packaging/postgres/source/SignBundle.cs -- verify \
+            --package "$RUNNER_TEMP/pg-src-bundle/18.package.json" --public-key "${{ inputs.release_public_key_path || 'packaging/signing/bazaar-release-public.pem' }}" \
+            --key-id "${{ inputs.release_key_id || 'bazaar-release' }}" --bundle "$RUNNER_TEMP/pg-src-bundle/18"
