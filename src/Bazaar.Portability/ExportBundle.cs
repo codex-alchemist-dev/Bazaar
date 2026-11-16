@@ -18,9 +18,10 @@ public sealed record ExportBundle(string Manifest, IReadOnlyList<BundleFile> Fil
 /// Builds, verifies and writes export bundles in memory (doc 44 sections 5 and 6.1).
 /// </summary>
 /// <remarks>
-/// NOT IMPLEMENTED YET (later slices): bundle encryption (Argon2id key plus AEAD archive, section 5),
-/// the manifest signature manifest.sig and the public key (section 6.3), README.txt, splitting into
-/// parts of at most 4 GiB, and resumable chunks. Nothing built here is encrypted or signed.
+/// Encryption and signing live in <see cref="ExportBundleCipher"/> and <see cref="BundleSigner"/>.
+/// Encryption uses Argon2id (see <see cref="ExportBundleCipher"/>). NOT IMPLEMENTED YET (later slices): README.txt,
+/// splitting into parts of at most 4 GiB, and resumable chunks.
+/// Nothing built here is encrypted or signed unless the caller applies those steps.
 /// </remarks>
 public static class ExportBundleWriter
 {
@@ -145,7 +146,9 @@ public static class ExportBundleWriter
             if (Sha256Hex(file.Content) != sha256) problems.Add("sha256 mismatch: " + path);
         }
 
-        foreach (var path in actual.Keys.Where(p => p != ManifestFileName).OrderBy(p => p, StringComparer.Ordinal))
+        foreach (var path in actual.Keys
+            .Where(p => p != ManifestFileName && !BundleSigner.IsSignatureFile(p))
+            .OrderBy(p => p, StringComparer.Ordinal))
         {
             if (!expected.ContainsKey(path)) problems.Add("not in manifest: " + path);
         }
@@ -197,6 +200,7 @@ public static class ExportBundleWriter
         if (path.StartsWith('/') || Path.IsPathRooted(path)) throw new ArgumentException("Bundle path is absolute: " + path);
         if (path.Contains(':', StringComparison.Ordinal)) throw new ArgumentException("Bundle path has a drive or scheme: " + path);
         if (path == ManifestFileName) throw new ArgumentException("Bundle path is reserved for the manifest: " + path);
+        if (BundleSigner.IsSignatureFile(path)) throw new ArgumentException("Bundle path is reserved for a signature file: " + path);
 
         foreach (var segment in path.Split('/'))
         {

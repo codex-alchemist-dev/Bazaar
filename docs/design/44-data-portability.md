@@ -198,7 +198,7 @@ bazaar-export-<instance-id>-<utc-timestamp>/
   blobs/...
 ```
 
-- [PROPOSED] Wrapping: the default is an encrypted archive. The key is derived from a passphrase with Argon2id, and the archive uses an AEAD cipher. Plaintext bundles need a deliberate choice (`portability.export.encrypt_bundle`, default true; the floor is that personal data is never written plaintext without the owner's explicit confirmation).
+- [PROPOSED] Wrapping: the default is an encrypted archive. The key is derived from a passphrase with Argon2id (RFC 9106, owner choice 2026-11-15 over PBKDF2), and the archive uses AES-256-GCM. The Argon2id cost (memory 64 MiB, time cost 3, parallelism 4 by default) is written into a versioned KDF header (KDF id 1 = Argon2id, parameter version 1), so an archive still opens when the defaults change. The header is authenticated as associated data. Readers refuse parameters outside a floor (19 MiB, time cost 2) and a ceiling (1 GiB, time cost 10, 16 lanes). Plaintext bundles need a deliberate choice (`portability.export.encrypt_bundle`, default true; the floor is that personal data is never written plaintext without the owner's explicit confirmation).
 - [PROPOSED] Splitting: a bundle is split into parts of at most 4 GiB. Each part has its own hash in the manifest, and the manifest lists every part in order.
 - [PROPOSED] Resumption: a large export is written as a sequence of resumable chunks. A failed download restarts at the chunk, not at the beginning.
 
