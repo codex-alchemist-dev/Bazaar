@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Bazaar.Client.Core.Updates;
+namespace Bazaar.Updates;
 
 /// <summary>
 /// Verifies update packages against the company's signing certificate, which is pinned into the company build

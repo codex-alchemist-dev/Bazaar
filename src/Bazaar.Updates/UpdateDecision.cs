@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Updates;
+namespace Bazaar.Updates;
 
 /// <summary>Why an offered update is refused. Refusals are always explicit, never silent.</summary>
 public enum UpdateRefusal

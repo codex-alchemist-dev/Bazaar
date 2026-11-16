@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Bazaar.Client.Core.Updates;
+using Bazaar.Updates;
 
-namespace Bazaar.Client.Core.Tests.Updates;
+namespace Bazaar.Updates.Tests;
 
 public sealed class PinnedCertificateSignatureVerifierTests : IDisposable
 {

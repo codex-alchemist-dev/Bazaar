@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Bazaar.Client.Core.Updates;
+namespace Bazaar.Updates;
 
 /// <summary>
 /// A SemVer version as Bazaar writes it: <c>0.MM.PP</c>, optional <c>-prerelease</c>, optional <c>+commit</c>.

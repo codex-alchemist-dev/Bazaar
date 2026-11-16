@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Updates;
+namespace Bazaar.Updates;
 
 /// <summary>
 /// One release offered by a company server's update feed. The feed is untrusted until the package

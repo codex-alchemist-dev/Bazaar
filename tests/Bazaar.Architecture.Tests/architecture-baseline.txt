@@ -73,10 +73,6 @@ src/Bazaar.Client.Core/Theme/MonacoThemeGenerator.cs
 src/Bazaar.Client.Core/Theme/ThemeModel.cs
 src/Bazaar.Client.Core/Theme/ThemeTokens.cs
 src/Bazaar.Client.Core/Theme/ThemeValidator.cs
-src/Bazaar.Client.Core/Updates/UpdateDecision.cs
-src/Bazaar.Client.Core/Updates/UpdateManifest.cs
-src/Bazaar.Client.Core/Updates/UpdateVerifier.cs
-src/Bazaar.Client.Core/Updates/UpdateVersion.cs
 src/Bazaar.Client.Core/Vault/VaultApi.cs
 src/Bazaar.Client.Core/Vault/VaultApiFactory.cs
 src/Bazaar.Client.Core/Vault/VaultSearchPaneViewModel.cs
