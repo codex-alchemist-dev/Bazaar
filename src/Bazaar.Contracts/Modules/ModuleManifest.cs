@@ -57,6 +57,11 @@ public static partial class ModuleManifestValidator
         "wire:constellation.read",
         "storage:local",
         "device:notify",
+        "network:host",
+        "secret:name",
+        "ui:pane",
+        "background:job",
+        "process:spawn",
     };
 
     [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)+$", RegexOptions.CultureInvariant)]

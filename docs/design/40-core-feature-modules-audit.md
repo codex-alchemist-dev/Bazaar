@@ -50,9 +50,9 @@ Rules that already exist and stay: a module references other modules only throug
 
 Applied to the three features:
 
-- **GC:** `Bazaar.Gc.Abstractions` (log reader and writer contracts, access policy), `Bazaar.Gc` (the log). Its consumers (Kanban, RyuseiFuda, Calendar, Org, Agents) reference the abstractions only. Biggest payoff, so first.
+- **GC:** `Bazaar.GC.Abstractions` (log reader and writer contracts, access policy), `Bazaar.GC` (the log). Its consumers (Kanban, RyuseiFuda, Calendar, Org, Agents) reference the abstractions only. Biggest payoff, so first.
 - **Constellation:** `Bazaar.Constellation` with its Vault graph source going through a Vault abstractions project. Its client pane goes in `Bazaar.Client.Constellation`.
-- **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.Gc.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
+- **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.GC.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
 
 ## 4a. Renames (planned, small PRs)
 
@@ -92,7 +92,7 @@ The earlier open questions are kept below for reference.
 
 ## 6a. Open questions (superseded where decided above)
 
-1. **Project naming.** Options: (a) `Bazaar.Gc`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda` (matches the namespaces today); (b) `Bazaar.GC` (matches the owner's spoken form); (c) `Bazaar.Server.Components.<Name>` (matches the existing Kanban project). The kernel name `Bazaar.Core` is also new. Owner picks.
-2. **Optional dependencies** (item 2): field name `OptionalDependsOn`, or a `Soft` flag on each dependency. Owner or doc owner picks.
+1. **Project naming.** RESOLVED (owner, 2026-11-09 and confirmed 2026-11-16): `Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.KODO`, `Bazaar.Rubedo`, `Bazaar.Conduit`. Kernel: `Bazaar.Core`. Decision is in section 6.1.
+2. **Optional dependencies** (item 2): RESOLVED (owner, 2026-11-16, unified graph #614, #616): optional links are `SoftDependsOn`, already in `ComponentManifest`. Hard edges are acyclic and set start order; soft edges may be mutual and never set order; a missing dependency degrades only the features that need it. See section 6.2.
 3. **RyuseiFuda migration name** (item 7): rename the component id to `ryusei` (no stored data uses the id, so this is the cheaper side), or the folder to `ryusei_schedule`. Recommend the id.
 4. **Scope of wave 2.** Whether Calendar, Org and Agents become components before GC is split, since they are the GC consumers.

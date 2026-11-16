@@ -29,7 +29,11 @@ public static partial class DependencyManifestValidator
                 $"Module '{manifest.Id}' has no display name.");
         }
 
-        foreach (var required in DependencyManifest.RequiredTags.Where(t => !manifest.Tags.Contains(t, StringComparer.Ordinal)))
+        var requiredTags = manifest.Origin == DependencyOrigin.ThirdParty
+            ? DependencyManifest.RequiredTags.Append(DependencyManifest.ThirdPartyTag)
+            : DependencyManifest.RequiredTags;
+
+        foreach (var required in requiredTags.Where(t => !manifest.Tags.Contains(t, StringComparer.Ordinal)))
         {
             Add(issues, DependencyManifestIssueCode.MissingRequiredTag, DependencyManifestIssueSeverity.Error,
                 $"Module '{manifest.Id}' is missing the required tag '{required}'.");
