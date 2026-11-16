@@ -44,7 +44,7 @@ Every restart is a clean boot. "Restore" means boot again, not resume, so doc 16
 
 ## 4. Module shape (platform-neutral)
 - `Bazaar.Server.Vms.WindowsSandbox`: `WindowsSandboxBackend` (implements `IVmBackend` and `IVmProvider`, kind `windows_sandbox`), `WindowsSandboxConfig` (pure XML), `WindowsSandboxOptions`, `WindowsSandboxModule` (identity, requirements, capability report).
-- `IWindowsSandboxHost` is the only seam to the host. The real adapter is not in this change: it waits for S-WSB, because the start, stop and count commands are unverified. Until then the provider is not registered in any host composition, so `auto` never selects it.
+- `IWindowsSandboxHost` is the only seam to the host. The real adapter (`WsbCli/WsbCliSandboxHost`, driving `wsb.exe`) exists since spike S-WSB, which verified start, list, stop, exec and the single-instance refusal on the owner's PC (`docs/spikes/S-WSB.md`). The provider is still not registered in any host composition, so `auto` never selects it, until the owner answers section 7.
 - `IHostFactsSource` reports OS, architecture and features for the requirements check. Its Windows implementation belongs in `Bazaar.Server.Providers.Windows` (Windows-only APIs stay behind a provider).
 - Tests (`Bazaar.Server.Vms.WindowsSandbox.Tests`, 22) use in-memory fakes. Cloud CI makes no Windows Sandbox calls.
 
@@ -75,6 +75,6 @@ Run on the owner's Windows PC, on a branch of its own, with the results written 
 3. How does the guest agent reach a Windows Sandbox instance, given there is no baked image (mapped folder and logon command, or another route)? Needed before scoped mounts or exec work. *Recommend* deciding after S-WSB step 6.
 
 ## 8. Status and open items
-- The module and its tests exist. The real host adapter, the Windows facts source and host registration wait for S-WSB.
+- The module and its tests exist. The real host adapter exists (S-WSB, `docs/spikes/S-WSB.md`). The Windows facts source and host registration are still open; registration waits for the owner's answers in section 7.
 - The install-time host check is a follow-up (section 5).
 - DECISIONS-LOG has no entry for this yet. The main session writes one after the owner answers section 7.
