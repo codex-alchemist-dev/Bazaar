@@ -284,7 +284,8 @@ public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Chi
 public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
     IReadOnlyList<string> PaneKinds, IReadOnlyList<string> Commands, IReadOnlyList<string> SettingKeys,
     IReadOnlyList<string> Capabilities /* e.g. wire:gc.history, storage:local, device:notify */,
-    ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */);
+    ModuleIsolation Isolation /* InProcessCompiled, OutOfProcess: depends on loading mode */,
+    HostRequirements Host /* required, owner 2026-11-16: OS, architecture and features (doc 50 section 5) */);
 
 public enum ModuleIsolation { InProcessCompiled, OutOfProcess }   // names PROPOSED; open question 2
 
