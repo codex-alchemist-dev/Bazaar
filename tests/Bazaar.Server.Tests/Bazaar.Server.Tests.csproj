@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Components.Fun\Bazaar.Server.Components.Fun.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Components.Kanban\Bazaar.Server.Components.Kanban.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />

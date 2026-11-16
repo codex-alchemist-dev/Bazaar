@@ -52,6 +52,7 @@ Applied to the three features:
 
 - **GC:** `Bazaar.GC.Abstractions` (log reader and writer contracts, access policy), `Bazaar.GC` (the log). Its consumers (Kanban, RyuseiFuda, Calendar, Org, Agents) reference the abstractions only. Biggest payoff, so first.
 - **Constellation:** `Bazaar.Constellation` with its Vault graph source going through a Vault abstractions project. Its client pane goes in `Bazaar.Client.Constellation`.
+- **Erasure (legal hold, doc 48 §9):** `Bazaar.Erasure.Abstractions` (`ILegalHoldReader`), `Bazaar.Erasure` (`PostgresLegalHoldReader`, `AddBazaarLegalHoldReader`). The erasure coordinator stays in Server until its own extraction; Server references only the abstractions.
 - **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.GC.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
 
 ## 4a. Renames (planned, small PRs)
