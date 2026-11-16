@@ -8,17 +8,17 @@ namespace Bazaar.Server.Tests.Constellation.Memory;
 /// <summary>The pure memory graph projection: links, provenance, ordering and validation. No database needed.</summary>
 public sealed class MemoryGraphProjectorTests
 {
-    private const string Path = "agents/alpha/memory/lessons/retry-backoff.md";
-    private const string Agent = "alpha";
-    private const string SelfId = "01SELF";
-    private const string OtherId = "01OTHER";
-    private const string ThirdId = "01THIRD";
+    private const string _path = "agents/alpha/memory/lessons/retry-backoff.md";
+    private const string _agent = "alpha";
+    private const string _selfId = "01SELF";
+    private const string _otherId = "01OTHER";
+    private const string _thirdId = "01THIRD";
 
     private static readonly IReadOnlyDictionary<string, string> Titles = new Dictionary<string, string>
     {
-        ["Other note"] = OtherId,
-        ["Third note"] = ThirdId,
-        ["Self note"] = SelfId,
+        ["Other note"] = _otherId,
+        ["Third note"] = _thirdId,
+        ["Self note"] = _selfId,
     };
 
     private static MemoryNote Note(
@@ -27,7 +27,7 @@ public sealed class MemoryGraphProjectorTests
         MemoryOrigin? origin = null,
         long version = 3) =>
         new(
-            Id: SelfId,
+            Id: _selfId,
             Type: MemoryNoteTypes.TypeFor(MemoryKind.Procedural),
             Title: "Retry backoff",
             Project: null,
@@ -44,17 +44,17 @@ public sealed class MemoryGraphProjectorTests
             Supersedes: supersedes ?? []);
 
     private static MemoryGraphRevision Project(string body, MemoryNote? note = null) =>
-        MemoryGraphProjector.Project(note ?? Note(), body, Path, Agent, Titles);
+        MemoryGraphProjector.Project(note ?? Note(), body, _path, _agent, Titles);
 
     [Fact]
     public void Revision_fields_come_from_the_note_and_arguments()
     {
         var revision = Project("", Note(version: 7));
 
-        Assert.Equal(SelfId, revision.NoteId);
+        Assert.Equal(_selfId, revision.NoteId);
         Assert.Equal(7, revision.Version);
-        Assert.Equal(Agent, revision.ScopeAgentId);
-        Assert.Equal(Path, revision.VaultPath);
+        Assert.Equal(_agent, revision.ScopeAgentId);
+        Assert.Equal(_path, revision.VaultPath);
         Assert.Equal("Retry backoff", revision.Title);
         Assert.Equal("Procedural", revision.Kind);
         Assert.Equal("Active", revision.Status);
@@ -67,7 +67,7 @@ public sealed class MemoryGraphProjectorTests
         var revision = Project("");
 
         var edge = Assert.Single(revision.Edges);
-        Assert.Equal(new MemoryGraphEdge("agent:" + Agent, MemoryEdgeKind.AuthoredBy, 0.0), edge);
+        Assert.Equal(new MemoryGraphEdge("agent:" + _agent, MemoryEdgeKind.AuthoredBy, 0.0), edge);
     }
 
     [Fact]
@@ -75,15 +75,15 @@ public sealed class MemoryGraphProjectorTests
     {
         var revision = Project("See [[Other note]] for details.");
 
-        Assert.Contains(new MemoryGraphEdge(OtherId, MemoryEdgeKind.Link, 1.0), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_otherId, MemoryEdgeKind.Link, 1.0), revision.Edges);
     }
 
     [Fact]
     public void Wiki_link_resolves_by_note_id()
     {
-        var revision = Project($"Builds on [[{ThirdId}]].");
+        var revision = Project($"Builds on [[{_thirdId}]].");
 
-        Assert.Contains(new MemoryGraphEdge(ThirdId, MemoryEdgeKind.Link, 1.0), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_thirdId, MemoryEdgeKind.Link, 1.0), revision.Edges);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public sealed class MemoryGraphProjectorTests
         var revision = Project("Read [[Other note|the other one]].");
 
         var link = Assert.Single(revision.Edges, e => e.Kind == MemoryEdgeKind.Link);
-        Assert.Equal(new MemoryGraphEdge(OtherId, MemoryEdgeKind.Link, 1.0), link);
+        Assert.Equal(new MemoryGraphEdge(_otherId, MemoryEdgeKind.Link, 1.0), link);
     }
 
     [Fact]
@@ -116,13 +116,13 @@ public sealed class MemoryGraphProjectorTests
     {
         var revision = Project("See [[  Third note  ]].");
 
-        Assert.Contains(new MemoryGraphEdge(ThirdId, MemoryEdgeKind.Link, 1.0), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_thirdId, MemoryEdgeKind.Link, 1.0), revision.Edges);
     }
 
     [Fact]
     public void Self_link_by_title_or_id_produces_no_edge()
     {
-        var revision = Project($"[[Self note]] and [[{SelfId}]].");
+        var revision = Project($"[[Self note]] and [[{_selfId}]].");
 
         Assert.DoesNotContain(revision.Edges, e => e.Kind == MemoryEdgeKind.Link);
     }
@@ -138,10 +138,10 @@ public sealed class MemoryGraphProjectorTests
     [Fact]
     public void Derived_from_and_supersedes_take_their_weights()
     {
-        var revision = Project("", Note(derivedFrom: [OtherId], supersedes: [ThirdId]));
+        var revision = Project("", Note(derivedFrom: [_otherId], supersedes: [_thirdId]));
 
-        Assert.Contains(new MemoryGraphEdge(OtherId, MemoryEdgeKind.DerivedFrom, 0.8), revision.Edges);
-        Assert.Contains(new MemoryGraphEdge(ThirdId, MemoryEdgeKind.Supersedes, 0.5), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_otherId, MemoryEdgeKind.DerivedFrom, 0.8), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_thirdId, MemoryEdgeKind.Supersedes, 0.5), revision.Edges);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class MemoryGraphProjectorTests
     {
         var revision = Project("", Note(origin: new MemoryOrigin("gc-1", ["msg-1", "msg-2"])));
 
-        Assert.Contains(new MemoryGraphEdge("agent:" + Agent, MemoryEdgeKind.AuthoredBy, 0.0), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge("agent:" + _agent, MemoryEdgeKind.AuthoredBy, 0.0), revision.Edges);
         Assert.Contains(new MemoryGraphEdge("gc:gc-1", MemoryEdgeKind.FromGc, 0.0), revision.Edges);
         Assert.Contains(new MemoryGraphEdge("message:msg-1", MemoryEdgeKind.FromMessage, 0.0), revision.Edges);
         Assert.Contains(new MemoryGraphEdge("message:msg-2", MemoryEdgeKind.FromMessage, 0.0), revision.Edges);
@@ -172,7 +172,7 @@ public sealed class MemoryGraphProjectorTests
     [Fact]
     public void Duplicate_targets_of_the_same_kind_are_deduplicated()
     {
-        var revision = Project("", Note(derivedFrom: [OtherId, OtherId]));
+        var revision = Project("", Note(derivedFrom: [_otherId, _otherId]));
 
         Assert.Single(revision.Edges, e => e.Kind == MemoryEdgeKind.DerivedFrom);
     }
@@ -180,10 +180,10 @@ public sealed class MemoryGraphProjectorTests
     [Fact]
     public void Same_target_under_different_kinds_is_kept_twice()
     {
-        var revision = Project("[[Other note]]", Note(derivedFrom: [OtherId]));
+        var revision = Project("[[Other note]]", Note(derivedFrom: [_otherId]));
 
-        Assert.Contains(new MemoryGraphEdge(OtherId, MemoryEdgeKind.Link, 1.0), revision.Edges);
-        Assert.Contains(new MemoryGraphEdge(OtherId, MemoryEdgeKind.DerivedFrom, 0.8), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_otherId, MemoryEdgeKind.Link, 1.0), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge(_otherId, MemoryEdgeKind.DerivedFrom, 0.8), revision.Edges);
     }
 
     [Fact]
@@ -211,14 +211,14 @@ public sealed class MemoryGraphProjectorTests
     {
         var reversed = new Dictionary<string, string>
         {
-            ["Self note"] = SelfId,
-            ["Third note"] = ThirdId,
-            ["Other note"] = OtherId,
+            ["Self note"] = _selfId,
+            ["Third note"] = _thirdId,
+            ["Other note"] = _otherId,
         };
         var body = "[[Other note]] [[Third note]] [[Other note]]";
 
-        var first = MemoryGraphProjector.Project(Note(), body, Path, Agent, Titles);
-        var second = MemoryGraphProjector.Project(Note(), body, Path, Agent, reversed);
+        var first = MemoryGraphProjector.Project(Note(), body, _path, _agent, Titles);
+        var second = MemoryGraphProjector.Project(Note(), body, _path, _agent, reversed);
 
         Assert.Equal(first.Edges, second.Edges);
         Assert.Equal(first.Title, second.Title);
@@ -228,21 +228,21 @@ public sealed class MemoryGraphProjectorTests
     public void Null_note_throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            MemoryGraphProjector.Project(null!, "", Path, Agent, Titles));
+            MemoryGraphProjector.Project(null!, "", _path, _agent, Titles));
     }
 
     [Fact]
     public void Null_body_throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            MemoryGraphProjector.Project(Note(), null!, Path, Agent, Titles));
+            MemoryGraphProjector.Project(Note(), null!, _path, _agent, Titles));
     }
 
     [Fact]
     public void Null_title_map_throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            MemoryGraphProjector.Project(Note(), "", Path, Agent, null!));
+            MemoryGraphProjector.Project(Note(), "", _path, _agent, null!));
     }
 
     [Theory]
@@ -252,7 +252,7 @@ public sealed class MemoryGraphProjectorTests
     public void Blank_vault_path_throws(string? vaultPath)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            MemoryGraphProjector.Project(Note(), "", vaultPath!, Agent, Titles));
+            MemoryGraphProjector.Project(Note(), "", vaultPath!, _agent, Titles));
     }
 
     [Theory]
@@ -262,6 +262,6 @@ public sealed class MemoryGraphProjectorTests
     public void Blank_scope_agent_throws(string? agentId)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            MemoryGraphProjector.Project(Note(), "", Path, agentId!, Titles));
+            MemoryGraphProjector.Project(Note(), "", _path, agentId!, Titles));
     }
 }

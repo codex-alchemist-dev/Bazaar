@@ -12,9 +12,9 @@ namespace Bazaar.Server.Constellation.Memory;
 /// </summary>
 public sealed class MemoryGraphRetriever
 {
-    private const string ActiveStatus = "Active";
-    private const int MaxHopsCeiling = 2;
-    private const double HopPenalty = 0.5;
+    private const string _activeStatus = "Active";
+    private const int _maxHopsCeiling = 2;
+    private const double _hopPenalty = 0.5;
 
     private readonly IMemoryGraphStore _store;
     private readonly IVaultAccess _access;
@@ -53,7 +53,7 @@ public sealed class MemoryGraphRetriever
         ArgumentOutOfRangeException.ThrowIfLessThan(options.TopK, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.RrfK, 1);
 
-        int maxHops = Math.Clamp(options.MaxHops, 0, MaxHopsCeiling);
+        int maxHops = Math.Clamp(options.MaxHops, 0, _maxHopsCeiling);
         bool lexicalOnly = vector.Count == 0;
 
         IReadOnlyList<FusedHit> seeds = RrfFusion.Fuse(
@@ -97,7 +97,7 @@ public sealed class MemoryGraphRetriever
                         continue;
                     }
 
-                    double score = parent.Score * edge.Weight * HopPenalty;
+                    double score = parent.Score * edge.Weight * _hopPenalty;
 
                     if (kept.TryGetValue(edge.TargetId, out Candidate? existing))
                     {
@@ -199,7 +199,7 @@ public sealed class MemoryGraphRetriever
         foreach (MemoryGraphRevision revision in revisions)
         {
             if (!requested.Contains(revision.NoteId)
-                || !string.Equals(revision.Status, ActiveStatus, StringComparison.Ordinal))
+                || !string.Equals(revision.Status, _activeStatus, StringComparison.Ordinal))
             {
                 continue;
             }

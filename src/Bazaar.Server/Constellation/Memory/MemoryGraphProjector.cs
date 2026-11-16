@@ -13,10 +13,10 @@ public static class MemoryGraphProjector
     private static readonly Regex _wikiLink = new(@"\[\[([^\[\]]*)\]\]", RegexOptions.CultureInvariant);
 
     /// <summary>Expansion weights (see the spec, "Records"). Provenance edges carry 0.</summary>
-    private const double LinkWeight = 1.0;
-    private const double DerivedFromWeight = 0.8;
-    private const double SupersedesWeight = 0.5;
-    private const double ProvenanceWeight = 0.0;
+    private const double _linkWeight = 1.0;
+    private const double _derivedFromWeight = 0.8;
+    private const double _supersedesWeight = 0.5;
+    private const double _provenanceWeight = 0.0;
 
     /// <summary>
     /// Builds the graph revision for one note. A wiki-link resolves when its target equals a note id (any value of
@@ -74,31 +74,31 @@ public static class MemoryGraphProjector
                 continue;
             }
 
-            Add(edges, new MemoryGraphEdge(resolved, MemoryEdgeKind.Link, LinkWeight));
+            Add(edges, new MemoryGraphEdge(resolved, MemoryEdgeKind.Link, _linkWeight));
         }
 
         foreach (var id in note.DerivedFrom)
         {
-            Add(edges, new MemoryGraphEdge(id, MemoryEdgeKind.DerivedFrom, DerivedFromWeight));
+            Add(edges, new MemoryGraphEdge(id, MemoryEdgeKind.DerivedFrom, _derivedFromWeight));
         }
 
         foreach (var id in note.Supersedes)
         {
-            Add(edges, new MemoryGraphEdge(id, MemoryEdgeKind.Supersedes, SupersedesWeight));
+            Add(edges, new MemoryGraphEdge(id, MemoryEdgeKind.Supersedes, _supersedesWeight));
         }
 
-        Add(edges, new MemoryGraphEdge("agent:" + scopeAgentId, MemoryEdgeKind.AuthoredBy, ProvenanceWeight));
+        Add(edges, new MemoryGraphEdge("agent:" + scopeAgentId, MemoryEdgeKind.AuthoredBy, _provenanceWeight));
 
         if (!string.IsNullOrEmpty(note.Origin?.Gc))
         {
-            Add(edges, new MemoryGraphEdge("gc:" + note.Origin.Gc, MemoryEdgeKind.FromGc, ProvenanceWeight));
+            Add(edges, new MemoryGraphEdge("gc:" + note.Origin.Gc, MemoryEdgeKind.FromGc, _provenanceWeight));
         }
 
         if (note.Origin is not null)
         {
             foreach (var messageId in note.Origin.Messages)
             {
-                Add(edges, new MemoryGraphEdge("message:" + messageId, MemoryEdgeKind.FromMessage, ProvenanceWeight));
+                Add(edges, new MemoryGraphEdge("message:" + messageId, MemoryEdgeKind.FromMessage, _provenanceWeight));
             }
         }
 

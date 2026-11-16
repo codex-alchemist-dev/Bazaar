@@ -14,7 +14,7 @@ public class MemoryGraphRetrieverTests
     private static readonly VaultPathAccess _access = new(
         new StaticProjectMembership(new Dictionary<string, ProjectMembers>()));
 
-    private const int DefaultBudget = 1000;
+    private const int _defaultBudget = 1000;
 
     // The fused score of a seed at rank 1 in one list with the default RRF constant (60).
     private static double Rank1 => 1.0 / 61;
@@ -226,7 +226,7 @@ public class MemoryGraphRetrieverTests
             Ranked("a", "b"),
             [],
             counts,
-            DefaultBudget,
+            _defaultBudget,
             new MemoryGraphOptions(MaxHops: 0),
             CancellationToken.None);
 
@@ -391,7 +391,7 @@ public class MemoryGraphRetrieverTests
             Ranked(lexical),
             Ranked(vector),
             counts,
-            DefaultBudget,
+            _defaultBudget,
             new MemoryGraphOptions(MaxHops: maxHops),
             CancellationToken.None);
     }
