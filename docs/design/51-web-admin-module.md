@@ -26,7 +26,7 @@ An admin-only web panel the server hosts for administration and health: users, K
 Kodo's own rule holds: Kodo adds no interactive browser surface of its own (doc 46 section 15.5). The panel reads Kodo through its API. Any write from the panel is an admin action that goes through the normal approval flow where doc 15 requires one.
 
 ### 2. Auth
-- Only accounts with the admin role may open the panel. Coworkers get a 403, not a login page.
+- Only accounts that hold the admin permission may open the panel. The permission belongs to the roles model (doc 48 section 4, custom roles; doc 32 section 6 lists the built-in role templates). Coworkers get a 403, not a login page.
 - The session is the passkey sign-in of doc 32 section 4. It is short-lived, and it ends when the owner revokes the device or the account.
 - No content is shown before sign-in. The panel's entry page shows only the server display name and the sign-in control, the same rule as the sign-in page.
 
@@ -39,7 +39,7 @@ Kodo's own rule holds: Kodo adds no interactive browser surface of its own (doc 
 - No third-party script, style or font is loaded. A test scans the served assets for external URLs.
 
 ## Open questions for the owner
-1. **Who may use the panel. DECIDED (owner, 2026-11-16): any account with admin rights.** Any admin account can sign in to the panel, with the same permissions as the client admin views. Doc 32 section 6 has one owner per instance and no admin role yet, so the admin right is a new capability that doc 32 must name.
+1. **Who may use the panel. DECIDED (owner, 2026-11-16): any account with admin rights.** Any admin account can sign in to the panel, with the same permissions as the client admin views. Doc 32 section 6 has one owner per instance and no admin permission yet. The admin permission is named in the roles model of doc 48 section 4 (custom roles win over the fixed table in doc 32 section 6), and doc 32 section 6 must list it as a built-in role template. No new role name is introduced here.
 2. Should the panel be able to start a module-selection rebuild, or is it read-only and rebuilds run from the client? Default: it can start a rebuild, and each rebuild is audited.
 3. Should the panel be on by default for a company server, or off until enabled? Default: off until enabled, as with the sign-in page (doc 32 settings).
 
