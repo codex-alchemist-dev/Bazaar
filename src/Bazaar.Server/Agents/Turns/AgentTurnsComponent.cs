@@ -132,20 +132,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
         services.TryAddSingleton<ITurnRunner>(sp => new TurnRunAdapter(
             sp.GetRequiredService<TurnRunner>(),
             sp.GetRequiredService<ITurnContextAssembler>(),
-            TurnRoute(configuration),
             // Every tool definition a component added. A turn is offered only the ones its allowlist names.
             ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())));
 
         AddScheduler(services, configuration);
-    }
-
-    /// <summary>The model route every turn uses: <c>Bazaar:Turns:Route</c>, or the Haiku 5.5 model id when unset.</summary>
-    internal const string DefaultTurnRoute = "claude-haiku-5-5";
-
-    internal static string TurnRoute(IConfiguration configuration)
-    {
-        var route = configuration["Bazaar:Turns:Route"];
-        return string.IsNullOrWhiteSpace(route) ? DefaultTurnRoute : route.Trim();
     }
 
     /// <summary>Binds the wake loop options and, only when the loop is enabled, registers the scheduler and its hosted service.</summary>
@@ -161,6 +151,7 @@ public sealed class AgentTurnsComponent : IBazaarComponent
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IDueAgentReader>(sp => new InboxDueAgentReader(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IAgentToolGrants>(sp => new PostgresAgentToolGrants(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAgentScheduler>(sp =>
         {
             if (sp.GetService<ITurnRunner>() is null)
@@ -175,6 +166,7 @@ public sealed class AgentTurnsComponent : IBazaarComponent
                 sp.GetRequiredService<IDueAgentReader>(),
                 sp.GetRequiredService<TurnStarter>(),
                 guard,
+                sp.GetRequiredService<IAgentToolGrants>(),
                 sp.GetRequiredService<AgentSchedulerOptions>(),
                 sp.GetRequiredService<TimeProvider>(),
                 sp.GetRequiredService<ILogger<InboxAgentScheduler>>());
