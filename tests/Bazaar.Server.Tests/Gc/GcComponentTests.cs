@@ -1,6 +1,6 @@
+using Bazaar.Core;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Posting;
-using Bazaar.Core;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
