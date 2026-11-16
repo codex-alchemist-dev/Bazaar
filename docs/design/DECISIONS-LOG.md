@@ -209,7 +209,7 @@ Defaults taken by WP-R4 (PR #339, squash-merged) for doc 38 open questions. Two 
 | Authority | Pause and resume: owner or a target agent. Cancel: creator or owner. Owner may target resting agents (the fire skips them). Agents may not target resting or retired agents. | Yes. |
 | Idempotent create | Not implemented. Doc 38's per-(created_by, purpose, spec) minute window is deferred. | Yes. |
 | Component dependency | `ryusei-schedule` depends on `kanban` only. It resolves `IAuditLog`, so audit must be enabled. | Owner may add `audit` to DependsOn. |
-| Migration namespace | Component id `ryusei-schedule` maps to namespace `ryusei_schedule`, while the SQL folder is `ryusei`. | Owner may rename either. |
+| Migration namespace | Closed 2026-11-16. The SQL folder `Data/Sql/ryusei` is the namespace `ryusei`. The folder is not renamed, because renaming it would change applied migration history (keyed by folder name). Doc 40 item 7 holds the component-id side. | None. |
 
 **Open for owner:** none from WP-R4. The owner may still change any default above.
 
