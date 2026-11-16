@@ -189,6 +189,32 @@ public class ReadAuditorTests
     }
 
     [Fact]
+    public async Task The_persisted_payload_has_no_query_shape_hash_field_or_value()
+    {
+        // The shape hash keys the batch in memory only (owner decision on #594, item 3).
+        var (auditor, log, _) = Build();
+        var hash = QueryShape.Hash("select id from gc_message where seq > $1");
+
+        await using (auditor.BeginScope(_owner))
+        {
+            await auditor.RecordAsync(new DataRead("gc_message", 2, "select", hash), Ct);
+            await auditor.RecordAsync(new DataRead("gc_message", 3, "select", hash), Ct);
+        }
+
+        await auditor.RecordAsync(new DataRead("gc_message", 1, "select", hash, ObjectId: "person-1"), Ct);
+
+        Assert.Equal(2, log.Entries.Count);
+        foreach (var entry in log.Entries)
+        {
+            var payload = JsonNode.Parse(entry.Payload)!.AsObject();
+            Assert.False(payload.ContainsKey("query_shape_hash"));
+            Assert.DoesNotContain(hash, entry.Payload);
+        }
+        // The batch itself is still one row of five reads, so batching by shape is unchanged.
+        Assert.Equal(5, log.Payloads()[0]["result_count"]!.GetValue<int>());
+    }
+
+    [Fact]
     public void The_service_registration_resolves_the_auditor_over_the_audit_log()
     {
         var services = new ServiceCollection();

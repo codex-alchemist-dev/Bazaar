@@ -16,8 +16,8 @@ public sealed record ReadAccessContext(string Principal, string Route, string? S
 /// <summary>
 /// One read of server data, as a repository or a query layer reports it. <see cref="ObjectType"/> is the table or object
 /// class. <see cref="ObjectId"/> is set only for a personal object, which is recorded on its own row (doc 48 section 5.1);
-/// a bulk read leaves it null and records a count. Query shape is a hash of the normalised SQL, so the SQL text itself is
-/// never stored.
+/// a bulk read leaves it null and records a count. Query shape is a hash of the normalised SQL: it keys the batch in memory and is
+/// never persisted, so the SQL text and its shape stay out of the audit log.
 /// </summary>
 public sealed record DataRead(string ObjectType, int ResultCount, string? QueryKind = null, string? QueryShapeHash = null, string? ObjectId = null)
 {

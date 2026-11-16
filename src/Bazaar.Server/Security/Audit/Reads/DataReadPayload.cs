@@ -6,7 +6,7 @@ namespace Bazaar.Server.Security.Audit.Reads;
 
 /// <summary>
 /// The <c>data.read</c> audit row (doc 48 section 5.1): who read, which object class (and id, for a personal object), how many
-/// rows, the query shape hash, the taint tags, the purpose and the time window. Fields are fixed keys whose values are validated
+/// rows, the taint tags, the purpose and the time window. Fields are fixed keys whose values are validated
 /// ids or labels, so a payload cannot carry row content, SQL text or a secret. Canonical JSON, keys sorted.
 /// </summary>
 public static partial class DataReadPayload
@@ -70,7 +70,6 @@ public static partial class DataReadPayload
             ["object_type"] = row.ObjectType,
             ["object_id"] = row.ObjectId,
             ["query_kind"] = row.QueryKind,
-            ["query_shape_hash"] = row.QueryShapeHash,
             ["result_count"] = row.ResultCount,
             ["read_from"] = Timestamp(row.From),
             ["read_to"] = Timestamp(row.To),
@@ -122,4 +121,4 @@ public static partial class DataReadPayload
 }
 
 /// <summary>One audit row to write: a single personal object, or a batched count for one query shape.</summary>
-internal sealed record DataReadRow(string ObjectType, string? ObjectId, string? QueryKind, string? QueryShapeHash, long ResultCount, DateTimeOffset From, DateTimeOffset To);
+internal sealed record DataReadRow(string ObjectType, string? ObjectId, string? QueryKind, long ResultCount, DateTimeOffset From, DateTimeOffset To);

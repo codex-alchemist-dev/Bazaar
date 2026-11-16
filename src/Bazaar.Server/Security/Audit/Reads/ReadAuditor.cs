@@ -33,7 +33,7 @@ public sealed class ReadAuditor(IAuditLog log, TimeProvider time)
 
         var context = scope?.Context ?? ReadAccessContext.Unattributed;
         var now = _time.GetUtcNow();
-        await AppendRowAsync(context, new DataReadRow(read.ObjectType, read.ObjectId, read.QueryKind, read.QueryShapeHash, read.ResultCount, now, now), ct)
+        await AppendRowAsync(context, new DataReadRow(read.ObjectType, read.ObjectId, read.QueryKind, read.ResultCount, now, now), ct)
             .ConfigureAwait(false);
     }
 
@@ -112,7 +112,7 @@ public sealed class ReadAuditScope : IAsyncDisposable
                 .OrderBy(kv => kv.Key.ObjectType, StringComparer.Ordinal)
                 .ThenBy(kv => kv.Key.QueryKind ?? string.Empty, StringComparer.Ordinal)
                 .ThenBy(kv => kv.Key.QueryShapeHash ?? string.Empty, StringComparer.Ordinal)
-                .Select(kv => new DataReadRow(kv.Key.ObjectType, null, kv.Key.QueryKind, kv.Key.QueryShapeHash, kv.Value.Count, kv.Value.First, kv.Value.Last))
+                .Select(kv => new DataReadRow(kv.Key.ObjectType, null, kv.Key.QueryKind, kv.Value.Count, kv.Value.First, kv.Value.Last))
                 .ToList();
             _tallies.Clear();
         }
