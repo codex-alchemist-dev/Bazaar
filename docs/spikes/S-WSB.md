@@ -15,7 +15,7 @@ Not verified: whether the limit is per user or per host. Testing that needs a se
 | Windows 11 Pro (Professional), build 26300 | verified | `Win32_OperatingSystem`, `EditionID` = Professional |
 | Hypervisor present (`HypervisorPresent = True`) | verified | `Win32_ComputerSystem` |
 | CPU firmware virtualisation flag reads `False` | verified as reported; not interpreted | `VirtualizationFirmwareEnabled = False` while the hypervisor is running. Windows often reports this as False when the hypervisor already owns VT-x. Sandbox runs, so virtualisation works. |
-| `Containers-DisposableClientVM` optional feature enabled | **not verified** | `Get-WindowsOptionalFeature` needs elevation. The elevated check was sent to the owner's local `sudo` prompt and had not been answered when this report was written. The CBS package registry keys for `Containers-DisposableClientVM` exist. Their `CurrentState` values (112, 64, 80) are not decoded. Sandbox starts and runs, which implies the feature is on, but that is inference, not a read of the state. |
+| `Containers-DisposableClientVM` optional feature enabled | verified | Elevated `Get-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM` returned `State : Enabled` on the owner's PC (read-only, 2026-11-16, owner-approved sudo). `WindowsSandbox.exe` is present. The non-elevated facts probe reports the feature from the executable's presence, and this read agrees with it. |
 | `WindowsSandbox.exe` present in System32 | verified | `Test-Path` |
 | `wsb.exe` present (app execution alias in `WindowsApps`) | verified | `Get-Command` shows `C:\Users\theof\AppData\Local\Microsoft\WindowsApps\wsb.exe` |
 | Sandbox package version | verified | `wsb --version` = `0.8.114.0`; process path `MicrosoftWindows.WindowsSandbox_0.8.114.0_x64__cw5n1h2txyewy` |
@@ -83,7 +83,6 @@ The real `IWindowsSandboxHost` adapter is in `src/Bazaar.Server.Vms.WindowsSandb
 
 ## Pending
 
-- Elevated check of the `Containers-DisposableClientVM` state (sudo prompt not answered when written).
 - Second-account test of the limit scope.
 - Service-account stop test.
 - Logon command, headless window and Hyper-V coexistence.
