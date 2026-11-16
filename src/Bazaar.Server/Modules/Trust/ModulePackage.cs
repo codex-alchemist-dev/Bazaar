@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Modules;
+
 namespace Bazaar.Server.Modules.Trust;
 
 /// <summary>
@@ -9,6 +11,7 @@ namespace Bazaar.Server.Modules.Trust;
 /// <param name="DeclaredPermissions">The permissions the module declares, as strings. Compared and signed as a set.</param>
 /// <param name="ContentDigestSha256Hex">The SHA-256 digest of the package content, in lowercase hex.</param>
 /// <param name="SignerKeyId">The publisher key id that the signature claims to come from.</param>
+/// <param name="Host">The host machines the module can run on (owner, 2026-11-16). Signed, so a publisher cannot widen it after signing.</param>
 /// <param name="Signature">The signature bytes: ECDSA P-256 over the canonical form, IEEE P1363 (64 bytes).</param>
 public sealed record ModulePackage(
     string ModuleId,
@@ -16,4 +19,5 @@ public sealed record ModulePackage(
     IReadOnlySet<string> DeclaredPermissions,
     string ContentDigestSha256Hex,
     string SignerKeyId,
+    HostRequirements Host,
     byte[] Signature);
