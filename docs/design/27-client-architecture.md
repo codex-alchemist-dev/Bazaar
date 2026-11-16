@@ -10,7 +10,7 @@ The shared Avalonia UI library and the client logic under it: connection and sto
 - One Avalonia codebase: `Bazaar.Client.Core` plus thin heads. WinUI 3 and Jetpack Compose are retired (CLAUDE.md; this supersedes the WinUI 3 fallback in Bazaar.Windows.md §2).
 - Avalonia is decided but **conditional on the Monaco hosting spike (S12)**, which gates the UI framework as a whole. If it fails, the project may move to another open-source UI platform rather than ship a compromised client (DECISIONS-LOG round 5, C26, owner 2026-10-25).
 - **OSI-only public build**: no paid Avalonia components, no Accelerate or Pro controls. Charts and trees are drawn plainly (DECISIONS-LOG round 4, C23, owner 2026-10-25).
-- No web client. Native clients may embed web components such as Monaco (CLAUDE.md; Bazaar.Server.md §1). Android never uses Monaco (UI framework contingency note: Monaco is unsupported on mobile).
+- Native clients may embed web components such as Monaco (Bazaar.Server.md §1). Android never uses Monaco (UI framework contingency note: Monaco is unsupported on mobile).
 - Clients render; the server does all compute, except the ratified client-side exceptions: on-device NPU inference, the human's local terminal, the Roblox Studio bridge relay, and syncing the viewed branch to a local folder. Layout stays server-side (DECISIONS-LOG round 4, C17).
 - The local terminal is a built-in replacement for Windows Terminal running on the human's machine. Agent terminals are streamed by the server and are not hosted here (DECISIONS-LOG round 4, C31; owned by 28).
 - Layout: the server sends variants for every posture; the client switches locally with no round trip, and caches the last profile for offline cold start (DECISIONS-LOG round 5, C27).
