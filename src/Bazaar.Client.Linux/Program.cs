@@ -117,9 +117,7 @@ internal static class Program
             case DisplayBackend.X11:
                 return builder.UseX11();
             case DisplayBackend.Wayland:
-                // The native Wayland backend package is not referenced yet, so platform detection decides and the choice is logged.
-                Console.Error.WriteLine("Bazaar: Wayland was requested but the Wayland backend is not packaged yet; using platform detection.");
-                return builder.UsePlatformDetect();
+                return builder.UseWayland();
             default:
                 return builder.UsePlatformDetect();
         }
