@@ -75,6 +75,9 @@ Run on the owner's Windows PC, on a branch of its own, with the results written 
 3. How does the guest agent reach a Windows Sandbox instance, given there is no baked image (mapped folder and logon command, or another route)? Needed before scoped mounts or exec work. *Recommend* deciding after S-WSB step 6.
 
 ## 8. Status and open items
-- The module and its tests exist. The real host adapter exists (S-WSB, `docs/spikes/S-WSB.md`). The Windows facts source and host registration are still open; registration waits for the owner's answers in section 7.
+- The module and its tests exist. The real host adapter exists (S-WSB, `docs/spikes/S-WSB.md`).
+- The non-elevated facts probe (`WindowsSandboxHostFacts`) reports the `windows-sandbox` feature when `WindowsSandbox.exe` exists. The elevated check on the owner's PC confirmed `Containers-DisposableClientVM` is `Enabled` (S-WSB).
+- The sandbox is registered in the Vm role with capacity 1 and Windows-only scope, with Hyper-V reserved first (PR #612). Auto never selects it for the agent pair.
+- Still open: section 7 owner answers beyond the registration, and the per-user limit test (second account).
 - The install-time host check is a follow-up (section 5).
 - DECISIONS-LOG has no entry for this yet. The main session writes one after the owner answers section 7.
