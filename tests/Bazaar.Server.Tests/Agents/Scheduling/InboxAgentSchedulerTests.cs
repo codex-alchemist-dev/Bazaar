@@ -21,12 +21,10 @@ public sealed class InboxAgentSchedulerTests
     private static AgentSchedulerOptions Options(int maxConcurrentTurns = 4, int maxAgentsPerPass = 20, TimeSpan? backoff = null) => new()
     {
         Enabled = true,
-        Route = "route-1",
         HolderPrefix = "wake",
         MaxConcurrentTurns = maxConcurrentTurns,
         MaxAgentsPerPass = maxAgentsPerPass,
         MaxItemsPerTurn = 7,
-        ToolAllowlist = ["tool.a"],
         GuardTripBackoff = backoff ?? TimeSpan.FromMinutes(5),
     };
 
@@ -34,6 +32,7 @@ public sealed class InboxAgentSchedulerTests
         due,
         new TurnStarter(_inbox, new NoWakeChainDepthSource(), _runner, new TurnStarterOptions()),
         _guard,
+        new FixedGrants(["tool.a"]),
         options ?? Options(),
         _time,
         NullLogger<InboxAgentScheduler>.Instance);
@@ -66,7 +65,7 @@ public sealed class InboxAgentSchedulerTests
         Assert.All(requests, r =>
         {
             Assert.Equal($"wake:{r.AgentId:D}", r.Holder);
-            Assert.Equal("route-1", r.Route);
+            Assert.Equal(string.Empty, r.Route);
             Assert.Equal(TurnRole.Actor, r.Role);
             Assert.Equal(["tool.a"], r.ToolAllowlist);
             Assert.Equal(7, r.SessionId.Version);
@@ -236,7 +235,7 @@ public sealed class InboxAgentSchedulerTests
     [Fact]
     public async Task Invalid_options_fail_the_pass()
     {
-        var scheduler = Scheduler(new FakeDueAgentReader(Agents(1)), new AgentSchedulerOptions { Enabled = true, Route = " " });
+        var scheduler = Scheduler(new FakeDueAgentReader(Agents(1)), new AgentSchedulerOptions { Enabled = true, HolderPrefix = " " });
 
         await Assert.ThrowsAsync<ArgumentException>(() => scheduler.RunOnceAsync(Ct));
         Assert.Empty(_runner.Requests);

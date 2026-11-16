@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wiz="using:Bazaar.Portability.Client.Avalonia"
+             x:Class="Bazaar.Portability.Client.Avalonia.ImportWizardView"
+             x:DataType="wiz:WizardViewModel">
+  <DockPanel>
+    <!-- The reason the last request was refused. The step itself does not change. -->
+    <Border DockPanel.Dock="Top"
+            Margin="16,8,16,0"
+            Padding="8"
+            CornerRadius="4"
+            BorderBrush="OrangeRed"
+            BorderThickness="1"
+            IsVisible="{Binding HasNotice}">
+      <TextBlock Text="{Binding State.Notice}" Foreground="OrangeRed" TextWrapping="Wrap" />
+    </Border>
+    <Grid>
+      <wiz:ChooseSourceStepView IsVisible="{Binding IsChooseSource}" />
+      <wiz:DetectStepView IsVisible="{Binding IsDetect}" />
+      <wiz:PreviewStepView IsVisible="{Binding IsPreview}" />
+      <wiz:DryRunStepView IsVisible="{Binding IsDryRun}" />
+      <wiz:CommitStepView IsVisible="{Binding IsCommit}" />
+      <wiz:DoneStepView IsVisible="{Binding IsDone}" />
+      <wiz:FailedStepView IsVisible="{Binding IsFailed}" />
+    </Grid>
+  </DockPanel>
+</UserControl>

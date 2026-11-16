@@ -1,12 +1,14 @@
 namespace Bazaar.Contracts.Graph;
 
 /// <summary>
-/// One node of the knowledge graph the Constellation shows (doc 19). The id is the graph-scoped node key.
+/// One node of the knowledge graph the Constellation shows (doc 19). The id is the graph-scoped node key; <see cref="Kind"/> is its typed kind.
 /// </summary>
-public sealed record GraphNode(string Id);
+public sealed record GraphNode(string Id, GraphNodeKind Kind = GraphNodeKind.Unspecified);
 
-/// <summary>A directed link between two nodes, by node id. Endpoints are not checked here; the projection decides which links it keeps.</summary>
-public sealed record GraphEdge(string From, string To);
+/// <summary>
+/// A directed link between two nodes, by node id, with its typed kind. Endpoints are not checked here; the projection decides which links it keeps.
+/// </summary>
+public sealed record GraphEdge(string From, string To, GraphEdgeKind Kind = GraphEdgeKind.Unspecified);
 
 /// <summary>A versioned copy of the graph that the layout engine lays out.</summary>
 public sealed record GraphSnapshot(

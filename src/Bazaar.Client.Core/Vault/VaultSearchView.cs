@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -24,9 +25,11 @@ public sealed class VaultSearchView : UserControl
 
         _query = new TextBox { PlaceholderText = "Search the Vault", Text = pane.Query, MinWidth = 220 };
         _query.Name = "QueryBox";
+        AutomationProperties.SetName(_query, "Search the Vault");
         _query.TextChanged += (_, _) => _pane.Query = _query.Text ?? string.Empty;
 
         var search = new Button { Content = "Search", Name = "SearchButton" };
+        AutomationProperties.SetName(search, "Run Vault search");
         search.Click += (_, _) => _ = _pane.SearchAsync(CancellationToken.None);
         _query.KeyDown += (_, e) =>
         {
@@ -56,6 +59,14 @@ public sealed class VaultSearchView : UserControl
         Redraw();
     }
 
+    /// <summary>The spoken name of a result card: "Open" and its title, kept within the 120-character name limit.</summary>
+    private static string OpenButtonName(string? title)
+    {
+        const int maxLength = 120;
+        string name = $"Open {title}".Trim();
+        return name.Length <= maxLength ? name : name[..maxLength].TrimEnd();
+    }
+
     private void Redraw()
     {
         _status.Text = _pane.StatusMessage;
@@ -78,6 +89,7 @@ public sealed class VaultSearchView : UserControl
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 Content = new StackPanel { Spacing = 2, Children = { title, detail, gist } },
             };
+            AutomationProperties.SetName(button, OpenButtonName(card.Title));
             button.Click += (_, _) => _ = _pane.OpenAsync(card, CancellationToken.None);
             _results.Children.Add(button);
         }

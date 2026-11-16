@@ -24,7 +24,7 @@ The result this doc specifies: a user sees one list of modules. Some are first-p
 | D1 | No separate dependency manager. Postgres, pgvector and runtimes are modules tagged "Deps" and "3rd party". | DECIDED | Owner brief 2026-11-13 |
 | D2 | PostgreSQL 18 and PostgreSQL 19 are two versions of one module. | DECIDED | Owner brief 2026-11-13 |
 | D3 | Update policies are owner-set. The model is in doc 49 (updates). | DECIDED | Owner brief 2026-11-13, gap decisions |
-| D4 | Dual-version support: the newest and the stable line are both supported at all times. Beta releases get day-0 support. Installs are never left parked on stable. | DECIDED | Owner brief 2026-11-13 |
+| D4 | Dual-version support: the newest and the stable line are both supported at all times. Beta releases get day-0 support. Installs are never left parked on stable, except LTSC (owner, 2026-11-16: a deliberate, documented exception, see Q4). | DECIDED | Owner brief 2026-11-13; LTSC exception owner 2026-11-16 |
 | D5 | ZERO EXTERNAL INSTALLS. PostgreSQL and pgvector are bundled and run as a hidden, supervised child process. | DECIDED | Owner brief 2026-11-13 |
 | D6 | Install and Build-from-source are separate documents. | DECIDED | Owner brief 2026-11-13 |
 | D7 | Install is a Bazaar-only action. Bazaar performs it, not the user. | DECIDED | Owner brief 2026-11-13 |
@@ -161,13 +161,16 @@ Doc 37 remains the distribution matrix: which artifact exists for which platform
 
 A dep uses the Bazaar Component manifest (BAZAAR-COMPONENTS.md section 2) with the dependency fields below added. There is one manifest format, `bazaar-component.json`, for first-party and third-party modules. The first-party form is a static `ComponentManifest` on the type, and the file form is the same data.
 
+Deps and written modules share one graph (BAZAAR-COMPONENTS.md section 4.1, owner 2026-11-16). A dep's `requires` may name a written module, and a written module's `dependsOn` may name a dep, in either direction. Hard edges stay acyclic and are checked at install. Soft edges may be mutual and never set start order. The dependency manifest is the same record as the component manifest with `kind: dependency`, not a second format.
+
 ### 8.1 Fields added for deps
 
 | Field | Type | Meaning |
 |---|---|---|
 | `kind` | `dependency` (new value, see Q8) | Marks the module as a dep. |
 | `category` | `database`, `extension`, `service`, `runtime`, `host-runtime`, `tool` | Process model and update default (section 4). |
-| `tags` | array, must include `Deps` and `3rd party` for third-party deps | Shown in the module manager filter. |
+| `tags` | array, must include `Deps` on every dep, and `3rd party` when `origin` is `third-party` (owner, 2026-11-16) | Shown in the module manager filter. A first-party dep never carries `3rd party`. |
+| `origin` | `first-party` or `third-party` (owner, 2026-11-16). Required. Decides whether the `3rd party` tag is required. | Who wrote the code. Set by the publisher, and covered by the signature. |
 | `upstream` | object: `project`, `version` (as published), `homepage`, `releaseDate` | Where the code comes from. |
 | `packageRevision` | integer | Bazaar rebuild counter (section 5.2). |
 | `lines` | array of `{ "line": 18, "requires": {...} }` for a multi-line dep | Lines this package belongs to. The role is not in the manifest (5.3). |
@@ -268,6 +271,7 @@ Consequence: the pgvector package is not ready for a database line until an arti
 4. Every third-party dep has `Deps` and `3rd party` in `tags`. The manifest is rejected at load otherwise.
 5. A dep with `visibility: hidden` must have no pane, palette entry or launcher tile. The manifest validator enforces this by checking the component's registered surfaces.
 6. The manifest is data. The kernel reads it before any dep code runs, so a bad graph fails at start with the ids named (BAZAAR-COMPONENTS.md section 3).
+7. A dep or module that fails verification during a company rebuild is retried a bounded number of times. If it still fails, the rebuild stops and the failure is reported. If a retry passes, the build proceeds, and the report still says that it needed several retries. Clients stay on their current build until a rebuild succeeds (owner, 2026-11-16; bounded retry as in #558, doc 41 section 10.2).
 
 ## 9. Version ranges and resolution (PLANNED)
 
@@ -314,7 +318,8 @@ A move from line 18 to line 19 runs as one audited procedure:
 3. Dry run: restore the snapshot into a scratch data directory running the target line. Run the migrations of doc 04 and the GC consistency checks (row counts and maximum sequence per GC, as in doc 33). The dry run result is shown to the owner.
 4. Switch: stop the old line, upgrade the data directory with the method in Q6, start the new line, run migrations.
 5. Verify: the health contract (section 11) must be green for the new line, and GC consistency checks must pass. The new line becomes `newest` and the old line becomes `stable` only after this step passes.
-6. Rollback: because downgrade is not supported, rollback means stopping the new line, restoring the snapshot into the data directory, and starting the old line. Automatic rollback applies inside the window set by doc 49. After the window, rollback is a manual runbook step.
+6. Rollback: because downgrade is not supported, rollback means stopping the new line, restoring the snapshot into the data directory, and starting the old line. A failed Verify or a failed Switch rolls back automatically inside the window set by doc 49 (owner decision, 2026-11-15; a failed Switch may have partly changed the data directory). Failures in Preflight, Snapshot or DryRun change nothing live and do not roll back. After the window, rollback is a manual runbook step.
+7. Retry (owner decision, 2026-11-15): after an automatic rollback the move runs again from Preflight, with bounded attempts and exponential backoff (PLANNED defaults: 3 attempts, waits of 10 then 20 minutes, never more than an hour, all operator-configurable). Only a rolled-back move is retried. When every attempt rolls back, the move halts and the owner and Kodo are told; no further attempt runs without the owner.
 
 Every step writes an audit event (doc 15) with the snapshot id and the approving role.
 
@@ -372,9 +377,9 @@ Doc 47 holds the licence checks in full. This section states the rules that appl
 
 These are expectations. The licence scan decides, and a mismatch fails the build.
 
-### 13.3 The module exception (OPEN)
+### 13.3 The module exception covers Deps (owner, 2026-11-16, DECIDED)
 
-The AGPL core carries a written module exception for modules that use the public module API (brief, licensing). Deps do not use the module API. They are separate programs run as child processes, or libraries loaded into a child. Whether the exception covers them, or only ordinary AGPL compatibility applies, is Q7 in section 18. Until the owner decides, the stricter reading applies: ordinary AGPL compatibility.
+The AGPL core carries a written module exception for modules that use the public module API (brief, licensing). The owner decided on 2026-11-16 that the exception also covers Deps. A dep is a module for this purpose, so the exception applies to it in the same way. Doc 47 section 6 carries the wording. Counsel reviews the wording and the licensing before the first public release, and that review is still required.
 
 ### 13.4 Contribution terms
 
@@ -449,13 +454,13 @@ These conflict with the 2026-11-13 decisions. The owner decision governs, and ea
 
 Each OPEN item has options and the default the design would use until the owner decides, per the configurability rule.
 
-- **Q1. Windows PostgreSQL binaries: source of truth.** (a) Build from source in CI and sign (most control, slowest, needs a Windows toolchain in CI). (b) Verified upstream binary archives pinned by SHA-256 and upstream signature where published (fastest). Default until decided: (b) for the install path, with (a) as the Build-from-source path.
-- **Q2. Bring-your-own database.** (a) Never; the database is always bundled. (b) Allowed as a hidden advanced setting (`deps.postgresql.external`), never in the install wizard, never installs anything, same health contract. Default until decided: (a).
+- **Q1. Windows PostgreSQL binaries: source of truth. DECIDED (owner, 2026-11-16).** Both paths. (b) Ship pinned upstream binary archives first, verified by SHA-256 and by the upstream signature where published (fastest; the install path). (a) Build from source in CI and sign (most control; needs a Windows toolchain in CI). The owner asked that the source-compile pipeline for PostgreSQL 18 and 19 plus pgvector, signed, be coded now, not later. Both paths are built in parallel, not one after the other; path (b) is what ships first to the install path.
+- **Q2. Bring-your-own database. DECIDED (owner, 2026-11-16): option (b).** PostgreSQL is bundled by default. An external database is a hidden advanced or headless setting (`deps.postgresql.external`). It never appears in the install wizard, never installs anything, and uses the same health contract. Doc 45 open question 2 carries the same answer.
 - **Q3. .NET runtime as its own record.** (a) A registry record `host-runtime` with `embedded: true`, updated with server releases. (b) No record; the server version carries it. Default: (a), so the module manager can show it.
-- **Q4. LTSC channel and the stable line.** The brief says never stay on stable. LTSC intends a long-term pin. (a) LTSC pins the stable line and receives security patches only, the one deliberate stay. (b) LTSC follows the forward rule with longer deferral windows. Default: (b), so the no-parking rule holds everywhere.
+- **Q4. LTSC channel and the stable line. DECIDED (owner, 2026-11-16): (a).** LTSC pins one stable line and receives security patches only. This is a deliberate, documented exception to D4. Every other channel keeps the no-parking rule.
 - **Q5. Meaning of "stable".** This doc reads "stable" as the previous major line, still supported upstream and fully tested by Bazaar. (a) Confirm. (b) "Stable" means something else (for example an upstream-designated stable release). Default: (a).
 - **Q6. Data upgrade method for a major move.** (a) `pg_upgrade` with the snapshot as rollback. (b) Dump and restore. (c) Logical replication to a new line. Default: (a) for speed, with (b) as the fallback when `pg_upgrade` preflight fails, and both recorded in the audit trail.
-- **Q7. Module exception for deps.** Does the AGPL module exception cover deps, or does ordinary AGPL compatibility apply? Default: ordinary compatibility (stricter).
+- **Q7. Module exception for deps. DECIDED (owner, 2026-11-16): the exception covers Deps.** Counsel still reviews the wording before public release.
 - **Q8. Term and kind.** One word for the unit (module or component), and whether `dependency` is a new `kind` value. Default: "module" in product text, `kind: dependency` added to the manifest.
 - **Q9. NuGet visibility.** Is the read-only compile-time summary enough, or should compile-time packages become listed items? Default: summary only.
 - **Q10. Mnemonic for Deps.** To be set in doc 41's mnemonic map. Default: a short mnemonic such as `deps`, assigned there.

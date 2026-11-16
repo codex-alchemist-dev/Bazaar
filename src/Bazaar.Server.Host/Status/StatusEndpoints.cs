@@ -48,17 +48,16 @@ public static class StatusEndpoints
         path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
 
     /// <summary>
-    /// The pairing routes (<c>/pair/*</c>, doc 32 section 3) and the refresh route (<c>/auth/refresh</c>, section 5). Each takes POST and
+    /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
     private static bool IsPostOnlyRoute(PathString path) =>
         path.Value is { } value
-        && (value.StartsWith("/pair/", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase));
+        && path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and
-    /// Constellation API routes also take POST and PATCH. The pairing and refresh routes take POST only. No other write route is allowed here.
+    /// Constellation API routes also take POST and PATCH. The refresh route takes POST only. No other write route is allowed here.
     /// </summary>
     public static IApplicationBuilder UseBazaarGetOnly(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {

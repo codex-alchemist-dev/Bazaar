@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
-using Bazaar.Client.Core.Kanban;
+using Bazaar.Client.RyuseiFuda.Workday;
 
 namespace Bazaar.Client.Core.Tests.Kanban;
 

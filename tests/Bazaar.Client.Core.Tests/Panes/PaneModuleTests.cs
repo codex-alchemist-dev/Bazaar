@@ -1,4 +1,5 @@
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -20,8 +21,8 @@ public class PaneModuleTests
             [typeof(WorkdayPaneModule)] = PaneKinds.Workday,
         };
 
-        Assert.Equal(expected.Count, FirstPartyPanes.Modules.Count);
-        foreach (var module in FirstPartyPanes.Modules)
+        Assert.Equal(expected.Count, TestPanes.Modules.Count);
+        foreach (var module in TestPanes.Modules)
         {
             var kind = expected[module.GetType()];
             Assert.Equal(kind, module.Id);
@@ -36,7 +37,7 @@ public class PaneModuleTests
     [Fact]
     public void First_party_registry_keeps_the_same_kinds_in_the_same_order()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
 
         Assert.Equal(
             [
@@ -57,7 +58,7 @@ public class PaneModuleTests
     {
         var custom = new TestPaneModule("test.custom");
 
-        var registry = PaneRegistry.Compose([.. FirstPartyPanes.Modules, custom]);
+        var registry = PaneRegistry.Compose([.. TestPanes.Modules, custom]);
 
         Assert.True(registry.Contains("test.custom"));
         Assert.Equal("test.custom", registry.Kinds[^1]);
@@ -67,7 +68,7 @@ public class PaneModuleTests
     [Fact]
     public void Composed_list_without_a_module_leaves_its_kind_out()
     {
-        var modules = FirstPartyPanes.Modules.Where(module => module is not DashboardPaneModule).ToList();
+        var modules = TestPanes.Modules.Where(module => module is not DashboardPaneModule).ToList();
 
         var registry = PaneRegistry.Compose(modules);
 
