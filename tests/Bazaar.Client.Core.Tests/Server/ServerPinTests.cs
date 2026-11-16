@@ -61,11 +61,13 @@ public sealed class ServerPinTests
     }
 
     [Fact]
-    public void Https_endpoint_without_a_pin_fails_closed()
+    public async Task Https_endpoint_without_a_pin_refuses_every_request()
     {
         var endpoint = new ServerEndpoint(new Uri("https://company.example/"));
 
-        Assert.Throws<InvalidOperationException>(() => endpoint.CreateHandler());
+        Assert.NotNull(endpoint.RefusalReason());
+        using var http = endpoint.CreateHttpClient();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => http.GetAsync("/", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -78,11 +80,13 @@ public sealed class ServerPinTests
     }
 
     [Fact]
-    public void Plain_http_off_loopback_is_refused()
+    public async Task Plain_http_off_loopback_refuses_every_request()
     {
         var endpoint = new ServerEndpoint(new Uri("http://company.example/"), KeyHashPin: OtherPin());
 
-        Assert.Throws<InvalidOperationException>(() => endpoint.CreateHandler());
+        Assert.NotNull(endpoint.RefusalReason());
+        using var http = endpoint.CreateHttpClient();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => http.GetAsync("/", TestContext.Current.CancellationToken));
     }
 
     [Fact]
