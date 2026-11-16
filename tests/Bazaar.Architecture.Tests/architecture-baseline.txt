@@ -230,15 +230,6 @@ src/Bazaar.Server/Components/RateLimits/IRateLimiter.cs
 src/Bazaar.Server/Components/RateLimits/InMemoryRateLimiter.cs
 src/Bazaar.Server/Components/RateLimits/RateLimitPolicy.cs
 src/Bazaar.Server/Components/RateLimits/RateLimitServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/ITokenService.cs
-src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/PostgresRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/RefreshCredentialSecret.cs
-src/Bazaar.Server/Components/Remote/RemoteComponent.cs
-src/Bazaar.Server/Components/Remote/RemoteTokenOptions.cs
-src/Bazaar.Server/Components/Remote/RemoteTokensServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Remote/TokenService.cs
 src/Bazaar.Server/Components/Tls/AcmeCertificateProvider.cs
 src/Bazaar.Server/Components/Tls/ICertificateProvider.cs
 src/Bazaar.Server/Components/Tls/OverlayCertificateProvider.cs

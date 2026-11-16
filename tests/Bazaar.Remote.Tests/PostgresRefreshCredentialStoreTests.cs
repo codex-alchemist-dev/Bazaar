@@ -1,13 +1,12 @@
 using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
-using Bazaar.Server.Tests.Components.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
 
-namespace Bazaar.Server.Tests.Components.Remote;
+namespace Bazaar.Remote.Tests;
 
 /// <summary>
 /// A cloned database with the remote component's pairing and auth tables (<c>remote/0001_pairing_auth.sql</c>).
@@ -32,7 +31,7 @@ public sealed class RemoteAuthDb : PgFixture, IAsyncLifetime
 
     private static string ReadSchema()
     {
-        var assembly = typeof(PostgresRefreshCredentialStore).Assembly;
+        var assembly = typeof(RemoteAuthDb).Assembly;
         var resource = assembly.GetManifestResourceNames().Single(n => n.EndsWith(_schemaResourceSuffix, StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resource)
             ?? throw new InvalidOperationException("The remote auth schema resource is missing.");

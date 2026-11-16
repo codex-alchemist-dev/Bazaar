@@ -2,12 +2,11 @@ using System.Text.Json.Nodes;
 using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Security.Audit;
-using Bazaar.Server.Tests.Components.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Bazaar.Server.Tests.Components.Remote;
+namespace Bazaar.Remote.Tests;
 
 /// <summary>Records each access token request; the real issuer lives in the identity service (doc 14).</summary>
 internal sealed class FakeAccessTokenIssuer : IAccessTokenIssuer
