@@ -39,7 +39,7 @@ Kodo's own rule holds: Kodo adds no interactive browser surface of its own (doc 
 - No third-party script, style or font is loaded. A test scans the served assets for external URLs.
 
 ## Open questions for the owner
-1. Should non-owner admin accounts exist, or is the panel for the owner only in v1? Default: owner only, because doc 32 section 6 has one owner per instance in v1.
+1. **Who may use the panel. DECIDED (owner, 2026-11-16): any account with admin rights.** Any admin account can sign in to the panel, with the same permissions as the client admin views. Doc 32 section 6 has one owner per instance and no admin role yet, so the admin right is a new capability that doc 32 must name.
 2. Should the panel be able to start a module-selection rebuild, or is it read-only and rebuilds run from the client? Default: it can start a rebuild, and each rebuild is audited.
 3. Should the panel be on by default for a company server, or off until enabled? Default: off until enabled, as with the sign-in page (doc 32 settings).
 
