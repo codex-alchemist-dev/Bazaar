@@ -1,6 +1,6 @@
 # Kanban and Dependencies
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3 · Layer 1 (macro board) of RyuseiFuda (`38-ryusei-fuda.md`); agent scheduling and re-invocation belong to RyuseiFuda, not this board
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3 · Folded into RyuseiFuda by owner decision (2026-11-16): this board is RyuseiFuda's macro board, layer 1 (`38-ryusei-fuda.md`). Its rules are unchanged. Agent scheduling and re-invocation belong to RyuseiFuda layer 2, not this board
 Depends on: `01-gc-data-model.md` (GC rows, pinned messages), `02-wire-protocol-and-sync.md` (board stream and resync), `04-postgres-schema-and-migrations.md` (conventions, NOTIFY), `06-agent-runtime.md` (agent ids, wake reasons), `09-work-life-simulation.md` (work-life scheduler), `10-council-and-voting.md` (gates), `15-security-taint-and-approvals.md` (tool dispatch, approvals, taint), `18-vault.md` (VaultWriter, Vault links), `21-github-integration.md` (PR events, merge). Used by: `23-observatory-and-usage.md` (events), `24-company-systems-core.md` (Interrupt System and Calendar consume events), `17-coding-agent-harness.md` (work-start guard), `11-reputation-and-peer-review.md` (outcomes), `27-client-architecture.md`, `28-windows-client.md`, `29-android-client.md` (board UI).
 
 ## Purpose
