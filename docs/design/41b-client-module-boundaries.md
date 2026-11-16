@@ -26,12 +26,12 @@ Code that was already in Client.Core before this work (theme, commands, chat, pa
 
 ## 2a. Server and client halves (owner, 2026-11-16)
 
-Each feature with a client surface has a separate server module and client module (BAZAAR-COMPONENTS §2.1). The pairing table is the reference for where each half lives. Rows marked "future Dep" are client modules that will become externally imported dependencies later, and are internal today.
+Each feature with a client surface has a separate server module and client module (BAZAAR-COMPONENTS §2.1). The pairing table is the reference for where each half lives. The renderer row is a standalone shared module, not a feature half. It is internal today and will become an externally imported dependency later.
 
 | Feature | Server module | Client module | Notes |
 |---|---|---|---|
 | Constellation | `Bazaar.Server.Constellation` | `Bazaar.Client.Constellation` | Client panes and views. |
-| Constellation renderer | none | `Bazaar.Client.Constellation.Renderer` | Future Dep (owner: will eventually be an externally imported dependency, not yet). |
+| Constellation renderer (shared renderer) | none | `Bazaar.Client.Constellation.Renderer` (name as the owner gave it; standalone and shared, see note) | Not part of Constellation, despite the name, which is the owner's and may be renamed. A general Vulkan renderer with a Skia fallback, used by Constellation and by other modules such as RyuseiFuda, and later other CDAX projects. Future Dep: it will become an externally imported dependency, with a Bazaar-free core and an adapter in its own repo. Other modules depend on it only through its contract. |
 | GC | `Bazaar.Server.GC` | `Bazaar.Client.GC` | Chat pane and GC views. |
 | Git | `Bazaar.Server.Git` | `Bazaar.Client.GitGui` (with `.Github`, `.Gitlab`) | Per doc 41 §4.14. |
 | Kanban (RyuseiFuda) | `Bazaar.Server.RyuseiFuda` | `Bazaar.Client.RyuseiFuda` | Dependency board views. |

@@ -35,7 +35,7 @@ A feature that has a server part and a client part is **two modules**, never one
 
 - A client module may depend on server contracts (wire types). It never depends on a server module's implementation.
 - A feature with no client surface has only the server module, and the reverse holds for a client-only feature.
-- A client module may depend on another module that is a third-party or external dependency (a "future Dep"). Constellation's renderer is the first case: `Bazaar.Client.Constellation.Renderer` is a client-side module that is internal today and will become an externally imported dependency later. The manifest must allow that without changing the module's identity.
+- A client module may depend on a shared client-side module that is not part of any one feature. The Constellation renderer (`Bazaar.Client.Constellation.Renderer`, the Vulkan renderer with a Skia fallback) is the first case. It is a standalone, shared module that other modules depend on through its contract (for example RyuseiFuda, and later other CDAX projects). It is not a sub-part of Constellation. It is internal today and will later become an externally imported dependency, with a Bazaar-free core plus an adapter in its own repo. Its manifest identity does not change when that happens.
 
 The manifest is data. The kernel reads it before it runs any component code, so a bad graph fails at startup with a clear message.
 
