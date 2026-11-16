@@ -1,13 +1,14 @@
 // Signs one packaged PostgreSQL bundle as a Bazaar module package (doc 48 section 1, doc 49 section 3). A file-based app:
 //   dotnet run packaging/postgres/source/SignBundle.cs -- sign   --bundle <major dir> --module-id postgresql \
 //       --version 18.7.0 --permission fs.dataRoot --key-id <id> --private-key <pem file> --out <json file>
-//   dotnet run packaging/postgres/source/SignBundle.cs -- verify --package <json file> --public-key <pem file> --key-id <id>
+//   dotnet run packaging/postgres/source/SignBundle.cs -- verify --package <json file> --public-key <pem file> --key-id <id> --publisher-id <id>
 // The package is the canonical form of ModulePackage, signed with ECDSA P-256 (ModulePackageSigner). The content digest
 // is the SHA-256 of the bundle's SHA256SUMS file, which lists every file's hash, so the signature covers the whole bundle.
 // Signing covers SHA256SUMS, which lists every file of the bundle. A changed file fails sha256sum in
 // test-source-bundle.sh, and a changed SHA256SUMS fails the signature. Verify with --bundle to check the digest too.
 // The private key is read from a file the release step provides (a CI secret, or the owner's offline key). This app
-// never creates or stores a key. Publisher and key id come from the arguments, so they are configurable.
+// never creates or stores a key. Key id and publisher id are required arguments with no default. Doc 48 section 1 names the
+// publisher id but does not define its format, so the format is whatever the release owner registers.
 #:project ../../../src/Bazaar.Server/Bazaar.Server.csproj
 
 using System.Security.Cryptography;
@@ -103,7 +104,7 @@ if (args[0] == "verify")
     using var publicKey = ECDsa.Create();
     publicKey.ImportFromPem(File.ReadAllText(Arg(args, "--public-key")));
     var store = new InMemoryTrustedKeyStore();
-    store.Add(new TrustedModuleKey(Arg(args, "--key-id"), "publisher", publicKey, DateTimeOffset.UnixEpoch, DateTimeOffset.MaxValue));
+    store.Add(new TrustedModuleKey(Arg(args, "--key-id"), Arg(args, "--publisher-id"), publicKey, DateTimeOffset.UnixEpoch, DateTimeOffset.MaxValue));
     var status = new EcdsaModuleSignatureVerifier(store, TimeProvider.System).Verify(package);
     Console.WriteLine(status);
     return status == ModuleSignatureStatus.Valid ? 0 : 1;

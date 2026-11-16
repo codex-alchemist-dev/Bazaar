@@ -23,13 +23,14 @@ on:
   workflow_dispatch:
     inputs:
       release_key_id:
-        description: 'Publisher key id the bundle is signed under (doc 49 section 3). Configurable.'
-        required: false
-        default: 'bazaar-release'
+        description: 'Publisher key id the bundle is signed under (doc 48 section 1). Required, no default.'
+        required: true
+      release_publisher_id:
+        description: 'Publisher id registered with the key in the server trust store (doc 48 section 1). Required, no default.'
+        required: true
       release_public_key_path:
-        description: 'Repository path of the public key the signature is verified with. Not a secret.'
-        required: false
-        default: 'packaging/signing/bazaar-release-public.pem'
+        description: 'Repository path of the public key the signature is verified with. Not a secret. Required, no default.'
+        required: true
 
 permissions:
   contents: read
@@ -186,8 +187,8 @@ jobs:
           chmod 600 "$key"
           dotnet run packaging/postgres/source/SignBundle.cs -- sign \
             --bundle "$RUNNER_TEMP/pg-src-bundle/18" --module-id postgresql --version 18.7.0 \
-            --permission fs.dataRoot --key-id "${{ inputs.release_key_id || 'bazaar-release' }}" \
+            --permission fs.dataRoot --key-id "${{ inputs.release_key_id }}" \
             --private-key "$key" --out "$RUNNER_TEMP/pg-src-bundle/18.package.json"
           dotnet run packaging/postgres/source/SignBundle.cs -- verify \
-            --package "$RUNNER_TEMP/pg-src-bundle/18.package.json" --public-key "${{ inputs.release_public_key_path || 'packaging/signing/bazaar-release-public.pem' }}" \
-            --key-id "${{ inputs.release_key_id || 'bazaar-release' }}" --bundle "$RUNNER_TEMP/pg-src-bundle/18"
+            --package "$RUNNER_TEMP/pg-src-bundle/18.package.json" --public-key "${{ inputs.release_public_key_path }}" \
+            --key-id "${{ inputs.release_key_id }}" --publisher-id "${{ inputs.release_publisher_id }}" --bundle "$RUNNER_TEMP/pg-src-bundle/18"
