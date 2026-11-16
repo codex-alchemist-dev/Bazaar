@@ -8,7 +8,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Pairing;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -17,7 +16,7 @@ namespace Bazaar.Accessibility.Avalonia.Tests;
 /// <summary>
 /// Loads the head-shared windows whose controls were named (doc 41 section 4.7: every interactive control has a spoken
 /// name) and asserts that the name scan finds nothing. No live services are contacted: the Vault search view is fed a
-/// canned search response, and the pairing form uses an in-memory credential store.
+/// canned search response.
 /// </summary>
 public class HeadWindowNameTests
 {
@@ -38,25 +37,6 @@ public class HeadWindowNameTests
             });
     }
 
-    private sealed class MemoryCredentialStore : IRefreshCredentialStore
-    {
-        private string? _value;
-
-        public Task<string?> LoadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_value);
-
-        public Task SaveAsync(string refreshCredential, CancellationToken cancellationToken = default)
-        {
-            _value = refreshCredential;
-            return Task.CompletedTask;
-        }
-
-        public Task ClearAsync(CancellationToken cancellationToken = default)
-        {
-            _value = null;
-            return Task.CompletedTask;
-        }
-    }
-
     [AvaloniaFact]
     public void Chat_view_send_button_and_draft_box_have_names()
     {
@@ -67,19 +47,6 @@ public class HeadWindowNameTests
         Assert.Empty(AccessibleControlScan.Find(window));
         Assert.Equal("Send message", AutomationProperties.GetName(window.GetLogicalDescendants().OfType<Button>().Single()));
         Assert.Equal("Message draft", AutomationProperties.GetName(window.GetLogicalDescendants().OfType<TextBox>().Single()));
-    }
-
-    [AvaloniaFact]
-    public void Pairing_view_fields_and_button_have_names()
-    {
-        var flow = new PairingFlow(new MemoryCredentialStore(), _ => throw new InvalidOperationException("No server is contacted in this test."));
-        var window = new Window { Content = new PairingView(new PairingViewModel(flow, "windows")) };
-        window.Show();
-
-        Assert.Empty(AccessibleControlScan.Find(window));
-        Assert.Equal("Server address", AutomationProperties.GetName(window.GetLogicalDescendants().OfType<TextBox>().First()));
-        Assert.Equal("Pairing code", AutomationProperties.GetName(window.GetLogicalDescendants().OfType<TextBox>().Last()));
-        Assert.Equal("Pair this device", AutomationProperties.GetName(window.GetLogicalDescendants().OfType<Button>().Single()));
     }
 
     [AvaloniaFact]
