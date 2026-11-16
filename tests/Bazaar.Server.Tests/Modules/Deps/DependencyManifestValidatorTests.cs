@@ -21,8 +21,9 @@ public class DependencyManifestValidatorTests
         IReadOnlyList<DependencyLine>? lines = null,
         IReadOnlyList<string>? extensions = null,
         string licence = "PostgreSQL",
-        DependencyLicenceVerdict verdict = DependencyLicenceVerdict.Compatible) =>
-        new(id, "PostgreSQL", tags ?? _tags, lines ?? [Newest(), Stable()], extensions ?? ["pgvector"], licence, verdict);
+        DependencyLicenceVerdict verdict = DependencyLicenceVerdict.Compatible,
+        DependencyOrigin origin = DependencyOrigin.ThirdParty) =>
+        new(id, "PostgreSQL", tags ?? _tags, lines ?? [Newest(), Stable()], extensions ?? ["pgvector"], licence, verdict, origin);
 
     private static IEnumerable<DependencyManifestIssueCode> Codes(IEnumerable<DependencyManifestIssue> issues) =>
         issues.Select(i => i.Code);
@@ -86,6 +87,17 @@ public class DependencyManifestValidatorTests
         Assert.Contains("'Deps'", noDeps.Single().Message, StringComparison.Ordinal);
         Assert.Equal([DependencyManifestIssueCode.MissingRequiredTag], Codes(noThirdParty));
         Assert.Contains("'3rd party'", noThirdParty.Single().Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void First_party_dep_needs_only_the_deps_tag_and_no_third_party_tag()
+    {
+        Assert.Empty(DependencyManifestValidator.Validate(Manifest(tags: ["Deps"], origin: DependencyOrigin.FirstParty)));
+
+        var missingDeps = DependencyManifestValidator.Validate(Manifest(tags: ["database"], origin: DependencyOrigin.FirstParty));
+
+        Assert.Equal([DependencyManifestIssueCode.MissingRequiredTag], Codes(missingDeps));
+        Assert.Contains("'Deps'", missingDeps.Single().Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -308,6 +320,7 @@ public class DependencyManifestValidatorTests
     [Fact]
     public void Required_tags_are_exposed_as_the_fixed_pair()
     {
-        Assert.Equal(["Deps", "3rd party"], DependencyManifest.RequiredTags);
+        Assert.Equal(["Deps"], DependencyManifest.RequiredTags);
+        Assert.Equal("3rd party", DependencyManifest.ThirdPartyTag);
     }
 }
