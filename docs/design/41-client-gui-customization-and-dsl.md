@@ -67,7 +67,7 @@ Every module, first-party or not, implements the same contract (section 8, `ICli
 | **M1. One contract, trust from the manifest** (recommended) | The base GUI, GC, Constellation, RyuseiFuda and any third-party module are all modules with the same manifest and the same host checks. | Consistent with the owner's modularity rule. Needs a capability model built once, for everyone. |
 | M2. Privileged first-party modules | Built-in modules skip some checks. | Simpler start. Contradicts the owner's rule and creates a second path to keep safe. Not recommended. |
 
-**Loading mode** (how a module that is not compiled into the shipped build runs). This is the open choice, and the owner decides it:
+**Loading mode** (how a module runs in a company build). Decided by the owner on 2026-11-16, see the recommendation below. The table lists the options as they were weighed:
 
 | Option | Meaning | Trade-off |
 |---|---|---|
@@ -75,7 +75,7 @@ Every module, first-party or not, implements the same contract (section 8, `ICli
 | L2. In-process assemblies via `AssemblyLoadContext` | Modules loaded at runtime, inside the client process. | Full speed and rich UI. Conflicts with trimming and ReadyToRun. Isolation rests on the manifest, not on a process boundary, so a bad module can crash the client. |
 | L3. Out-of-process modules over a protocol (recommended for non-shipped modules) | A module runs in its own process and talks to the client through a versioned contract, the way engine adapters do in 20. Its UI is a descriptor (a layout kind with a model), rendered by generic views, or by a native view the head supplies for a whitelisted kind. | Isolation by process and by manifest. Keeps the shipped set trim- and R2R-friendly. More work per module, and a richer custom view needs more design. |
 
-**Recommendation:** M1, with L1 for the shipped set and L3 for modules that are not shipped with the build. L2 stays out until a real need and the trimming question are settled. Engines already follow L3 through `PaneDescriptor` (20).
+**Decided (owner, 2026-11-16):** modules are picked per company. Every selected module, marketplace modules included, is compiled into that company's build. An admin changes the selection from the client, which triggers a server-side rebuild and an update pushed to the clients. Nothing is sideloaded at runtime, so L1 applies to all company modules. L2 stays out. L3 applies only to engine panes through `PaneDescriptor` (20), as section 5 says.
 
 ### 4.3 Where configuration lives
 
@@ -329,8 +329,9 @@ These are real design decisions. The owner asked to be asked, so none is settled
 1. **Module model. DECIDED (owner, 2026-11-12): one contract, trust from the manifest.** Base GUI, GC, RyuseiFuda and third-party modules all use it.
    - Option 1: one contract, trust from the manifest (chosen). Consistent with total modularity.
    - Option 2: first-party modules are privileged and skip some checks. Simpler start, but a second path to keep safe.
-2. **Loading mode for modules not shipped with the build. DECIDED (owner, 2026-11-12): out-of-process over a protocol (L3).**
-   - Option 1: compiled in only (L1). Simplest and trim-friendly, but no third-party modules without a rebuild.
+2. **Loading mode for modules not shipped with the build. DECIDED (owner, 2026-11-16, superseding the 2026-11-12 answer): compiled into each company build (L1).** Modules are picked per company. The admin selects them in the client, and the server rebuilds the company client and pushes an update. Marketplace modules are compiled in the same way. Engine panes stay out-of-process (L3, doc 20).
+   - Option 1: compiled in only (L1, chosen). Simplest and trim-friendly, and no runtime sideloading.
+   - Superseded (2026-11-12): out-of-process over a protocol (L3) for modules not shipped with the build.
    - Option 2: out-of-process over a protocol (L3, chosen). Isolation by process and manifest; keeps the shipped set trim-friendly.
    - Option 3: in-process runtime loading (L2). Richest, but conflicts with trimming and ReadyToRun, and a bad module can crash the client.
 3. **Customization model. DECIDED (owner, 2026-11-12): typed, versioned JSON documents.** Covers theme, layout, commands and start screen with no new language.
