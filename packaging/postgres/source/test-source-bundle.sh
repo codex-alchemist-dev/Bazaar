@@ -38,7 +38,7 @@ manifest="$bundle/bazaar-bundle.txt"
 if [ ! -f "$manifest" ]; then
   failures+=("bundle has no bazaar-bundle.txt")
 else
-  get() { sed -n "s/^$1=//p" "$manifest" | head -1; }
+  get() { sed -n "s/^$1=//p" "$manifest" | head -1 | tr -d '\r'; }
   expect "$([ "$(get pg_major)" = "$major" ] && echo 0 || echo 1)" "manifest pg_major is '$(get pg_major)', expected $major"
   expect "$([ "$(get pg_version)" = "$pg_version" ] && echo 0 || echo 1)" "manifest pg_version is '$(get pg_version)', expected $pg_version"
   expect "$([ "$(get pgvector)" = "$PGVECTOR_VERSION" ] && echo 0 || echo 1)" "manifest pgvector is '$(get pgvector)', expected $PGVECTOR_VERSION"

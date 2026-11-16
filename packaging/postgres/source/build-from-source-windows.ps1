@@ -104,8 +104,14 @@ if ($LASTEXITCODE -ne 0) { throw 'extracting pgvector failed' }
 Push-Location $pgv
 try {
     $env:PGROOT = $prefix
-    nmake /NOLOGO /F Makefile.win
-    if ($LASTEXITCODE -ne 0) { throw "pgvector nmake build failed ($LASTEXITCODE)" }
+    # PostgreSQL 19 headers use C11 keywords (_Noreturn, alignas), which MSVC only accepts in C11 mode.
+    $env:CL = '/std:c11'
+    try {
+        nmake /NOLOGO /F Makefile.win
+        if ($LASTEXITCODE -ne 0) { throw "pgvector nmake build failed ($LASTEXITCODE)" }
+    } finally {
+        Remove-Item Env:\CL -ErrorAction SilentlyContinue
+    }
 } finally {
     Pop-Location
 }
@@ -119,11 +125,19 @@ $ext = Join-Path $dest 'share\extension'
 New-Item -ItemType Directory -Force -Path $ext | Out-Null
 Copy-Item (Join-Path $pgv 'vector.dll') (Join-Path $dest 'lib') -Force
 Copy-Item (Join-Path $pgv 'vector.control') $ext -Force
-Copy-Item (Join-Path $pgv 'sql\vector--*.sql') $ext -Force
+# pgvector's SQL scripts (vector--<version>.sql and upgrade scripts) can sit in sql\ or elsewhere in the source tree,
+# so search the whole tree and fail loudly if none are found.
+$sqlScripts = @(Get-ChildItem $pgv -Recurse -File -Filter 'vector--*.sql')
+if ($sqlScripts.Count -eq 0) { throw "pgvector produced no vector--*.sql scripts under $pgv" }
+foreach ($script in $sqlScripts) { Copy-Item $script.FullName $ext -Force }
 Remove-Item (Join-Path $dest 'share\man'), (Join-Path $dest 'share\doc') -Recurse -Force -ErrorAction SilentlyContinue
 
 $msvc = ((cmd /c 'cl 2>&1') | Select-Object -First 1) -replace '\s+', ' '
-Set-Content -Path (Join-Path $dest 'bazaar-bundle.txt') -Value @(
+# Write LF-terminated files. Set-Content on Windows writes CRLF, which breaks sha256sum -c on the Linux checker.
+function Write-LfFile([string]$Path, [string[]]$Lines) {
+    [IO.File]::WriteAllText($Path, (($Lines -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
+}
+Write-LfFile (Join-Path $dest 'bazaar-bundle.txt') @(
     "pg_major=$Major"
     "pg_version=$pgVersion"
     "pgvector=$pgvector"
@@ -136,10 +150,11 @@ Set-Content -Path (Join-Path $dest 'bazaar-bundle.txt') -Value @(
 
 # Hash every staged file. Signing of the executables is a separate step (packaging/signing).
 $root = (Resolve-Path $dest).Path
-Get-ChildItem $dest -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS' } | Sort-Object FullName | ForEach-Object {
+$sumLines = Get-ChildItem $dest -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS' } | Sort-Object FullName | ForEach-Object {
     $rel = $_.FullName.Substring($root.Length + 1).Replace('\', '/')
     "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $rel"
-} | Set-Content -Path (Join-Path $dest 'SHA256SUMS')
+}
+Write-LfFile (Join-Path $dest 'SHA256SUMS') $sumLines
 
 foreach ($required in 'bin\postgres.exe', 'bin\initdb.exe', 'bin\pg_ctl.exe', 'lib\vector.dll', 'share\extension\vector.control') {
     if (-not (Test-Path (Join-Path $dest $required))) { throw "bundle is missing $required" }
