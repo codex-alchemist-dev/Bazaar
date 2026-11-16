@@ -230,7 +230,6 @@ src/Bazaar.Server/Components/PrivacyAudit/AuditPayloadGuard.cs
 src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditKinds.cs
 src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditRecorder.cs
 src/Bazaar.Server/Components/PrivacyAudit/PrivacyAuditServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Remote/IPairingOfferStore.cs
 src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
 src/Bazaar.Server/Components/Remote/ITokenService.cs
 src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
