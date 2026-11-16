@@ -56,9 +56,8 @@ public class ModuleStructureTests
     /// <summary>
     /// Target state from docs/design/40 and CLAUDE.md: a Bazaar.Core project exists, and the server host and client heads load modules through it.
     /// Skipped until Bazaar.Client.Core references Bazaar.Core (the server kernel is in Bazaar.Core since #625).
-    /// Remove the Skip when it does.
     /// </summary>
-    [Fact(Skip = "Pending the client kernel: Bazaar.Client.Core does not reference Bazaar.Core yet. Remove this Skip when it does.")]
+    [Fact]
     public void Bazaar_core_project_exists_and_is_referenced_by_hosts()
     {
         var corePath = RepoPaths.ProjectFile("Bazaar.Core");
