@@ -14,7 +14,7 @@ using Bazaar.Contracts.Panes;
 namespace Bazaar.Client.Android.Gate;
 
 /// <summary>
-/// Builds the phone shell the Android head shows after pairing, on a fake paired endpoint that never touches the network.
+/// Builds the phone shell the Android head shows at startup, on a fake company endpoint that never touches the network.
 /// The head builds it from <c>ClientServer.Current</c>; the gate passes the fake endpoint in directly, so it does not change
 /// the global client endpoint. Nothing here is compiled into the head.
 /// </summary>
