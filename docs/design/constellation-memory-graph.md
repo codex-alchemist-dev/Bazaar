@@ -1,6 +1,6 @@
 # Constellation memory graph (GraphDRAG, server side)
 
-Status: PLANNED, first slice in progress (2026-11-16). Placement and governance are DECIDED (owner, 2026-11-13; doc 19 "Agent memory governance", DECISIONS-LOG round 11). The rules here are the implementation spec for that placement. They do not change any DECIDED item.
+Status: IN PROGRESS (2026-11-16): projector, store, retriever and sink are built; see Build status. Placement and governance are DECIDED (owner, 2026-11-13; doc 19 "Agent memory governance", DECISIONS-LOG round 11). The rules here are the implementation spec for that placement. They do not change any DECIDED item.
 
 ## Scope of this slice
 
@@ -68,6 +68,20 @@ Writes use raw Npgsql through the shared `NpgsqlDataSource` (CLAUDE.md data-acce
 - Store (Postgres, through `ConstellationDb`): store, re-store the same version (error), activate an older version (rollback), `GetActive` after rollback, partial unique index.
 - Sink: commit success projects and stores; projection failure does not fail the commit.
 - Component: `ConstellationComponent` registers the store and the retriever; the Vault graph source is unchanged.
+
+## Build status
+
+Done (2026-11-16):
+
+- Model, projector (`MemoryGraphProjector`), Postgres store (`PgMemoryGraphStore`, migration `constellation/0001`, registered in `ConstellationComponent` as `IMemoryGraphStore`), retriever (`MemoryGraphRetriever`).
+- Sink: `MemoryGraphSink` projects only items under `agents/<batch agent>/memory/`. Items that fail to parse, or whose store call throws, are logged and skipped; the commit result is returned unchanged. `MemoryGraphSink.Wrap` is the helper that the memory component wiring calls when it lands. The decorator is not registered globally.
+- Tests: projector, retriever, store (Postgres), sink.
+
+Known open items:
+
+a. The retriever does not re-expand a neighbour reached later with a higher score. The first score wins for expansion. The spec was silent here; this is the chosen behaviour.
+b. Cross-note wiki-link resolution by title needs the Vault index. The sink passes an empty title map today, so `[[Title]]` links produce no edge. Only `[[note id]]` links resolve.
+c. Not built: retention, crypto-erase, legal hold, the Hive and Company areas, vector seeds, the owner read-audit (the store only exposes the hook), HTTP and wire endpoints, rebuild from the Vault, and the client view.
 
 ## Owner questions
 
