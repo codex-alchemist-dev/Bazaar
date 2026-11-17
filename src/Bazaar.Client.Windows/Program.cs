@@ -14,6 +14,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Vault;
 
 namespace Bazaar.Client.Windows;
 
@@ -65,7 +66,7 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, new VaultSearchPaneModule(), .. RyuseiFudaPanes.Modules];
         var registry = FirstPartyPanes.CreateRegistry(
             modules,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),

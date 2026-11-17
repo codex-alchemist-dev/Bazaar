@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Bazaar.Client.Core.Vault;
+namespace Bazaar.Client.Vault;
 
 /// <summary>One card from <c>GET /vault/search</c>. Field names follow the server's snake_case JSON.</summary>
 public sealed record VaultCardDto(

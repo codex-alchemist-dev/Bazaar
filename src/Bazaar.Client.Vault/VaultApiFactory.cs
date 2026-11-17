@@ -1,6 +1,6 @@
 using Bazaar.Client.Abstractions.Server;
 
-namespace Bazaar.Client.Core.Vault;
+namespace Bazaar.Client.Vault;
 
 /// <summary>Builds <see cref="VaultApi"/> clients for an endpoint. Panes ask the factory rather than building HTTP themselves.</summary>
 public static class VaultApiFactory

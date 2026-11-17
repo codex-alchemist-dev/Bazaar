@@ -1,9 +1,9 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
-using Bazaar.Client.Core.Vault;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Vault;
 
 /// <summary>Registers the Vault search pane (<see cref="PaneKinds.VaultSearch"/>).</summary>
 public sealed class VaultSearchPaneModule : IPaneModule

@@ -8,7 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Vault;
+using Bazaar.Client.Vault;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Accessibility.Avalonia.Tests;

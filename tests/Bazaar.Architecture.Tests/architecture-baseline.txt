@@ -54,7 +54,6 @@ src/Bazaar.Client.Core/Panes/PaneHost.cs
 src/Bazaar.Client.Core/Panes/PaneModuleContext.cs
 src/Bazaar.Client.Core/Panes/PaneRegistry.cs
 src/Bazaar.Client.Core/Panes/PaneViews.cs
-src/Bazaar.Client.Core/Panes/VaultSearchPaneModule.cs
 src/Bazaar.Client.Core/Preload/PreloadAutostart.cs
 src/Bazaar.Client.Core/Theme/AvaloniaThemeGenerator.cs
 src/Bazaar.Client.Core/Theme/MonacoThemeGenerator.cs
@@ -65,10 +64,6 @@ src/Bazaar.Client.Core/Updates/UpdateDecision.cs
 src/Bazaar.Client.Core/Updates/UpdateManifest.cs
 src/Bazaar.Client.Core/Updates/UpdateVerifier.cs
 src/Bazaar.Client.Core/Updates/UpdateVersion.cs
-src/Bazaar.Client.Core/Vault/VaultApi.cs
-src/Bazaar.Client.Core/Vault/VaultApiFactory.cs
-src/Bazaar.Client.Core/Vault/VaultSearchPaneViewModel.cs
-src/Bazaar.Client.Core/Vault/VaultSearchView.cs
 src/Bazaar.Client.Core/Wire/WebSocketWireTransport.cs
 src/Bazaar.Server/Agents/AgentLifecycle.cs
 src/Bazaar.Server/Agents/AgentRuntimeTypes.cs

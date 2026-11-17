@@ -3,7 +3,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Vault;
+namespace Bazaar.Client.Vault;
 
 /// <summary>
 /// The Vault search pane (doc 18). The model names the Vault: <c>{ "vault": "&lt;guid&gt;" }</c>. Holds the query, the last

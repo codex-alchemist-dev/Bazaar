@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 
-namespace Bazaar.Client.Core.Vault;
+namespace Bazaar.Client.Vault;
 
 /// <summary>
 /// Draws a <see cref="VaultSearchPaneViewModel"/>: a query box, the result cards, and the opened document. Each card

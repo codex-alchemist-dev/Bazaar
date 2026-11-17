@@ -1,6 +1,7 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.RyuseiFuda.Panes;
+using Bazaar.Client.Vault;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -45,8 +46,8 @@ public class PaneModuleTests
                 PaneKinds.Kanban,
                 PaneKinds.Dashboard,
                 PaneKinds.Constellation,
-                PaneKinds.VaultSearch,
                 GcPaneViewModel.PaneKind,
+                PaneKinds.VaultSearch,
                 PaneKinds.RyuseiSchedule,
                 PaneKinds.Roadmap,
                 PaneKinds.Workday,
@@ -78,8 +79,8 @@ public class PaneModuleTests
             [
                 PaneKinds.Kanban,
                 PaneKinds.Constellation,
-                PaneKinds.VaultSearch,
                 GcPaneViewModel.PaneKind,
+                PaneKinds.VaultSearch,
                 PaneKinds.RyuseiSchedule,
                 PaneKinds.Roadmap,
                 PaneKinds.Workday,
