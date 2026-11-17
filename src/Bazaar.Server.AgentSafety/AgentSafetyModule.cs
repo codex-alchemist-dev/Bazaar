@@ -10,7 +10,6 @@ using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.KillSwitch.Postgres;
 using Bazaar.Server.Security.Quarantine;
-using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,8 +42,10 @@ public static class AgentSafetyModule
         services.TryAddSingleton<IOwnerKeyRegistry, PostgresOwnerKeyRegistry>();
         services.TryAddSingleton<IAgentTokenRevoker>(sp => new LeaseTokenRevoker(sp.GetRequiredService<ICredentialLeaseStore>()));
         services.TryAddSingleton<IVmPauser>(sp =>
-            sp.GetService<VmLifecycleService>() is { } lifecycle && sp.GetService<EnvironmentRepository>() is { } environments
-                ? new VmContainmentPauser(environments, lifecycle)
+            sp.GetService<VmLifecycleService>() is { } lifecycle
+            && sp.GetService<IVmBackend>() is { } backend
+            && sp.GetService<IAgentVmDirectory>() is { } vms
+                ? new VmContainmentPauser(vms, lifecycle, backend)
                 : new UnavailableVmPauser());
 
         services.AddAgentSafety(configuration);
