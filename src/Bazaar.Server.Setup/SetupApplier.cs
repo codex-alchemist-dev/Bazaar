@@ -300,7 +300,8 @@ public sealed class SetupApplier
         var array = new JsonArray();
         foreach (var value in values)
         {
-            array.Add(value);
+            JsonNode item = JsonValue.Create(value)!;
+            array.Add(item);
         }
 
         return array;
@@ -329,12 +330,13 @@ public sealed class SetupApplier
 
     private static void AddReference(JsonArray references, string name, string text)
     {
-        references.Add(new JsonObject
+        JsonNode entry = new JsonObject
         {
             ["name"] = name,
             ["family"] = SecretReferences.Classify(text).ToString().ToLowerInvariant(),
             ["status"] = "unresolved",
-        });
+        };
+        references.Add(entry);
     }
 
     private static string WireName(SetupEntryPath path) => path switch
