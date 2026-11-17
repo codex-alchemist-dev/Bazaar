@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Abstractions.Panes;
 
 /// <summary>
 /// What a pane view needs from its view model. Views are chosen by type in <see cref="PaneViews"/>,

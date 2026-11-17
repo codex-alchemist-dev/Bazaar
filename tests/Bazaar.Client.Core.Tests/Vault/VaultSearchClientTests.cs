@@ -7,8 +7,9 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 

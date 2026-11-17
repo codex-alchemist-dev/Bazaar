@@ -1,3 +1,4 @@
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core.Wire;
 
 namespace Bazaar.Client.Terminal;

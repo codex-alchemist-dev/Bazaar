@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Abstractions.Server;
 
 namespace Bazaar.Client.Core.Vault;
 

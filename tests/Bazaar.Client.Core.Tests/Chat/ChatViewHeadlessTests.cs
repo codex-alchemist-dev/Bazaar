@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Tests.Wire;
 using Bazaar.Client.Core.Wire;

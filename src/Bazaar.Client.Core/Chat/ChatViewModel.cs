@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core.Wire;
 
 namespace Bazaar.Client.Core.Chat;

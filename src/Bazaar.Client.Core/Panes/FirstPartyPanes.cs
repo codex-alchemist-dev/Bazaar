@@ -1,8 +1,9 @@
 using System.Text.Json;
 using Avalonia.Controls;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
-using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -45,7 +46,21 @@ public static class FirstPartyPanes
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
         ChatViewModel? chat = null) =>
-        PaneRegistry.Compose(modules, new PaneModuleContext(tiles, vault, chat, report));
+        PaneRegistry.Compose(modules, CreateContext(report, tiles, vault, chat));
+
+    /// <summary>Hands each injected feature dependency to the context under its type; an absent one adds nothing.</summary>
+    private static PaneModuleContext CreateContext(
+        Action<string>? report,
+        IConstellationTileSource? tiles,
+        VaultApi? vault,
+        ChatViewModel? chat)
+    {
+        var context = new PaneModuleContext(report);
+        if (tiles is not null) context = context.With(tiles);
+        if (vault is not null) context = context.With(vault);
+        if (chat is not null) context = context.With(chat);
+        return context;
+    }
 
     /// <summary>
     /// The panes the Windows head shows when started with <c>--panes</c>: the Kanban board and the Constellation

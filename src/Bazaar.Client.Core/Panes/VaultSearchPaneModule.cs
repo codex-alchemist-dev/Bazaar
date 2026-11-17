@@ -1,4 +1,5 @@
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -11,7 +12,7 @@ public sealed class VaultSearchPaneModule : IPaneModule
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
-        var vaultApi = context.Vault ?? VaultApiFactory.Create(ClientServer.Current);
+        var vaultApi = context.Get<VaultApi>() ?? VaultApiFactory.Create(ClientServer.Current);
         registry.Register(PaneKinds.VaultSearch, descriptor => new VaultSearchPaneViewModel(descriptor, vaultApi));
         registry.RegisterView<VaultSearchPaneViewModel>(pane => new VaultSearchView(pane));
     }

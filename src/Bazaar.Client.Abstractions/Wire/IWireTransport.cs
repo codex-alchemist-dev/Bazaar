@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>Opens connections to the server. The WebSocket implementation lives in a head; tests use a fake.</summary>
 public interface IWireTransportFactory

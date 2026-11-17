@@ -3,7 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Contracts.Graph;
 
 namespace Bazaar.Client.Core.Constellation;

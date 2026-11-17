@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Net.WebSockets;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Core.Wire;

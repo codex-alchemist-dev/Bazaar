@@ -3,6 +3,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;

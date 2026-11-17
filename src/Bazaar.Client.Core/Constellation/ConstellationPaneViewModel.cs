@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;

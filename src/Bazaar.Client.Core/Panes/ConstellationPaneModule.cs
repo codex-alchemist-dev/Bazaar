@@ -1,3 +1,4 @@
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Contracts.Panes;
 
@@ -10,7 +11,7 @@ public sealed class ConstellationPaneModule : IPaneModule
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
-        var tiles = context.Tiles ?? context.Get<IConstellationTileSource>();
+        var tiles = context.Get<IConstellationTileSource>();
         registry.Register(PaneKinds.Constellation, descriptor =>
             new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));
         registry.RegisterView<ConstellationPaneViewModel>(pane => new ConstellationPaneView(pane));

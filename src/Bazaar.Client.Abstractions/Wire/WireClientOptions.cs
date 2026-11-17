@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>Settings for <see cref="WireClient"/>.</summary>
 public sealed class WireClientOptions

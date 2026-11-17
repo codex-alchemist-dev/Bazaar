@@ -3,7 +3,7 @@ using System.Threading.Channels;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>
 /// Client side of the socket protocol (docs/design/02-wire-protocol-and-sync.md): hello/welcome, subscribe with

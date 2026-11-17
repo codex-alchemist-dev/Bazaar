@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
@@ -9,7 +12,6 @@ using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
-using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Client.RyuseiFuda;
 

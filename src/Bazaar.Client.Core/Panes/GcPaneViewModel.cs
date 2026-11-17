@@ -1,3 +1,4 @@
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Contracts.Panes;
 
