@@ -12,6 +12,6 @@ namespace Bazaar.Server.Setup;
     DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     WriteIndented = false)]
 [JsonSerializable(typeof(SetupPlan))]
-internal sealed partial class SetupPlanJsonContext : JsonSerializerContext
+public sealed partial class SetupPlanJsonContext : JsonSerializerContext
 {
 }
