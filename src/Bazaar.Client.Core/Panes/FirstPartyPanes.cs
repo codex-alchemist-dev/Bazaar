@@ -5,6 +5,7 @@ using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Vault;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Panes;
@@ -46,7 +47,7 @@ public static class FirstPartyPanes
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
         ChatViewModel? chat = null) =>
-        PaneRegistry.Compose(modules, CreateContext(report, tiles, vault, chat));
+        PaneRegistry.Compose(PaneViews.Instance, modules, CreateContext(report, tiles, vault, chat));
 
     /// <summary>Hands each injected feature dependency to the context under its type; an absent one adds nothing.</summary>
     private static PaneModuleContext CreateContext(

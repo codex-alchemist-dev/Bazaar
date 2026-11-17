@@ -3,6 +3,7 @@ using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Vault;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Core.Tests.Panes;

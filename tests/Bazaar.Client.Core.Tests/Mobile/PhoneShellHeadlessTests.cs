@@ -5,6 +5,7 @@ using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Core.Tests.Mobile;
 
@@ -13,7 +14,7 @@ public class PhoneShellHeadlessTests
     [AvaloniaFact]
     public void Shell_builds_and_renders_in_folded_and_unfolded_postures()
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         registry.Register("bazaar.first", d => new GenericPaneViewModel(d));
         registry.Register("bazaar.second", d => new GenericPaneViewModel(d));
         registry.Register("bazaar.third", d => new GenericPaneViewModel(d));

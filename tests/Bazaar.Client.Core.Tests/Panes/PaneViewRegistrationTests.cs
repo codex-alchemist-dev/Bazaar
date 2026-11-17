@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -12,7 +13,7 @@ public class PaneViewRegistrationTests
     [AvaloniaFact]
     public void A_module_view_renders_under_the_pane_title()
     {
-        var registry = PaneRegistry.Compose([new TestViewModule()]);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new TestViewModule()]);
         var pane = registry.Create(PaneRegistryTests.Descriptor("test.view") with { Title = "Test pane" });
 
         var view = registry.CreateView(pane);
@@ -24,7 +25,7 @@ public class PaneViewRegistrationTests
     [AvaloniaFact]
     public void A_pane_with_no_registered_view_falls_back_to_the_generic_view()
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         var pane = registry.Create(PaneRegistryTests.Descriptor("godot.scene-tree", "{\"name\":\"Main\"}"));
 
         var view = registry.CreateView(pane);
@@ -37,7 +38,7 @@ public class PaneViewRegistrationTests
     [Fact]
     public void Registering_a_second_view_for_the_same_pane_type_throws()
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         registry.RegisterView<TestPane>(_ => new TextBlock());
 
         Assert.Throws<InvalidOperationException>(() => registry.RegisterView<TestPane>(_ => new TextBlock()));

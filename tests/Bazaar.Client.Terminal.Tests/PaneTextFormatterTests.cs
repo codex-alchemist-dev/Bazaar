@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Contracts.Panes;
 

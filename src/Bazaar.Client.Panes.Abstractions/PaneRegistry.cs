@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Panes.Abstractions;
 
 /// <summary>
 /// Maps pane kinds to view-model factories. Unknown kinds and malformed models render the generic
@@ -15,10 +15,15 @@ public sealed class PaneRegistry
     private readonly List<string> _kinds = [];
     private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
     private readonly Action<string>? _report;
+    private readonly IPaneViewFactory _viewFactory;
 
+    /// <param name="viewFactory">Builds the generic fallback view and the title chrome. The composition root supplies it.</param>
     /// <param name="report">Called once per kind that falls back. Receives the kind and the reason.</param>
-    public PaneRegistry(Action<string>? report = null)
+    public PaneRegistry(IPaneViewFactory viewFactory, Action<string>? report = null)
     {
+        ArgumentNullException.ThrowIfNull(viewFactory);
+
+        _viewFactory = viewFactory;
         _report = report;
     }
 
@@ -26,14 +31,15 @@ public sealed class PaneRegistry
     /// Builds a registry from <paramref name="modules"/>, in the order given. Each module registers its own kind, so
     /// a head composes its pane set from a list instead of naming each pane. Throws when two modules share a kind.
     /// </summary>
+    /// <param name="viewFactory">Builds the generic fallback view and the title chrome.</param>
     /// <param name="modules">The pane modules to register.</param>
     /// <param name="context">The optional dependencies the modules read. Null uses an empty context.</param>
-    public static PaneRegistry Compose(IEnumerable<IPaneModule> modules, PaneModuleContext? context = null)
+    public static PaneRegistry Compose(IPaneViewFactory viewFactory, IEnumerable<IPaneModule> modules, PaneModuleContext? context = null)
     {
         ArgumentNullException.ThrowIfNull(modules);
 
         context ??= new PaneModuleContext();
-        var registry = new PaneRegistry(context.Report);
+        var registry = new PaneRegistry(viewFactory, context.Report);
         foreach (var module in modules)
         {
             ArgumentNullException.ThrowIfNull(module);
@@ -109,8 +115,8 @@ public sealed class PaneRegistry
         ArgumentNullException.ThrowIfNull(pane);
 
         return _views.TryGetValue(pane.GetType(), out var view)
-            ? PaneViews.WithTitle(pane.Title, view(pane))
-            : PaneViews.Create(pane);
+            ? _viewFactory.WithTitle(pane.Title, view(pane))
+            : _viewFactory.Create(pane);
     }
 
     private GenericPaneViewModel Fallback(PaneDescriptor descriptor, string reason)

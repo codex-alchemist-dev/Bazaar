@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Core.Mobile;
 
@@ -22,7 +23,7 @@ public sealed class PhoneShell : UserControl
 
     /// <summary>A shell with no panes registered.</summary>
     public PhoneShell()
-        : this(new PaneRegistry())
+        : this(new PaneRegistry(PaneViews.Instance))
     {
     }
 

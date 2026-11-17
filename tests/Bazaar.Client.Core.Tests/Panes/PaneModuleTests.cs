@@ -1,5 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
@@ -28,7 +29,7 @@ public class PaneModuleTests
             var kind = expected[module.GetType()];
             Assert.Equal(kind, module.Id);
 
-            var registry = new PaneRegistry();
+            var registry = new PaneRegistry(PaneViews.Instance);
             module.Register(registry, new PaneModuleContext());
 
             Assert.Equal([kind], registry.Kinds);
@@ -59,7 +60,7 @@ public class PaneModuleTests
     {
         var custom = new TestPaneModule("test.custom");
 
-        var registry = PaneRegistry.Compose([.. TestPanes.Modules, custom]);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [.. TestPanes.Modules, custom]);
 
         Assert.True(registry.Contains("test.custom"));
         Assert.Equal("test.custom", registry.Kinds[^1]);
@@ -71,7 +72,7 @@ public class PaneModuleTests
     {
         var modules = TestPanes.Modules.Where(module => module is not DashboardPaneModule).ToList();
 
-        var registry = PaneRegistry.Compose(modules);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, modules);
 
         Assert.False(registry.Contains(PaneKinds.Dashboard));
         Assert.Equal(
@@ -92,7 +93,7 @@ public class PaneModuleTests
     {
         var modules = new IPaneModule[] { new TestPaneModule("test.same"), new TestPaneModule("test.same") };
 
-        Assert.Throws<InvalidOperationException>(() => PaneRegistry.Compose(modules));
+        Assert.Throws<InvalidOperationException>(() => PaneRegistry.Compose(PaneViews.Instance, modules));
     }
 
     private sealed class TestPaneModule(string kind) : IPaneModule
