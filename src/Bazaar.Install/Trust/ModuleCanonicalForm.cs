@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Bazaar.Server.Modules.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>
 /// The exact bytes a publisher signs for a module package.

@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Modules.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>Verifies a module package signature against the server trust store. Never throws for a bad package.</summary>
 public interface IModuleSignatureVerifier
