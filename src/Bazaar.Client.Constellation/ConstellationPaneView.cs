@@ -9,7 +9,7 @@ using Avalonia.VisualTree;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>
 /// Avalonia view of the Constellation 2D pane: the drawn graph (the Skia fallback path) beside the accessible

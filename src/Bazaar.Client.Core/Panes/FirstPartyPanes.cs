@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -24,39 +23,41 @@ public static class FirstPartyPanes
 
     /// <summary>
     /// The pane modules Client.Core itself ships, in registration order. A head composes them with the feature modules
-    /// it ships (for example <c>Bazaar.Client.RyuseiFuda</c>) and passes the full list to <see cref="CreateRegistry"/>.
-    /// The phone pager lists panes in the order of that list (doc 29).
+    /// it ships (for example <c>Bazaar.Client.RyuseiFuda</c> or <c>Bazaar.Client.Constellation</c>) and passes the full list to
+    /// <see cref="CreateRegistry"/>. The phone pager lists panes in the order of that list (doc 29).
     /// </summary>
     public static IReadOnlyList<IPaneModule> Modules { get; } =
     [
         new DashboardPaneModule(),
-        new ConstellationPaneModule(),
         new VaultSearchPaneModule(),
         new GcPaneModule(),
     ];
 
     /// <param name="modules">The pane modules the head ships, in pager order.</param>
     /// <param name="report">Called once per kind that falls back to the generic view.</param>
-    /// <param name="tiles">The Constellation tile source the heads inject. Null leaves the pane without tile requests.</param>
     /// <param name="vault">The Vault API to use. Null builds one for <see cref="ClientServer.Current"/>.</param>
     /// <param name="chat">The group chat the GC pane shows. Null when no session is connected; the pane then shows its empty state.</param>
+    /// <param name="features">
+    /// The feature dependencies the head injects with <see cref="PaneModuleContext.With{T}"/>, for example the Constellation
+    /// tile source. Null adds none.
+    /// </param>
     public static PaneRegistry CreateRegistry(
         IEnumerable<IPaneModule> modules,
         Action<string>? report = null,
-        IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
-        ChatViewModel? chat = null) =>
-        PaneRegistry.Compose(modules, CreateContext(report, tiles, vault, chat));
+        ChatViewModel? chat = null,
+        PaneModuleContext? features = null) =>
+        PaneRegistry.Compose(modules, CreateContext(report, features, vault, chat));
 
-    /// <summary>Hands each injected feature dependency to the context under its type; an absent one adds nothing.</summary>
+    /// <summary>Hands each injected dependency to the context; an absent one adds nothing.</summary>
     private static PaneModuleContext CreateContext(
         Action<string>? report,
-        IConstellationTileSource? tiles,
+        PaneModuleContext? features,
         VaultApi? vault,
         ChatViewModel? chat)
     {
-        var context = new PaneModuleContext(report);
-        if (tiles is not null) context = context.With(tiles);
+        var context = features ?? new PaneModuleContext();
+        if (report is not null) context = context with { Report = report };
         if (vault is not null) context = context.With(vault);
         if (chat is not null) context = context.With(chat);
         return context;

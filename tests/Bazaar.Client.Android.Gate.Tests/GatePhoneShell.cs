@@ -3,7 +3,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
@@ -29,8 +29,15 @@ internal static class GatePhoneShell
     {
         var tiles = new EmptyTileSource();
         var vault = VaultApiFactory.Create(PairedEndpoint, new EmptyResponseHandler());
-        var modules = FirstPartyPanes.Modules;
-        var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles, vault: vault);
+        // The Constellation module sits after the Dashboard, as in the Android head (pager order).
+        IPaneModule[] modules =
+        [
+            .. FirstPartyPanes.Modules.Take(1),
+            new ConstellationPaneModule(),
+            .. FirstPartyPanes.Modules.Skip(1),
+        ];
+        var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
+        var registry = FirstPartyPanes.CreateRegistry(modules, vault: vault, features: features);
         Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(registry);
 
         // The production pager shows a kind-name placeholder for the Vault search pane, so the shell has no interactive

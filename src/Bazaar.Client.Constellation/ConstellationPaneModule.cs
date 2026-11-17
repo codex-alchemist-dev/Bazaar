@@ -1,8 +1,8 @@
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>Registers the Constellation graph view (<see cref="PaneKinds.Constellation"/>).</summary>
 public sealed class ConstellationPaneModule : IPaneModule

@@ -2,27 +2,26 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Tests.Panes;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Tests.Constellation;
+namespace Bazaar.Client.Constellation.Tests;
 
 public class ConstellationPaneViewHeadlessTests
 {
     [AvaloniaFact]
     public void Pane_renders_nodes_once_a_frame_is_applied_and_lists_them_for_keyboard_users()
     {
-        var pane = new ConstellationPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Constellation, """
+        var pane = new ConstellationPaneViewModel(ConstellationTestPanes.Descriptor(PaneKinds.Constellation, """
             {"nodes":[{"id":"a","label":"Alpha","kind":"note"},{"id":"b","label":"Beta","kind":"note"}],
              "edges":[{"from":"a","to":"b"}]}
             """));
         var view = new ConstellationPaneView(pane);
-        var window = new Window { Content = TestPanes.CreateRegistry().CreateView(pane), Width = 800, Height = 600 };
+        var window = new Window { Content = ConstellationTestPanes.CreateRegistry().CreateView(pane), Width = 800, Height = 600 };
         window.Show();
 
         Assert.True(view.ApplyFrame(new RenderFrame(1, 1, 2, new float[] { 0, 0, 80, 40 })));
@@ -40,9 +39,9 @@ public class ConstellationPaneViewHeadlessTests
     {
         var source = new FakeTileSource();
         var pane = new ConstellationPaneViewModel(
-            PaneRegistryTests.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""), source, 500);
+            ConstellationTestPanes.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""), source, 500);
         var view = new ConstellationPaneView(pane);
-        var window = new Window { Content = TestPanes.CreateRegistry().CreateView(pane), Width = 800, Height = 600 };
+        var window = new Window { Content = ConstellationTestPanes.CreateRegistry().CreateView(pane), Width = 800, Height = 600 };
         window.Show();
 
         Assert.True(view.ShowsPlaceholder);
@@ -60,8 +59,8 @@ public class ConstellationPaneViewHeadlessTests
     [AvaloniaFact]
     public void Pane_without_a_frame_still_renders_its_chrome()
     {
-        var pane = new ConstellationPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""));
-        var window = new Window { Content = TestPanes.CreateRegistry().CreateView(pane), Width = 400, Height = 300 };
+        var pane = new ConstellationPaneViewModel(ConstellationTestPanes.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""));
+        var window = new Window { Content = ConstellationTestPanes.CreateRegistry().CreateView(pane), Width = 400, Height = 300 };
         window.Show();
 
         using var frame = window.CaptureRenderedFrame();

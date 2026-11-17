@@ -7,9 +7,9 @@ using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Wire;
@@ -65,11 +65,20 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        // The Constellation module sits after the Dashboard, where it was before it moved out of Client.Core (pager order).
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            .. FirstPartyPanes.Modules.Take(1),
+            new ConstellationPaneModule(),
+            .. FirstPartyPanes.Modules.Skip(1),
+            .. RyuseiFudaPanes.Modules,
+        ];
+        var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
         var registry = FirstPartyPanes.CreateRegistry(
             modules,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            tiles: HttpConstellationTileSource.Create(ClientServer.Current));
+            features: features);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 

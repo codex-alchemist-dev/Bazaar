@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>Level of detail for the Constellation view (19, "Client renderer").</summary>
 public enum ZoomTier

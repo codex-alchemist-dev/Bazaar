@@ -7,7 +7,7 @@ using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>One node of the Constellation pane: its id, screen-reader label and kind.</summary>
 public sealed record ConstellationNode(string Id, string Label, string Kind);

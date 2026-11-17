@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 
-namespace Bazaar.Client.Core.Tests.Constellation;
+namespace Bazaar.Client.Constellation.Tests;
 
 public class ConstellationNavigationTests
 {

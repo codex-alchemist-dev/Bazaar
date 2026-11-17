@@ -35,6 +35,7 @@
          from Activity and Fragment (NU1608). Avalonia.Android brings Window 1.5.1.2 transitively, which resolves cleanly. -->
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
   </ItemGroup>
