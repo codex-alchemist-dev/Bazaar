@@ -1,12 +1,11 @@
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Tests.Panes;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Tests.Constellation;
+namespace Bazaar.Client.Constellation.Tests;
 
 public class ConstellationPaneViewModelTests
 {
@@ -19,7 +18,7 @@ public class ConstellationPaneViewModelTests
         """;
 
     private static ConstellationPaneViewModel Pane(string model = _model) =>
-        new(PaneRegistryTests.Descriptor(PaneKinds.Constellation, model));
+        new(ConstellationTestPanes.Descriptor(PaneKinds.Constellation, model));
 
     [Fact]
     public void Parses_nodes_and_edges_and_skips_edges_with_unknown_endpoints()
@@ -87,8 +86,8 @@ public class ConstellationPaneViewModelTests
     [Fact]
     public void Unknown_kind_still_routes_through_the_registry_to_this_view_model()
     {
-        var registry = TestPanes.CreateRegistry();
+        var registry = ConstellationTestPanes.CreateRegistry();
 
-        Assert.IsType<ConstellationPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Constellation, _model)));
+        Assert.IsType<ConstellationPaneViewModel>(registry.Create(ConstellationTestPanes.Descriptor(PaneKinds.Constellation, _model)));
     }
 }

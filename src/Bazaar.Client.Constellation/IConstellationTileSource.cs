@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Graph;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>
 /// Fetches the tile for one viewport request from the server (the Constellation tile endpoint, <c>POST /constellation/tiles</c>).

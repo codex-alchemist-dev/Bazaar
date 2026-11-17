@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Contracts.Graph;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>
 /// The tile source a client head injects: it calls <c>POST /constellation/tiles</c> on the Bazaar server and decodes the binary

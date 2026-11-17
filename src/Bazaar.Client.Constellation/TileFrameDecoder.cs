@@ -2,7 +2,7 @@ using System.IO;
 using System.Text;
 using Bazaar.Contracts.Graph;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>
 /// Decodes the binary tile body of <c>POST /constellation/tiles</c> (<c>application/x-bazaar-tile</c>). The layout mirrors the

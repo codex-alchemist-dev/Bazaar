@@ -1,11 +1,10 @@
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Tests.Panes;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Tests.Constellation;
+namespace Bazaar.Client.Constellation.Tests;
 
 /// <summary>A tile source that records each request and answers only when the test completes the matching response.</summary>
 public sealed class FakeTileSource : IConstellationTileSource
@@ -43,7 +42,7 @@ public class ConstellationTileViewModelTests
     private static readonly ConstellationBox _box = new(-10, -5, 20, 30);
 
     private static ConstellationPaneViewModel Pane(IConstellationTileSource? source, int cap = _cap) =>
-        new(PaneRegistryTests.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""), source, cap);
+        new(ConstellationTestPanes.Descriptor(PaneKinds.Constellation, """{"nodes":[]}"""), source, cap);
 
     private static GraphLodFrame Lod(long version, bool clustersOnly = false) =>
         new("graph:1", version, clustersOnly, [], [], []);

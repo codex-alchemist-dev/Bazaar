@@ -13,14 +13,6 @@ src/Bazaar.Client.Core/Commands/CommandRecency.cs
 src/Bazaar.Client.Core/Commands/CommandRegistry.cs
 src/Bazaar.Client.Core/Commands/CommandSource.cs
 src/Bazaar.Client.Core/Commands/FuzzyScorer.cs
-src/Bazaar.Client.Core/Constellation/AccessibleNodeList.cs
-src/Bazaar.Client.Core/Constellation/ConstellationKeymap.cs
-src/Bazaar.Client.Core/Constellation/ConstellationNavigation.cs
-src/Bazaar.Client.Core/Constellation/ConstellationPaneView.cs
-src/Bazaar.Client.Core/Constellation/ConstellationPaneViewModel.cs
-src/Bazaar.Client.Core/Constellation/HttpConstellationTileSource.cs
-src/Bazaar.Client.Core/Constellation/IConstellationTileSource.cs
-src/Bazaar.Client.Core/Constellation/TileFrameDecoder.cs
 src/Bazaar.Client.Core/Input/KeyRouter.cs
 src/Bazaar.Client.Core/Input/KeyStroke.cs
 src/Bazaar.Client.Core/Input/Mnemonic.cs
@@ -40,7 +32,6 @@ src/Bazaar.Client.Core/Mobile/PhoneWidgetPolicy.cs
 src/Bazaar.Client.Core/Mobile/PostureLayout.cs
 src/Bazaar.Client.Core/Mobile/PostureShellBinder.cs
 src/Bazaar.Client.Core/Mobile/RadialMenu.cs
-src/Bazaar.Client.Core/Panes/ConstellationPaneModule.cs
 src/Bazaar.Client.Core/Panes/DashboardPaneModule.cs
 src/Bazaar.Client.Core/Panes/DashboardPaneViewModel.cs
 src/Bazaar.Client.Core/Panes/EnginePaneView.cs

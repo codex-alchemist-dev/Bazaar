@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>
 /// Mnemonic keys for Constellation navigation (27, keyboard model). Each key is one character, never a Ctrl chord.

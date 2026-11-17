@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>One visible node as the list sees it: id, screen-reader label and kind.</summary>
 public sealed record AccessibleNodeInput(string NodeId, string Label, string Kind);

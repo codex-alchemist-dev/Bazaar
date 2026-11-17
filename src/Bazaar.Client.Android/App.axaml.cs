@@ -4,7 +4,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Vault;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.RyuseiFuda;
@@ -42,8 +43,18 @@ public sealed class App : Avalonia.Application
     private static PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
         // The panes this head ships, in pager order: the RyuseiFuda board first, then the Client.Core panes, then the rest of RyuseiFuda.
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, new VaultSearchPaneModule(), .. RyuseiFudaPanes.Modules];
-        var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles);
+        // The Constellation module sits after the Dashboard, where it was before it moved out of Client.Core.
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            .. FirstPartyPanes.Modules.Take(1),
+            new ConstellationPaneModule(),
+            .. FirstPartyPanes.Modules.Skip(1),
+            new VaultSearchPaneModule(),
+            .. RyuseiFudaPanes.Modules,
+        ];
+        var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
+        var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
         return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
     }
 }
