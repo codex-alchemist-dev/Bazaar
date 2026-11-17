@@ -397,6 +397,16 @@ Contract tests run in CI on every PR that touches a module, and in the install d
 
 The health contract has its own protocol version (`kodo.contract = 1` at launch). It is a semver contract under doc 49's and the module API stability rules (brief: semver contract, compatibility shims, contract tests, compatibility matrix in the module manager). A module declares the contract version it targets. Kodo keeps the previous major as a shim for one release.
 
+### 10.5 First slice (package 6): PROPOSED
+
+Package 6 builds the abstractions, the loader gate and the contract test base only. No real module is wired. The rest of section 10 (liveness, readiness, dependencies, self-test, the manifest `health` block) comes in later slices. The choices below are PROPOSED where section 10 is silent.
+
+- **Narrowed interface (PROPOSED).** `IModuleHealthProbe` in `Bazaar.Kodo` (not `Bazaar.Kodo.Abstractions`; the project is still one assembly) reports `ModuleId`, `ProbeId` and `ValueTask<ProbeResult> CheckAsync(ct)`. The section 10.1 `IModuleHealth` (liveness, readiness, dependencies, self-test, `HealthResult`) is a later slice and is not reused under the same name.
+- **Probe id rule (PROPOSED).** A contract's `ProbeId` must be `module.<moduleId>.health`, the section 9.1 catalogue id. A contract that reports another module id or probe id is `unknown` with cause `contract_error`.
+- **Loader gate (PROPOSED).** A missing contract is `unknown` with cause `contract_missing`. A contract that throws while loading, checking or returning no result is `unknown` with cause `contract_error`, and keeps the exception in `Error`. Cancellation propagates to the caller and is not a contract failure. Section 9 already requires that `unknown` never counts as green.
+- **Contract test base (PROPOSED location).** `ModuleHealthContractTests<TModule>` is in the `Bazaar.Kodo.Testing` project (the name in section 10.3), which references xUnit v3 and `Bazaar.Kodo`. `Bazaar.Kodo` stays free of xUnit. The checks are pure (`ModuleHealthContractCheck`) and return violations, so they are testable without xUnit. This slice runs these section 10.3 checks: contract presence, expected `ModuleId`, catalogue `ProbeId`, a stable `ModuleId` across reads, and `CheckAsync` completing without throwing. The I/O fakes, budgets, self-test and manifest checks (10.3 items 2 to 8) come later.
+- **Contract causes.** `contract_missing` and `contract_error` are added to `ProbeCauses` beside the other causes.
+
 ## 11. Module manifest (sketch)
 
 Each module ships a manifest that Kodo reads from the module's signed package. Shape only; field names are PROPOSED and align with doc 40's component manifest.
@@ -816,7 +826,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 3. Evaluator: states, transitions, hysteresis, flap detection, scoring with caps. Pure, table-driven tests.
 4. Probe runtime: bulkhead pools, timeouts, breakers, `unknown` semantics. Fault tests.
 5. Built-in probes in the order of section 9.1, starting with `host.*`, `db.*`, `secrets.store`, `kodo.self.*`.
-6. Module health contract: abstractions, `ModuleHealthContractTests<T>`, loader gate. Depends on doc 42 for the lifecycle.
+6. Module health contract: abstractions, `ModuleHealthContractTests<T>`, loader gate. Depends on doc 42 for the lifecycle. First slice (probe interface, loader gate, contract test base) is built; its choices are PROPOSED in section 10.5.
 7. Immutable runtime: manifest format, signing and verification (release key from 37), slot pointer, verifier in the sentinel. Spike first (section 22).
 8. Sentinel process: supervision, slot switching, rollback, loopback status file.
 9. Read API and `kodo` stream on doc 02's registry.
