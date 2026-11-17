@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components.RateLimits;
+namespace Bazaar.RateLimits;
 
 /// <summary>What one rate-limit bucket is keyed by. The key value itself is supplied at call time.</summary>
 public enum RateLimitScope

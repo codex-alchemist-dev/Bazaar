@@ -226,10 +226,6 @@ src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
 src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
 src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
-src/Bazaar.Server/Components/RateLimits/IRateLimiter.cs
-src/Bazaar.Server/Components/RateLimits/InMemoryRateLimiter.cs
-src/Bazaar.Server/Components/RateLimits/RateLimitPolicy.cs
-src/Bazaar.Server/Components/RateLimits/RateLimitServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
 src/Bazaar.Server/Components/Remote/ITokenService.cs
 src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
