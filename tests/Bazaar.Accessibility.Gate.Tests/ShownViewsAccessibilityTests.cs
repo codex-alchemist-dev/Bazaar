@@ -2,6 +2,8 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Bazaar.Accessibility.Avalonia;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;

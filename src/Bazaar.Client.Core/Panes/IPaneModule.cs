@@ -1,3 +1,5 @@
+using Bazaar.Client.Abstractions.Panes;
+
 namespace Bazaar.Client.Core.Panes;
 
 /// <summary>

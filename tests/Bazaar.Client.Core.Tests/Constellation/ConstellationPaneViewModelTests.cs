@@ -1,3 +1,4 @@
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Panes;

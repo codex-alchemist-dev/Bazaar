@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;

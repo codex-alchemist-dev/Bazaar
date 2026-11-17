@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>
 /// The client's per-stream cursor: the last <c>n</c> and <c>ev</c> applied (doc 02, replay after reconnect).

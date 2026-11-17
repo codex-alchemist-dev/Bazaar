@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Threading.Channels;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;

@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Client.Terminal;
 using Bazaar.Contracts.Wire;

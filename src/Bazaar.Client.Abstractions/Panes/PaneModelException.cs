@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Abstractions.Panes;
 
 /// <summary>
 /// Thrown by a pane factory when the descriptor's model does not match the kind's shape.

@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>
 /// Cursors persisted to a JSON file, so replay after a restart resumes from the client's own cursor (doc 02).

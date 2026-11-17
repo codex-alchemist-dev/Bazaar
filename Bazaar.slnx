@@ -3,6 +3,7 @@
     <Project Path="src/Bazaar.Client.Components.Chat/Bazaar.Client.Components.Chat.csproj" />
     <Project Path="src/Bazaar.Client.Components.Launcher/Bazaar.Client.Components.Launcher.csproj" />
     <Project Path="src/Bazaar.Ex/Bazaar.Ex.csproj" />
+    <Project Path="src/Bazaar.Client.Abstractions/Bazaar.Client.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
     <Project Path="src/Bazaar.Client.Gc/Bazaar.Client.Gc.csproj" />
     <Project Path="src/Bazaar.Localisation/Bazaar.Localisation.csproj" />

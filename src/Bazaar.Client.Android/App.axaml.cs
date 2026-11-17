@@ -4,8 +4,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Android;

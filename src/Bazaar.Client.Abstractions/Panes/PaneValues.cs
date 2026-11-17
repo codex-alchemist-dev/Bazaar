@@ -1,7 +1,6 @@
 using System.Text.Json;
-using Bazaar.Client.Core.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Abstractions.Panes;
 
 /// <summary>Reads typed values from a pane model, raising <see cref="PaneModelException"/> on a shape mismatch.</summary>
 public static class PaneValues

@@ -2,8 +2,8 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Constellation;
-using Bazaar.Client.Core.Server;
 using Bazaar.Contracts.Graph;
 
 namespace Bazaar.Client.Core.Tests.Constellation;

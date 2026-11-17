@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 

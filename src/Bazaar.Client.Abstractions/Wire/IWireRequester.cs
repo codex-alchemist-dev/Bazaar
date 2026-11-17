@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>
 /// The one request call a feature needs from the socket client. <see cref="WireClient"/> implements it; a feature takes this

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;

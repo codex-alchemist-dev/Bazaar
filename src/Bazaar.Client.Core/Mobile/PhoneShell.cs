@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 
 namespace Bazaar.Client.Core.Mobile;

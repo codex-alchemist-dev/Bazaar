@@ -1,6 +1,6 @@
 using Bazaar.CompanyIdentity;
 
-namespace Bazaar.Client.Core.Server;
+namespace Bazaar.Client.Abstractions.Server;
 
 /// <summary>
 /// Where the client reaches its Bazaar.Server, the bearer credential it sends with each HTTP request, and the key-hash pin of

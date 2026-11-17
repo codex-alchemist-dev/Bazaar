@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 
