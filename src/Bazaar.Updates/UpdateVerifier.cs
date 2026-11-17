@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Client.Core.Updates;
+namespace Bazaar.Updates;
 
 /// <summary>Verifies a signature over a package with the company's signing key. Implemented per platform.</summary>
 public interface IUpdateSignatureVerifier
