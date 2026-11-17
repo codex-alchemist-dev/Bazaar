@@ -1,6 +1,6 @@
-using Bazaar.Server.Fun.Ward;
+using Bazaar.Fun.Ward;
 
-namespace Bazaar.Server.Tests.Fun;
+namespace Bazaar.Fun.Tests;
 
 public class WardStateMachineTests
 {

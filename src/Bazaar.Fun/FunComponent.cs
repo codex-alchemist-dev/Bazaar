@@ -1,13 +1,13 @@
 using Bazaar.Core;
-using Bazaar.Server.Fun.Vent;
-using Bazaar.Server.Fun.Ward;
+using Bazaar.Fun.Vent;
+using Bazaar.Fun.Ward;
 using Bazaar.Server.Sanitization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
-namespace Bazaar.Server.Fun;
+namespace Bazaar.Fun;
 
 /// <summary>
 /// The fun systems (docs/design/26-fun-systems.md, docs/design/BAZAAR-COMPONENTS.md). Registers the pure logic that needs

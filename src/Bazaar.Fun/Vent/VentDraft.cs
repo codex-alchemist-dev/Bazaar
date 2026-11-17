@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Vent;
+namespace Bazaar.Fun.Vent;
 
 /// <summary>Where a draft sits in its life (doc 26, section 2).</summary>
 public enum VentStatus

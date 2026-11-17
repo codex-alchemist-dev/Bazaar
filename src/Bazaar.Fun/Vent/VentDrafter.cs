@@ -1,6 +1,6 @@
 using Bazaar.Server.Sanitization;
 
-namespace Bazaar.Server.Fun.Vent;
+namespace Bazaar.Fun.Vent;
 
 /// <summary>The taint facts the drafter needs about the session that wrote the vent (doc 15; C06).</summary>
 /// <param name="HardTainted">The session has seen external content (hard taint).</param>
