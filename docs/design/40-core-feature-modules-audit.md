@@ -109,9 +109,9 @@ The owner-signature contract is its own module, not server code. It moved out of
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
 
-## Offline sync module (doc 52, doc 49 section 4)
+## Offline sync module (doc 56, doc 49 section 4)
 
-Offline editing with merge is its own module set, not server or Client.Core code (PROPOSED layout, doc 52 section 2):
+Offline editing with merge is its own module set, not server or Client.Core code (PROPOSED layout, doc 56 section 2):
 
 - `Bazaar.OfflineSync.Abstractions`: hybrid logical clock, `OfflineWrite` envelope and batch, data classes, merge outcomes, `IOfflineMergeRule`, `IOfflineSyncStore`.
 - `Bazaar.Server.OfflineSync`: batch intake, idempotent replay, the per-class merge rules, merge audit records, an in-memory store for tests. Component id `offline-sync`; soft dependencies `gc`, `kanban`, `vault`, `audit`.

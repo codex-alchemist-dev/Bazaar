@@ -1,6 +1,6 @@
 namespace Bazaar.Server.OfflineSync;
 
-/// <summary>Operator settings for the offline sync engine (doc 52 section 3).</summary>
+/// <summary>Operator settings for the offline sync engine (doc 56 section 3).</summary>
 public sealed class OfflineSyncOptions
 {
     /// <summary>The smallest allowed <see cref="MaxClockSkew"/>.</summary>

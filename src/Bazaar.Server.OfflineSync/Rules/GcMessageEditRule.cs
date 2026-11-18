@@ -31,7 +31,7 @@ public interface IGcEditState
 }
 
 /// <summary>
-/// Merge rule for GC message edits (doc 52 section 5, item 2). Each edit is a new version row. The
+/// Merge rule for GC message edits (doc 56 section 5, item 2). Each edit is a new version row. The
 /// highest server sequence is current, so every edit stays. Two edits made against the same base
 /// version are a <see cref="OfflineOutcomeKind.ConcurrentEdit"/>; both survive.
 /// </summary>

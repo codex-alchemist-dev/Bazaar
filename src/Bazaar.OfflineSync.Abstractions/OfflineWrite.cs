@@ -45,7 +45,7 @@ public sealed record OfflineWrite(
 /// <summary>One device's writes, in <see cref="OfflineWrite.DeviceSequence"/> order.</summary>
 public sealed record OfflineWriteBatch(Guid DeviceId, IReadOnlyList<OfflineWrite> Writes);
 
-/// <summary>What happened to a write (doc 52 section 3).</summary>
+/// <summary>What happened to a write (doc 56 section 3).</summary>
 public enum OfflineOutcomeKind
 {
     /// <summary>Applied.</summary>

@@ -23,7 +23,7 @@ public enum OfflineReplayStatus
 public sealed record OfflineReplayResult(OfflineReplayStatus Status, long AckedSequence, int AttentionCount, string? Reason = null);
 
 /// <summary>
-/// Replays the queue to the server (doc 52 section 6). Sends the front batch, acknowledges the queue up to the server's AckedSequence,
+/// Replays the queue to the server (doc 56 section 6). Sends the front batch, acknowledges the queue up to the server's AckedSequence,
 /// resends from a reported gap, and goes offline on transport failure. Conflict, HeldForReview and Rejected outcomes are counted
 /// into Attention.
 /// </summary>

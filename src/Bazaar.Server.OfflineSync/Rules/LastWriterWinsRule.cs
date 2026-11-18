@@ -26,7 +26,7 @@ public interface ILastWriterWinsState
 }
 
 /// <summary>
-/// Shared last-writer-wins merge (doc 52 section 5, items 4 and 5). Per key, the highest HLC wins. The
+/// Shared last-writer-wins merge (doc 56 section 5, items 4 and 5). Per key, the highest HLC wins. The
 /// value it replaces is kept in history. A write that loses is also kept in history, so the history
 /// holds every non-current value and is the same set for any arrival order. A losing write is
 /// outcome <see cref="OfflineOutcomeKind.Applied"/> with the current version, because nothing is refused.

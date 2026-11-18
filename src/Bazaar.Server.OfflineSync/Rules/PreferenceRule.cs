@@ -11,7 +11,7 @@ public interface ISafetyKeyPolicy
 }
 
 /// <summary>
-/// Merge rule for user preferences (doc 52 section 5, item 5). Last writer wins per key by HLC. A
+/// Merge rule for user preferences (doc 56 section 5, item 5). Last writer wins per key by HLC. A
 /// safety-relevant key with a conflicting change (a different value and a base version that is not the
 /// current version) is held for review with outcome <see cref="OfflineOutcomeKind.HeldForReview"/>.
 /// </summary>

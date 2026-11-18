@@ -6,7 +6,7 @@ using Bazaar.OfflineSync;
 namespace Bazaar.Client.OfflineSync;
 
 /// <summary>
-/// The client's pending-write queue (doc 52 section 6): one AES-256-GCM record per write, appended in device sequence order.
+/// The client's pending-write queue (doc 56 section 6): one AES-256-GCM record per write, appended in device sequence order.
 /// </summary>
 /// <remarks>
 /// File layout. Header: "BOQ1", then the device sequence of the first record (int64 LE). For an empty file that value is the next
@@ -14,10 +14,10 @@ namespace Bazaar.Client.OfflineSync;
 /// The associated data of each record is the DeviceId bytes followed by the DeviceSequence (int64 LE). The sequence is not stored
 /// in the record; it follows from position. A swapped, reordered or shifted record therefore fails authentication.
 /// Any verification failure stops the queue: every later call throws <see cref="OfflineQueueCorruptedException"/> and nothing is skipped.
-/// Removing whole records from the end of the file is not detectable by the format alone; see doc 52 open items.
+/// Removing whole records from the end of the file is not detectable by the format alone; see doc 56 open items.
 /// Within one process all members are thread safe. Two processes must not open the same queue directory.
 /// </remarks>
-[SuppressMessage("Naming", "CA1711", Justification = "The name is fixed by the doc 52 client queue contract.")]
+[SuppressMessage("Naming", "CA1711", Justification = "The name is fixed by the doc 56 client queue contract.")]
 public sealed class EncryptedOfflineQueue : IDisposable
 {
     /// <summary>The queue file name inside the queue directory.</summary>

@@ -7,7 +7,7 @@ namespace Bazaar.Server.OfflineSync.Rules;
 /// <param name="Reason">Why it is not allowed, when <paramref name="Allowed"/> is false.</param>
 public sealed record TransitionDecision(bool Allowed, string? Reason = null);
 
-/// <summary>Checks Kanban status transitions after a merge (doc 52 section 5, item 3; doc 12).</summary>
+/// <summary>Checks Kanban status transitions after a merge (doc 56 section 5, item 3; doc 12).</summary>
 public interface ITransitionChecker
 {
     /// <summary>Decides whether a task may move between two statuses.</summary>
@@ -40,7 +40,7 @@ public interface IKanbanFieldState
 }
 
 /// <summary>
-/// Merge rule for Kanban field writes (doc 52 section 5, item 3). A write applies only when the server
+/// Merge rule for Kanban field writes (doc 56 section 5, item 3). A write applies only when the server
 /// field version equals its base version. Otherwise it is a conflict and opens a review item. Status
 /// writes also pass through <see cref="ITransitionChecker"/>. Blocked is never merged; the checker
 /// decides it after the merge.

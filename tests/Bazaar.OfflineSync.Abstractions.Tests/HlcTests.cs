@@ -1,6 +1,6 @@
 namespace Bazaar.OfflineSync.Tests;
 
-/// <summary>Ordering tests for <see cref="Hlc"/> (doc 52 section 3): wall time, then counter, then device id.</summary>
+/// <summary>Ordering tests for <see cref="Hlc"/> (doc 56 section 3): wall time, then counter, then device id.</summary>
 public sealed class HlcTests
 {
     private static readonly Guid _deviceLow = Guid.Parse("00000000-0000-0000-0000-000000000001");

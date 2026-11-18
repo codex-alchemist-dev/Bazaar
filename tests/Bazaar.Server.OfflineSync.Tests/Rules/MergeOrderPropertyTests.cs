@@ -5,7 +5,7 @@ namespace Bazaar.Server.OfflineSync.Tests.Rules;
 
 /// <summary>
 /// Seeded property tests (200 iterations each). The same set of writes, merged in a shuffled arrival
-/// order, must give the same result where the data class requires it (doc 52 section 7).
+/// order, must give the same result where the data class requires it (doc 56 section 7).
 /// </summary>
 public sealed class MergeOrderPropertyTests
 {

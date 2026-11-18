@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 
 namespace Bazaar.OfflineSync.Tests;
 
-/// <summary>Behaviour tests for <see cref="HlcClock"/> (doc 52 section 3, standard HLC algorithm).</summary>
+/// <summary>Behaviour tests for <see cref="HlcClock"/> (doc 56 section 3, standard HLC algorithm).</summary>
 public sealed class HlcClockTests
 {
     private static readonly Guid _device = Guid.Parse("0000000a-0000-0000-0000-000000000000");

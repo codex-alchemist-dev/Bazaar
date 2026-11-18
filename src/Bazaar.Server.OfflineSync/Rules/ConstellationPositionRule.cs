@@ -3,7 +3,7 @@ using Bazaar.OfflineSync;
 namespace Bazaar.Server.OfflineSync.Rules;
 
 /// <summary>
-/// Merge rule for Constellation node positions (doc 52 section 5, item 4). Last writer wins per node
+/// Merge rule for Constellation node positions (doc 56 section 5, item 4). Last writer wins per node
 /// by HLC, and the previous position stays in history.
 /// </summary>
 public sealed class ConstellationPositionRule : LastWriterWinsRule

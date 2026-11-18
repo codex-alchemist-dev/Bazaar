@@ -1,6 +1,6 @@
 namespace Bazaar.Client.OfflineSync;
 
-/// <summary>The connection chip state (doc 52 section 6, doc 27). A closed set of nested records.</summary>
+/// <summary>The connection chip state (doc 56 section 6, doc 27). A closed set of nested records.</summary>
 public abstract record ConnectionState
 {
     /// <summary>Connected, with nothing pending.</summary>

@@ -9,7 +9,7 @@ namespace Bazaar.Client.OfflineSync;
 public sealed record OfflineDisabledControl(string ControlId, string Name, string Reason);
 
 /// <summary>
-/// The offline write policy (doc 52 section 6, doc 49 section 4). Settings, company locks, agent memory, Passport and secrets are
+/// The offline write policy (doc 56 section 6, doc 49 section 4). Settings, company locks, agent memory, Passport and secrets are
 /// held by the server and disabled offline. Every data class in <see cref="OfflineDataClass"/> is writable offline.
 /// </summary>
 public static class OfflinePolicy

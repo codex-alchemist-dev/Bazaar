@@ -10,7 +10,7 @@ public interface IAttachmentState
 }
 
 /// <summary>
-/// Merge rule for content-addressed attachments (doc 52 section 5, item 6). The target is the
+/// Merge rule for content-addressed attachments (doc 56 section 5, item 6). The target is the
 /// lowercase SHA-256 hex of the content. Identical bytes always merge to a no-op
 /// <see cref="OfflineOutcomeKind.Applied"/>, including a second identical write.
 /// </summary>

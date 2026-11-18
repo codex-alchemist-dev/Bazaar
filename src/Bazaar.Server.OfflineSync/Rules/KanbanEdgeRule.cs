@@ -24,7 +24,7 @@ public interface IKanbanEdgeState
 }
 
 /// <summary>
-/// Merge rule for Kanban dependency edges (doc 52 section 5, item 3). Adds merge as a union. An add
+/// Merge rule for Kanban dependency edges (doc 56 section 5, item 3). Adds merge as a union. An add
 /// that would create a cycle in the result is rejected: the edge that closes the cycle is the one
 /// refused. Removes are field changes and need the base version of the edge, like Kanban fields.
 /// </summary>

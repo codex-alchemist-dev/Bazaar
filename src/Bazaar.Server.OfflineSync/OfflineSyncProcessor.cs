@@ -5,7 +5,7 @@ namespace Bazaar.Server.OfflineSync;
 
 /// <summary>
 /// Applies offline write batches: idempotent per write id, gapless per device sequence, in order,
-/// serialized per device (doc 52 sections 3 and 4).
+/// serialized per device (doc 56 sections 3 and 4).
 /// </summary>
 public sealed class OfflineSyncProcessor
 {

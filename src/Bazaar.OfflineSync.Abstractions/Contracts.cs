@@ -1,6 +1,6 @@
 namespace Bazaar.OfflineSync;
 
-/// <summary>A merge rule for one data class. Pure with respect to the write and the store (doc 52 section 5).</summary>
+/// <summary>A merge rule for one data class. Pure with respect to the write and the store (doc 56 section 5).</summary>
 public interface IOfflineMergeRule
 {
     /// <summary>The data class this rule handles.</summary>

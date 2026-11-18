@@ -12,7 +12,7 @@ public interface IGcAppendState
     ValueTask<long> AppendAsync(string gcId, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken);
 }
 
-/// <summary>Merge rule for new GC messages (doc 52 section 5, item 1). Appends in arrival order.</summary>
+/// <summary>Merge rule for new GC messages (doc 56 section 5, item 1). Appends in arrival order.</summary>
 public sealed class GcMessageRule : IOfflineMergeRule
 {
     private readonly IGcAppendState _state;

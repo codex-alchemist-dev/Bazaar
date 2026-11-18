@@ -16,7 +16,7 @@ public interface IAuditActionSink
 }
 
 /// <summary>
-/// Merge rule for client audit actions (doc 52 section 5, item 7). Actions are appended in arrival
+/// Merge rule for client audit actions (doc 56 section 5, item 7). Actions are appended in arrival
 /// order. The audit module hashes them into the chain; the client never sets an order.
 /// </summary>
 public sealed class AuditActionRule : IOfflineMergeRule

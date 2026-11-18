@@ -3,7 +3,7 @@ using Bazaar.OfflineSync;
 
 namespace Bazaar.Server.OfflineSync.Rules;
 
-/// <summary>A human review item opened by a merge rule (doc 52 section 3, doc 49).</summary>
+/// <summary>A human review item opened by a merge rule (doc 56 section 3, doc 49).</summary>
 /// <param name="Kind">Short kind name, for example "kanban-field-conflict".</param>
 /// <param name="Target">The object key the write was for.</param>
 /// <param name="WriteId">The write that needs a human decision.</param>

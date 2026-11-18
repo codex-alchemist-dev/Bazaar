@@ -1,6 +1,6 @@
 namespace Bazaar.OfflineSync;
 
-/// <summary>A hybrid logical clock timestamp: wall time, a counter for ties, and the device id. Ordered totally. Doc 52 section 3.</summary>
+/// <summary>A hybrid logical clock timestamp: wall time, a counter for ties, and the device id. Ordered totally. Doc 56 section 3.</summary>
 public readonly record struct Hlc(long WallMillis, int Counter, Guid DeviceId) : IComparable<Hlc>
 {
     /// <inheritdoc />
