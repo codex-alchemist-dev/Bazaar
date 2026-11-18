@@ -8,7 +8,7 @@ namespace Bazaar.Roles;
 public sealed class PostgresRoleStore(NpgsqlDataSource dataSource) : IRoleStore
 {
     /// <summary>Serialises first-owner bootstraps (transaction-level advisory lock key).</summary>
-    private const long BootstrapLockKey = 0x726F6C6573L;
+    private const long _bootstrapLockKey = 0x726F6C6573L;
 
     public async Task<Role?> GetAsync(Guid roleId, CancellationToken ct = default)
     {
@@ -88,7 +88,7 @@ public sealed class PostgresRoleStore(NpgsqlDataSource dataSource) : IRoleStore
 
     public async Task<bool> AssignAsync(RoleAssignment assignment, CancellationToken ct = default)
     {
-        await using var cmd = dataSource.CreateCommand(InsertAssignmentSql + " ON CONFLICT DO NOTHING");
+        await using var cmd = dataSource.CreateCommand(_insertAssignmentSql + " ON CONFLICT DO NOTHING");
         AddAssignment(cmd, assignment);
         return await cmd.ExecuteNonQueryAsync(ct) > 0;
     }
@@ -135,7 +135,7 @@ public sealed class PostgresRoleStore(NpgsqlDataSource dataSource) : IRoleStore
         await using var tx = await conn.BeginTransactionAsync(ct);
         await using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock($1)", conn, tx))
         {
-            lockCmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = BootstrapLockKey });
+            lockCmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = _bootstrapLockKey });
             await lockCmd.ExecuteNonQueryAsync(ct);
         }
 
@@ -147,7 +147,7 @@ public sealed class PostgresRoleStore(NpgsqlDataSource dataSource) : IRoleStore
                 return false;
         }
 
-        await using (var insert = new NpgsqlCommand(InsertAssignmentSql, conn, tx))
+        await using (var insert = new NpgsqlCommand(_insertAssignmentSql, conn, tx))
         {
             AddAssignment(insert, assignment);
             await insert.ExecuteNonQueryAsync(ct);
@@ -157,7 +157,7 @@ public sealed class PostgresRoleStore(NpgsqlDataSource dataSource) : IRoleStore
         return true;
     }
 
-    private const string InsertAssignmentSql =
+    private const string _insertAssignmentSql =
         "INSERT INTO role_assignment (principal_id, principal_kind, role_id, assigned_by, assigned_at) VALUES ($1,$2,$3,$4,$5)";
 
     private static void AddAssignment(NpgsqlCommand cmd, RoleAssignment a)

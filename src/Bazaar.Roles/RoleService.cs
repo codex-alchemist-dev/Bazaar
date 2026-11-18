@@ -18,8 +18,8 @@ public sealed class RoleService(
     TimeProvider clock,
     IScopeContainment? containment = null) : IRoleService
 {
-    private const int MaxNameLength = 100;
-    private const int MaxDescriptionLength = 1000;
+    private const int _maxNameLength = 100;
+    private const int _maxDescriptionLength = 1000;
 
     public async Task EnsureBuiltInTemplatesAsync(CancellationToken ct = default)
     {
@@ -60,7 +60,7 @@ public sealed class RoleService(
         await RequireAdminAsync(actor, ct);
         name = (name ?? "").Trim();
         description = (description ?? "").Trim();
-        if (name.Length == 0 || name.Length > MaxNameLength || description.Length > MaxDescriptionLength)
+        if (name.Length == 0 || name.Length > _maxNameLength || description.Length > _maxDescriptionLength)
             throw new RoleFloorException(RoleRefusal.Invalid, "The role name must be 1 to 100 characters and the description at most 1000.");
         grants = grants.Distinct().ToList();
         if (grants.Any(g => g.Capability.IsApproval))
