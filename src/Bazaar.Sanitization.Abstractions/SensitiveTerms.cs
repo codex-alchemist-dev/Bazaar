@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Sanitization;
+namespace Bazaar.Sanitization;
 
 /// <summary>
 /// The names and quoted passages the caller wants removed. Blank entries are ignored; null collections are rejected.

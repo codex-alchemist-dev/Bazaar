@@ -710,11 +710,6 @@ src/Bazaar.Server/Reputation/EvidenceKind.cs
 src/Bazaar.Server/Reputation/ScoreMath.cs
 src/Bazaar.Server/Reputation/ScoreResult.cs
 src/Bazaar.Server/Reputation/WeightPolicy.cs
-src/Bazaar.Server/Sanitization/ITextSanitizer.cs
-src/Bazaar.Server/Sanitization/Redaction.cs
-src/Bazaar.Server/Sanitization/RedactionKind.cs
-src/Bazaar.Server/Sanitization/SanitizedText.cs
-src/Bazaar.Server/Sanitization/SensitiveTerms.cs
 src/Bazaar.Server/Sanitization/TextSanitizer.cs
 src/Bazaar.Server/Secrets/BootstrapSecretResolver.cs
 src/Bazaar.Server/Security/AgentSafetyServiceCollectionExtensions.cs
