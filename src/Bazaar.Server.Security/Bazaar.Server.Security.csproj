@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.Security</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Health.Abstractions\Bazaar.Health.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

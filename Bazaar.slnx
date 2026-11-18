@@ -44,6 +44,8 @@
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
+    <Project Path="src/Bazaar.Server.Security.Abstractions/Bazaar.Server.Security.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Security/Bazaar.Server.Security.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
