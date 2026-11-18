@@ -434,7 +434,7 @@ The redaction rules are shared by the client and the server, so they live in a s
 Only the questions the design cannot settle without the owner or counsel.
 
 1. **Which repository receives crash issues for Bazaar's own modules?** The public platform repo (`codex-alchemist-dev/Bazaar`) would publish redacted failure details to the world. A company repo keeps them private. Default: `telemetry.crash.issue_repo` is empty, so nothing is filed. Owner to choose.
-2. **Project name for the shared redaction library.** CLAUDE.md lists approved project names and this name is not on it. Proposed `Bazaar.Diagnostics`. Owner to approve, and to settle the licence placement (section 12.3).
+2. **Project name for the shared redaction library.** CLAUDE.md lists approved project names and this name is not on it. Proposed `Bazaar.Diagnostics`. Owner to approve, and to settle the licence placement (section 12.3). Built as `Bazaar.Diagnostics` (shared, pure) plus the server module `Bazaar.Server.Diagnostics` and `Bazaar.Server.Diagnostics.Abstractions` (doc 40 module list), AGPL-3.0 like the rest of core.
 3. **Counsel: company-global profile.** Whether device-user data in crash reports, and screenshots, need stricter defaults when several members share an instance, and whether filing aggregated crash groups on a public repo publishes personal data. Needs counsel (doc 32).
 4. **Counsel: diagnosis on a free tier.** Whether a diagnosis run through a provider that may train on prompts is acceptable under the operator's setup warning, or whether diagnosis should refuse free-tier models by default. Needs counsel and the owner's call (CLAUDE.md "Free-tier data").
 
