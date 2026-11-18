@@ -60,6 +60,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `identity/0001` | LEASE-DURABLE | this PR | `credential_lease.approval_id` with a unique partial index, so an approval backs at most one lease across restarts (`PostgresCredentialLeaseStore`). Own namespace, because `common/` is frozen |
 | `constellation/0001` | WP-D (memory graph) | this PR | `constellation_memory_revision` and `constellation_memory_edge`: append-only memory graph revisions with one active revision per note (docs/design/constellation-memory-graph.md, "Store"). Owned by `ConstellationComponent`; the migration lives in the `constellation` namespace because `common/` is frozen; no foreign keys |
 | `erasure/0001` | ERASE-HOLD | this PR | `legal_hold_event` (append-only, refuse trigger, `bazaar_app` insert and select only) and view `active_legal_hold`: legal holds (doc 48 section 9). Holds are created and released only through the owner's signed path, which is not on main yet. No foreign keys |
+| `roles/0001` | ROLES | this PR | `role`, `role_grant`, `role_assignment`: custom roles with capability-over-scope grants and role assignments for human, agent and service principals (doc 48 section 4). Built-in templates are inserted by `RoleService`, not by SQL. No foreign keys to people or agents |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
