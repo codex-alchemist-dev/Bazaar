@@ -343,9 +343,6 @@ src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatAdapter.cs
 src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatAdapterComponent.cs
 src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatWire.cs
 src/Bazaar.Server/Gateway/Adapters/ProviderEndpoint.cs
-src/Bazaar.Server/Gateway/Ai/GatewayChatClient.cs
-src/Bazaar.Server/Gateway/Ai/GatewayChatMapping.cs
-src/Bazaar.Server/Gateway/Ai/GatewayModelException.cs
 src/Bazaar.Server/Gateway/AnthropicDirect/AnthropicDirectComponent.cs
 src/Bazaar.Server/Gateway/AnthropicDirect/AnthropicDirectOptions.cs
 src/Bazaar.Server/Gateway/AnthropicDirect/AnthropicDirectProvider.cs
@@ -392,7 +389,6 @@ src/Bazaar.Server/Gateway/Health/HealthTracker.cs
 src/Bazaar.Server/Gateway/Health/IHealthProbe.cs
 src/Bazaar.Server/Gateway/Health/ModelListProbe.cs
 src/Bazaar.Server/Gateway/Health/ProviderKey.cs
-src/Bazaar.Server/Gateway/IModelGateway.cs
 src/Bazaar.Server/Gateway/Pipeline/IAdapterRegistry.cs
 src/Bazaar.Server/Gateway/Pipeline/IGatewayEventSink.cs
 src/Bazaar.Server/Gateway/Pipeline/IProviderSecretSource.cs
@@ -404,7 +400,6 @@ src/Bazaar.Server/Gateway/Policy/AgentModelPolicy.cs
 src/Bazaar.Server/Gateway/Policy/CredentialKind.cs
 src/Bazaar.Server/Gateway/Policy/DelegatedRouteAudit.cs
 src/Bazaar.Server/Gateway/Policy/IGatewayDirectory.cs
-src/Bazaar.Server/Gateway/Policy/ModelRef.cs
 src/Bazaar.Server/Gateway/Policy/PolicyTightening.cs
 src/Bazaar.Server/Gateway/Policy/RouteResolution.cs
 src/Bazaar.Server/Gateway/Policy/RouteResolver.cs
