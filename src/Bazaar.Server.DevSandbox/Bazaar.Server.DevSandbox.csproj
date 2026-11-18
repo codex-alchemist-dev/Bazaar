@@ -11,5 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.DevSandbox.Abstractions\Bazaar.Server.DevSandbox.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Install\Bazaar.Install.csproj" />
   </ItemGroup>
 </Project>
