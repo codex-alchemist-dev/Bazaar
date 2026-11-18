@@ -18,6 +18,11 @@ public class LayeringTests
     [Theory]
     [InlineData("Bazaar.Client.RyuseiFuda")]
     [InlineData("Bazaar.Client.Views")]
+    [InlineData("Bazaar.Client.Health")]
+    [InlineData("Bazaar.Client.Twin")]
+    [InlineData("Bazaar.Client.Archive")]
+    [InlineData("Bazaar.Client.CompanyMemory")]
+    [InlineData("Bazaar.Client.Hive")]
     public void Client_feature_module_references_only_client_core(string project)
     {
         var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));

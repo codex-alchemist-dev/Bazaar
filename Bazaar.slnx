@@ -57,6 +57,15 @@
     <Project Path="src/Bazaar.Updates/Bazaar.Updates.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
+    <Project Path="src/Bazaar.Client.Health/Bazaar.Client.Health.csproj" />
+    <Project Path="src/Bazaar.Client.Twin/Bazaar.Client.Twin.csproj" />
+    <Project Path="src/Bazaar.Client.Archive/Bazaar.Client.Archive.csproj" />
+    <Project Path="src/Bazaar.Client.CompanyMemory/Bazaar.Client.CompanyMemory.csproj" />
+    <Project Path="src/Bazaar.Client.Hive/Bazaar.Client.Hive.csproj" />
+    <Project Path="src/Bazaar.Server.Twin.Prose/Bazaar.Server.Twin.Prose.csproj" />
+    <Project Path="src/Bazaar.Server.Twin.Prose.Abstractions/Bazaar.Server.Twin.Prose.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
+    <Project Path="src/Bazaar.Server.Hive.Abstractions/Bazaar.Server.Hive.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
@@ -113,6 +122,13 @@
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Health.Tests/Bazaar.Client.Health.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Twin.Tests/Bazaar.Client.Twin.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Archive.Tests/Bazaar.Client.Archive.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.CompanyMemory.Tests/Bazaar.Client.CompanyMemory.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Hive.Tests/Bazaar.Client.Hive.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Twin.Prose.Tests/Bazaar.Server.Twin.Prose.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Hive.Tests/Bazaar.Server.Hive.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
   </Folder>

@@ -39,7 +39,7 @@ Seven v1 company systems that turn the GC record, the Vault and the project repo
 - **Digital Twin and Constellation.** The Twin emits project nodes and edges; 19 owns the layout and drawing.
 
 ### Trust and crossing rules [PROPOSED]
-- Every fact, chapter, metric note and copy carries `trust` (the 08 tier, T0 to T3) and `origin_kind` (the 15 provenance enum). It also carries `source_refs` (08 §5). Derived output takes the highest trust of its inputs (08 §4).
+- Every fact, chapter, metric note and copy carries `trust` (the 08 tier, T0 to T3) and `origin_kind` (the 15 provenance enum). It also carries `source_refs` (08 §5). Derived output takes the lowest trust (the highest taint) of its inputs (08 §4); one low-trust fact never rides up to an owner-promoted page.
 - Anything crossing agents or projects (Hive copy, Talent template, GMT candidate, Twin fact, Archive chapter) is data labelled by origin, never instruction. Only an owner promotion raises trust.
 - Talent templates hold prompts and tool grants, which is executable intent. Importing one is quarantined until a Council `hire` motion passes (C32). Instantiating one with any tool grant is Tier 2 (07, 15).
 - Prose (Twin summaries, chapter text, GMT candidates) is written in a reader session with no tools. Reader sessions are the reader/actor split's primitive (15; DECISIONS-LOG round 6, C18, Claude's reading, to confirm). A sentence without a valid `source_ref` is dropped by the validator.

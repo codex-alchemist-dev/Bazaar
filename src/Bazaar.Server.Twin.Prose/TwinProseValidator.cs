@@ -3,7 +3,7 @@ namespace Bazaar.Server.Twin.Prose;
 /// <summary>A sentence that passed, with the facts it cites.</summary>
 public sealed record ValidatedSentence(string Text, string SourceRef, IReadOnlyList<TwinFactRecord> Facts);
 
-/// <summary>Validator output. <see cref="Trust"/> is the highest trust of the facts the kept sentences cite.</summary>
+/// <summary>Validator output. <see cref="Trust"/> is the lowest trust (the highest taint, doc 08 section 4) of the facts the kept sentences cite.</summary>
 public sealed record ValidatedProse(IReadOnlyList<ValidatedSentence> Sentences, int Dropped, TwinTrust? Trust);
 
 /// <summary>
@@ -58,7 +58,7 @@ public static class TwinProseValidator
             }
         }
 
-        TwinTrust? trust = kept.Count == 0 ? null : kept.SelectMany(s => s.Facts).Max(f => f.Trust);
+        TwinTrust? trust = kept.Count == 0 ? null : kept.SelectMany(s => s.Facts).Min(f => f.Trust);
         return new ValidatedProse(kept, dropped, trust);
     }
 

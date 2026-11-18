@@ -88,15 +88,15 @@ public class TwinProseStepTests
     }
 
     [Fact]
-    public async Task Output_trust_is_the_highest_trust_of_facts_used()
+    public async Task Output_trust_is_the_lowest_trust_of_facts_used()
     {
         var reader = new ScriptedReader(_ => new ReaderDraft([new DraftSentence("A.", "f1"), new DraftSentence("B.", "f2")]));
         var (step, writer) = Build(reader, Fact("f1", TwinTrust.UntrustedDerived), Fact("f2", TwinTrust.OwnerPromoted), Fact("f3", TwinTrust.AgentVerified));
 
         var result = await step.RunAsync(_project, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TwinTrust.OwnerPromoted, result.Trust);
-        Assert.Contains("trust: OwnerPromoted", writer.Writes[0].Markdown);
+        Assert.Equal(TwinTrust.UntrustedDerived, result.Trust);
+        Assert.Contains("trust: UntrustedDerived", writer.Writes[0].Markdown);
         Assert.DoesNotContain("\"f3\"", writer.Writes[0].Markdown);
     }
 

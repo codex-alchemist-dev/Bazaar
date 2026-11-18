@@ -69,7 +69,7 @@ public enum TwinProseOutcome
 /// <summary>Result of one prose run.</summary>
 /// <param name="Outcome">Why the run ended.</param>
 /// <param name="Page">The written page, or null when nothing was written.</param>
-/// <param name="Trust">Trust of the written page (highest trust of the facts it used), or null.</param>
+/// <param name="Trust">Trust of the written page (lowest trust of the facts it used), or null.</param>
 /// <param name="Accepted">Sentences kept.</param>
 /// <param name="Dropped">Sentences dropped by the validator.</param>
 /// <param name="Error">A short reason for <see cref="TwinProseOutcome.ReaderFailed"/>.</param>
