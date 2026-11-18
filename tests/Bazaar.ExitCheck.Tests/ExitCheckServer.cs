@@ -1,5 +1,5 @@
 using Bazaar.Client.Core.Wire;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Host.Composition;

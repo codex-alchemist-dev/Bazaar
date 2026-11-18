@@ -1,8 +1,8 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
-using Bazaar.Identity.Kek;
-using Bazaar.Identity.Kek.OpenBao;
+using Bazaar.Server.Identity.Kek;
+using Bazaar.Server.Identity.Kek.OpenBao;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;

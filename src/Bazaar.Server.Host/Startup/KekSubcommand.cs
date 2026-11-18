@@ -1,4 +1,4 @@
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Audit;

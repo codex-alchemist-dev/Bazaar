@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Gc.Write;
 using Npgsql;
 
