@@ -1,4 +1,4 @@
-using Bazaar.Community;
+using Bazaar.Server.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.RyuseiFuda.Orrery;
