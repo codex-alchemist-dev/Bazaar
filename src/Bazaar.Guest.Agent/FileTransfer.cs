@@ -12,13 +12,72 @@ internal sealed class PathGuard
     private const int _maxLinkHops = 40;
     private readonly string[] _roots;
 
-    /// <summary>Creates a guard over the given roots.</summary>
+    /// <summary>Creates a guard over the given roots. The first root is the worktree root that relative paths use.</summary>
     public PathGuard(IEnumerable<string> roots)
     {
-        _roots = roots
+        var all = roots.ToArray();
+        _roots = all
             .Select(root => RealPath(Path.GetFullPath(root), 0))
             .OfType<string>()
             .ToArray();
+        PrimaryRoot = all.Length > 0 ? RealPath(Path.GetFullPath(all[0]), 0) : null;
+    }
+
+    /// <summary>The real path of the first configured root, or null when none is configured or it cannot be resolved.</summary>
+    public string? PrimaryRoot { get; }
+
+    /// <summary>
+    /// True when <paramref name="path"/> is a safe root-relative path: not rooted, no drive or UNC prefix, no <c>..</c>
+    /// segment, no NUL. An empty path (or <c>.</c>) names the root itself and is accepted only with <paramref name="allowRoot"/>.
+    /// </summary>
+    public static bool IsSafeRelative(string? path, bool allowRoot)
+    {
+        if (path is null || path.Contains('\0'))
+        {
+            return false;
+        }
+
+        var segments = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Any(segment => segment == ".."))
+        {
+            return false;
+        }
+
+        if (path.StartsWith('/') || path.StartsWith('\\') || Path.IsPathRooted(path) || (path.Length >= 2 && path[1] == ':'))
+        {
+            return false;
+        }
+
+        return allowRoot || segments.Any(segment => segment != ".");
+    }
+
+    /// <summary>
+    /// Resolves a root-relative path against the primary root, following every symlink. Returns the real path when it lies
+    /// inside the primary root (the root itself only with <paramref name="includeRoot"/>), otherwise null. The path need not exist.
+    /// </summary>
+    public string? ResolveRelative(string path, bool includeRoot)
+    {
+        if (PrimaryRoot is null || !IsSafeRelative(path, includeRoot))
+        {
+            return null;
+        }
+
+        try
+        {
+            var real = RealPath(Path.GetFullPath(Path.Combine(PrimaryRoot, path.Replace('\\', '/'))), 0);
+            return real is not null && IsUnder(real, PrimaryRoot, includeRoot) ? real : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Turns a real path inside the primary root into a root-relative path with <c>/</c> separators; <c>.</c> is the root.</summary>
+    public string ToRelative(string realPath)
+    {
+        var relative = Path.GetRelativePath(PrimaryRoot!, realPath).Replace(Path.DirectorySeparatorChar, '/');
+        return relative;
     }
 
     /// <summary>Returns the real path when it lies strictly inside a root (a file path), otherwise null.</summary>

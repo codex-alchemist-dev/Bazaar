@@ -239,6 +239,28 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     }
 
     /// <inheritdoc />
+    public async Task DeleteFileAsync(string relativePath, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(relativePath);
+        await RoundTripAsync(PendingKind.Delete, relativePath, new DeleteFile(relativePath), ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GuestDirectoryEntry>> ListFilesAsync(string relativeDir, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(relativeDir);
+        var reply = (ListFilesResult)await RoundTripAsync(PendingKind.List, relativeDir, new ListFiles(relativeDir), ct);
+        return [.. (reply.Entries ?? []).Select(entry => new GuestDirectoryEntry(entry.Name, entry.Size, entry.IsDirectory))];
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> ResolveRealPathAsync(string relativePath, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(relativePath);
+        return ((ResolveRealPathResult)await RoundTripAsync(PendingKind.Resolve, relativePath, new ResolveRealPath(relativePath), ct)).RealPath;
+    }
+
+    /// <inheritdoc />
     public async Task<IGuestPty> OpenPtyAsync(int cols, int rows, CancellationToken ct)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(cols);
@@ -389,6 +411,48 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         }
 
         return pending;
+    }
+
+    /// <summary>One request and its single answer, serialised with the file transfers because the guest answers by path.</summary>
+    private async Task<GuestMessage> RoundTripAsync(PendingKind kind, string path, GuestMessage request, CancellationToken ct)
+    {
+        var pending = await BeginFileAsync(PendingFile.Request(kind, path), ct);
+        try
+        {
+            await SendAsync(request, ct);
+        }
+        catch
+        {
+            FinishFile(pending);
+            throw;
+        }
+
+        await WaitFileAsync(pending, ct);
+        return pending.Reply!;
+    }
+
+    /// <summary>Completes the waiting request of <paramref name="kind"/> for <paramref name="path"/> with the guest's answer.</summary>
+    private bool CompleteRequest(PendingKind kind, string path, GuestMessage reply, string? error)
+    {
+        var pending = CurrentFile(kind, path);
+        if (pending is null)
+        {
+            End(GuestChannelState.Faulted, $"the guest sent {reply.GetType().Name} nobody asked for.");
+            return false;
+        }
+
+        if (error is null)
+        {
+            pending.Reply = reply;
+            pending.Done.TrySetResult();
+        }
+        else
+        {
+            pending.Done.TrySetException(new GuestFileException(error));
+        }
+
+        FinishFile(pending);
+        return true;
     }
 
     private async Task WaitFileAsync(PendingFile pending, CancellationToken ct)
@@ -597,6 +661,12 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                 return FailGet(error);
             case PutFile header:
                 return await ReceiveFileAsync(header);
+            case DeleteFileResult deleted:
+                return CompleteRequest(PendingKind.Delete, deleted.Path, deleted, deleted.Ok ? null : deleted.Error ?? "the guest refused the delete");
+            case ListFilesResult listed:
+                return CompleteRequest(PendingKind.List, listed.Dir, listed, listed.Error);
+            case ResolveRealPathResult resolved:
+                return CompleteRequest(PendingKind.Resolve, resolved.Path, resolved, null);
             case PtyData data:
                 PtyState? pty;
                 lock (_gate)
@@ -878,6 +948,9 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     {
         Put,
         Get,
+        Delete,
+        List,
+        Resolve,
     }
 
     /// <summary>One file transfer in flight. Only one runs at a time, because the guest answers by path and sends content inline.</summary>
@@ -907,6 +980,11 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
 
         /// <summary>True once the guest's content for a read has started to arrive.</summary>
         public bool Receiving { get; set; }
+
+        /// <summary>The guest's answer to a Delete, List or Resolve request, set before <see cref="Done"/> completes.</summary>
+        public GuestMessage? Reply { get; set; }
+
+        public static PendingFile Request(PendingKind kind, string path) => new(kind, path, null);
 
         public static PendingFile Put(string path) => new(PendingKind.Put, path, null);
 
