@@ -14,6 +14,12 @@
     <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- AF_HYPERV and AF_VSOCK plumbing shared with Bazaar.Guest.Agent (src/Shared/VmSockets). Neither project references the other. -->
+    <Compile Include="..\Shared\VmSockets\HvSocketAddress.cs" Link="Shared\HvSocketAddress.cs" />
+    <Compile Include="..\Shared\VmSockets\LinuxVsock.cs" Link="Shared\LinuxVsock.cs" />
+    <Compile Include="..\Shared\VmSockets\VsockStream.cs" Link="Shared\VsockStream.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.VmTransport.Tests" />
   </ItemGroup>
 </Project>

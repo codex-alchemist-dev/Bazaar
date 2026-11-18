@@ -12,7 +12,7 @@ public sealed record GuestAgentOptions
     /// <summary>VM id the host provisioned this guest for. Echoed in Hello.</summary>
     public required string VmId { get; init; }
 
-    /// <summary>Host-supplied nonce. Echoed in Hello so the host can reject a replayed hello.</summary>
+    /// <summary>Fixed per-VM value the host chose at provisioning. Echoed in Hello so the host can check it reached the guest it prepared. It never changes, so it gives no replay protection.</summary>
     public required string Nonce { get; init; }
 
     /// <summary>Directories file transfers may use. Absolute paths.</summary>

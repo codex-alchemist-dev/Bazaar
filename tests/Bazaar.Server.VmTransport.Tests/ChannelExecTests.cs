@@ -5,7 +5,7 @@ namespace Bazaar.Server.VmTransport.Tests;
 /// <summary>Exec through the real guest agent over the loopback transport, and exec ordering against a hand-driven guest.</summary>
 public class ChannelExecTests
 {
-    private static readonly IReadOnlyDictionary<string, string> _noEnv = new Dictionary<string, string>();
+    private static readonly string[] _noEnv = [];
 
     private static ExecRequest Sh(AgentRig rig, string script, double seconds = 20) =>
         new(["/bin/sh", "-c", script], rig.Root.Root, _noEnv, TimeSpan.FromSeconds(seconds));
@@ -45,7 +45,7 @@ public class ChannelExecTests
             var request = new ExecRequest(
                 ["/bin/sh", "-c", "printf %s \"$BAZAAR_VMT_TEST_VAR\""],
                 rig.Root.Root,
-                new Dictionary<string, string> { ["BAZAAR_VMT_TEST_VAR"] = "host-value-is-never-sent" },
+                ["BAZAAR_VMT_TEST_VAR"],
                 TimeSpan.FromSeconds(20));
 
             var result = await rig.Channel.ExecAsync(request, c => { text.Append(c.Text); return Task.CompletedTask; }, CancellationToken.None).WithinAsync();

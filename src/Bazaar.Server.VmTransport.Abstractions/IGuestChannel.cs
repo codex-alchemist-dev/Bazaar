@@ -1,17 +1,19 @@
 namespace Bazaar.Server.VmTransport;
 
-/// <summary>A process to run in the guest. Mirrors the provisional shape in the coding workspace ports (doc 16 guest protocol).</summary>
+/// <summary>
+/// A process to run in the guest. This is the transport's own request type. It deliberately differs from the provisional
+/// <c>Bazaar.Server.Coding.Workspace.ExecRequest</c> (which carries an <c>Env</c> dictionary): the guest wire carries variable
+/// names only, so a dictionary would silently drop its values. Whoever adapts the server's <c>IGuestChannel</c> onto this one must
+/// refuse an environment that has values to send, or move to this shape, rather than pass only the keys.
+/// </summary>
 /// <param name="Argv">Program and arguments. The first element is the program.</param>
 /// <param name="Cwd">Working directory in the guest, absolute.</param>
-/// <param name="Env">
-/// Environment variables to pass. The guest wire carries variable names only (<c>envAllowlist</c>), so the channel sends the keys and the guest
-/// passes its own values for them. The values here never leave the host.
-/// </param>
+/// <param name="EnvAllowlist">Names of the guest's own environment variables to pass to the process. Values are never sent from the host.</param>
 /// <param name="Timeout">The guest kills the whole process tree when this elapses.</param>
 public sealed record ExecRequest(
     IReadOnlyList<string> Argv,
     string Cwd,
-    IReadOnlyDictionary<string, string> Env,
+    IReadOnlyList<string> EnvAllowlist,
     TimeSpan Timeout);
 
 /// <summary>One piece of streamed output from a running process.</summary>
@@ -33,6 +35,8 @@ public sealed record ExecResult(int ExitCode, bool TimedOut, bool Cancelled, boo
 
 /// <summary>
 /// The guest wire as the host sees it (doc 16 IGuestChannel). Paths are guest paths. Callers must pass jailed paths.
+/// The server has a provisional <c>IGuestChannel</c> of its own in the coding workspace ports; it is a separate type, and an adapter must
+/// bridge it (see <see cref="ExecRequest"/> for the one real difference).
 /// A channel that ends (guest closed, heartbeats lost, protocol error) fails every call in flight with <see cref="GuestChannelException"/>.
 /// </summary>
 public interface IGuestChannel

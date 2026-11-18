@@ -78,11 +78,28 @@ internal sealed class HvSocketAcceptor : IPeerAcceptor
     {
         while (true)
         {
-            var socket = await _listener.AcceptAsync(ct);
-            // The peer address is the hypervisor's report of which VM connected, not anything the guest sent.
-            if (socket.RemoteEndPoint is HvSocketEndPoint peer && peer.VmId != Guid.Empty)
+            Socket socket;
+            try
             {
-                return new AcceptedPeer(peer.VmId.ToString("D"), new NetworkStream(socket, ownsSocket: true));
+                socket = await _listener.AcceptAsync(ct);
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode is SocketError.ConnectionAborted or SocketError.ConnectionReset or SocketError.Interrupted)
+            {
+                // One client went away during accept. The listener itself is fine.
+                continue;
+            }
+
+            try
+            {
+                // The peer address is the hypervisor's report of which VM connected, not anything the guest sent.
+                if (socket.RemoteEndPoint is HvSocketEndPoint peer && peer.VmId != Guid.Empty)
+                {
+                    return new AcceptedPeer(peer.VmId.ToString("D"), new NetworkStream(socket, ownsSocket: true));
+                }
+            }
+            catch (Exception ex) when (ex is SocketException or ObjectDisposedException or ArgumentException)
+            {
+                // This one connection is unusable. Drop it and keep listening.
             }
 
             socket.Dispose();

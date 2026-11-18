@@ -84,7 +84,17 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
 
         try
         {
+            if (string.IsNullOrEmpty(expected.VmId) || string.IsNullOrEmpty(expected.Nonce))
+            {
+                throw new GuestHandshakeException("The expected VM id and nonce must both be set, or the Hello check proves nothing.");
+            }
+
             var hello = await ReadHelloAsync(connection.Stream, settings, time, ct);
+            if (hello.VmId is null || hello.Nonce is null || hello.AgentVersion is null)
+            {
+                throw new GuestHandshakeException("The guest's Hello is missing a field.");
+            }
+
             if (!string.Equals(hello.VmId, expected.VmId, StringComparison.Ordinal))
             {
                 throw new GuestHandshakeException("The guest's Hello names a different VM than the one expected.");
@@ -142,7 +152,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         var consumer = exec.ConsumeAsync(onOutput, () => TrySendCancelAsync(id));
         try
         {
-            var message = new Exec(id, [.. req.Argv], req.Cwd, [.. req.Env.Keys], (int)Math.Ceiling(req.Timeout.TotalSeconds));
+            var message = new Exec(id, [.. req.Argv], req.Cwd, [.. req.EnvAllowlist], (int)Math.Ceiling(req.Timeout.TotalSeconds));
             await SendAsync(message, ct);
             var result = await AwaitExitAsync(exec, req.Timeout, ct);
             exec.Chunks.Writer.TryComplete();
@@ -236,9 +246,14 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         ThrowIfEnded();
 
         var id = Guid.NewGuid().ToString("N");
-        var pty = new PtyState(this, id, _options.MaxPendingPtyChunks);
+        var pty = new PtyState(this, id, _options.MaxPendingPtyBytes);
         lock (_gate)
         {
+            if (_ptys.Count >= _options.MaxOpenPtys)
+            {
+                throw new InvalidOperationException($"Too many open terminals on this channel (limit {_options.MaxOpenPtys}).");
+            }
+
             _ptys.Add(id, pty);
         }
 
@@ -325,16 +340,32 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         }
 
         var truncated = exec.Truncated;
+        // Our own deadline passing counts as a timeout even when the guest's Exit, which only came after the Cancel, does not say so.
         return exit is null
             ? new ExecResult(-1, timedOutHere, cancelled, truncated)
-            : new ExecResult(exit.Code, exit.TimedOut, cancelled && !exit.TimedOut, truncated);
+            : new ExecResult(exit.Code, exit.TimedOut || timedOutHere, cancelled && !(exit.TimedOut || timedOutHere), truncated);
+    }
+
+    private async Task TrySendPtyCloseAsync(string id)
+    {
+        try
+        {
+            using var bound = new CancellationTokenSource(_options.CancelGrace, _time);
+            await SendAsync(new PtyClose(id), bound.Token);
+        }
+        catch (Exception ex) when (ex is GuestChannelException or IOException or OperationCanceledException)
+        {
+            // The channel is gone or stuck; the guest's terminal goes with it.
+        }
     }
 
     private async Task TrySendCancelAsync(string id)
     {
         try
         {
-            await SendAsync(new Cancel(id), CancellationToken.None);
+            // The lock wait is bounded: a frame stuck in front of the Cancel must not stall the caller past its grace.
+            using var bound = new CancellationTokenSource(_options.CancelGrace, _time);
+            await SendAsync(new Cancel(id), bound.Token);
         }
         catch (Exception ex) when (ex is GuestChannelException or IOException or OperationCanceledException)
         {
@@ -360,11 +391,27 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         return pending;
     }
 
-    private static async Task WaitFileAsync(PendingFile pending, CancellationToken ct)
+    private async Task WaitFileAsync(PendingFile pending, CancellationToken ct)
     {
         try
         {
-            await pending.Done.Task.WaitAsync(ct);
+            while (true)
+            {
+                try
+                {
+                    await pending.Done.Task.WaitAsync(_options.FileAnswerTimeout, _time, ct);
+                    return;
+                }
+                catch (TimeoutException) when (pending.Receiving)
+                {
+                    // Content is on its way; the heartbeat watchdog covers a stall from here.
+                }
+                catch (TimeoutException)
+                {
+                    End(GuestChannelState.Faulted, $"the guest did not answer a file request within {_options.FileAnswerTimeout}");
+                    await pending.Done.Task;
+                }
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -388,28 +435,40 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                     throw new IOException("The content stream ended before its announced size.");
                 }
 
-                await _stream.WriteAsync(buffer.AsMemory(0, read), _stop.Token);
+                // Each slice has its own deadline, so a guest that stops reading is noticed within one WriteTimeout.
+                using var deadline = WriteDeadline();
+                await _stream.WriteAsync(buffer.AsMemory(0, read), deadline.Token);
                 remaining -= read;
             }
 
-            await _stream.FlushAsync(_stop.Token);
+            using var flushDeadline = WriteDeadline();
+            await _stream.FlushAsync(flushDeadline.Token);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or SocketException)
         {
-            // The header is out, so the guest waits for bytes that will not come and the stream cannot be recovered.
+            // The header is out, so the guest waits for bytes that will not come and the stream cannot be recovered. No other frame may be
+            // slipped in between slices for the same reason: the guest reads the announced size as raw content.
             End(GuestChannelState.Faulted, $"a file transfer broke off mid-content: {ex.Message}");
+            if (ex is OperationCanceledException && !ct.IsCancellationRequested)
+            {
+                throw EndedException();
+            }
+
             throw;
         }
     }
 
-    private async ValueTask SendAsync(GuestMessage message, CancellationToken ct)
+    private ValueTask SendAsync(GuestMessage message, CancellationToken ct) => SendAsync(() => message, ct);
+
+    /// <summary>Builds the message only once the write lock is held, so anything numbered in it is numbered in wire order.</summary>
+    private async ValueTask SendAsync(Func<GuestMessage> make, CancellationToken ct)
     {
         ThrowIfEnded();
         await _writeLock.WaitAsync(ct);
         try
         {
             ThrowIfEnded();
-            await WriteFrameAsync(message);
+            await WriteFrameAsync(make());
         }
         finally
         {
@@ -422,12 +481,39 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     {
         try
         {
-            await GuestFrameCodec.WriteAsync(_stream, message, _stop.Token);
+            using var deadline = WriteDeadline();
+            await GuestFrameCodec.WriteAsync(_stream, message, deadline.Token);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or SocketException)
         {
-            End(GuestChannelState.Faulted, $"the stream failed on write: {ex.Message}");
+            End(GuestChannelState.Faulted, ex is OperationCanceledException && !_stop.IsCancellationRequested
+                ? $"the guest stopped reading: a write took longer than {_options.WriteTimeout}"
+                : $"the stream failed on write: {ex.Message}");
             throw EndedException();
+        }
+    }
+
+    /// <summary>A token that fires when the channel ends or one write has run past <see cref="GuestChannelOptions.WriteTimeout"/>.</summary>
+    private Deadline WriteDeadline() => new(_options.WriteTimeout, _time, _stop.Token);
+
+    /// <summary>A timeout on the channel's own clock, joined to the channel's stop token.</summary>
+    private sealed class Deadline : IDisposable
+    {
+        private readonly CancellationTokenSource _timeout;
+        private readonly CancellationTokenSource _linked;
+
+        public Deadline(TimeSpan after, TimeProvider time, CancellationToken stop)
+        {
+            _timeout = new CancellationTokenSource(after, time);
+            _linked = CancellationTokenSource.CreateLinkedTokenSource(stop, _timeout.Token);
+        }
+
+        public CancellationToken Token => _linked.Token;
+
+        public void Dispose()
+        {
+            _linked.Dispose();
+            _timeout.Dispose();
         }
     }
 
@@ -481,6 +567,12 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                     _execs.TryGetValue(output.Id, out exec);
                 }
 
+                if (output.Bytes is null)
+                {
+                    End(GuestChannelState.Faulted, "an Output frame carried no bytes.");
+                    return false;
+                }
+
                 exec?.AddOutput(output);
                 return true;
             case Exit exit:
@@ -512,7 +604,24 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                     _ptys.TryGetValue(data.Id, out pty);
                 }
 
-                pty?.AddOutput(data.Bytes);
+                if (data.Bytes is null)
+                {
+                    End(GuestChannelState.Faulted, "a PtyData frame carried no bytes.");
+                    return false;
+                }
+
+                if (pty is not null && !pty.AddOutput(data.Bytes))
+                {
+                    // The reader fell too far behind. This terminal is ended and the guest told; the channel and other terminals carry on.
+                    lock (_gate)
+                    {
+                        _ptys.Remove(data.Id);
+                    }
+
+                    pty.Complete(-1);
+                    _ = TrySendPtyCloseAsync(data.Id);
+                }
+
                 return true;
             case PtyExit exited:
                 lock (_gate)
@@ -574,6 +683,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             return false;
         }
 
+        pending.Receiving = true;
         var oversize = header.Size > _options.MaxFileBytes;
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[_copyBytes];
@@ -603,7 +713,9 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                 {
                     await pending.Sink!.WriteAsync(buffer.AsMemory(0, count), _stop.Token);
                 }
-                catch (Exception ex) when (ex is IOException or NotSupportedException or ObjectDisposedException)
+#pragma warning disable CA1031 // The sink is the caller's code. Whatever it throws must fail that call, not the reader, so the stream stays in step.
+                catch (Exception ex) when (ex is not OperationCanceledException)
+#pragma warning restore CA1031
                 {
                     sinkError = ex.Message;
                 }
@@ -777,6 +889,9 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
 
         public bool Abandoned => Volatile.Read(ref _abandoned) == 1;
 
+        /// <summary>True once the guest's content for a read has started to arrive.</summary>
+        public bool Receiving { get; set; }
+
         public static PendingFile Put(string path) => new(PendingKind.Put, path, null);
 
         public static PendingFile Get(string path, Stream sink) => new(PendingKind.Get, path, sink);
@@ -894,34 +1009,43 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     private sealed class PtyState : IGuestPty
     {
         private readonly GuestChannel _owner;
-        private readonly Channel<byte[]> _output;
+        private readonly Channel<byte[]> _channel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+        private readonly CountingReader _reader;
         private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly long _maxPendingBytes;
         private long _seq;
+        private long _pendingBytes;
         private int _closed;
 
-        public PtyState(GuestChannel owner, string id, int capacity)
+        public PtyState(GuestChannel owner, string id, long maxPendingBytes)
         {
             _owner = owner;
             Id = id;
-            _output = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(capacity)
-            {
-                SingleReader = true,
-                SingleWriter = true,
-                FullMode = BoundedChannelFullMode.DropWrite,
-            });
+            _maxPendingBytes = maxPendingBytes;
+            _reader = new CountingReader(_channel.Reader, this);
         }
 
         public string Id { get; }
 
-        public ChannelReader<byte[]> Output => _output.Reader;
+        public ChannelReader<byte[]> Output => _reader;
 
         public Task<int> Exited => _exited.Task;
 
-        public void AddOutput(byte[] bytes) => _output.Writer.TryWrite(bytes);
+        /// <summary>Queues output. False when the reader is further behind than the byte limit, which ends the terminal.</summary>
+        public bool AddOutput(byte[] bytes)
+        {
+            if (Interlocked.Add(ref _pendingBytes, bytes.Length) > _maxPendingBytes)
+            {
+                return false;
+            }
+
+            _channel.Writer.TryWrite(bytes);
+            return true;
+        }
 
         public void Complete(int code)
         {
-            _output.Writer.TryComplete();
+            _channel.Writer.TryComplete();
             _exited.TrySetResult(code);
         }
 
@@ -930,7 +1054,9 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             for (var offset = 0; offset < bytes.Length; offset += _ptyChunkBytes)
             {
                 var chunk = bytes.Slice(offset, Math.Min(_ptyChunkBytes, bytes.Length - offset)).ToArray();
-                await _owner.SendAsync(new PtyData(Id, Interlocked.Increment(ref _seq) - 1, chunk), ct);
+
+                // The sequence number is taken under the write lock, so frames carry numbers in the order they reach the wire.
+                await _owner.SendAsync(() => new PtyData(Id, _seq++, chunk), ct);
             }
         }
 
@@ -953,17 +1079,44 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             Complete(-1);
             if (wasOpen)
             {
-                try
-                {
-                    await _owner.SendAsync(new PtyClose(Id), CancellationToken.None);
-                }
-                catch (GuestChannelException)
-                {
-                    // The channel ended first; nothing is left to close.
-                }
+                await _owner.TrySendPtyCloseAsync(Id);
             }
         }
 
         public ValueTask DisposeAsync() => CloseAsync();
+
+        private void Consumed(int length) => Interlocked.Add(ref _pendingBytes, -length);
+
+        /// <summary>Wraps the queue so the pending byte count falls as the reader takes chunks.</summary>
+        private sealed class CountingReader : ChannelReader<byte[]>
+        {
+            private readonly ChannelReader<byte[]> _inner;
+            private readonly PtyState _owner;
+
+            public CountingReader(ChannelReader<byte[]> inner, PtyState owner)
+            {
+                _inner = inner;
+                _owner = owner;
+            }
+
+            public override Task Completion => _inner.Completion;
+
+            public override bool CanCount => false;
+
+            public override bool TryRead(out byte[] item)
+            {
+                if (_inner.TryRead(out var read))
+                {
+                    _owner.Consumed(read.Length);
+                    item = read;
+                    return true;
+                }
+
+                item = [];
+                return false;
+            }
+
+            public override ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default) => _inner.WaitToReadAsync(cancellationToken);
+        }
     }
 }

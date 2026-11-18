@@ -53,7 +53,10 @@ public abstract class PeerMatchedListener : IGuestConnectionListener
             ObjectDisposedException.ThrowIf(_disposed, this);
             _waiters.TryGetValue(key, out replaced);
             _waiters[key] = waiter;
-            _loop ??= Task.Run(() => AcceptLoopAsync(_stop.Token), CancellationToken.None);
+            if (_loop is null || _loop.IsCompleted)
+            {
+                _loop = Task.Run(() => AcceptLoopAsync(_stop.Token), CancellationToken.None);
+            }
         }
 
         replaced?.TrySetCanceled(CancellationToken.None);
@@ -96,13 +99,18 @@ public abstract class PeerMatchedListener : IGuestConnectionListener
             waiter.TrySetCanceled();
         }
 
-        if (loop is not null)
+        try
         {
-            await loop;
+            if (loop is not null)
+            {
+                await loop;
+            }
         }
-
-        _stop.Dispose();
-        GC.SuppressFinalize(this);
+        finally
+        {
+            _stop.Dispose();
+            GC.SuppressFinalize(this);
+        }
     }
 
     /// <summary>Turns the id a caller waits for into the form <see cref="AcceptedPeer.PeerId"/> uses.</summary>
@@ -134,12 +142,24 @@ public abstract class PeerMatchedListener : IGuestConnectionListener
                 {
                     break;
                 }
-                catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or ObjectDisposedException)
+#pragma warning disable CA1031 // The accept loop must outlive any fault in the socket layer, or every guest is locked out until the host restarts.
+                catch (Exception)
+#pragma warning restore CA1031
                 {
                     // The socket layer failed. Drop it and rebuild it after a pause, so a transient fault does not end the listener.
                     if (acceptor is not null)
                     {
-                        await acceptor.DisposeAsync();
+                        try
+                        {
+                            await acceptor.DisposeAsync();
+                        }
+#pragma warning disable CA1031 // A failing cleanup must not stop the rebuild.
+                        catch (Exception)
+#pragma warning restore CA1031
+                        {
+                            // The old layer is abandoned either way.
+                        }
+
                         acceptor = null;
                     }
 

@@ -169,6 +169,19 @@ public class ListenerTests
     }
 
     [Fact]
+    public async Task The_accept_loop_survives_an_exception_that_is_not_an_io_failure()
+    {
+        var acceptor = new FakeAcceptor { FailWith = new InvalidOperationException("surprise") };
+        await using var listener = new HvSocketListener(acceptor: acceptor);
+        var wait = listener.AcceptAsync(_vmA, CancellationToken.None);
+
+        acceptor.Offer(_vmA, new TrackedStream());
+
+        await using var connection = await wait.AsTask().WithinAsync();
+        Assert.Equal(_vmA, connection.PeerVmId);
+    }
+
+    [Fact]
     public async Task A_factory_opens_a_channel_from_a_waiting_listener_and_checks_the_hello()
     {
         await using var listener = new LoopbackListener();
@@ -213,10 +226,18 @@ public class ListenerTests
 
         public bool FailNext { get; set; }
 
+        public Exception? FailWith { get; set; }
+
         public void Offer(string peerId, Stream stream) => _peers.Writer.TryWrite(new AcceptedPeer(peerId, stream));
 
         public ValueTask<AcceptedPeer> AcceptAsync(CancellationToken ct)
         {
+            if (FailWith is { } failure)
+            {
+                FailWith = null;
+                throw failure;
+            }
+
             if (FailNext)
             {
                 FailNext = false;

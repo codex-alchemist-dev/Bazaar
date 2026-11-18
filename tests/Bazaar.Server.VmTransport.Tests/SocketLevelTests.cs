@@ -129,6 +129,30 @@ public partial class SocketLevelTests
     }
 
     [Fact]
+    public async Task The_descriptor_stream_moves_a_large_payload_in_order_through_its_pumps()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "The descriptor stream uses libc.");
+        var (left, right) = SocketPair();
+        await using var a = new VsockStream(left);
+        await using var b = new VsockStream(right);
+        var payload = new byte[2 * 1024 * 1024];
+        new Random(3).NextBytes(payload);
+
+        var write = Task.Run(async () =>
+        {
+            for (var offset = 0; offset < payload.Length; offset += 50_000)
+            {
+                await a.WriteAsync(payload.AsMemory(offset, Math.Min(50_000, payload.Length - offset)));
+            }
+        });
+        var received = new byte[payload.Length];
+        await b.ReadExactlyAsync(received).AsTask().WithinAsync();
+        await write.WithinAsync();
+
+        Assert.Equal(payload, received);
+    }
+
+    [Fact]
     public async Task A_read_on_the_descriptor_stream_honours_cancellation_and_dispose()
     {
         Assert.SkipUnless(OperatingSystem.IsLinux(), "The descriptor stream uses libc.");

@@ -240,7 +240,7 @@ public class ChannelProtocolTests
         await using (channel)
         {
             var run = channel.ExecAsync(
-                new ExecRequest(["x"], "/", new Dictionary<string, string>(), TimeSpan.FromMinutes(9)),
+                new ExecRequest(["x"], "/", [], TimeSpan.FromMinutes(9)),
                 _ => Task.CompletedTask,
                 CancellationToken.None);
             await rig.ReceiveAsync<Exec>();

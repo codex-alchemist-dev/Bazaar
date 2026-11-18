@@ -33,8 +33,23 @@ public sealed record GuestChannelOptions
     /// <summary>Largest file moved in either direction.</summary>
     public long MaxFileBytes { get; init; } = 1L << 30;
 
-    /// <summary>Terminal chunks kept for a reader that falls behind. Beyond it, chunks are dropped.</summary>
-    public int MaxPendingPtyChunks { get; init; } = 4096;
+    /// <summary>Terminal output bytes kept for a reader that falls behind. A terminal that passes it is ended.</summary>
+    public long MaxPendingPtyBytes { get; init; } = 4L * 1024 * 1024;
+
+    /// <summary>Terminals that may be open on one channel at once.</summary>
+    public int MaxOpenPtys { get; init; } = 8;
+
+    /// <summary>
+    /// Longest one frame or one slice of file content may take to write. A guest that stops reading fills the transport buffer and the write stalls;
+    /// past this the channel is faulted and its stream closed, so one stuck guest cannot wedge the host.
+    /// </summary>
+    public TimeSpan WriteTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long the guest has to answer a file request (the PutFileResult, or the start of the content for a read). Past it the channel is faulted.
+    /// Once content is arriving, stalls are caught by the heartbeat watchdog instead.
+    /// </summary>
+    public TimeSpan FileAnswerTimeout { get; init; } = TimeSpan.FromMinutes(5);
 }
 
 /// <summary>What the first frame of a connection must carry.</summary>

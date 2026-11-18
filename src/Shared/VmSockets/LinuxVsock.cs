@@ -24,11 +24,19 @@ internal static partial class LinuxVsock
 
     private const int _sockStream = 1;
     private const int _sockCloexec = 0x80000;
+    private const int _sockNonblock = 0x800;
     private const int _shutRdwr = 2;
     private const short _pollIn = 0x1;
     private const short _pollErr = 0x8;
     private const short _pollHup = 0x10;
     private const int _eintr = 4;
+    private const int _eagain = 11;
+    private const int _enomem = 12;
+    private const int _emfile = 24;
+    private const int _enfile = 23;
+    private const int _eproto = 71;
+    private const int _econnaborted = 103;
+    private const int _enobufs = 105;
     private const int _msgNosignal = 0x4000;
 
     /// <summary>Writes a <c>sockaddr_vm</c>. Linux is little-endian on every CPU .NET supports.</summary>
@@ -78,7 +86,8 @@ internal static partial class LinuxVsock
     /// <exception cref="IOException">A libc call failed.</exception>
     public static FdHandle Listen(uint port, int backlog)
     {
-        var handle = Create();
+        // Non-blocking, so an accept that loses a race with a client that gave up returns instead of blocking the loop.
+        var handle = Create(_sockNonblock);
         try
         {
             Span<byte> address = stackalloc byte[AddressSize];
@@ -98,7 +107,7 @@ internal static partial class LinuxVsock
     /// <exception cref="IOException">The connection failed.</exception>
     public static FdHandle Connect(uint cid, uint port)
     {
-        var handle = Create();
+        var handle = Create(0);
         try
         {
             Span<byte> address = stackalloc byte[AddressSize];
@@ -138,7 +147,27 @@ internal static partial class LinuxVsock
             fd = accept4(listener, address, ref length, _sockCloexec);
         }
         while (fd < 0 && Marshal.GetLastPInvokeError() == _eintr);
-        Check(fd, "accept");
+        if (fd < 0)
+        {
+            var errno = Marshal.GetLastPInvokeError();
+            switch (errno)
+            {
+                case _eagain:
+                case _econnaborted:
+                case _eproto:
+                    // The client left before we got to it. Nothing to accept; the caller waits again.
+                    return null;
+                case _emfile:
+                case _enfile:
+                case _enomem:
+                case _enobufs:
+                    // Out of descriptors or memory is transient. Pause so the still-pending connection does not spin the loop.
+                    Thread.Sleep(50);
+                    return null;
+                default:
+                    throw new IOException($"vsock accept failed with errno {errno}.");
+            }
+        }
 
         var accepted = new FdHandle(fd);
         return TryDecodeAddress(address[..(int)Math.Min(length, AddressSize)], out var cid, out _)
@@ -217,9 +246,9 @@ internal static partial class LinuxVsock
     /// </summary>
     public static FdHandle Wrap(int fd) => new(fd);
 
-    private static FdHandle Create()
+    private static FdHandle Create(int extraFlags)
     {
-        var handle = new FdHandle(socket(Family, _sockStream | _sockCloexec, 0));
+        var handle = new FdHandle(socket(Family, _sockStream | _sockCloexec | extraFlags, 0));
         if (handle.IsInvalid)
         {
             var errno = Marshal.GetLastPInvokeError();
@@ -268,7 +297,7 @@ internal static partial class LinuxVsock
     private static partial int accept4(FdHandle fd, Span<byte> address, ref uint length, int flags);
 
     [LibraryImport("libc", EntryPoint = "poll", SetLastError = true)]
-    private static partial int poll_(ref PollFd fds, ulong count, int timeoutMs);
+    private static partial int poll_(ref PollFd fds, nuint count, int timeoutMs);
 
     [LibraryImport("libc", SetLastError = true)]
     private static partial nint recv(FdHandle fd, Span<byte> buffer, nuint length, int flags);
@@ -280,7 +309,7 @@ internal static partial class LinuxVsock
     private static partial int shutdown(FdHandle fd, int how);
 
     [LibraryImport("libc", EntryPoint = "close")]
-    private static partial int close_(nint fd);
+    private static partial int close_(int fd);
 
     /// <summary>A file descriptor that closes itself. Passing it to a libc call keeps it open for the duration of the call.</summary>
     internal sealed class FdHandle : SafeHandleMinusOneIsInvalid
@@ -292,6 +321,6 @@ internal static partial class LinuxVsock
         }
 
         /// <inheritdoc />
-        protected override bool ReleaseHandle() => close_(handle) == 0;
+        protected override bool ReleaseHandle() => close_((int)handle) == 0;
     }
 }
