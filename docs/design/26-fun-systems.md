@@ -171,6 +171,14 @@ Remaining only. Cross-doc fixes are listed for the owning doc.
 4. **Erasure in Vault history (18, 33).** Memory and commits holding personal data cannot be erased by key destruction. Open (C38 consequence).
 5. **Client capture (17, 28).** Playtest window capture is not in the ratified client-side exceptions (C17). See Q3.
 
+### Module layout and gap decisions (PROPOSED, 2026-11-18)
+Time Machine, Playtest and What If are separate module pairs (`Bazaar.Server.TimeMachine`, `Bazaar.Server.Playtest`, `Bazaar.Server.WhatIf`, each with `.Abstractions`), listed in doc 40. They reference other modules through abstractions only and never `Bazaar.Server`. Each owns a migration namespace (`timemachine`, `playtest`, `whatif`); `fork_link` belongs to `timemachine`, `playtest_run` to `playtest`, `what_if_run` to `whatif`. Gaps the sections above leave, decided as the most robust option:
+- **Replay frames are pure functions of the log.** A frame at `(gc, seq)` is computed from `gc_message_version` rows at or below `seq`; the projector keeps no mutable state, so rebuild-from-zero equals the live state at N by construction. Seq above the viewer's grant is clamped to the grant, never an error that reveals the head.
+- **Fork links, not copies (Q1 default).** `fork_link` is append-only, and a fork request is idempotent on `(source_gc_id, source_seq, request_id)`.
+- **Missing sources degrade.** If Kanban, Vault or Souls are not loaded, the frame carries that part as `unavailable`, not an error.
+- **Playtest Tier A scenarios** are declared data (engine, build ref, scenario id, assertions); results are state dumps with a content hash. Personas never see pixels. The project hash is recorded before and after a run, and a change fails the run.
+- **What If** ships contracts and a deterministic fake runner now. The metric spec is canonical JSON hashed with SHA-256 before any branch starts; a mismatch aborts the run.
+
 ## Questions for the owner
 1. Fork: copy messages or link read-only? Default: link, plus a Vault branch. Copying changes the fork data shape, so it stays a question.
 2. Lucky wake: the 06 `brainstorm` wake reason, once per opted-in agent per run, instead of any 13 override? Default: yes. This sets the wake-reason set in 06, so it stays a question.
