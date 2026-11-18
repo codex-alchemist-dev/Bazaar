@@ -36,4 +36,41 @@ public sealed class GcSettingsTests
         Assert.Same(GcSettings.InvitePolicyKey, invite);
         Assert.Same(GcSettings.EditWindowHoursKey, window);
     }
+
+    [Fact]
+    public void The_doc_01_defaults_hold_for_the_policy_keys()
+    {
+        Assert.Equal(GcUnarchivePolicy.Owner, GcSettings.UnarchivePolicyKey.Default);
+        Assert.Equal(GcDmAccessApprovers.Owner, GcSettings.DmAccessApproversKey.Default);
+        Assert.Equal(GcBroadcastMentions.OwnerAndAgentsRateLimited, GcSettings.BroadcastMentionsKey.Default);
+        Assert.Equal(2, GcSettings.BroadcastMentionRatePerHourKey.Default);
+        Assert.Equal(GcVaultEmbedPin.Commit, GcSettings.VaultEmbedPinKey.Default);
+        Assert.Equal(32768, GcSettings.MessageMaxBytesKey.Default);
+        Assert.Equal(26214400, GcSettings.BlobMaxBytesKey.Default);
+    }
+
+    [Fact]
+    public void Changing_dm_access_approvers_needs_owner_approval()
+    {
+        Assert.Equal(ApprovalTier.Tier2, GcSettings.DmAccessApproversKey.ApprovalTier);
+    }
+
+    [Fact]
+    public void Non_positive_size_caps_are_refused()
+    {
+        using var zero = JsonDocument.Parse("0");
+
+        Assert.NotNull(GcSettings.MessageMaxBytesKey.CheckValue(zero.RootElement));
+        Assert.NotNull(GcSettings.BlobMaxBytesKey.CheckValue(zero.RootElement));
+    }
+
+    [Fact]
+    public void Every_gc_key_is_registered_in_the_known_settings()
+    {
+        foreach (var definition in GcSettings.All)
+        {
+            Assert.True(SettingRegistry.Known.TryGet(definition.Name, out var registered), definition.Name);
+            Assert.Same(definition, registered);
+        }
+    }
 }

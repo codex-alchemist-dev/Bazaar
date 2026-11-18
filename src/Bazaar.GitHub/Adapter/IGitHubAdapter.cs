@@ -10,8 +10,8 @@ public interface IGitHubAdapter
 
     Task PostReviewAsync(PrRef pr, ReviewRequest review, CancellationToken cancellationToken);
 
-    /// <summary>Only called on a signed owner approval (doc 21, Merge request path).</summary>
-    Task SquashMergeAsync(PrRef pr, MergeRequest merge, CancellationToken cancellationToken);
+    /// <summary>The PR's current head sha. The owner's approval is void if this moves (doc 21, Merge request path).</summary>
+    Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken);
 }
 
 public sealed record PrRef(long InstallationId, string Owner, string Repo, int Number);
