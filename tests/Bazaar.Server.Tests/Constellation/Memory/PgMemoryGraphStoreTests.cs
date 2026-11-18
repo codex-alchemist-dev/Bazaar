@@ -87,6 +87,93 @@ public sealed class PgMemoryGraphStoreTests(ConstellationDb db) : IClassFixture<
     }
 
     [Fact]
+    public async Task Storing_a_note_id_owned_by_another_agent_is_refused_and_changes_nothing()
+    {
+        SkipWithoutDatabase();
+        var store = Store(db);
+        var noteId = NewNoteId();
+        await store.StoreRevisionAsync(Revision(noteId, 1), Ct);
+
+        var hijack = new MemoryGraphRevision(noteId, 2, "agent-b", $"agents/b/memory-{noteId}.md", "Hijack", "Fact", "Active", "Agent", []);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => store.StoreRevisionAsync(hijack, Ct));
+        Assert.Contains("another agent", error.Message);
+
+        var active = Assert.Single(await store.GetActiveAsync([noteId], Ct));
+        Assert.Equal(1, active.Version);
+        Assert.Equal("agent-a", active.ScopeAgentId);
+        Assert.Single(await store.ListRevisionsAsync(noteId, Ct));
+    }
+
+    [Fact]
+    public async Task Storing_a_new_vault_path_for_an_owned_note_id_is_refused_and_changes_nothing()
+    {
+        SkipWithoutDatabase();
+        var store = Store(db);
+        var noteId = NewNoteId();
+        await store.StoreRevisionAsync(Revision(noteId, 1), Ct);
+
+        var moved = new MemoryGraphRevision(noteId, 2, "agent-a", "agents/a/memory/other.md", "Moved", "Fact", "Active", "Agent", []);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.StoreRevisionAsync(moved, Ct));
+
+        var active = Assert.Single(await store.GetActiveAsync([noteId], Ct));
+        Assert.Equal(1, active.Version);
+        Assert.Equal($"agents/a/memory-{noteId}.md", active.VaultPath);
+        Assert.Single(await store.ListRevisionsAsync(noteId, Ct));
+    }
+
+    [Fact]
+    public async Task Storing_an_older_version_over_a_newer_active_one_is_refused_and_keeps_the_active_one()
+    {
+        SkipWithoutDatabase();
+        var store = Store(db);
+        var noteId = NewNoteId();
+        await store.StoreRevisionAsync(Revision(noteId, 1), Ct);
+        await store.StoreRevisionAsync(Revision(noteId, 3), Ct);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => store.StoreRevisionAsync(Revision(noteId, 2), Ct));
+        Assert.Equal("store must be newer than the active revision", error.Message);
+
+        var active = Assert.Single(await store.GetActiveAsync([noteId], Ct));
+        Assert.Equal(3, active.Version);
+        Assert.Equal(2, (await store.ListRevisionsAsync(noteId, Ct)).Count);
+    }
+
+    [Fact]
+    public async Task Concurrent_stores_for_one_note_leave_exactly_one_active_revision_and_fail_only_with_InvalidOperationException()
+    {
+        SkipWithoutDatabase();
+        var store = Store(db);
+        var noteId = NewNoteId();
+
+        var outcomes = await Task.WhenAll(
+            StoreOutcomeAsync(store, Revision(noteId, 1)),
+            StoreOutcomeAsync(store, Revision(noteId, 2)));
+
+        Assert.All(outcomes, outcome => Assert.True(outcome is null || outcome is InvalidOperationException, $"Unexpected {outcome}"));
+        Assert.Contains(outcomes, outcome => outcome is null);
+
+        // Version 2 always ends active: version 1 is either stored first and then superseded, or refused as stale.
+        var active = Assert.Single(await store.GetActiveAsync([noteId], Ct));
+        Assert.Equal(2, active.Version);
+        Assert.Equal(1, await ScalarAsync(db.DataSource,
+            "SELECT count(*) FROM constellation_memory_revision WHERE note_id = $1 AND is_active", noteId));
+    }
+
+    /// <summary>Runs one store and returns null on success, or the exception it threw.</summary>
+    private static async Task<Exception?> StoreOutcomeAsync(PgMemoryGraphStore store, MemoryGraphRevision revision)
+    {
+        try
+        {
+            await store.StoreRevisionAsync(revision, Ct);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex;
+        }
+    }
+
+    [Fact]
     public async Task Activating_an_earlier_revision_rolls_back_to_it_and_keeps_its_edges()
     {
         SkipWithoutDatabase();

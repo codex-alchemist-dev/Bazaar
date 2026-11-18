@@ -22,7 +22,7 @@ Scope of the name: "Kodo" (鼓動, heartbeat) is the module and the prose name. 
 - Telemetry and crash reports: on-device redaction is never model-dependent, and every server-side model explanation is labelled "unverified diagnosis" (see section 13).
 - Configurability rule (DECISIONS-LOG round 13): every open value is an operator setting with a safe default. DECIDED items and security invariants are not settings. Settings may tighten, never loosen.
 - Server build is one OS-agnostic .NET build. Anything OS-specific sits behind a provider interface (doc 03). Kodo follows the same rule for SMART, sensors, power, service state and Windows ACLs.
-- Clients are Avalonia (`Bazaar.Client.Core` plus thin heads). No web client. The only browser-facing surface is the read-only status page, which is allowed by CLAUDE.md and governed by section 15.5.
+- Clients are Avalonia (`Bazaar.Client.Core` plus thin heads). The only browser-facing surface is the read-only status page, governed by section 15.5.
 - Signing keys stay on the server. The server builds and signs packages, and clients update in place.
 - Audit: hash chain, signed checkpoints, external anchoring and Merkle proofs. Records admin and security events and all data reads and writes by humans and agents.
 - Role model: custom roles. Biometric step-up (face, voice, fingerprint, hardware keys) is required for sign-in, recovery and high-risk actions. Templates never leave the device.
@@ -206,6 +206,7 @@ The brief's requirement: supervised restart, crash-only design, bulkheads, circu
 
 - If Postgres is unreachable, Kodo writes its journal to a local append-only spill file in `kodo-data` with the same record format and hash chain. When Postgres returns, the spill is replayed into the database idempotently by record hash, then the spill is sealed and kept for the retention window.
 - The spill is bounded (default 512 MB); at the bound Kodo keeps the newest records and marks the gap as a journal observation. A gap is never filled with invented data.
+- **PROPOSED (package 5 review).** The `kodo.self.spill` probe reports the age of the oldest unsent spill record. A sealed or unreadable spill counts as Red, never Green. Owner to ratify.
 
 ### 7.6 Warm standby with automatic failover (optional)
 
@@ -265,6 +266,8 @@ Kodo's scope is the server, its modules, the fleet of clients and the whole envi
 Probe criticality: **critical** probes can make the state `failing`. **Non-critical** probes can make it `degraded` only. A probe may be `unknown` (timeout, breaker open, provider missing) and `unknown` never counts as green.
 
 ### 9.1 Built-in probes (PROPOSED catalogue)
+
+Thresholds for `host.disk.free`, `host.memory.pressure` and `host.clock.drift` are PROPOSED defaults, passed as constructor options and overridable in config. Owner to ratify the values.
 
 | Probe id | Category | Critical | Cadence | Pool | Method and provider |
 |---|---|---|---|---|---|
@@ -326,6 +329,7 @@ Probe criticality: **critical** probes can make the state `failing`. **Non-criti
 | `kodo.self.sentinel` | Kodo | yes | 10 s | local | Sentinel heartbeat and verifier check |
 | `kodo.self.pools` | Kodo | no | 30 s | local | Bulkhead saturation (7.3) |
 | `kodo.self.spill` | Kodo | no | 1 min | local | Spill file size and replay state (7.5) |
+| `kodo.self.journal_writable` | Kodo | yes | 30 s | local | Journal writer can append and fsync; added in package 5 (PROPOSED) |
 
 Adding a probe is a change to the catalogue, which lives in the signed runtime slot, so a new probe is an update, not a setting.
 

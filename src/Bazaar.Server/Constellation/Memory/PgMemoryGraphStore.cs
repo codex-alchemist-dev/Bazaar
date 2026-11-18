@@ -1,3 +1,4 @@
+using System.Data;
 using Npgsql;
 
 namespace Bazaar.Server.Constellation.Memory;
@@ -10,6 +11,21 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
 {
     private const string _uniqueViolation = "23505";
     private const string _revisionPrimaryKey = "constellation_memory_revision_pkey";
+
+    /// <summary>Takes a transaction-scoped advisory lock per note id, so writers for one note run one at a time.</summary>
+    private const string _lockNoteSql = "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))";
+
+    private const string _ownersSql = """
+        SELECT scope_agent_id, vault_path
+        FROM constellation_memory_revision
+        WHERE note_id = $1
+        """;
+
+    private const string _activeVersionSql = """
+        SELECT version
+        FROM constellation_memory_revision
+        WHERE note_id = $1 AND is_active
+        """;
 
     private const string _insertRevisionSql = """
         INSERT INTO constellation_memory_revision
@@ -64,7 +80,10 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         """;
 
     /// <inheritdoc />
-    /// <exception cref="InvalidOperationException">The (note, version) pair is already stored. Nothing is changed.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The (note, version) pair is already stored, the note belongs to another agent or vault path, or the revision is not
+    /// newer than the active one. Nothing is changed.
+    /// </exception>
     public async Task StoreRevisionAsync(MemoryGraphRevision revision, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(revision);
@@ -72,6 +91,25 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        // The lock is the first statement, so writers for one note are serialized before they read or write.
+        await LockNoteAsync(conn, tx, revision.NoteId, ct).ConfigureAwait(false);
+
+        // Ownership is checked before any write: a note id belongs to one agent and one vault path for its whole history.
+        await using (var owners = Command(conn, tx, _ownersSql))
+        {
+            AddParameter(owners, revision.NoteId);
+            await using var reader = await owners.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                if (reader.GetString(0) != revision.ScopeAgentId || reader.GetString(1) != revision.VaultPath)
+                {
+                    throw new InvalidOperationException(
+                        $"Memory note {revision.NoteId} is already stored for another agent or vault path. Nothing was changed.");
+                }
+            }
+        }
+
         try
         {
             // Insert inactive first, so the partial unique index never sees two active rows for the note.
@@ -86,6 +124,13 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
                 AddParameter(insert, revision.Status);
                 AddParameter(insert, revision.Trust);
                 await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+
+            // The new row is inactive, so this reads the previously active version (if any). A stale replay is refused here.
+            var activeVersion = await ActiveVersionAsync(conn, tx, revision.NoteId, ct).ConfigureAwait(false);
+            if (activeVersion is { } active && revision.Version <= active)
+            {
+                throw new InvalidOperationException("store must be newer than the active revision");
             }
 
             await using (var deactivate = Command(conn, tx, _deactivateOthersSql))
@@ -121,6 +166,12 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
             throw new InvalidOperationException(
                 $"Memory revision {revision.NoteId} version {revision.Version} is already stored. Revisions are append-only.", ex);
         }
+        catch (PostgresException ex) when (ex.SqlState == _uniqueViolation)
+        {
+            // Not reachable while the note lock holds. Mapped anyway, so no caller sees a raw database error here.
+            throw new InvalidOperationException(
+                $"Memory revision {revision.NoteId} could not be stored: a concurrent write conflicted. Nothing was changed.", ex);
+        }
     }
 
     /// <inheritdoc />
@@ -130,6 +181,8 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        await LockNoteAsync(conn, tx, noteId, ct).ConfigureAwait(false);
 
         // Check first, so an unknown version changes nothing (not even the currently active row).
         await using (var exists = Command(conn, tx, _existsSql))
@@ -188,15 +241,21 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
             ct).ConfigureAwait(false);
     }
 
-    /// <summary>Reads revision rows, then their edges in one more query, and attaches the edges in a stable order.</summary>
+    /// <summary>
+    /// Reads revision rows, then their edges, in one repeatable-read transaction, so the edges always match the revisions
+    /// that were read. Attaches the edges in a stable order.
+    /// </summary>
     private async Task<IReadOnlyList<MemoryGraphRevision>> ReadRevisionsAsync(
         string revisionSql,
         string edgeSql,
         Action<NpgsqlCommand> bind,
         CancellationToken ct)
     {
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct).ConfigureAwait(false);
+
         var revisions = new List<(string NoteId, long Version, string ScopeAgentId, string VaultPath, string Title, string Kind, string Status, string Trust)>();
-        await using (var cmd = dataSource.CreateCommand(revisionSql))
+        await using (var cmd = Command(conn, tx, revisionSql))
         {
             bind(cmd);
             await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
@@ -215,10 +274,13 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         }
 
         if (revisions.Count == 0)
+        {
+            await tx.CommitAsync(ct).ConfigureAwait(false);
             return [];
+        }
 
         var edges = new Dictionary<(string NoteId, long Version), List<MemoryGraphEdge>>();
-        await using (var cmd = dataSource.CreateCommand(edgeSql))
+        await using (var cmd = Command(conn, tx, edgeSql))
         {
             bind(cmd);
             await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
@@ -234,6 +296,8 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
             }
         }
 
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+
         var result = new List<MemoryGraphRevision>(revisions.Count);
         foreach (var row in revisions)
         {
@@ -247,6 +311,22 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         }
 
         return result;
+    }
+
+    private static async Task LockNoteAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string noteId, CancellationToken ct)
+    {
+        await using var lockCmd = Command(conn, tx, _lockNoteSql);
+        AddParameter(lockCmd, noteId);
+        await lockCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The version of the active revision for a note, or null when the note has none.</summary>
+    private static async Task<long?> ActiveVersionAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string noteId, CancellationToken ct)
+    {
+        await using var cmd = Command(conn, tx, _activeVersionSql);
+        AddParameter(cmd, noteId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        return await reader.ReadAsync(ct).ConfigureAwait(false) ? reader.GetInt64(0) : null;
     }
 
     private static void ValidateRevision(MemoryGraphRevision revision)
