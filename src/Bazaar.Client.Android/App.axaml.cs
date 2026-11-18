@@ -83,18 +83,3 @@ public sealed class App : Avalonia.Application
         return metrics is null ? 0 : metrics.WidthPixels / metrics.Density;
     }
 }
-
-// CodeQL default setup retrigger: comment-only, no code change.
-
-// CodeQL analysis trigger (no functional change).
-
-// CodeQL analysis trigger (no functional change).
-
-// CodeQL analysis trigger (no functional change).
-
-// CI re-run: comment-only touch so checks report on a fresh head.
-
-// CodeQL analysis trigger (no functional change).
-// CodeQL analysis trigger, pass 2 (no functional change).
-
-// CodeQL analysis trigger (comment only, no functional change).
