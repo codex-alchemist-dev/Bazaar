@@ -497,10 +497,41 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         try
         {
             await SendAllAsync(client, bytes, cts.Token).ConfigureAwait(false);
+            await LingerAsync(client).ConfigureAwait(false);
         }
         catch (Exception ex) when (IsExpected(ex))
         {
             // The client is gone; nothing more to tell it.
+        }
+    }
+
+    /// <summary>
+    /// Closes the sending side and drains what the client still has in flight, bounded in bytes and time. Closing a
+    /// socket that holds unread data makes Windows send a reset that can discard the reply already written, so the
+    /// client would see an empty answer instead of the error status.
+    /// </summary>
+    private static async Task LingerAsync(Socket client)
+    {
+        client.Shutdown(SocketShutdown.Send);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
+        var buffer = ArrayPool<byte>.Shared.Rent(4096);
+        try
+        {
+            var drained = 0;
+            while (drained < 64 * 1024)
+            {
+                var n = await client.ReceiveAsync(buffer, SocketFlags.None, cts.Token).ConfigureAwait(false);
+                if (n == 0)
+                {
+                    return;
+                }
+
+                drained += n;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
