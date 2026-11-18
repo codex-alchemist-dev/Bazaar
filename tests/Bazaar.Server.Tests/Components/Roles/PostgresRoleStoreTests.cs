@@ -92,7 +92,7 @@ public sealed class PostgresRoleStoreTests(ErasureDb db) : IClassFixture<Erasure
     }
 
     [Fact]
-    public async Task The_table_refuses_an_instance_grant_with_an_id_and_an_unknown_template()
+    public async Task The_table_refuses_an_unknown_template_key()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await using var badTemplate = db.DataSource.CreateCommand(
