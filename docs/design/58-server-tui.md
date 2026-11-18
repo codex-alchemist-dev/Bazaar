@@ -31,7 +31,7 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 | Mode | When | Backend |
 |---|---|---|
 | Install | No server is running yet, on the box | The setup engine in-process, same as `bazaar-admin setup`: same plan, same hash, same audit. Access rule is doc 45 section 1.9 (loopback and one-time bootstrap code). |
-| Ops | Server is running | The admin ports of doc 51, over loopback when run on the box. Remote use is SSH to the box, then the TUI on loopback. A non-loopback bind needs the doc 03 approval. |
+| Ops | Server is running | The admin ports of doc 51. Three ways to run it (owner, 2026-11-19, "Also remote over Conduit"): on the box, over SSH to the box (then loopback), and from any machine through Conduit (doc 39), which needs remote sign-in. A non-loopback bind needs the doc 03 approval. |
 
 The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
@@ -48,7 +48,7 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 Terminals cannot do a passkey ceremony. The owner signs in locally on the box through the same local owner gate as `bazaar-admin` (doc 45 section 1.9). Other admins get a short-lived code issued from a signed-in client and redeem it in the TUI for a session under the same roles check (doc 51 session store). Codes are single-use and audited.
 
 ## Open questions (coordinator took the defaults, 2026-11-19; both PROPOSED)
-1. **Remote use beyond SSH.** **PROPOSED (coordinator, 2026-11-19): SSH only in v1.** Attaching over Conduit like the clients stays a later option.
+1. **Remote owner sign-in.** The owner's local gate (section 5) is not available from another machine. How does the owner sign in to a TUI that runs remotely over Conduit? Asked on a card; not yet answered.
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.
