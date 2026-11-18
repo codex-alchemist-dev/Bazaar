@@ -441,9 +441,6 @@ src/Bazaar.Server/Identity/GitHubApp/IGitHubAppKeyStore.cs
 src/Bazaar.Server/Identity/GitHubApp/InMemoryGitHubAppKeyStore.cs
 src/Bazaar.Server/Identity/IdentityContracts.cs
 src/Bazaar.Server/Identity/IdentityOptions.cs
-src/Bazaar.Server/Identity/Keys/FileKekProvider.cs
-src/Bazaar.Server/Identity/Keys/IKekProvider.cs
-src/Bazaar.Server/Identity/Keys/KekUnwrapException.cs
 src/Bazaar.Server/Identity/Leases/CredentialLease.cs
 src/Bazaar.Server/Identity/Leases/IAccessApprovalSource.cs
 src/Bazaar.Server/Identity/Leases/ICredentialDirectory.cs
