@@ -1,6 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
+using Bazaar.Server.Constellation;
+using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -45,6 +47,14 @@ public static class HostApplicationExtensions
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
+
+        // The memory graph (Bazaar.Server.Constellation) is wired here, not in a component: the Constellation component cannot
+        // reference its own module project, and the graph sink depends on the Memory module. Only when Constellation is enabled.
+        if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
+        {
+            services.AddMemoryGraphProjection();
+        }
+
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
