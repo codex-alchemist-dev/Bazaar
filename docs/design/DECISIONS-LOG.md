@@ -381,3 +381,10 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Clients | Clients stay native, as already built. Native clients may embed web components such as Monaco (Bazaar.Server.md §1). | 27, 35 |
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
+
+## Round 27 (2026-11-16): Kanban card revision and client move command
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Kanban card revision and `board.move` | Decided by delegation: the owner's full-control instruction of 2026-11-16 (relayed by the coordinator) told the build to decide the wire shape without asking. Each `board.snapshot` card carries `revision` (the task version). `board.move` carries project id, card id, target state, expected revision and an optional reason. It runs `TransitionAsync` as the owner principal and answers `applied`, `conflict` (current revision), `refused` (blocker titles, reason; a PR-tied Review to Done is refused, C28) or `invalid`. Owner-only; others get `not_found`. | 12 (Card revision and client move command), 02, 29 (work package 9) |
+
