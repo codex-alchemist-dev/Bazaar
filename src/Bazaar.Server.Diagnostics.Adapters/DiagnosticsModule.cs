@@ -75,10 +75,12 @@ public static class DiagnosticsModule
         services.TryAddSingleton(options);
         services.TryAddSingleton(CrashRetentionPolicy.Default);
         services.TryAddSingleton(CrashSealingOptions.Default);
-        services.TryAddSingleton<ICrashInstallDirectory, UnavailableCrashInstallDirectory>();
         services.TryAddSingleton<ISymbolicator, NoSymbolsSymbolicator>();
         services.TryAddSingleton(TimeProvider.System);
 
+        services.TryAddSingleton<PostgresCrashInstallDirectory>();
+        services.TryAddSingleton<ICrashInstallDirectory>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
+        services.TryAddSingleton<ICrashInstallRegistry>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
         services.TryAddSingleton<PersonKeyStore>();
         services.TryAddSingleton<PostgresCrashStore>();
         services.TryAddSingleton<ICrashIntakeStore>(sp => sp.GetRequiredService<PostgresCrashStore>());
