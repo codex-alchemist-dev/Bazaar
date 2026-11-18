@@ -30,14 +30,17 @@ Each feature with a client surface has a separate server module and client modul
 
 | Feature | Server module | Client module | Notes |
 |---|---|---|---|
-| Constellation | `Bazaar.Server.Constellation` | `Bazaar.Client.Constellation` | Client panes and views. |
+| Constellation | `Bazaar.Server.Constellation` | `Bazaar.Client.Constellation` with `Bazaar.Client.Constellation.Abstractions` | Client panes and views. The abstractions hold the tile-source contract. |
 | Constellation renderer (shared renderer) | none | `Bazaar.Client.Constellation.Renderer` (name as the owner gave it; standalone and shared, see note) | Not part of Constellation, despite the name, which is the owner's and may be renamed. A general Vulkan renderer with a Skia fallback, used by Constellation and by other modules such as RyuseiFuda, and later other CDAX projects. Future Dep: it will become an externally imported dependency, with a Bazaar-free core and an adapter in its own repo. Other modules depend on it only through its contract. |
-| GC | `Bazaar.Server.GC` | `Bazaar.Client.GC` | Chat pane and GC views. |
+| GC | `Bazaar.Server.GC` | `Bazaar.Client.Gc` | GC pane. Depends on `Bazaar.Client.Chat.Abstractions` for the chat contract. |
+| Chat | none (chat rides the GC wire) | `Bazaar.Client.Chat` with `Bazaar.Client.Chat.Abstractions` | Chat view, timeline and connection. The GC pane binds it only through the abstractions. |
+| Souls | `Bazaar.Server.Souls` | `Bazaar.Client.Souls` | Soul panes and binding views. |
+| Dashboard | none | `Bazaar.Client.Dashboard` | Start-screen dashboard pane. Reads Constellation tiles only through `Bazaar.Client.Constellation.Abstractions`. |
 | Git | `Bazaar.Server.Git` | `Bazaar.Client.GitGui` (with `.Github`, `.Gitlab`) | Per doc 41 §4.14. |
 | Kanban (RyuseiFuda) | `Bazaar.Server.RyuseiFuda` | `Bazaar.Client.RyuseiFuda` | Dependency board views. |
 | Vault | `Bazaar.Server.Vault` | `Bazaar.Client.Vault` | Vault search pane. |
 
-Server and client modules share contract types only through `Bazaar.Contracts` and each module's `.Abstractions` project. This table is a plan for the move, not a list of what exists today. Names follow the owner's pattern (`Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`). Doc 40 still lists the pre-split names (`Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.Vault`); when each feature splits, its server half takes the `Server` prefix. Doc 40 is not edited here, and its names need updating in the split PRs.
+Server and client modules share contract types only through `Bazaar.Contracts` and each module's `.Abstractions` project. The client halves in this table (Constellation, GC, Chat, Souls, Dashboard, Vault) exist as separate projects, built on `Bazaar.Client.Abstractions` (wire, server and pane contracts) and `Bazaar.Client.Panes.Abstractions` (`IPaneModule`, `PaneRegistry`, `IPaneViewFactory`). Server halves and the Git and RyuseiFuda rows follow the same pattern as each feature splits. A client feature module never references `Bazaar.Client.Core`; an architecture test enforces this. Names follow the owner's pattern (`Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`). Doc 40 still lists the pre-split names (`Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.Vault`); when each feature splits, its server half takes the `Server` prefix. Doc 40 is not edited here, and its names need updating in the split PRs.
 
 ## 3. Dependencies after the move
 
