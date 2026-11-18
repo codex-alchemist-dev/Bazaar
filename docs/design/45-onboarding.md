@@ -47,8 +47,8 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
-| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. This plain path stays for scripts, non-TTY and screen readers. The full-screen TUI of doc 56 is another front end to the same wizard engine (owner, 2026-11-19). |
-| Server TUI, `Bazaar.Client.Tui` (doc 56) | Owner or admins at the box, or over SSH | Full-screen install wizard, then live ops. Same engine and prompter port as the plain wizard. |
+| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. This plain path stays for scripts, non-TTY and screen readers. The full-screen TUI of doc 58 is another front end to the same wizard engine (owner, 2026-11-19). |
+| Server TUI, `Bazaar.Client.Tui` (doc 58) | Owner or admins at the box, or over SSH | Full-screen install wizard, then live ops. Same engine and prompter port as the plain wizard. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
@@ -57,7 +57,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 | Company templates | Owners who run several companies on the same kind of setup | Section 1.8. A template is an input to the plan, not a copy of a live company. |
 | Import | Owners moving an existing company in | A dump is chosen as the company source. Importers are doc 44 modules. |
 
-There is no separate server-side tour and no first-run screen in the server process. The server process has no console; the human surfaces are the setup prompts, the TUI client module (doc 56), the admin panel (doc 51) and the read-only status page (doc 02, doc 23).
+There is no separate server-side tour and no first-run screen in the server process. The server process has no console; the human surfaces are the setup prompts, the TUI client module (doc 58), the admin panel (doc 51) and the read-only status page (doc 02, doc 23).
 
 ## 1.2 The setup plan: one result, one trail [PLANNED]
 

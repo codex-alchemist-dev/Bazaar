@@ -1,4 +1,4 @@
-# 56. Server TUI: install wizard and live ops
+# 58. Server TUI: install wizard and live ops
 
 Status: DECIDED for scope (owner decision card, 2026-11-19 02:13 Manila, option "Install wizard + live ops"). PLANNED for mechanics. Module names `Bazaar.Client.Tui` and `Bazaar.Client.Tui.Abstractions` are provisional under the naming rule in DECISIONS-LOG.
 Depends on: 03 (host, `bazaar-admin`), 45 (setup wizard, sections 1.1, 1.9, 1.12), 46 (Kodo, section 14), 51 (web admin ports), 32 (roles, sign-in), 15 (approvals, audit), 41 and 55 (mnemonics, Calcinato) · Used by: CLAUDE.md, 03, 45, Bazaar.Server.md
@@ -45,11 +45,11 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 - Secrets typed into the TUI are never echoed, logged or kept in the screen buffer (same canary tests as doc 45).
 
 ### 5. Authentication in Ops mode (PROPOSED)
-Terminals cannot do a passkey ceremony. Default: the TUI authenticates with the same local owner gate as `bazaar-admin` (doc 45 section 1.9), and for other admin accounts with a short-lived code issued from a signed-in client that the TUI redeems for a cookie-style session under the same roles check (doc 51 session store). Owner question 1.
+Terminals cannot do a passkey ceremony. Default: the TUI authenticates with the same local owner gate as `bazaar-admin` (doc 45 section 1.9), and for other admin accounts with a short-lived code issued from a signed-in client that the TUI redeems for a cookie-style session under the same roles check (doc 51 session store). Coordinator default, PROPOSED.
 
-## Open questions for the owner
-1. **Ops authentication.** Default as in section 5, or only the local owner? Reason: it decides whether non-owner admins can use the TUI.
-2. **Remote use beyond SSH.** Default: SSH only. Alternative: allow the TUI to attach over Conduit like the clients.
+## Open questions (coordinator took the defaults, 2026-11-19; both PROPOSED)
+1. **Ops authentication.** **PROPOSED (coordinator, 2026-11-19):** local owner gate plus a short code issued from a signed-in client for non-owner admins (section 5).
+2. **Remote use beyond SSH.** **PROPOSED (coordinator, 2026-11-19): SSH only in v1.** Attaching over Conduit like the clients stays a later option.
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.

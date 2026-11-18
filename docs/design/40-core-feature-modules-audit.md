@@ -57,7 +57,7 @@ Applied to the three features:
 - **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.GC.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
 - **Install (module install gate, doc 48 section 1):** `Bazaar.Install.Abstractions` (the store seam `IModuleInstallStore`, the audit entry and approval record, the owner signer `IOwnerApprovalSigner`), `Bazaar.Install` (the signature, host and permission checks, the start guard, the install and approval services, and the `Trust` code). It depends on `Bazaar.Contracts` and its own abstractions only. The Server persistence adapter is `ModuleManagerRepository`, which implements `IModuleInstallStore` and runs the audit payload guard before it appends.
 
-- **Server TUI (doc 56):** `Bazaar.Client.Tui.Abstractions` and `Bazaar.Client.Tui`, a head with its own manifest. It supplies an `ISetupPrompter` and the Ops screens, and references the setup engine and the web admin ports through abstractions only. No wizard logic of its own.
+- **Server TUI (doc 58):** `Bazaar.Client.Tui.Abstractions` and `Bazaar.Client.Tui`, a head with its own manifest. It supplies an `ISetupPrompter` and the Ops screens, and references the setup engine and the web admin ports through abstractions only. No wizard logic of its own.
 
 ## 4a. Renames (planned, small PRs)
 
