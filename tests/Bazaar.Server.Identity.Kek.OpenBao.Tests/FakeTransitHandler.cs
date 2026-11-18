@@ -44,41 +44,41 @@ public sealed class FakeTransitHandler(string token = "s.test-token") : HttpMess
                 KeyIsDerived = body!["derived"]!.GetValue<bool>();
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             case "encrypt":
-            {
-                var nonce = RandomNumberGenerator.GetBytes(12);
-                var plain = Convert.FromBase64String(body!["plaintext"]!.GetValue<string>());
-                var context = Convert.FromBase64String(body["context"]!.GetValue<string>());
-                var cipher = new byte[plain.Length];
-                var tag = new byte[16];
-                using (var gcm = new AesGcm(_key, 16))
-                    gcm.Encrypt(nonce, plain, cipher, tag, context);
-                var packed = nonce.Concat(cipher).Concat(tag).ToArray();
-                return Json(new JsonObject { ["data"] = new JsonObject { ["ciphertext"] = "vault:v1:" + Convert.ToBase64String(packed) } });
-            }
+                {
+                    var nonce = RandomNumberGenerator.GetBytes(12);
+                    var plain = Convert.FromBase64String(body!["plaintext"]!.GetValue<string>());
+                    var context = Convert.FromBase64String(body["context"]!.GetValue<string>());
+                    var cipher = new byte[plain.Length];
+                    var tag = new byte[16];
+                    using (var gcm = new AesGcm(_key, 16))
+                        gcm.Encrypt(nonce, plain, cipher, tag, context);
+                    var packed = nonce.Concat(cipher).Concat(tag).ToArray();
+                    return Json(new JsonObject { ["data"] = new JsonObject { ["ciphertext"] = "vault:v1:" + Convert.ToBase64String(packed) } });
+                }
 
             case "decrypt":
-            {
-                var text = body!["ciphertext"]!.GetValue<string>();
-                var context = Convert.FromBase64String(body["context"]!.GetValue<string>());
-                try
                 {
-                    var packed = Convert.FromBase64String(text["vault:v1:".Length..]);
-                    var nonce = packed[..12];
-                    var tag = packed[^16..];
-                    var cipher = packed[12..^16];
-                    var plain = new byte[cipher.Length];
-                    using (var gcm = new AesGcm(_key, 16))
-                        gcm.Decrypt(nonce, cipher, tag, plain, context);
-                    return Json(new JsonObject { ["data"] = new JsonObject { ["plaintext"] = Convert.ToBase64String(plain) } });
-                }
-                catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException)
-                {
-                    return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                    var text = body!["ciphertext"]!.GetValue<string>();
+                    var context = Convert.FromBase64String(body["context"]!.GetValue<string>());
+                    try
                     {
-                        Content = new StringContent("{\"errors\":[\"cipher: message authentication failed\"]}", Encoding.UTF8, "application/json"),
-                    };
+                        var packed = Convert.FromBase64String(text["vault:v1:".Length..]);
+                        var nonce = packed[..12];
+                        var tag = packed[^16..];
+                        var cipher = packed[12..^16];
+                        var plain = new byte[cipher.Length];
+                        using (var gcm = new AesGcm(_key, 16))
+                            gcm.Decrypt(nonce, cipher, tag, plain, context);
+                        return Json(new JsonObject { ["data"] = new JsonObject { ["plaintext"] = Convert.ToBase64String(plain) } });
+                    }
+                    catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException)
+                    {
+                        return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                        {
+                            Content = new StringContent("{\"errors\":[\"cipher: message authentication failed\"]}", Encoding.UTF8, "application/json"),
+                        };
+                    }
                 }
-            }
 
             default:
                 return new HttpResponseMessage(HttpStatusCode.NotFound);
