@@ -117,7 +117,7 @@ internal sealed class RecordingFiler : ICrashIssueFiler
 }
 
 /// <summary>An in-memory store with the same commit rules the Postgres store must keep: optimistic version, idempotent report id, one atomic apply.</summary>
-internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
+internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox, ICrashReportReader
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, StoredCrashGroup> _groups = [];
@@ -137,6 +137,14 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
     public IReadOnlyList<PendingCrashAction> Outbox => [.. _outbox];
 
     public IReadOnlySet<Guid> Dead => _dead;
+
+    public Task<StoredCrashReport?> GetLatestReportAsync(string fingerprint, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            return Task.FromResult(_reports.Values.Where(r => r.Fingerprint == fingerprint).OrderByDescending(r => r.ReceivedAt).FirstOrDefault());
+        }
+    }
 
     public StoredCrashGroup? Group(string fingerprint) => _groups.GetValueOrDefault(fingerprint);
 

@@ -345,6 +345,8 @@ Title: error code and type, or type and flagged frame. Body: fingerprint marker,
 - Trigger: `ask` (default) means an owner clicks Diagnose on a group in the server's group view, and the dialog shows the exact input size and the model label before it runs. `auto` runs after a group reaches the thresholds in 8.4.
 - Posting: diagnosis text appears in the group view. It goes to the issue only if `issue_diagnosis_post = on`, as a separate comment that repeats the label.
 
+**Implementation seams (wave 4c).** The diagnosis role is `CrashDiagnosisRole` (name `diagnosis`, no tools, asserted by a test). The model, the daily token budget and the system App token are interfaces (`ICrashDiagnosisModel`, `ICrashDiagnosisBudget`, `ICrashGitHubTokenSource`); the host binds them to the gateway role policy (doc 05), the quota service (doc 15) and the Identity Service (doc 14). Until bound, the budget denies, so diagnosis stays paused, and the filer fails closed so outbox rows back off. Auto-trigger after the 8.4 thresholds is not wired yet: `DiagnoseAsync` takes the trigger, and the dispatcher hook waits for the settings registry hook.
+
 ### 9.2 Who reads it
 
 Diagnosis is a hint for the owner and for the owning agent's inbox item (section 11). It is not a verdict. The group view states this next to the text.

@@ -84,4 +84,37 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
         Assert.NotNull(await store.GetGroupAsync(fp, ct));
         Assert.Equal(new CrashEraseResult(1, 0), await erasure.EraseInstallsAsync([other], ct));
     }
+
+    [Fact]
+    public async Task Diagnoses_round_trip_the_database_refuses_another_label_and_erasing_the_report_removes_its_diagnosis()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, _, handle) = await CreateAsync(ct);
+        await using var _h = handle;
+        var t0 = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        const string fp = "fp1:0123456789abcdef0123456789abcdef";
+        var group = new StoredCrashGroup(
+            new Bazaar.Diagnostics.Grouping.GroupState { Fingerprint = fp, OccurrenceCount = 1, FirstSeenVersion = "0.1.0", LastSeenVersion = "0.1.0", FirstSeenAt = t0, LastSeenAt = t0 },
+            new CrashIssueFacts(null, "System.Exception", [], null, null), 1);
+        var install = Guid.NewGuid();
+        var report = new StoredCrashReport(Guid.NewGuid(), install, fp, t0, t0, "0.1.0", Bazaar.Diagnostics.Ingestion.SymbolsState.Missing, new string('a', 64), new SealedPayload("k", [1], [2], [3]));
+        await store.CommitAsync(new CrashCommit(report, null, group, null, []), ct);
+        var diagnoses = (ICrashDiagnosisStore)store;
+        var made = new StoredCrashDiagnosis(Guid.NewGuid(), fp, report.ReportId, CrashDiagnosisLabel.Unverified, t0, "light-model", new byte[32], "Check it.", false);
+
+        await diagnoses.AddAsync(made, ct);
+        await diagnoses.MarkPostedAsync(made.DiagnosisId, ct);
+        var read = await diagnoses.GetLatestAsync(fp, ct);
+        var latest = await ((ICrashReportReader)store).GetLatestReportAsync(fp, ct);
+
+        Assert.True(read!.PostedToIssue);
+        Assert.Equal("Check it.", read.Text);
+        Assert.Equal(report.ReportId, latest!.ReportId);
+        Assert.Equal(report.Body.Ciphertext, latest.Body.Ciphertext);
+        await Assert.ThrowsAnyAsync<Exception>(() => diagnoses.AddAsync(made with { DiagnosisId = Guid.NewGuid(), Label = "verified" }, ct));
+
+        await ((ICrashErasure)store).EraseInstallsAsync([install], ct);
+
+        Assert.Null(await diagnoses.GetLatestAsync(fp, ct));
+    }
 }

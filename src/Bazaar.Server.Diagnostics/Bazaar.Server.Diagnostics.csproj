@@ -10,6 +10,7 @@
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Diagnostics.Abstractions\Bazaar.Server.Diagnostics.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
   </ItemGroup>

@@ -18,6 +18,31 @@ public sealed class CrashIntakeFactory(ICrashIntakeStore store, ICrashPayloadSea
         new(new CrashIngestionPipeline(ownership, new Redactor(), symbolicator), store, sealer, audit, clock, options);
 }
 
+/// <summary>The filer used until the owner registers the system GitHub App: every call fails, so the outbox keeps its rows and backs off.</summary>
+public sealed class UnavailableCrashIssueFiler : ICrashIssueFiler
+{
+    /// <inheritdoc />
+    public Task<int> CreateIssueAsync(Bazaar.Diagnostics.Grouping.IssueText issue, CancellationToken ct = default) => throw Unavailable();
+
+    /// <inheritdoc />
+    public Task CommentAsync(int issueNumber, string text, CancellationToken ct = default) => throw Unavailable();
+
+    /// <inheritdoc />
+    public Task ReopenAsync(int issueNumber, string text, CancellationToken ct = default) => throw Unavailable();
+
+    private static InvalidOperationException Unavailable() => new("The system GitHub App is not configured.");
+}
+
+/// <summary>The budget used until the quota service (doc 05, doc 15) is bound: nothing is reserved, so diagnosis stays paused.</summary>
+public sealed class UnavailableDiagnosisBudget : ICrashDiagnosisBudget
+{
+    /// <inheritdoc />
+    public Task<bool> TryReserveAsync(long estimatedTokens, CancellationToken ct = default) => Task.FromResult(false);
+
+    /// <inheritdoc />
+    public Task SettleAsync(long reservedTokens, long usedTokens, CancellationToken ct = default) => Task.CompletedTask;
+}
+
 /// <summary>The symbol lookup used until the release symbol bundles of doc 37 exist: every report is kept with symbols marked missing.</summary>
 public sealed class NoSymbolsSymbolicator : ISymbolicator
 {
@@ -62,7 +87,29 @@ public static class DiagnosticsModule
         services.TryAddSingleton<ICrashErasure>(sp => sp.GetRequiredService<PostgresCrashStore>());
         services.TryAddSingleton<ICrashPayloadSealer, PersonKeyCrashSealer>();
         services.TryAddSingleton<CrashIntakeFactory>();
+        services.TryAddSingleton<ICrashIssueFiler>(sp =>
+            sp.GetService<ICrashGitHubTokenSource>() is { } tokens
+                ? new GitHubCrashIssueFiler(
+                    new HttpClient { BaseAddress = new Uri("https://api.github.com/") }, tokens, sp.GetRequiredService<CrashFilingOptions>())
+                : new UnavailableCrashIssueFiler());
         services.TryAddSingleton<CrashActionDispatcher>();
+        services.TryAddSingleton(new CrashDiagnosisOptions(
+            Enum.TryParse<CrashDiagnosisMode>(section["Diagnosis"], ignoreCase: true, out var mode) ? mode : CrashDiagnosisMode.Ask,
+            section.GetValue("PostDiagnosisToIssue", false)));
+        services.TryAddSingleton<ICrashDiagnosisBudget, UnavailableDiagnosisBudget>();
+        services.TryAddSingleton<ICrashDiagnosisStore>(sp => sp.GetRequiredService<PostgresCrashStore>());
+        services.TryAddSingleton<ICrashReportReader>(sp => sp.GetRequiredService<PostgresCrashStore>());
+        services.TryAddSingleton(sp => new CrashDiagnosisService(
+            sp.GetRequiredService<ICrashIntakeStore>(),
+            sp.GetRequiredService<ICrashReportReader>(),
+            sp.GetRequiredService<ICrashPayloadSealer>(),
+            sp.GetService<ICrashDiagnosisModel>(),
+            sp.GetRequiredService<ICrashDiagnosisBudget>(),
+            sp.GetRequiredService<ICrashDiagnosisStore>(),
+            sp.GetRequiredService<ICrashIssueFiler>(),
+            sp.GetRequiredService<IAuditLog>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<CrashDiagnosisOptions>()));
         services.AddSingleton<IErasureParticipant, CrashErasureParticipant>();
         services.AddHostedService<CrashMaintenanceService>();
         return services;

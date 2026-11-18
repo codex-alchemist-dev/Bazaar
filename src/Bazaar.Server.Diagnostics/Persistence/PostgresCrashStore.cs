@@ -10,7 +10,7 @@ namespace Bazaar.Server.Diagnostics.Persistence;
 /// transaction: the group row is changed under an optimistic version check, then the report, screenshot, outbox rows and
 /// filing-budget rows are written. A lost race or a retried report writes nothing.
 /// </summary>
-public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashIntakeStore, ICrashActionOutbox, ICrashRetention, ICrashErasure
+public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashIntakeStore, ICrashActionOutbox, ICrashRetention, ICrashErasure, ICrashDiagnosisStore, ICrashReportReader
 {
     private const string _groupColumns =
         "fingerprint, version, status, occurrence_count, first_seen_version, last_seen_version, first_seen_at, last_seen_at, " +
@@ -210,6 +210,73 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return new CrashEraseResult(reports, attachments);
+    }
+
+    /// <inheritdoc />
+    public async Task<StoredCrashReport?> GetLatestReportAsync(string fingerprint, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(fingerprint);
+        await using var cmd = dataSource.CreateCommand(
+            "SELECT report_id, install_id, fingerprint, created_at, received_at, client_version, symbols, body_sha256, key_id, nonce, ciphertext, tag " +
+            "FROM crash_report WHERE fingerprint = $1 ORDER BY received_at DESC, report_id DESC LIMIT 1");
+        cmd.Parameters.AddWithValue(fingerprint);
+        await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (!await r.ReadAsync(ct).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new StoredCrashReport(
+            r.GetGuid(0), r.GetGuid(1), r.GetString(2), r.GetFieldValue<DateTimeOffset>(3), r.GetFieldValue<DateTimeOffset>(4),
+            r.GetString(5), Enum.Parse<Bazaar.Diagnostics.Ingestion.SymbolsState>(r.GetString(6)), r.GetString(7),
+            new SealedPayload(r.GetString(8), r.GetFieldValue<byte[]>(9), r.GetFieldValue<byte[]>(10), r.GetFieldValue<byte[]>(11)));
+    }
+
+    /// <inheritdoc />
+    public async Task AddAsync(StoredCrashDiagnosis diagnosis, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(diagnosis);
+        if (diagnosis.Label != CrashDiagnosisLabel.Unverified)
+        {
+            throw new ArgumentException("A diagnosis must carry the 'unverified diagnosis' label.", nameof(diagnosis));
+        }
+
+        await using var cmd = dataSource.CreateCommand(
+            "INSERT INTO crash_diagnosis (diagnosis_id, fingerprint, report_id, label, produced_at, role_model, input_hash, text_out, posted_to_issue) " +
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)");
+        cmd.Parameters.AddWithValue(diagnosis.DiagnosisId);
+        cmd.Parameters.AddWithValue(diagnosis.Fingerprint);
+        cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)diagnosis.ReportId ?? DBNull.Value });
+        cmd.Parameters.AddWithValue(diagnosis.Label);
+        cmd.Parameters.AddWithValue(Micro(diagnosis.ProducedAt));
+        cmd.Parameters.AddWithValue(diagnosis.RoleModel);
+        cmd.Parameters.AddWithValue(diagnosis.InputHash);
+        cmd.Parameters.AddWithValue(diagnosis.Text);
+        cmd.Parameters.AddWithValue(diagnosis.PostedToIssue);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<StoredCrashDiagnosis?> GetLatestAsync(string fingerprint, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(
+            "SELECT diagnosis_id, fingerprint, report_id, label, produced_at, role_model, input_hash, text_out, posted_to_issue " +
+            "FROM crash_diagnosis WHERE fingerprint = $1 ORDER BY produced_at DESC, diagnosis_id DESC LIMIT 1");
+        cmd.Parameters.AddWithValue(fingerprint);
+        await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        return await r.ReadAsync(ct).ConfigureAwait(false)
+            ? new StoredCrashDiagnosis(
+                r.GetGuid(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetGuid(2), r.GetString(3), r.GetFieldValue<DateTimeOffset>(4),
+                r.GetString(5), r.GetFieldValue<byte[]>(6), r.GetString(7), r.GetBoolean(8))
+            : null;
+    }
+
+    /// <inheritdoc />
+    public async Task MarkPostedAsync(Guid diagnosisId, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("UPDATE crash_diagnosis SET posted_to_issue = true WHERE diagnosis_id = $1");
+        cmd.Parameters.AddWithValue(diagnosisId);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     private static async Task<int> DeleteOlderAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string sql, DateTimeOffset cutoff, CancellationToken ct)
