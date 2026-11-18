@@ -1,12 +1,4 @@
 src/Bazaar.Client.Core/App.axaml.cs
-src/Bazaar.Client.Core/Chat/ChatConnection.cs
-src/Bazaar.Client.Core/Chat/ChatConnectionSettings.cs
-src/Bazaar.Client.Core/Chat/ChatLine.cs
-src/Bazaar.Client.Core/Chat/ChatMember.cs
-src/Bazaar.Client.Core/Chat/ChatTimeline.cs
-src/Bazaar.Client.Core/Chat/ChatView.axaml.cs
-src/Bazaar.Client.Core/Chat/ChatViewModel.cs
-src/Bazaar.Client.Core/Chat/GcChatSession.cs
 src/Bazaar.Client.Core/Commands/Command.cs
 src/Bazaar.Client.Core/Commands/CommandMatcher.cs
 src/Bazaar.Client.Core/Commands/CommandRecency.cs
@@ -35,8 +27,6 @@ src/Bazaar.Client.Core/Mobile/RadialMenu.cs
 src/Bazaar.Client.Core/Panes/EnginePaneView.cs
 src/Bazaar.Client.Core/Panes/EnginePaneViewModel.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs
-src/Bazaar.Client.Core/Panes/GcPaneModule.cs
-src/Bazaar.Client.Core/Panes/GcPaneViewModel.cs
 src/Bazaar.Client.Core/Panes/PaneHost.cs
 src/Bazaar.Client.Core/Panes/PaneViews.cs
 src/Bazaar.Client.Core/Preload/PreloadAutostart.cs
@@ -45,7 +35,6 @@ src/Bazaar.Client.Core/Theme/MonacoThemeGenerator.cs
 src/Bazaar.Client.Core/Theme/ThemeModel.cs
 src/Bazaar.Client.Core/Theme/ThemeTokens.cs
 src/Bazaar.Client.Core/Theme/ThemeValidator.cs
-src/Bazaar.Client.Core/Wire/WebSocketWireTransport.cs
 src/Bazaar.Server/Agents/AgentLifecycle.cs
 src/Bazaar.Server/Agents/AgentRuntimeTypes.cs
 src/Bazaar.Server/Agents/Data/AgentRecords.cs

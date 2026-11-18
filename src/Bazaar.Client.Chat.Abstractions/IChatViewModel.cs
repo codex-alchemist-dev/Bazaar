@@ -18,9 +18,6 @@ public interface IChatViewModel : INotifyPropertyChanged, IDisposable
     /// <summary>The session status line.</summary>
     string Status { get; }
 
-    /// <summary>The last send error, or null.</summary>
-    string? Error { get; }
-
     /// <summary>Sends the draft. A refused send keeps the text so nothing is lost.</summary>
     Task SendDraftAsync(CancellationToken cancellationToken = default);
 

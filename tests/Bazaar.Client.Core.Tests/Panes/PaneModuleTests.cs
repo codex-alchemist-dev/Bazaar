@@ -2,6 +2,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Client.Vault;

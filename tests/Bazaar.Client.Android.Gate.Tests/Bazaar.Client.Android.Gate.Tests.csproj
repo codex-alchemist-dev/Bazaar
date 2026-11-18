@@ -40,6 +40,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
   </ItemGroup>
 </Project>

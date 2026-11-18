@@ -1,8 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:chat="using:Bazaar.Client.Chat.Abstractions"
+             xmlns:chat="using:Bazaar.Client.Chat"
+             xmlns:chatabs="using:Bazaar.Client.Chat.Abstractions"
              x:Class="Bazaar.Client.Chat.ChatView"
-             x:DataType="chat:IChatViewModel">
+             x:DataType="chat:ChatViewModel">
   <DockPanel Margin="16">
     <TextBlock DockPanel.Dock="Top"
                Text="{Binding Status}"
@@ -29,7 +30,7 @@
              Background="Transparent"
              BorderThickness="0">
       <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="chat:ChatLine">
+        <DataTemplate x:DataType="chatabs:ChatLine">
           <StackPanel Margin="0,4" Spacing="2">
             <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
             <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />

@@ -24,5 +24,7 @@
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Chat\Bazaar.Client.Components.Chat.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
   </ItemGroup>
 </Project>

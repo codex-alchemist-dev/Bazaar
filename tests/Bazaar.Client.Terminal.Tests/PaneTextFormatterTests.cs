@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Contracts.Panes;
@@ -11,7 +12,7 @@ namespace Bazaar.Client.Terminal.Tests;
 public sealed class PaneTextFormatterTests
 {
     private static readonly PaneRegistry _registry =
-        FirstPartyPanes.CreateRegistry([RyuseiFudaPanes.Board, new DashboardPaneModule(), .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules]);
+        FirstPartyPanes.CreateRegistry([RyuseiFudaPanes.Board, new DashboardPaneModule(), new GcPaneModule(), .. RyuseiFudaPanes.Modules]);
 
     [Fact]
     public void Kanban_lists_each_column_with_its_cards_and_blocked_marking()

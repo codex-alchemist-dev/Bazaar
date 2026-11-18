@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
-using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Chat;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Panes;
 

@@ -4,8 +4,9 @@ using Avalonia.Headless.XUnit;
 using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.RyuseiFuda.Workday;
@@ -55,7 +56,7 @@ public class ShownViewsAccessibilityTests
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://gate.invalid/ws"), "t", _gc, "me"), timeline);
         using var chat = new ChatViewModel(session);
 
-        var window = new MainWindow(chat);
+        var window = new MainWindow(ChatViewFactory.Instance.Create(chat));
         window.Show();
 
         Assert.Empty(AccessibleControlScan.Find(window));

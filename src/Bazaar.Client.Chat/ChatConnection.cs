@@ -1,4 +1,5 @@
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Contracts.Wire.Codec;
 
 namespace Bazaar.Client.Chat;

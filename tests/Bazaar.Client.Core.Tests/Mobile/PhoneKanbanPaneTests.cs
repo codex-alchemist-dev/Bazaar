@@ -6,6 +6,7 @@ using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Gc;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Mobile;
@@ -16,7 +17,7 @@ public class PhoneKanbanPaneTests
     public void Gc_page_renders_the_empty_state_with_no_session()
     {
         var registry = Panes.TestPanes.CreateRegistry();
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
         var window = new Window { Content = shell, Width = 360, Height = 740 };
         window.Show();
 

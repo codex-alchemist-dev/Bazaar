@@ -1,9 +1,11 @@
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
@@ -18,7 +20,7 @@ internal static class TestPanes
         RyuseiFudaPanes.Board,
         new DashboardPaneModule(),
         new ConstellationPaneModule(),
-        .. FirstPartyPanes.Modules,
+        new GcPaneModule(),
         new VaultSearchPaneModule(),
         .. RyuseiFudaPanes.Modules,
     ];
@@ -26,15 +28,19 @@ internal static class TestPanes
     public static PaneRegistry CreateRegistry(
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
-        ChatViewModel? chat = null,
+        IChatViewModel? chat = null,
         VaultApi? vault = null) =>
-        FirstPartyPanes.CreateRegistry(Modules, report, chat, Features(tiles, vault));
+        FirstPartyPanes.CreateRegistry(Modules, report, Features(tiles, chat, vault));
 
-    private static PaneModuleContext? Features(IConstellationTileSource? tiles, VaultApi? vault)
+    private static PaneModuleContext? Features(IConstellationTileSource? tiles, IChatViewModel? chat, VaultApi? vault)
     {
-        if (tiles is null && vault is null) return null;
+        if (tiles is null && chat is null && vault is null) return null;
         var context = new PaneModuleContext();
         if (tiles is not null) context = context.With<IConstellationTileSource>(tiles);
+        if (chat is not null)
+        {
+            context = context.With<IChatViewModel>(chat).With<IChatViewFactory>(ChatViewFactory.Instance);
+        }
         if (vault is not null) context = context.With<VaultApi>(vault);
         return context;
     }

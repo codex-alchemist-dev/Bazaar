@@ -9,6 +9,7 @@ using Bazaar.Client.Vault;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Contracts.Graph;
@@ -31,17 +32,17 @@ internal static class GatePhoneShell
     {
         var tiles = new EmptyTileSource();
         var vault = VaultApiFactory.Create(PairedEndpoint, new EmptyResponseHandler());
-        // The Dashboard, then Constellation, then the rest of the Client.Core panes, as in the Android head (pager order).
+        // The Dashboard, then Constellation, then the GC pane, then Vault, as in the Android head (pager order).
         IPaneModule[] modules =
         [
             new DashboardPaneModule(),
             new ConstellationPaneModule(),
-            .. FirstPartyPanes.Modules,
+            new GcPaneModule(),
             new VaultSearchPaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles).With(vault);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
-        Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(registry);
+        Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry));
 
         // The production pager shows a kind-name placeholder for the Vault search pane, so the shell has no interactive
         // control and the scan would pass vacuously. The gate shows that pane's real view (query box and search button) so
