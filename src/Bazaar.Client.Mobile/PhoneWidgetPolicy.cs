@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// Desktop-parity guard (doc 29, Guard against desktop parity). The phone is a development console, not a build tool,

@@ -1,17 +1,16 @@
 using Avalonia.Headless.XUnit;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Mobile;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Mobile;
 using Bazaar.Client.Panes.Abstractions;
 
-namespace Bazaar.Client.Core.Tests.Mobile;
+namespace Bazaar.Client.Mobile.Tests;
 
 public class PhoneShellTests
 {
     [AvaloniaFact]
     public void Shell_starts_folded()
     {
-        var shell = new PhoneShell();
+        var shell = new PhoneShell(new PaneRegistry(TestPaneViews.Instance));
 
         Assert.Equal(LayoutVariant.Folded, shell.Layout);
     }
@@ -31,7 +30,7 @@ public class PhoneShellTests
     [AvaloniaFact]
     public void Half_open_follows_width_under_the_default_policy()
     {
-        var shell = new PhoneShell();
+        var shell = new PhoneShell(new PaneRegistry(TestPaneViews.Instance));
 
         Assert.Equal(LayoutVariant.Folded, shell.ApplyPosture(PostureKind.HalfOpen, HalfOpenLayoutPolicy.UnfoldedIfWide, 400));
         Assert.Equal(LayoutVariant.Unfolded, shell.ApplyPosture(PostureKind.HalfOpen, HalfOpenLayoutPolicy.UnfoldedIfWide, 700));
@@ -62,7 +61,7 @@ public class PhoneShellTests
     [AvaloniaFact]
     public void Empty_registry_shows_no_pages_and_no_panes()
     {
-        var shell = new PhoneShell();
+        var shell = new PhoneShell(new PaneRegistry(TestPaneViews.Instance));
 
         Assert.Empty(shell.Pages);
         Assert.Equal(-1, shell.SelectedPage);
@@ -70,7 +69,7 @@ public class PhoneShellTests
 
     private static PaneRegistry Registry(params string[] kinds)
     {
-        var registry = new PaneRegistry(PaneViews.Instance);
+        var registry = new PaneRegistry(TestPaneViews.Instance);
         foreach (var kind in kinds)
         {
             registry.Register(kind, descriptor => new GenericPaneViewModel(descriptor));

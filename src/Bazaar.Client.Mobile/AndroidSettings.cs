@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 public enum PushProviderKind
 {

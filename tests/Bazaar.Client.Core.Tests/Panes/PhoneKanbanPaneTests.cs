@@ -4,12 +4,12 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Gc;
+using Bazaar.Client.Mobile;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Tests.Mobile;
+namespace Bazaar.Client.Core.Tests.Panes;
 
 public class PhoneKanbanPaneTests
 {

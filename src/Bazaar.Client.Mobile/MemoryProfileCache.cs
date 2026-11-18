@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>An in-memory <see cref="IProfileCache"/>. It lasts for the process only, which suits tests and previews.</summary>
 public sealed class MemoryProfileCache : IProfileCache

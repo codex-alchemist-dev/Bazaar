@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// Connects an <see cref="IPostureSource"/> to a <see cref="PhoneShell"/>. It applies the current posture at once and

@@ -37,6 +37,7 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Engines")]
     [InlineData("Bazaar.Client.Gc")]
     [InlineData("Bazaar.Client.Souls")]
+    [InlineData("Bazaar.Client.Mobile")]
     public void Client_feature_module_does_not_reference_client_core(string project)
     {
         Assert.SkipUnless(File.Exists(RepoPaths.ProjectFile(project)), $"{project} does not exist yet.");

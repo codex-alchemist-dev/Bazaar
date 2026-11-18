@@ -3,10 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Panes.Abstractions;
 
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// The phone's root view. Folded shows a single-column pager, one pane per page; unfolded shows two panes side
@@ -20,12 +19,6 @@ public sealed class PhoneShell : UserControl
     private readonly Carousel _pager = new();
     private IReadOnlyList<IReadOnlyList<string>> _pages = [];
     private IReadOnlyList<string>? _profileKinds;
-
-    /// <summary>A shell with no panes registered.</summary>
-    public PhoneShell()
-        : this(new PaneRegistry(PaneViews.Instance))
-    {
-    }
 
     /// <param name="registry">The panes to page through, in order.</param>
     /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>

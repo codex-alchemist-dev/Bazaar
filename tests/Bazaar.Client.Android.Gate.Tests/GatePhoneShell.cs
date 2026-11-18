@@ -6,7 +6,7 @@ using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Vault;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;

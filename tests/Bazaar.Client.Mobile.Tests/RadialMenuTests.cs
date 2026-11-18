@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 
-namespace Bazaar.Client.Core.Tests.Mobile;
+namespace Bazaar.Client.Mobile.Tests;
 
 public class RadialMenuTests
 {

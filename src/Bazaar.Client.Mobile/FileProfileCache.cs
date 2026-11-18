@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// The cached profile in <c>ui-profile.json</c> under a directory the head supplies (doc 27, cache file).
