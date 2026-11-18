@@ -6,6 +6,7 @@ using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
+using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
 using Bazaar.Client.Preload;
 
@@ -44,21 +45,9 @@ internal static class Program
             return 0;
         }
 
-        using var listenerStop = new CancellationTokenSource();
-        _ = LaunchPipe.ListenAsync(pipeName, _ => Dispatcher.UIThread.InvokeAsync(ActivateMainWindow).GetTask(), listenerStop.Token)
-            .ContinueWith(
-                task => Console.Error.WriteLine($"Bazaar: launcher listener stopped: {task.Exception?.GetBaseException().Message}"),
-                TaskContinuationOptions.OnlyOnFaulted);
-
-        try
-        {
-            var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-            return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
-        }
-        finally
-        {
-            listenerStop.Cancel();
-        }
+        using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
+        var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
+        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -79,30 +68,6 @@ internal static class Program
         {
             return false;
         }
-    }
-
-    private static void ActivateMainWindow()
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            if (!window.IsVisible)
-            {
-                window.Show();
-            }
-
-            window.WindowState = WindowState.Normal;
-            window.Activate();
-        }
-    }
-
-    private static MainWindow HideIfPreloading(MainWindow window, bool preloadStart)
-    {
-        if (preloadStart)
-        {
-            window.Opened += (_, _) => window.Hide();
-        }
-
-        return window;
     }
 
     /// <summary>

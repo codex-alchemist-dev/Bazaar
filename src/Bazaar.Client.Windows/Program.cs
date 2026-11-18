@@ -15,6 +15,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.Launcher;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
@@ -51,16 +52,7 @@ internal static class Program
             Console.Error.WriteLine("Bazaar: the running instance did not answer; this launch will not be forwarded.");
         }
 
-        using var listenerStop = new CancellationTokenSource();
-        if (isPrimary)
-        {
-            // TODO(component): pane routing for --open and --terminal lands with the pane host; for now every
-            // forwarded launch only brings the main window forward.
-            _ = LaunchPipe.ListenAsync(pipeName, _ => Dispatcher.UIThread.InvokeAsync(ActivateMainWindow).GetTask(), listenerStop.Token)
-                .ContinueWith(
-                    task => Console.Error.WriteLine($"Bazaar: launcher listener stopped: {task.Exception?.GetBaseException().Message}"),
-                    TaskContinuationOptions.OnlyOnFaulted);
-        }
+        using var launcher = isPrimary ? LauncherHost.Start(pipeName, Console.Error.WriteLine) : null;
 
         var chatSettings = ChatSettings(args);
         ChatHost? chat = null;
@@ -96,12 +88,8 @@ internal static class Program
                 chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
             }
 
-            var window = chat is null ? new MainWindow() : new MainWindow(chat.View);
-            if (preloadStart)
-            {
-                // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).
-                window.Opened += (_, _) => window.Hide();
-            }
+            // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
+            var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
             if (showPanes)
             {
                 window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
@@ -117,7 +105,6 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            listenerStop.Cancel();
         }
     }
 
@@ -138,18 +125,4 @@ internal static class Program
 
     private static AppBuilder BuildAvaloniaApp(Func<Window> createMainWindow) =>
         AppBuilder.Configure(() => new App(createMainWindow)).UsePlatformDetect();
-
-    private static void ActivateMainWindow()
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            if (!window.IsVisible)
-            {
-                window.Show();
-            }
-
-            window.WindowState = WindowState.Normal;
-            window.Activate();
-        }
-    }
 }

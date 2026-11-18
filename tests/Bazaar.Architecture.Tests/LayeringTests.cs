@@ -46,6 +46,7 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Commands")]
     [InlineData("Bazaar.Client.Input")]
     [InlineData("Bazaar.Client.Preload")]
+    [InlineData("Bazaar.Client.Launcher")]
     [InlineData("Bazaar.Client.Gc")]
     [InlineData("Bazaar.Client.Souls")]
     [InlineData("Bazaar.Client.Mobile")]
