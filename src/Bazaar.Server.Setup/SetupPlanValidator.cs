@@ -311,9 +311,9 @@ public static partial class SetupPlanValidator
             return;
         }
 
-        var bindValue = JsonSerializer.SerializeToElement(plan.Network.StatusBind, SettingJson.Options);
+        var bindValue = JsonSerializer.SerializeToElement(plan.Network.StatusBind, SetupPlanJsonContext.Default.String);
         CheckRegistryValue(bind, "network.statusBind", bindValue, issues);
-        var portValue = JsonSerializer.SerializeToElement(plan.Network.StatusPort, SettingJson.Options);
+        var portValue = JsonSerializer.SerializeToElement(plan.Network.StatusPort, SetupPlanJsonContext.Default.Int32);
         CheckRegistryValue(port, "network.statusPort", portValue, issues);
     }
 
