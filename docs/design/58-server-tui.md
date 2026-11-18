@@ -44,12 +44,11 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 - Every state word has text, not only colour. Strings go through Localisation.
 - Secrets typed into the TUI are never echoed, logged or kept in the screen buffer (same canary tests as doc 45).
 
-### 5. Authentication in Ops mode (PROPOSED)
-Terminals cannot do a passkey ceremony. Default: the TUI authenticates with the same local owner gate as `bazaar-admin` (doc 45 section 1.9), and for other admin accounts with a short-lived code issued from a signed-in client that the TUI redeems for a cookie-style session under the same roles check (doc 51 session store). Coordinator default, PROPOSED.
+### 5. Authentication in Ops mode (DECIDED, owner card 2026-11-18, "Owner on the box, plus admin codes")
+Terminals cannot do a passkey ceremony. The owner signs in locally on the box through the same local owner gate as `bazaar-admin` (doc 45 section 1.9). Other admins get a short-lived code issued from a signed-in client and redeem it in the TUI for a session under the same roles check (doc 51 session store). Codes are single-use and audited.
 
 ## Open questions (coordinator took the defaults, 2026-11-19; both PROPOSED)
-1. **Ops authentication.** **PROPOSED (coordinator, 2026-11-19):** local owner gate plus a short code issued from a signed-in client for non-owner admins (section 5).
-2. **Remote use beyond SSH.** **PROPOSED (coordinator, 2026-11-19): SSH only in v1.** Attaching over Conduit like the clients stays a later option.
+1. **Remote use beyond SSH.** **PROPOSED (coordinator, 2026-11-19): SSH only in v1.** Attaching over Conduit like the clients stays a later option.
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.
