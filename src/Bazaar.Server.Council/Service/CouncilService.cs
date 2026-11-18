@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Bazaar.Server.Council.Service;
 
@@ -32,11 +33,6 @@ public sealed class CouncilService : ICouncilService
 {
     /// <summary>Attempts at one transition before <see cref="ConcurrencyException"/>. Each retry reloads the vote.</summary>
     private const int _maxTransitionAttempts = 3;
-
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    };
 
     private readonly ICouncilStore _store;
     private readonly ICouncilGcEvents _gcEvents;
@@ -112,7 +108,7 @@ public sealed class CouncilService : ICouncilService
         await AppendAsync(
             record.GcId,
             "council.open",
-            new
+            new CouncilOpenPayload
             {
                 VoteId = record.VoteId,
                 GcId = record.GcId,
@@ -126,6 +122,7 @@ public sealed class CouncilService : ICouncilService
                 DeadlineAt = record.DeadlineAt,
                 RevealSeed = record.RevealSeed,
             },
+            CouncilEventJsonContext.Default.CouncilOpenPayload,
             $"open:{record.VoteId:D}",
             ct);
         return record.VoteId;
@@ -327,26 +324,27 @@ public sealed class CouncilService : ICouncilService
         await AppendAsync(
             revealed.GcId,
             "council.reveal",
-            new
+            new CouncilRevealPayload
             {
                 VoteId = revealed.VoteId,
                 GcId = revealed.GcId,
                 RevealSeed = revealed.RevealSeed,
                 ReasonOrder = order,
-                Tally = new
+                Tally = new CouncilRevealTallyPayload
                 {
                     Outcome = Wire(decision.Kind),
                     Choice = decision.Choice,
                     EscalationReason = decision.Reason is null ? null : Wire(decision.Reason.Value),
                     Counts = decision.Counts,
                 },
-                Reasons = order.Select(voterId => new
+                Reasons = order.Select(voterId => new CouncilRevealReasonPayload
                 {
                     VoterId = voterId,
                     Choice = byVoter[voterId].Choice,
                     Reasoning = byVoter[voterId].Reasoning,
-                }),
+                }).ToArray(),
             },
+            CouncilEventJsonContext.Default.CouncilRevealPayload,
             $"reveal:{revealed.VoteId:D}",
             ct);
 
@@ -475,7 +473,7 @@ public sealed class CouncilService : ICouncilService
             await AppendAsync(
                 next.GcId,
                 "council.transition",
-                new
+                new CouncilTransitionPayload
                 {
                     VoteId = next.VoteId,
                     From = Wire(current.State),
@@ -485,6 +483,7 @@ public sealed class CouncilService : ICouncilService
                     DeadlineAt = next.DeadlineAt,
                     Extensions = next.Extensions,
                 },
+                CouncilEventJsonContext.Default.CouncilTransitionPayload,
                 $"transition:{next.VoteId:D}:{next.Version}",
                 ct);
             return next;
@@ -510,7 +509,7 @@ public sealed class CouncilService : ICouncilService
                 var independent = group.FirstOrDefault(ballot => ballot.Phase == BallotPhase.Independent);
                 var followUp = group.FirstOrDefault(ballot => ballot.Phase == BallotPhase.FollowUp);
                 var final = followUp ?? independent;
-                return new
+                return new CouncilDecisionVoterPayload
                 {
                     VoterId = group.Key,
                     IndependentChoice = independent?.Choice,
@@ -542,7 +541,7 @@ public sealed class CouncilService : ICouncilService
         await AppendAsync(
             decided.GcId,
             "council.decision",
-            new
+            new CouncilDecisionPayload
             {
                 VoteId = decided.VoteId,
                 GcId = decided.GcId,
@@ -551,15 +550,9 @@ public sealed class CouncilService : ICouncilService
                 OwnerReasoning = ownerReasoning,
                 VaultDecisionNo = vaultNo,
                 FinalCounts = finalCounts,
-                Voters = voters.Select(voter => new
-                {
-                    voter.VoterId,
-                    voter.IndependentChoice,
-                    voter.FollowupChoice,
-                    voter.FinalChoice,
-                    voter.Reasoning,
-                }),
+                Voters = voters,
             },
+            CouncilEventJsonContext.Default.CouncilDecisionPayload,
             $"decision:{decided.VoteId:D}",
             ct);
     }
@@ -607,8 +600,14 @@ public sealed class CouncilService : ICouncilService
         await _store.FindVoteAsync(voteId, ct)
         ?? throw new KeyNotFoundException($"Council vote {voteId:D} does not exist.");
 
-    private async Task AppendAsync(Guid gcId, string kind, object payload, string idempotencyKey, CancellationToken ct) =>
-        await _gcEvents.AppendAsync(gcId, kind, JsonSerializer.Serialize(payload, _jsonOptions), idempotencyKey, ct);
+    private async Task AppendAsync<T>(
+        Guid gcId,
+        string kind,
+        T payload,
+        JsonTypeInfo<T> typeInfo,
+        string idempotencyKey,
+        CancellationToken ct) =>
+        await _gcEvents.AppendAsync(gcId, kind, JsonSerializer.Serialize(payload, typeInfo), idempotencyKey, ct);
 
     private static bool AllEligibleCast(CouncilVoteRecord vote, IReadOnlyList<StoredBallot> ballots, BallotPhase phase)
     {

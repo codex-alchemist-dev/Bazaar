@@ -3,6 +3,7 @@
     <TargetFramework>net11.0</TargetFramework>
     <RootNamespace>Bazaar.Server.Council</RootNamespace>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
