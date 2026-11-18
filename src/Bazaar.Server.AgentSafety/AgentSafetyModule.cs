@@ -15,6 +15,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.AgentSafety;
 
@@ -25,7 +26,7 @@ namespace Bazaar.Server.AgentSafety;
 /// <remarks>
 /// Durable implementations are registered before <c>AddAgentSafety</c>, so its in-memory defaults (TryAdd) never take effect.
 /// The VM pauser is real when the Vms lifecycle is composed; otherwise it is fail closed. The token revoker is real and runs over
-/// the Identity lease store.
+/// the Identity lease store. A containment enforcer starts after the gate and re-applies containment for agents contained before the start.
 /// </remarks>
 public static class AgentSafetyModule
 {
@@ -50,6 +51,14 @@ public static class AgentSafetyModule
 
         services.AddAgentSafety(configuration);
         services.AddHostedService<KillSwitchStartupGate>();
+
+        // After the gate: re-applies containment for agents that were contained before this start.
+        services.AddHostedService(sp => new ContainmentEnforcer(
+            sp.GetRequiredService<IContainmentStateStore>(),
+            sp.GetRequiredService<IAgentTokenRevoker>(),
+            sp.GetRequiredService<IVmPauser>(),
+            sp.GetRequiredService<ILogger<ContainmentEnforcer>>(),
+            sp.GetService<TimeProvider>()));
         return services;
     }
 }
