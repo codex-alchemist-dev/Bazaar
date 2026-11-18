@@ -1,4 +1,4 @@
-namespace Bazaar.RateLimits;
+namespace Bazaar.Server.RateLimits;
 
 /// <summary>
 /// Outcome of one <see cref="IRateLimiter.TryAcquire"/> call.

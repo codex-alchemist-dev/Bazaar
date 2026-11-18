@@ -9,6 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
-    <ProjectReference Include="..\Bazaar.RateLimits.Abstractions\Bazaar.RateLimits.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.RateLimits.Abstractions\Bazaar.Server.RateLimits.Abstractions.csproj" />
   </ItemGroup>
 </Project>

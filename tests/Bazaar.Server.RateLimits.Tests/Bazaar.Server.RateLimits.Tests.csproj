@@ -13,6 +13,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Bazaar.RateLimits\Bazaar.RateLimits.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.RateLimits\Bazaar.Server.RateLimits.csproj" />
   </ItemGroup>
 </Project>

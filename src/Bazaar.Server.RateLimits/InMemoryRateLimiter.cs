@@ -1,4 +1,4 @@
-namespace Bazaar.RateLimits;
+namespace Bazaar.Server.RateLimits;
 
 /// <summary>
 /// Sliding-window log limiter held in process memory. Each bucket keeps the timestamps of its admitted events, so at most

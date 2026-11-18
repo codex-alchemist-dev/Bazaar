@@ -1,8 +1,8 @@
-using Bazaar.RateLimits;
+using Bazaar.Server.RateLimits;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Bazaar.RateLimits.Tests;
+namespace Bazaar.Server.RateLimits.Tests;
 
 /// <summary>Sliding-window behaviour with a fake clock. Pure: no database, no real time.</summary>
 public sealed class RateLimiterTests
