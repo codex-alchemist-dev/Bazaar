@@ -40,7 +40,7 @@ public static class SetupPlanLoader
         ["backups"] = ["target", "drillIntervalDays", "acknowledgeNoTarget"],
         ["models"] = ["sources", "defaultPreset"],
         ["models.sources[]"] = ["id", "keyRef"],
-        ["email"] = ["enabled"],
+        ["email"] = ["enabled", "domain", "backendKind", "dkimSelector", "dmarcReportAddress", "selfHosted"],
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
         ["network"] = ["statusBind", "statusPort"],
@@ -53,6 +53,10 @@ public static class SetupPlanLoader
         "custody.auditAnchorTarget",
         "custody.mergeCredential.appIdRef",
         "backups.target",
+        "email.domain",
+        "email.backendKind",
+        "email.dkimSelector",
+        "email.dmarcReportAddress",
         "models.sources[].keyRef",
     };
 

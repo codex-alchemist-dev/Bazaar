@@ -58,6 +58,8 @@
     <Project Path="src/Bazaar.Client.Portability/Bazaar.Client.Portability.csproj" />
     <Project Path="src/Bazaar.Client.Portability.Avalonia/Bazaar.Client.Portability.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
+    <Project Path="src/Bazaar.Server.MailDns.Abstractions/Bazaar.Server.MailDns.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailDns/Bazaar.Server.MailDns.csproj" />
     <Project Path="src/Bazaar.Conduit/Bazaar.Conduit.csproj" />
     <Project Path="src/Bazaar.Updates/Bazaar.Updates.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
@@ -118,6 +120,7 @@
     <Project Path="tests/Bazaar.Client.Portability.Tests/Bazaar.Client.Portability.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Avalonia.Tests/Bazaar.Client.Portability.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailDns.Tests/Bazaar.Server.MailDns.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
