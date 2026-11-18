@@ -317,12 +317,6 @@ src/Bazaar.Server/Council/VoteEvent.cs
 src/Bazaar.Server/Council/VoteKind.cs
 src/Bazaar.Server/Council/VoteState.cs
 src/Bazaar.Server/Council/VoteStateMachine.cs
-src/Bazaar.Server/Data/Migrations/IMigrationSource.cs
-src/Bazaar.Server/Data/Migrations/MigrateCommand.cs
-src/Bazaar.Server/Data/Migrations/MigrationExceptions.cs
-src/Bazaar.Server/Data/Migrations/MigrationFile.cs
-src/Bazaar.Server/Data/Migrations/MigrationNamespaces.cs
-src/Bazaar.Server/Data/Migrations/MigrationRunner.cs
 src/Bazaar.Server/Email/Quarantine/EmailAddressParser.cs
 src/Bazaar.Server/Email/Quarantine/InboundQuarantineRules.cs
 src/Bazaar.Server/Email/Quarantine/QuarantineDecision.cs
