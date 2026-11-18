@@ -11,7 +11,7 @@
     }
   },
   "actions": {
-    "openGc": { "kind": "navigate", "target": "gc" }
+    "openChats": { "kind": "navigate", "target": "gc" }
   },
   "root": {
     "widget": "stack",
@@ -19,9 +19,10 @@
       {
         "widget": "row",
         "children": [
-          { "widget": "text", "props": { "label": "gc.feed.heading" } },
-          { "widget": "text", "props": { "value": { "expr": "unreadGcs" } } },
-          { "widget": "badge", "props": { "label": "gc.feed.mentions", "value": { "expr": "mentions" }, "visibleWhen": { "expr": "mentions > 0" } } }
+          { "widget": "text", "props": { "text": "Unread chats" } },
+          { "widget": "text", "props": { "text": { "expr": "unreadGcs" } } },
+          { "widget": "badge", "props": { "text": { "expr": "mentions" }, "variant": "owner", "visibleWhen": { "expr": "mentions > 0" } } },
+          { "widget": "button", "props": { "label": "Open chats", "action": "openChats" } }
         ]
       },
       {
@@ -31,10 +32,9 @@
           {
             "widget": "row",
             "children": [
-              { "widget": "text", "props": { "value": { "expr": "name" } } },
-              { "widget": "badge", "props": { "label": "gc.feed.unread", "value": { "expr": "unread" }, "visibleWhen": { "expr": "unread > 0" } } },
-              { "widget": "icon", "props": { "label": "gc.feed.mention", "visibleWhen": { "expr": "mentioned" } } },
-              { "widget": "button", "props": { "label": "gc.feed.open", "action": "openGc" } }
+              { "widget": "text", "props": { "text": { "expr": "name" } } },
+              { "widget": "badge", "props": { "text": { "expr": "unread" }, "variant": "neutral", "visibleWhen": { "expr": "unread > 0" } } },
+              { "widget": "badge", "props": { "text": "@", "variant": "owner", "visibleWhen": { "expr": "mentioned" } } }
             ]
           }
         ]
