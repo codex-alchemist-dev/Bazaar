@@ -46,7 +46,7 @@ public static class HostApplicationExtensions
         services.AddBazaarGateway();
         services.AddBazaarJobs();
 
-        // The fun systems depend on the sanitizer abstractions only (Bazaar.Sanitization.Abstractions). The host supplies the
+        // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.
         if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
         {

@@ -7,6 +7,6 @@
   <ItemGroup>
     <PackageReference Include="MailKit" />
     <PackageReference Include="MimeKit" />
-    <ProjectReference Include="..\Bazaar.Mail.Abstractions\Bazaar.Mail.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Mail.Abstractions\Bazaar.Server.Mail.Abstractions.csproj" />
   </ItemGroup>
 </Project>
