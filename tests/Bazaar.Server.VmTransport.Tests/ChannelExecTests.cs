@@ -74,6 +74,7 @@ public class ChannelExecTests
     [Fact]
     public async Task Cancelling_an_exec_kills_it_and_reports_cancelled()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX /bin/sh and sleep; the Windows runner's sh does not tie its children to the pipe the way a Linux guest does. Covered on Linux.");
         await using var rig = await AgentRig.StartAsync();
         using var cts = new CancellationTokenSource();
         var started = new TaskCompletionSource();

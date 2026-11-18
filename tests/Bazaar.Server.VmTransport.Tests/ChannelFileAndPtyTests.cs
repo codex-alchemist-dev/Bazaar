@@ -148,6 +148,7 @@ public class ChannelFileAndPtyTests
     [Fact]
     public async Task A_terminal_runs_a_shell_echoes_input_and_reports_its_exit()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "The PTY adapter is Linux-guest only (forkpty); Windows guests use ConPTY, tested separately.");
         await using var rig = await AgentRig.StartAsync();
         await using var pty = await rig.Channel.OpenPtyAsync(80, 24, CancellationToken.None);
 
