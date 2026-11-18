@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Bazaar.Server.Security.Readers;
 
@@ -39,7 +40,7 @@ public static class ActorInputBuilder
     };
 
     /// <summary>A JSON string literal, so newlines and quotes in reader text stay inside one line.</summary>
-    private static string Json(string text) => JsonSerializer.Serialize(text);
+    private static string Json(string text) => JsonSerializer.Serialize(text, ActorInputJsonContext.Default.String);
 
     private static int LongestBacktickRun(string text)
     {
@@ -54,3 +55,7 @@ public static class ActorInputBuilder
         return longest;
     }
 }
+
+/// <summary>Source-generated string encoder for the data block. Default options, so escaping matches the reflection path.</summary>
+[JsonSerializable(typeof(string))]
+internal sealed partial class ActorInputJsonContext : JsonSerializerContext;
