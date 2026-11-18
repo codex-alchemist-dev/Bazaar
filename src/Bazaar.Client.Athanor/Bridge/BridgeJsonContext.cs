@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Bazaar.Client.Athanor.Bridge;
@@ -8,8 +7,8 @@ namespace Bazaar.Client.Athanor.Bridge;
 /// only the fields its type declares.
 /// </summary>
 [JsonSourceGenerationOptions(
-    JsonSerializerDefaults.Web,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    NumberHandling = JsonNumberHandling.Strict,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
 [JsonSerializable(typeof(HostMessage))]
 [JsonSerializable(typeof(EditorMessage))]
