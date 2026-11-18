@@ -7,6 +7,11 @@
 # Permissions: the workflow token is read-only. No job needs write access.
 # Fork pull requests get no secrets, which is what we want: nothing here
 # depends on a secret.
+#
+# Each commit runs once. A same-repo branch is built by its push run, which links to the
+# PR by branch name. The pull_request run would repeat the same jobs, so every job skips
+# it unless the PR comes from a fork (a fork has no push run in this repo). Job names, and
+# so the required check names, are the same either way.
 
 name: CI
 
@@ -31,6 +36,7 @@ jobs:
   # Do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
     name: Build and test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -105,6 +111,7 @@ jobs:
   # releases. The release workflow still produces the APK; this job only builds.
   build-android:
     name: Build Android head
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -185,6 +192,7 @@ jobs:
 
   secret-scan:
     name: Secret scan (full history)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -230,6 +238,7 @@ jobs:
   # Not required until PostgreSQL 19 is GA; then drop continue-on-error and add it to branch protection.
   build-test-pg19:
     name: Build and test (Linux, PostgreSQL 19 RC)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     timeout-minutes: 45
     continue-on-error: true
