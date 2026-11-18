@@ -20,7 +20,7 @@
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Community\Bazaar.Community.csproj" />
-    <ProjectReference Include="..\Bazaar.Backup\Bazaar.Backup.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Backup\Bazaar.Server.Backup.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Components.Fun\Bazaar.Server.Components.Fun.csproj" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
