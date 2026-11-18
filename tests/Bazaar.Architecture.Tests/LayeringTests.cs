@@ -17,6 +17,7 @@ public class LayeringTests
     /// <summary>A client feature module (doc 40, step 7) references Client.Core only: no head and no other feature module.</summary>
     [Theory]
     [InlineData("Bazaar.Client.RyuseiFuda")]
+    [InlineData("Bazaar.Client.Views")]
     public void Client_feature_module_references_only_client_core(string project)
     {
         var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));
