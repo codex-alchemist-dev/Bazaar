@@ -53,8 +53,11 @@ public sealed class NoSymbolsSymbolicator : ISymbolicator
 /// <summary>Composition of the crash diagnostics module. The host calls it once.</summary>
 public static class DiagnosticsModule
 {
-    /// <summary>The configuration section the filing options are read from.</summary>
+    /// <summary>The configuration section the crash options are read from, until doc 03's settings registry hook exists.</summary>
     public const string ConfigurationSection = "Diagnostics:Crash";
+
+    /// <summary>Registry key <c>telemetry.crash.diagnosis</c> (doc 43 section 7) and the config key that stands in for it.</summary>
+    public const string DiagnosisSettingKey = "telemetry.crash.diagnosis";
 
     /// <summary>
     /// Registers the store, sealer, intake factory, dispatcher, erasure participant and maintenance service. Expects the shared
@@ -113,6 +116,7 @@ public static class DiagnosticsModule
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<CrashDiagnosisOptions>()));
         services.AddSingleton<IErasureParticipant, CrashErasureParticipant>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashSubmitHandler>();
         services.AddHostedService<CrashMaintenanceService>();
         return services;
     }
