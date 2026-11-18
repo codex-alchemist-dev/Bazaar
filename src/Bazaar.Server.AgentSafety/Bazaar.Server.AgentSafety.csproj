@@ -11,7 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Vms\Bazaar.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Approvals\Bazaar.Approvals.csproj" />
   </ItemGroup>
 </Project>

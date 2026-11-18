@@ -1,6 +1,6 @@
 using Bazaar.Server.AgentSafety.Containment;
-using Bazaar.Server.Vms.Environments;
-using Bazaar.Server.Vms.Lifecycle;
+using Bazaar.Vms.Environments;
+using Bazaar.Vms.Lifecycle;
 
 namespace Bazaar.Server.AgentSafety.Tests;
 
