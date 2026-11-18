@@ -57,6 +57,8 @@ Applied to the three features:
 - **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.GC.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
 - **Install (module install gate, doc 48 section 1):** `Bazaar.Install.Abstractions` (the store seam `IModuleInstallStore`, the audit entry and approval record, the owner signer `IOwnerApprovalSigner`), `Bazaar.Install` (the signature, host and permission checks, the start guard, the install and approval services, and the `Trust` code). It depends on `Bazaar.Contracts` and its own abstractions only. The Server persistence adapter is `ModuleManagerRepository`, which implements `IModuleInstallStore` and runs the audit payload guard before it appends.
 
+- **Web admin panel (doc 51, PROPOSED mechanics):** `Bazaar.Server.WebAdmin.Abstractions` (the gate, session, audit and per-section ports) and `Bazaar.Server.WebAdmin` (endpoints under `/admin`, embedded assets, session store, audit recorder). Component id `web-admin`. It references neither `Bazaar.Server` nor any feature implementation; each section reads through a port that the owning module (Kodo, module manager, identity, audit, approvals, company build) implements, and a missing port shows "unavailable".
+
 ## 4a. Renames (planned, small PRs)
 
 | Now | Target | Notes |
