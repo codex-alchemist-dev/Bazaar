@@ -89,7 +89,6 @@ src/Bazaar.Server/Agents/AgentRuntimeTypes.cs
 src/Bazaar.Server/Agents/Data/AgentRecords.cs
 src/Bazaar.Server/Agents/Data/AgentRepository.cs
 src/Bazaar.Server/Agents/Data/AgentSql.cs
-src/Bazaar.Server/Agents/Data/IAgentHandleAssigner.cs
 src/Bazaar.Server/Agents/Data/IAgentLifecycleObserver.cs
 src/Bazaar.Server/Agents/Data/InboxRepository.cs
 src/Bazaar.Server/Agents/Data/LeaseRepository.cs
@@ -633,8 +632,6 @@ src/Bazaar.Server/Memory/Write/MemoryCommitMessage.cs
 src/Bazaar.Server/Memory/Write/MemoryCommitResult.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteItem.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteQueue.cs
-src/Bazaar.Server/Mentions/HandleSlug.cs
-src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
 src/Bazaar.Server/Modules/Deps/DependencyLineResolver.cs
 src/Bazaar.Server/Modules/Deps/DependencyManifest.cs
 src/Bazaar.Server/Modules/Deps/DependencyManifestIssue.cs
