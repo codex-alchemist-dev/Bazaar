@@ -45,6 +45,8 @@
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
+    <Project Path="src/Bazaar.Server.Identity.Abstractions/Bazaar.Server.Identity.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Identity/Bazaar.Server.Identity.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.GitHub/Bazaar.GitHub.csproj" />
     <Project Path="src/Bazaar.Server.Portability/Bazaar.Server.Portability.csproj" />
