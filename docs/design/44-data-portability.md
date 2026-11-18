@@ -284,6 +284,8 @@ Parsing untrusted files is the riskiest step, so it runs in a separate process:
 - Document formats are parsed without macros, without external entity resolution, and without executing embedded content. Embedded objects are listed in the preview and not extracted.
 - A parser crash fails only the job. The host restarts the parser with the job's checkpoint (crash-only design, doc 46 health hooks).
 
+Built status (2026-11-18): the in-process checks exist in `Bazaar.Server.Portability` (`ImportLimits`, `ArchiveGuard`): source size, archive entry count, entry-name path checks (absolute, drive and `..` paths), symlink and special-file rejection, expansion ratio, expanded bytes, XML nesting depth, record size, and DTDs prohibited. The docx importer and the import pipeline enforce them. Not built: the separate parser process, OS confinement, the wall-clock timeout per record, and wiring the limits to the settings registry (doc 03). The four limits without a documented default (`max_archive_entries`, `max_nesting_depth`, `max_record_bytes`, `max_expanded_bytes`) take their defaults from this change, per the configurability rule.
+
 ### 8.4 Idempotent re-import
 
 Re-importing the same source must not create duplicates.
@@ -407,6 +409,10 @@ Keys are install-scoped. The operator changes them in the setup wizard or advanc
 | `portability.export.part_bytes` | int | 4 GiB | Max 4 GiB | Operator | No |
 | `portability.import.max_upload_bytes` | int | 10 GiB | Hard maximum set by host storage | Operator | Yes (owner) to raise |
 | `portability.import.max_expansion_ratio` | int | 100 | Min 10 | Operator | No |
+| `portability.import.max_archive_entries` | int | 10000 | Min 1 | Operator | No |
+| `portability.import.max_nesting_depth` | int | 100 | Min 1 | Operator | No |
+| `portability.import.max_record_bytes` | int | 64 MiB | Min 1 | Operator | No |
+| `portability.import.max_expanded_bytes` | int | 512 MiB | Min 1 | Operator | No |
 | `portability.import.batch_items` | int | 500 | 1 to 5000 | Operator | No |
 | `portability.import.write_rate` | int | 200 items per second | Bounded by chat latency budget | Operator | No |
 | `portability.import.secret_scan` | enum: `quarantine`, `warn`, `off` | `quarantine` | `off` not allowed for text from external sources | Operator | Yes (owner) to set `warn` or `off` |
