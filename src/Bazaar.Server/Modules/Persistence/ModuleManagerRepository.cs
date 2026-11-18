@@ -1,15 +1,18 @@
 using System.Globalization;
+using Bazaar.Install.Abstractions;
+using Bazaar.PrivacyAudit;
 using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;
+using Bazaar.Server.Security.Audit;
 using Npgsql;
 
 namespace Bazaar.Server.Modules.Persistence;
 
 /// <summary>
 /// SQL-first access to the module manager's append-only tables (<c>modules/0001</c>): update decisions and line-move audit
-/// events. Both tables refuse UPDATE, DELETE and TRUNCATE, so this repository only inserts and reads.
+/// events, and permission approvals (<c>modules/0002</c>). All tables refuse UPDATE, DELETE and TRUNCATE, so this repository only inserts and reads.
 /// </summary>
-public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource)
+public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource, ITransactionalAuditLog audit) : IModuleInstallStore
 {
     /// <summary>The largest page <see cref="ListDecisionsAsync"/> returns in one call.</summary>
     public const int MaxListLimit = 500;
@@ -40,6 +43,20 @@ public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource)
         FROM module_line_move_event
         WHERE move_id = $1
         ORDER BY occurred_at, id
+        """;
+
+    private const string _appendApprovalSql = """
+        INSERT INTO module_permission_approval
+            (module_id, version, permissions, approval_digest_sha256, signer_key_id, signature, owner_actor, approved_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        """;
+
+    // Oldest first: the approvals of one version in the order the owner gave them.
+    private const string _listApprovalsSql = """
+        SELECT module_id, version, permissions, approval_digest_sha256, signer_key_id, signature, owner_actor, approved_at
+        FROM module_permission_approval
+        WHERE module_id = $1 AND version = $2
+        ORDER BY approved_at, id
         """;
 
     /// <summary>Appends one update decision. Earlier decisions for the module are kept.</summary>
@@ -84,6 +101,76 @@ public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource)
                 PolicyId: reader.IsDBNull(5) ? null : reader.GetString(5),
                 DecidedAt: reader.GetFieldValue<DateTimeOffset>(6),
                 Actor: reader.GetString(7)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Appends one permission approval and its audit entry in one transaction (doc 48 section 1). Both commit or neither does, so an
+    /// approval is never recorded without its audit row. The caller has already checked the approval and signed it.
+    /// </summary>
+    public async Task RecordPermissionApprovalAsync(
+        ModulePermissionApprovalRecord record,
+        InstallAuditEntry entry,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(entry);
+        AuditPayloadGuard.Ensure(entry.Payload);
+        var auditEntry = new AuditEntry(entry.Ts, entry.Actor, entry.Kind, entry.Payload.ToJsonString());
+
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        await using (var cmd = new NpgsqlCommand(_appendApprovalSql, conn, tx))
+        {
+            cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = record.ModuleId });
+            cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = record.Version });
+            cmd.Parameters.Add(new NpgsqlParameter<string[]> { TypedValue = [.. record.Permissions] });
+            cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = record.ApprovalDigestSha256Hex });
+            cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = record.SignerKeyId });
+            cmd.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = record.Signature });
+            cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = record.OwnerActor });
+            cmd.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = record.ApprovedAt });
+            await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await audit.AppendInTransactionAsync(conn, tx, auditEntry, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Appends one <c>module.installed</c> audit entry after the payload guard passes.</summary>
+    public Task RecordInstalledAsync(InstallAuditEntry entry, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        AuditPayloadGuard.Ensure(entry.Payload);
+        return audit.AppendAsync(new AuditEntry(entry.Ts, entry.Actor, entry.Kind, entry.Payload.ToJsonString()), ct);
+    }
+
+    /// <summary>The approvals recorded for one module version, oldest first.</summary>
+    public async Task<IReadOnlyList<ModulePermissionApprovalRecord>> ListPermissionApprovalsAsync(string moduleId, string version, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(moduleId);
+        ArgumentNullException.ThrowIfNull(version);
+
+        await using var cmd = dataSource.CreateCommand(_listApprovalsSql);
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = moduleId });
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = version });
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+
+        var rows = new List<ModulePermissionApprovalRecord>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            rows.Add(new ModulePermissionApprovalRecord(
+                ModuleId: reader.GetString(0),
+                Version: reader.GetString(1),
+                Permissions: reader.GetFieldValue<string[]>(2),
+                ApprovalDigestSha256Hex: reader.GetString(3),
+                SignerKeyId: reader.GetString(4),
+                Signature: reader.GetFieldValue<byte[]>(5),
+                OwnerActor: reader.GetString(6),
+                ApprovedAt: reader.GetFieldValue<DateTimeOffset>(7)));
         }
 
         return rows;
