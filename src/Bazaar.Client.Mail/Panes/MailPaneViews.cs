@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -25,6 +26,11 @@ internal static class MailPaneViews
         body.Children.Add(Note("Metadata only. Message bodies are not shown."));
 
         var digest = pane.Digest;
+        body.Children.Add(new TextBlock
+        {
+            Text = $"Digest for {digest.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}",
+            FontWeight = FontWeight.SemiBold,
+        });
         body.Children.Add(new TextBlock
         {
             Text = $"Held {digest.Held} · Released {digest.Released} · Purged {digest.Purged} · Reported {digest.Reported}",
@@ -110,6 +116,7 @@ internal static class MailPaneViews
         var body = new StackPanel { Spacing = 8 };
         AutomationProperties.SetName(body, "Mail approval card");
         body.Children.Add(new TextBlock { Text = "Approval needed", FontWeight = FontWeight.SemiBold, FontSize = 16 });
+        body.Children.Add(new TextBlock { Text = $"Approval ID: {card.ApprovalId}", TextWrapping = TextWrapping.Wrap });
         body.Children.Add(new TextBlock { Text = $"From (set by server): {card.From}", TextWrapping = TextWrapping.Wrap });
         body.Children.Add(new TextBlock { Text = $"To: {string.Join(", ", card.Recipients)}", TextWrapping = TextWrapping.Wrap });
         body.Children.Add(new TextBlock { Text = $"Subject: {card.Subject}", TextWrapping = TextWrapping.Wrap });

@@ -7,9 +7,10 @@ namespace Bazaar.Client.Mail.Panes;
 
 /// <summary>
 /// The mail quarantine pane (pane kind <see cref="PaneKinds.MailQuarantine"/>, doc 22 WP12). Model:
-/// <c>{ "digest": { "held", "released", "purged", "reported", "topSenderDomains": [ { "domain", "count" } ] },
+/// <c>{ "digest": { "date", "held", "released", "purged", "reported", "topSenderDomains": [ { "domain", "count" } ] },
 /// "items": [ { "senderDomain", "reasonCodes": [...], "authResult", "receivedAt", "state" } ] }</c>, where
-/// <c>state</c> is <c>held</c>, <c>released</c>, <c>purged</c> or <c>reported</c>. Only those fields are read. A body
+/// <c>date</c> is the ISO day (yyyy-MM-dd) the digest covers and <c>state</c> is <c>held</c>, <c>released</c>, <c>purged</c>
+/// or <c>reported</c>. Only those fields are read. A body
 /// is never in this model, and any other field the server sends is ignored, so no message body reaches the screen.
 /// A missing required field raises <see cref="PaneModelException"/>, so the registry falls back to the generic view.
 /// </summary>
@@ -37,6 +38,7 @@ public sealed class MailQuarantinePaneViewModel : IPaneViewModel
     public IReadOnlyList<MailQuarantineRow> Rows { get; }
 
     private static MailQuarantineDigest ReadDigest(JsonElement digest) => new(
+        MailPaneParsing.IsoDate(digest, "date"),
         MailPaneParsing.Count(digest, "held"),
         MailPaneParsing.Count(digest, "released"),
         MailPaneParsing.Count(digest, "purged"),

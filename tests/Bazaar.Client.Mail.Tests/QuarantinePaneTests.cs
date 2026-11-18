@@ -17,6 +17,7 @@ public class QuarantinePaneTests
     {
         var pane = new MailQuarantinePaneViewModel(MailFixtures.Descriptor(PaneKinds.MailQuarantine, MailFixtures.QuarantineModel));
 
+        Assert.Equal(new DateOnly(2026, 11, 17), pane.Digest.Date);
         Assert.Equal(2, pane.Digest.Held);
         Assert.Equal(1, pane.Digest.Released);
         Assert.Equal(0, pane.Digest.Purged);
@@ -57,6 +58,7 @@ public class QuarantinePaneTests
             new MailQuarantinePaneViewModel(MailFixtures.Descriptor(PaneKinds.MailQuarantine, MailFixtures.QuarantineModel)));
 
         var texts = MailFixtures.Texts((Control)view);
+        Assert.Contains("Digest for 2026-11-17", texts);
         Assert.Contains("mail.example.net · held", texts);
         Assert.DoesNotContain(texts, t => t.Contains("SECRET-BODY-TEXT", StringComparison.Ordinal));
     }
@@ -64,7 +66,7 @@ public class QuarantinePaneTests
     [Fact]
     public void An_unknown_state_is_rejected()
     {
-        var descriptor = MailFixtures.Descriptor(PaneKinds.MailQuarantine, """{"digest":{"held":0,"released":0,"purged":0,"reported":0,"topSenderDomains":[]},"items":[{"senderDomain":"a.example","reasonCodes":[],"authResult":"none","receivedAt":"2026-11-17T09:30:00+00:00","state":"lost"}]}""");
+        var descriptor = MailFixtures.Descriptor(PaneKinds.MailQuarantine, """{"digest":{"date":"2026-11-17","held":0,"released":0,"purged":0,"reported":0,"topSenderDomains":[]},"items":[{"senderDomain":"a.example","reasonCodes":[],"authResult":"none","receivedAt":"2026-11-17T09:30:00+00:00","state":"lost"}]}""");
 
         Assert.Throws<PaneModelException>(() => new MailQuarantinePaneViewModel(descriptor));
     }

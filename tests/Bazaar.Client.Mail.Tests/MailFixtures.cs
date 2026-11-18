@@ -14,7 +14,7 @@ namespace Bazaar.Client.Mail.Tests;
 internal static class MailFixtures
 {
     public const string QuarantineModel = """
-        {"digest":{"held":2,"released":1,"purged":0,"reported":1,
+        {"digest":{"date":"2026-11-17","held":2,"released":1,"purged":0,"reported":1,
           "topSenderDomains":[{"domain":"mail.example.net","count":2}]},
          "items":[
            {"senderDomain":"mail.example.net","reasonCodes":["spf_fail","new_sender"],"authResult":"spf=fail dkim=none",
@@ -36,7 +36,7 @@ internal static class MailFixtures
         """;
 
     public const string ApprovalModel = """
-        {"from":"agent@bazaar.example","recipients":["buyer@partner.example.org","cc@partner.example.org"],
+        {"approvalId":"appr-0001","from":"agent@bazaar.example","recipients":["buyer@partner.example.org","cc@partner.example.org"],
          "subject":"Renewal terms","body":"Please see the attached <b>terms</b>.",
          "footerPreview":"Sent by an AI agent for the operator. Contact: ops@example.org",
          "reason":"The body is built from inbound mail, so the send needs the owner."}

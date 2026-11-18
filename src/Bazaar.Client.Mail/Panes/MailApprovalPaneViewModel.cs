@@ -7,7 +7,7 @@ namespace Bazaar.Client.Mail.Panes;
 
 /// <summary>
 /// The mail approval card (pane kind <see cref="PaneKinds.MailApproval"/>, doc 22 WP12). Model:
-/// <c>{ "from", "recipients": [ "address", ... ], "subject", "body", "footerPreview", "reason" }</c>. The card only shows
+/// <c>{ "approvalId", "from", "recipients": [ "address", ... ], "subject", "body", "footerPreview", "reason" }</c>. The card only shows
 /// these. It has no release, approve or send action; those go through Bazaar.Approvals. A missing required field, or an
 /// empty recipient list, raises <see cref="PaneModelException"/>.
 /// </summary>
@@ -27,6 +27,7 @@ public sealed class MailApprovalPaneViewModel : IPaneViewModel
         }
 
         Card = new MailApprovalCard(
+            PaneValues.RequiredString(model, "approvalId"),
             PaneValues.RequiredString(model, "from"),
             recipients,
             PaneValues.RequiredString(model, "subject"),

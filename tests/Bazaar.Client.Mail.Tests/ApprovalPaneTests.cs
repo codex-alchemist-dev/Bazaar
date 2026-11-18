@@ -17,6 +17,7 @@ public class ApprovalPaneTests
     {
         var pane = new MailApprovalPaneViewModel(MailFixtures.Descriptor(PaneKinds.MailApproval, MailFixtures.ApprovalModel));
 
+        Assert.Equal("appr-0001", pane.Card.ApprovalId);
         Assert.Equal("agent@bazaar.example", pane.Card.From);
         var recipients = new[] { "buyer@partner.example.org", "cc@partner.example.org" };
         Assert.Equal(recipients, pane.Card.Recipients);
@@ -29,7 +30,15 @@ public class ApprovalPaneTests
     [Fact]
     public void A_card_with_no_recipient_is_rejected()
     {
-        var descriptor = MailFixtures.Descriptor(PaneKinds.MailApproval, """{"from":"a","recipients":[],"subject":"b","body":"c","footerPreview":"d","reason":"e"}""");
+        var descriptor = MailFixtures.Descriptor(PaneKinds.MailApproval, """{"approvalId":"appr-1","from":"a","recipients":[],"subject":"b","body":"c","footerPreview":"d","reason":"e"}""");
+
+        Assert.Throws<PaneModelException>(() => new MailApprovalPaneViewModel(descriptor));
+    }
+
+    [Fact]
+    public void A_card_without_an_approval_id_is_rejected()
+    {
+        var descriptor = MailFixtures.Descriptor(PaneKinds.MailApproval, """{"from":"a","recipients":["b"],"subject":"b","body":"c","footerPreview":"d","reason":"e"}""");
 
         Assert.Throws<PaneModelException>(() => new MailApprovalPaneViewModel(descriptor));
     }
@@ -43,6 +52,7 @@ public class ApprovalPaneTests
         window.Show();
 
         var texts = MailFixtures.Texts((Control)view);
+        Assert.Contains("Approval ID: appr-0001", texts);
         Assert.Contains("From (set by server): agent@bazaar.example", texts);
         Assert.Contains("To: buyer@partner.example.org, cc@partner.example.org", texts);
         Assert.Contains("Subject: Renewal terms", texts);

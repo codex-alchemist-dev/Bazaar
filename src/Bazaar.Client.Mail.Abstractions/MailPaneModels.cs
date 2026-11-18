@@ -30,7 +30,9 @@ public sealed record MailQuarantineRow(
 public sealed record MailSenderDomainCount(string Domain, int Count);
 
 /// <summary>The owner's daily quarantine digest: counts and top sender domains, never message bodies (doc 22).</summary>
+/// <param name="Date">The day the digest covers (ISO yyyy-MM-dd).</param>
 public sealed record MailQuarantineDigest(
+    DateOnly Date,
     int Held,
     int Released,
     int Purged,
@@ -54,6 +56,7 @@ public sealed record MailboxMessageRow(
 /// The card for a hard-tainted outbound send that needs the owner (Tier 2, doc 22). The client only shows it. Release and
 /// send decisions go through Bazaar.Approvals.
 /// </summary>
+/// <param name="ApprovalId">The id of the Bazaar.Approvals record this card belongs to. Shown as text.</param>
 /// <param name="From">The From address, set by the server. The agent cannot choose it.</param>
 /// <param name="Recipients">The recipient addresses.</param>
 /// <param name="Subject">The subject.</param>
@@ -61,6 +64,7 @@ public sealed record MailboxMessageRow(
 /// <param name="FooterPreview">The AI-agent footer the server appends (doc 22, outbound step 3).</param>
 /// <param name="Reason">Why the send needs approval.</param>
 public sealed record MailApprovalCard(
+    string ApprovalId,
     string From,
     IReadOnlyList<string> Recipients,
     string Subject,

@@ -54,6 +54,15 @@ internal static class MailPaneParsing
             : throw new PaneModelException($"model field '{name}' must be a date-time");
     }
 
+    /// <summary>A required calendar day in ISO form (yyyy-MM-dd).</summary>
+    public static DateOnly IsoDate(JsonElement parent, string name)
+    {
+        var text = PaneValues.RequiredString(parent, name);
+        return DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var value)
+            ? value
+            : throw new PaneModelException($"model field '{name}' must be an ISO date (yyyy-MM-dd)");
+    }
+
     /// <summary>An optional string. A missing field or null reads as null; any other type is rejected.</summary>
     public static string? OptionalString(JsonElement parent, string name)
     {
