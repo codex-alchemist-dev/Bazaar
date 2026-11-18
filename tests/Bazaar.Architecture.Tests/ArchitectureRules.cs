@@ -57,6 +57,37 @@ internal static partial class ArchitectureRules
     public static IEnumerable<string> ServerReferences(IEnumerable<string> referencedNames) =>
         Matching(referencedNames, "Bazaar.Server");
 
+    /// <summary>
+    /// Src projects allowed to reference Bazaar.Server: the server library and its host, the shared layers (Core, Contracts, Sdk),
+    /// the client core and heads, and the executables (terminal and guest agent). Every other Bazaar src project is a feature module.
+    /// </summary>
+    public static readonly string[] ServerReferenceExemptProjects =
+    [
+        "Bazaar.Server",
+        "Bazaar.Server.Host",
+        "Bazaar.Core",
+        "Bazaar.Contracts",
+        "Bazaar.Sdk",
+        "Bazaar.Client.Core",
+        "Bazaar.Client.Windows",
+        "Bazaar.Client.Linux",
+        "Bazaar.Client.Android",
+        "Bazaar.Client.Terminal",
+        "Bazaar.Guest.Agent",
+    ];
+
+    /// <summary>True for a feature module project: a Bazaar src project that is not on the server-reference exempt list.</summary>
+    public static bool IsServerReferenceRestricted(string projectName) =>
+        projectName.StartsWith("Bazaar.", StringComparison.Ordinal)
+        && !ServerReferenceExemptProjects.Contains(projectName, StringComparer.Ordinal);
+
+    /// <summary>Restricted project names whose declared ProjectReferences include Bazaar.Server, in name order.</summary>
+    public static IEnumerable<string> ModuleServerReferences(IEnumerable<(string Project, IEnumerable<string> References)> projects) =>
+        projects
+            .Where(p => IsServerReferenceRestricted(p.Project) && p.References.Contains("Bazaar.Server", StringComparer.Ordinal))
+            .Select(p => p.Project)
+            .Order(StringComparer.Ordinal);
+
     /// <summary>ProjectReference names declared in a .csproj file.</summary>
     public static IEnumerable<string> ProjectReferenceNames(string csprojPath) =>
         XDocument.Load(csprojPath)
