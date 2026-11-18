@@ -49,7 +49,7 @@ public sealed class GuestAgent
 
         try
         {
-            await _outbound.SendAsync(new Hello(_options.AgentVersion, _options.VmId, _options.Nonce), token);
+            await _outbound.SendAsync(new Hello(_options.AgentVersion, _options.VmId, _options.Nonce, GuestFrameCodec.Version), token);
             exitCode = await ReadLoopAsync(token);
         }
         catch (ChannelClosedException)

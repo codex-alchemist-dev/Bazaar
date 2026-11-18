@@ -14,6 +14,7 @@ namespace Bazaar.Server.VmTransport;
 /// </summary>
 public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
 {
+    private const int _workspaceOpsProtocolVersion = 3;
     private const int _copyBytes = 64 * 1024;
     private const int _ptyChunkBytes = 32 * 1024;
 
@@ -35,14 +36,18 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     private Task _reader = Task.CompletedTask;
     private Task _watchdog = Task.CompletedTask;
 
-    private GuestChannel(GuestConnection connection, string agentVersion, GuestChannelOptions options, TimeProvider time)
+    private GuestChannel(GuestConnection connection, string agentVersion, int protocolVersion, GuestChannelOptions options, TimeProvider time)
     {
+        ProtocolVersion = protocolVersion;
         _connection = connection;
         _stream = connection.Stream;
         AgentVersion = agentVersion;
         _options = options;
         _time = time;
     }
+
+    /// <summary>The highest guest protocol version the agent announced in its Hello; 0 for an agent that predates the field.</summary>
+    public int ProtocolVersion { get; }
 
     /// <summary>The agent build the guest announced in its Hello.</summary>
     public string AgentVersion { get; }
@@ -105,7 +110,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                 throw new GuestHandshakeException("The guest's Hello carries the wrong nonce.");
             }
 
-            var channel = new GuestChannel(connection, hello.AgentVersion, settings, time);
+            var channel = new GuestChannel(connection, hello.AgentVersion, hello.ProtocolVersion, settings, time);
             channel._reader = Task.Run(channel.ReadLoopAsync, CancellationToken.None);
             // The timer is created here, not in the task, so the first interval starts at open and not whenever the pool runs the task.
             var timer = new PeriodicTimer(settings.HeartbeatInterval, time);
@@ -242,6 +247,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     public async Task DeleteFileAsync(string relativePath, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(relativePath);
+        CheckWorkspaceRequest(relativePath);
         await RoundTripAsync(PendingKind.Delete, relativePath, new DeleteFile(relativePath), ct);
     }
 
@@ -249,6 +255,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     public async Task<IReadOnlyList<GuestDirectoryEntry>> ListFilesAsync(string relativeDir, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(relativeDir);
+        CheckWorkspaceRequest(relativeDir);
         var reply = (ListFilesResult)await RoundTripAsync(PendingKind.List, relativeDir, new ListFiles(relativeDir), ct);
         return [.. (reply.Entries ?? []).Select(entry => new GuestDirectoryEntry(entry.Name, entry.Size, entry.IsDirectory))];
     }
@@ -257,6 +264,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
     public async Task<string?> ResolveRealPathAsync(string relativePath, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(relativePath);
+        CheckWorkspaceRequest(relativePath);
         return ((ResolveRealPathResult)await RoundTripAsync(PendingKind.Resolve, relativePath, new ResolveRealPath(relativePath), ct)).RealPath;
     }
 
@@ -411,6 +419,24 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         }
 
         return pending;
+    }
+
+    /// <summary>
+    /// Refuses a workspace file request the guest cannot understand: a path over the length limit, or an agent that predates protocol
+    /// version 3 (it would close the channel on the unknown tag instead of answering).
+    /// </summary>
+    private void CheckWorkspaceRequest(string path)
+    {
+        if (path.Length > GuestPathRules.MaxPathChars)
+        {
+            throw new ArgumentException($"The path is over the {GuestPathRules.MaxPathChars}-character limit.", nameof(path));
+        }
+
+        if (ProtocolVersion < _workspaceOpsProtocolVersion)
+        {
+            throw new NotSupportedException(
+                $"The guest agent '{AgentVersion}' speaks guest protocol version {ProtocolVersion}; DeleteFile, ListFiles and ResolveRealPath need version {_workspaceOpsProtocolVersion}. Update the guest agent in the golden image.");
+        }
     }
 
     /// <summary>One request and its single answer, serialised with the file transfers because the guest answers by path.</summary>
@@ -664,8 +690,20 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             case DeleteFileResult deleted:
                 return CompleteRequest(PendingKind.Delete, deleted.Path, deleted, deleted.Ok ? null : deleted.Error ?? "the guest refused the delete");
             case ListFilesResult listed:
+                if (listed.Error is null && (listed.Entries is null || listed.Entries.Any(entry => entry is null || !GuestPathRules.IsSafeEntryName(entry.Name))))
+                {
+                    End(GuestChannelState.Faulted, "a ListFilesResult carried a missing entry list or an entry name that is not a plain name.");
+                    return false;
+                }
+
                 return CompleteRequest(PendingKind.List, listed.Dir, listed, listed.Error);
             case ResolveRealPathResult resolved:
+                // Whatever the guest says, a real path that is not a safe root-relative path is treated as no path (fail closed).
+                if (resolved.RealPath is not null && !GuestPathRules.IsSafeRelative(resolved.RealPath, allowRoot: true))
+                {
+                    resolved = resolved with { RealPath = null };
+                }
+
                 return CompleteRequest(PendingKind.Resolve, resolved.Path, resolved, null);
             case PtyData data:
                 PtyState? pty;

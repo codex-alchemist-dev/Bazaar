@@ -28,11 +28,11 @@ internal sealed class WorkspaceFileOps
 
     /// <summary>Deletes one file or one symlink (never a link's target), and answers with a <see cref="DeleteFileResult"/>.</summary>
     public ValueTask DeleteAsync(DeleteFile request, OutboundQueue outbound, CancellationToken ct) =>
-        outbound.SendAsync(new DeleteFileResult(request.Path, Delete(request.Path, out var error), error), ct);
+        outbound.SendAsync(new DeleteFileResult(Echo(request.Path), Delete(request.Path, out var error), error), ct);
 
     /// <summary>Lists one directory, non-recursive, and answers with a <see cref="ListFilesResult"/>.</summary>
     public ValueTask ListAsync(ListFiles request, OutboundQueue outbound, CancellationToken ct) =>
-        outbound.SendAsync(new ListFilesResult(request.Dir, List(request.Dir, out var error), error), ct);
+        outbound.SendAsync(new ListFilesResult(Echo(request.Dir), List(request.Dir, out var error), error), ct);
 
     /// <summary>Resolves symlinks and answers with a <see cref="ResolveRealPathResult"/>.</summary>
     public ValueTask ResolveAsync(ResolveRealPath request, OutboundQueue outbound, CancellationToken ct)
@@ -54,11 +54,15 @@ internal sealed class WorkspaceFileOps
 
         if (real is null)
         {
-            _log.WriteLine($"ResolveRealPath for '{request.Path}' gave no path.");
+            _log.WriteLine($"ResolveRealPath for '{Echo(request.Path)}' gave no path.");
         }
 
-        return outbound.SendAsync(new ResolveRealPathResult(request.Path, real, error), ct);
+        return outbound.SendAsync(new ResolveRealPathResult(Echo(request.Path), real, error), ct);
     }
+
+    /// <summary>The path as echoed in an answer, cut to <see cref="GuestPathRules.MaxPathChars"/> so an answer always fits a frame.</summary>
+    private static string Echo(string? path) =>
+        path is null ? string.Empty : path.Length > GuestPathRules.MaxPathChars ? path[..GuestPathRules.MaxPathChars] : path;
 
     private bool Delete(string path, out string? error)
     {
@@ -89,6 +93,14 @@ internal sealed class WorkspaceFileOps
         var target = Path.Combine(parent, leaf);
         try
         {
+            // Narrow the race between resolving the parent and removing the leaf: look again right before the delete.
+            // It cannot be closed without openat/unlinkat, which .NET does not expose (known gap, doc 16).
+            if (_paths.ResolveRelative(slash < 0 ? string.Empty : trimmed[..slash], includeRoot: true) != parent)
+            {
+                error = "the path changed while it was being resolved";
+                return false;
+            }
+
             var info = new FileInfo(target);
             var isLink = info.LinkTarget is not null;
             if (!isLink && Directory.Exists(target))
@@ -155,8 +167,16 @@ internal sealed class WorkspaceFileOps
                     return [];
                 }
 
-                var isDirectory = info is DirectoryInfo;
-                entries.Add(new GuestFileEntry(info.Name, isDirectory ? 0 : ((FileInfo)info).Length, isDirectory));
+                // A symlink is reported as itself, not as what it points at: a file entry of size 0.
+                var isLink = info.LinkTarget is not null;
+                var isDirectory = !isLink && info is DirectoryInfo;
+                entries.Add(new GuestFileEntry(info.Name, isLink || isDirectory ? 0 : ((FileInfo)info).Length, isDirectory));
+            }
+
+            if (_paths.ResolveRelative(dir, includeRoot: true) != real)
+            {
+                error = "the directory changed while it was being listed";
+                return [];
             }
 
             entries.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));

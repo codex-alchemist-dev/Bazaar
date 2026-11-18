@@ -185,6 +185,96 @@ public class ChannelWorkspaceFileOpsTests
     }
 
     [Fact]
+    public async Task A_guest_that_predates_protocol_three_is_refused_before_anything_is_sent()
+    {
+        var rig = await ManualRig.ConnectAsync();
+        await using (rig)
+        {
+            await rig.SendAsync(new Hello("0.0.9", AgentRig.VmId, AgentRig.Nonce));
+            await using var channel = await GuestChannel.OpenAsync(rig.Connection, new GuestHandshake(AgentRig.VmId, AgentRig.Nonce));
+
+            Assert.Equal(0, channel.ProtocolVersion);
+            var ex = await Assert.ThrowsAsync<NotSupportedException>(() => channel.ListFilesAsync("", _ct));
+            Assert.Contains("version 3", ex.Message, StringComparison.Ordinal);
+            await Assert.ThrowsAsync<NotSupportedException>(() => channel.DeleteFileAsync("a", _ct));
+            await Assert.ThrowsAsync<NotSupportedException>(() => channel.ResolveRealPathAsync("a", _ct));
+            Assert.Equal(GuestChannelState.Open, channel.State);
+        }
+    }
+
+    [Fact]
+    public async Task A_path_over_the_length_limit_is_refused_by_the_host()
+    {
+        await using var rig = await AgentRig.StartAsync();
+        var tooLong = new string('a', GuestPathRules.MaxPathChars + 1);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => rig.Channel.ListFilesAsync(tooLong, _ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => rig.Channel.DeleteFileAsync(tooLong, _ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => rig.Channel.ResolveRealPathAsync(tooLong, _ct));
+        Assert.Equal(GuestChannelState.Open, rig.Channel.State);
+    }
+
+    [Theory]
+    [InlineData("/etc/passwd")]
+    [InlineData("../up")]
+    [InlineData("a/../b")]
+    [InlineData("C:\\x")]
+    [InlineData("a:b")]
+    public async Task A_real_path_that_is_not_a_safe_relative_path_is_treated_as_null(string reported)
+    {
+        var (rig, channel) = await ManualRig.OpenAsync();
+        await using (rig)
+        await using (channel)
+        {
+            var resolve = channel.ResolveRealPathAsync("l", _ct);
+            await rig.ReceiveAsync<ResolveRealPath>();
+            await rig.SendAsync(new ResolveRealPathResult("l", reported, null));
+
+            Assert.Null(await resolve.WithinAsync());
+            Assert.Equal(GuestChannelState.Open, channel.State);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(".")]
+    [InlineData("..")]
+    [InlineData("a/b")]
+    [InlineData("a\\b")]
+    [InlineData("a\0b")]
+    [InlineData(null)]
+    public async Task A_listing_with_a_bad_entry_name_faults_the_channel(string? name)
+    {
+        var (rig, channel) = await ManualRig.OpenAsync();
+        await using (rig)
+        await using (channel)
+        {
+            var list = channel.ListFilesAsync("d", _ct);
+            await rig.ReceiveAsync<ListFiles>();
+            await rig.SendAsync(new ListFilesResult("d", [new GuestFileEntry(name!, 1, false)], null));
+
+            await Assert.ThrowsAsync<GuestChannelException>(() => list.WithinAsync());
+            Assert.Equal(GuestChannelState.Faulted, channel.State);
+        }
+    }
+
+    [Fact]
+    public async Task A_listing_with_no_entry_list_and_no_error_faults_the_channel()
+    {
+        var (rig, channel) = await ManualRig.OpenAsync();
+        await using (rig)
+        await using (channel)
+        {
+            var list = channel.ListFilesAsync("d", _ct);
+            await rig.ReceiveAsync<ListFiles>();
+            await rig.SendAsync(new ListFilesResult("d", null!, null));
+
+            await Assert.ThrowsAsync<GuestChannelException>(() => list.WithinAsync());
+            Assert.Equal(GuestChannelState.Faulted, channel.State);
+        }
+    }
+
+    [Fact]
     public async Task A_request_on_an_ended_channel_fails_with_the_channel_exception()
     {
         var (rig, channel) = await ManualRig.OpenAsync();

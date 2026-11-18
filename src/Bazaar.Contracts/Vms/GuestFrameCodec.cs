@@ -13,7 +13,7 @@ namespace Bazaar.Contracts.Vms;
 public static class GuestFrameCodec
 {
     /// <summary>
-    /// Protocol version this build writes. Version 2 added PutFileResult, GetFileError, PtyExit and ExecError; version 3
+    /// Highest protocol version this build speaks; each frame carries the lowest version that defines its type. Version 2 added PutFileResult, GetFileError, PtyExit and ExecError; version 3
     /// added the DeleteFile, ListFiles and ResolveRealPath requests and their results. The other messages have the same
     /// layout in every version.
     /// </summary>
@@ -45,7 +45,7 @@ public static class GuestFrameCodec
 
         var frame = new byte[_lengthBytes + counted];
         BinaryPrimitives.WriteUInt32BigEndian(frame, (uint)counted);
-        frame[_lengthBytes] = Version;
+        frame[_lengthBytes] = VersionOf(tag);
         frame[_lengthBytes + 1] = (byte)tagBytes.Length;
         tagBytes.CopyTo(frame, _lengthBytes + _headerBytes);
         body.CopyTo(frame, _lengthBytes + _headerBytes + tagBytes.Length);
@@ -110,6 +110,17 @@ public static class GuestFrameCodec
             throw new GuestFrameException($"Stream ended inside a {what}; the frame is truncated.", ex);
         }
     }
+
+    /// <summary>
+    /// The lowest protocol version that defines <paramref name="tag"/>. Each frame is stamped with it, so an older peer
+    /// still reads every message it knows and only a tag it cannot know closes its channel.
+    /// </summary>
+    private static byte VersionOf(string tag) => tag switch
+    {
+        "putFileResult" or "getFileError" or "ptyExit" or "execError" => 2,
+        "deleteFile" or "deleteFileResult" or "listFiles" or "listFilesResult" or "resolveRealPath" or "resolveRealPathResult" => 3,
+        _ => 1,
+    };
 
     private static (string Tag, byte[] Body) Encode(GuestMessage message) => message switch
     {

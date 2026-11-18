@@ -21,7 +21,11 @@ public enum OutputSource
 /// <param name="AgentVersion">Guest agent build string.</param>
 /// <param name="VmId">VM id the guest was provisioned with.</param>
 /// <param name="Nonce">Host-supplied nonce echoed back so the host can reject a replayed hello.</param>
-public sealed record Hello(string AgentVersion, string VmId, string Nonce) : GuestMessage;
+/// <param name="ProtocolVersion">
+/// Highest guest protocol version the agent speaks (<see cref="GuestFrameCodec.Version"/>). Older agents do not send it,
+/// so it reads as 0, and the host then treats the agent as predating version 3.
+/// </param>
+public sealed record Hello(string AgentVersion, string VmId, string Nonce, int ProtocolVersion = 0) : GuestMessage;
 
 /// <summary>Host request to run a process in the guest.</summary>
 /// <param name="Id">Exec id, unique per VM.</param>

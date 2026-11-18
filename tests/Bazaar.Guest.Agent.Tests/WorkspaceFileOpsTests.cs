@@ -317,4 +317,177 @@ public sealed class WorkspaceFileOpsTests
 
         Assert.Equal("new/dir/file.txt", result.RealPath);
     }
+
+    [Fact]
+    public async Task A_dot_dot_in_a_link_target_applies_to_the_resolved_directory_not_to_the_text()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Creates a symbolic link.");
+        await using var root = new TempRoot();
+        await using var outside = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+        // root/b -> outside/x/y and root/a -> "b/../c". The OS resolves a to outside/x/c. Collapsing the text first would
+        // give root/c, which exists here to make that mistake visible.
+        Directory.CreateDirectory(Path.Combine(outside.Root, "x", "y"));
+        Directory.CreateDirectory(Path.Combine(outside.Root, "x", "c"));
+        await File.WriteAllTextAsync(Path.Combine(outside.Root, "x", "c", "secret"), "s", _ct);
+        Directory.CreateDirectory(Path.Combine(root.Root, "c"));
+        await File.WriteAllTextAsync(Path.Combine(root.Root, "c", "secret"), "decoy", _ct);
+        File.CreateSymbolicLink(Path.Combine(root.Root, "b"), Path.Combine(outside.Root, "x", "y"));
+        File.CreateSymbolicLink(Path.Combine(root.Root, "a"), "b/../c");
+
+        await guest.SendAsync(new ResolveRealPath("a/secret"));
+        var resolved = await guest.ReceiveAsync<ResolveRealPathResult>();
+        await guest.SendAsync(new ListFiles("a"));
+        var listed = await guest.ReceiveAsync<ListFilesResult>();
+        await guest.SendAsync(new DeleteFile("a/secret"));
+        var deleted = await guest.ReceiveAsync<DeleteFileResult>();
+
+        Assert.Null(resolved.RealPath);
+        Assert.NotNull(listed.Error);
+        Assert.False(deleted.Ok);
+        Assert.True(File.Exists(Path.Combine(outside.Root, "x", "c", "secret")));
+        Assert.True(File.Exists(Path.Combine(root.Root, "c", "secret")));
+    }
+
+    [Fact]
+    public async Task Put_file_through_a_nested_dot_dot_link_is_refused()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Creates a symbolic link.");
+        await using var root = new TempRoot();
+        await using var outside = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+        Directory.CreateDirectory(Path.Combine(outside.Root, "x", "y"));
+        Directory.CreateDirectory(Path.Combine(outside.Root, "x", "c"));
+        Directory.CreateDirectory(Path.Combine(root.Root, "c"));
+        File.CreateSymbolicLink(Path.Combine(root.Root, "b"), Path.Combine(outside.Root, "x", "y"));
+        File.CreateSymbolicLink(Path.Combine(root.Root, "a"), "b/../c");
+        var target = Path.Combine(root.Root, "a", "planted.txt");
+
+        await guest.SendAsync(new GetFile(target));
+        var error = await guest.ReceiveAsync<GetFileError>();
+
+        Assert.Equal(target, error.Path);
+        Assert.False(File.Exists(Path.Combine(outside.Root, "x", "c", "planted.txt")));
+    }
+
+    [Fact]
+    public async Task A_dot_dot_in_the_middle_of_an_absolute_path_follows_the_link_before_it()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Creates a symbolic link.");
+        await using var root = new TempRoot();
+        await using var outside = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+        Directory.CreateDirectory(Path.Combine(outside.Root, "deep"));
+        await File.WriteAllTextAsync(Path.Combine(outside.Root, "secret.txt"), "s", _ct);
+        File.CreateSymbolicLink(Path.Combine(root.Root, "l"), Path.Combine(outside.Root, "deep"));
+        var viaLink = Path.Combine(root.Root, "l", "..", "secret.txt");
+
+        // Text collapsing would turn this into root/secret.txt (inside). The OS opens outside/secret.txt.
+        await guest.SendAsync(new GetFile(viaLink));
+        var error = await guest.ReceiveAsync<GetFileError>();
+
+        Assert.Equal(viaLink, error.Path);
+    }
+
+    [Fact]
+    public async Task A_path_over_the_length_limit_is_refused_and_echoed_cut_so_the_channel_survives()
+    {
+        await using var root = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+        var long_ = new string('a', 100_000);
+
+        await guest.SendAsync(new ListFiles(long_));
+        var listed = await guest.ReceiveAsync<ListFilesResult>();
+        await guest.SendAsync(new DeleteFile(long_));
+        var deleted = await guest.ReceiveAsync<DeleteFileResult>();
+        await guest.SendAsync(new ResolveRealPath(long_));
+        var resolved = await guest.ReceiveAsync<ResolveRealPathResult>();
+        await guest.SyncAsync();
+
+        Assert.NotNull(listed.Error);
+        Assert.Equal(GuestPathRules.MaxPathChars, listed.Dir.Length);
+        Assert.False(deleted.Ok);
+        Assert.Equal(GuestPathRules.MaxPathChars, deleted.Path.Length);
+        Assert.Null(resolved.RealPath);
+        Assert.Equal(GuestPathRules.MaxPathChars, resolved.Path.Length);
+    }
+
+    [Theory]
+    [InlineData("a:b")]
+    [InlineData("dir/file:stream")]
+    public async Task A_colon_in_any_segment_is_refused(string path)
+    {
+        await using var root = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+
+        await guest.SendAsync(new ResolveRealPath(path));
+        var resolved = await guest.ReceiveAsync<ResolveRealPathResult>();
+        await guest.SendAsync(new DeleteFile(path));
+        var deleted = await guest.ReceiveAsync<DeleteFileResult>();
+
+        Assert.Null(resolved.RealPath);
+        Assert.NotNull(resolved.Error);
+        Assert.False(deleted.Ok);
+    }
+
+    [Fact]
+    public async Task A_symlink_entry_is_listed_as_a_non_directory_even_when_it_points_at_one()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Creates a symbolic link.");
+        await using var root = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+        Directory.CreateDirectory(Path.Combine(root.Root, "real"));
+        File.CreateSymbolicLink(Path.Combine(root.Root, "dirlink"), Path.Combine(root.Root, "real"));
+        await File.WriteAllTextAsync(Path.Combine(root.Root, "f.txt"), "abc", _ct);
+        File.CreateSymbolicLink(Path.Combine(root.Root, "filelink"), Path.Combine(root.Root, "f.txt"));
+
+        await guest.SendAsync(new ListFiles(""));
+        var result = await guest.ReceiveAsync<ListFilesResult>();
+
+        Assert.Equal(
+            [
+                new GuestFileEntry("dirlink", 0, false),
+                new GuestFileEntry("f.txt", 3, false),
+                new GuestFileEntry("filelink", 0, false),
+                new GuestFileEntry("real", 0, true),
+            ],
+            result.Entries);
+    }
+
+    [Fact]
+    public async Task A_root_that_cannot_be_inspected_fails_closed()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Uses a path with a file in the middle.");
+        await using var root = new TempRoot();
+        await using var guest = new GuestHarness(root.Options());
+        await guest.ReceiveAsync<Hello>();
+        await File.WriteAllTextAsync(Path.Combine(root.Root, "file"), "x", _ct);
+
+        // "file" is not a directory: the walk cannot continue below it, and the answer is a clean refusal.
+        await guest.SendAsync(new ListFiles("file/below"));
+        var result = await guest.ReceiveAsync<ListFilesResult>();
+        await guest.SyncAsync();
+
+        Assert.NotNull(result.Error);
+    }
+
+    [Fact]
+    public async Task Real_path_applies_dot_dot_to_the_resolved_path_and_refuses_nul()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Creates a symbolic link.");
+        await using var root = new TempRoot();
+        var guard = new PathGuard([root.Root]);
+        Directory.CreateDirectory(Path.Combine(root.Root, "d"));
+        File.CreateSymbolicLink(Path.Combine(root.Root, "up"), "d/..");
+
+        Assert.Equal(guard.PrimaryRoot, guard.ResolveRelative("up", includeRoot: true));
+        Assert.Equal(Path.Combine(guard.PrimaryRoot!, "d"), guard.ResolveRelative("up/d", includeRoot: false));
+        Assert.Null(guard.ResolveRelative("a\0b", includeRoot: true));
+    }
 }

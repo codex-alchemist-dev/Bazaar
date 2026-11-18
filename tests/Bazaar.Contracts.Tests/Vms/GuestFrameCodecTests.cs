@@ -112,6 +112,7 @@ public class GuestFrameCodecTests
     {
         var frame = Frame(message);
 
+        Assert.Equal(2, frame[4]);
         Assert.Equal(tag, Encoding.ASCII.GetString(frame, 6, frame[5]));
     }
 
@@ -184,10 +185,10 @@ public class GuestFrameCodecTests
         var body = Encoding.UTF8.GetString(frame, 2 + 5 + 4, frame.Length - 2 - 5 - 4);
 
         Assert.Equal((uint)(frame.Length - 4), BinaryPrimitives.ReadUInt32BigEndian(frame));
-        Assert.Equal(3, frame[4]);
+        Assert.Equal(1, frame[4]);
         Assert.Equal(5, frame[5]);
         Assert.Equal("hello", Encoding.ASCII.GetString(frame, 6, 5));
-        Assert.Equal("{\"agentVersion\":\"0.3.0\",\"vmId\":\"vm-7\",\"nonce\":\"n\"}", body);
+        Assert.Equal("{\"agentVersion\":\"0.3.0\",\"vmId\":\"vm-7\",\"nonce\":\"n\",\"protocolVersion\":0}", body);
     }
 
     [Fact]
