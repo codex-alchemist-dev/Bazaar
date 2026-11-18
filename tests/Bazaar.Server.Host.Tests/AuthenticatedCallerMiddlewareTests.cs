@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Host.Auth;
+using Bazaar.Server.Identity.Signing;
 using Bazaar.Server.Http.Auth;
 using Microsoft.AspNetCore.Http;
 
@@ -13,24 +14,29 @@ public sealed class AuthenticatedCallerMiddlewareTests
 
     private sealed class Harness
     {
-        public required DevAccessTokenIssuer Issuer { get; init; }
-        public required DevAccessTokenVerifier Verifier { get; init; }
+        public required SignerAccessTokenIssuer Issuer { get; init; }
+        public required SignerAccessTokenVerifier Verifier { get; init; }
         public required InMemoryRefreshCredentialStore Store { get; init; }
         public required Guid DeviceId { get; init; }
         public required Guid HumanId { get; init; }
     }
 
-    /// <summary>Registers a device with <paramref name="humanId"/> in an in-memory store and returns the dev issuer that signs for it.</summary>
+    /// <summary>A production signer over an in-memory key store (a fresh key per call, so each harness is its own process).</summary>
+    private static AccessTokenSigner NewSigner() =>
+        new AccessTokenSigner(new InMemorySigningKeyStore(), new SigningKeyKekWrapper(new TestKek()), TimeProvider.System);
+
+    /// <summary>Registers a device with <paramref name="humanId"/> in an in-memory store and returns the signer that signs for it.</summary>
     private static async Task<Harness> CreateAsync(Guid? deviceId = null, Guid? humanId = null)
     {
-        var issuer = new DevAccessTokenIssuer(TimeProvider.System);
+        var signer = NewSigner();
+        var issuer = new SignerAccessTokenIssuer(signer);
         var store = new InMemoryRefreshCredentialStore();
         var device = new DeviceRecord(deviceId ?? Guid.NewGuid(), humanId ?? Guid.NewGuid(), "test-device", "desktop", 1, null);
         await store.CreateDeviceAsync(device, Guid.NewGuid(), RandomNumberGenerator.GetBytes(32), _now, _now.AddDays(30));
         return new Harness
         {
             Issuer = issuer,
-            Verifier = new DevAccessTokenVerifier(issuer),
+            Verifier = new SignerAccessTokenVerifier(signer),
             Store = store,
             DeviceId = device.Id,
             HumanId = device.HumanId,
@@ -98,7 +104,7 @@ public sealed class AuthenticatedCallerMiddlewareTests
     public async Task Token_signed_by_another_process_sets_no_caller()
     {
         var h = await CreateAsync();
-        var otherProcess = new DevAccessTokenIssuer(TimeProvider.System);
+        var otherProcess = new SignerAccessTokenIssuer(NewSigner());
         var token = otherProcess.Issue(h.DeviceId, h.HumanId, _now.AddMinutes(10));
 
         var context = await RunAsync(h, "Bearer " + token);
@@ -166,7 +172,7 @@ public sealed class AuthenticatedCallerMiddlewareTests
     [Fact]
     public void Unavailable_verifier_refuses_every_token()
     {
-        var verifier = new UnavailableAccessTokenVerifier();
+        var verifier = new SignerAccessTokenVerifier(new UnavailableAccessTokenSigner());
 
         Assert.False(verifier.TryVerify("anything", out var caller));
         Assert.Null(caller);
