@@ -1,3 +1,4 @@
+using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 using Npgsql;
@@ -22,9 +23,21 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common);
-        var council = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load("council");
-        var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat(council));
+        var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat([CouncilMigration()]));
         await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, "council", CancellationToken.None);
+    }
+
+    /// <summary>
+    /// The council/0001 file, read from the Council module assembly where it is embedded as a component file
+    /// (Sql/components/council). The host's ComponentMigrationSource does the same read at run time.
+    /// </summary>
+    private static MigrationFile CouncilMigration()
+    {
+        var assembly = typeof(CouncilStore).Assembly;
+        using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Council.Sql.components.council.0001_council.sql")
+            ?? throw new InvalidOperationException("council/0001 is not embedded in Bazaar.Server.Council.");
+        using var reader = new StreamReader(stream);
+        return new MigrationFile("council", 1, "council", reader.ReadToEnd());
     }
 
     /// <summary>Creates a GC for vote origins and returns its id.</summary>
