@@ -18,7 +18,8 @@ public sealed record CommitId(string Sha);
 /// <param name="Repo">The repository.</param>
 /// <param name="Branch">The branch to check out in the worktree.</param>
 /// <param name="Path">Canonical absolute worktree path, already checked by the service.</param>
-public sealed record AddWorktreeRequest(RepoRef Repo, BranchName Branch, string Path);
+/// <param name="AgentId">The agent that will write in the worktree, so an engine can resolve that agent's work share. Null when unknown.</param>
+public sealed record AddWorktreeRequest(RepoRef Repo, BranchName Branch, string Path, string? AgentId = null);
 
 /// <summary>
 /// Trailers the engine writes on a commit. Shaped to match the host workspace's commit request (<c>Bazaar-Agent</c>,

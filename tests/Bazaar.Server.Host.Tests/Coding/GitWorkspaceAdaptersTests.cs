@@ -206,12 +206,69 @@ public sealed class GitWorkspaceAdaptersTests : IDisposable
         Assert.Null(provider.Committed);
     }
 
+    private static string InitWorktreeRepo(string path)
+    {
+        Directory.CreateDirectory(path);
+        Repository.Init(path);
+        using var repo = new Repository(path);
+        File.WriteAllText(Path.Combine(path, "a.txt"), "one\n");
+        LibGit2Sharp.Commands.Stage(repo, "a.txt");
+        var sig = new LibGit2Sharp.Signature("bot", "bot@example.invalid", DateTimeOffset.UtcNow);
+        LibGit2Sharp.RepositoryExtensions.Commit(repo, "base", sig, sig);
+        return repo.Head.Tip.Sha;
+    }
+
     [Fact]
-    public async Task Diff_is_not_supported_yet()
+    public async Task Diff_returns_changed_paths_and_a_unified_patch()
+    {
+        var (engine, _) = MakeEngine();
+        var path = Path.Combine(_root, "repo1", "fix-x");
+        var baseSha = InitWorktreeRepo(path);
+        File.WriteAllText(Path.Combine(path, "a.txt"), "one\ntwo\n");
+
+        var diff = await engine.DiffAgainstBaseAsync(path, baseSha, CancellationToken.None);
+
+        Assert.Equal(["a.txt"], diff.ChangedPaths);
+        Assert.Contains("+two", diff.Patch, StringComparison.Ordinal);
+        Assert.Equal(baseSha, diff.BaseBranch);
+    }
+
+    [Fact]
+    public async Task Diff_outside_the_workspace_is_refused()
     {
         var (engine, _) = MakeEngine();
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => engine.DiffAgainstBaseAsync(Path.Combine(_root, "repo1", "fix-x"), "main", CancellationToken.None));
+        await Assert.ThrowsAsync<CodingGitException>(() =>
+            engine.DiffAgainstBaseAsync(Path.Combine(Path.GetTempPath(), "x", "y"), "main", CancellationToken.None));
+    }
+
+    private sealed class FakeLayout(string root) : IWorkShareLayout
+    {
+        public string GetWorktreeRoot(string agentId) => Path.Combine(root, agentId);
+
+        public string GetPassportFolder(string agentId) => Path.Combine(root, agentId + "-passport");
+    }
+
+    [Fact]
+    public async Task Per_agent_roots_place_commit_and_diff_under_the_agents_share()
+    {
+        var provider = new FakeProvider();
+        var layout = new FakeLayout(_root);
+        var workspace = new GitWorkspace(provider, new GitWorkspaceOptions { RootPath = _root }, new WorkShareLayoutRootResolver(layout));
+        var engine = new GitWorkspaceCodingGitEngine(workspace, _root, new FakeRepos(_binding), layout);
+        var path = Path.Combine(_root, "agent-1", "repo1", "fix-x");
+
+        await engine.AddWorktreeAsync(new AddWorktreeRequest(_repo, BranchName.ForTask("fix-x"), path, "agent-1"), CancellationToken.None);
+        var id = await engine.CommitAsync(
+            new EngineCommitRequest(path, "m", new CommitTrailers("agent-1", "g", "fix-x", "c"), new GitAuthor("n", "e@example.invalid")),
+            CancellationToken.None);
+
+        Assert.Equal((_binding.RepoPath, "agent/fix-x", path), provider.Added);
+        Assert.Equal("abc123", id.Sha);
+
+        // The global-root layout is not valid for an agent that has its own share.
+        await Assert.ThrowsAsync<CodingGitException>(() =>
+            engine.AddWorktreeAsync(new AddWorktreeRequest(_repo, BranchName.ForTask("fix-y"), Path.Combine(_root, "repo1", "fix-y"), "agent-1"), CancellationToken.None));
     }
 
     private GitWorkspaceHostPushPort MakePush(CountingTokens tokens, CountingGitHub github, CodingRepoBinding? binding = null) =>

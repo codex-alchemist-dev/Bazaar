@@ -131,7 +131,7 @@ public sealed partial class CodingGitService(
         {
             leases.Add(await AcquireAsync($"path:{comparisonKey}", cancellationToken).ConfigureAwait(false));
             leases.Add(await AcquireAsync($"branch:{request.Repo.Id}/{branch.Value}", cancellationToken).ConfigureAwait(false));
-            await engine.AddWorktreeAsync(new AddWorktreeRequest(request.Repo, branch, path), cancellationToken).ConfigureAwait(false);
+            await engine.AddWorktreeAsync(new AddWorktreeRequest(request.Repo, branch, path, request.AgentId), cancellationToken).ConfigureAwait(false);
             return new CodingWorktree(request, branch, path, [.. leases]);
         }
         catch
