@@ -11,8 +11,8 @@ namespace Bazaar.Client.Calcinato.Panes;
 /// </summary>
 /// <remarks>
 /// No view is registered here. <see cref="PaneRegistry.RegisterView{TPane}"/> takes a view function, not a view id, and
-/// the Avalonia control belongs to the head adapter (doc 55, section 5.4). Until that control exists,
-/// <see cref="PaneViews.Create"/> shows the pane kind as text.
+/// the Avalonia control belongs to the head adapter (doc 55, section 5.4). Heads register it with
+/// <c>TerminalPaneViews.Register</c> from Bazaar.Client.Calcinato.Avalonia after composing the registry.
 /// </remarks>
 public sealed class TerminalPaneModule : IPaneModule
 {
