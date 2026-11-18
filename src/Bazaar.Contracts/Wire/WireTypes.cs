@@ -45,6 +45,12 @@ public static class WireTypes
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
+    /// <summary>Client asks for a GC rendered at a seq (doc 02, replay and fork requests). Answered with a <c>ReplayFrameResult</c>.</summary>
+    public const string ReplayFrame = "replay.frame";
+
+    /// <summary>Client forks a project GC at a seq. Answered with a <c>ReplayForkResult</c>.</summary>
+    public const string ReplayFork = "replay.fork";
+
     /// <summary>Client marks a GC read up to a sequence.</summary>
     public const string GcRead = "gc.read";
 
