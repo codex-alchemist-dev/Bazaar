@@ -25,3 +25,6 @@ ALTER TABLE gc_message_version
     ADD COLUMN soul_id      uuid,
     ADD COLUMN soul_version integer CHECK (soul_version >= 1),
     ADD CONSTRAINT gc_message_version_soul_pair CHECK ((soul_id IS NULL) = (soul_version IS NULL));
+
+-- The same partial index for message versions, so the stamp reconciliation does not scan every version row.
+CREATE INDEX gc_message_version_soul_idx ON gc_message_version (soul_id, soul_version) WHERE soul_id IS NOT NULL;

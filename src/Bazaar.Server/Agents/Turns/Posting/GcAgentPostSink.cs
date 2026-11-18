@@ -38,6 +38,9 @@ namespace Bazaar.Server.Agents.Turns.Posting;
 /// <item>On a loop-guard trip, <see cref="ILoopTripHandler"/> (when registered) writes <c>guard_event</c>, a system notice in the GC
 /// and the Psych Ward admission before the refusal is thrown.</item>
 /// </list>
+/// One narrow race is accepted: the Soul is resolved before the append, so a retry of a post whose commit outcome was lost, made after
+/// the agent was retired, is refused as unbound although the original message exists. The turn is then marked refused and its
+/// items are released; the original post stays in the log. A retired agent stops posting at its next wake, not mid-turn.
 /// Not applied here: nested mention depth (<c>GcMessage</c> has no parent field, so the depth is always 0 and the
 /// <c>runtime.guard.mention_depth</c> guard never sees a chain; it needs the wake's depth carried on the inbox row, which doc 06 owns);
 /// @here and @all (the parser reports them and they are ignored, DECISIONS-LOG #438, until the broadcast rate counter exists).

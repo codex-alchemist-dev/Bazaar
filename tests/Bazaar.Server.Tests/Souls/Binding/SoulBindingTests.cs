@@ -1,11 +1,15 @@
 using System.Text;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Soul;
+using Bazaar.Server.Agents.LoopGuard;
+using Bazaar.Server.Agents.Turns.Posting;
+using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Modules.Health;
 using Bazaar.Server.Souls;
 using Bazaar.Server.Tests.Gc;
 using Bazaar.Souls.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace Bazaar.Server.Tests.Souls.Binding;
@@ -285,5 +289,71 @@ public sealed class SoulBindingTests(GcDb db) : IClassFixture<GcDb>
 
         Assert.Contains(new SoulRef(soul, 2), await reconciler.FindDanglingAsync(100, ct));
         Assert.Equal(ModuleHealthStatus.Failing, (await health.SelfTestAsync(ModuleSelfTestScope.Quick, ct)).Status);
+    }
+
+    [Fact]
+    public async Task Two_concurrent_binds_and_retires_leave_one_consistent_latest_row()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var agent = Guid.CreateVersion7();
+        var first = await SoulWithVersionsAsync(1);
+        var second = await SoulWithVersionsAsync(1);
+
+        await Task.WhenAll(
+            Bindings.BindAsync(agent, first, "a", ct),
+            Bindings.BindAsync(agent, second, "b", ct),
+            Bindings.BindAsync(agent, first, "c", ct));
+
+        var resolved = await Bindings.ResolveAsync(agent, ct);
+        Assert.NotNull(resolved);
+        Assert.Contains(resolved.Value.SoulId, new[] { first, second });
+        Assert.InRange((long)(await RowAsync("SELECT count(*) FROM soul_agent_binding WHERE agent_id = $1", agent))[0]!, 1, 3);
+
+        await Task.WhenAll(Bindings.RetireAsync(agent, "x", ct), Bindings.RetireAsync(agent, "y", ct));
+
+        Assert.Null(await Bindings.ResolveAsync(agent, ct));
+        Assert.Equal(1L, (await RowAsync("SELECT count(*) FROM soul_agent_binding WHERE agent_id = $1 AND event = 'retired'", agent))[0]);
+    }
+
+    [Fact]
+    public async Task The_sink_posts_through_the_real_writer_and_bindings_and_stamps_the_event()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var agent = Guid.CreateVersion7();
+        var soul = await SoulWithVersionsAsync(2);
+        await Bindings.BindAsync(agent, soul, "hired", ct);
+        var gc = await db.CreateGcAsync();
+        var writer = new GcLogWriter(db.DataSource, new NullNotifier(), soulBindings: Bindings);
+        var sink = new GcAgentPostSink(writer, new PlaintextGcBodyCodec(), new LoopGuardFacade(TimeProvider.System), Bindings);
+
+        await sink.PostAsync(agent, Guid.CreateVersion7(), gc.ToString("D"), "Hello from a bound agent.", ct);
+
+        var stamp = await RowAsync("SELECT soul_id, soul_version FROM gc_event WHERE gc_id = $1 AND author_id = $2", gc, agent);
+        Assert.Equal([soul, 2], stamp);
+
+        var stranger = Guid.CreateVersion7();
+        await Assert.ThrowsAsync<AgentPostUnboundException>(
+            () => sink.PostAsync(stranger, Guid.CreateVersion7(), gc.ToString("D"), "No Soul.", ct));
+        Assert.Equal(0L, (await RowAsync("SELECT count(*) FROM gc_event WHERE gc_id = $1 AND author_id = $2", gc, stranger))[0]);
+
+        await Bindings.RetireAsync(agent, "retired", ct);
+        await Assert.ThrowsAsync<AgentPostUnboundException>(
+            () => sink.PostAsync(agent, Guid.CreateVersion7(), gc.ToString("D"), "After retirement.", ct));
+    }
+
+    [Fact]
+    public void The_souls_health_contract_is_registered_for_the_module_health_runner()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(db.DataSource);
+        services.AddBazaarSoulBindings();
+        using var provider = services.BuildServiceProvider();
+
+        var contract = Assert.IsType<SoulBindingsHealth>(Assert.Single(provider.GetServices<IModuleHealthContract>()));
+        Assert.Equal(SoulBindingsHealth.Id, contract.ModuleId);
+        Assert.IsType<PostgresSoulBindings>(provider.GetRequiredService<ISoulBindings>());
+        Assert.Same(provider.GetRequiredService<ISoulBindings>(), provider.GetRequiredService<ISoulBindingAdmin>());
     }
 }

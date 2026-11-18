@@ -1,3 +1,4 @@
+using Bazaar.Server.Modules.Health;
 using Bazaar.Souls.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,6 +19,7 @@ public static class SoulBindingRegistration
         services.AddSingleton<ISoulBindingAdmin>(sp => sp.GetRequiredService<PostgresSoulBindings>());
         services.AddSingleton<SoulStampReconciler>();
         services.AddSingleton<SoulBindingsHealth>();
+        services.AddSingleton<IModuleHealthContract>(sp => sp.GetRequiredService<SoulBindingsHealth>());
         return services;
     }
 }
