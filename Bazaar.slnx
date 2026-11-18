@@ -36,6 +36,7 @@
     <Project Path="src/Bazaar.Approvals.Abstractions/Bazaar.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Gateway.Abstractions/Bazaar.Server.Gateway.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Gateway/Bazaar.Server.Gateway.csproj" />
+    <Project Path="src/Bazaar.Server.Health.Abstractions/Bazaar.Server.Health.Abstractions.csproj" />
     <Project Path="src/Bazaar.Secrets.Abstractions/Bazaar.Secrets.Abstractions.csproj" />
     <Project Path="src/Bazaar.Guest.Agent/Bazaar.Guest.Agent.csproj" />
     <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
@@ -45,6 +46,8 @@
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
+    <Project Path="src/Bazaar.Server.Security.Abstractions/Bazaar.Server.Security.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Security/Bazaar.Server.Security.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
     <Project Path="src/Bazaar.Server.Agents.Abstractions/Bazaar.Server.Agents.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Agents/Bazaar.Server.Agents.csproj" />
@@ -108,6 +111,7 @@
     <Project Path="tests/Bazaar.Guest.Agent.Tests/Bazaar.Guest.Agent.Tests.csproj" />
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Security.Tests/Bazaar.Server.Security.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
