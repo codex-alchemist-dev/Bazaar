@@ -107,6 +107,10 @@ Own module pair: `Bazaar.Client.Mail` and `Bazaar.Client.Mail.Abstractions`. Pan
 - The panes are display-only. Release, report and send approvals go through the approval cards and the owner signature path of `Bazaar.Approvals` (docs 15 and 48); a pane never holds a release action. Owner-only release and the reader-cannot-release rule are enforced on the server and are not client settings.
 - Server data feeds (WP4 to WP6) are not built yet. The pane models are the contract; the screens are tested with fixture models and `Avalonia.Headless`.
 
+Built details (PROPOSED, from the first implementation, 2026-11-18):
+- DNS: `MailDnsRequest` also carries an optional `SendingIp`; when absent the PTR check uses the addresses of the domain's MX hosts (up to 4), else the domain's own address, and warns if none is found. A `Timeout` or `ServFail` is `Warn` ("could not be checked"); `NxDomain` on a required record is `Fail`. SPF with no `all` term is `Fail`; the walk stops after 10 lookups, 10 levels and 16 TXT fetches; an include loop is `Fail`. DMARC: several records is `Fail`; `p=none` whose `rua` differs from the configured report address is `Warn`. Answers are capped at 32 records and 4096 characters per TXT, and DNS text shown in a message is reduced to letters, digits and `.-_:`. The shipped resolver uses the `DnsClient` package. `MailDnsSetupStep` has order 11 and puts counts and fixes in the step message only (the apply writes the audit row; whether the applier needs a hook for per-step audit counts is OPEN).
+- Panes: model keys are `digest {held, released, purged, reported, topSenderDomains[{domain,count}]}` and `items[{senderDomain, reasonCodes, authResult, receivedAt, state}]` (quarantine); `messages[{from, subject, receivedAt, text, links[url]}]` (mailbox); `from, recipients[], subject, body, footerPreview, reason` (approval); `domain?, rows[{kind, status, detail, fix?}]` (DNS). Enum values travel as names (`held`; `Spf`, `Pass`), so the server serializer must use string enums. A link shows its host and the full URL as plain text. OPEN: an approval id on the approval card, and a date on the digest.
+
 ## Data and interfaces
 
 ```csharp
