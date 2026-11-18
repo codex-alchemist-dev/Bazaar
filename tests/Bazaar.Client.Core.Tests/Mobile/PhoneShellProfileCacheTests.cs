@@ -4,6 +4,7 @@ using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Core.Tests.Mobile;
 
@@ -118,7 +119,7 @@ public sealed class PhoneShellProfileCacheTests : IDisposable
 
     private static PaneRegistry Registry(params string[] kinds)
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         foreach (var kind in kinds)
         {
             registry.Register(kind, descriptor => new GenericPaneViewModel(descriptor));

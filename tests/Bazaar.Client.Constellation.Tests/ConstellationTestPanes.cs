@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Constellation.Tests;
@@ -8,7 +9,7 @@ namespace Bazaar.Client.Constellation.Tests;
 internal static class ConstellationTestPanes
 {
     public static PaneRegistry CreateRegistry(IConstellationTileSource? tiles = null) =>
-        PaneRegistry.Compose(
+        PaneRegistry.Compose(PaneViews.Instance,
             [new ConstellationPaneModule()],
             tiles is null ? null : new PaneModuleContext().With<IConstellationTileSource>(tiles));
 

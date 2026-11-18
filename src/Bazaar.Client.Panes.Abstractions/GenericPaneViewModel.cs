@@ -2,7 +2,7 @@ using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Panes.Abstractions;
 
 /// <summary>
 /// The fallback view for any pane kind. Flattens the model into indented "key: value" lines, a plain tree

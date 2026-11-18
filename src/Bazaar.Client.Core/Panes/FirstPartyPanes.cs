@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Panes;
@@ -43,7 +44,7 @@ public static class FirstPartyPanes
         Action<string>? report = null,
         ChatViewModel? chat = null,
         PaneModuleContext? features = null) =>
-        PaneRegistry.Compose(modules, CreateContext(report, features, chat));
+        PaneRegistry.Compose(PaneViews.Instance, modules, CreateContext(report, features, chat));
 
     /// <summary>Hands each injected dependency to the context; an absent one adds nothing.</summary>
     private static PaneModuleContext CreateContext(

@@ -39,11 +39,7 @@ src/Bazaar.Client.Core/Panes/EnginePaneViewModel.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs
 src/Bazaar.Client.Core/Panes/GcPaneModule.cs
 src/Bazaar.Client.Core/Panes/GcPaneViewModel.cs
-src/Bazaar.Client.Core/Panes/GenericPaneViewModel.cs
-src/Bazaar.Client.Core/Panes/IPaneModule.cs
 src/Bazaar.Client.Core/Panes/PaneHost.cs
-src/Bazaar.Client.Core/Panes/PaneModuleContext.cs
-src/Bazaar.Client.Core/Panes/PaneRegistry.cs
 src/Bazaar.Client.Core/Panes/PaneViews.cs
 src/Bazaar.Client.Core/Preload/PreloadAutostart.cs
 src/Bazaar.Client.Core/Theme/AvaloniaThemeGenerator.cs

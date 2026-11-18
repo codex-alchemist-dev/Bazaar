@@ -49,9 +49,9 @@ internal static partial class ArchitectureRules
         }
     }
 
-    /// <summary>Names of Bazaar client heads (Windows, Linux, Android) that Client.Core must not reference. Client.Abstractions is a lower layer, not a head.</summary>
+    /// <summary>Names of Bazaar client heads (Windows, Linux, Android) that Client.Core must not reference. Client.Abstractions and Client.Panes.Abstractions are lower layers, not heads.</summary>
     public static IEnumerable<string> ClientHeadReferences(IEnumerable<string> referencedNames) =>
-        Matching(referencedNames, "Bazaar.Client.", "Bazaar.Client.Core", "Bazaar.Client.Abstractions");
+        Matching(referencedNames, "Bazaar.Client.", "Bazaar.Client.Core", "Bazaar.Client.Abstractions", "Bazaar.Client.Panes.Abstractions");
 
     /// <summary>Names of Bazaar server assemblies that Contracts must not reference.</summary>
     public static IEnumerable<string> ServerReferences(IEnumerable<string> referencedNames) =>

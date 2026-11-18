@@ -1,6 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Panes.Abstractions;
 
 /// <summary>
 /// The optional dependencies the heads inject when they build a pane registry. The context names no feature type: a head

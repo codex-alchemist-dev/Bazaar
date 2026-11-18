@@ -10,6 +10,7 @@ using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Panes;
 
@@ -138,7 +139,7 @@ public class VaultSearchClientTests
     [Fact]
     public void Registry_without_an_explicit_api_builds_one_for_the_configured_endpoint()
     {
-        var registry = PaneRegistry.Compose([new VaultSearchPaneModule()]);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new VaultSearchPaneModule()]);
 
         Assert.True(registry.Contains(PaneKinds.VaultSearch));
         Assert.IsType<VaultSearchPaneViewModel>(registry.Create(Descriptor()));
@@ -178,7 +179,7 @@ public class VaultSearchClientTests
     public void Registry_with_a_vault_api_builds_the_search_pane_and_rejects_a_bad_vault_field()
     {
         var (api, _) = Client(_ => Json(_searchJson));
-        var registry = PaneRegistry.Compose([new VaultSearchPaneModule()], new PaneModuleContext().With(api));
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new VaultSearchPaneModule()], new PaneModuleContext().With(api));
 
         Assert.IsType<VaultSearchPaneViewModel>(registry.Create(Descriptor()));
 

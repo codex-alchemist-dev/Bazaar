@@ -1,6 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Panes.Abstractions;
 
 /// <summary>
 /// One pane kind a client ships with, as a unit that registers itself. A feature adds its pane by implementing this

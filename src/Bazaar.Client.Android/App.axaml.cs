@@ -5,9 +5,9 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
-using Bazaar.Client.Vault;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
 

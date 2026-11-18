@@ -1,5 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 

@@ -4,6 +4,7 @@
     <Project Path="src/Bazaar.Client.Components.Launcher/Bazaar.Client.Components.Launcher.csproj" />
     <Project Path="src/Bazaar.Ex/Bazaar.Ex.csproj" />
     <Project Path="src/Bazaar.Client.Abstractions/Bazaar.Client.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Panes.Abstractions/Bazaar.Client.Panes.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
     <Project Path="src/Bazaar.Client.Vault/Bazaar.Client.Vault.csproj" />
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
