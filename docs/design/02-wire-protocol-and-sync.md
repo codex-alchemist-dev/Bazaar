@@ -66,6 +66,11 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 2. The server buffers live events, replays Postgres pages (default 200): entries with `n > after`, and the current version of each message with `ev > editAfter`. Older versions come through `gc.history`. It splices to live once contiguous. Clients drop anything already applied.
 3. A gap over the cutoff (`wire.replay_cutoff_entries`, default 2,000 entries and versions) gets `resync { latestN, latestEv, unread, tail }`: the last 100 entries plus unread counts. The client pages back with `gc.history { before, limit }` and marks a hole.
 
+**Replay and fork requests [PROPOSED, doc 26 section 4].** Request and reply pairs, no stream and no live splice. Both are read-only on the log.
+- `replay.frame { gc, seq, mode? }` returns `replay.frame.result { gc, seq, head, frame }`. `seq` above the viewer's grant is clamped to the grant and the reply carries the clamped `seq`; the head reported is the viewer's visible head, never the true head. `frame` mirrors the server's `ReplayFrame`: messages at their latest version at or below `seq` (viewer-filtered), and the Kanban, Vault, Soul and reputation parts, each `available { value }` or `unavailable { reason }`. A GC the viewer cannot read returns `err denied`, the same as `gc.history`.
+- `replay.fork { gc, seq, requestId }` returns `replay.fork.result { newGc, vaultCommit?, created }`. It is idempotent on `(gc, effective seq, requestId)`; a repeat returns the first result with `created: false`. No messages are copied. Needs the viewer's right to create a project GC.
+- A replay request counts against the `gc.history` rate bucket. Unknown fields are ignored (versioning rule above).
+
 **Heartbeats.** Server ping every 20 s; any frame counts as liveness; 60 s of silence closes the socket. Clients send app-level `ping` (the .NET `ClientWebSocket` behaviour on Android is unverified) and reconnect with jittered backoff from 1 s to `wire.reconnect_backoff_max_s` (60 s).
 
 **Backpressure [PROPOSED].** Each connection has a bounded outbound queue (default 1,000 events). On overflow the server stops live delivery for the slow streams and sends `lagged { s, lastSent }`; the client resubscribes from its cursor, so nothing is lost. Inbound: 256 KiB max frame (attachments never travel on the socket), a request rate limit, 32 in-flight requests, `err rate_limited` with `retryAfter`. Compression is off until measured.
@@ -115,7 +120,7 @@ Codec is chosen in `hello`/`welcome`: text frames JSON; binary Protobuf frames a
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
-Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `replay.frame`, `replay.fork`, `gc.read`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]
 Registered in doc 03's settings registry. Operator-set, install scope. Values live in Postgres; the defaults ship in this table. Every change is audited (doc 15 `audit_log`). Settings may tighten the wire floors and never loosen them below the shipped defaults.
