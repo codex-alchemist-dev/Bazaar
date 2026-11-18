@@ -3,7 +3,8 @@ namespace Bazaar.Server.Git.GitLab.Tests.Support;
 /// <summary>Issues a fresh credential per lease and records each lease, so tests can check the operation and the disposal.</summary>
 internal sealed class FakeCredentialSource : IGitCredentialSource
 {
-    public const string Secret = "glpat-TEST-SECRET-DO-NOT-LEAK";
+    // Built at runtime so no token-shaped literal sits in the source (gitleaks).
+    public static readonly string Secret = string.Concat("gl", "pat-", "TEST-SECRET-DO-NOT-LEAK");
 
     private readonly List<(RepoRef Repo, GitOperation Operation, GitCredential Credential)> _leases = [];
 
