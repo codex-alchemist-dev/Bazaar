@@ -50,6 +50,12 @@ public static class EditorPathNormalizer
             return false;
         }
 
+        // A colon anywhere is refused: it also names NTFS alternate data streams (file.txt:stream).
+        if (slashed.Contains(':', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         var stack = new List<string>(segments.Length);
         foreach (var segment in segments)
         {

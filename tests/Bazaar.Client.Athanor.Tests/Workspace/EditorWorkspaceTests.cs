@@ -4,9 +4,9 @@ namespace Bazaar.Client.Athanor.Tests.Workspace;
 
 public sealed class EditorWorkspaceTests
 {
-    private const string WorkspaceId = "vault";
+    private const string _workspaceId = "vault";
 
-    private static EditorDocumentId Id(string path) => new(WorkspaceId, path);
+    private static EditorDocumentId Id(string path) => new(_workspaceId, path);
 
     private static EditorDocument Doc(string path, string content = "text", bool readOnly = false) =>
         new(Id(path), content, "rev-1", "csharp", readOnly);

@@ -117,4 +117,10 @@ public class EditorPathNormalizerTests
         Assert.True(raw.Length < EditorPathNormalizer.MaxPathLength);
         Assert.True(EditorPathNormalizer.TryNormalize(raw, out _));
     }
+
+    [Theory]
+    [InlineData("a/C:b")]
+    [InlineData("file.txt:stream")]
+    public void Colon_in_any_segment_is_rejected(string raw) =>
+        Assert.False(EditorPathNormalizer.TryNormalize(raw, out _));
 }

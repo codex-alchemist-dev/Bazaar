@@ -6,7 +6,7 @@ namespace Bazaar.Client.Athanor.Tests.Bridge;
 
 public sealed class BridgeCodecTests
 {
-    private static readonly JsonSerializerOptions WireOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly JsonSerializerOptions _wireOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     [Fact]
     public void Encode_writes_the_type_discriminator_for_every_host_message()
@@ -49,7 +49,7 @@ public sealed class BridgeCodecTests
         foreach (HostMessage message in messages)
         {
             string json = codec.Encode(message);
-            HostMessage? decoded = JsonSerializer.Deserialize<HostMessage>(json, WireOptions);
+            HostMessage? decoded = JsonSerializer.Deserialize<HostMessage>(json, _wireOptions);
             Assert.Equal(message, decoded);
         }
     }
@@ -61,7 +61,7 @@ public sealed class BridgeCodecTests
         const string theme = "{\"rules\":[{\"token\":\"comment\",\"foreground\":\"6a9955\"}]}\"</script>";
 
         string json = codec.Encode(new SetThemeMessage(1, theme));
-        HostMessage? decoded = JsonSerializer.Deserialize<HostMessage>(json, WireOptions);
+        HostMessage? decoded = JsonSerializer.Deserialize<HostMessage>(json, _wireOptions);
 
         Assert.Equal(new SetThemeMessage(1, theme), decoded);
     }
@@ -83,7 +83,7 @@ public sealed class BridgeCodecTests
 
         foreach (EditorMessage message in messages)
         {
-            string json = JsonSerializer.Serialize<EditorMessage>(message, WireOptions);
+            string json = JsonSerializer.Serialize<EditorMessage>(message, _wireOptions);
 
             Assert.True(codec.TryDecode(json, out EditorMessage? decoded, out string? error), error);
             Assert.Equal(message, decoded);
@@ -98,7 +98,7 @@ public sealed class BridgeCodecTests
         const string content = "<script>alert('x')</script>\"; drop();";
         string json = JsonSerializer.Serialize<EditorMessage>(
             new ChangedMessage(1, "ws:a.html", 1, content, true),
-            WireOptions);
+            _wireOptions);
 
         Assert.True(codec.TryDecode(json, out EditorMessage? decoded, out _));
         Assert.Equal(content, Assert.IsType<ChangedMessage>(decoded).Content);
@@ -119,7 +119,7 @@ public sealed class BridgeCodecTests
         var codec = new BridgeCodec(maxPayloadBytes: 64);
         string json = JsonSerializer.Serialize<EditorMessage>(
             new ChangedMessage(1, "ws:a.txt", 1, new string('x', 200), false),
-            WireOptions);
+            _wireOptions);
 
         Assert.False(codec.TryDecode(json, out EditorMessage? message, out string? error));
         Assert.Null(message);

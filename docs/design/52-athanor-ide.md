@@ -81,3 +81,18 @@ Unit: bridge codec round trips and rejection cases; seq ordering; save coordinat
 2. The wire pair and approval class for server-backed saves (§6).
 3. Linux editor surface after S12 (doc 27 Q9).
 4. Clearance of the name Athanor.
+
+## 11. Overlap check against existing and designed modules (2026-11-18)
+
+Read before adding the module, as the owner asked. Result: Athanor reuses or defers to each of these and duplicates none.
+
+| Existing or designed | Relation | What Athanor does |
+|---|---|---|
+| `Bazaar.Client.Terminal` and Calcinato (doc 28 local terminal, S10/S11) | Sibling, same naming family, separate surface (shell versus text). | Shares nothing but the window and key model. No terminal code here. |
+| `Bazaar.Client.GitGui` (doc 41 §4.14; not yet in `src/`) | Consumer. | GitGui uses Athanor's `IEditorHost.ShowDiffAsync`. Athanor adds no PR or diff list UI. |
+| Coding agent harness (doc 17) | Different actor: agents edit inside VMs through server tools. | Athanor is the human's editor only. It never runs agent edit tools. |
+| Vault (doc 18, `Bazaar.Vault.Abstractions`, the Vault search pane) | The Vault is Markdown in git. | Athanor opens Vault files through `IEditorFileSource`. No second Vault index or link resolver. |
+| Theme (`MonacoThemeGenerator` in Client.Core) | Reused as is. | `EditorThemeProvider` only calls it. |
+| Module manifest (`Bazaar.Contracts.Modules`) and `IPaneModule` | Reused. | Athanor declares a manifest and one pane kind; no new loader. |
+| Client key router and `Bazaar.Ex` mnemonic navigation | Reused. | `IEditorKeyHandoff` asks the router; no second key map. |
+| Server file access (doc 21 proxy, doc 16 VM files) | Not built. | `Bazaar.Server.Athanor` stays a PROPOSED contract (§6) and must reuse existing server file and approval paths, not add a parallel one. |
