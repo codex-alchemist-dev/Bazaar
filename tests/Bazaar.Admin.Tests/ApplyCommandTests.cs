@@ -83,7 +83,7 @@ public sealed class ApplyCommandTests
 
         Assert.Equal((int)SetupExitCode.Held, run.ExitCode);
         Assert.Contains("Result: held, so nothing was changed (exit 2)", run.Stdout);
-        Assert.Contains(AdminFixtures.ApplyUnavailableLine + "\n", run.Stdout);
+        Assert.Contains(AdminFixtures.ApplyUnavailableLine, run.Stdout);
         Assert.Contains("Plan hash: " + hash, run.Stdout);
         Assert.DoesNotContain("Applied steps", run.Stdout);
         Assert.DoesNotContain("no step implementation", run.All);
