@@ -68,7 +68,7 @@ Read before adding the module: the GC log writer already dedupes on a client mes
 
 1. Retention of `(DeviceId, WriteId)` rows. PROPOSED: keep for the life of the device registration. The schema itself (tables `offline_write_seen`, `offline_device_seq`, `offline_write_claim`, `offline_review_item` and the per-class state tables) is built in `Bazaar.Server.OfflineSync.Postgres`, migration namespace `offline_sync`.
 2. Whether `MaxClockSkew` should be per device class (a phone clock drifts more). PROPOSED: one value.
-3. Vault merge rule wiring waits on the Vault and Git client modules.
+3. Vault merge rule wiring: the Vault module's engine seam is `IVaultOfflineMergeEngine` in `Bazaar.Vault.Abstractions` (`Merged(NewHead)`, `Conflicted(BranchName, ConflictedPaths)`, `Rejected(Reason)`). An adapter in this module maps it to `IVaultOfflineMerger` and opens the review item; the host picks the engine by repository (so `Repository` is not part of the engine seam). `VaultPushIntent.Branch` is the device's source branch; the target is always the vault main head. The commit trailers `Bazaar-Device`, `Bazaar-Offline-Branch`, `Bazaar-Offline-Write` (the `WriteId`) and `Bazaar-Edit-Base` are PROPOSED in doc 18. The adapter lands once the Vault merger branch merges.
 
 4. Persistent merge-state stores must apply the claim of a `WriteId` and the state change in one transaction, and the host must serialize merges per `Target` (the Kanban edge cycle check relies on it). The in-memory states in step 1 are for tests and dev only.
 5. Where a held safety preference stores its value until review. PROPOSED: in the review item.
