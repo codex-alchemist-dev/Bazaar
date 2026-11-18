@@ -1,5 +1,5 @@
 using System;
-using Bazaar.GitHub.Webhooks;
+using Bazaar.Server.GitHub.Webhooks;
 
 namespace Bazaar.Server.Tests.GitHub.Webhooks;
 
