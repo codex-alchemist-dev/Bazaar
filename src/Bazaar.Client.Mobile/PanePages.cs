@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// Splits the registered panes into pager pages for a layout variant (doc 29, layout table). Folded shows one

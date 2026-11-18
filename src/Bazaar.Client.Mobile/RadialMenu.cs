@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>Where the pointer is inside the radial menu.</summary>
 public readonly record struct RadialSlot

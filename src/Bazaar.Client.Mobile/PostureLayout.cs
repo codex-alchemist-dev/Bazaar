@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>Physical posture of a foldable as the platform reports it (WindowLayoutInfo on Android).</summary>
 public enum PostureKind

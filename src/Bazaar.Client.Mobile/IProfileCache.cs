@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// Stores the last <see cref="PhoneProfile"/> so a cold start can paint the shell before the network answers (doc 29,

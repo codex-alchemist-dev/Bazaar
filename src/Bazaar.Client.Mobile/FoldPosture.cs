@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>Fold state as the platform reports it (FoldingFeature.State on Android). Provisional, pending spike S13 (doc 29).</summary>
 public enum FoldState

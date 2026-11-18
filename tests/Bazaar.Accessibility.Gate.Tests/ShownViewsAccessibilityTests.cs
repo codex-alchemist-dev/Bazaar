@@ -7,8 +7,9 @@ using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Mobile;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Workday;
 using Bazaar.Client.Souls;
 using Bazaar.Client.Vault;
@@ -65,7 +66,7 @@ public class ShownViewsAccessibilityTests
     [AvaloniaFact]
     public void Phone_shell_has_named_controls()
     {
-        var window = new Window { Content = new PhoneShell(), Width = 360, Height = 740 };
+        var window = new Window { Content = new PhoneShell(new PaneRegistry(PaneViews.Instance)), Width = 360, Height = 740 };
         window.Show();
 
         Assert.Empty(AccessibleControlScan.Find(window));

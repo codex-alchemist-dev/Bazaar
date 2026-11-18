@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// Test double for <see cref="IPostureSource"/>. The test pushes fold snapshots; the fake maps them with

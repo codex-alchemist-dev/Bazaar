@@ -2,11 +2,10 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Mobile;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Mobile;
 using Bazaar.Client.Panes.Abstractions;
 
-namespace Bazaar.Client.Core.Tests.Mobile;
+namespace Bazaar.Client.Mobile.Tests;
 
 public sealed class PhoneShellProfileCacheTests : IDisposable
 {
@@ -87,7 +86,7 @@ public sealed class PhoneShellProfileCacheTests : IDisposable
     [AvaloniaFact]
     public void A_fresh_profile_keeps_the_first_visible_pane_when_it_still_exists()
     {
-        var shell = new PhoneShell();
+        var shell = new PhoneShell(new PaneRegistry(TestPaneViews.Instance));
         shell.ApplyProfile(new PhoneProfile(1, ["a", "b", "c", "d"]));
         shell.GoToPage(1);
 
@@ -119,7 +118,7 @@ public sealed class PhoneShellProfileCacheTests : IDisposable
 
     private static PaneRegistry Registry(params string[] kinds)
     {
-        var registry = new PaneRegistry(PaneViews.Instance);
+        var registry = new PaneRegistry(TestPaneViews.Instance);
         foreach (var kind in kinds)
         {
             registry.Register(kind, descriptor => new GenericPaneViewModel(descriptor));

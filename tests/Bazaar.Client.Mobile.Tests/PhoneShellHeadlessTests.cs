@@ -3,18 +3,17 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Mobile;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Mobile;
 using Bazaar.Client.Panes.Abstractions;
 
-namespace Bazaar.Client.Core.Tests.Mobile;
+namespace Bazaar.Client.Mobile.Tests;
 
 public class PhoneShellHeadlessTests
 {
     [AvaloniaFact]
     public void Shell_builds_and_renders_in_folded_and_unfolded_postures()
     {
-        var registry = new PaneRegistry(PaneViews.Instance);
+        var registry = new PaneRegistry(TestPaneViews.Instance);
         registry.Register("bazaar.first", d => new GenericPaneViewModel(d));
         registry.Register("bazaar.second", d => new GenericPaneViewModel(d));
         registry.Register("bazaar.third", d => new GenericPaneViewModel(d));
@@ -47,7 +46,7 @@ public class PhoneShellHeadlessTests
     [AvaloniaFact]
     public void Shell_with_no_panes_renders_a_placeholder()
     {
-        var window = new Window { Content = new PhoneShell(), Width = 360, Height = 740 };
+        var window = new Window { Content = new PhoneShell(new PaneRegistry(TestPaneViews.Instance)), Width = 360, Height = 740 };
         window.Show();
 
         Assert.Contains("No panes yet", ShownText(window));

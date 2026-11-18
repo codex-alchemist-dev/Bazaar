@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// The layout profile the phone shows: the server revision and the pane kinds in pager order (doc 29, doc 27).

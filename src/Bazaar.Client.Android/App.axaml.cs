@@ -6,7 +6,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Gc;

@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Mobile;
+namespace Bazaar.Client.Mobile;
 
 /// <summary>
 /// Raw fold data as the platform reports it (Jetpack WindowManager's FoldingFeature on Android). Pure data:
