@@ -43,6 +43,8 @@
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
+    <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
+    <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.GitHub/Bazaar.GitHub.csproj" />
     <Project Path="src/Bazaar.Server.Portability/Bazaar.Server.Portability.csproj" />
@@ -88,6 +90,7 @@
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
     <Project Path="tests/Bazaar.Constellation.Rendering.Tests/Bazaar.Constellation.Rendering.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.Tests/Bazaar.Constellation.Vulkan.Tests.csproj" />
+    <Project Path="tests/Bazaar.Constellation.Vulkan.Bench/Bazaar.Constellation.Vulkan.Bench.csproj" />
     <Project Path="tests/Bazaar.Client.LocalInference.Tests/Bazaar.Client.LocalInference.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Terminal.Tests/Bazaar.Client.Terminal.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
@@ -97,6 +100,8 @@
     <Project Path="tests/Bazaar.Community.Tests/Bazaar.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Agent.Tests/Bazaar.Guest.Agent.Tests.csproj" />
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Tests/Bazaar.Client.Portability.Tests.csproj" />
