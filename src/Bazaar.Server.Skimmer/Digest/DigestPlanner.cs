@@ -2,7 +2,6 @@ using System.Buffers;
 using System.Collections.Frozen;
 using System.Text;
 using System.Text.Json;
-using Bazaar.Server.Agents.Inbox;
 
 namespace Bazaar.Server.Skimmer.Digest;
 
@@ -17,14 +16,20 @@ public static class DigestPlanner
     private const string _quarantine = "quarantine";
     private const string _scored = "scored";
 
+    /// <summary>The inbox kind of a deferred message digest item (the Bazaar.Server <c>InboxKind.GcDigest</c> value).</summary>
+    public const string GcDigestKind = "gc_digest";
+
+    /// <summary>The inbox kind of a Skimmer-promoted wake item (the Bazaar.Server <c>InboxKind.SkimmerPromoted</c> value).</summary>
+    public const string SkimmerPromotedKind = "skimmer_promoted";
+
     private static readonly FrozenSet<string> _knownPaths = new[]
     {
         "mention", "dm", "critical", _quarantine, _scored, "default",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>
-    /// Plans the inbox item for one decision. A defer enqueues <see cref="InboxKind.GcDigest"/> due at
-    /// <paramref name="digestAt"/>. A scored wake enqueues <see cref="InboxKind.SkimmerPromoted"/> due at
+    /// Plans the inbox item for one decision. A defer enqueues <c>gc_digest</c> due at
+    /// <paramref name="digestAt"/>. A scored wake enqueues <c>skimmer_promoted</c> due at
     /// <paramref name="now"/>. Mention, DM and critical wakes take the normal wake path, so they return null.
     /// A digest time in the past is accepted as given.
     /// </summary>
@@ -50,10 +55,10 @@ public static class DigestPlanner
         switch (decision.Decision)
         {
             case _defer:
-                return Build(decision, InboxKind.GcDigest, digestAt, quarantined: decision.Path == _quarantine);
+                return Build(decision, GcDigestKind, digestAt, quarantined: decision.Path == _quarantine);
 
             case _wake when decision.Path == _scored:
-                return Build(decision, InboxKind.SkimmerPromoted, now, quarantined: false);
+                return Build(decision, SkimmerPromotedKind, now, quarantined: false);
 
             case _wake:
                 return null;
