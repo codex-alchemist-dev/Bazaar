@@ -21,4 +21,35 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
         var store = new PostgresCrashStore(db.DataSource);
         return (store, store, db);
     }
+
+    [Fact]
+    public async Task Retention_removes_screenshots_then_reports_then_idle_groups_and_keeps_what_is_still_needed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, _, handle) = await CreateAsync(ct);
+        await using var _h = handle;
+        var retention = (ICrashRetention)store;
+        var t0 = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        const string fp = "fp1:0123456789abcdef0123456789abcdef";
+        var group = new StoredCrashGroup(
+            new Bazaar.Diagnostics.Grouping.GroupState { Fingerprint = fp, OccurrenceCount = 1, FirstSeenVersion = "0.1.0", LastSeenVersion = "0.1.0", FirstSeenAt = t0, LastSeenAt = t0 },
+            new CrashIssueFacts(null, "System.Exception", [], null, null), 1);
+        var report = new StoredCrashReport(Guid.NewGuid(), Guid.NewGuid(), fp, t0, t0, "0.1.0", Bazaar.Diagnostics.Ingestion.SymbolsState.Missing, new string('a', 64), new SealedPayload("k", [1], [2], [3]));
+        var shot = new StoredCrashAttachment(Guid.NewGuid(), report.ReportId, "image/png", new string('b', 64), new SealedPayload("k", [1], [2], [3]));
+        await store.CommitAsync(new CrashCommit(report, shot, group, null, []), ct);
+        var policy = CrashRetentionPolicy.Default;
+
+        var early = await retention.PurgeAsync(t0.AddDays(29), policy, ct);
+        var afterShot = await retention.PurgeAsync(t0.AddDays(31), policy, ct);
+        var afterReport = await retention.PurgeAsync(t0.AddDays(91), policy, ct);
+        var groupStillThere = await store.GetGroupAsync(fp, ct);
+        var afterGroup = await retention.PurgeAsync(t0.AddDays(366), policy, ct);
+
+        Assert.Equal(new CrashPurgeResult(0, 0, 0), early);
+        Assert.Equal(new CrashPurgeResult(1, 0, 0), afterShot);
+        Assert.Equal(new CrashPurgeResult(0, 1, 0), afterReport);
+        Assert.NotNull(groupStillThere);
+        Assert.Equal(new CrashPurgeResult(0, 0, 1), afterGroup);
+        Assert.Null(await store.GetGroupAsync(fp, ct));
+    }
 }

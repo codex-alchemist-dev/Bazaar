@@ -10,7 +10,7 @@ namespace Bazaar.Server.Diagnostics.Persistence;
 /// transaction: the group row is changed under an optimistic version check, then the report, screenshot, outbox rows and
 /// filing-budget rows are written. A lost race or a retried report writes nothing.
 /// </summary>
-public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashIntakeStore, ICrashActionOutbox
+public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashIntakeStore, ICrashActionOutbox, ICrashRetention
 {
     private const string _groupColumns =
         "fingerprint, version, status, occurrence_count, first_seen_version, last_seen_version, first_seen_at, last_seen_at, " +
@@ -160,6 +160,32 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
         cmd.Parameters.AddWithValue(id);
         cmd.Parameters.AddWithValue(reason);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<CrashPurgeResult> PurgeAsync(DateTimeOffset now, CrashRetentionPolicy policy, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var attachments = await DeleteOlderAsync(
+            conn, tx, "DELETE FROM crash_attachment a USING crash_report r WHERE a.report_id = r.report_id AND r.received_at < $1",
+            now - policy.AttachmentRetention, ct).ConfigureAwait(false);
+        var reports = await DeleteOlderAsync(conn, tx, "DELETE FROM crash_report WHERE received_at < $1", now - policy.ReportRetention, ct).ConfigureAwait(false);
+        var groups = await DeleteOlderAsync(
+            conn, tx,
+            "DELETE FROM crash_group g WHERE g.last_seen_at < $1 AND NOT EXISTS (SELECT 1 FROM crash_report r WHERE r.fingerprint = g.fingerprint) " +
+            "AND NOT EXISTS (SELECT 1 FROM crash_action_outbox o WHERE o.fingerprint = g.fingerprint)",
+            now - policy.GroupRetention, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new CrashPurgeResult(attachments, reports, groups);
+    }
+
+    private static async Task<int> DeleteOlderAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string sql, DateTimeOffset cutoff, CancellationToken ct)
+    {
+        await using var cmd = new NpgsqlCommand(sql, conn, tx);
+        cmd.Parameters.AddWithValue(Micro(cutoff));
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     private static async Task<bool> ReportExistsAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid reportId, CancellationToken ct)

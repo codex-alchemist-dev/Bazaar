@@ -80,7 +80,7 @@ CREATE INDEX crash_action_outbox_due_idx ON crash_action_outbox (not_before, cre
 CREATE INDEX crash_action_outbox_group_idx ON crash_action_outbox (fingerprint, kind) WHERE NOT dead;
 
 -- Runtime role: the intake path inserts and updates; retention deletes; nothing here is append-only because reports expire.
-GRANT SELECT, INSERT, UPDATE ON crash_group TO bazaar_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON crash_group TO bazaar_app;
 GRANT SELECT, INSERT, DELETE ON crash_report TO bazaar_app;
 GRANT SELECT, INSERT, DELETE ON crash_attachment TO bazaar_app;
 GRANT SELECT, INSERT, DELETE ON crash_issue_filing TO bazaar_app;

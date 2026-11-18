@@ -77,3 +77,23 @@ public sealed class CrashIssueNotFoundException : Exception
     /// <summary>The missing issue.</summary>
     public int IssueNumber { get; }
 }
+
+/// <summary>How long crash data is kept (doc 43 section 11.4).</summary>
+/// <param name="ReportRetention">Sealed report bodies. Default 90 days.</param>
+/// <param name="AttachmentRetention">Screenshots. Default 30 days.</param>
+/// <param name="GroupRetention">Group summaries, counted from the last occurrence. Default 365 days.</param>
+public sealed record CrashRetentionPolicy(TimeSpan ReportRetention, TimeSpan AttachmentRetention, TimeSpan GroupRetention)
+{
+    /// <summary>The shipped defaults.</summary>
+    public static CrashRetentionPolicy Default { get; } = new(TimeSpan.FromDays(90), TimeSpan.FromDays(30), TimeSpan.FromDays(365));
+}
+
+/// <summary>What one retention pass removed.</summary>
+public sealed record CrashPurgeResult(int Attachments, int Reports, int Groups);
+
+/// <summary>Deletes crash data past its retention. Safe to run at any time and to run twice.</summary>
+public interface ICrashRetention
+{
+    /// <summary>Removes screenshots, reports and groups older than the policy allows at <paramref name="now"/>. A group with a report left, or with an unfinished outbox row, is kept.</summary>
+    Task<CrashPurgeResult> PurgeAsync(DateTimeOffset now, CrashRetentionPolicy policy, CancellationToken ct = default);
+}
