@@ -86,7 +86,7 @@ Settings: `host.provider.cache` (doc 03) is unchanged: `auto`, `garnet`, `valkey
 
 - **Loopback only.** The child listens on loopback. A non-loopback listen is not a setting (the doc 42 section 15 floor).
 - **Port.** `deps.valkey.managedPort` of 0 (the default) means a free loopback port is chosen per child start. Clients re-resolve the endpoint on every call and do not cache it at construction, so a restarted child on a new port is picked up without a host restart.
-- **Password custody (PROPOSED deviation, 4b.4 item 1).** The password is generated per run and held in memory as a secret value. It is delivered to the child on stdin. It is never written to disk, to an environment variable, to a command line, to a log, to the status page or to a Kodo fact. This deviates from the doc 14 `ISecretStore` custody rule until doc 14 has a store scope for runtime-only secrets. The client connection string built from it lives in memory only.
+- **Password custody (PROPOSED, 4b.4 items 1 and 12).** The managed child's password is generated per run and held in memory as a secret value. It is delivered to the child on stdin. It rotates on every start, and it is never written to disk, to an environment variable, to a command line, to a log, to the status page or to a Kodo fact. Nothing durable needs custody here, because this is a local cache. An externally configured Valkey takes its password from the secret store (doc 14), through the `SecretReference` path of `ValkeyCacheOptions`. The managed child's in-memory password is the one deviation from doc 14's custody rule.
 - **Parent death.** On Linux the child starts through the util-linux `setpriv --pdeathsig` wrapper named by `deps.valkey.parentDeathWrapper`. A managed start is refused when no parent-death mechanism is available. This is a floor, not a warning, so an orphaned `valkey-server` cannot outlive the host.
 - **Stale-child sweep (PROPOSED).** Before a managed start, the host reads `valkey-server.pid` in `deps.valkey.runtimeDirectory`. If that pid is alive and `/proc/<pid>/comm` reads `valkey-server`, the host stops it before starting a new child. If the pid is dead or does not match, the host removes the stale file. A process whose comm does not match is never killed.
 - **Startup order (PROPOSED, 4b.4 item 8).** The managed child starts before the cache provider probe in doc 03 startup step 5. The probe retries inside the bounded window `deps.valkey.startWindowSeconds`, with the per-attempt bound of `ValkeyCacheOptions.ProbeTimeout`. The window expiring marks the probe unusable. It does not fail startup, because the cache is not a required readiness role (doc 03).
@@ -112,17 +112,18 @@ Every probe is non-critical. This is explicit: no Valkey probe can make the stat
 
 ### 4b.4 Open items and PROPOSED decisions (need one answer each before code)
 
-1. **Password custody (PROPOSED deviation).** Per-run in-memory secret value, delivered on stdin, instead of `ISecretStore` custody (4b.1). Stays a deviation until doc 14 defines a store scope for runtime-only secrets. Owner to confirm.
+1. **Password custody (PROPOSED).** The managed child keeps a per-run in-memory secret, delivered on stdin, rotated on every start (4b.1). Nothing durable needs custody, so no doc 14 store scope is required for it. Owner to confirm.
 2. **Eviction self-test (PROPOSED).** Config-level only (`CONFIG GET maxmemory-policy` is `allkeys-lru` and `CONFIG GET maxmemory` matches the setting). The behavioural fill test is deferred.
 3. **Probe criticality (PROPOSED).** All Valkey probes are non-critical, as stated in 4b.2.
 4. **Namespace (PROPOSED).** No alias for the old `Bazaar.Server.Providers.Linux` cache types. Nothing outside the Linux provider folder references them.
-5. **Child-process settings (PROPOSED).** The `deps.valkey.*` rows in doc 42 section 15 need owner confirmation of names and defaults. The `ICacheProvider.DeleteAsync` addition is PROPOSED in doc 03 (WP12 status and the interface sketch).
+5. **Child-process settings (PROPOSED).** The `deps.valkey.*` rows in doc 42 section 15 need owner confirmation of names and defaults. `deps.valkey.runtimeDirectory` defaults to `/var/lib/bazaar/valkey` and is overridable by that setting (PROPOSED, owner decision recorded by the coordinator). The `ICacheProvider.DeleteAsync` addition is PROPOSED in doc 03 (WP12 status and the interface sketch).
 6. **Eviction behavioural test (deferred).** The fill-and-evict test in 4b.2 is out of the first code PR and needs its own answer.
 7. **Tags (PROPOSED).** `ComponentManifest` has no Tags field today (`src/Bazaar.Core/ComponentManifest.cs`). PROPOSED: add a Tags field in `Bazaar.Core`. Until then the tags are constants in `Bazaar.Server.Valkey.Abstractions`.
 8. **Startup ordering (PROPOSED).** Child first, bounded probe retry window `deps.valkey.startWindowSeconds` (4b.1).
 9. **Term and kind.** Doc 42 Q8 (`module` and `kind: dependency`). This section follows the proposed answer.
 10. **Licence of StackExchange.Redis.** MIT is expected, not verified. It is not in doc 42 section 13.2 yet, and the licence scan must confirm it.
 11. **Presence while the cache is down.** Doc 23's decision (OPEN).
+12. **Secret custody by mode (PROPOSED).** Managed child: per-run in-memory password, rotated each start (item 1). External Valkey (`deps.valkey.managed` false): password taken from the secret store (doc 14) through `ValkeyCacheOptions.SecretReference`, never a plain setting.
 
 ## 5. Plan, in order
 

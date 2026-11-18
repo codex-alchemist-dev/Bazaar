@@ -432,16 +432,16 @@ Rows follow the doc 03 registry format. Keys are dotted and prefixed by area. Ch
 | `deps.extensions.pgSearch` | `auto`, `off` | `auto` on Linux; not offered on Windows | install | operator | No |
 | `deps.update.deferWarnDays` | int, 7 to 365 | 60 | install | operator | No |
 | `deps.health.selfTestSchedule` | `weekly`, `daily`, `off` | `weekly` | install | operator | No; `off` raises a Kodo amber |
-| `deps.valkey.managed` | bool | `true` on Linux | install | operator | No; `false` uses an external endpoint (PROPOSED, doc 40 section 4b) |
+| `deps.valkey.managed` | bool | `true` on Linux | install | operator | No; `false` uses an external endpoint whose password comes from the secret store (doc 14) (PROPOSED, doc 40 section 4b) |
 | `deps.valkey.binaryPath` | path or `auto` | `auto` (the bundled `valkey-server`) | install | operator | No |
-| `deps.valkey.runtimeDirectory` | path | `/var/lib/bazaar/valkey` (PROPOSED fixed path, under the data root) | install | operator | No |
+| `deps.valkey.runtimeDirectory` | path | `/var/lib/bazaar/valkey` (PROPOSED; overridable by this setting) | install | operator | No |
 | `deps.valkey.managedPort` | int 0 to 65535 | `0` (a free loopback port per child start) | install | operator | No; loopback is not a setting |
 | `deps.valkey.maxMemoryMegabytes` | int, 16 to 65536 | `256` | install | operator | No |
 | `deps.valkey.memoryWarnPercent` | int, 50 to 100 | `80` | install | operator | No |
 | `deps.valkey.parentDeathWrapper` | `setpriv` (Linux), `none` | `setpriv` | install | operator | No; `none` refuses a managed start (floor) |
 | `deps.valkey.startWindowSeconds` | int, 1 to 120 | `30` | install | operator | No |
 
-Security floors, not settings: loopback-only listening, data checksums on, generated credentials, no deps with `proc.child` or `secrets`, no non-OSI licence. For the Valkey module (PROPOSED, doc 40 section 4b.1): loopback-only listening, a generated per-run password, and a parent-death mechanism required for a managed start. A setting may tighten these rules and never loosen them.
+Security floors, not settings: loopback-only listening, data checksums on, generated credentials, no deps with `proc.child` or `secrets`, no non-OSI licence. For the Valkey module (PROPOSED, doc 40 section 4b.1): loopback-only listening, a generated per-run password for the managed child (rotated on every start, held in memory), and a parent-death mechanism required for a managed start. An external Valkey takes its password from the secret store (doc 14), never from a plain setting. A setting may tighten these rules and never loosen them.
 
 Default-line rule: an existing install never moves to a new major on upgrade of Bazaar. The move is the owner's decision (section 10.3). A new install takes `newest`.
 
