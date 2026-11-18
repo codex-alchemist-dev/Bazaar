@@ -87,6 +87,9 @@ public enum TurnEndReason
 
     /// <summary>The final message could not be posted because a loop guard refused it. Nothing was appended; the turn fails and its items are released.</summary>
     PostRefused,
+
+    /// <summary>The turn stopped because the agent's token budget (hourly, daily or weekly window) would be exceeded. Nothing further was sent.</summary>
+    TokenBudget,
 }
 
 /// <summary>Result of running one turn loop, including subagent children (doc 06 WP5, WP8).</summary>

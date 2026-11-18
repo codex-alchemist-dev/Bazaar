@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -33,7 +34,7 @@ public class WorkdayPaneTests
     [Fact]
     public void Registry_builds_the_workday_and_falls_back_on_an_unknown_state()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
         Assert.IsType<WorkdayPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Workday, _model)));
 
         var bad = registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Workday,
@@ -46,7 +47,7 @@ public class WorkdayPaneTests
     {
         var pane = new WorkdayPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Workday, _model));
 
-        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
+        var view = TestPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Charles (2)", texts);

@@ -115,4 +115,4 @@ ALREADY DECIDED (no longer asked): S10 deep-link registration instead of a silen
 ANSWERED: Run S2 only if S3 fails? S2 runs regardless and gates presence and cache work (DECISIONS-LOG round 1, C07).
 ANSWERED: Benchmark nested and two-VM topologies? The two-VM pair is decided; S8 is sizing only (DECISIONS-LOG round 1, C03).
 ANSWERED: Request an Accelerate quote before S12? No paid Avalonia tier in the public build, so no quote (DECISIONS-LOG round 4, C23).
-ANSWERED: Does embedded Monaco in a native client count as a web client? No; native clients may embed Monaco (CLAUDE.md; Server.md §1; DECISIONS-LOG round 5, C26).
+ANSWERED: Does embedded Monaco in a native client count as a web client? No; native clients may embed Monaco (Server.md §1; DECISIONS-LOG round 5, C26).

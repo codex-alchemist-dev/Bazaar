@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Bazaar.Server.GitHub.Webhooks;
+namespace Bazaar.GitHub.Webhooks;
 
 /// <summary>
 /// Remembers recent X-GitHub-Delivery ids so a redelivered webhook is applied once.
