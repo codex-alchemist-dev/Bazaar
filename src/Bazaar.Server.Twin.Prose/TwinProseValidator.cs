@@ -8,6 +8,8 @@ public sealed record ValidatedProse(IReadOnlyList<ValidatedSentence> Sentences, 
 
 /// <summary>
 /// Keeps only draft sentences with a valid <c>source_ref</c> (doc 25 "Trust and crossing rules"). A ref is valid when it names a
+/// TODO: replace with the shared source-ref validator in Bazaar.Server.Knowledge.Abstractions once the Knowledge extraction lands;
+/// until then this mirrors Bazaar.Server/Knowledge/Archive/ArchiveChapterValidator.cs.
 /// fact id or a <c>kind:ref</c> source key present in the input. Pure: no clock, no I/O. A bad sentence is dropped, never repaired.
 /// </summary>
 public static class TwinProseValidator
