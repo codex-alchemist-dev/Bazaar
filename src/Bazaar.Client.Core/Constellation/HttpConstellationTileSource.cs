@@ -28,8 +28,7 @@ public sealed class HttpConstellationTileSource(HttpClient http, Func<string?> c
     public static HttpConstellationTileSource Create(ServerEndpoint endpoint, HttpMessageHandler? handler = null)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
-        var http = handler is null ? new HttpClient() : new HttpClient(handler);
-        http.BaseAddress = endpoint.BaseAddress;
+        var http = handler is null ? endpoint.CreateHttpClient() : new HttpClient(handler) { BaseAddress = endpoint.BaseAddress };
         return new HttpConstellationTileSource(http, () => endpoint.Credential);
     }
 

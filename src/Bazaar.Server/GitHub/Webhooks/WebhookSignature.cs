@@ -1,7 +1,7 @@
 using System;
 using System.Security.Cryptography;
 
-namespace Bazaar.Server.GitHub.Webhooks;
+namespace Bazaar.GitHub.Webhooks;
 
 /// <summary>Verifies GitHub webhook signatures (X-Hub-Signature-256) with HMAC-SHA256 over the raw body.</summary>
 public static class WebhookSignature

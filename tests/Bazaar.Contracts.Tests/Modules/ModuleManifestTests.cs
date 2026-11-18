@@ -70,6 +70,21 @@ public class ModuleManifestTests
     }
 
     [Fact]
+    public void Client_vocabulary_covers_all_ten_doc_48_permission_classes()
+    {
+        // Owner, 2026-11-16: the client manifest carries every doc 48 section 1 class. Each class has one identifier.
+        string[] classes =
+        [
+            "wire:gc.history", "wire:kanban.write", "wire:gc.post", "network:host", "storage:local",
+            "secret:name", "ui:pane", "background:job", "process:spawn", "device:notify",
+        ];
+
+        ModuleManifestResult result = ModuleManifestValidator.Validate(Valid() with { Capabilities = classes });
+
+        Assert.True(result.IsValid, string.Join(", ", result.Issues.Select(i => i.Code)));
+    }
+
+    [Fact]
     public void Bad_pane_command_and_setting_names_are_reported_by_path()
     {
         ModuleManifestResult result = ModuleManifestValidator.Validate(Valid() with

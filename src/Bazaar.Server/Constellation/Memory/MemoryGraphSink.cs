@@ -1,3 +1,4 @@
+using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Notes;
 using Bazaar.Server.Memory.Write;
 using Microsoft.Extensions.Logging;
@@ -59,9 +60,23 @@ public sealed partial class MemoryGraphSink(IMemoryBatchSink inner, IMemoryGraph
 
     private async Task ProjectItemAsync(MemoryBatch batch, MemoryWriteItem item, CancellationToken ct)
     {
+        // The agent id becomes a path segment, so it must be a valid identifier before any path check relies on it.
+        if (!VaultPath.IsValidIdentifier(batch.AgentId))
+        {
+            LogSkippedPath(_logger, item.WriteId, "agent id is not a valid identifier");
+            return;
+        }
+
+        // The path must be a normalized Vault path. A malformed path is logged, not projected.
+        if (!VaultPath.TryParse(item.Path, out var vaultPath))
+        {
+            LogSkippedPath(_logger, item.WriteId, "path is not a normalized Vault path");
+            return;
+        }
+
         // Only notes in the writer's own private memory area are projected. Anything else is skipped silently.
-        var scopePrefix = "agents/" + batch.AgentId + "/memory/";
-        if (!item.Path.StartsWith(scopePrefix, StringComparison.Ordinal))
+        var segments = vaultPath.Segments;
+        if (segments.Count < 4 || segments[0] != "agents" || segments[1] != batch.AgentId || segments[2] != "memory")
         {
             return;
         }
@@ -80,7 +95,7 @@ public sealed partial class MemoryGraphSink(IMemoryBatchSink inner, IMemoryGraph
             var revision = MemoryGraphProjector.Project(
                 document.Note,
                 document.Body,
-                item.Path,
+                vaultPath.Value,
                 batch.AgentId,
                 _noTitles);
 
@@ -97,6 +112,9 @@ public sealed partial class MemoryGraphSink(IMemoryBatchSink inner, IMemoryGraph
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Memory graph skipped write {WriteId}: note did not parse ({Error}).")]
     private static partial void LogSkippedUnparsable(ILogger logger, Guid writeId, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Memory graph skipped write {WriteId}: {Reason}.")]
+    private static partial void LogSkippedPath(ILogger logger, Guid writeId, string reason);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Memory graph failed to store write {WriteId}. The Vault commit stands.")]
     private static partial void LogStoreFailed(ILogger logger, Guid writeId, Exception ex);

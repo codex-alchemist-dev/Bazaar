@@ -97,7 +97,7 @@ This list is for the owner to read. This document does not change any of these f
 
 ## 6. Module exception (PROPOSED wording, for counsel)
 
-Intent, from section 3, item 2: modules that use the public module API may be under any licence, including closed commercial. The core stays AGPL.
+Intent, from section 3, item 2: modules that use the public module API may be under any licence, including closed commercial. The core stays AGPL. Owner, 2026-11-16: the exception also covers Deps (doc 42 section 13.3). Counsel reviews the wording and the licensing before the first public release.
 
 Draft text (PROPOSED, not legal advice, for counsel to rewrite):
 

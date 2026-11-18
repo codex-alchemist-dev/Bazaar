@@ -14,7 +14,8 @@ public static class ModelRequestHash
     /// <summary>Returns <c>sha256:</c> and the lowercase hex digest of the request.</summary>
     public static string Compute(string route, IReadOnlyList<ModelMessage> messages, IReadOnlyList<ModelToolDefinition> tools)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(route);
+        // A blank route is valid: it means the agent's own policy default route, resolved by the gateway (doc 05).
+        ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(messages);
         ArgumentNullException.ThrowIfNull(tools);
 

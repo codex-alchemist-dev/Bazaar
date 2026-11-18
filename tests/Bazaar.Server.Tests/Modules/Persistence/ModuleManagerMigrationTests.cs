@@ -28,7 +28,8 @@ public sealed partial class ModuleManagerMigrationTests
     {
         var files = _source.Load("modules");
 
-        var file = Assert.Single(files);
+        Assert.Equal(2, files.Count);
+        var file = files[0];
         Assert.Equal("modules", file.Namespace);
         Assert.Equal(1, file.Version);
         Assert.Equal("module_manager", file.Name);

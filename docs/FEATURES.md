@@ -132,7 +132,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Launcher and Chat components | Client component libraries. | Partial (`Bazaar.Client.Components.Launcher`, `.Chat`) | `src/` |
 | Local Co-Worker (NPU) | On-device inference on the client. A named client-side exception to "server does the compute". | Partial (`src/Bazaar.Client.LocalInference`; NPU probe blocked on hardware S21) | `docs/design/31` |
 | Monaco editor | Editor component hosted in the Windows head. Gated by spike S12. | Planned (gate open) | `docs/design/27`, `docs/design/28` |
-| Git diff and PR panes | Diff and PR UI in the Windows head. | Planned (blocked on S12) | `docs/design/28` |
+| Git diff and PR panes | Diff and PR UI in Bazaar.Client.GitGui, shared by the heads. | Planned (Monaco part blocked on S12) | `docs/design/41` section 4.14, `28`, `29` |
 | ConPTY terminal pane | Windows terminal pane. | Planned (blocked on spike S11 and widget choice) | `docs/design/28` |
 | Pane registry (client) | Client panes registered per head and rendered by a generic renderer. Pane modules register their own views (#455). | Partial (`src/Bazaar.Client.Core/Panes`) | `docs/design/27`, `docs/design/20` |
 | Bazaar.Guest.Agent | Guest-side agent baked into VM images. | Partial (project exists) | `src/Bazaar.Guest.Agent` |
@@ -173,6 +173,8 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
+| Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21` |
+| GitLab integration | GitLab as a second git provider on the GitHub contract. | Planned (v1 scope, owner 2026-11-16) | `docs/design/21`, `41` section 4.14 |
 
 ## 10. Storage, backup and platform packaging
 
@@ -206,7 +208,7 @@ Owner-set naming, 2026-11-09, recorded in project memory. The code now uses most
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Bazaar.Core | The core module every other module slots into. | Planned (target name; `Bazaar.Server/Components` is today's kernel) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
+| Bazaar.Core | The core module every other module slots into. | Planned (target name; the kernel still lives in `Bazaar.Server/Components`, see doc 40 section 4) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
 | Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda | Server modules that slot into Bazaar.Core. | Partial (`Bazaar.GC.Abstractions`, `Bazaar.Constellation.*`, `Bazaar.RyuseiFuda`; the full code split is wave 3) | `BAZAAR-COMPONENTS.md` §10 |
 | Bazaar.Client.<Feature> | Client modules, one per feature area. | Partial (`Bazaar.Client.Layout`, `.Kodo`, `.RyuseiFuda`, `.Components.Chat`, `.Components.Launcher`, `.LocalInference`, `.Terminal`, plus the platform heads) | `BAZAAR-COMPONENTS.md` §10 |
 | Parts: `<Module>.<Part>` | Parts of a module, such as RyuseiFuda.Workday. | Planned | project memory |
