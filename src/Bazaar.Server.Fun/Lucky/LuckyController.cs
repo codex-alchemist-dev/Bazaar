@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Bazaar.Server.Sanitization;
 
-namespace Bazaar.Fun.Lucky;
+namespace Bazaar.Server.Fun.Lucky;
 
 /// <summary>
 /// The I'm Feeling Lucky run controller (doc 26, section 6). Pure logic: the caller supplies the clock, the seed source,

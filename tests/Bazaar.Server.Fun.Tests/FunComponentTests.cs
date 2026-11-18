@@ -1,11 +1,11 @@
 using Bazaar.Core;
-using Bazaar.Fun;
-using Bazaar.Fun.Ward;
+using Bazaar.Server.Fun;
+using Bazaar.Server.Fun.Ward;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace Bazaar.Fun.Tests;
+namespace Bazaar.Server.Fun.Tests;
 
 public sealed class FunComponentTests
 {

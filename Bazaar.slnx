@@ -38,8 +38,8 @@
     <Project Path="src/Bazaar.Guest.Agent/Bazaar.Guest.Agent.csproj" />
     <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
-    <Project Path="src/Bazaar.Fun/Bazaar.Fun.csproj" />
-    <Project Path="tests/Bazaar.Fun.Tests/Bazaar.Fun.Tests.csproj" />
+    <Project Path="src/Bazaar.Server.Fun/Bazaar.Server.Fun.csproj" />
+    <Project Path="tests/Bazaar.Server.Fun.Tests/Bazaar.Server.Fun.Tests.csproj" />
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />

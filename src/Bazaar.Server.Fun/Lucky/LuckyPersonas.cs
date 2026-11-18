@@ -1,4 +1,4 @@
-namespace Bazaar.Fun.Lucky;
+namespace Bazaar.Server.Fun.Lucky;
 
 /// <summary>Persona selection from a recorded seed. The same seed always selects the same persona.</summary>
 public static class LuckyPersonas

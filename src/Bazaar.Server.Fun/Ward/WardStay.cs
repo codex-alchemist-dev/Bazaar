@@ -1,4 +1,4 @@
-namespace Bazaar.Fun.Ward;
+namespace Bazaar.Server.Fun.Ward;
 
 /// <summary>The check-in an admitted agent writes (doc 26, section 1). It is agent trust data and grants nothing.</summary>
 /// <param name="Attempted">What the agent tried.</param>

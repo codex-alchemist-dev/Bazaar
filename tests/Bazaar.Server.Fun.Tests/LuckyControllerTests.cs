@@ -1,7 +1,7 @@
-using Bazaar.Fun.Lucky;
+using Bazaar.Server.Fun.Lucky;
 using Bazaar.Server.Sanitization;
 
-namespace Bazaar.Fun.Tests;
+namespace Bazaar.Server.Fun.Tests;
 
 public class LuckyControllerTests
 {

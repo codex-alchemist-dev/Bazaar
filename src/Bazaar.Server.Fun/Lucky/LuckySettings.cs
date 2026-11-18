@@ -1,4 +1,4 @@
-namespace Bazaar.Fun.Lucky;
+namespace Bazaar.Server.Fun.Lucky;
 
 /// <summary><c>lucky.participation</c> values.</summary>
 public enum LuckyParticipation

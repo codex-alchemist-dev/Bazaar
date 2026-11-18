@@ -1,4 +1,4 @@
-namespace Bazaar.Fun.Vent;
+namespace Bazaar.Server.Fun.Vent;
 
 /// <summary>
 /// The vent settings from doc 26 (<c>vent.*</c>) with the shipped defaults. The publish target is an operator-set value

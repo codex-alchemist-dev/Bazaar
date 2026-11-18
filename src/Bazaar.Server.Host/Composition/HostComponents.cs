@@ -1,6 +1,6 @@
 using Bazaar.Server.Community;
 using Bazaar.Core;
-using Bazaar.Fun;
+using Bazaar.Server.Fun;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;

@@ -1,7 +1,7 @@
-using Bazaar.Fun.Vent;
+using Bazaar.Server.Fun.Vent;
 using Bazaar.Server.Sanitization;
 
-namespace Bazaar.Fun.Tests;
+namespace Bazaar.Server.Fun.Tests;
 
 public class VentDrafterTests
 {

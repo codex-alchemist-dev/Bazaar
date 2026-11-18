@@ -1,10 +1,10 @@
 using Bazaar.Core;
-using Bazaar.Fun;
-using Bazaar.Fun.Vent;
+using Bazaar.Server.Fun;
+using Bazaar.Server.Fun.Vent;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Fun.Tests;
+namespace Bazaar.Server.Fun.Tests;
 
 public sealed class VentComponentConfigurationTests
 {
