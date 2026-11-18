@@ -89,6 +89,7 @@ Each part is its own module pair on Bazaar.Core: `Bazaar.Server.<Name>` plus `Ba
 - Canary credentials are planted in the Soul share on attach. Any read-use is reported through `ICanarySink`, which the agent-safety module turns into the page-and-freeze action (doc 15, PROPOSED there too).
 - The OS-specific work (SMB share and ACL on Windows, mount and bind on Linux) sits behind `IMountProvider`. The cloud build ships a fake and a directory-based provider for tests.
 - Every attach, detach and write-back writes an audit row through the existing audit abstraction.
+- **Hard taint and kill switch (PROPOSED, from the security review):** detaching the share does not remove the guest-local profile copy. So a hard-taint or kill-switch detach also asks the host to pause the VM and discard or revert its disk (`IGuestScrubber`, wired to the VM lifecycle). Detach never waits on guest I/O and never writes back after taint. Canary fingerprints are stored, not forgotten, so a canary used after detach or a restart still pages. The profile folder is locked per agent, because both VMs of one agent share it.
 
 **Egress (WP9): `Bazaar.Server.VmEgress`**
 - Resolves Conflict 2: the egress owner is doc 15 ("Egress and ingress", `IEgressPolicy`); this doc owns the VM side (switch rules and the proxy). Doc 15 WP7 and this WP9 are one deliverable.
