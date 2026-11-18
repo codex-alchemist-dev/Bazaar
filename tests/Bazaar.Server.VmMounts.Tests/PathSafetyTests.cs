@@ -44,7 +44,6 @@ public sealed class PathSafetyTests
     [InlineData("\\\\server\\share\\x")]
     [InlineData("//server/share/x")]
     [InlineData("\\\\?\\C:\\agents\\x")]
-    [InlineData("C:\\agents\\x\\workspace")]
     [InlineData("{ws}/sub.")]
     [InlineData("{ws}/sub ")]
     [InlineData("{ws}/CON")]
@@ -58,6 +57,15 @@ public sealed class PathSafetyTests
         var path = template.Replace("{ws}", h.Workspace(h.Agent), StringComparison.Ordinal);
 
         await AssertRefusedAsync(h, h.WorkspaceSpec(hostPath: path), MountRefusalReason.InvalidPath);
+    }
+
+    [Fact]
+    public async Task A_drive_letter_path_is_not_a_host_path_on_a_posix_host()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "On Windows a drive-letter path is a real absolute path and is refused as outside the agent root instead.");
+        using var h = new MountHarness();
+
+        await AssertRefusedAsync(h, h.WorkspaceSpec(hostPath: "C:\\agents\\x\\workspace"), MountRefusalReason.InvalidPath);
     }
 
     [Fact]
@@ -134,7 +142,17 @@ public sealed class PathSafetyTests
         // The agent's own folder in another case is matched by the folding rule, so the refusal is about existence, not about the root.
         var mixed = Path.Combine(h.AgentsRoot, h.Agent.ToString("N").ToUpperInvariant(), "WORKSPACE");
         ex = await Assert.ThrowsAsync<MountRefusedException>(() => h.Manager.AttachAsync(h.WorkspaceSpec(hostPath: mixed), MountHarness.Ct));
-        Assert.Equal(MountRefusalReason.InvalidPath, ex.Reason);
+        if (OperatingSystem.IsWindows())
+        {
+            // The real volume is case-insensitive, so the folder exists: the folding rule matched, and the mount is only refused later on content.
+            Assert.NotEqual(MountRefusalReason.OutsideAgentRoot, ex.Reason);
+            Assert.NotEqual(MountRefusalReason.DeniedPath, ex.Reason);
+        }
+        else
+        {
+            Assert.Equal(MountRefusalReason.InvalidPath, ex.Reason);
+        }
+
         Assert.Empty(h.Provider.Calls);
     }
 
