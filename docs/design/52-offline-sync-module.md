@@ -70,6 +70,10 @@ Read before adding the module: the GC log writer already dedupes on a client mes
 2. Whether `MaxClockSkew` should be per device class (a phone clock drifts more). PROPOSED: one value.
 3. Vault merge rule wiring waits on the Vault and Git client modules.
 
+4. Persistent merge-state stores must apply the claim of a `WriteId` and the state change in one transaction, and the host must serialize merges per `Target` (the Kanban edge cycle check relies on it). The in-memory states in step 1 are for tests and dev only.
+5. Where a held safety preference stores its value until review. PROPOSED: in the review item.
+6. Kanban Blocked recompute is delegated to the transition checker supplied by the Kanban module.
+
 ## 9. Build state
 
 PLANNED. Step 1 (this PR set): abstractions, server merge engine with in-memory store, client queue. Step 2: Postgres store and migrations. Step 3: wire endpoints and client head composition. Step 4: Vault rule.
