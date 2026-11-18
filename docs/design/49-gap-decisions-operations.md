@@ -137,7 +137,7 @@ Testing:
 
 **Cross-links.** 01 (GC log and versions), 02 (replay and sequence), 12 (Kanban fields and transitions), 18 (Vault git), 19 (layouts), 27 (client cache and queue), 33 (recovery), 48 (audit log).
 
-**Build state.** PLANNED.
+**Build state.** PLANNED. Module layout, shapes and defaults: doc 52.
 
 ## 5. Conduit limits: built-in rate limits and authentication lockout
 
