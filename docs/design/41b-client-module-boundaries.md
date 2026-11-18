@@ -36,6 +36,9 @@ Each feature with a client surface has a separate server module and client modul
 | Git | `Bazaar.Server.Git` | `Bazaar.Client.GitGui` (with `.Github`, `.Gitlab`) | Per doc 41 §4.14. |
 | Kanban (RyuseiFuda) | `Bazaar.Server.RyuseiFuda` | `Bazaar.Client.RyuseiFuda` | Dependency board views. |
 | Vault | `Bazaar.Server.Vault` | `Bazaar.Client.Vault` | Vault search pane. |
+| Org (company systems) | `Bazaar.Server.Org` | `Bazaar.Client.Org` (+ `.Abstractions`) | Org lens pane. Doc 24 section 5. |
+| Calendar (company systems) | `Bazaar.Server.Calendar` | `Bazaar.Client.Calendar` (+ `.Abstractions`) | Month grid pane. Doc 24 section 5. |
+| Interrupts (company systems) | `Bazaar.Server.Interrupts` | `Bazaar.Client.Interrupts` (+ `.Abstractions`) | Stack indicator and stack pane. Doc 24 section 5. |
 
 Server and client modules share contract types only through `Bazaar.Contracts` and each module's `.Abstractions` project. This table is a plan for the move, not a list of what exists today. Names follow the owner's pattern (`Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`). Doc 40 still lists the pre-split names (`Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.Vault`); when each feature splits, its server half takes the `Server` prefix. Doc 40 is not edited here, and its names need updating in the split PRs.
 

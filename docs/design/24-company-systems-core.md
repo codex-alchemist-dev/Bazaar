@@ -54,6 +54,15 @@ No source design existed before this doc; the stack contract is DECIDED (round 9
 - **Links [PROPOSED].** Optional `source_gc_id`, Vault doc and task references (12), all informational.
 - **Personal fields [PROPOSED].** `title` and any vacation note are personal fields under C01: stored as per-person encrypted payloads (04).
 
+### 5. Client views (WP9) [PROPOSED, 2026-11-18]
+Three client modules, each a pair `Bazaar.Client.<Name>` plus `Bazaar.Client.<Name>.Abstractions` (41b §2a). None of them adds code to `Bazaar.Client.Core`; each registers through `IPaneModule` and a head lists it, as `Bazaar.Client.RyuseiFuda` does (doc 40 step 7). The server halves (`Bazaar.Server.Org`, `Bazaar.Server.Calendar`, `Bazaar.Server.Interrupts`, from the extraction PRs) send ordinary pane descriptors; the client reads the JSON model and never sees SQL shapes. All three are read-only in v1: no client edits an edge, an event or a frame, because who may edit is `org.relation_approver`, `calendar.vacation_confirmer` and the owner-only interrupt rule, and those run server-side.
+- **Org (`Bazaar.Client.Org`, pane kind `bazaar.org`).** Model: `{ "projects": [{id, name}], "agents": [{id, name}], "edges": [{id, kind, fromAgentId, toAgentId, projectId|null, startsAt, endsAt|null}] }`. A lens switch picks Company (edges with a null project) or one project. `reports_to` draws as a tree; `lent_to` draws as a loan row with its end date; ended loans are shown dimmed and read-only. The view tolerates a cycle or a missing agent (the server rejects cycles, but the view must never hang on bad data): it draws each agent once and marks the repeat. A malformed model raises `PaneModelException`, so the registry falls back to the generic view. The pane states that edges grant no authority.
+- **Calendar (`Bazaar.Client.Calendar`, pane kind `bazaar.calendar`).** Model: `{ "displayTimezone": "viewer"|"agent", "events": [{id, kind, title, startsAt, endsAt, allDay, tz, agentId|null, projectId|null, affectsAvailability, status}] }`. A month grid with one chip per event per day; kinds vacation, planning, release, freeze, milestone; `cancelled` events are struck through, never hidden. Time zone follows `calendar.display_timezone` (default `viewer`, a client preference), resolved through an injected `TimeProvider` and zone lookup so tests fix the zone. An all-day event stays on its own calendar date in every zone; a timed event lands on the viewer's local date; a DST day has 23 or 25 hours and the grid does not drift. Titles and vacation notes are personal fields (C01): the model carries them already decrypted for this viewer, and the client never logs them.
+- **Interrupt stack (`Bazaar.Client.Interrupts`).** A stack indicator, depth 0 to 2: a view model plus a small Avalonia control, and a pane kind `bazaar.interrupt-stack` listing agents whose stack is not empty (top frame source `owner`, `system_build` or `system_security`, reason, pushed time, `suspended` count). Model: `{ "agents": [{agentId, name, frames: [{id, source, reason, state, pushedAt}]}] }`. The indicator belongs on the presence chip (C43), but the chip lives in the GC client module, which does not exist yet (`Bazaar.Client.GC`, 41b §2a); until it does, the indicator shows in its own pane and the chip host adopts the control later. Colour never carries the meaning alone: depth and source are text for screen readers (doc 27 accessibility). No new presence label is added (C43 needs the owner).
+- **Abstractions.** Each `.Abstractions` project holds the immutable model records the view models take and one optional source interface (`IOrgSnapshotSource`, `ICalendarSnapshotSource`, `IInterruptStackSource`) a head may supply through `PaneModuleContext.With<T>()` to refresh a pane without a new descriptor. They reference only `Bazaar.Contracts`.
+- **Pane kinds** are added to `PaneKinds` in `Bazaar.Contracts` as `bazaar.org`, `bazaar.calendar` and `bazaar.interrupt-stack` (shared contract, not a feature).
+- **Tests.** Each module has its own test project: model parsing (good, malformed, unknown fields), lens and grid logic as pure tests, and an `Avalonia.Headless` test per pane (org lens switch, calendar month chips, stack indicator).
+
 ## Data and interfaces
 ```sql
 -- Free-text title/reason columns are encrypted personal fields (C01, doc 04)
@@ -123,7 +132,7 @@ Real Postgres (xUnit v3 fixture) for constraints, with the schema built by the 0
 6. Scheduler wiring at tool boundaries; resume. Needs 5, 06 WP3, WP5.
 7. Calendar table, service, GC lines. Needs the 04 core migrations.
 8. Availability consumes calendar vacations. Needs 7, 09 WP3, WP9.
-9. Client views: org, calendar, stack indicator. Needs 27, 2, 4, 5, 7.
+9. Client views: org, calendar, stack indicator, as the three module pairs in section 5. Needs 27, 2, 4, 5, 7. Client side PROPOSED 2026-11-18; code follows the docs PR.
 
 Order: 1→2; 3→4; 5→6; 7→8; all → 9.
 
