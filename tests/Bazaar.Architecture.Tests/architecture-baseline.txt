@@ -248,12 +248,6 @@ src/Bazaar.Server/Constellation/Layout/SeededRandom.cs
 src/Bazaar.Server/Constellation/Layout/SolarOrbitLayout.cs
 src/Bazaar.Server/Constellation/Lod/ConstellationGraphLodSource.cs
 src/Bazaar.Server/Constellation/Lod/LodFeed.cs
-src/Bazaar.Server/Constellation/Memory/IMemoryGraphStore.cs
-src/Bazaar.Server/Constellation/Memory/MemoryGraphModel.cs
-src/Bazaar.Server/Constellation/Memory/MemoryGraphProjector.cs
-src/Bazaar.Server/Constellation/Memory/MemoryGraphRetriever.cs
-src/Bazaar.Server/Constellation/Memory/MemoryGraphSink.cs
-src/Bazaar.Server/Constellation/Memory/PgMemoryGraphStore.cs
 src/Bazaar.Server/Constellation/Tiles/ConstellationEmptyGraphSource.cs
 src/Bazaar.Server/Constellation/Tiles/ConstellationNoTileSource.cs
 src/Bazaar.Server/Constellation/Tiles/ConstellationTileHandler.cs
