@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.Host.Components.Settings;
 
 /// <summary>
-/// Settings as a Bazaar Component (docs/design/BAZAAR-COMPONENTS.md). Registers <see cref="SettingRegistry.Known"/>, the Postgres-backed
+/// Settings as a Bazaar Component (docs/design/BAZAAR-COMPONENTS.md). Registers <see cref="BuiltInSettingRegistry.Known"/>, the Postgres-backed
 /// <see cref="ISettingStore"/>, and an <see cref="ISettingAuditSink"/> that writes each setting change into <see cref="IAuditLog"/>.
 /// It depends on <c>audit</c> because the sink appends to the audit log, so the kernel starts audit first.
 /// </summary>
@@ -26,7 +26,7 @@ public sealed class SettingsComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton(SettingRegistry.Known);
+        services.TryAddSingleton(BuiltInSettingRegistry.Known);
         services.TryAddSingleton<ISettingAuditSink, AuditLogSettingSink>();
         services.TryAddSingleton<ISettingStore, NpgsqlSettingStore>();
     }

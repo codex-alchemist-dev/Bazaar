@@ -36,6 +36,7 @@
     <Project Path="src/Bazaar.Approvals.Abstractions/Bazaar.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Secrets.Abstractions/Bazaar.Secrets.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Settings.Abstractions/Bazaar.Server.Settings.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Settings/Bazaar.Server.Settings.csproj" />
     <Project Path="src/Bazaar.Guest.Agent/Bazaar.Guest.Agent.csproj" />
     <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />

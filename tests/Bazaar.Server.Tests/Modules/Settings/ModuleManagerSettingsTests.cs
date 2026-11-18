@@ -28,7 +28,7 @@ public sealed class ModuleManagerSettingsTests
 
     private static SettingEvaluation Eval(string name, string json, SettingActor? actor = null)
     {
-        Assert.True(SettingRegistry.Known.TryGet(name, out var definition));
+        Assert.True(BuiltInSettingRegistry.Known.TryGet(name, out var definition));
         Assert.NotNull(definition);
         using var doc = JsonDocument.Parse(json);
         return definition.Evaluate(actor ?? _operator, doc.RootElement);
@@ -42,7 +42,7 @@ public sealed class ModuleManagerSettingsTests
 
         foreach (var definition in ModuleManagerSettings.All)
         {
-            Assert.True(SettingRegistry.Known.Contains(definition), definition.Name);
+            Assert.True(BuiltInSettingRegistry.Known.Contains(definition), definition.Name);
         }
     }
 
@@ -61,8 +61,8 @@ public sealed class ModuleManagerSettingsTests
     public void No_key_stands_in_for_a_decided_invariant()
     {
         // Beta-never-auto and GA-major-needs-approval are DECIDED invariants, not settings (CLAUDE.md).
-        Assert.DoesNotContain(SettingRegistry.Known.Definitions, d => d.Name.Contains("beta", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(SettingRegistry.Known.Definitions, d => d.Name.Contains("major", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(BuiltInSettingRegistry.Known.Definitions, d => d.Name.Contains("beta", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(BuiltInSettingRegistry.Known.Definitions, d => d.Name.Contains("major", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

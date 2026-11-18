@@ -25,10 +25,10 @@ public sealed class ConstellationSettingsTests
             "constellation.orbit_radius", "constellation.screenshot_sources",
         ];
 
-        var names = SettingRegistry.Constellation.Definitions.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var names = BuiltInSettingRegistry.Constellation.Definitions.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
         Assert.Equal(expected.OrderBy(n => n, StringComparer.Ordinal), names);
 
-        Assert.All(SettingRegistry.Constellation.Definitions, d => Assert.Equal(ApprovalTier.None, d.ApprovalTier));
+        Assert.All(BuiltInSettingRegistry.Constellation.Definitions, d => Assert.Equal(ApprovalTier.None, d.ApprovalTier));
         Assert.Equal(SettingScope.Install, ConstellationSettings.NodeCap.Scope);
         Assert.Equal(SettingScope.Install, ConstellationSettings.RingDepth.Scope);
         Assert.Equal(SettingScope.Install, ConstellationSettings.ScreenshotSources.Scope);
@@ -42,9 +42,9 @@ public sealed class ConstellationSettingsTests
     public void Known_registry_includes_every_constellation_key()
     {
         // The settings store reads Known, so constellation.* rows are readable only if these keys are in it.
-        foreach (var definition in SettingRegistry.Constellation.Definitions)
+        foreach (var definition in BuiltInSettingRegistry.Constellation.Definitions)
         {
-            Assert.True(SettingRegistry.Known.Contains(definition), definition.Name);
+            Assert.True(BuiltInSettingRegistry.Known.Contains(definition), definition.Name);
         }
     }
 
@@ -61,7 +61,7 @@ public sealed class ConstellationSettingsTests
     [Fact]
     public void Every_constellation_default_passes_its_own_check()
     {
-        foreach (var definition in SettingRegistry.Constellation.Definitions)
+        foreach (var definition in BuiltInSettingRegistry.Constellation.Definitions)
         {
             using var doc = JsonDocument.Parse(definition.DefaultValueJson);
             Assert.Null(definition.CheckValue(doc.RootElement));

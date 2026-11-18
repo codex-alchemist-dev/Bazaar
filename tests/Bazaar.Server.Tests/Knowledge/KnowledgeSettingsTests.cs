@@ -8,7 +8,7 @@ public sealed class KnowledgeSettingsTests
     [Fact]
     public void Known_registry_holds_every_doc_25_key()
     {
-        var names = SettingRegistry.Known.Definitions.Select(d => d.Name).ToHashSet(StringComparer.Ordinal);
+        var names = BuiltInSettingRegistry.Known.Definitions.Select(d => d.Name).ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(KnowledgeSettings.All.Count, KnowledgeSettings.All.Count(d => names.Contains(d.Name)));
         Assert.Contains("hive.grant_review_days", names);

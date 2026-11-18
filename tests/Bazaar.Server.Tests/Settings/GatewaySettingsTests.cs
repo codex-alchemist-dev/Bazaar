@@ -11,7 +11,7 @@ public sealed class GatewaySettingsTests
 
     private static SettingDefinition Lookup(string name)
     {
-        Assert.True(SettingRegistry.Known.TryGet(name, out var definition), $"'{name}' is not registered.");
+        Assert.True(BuiltInSettingRegistry.Known.TryGet(name, out var definition), $"'{name}' is not registered.");
         return definition!;
     }
 
@@ -38,7 +38,7 @@ public sealed class GatewaySettingsTests
             "gateway.long_prompt.hard_cap_tokens", "gateway.freellmapi.warn_on_version_change", "gateway.usage.retention_days",
         ];
 
-        var gateway = SettingRegistry.Known.Definitions
+        var gateway = BuiltInSettingRegistry.Known.Definitions
             .Where(d => d.Name.StartsWith("gateway.", StringComparison.Ordinal))
             .Select(d => d.Name)
             .ToList();
