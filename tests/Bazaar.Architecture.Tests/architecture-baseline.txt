@@ -699,11 +699,6 @@ src/Bazaar.Server/Providers/ProviderSelection.cs
 src/Bazaar.Server/Providers/ProviderSelector.cs
 src/Bazaar.Server/Providers/ProviderStatus.cs
 src/Bazaar.Server/Providers/Search/PgFts/PgFtsSearchProvider.cs
-src/Bazaar.Server/Reputation/Evidence.cs
-src/Bazaar.Server/Reputation/EvidenceKind.cs
-src/Bazaar.Server/Reputation/ScoreMath.cs
-src/Bazaar.Server/Reputation/ScoreResult.cs
-src/Bazaar.Server/Reputation/WeightPolicy.cs
 src/Bazaar.Server/Sanitization/ITextSanitizer.cs
 src/Bazaar.Server/Sanitization/Redaction.cs
 src/Bazaar.Server/Sanitization/RedactionKind.cs

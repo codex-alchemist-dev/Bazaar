@@ -244,7 +244,7 @@ public class ScoreMathTests
 
     private static List<GoldenVector> LoadGolden()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Reputation", "Golden", "score_math.json");
+        var path = Path.Combine(AppContext.BaseDirectory, "Golden", "score_math.json");
         var json = File.ReadAllText(path);
 
         return JsonSerializer.Deserialize<List<GoldenVector>>(json, _jsonOptions)
