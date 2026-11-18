@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Install.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>The result of comparing a module version's declared permissions with the owner's approval.</summary>
 /// <param name="IsApproved">True when every declared permission is covered by the approval.</param>

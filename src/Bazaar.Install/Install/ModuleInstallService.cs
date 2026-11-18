@@ -1,9 +1,9 @@
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Modules;
-using Bazaar.Server.Install.Abstractions;
-using Bazaar.Server.Install.Trust;
+using Bazaar.Install.Abstractions;
+using Bazaar.Install.Trust;
 
-namespace Bazaar.Server.Install;
+namespace Bazaar.Install;
 
 /// <summary>The outcome of <see cref="ModuleInstallService.InstallAsync"/>. Every refusal writes nothing.</summary>
 public abstract record ModuleInstallResult

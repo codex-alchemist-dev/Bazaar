@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Bazaar.Server.Install;
+namespace Bazaar.Install;
 
 /// <summary>
 /// The exact bytes the owner signs for a permission approval (doc 48 section 1). Layout: one version prefix byte, then the

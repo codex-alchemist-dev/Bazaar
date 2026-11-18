@@ -7,6 +7,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.Install.Abstractions\Bazaar.Server.Install.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Install.Abstractions\Bazaar.Install.Abstractions.csproj" />
   </ItemGroup>
 </Project>

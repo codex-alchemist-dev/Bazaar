@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Server.Install.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>
 /// A publisher public key in the server trust store (doc 48 section 1: publisher id, key id and validity dates).

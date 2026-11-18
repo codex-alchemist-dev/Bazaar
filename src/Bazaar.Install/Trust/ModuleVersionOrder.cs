@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Install.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>
 /// SemVer 2.0 precedence for module versions (https://semver.org section 11). Build metadata is ignored, as the spec says.

@@ -1,4 +1,4 @@
-using Bazaar.Server.Install.Trust;
+using Bazaar.Install.Trust;
 
 namespace Bazaar.Server.Tests.Modules.Trust;
 

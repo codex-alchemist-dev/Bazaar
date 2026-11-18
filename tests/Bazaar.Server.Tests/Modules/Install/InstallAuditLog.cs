@@ -1,4 +1,4 @@
-using Bazaar.Server.Install.Abstractions;
+using Bazaar.Install.Abstractions;
 
 namespace Bazaar.Server.Tests.Modules.Install;
 

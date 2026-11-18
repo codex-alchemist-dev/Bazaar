@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Install.Abstractions;
+namespace Bazaar.Install.Abstractions;
 
 /// <summary>The owner's signature over one approval form, from the owner device key (doc 48 section 1, doc 32 section 5a).</summary>
 /// <param name="SignerKeyId">The owner device key id that produced the signature.</param>

@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Install;
+namespace Bazaar.Install;
 
 /// <summary>Audit kinds for module install and permission approval (doc 48 section 5.1: "module install", "permission approval").</summary>
 public static class ModuleAuditKinds

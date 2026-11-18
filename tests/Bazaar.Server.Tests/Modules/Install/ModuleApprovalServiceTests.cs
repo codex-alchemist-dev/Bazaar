@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Install;
-using Bazaar.Server.Install.Abstractions;
+using Bazaar.Install;
+using Bazaar.Install.Abstractions;
 using Bazaar.Server.Modules.Persistence;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Time.Testing;

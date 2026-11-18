@@ -28,7 +28,7 @@
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Approvals\Bazaar.Server.Approvals.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Install\Bazaar.Server.Install.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Install\Bazaar.Install.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Tls\Bazaar.Server.Tls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Fun\Bazaar.Server.Fun.csproj" />

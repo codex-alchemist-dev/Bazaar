@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Server.Install.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>A trust store held in memory. Used by tests and by any caller that loads keys itself.</summary>
 public sealed class InMemoryTrustedKeyStore : ITrustedKeyStore

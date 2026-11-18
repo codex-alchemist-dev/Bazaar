@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using Bazaar.Contracts.Modules;
 
-namespace Bazaar.Server.Install.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>
 /// Verifies module package signatures with ECDSA P-256 and SHA-256 (doc 48 section 1). Signatures are the fixed 64-byte

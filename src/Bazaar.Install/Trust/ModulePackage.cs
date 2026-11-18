@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Modules;
 
-namespace Bazaar.Server.Install.Trust;
+namespace Bazaar.Install.Trust;
 
 /// <summary>
 /// The signed part of a module package (doc 48 section 1). The signed fields are the id, the version,
