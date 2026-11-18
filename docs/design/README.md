@@ -143,3 +143,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 48 | [48-gap-decisions-security-identity.md](48-gap-decisions-security-identity.md) | Gap decisions for security, identity, recovery, privacy, retention, updates and AI agent safety | 6 | 14, 15, 33, 32, 37, 46 |
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
 | 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |
+| 52 | [52-git-modules.md](52-git-modules.md) | Git modules (PROPOSED): Bazaar.Server.Git engine, forge contract, owner-signed merge gate, GitLab adapter, Bazaar.Client.GitGui panes and provider UI modules | - | 14, 15, 21, 32, 40, 41 |
