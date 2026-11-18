@@ -1,7 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Server.Mail;
 
-namespace Bazaar.Server.Tests.Mail;
+namespace Bazaar.Server.Mail.Tests;
 
 public sealed class MailComponentTests
 {

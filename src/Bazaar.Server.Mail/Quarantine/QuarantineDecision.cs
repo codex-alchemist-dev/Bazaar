@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Bazaar.Server.Email.Quarantine;
+namespace Bazaar.Server.Mail.Quarantine;
 
 /// <summary>What to do with an inbound message.</summary>
 public enum QuarantineAction

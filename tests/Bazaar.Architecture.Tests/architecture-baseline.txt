@@ -268,10 +268,6 @@ src/Bazaar.Server/Data/Migrations/MigrationExceptions.cs
 src/Bazaar.Server/Data/Migrations/MigrationFile.cs
 src/Bazaar.Server/Data/Migrations/MigrationNamespaces.cs
 src/Bazaar.Server/Data/Migrations/MigrationRunner.cs
-src/Bazaar.Server/Email/Quarantine/EmailAddressParser.cs
-src/Bazaar.Server/Email/Quarantine/InboundQuarantineRules.cs
-src/Bazaar.Server/Email/Quarantine/QuarantineDecision.cs
-src/Bazaar.Server/Email/Quarantine/QuarantineReason.cs
 src/Bazaar.Server/Gateway/Adapters/AdapterKind.cs
 src/Bazaar.Server/Gateway/Adapters/Anthropic/AnthropicErrors.cs
 src/Bazaar.Server/Gateway/Adapters/Anthropic/AnthropicMessagesAdapter.cs
@@ -515,11 +511,6 @@ src/Bazaar.Server/Knowledge/Metrics/MetricStore.cs
 src/Bazaar.Server/Knowledge/Metrics/MetricTypes.cs
 src/Bazaar.Server/Knowledge/Twin/TwinFact.cs
 src/Bazaar.Server/Knowledge/Twin/TwinFactExtractor.cs
-src/Bazaar.Server/Mail/MailComponent.cs
-src/Bazaar.Server/Mail/MailContracts.cs
-src/Bazaar.Server/Mail/Parsing/MailLimits.cs
-src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
-src/Bazaar.Server/Mail/Parsing/ParsedMail.cs
 src/Bazaar.Server/Memory/Access/AccessDecision.cs
 src/Bazaar.Server/Memory/Access/IProjectMembership.cs
 src/Bazaar.Server/Memory/Access/IVaultAccess.cs
