@@ -111,7 +111,8 @@ internal static class Program
     /// </summary>
     private static AppBuilder BuildAvaloniaApp(Func<MainWindow> createMainWindow, DisplayBackend backend)
     {
-        var builder = AppBuilder.Configure(() => new App(createMainWindow));
+        // Skia renders and HarfBuzz shapes text (the test app builder uses Skia too); without either, Avalonia refuses to start.
+        var builder = AppBuilder.Configure(() => new App(createMainWindow)).UseSkia().UseHarfBuzz();
         switch (backend)
         {
             case DisplayBackend.X11:
