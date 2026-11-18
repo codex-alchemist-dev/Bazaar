@@ -47,6 +47,8 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 ### 3a. Alerts (DECIDED, owner card 2026-11-18, "Banner for serious, quiet for minor")
 The resident TUI follows Kodo's severity grades (doc 46). A serious failure shows a banner at the top with what failed, and rings the terminal bell once; the banner stays until acknowledged. A minor one only turns its line amber on the overview, with no banner and no sound. Colour is never the only signal (section 4). The bell can be turned off in settings.
 
+**Crash of the TUI itself (DECIDED, owner card 2026-11-18, "Restart itself automatically").** The resident TUI is a separate program from the server, so its crash never affects the server. The service manager (Windows Service or systemd, doc 03 provider) relaunches it within seconds, with bounded restart delays like the server's (`host.service.restart_delays_minutes`). A crash is logged and shown as a line on the next overview.
+
 ### 4. Input, access and accessibility
 - Keyboard only, mnemonics from the doc 41 registry with no Ctrl chords, remappable, plus a palette.
 - Falls back to the plain wizard when stdout is not a TTY, with `--plain`, with `NO_COLOR` set, or when a screen-reader flag is given. Doc 45 line "Not a TUI" is replaced: the plain wizard stays as the accessible path; the TUI is opt-in beside it.
