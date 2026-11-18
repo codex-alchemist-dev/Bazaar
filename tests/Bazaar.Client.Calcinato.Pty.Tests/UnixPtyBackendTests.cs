@@ -74,10 +74,10 @@ public sealed class UnixPtyBackendTests
         await using var transcript = new PtyTranscript(session);
 
         // The typed command holds the escapes as text (backslash-0-3-3), so only the executed output carries ESC bytes.
-        const string command = "printf '\\033[31mA\\033[0m\\n'; printf '\\033[38;5;196mB\\033[0m\\n'; printf '\\033[38;2;255;0;0mC\\033[0m\\n'; echo COLOUR_DONE\n";
+        const string command = "printf '\\033[31mA\\033[0m\\n'; printf '\\033[38;5;196mB\\033[0m\\n'; printf '\\033[38;2;255;0;0mC\\033[0m\\n'; echo COLOUR_$((6*7))\n";
         await session.WriteAsync(System.Text.Encoding.UTF8.GetBytes(command), TestContext.Current.CancellationToken);
 
-        Assert.True(await transcript.WaitForAsync("COLOUR_DONE", _wait), transcript.Text);
+        Assert.True(await transcript.WaitForAsync("COLOUR_42", _wait), transcript.Text);
         Assert.Contains("\u001b[31m", transcript.Text, StringComparison.Ordinal);
         Assert.Contains("\u001b[38;5;196m", transcript.Text, StringComparison.Ordinal);
         Assert.Contains("\u001b[38;2;255;0;0m", transcript.Text, StringComparison.Ordinal);
