@@ -19,7 +19,7 @@ public sealed record JailDecision(bool Allowed, string Path, EditRejectReason? R
 /// NUL, and symlinks that leave the worktree.
 /// </summary>
 /// <remarks>
-/// The lexical rules here mirror <c>GuestPath</c> in Bazaar.Server, which this module cannot reference. The rules are stricter where
+/// The lexical rules here mirror <c>GuestPath</c> in Bazaar.Server.Coding, which this module does not reference because it needs typed refusal reasons instead of exceptions. The rules are stricter where
 /// Windows would alias names: a segment ending in a dot or space, and reserved device names (CON, NUL, COM1 and so on), are refused.
 /// Symlinks are checked through <see cref="IWorktreeFiles.ResolveRealPathAsync"/>, so a store that cannot resolve a link refuses the path.
 /// </remarks>
