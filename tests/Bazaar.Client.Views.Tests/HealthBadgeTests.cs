@@ -12,7 +12,7 @@ namespace Bazaar.Client.Views.Tests;
 /// </summary>
 public class HealthBadgeTests
 {
-    private static readonly (string State, string Background, string Text)[] States =
+    private static readonly (string State, string Background, string Text)[] _states =
     [
         ("healthy", "#102030", "#F0F1F2"),
         ("degraded", "#112131", "#F1F2F3"),
@@ -26,7 +26,7 @@ public class HealthBadgeTests
     {
         ThemeDefinition baseline = ViewFixtures.Theme();
         var tokens = new Dictionary<string, string>(baseline.Tokens, StringComparer.Ordinal);
-        foreach ((string state, string background, string text) in States)
+        foreach ((string state, string background, string text) in _states)
         {
             tokens[$"color.health.{state}.background"] = background;
             tokens[$"color.health.{state}.text"] = text;
@@ -45,7 +45,7 @@ public class HealthBadgeTests
     public void A_health_badge_uses_that_states_tokens(string state)
     {
         var harness = new Harness();
-        (_, string background, string text) = States.Single(s => s.State == state);
+        (_, string background, string text) = _states.Single(s => s.State == state);
         var document = ViewFixtures.Document(ViewFixtures.Node("badge", [], ("text", state), ("variant", state)));
 
         Control control = harness.Build(document, ThemeWithDistinctStates());
