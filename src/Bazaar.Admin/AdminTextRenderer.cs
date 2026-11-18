@@ -22,15 +22,23 @@ internal static class AdminTextRenderer
             ? "Plan hash: not computed, because the file has errors."
             : $"Plan hash: {report.PlanHash}");
 
-        if (report.Issues.Count == 0)
+        if (report.Outcome == SetupCommands.ApplyUnavailableOutcome)
+        {
+            // The gate's reason is one plain line, not a key-and-rule issue.
+            writer.WriteLine(SetupCommands.ApplyUnavailableMessage);
+        }
+        else if (report.Issues.Count == 0)
         {
             writer.WriteLine("Issues: none.");
         }
 
-        foreach (var issue in report.Issues)
+        if (report.Outcome != SetupCommands.ApplyUnavailableOutcome)
         {
-            var label = issue.Severity == "hold" ? "Hold" : "Error";
-            writer.WriteLine($"{label} at {issue.Path}: {issue.Message}");
+            foreach (var issue in report.Issues)
+            {
+                var label = issue.Severity == "hold" ? "Hold" : "Error";
+                writer.WriteLine($"{label} at {issue.Path}: {issue.Message}");
+            }
         }
 
         if (report.Command == "dry-run")
@@ -44,7 +52,7 @@ internal static class AdminTextRenderer
             writer.WriteLine("Writes: none.");
         }
 
-        if (report.Command == "apply")
+        if (report.Command == "apply" && report.Outcome != SetupCommands.ApplyUnavailableOutcome)
         {
             writer.WriteLine(report.AppliedSteps.Count == 0
                 ? "Applied steps: none."

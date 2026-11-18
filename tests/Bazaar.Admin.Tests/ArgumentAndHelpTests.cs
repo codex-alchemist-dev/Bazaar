@@ -177,6 +177,7 @@ public sealed class ArgumentAndHelpTests
         Assert.Equal((int)SetupExitCode.Ok, run.ExitCode);
         Assert.Contains("--plan-hash <hash>", run.Stdout);
         Assert.Contains("compares against an empty install only", run.Stdout);
-        Assert.Contains("placeholders in this build", run.Stdout);
+        Assert.Contains("Apply is unavailable in this build", run.Stdout);
+        Assert.Contains("durable audit store", run.Stdout);
     }
 }

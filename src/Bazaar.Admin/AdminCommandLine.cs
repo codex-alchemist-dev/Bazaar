@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bazaar.Admin.Placeholders;
 using Bazaar.Server.Setup;
 
 namespace Bazaar.Admin;
@@ -12,16 +13,21 @@ public static class AdminCommandLine
 {
     private const string _jsonFlag = "--json";
 
-    /// <summary>Runs the command and returns its exit code (0, 1, 2 or 3, the <see cref="SetupExitCode"/> values).</summary>
+    /// <summary>
+    /// Runs the command and returns its exit code (0, 1, 2 or 3, the <see cref="SetupExitCode"/> values). <paramref name="applyGate"/>
+    /// decides whether apply may run; left out, the placeholder gate is used, which is closed in this build.
+    /// </summary>
     public static async Task<int> RunAsync(
         IReadOnlyList<string> args,
         TextWriter stdout,
         TextWriter stderr,
+        ICliApplyGate? applyGate = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
+        applyGate ??= new PlaceholderApplyGate();
 
         // The JSON choice is read from the raw arguments first, so a usage error still answers a script in JSON.
         var json = args.Contains(_jsonFlag, StringComparer.Ordinal);
@@ -47,7 +53,7 @@ public static class AdminCommandLine
         {
             AdminAction.Validate => SetupCommands.Validate(parsed.ConfigPath!),
             AdminAction.DryRun => SetupCommands.DryRun(parsed.ConfigPath!),
-            AdminAction.Apply => await SetupCommands.ApplyAsync(parsed.ConfigPath!, parsed.PlanHash!, cancellationToken),
+            AdminAction.Apply => await SetupCommands.ApplyAsync(parsed.ConfigPath!, parsed.PlanHash!, applyGate, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(args), parsed.Action, "Unknown action."),
         };
 

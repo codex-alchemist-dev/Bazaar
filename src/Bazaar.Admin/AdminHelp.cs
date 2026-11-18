@@ -44,9 +44,10 @@ internal static class AdminHelp
               existing install is not built yet, so every planned value is listed as a create.
           setup apply --config <path> --plan-hash <hash> [--json]
               Apply the plan only when the hash matches the one the dry run printed.
-              No setup steps are built yet, so a plan with changes exits {(int)SetupExitCode.ApplyFailedRolledBack} and nothing is written.
-              The instance lock and the audit log are placeholders in this build. The server host replaces them,
-              so an apply from this command leaves no durable audit row.
+              Apply is unavailable in this build: it has no durable audit store yet (doc 15 audit_log). After the
+              file and hash checks pass, apply prints that it is unavailable, exits {(int)SetupExitCode.Held}, and changes nothing.
+              The Host adapter provides the audit store and turns apply on. Even then, no setup steps are built yet,
+              so a plan with changes would exit {(int)SetupExitCode.ApplyFailedRolledBack}.
 
         Options:
           --config <path>      The setup file. Required.

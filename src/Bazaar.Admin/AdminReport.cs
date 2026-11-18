@@ -18,6 +18,12 @@ public sealed class AdminReport
     /// <summary>valid, invalid-input, held, applied or apply-failed-rolled-back.</summary>
     public string Result { get; init; } = "";
 
+    /// <summary>
+    /// The specific outcome when a result needs one more word. apply_unavailable: the apply gate is closed, so the applier was not
+    /// run. Null otherwise.
+    /// </summary>
+    public string? Outcome { get; init; }
+
     /// <summary>The plan hash. Null when the file has errors, because no plan was built.</summary>
     public string? PlanHash { get; init; }
 

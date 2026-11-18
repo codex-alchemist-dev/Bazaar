@@ -11,11 +11,19 @@ internal sealed record CliRun(int ExitCode, string Stdout, string Stderr)
 
 internal static class AdminRun
 {
-    public static async Task<CliRun> Async(params string[] args)
+    public static Task<CliRun> Async(params string[] args) => WithGate(null, args);
+
+    /// <summary>Runs the command with an apply gate. Null uses the command's own default gate.</summary>
+    public static async Task<CliRun> WithGate(ICliApplyGate? gate, params string[] args)
     {
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
-        var code = await AdminCommandLine.RunAsync(args, stdout, stderr, TestContext.Current.CancellationToken);
+        var code = await AdminCommandLine.RunAsync(
+            args,
+            stdout,
+            stderr,
+            applyGate: gate,
+            cancellationToken: TestContext.Current.CancellationToken);
         return new CliRun(code, stdout.ToString(), stderr.ToString());
     }
 }
@@ -51,6 +59,10 @@ internal static class AdminFixtures
 {
     /// <summary>A fake secret value. Every canary test places it in a secret-typed key and checks that no output carries it.</summary>
     public const string Canary = "canary-secret-0000";
+
+    /// <summary>The one plain line an unavailable apply prints (the wording is fixed by the coordinator's decision).</summary>
+    public const string ApplyUnavailableLine =
+        "apply is unavailable: this build has no durable audit store (doc 15 audit_log); the Host adapter provides it";
 
     /// <summary>A valid plan with a backup target, so it has no hold.</summary>
     public const string Valid = """
