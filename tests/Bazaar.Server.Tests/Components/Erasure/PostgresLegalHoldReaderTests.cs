@@ -54,6 +54,19 @@ public sealed class PostgresLegalHoldReaderTests(ErasureDb db) : IClassFixture<E
         Assert.False(await reader.IsPersonHeldAsync(person, Ct));
     }
 
+    [Theory]
+    [InlineData("gc")]
+    [InlineData("company")]
+    [InlineData("category")]
+    public async Task An_active_non_person_hold_is_reported_by_the_scope_reader(string scopeKind)
+    {
+        // The table is shared by this class's tests, so only the positive case is asserted.
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        await InsertAsync(Guid.NewGuid(), "created", scopeKind, "x");
+
+        Assert.True(await new PostgresLegalHoldReader(db.DataSource).HasActiveNonPersonHoldAsync(Ct));
+    }
+
     [Fact]
     public async Task The_hold_table_refuses_update_delete_and_truncate()
     {

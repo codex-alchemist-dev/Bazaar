@@ -107,6 +107,7 @@ Keys are registered in doc 03's settings registry [PROPOSED]. All are install-sc
 | `gateway.long_prompt.hard_cap_tokens` | int; 0 = off | 0 | install | operator | No |
 | `gateway.freellmapi.warn_on_version_change` | bool | true | install | operator | No |
 | `gateway.usage.retention_days` | int; 0 = indefinite (needs counsel) | 0 | install | operator | Yes, owner, when set to a non-zero value |
+| `gateway.usage.purge_batch_size` | int, 1 to 50000 | 5000 | install | operator | no. Most `gw_usage` rows one retention purge batch deletes (doc 48 section 9) |
 
 **Default catalogue** (shipped as a secret-free file; each entry carries `freeTier`, `termsRisk`, `trainsOnFreeData` and `verification` fields. V = primary page read; P = partly; U = unverified; re-check raw pages before release):
 

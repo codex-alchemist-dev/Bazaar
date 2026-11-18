@@ -73,6 +73,14 @@ public static class GatewaySettings
         validate: AtLeast(0),
         requiresApprovalFor: days => days != 0);
 
+    /// <summary>Hard cap on <see cref="UsagePurgeBatchSize"/>, so one purge batch stays a short transaction.</summary>
+    public const int UsagePurgeBatchSizeCap = 50_000;
+
+    public static readonly SettingKey<int> UsagePurgeBatchSize = new(
+        "gateway.usage.purge_batch_size", 5_000, SettingScope.Install, SettingRole.Operator,
+        "Most usage rows one retention purge batch deletes. A run does a bounded number of batches (retention sweeper, doc 48 section 9).",
+        validate: value => value is >= 1 and <= UsagePurgeBatchSizeCap ? null : $"must be between 1 and {UsagePurgeBatchSizeCap}; got {value}.");
+
     /// <summary>Every gateway key, in doc 05 table order.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
@@ -89,6 +97,7 @@ public static class GatewaySettings
         LongPromptHardCapTokens,
         FreeLlmApiWarnOnVersionChange,
         UsageRetentionDays,
+        UsagePurgeBatchSize,
     ];
 
     private static Func<int, string?> AtLeast(int min) =>

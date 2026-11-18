@@ -28,7 +28,7 @@ public sealed class GatewaySettingsTests
     }
 
     [Fact]
-    public void Known_registry_holds_the_thirteen_gateway_keys_from_doc_05_once_each()
+    public void Known_registry_holds_the_fourteen_gateway_keys_from_doc_05_once_each()
     {
         string[] expected =
         [
@@ -36,6 +36,7 @@ public sealed class GatewaySettingsTests
             "gateway.gemini.order", "gateway.outbound_proxy.ui", "gateway.multi_key.ui", "gateway.free_tier.ack_mode",
             "gateway.multi_account.enabled", "gateway.catalogue.refresh_hours", "gateway.long_prompt.warn_tokens",
             "gateway.long_prompt.hard_cap_tokens", "gateway.freellmapi.warn_on_version_change", "gateway.usage.retention_days",
+            "gateway.usage.purge_batch_size",
         ];
 
         var gateway = SettingRegistry.Known.Definitions
@@ -43,7 +44,7 @@ public sealed class GatewaySettingsTests
             .Select(d => d.Name)
             .ToList();
 
-        Assert.Equal(13, gateway.Count);
+        Assert.Equal(14, gateway.Count);
         Assert.Equal(expected.OrderBy(n => n, StringComparer.Ordinal), gateway.OrderBy(n => n, StringComparer.Ordinal));
         Assert.Equal(gateway.Count, gateway.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(GatewaySettings.All.Count, gateway.Count);

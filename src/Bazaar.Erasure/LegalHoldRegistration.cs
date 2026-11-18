@@ -11,7 +11,9 @@ public static class LegalHoldRegistration
     /// </summary>
     public static IServiceCollection AddBazaarLegalHoldReader(this IServiceCollection services)
     {
-        services.AddSingleton<ILegalHoldReader, PostgresLegalHoldReader>();
+        services.AddSingleton<PostgresLegalHoldReader>();
+        services.AddSingleton<ILegalHoldReader>(sp => sp.GetRequiredService<PostgresLegalHoldReader>());
+        services.AddSingleton<ILegalHoldScopeReader>(sp => sp.GetRequiredService<PostgresLegalHoldReader>());
         return services;
     }
 }

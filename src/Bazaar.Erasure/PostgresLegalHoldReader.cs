@@ -11,8 +11,10 @@ namespace Bazaar.Erasure;
 /// Scope kinds <c>gc</c>, <c>company</c> and <c>category</c> are NOT checked here. OPEN for the owner: how a company or
 /// category hold covers a person. Until that is decided, a non-person hold does not block erasure of a person.
 /// </remarks>
-public sealed class PostgresLegalHoldReader(NpgsqlDataSource dataSource) : ILegalHoldReader
+public sealed class PostgresLegalHoldReader(NpgsqlDataSource dataSource) : ILegalHoldReader, ILegalHoldScopeReader
 {
+    private const string _nonPersonSql = "SELECT EXISTS (SELECT 1 FROM active_legal_hold WHERE scope_kind <> 'person')";
+
     private const string _sql = "SELECT EXISTS (SELECT 1 FROM active_legal_hold WHERE scope_kind = 'person' AND scope_value = $1)";
 
     public async Task<bool> IsPersonHeldAsync(Guid personId, CancellationToken ct = default)
@@ -23,6 +25,12 @@ public sealed class PostgresLegalHoldReader(NpgsqlDataSource dataSource) : ILega
         await using var cmd = dataSource.CreateCommand(_sql);
         // uuid::text is lowercase and hyphenated; the scope value is written the same way.
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = personId.ToString("D") });
+        return (bool)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+    }
+
+    public async Task<bool> HasActiveNonPersonHoldAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(_nonPersonSql);
         return (bool)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
     }
 }
