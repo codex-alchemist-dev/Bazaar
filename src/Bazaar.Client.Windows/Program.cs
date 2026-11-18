@@ -11,6 +11,9 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Windows;
@@ -61,13 +64,16 @@ internal static class Program
         using var chatStop = new CancellationTokenSource();
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
-        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
+        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29), then the Git Solar System pane (doc 19).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
-        var registry = FirstPartyPanes.CreateRegistry(
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. GitSolarSystemPanes.Modules];
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With (same as CreateRegistry otherwise).
+        var registry = PaneRegistry.Compose(
             modules,
-            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            tiles: HttpConstellationTileSource.Create(ClientServer.Current));
+            new PaneModuleContext(
+                Tiles: HttpConstellationTileSource.Create(ClientServer.Current),
+                Report: message => Console.Error.WriteLine($"Bazaar: {message}"))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current)));
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 

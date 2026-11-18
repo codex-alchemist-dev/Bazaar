@@ -30,3 +30,9 @@ public sealed record GitSolarSnapshot(
     IReadOnlyList<GitSolarBranch> Branches,
     IReadOnlyList<GitSolarCommit> Commits,
     IReadOnlyList<GitSolarEdge> Edges);
+
+/// <summary>
+/// The body of <c>GET /git/{provider}/repos/{owner}/{repo}/solar</c>: the history and the layout frame of the same graph version
+/// (the frame's node order is the snapshot's commit order).
+/// </summary>
+public sealed record GitSolarFeed(GitSolarSnapshot Snapshot, LayoutFrame Frame);
