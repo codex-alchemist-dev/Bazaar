@@ -121,6 +121,20 @@ Registered in doc 03's settings registry (DECISIONS-LOG round 13). Defaults are 
 
 Roslyn for C# code intelligence is the default and needs no setting.
 
+## Module layout [PROPOSED]
+The harness is built as module pairs (`Bazaar.Server.<Name>` plus `.Abstractions`), none of which reference `Bazaar.Server.csproj`. Where a module needs something Server owns (the capability policy, taint state, approvals, `IGitProvider`, the doc 21 push path), it declares a small port in its own Abstractions project; a host adapter (a later PR) binds the port. Each module ships an in-memory fake of its ports and tests against the fakes. Module version, manifest and SQL: none of these modules owns tables yet (`tool_calls` and `check_runs` stay WP2).
+
+| Module pair | Work package | Holds | Depends on |
+|---|---|---|---|
+| `Bazaar.Server.CodingPermissions` | WP8 | `ToolCapabilityClass` (mirror of Server's `CapabilityClass`, kept equal by a test), the permission gate (class-to-tier lookup, taint, approvals, rate caps), the `tool_calls` trace port | none (Contracts only) |
+| `Bazaar.Server.CodingEdit` | WP6 | `IWorktreeFiles` port, path jail (rejects `..`, absolute paths, escaping symlinks), whole-file, line-anchored and search/replace edit tools, malformed-edit reporting | `Bazaar.Server.Coding` (`GuestPath`, `IGuestChannel`), CodingPermissions.Abstractions |
+| `Bazaar.Server.RepoMap` | WP7 | search tool (ripgrep through `IWorkspace`), repo map under a token budget, symbol extractor port (Roslyn for C#; tree-sitter stays off, setting `harness.code_intel.tree_sitter`) | `Bazaar.Server.Coding`, CodingPermissions.Abstractions |
+| `Bazaar.Server.CodingGit` | WP10 | worktree and push service: branch rule `agent/<task>`, one writer per worktree by host lock, commit trailers (`Co-Authored-By`, GC and task ids, never `Signed-off-by`), work-share placement rule, host-side push and draft PR through a doc 21 port | CodingPermissions.Abstractions |
+| `Bazaar.Server.CodingReview` | WP11 | review context package (diff, task card, GC thread, check results), reviewer tool set (read-only, no shell), reviewer model-family choice, review-result port (flag on card, never merge authority) | `Bazaar.Server.Coding` (check types), CodingPermissions.Abstractions |
+| `Bazaar.Server.Subagents` | WP12 | subagent spawner: fresh context, tool allowlist that is a subset of the parent's, model from the parent's whitelist, depth and concurrency limits, disjoint-writer rule | CodingPermissions.Abstractions |
+
+Gap decisions (PROPOSED, most robust option, owner may overrule): (1) push to `agent/*` is gated only by hard taint, the recommendation of Question 1, behind the setting `harness.push_always_approve` (default off, may only tighten); (2) repo-level instruction files and repo MCP servers are never loaded, with no setting, per Question 2; (3) the owner's own repo files and command output count as soft taint, per the recommendation of Question 3, and the gate treats any source marked external as hard. These are enforced in code but stay PROPOSED until the owner answers the three questions.
+
 ## Behaviour and edge cases
 - Command output is untrusted. Output that echoes external text taints the session hard (Question 3).
 - A timeout returns a timeout code, never success. Partial output is kept.
