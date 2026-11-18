@@ -8,7 +8,11 @@ namespace Bazaar.Client.Layout;
 /// </summary>
 /// <param name="SchemaVersion">Document schema version. Currently 1.</param>
 /// <param name="Name">Product-facing name of the layout (doc 41 section 10: the term is "Layout").</param>
-/// <param name="Locks">Slot patterns the owner has locked for people below the owner. Empty when unlocked.</param>
+/// <param name="Locks">
+/// What the owner has locked for people below the owner. Each entry is a slot pattern (<c>*</c> or <c>deviceClass/display/posture</c>),
+/// <c>node:&lt;paneId&gt;</c> (the node and its place in the tree), or <c>setting:&lt;paneId&gt;/&lt;key&gt;</c> (one top-level config key).
+/// Empty when unlocked.
+/// </param>
 /// <param name="Slots">One arrangement per slot pattern. Resolved with <see cref="LayoutResolver"/>.</param>
 public sealed record LayoutDocument(
     int SchemaVersion,
@@ -49,6 +53,12 @@ public static class LayoutVocabulary
 
     /// <summary>Wildcard that matches any value in a slot or lock pattern.</summary>
     public const string Any = "*";
+
+    /// <summary>Lock prefix for a node and its place in the tree: <c>node:&lt;paneId&gt;</c>.</summary>
+    public const string NodeLockPrefix = "node:";
+
+    /// <summary>Lock prefix for one top-level config key of a pane: <c>setting:&lt;paneId&gt;/&lt;key&gt;</c>.</summary>
+    public const string SettingLockPrefix = "setting:";
 
     public const int MaxDocumentChars = 256 * 1024;
     public const int MaxNestingDepth = 16;

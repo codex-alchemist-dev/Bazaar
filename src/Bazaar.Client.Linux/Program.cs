@@ -7,6 +7,7 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Linux.Display;
 
 namespace Bazaar.Client.Linux;
 
@@ -51,7 +52,8 @@ internal static class Program
 
         try
         {
-            return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart)).StartWithClassicDesktopLifetime(args);
+            var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
+            return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
         }
         finally
         {
@@ -103,8 +105,23 @@ internal static class Program
         return window;
     }
 
-    private static AppBuilder BuildAvaloniaApp(Func<MainWindow> createMainWindow) =>
-        AppBuilder.Configure(() => new App(createMainWindow)).UsePlatformDetect();
+    /// <summary>
+    /// Builds the Avalonia app on the backend the session asks for (doc 30, section 1). An explicit X11 or Wayland choice is
+    /// honoured; with no display detected, platform detection runs unchanged so the failure stays Avalonia's own.
+    /// </summary>
+    private static AppBuilder BuildAvaloniaApp(Func<MainWindow> createMainWindow, DisplayBackend backend)
+    {
+        var builder = AppBuilder.Configure(() => new App(createMainWindow));
+        switch (backend)
+        {
+            case DisplayBackend.X11:
+                return builder.UseX11();
+            case DisplayBackend.Wayland:
+                return builder.UseWayland();
+            default:
+                return builder.UsePlatformDetect();
+        }
+    }
 
     /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
     private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths)
