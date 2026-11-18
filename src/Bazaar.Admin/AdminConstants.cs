@@ -14,4 +14,10 @@ public static class AdminConstants
 
     /// <summary>The Kodo command that verifies a finished setup (doc 45 section 1.12).</summary>
     public const string KodoVerifyWord = "verify";
+
+    /// <summary>The word that selects the secret commands (doc 45 section 1.6). Its one command is <see cref="SecretSetWord"/>.</summary>
+    public const string SecretCommandWord = "secret";
+
+    /// <summary>The secret command that stores one value under a reference. The value is never an argument.</summary>
+    public const string SecretSetWord = "set";
 }

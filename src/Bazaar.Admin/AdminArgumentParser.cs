@@ -8,14 +8,25 @@ public enum AdminAction
     DryRun,
     Apply,
     Verify,
+    Wizard,
+    SecretSet,
 }
 
 /// <summary>
 /// The parsed command line. <see cref="ConfigPath"/> is set for every action except help, unless the values come from <c>--set</c>
 /// flags or environment variables instead of a file. <see cref="SetArguments"/> holds the <c>--set</c> values in the order given.
-/// <see cref="HelpForSetup"/> and <see cref="HelpForKodo"/> choose which help text a help request prints.
+/// <see cref="HelpForSetup"/>, <see cref="HelpForKodo"/> and <see cref="HelpForSecret"/> choose which help text a help request prints.
+/// <see cref="SecretName"/> is the reference of a <c>secret set</c> request. The value is never part of the parsed line.
 /// </summary>
-public sealed record ParsedArguments(AdminAction Action, string? ConfigPath, string? PlanHash, bool HelpForSetup, IReadOnlyList<string> SetArguments, bool HelpForKodo = false);
+public sealed record ParsedArguments(
+    AdminAction Action,
+    string? ConfigPath,
+    string? PlanHash,
+    bool HelpForSetup,
+    IReadOnlyList<string> SetArguments,
+    bool HelpForKodo = false,
+    bool HelpForSecret = false,
+    string? SecretName = null);
 
 /// <summary>
 /// An argument error. <see cref="Flag"/> names the flag or the position, and <see cref="Exception.Message"/> names the rule. Neither
@@ -62,12 +73,18 @@ public static class AdminArgumentParser
                 null,
                 HelpForSetup: args[0] == AdminConstants.SetupCommandWord,
                 [],
-                HelpForKodo: args[0] == AdminConstants.KodoCommandWord);
+                HelpForKodo: args[0] == AdminConstants.KodoCommandWord,
+                HelpForSecret: args[0] == AdminConstants.SecretCommandWord);
         }
 
         if (args[0] == AdminConstants.KodoCommandWord)
         {
             return ParseKodo(args);
+        }
+
+        if (args[0] == AdminConstants.SecretCommandWord)
+        {
+            return ParseSecret(args);
         }
 
         if (args[0] != AdminConstants.SetupCommandWord)
@@ -124,6 +141,12 @@ public static class AdminArgumentParser
         // Each flag belongs to the forms that use it. The checks run before the file is read.
         if (subcommand is null)
         {
+            // A bare "setup" starts the interactive wizard (doc 45 section 1.1). Any flag makes it a scripted form instead.
+            if (args.Count == 1)
+            {
+                return new ParsedArguments(AdminAction.Wizard, null, null, HelpForSetup: false, []);
+            }
+
             if (!dryRun)
             {
                 throw new AdminUsageException(AdminConstants.SetupCommandWord, $"needs {_validateWord}, {_applyWord}, or {_dryRunFlag}. Run {AdminConstants.CommandName} setup --help.");
@@ -152,6 +175,35 @@ public static class AdminArgumentParser
         }
 
         return Build(AdminAction.Apply, config, planHash, sets, environmentOverrides);
+    }
+
+    /// <summary>
+    /// The secret commands (doc 45 section 1.6). Only <c>secret set &lt;reference&gt;</c> exists. The value is read from standard
+    /// input or a hidden prompt, so an extra argument is refused without being echoed: it may be a value typed in the wrong place.
+    /// </summary>
+    private static ParsedArguments ParseSecret(IReadOnlyList<string> args)
+    {
+        if (args.Count < 2 || args[1].StartsWith('-'))
+        {
+            throw new AdminUsageException(AdminConstants.SecretCommandWord, $"needs {AdminConstants.SecretSetWord}. Run {AdminConstants.CommandName} secret --help.");
+        }
+
+        if (args[1] != AdminConstants.SecretSetWord)
+        {
+            throw new AdminUsageException(AdminConstants.SecretCommandWord, $"unknown secret command. The only one is {AdminConstants.SecretSetWord}.");
+        }
+
+        if (args.Count < 3 || args[2].StartsWith('-'))
+        {
+            throw new AdminUsageException("name", "is required. Give the secret reference first, for example secret://bazaar/providers/anthropic/key.");
+        }
+
+        if (args.Count > 3)
+        {
+            throw new AdminUsageException("argument", "takes one reference only. The value is never taken from the command line; it is read from standard input or a hidden prompt.");
+        }
+
+        return new ParsedArguments(AdminAction.SecretSet, null, null, HelpForSetup: false, [], SecretName: args[2]);
     }
 
     /// <summary>

@@ -71,7 +71,8 @@ internal static class SetupCommands
         IReadOnlyDictionary<string, string?> environment,
         string planHash,
         ICliApplyGate gate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        SetupEntryPath? entryPath = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
 
@@ -121,7 +122,7 @@ internal static class SetupCommands
 
         using var provider = services.BuildServiceProvider();
         var applier = provider.GetRequiredService<SetupApplier>();
-        var request = new SetupApplyRequest(load.Plan, planHash, merged.EntryPath, OperatorIdentity(), null, null, null);
+        var request = new SetupApplyRequest(load.Plan, planHash, entryPath ?? merged.EntryPath, OperatorIdentity(), null, null, null);
         var result = await applier.ApplyAsync(request, cancellationToken);
 
         return new AdminReport

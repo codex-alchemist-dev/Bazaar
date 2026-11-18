@@ -10,15 +10,19 @@ internal static class AdminHelp
 
         Usage:
           {AdminConstants.CommandName} setup validate --config <path> [--set path=value]... [--json]
+          {AdminConstants.CommandName} setup                     Interactive wizard: plain prompts, then a review and an optional apply.
           {AdminConstants.CommandName} setup --dry-run --config <path> [--set path=value]... [--json]
           {AdminConstants.CommandName} setup apply --config <path> --plan-hash <hash> [--set path=value]... [--json]
           {AdminConstants.CommandName} kodo verify --config <path> [--json]
+          {AdminConstants.CommandName} secret set <reference>
           {AdminConstants.CommandName} setup --help
+          {AdminConstants.CommandName} secret --help
           {AdminConstants.CommandName} kodo --help
           {AdminConstants.CommandName} --help
 
         Commands:
-          setup    Validate, dry-run or apply a setup file (bazaar-setup.json).
+          setup    Validate, dry-run or apply a setup file (bazaar-setup.json), or run the wizard with no options.
+          secret   Store one secret value under a secret://bazaar/ reference. The value is typed, never an argument.
           kodo     Verify a finished setup: read-only checks, a score and the amber items (doc 45 section 1.12).
 
         Exit codes:
@@ -40,8 +44,27 @@ internal static class AdminHelp
 
         """;
 
+    public static string Secret => $"""
+        {AdminConstants.CommandName} secret: store one secret value (doc 45 section 1.6).
+
+        Commands:
+          secret set <reference>
+              Store the value under a secret://bazaar/ reference, for example secret://bazaar/providers/anthropic/key.
+              The value is read from standard input when it is piped, otherwise from a prompt that does not echo.
+              It is never an argument, so it does not reach shell history or the process list. The reference is checked
+              before the value is read. Nothing prints the value.
+              Store availability: this build has no secret store, so the command reports that and stores nothing (exit {(int)SetupExitCode.Held}).
+
+        Exit codes: {(int)SetupExitCode.Ok} stored, {(int)SetupExitCode.InvalidInput} invalid input or no value, {(int)SetupExitCode.Held} no secret store in this build, {(int)SetupExitCode.ApplyFailedRolledBack} the store did not accept the value.
+
+        """;
+
     public static string Setup => $"""
-        {AdminConstants.CommandName} setup: validate, dry-run or apply a setup file.
+        {AdminConstants.CommandName} setup: validate, dry-run or apply a setup file, or run the wizard.
+
+        The wizard: run {AdminConstants.CommandName} setup with no other option. It asks one question at a time, shows the same
+        review as setup --dry-run, and applies only when you type the start of the plan hash it printed. Its answers go through
+        the same checks as --set flags, so the same answers give the same plan hash. It never writes a file.
 
         Commands:
           setup validate --config <path> [--set path=value]... [--json]

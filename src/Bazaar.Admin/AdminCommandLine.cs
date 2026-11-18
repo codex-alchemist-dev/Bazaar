@@ -17,6 +17,8 @@ public static class AdminCommandLine
     /// Runs the command and returns its exit code (0, 1, 2 or 3, the <see cref="SetupExitCode"/> values). <paramref name="applyGate"/>
     /// decides whether apply may run; left out, the placeholder gate is used, which is closed in this build.
     /// <paramref name="environment"/> supplies the <c>BAZAAR__SETUP__</c> variables; left out, the process environment is read.
+    /// The wizard reads answers from <paramref name="prompter"/> (left out, the console); <c>secret set</c> reads its value from
+    /// <paramref name="secretInput"/> and stores it in <paramref name="secretWriter"/>. Left out, both fail closed or read the console.
     /// </summary>
     public static async Task<int> RunAsync(
         IReadOnlyList<string> args,
@@ -24,6 +26,9 @@ public static class AdminCommandLine
         TextWriter stderr,
         ICliApplyGate? applyGate = null,
         ISetupEnvironment? environment = null,
+        ISetupPrompter? prompter = null,
+        ISecretValueSource? secretInput = null,
+        ISetupSecretWriter? secretWriter = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -52,6 +57,24 @@ public static class AdminCommandLine
             return (int)SetupExitCode.Ok;
         }
 
+        if (parsed.Action == AdminAction.Wizard)
+        {
+            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout), variables, applyGate);
+            var outcome = await wizard.RunAsync(cancellationToken);
+            return outcome.ExitCode;
+        }
+
+        if (parsed.Action == AdminAction.SecretSet)
+        {
+            return await SecretCommands.SetAsync(
+                parsed.SecretName!,
+                secretWriter ?? new UnavailableSetupSecretWriter(),
+                secretInput ?? ConsoleSecretValueSource.Instance,
+                stdout,
+                stderr,
+                cancellationToken);
+        }
+
         if (parsed.Action == AdminAction.Verify)
         {
             var verify = await KodoCommands.VerifyAsync(parsed.ConfigPath!, cancellationToken);
@@ -78,6 +101,11 @@ public static class AdminCommandLine
         if (parsed.HelpForSetup)
         {
             return AdminHelp.Setup;
+        }
+
+        if (parsed.HelpForSecret)
+        {
+            return AdminHelp.Secret;
         }
 
         return parsed.HelpForKodo ? AdminHelp.Kodo : AdminHelp.Top;

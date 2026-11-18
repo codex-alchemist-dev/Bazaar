@@ -13,6 +13,20 @@ internal static class AdminRun
 {
     public static Task<CliRun> Async(params string[] args) => WithGate(null, args);
 
+    /// <summary>Runs the command with a scripted prompter, so the wizard reads its answers from the test instead of the console.</summary>
+    public static async Task<CliRun> WithPrompter(ISetupPrompter prompter, params string[] args)
+    {
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+        var code = await AdminCommandLine.RunAsync(
+            args,
+            stdout,
+            stderr,
+            prompter: prompter,
+            cancellationToken: TestContext.Current.CancellationToken);
+        return new CliRun(code, stdout.ToString(), stderr.ToString());
+    }
+
     /// <summary>Runs the command with an apply gate. Null uses the command's own default gate.</summary>
     public static async Task<CliRun> WithGate(ICliApplyGate? gate, params string[] args)
     {
