@@ -11,7 +11,7 @@ public sealed class AccessTokenSignerTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static readonly DateTimeOffset _start = new(2026, 11, 18, 12, 0, 0, TimeSpan.Zero);
-    private const string Scope = AccessTokenSigner.Scope;
+    private const string _scope = AccessTokenSigner.Scope;
 
     private sealed class Harness
     {
@@ -35,7 +35,7 @@ public sealed class AccessTokenSignerTests
         };
     }
 
-    private static async Task<Guid> LiveKidAsync(Harness h) => (await h.Store.GetLiveAsync(Scope, Ct))!.DekId;
+    private static async Task<Guid> LiveKidAsync(Harness h) => (await h.Store.GetLiveAsync(_scope, Ct))!.DekId;
 
     /// <summary>Re-encodes the mac so only the mac check (not the MAC itself) can refuse the token.</summary>
     private static string WithPayload(string token, string payloadJson)
@@ -173,7 +173,7 @@ public sealed class AccessTokenSignerTests
         // A later sign clears the expired wrap; the row stays, and its wrap is gone.
         h.Time.Advance(TimeSpan.FromSeconds(1));
         await h.Signer.SignAsync(Guid.NewGuid(), Guid.NewGuid(), h.Time.GetUtcNow().AddMinutes(15), Ct);
-        var oldRow = (await h.Store.ListAsync(Scope, Ct)).Single(r => r.DekId == oldKid);
+        var oldRow = (await h.Store.ListAsync(_scope, Ct)).Single(r => r.DekId == oldKid);
         Assert.Null(oldRow.WrappedDek);
         Assert.Equal(retiredAt, oldRow.RetiredAt);
     }
@@ -189,7 +189,7 @@ public sealed class AccessTokenSignerTests
         h.Time.Advance(TimeSpan.FromMinutes(1));
         await h.Signer.SignAsync(Guid.NewGuid(), Guid.NewGuid(), h.Time.GetUtcNow().AddMinutes(15), Ct);
 
-        Assert.NotNull((await h.Store.ListAsync(Scope, Ct)).Single(r => r.DekId == oldKid).WrappedDek);
+        Assert.NotNull((await h.Store.ListAsync(_scope, Ct)).Single(r => r.DekId == oldKid).WrappedDek);
     }
 
     [Fact]
@@ -203,8 +203,8 @@ public sealed class AccessTokenSignerTests
 
         var second = await LiveKidAsync(h);
         Assert.NotEqual(first, second);
-        Assert.Equal(2, (await h.Store.ListAsync(Scope, Ct)).Count);
-        Assert.Single(await h.Store.ListAsync(Scope, Ct), r => r.RetiredAt is null);
+        Assert.Equal(2, (await h.Store.ListAsync(_scope, Ct)).Count);
+        Assert.Single(await h.Store.ListAsync(_scope, Ct), r => r.RetiredAt is null);
     }
 
     [Fact]
@@ -283,7 +283,7 @@ public sealed class AccessTokenSignerTests
         var winnerId = Guid.NewGuid();
         var winnerKey = RandomNumberGenerator.GetBytes(32);
         var wrapped = await h.Wrapper.WrapAsync(winnerKey, winnerId.ToByteArray(), Ct);
-        h.Store.ArrangeLostRace(new NewSigningKey(winnerId, Scope, wrapped, h.Wrapper.KekId, h.Time.GetUtcNow()));
+        h.Store.ArrangeLostRace(new NewSigningKey(winnerId, _scope, wrapped, h.Wrapper.KekId, h.Time.GetUtcNow()));
         var deviceId = Guid.NewGuid();
         var humanId = Guid.NewGuid();
 
@@ -291,7 +291,7 @@ public sealed class AccessTokenSignerTests
 
         Assert.Equal(winnerId.ToString("N"), token.Split('.')[1]);
         Assert.Equal(new AccessTokenClaims(deviceId, humanId), await h.Signer.VerifyAsync(token, Ct));
-        Assert.Equal(winnerId, (await h.Store.GetLiveAsync(Scope, Ct))!.DekId);
+        Assert.Equal(winnerId, (await h.Store.GetLiveAsync(_scope, Ct))!.DekId);
     }
 
     [Fact]
@@ -300,11 +300,11 @@ public sealed class AccessTokenSignerTests
         var h = Create();
         var winnerId = Guid.NewGuid();
         var wrapped = await h.Wrapper.WrapAsync(RandomNumberGenerator.GetBytes(32), winnerId.ToByteArray(), Ct);
-        h.Store.ArrangeLostRace(new NewSigningKey(winnerId, Scope, wrapped, h.Wrapper.KekId, h.Time.GetUtcNow()));
+        h.Store.ArrangeLostRace(new NewSigningKey(winnerId, _scope, wrapped, h.Wrapper.KekId, h.Time.GetUtcNow()));
 
         await h.Signer.SignAsync(Guid.NewGuid(), Guid.NewGuid(), h.Time.GetUtcNow().AddMinutes(15), Ct);
 
-        var rows = await h.Store.ListAsync(Scope, Ct);
+        var rows = await h.Store.ListAsync(_scope, Ct);
         Assert.Equal(winnerId, Assert.Single(rows, r => r.RetiredAt is null).DekId);
     }
 }

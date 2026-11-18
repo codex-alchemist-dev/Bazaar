@@ -11,7 +11,7 @@ namespace Bazaar.Server.Identity.Postgres.Tests;
 /// <summary>The durable signing-key store over <c>soul_dek</c>. Needs the Docker or BAZAAR_TEST_PG PostgreSQL that the other store tests use.</summary>
 public sealed class PostgresSigningKeyStoreTests
 {
-    private const string Scope = "access-token";
+    private const string _scope = "access-token";
     private static readonly DateTimeOffset _t0 = new(2026, 11, 18, 12, 0, 0, TimeSpan.Zero);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -21,7 +21,7 @@ public sealed class PostgresSigningKeyStoreTests
             new EmbeddedMigrationSource(typeof(PostgresTokenBudgetStore).Assembly), MigrateCommand.CurrentProvider(), ct);
 
     private static NewSigningKey Key(DateTimeOffset createdAt) =>
-        new(Guid.NewGuid(), Scope, RandomNumberGenerator.GetBytes(60), "kek-1", createdAt);
+        new(Guid.NewGuid(), _scope, RandomNumberGenerator.GetBytes(60), "kek-1", createdAt);
 
     [Fact]
     public async Task Rotation_retires_the_live_row_and_leaves_exactly_one_live_key()
@@ -35,8 +35,8 @@ public sealed class PostgresSigningKeyStoreTests
         await store.RotateAsync(first, _t0, Ct);
         await store.RotateAsync(second, _t0.AddDays(1), Ct);
 
-        Assert.Equal(second.DekId, (await store.GetLiveAsync(Scope, Ct))!.DekId);
-        var rows = await store.ListAsync(Scope, Ct);
+        Assert.Equal(second.DekId, (await store.GetLiveAsync(_scope, Ct))!.DekId);
+        var rows = await store.ListAsync(_scope, Ct);
         Assert.Equal(2, rows.Count);
         Assert.Equal(_t0.AddDays(1), rows.Single(r => r.DekId == first.DekId).RetiredAt);
         Assert.Null(rows.Single(r => r.DekId == second.DekId).RetiredAt);
@@ -56,9 +56,9 @@ public sealed class PostgresSigningKeyStoreTests
         await store.RotateAsync(c, _t0.AddHours(2), Ct);
 
         // a retired at +1h, b at +2h; the cutoff +1h clears only a.
-        await store.ClearRetiredWrapsAsync(Scope, _t0.AddHours(1), Ct);
+        await store.ClearRetiredWrapsAsync(_scope, _t0.AddHours(1), Ct);
 
-        var rows = await store.ListAsync(Scope, Ct);
+        var rows = await store.ListAsync(_scope, Ct);
         Assert.Null(rows.Single(r => r.DekId == a.DekId).WrappedDek);
         Assert.NotNull(rows.Single(r => r.DekId == b.DekId).WrappedDek);
         Assert.NotNull(rows.Single(r => r.DekId == c.DekId).WrappedDek);
@@ -75,7 +75,7 @@ public sealed class PostgresSigningKeyStoreTests
 
         await store.RotateAsync(key, _t0, Ct);
 
-        var live = await store.GetLiveAsync(Scope, Ct);
+        var live = await store.GetLiveAsync(_scope, Ct);
         Assert.NotNull(live);
         Assert.Equal(key.WrappedDek, live.WrappedDek);
         Assert.Equal("kek-1", live.KekId);
@@ -97,7 +97,7 @@ public sealed class PostgresSigningKeyStoreTests
         await using var otherTx = await otherConnection.BeginTransactionAsync(Ct);
         await using (var retire = new NpgsqlCommand("UPDATE soul_dek SET retired_at = $2 WHERE scope = $1 AND retired_at IS NULL", otherConnection, otherTx))
         {
-            retire.Parameters.Add(new NpgsqlParameter<string> { TypedValue = Scope });
+            retire.Parameters.Add(new NpgsqlParameter<string> { TypedValue = _scope });
             retire.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = _t0.AddHours(1) });
             await retire.ExecuteNonQueryAsync(Ct);
         }
@@ -106,7 +106,7 @@ public sealed class PostgresSigningKeyStoreTests
             "INSERT INTO soul_dek (dek_id, scope, wrapped_dek, kek_id, created_at) VALUES ($1, $2, $3, $4, $5)", otherConnection, otherTx))
         {
             insert.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = other.DekId });
-            insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = Scope });
+            insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = _scope });
             insert.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = other.WrappedDek });
             insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = other.KekId });
             insert.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = other.CreatedAt });
@@ -120,9 +120,9 @@ public sealed class PostgresSigningKeyStoreTests
         var returned = await rotating;
 
         Assert.Equal(other.DekId, returned.DekId);
-        var rows = await store.ListAsync(Scope, Ct);
+        var rows = await store.ListAsync(_scope, Ct);
         Assert.Equal(2, rows.Count);
         Assert.DoesNotContain(rows, r => r.DekId == ours.DekId);
-        Assert.Equal(other.DekId, (await store.GetLiveAsync(Scope, Ct))!.DekId);
+        Assert.Equal(other.DekId, (await store.GetLiveAsync(_scope, Ct))!.DekId);
     }
 }

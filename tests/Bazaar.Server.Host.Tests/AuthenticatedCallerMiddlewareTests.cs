@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Host.Auth;
-using Bazaar.Server.Identity.Signing;
 using Bazaar.Server.Http.Auth;
+using Bazaar.Server.Identity.Signing;
 using Microsoft.AspNetCore.Http;
 
 namespace Bazaar.Server.Host.Tests;

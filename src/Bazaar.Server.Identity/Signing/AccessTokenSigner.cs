@@ -19,9 +19,9 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
     /// <summary>The soul_dek scope of the access-token key.</summary>
     public const string Scope = "access-token";
 
-    private const string Version = "v1";
-    private const int KeyBytes = 32;
-    private const int MacBytes = 32;
+    private const string _version = "v1";
+    private const int _keyBytes = 32;
+    private const int _macBytes = 32;
 
     /// <summary>How long a cached live key is trusted before its row is read again, so a rotation by another host is seen.</summary>
     private static readonly TimeSpan _liveRecheck = TimeSpan.FromSeconds(30);
@@ -61,7 +61,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
         var kid = live.DekId.ToString("N");
         var payloadB64 = Base64Url.EncodeToString(payload);
         var mac = HMACSHA256.HashData(key, SignedBytes(kid, payloadB64));
-        return string.Concat(Version, ".", kid, ".", payloadB64, ".", Base64Url.EncodeToString(mac));
+        return string.Concat(_version, ".", kid, ".", payloadB64, ".", Base64Url.EncodeToString(mac));
     }
 
     /// <inheritdoc />
@@ -69,7 +69,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
     {
         ArgumentNullException.ThrowIfNull(token);
         var parts = token.Split('.');
-        if (parts.Length != 4 || parts[0] != Version) return null;
+        if (parts.Length != 4 || parts[0] != _version) return null;
         if (!Guid.TryParseExact(parts[1], "N", out var kid) || parts[1] != kid.ToString("N")) return null;
 
         byte[] payload;
@@ -84,7 +84,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
             return null;
         }
 
-        if (mac.Length != MacBytes) return null;
+        if (mac.Length != _macBytes) return null;
 
         var key = await ResolveKeyAsync(kid, cancellationToken).ConfigureAwait(false);
         if (key is null) return null;
@@ -149,7 +149,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
     private async ValueTask<SigningKeyRow> RotateUnlockedAsync(CancellationToken cancellationToken)
     {
         var now = _time.GetUtcNow();
-        var key = RandomNumberGenerator.GetBytes(KeyBytes);
+        var key = RandomNumberGenerator.GetBytes(_keyBytes);
         var dekId = Guid.NewGuid();
         var associated = AssociatedData(dekId);
         var wrapped = await _wrapper.WrapAsync(key, associated, cancellationToken).ConfigureAwait(false);
@@ -221,7 +221,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
             return null;
         }
 
-        if (key.Length != KeyBytes)
+        if (key.Length != _keyBytes)
         {
             CryptographicOperations.ZeroMemory(key);
             return null;
@@ -237,7 +237,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
 
     private static byte[] AssociatedData(Guid dekId) => dekId.ToByteArray();
 
-    private static byte[] SignedBytes(string kid, string payloadB64) => Encoding.ASCII.GetBytes(string.Concat(Version, ".", kid, ".", payloadB64));
+    private static byte[] SignedBytes(string kid, string payloadB64) => Encoding.ASCII.GetBytes(string.Concat(_version, ".", kid, ".", payloadB64));
 
     /// <summary>The claims inside a token. Wire names follow the token format above.</summary>
     internal sealed record AccessTokenPayload(
