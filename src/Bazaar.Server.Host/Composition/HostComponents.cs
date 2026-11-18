@@ -18,6 +18,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Mail;
+using Bazaar.Server.Modules;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -44,6 +45,7 @@ public static class HostComponents
         new VaultComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new ModuleManagerComponent(),
         new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
