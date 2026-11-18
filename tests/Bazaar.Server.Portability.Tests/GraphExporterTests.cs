@@ -184,11 +184,199 @@ public class GraphExporterTests
     }
 
     [Fact]
+    public async Task Layout_is_not_read_when_derived_export_is_off()
+    {
+        var snapshot = Sample();
+        var layout = new FakeLayoutSource(LayoutFor(snapshot));
+        var sink = new RecordingExportSink();
+
+        var result = await new GraphExporter(new FakeGraphSource(snapshot), new PortabilityExportOptions(), layout)
+            .ExportAsync(sink, CancellationToken.None);
+
+        Assert.True(result.Skipped);
+        Assert.Equal(0, layout.Reads);
+        Assert.Empty(sink.Paths);
+    }
+
+    [Fact]
+    public async Task Layout_is_written_one_line_per_node_in_nodes_index_order()
+    {
+        var snapshot = Sample(reverse: true);
+        var layout = new FakeLayoutSource(LayoutFor(snapshot));
+
+        var (result, sink) = await RunWithLayoutAsync(snapshot, layout);
+
+        Assert.Contains(GraphExporter.LayoutPath, result.Files);
+        Assert.Contains(GraphExporter.LayoutPath, sink.Paths);
+        Assert.Equal(42L, layout.RequestedVersion);
+
+        var nodeLines = sink.Lines(GraphExporter.NodesPath).Select(l => JsonElement.Parse(l)).ToList();
+        var lines = sink.Lines(GraphExporter.LayoutPath).Select(l => JsonElement.Parse(l)).ToList();
+        Assert.Equal(4, lines.Count);
+        Assert.Equal(
+            nodeLines.Select(n => n.GetProperty("ref").GetString()).ToArray(),
+            lines.Select(l => l.GetProperty("ref").GetString()).ToArray());
+        Assert.Equal([0, 1, 2, 3], lines.Select(l => l.GetProperty("index").GetInt32()).ToArray());
+
+        // Each line carries the position of its own node, even though the snapshot listed the nodes in reverse.
+        foreach (var line in lines)
+        {
+            var (x, y, z) = Position(line.GetProperty("ref").GetString()!);
+            Assert.Equal(x, line.GetProperty("x").GetSingle());
+            Assert.Equal(y, line.GetProperty("y").GetSingle());
+            Assert.Equal(z, line.GetProperty("z").GetSingle());
+        }
+    }
+
+    [Fact]
+    public async Task Layout_bytes_are_identical_however_the_snapshot_orders_its_nodes()
+    {
+        var forward = Sample(reverse: false);
+        var reversed = Sample(reverse: true);
+
+        var (_, forwardSink) = await RunWithLayoutAsync(forward, new FakeLayoutSource(LayoutFor(forward)));
+        var (_, reversedSink) = await RunWithLayoutAsync(reversed, new FakeLayoutSource(LayoutFor(reversed)));
+
+        Assert.True(forwardSink.Bytes(GraphExporter.LayoutPath).AsSpan().SequenceEqual(reversedSink.Bytes(GraphExporter.LayoutPath)));
+    }
+
+    [Fact]
+    public async Task Layout_file_is_lf_only_with_no_byte_order_mark()
+    {
+        var snapshot = Sample();
+        var (_, sink) = await RunWithLayoutAsync(snapshot, new FakeLayoutSource(LayoutFor(snapshot)));
+
+        var bytes = sink.Bytes(GraphExporter.LayoutPath);
+        Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
+        Assert.DoesNotContain((byte)'\r', bytes);
+        Assert.Equal((byte)'\n', bytes[^1]);
+    }
+
+    [Fact]
+    public async Task Negative_zero_is_written_as_zero()
+    {
+        var snapshot = new GraphSnapshot(7, [new GraphNode("a")], []);
+        var layout = new FakeLayoutSource(new GraphLayoutPositions(7, new float[] { -0f, -0f, -0f }));
+
+        var (_, sink) = await RunWithLayoutAsync(snapshot, layout);
+
+        Assert.DoesNotContain("-", sink.Text(GraphExporter.LayoutPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Layout_for_another_graph_version_is_skipped()
+    {
+        var snapshot = Sample();
+        var stale = LayoutFor(snapshot);
+        var layout = new FakeLayoutSource(new GraphLayoutPositions(41, stale.Xyz));
+
+        var (result, sink) = await RunWithLayoutAsync(snapshot, layout);
+
+        Assert.DoesNotContain(GraphExporter.LayoutPath, result.Files);
+        Assert.DoesNotContain(GraphExporter.LayoutPath, sink.Paths);
+        Assert.Equal(4, result.NodeCount);
+    }
+
+    [Fact]
+    public async Task Layout_is_skipped_when_the_source_holds_no_positions()
+    {
+        var (result, sink) = await RunWithLayoutAsync(Sample(), new FakeLayoutSource(null));
+
+        Assert.DoesNotContain(GraphExporter.LayoutPath, result.Files);
+        Assert.DoesNotContain(GraphExporter.LayoutPath, sink.Paths);
+    }
+
+    [Fact]
+    public async Task Layout_is_skipped_when_no_layout_source_is_given()
+    {
+        var (result, sink, _) = await RunAsync(Sample());
+
+        Assert.DoesNotContain(GraphExporter.LayoutPath, result.Files);
+        Assert.DoesNotContain(GraphExporter.LayoutPath, sink.Paths);
+    }
+
+    [Fact]
+    public async Task Layout_with_the_wrong_position_count_is_refused_before_any_file_is_written()
+    {
+        var snapshot = Sample();
+        var sink = new RecordingExportSink();
+        var exporter = new GraphExporter(
+            new FakeGraphSource(snapshot),
+            new PortabilityExportOptions { IncludeDerived = true },
+            new FakeLayoutSource(new GraphLayoutPositions(42, new float[6])));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => exporter.ExportAsync(sink, CancellationToken.None));
+
+        Assert.Contains("holds 2 positions for 4 nodes", error.Message, StringComparison.Ordinal);
+        Assert.Empty(sink.Paths);
+    }
+
+    [Theory]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    [InlineData(float.NegativeInfinity)]
+    public async Task Layout_with_a_non_finite_position_is_refused_before_any_file_is_written(float value)
+    {
+        var snapshot = new GraphSnapshot(7, [new GraphNode("a")], []);
+        var sink = new RecordingExportSink();
+        var exporter = new GraphExporter(
+            new FakeGraphSource(snapshot),
+            new PortabilityExportOptions { IncludeDerived = true },
+            new FakeLayoutSource(new GraphLayoutPositions(7, new float[] { value, 0f, 0f })));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => exporter.ExportAsync(sink, CancellationToken.None));
+
+        Assert.Empty(sink.Paths);
+    }
+
+    [Fact]
     public async Task Duplicate_node_ids_are_refused()
     {
         var snapshot = new GraphSnapshot(1, [new GraphNode("same"), new GraphNode("same")], []);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync(snapshot));
+    }
+
+    /// <summary>A deterministic position per node id, so a test can check each line against its own node.</summary>
+    private static (float X, float Y, float Z) Position(string id) => (id.Length + 0.5f, id.Length / 4f, 0f);
+
+    /// <summary>Positions in the snapshot's own node order, as the layout engine would pack them.</summary>
+    private static GraphLayoutPositions LayoutFor(GraphSnapshot snapshot)
+    {
+        var xyz = new float[3 * snapshot.Nodes.Count];
+        for (var i = 0; i < snapshot.Nodes.Count; i++)
+        {
+            var (x, y, z) = Position(snapshot.Nodes[i].Id);
+            xyz[3 * i] = x;
+            xyz[3 * i + 1] = y;
+            xyz[3 * i + 2] = z;
+        }
+
+        return new GraphLayoutPositions(snapshot.GraphVersion, xyz);
+    }
+
+    private static async Task<(GraphExportResult Result, RecordingExportSink Sink)> RunWithLayoutAsync(
+        GraphSnapshot snapshot,
+        IGraphLayoutSource? layout)
+    {
+        var sink = new RecordingExportSink();
+        var result = await new GraphExporter(new FakeGraphSource(snapshot), new PortabilityExportOptions { IncludeDerived = true }, layout)
+            .ExportAsync(sink, CancellationToken.None);
+        return (result, sink);
+    }
+
+    private sealed class FakeLayoutSource(GraphLayoutPositions? positions) : IGraphLayoutSource
+    {
+        public int Reads { get; private set; }
+
+        public long RequestedVersion { get; private set; }
+
+        public Task<GraphLayoutPositions?> GetPositionsAsync(long graphVersion, CancellationToken ct)
+        {
+            Reads++;
+            RequestedVersion = graphVersion;
+            return Task.FromResult(positions);
+        }
     }
 
     private sealed class FakeGraphSource(GraphSnapshot snapshot) : IGraphExportSource

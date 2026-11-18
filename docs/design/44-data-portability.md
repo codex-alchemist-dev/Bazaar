@@ -97,9 +97,9 @@ The graph is derived from the Vault index, GC references, Kanban and PR data. It
 
 - `graph/nodes.jsonl` and `graph/edges.jsonl`: node kind, source reference, label and edge kind.
 - `graph/graph.graphml`: the same graph in GraphML for external tools.
-- `graph/layout.jsonl`: node positions. Excluded by default (`portability.export.include_derived`, false), because positions are derived and change with every layout run.
+- `graph/layout.jsonl`: the layout position of each node, one JSON line per node in the same index order as `graph/nodes.jsonl` (`index`, `ref`, then `x`, `y`, `z`; 2D layouts keep `z` at 0). Positions are derived and change with every layout run, so the file is written only when `portability.export.include_derived` is true (default false). It sits under `graph/`, which `graph/derived.json` marks as derived and not authoritative. Owner decision (2026-11-18): layout positions are exported, as derived data. Section 7 has the matching rule.
 
-Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access).
+Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access). Positions come from the same viewer-filtered snapshot, so a position is never written for a node the viewer cannot read. A layout computed for another graph version is not exported.
 
 ### 4.6 Personal fields and the audit log
 
@@ -237,7 +237,7 @@ Each row below is a hard exclusion or a route to the data. None of these is a se
 | Erased subjects' content | Destroyed by design (section 10) | Tombstones only |
 | Other principals' private Vault areas | Access rule (doc 18) | Owner export only, as section 4.3 |
 | Logs, presence, cache, search indexes, embeddings | Rebuildable or transient. Logs rotate (doc 33) | Rebuilt from the log and the Vault. Embeddings can be included as derived data with their embedding profile id (`portability.export.include_derived`, false) |
-| Layout positions and other derived views | Change on every run | Recomputed from sources |
+| Other derived views (render tiles, caches) | Change on every run | Recomputed from sources. Graph layout positions are not excluded: they are exported as derived data with `include_derived` (section 4.5) |
 | The live audit chain as a writable object | Import would forge history | Audit is exported as evidence (section 4.6) and imported only as an archive (section 8.2) |
 | Work in flight (open turns, locks, leases) | Not data at rest | Drain before export (doc 03 shutdown). Export of a running instance is a snapshot at a consistent point, with the point recorded |
 
