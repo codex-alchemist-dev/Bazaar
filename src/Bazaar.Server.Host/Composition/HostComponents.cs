@@ -19,6 +19,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Mail;
+using Bazaar.Server.Retention;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -33,6 +34,7 @@ public static class HostComponents
     [
         new AuditComponent(),
         new SettingsComponent(),
+        new RetentionComponent(),
         new GcComponent(),
         new CompanyComponent(),
         new CompanyBuildComponent(),
