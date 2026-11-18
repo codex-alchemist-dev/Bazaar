@@ -54,6 +54,19 @@ The remaining Client.Core code that is not host plumbing moves like the feature 
 
 Each new project gets an architecture rule entry that it does not reference `Bazaar.Client.Core`.
 
+## 2c. Theme, commands, input and preload
+
+The last feature code in Client.Core is pure library code with no Avalonia dependency. It moves the same way, one module per area, so that `Bazaar.Client.Core` keeps only the host: `App`, `MainWindow`, `PaneHost`, `PaneViews` (the `IPaneViewFactory` the heads pass to `PaneRegistry`) and the `FirstPartyPanes` composition helper.
+
+| Target | Holds | Why |
+|---|---|---|
+| `Bazaar.Client.Theme` | `ThemeModel`, `ThemeTokens`, `ThemeValidator`, the Avalonia and Monaco theme generators | One theme file drives Avalonia and Monaco (doc 41 section 3). The validator and generators are plain code, trim- and ReadyToRun-friendly. |
+| `Bazaar.Client.Commands` | `Command`, `CommandRegistry`, `CommandSource`, `CommandMatcher`, `FuzzyScorer`, `CommandRecency` | The command palette engine (doc 41, command bindings). Fuzzy matching and recency are a feature, not host plumbing. |
+| `Bazaar.Client.Input` | `KeyStroke`, `KeyRouter`, `Mnemonic`, `MnemonicTable` | The mnemonic key model with no Ctrl chords (doc 27, doc 28 section 4). `Bazaar.Ex` builds on it, so it can stop referencing `Bazaar.Client.Core`. |
+| `Bazaar.Client.Preload` | `PreloadAutostart` | The preloader's autostart entry (doc 40, ReadyToRun and preloader). |
+
+Each of the four references only `Bazaar.Contracts` (Theme and Commands need nothing else), and each gets the architecture rule that it never references `Bazaar.Client.Core`. Heads reference them directly.
+
 ## 3. Dependencies after the move
 
 - `Bazaar.Client.Layout` → `Bazaar.Contracts`, `Bazaar.Rubedo` (for `visibleWhen`, when wired).
