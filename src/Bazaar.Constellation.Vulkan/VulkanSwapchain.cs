@@ -494,7 +494,7 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         if (_pipeline is null || _pipelineFormat != _format)
         {
             _pipeline?.Dispose();
-            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format);
+            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR);
             _pipelineFormat = _format;
         }
 
