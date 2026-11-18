@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Sanitization;
+namespace Bazaar.Sanitization;
 
 /// <summary>Removes sensitive spans from text that is about to leave a private scope.</summary>
 public interface ITextSanitizer

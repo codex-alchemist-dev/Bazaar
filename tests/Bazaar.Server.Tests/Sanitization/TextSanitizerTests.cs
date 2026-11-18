@@ -1,3 +1,4 @@
+using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
 
 namespace Bazaar.Server.Tests.Sanitization;
