@@ -84,6 +84,31 @@ public sealed class MailDnsSetupTests
     }
 
     [Fact]
+    public async Task Step_returns_the_four_counts_as_audit_counts()
+    {
+        var plan = LoadPlan("""
+            "email": { "enabled": true, "domain": "example.com", "backendKind": "generic", "dkimSelector": "s1" }
+            """);
+
+        var result = await Step(new StubDnsResolver()).ApplyAsync(plan, Context(plan), CancellationToken.None);
+
+        Assert.Equal(["fail", "not-applicable", "pass", "warn"], result.AuditCounts.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(3, result.AuditCounts["fail"]);
+        Assert.All(result.AuditCounts.Values, count => Assert.True(count >= 0));
+        Assert.Contains($"{result.AuditCounts["fail"]} fail", result.Message);
+    }
+
+    [Fact]
+    public async Task Step_has_no_audit_counts_when_disabled_or_skipped()
+    {
+        var disabled = LoadPlan("\"email\": { \"enabled\": false }");
+        var skipped = LoadPlan("\"email\": { \"enabled\": true }");
+
+        Assert.Empty((await Step(new StubDnsResolver()).ApplyAsync(disabled, Context(disabled), CancellationToken.None)).AuditCounts);
+        Assert.Empty((await Step(new StubDnsResolver()).ApplyAsync(skipped, Context(skipped), CancellationToken.None)).AuditCounts);
+    }
+
+    [Fact]
     public async Task Step_reports_a_clean_domain_and_is_idempotent()
     {
         var resolver = new StubDnsResolver()

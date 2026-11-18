@@ -6,7 +6,7 @@ namespace Bazaar.Server.MailDns;
 
 /// <summary>
 /// Setup step 11, Email (doc 45 section 1.3 and doc 22). Does nothing when <c>email.enabled</c> is false. When true it runs the
-/// DNS checker for the plan's mail domain and reports the result as a message, counts first. The report is advice: DNS may not
+/// DNS checker for the plan's mail domain and reports the result as a message, counts first, and as audit counts (pass, warn, fail, not-applicable; numbers only). The report is advice: DNS may not
 /// have propagated, so this step always succeeds and never blocks the apply. It only reads DNS, so running it again is safe, and
 /// there is nothing to roll back. It holds no domain, provider or selector of its own and handles no secret.
 /// </summary>
@@ -57,7 +57,16 @@ public sealed class MailDnsSetupStep(IMailDnsChecker checker) : ISetupStep
             return new SetupStepResult(true, "The mail DNS check could not run. Run it again later from the email settings.");
         }
 
-        return new SetupStepResult(true, Describe(report));
+        return new SetupStepResult(true, Describe(report))
+        {
+            AuditCounts = new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["pass"] = report.Count(DnsCheckStatus.Pass),
+                ["warn"] = report.Count(DnsCheckStatus.Warn),
+                ["fail"] = report.Count(DnsCheckStatus.Fail),
+                ["not-applicable"] = report.Count(DnsCheckStatus.NotApplicable),
+            },
+        };
     }
 
     /// <summary>The report as text for the operator: counts on the first line, then one line per check that needs attention.</summary>
