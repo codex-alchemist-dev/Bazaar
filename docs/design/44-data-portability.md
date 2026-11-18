@@ -160,6 +160,12 @@ Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday an
 - **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
 - **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
 
+**Built status (2026-11-18, built to the proposal; owner approved building before the section is DECIDED, so it is easy to adjust).**
+- Roadmap: nothing new. The Vault exporter covers it; no separate format.
+- Workday: `WorkdayExporter` (`Bazaar.Server.Portability`) adds `workday/events.jsonl` (the full `task_events` log, every kind, canonical JSON payloads), `workday/gate-decisions.jsonl` and `workday/manifest.json`. Tasks, edges, links and applied transitions stay in the Kanban export (section 4.4).
+- Orrery: `OrreryExporter` writes `orrery/triggers.jsonl` (every `ryusei_trigger` column, each row marked `restoreAs: "paused"`), `orrery/fires.jsonl` (the `ryusei_fire` journal, for exported triggers only) and `orrery/manifest.json`. The `ryusei.trigger.*` audit rows travel with the audit-log export (section 4.6), not here.
+- Both read through narrow source interfaces (`IWorkdayExportSource`, `IOrreryExportSource`) that the host implements; the import side (restoring triggers paused) is not built yet.
+
 ### 4.z Whole-company export (added 2026-11-13, DECIDED)
 
 The owner's requirement: a company can be exported as one transferable file, and can also be transferred directly to a new install. The export covers the whole company: config, all agents, all GCs and all data.
