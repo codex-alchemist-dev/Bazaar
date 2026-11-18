@@ -56,6 +56,8 @@ public static class HostApplicationExtensions
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
+        // After the components: the Valkey supervisor is one of them, and the deferred cache selection must start after it (doc 40 section 4b.4 item 8).
+        services.AddBazaarCacheSelection();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
