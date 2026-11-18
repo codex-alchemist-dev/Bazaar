@@ -10,12 +10,12 @@ namespace Bazaar.Server.Tests.Setup;
 /// <summary>The apply: hash check, validation, the instance lock, ordered steps with rollback, and the audit rows. In memory only.</summary>
 public sealed class SetupApplierTests
 {
-    private const string Operator = "operator-test";
+    private const string _operator = "operator-test";
 
     private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
 
     private static SetupApplyRequest Request(SetupPlan plan, string? hash = null, SetupStateSnapshot? state = null) =>
-        new(plan, hash ?? SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, Operator, "starter", "1.0.0", state);
+        new(plan, hash ?? SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator, "starter", "1.0.0", state);
 
     private static JsonObject PayloadOf(AuditEntry entry) => (JsonObject)JsonNode.Parse(entry.Payload)!;
 
@@ -168,7 +168,7 @@ public sealed class SetupApplierTests
 
         var row = Assert.Single(harness.Audit.Entries);
         Assert.Equal(SetupApplier.AppliedKind, row.Kind);
-        Assert.Equal(Operator, row.Actor);
+        Assert.Equal(_operator, row.Actor);
         var payload = PayloadOf(row);
         Assert.Equal(SetupPlanCanonicalizer.Hash(ValidPlan()), payload["planHash"]!.GetValue<string>());
         Assert.Equal("cli", payload["entryPath"]!.GetValue<string>());
@@ -181,7 +181,7 @@ public sealed class SetupApplierTests
         var setting = Assert.Single(harness.SettingAudit.Entries);
         Assert.Equal("host.shutdown_timeout_seconds", setting.Key);
         Assert.Equal(SettingWriteOutcome.Accepted, setting.Outcome);
-        Assert.Equal(Operator, setting.ActorId);
+        Assert.Equal(_operator, setting.ActorId);
         Assert.Null(setting.OldValueJson);
         Assert.Equal("20", setting.NewValueJson);
     }

@@ -20,7 +20,7 @@ public sealed class SetupApplier
     /// <summary>The audit kind of the apply row (doc 45 section 1.2).</summary>
     public const string AppliedKind = "setup.plan.applied";
 
-    private const string SettingsPrefix = "settings.";
+    private const string _settingsPrefix = "settings.";
 
     private readonly ISetupInstanceLock _instanceLock;
     private readonly List<ISetupStep> _steps;
@@ -182,7 +182,7 @@ public sealed class SetupApplier
 
         foreach (var key in changedKeys)
         {
-            var oldValue = state.LeafValues.TryGetValue(SettingsPrefix + key, out var current) ? current : null;
+            var oldValue = state.LeafValues.TryGetValue(_settingsPrefix + key, out var current) ? current : null;
             var newValue = request.Plan.Settings.TryGetValue(key, out var element)
                 ? SetupPlanCanonicalizer.Text(JsonNode.Parse(element.GetRawText()))
                 : "null";
@@ -244,12 +244,12 @@ public sealed class SetupApplier
         var keys = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var change in changes)
         {
-            if (!change.Path.StartsWith(SettingsPrefix, StringComparison.Ordinal))
+            if (!change.Path.StartsWith(_settingsPrefix, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            var rest = change.Path[SettingsPrefix.Length..];
+            var rest = change.Path[_settingsPrefix.Length..];
             var key = (plan.Settings.ContainsKey(rest) || _registry.TryGet(rest, out _))
                 ? rest
                 : plan.Settings.Keys.FirstOrDefault(known => rest.StartsWith(known + ".", StringComparison.Ordinal));
