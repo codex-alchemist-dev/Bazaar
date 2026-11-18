@@ -7,13 +7,13 @@ namespace Bazaar.Server.DevSandbox;
 /// </summary>
 public sealed class SandboxRunner : ISandboxRunner
 {
-    private const string ZeroHash = "0000000000000000000000000000000000000000000000000000000000000000";
-    private const string CanaryReason = "canary";
-    private const string ProductionTargetReason = "production-target";
-    private const string DbPrefix = "db:";
+    private const string _zeroHash = "0000000000000000000000000000000000000000000000000000000000000000";
+    private const string _canaryReason = "canary";
+    private const string _productionTargetReason = "production-target";
+    private const string _dbPrefix = "db:";
 
     /// <summary>Upper bound on actions audited after the first violation while the killed process drains.</summary>
-    private const int PostViolationDrainLimit = 256;
+    private const int _postViolationDrainLimit = 256;
 
     private readonly ISandboxConfinementProvider[] _providers;
     private readonly ISandboxEngine[] _engines;
@@ -76,10 +76,10 @@ public sealed class SandboxRunner : ISandboxRunner
         var refusal = Validate(spec);
         if (refusal is not null)
         {
-            return Make(runId, SandboxVerdict.Refused, refusal, [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Refused, refusal, [], 0, _zeroHash);
         }
 
-        var head = recorded.Count == 0 ? ZeroHash : recorded[^1].Hash;
+        var head = recorded.Count == 0 ? _zeroHash : recorded[^1].Hash;
         if (!HashChainedAuditTrail.VerifyEvents(recorded))
         {
             return Make(runId, SandboxVerdict.Error, "audit chain broken", [], recorded.Count, head);
@@ -90,7 +90,7 @@ public sealed class SandboxRunner : ISandboxRunner
         var canary = false;
         foreach (var e in recorded)
         {
-            if (e.Reason == CanaryReason || e.Reason == ProductionTargetReason)
+            if (e.Reason == _canaryReason || e.Reason == _productionTargetReason)
             {
                 // Canary values and the company schema are not part of the spec; the recorded decision must be a denial.
                 if (e.Decision != SandboxDecision.Denied)
@@ -98,7 +98,7 @@ public sealed class SandboxRunner : ISandboxRunner
                     return Make(runId, SandboxVerdict.ReplayMismatch, $"replay mismatch at sequence {e.Sequence}", violations, recorded.Count, head);
                 }
 
-                canary |= e.Reason == CanaryReason;
+                canary |= e.Reason == _canaryReason;
                 violations.Add(e);
                 continue;
             }
@@ -143,7 +143,7 @@ public sealed class SandboxRunner : ISandboxRunner
 
     private static bool IsDbAction(SandboxAction a) =>
         (a.Kind == SandboxActionKind.FileAccess || a.Kind == SandboxActionKind.HostCall)
-        && (a.Target ?? string.Empty).StartsWith(DbPrefix, StringComparison.Ordinal);
+        && (a.Target ?? string.Empty).StartsWith(_dbPrefix, StringComparison.Ordinal);
 
     /// <summary>Replay has no company: a db target is acceptable only when it names some sandbox schema.</summary>
     private static bool IsForeignDbTarget(SandboxAction a) =>
@@ -151,7 +151,7 @@ public sealed class SandboxRunner : ISandboxRunner
 
     private static string SchemaOf(string target)
     {
-        var rest = target[DbPrefix.Length..];
+        var rest = target[_dbPrefix.Length..];
         var dot = rest.IndexOf('.', StringComparison.Ordinal);
         return dot < 0 ? rest : rest[..dot];
     }
@@ -175,24 +175,24 @@ public sealed class SandboxRunner : ISandboxRunner
         var refusal = Validate(spec);
         if (refusal is not null)
         {
-            return Make(runId, SandboxVerdict.Refused, refusal, [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Refused, refusal, [], 0, _zeroHash);
         }
 
         if (_hostOs is not { } os)
         {
-            return Make(runId, SandboxVerdict.Refused, "no tested confinement provider for this OS", [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Refused, "no tested confinement provider for this OS", [], 0, _zeroHash);
         }
 
         var provider = _providers.FirstOrDefault(p => p.Os == os && p.Tested);
         if (provider is null)
         {
-            return Make(runId, SandboxVerdict.Refused, $"no tested confinement provider for {os}", [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Refused, $"no tested confinement provider for {os}", [], 0, _zeroHash);
         }
 
         var engine = _engines.FirstOrDefault(e => e.Kind == spec.Engine);
         if (engine is null)
         {
-            return Make(runId, SandboxVerdict.Refused, $"no engine registered for {spec.Engine}", [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Refused, $"no engine registered for {spec.Engine}", [], 0, _zeroHash);
         }
 
         SandboxTestCompany company;
@@ -202,12 +202,12 @@ public sealed class SandboxRunner : ISandboxRunner
         }
         catch (Exception ex)
         {
-            return Make(runId, SandboxVerdict.Error, $"company generation failed: {ex.GetType().Name}", [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Error, $"company generation failed: {ex.GetType().Name}", [], 0, _zeroHash);
         }
 
         if (!ProductionIsolationGuard.IsSandboxSchema(company.Schema))
         {
-            return Make(runId, SandboxVerdict.Refused, "test company schema is not a sandbox schema", [], 0, ZeroHash);
+            return Make(runId, SandboxVerdict.Refused, "test company schema is not a sandbox schema", [], 0, _zeroHash);
         }
 
         var trail = _auditFactory();
@@ -233,12 +233,12 @@ public sealed class SandboxRunner : ISandboxRunner
                     if (canary is not null)
                     {
                         decision = SandboxDecision.Denied;
-                        why = CanaryReason;
+                        why = _canaryReason;
                     }
                     else if (TargetsOtherSchema(action, company.Schema))
                     {
                         decision = SandboxDecision.Denied;
-                        why = ProductionTargetReason;
+                        why = _productionTargetReason;
                     }
                     else
                     {
@@ -249,7 +249,7 @@ public sealed class SandboxRunner : ISandboxRunner
                     if (decision == SandboxDecision.Allowed)
                     {
                         // After a violation the process is dead; keep auditing what was already in flight, within a bound.
-                        if (verdict != SandboxVerdict.Clean && ++afterViolation > PostViolationDrainLimit)
+                        if (verdict != SandboxVerdict.Clean && ++afterViolation > _postViolationDrainLimit)
                         {
                             break;
                         }
@@ -272,7 +272,7 @@ public sealed class SandboxRunner : ISandboxRunner
                         reason = "an action had no approved grant";
                         await KillQuietlyAsync(process).ConfigureAwait(false);
                     }
-                    else if (++afterViolation > PostViolationDrainLimit)
+                    else if (++afterViolation > _postViolationDrainLimit)
                     {
                         break;
                     }
