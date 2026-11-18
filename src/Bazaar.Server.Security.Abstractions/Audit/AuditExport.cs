@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Bazaar.Server.Security.Audit;
 
@@ -8,8 +9,6 @@ namespace Bazaar.Server.Security.Audit;
 /// </summary>
 public static class AuditExport
 {
-    private static readonly JsonSerializerOptions _options = new(JsonSerializerDefaults.Web);
-
     public static string ToJsonLines(IEnumerable<AuditRecord> records)
     {
         ArgumentNullException.ThrowIfNull(records);
@@ -17,7 +16,7 @@ public static class AuditExport
         using var writer = new StringWriter();
         foreach (var record in records)
         {
-            writer.Write(JsonSerializer.Serialize(ToDto(record), _options));
+            writer.Write(JsonSerializer.Serialize(ToDto(record), AuditExportJsonContext.Default.AuditRecordDto));
             writer.Write('\n');
         }
 
@@ -31,7 +30,7 @@ public static class AuditExport
         var records = new List<AuditRecord>();
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            var dto = JsonSerializer.Deserialize<AuditRecordDto>(line, _options)
+            var dto = JsonSerializer.Deserialize(line, AuditExportJsonContext.Default.AuditRecordDto)
                 ?? throw new FormatException("Audit export line is empty.");
             records.Add(FromDto(dto));
         }
@@ -57,7 +56,7 @@ public static class AuditExport
         Convert.FromBase64String(dto.PrevHash),
         Convert.FromBase64String(dto.Hash));
 
-    private sealed record AuditRecordDto(
+    internal sealed record AuditRecordDto(
         long Seq,
         DateTimeOffset Ts,
         string Actor,
@@ -66,3 +65,8 @@ public static class AuditExport
         string PrevHash,
         string Hash);
 }
+
+/// <summary>Source-generated serializer for the export lines. Same wire format as the JsonSerializerDefaults.Web reflection path.</summary>
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(AuditExport.AuditRecordDto))]
+internal sealed partial class AuditExportJsonContext : JsonSerializerContext;
