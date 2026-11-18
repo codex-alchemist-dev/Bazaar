@@ -103,6 +103,8 @@ public interface IWorkspace : IAsyncDisposable
 ```
 Tables owned here: `tool_calls` (append-only, host-written: session, tool, CapabilityClass, source_trust per doc 15's enum, tainted_at_write, exit code, args hash) and `check_runs` (commit, base, build exit, test counts, flags). Approvals use doc 15's `approval`; security events go to doc 15's `audit_log` (C16). This doc adds no approval table.
 
+`check_runs` additions (PROPOSED, 2026-11-18, for engine checks such as Luau, doc 20): `verdict` (server-computed `pass`, `fail` or `error`; `error` means the run could not finish and is never a pass; null on older rows) and `tool_exit_codes` (a JSON object from a short tool name such as `build`, `test`, `luau-analyze`, `selene` to its exit code, null when the tool did not run). Both are written by the server from measured results; an agent report never sets them. Migration `coding/0003`. The table stays insert-only.
+
 ### Settings [PROPOSED]
 Registered in doc 03's settings registry (DECISIONS-LOG round 13). Defaults are safe; every change is audit-logged. Settings may tighten the taint, verification and quota floors, never loosen them.
 

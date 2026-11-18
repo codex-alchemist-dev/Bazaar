@@ -85,4 +85,34 @@ public sealed class CheckRunStoreTests(CodingDb db) : IClassFixture<CodingDb>
         await Assert.ThrowsAsync<PostgresException>(async () =>
             await store.AppendAsync(Run("  ", _t0), TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task Verdict_and_tool_exit_codes_round_trip()
+    {
+        RequireDb();
+        var run = Run("c-" + Guid.NewGuid(), _t0) with
+        {
+            Verdict = CheckVerdict.Fail,
+            ToolExitCodes = new Dictionary<string, int?> { ["build"] = 0, ["selene"] = 1, ["luau-analyze"] = null },
+        };
+        var store = new PostgresCheckRunStore(db.DataSource);
+        await store.AppendAsync(run, TestContext.Current.CancellationToken);
+
+        var back = await store.GetAsync(run.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(CheckVerdict.Fail, back!.Verdict);
+        Assert.Equal(0, back.ToolExitCodes!["build"]);
+        Assert.Equal(1, back.ToolExitCodes["selene"]);
+        Assert.Null(back.ToolExitCodes["luau-analyze"]);
+        Assert.True(back.ToolExitCodes.ContainsKey("luau-analyze"));
+    }
+
+    [Fact]
+    public async Task An_unknown_verdict_is_refused_before_the_database()
+    {
+        var run = Run("c-x", _t0) with { Verdict = "maybe" };
+        var store = new PostgresCheckRunStore(db.DataSource);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () => await store.AppendAsync(run, TestContext.Current.CancellationToken));
+    }
 }

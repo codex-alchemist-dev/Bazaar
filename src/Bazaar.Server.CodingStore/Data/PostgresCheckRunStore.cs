@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Bazaar.Contracts.Coding;
 using Npgsql;
 using NpgsqlTypes;
@@ -8,13 +9,13 @@ namespace Bazaar.Server.CodingStore.Data;
 public sealed class PostgresCheckRunStore(NpgsqlDataSource dataSource) : ICheckRunStore
 {
     private const string _columns =
-        "id, commit_sha, base_commit, build_exit_code, tests_passed, tests_failed, tests_skipped, test_count_base, flags, ran_at";
+        "id, commit_sha, base_commit, build_exit_code, tests_passed, tests_failed, tests_skipped, test_count_base, flags, ran_at, verdict, tool_exit_codes";
 
     private const string _insertSql = """
         INSERT INTO check_runs (id, commit_sha, base_commit, build_exit_code, tests_passed, tests_failed, tests_skipped,
-            test_count_base, flags, ran_at)
+            test_count_base, flags, ran_at, verdict, tool_exit_codes)
         VALUES (@id, @commit_sha, @base_commit, @build_exit_code, @tests_passed, @tests_failed, @tests_skipped,
-            @test_count_base, @flags, @ran_at)
+            @test_count_base, @flags, @ran_at, @verdict, CAST(@tool_exit_codes AS jsonb))
         """;
 
     /// <inheritdoc />
@@ -32,6 +33,11 @@ public sealed class PostgresCheckRunStore(NpgsqlDataSource dataSource) : ICheckR
         cmd.Parameters.AddWithValue("test_count_base", (object?)record.TestCountBase ?? DBNull.Value);
         cmd.Parameters.Add(new NpgsqlParameter("flags", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = record.Flags.ToArray() });
         cmd.Parameters.AddWithValue("ran_at", record.RanAt);
+        if (record.Verdict is not null && !CheckVerdict.IsKnown(record.Verdict))
+            throw new ArgumentException("The verdict is not a known CheckVerdict code.", nameof(record));
+        cmd.Parameters.AddWithValue("verdict", (object?)record.Verdict ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("tool_exit_codes", NpgsqlDbType.Text,
+            record.ToolExitCodes is null ? DBNull.Value : JsonSerializer.Serialize(new Dictionary<string, int?>(record.ToolExitCodes), CheckRunJson.Default.DictionaryStringNullableInt32));
         await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -67,5 +73,7 @@ public sealed class PostgresCheckRunStore(NpgsqlDataSource dataSource) : ICheckR
         r.IsDBNull(6) ? null : r.GetInt32(6),
         r.IsDBNull(7) ? null : r.GetInt32(7),
         r.GetFieldValue<string[]>(8),
-        r.GetFieldValue<DateTimeOffset>(9));
+        r.GetFieldValue<DateTimeOffset>(9),
+        r.IsDBNull(10) ? null : r.GetString(10),
+        r.IsDBNull(11) ? null : JsonSerializer.Deserialize(r.GetString(11), CheckRunJson.Default.DictionaryStringNullableInt32));
 }

@@ -127,6 +127,6 @@ public sealed class HostAdapterTests
     {
         var files = HostMigrations.Source().Load("coding");
 
-        Assert.Equal([1, 2], files.Select(f => f.Version).Order());
+        Assert.Equal([1, 2, 3], files.Select(f => f.Version).Order());
     }
 }
