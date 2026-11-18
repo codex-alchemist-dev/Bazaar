@@ -236,7 +236,7 @@ The target is one module contract for all modules, first-party and third-party a
 | Observatory: live agent activity and model lanes near limits | Partial (usage rollup in flight) | `docs/design/23` |
 | Usage records labelled by source, `native` or `pooled` | Planned in full (`GW8`) | `docs/design/05` |
 | Admin panel inside the apps | Planned | `CLAUDE.md` |
-| TUI status client | OPEN | `CLAUDE.md` |
+| Server TUI (install wizard and live ops) | DECIDED, `docs/design/56-server-tui.md` | `CLAUDE.md` |
 
 ## T13. Virtual machines and environments
 

@@ -381,3 +381,11 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Clients | Clients stay native, as already built. Native clients may embed web components such as Monaco (Bazaar.Server.md §1). | 27, 35 |
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
+
+## Round 27 (2026-11-19): server TUI
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 56, 03, 45, 40, CLAUDE.md, ROADMAP |
+| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 56 |
+| Open | Ops-mode authentication for non-owner admins; remote use beyond SSH. | 56 |
