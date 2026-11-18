@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
-namespace Bazaar.Server.Security.Audit.Reads;
+namespace Bazaar.Server.ReadAudit;
 
 /// <summary>
 /// The <c>data.read</c> audit row (doc 48 section 5.1): who read, which object class (and id, for a personal object), how many

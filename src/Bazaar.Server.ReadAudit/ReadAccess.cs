@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Security.Audit.Reads;
+namespace Bazaar.Server.ReadAudit;
 
 /// <summary>
 /// Who is reading and why, for the reads inside one <see cref="ReadAuditScope"/> (doc 48 section 5.1). Every field is a label

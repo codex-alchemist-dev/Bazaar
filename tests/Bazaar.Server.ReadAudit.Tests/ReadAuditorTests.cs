@@ -1,8 +1,8 @@
 using System.Text.Json.Nodes;
-using Bazaar.Server.Security.Audit.Reads;
+using Bazaar.Server.ReadAudit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Server.Tests.Security.Audit.Reads;
+namespace Bazaar.Server.ReadAudit.Tests;
 
 public class ReadAuditorTests
 {

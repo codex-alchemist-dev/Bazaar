@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Bazaar.Server.Security.Audit.Reads;
+namespace Bazaar.Server.ReadAudit;
 
 /// <summary>
 /// The shape of a SQL statement for read audit (doc 48 section 5.1). Literals, numbers and parameters become <c>?</c>,

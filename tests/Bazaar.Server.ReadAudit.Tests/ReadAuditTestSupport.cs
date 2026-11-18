@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using Bazaar.Server.Security.Audit;
 
-namespace Bazaar.Server.Tests.Security.Audit.Reads;
+namespace Bazaar.Server.ReadAudit.Tests;
 
 /// <summary>Keeps every appended entry in memory, in order. Stands in for the Postgres log in unit tests.</summary>
 internal sealed class RecordingReadLog : IAuditLog

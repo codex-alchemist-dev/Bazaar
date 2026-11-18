@@ -1,7 +1,9 @@
+using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Bazaar.Server.Security.Audit.Reads;
+
+namespace Bazaar.Server.ReadAudit;
 
 /// <summary>Registration for the read auditor. The caller must register <see cref="IAuditLog"/>.</summary>
 public static class ReadAuditServiceCollectionExtensions

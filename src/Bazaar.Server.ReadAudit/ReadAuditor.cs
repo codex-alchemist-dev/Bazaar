@@ -1,4 +1,6 @@
-namespace Bazaar.Server.Security.Audit.Reads;
+using Bazaar.Server.Security.Audit;
+
+namespace Bazaar.Server.ReadAudit;
 
 /// <summary>
 /// Records reads of server data as <c>data.read</c> rows on the audit log (doc 48 section 5.1). Inside a

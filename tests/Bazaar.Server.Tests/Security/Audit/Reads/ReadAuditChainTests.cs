@@ -1,6 +1,6 @@
+using Bazaar.Server.ReadAudit;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
-using Bazaar.Server.Security.Audit.Reads;
 using Bazaar.Server.Tests.Security.Audit.Db;
 using Bazaar.Testing.Postgres;
 
