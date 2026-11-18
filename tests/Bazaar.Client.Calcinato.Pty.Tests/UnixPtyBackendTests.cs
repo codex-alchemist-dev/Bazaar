@@ -166,7 +166,8 @@ public sealed class UnixPtyBackendTests
         await using var transcript = new PtyTranscript(session);
 
         // A background job is in the session but not in the foreground group, so the hangup alone does not reach it.
-        await session.WriteAsync("sleep 300 &\necho BG_$!\n"u8.ToArray(), TestContext.Current.CancellationToken);
+        // The quotes split the marker in the typed echo, so only the shell's output contains "BG_" followed by the pid.
+        await session.WriteAsync("sleep 300 &\necho BG\"\"_$!\n"u8.ToArray(), TestContext.Current.CancellationToken);
         Assert.True(await transcript.WaitForAsync("BG_", _wait), transcript.Text);
         var match = Regex.Match(transcript.Text, @"BG_(\d+)");
         Assert.True(match.Success, transcript.Text);
