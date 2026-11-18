@@ -55,8 +55,8 @@ public sealed class InProcessAppendOnlyLog<T>
 /// The <c>tool_calls</c> trace as an in-process, append-only sink (doc 17, tables).
 /// </summary>
 /// <remarks>
-/// TODO(doc 17 WP2): the <c>tool_calls</c> table and its migration do not exist yet (no store in Bazaar.Server), so rows live in
-/// memory and are lost on restart. Replace this with the Postgres-backed trace once WP2 lands.
+/// The durable replacement is <see cref="ToolCallLogTrace"/>, used when a Postgres data source is registered; rows here live in
+/// memory and are lost on restart, so this is the fallback for tests.
 /// </remarks>
 public sealed class InProcessToolCallTrace : IToolCallTrace
 {
@@ -82,8 +82,8 @@ public sealed class InProcessToolCallTrace : IToolCallTrace
 /// The subagent spawn trace as an in-process, append-only sink (doc 17, WP12).
 /// </summary>
 /// <remarks>
-/// TODO(doc 17 WP2): no table backs subagent traces yet, so rows live in memory and are lost on restart. Replace this with a
-/// durable trace when WP2 defines the table.
+/// The durable replacement is <see cref="ToolCallLogSubagentTrace"/>, used when a Postgres data source is registered; rows here
+/// live in memory and are lost on restart, so this is the fallback for tests.
 /// </remarks>
 public sealed class InProcessSubagentTrace : ISubagentTrace
 {

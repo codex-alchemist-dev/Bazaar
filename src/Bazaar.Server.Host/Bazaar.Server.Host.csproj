@@ -37,6 +37,7 @@
     <ProjectReference Include="..\Bazaar.Server.RepoMap\Bazaar.Server.RepoMap.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingGit\Bazaar.Server.CodingGit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingReview\Bazaar.Server.CodingReview.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingStore\Bazaar.Server.CodingStore.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Subagents\Bazaar.Server.Subagents.csproj" />
   </ItemGroup>
   <ItemGroup>
