@@ -19,6 +19,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 | RyuseiFuda schedule (`ryusei`, formerly `ryusei-schedule`) | Project `Bazaar.RyuseiFuda` (split from the Kanban project in #384), namespace `Bazaar.RyuseiFuda.Orrery` (was `Bazaar.Server.Kanban.Ryusei`) | `Client.Core/Ryusei/RyuseiMicroPaneViewModel` | `kanban` (plus `gc` and `audit` after this PR) | Hard: `GcNotifyListener`, `ITransactionalAuditLog`. Optional: `IGcLogWriter`, `GcCreateService`. |
 | Agent safety (`agent-safety`, PR #665) | Project `Bazaar.Server.AgentSafety` (module wiring, durable nonce store, containment adapters, startup gate); `Bazaar.Server.Identity.Postgres` (durable credential leases) | none | `vms`, `identity` (leases), `audit` (via kill switch audit sink) | Kill switch and containment in `Bazaar.Server/Security/KillSwitch`; the host composes the module and the Vms module. Fail closed when no VM backend is configured. |
 | Verification (server-run gate; docs 17, 34) | Project `Bazaar.Server.Verification` (was folder `Bazaar.Server/Verification/`). No Server consumer. Tests in `Bazaar.Server.Verification.Tests`. | none | none (not a component) | System only |
+| Sanitization (leak filter; docs 13, 15, 17) | Project `Bazaar.Server.Sanitization` (was folder `Bazaar.Server/Sanitization/`). Consumers: `Bazaar.Fun` (now references it directly) and the Server RedTeam tests. Pure tests in `Bazaar.Server.Sanitization.Tests`. | none | none (not a component) | System only |
 
 ## 3. Gaps
 
