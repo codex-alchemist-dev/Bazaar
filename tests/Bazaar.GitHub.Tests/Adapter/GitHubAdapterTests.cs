@@ -1,5 +1,7 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
+using Bazaar.Approvals;
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
 using Microsoft.Extensions.Logging;
@@ -36,6 +38,115 @@ public sealed class GitHubAdapterTests
         StubTokenProvider Tokens,
         InMemoryGitHubRateState Rates,
         CapturingLogger<GitHubAdapter> Logs);
+
+    [Fact]
+    public async Task A_merge_with_a_forged_owner_signature_sends_no_merge_request()
+    {
+        var h = Build();
+        using var owner = NewOwnerKey();
+        using var forger = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+
+        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(
+            () => gate.MergeAsync(Approval(forger), Merge(), CancellationToken.None));
+
+        Assert.Contains("BadSignature", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task A_verified_approval_merges_once_while_the_head_is_still_the_approved_sha()
+    {
+        var h = Build();
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
+        h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": true}"""));
+        using var owner = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+
+        await gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None);
+
+        Assert.Single(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task A_moved_head_voids_the_approval_and_sends_no_merge_request()
+    {
+        var h = Build();
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, "ffffffffffffffffffffffffffffffffffffffff")));
+        using var owner = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+
+        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None));
+
+        Assert.Contains("approve again", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task An_approval_for_a_different_head_than_the_merge_is_refused_before_any_call()
+    {
+        var h = Build();
+        using var owner = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+        var otherHead = new MergeRequest("0000000000000000000000000000000000000000", "t", "m");
+
+        await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), otherHead, CancellationToken.None));
+
+        Assert.Empty(h.Http.Requests);
+    }
+
+    [Fact]
+    public async Task An_approval_bound_to_a_different_merge_is_refused_before_any_call()
+    {
+        var h = Build();
+        using var owner = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+        var retitled = new MergeRequest(_headSha, "Something else entirely", "Body");
+
+        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), retitled, CancellationToken.None));
+
+        Assert.Contains("different merge", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(h.Http.Requests);
+    }
+
+    private static MergeRequest Merge() => new(_headSha, "Add x (#42)", "Body\n\nSigned-off-by: _owner <owner@example.test>");
+
+    private const string _ownerDeviceId = "device-1";
+    private static readonly Guid _ownerHuman = Guid.Parse("0196a6f0-0000-7000-8000-000000000601");
+
+    private static ECDsa NewOwnerKey() => ECDsa.Create(ECCurve.NamedCurves.nistP256);
+
+    /// <summary>An approval signed by <paramref name="signer"/> over the exact payload for <see cref="Merge"/>.</summary>
+    private static OwnerMergeApproval Approval(ECDsa signer)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var payload = new OwnerPayload(
+            OwnerMergeArgs.Action,
+            Guid.Parse("0196a6f0-0000-7000-8000-000000000602"),
+            OwnerMergeArgs.Hash(_pr, Merge()),
+            _headSha,
+            _ownerHuman,
+            _ownerDeviceId,
+            now.AddMinutes(-1),
+            now.AddMinutes(10),
+            Enumerable.Repeat((byte)7, OwnerSignedPayload.NonceLength).ToArray());
+        var signature = signer.SignData(
+            OwnerSignedPayload.Build(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        return new OwnerMergeApproval(_pr, payload, signature);
+    }
+
+    /// <summary>The shared verifier, with one registered owner device key.</summary>
+    private static OwnerSignatureVerifier Verifier(ECDsa owner)
+    {
+        var key = new OwnerDeviceKey(_ownerHuman.ToString("D"), _ownerDeviceId, owner.ExportSubjectPublicKeyInfo());
+        return new OwnerSignatureVerifier(new SingleKeyRegistry(key), new InMemoryOwnerNonceStore());
+    }
+
+    private sealed class SingleKeyRegistry(OwnerDeviceKey key) : IOwnerKeyRegistry
+    {
+        public Task<OwnerDeviceKey?> FindAsync(string deviceId, CancellationToken ct = default) =>
+            Task.FromResult(deviceId == key.DeviceId ? key : null);
+    }
 
     private static Harness Build(RecordingTimeProvider? time = null)
     {
@@ -238,7 +349,7 @@ public sealed class GitHubAdapterTests
             Reply.Json(HttpStatusCode.OK, $$"""{"merged": true, "sha": "{{_headSha}}", "message": "Merged"}"""));
         const string message = "Body of the change\n\nSigned-off-by: _owner <owner@example.test>";
 
-        await h.Adapter.SquashMergeAsync(_pr, new MergeRequest(_headSha, "Add x (#42)", message), CancellationToken.None);
+        await ((IGitHubMergeExecutor)h.Adapter).SquashMergeAsync(_pr, new MergeRequest(_headSha, "Add x (#42)", message), CancellationToken.None);
 
         var put = Assert.Single(h.Http.Requests);
         using var body = JsonDocument.Parse(put.Body!);
@@ -256,7 +367,7 @@ public sealed class GitHubAdapterTests
         h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": false}"""));
 
         await Assert.ThrowsAsync<GitHubApiException>(() =>
-            h.Adapter.SquashMergeAsync(_pr, new MergeRequest(_headSha, "t", "m"), CancellationToken.None));
+            ((IGitHubMergeExecutor)h.Adapter).SquashMergeAsync(_pr, new MergeRequest(_headSha, "t", "m"), CancellationToken.None));
     }
 
     [Fact]
