@@ -1,4 +1,4 @@
-using Bazaar.PrivacyAudit;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Tests.Components.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;

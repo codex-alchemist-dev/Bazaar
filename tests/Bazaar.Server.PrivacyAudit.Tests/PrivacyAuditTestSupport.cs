@@ -1,6 +1,6 @@
 using Bazaar.Server.Security.Audit;
 
-namespace Bazaar.PrivacyAudit.Tests;
+namespace Bazaar.Server.PrivacyAudit.Tests;
 
 /// <summary>In-memory <see cref="IAuditLog"/> that records every entry in arrival order.</summary>
 internal sealed class FakeAuditLog : IAuditLog

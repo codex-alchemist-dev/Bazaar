@@ -1,4 +1,4 @@
-namespace Bazaar.PrivacyAudit;
+namespace Bazaar.Server.PrivacyAudit;
 
 /// <summary>
 /// Audit kinds for the privacy and remote-access events (doc 32 section 8 and the doc 15 approval entry). Dotted lowercase.

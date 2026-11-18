@@ -1,9 +1,9 @@
 using System.Text.Json.Nodes;
-using Bazaar.PrivacyAudit;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.PrivacyAudit.Tests;
+namespace Bazaar.Server.PrivacyAudit.Tests;
 
 /// <summary>The redaction guard refuses secret-like keys, at any depth and in any letter case. Registration is checked too.</summary>
 public sealed class AuditPayloadGuardTests

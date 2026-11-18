@@ -1,8 +1,8 @@
 using System.Text.Json.Nodes;
-using Bazaar.PrivacyAudit;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 
-namespace Bazaar.PrivacyAudit.Tests;
+namespace Bazaar.Server.PrivacyAudit.Tests;
 
 /// <summary>Each recorder method writes one entry with its kind, a principal actor, the injected timestamp and the expected payload.</summary>
 public sealed class PrivacyAuditRecorderTests

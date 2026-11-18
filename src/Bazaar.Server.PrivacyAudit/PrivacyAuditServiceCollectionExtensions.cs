@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Bazaar.PrivacyAudit;
+namespace Bazaar.Server.PrivacyAudit;
 
 /// <summary>Registration for the privacy audit recorder. The caller must register <see cref="Bazaar.Server.Security.Audit.IAuditLog"/>.</summary>
 public static class PrivacyAuditServiceCollectionExtensions
