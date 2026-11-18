@@ -7,6 +7,7 @@ using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
 using Bazaar.Server.CodingReview;
 using Bazaar.Server.RepoMap;
+using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Subagents;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -29,8 +30,10 @@ public sealed class CodingHarnessHostOptions
 /// <summary>
 /// Composes the coding harness (doc 17, "Module layout") onto Server-owned code: the six modules plus the adapters in this
 /// folder. Every adapter dependency that has no default (policy engine, subagent runner, workspace, GitHub adapter, token
-/// provider, the two directories, the trace, freeze and push gate ports) must come from the host; a missing one fails at
-/// resolution and never opens a gate. <see cref="GuestChannelFileAdapter"/> is per guest, so it is built by the session
+/// provider, the two directories, the push session directory, the work-share layout, the git identity) must come from the host;
+/// a missing one fails at resolution and never opens a gate. Everything here is registered lazily (factories), so a missing
+/// dependency can never fail host startup, only the first resolution of the service that needs it. The trace sinks are
+/// in-process until doc 17 WP2 adds tables. <see cref="GuestChannelFileAdapter"/> is per guest, so it is built by the session
 /// that owns the guest channel and is not registered here.
 /// </summary>
 public static class CodingHarnessHostExtensions
@@ -51,6 +54,16 @@ public static class CodingHarnessHostExtensions
         services.AddBazaarCodingReview();
         services.AddBazaarSubagents();
 
+        // In-process sinks until doc 17 WP2 adds tables; a host that registers a durable trace first keeps its own.
+        services.TryAddSingleton<InProcessToolCallTrace>();
+        services.TryAddSingleton<IToolCallTrace>(sp => sp.GetRequiredService<InProcessToolCallTrace>());
+        services.TryAddSingleton<InProcessSubagentTrace>();
+        services.TryAddSingleton<ISubagentTrace>(sp => sp.GetRequiredService<InProcessSubagentTrace>());
+        services.TryAddSingleton<IAgentFreeze>(sp => new KillSwitchAgentFreeze(sp.GetRequiredService<KillSwitchEngine>()));
+        services.TryAddSingleton<IPushGate>(sp => new PermissionGatePushGate(
+            sp.GetRequiredService<IToolPermissionGate>(),
+            sp.GetRequiredService<IPushSessionDirectory>()));
+
         services.TryAddSingleton<IGenericToolPolicy>(sp => new ToolPolicyEngineAdapter(
             sp.GetRequiredService<IToolPolicyEngine>(),
             sp.GetRequiredService<CapabilityRegistry>(),
@@ -63,7 +76,8 @@ public static class CodingHarnessHostExtensions
         services.TryAddSingleton<ICodingGitEngine>(sp => new GitWorkspaceCodingGitEngine(
             sp.GetRequiredService<GitWorkspace>(),
             WorkspaceRootOf(sp),
-            sp.GetRequiredService<ICodingRepoDirectory>()));
+            sp.GetRequiredService<ICodingRepoDirectory>(),
+            sp.GetService<IWorkShareLayout>()));
 
         services.TryAddSingleton<IHostPushPort>(sp => new GitWorkspaceHostPushPort(
             sp.GetRequiredService<GitWorkspace>(),
