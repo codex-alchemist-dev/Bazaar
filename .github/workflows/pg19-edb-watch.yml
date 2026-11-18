@@ -1,0 +1,34 @@
+# Watches the EDB PostgreSQL download page for a PostgreSQL 19 Windows x64 binaries zip (#491 step 2).
+# When one is listed, the run fails on purpose so the owner gets the failure email, and the summary gives the
+# URL to feed into the PostgreSQL bundle workflow (pg19_binaries_url input) for the dual-runner hash.
+# Nothing is pinned or downloaded here. Runs daily and can be started by hand.
+
+name: PostgreSQL 19 EDB watch
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    name: Look for a PostgreSQL 19 Windows zip on EDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the EDB download page and look for a 19 zip
+        shell: bash
+        run: |
+          set -uo pipefail
+          page="$(curl -sSLf https://www.enterprisedb.com/download-postgresql-binaries)" || { echo "could not read the EDB page" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+          hits="$(printf '%s' "$page" | grep -oE 'https?://[^"'"'"' <>]*postgresql-19[^"'"'"' <>]*windows-x64-binaries\.zip' | sort -u || true)"
+          if [ -z "$hits" ]; then
+            echo "No PostgreSQL 19 Windows zip listed yet. Checked $(date -u +%FT%TZ)." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "PostgreSQL 19 Windows zip is listed. Feed this URL to the PostgreSQL bundle workflow (pg19_binaries_url):" | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$hits" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1

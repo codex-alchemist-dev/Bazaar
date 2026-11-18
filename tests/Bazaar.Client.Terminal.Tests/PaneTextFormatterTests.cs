@@ -1,12 +1,14 @@
 using System.Text.Json;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Terminal.Tests;
 
 public sealed class PaneTextFormatterTests
 {
-    private static readonly PaneRegistry _registry = FirstPartyPanes.CreateRegistry();
+    private static readonly PaneRegistry _registry =
+        FirstPartyPanes.CreateRegistry([RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules]);
 
     [Fact]
     public void Kanban_lists_each_column_with_its_cards_and_blocked_marking()

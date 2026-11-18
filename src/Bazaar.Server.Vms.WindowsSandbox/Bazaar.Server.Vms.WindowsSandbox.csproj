@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The module is platform-neutral: it talks to Windows Sandbox only through IWindowsSandboxHost (doc 50). -->
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+  </ItemGroup>
+</Project>

@@ -10,7 +10,7 @@ Engines (Godot, Roblox Studio, later others) become plugins to Bazaar.Server. Ea
 - **Engine Integration API: DECIDED (direction)**, Roblox first-class (`Bazaar.md` §4).
 - **Roblox Studio runs only on the human's Bazaar.Windows desktop**; agents do headless Luau static checks and file sync (`Bazaar.Soul.md` §2, 2026-10-24).
 - **Godot has `--headless`**; compile, test and export run without a GUI (`Bazaar.Soul.md` §2).
-- **Server does all compute; clients render; no web client** (`CLAUDE.md`, `Bazaar.Server.md` §1). **Ratified client-side exceptions** (owner, DECISIONS-LOG round 4, C17, 2026-10-25): NPU inference, the human's local terminal, **the Roblox Studio bridge relay**, and syncing the viewed branch. Layout stays server-side.
+- **Server does all compute; clients render** (`Bazaar.Server.md` §1). **Ratified client-side exceptions** (owner, DECISIONS-LOG round 4, C17, 2026-10-25): NPU inference, the human's local terminal, **the Roblox Studio bridge relay**, and syncing the viewed branch. Layout stays server-side.
 - **Studio bridge location** (DECISIONS-LOG round 4, C17 ratified the relay as an exception; the placement in Bazaar.Client.Windows and the server holding grants and audit is this doc's reading, previously marked ANSWERED, to confirm): the bridge runs in Bazaar.Client.Windows and relays to the server, which holds the grants and audit.
 - **Engine code runs in the engine's language** (GDScript/C# for Godot, Luau for Studio). Bazaar's own code stays .NET (`Bazaar.Server.md` §4 exceptions).
 - **Playtest Mode is in v1 scope**, human-assisted on Windows (`Bazaar.md` §4, 2026-10-24). Tier split per `26-fun-systems.md`.

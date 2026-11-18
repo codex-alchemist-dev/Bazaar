@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Data.Migrations;
 
 namespace Bazaar.Server.Tests.Data.Migrations;

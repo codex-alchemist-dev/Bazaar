@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 
 namespace Bazaar.Server.Data.Migrations;
 

@@ -24,6 +24,16 @@ public class AndroidTargetTests
     }
 
     [Fact]
+    public void Android_head_does_not_reference_the_window_nuget_package_directly()
+    {
+        // A direct Xamarin.AndroidX.Window 1.5.1.3 reference raises Core to 1.19 and breaks the Lifecycle pins (NU1608).
+        var doc = XDocument.Load(RepoPaths.ProjectFile("Bazaar.Client.Android"));
+        var references = doc.Descendants("PackageReference")
+            .Select(e => (string?)e.Attribute("Include"));
+        Assert.DoesNotContain("Xamarin.AndroidX.Window", references);
+    }
+
+    [Fact]
     public void Android_head_keeps_minimum_os_at_35()
     {
         // Minimum OS is a separate decision (docs/design/29-android-client.md). Moving the target must not move it.
