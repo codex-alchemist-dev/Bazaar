@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.DevSandbox.Linux.Tests" />
+    <InternalsVisibleTo Include="Bazaar.Server.DevSandbox.Linux.Helper.Tests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.DevSandbox.Abstractions\Bazaar.Server.DevSandbox.Abstractions.csproj" />
