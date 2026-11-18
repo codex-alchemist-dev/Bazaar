@@ -544,14 +544,11 @@ src/Bazaar.Server/Interrupts/InterruptReasonCipher.cs
 src/Bazaar.Server/Interrupts/InterruptStackExceptions.cs
 src/Bazaar.Server/Interrupts/InterruptStackService.cs
 src/Bazaar.Server/Interrupts/InterruptWakePolicy.cs
-src/Bazaar.Server/Jobs/IJobHandler.cs
 src/Bazaar.Server/Jobs/JobPoller.cs
 src/Bazaar.Server/Jobs/JobPollerOptions.cs
 src/Bazaar.Server/Jobs/JobPollerService.cs
-src/Bazaar.Server/Jobs/JobRecord.cs
 src/Bazaar.Server/Jobs/JobStore.cs
 src/Bazaar.Server/Jobs/JobsServiceCollectionExtensions.cs
-src/Bazaar.Server/Jobs/RecurringJob.cs
 src/Bazaar.Server/Jobs/RecurringJobPlan.cs
 src/Bazaar.Server/Jobs/RecurringJobScheduler.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveChapterGenerator.cs

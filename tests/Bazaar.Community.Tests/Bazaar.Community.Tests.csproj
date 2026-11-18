@@ -12,6 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Community\Bazaar.Community.csproj" />
+    <!-- Test-only: the SQL and policy fixtures read Bazaar.Server implementations. Production code must not reference Bazaar.Server. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
   </ItemGroup>
 </Project>

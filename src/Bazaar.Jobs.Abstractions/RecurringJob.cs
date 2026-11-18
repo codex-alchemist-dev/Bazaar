@@ -2,7 +2,7 @@ namespace Bazaar.Server.Jobs;
 
 /// <summary>
 /// A job the poller enqueues on a fixed cadence (doc 03, "Background jobs"). Registering one is how a component schedules a
-/// recurring job: the poller adds one job per <see cref="Interval"/> bucket, and <see cref="RecurringJobPlan"/> gives each bucket
+/// recurring job: the poller adds one job per <see cref="Interval"/> bucket, and <c>RecurringJobPlan</c> gives each bucket
 /// a dedupe key, so repeated polls and several hosts add one job per bucket, and a missed poll costs one job, not a burst.
 /// </summary>
 public sealed class RecurringJob
