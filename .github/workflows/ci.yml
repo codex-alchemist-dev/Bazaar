@@ -223,6 +223,12 @@ jobs:
       - name: Start the Linux client on Xvfb
         run: bash scripts/ci/linux-client-startup.sh
 
+      - name: Build the tarball, start it on Xvfb and test signing
+        run: |
+          set -euo pipefail
+          bash packaging/linux/build-tarball.sh --verify
+          bash packaging/linux/test-sign-tarball.sh
+
   secret-scan:
     name: Secret scan (full history)
     runs-on: ubuntu-latest
