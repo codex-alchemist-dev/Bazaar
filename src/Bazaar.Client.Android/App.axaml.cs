@@ -2,10 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Bazaar.Client.Android.Pairing;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Mobile;
-using Bazaar.Client.Core.Pairing;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.RyuseiFuda;
@@ -18,23 +16,14 @@ public sealed class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // The first screen is the pairing screen (doc 32, section 3). On success the paired endpoint is set and the phone shell
-        // replaces it. The host stays the root view, so both lifetimes keep one stable root.
+        // The client connects to the server it was built for (doc 37 section 4a). A release build without that identity fails here.
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
-        var host = new ContentControl();
-        var flow = new PairingFlow(
-            AndroidRefreshCredentials.Create(global::Android.App.Application.Context),
-            uri => PairingClient.Create(uri));
-        var pairing = new PairingViewModel(flow, deviceClass: "android");
-        pairing.Paired += (_, completed) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        ClientServer.ConnectToCompanyServer();
+        var host = new ContentControl
         {
-            ClientServer.Use(PairingClient.ToEndpoint(completed.BaseAddress, completed.Grant));
-            host.Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current));
-        });
-        host.Content = new PairingView(pairing);
-        // Cold start: a stored credential refreshes silently; otherwise the pairing screen stays up.
-        _ = pairing.TryRestoreAsync();
+            Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
+        };
 
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {

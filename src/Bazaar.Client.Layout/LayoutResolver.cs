@@ -61,11 +61,58 @@ public static class LayoutResolver
         return false;
     }
 
+    /// <summary>Parses <c>node:&lt;paneId&gt;</c>. Pane ids are 1 to 64 characters with no <c>/</c> and no whitespace-only value.</summary>
+    public static bool TryParseNodeLock(string pattern, out string paneId)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+
+        paneId = string.Empty;
+        if (!pattern.StartsWith(LayoutVocabulary.NodeLockPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string id = pattern[LayoutVocabulary.NodeLockPrefix.Length..];
+        if (!IsLockName(id))
+        {
+            return false;
+        }
+
+        paneId = id;
+        return true;
+    }
+
+    /// <summary>Parses <c>setting:&lt;paneId&gt;/&lt;key&gt;</c>. Both parts follow the rules of <see cref="TryParseNodeLock"/>.</summary>
+    public static bool TryParseSettingLock(string pattern, out string paneId, out string key)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+
+        paneId = string.Empty;
+        key = string.Empty;
+        if (!pattern.StartsWith(LayoutVocabulary.SettingLockPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string[] parts = pattern[LayoutVocabulary.SettingLockPrefix.Length..].Split('/');
+        if (parts.Length != 2 || !IsLockName(parts[0]) || !IsLockName(parts[1]))
+        {
+            return false;
+        }
+
+        paneId = parts[0];
+        key = parts[1];
+        return true;
+    }
+
     /// <summary>Key of a slot in <c>deviceClass/display/posture</c> form, used in locks and audit records.</summary>
     public static string KeyOf(LayoutSlot slot) => $"{slot.DeviceClass}/{slot.Display}/{slot.Posture}";
 
     private static bool Matches(string pattern, string value) =>
         pattern == LayoutVocabulary.Any || string.Equals(pattern, value, StringComparison.Ordinal);
+
+    private static bool IsLockName(string name) =>
+        !string.IsNullOrWhiteSpace(name) && name.Length <= 64 && name.IndexOf('/') < 0;
 
     private static int Specificity(LayoutSlot slot)
     {

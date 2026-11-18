@@ -26,7 +26,7 @@ internal sealed class RecordingContainment : IAgentContainment
     /// <summary>When set, <see cref="ReleaseAsync"/> throws, to test a failing host hook.</summary>
     public bool FailRelease { get; set; }
 
-    public Task ContainAsync(string agentId, CancellationToken ct = default)
+    public Task ContainAsync(string agentId, string actorId, CancellationToken ct = default)
     {
         lock (_gate)
         {
@@ -36,14 +36,19 @@ internal sealed class RecordingContainment : IAgentContainment
         return FailContain ? Task.FromException(new InvalidOperationException("containment failed")) : Task.CompletedTask;
     }
 
-    public Task ReleaseAsync(string agentId, CancellationToken ct = default)
+    public Task<ReleaseChallenge?> IssueReleaseChallengeAsync(string agentId, string deviceId, CancellationToken ct = default) =>
+        Task.FromResult<ReleaseChallenge?>(new ReleaseChallenge(new byte[16], DateTimeOffset.MaxValue));
+
+    public Task<ContainmentReleaseResult> ReleaseAsync(string agentId, ContainmentReleaseRequest request, CancellationToken ct = default)
     {
         lock (_gate)
         {
             _calls.Add("release:" + agentId);
         }
 
-        return FailRelease ? Task.FromException(new InvalidOperationException("release failed")) : Task.CompletedTask;
+        return FailRelease
+            ? Task.FromException<ContainmentReleaseResult>(new InvalidOperationException("release failed"))
+            : Task.FromResult(new ContainmentReleaseResult(ContainmentReleaseOutcome.Released));
     }
 }
 
@@ -52,4 +57,12 @@ internal sealed class FailingKillSwitchAuditSink : IKillSwitchAuditSink
 {
     public Task RecordAsync(KillSwitchAuditEntry entry, CancellationToken ct = default) =>
         Task.FromException(new InvalidOperationException("audit sink unavailable"));
+}
+
+/// <summary>Release requests for tests that use a fake containment and never verify the signature.</summary>
+internal static class ReleaseRequests
+{
+    /// <summary>A request that carries no real signature.</summary>
+    public static ContainmentReleaseRequest Unsigned(string agentId, string deviceId) =>
+        new(agentId, deviceId, new byte[16], DateTimeOffset.UnixEpoch, new byte[64]);
 }

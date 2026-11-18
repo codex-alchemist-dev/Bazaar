@@ -124,7 +124,7 @@ public static partial class LayoutValidator
 
         if (array.ValueKind != JsonValueKind.Array)
         {
-            issues.Add(new LayoutIssue("/locks", "wrong-kind", "locks must be an array of slot patterns."));
+            issues.Add(new LayoutIssue("/locks", "wrong-kind", "locks must be an array of lock entries."));
             return locks;
         }
 
@@ -132,9 +132,10 @@ public static partial class LayoutValidator
         foreach (JsonElement item in array.EnumerateArray())
         {
             string path = $"/locks/{i++}";
-            if (item.ValueKind != JsonValueKind.String || !IsSlotPattern(item.GetString()!))
+            if (item.ValueKind != JsonValueKind.String || !IsLockPattern(item.GetString()!))
             {
-                issues.Add(new LayoutIssue(path, "bad-lock", "A lock must be '*' or deviceClass/display/posture with known values or '*'."));
+                issues.Add(new LayoutIssue(path, "bad-lock",
+                    "A lock must be '*', deviceClass/display/posture with known values or '*', node:<paneId>, or setting:<paneId>/<key>."));
                 continue;
             }
 
@@ -300,6 +301,11 @@ public static partial class LayoutValidator
 
         return text;
     }
+
+    private static bool IsLockPattern(string pattern) =>
+        IsSlotPattern(pattern)
+        || LayoutResolver.TryParseNodeLock(pattern, out _)
+        || LayoutResolver.TryParseSettingLock(pattern, out _, out _);
 
     private static bool IsSlotPattern(string pattern)
     {

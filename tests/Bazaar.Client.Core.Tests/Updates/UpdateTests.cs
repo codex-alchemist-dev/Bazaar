@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
-using Bazaar.Client.Core.Updates;
+using Bazaar.Updates;
 
-namespace Bazaar.Client.Core.Tests.Updates;
+namespace Bazaar.Updates.Tests;
 
 public sealed class UpdateTests
 {

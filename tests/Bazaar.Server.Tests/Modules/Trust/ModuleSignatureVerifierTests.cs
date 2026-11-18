@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using Bazaar.Server.Modules.Trust;
+using Bazaar.Contracts.Modules;
+using Bazaar.Install.Trust;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Tests.Modules.Trust;
@@ -18,8 +19,11 @@ public class ModuleSignatureVerifierTests
         string moduleId = "bazaar.weather",
         string version = "1.2.0",
         string digest = _digest,
-        string keyId = _keyId) =>
-        new(moduleId, version, permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, []);
+        string keyId = _keyId,
+        HostRequirements? host = null) =>
+        new(moduleId, version, permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, host ?? _windowsX64, []);
+
+    private static readonly HostRequirements _windowsX64 = new(1, ["windows"], ["x64"], []);
 
     private static ModulePackage Sign(ModulePackage unsigned, ECDsa signer)
     {
@@ -148,14 +152,14 @@ public class ModuleSignatureVerifierTests
     }
 
     [Fact]
-    public void Canonical_form_has_version_prefix_and_length_prefixed_fields()
+    public void Canonical_form_has_version_prefix_length_prefixed_fields_and_signed_host_requirements()
     {
         var package = Unsigned(permissions: new HashSet<string>(StringComparer.Ordinal) { "b", "a" }, moduleId: "m", version: "v", digest: "d");
 
         var bytes = ModuleCanonicalForm.Build(package);
 
-        var expected = new List<byte> { 0x01 };
-        foreach (var field in new[] { "m", "v", "d", "a", "b" })
+        var expected = new List<byte> { 0x02 };
+        foreach (var field in new[] { "m", "v", "d", "permission:a", "permission:b", "host.schema:1", "host.os:windows", "host.arch:x64" })
         {
             var utf8 = Encoding.UTF8.GetBytes(field);
             expected.AddRange(new byte[] { 0, 0, 0, (byte)utf8.Length });

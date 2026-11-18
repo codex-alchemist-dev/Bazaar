@@ -17,6 +17,7 @@ public sealed class PhoneShell : UserControl
     private readonly Func<string, Control?>? _paneBody;
     private readonly Carousel _pager = new();
     private IReadOnlyList<IReadOnlyList<string>> _pages = [];
+    private IReadOnlyList<string>? _profileKinds;
 
     /// <summary>A shell with no panes registered.</summary>
     public PhoneShell()
@@ -42,6 +43,11 @@ public sealed class PhoneShell : UserControl
 
     public LayoutVariant Layout { get; private set; } = LayoutVariant.Folded;
 
+    /// <summary>
+    /// Revision of the server profile on screen, or null while the shell shows the registry order (no profile applied yet).
+    /// </summary>
+    public long? ProfileRevision { get; private set; }
+
     /// <summary>The pages currently shown, each a list of pane kinds in order.</summary>
     public IReadOnlyList<IReadOnlyList<string>> Pages => _pages;
 
@@ -55,6 +61,38 @@ public sealed class PhoneShell : UserControl
         {
             _pager.SelectedIndex = index;
         }
+    }
+
+    /// <summary>
+    /// Shows the cached profile, if one is stored, so a cold start paints before the network answers (doc 29, doc 27).
+    /// A missing or corrupt cache leaves the registry order on screen.
+    /// </summary>
+    /// <returns>True when a cached profile was shown.</returns>
+    public bool ShowCachedProfile(IProfileCache cache)
+    {
+        ArgumentNullException.ThrowIfNull(cache);
+        var cached = cache.Load();
+        if (cached is null)
+        {
+            return false;
+        }
+
+        ApplyProfile(cached.Profile);
+        return true;
+    }
+
+    /// <summary>
+    /// Replaces the pages with a server profile. A fresh profile replaces the cached one. The first visible pane stays
+    /// on screen when the new profile still has a pane at that position.
+    /// </summary>
+    public void ApplyProfile(PhoneProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        var firstPane = FirstVisiblePane();
+        _profileKinds = profile.PaneKinds.ToArray();
+        ProfileRevision = profile.Revision;
+        BuildPages();
+        SelectPageContaining(firstPane);
     }
 
     /// <summary>Switches variants locally when the posture or width changes. No round trip (doc 29).</summary>
@@ -72,15 +110,23 @@ public sealed class PhoneShell : UserControl
         }
 
         // Keep the first visible pane in view across the switch, so a fold does not jump the user to another pane.
-        var firstPane = Math.Max(_pager.SelectedIndex, 0) * PanePages.PanesPerPage(Layout);
+        var firstPane = FirstVisiblePane();
         Layout = variant;
         BuildPages();
-        _pager.SelectedIndex = Math.Min(firstPane / PanePages.PanesPerPage(variant), Math.Max(_pages.Count - 1, 0));
+        SelectPageContaining(firstPane);
     }
+
+    /// <summary>Index into the pane list of the first pane on the selected page.</summary>
+    private int FirstVisiblePane() => Math.Max(_pager.SelectedIndex, 0) * PanePages.PanesPerPage(Layout);
+
+    /// <summary>Selects the page that holds the pane at <paramref name="paneIndex"/>, or the last page if it is past the end.</summary>
+    private void SelectPageContaining(int paneIndex) =>
+        _pager.SelectedIndex = Math.Min(paneIndex / PanePages.PanesPerPage(Layout), Math.Max(_pages.Count - 1, 0));
 
     private void BuildPages()
     {
-        _pages = PanePages.Paginate(Layout, _registry.Kinds);
+        // The applied profile's pane order wins; the registry order is what shows before any profile.
+        _pages = PanePages.Paginate(Layout, _profileKinds ?? _registry.Kinds);
         _pager.Items.Clear();
 
         if (_pages.Count == 0)

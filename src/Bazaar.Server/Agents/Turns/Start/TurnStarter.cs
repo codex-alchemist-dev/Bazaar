@@ -26,7 +26,8 @@ public sealed class TurnStarter(
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Holder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Route);
+        // A blank route is valid: the gateway then resolves the agent's own policy default route (doc 05, per-agent routing).
+        ArgumentNullException.ThrowIfNull(request.Route);
         ArgumentOutOfRangeException.ThrowIfLessThan(request.MaxItems, 1);
 
         var due = await inbox.PeekDueAsync(request.AgentId, request.MaxItems, ct).ConfigureAwait(false);

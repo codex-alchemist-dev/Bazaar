@@ -81,7 +81,7 @@ public class KillSwitchEngineTests
             await Assert.ThrowsAsync<ArgumentException>(() => _engine.EngageGlobalAsync(actor, "reason", TestContext.Current.CancellationToken));
             await Assert.ThrowsAsync<ArgumentException>(() => _engine.ResumeGlobalAsync(actor, "reason", TestContext.Current.CancellationToken));
             await Assert.ThrowsAsync<ArgumentException>(() => _engine.EngageAgentAsync(actor, "agent-a", "reason", TestContext.Current.CancellationToken));
-            await Assert.ThrowsAsync<ArgumentException>(() => _engine.ResumeAgentAsync(actor, "agent-a", "reason", TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentException>(() => _engine.ResumeAgentAsync("agent-a", "reason", ReleaseRequests.Unsigned("agent-a", actor), TestContext.Current.CancellationToken));
         }
 
         Assert.Empty(_audit.Entries);
@@ -107,7 +107,7 @@ public class KillSwitchEngineTests
         await _engine.EngageGlobalAsync("owner-1", "Freeze", TestContext.Current.CancellationToken);
         await _engine.ResumeGlobalAsync("owner-1", "Cleared", TestContext.Current.CancellationToken);
         await _engine.EngageAgentAsync("owner-1", "agent-a", "Stop", TestContext.Current.CancellationToken);
-        await _engine.ResumeAgentAsync("owner-1", "agent-a", "Back", TestContext.Current.CancellationToken);
+        await _engine.ResumeAgentAsync("agent-a", "Back", ReleaseRequests.Unsigned("agent-a", "owner-1"), TestContext.Current.CancellationToken);
 
         var expected = new (KillSwitchAction Action, KillSwitchScope Scope, string? AgentId)[]
         {
@@ -140,7 +140,7 @@ public class KillSwitchEngineTests
         Assert.True(_engine.Evaluate("agent-b", ToolEffect.Write).Allowed);
         Assert.False(_engine.Evaluate("agent-a", ToolEffect.Write).Allowed);
 
-        await _engine.ResumeAgentAsync("owner-1", "agent-a", "Cleared", TestContext.Current.CancellationToken);
+        await _engine.ResumeAgentAsync("agent-a", "Cleared", ReleaseRequests.Unsigned("agent-a", "owner-1"), TestContext.Current.CancellationToken);
         Assert.True(_engine.Evaluate("agent-a", ToolEffect.Write).Allowed);
         Assert.True(_engine.Evaluate("agent-a", ToolEffect.Egress).Allowed);
         Assert.Empty(_engine.GetStatus().AgentStops);
@@ -162,7 +162,7 @@ public class KillSwitchEngineTests
     public async Task Agent_engage_calls_containment_and_resume_releases_it()
     {
         await _engine.EngageAgentAsync("owner-1", "agent-a", "Stop", TestContext.Current.CancellationToken);
-        await _engine.ResumeAgentAsync("owner-1", "agent-a", "Back", TestContext.Current.CancellationToken);
+        await _engine.ResumeAgentAsync("agent-a", "Back", ReleaseRequests.Unsigned("agent-a", "owner-1"), TestContext.Current.CancellationToken);
 
         Assert.Equal(["contain:agent-a", "release:agent-a"], _containment.Calls);
     }
@@ -193,7 +193,7 @@ public class KillSwitchEngineTests
         await _engine.EngageAgentAsync("owner-1", "agent-a", "Stop", TestContext.Current.CancellationToken);
         _containment.FailRelease = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _engine.ResumeAgentAsync("owner-1", "agent-a", "Back", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _engine.ResumeAgentAsync("agent-a", "Back", ReleaseRequests.Unsigned("agent-a", "owner-1"), TestContext.Current.CancellationToken));
 
         Assert.False(_engine.Evaluate("agent-a", ToolEffect.Write).Allowed);
     }
@@ -264,7 +264,7 @@ public class KillSwitchEngineTests
                 for (var n = 0; n < 50; n++)
                 {
                     await _engine.EngageAgentAsync("owner-1", agent, "Stop", TestContext.Current.CancellationToken);
-                    await _engine.ResumeAgentAsync("owner-1", agent, "Back", TestContext.Current.CancellationToken);
+                    await _engine.ResumeAgentAsync(agent, "Back", ReleaseRequests.Unsigned(agent, "owner-1"), TestContext.Current.CancellationToken);
                 }
             }, TestContext.Current.CancellationToken));
             tasks.Add(Task.Run(async () =>

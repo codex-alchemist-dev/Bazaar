@@ -1,3 +1,7 @@
+using Bazaar.Server.Providers;
+using Bazaar.Server.Vms.WindowsSandbox;
+using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
+
 namespace Bazaar.Server.Providers.Windows;
 
 /// <summary>The Windows provider candidates for the composition root. Empty off Windows, so no Windows type is built there.</summary>
@@ -12,5 +16,27 @@ public static class WindowsProviders
         }
 
         return [new WindowsServiceHostProvider()];
+    }
+
+    /// <summary>
+    /// The VM provider candidates in preference order. Hyper-V goes first once it exists; the sandbox is listed after it.
+    /// Returns an empty list when the host is not Windows. The sandbox declares one instance per host, so the agent pair
+    /// (which needs two) never selects it (fail closed in <see cref="ProviderSelector"/>).
+    /// </summary>
+    public static IReadOnlyList<IVmProvider> VmCandidates(string dataRoot)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return [];
+        }
+
+        var configDirectory = Path.Combine(dataRoot, "vms", "windows-sandbox");
+        // No base image is configured yet, so the empty id is the only parent id it could match. Any real parent is refused,
+        // which keeps child creation fail closed until an operator sets the image.
+        var sandbox = new WindowsSandboxBackend(
+            new WsbCliSandboxHost(new ProcessWsbCommandRunner(), configDirectory),
+            new WindowsSandboxHostFacts(),
+            new WindowsSandboxOptions(Guid.Empty));
+        return [sandbox];
     }
 }

@@ -4,6 +4,13 @@ Bazaar is an open-source platform for a persistent AI software company: agents w
 
 Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with `Bazaar.md`, then the doc for the area you touch. Research behind them: `docs/research/notes/` and `docs/research/reports/`. Read the relevant doc before changing an area. Statuses: DECIDED / PROPOSED / REJECTED / RESEARCHED / OPEN. Only DECIDED items are settled; do not build on PROPOSED or OPEN without asking.
 
+## Design docs are law (read first)
+
+- Before coding, read the relevant design doc (`docs/design/`, `docs/deep-dives/`) and the DECIDED items in `docs/design/DECISIONS-LOG.md`. Structure in the docs is binding. Do not invent spec; ask the owner for unspecified details.
+- Docs first: a change to design or structure lands as a docs PR before the code PR.
+- Every new feature is its own module project on Bazaar.Core (`Bazaar.<Module>` plus `Bazaar.<Module>.Abstractions`). Bazaar.Core holds no features, and Bazaar.Server and Bazaar.Client.Core must not gain feature code. Architecture tests in `tests/Bazaar.Architecture.Tests` enforce this.
+- Every PR states the docs section it implements, as a line `Docs section this implements: <doc path and section>` in the PR body.
+
 ## Decisions in force (as of 2026-10-24)
 
 - **.NET everywhere.** Target .NET 11 (owner, 2026-10-25; STS, GA expected November 2026; the repo pins the latest 11.0 SDK in `global.json`). **Forward-facing compatibility rule:** write for the newest supported .NET and for what comes next. Prefer current APIs and patterns that stay supported; do not use obsolete or deprecated APIs (warnings are errors); never pin to an older runtime or add code paths for one; package versions follow the newest stable release for the target. Move to the next .NET release (including LTS ones) soon after it ships. One C# codebase for the server and all clients. Engine plugins may need other languages inside the engine (Luau for Roblox Studio, GDScript or C# for Godot); the .NET side talks to them over a protocol.
@@ -24,7 +31,6 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 - **Agent accounts:** agents sign up only where the platform's current terms allow it; otherwise a person creates the account. Check each platform's rules before the first post.
 - **Names:** the owner's instance is Codex Alchemist (the studio, also the developer of the Bazaar platform). "Codex" overlaps OpenAI's product; no clearance search has been done, so keep it out of package IDs and public product names until decided.
 - **Free-tier data** is the operator's choice; setup warns that some free tiers train on prompts.
-- **"No web client"** (owner's words: clients must be native with minimum hardware specs) concerns browser-based clients of the server. Native clients may embed web components such as Monaco.
 - **Claude lane** routes automatically between Haiku and Sonnet (rules OPEN). **Remote access** and **public-posting approval tiers** are operator-configured, with documented options and shipped defaults.
 - **v1.0 scope** includes Observatory, Company Constitution, Org Chart, Interrupt System, Company Calendar, Health and Analytics, Digital Twin, Skimmer Bouncer (start defer-only), Psych Ward and vent post, What If and Time Machine, Mirror Agent, Lucky mode and Playtest. Also Identity Service, Bazaar Archive, Talent Pool, Genetic Memory Transfer, Hive Mind, Company Memory, Bazaar SDK, GC metadata. Nigerian Prince Protocol is optional behind a setup wizard (scam emails are quarantined without it). Kanban columns: Backlog, Ready, In progress, Review, Done, with automatic Blocked marking. Details to be designed first.
 - **Privacy:** instances are private by default; with several human members, privacy-law compliance settings (global) apply. Erasure mechanics are OPEN.
