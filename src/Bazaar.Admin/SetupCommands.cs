@@ -170,7 +170,7 @@ internal static class SetupCommands
     };
 
     /// <summary>Reads the file. The path is named by its flag only, so an unreadable path never appears in output.</summary>
-    private static (string? Text, AdminIssue? Issue) ReadConfig(string configPath)
+    internal static (string? Text, AdminIssue? Issue) ReadConfig(string configPath)
     {
         try
         {

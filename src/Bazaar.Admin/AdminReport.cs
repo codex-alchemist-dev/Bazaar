@@ -72,6 +72,8 @@ public sealed class AdminChange
 [JsonSerializable(typeof(AdminReport))]
 [JsonSerializable(typeof(AdminIssue))]
 [JsonSerializable(typeof(AdminChange))]
+[JsonSerializable(typeof(KodoVerifyReport))]
+[JsonSerializable(typeof(AdminCheck))]
 public sealed partial class AdminJsonContext : JsonSerializerContext
 {
 }
