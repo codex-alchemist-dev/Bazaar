@@ -329,7 +329,7 @@ Undo never deletes history:
 - Kanban tasks from an import get a transition to Blocked with reason `withdrawn by import`, or are archived, following doc 12 gates.
 - The withdrawal is itself an audit entry, linked to the job.
 
-**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban withdrawal is not built yet.
+**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` (Blocked with reason `withdrawn by import`, or archive) through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates.
 
 ### 8.9 Import audit trail
 
