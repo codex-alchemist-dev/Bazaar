@@ -1,36 +1,57 @@
-using System.Globalization;
-
 namespace Bazaar.Server.Valkey;
 
-/// <summary>Everything the supervisor needs to start a managed <c>valkey-server</c> child on loopback.</summary>
-/// <param name="Executable">The server binary, from <see cref="ValkeyCacheOptions.BinaryPath"/>.</param>
-/// <param name="Port">The loopback TCP port to listen on.</param>
-public sealed record ValkeyLaunchSpec(string Executable, int Port)
+/// <summary>
+/// Everything the launcher needs to start a managed <c>valkey-server</c>. The configuration (which holds the generated password) is
+/// handed to the child on its standard input and is never placed on the command line or on disk.
+/// </summary>
+public sealed class ValkeyLaunchSpec
 {
-    /// <summary>
-    /// The command line arguments. The server binds to loopback only, keeps protected mode on, and writes no snapshot or append-only
-    /// file: the cache is rebuildable (doc 11), so nothing is persisted. No secret is passed on the command line.
-    /// </summary>
-    public IReadOnlyList<string> Arguments =>
-    [
-        "--bind", "127.0.0.1",
-        "--port", Port.ToString(CultureInfo.InvariantCulture),
-        "--protected-mode", "yes",
-        "--save", string.Empty,
-        "--appendonly", "no",
-    ];
+    /// <summary>Creates the spec.</summary>
+    /// <param name="executable">The server binary, from <see cref="ValkeyCacheOptions.BinaryPath"/>.</param>
+    /// <param name="configText">The server configuration, read by the child from stdin (<c>-</c>).</param>
+    /// <param name="parentDeathWrapper">
+    /// A wrapper that sets the parent-death signal before it runs the server (<see cref="ValkeyCacheOptions.ParentDeathWrapper"/>),
+    /// or empty for none. The launcher fails closed when the wrapper cannot run.
+    /// </param>
+    public ValkeyLaunchSpec(string executable, string configText, string parentDeathWrapper)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        ArgumentException.ThrowIfNullOrEmpty(configText);
+        ArgumentNullException.ThrowIfNull(parentDeathWrapper);
+        Executable = executable;
+        ConfigText = configText;
+        ParentDeathWrapper = parentDeathWrapper;
+    }
+
+    /// <summary>The server binary.</summary>
+    public string Executable { get; }
+
+    /// <summary>The server configuration, including the password. Never log it.</summary>
+    public string ConfigText { get; }
+
+    /// <summary>The parent-death wrapper, or empty.</summary>
+    public string ParentDeathWrapper { get; }
+
+    /// <summary>The server arguments: one dash, meaning "read the configuration from standard input".</summary>
+    public IReadOnlyList<string> Arguments { get; } = ["-"];
+
+    /// <summary>Never includes the configuration.</summary>
+    public override string ToString() => $"valkey launch of {Executable} (configuration redacted)";
 }
 
 /// <summary>Starts a managed child process. The real implementation runs a process; tests inject a fake.</summary>
 public interface IValkeyProcessLauncher
 {
-    /// <summary>Starts the child. Throws when the executable cannot be started; the supervisor treats that as a failed attempt.</summary>
+    /// <summary>Starts the child and writes its configuration to stdin. Throws when it cannot start; the supervisor counts that as a failed attempt.</summary>
     Task<IValkeyChild> StartAsync(ValkeyLaunchSpec spec, CancellationToken ct);
 }
 
 /// <summary>A running managed child.</summary>
 public interface IValkeyChild : IAsyncDisposable
 {
+    /// <summary>The operating system process id, written to the pid file so a later host can sweep a stale child.</summary>
+    int ProcessId { get; }
+
     /// <summary>Completes when the child exits, for any reason.</summary>
     Task Exited { get; }
 

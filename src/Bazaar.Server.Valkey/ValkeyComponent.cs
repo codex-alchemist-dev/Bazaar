@@ -12,10 +12,10 @@ namespace Bazaar.Server.Valkey;
 public sealed class ValkeyComponent : IBazaarComponent
 {
     /// <summary>
-    /// Tags shown in the module manager (doc 42 section 8.1). The strings match <c>DependencyManifest.RequiredTags</c> and
-    /// <c>DependencyManifest.ThirdPartyTag</c> in Bazaar.Server, which this module must not reference.
+    /// Tags shown in the module manager (doc 42 section 8.1). Built from <see cref="DependencyTags"/>, the one source in this module.
+    /// <see cref="ComponentManifest"/> has no tags field yet, so the tags live here instead of in the manifest (a gap to close in Bazaar.Core).
     /// </summary>
-    public static IReadOnlyList<string> Tags { get; } = ["Deps", "3rd party"];
+    public static IReadOnlyList<string> Tags { get; } = [DependencyTags.Deps, DependencyTags.ThirdParty];
 
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "valkey",

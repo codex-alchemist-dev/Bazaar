@@ -21,6 +21,9 @@ public interface IValkeyClient : IAsyncDisposable
 
     /// <summary>Reads the memory section of the server (used and configured maximum bytes). Used by the health probes.</summary>
     Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct);
+
+    /// <summary>Reads one server configuration value (<c>CONFIG GET</c>), or null when the server does not report it.</summary>
+    Task<string?> GetConfigAsync(string parameter, CancellationToken ct);
 }
 
 /// <summary>Memory use reported by the server. <see cref="MaxBytes"/> is 0 when the server has no memory limit.</summary>

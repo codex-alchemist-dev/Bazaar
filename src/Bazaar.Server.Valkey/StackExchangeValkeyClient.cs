@@ -28,6 +28,8 @@ public sealed class StackExchangeValkeyClient : IValkeyClient
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _options = ConfigurationOptions.Parse(connectionString);
         _options.AbortOnConnectFail = false;
+        // CONFIG GET (the eviction check) needs admin mode in StackExchange.Redis. The client issues only read commands of that kind.
+        _options.AllowAdmin = true;
         _options.ClientName ??= "bazaar-server";
     }
 
@@ -67,6 +69,16 @@ public sealed class StackExchangeValkeyClient : IValkeyClient
         RedisResult info = await database.ExecuteAsync("INFO", "memory").WaitAsync(ct);
         var text = (string?)info ?? string.Empty;
         return new ValkeyMemoryInfo(InfoValue(text, "used_memory"), InfoValue(text, "maxmemory"));
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> GetConfigAsync(string parameter, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(parameter);
+        var database = await DatabaseAsync(ct);
+        RedisResult reply = await database.ExecuteAsync("CONFIG", "GET", parameter).WaitAsync(ct);
+        var pairs = (RedisResult[]?)reply;
+        return pairs is { Length: 2 } ? (string?)pairs[1] : null;
     }
 
     /// <inheritdoc />

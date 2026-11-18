@@ -13,8 +13,9 @@ namespace Bazaar.Server.Valkey;
 public static class ValkeyServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the Valkey cache provider, its client factory and the managed-child supervisor. Linux only: on every other OS nothing is
-    /// registered, so no <see cref="ICacheProvider"/> reaches the Windows host (Garnet waits for spike S2, doc 03).
+    /// Registers the Valkey cache provider, its client factory, the managed-child supervisor, the stale-child sweep and the health probes.
+    /// Linux only: on every other OS nothing is registered, so no <see cref="ICacheProvider"/> reaches the Windows host (Garnet waits for
+    /// spike S2, doc 03).
     /// </summary>
     public static IServiceCollection AddBazaarValkey(this IServiceCollection services, IConfiguration configuration)
     {
@@ -29,34 +30,49 @@ public static class ValkeyServiceCollectionExtensions
         services.AddOptions<ValkeyCacheOptions>().Bind(configuration.GetSection(ValkeyCacheOptions.SectionName));
         services.AddOptions<ValkeySupervisionOptions>().Bind(configuration.GetSection(ValkeySupervisionOptions.SectionName));
 
-        // A managed child is reached on loopback when the operator set no endpoint or secret of its own.
-        services.PostConfigure<ValkeyCacheOptions>(options =>
-        {
-            if (options.Managed && string.IsNullOrWhiteSpace(options.Endpoint) && string.IsNullOrWhiteSpace(options.SecretReference))
-            {
-                options.Endpoint = $"127.0.0.1:{options.ManagedPort}";
-            }
-        });
-
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IValkeyClientFactory, StackExchangeValkeyClientFactory>();
         services.TryAddSingleton<IValkeyProcessLauncher, ValkeyProcessLauncher>();
+        services.TryAddSingleton<IValkeyProcessProbe, LinuxValkeyProcessProbe>();
+        services.TryAddSingleton<ValkeyStaleChildSweeper>();
+        services.TryAddSingleton<ValkeyManagedConnection>();
         services.TryAddSingleton(sp => new ValkeyServerSupervisor(
-            sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value,
+            CacheOptions(sp),
             sp.GetRequiredService<IOptions<ValkeySupervisionOptions>>().Value,
             sp.GetRequiredService<IValkeyProcessLauncher>(),
             sp.GetRequiredService<IValkeyClientFactory>(),
             sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<ILogger<ValkeyServerSupervisor>>()));
+            sp.GetRequiredService<ILogger<ValkeyServerSupervisor>>(),
+            sp.GetRequiredService<ValkeyManagedConnection>(),
+            sp.GetRequiredService<ValkeyStaleChildSweeper>()));
         services.TryAddSingleton<IValkeyChildStatus>(sp => sp.GetRequiredService<ValkeyServerSupervisor>());
         services.AddHostedService(sp => sp.GetRequiredService<ValkeyServerSupervisor>());
 
+        // One connection source for both the cache and the probes: the managed child's, or the operator's endpoint.
+        services.TryAddSingleton<IValkeyConnectionSource>(sp => CacheOptions(sp).Managed
+            ? sp.GetRequiredService<ValkeyManagedConnection>()
+            : new ValkeyConfiguredEndpoint(CacheOptions(sp), sp.GetService<ISecretResolver>()));
+
+        services.TryAddSingleton<IValkeyHealthProbes>(sp => new ValkeyHealthProbes(
+            sp.GetRequiredService<IValkeyChildStatus>(),
+            sp.GetRequiredService<IValkeyConnectionSource>(),
+            sp.GetRequiredService<IValkeyClientFactory>(),
+            CacheOptions(sp)));
+
         // Not TryAdd: several cache providers may be registered, and the host selects one through ProviderSelector.
-        services.AddSingleton<ICacheProvider>(sp => new ValkeyCacheProvider(
-            sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value,
-            sp.GetService<ISecretResolver>(),
-            sp.GetRequiredService<IValkeyClientFactory>()));
+        services.AddSingleton<ICacheProvider>(sp =>
+        {
+            var options = CacheOptions(sp);
+            return new ValkeyCacheProvider(
+                options,
+                sp.GetService<ISecretResolver>(),
+                sp.GetRequiredService<IValkeyClientFactory>(),
+                options.Managed ? sp.GetRequiredService<ValkeyManagedConnection>() : null);
+        });
 
         return services;
     }
+
+    private static ValkeyCacheOptions CacheOptions(IServiceProvider sp) =>
+        sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
 }

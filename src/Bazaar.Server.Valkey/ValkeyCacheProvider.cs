@@ -23,20 +23,33 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
     private readonly ValkeyCacheOptions _options;
     private readonly ISecretResolver? _secretResolver;
     private readonly IValkeyClientFactory _clientFactory;
+    private readonly IValkeyConnectionSource? _managed;
+    private readonly ValkeyConfiguredEndpoint _endpoint;
     private readonly SemaphoreSlim _clientGate = new(1, 1);
     private IValkeyClient? _client;
+    private string? _clientConnectionString;
 
     /// <summary>Creates the provider. Nothing connects until the first probe or cache call.</summary>
-    /// <param name="options">Endpoint or secret reference, key prefix and probe timeout.</param>
+    /// <param name="options">Endpoint or secret reference (unmanaged), key prefix and probe timeout.</param>
     /// <param name="secretResolver">Resolves <see cref="ValkeyCacheOptions.SecretReference"/>. Null when no secret scheme is available.</param>
     /// <param name="clientFactory">Creates the client; tests pass a fake.</param>
-    public ValkeyCacheProvider(ValkeyCacheOptions options, ISecretResolver? secretResolver, IValkeyClientFactory clientFactory)
+    /// <param name="managed">
+    /// The managed child's connection (doc 40 section 4b.1). When set, the cache takes no endpoint or secret, and every call asks for the
+    /// current connection, so a child on a new port or a restarted child is reached without a host restart.
+    /// </param>
+    public ValkeyCacheProvider(
+        ValkeyCacheOptions options,
+        ISecretResolver? secretResolver,
+        IValkeyClientFactory clientFactory,
+        IValkeyConnectionSource? managed = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(clientFactory);
         _options = options;
         _secretResolver = secretResolver;
         _clientFactory = clientFactory;
+        _managed = managed;
+        _endpoint = new ValkeyConfiguredEndpoint(options, secretResolver);
     }
 
     /// <inheritdoc />
@@ -146,14 +159,24 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
         var hasEndpoint = !string.IsNullOrWhiteSpace(_options.Endpoint);
         var hasSecret = !string.IsNullOrWhiteSpace(_options.SecretReference);
 
-        if (hasEndpoint == hasSecret)
+        if (_managed is not null)
         {
-            return "set exactly one of Endpoint or SecretReference";
+            if (hasEndpoint || hasSecret)
+            {
+                return "a managed cache takes no endpoint or secret reference";
+            }
         }
-
-        if (hasSecret && _secretResolver?.CanResolve(_options.SecretReference!) != true)
+        else
         {
-            return "the secret reference uses a scheme this machine cannot resolve";
+            if (hasEndpoint == hasSecret)
+            {
+                return "set exactly one of Endpoint or SecretReference";
+            }
+
+            if (hasSecret && _secretResolver?.CanResolve(_options.SecretReference!) != true)
+            {
+                return "the secret reference uses a scheme this machine cannot resolve";
+            }
         }
 
         if (_options.ProbeTimeout <= TimeSpan.Zero)
@@ -172,6 +195,11 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
 
     private async Task<IValkeyClient> ClientAsync(CancellationToken ct)
     {
+        if (_managed is not null)
+        {
+            return await ManagedClientAsync(ct);
+        }
+
         if (_client is not null)
         {
             return _client;
@@ -187,7 +215,7 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
                     throw new InvalidOperationException($"Valkey cache is not configured: {error}.");
                 }
 
-                var connectionString = await ResolveConnectionStringAsync(ct);
+                var connectionString = await _endpoint.GetConnectionStringAsync(ct);
                 _client = _clientFactory.Create(connectionString);
             }
 
@@ -199,13 +227,38 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
         }
     }
 
-    private async Task<string> ResolveConnectionStringAsync(CancellationToken ct)
+    /// <summary>
+    /// The managed path asks for the current connection on every call. The client is replaced when the connection changes (a new port, or
+    /// a child that was restarted with a new address), so a stale address is never reused. While the child is down the call throws and the
+    /// caller degrades.
+    /// </summary>
+    private async Task<IValkeyClient> ManagedClientAsync(CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(_options.Endpoint))
+        if (ConfigurationError() is { } error)
         {
-            return _options.Endpoint.Trim();
+            throw new InvalidOperationException($"Valkey cache is not configured: {error}.");
         }
 
-        return await _secretResolver!.ResolveAsync(_options.SecretReference!, ct);
+        var connectionString = await _managed!.GetConnectionStringAsync(ct);
+        await _clientGate.WaitAsync(ct);
+        try
+        {
+            if (_client is null || _clientConnectionString != connectionString)
+            {
+                if (_client is not null)
+                {
+                    await _client.DisposeAsync();
+                }
+
+                _client = _clientFactory.Create(connectionString);
+                _clientConnectionString = connectionString;
+            }
+
+            return _client;
+        }
+        finally
+        {
+            _clientGate.Release();
+        }
     }
 }

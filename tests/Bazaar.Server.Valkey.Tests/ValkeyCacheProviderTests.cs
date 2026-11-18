@@ -284,6 +284,12 @@ public class ValkeyCacheProviderTests
             return Task.FromResult(new ValkeyMemoryInfo(0, 0));
         }
 
+        public Task<string?> GetConfigAsync(string parameter, CancellationToken ct)
+        {
+            ThrowIfFailing();
+            return Task.FromResult<string?>(null);
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         private void ThrowIfFailing()

@@ -1,14 +1,22 @@
+using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-
 
 namespace Bazaar.Server.Valkey;
 
 /// <summary>
 /// Runs the hidden <c>valkey-server</c> child and keeps it up (docs/design/42-deps-as-modules.md section 6.2). Idle unless
-/// <see cref="ValkeyCacheOptions.Managed"/> is set. A failed start, a child that never answers PING, or a crash waits with exponential
-/// backoff. When <see cref="ValkeySupervisionOptions.MaxFailures"/> failures fall inside <see cref="ValkeySupervisionOptions.FailureWindow"/>,
-/// the circuit breaker opens and the child stays stopped until the host restarts.
+/// <see cref="ValkeyCacheOptions.Managed"/> is set. Each start picks the port (0 means a free loopback port), writes the configuration to
+/// the child's stdin, and records the child's process id in the pid file. A failed start, a child that never answers PING, or a crash
+/// waits with exponential backoff. When <see cref="ValkeySupervisionOptions.MaxFailures"/> failures fall inside
+/// <see cref="ValkeySupervisionOptions.FailureWindow"/>, the circuit breaker opens and the child stays stopped until the host restarts.
+/// <para>
+/// At startup a stale child from an earlier host is swept (its pid file names a live server, which is killed). The child also dies with
+/// the host through the parent-death wrapper (see <see cref="ValkeyProcessLauncher"/>).
+/// </para>
 /// <para>
 /// Nothing escapes <see cref="ExecuteAsync"/> except host shutdown. Every failure becomes a state and a wait, so a broken cache never stops
 /// the host. The cache is rebuildable (doc 11), so a restarted child starts empty and nothing is replayed.
@@ -25,6 +33,8 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
     private readonly IValkeyClientFactory _clientFactory;
     private readonly TimeProvider _clock;
     private readonly ILogger<ValkeyServerSupervisor> _logger;
+    private readonly ValkeyManagedConnection _connection;
+    private readonly ValkeyStaleChildSweeper _sweeper;
     private readonly List<DateTimeOffset> _failures = [];
     private volatile ValkeyChildState _state = ValkeyChildState.Disabled;
     private int _starts;
@@ -37,7 +47,9 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
         IValkeyProcessLauncher launcher,
         IValkeyClientFactory clientFactory,
         TimeProvider clock,
-        ILogger<ValkeyServerSupervisor> logger)
+        ILogger<ValkeyServerSupervisor> logger,
+        ValkeyManagedConnection connection,
+        ValkeyStaleChildSweeper sweeper)
     {
         ArgumentNullException.ThrowIfNull(cache);
         ArgumentNullException.ThrowIfNull(supervision);
@@ -45,12 +57,16 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
         ArgumentNullException.ThrowIfNull(clientFactory);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(sweeper);
         _cache = cache;
         _supervision = supervision;
         _launcher = launcher;
         _clientFactory = clientFactory;
         _clock = clock;
         _logger = logger;
+        _connection = connection;
+        _sweeper = sweeper;
     }
 
     /// <inheritdoc />
@@ -58,6 +74,9 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
 
     /// <inheritdoc />
     public int Restarts => _restarts;
+
+    /// <summary>The pid file path inside the runtime directory.</summary>
+    internal string PidFilePath => Path.Combine(_cache.RuntimeDirectory, ValkeyPidFile.FileName);
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -70,6 +89,20 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
 
         try
         {
+            try
+            {
+                PrepareRuntimeDirectory();
+                if (_sweeper.Sweep(PidFilePath, Path.GetFileName(_cache.BinaryPath)))
+                {
+                    LogStaleChildKilled();
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Every start writes the pid file, so the attempts below fail visibly and the breaker counts them.
+                LogAttemptFailed(ex.GetType().Name);
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 if (_starts > 0)
@@ -123,34 +156,61 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
         return TimeSpan.FromSeconds(seconds);
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Managed Valkey failed {Failures} times within {Window}. The circuit breaker is open; the cache stays unavailable until the host restarts.")]
-    private partial void LogBreakerOpen(int failures, TimeSpan window);
+    /// <summary>
+    /// The server configuration for one child. It holds the password, so it is only handed to the child on stdin.
+    /// Loopback only, protected mode, no snapshot and no append-only file, and the memory cap with the eviction policy.
+    /// </summary>
+    internal static string BuildConfig(int port, string password, int maxMemoryMegabytes)
+    {
+        var builder = new StringBuilder();
+        builder.Append("bind 127.0.0.1\n");
+        builder.Append(CultureInfo.InvariantCulture, $"port {port}\n");
+        builder.Append("protected-mode yes\n");
+        builder.Append("save \"\"\n");
+        builder.Append("appendonly no\n");
+        builder.Append(CultureInfo.InvariantCulture, $"requirepass {password}\n");
+        builder.Append(CultureInfo.InvariantCulture, $"maxmemory {maxMemoryMegabytes}mb\n");
+        builder.Append(CultureInfo.InvariantCulture, $"maxmemory-policy {ValkeyCacheOptions.EvictionPolicy}\n");
+        return builder.ToString();
+    }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Managed Valkey stopped. Restarting in {Wait}.")]
-    private partial void LogRestartScheduled(TimeSpan wait);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Managed Valkey did not answer PING within {Timeout}.")]
-    private partial void LogNoAnswer(TimeSpan timeout);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Managed Valkey attempt failed ({ExceptionType}).")]
-    private partial void LogAttemptFailed(string exceptionType);
+    /// <summary>Asks the operating system for a free TCP port on loopback. There is a small race before the child binds it; a failed start retries.</summary>
+    internal static int FreeLoopbackPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        try
+        {
+            return ((IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
 
     /// <summary>
-    /// Starts the child once and waits until it is supervised. Returns true when the stop was requested by the host, false when the attempt
-    /// failed (a start error, no PING in time, or a crash). The child is always killed and disposed before returning.
+    /// Starts the child once and waits until it is supervised. Returns true when the host requested the stop, false when the attempt failed
+    /// (a start error, no PING in time, or a crash). The child is always killed and disposed, and the pid file removed, before returning.
     /// </summary>
     private async Task<bool> RunChildOnceAsync(CancellationToken stoppingToken)
     {
         IValkeyChild? child = null;
         try
         {
-            child = await _launcher.StartAsync(new ValkeyLaunchSpec(_cache.BinaryPath, _cache.ManagedPort), stoppingToken);
-            if (!await WaitUntilAnsweringAsync(stoppingToken))
+            var port = _cache.ManagedPort == 0 ? FreeLoopbackPort() : _cache.ManagedPort;
+            _connection.Prepare(port);
+            var config = BuildConfig(port, _connection.PasswordForChildConfig(), _cache.MaxMemoryMegabytes);
+            child = await _launcher.StartAsync(new ValkeyLaunchSpec(_cache.BinaryPath, config, _cache.ParentDeathWrapper), stoppingToken);
+            WritePidFile(child.ProcessId);
+
+            if (!await WaitUntilAnsweringAsync(port, stoppingToken))
             {
                 LogNoAnswer(_supervision.StartupTimeout);
                 return stoppingToken.IsCancellationRequested;
             }
 
+            _connection.MarkReady();
             _state = ValkeyChildState.Running;
             await child.Exited.WaitAsync(stoppingToken);
             return false;
@@ -167,19 +227,22 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
         }
         finally
         {
+            _connection.MarkUnavailable();
             if (child is not null)
             {
                 child.Kill();
                 await child.DisposeAsync();
             }
+
+            ValkeyPidFile.Delete(PidFilePath);
         }
     }
 
     /// <summary>Polls PING until it answers or the startup timeout passes. Throws only when the host is stopping.</summary>
-    private async Task<bool> WaitUntilAnsweringAsync(CancellationToken stoppingToken)
+    private async Task<bool> WaitUntilAnsweringAsync(int port, CancellationToken stoppingToken)
     {
         var deadline = _clock.GetUtcNow() + _supervision.StartupTimeout;
-        await using var client = _clientFactory.Create($"127.0.0.1:{_cache.ManagedPort}");
+        await using var client = _clientFactory.Create(_connection.BuildConnectionString(port));
         while (true)
         {
             try
@@ -206,4 +269,32 @@ public sealed partial class ValkeyServerSupervisor : BackgroundService, IValkeyC
             await Task.Delay(_pollInterval, _clock, stoppingToken);
         }
     }
+
+    /// <summary>Creates the runtime directory with owner-only permissions. The pid file and nothing secret lives here.</summary>
+    private void PrepareRuntimeDirectory()
+    {
+        Directory.CreateDirectory(_cache.RuntimeDirectory);
+        if (OperatingSystem.IsLinux())
+        {
+            File.SetUnixFileMode(_cache.RuntimeDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    private void WritePidFile(int pid) =>
+        File.WriteAllText(PidFilePath, pid.ToString(CultureInfo.InvariantCulture));
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Managed Valkey failed {Failures} times within {Window}. The circuit breaker is open; the cache stays unavailable until the host restarts.")]
+    private partial void LogBreakerOpen(int failures, TimeSpan window);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Managed Valkey stopped. Restarting in {Wait}.")]
+    private partial void LogRestartScheduled(TimeSpan wait);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Managed Valkey did not answer PING within {Timeout}.")]
+    private partial void LogNoAnswer(TimeSpan timeout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Managed Valkey attempt failed ({ExceptionType}).")]
+    private partial void LogAttemptFailed(string exceptionType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Killed a stale managed Valkey left by an earlier host.")]
+    private partial void LogStaleChildKilled();
 }

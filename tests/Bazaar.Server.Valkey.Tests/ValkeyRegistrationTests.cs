@@ -23,9 +23,11 @@ public class ValkeyRegistrationTests
     }
 
     [Fact]
-    public void Manifest_carries_the_deps_and_third_party_tags()
+    public void Manifest_tags_come_from_the_one_dependency_tag_source()
     {
         Assert.Equal(["Deps", "3rd party"], ValkeyComponent.Tags);
+        Assert.Equal(DependencyTags.Deps, ValkeyComponent.Tags[0]);
+        Assert.Equal(DependencyTags.ThirdParty, ValkeyComponent.Tags[1]);
     }
 
     [Fact]
@@ -36,24 +38,17 @@ public class ValkeyRegistrationTests
 
         Assert.False(cache.Managed);
         Assert.Equal("valkey-server", cache.BinaryPath);
-        Assert.Equal(16379, cache.ManagedPort);
+        Assert.Equal(0, cache.ManagedPort);
+        Assert.Equal(256, cache.MaxMemoryMegabytes);
         Assert.Equal(80, cache.MemoryWarnPercent);
+        Assert.Equal("setpriv", cache.ParentDeathWrapper);
+        Assert.Equal("allkeys-lru", ValkeyCacheOptions.EvictionPolicy);
         Assert.Equal(TimeSpan.FromSeconds(10), supervision.StartupTimeout);
         Assert.Equal(5, supervision.MaxFailures);
     }
 
     [Fact]
-    public void Launch_arguments_bind_loopback_without_persistence_or_secrets()
-    {
-        var spec = new ValkeyLaunchSpec("valkey-server", 16379);
-
-        Assert.Equal(
-            ["--bind", "127.0.0.1", "--port", "16379", "--protected-mode", "yes", "--save", string.Empty, "--appendonly", "no"],
-            spec.Arguments);
-    }
-
-    [Fact]
-    public async Task Registration_on_linux_offers_one_cache_provider_and_a_supervisor()
+    public async Task Registration_on_linux_offers_one_cache_provider_a_supervisor_and_the_probes()
     {
         var services = Register(new Dictionary<string, string?> { ["Bazaar:Cache:Valkey:Endpoint"] = "cache.internal:6379" });
         await using var provider = services.BuildServiceProvider();
@@ -64,6 +59,7 @@ public class ValkeyRegistrationTests
             Assert.IsType<ValkeyCacheProvider>(cache);
             Assert.Equal("valkey", cache.Kind);
             Assert.Contains(provider.GetServices<IHostedService>(), h => h is ValkeyServerSupervisor);
+            Assert.IsType<ValkeyHealthProbes>(provider.GetRequiredService<IValkeyHealthProbes>());
         }
         else
         {
@@ -72,38 +68,29 @@ public class ValkeyRegistrationTests
     }
 
     [Fact]
-    public void A_managed_child_without_an_endpoint_is_reached_on_loopback()
+    public async Task A_managed_cache_connects_through_the_managed_connection_and_takes_no_endpoint()
     {
         var services = Register(new Dictionary<string, string?> { ["Bazaar:Cache:Valkey:Managed"] = "true" });
-        using var provider = services.BuildServiceProvider();
-
-        var options = provider.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
+        await using var provider = services.BuildServiceProvider();
 
         if (OperatingSystem.IsLinux())
         {
-            Assert.Equal("127.0.0.1:16379", options.Endpoint);
-        }
-        else
-        {
-            Assert.Null(options.Endpoint);
+            Assert.Null(provider.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value.Endpoint);
+            Assert.IsType<ValkeyManagedConnection>(provider.GetRequiredService<IValkeyConnectionSource>());
+            var cache = provider.GetServices<ICacheProvider>().Single();
+            Assert.False(cache.Probe().Usable, "no child is running yet, so the cache is unusable rather than pointed at a stale address");
         }
     }
 
     [Fact]
-    public void An_explicit_endpoint_wins_over_the_managed_loopback_default()
+    public void An_unmanaged_cache_connects_to_its_configured_endpoint()
     {
-        var services = Register(new Dictionary<string, string?>
-        {
-            ["Bazaar:Cache:Valkey:Managed"] = "true",
-            ["Bazaar:Cache:Valkey:Endpoint"] = "cache.internal:6379",
-        });
+        var services = Register(new Dictionary<string, string?> { ["Bazaar:Cache:Valkey:Endpoint"] = " cache.internal:6379 " });
         using var provider = services.BuildServiceProvider();
-
-        var options = provider.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
 
         if (OperatingSystem.IsLinux())
         {
-            Assert.Equal("cache.internal:6379", options.Endpoint);
+            Assert.IsType<ValkeyConfiguredEndpoint>(provider.GetRequiredService<IValkeyConnectionSource>());
         }
     }
 
