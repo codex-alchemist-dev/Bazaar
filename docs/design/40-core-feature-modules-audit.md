@@ -66,6 +66,54 @@ Applied to the three features:
 | Layer 1 kanban (`kanban`) | Under `RyuseiFuda.Workday` or kept as `Bazaar.Kanban`, owner to confirm | Id and stored settings keys stay (doc 38 R4 defers renaming). |
 | No connectivity code yet | `Bazaar.Conduit` with `Conduit.Cloudflared`, `Conduit.P2P` | New code only; nothing to rename. |
 
+## 4b. Dependency modules: Valkey cache (PROPOSED)
+
+Status: PROPOSED (2026-11-18). Nothing here is built. The owner has not decided this module, and no DECISIONS-LOG entry records it yet. Dependencies are modules tagged `Deps` and `3rd party` (doc 42, D1), so the Linux cache dependency gets the same layout as a feature module, with a `Deps` tag. The module list below extends section 4 for dependency modules only; the feature rules of section 4 are unchanged.
+
+| Project | Holds | Rule |
+|---|---|---|
+| `Bazaar.Server.Providers.Abstractions` | `IProvider`, `ProviderStatus`, `ICacheProvider` and the other provider seams (doc 03). Namespace stays `Bazaar.Server.Providers`. | Moved from `src/Bazaar.Server/Providers/` (`ICacheProvider.cs`, and `IProvider.cs` and `ProviderStatus.cs` with it, PROPOSED). Contracts only, no implementation. |
+| `Bazaar.Server.Valkey.Abstractions` | `IValkeyClient`, `IValkeyClientFactory`, `ValkeyCacheOptions` (section `Bazaar:Cache:Valkey`). | Contracts other modules may reference. No library reference. |
+| `Bazaar.Server.Valkey` | `ValkeyCacheProvider` (implements `ICacheProvider`), `StackExchangeValkeyClientFactory` and `StackExchangeValkeyClient` (StackExchange.Redis, which speaks the Redis protocol Valkey implements), the supervised `valkey-server` child, and the health probes of section 4b.2. | Registers `AddBazaarValkey()`. The Server host references the abstractions; only the host composition root references this project. |
+
+Code that leaves `src/Bazaar.Server/Providers/Linux/`: `ValkeyCacheProvider.cs`, `IValkeyClient.cs`, `StackExchangeValkeyClient.cs`, `ValkeyCacheOptions.cs`, and the Valkey candidate in `LinuxProviders.CacheCandidates` (that list moves into the module's registration, PROPOSED). `SystemdServiceHostProvider.cs` and `SystemdCredsSecretResolver.cs` stay, because they are the service host and secret scheme, not the cache. Garnet is not in this module. It is a separate later module behind spike S2 (C07, doc 35).
+
+Module identity (PROPOSED): id `valkey`; tags `Deps` and `3rd party`; kind `service` under doc 42 section 4 (hidden supervised child of the host, one per install); licence BSD-3-Clause (doc 42 section 13.2, to be confirmed by the licence scan). StackExchange.Redis is a NuGet package under central package management and not a dep module (doc 42 section 4 boundary). Its licence is checked by the same scan.
+
+Settings: `host.provider.cache` (doc 03) is unchanged: `auto`, `garnet`, `valkey`, default `auto` (Garnet only after S2). No setting is added for the Valkey provider's choice. Child-process values (listen port, data directory, memory cap) and the memory warn threshold of section 4b.2 are not yet registered. They need the `deps.valkey.*` rows in doc 42 section 15 before code, under the configurability rule (PROPOSED names and safe defaults, owner to confirm).
+
+### 4b.1 Floors and the child process (PROPOSED)
+
+- The child listens on loopback only. A non-loopback listen is not a setting (the doc 42 section 15 floor, the same as `deps.postgresql.listen`).
+- The child requires a password generated at install and held in `ISecretStore` (doc 14). The password is never written to a config file, a log, the status page or a Kodo fact. The connection string built from it is the value of the `SecretReference` path in `ValkeyCacheOptions`.
+- The child is a hidden, supervised child of the host. Its restart policy follows doc 42 section 6.2 and 6.3. Start order: the child starts after the host validates config and before the cache probe in doc 03 startup step 5.
+- Stop: the child stops in the host's shutdown path (doc 03 step 1 to 4). Tree kill of the child with the host is a doc 42 section 16 test (PROPOSED for this child).
+
+### 4b.2 Health probes (PROPOSED, doc 46 contract)
+
+| Probe (doc 42 section 11) | Check | Critical |
+|---|---|---|
+| Liveness | Heartbeat from the supervised child. No I/O in the provider's liveness path. | no |
+| Readiness | PING, then a SET and GET round trip on a reserved key (`bazaar:health:valkey`, outside the cache key prefix so it cannot collide with cache entries). | no |
+| Dependencies | Used memory under the warn threshold (`deps.valkey.memoryWarnPercent`, PROPOSED, default 80 percent of the configured memory cap). The running version equals the installed package version (doc 42 section 11, drift rule). | no |
+| Self-test (scheduled, Full scope) | Round trip with a short TTL, expiry check after the TTL, and an eviction check: fill a reserved keyspace to the memory cap, confirm the server evicts keys and counts them, and confirm a read of an evicted key returns a miss, not an error (PROPOSED test definition). | no |
+
+Every probe is non-critical. Readiness of the host never depends on it.
+
+### 4b.3 Failure mapping (PROPOSED, C07)
+
+- The cache is a cache. A Valkey outage is `degraded`, never `failing`. Doc 03 already states that GC delivery and turns do not depend on the cache, and GC fan-out is Postgres NOTIFY (C07).
+- A down child or a failed probe makes the `valkey` module amber, with a reason and an audit event. Kodo does not open the readiness gate of any dependent module, and the server's readiness roles (doc 03 `host.readiness.required_roles`) do not include the cache.
+- While the cache is unusable, `ICacheProvider` callers get misses and dropped writes (the existing degrade behaviour of `ValkeyCacheProvider`). What presence shows while the cache is down is doc 23's decision and is not decided here (OPEN).
+- Restart backoff exhausted: the module stays amber and the operator sees it in the module manager (doc 42 section 12). It is not red and it does not start an incident.
+
+### 4b.4 Open gaps (PROPOSED, need one answer before code)
+
+1. `ICacheProvider` in doc 03 has `SetAsync` and `GetAsync` only. The code also has `DeleteAsync`. Choose one (PROPOSED: add `DeleteAsync` to the interface in doc 03, matching the code).
+2. The child-process settings in section 4b (port, data directory, memory cap, memory warn threshold) need `deps.valkey.*` rows in doc 42 section 15.
+3. The provider's `Bazaar.Server.Providers.Linux` namespace becomes `Bazaar.Server.Valkey`. Whether the old namespace is kept as an alias for one release is open. PROPOSED: no alias, since nothing outside the Linux provider folder references it.
+4. Term and kind: doc 42 Q8 (`module` and `kind: dependency`). This section follows the proposed answer.
+
 ## 5. Plan, in order
 
 Each step is a small PR with tests, per `CLAUDE.md`.

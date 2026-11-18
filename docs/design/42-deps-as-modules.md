@@ -340,6 +340,14 @@ Failure mapping: a failed critical probe (`critical: true`) opens the readiness 
 
 Kodo's 0-100 score counts deps like any module. Chaos mode (owner-enabled, sandbox copy only, doc 46) may kill the database child in the sandbox to test recovery. It never runs against the production data directory.
 
+### 11.1 Valkey cache dependency (PROPOSED)
+
+The Linux cache and presence dependency is the module `valkey` (`service` category, section 4). Its project layout, child process, probe details and settings gaps are in doc 40 section 4b, and they are PROPOSED. Its probes are the Valkey row of the table above, and none is critical. The failure mapping for this module is:
+
+- A cache outage is `degraded` (amber), never `failing` (red). Dependent modules keep running, and no readiness gate opens. This follows C07 and doc 03: the cache holds cache and presence only, and GC fan-out is Postgres NOTIFY.
+- Each state change is an audit event. A child that exhausts its restart backoff stays amber, not red, and raises no incident.
+- The Windows counterpart, Garnet, is a later module behind spike S2 and is not covered here.
+
 ## 12. How the module manager shows Deps (PLANNED)
 
 - A Deps section in the module manager, with two filter chips: Deps and 3rd party. A dep matches when its tags say so. Chips combine. The palette command for the view has a mnemonic (to be assigned in the mnemonic map of doc 41; Q10), with no Ctrl chords.
