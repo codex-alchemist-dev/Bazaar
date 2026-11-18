@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Bazaar.Approvals;
+namespace Bazaar.Server.Approvals;
 
 /// <summary>
 /// One owner-gated action as the owner's device signs it (doc 32 section 5a). Every action class uses this one shape:

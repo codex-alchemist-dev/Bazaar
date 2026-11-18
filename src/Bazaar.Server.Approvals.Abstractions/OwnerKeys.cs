@@ -1,4 +1,4 @@
-namespace Bazaar.Approvals;
+namespace Bazaar.Server.Approvals;
 
 /// <summary>A device key the owner registered for signing decisions. Revoked keys are never accepted.</summary>
 /// <param name="OwnerId">Owner the key belongs to.</param>

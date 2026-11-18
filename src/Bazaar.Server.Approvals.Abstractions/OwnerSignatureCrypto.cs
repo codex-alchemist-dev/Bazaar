@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Approvals;
+namespace Bazaar.Server.Approvals;
 
 /// <summary>The ECDSA P-256 check every owner signature uses (doc 32 section 5a, doc 15).</summary>
 public static class OwnerSignatureCrypto

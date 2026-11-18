@@ -1,4 +1,4 @@
-namespace Bazaar.Approvals;
+namespace Bazaar.Server.Approvals;
 
 /// <summary>Checks owner signatures against the owner key registry (doc 32 section 5a, doc 15 approvals).</summary>
 public sealed class OwnerSignatureVerifier(IOwnerKeyRegistry keys, IOwnerNonceStore nonces) : IOwnerSignatureVerifier

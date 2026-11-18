@@ -1,5 +1,5 @@
-using Bazaar.Approvals;
-using Bazaar.Approvals.Db;
+using Bazaar.Server.Approvals;
+using Bazaar.Server.Approvals.Db;
 using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Security.Approvals.Db;

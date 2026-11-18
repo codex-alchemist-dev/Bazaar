@@ -1,7 +1,7 @@
-using Bazaar.Approvals;
+using Bazaar.Server.Approvals;
 using Npgsql;
 
-namespace Bazaar.Approvals.Db;
+namespace Bazaar.Server.Approvals.Db;
 
 /// <summary>
 /// The owner key registry over the <c>approval_key</c> table (doc 32 section 5a). A device id is the device's uuid in its

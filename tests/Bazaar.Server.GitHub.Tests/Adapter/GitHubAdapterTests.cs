@@ -1,7 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
-using Bazaar.Approvals;
+using Bazaar.Server.Approvals;
 using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Server.GitHub.Auth;
 using Microsoft.Extensions.Logging;

@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using Bazaar.Approvals;
+using Bazaar.Server.Approvals;
 using Bazaar.Server.Security.Policy;
 
 namespace Bazaar.Server.Security.Approvals;
