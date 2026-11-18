@@ -2,7 +2,7 @@ using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Host.Composition;
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;
 using Microsoft.AspNetCore.Builder;
