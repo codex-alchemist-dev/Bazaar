@@ -35,4 +35,7 @@ public static class PaneKinds
 
     /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
     public const string Workday = "bazaar.ryusei-workday";
+
+    /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
+    public const string CommunityDrafts = "bazaar.community-drafts";
 }
