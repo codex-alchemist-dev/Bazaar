@@ -346,6 +346,7 @@ public sealed class SoulBindingTests(GcDb db) : IClassFixture<GcDb>
     [Fact]
     public void The_souls_health_contract_is_registered_for_the_module_health_runner()
     {
+        GcTestSkip.WithoutDatabase();
         var services = new ServiceCollection();
         services.AddSingleton(db.DataSource);
         services.AddBazaarSoulBindings();
