@@ -9,6 +9,8 @@
     <Project Path="src/Bazaar.Accessibility.Avalonia/Bazaar.Accessibility.Avalonia.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Client.Calcinato.Abstractions/Bazaar.Client.Calcinato.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Terminal.Abstractions/Bazaar.Server.Terminal.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Michi/Bazaar.Michi.csproj" />
