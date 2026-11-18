@@ -1,5 +1,5 @@
-using Bazaar.Server.CompanyBuild.Abstractions;
 using Bazaar.CompanyIdentity;
+using Bazaar.Server.CompanyBuild.Abstractions;
 
 namespace Bazaar.Server.CompanyBuild;
 
