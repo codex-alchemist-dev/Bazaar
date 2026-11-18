@@ -111,7 +111,9 @@ public sealed class CheckRunStoreTests(CodingDb db) : IClassFixture<CodingDb>
     public async Task An_unknown_verdict_is_refused_before_the_database()
     {
         var run = Run("c-x", _t0) with { Verdict = "maybe" };
-        var store = new PostgresCheckRunStore(db.DataSource);
+        // The verdict check runs before any connection is opened, so this needs no database (it must also run where none exists).
+        await using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none");
+        var store = new PostgresCheckRunStore(dataSource);
 
         await Assert.ThrowsAsync<ArgumentException>(async () => await store.AppendAsync(run, TestContext.Current.CancellationToken));
     }
