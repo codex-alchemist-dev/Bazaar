@@ -9,6 +9,10 @@
     <Project Path="src/Bazaar.Client.Mobile/Bazaar.Client.Mobile.csproj" />
     <Project Path="src/Bazaar.Client.Vault/Bazaar.Client.Vault.csproj" />
     <Project Path="src/Bazaar.Client.Engines/Bazaar.Client.Engines.csproj" />
+    <Project Path="src/Bazaar.Client.Preload/Bazaar.Client.Preload.csproj" />
+    <Project Path="src/Bazaar.Client.Input/Bazaar.Client.Input.csproj" />
+    <Project Path="src/Bazaar.Client.Commands/Bazaar.Client.Commands.csproj" />
+    <Project Path="src/Bazaar.Client.Theme/Bazaar.Client.Theme.csproj" />
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
@@ -90,6 +94,10 @@
     <Project Path="tests/Bazaar.Client.Mobile.Tests/Bazaar.Client.Mobile.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Vault.Tests/Bazaar.Client.Vault.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Engines.Tests/Bazaar.Client.Engines.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Preload.Tests/Bazaar.Client.Preload.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Input.Tests/Bazaar.Client.Input.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Commands.Tests/Bazaar.Client.Commands.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Theme.Tests/Bazaar.Client.Theme.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Constellation.Tests/Bazaar.Client.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />

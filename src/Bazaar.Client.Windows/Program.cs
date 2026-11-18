@@ -12,7 +12,7 @@ using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Preload;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;

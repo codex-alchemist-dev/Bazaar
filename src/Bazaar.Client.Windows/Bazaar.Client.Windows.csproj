@@ -17,6 +17,7 @@
     <PackageReference Include="Avalonia.Desktop" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />

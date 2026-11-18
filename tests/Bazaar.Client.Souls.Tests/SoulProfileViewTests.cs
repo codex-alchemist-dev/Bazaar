@@ -2,7 +2,7 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Souls;
 using Bazaar.Client.Souls.Tests.Theme;
 using Bazaar.Contracts.Soul;

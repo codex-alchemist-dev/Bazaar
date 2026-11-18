@@ -22,7 +22,14 @@ public class LayeringTests
     {
         var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));
 
-        Assert.Empty(declared);
+        // A feature module may use the pure shared libraries it names here (doc 41b section 2c). Each edge is listed, so a new one is a decision.
+        var allowed = project switch
+        {
+            "Bazaar.Client.Views" => new[] { "Bazaar.Client.Theme" },
+            _ => [],
+        };
+
+        Assert.Empty(declared.Except(allowed));
     }
 
     /// <summary>
@@ -35,6 +42,10 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Dashboard")]
     [InlineData("Bazaar.Client.Vault")]
     [InlineData("Bazaar.Client.Engines")]
+    [InlineData("Bazaar.Client.Theme")]
+    [InlineData("Bazaar.Client.Commands")]
+    [InlineData("Bazaar.Client.Input")]
+    [InlineData("Bazaar.Client.Preload")]
     [InlineData("Bazaar.Client.Gc")]
     [InlineData("Bazaar.Client.Souls")]
     [InlineData("Bazaar.Client.Mobile")]
