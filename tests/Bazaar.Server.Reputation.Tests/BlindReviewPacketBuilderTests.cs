@@ -5,10 +5,10 @@ namespace Bazaar.Server.Reputation.Tests;
 
 public class BlindReviewPacketBuilderTests
 {
-    private static readonly AuthorIdentity Author = new("agent-charles", "Charles Dee", "Haiku 5.5", "Claude");
+    private static readonly AuthorIdentity _author = new("agent-charles", "Charles Dee", "Haiku 5.5", "Claude");
 
     private static ReviewSubject Subject(string title, string description = "", string rubric = "") =>
-        new("card-1", "pr-42", "diff-42", title, description, rubric, Author);
+        new("card-1", "pr-42", "diff-42", title, description, rubric, _author);
 
     private static ReviewPacketResult Build(ReviewSubject s) => new BlindReviewPacketBuilder().Build(s);
 
@@ -50,7 +50,7 @@ public class BlindReviewPacketBuilderTests
     [Fact]
     public void Does_not_redact_inside_longer_words()
     {
-        var subject = Subject("Algorithm fix") with { Author = Author with { DisplayName = "Al" } };
+        var subject = Subject("Algorithm fix") with { Author = _author with { DisplayName = "Al" } };
         var r = Build(subject);
         Assert.Equal("Algorithm fix", r.Packet.Title);
         Assert.Equal(0, r.RedactionCount);
