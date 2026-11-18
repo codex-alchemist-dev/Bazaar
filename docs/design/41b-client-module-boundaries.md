@@ -42,6 +42,18 @@ Each feature with a client surface has a separate server module and client modul
 
 Server and client modules share contract types only through `Bazaar.Contracts` and each module's `.Abstractions` project. The client halves in this table (Constellation, GC, Chat, Souls, Dashboard, Vault) exist as separate projects, built on `Bazaar.Client.Abstractions` (wire, server and pane contracts) and `Bazaar.Client.Panes.Abstractions` (`IPaneModule`, `PaneRegistry`, `IPaneViewFactory`). Server halves and the Git and RyuseiFuda rows follow the same pattern as each feature splits. A client feature module never references `Bazaar.Client.Core`; an architecture test enforces this. Names follow the owner's pattern (`Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`). Doc 40 still lists the pre-split names (`Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.Vault`); when each feature splits, its server half takes the `Server` prefix. Doc 40 is not edited here, and its names need updating in the split PRs.
 
+## 2b. Phone shell, posture and engine panes
+
+The remaining Client.Core code that is not host plumbing moves like the feature modules above. Placement, by the same rule (Client.Core is an adapter and holds no functionality):
+
+| Target | Holds | Why |
+|---|---|---|
+| `Bazaar.Client.Mobile` | Phone shell, pane pager pages, posture source and layout, phone profile and profile caches, radial menu, phone widget policy, Android settings | The Android head's shell and fold-posture logic (doc 29). It needs only `Bazaar.Client.Panes.Abstractions` and `Bazaar.Client.Abstractions`, and never `Bazaar.Client.Core`. |
+| `Bazaar.Client.Engines` | Engine pane view and view model | Out-of-process engine panes (doc 41, panes table). Kinds are namespaced by the engine. |
+| `Bazaar.Client.Core` (adapter, stays) | `PaneHost`, the generic fallback in `PaneViews` (the `IPaneViewFactory` the heads pass to `PaneRegistry`), and `FirstPartyPanes` composition helpers | These are the pane-registry adapter named in section 2. They hold no feature. |
+
+Each new project gets an architecture rule entry that it does not reference `Bazaar.Client.Core`.
+
 ## 3. Dependencies after the move
 
 - `Bazaar.Client.Layout` → `Bazaar.Contracts`, `Bazaar.Rubedo` (for `visibleWhen`, when wired).
