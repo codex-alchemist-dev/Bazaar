@@ -7,7 +7,6 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Preload;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Client.Linux.Display;
 
 namespace Bazaar.Client.Linux;

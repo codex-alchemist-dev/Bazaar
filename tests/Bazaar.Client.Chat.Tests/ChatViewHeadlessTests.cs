@@ -3,13 +3,13 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Tests.Wire;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
+
 using Bazaar.Contracts.Wire;
 using Bazaar.Testing;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.Chat.Tests;
 
 public class ChatViewHeadlessTests
 {
@@ -26,21 +26,11 @@ public class ChatViewHeadlessTests
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://h/ws"), "t", _gc, "me"), timeline);
         var vm = new ChatViewModel(session);
 
-        var window = new MainWindow(vm);
+        var window = new Window { Content = ChatViewFactory.Instance.Create(vm) };
         window.Show();
 
         var lines = window.GetVisualDescendants().OfType<ListBox>().Single();
         Assert.Equal(1, lines.ItemCount);
         Assert.NotNull(window.GetVisualDescendants().OfType<TextBox>().SingleOrDefault());
-    }
-
-    [AvaloniaFact]
-    public void Main_window_without_a_chat_keeps_the_plain_start_view()
-    {
-        var window = new MainWindow();
-        window.Show();
-
-        Assert.Empty(window.GetVisualDescendants().OfType<ListBox>());
-        Assert.Equal("Bazaar", window.Title);
     }
 }

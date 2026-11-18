@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.Chat.Abstractions;
 
 /// <summary>One message as a chat view shows it. Immutable; built by <see cref="ChatTimeline"/>.</summary>
 /// <param name="N">The message's log sequence number.</param>

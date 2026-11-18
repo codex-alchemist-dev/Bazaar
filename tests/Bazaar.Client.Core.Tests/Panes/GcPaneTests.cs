@@ -9,7 +9,6 @@ using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Wire;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Wire;
 using Bazaar.Testing;
 

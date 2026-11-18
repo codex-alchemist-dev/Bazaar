@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Core.Tests.Wire;

@@ -1,10 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Bazaar.Client.Chat.Abstractions;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.Chat;
 
-/// <summary>The group chat view: lines, a draft box and a send button. Its DataContext is a <see cref="ChatViewModel"/>.</summary>
+/// <summary>The group chat view: lines, a draft box and a send button. Its DataContext is an <see cref="IChatViewModel"/>.</summary>
 public sealed partial class ChatView : UserControl
 {
     public ChatView()
@@ -25,6 +26,6 @@ public sealed partial class ChatView : UserControl
 
     private async Task SendDraftAsync()
     {
-        if (DataContext is ChatViewModel vm) await vm.SendDraftAsync();
+        if (DataContext is IChatViewModel vm) await vm.SendDraftAsync();
     }
 }

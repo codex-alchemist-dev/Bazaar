@@ -1,9 +1,8 @@
 using System.Buffers;
 using System.Net.WebSockets;
-using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Wire;
+namespace Bazaar.Client.Abstractions.Wire;
 
 /// <summary>
 /// Opens <see cref="ClientWebSocket"/> connections to the server (docs/design/02-wire-protocol-and-sync.md).

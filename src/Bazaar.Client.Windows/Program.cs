@@ -12,7 +12,6 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;

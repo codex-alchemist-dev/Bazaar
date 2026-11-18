@@ -1,12 +1,12 @@
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Tests.Wire;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
+
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Testing;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.Chat.Tests;
 
 public class GcChatSessionTests : IAsyncLifetime
 {

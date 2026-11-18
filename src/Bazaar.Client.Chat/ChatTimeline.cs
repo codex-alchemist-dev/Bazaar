@@ -1,7 +1,8 @@
 using System.Globalization;
+using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.Chat;
 
 /// <summary>
 /// The messages of one group chat as the client holds them. Each sequence number keeps its newest version (higher

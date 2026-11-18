@@ -8,7 +8,6 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Client.RyuseiFuda.Workday;
 using Bazaar.Client.Souls;
 using Bazaar.Client.Vault;

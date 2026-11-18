@@ -1,8 +1,7 @@
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.Chat;
 
 /// <summary>
 /// Connects one group chat to a <see cref="WireClient"/>: subscribes, folds incoming messages into a

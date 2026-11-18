@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:chat="using:Bazaar.Client.Core.Chat"
-             x:Class="Bazaar.Client.Core.Chat.ChatView"
-             x:DataType="chat:ChatViewModel">
+             xmlns:chat="using:Bazaar.Client.Chat.Abstractions"
+             x:Class="Bazaar.Client.Chat.ChatView"
+             x:DataType="chat:IChatViewModel">
   <DockPanel Margin="16">
     <TextBlock DockPanel.Dock="Top"
                Text="{Binding Status}"

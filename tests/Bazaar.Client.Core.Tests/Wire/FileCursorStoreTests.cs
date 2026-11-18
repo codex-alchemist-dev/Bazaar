@@ -1,5 +1,4 @@
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Core.Tests.Wire;

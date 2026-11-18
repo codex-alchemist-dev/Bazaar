@@ -2,15 +2,15 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Chat.Abstractions;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.Chat;
 
 /// <summary>
 /// State behind the chat view: the lines, the draft and the status. Pure apart from the injected dispatcher, so
 /// tests run it without a window.
 /// </summary>
-public sealed class ChatViewModel : INotifyPropertyChanged, IDisposable
+public sealed class ChatViewModel : IChatViewModel
 {
     private readonly GcChatSession _session;
     private readonly Action<Action> _dispatch;
