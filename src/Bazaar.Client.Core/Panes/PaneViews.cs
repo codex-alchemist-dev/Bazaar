@@ -42,21 +42,6 @@ public sealed class PaneViews : IPaneViewFactory
         },
     };
 
-    internal static StackPanel Dashboard(DashboardPaneViewModel dashboard)
-    {
-        var sections = new StackPanel { Spacing = 12 };
-        foreach (var section in dashboard.Sections)
-        {
-            sections.Children.Add(new TextBlock { Text = section.Title, FontWeight = FontWeight.SemiBold });
-            foreach (var item in section.Items)
-            {
-                sections.Children.Add(new TextBlock { Text = $"{item.Label}: {item.Value}" });
-            }
-        }
-
-        return sections;
-    }
-
     private static ScrollViewer Generic(GenericPaneViewModel generic)
     {
         var lines = new StackPanel { Spacing = 2 };

@@ -7,7 +7,10 @@ using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Panes;
 
-/// <summary>Registers the panes every client ships with.</summary>
+/// <summary>
+/// Registers the panes the client shell ships with. Client.Core ships no pane modules of its own: the Dashboard, GC,
+/// Constellation and the rest are feature modules that a head composes and passes to <see cref="CreateRegistry"/>.
+/// </summary>
 public static class FirstPartyPanes
 {
     private const string _kanbanTitle = "RyuseiFuda · Board";
@@ -18,17 +21,7 @@ public static class FirstPartyPanes
     /// <summary>An empty Constellation model: no graph loaded yet.</summary>
     private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
-    /// <summary>
-    /// The pane modules Client.Core itself ships, in registration order. A head composes them with the feature modules
-    /// it ships (for example <c>Bazaar.Client.RyuseiFuda</c>, <c>Bazaar.Client.Constellation</c> or <c>Bazaar.Client.Gc</c>)
-    /// and passes the full list to <see cref="CreateRegistry"/>. The phone pager lists panes in the order of that list (doc 29).
-    /// </summary>
-    public static IReadOnlyList<IPaneModule> Modules { get; } =
-    [
-        new DashboardPaneModule(),
-    ];
-
-    /// <param name="modules">The pane modules the head ships, in pager order.</param>
+    /// <param name="modules">The pane modules the head ships, in pager order (doc 29).</param>
     /// <param name="report">Called once per kind that falls back to the generic view.</param>
     /// <param name="features">
     /// The feature dependencies the head injects with <see cref="PaneModuleContext.With{T}"/>, for example the Constellation

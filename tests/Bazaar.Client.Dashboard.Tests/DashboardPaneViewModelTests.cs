@@ -1,14 +1,16 @@
+using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Dashboard;
+using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Tests.Panes;
+namespace Bazaar.Client.Dashboard.Tests;
 
 public class DashboardPaneViewModelTests
 {
     [Fact]
     public void Reads_sections_items_and_numeric_values()
     {
-        var pane = new DashboardPaneViewModel(PaneRegistryTests.Descriptor("bazaar.dashboard", """
+        var pane = new DashboardPaneViewModel(Descriptor("bazaar.dashboard", """
             {"sections":[
               {"title":"While you were away","items":[
                 {"label":"Unread GCs","value":3},
@@ -28,7 +30,7 @@ public class DashboardPaneViewModelTests
     [Fact]
     public void Empty_sections_is_valid()
     {
-        var pane = new DashboardPaneViewModel(PaneRegistryTests.Descriptor("bazaar.dashboard", "{\"sections\":[]}"));
+        var pane = new DashboardPaneViewModel(Descriptor("bazaar.dashboard", "{\"sections\":[]}"));
 
         Assert.Empty(pane.Sections);
     }
@@ -37,15 +39,18 @@ public class DashboardPaneViewModelTests
     public void Missing_items_throws_pane_model_exception()
     {
         Assert.Throws<PaneModelException>(() =>
-            new DashboardPaneViewModel(PaneRegistryTests.Descriptor("bazaar.dashboard", "{\"sections\":[{\"title\":\"T\"}]}")));
+            new DashboardPaneViewModel(Descriptor("bazaar.dashboard", "{\"sections\":[{\"title\":\"T\"}]}")));
     }
 
     [Fact]
     public void Object_value_is_rejected()
     {
         Assert.Throws<PaneModelException>(() =>
-            new DashboardPaneViewModel(PaneRegistryTests.Descriptor(
+            new DashboardPaneViewModel(Descriptor(
                 "bazaar.dashboard",
                 "{\"sections\":[{\"title\":\"T\",\"items\":[{\"label\":\"L\",\"value\":{}}]}]}")));
     }
+
+    private static PaneDescriptor Descriptor(string kind, string json) =>
+        new(kind, "Title", string.Empty, JsonElement.Parse(json));
 }

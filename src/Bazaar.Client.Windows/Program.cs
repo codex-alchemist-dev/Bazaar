@@ -5,13 +5,16 @@ using Avalonia.Threading;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
@@ -60,19 +63,19 @@ internal static class Program
 
         var chatSettings = ChatSettings(args);
         GcChatSession? chat = null;
-        ChatViewModel? chatView = null;
+        Control? chatContent = null;
         using var chatStop = new CancellationTokenSource();
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        // The Constellation module sits after the Dashboard, where it was before it moved out of Client.Core (pager order).
+        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda (pager order).
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
-            .. FirstPartyPanes.Modules.Take(1),
+            new DashboardPaneModule(),
             new ConstellationPaneModule(),
-            .. FirstPartyPanes.Modules.Skip(1),
+            new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
         ];
@@ -91,13 +94,13 @@ internal static class Program
             if (chatSettings is not null)
             {
                 chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
-                chatView = new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action));
+                chatContent = ChatViewFactory.Instance.Create(new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action)));
                 _ = chat.StartAsync(chatStop.Token).ContinueWith(
                     task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
                     TaskContinuationOptions.OnlyOnFaulted);
             }
 
-            var window = chatView is null ? new MainWindow() : new MainWindow(chatView);
+            var window = chatContent is null ? new MainWindow() : new MainWindow(chatContent);
             if (preloadStart)
             {
                 // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).

@@ -1,7 +1,9 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Dashboard;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
@@ -14,9 +16,9 @@ internal static class TestPanes
     public static IReadOnlyList<IPaneModule> Modules { get; } =
     [
         RyuseiFudaPanes.Board,
-        .. FirstPartyPanes.Modules.Take(1),
+        new DashboardPaneModule(),
         new ConstellationPaneModule(),
-        .. FirstPartyPanes.Modules.Skip(1),
+        .. FirstPartyPanes.Modules,
         new VaultSearchPaneModule(),
         .. RyuseiFudaPanes.Modules,
     ];
