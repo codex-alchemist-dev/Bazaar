@@ -127,6 +127,47 @@ public sealed class MemoryGraphSinkTests
         Assert.Equal(NoteFixtures.NoteId, revision.NoteId);
     }
 
+    [Theory]
+    [InlineData("agents/alpha/memory/../../gc/notes/x.md")]
+    [InlineData("agents/alpha/memory//lessons/x.md")]
+    [InlineData("/agents/alpha/memory/lessons/x.md")]
+    [InlineData("agents\\alpha\\memory\\lessons\\x.md")]
+    [InlineData("agents/alpha/memory/lessons/x.md:stream")]
+    public async Task Path_that_is_not_a_normalized_vault_path_is_logged_and_not_projected(string path)
+    {
+        var store = new FakeStore();
+        var logger = new CapturingLogger();
+        var sink = new MemoryGraphSink(new FakeSink(MemoryCommitResult.Success("sha-7")), store, logger);
+
+        var result = await sink.CommitAsync(Batch(Item(path, NoteFixtures.Text())), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(store.Stored);
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("normalized Vault path"));
+    }
+
+    [Fact]
+    public async Task Path_with_the_wrong_agent_segment_is_not_projected()
+    {
+        var store = new FakeStore();
+        var sink = new MemoryGraphSink(new FakeSink(MemoryCommitResult.Success("sha-8")), store, new CapturingLogger());
+
+        await sink.CommitAsync(Batch(Item("agents/beta/memory/lessons/x.md", NoteFixtures.Text())), CancellationToken.None);
+
+        Assert.Empty(store.Stored);
+    }
+
+    [Fact]
+    public async Task Path_with_no_file_below_the_memory_folder_is_not_projected()
+    {
+        var store = new FakeStore();
+        var sink = new MemoryGraphSink(new FakeSink(MemoryCommitResult.Success("sha-9")), store, new CapturingLogger());
+
+        await sink.CommitAsync(Batch(Item("agents/alpha/memory", NoteFixtures.Text())), CancellationToken.None);
+
+        Assert.Empty(store.Stored);
+    }
+
     private static MemoryBatch Batch(params MemoryWriteItem[] items) => MemoryBatch.Create(_agent, items);
 
     private static MemoryWriteItem Item(string path, string content) =>
