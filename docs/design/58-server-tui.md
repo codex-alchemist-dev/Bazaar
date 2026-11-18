@@ -33,7 +33,7 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 | Mode | When | Backend |
 |---|---|---|
 | Install (installer TUI) | No server is running yet, on the box | The setup engine in-process, same as `bazaar-admin setup`: same plan, same hash, same audit. Access rule is doc 45 section 1.9 (loopback and one-time bootstrap code). |
-| Ops (resident TUI, runs 24/7) | Server is running | The admin ports of doc 51. Three ways to run it (owner, 2026-11-19, "Also remote over Conduit"): on the box, over SSH to the box (then loopback), and from any machine through Conduit (doc 39), which needs remote sign-in. A non-loopback bind needs the doc 03 approval. |
+| Ops (resident TUI, runs 24/7) | Server is running | The admin ports of doc 51. Used mainly local, headless and over SSH (owner, 2026-11-19: "TUI is mainly for local, headless, ssh"). Remote use of the dashboard is mainly the HTML admin panel of doc 51. The TUI over Conduit is secondary and not a v1 goal. A non-loopback bind needs the doc 03 approval. |
 
 The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
@@ -49,10 +49,10 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 ### 5. Authentication in Ops mode (DECIDED, owner card 2026-11-18, "Owner on the box, plus admin codes")
 Terminals cannot do a passkey ceremony. The owner signs in locally on the box through the same local owner gate as `bazaar-admin` (doc 45 section 1.9). Other admins get a short-lived code issued from a signed-in client and redeem it in the TUI for a session under the same roles check (doc 51 session store). Codes are single-use and audited.
 
-**Remote sign-in over Conduit (DECIDED, owner card 2026-11-18, "Both, owner chooses per machine").** The owner's local gate does not travel, so remotely the owner (and any admin) signs in with the same single-use code from a signed-in client. A machine may also be given a device key, registered once from a signed-in client or on the box, after which sign-in from that machine is signed by the key with no code. The owner chooses per machine, and every grant and revocation is audited.
+**Remote sign-in (DECIDED, owner card 2026-11-18, "Both, owner chooses per machine"; applies if the TUI is ever used over Conduit, which is secondary, see section 2).** The owner's local gate does not travel, so remotely the owner (and any admin) signs in with the same single-use code from a signed-in client. A machine may also be given a device key, registered once from a signed-in client or on the box, after which sign-in from that machine is signed by the key with no code. The owner chooses per machine, and every grant and revocation is audited.
 
 ## Open questions
-1. **Packaging.** Whether the installer TUI and the resident TUI are one program or two, and whether a remote machine can get the resident TUI without the server bundle. Not yet asked in plain terms.
+1. **Packaging.** Whether the installer TUI and the resident TUI are one program or two. A standalone download for remote machines is no longer needed (remote use is the HTML panel). Not yet asked in plain terms.
 2. **GUI installer.** Owner intent recorded; design is with the onboarding thread (see above).
 
 ## Testing
