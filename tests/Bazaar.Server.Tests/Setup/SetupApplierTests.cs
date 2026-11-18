@@ -12,7 +12,7 @@ public sealed class SetupApplierTests
 {
     private const string _operator = "operator-test";
 
-    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid, BuiltInSettingRegistries.Known).Plan!;
 
     private static SetupApplyRequest Request(SetupPlan plan, string? hash = null, SetupStateSnapshot? state = null) =>
         new(plan, hash ?? SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator, "starter", "1.0.0", state);
@@ -20,7 +20,7 @@ public sealed class SetupApplierTests
     private static JsonObject PayloadOf(AuditEntry entry) => (JsonObject)JsonNode.Parse(entry.Payload)!;
 
     private static SetupApplier Applier(Harness harness, params ISetupStep[] steps) =>
-        new(harness.Lock, steps, harness.Audit, harness.SettingAudit, harness.Time);
+        new(harness.Lock, steps, harness.Audit, harness.SettingAudit, harness.Time, BuiltInSettingRegistries.Known);
 
     private static RecordingStep Step(string id, int order, List<string> calls, StepBehaviour behaviour = StepBehaviour.Succeed) =>
         new(id, order, calls, behaviour);
@@ -60,7 +60,7 @@ public sealed class SetupApplierTests
         var harness = new Harness();
         var calls = new List<string>();
         // A missing backup target is a hold (doc 45 section 1.7), and the loader still returns the plan with that hold.
-        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null")).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null"), BuiltInSettingRegistries.Known).Plan!;
 
         var result = await Applier(harness, Step("database.schema", 10, calls)).ApplyAsync(Request(plan), TestContext.Current.CancellationToken);
 
@@ -190,7 +190,7 @@ public sealed class SetupApplierTests
     public async Task Removed_setting_is_audited_with_a_null_new_value()
     {
         var harness = new Harness();
-        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"settings\": { \"host.shutdown_timeout_seconds\": 20 }", "\"settings\": {}")).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"settings\": { \"host.shutdown_timeout_seconds\": 20 }", "\"settings\": {}"), BuiltInSettingRegistries.Known).Plan!;
         var state = new SetupStateSnapshot(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["settings.host.shutdown_timeout_seconds"] = "20",
@@ -263,7 +263,7 @@ public sealed class SetupApplierTests
         services.AddSingleton<IAuditLog>(harness.Audit);
         services.AddSingleton<ISettingAuditSink>(harness.SettingAudit);
         services.AddSingleton<TimeProvider>(harness.Time);
-        services.AddSetupApply([]);
+        services.AddSetupApply([], BuiltInSettingRegistries.Known);
 
         using var provider = services.BuildServiceProvider();
         var result = await provider.GetRequiredService<SetupApplier>().ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);

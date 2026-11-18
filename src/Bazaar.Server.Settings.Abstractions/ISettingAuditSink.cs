@@ -23,7 +23,7 @@ public sealed record SettingChangeAudit(
     string NewValueJson,
     string? Reason);
 
-/// <summary>Receives audit entries. The Postgres writer (doc 15, A3) implements it; tests use <see cref="InMemorySettingAuditSink"/>.</summary>
+/// <summary>Receives audit entries. The Postgres writer (doc 15, A3) implements it; tests use the in-memory sink in Bazaar.Server.</summary>
 public interface ISettingAuditSink
 {
     Task AppendAsync(SettingChangeAudit change, CancellationToken cancellationToken = default);

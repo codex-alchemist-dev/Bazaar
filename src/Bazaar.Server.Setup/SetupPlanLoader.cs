@@ -63,11 +63,11 @@ public static class SetupPlanLoader
         "custody", "custody.kekProvider", "custody.kekRef", "company", "company.source",
     ];
 
-    /// <summary>Loads and validates a setup file. <paramref name="registry"/> defaults to the registry this build ships.</summary>
-    public static SetupLoadResult Load(string json, SettingRegistry? registry = null)
+    /// <summary>Loads and validates a setup file against <paramref name="registry"/>, the settings registry this build ships.</summary>
+    public static SetupLoadResult Load(string json, SettingRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(json);
-        registry ??= BuiltInSettingRegistries.Known;
+        ArgumentNullException.ThrowIfNull(registry);
 
         var issues = new List<SetupValidationIssue>();
         JsonDocument document;

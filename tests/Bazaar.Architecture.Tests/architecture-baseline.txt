@@ -798,7 +798,6 @@ src/Bazaar.Server/Settings/ConstellationSettings.cs
 src/Bazaar.Server/Settings/FloorCheckingSettingStore.cs
 src/Bazaar.Server/Settings/HostSettingValues.cs
 src/Bazaar.Server/Settings/HostSettings.cs
-src/Bazaar.Server/Settings/ISettingAuditSink.cs
 src/Bazaar.Server/Settings/ISettingStore.cs
 src/Bazaar.Server/Settings/InMemorySettingAuditSink.cs
 src/Bazaar.Server/Settings/NpgsqlSettingStore.cs
