@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
@@ -63,11 +64,15 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
-        var registry = FirstPartyPanes.CreateRegistry(
+        // The Calcinato terminal pane comes last in pager order (doc 55, section 7).
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. CalcinatoPanes.Modules];
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
+        var registry = CalcinatoTerminalPanes.Compose(
             modules,
-            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            tiles: HttpConstellationTileSource.Create(ClientServer.Current));
+            new PaneModuleContext(
+                Tiles: HttpConstellationTileSource.Create(ClientServer.Current),
+                Report: message => Console.Error.WriteLine($"Bazaar: {message}")),
+            terminals);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -106,6 +111,7 @@ internal static class Program
         {
             chatStop.Cancel();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
             listenerStop.Cancel();
         }
     }
