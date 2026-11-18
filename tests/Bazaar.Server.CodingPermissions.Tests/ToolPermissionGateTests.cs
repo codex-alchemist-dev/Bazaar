@@ -225,4 +225,21 @@ public sealed class ToolPermissionGateTests
             Enum.GetValues<ServerCapabilityClass>().Select(v => (int)v),
             Enum.GetValues<ToolCapabilityClass>().Select(v => (int)v));
     }
+
+    [Fact]
+    public void Tool_session_role_has_the_single_role_names_of_servers_session_roles()
+    {
+        Assert.Equal(
+            Enum.GetNames<Bazaar.Server.Security.Policy.SessionRoles>().Where(n => n != "None"),
+            Enum.GetNames<ToolSessionRole>());
+    }
+
+    [Fact]
+    public void Omitted_role_and_args_default_to_the_narrow_reader_and_undefined_args()
+    {
+        var context = Ctx();
+        Assert.Equal(ToolSessionRole.Reader, context.Role);
+        Assert.Equal(System.Text.Json.JsonValueKind.Undefined, context.Args.ValueKind);
+        Assert.Null(context.Grant);
+    }
 }
