@@ -643,12 +643,9 @@ src/Bazaar.Server/Modules/Deps/DependencyLineResolver.cs
 src/Bazaar.Server/Modules/Deps/DependencyManifest.cs
 src/Bazaar.Server/Modules/Deps/DependencyManifestIssue.cs
 src/Bazaar.Server/Modules/Deps/DependencyManifestValidator.cs
-src/Bazaar.Server/Modules/Health/IModuleHealthContract.cs
 src/Bazaar.Server/Modules/Health/ModuleHealthAggregator.cs
-src/Bazaar.Server/Modules/Health/ModuleHealthCheck.cs
 src/Bazaar.Server/Modules/Health/ModuleHealthContractValidator.cs
 src/Bazaar.Server/Modules/Health/ModuleHealthProbeRunner.cs
-src/Bazaar.Server/Modules/Health/ModuleHealthStatus.cs
 src/Bazaar.Server/Modules/LineMove/DryRunPlan.cs
 src/Bazaar.Server/Modules/LineMove/DryRunRunner.cs
 src/Bazaar.Server/Modules/LineMove/IDryRunExecutor.cs
@@ -812,7 +809,7 @@ src/Bazaar.Server/Security/Quarantine/QuarantineReason.cs
 src/Bazaar.Server/Security/Quarantine/QuarantineRecord.cs
 src/Bazaar.Server/Security/Quarantine/QuarantineService.cs
 src/Bazaar.Server/Security/Quarantine/QuarantineSubjectKind.cs
-src/Bazaar.Server/Security/Quarantine/QuarantineTierMapping.cs
+src/Bazaar.Server/Memory/Trust/QuarantineTierMapping.cs
 src/Bazaar.Server/Security/Readers/ActorInputBuilder.cs
 src/Bazaar.Server/Security/Readers/ApprovedSummary.cs
 src/Bazaar.Server/Security/Readers/FreshSessionSeed.cs
