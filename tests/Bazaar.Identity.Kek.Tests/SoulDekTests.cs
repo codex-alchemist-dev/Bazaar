@@ -178,4 +178,22 @@ public sealed class SoulDekTests : IDisposable
         Assert.Equal(1, report.Scanned);
         Assert.Equal(1, report.Rewrapped);
     }
+    [Fact]
+    public async Task The_secrets_adapter_wraps_under_the_one_host_kek_and_refuses_a_foreign_key_id()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var kek = NewDpapiKek();
+        var adapter = new SecretsKekAdapter(kek);
+        var aad = RandomNumberGenerator.GetBytes(16);
+        var key = RandomNumberGenerator.GetBytes(32);
+
+        var wrapped = await adapter.WrapAsync(key, aad, ct);
+
+        Assert.Equal(kek.KekId, adapter.CurrentKeyId);
+        // The same wrap opens through the host KEK directly: there is one custody path.
+        Assert.True((await kek.UnwrapAsync(wrapped, aad, ct)).AsSpan().SequenceEqual(key));
+        Assert.True((await adapter.UnwrapAsync(kek.KekId, wrapped, aad, ct)).Span.SequenceEqual(key));
+        await Assert.ThrowsAsync<CryptographicException>(async () => await adapter.UnwrapAsync("other-kek", wrapped, aad, ct));
+        await Assert.ThrowsAsync<CryptographicException>(async () => await adapter.UnwrapAsync(kek.KekId, wrapped, RandomNumberGenerator.GetBytes(16), ct));
+    }
 }

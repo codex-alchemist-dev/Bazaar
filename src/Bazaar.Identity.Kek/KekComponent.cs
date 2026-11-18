@@ -18,7 +18,7 @@ public sealed class KekComponent : IBazaarComponent
         Version: "0.1.0",
         Kind: ComponentKind.Provider,
         DependsOn: [],
-        Provides: ["identity:kek:provider", "identity:dek:service"]);
+        Provides: ["identity:kek:provider", "identity:dek:service", "secrets:kek"]);
 
     /// <summary>The configuration key holding <c>identity.kek_provider</c>.</summary>
     public const string KekProviderKey = "Bazaar:Identity:KekProvider";
@@ -36,6 +36,8 @@ public sealed class KekComponent : IBazaarComponent
                 ?? throw new InvalidOperationException($"{DataRootKey} is required to open the KEK.");
             return KekProviderFactory.Create(configuration[KekProviderKey], dataRoot);
         });
+        // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
+        services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));
         services.AddSingleton<ISoulDekStore>(sp => new PostgresSoulDekStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.AddSingleton(sp => new SoulDekService(
             sp.GetRequiredService<IKekProvider>(),
