@@ -136,6 +136,26 @@ Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
 
+### Agents module, wave 2a
+
+Docs section this implements: this section (wave 2a of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
+
+Wave 2a runs after the Gateway, Jobs and Security abstraction merges, so `IModelGateway`, `IJobHandler` and the taint and policy contracts now sit in their own projects. Eight files moved from `Bazaar.Server/Agents` into the implementation project `Bazaar.Server.Agents` (not the Abstractions project, because no code outside the Agents folder uses them): `Recovery/AgentLeaseRecoveryHandler.cs`, `Turns/TurnRunner.cs`, `Turns/Runner/TurnRunner.cs`, `Turns/TurnRunAdapter.cs`, `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs` and `Turns/Tools/Db/SessionTaintMapping.cs`. The Agents project now references `Bazaar.Server.Gateway.Abstractions`, `Bazaar.Server.Jobs.Abstractions` and `Bazaar.Server.Security.Abstractions`. It still does not reference `Bazaar.Server`. Namespaces did not change. One pure test, `SessionTaintMappingTests`, moved to `tests/Bazaar.Server.Agents.Tests` (the other tests that drive these types need Postgres, the Server test helpers or the gateway fakes, so they stay).
+
+The wave 1 visibility widening stays for now: `TurnRunnerJson` and `TurnJsonContext` remain public because `tests/Bazaar.Server.Tests/Agents` (`TurnRunnerTests`, `TurnRunnerUnitTests`) uses them from outside the assembly.
+
+Still in `Bazaar.Server/Agents` (9 files), with the reason each one stays (the reasons are the namespaces the file uses that exist only in `Bazaar.Server`):
+
+- `Responder/AgentResponder.cs`: `Bazaar.Server.Gc`, `Gc.Body` and `Gc.Write` (GC implementation). Its gateway dependency is now in Gateway.Abstractions, so the GC abstractions are the remaining blocker.
+- `Responder/AgentResponderService.cs`: `IGcNotificationSource` (`Bazaar.Server.Wire.Sync`).
+- `Responder/AgentResponderServiceCollectionExtensions.cs`: registers the two responder classes above, so it stays with them.
+- `Responder/PgResponderGcStore.cs`: the internal `GcEnumText` in `Bazaar.Server.Gc`.
+- `Turns/AgentTurnsComponent.cs`: `Bazaar.Server.Mentions`, `Gc.Read` and `Wire.Sync`. It is the Server component that wires the turn runner.
+- `Turns/Context/GcContextSource.cs`: `Gc.Read` and `IGcStreamSource` (`Bazaar.Server.Wire.Sync`).
+- `Turns/Posting/AgentMentionParser.cs`: `Bazaar.Server.Gc.Mentions`.
+- `Turns/Posting/GcAgentPostSink.cs`: `Gc.Body`, `Gc.Mentions`, `Gc.Model`, `Gc.Wire` and `Gc.Write`. Moves with the GC abstractions.
+- `Turns/Posting/AgentPostServiceCollectionExtensions.cs`: registers the post sink above, so it stays with it.
+
 ## Gateway module (doc 05)
 
 The model gateway leaves `Bazaar.Server` in two steps. Step 1 (this change): `Bazaar.Server.Gateway.Abstractions` holds the contracts that Server-side consumers (Agents, Memory, Souls) bind to: `IModelGateway`, `GatewayChatClient` and its mapping, `GatewayModelException`, and `ModelRef`/`RouteNames`. Namespaces stay `Bazaar.Server.Gateway`, `.Ai` and `.Policy`. It references `Bazaar.Contracts` only. It is not marked AOT-compatible yet because the chat mapping uses reflection-based JSON. Step 2: `Bazaar.Server.Gateway` takes the rest of the folder (adapters, pipeline, health, usage, policy, providers, fakes, FreeLlmApi, AnthropicDirect), and `GatewaySettings` registers through the module instead of `SettingRegistry`.

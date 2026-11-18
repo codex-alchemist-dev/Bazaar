@@ -84,7 +84,6 @@ src/Bazaar.Client.Core/Wire/IWireTransport.cs
 src/Bazaar.Client.Core/Wire/WebSocketWireTransport.cs
 src/Bazaar.Client.Core/Wire/WireClient.cs
 src/Bazaar.Client.Core/Wire/WireClientOptions.cs
-src/Bazaar.Server/Agents/Recovery/AgentLeaseRecoveryHandler.cs
 src/Bazaar.Server/Agents/Responder/AgentResponder.cs
 src/Bazaar.Server/Agents/Responder/AgentResponderService.cs
 src/Bazaar.Server/Agents/Responder/AgentResponderServiceCollectionExtensions.cs
@@ -94,13 +93,6 @@ src/Bazaar.Server/Agents/Turns/Context/GcContextSource.cs
 src/Bazaar.Server/Agents/Turns/Posting/AgentMentionParser.cs
 src/Bazaar.Server/Agents/Turns/Posting/AgentPostServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Turns/Posting/GcAgentPostSink.cs
-src/Bazaar.Server/Agents/Turns/Runner/TurnRunner.cs
-src/Bazaar.Server/Agents/Turns/Tools/Db/PostgresSessionTaintStore.cs
-src/Bazaar.Server/Agents/Turns/Tools/Db/SessionTaintMapping.cs
-src/Bazaar.Server/Agents/Turns/Tools/ISessionTaintStore.cs
-src/Bazaar.Server/Agents/Turns/Tools/ToolDispatcher.cs
-src/Bazaar.Server/Agents/Turns/TurnRunAdapter.cs
-src/Bazaar.Server/Agents/Turns/TurnRunner.cs
 src/Bazaar.Server/AssemblyMarker.cs
 src/Bazaar.Server/Backup/Manifest/BackupManifest.cs
 src/Bazaar.Server/Backup/Manifest/BackupManifestEntry.cs
