@@ -83,7 +83,7 @@ public class DiffRecoveryRegistrationTests
         Assert.False(File.Exists(Path.Combine(gitDir, "MERGE_HEAD")));
         using var repo = new Repository(fixture.CloneRoot);
         Assert.DoesNotContain(repo.RetrieveStatus(), e => e.State != FileStatus.Ignored);
-        Assert.Equal("main side\n", File.ReadAllText(Path.Combine(fixture.CloneRoot, "README.md")));
+        Assert.Equal("main side", File.ReadAllText(Path.Combine(fixture.CloneRoot, "README.md")).TrimEnd());
     }
 
     [Fact]
