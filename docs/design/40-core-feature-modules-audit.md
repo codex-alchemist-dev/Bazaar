@@ -108,3 +108,7 @@ The owner-signature contract is its own module, not server code. It moved out of
 - `Bazaar.Approvals`: `OwnerSignatureVerifier`, `InMemoryOwnerNonceStore` (tests and dev runs only), and the Postgres stores `Db.PostgresOwnerKeyRegistry` and `Db.PostgresOwnerNonceStore`.
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. The module does not yet register an `IBazaarComponent`; that comes with the merge gate work.
+
+## Gateway module (doc 05)
+
+The model gateway leaves `Bazaar.Server` in two steps. Step 1 (this change): `Bazaar.Server.Gateway.Abstractions` holds the contracts that Server-side consumers (Agents, Memory, Souls) bind to: `IModelGateway`, `GatewayChatClient` and its mapping, `GatewayModelException`, and `ModelRef`/`RouteNames`. Namespaces stay `Bazaar.Server.Gateway`, `.Ai` and `.Policy`. It references `Bazaar.Contracts` only. It is not marked AOT-compatible yet because the chat mapping uses reflection-based JSON. Step 2: `Bazaar.Server.Gateway` takes the rest of the folder (adapters, pipeline, health, usage, policy, providers, fakes, FreeLlmApi, AnthropicDirect), and `GatewaySettings` registers through the module instead of `SettingRegistry`.
