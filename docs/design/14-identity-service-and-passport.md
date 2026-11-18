@@ -86,6 +86,16 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - Global: stop all egress and all Tier 1+ tools.
 - Both are tested on a schedule.
 
+## Module layout
+
+Identity is a feature module on `Bazaar.Core` (`docs/design/40-core-feature-modules-audit.md` section 4). Projects:
+
+- `Bazaar.Server.Identity.Abstractions`: `IdentityContracts`, and the lease interfaces and `CredentialLease`. Other modules reference only this project. The KEK contract (`IKekProvider`, `KekUnwrapException`, namespace `Bazaar.Server.Identity.Keys`) stays in `Bazaar.Server` for now; the KEK thread decides its move.
+- `Bazaar.Server.Identity`: the implementation (leases, browser profiles, GitHub App tokens, mount, TOTP). Namespaces stay `Bazaar.Server.Identity.*`.
+- `Bazaar.Server.Identity.Postgres`: the durable lease store.
+
+Security types used here (`ToolTier`, taint) come from `Bazaar.Server.Security.Abstractions`. No Server feature code is added to `Bazaar.Server` or `Bazaar.Core`.
+
 ## Data and interfaces
 
 ```
