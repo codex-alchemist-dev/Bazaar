@@ -9,7 +9,7 @@ public sealed class MigrationSchemaGate(DatabaseConnection database) : ISchemaGa
     public async Task EnsureCurrentAsync(CancellationToken ct)
     {
         var dataSource = await database.GetAsync(ct);
-        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
+        var source = HostMigrations.Source();
         var components = HostComponents.All.Select(c => c.Manifest);
         await new MigrationRunner(dataSource, components: components).EnsureCurrentAsync(source, MigrateCommand.CurrentProvider(), ct);
     }
