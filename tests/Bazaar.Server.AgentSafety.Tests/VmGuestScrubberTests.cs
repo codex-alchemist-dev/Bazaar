@@ -7,7 +7,7 @@ namespace Bazaar.Server.AgentSafety.Tests;
 
 public sealed class VmGuestScrubberTests
 {
-    private sealed class FakeVmStore : IEnvironmentVmStore
+    internal sealed class FakeVmStore : IEnvironmentVmStore
     {
         public Dictionary<Guid, EnvironmentVmRecord> Vms { get; } = [];
 
@@ -34,7 +34,7 @@ public sealed class VmGuestScrubberTests
         public Task<bool> SetBackendRefAsync(Guid vmId, string backendRef, DateTimeOffset now, CancellationToken ct) => Task.FromResult(true);
     }
 
-    private sealed class FakeBackend : IVmBackend
+    internal sealed class FakeBackend : IVmBackend
     {
         public List<string> Calls { get; } = [];
 
@@ -73,7 +73,7 @@ public sealed class VmGuestScrubberTests
         return (new VmGuestScrubber(lifecycle), store, backend, vm);
     }
 
-    private static GuestScrubRequest Request(EnvironmentVmRecord vm) => new(vm.AgentId, vm.Id, Guid.NewGuid(), DetachReason.KillSwitch);
+    private static GuestScrubRequest Request(EnvironmentVmRecord vm, DetachReason reason = DetachReason.HardTaint) => new(vm.AgentId, vm.Id, Guid.NewGuid(), reason);
 
     [Fact]
     public async Task A_running_vm_is_force_stopped_before_its_disk_is_discarded()
@@ -96,6 +96,31 @@ public sealed class VmGuestScrubberTests
         await sut.ScrubAsync(Request(vm), TestContext.Current.CancellationToken);
 
         Assert.Equal(["retire"], backend.Calls);
+        Assert.Equal(VmState.Retired, store.Vms[vm.Id].State);
+    }
+
+    [Fact]
+    public async Task On_the_kill_switch_the_default_only_pauses_and_keeps_the_disk()
+    {
+        var (sut, store, backend, vm) = Build(VmState.Running);
+
+        await sut.ScrubAsync(Request(vm, DetachReason.KillSwitch), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["stop-Force"], backend.Calls);
+        Assert.Equal(VmState.Stopped, store.Vms[vm.Id].State);
+    }
+
+    [Fact]
+    public async Task The_scrub_action_per_reason_is_configurable()
+    {
+        var (_, store, backend, vm) = Build(VmState.Running);
+        var lifecycle = new VmLifecycleService(store, backend, new VmOperationLocks(), TimeProvider.System);
+        var sut = new VmGuestScrubber(lifecycle, new GuestScrubOptions { KillSwitch = GuestScrubAction.Retire, HardTaint = GuestScrubAction.PauseOnly });
+
+        await sut.ScrubAsync(Request(vm, DetachReason.HardTaint), TestContext.Current.CancellationToken);
+        Assert.Equal(VmState.Stopped, store.Vms[vm.Id].State);
+
+        await sut.ScrubAsync(Request(vm, DetachReason.KillSwitch), TestContext.Current.CancellationToken);
         Assert.Equal(VmState.Retired, store.Vms[vm.Id].State);
     }
 

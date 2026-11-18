@@ -17,6 +17,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.AgentSafety;
 
@@ -50,16 +52,40 @@ public static class AgentSafetyModule
                 ? new VmContainmentPauser(vms, lifecycle, backend)
                 : new UnavailableVmPauser());
 
-        // Contain also blocks egress and detaches mounts: the real adapter is wrapped by the network and mount decorator. A host without
-        // those modules gets fail-closed stand-ins, so containment reports the gap instead of skipping it. The scrubber is real when the
-        // lifecycle is composed; register this module before VmMounts, whose refusing default is also a TryAdd.
-        services.TryAddSingleton<IAgentContainment>(sp => new NetworkAndMountContainment(
-            ActivatorUtilities.CreateInstance<AgentContainmentAdapter>(sp),
-            sp.GetService<IEgressPolicy>() ?? new UnavailableEgressPolicy(),
-            sp.GetService<IMountManager>() ?? new UnavailableMountManager(),
-            sp.GetRequiredService<IAuditLog>()));
-        services.TryAddSingleton<IGuestScrubber>(sp =>
-            sp.GetService<VmLifecycleService>() is { } lifecycle ? new VmGuestScrubber(lifecycle) : new UnavailableGuestScrubber());
+        // Contain also blocks egress and detaches mounts: the real adapter is wrapped by the network and mount decorator. Replace, not
+        // TryAdd, so the result does not depend on whether AddAgentSafety, the host or VmMounts registered first (their defaults are
+        // TryAdds); a registration made after this call is a deliberate host override and wins. Modules that are not composed are
+        // handled by the decorator: loud on contain, "nothing to lift" on release. Tune GuestScrubOptions and ContainmentOptions with
+        // services.Configure.
+        services.AddOptions<GuestScrubOptions>();
+        services.AddOptions<ContainmentOptions>();
+        services.Replace(ServiceDescriptor.Singleton<IAgentContainment>(sp =>
+        {
+            var revoker = sp.GetRequiredService<IAgentTokenRevoker>();
+            var audit = sp.GetRequiredService<IAuditLog>();
+            var time = sp.GetService<TimeProvider>();
+            var adapter = new AgentContainmentAdapter(
+                sp.GetRequiredService<IVmPauser>(),
+                revoker,
+                sp.GetRequiredService<IOwnerKeyRegistry>(),
+                audit,
+                sp.GetRequiredService<INonceStore>(),
+                sp.GetRequiredService<IContainmentStateStore>(),
+                time);
+            return new NetworkAndMountContainment(
+                adapter,
+                revoker,
+                sp.GetService<IEgressPolicy>(),
+                sp.GetService<IMountManager>(),
+                audit,
+                sp.GetRequiredService<IOptions<ContainmentOptions>>().Value,
+                time,
+                sp.GetService<ILogger<NetworkAndMountContainment>>());
+        }));
+        services.Replace(ServiceDescriptor.Singleton<IGuestScrubber>(sp =>
+            sp.GetService<VmLifecycleService>() is { } lifecycle
+                ? new VmGuestScrubber(lifecycle, sp.GetRequiredService<IOptions<GuestScrubOptions>>().Value)
+                : new UnavailableGuestScrubber()));
 
         services.AddAgentSafety(configuration);
         services.AddHostedService<KillSwitchStartupGate>();
