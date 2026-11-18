@@ -1,7 +1,6 @@
-using Bazaar.Server.Setup;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Admin;
+namespace Bazaar.Server.Setup;
 
 /// <summary>
 /// The three setup commands (doc 45 section 1.7). Each one merges the doors (the file, the BAZAAR__SETUP__ variables and the
@@ -9,7 +8,7 @@ namespace Bazaar.Admin;
 /// run and the applier for apply. No rule is repeated here, except the apply hash comparison and the gate, which run before the
 /// applier so a closed gate never reaches it.
 /// </summary>
-internal static class SetupCommands
+public static class SetupOrchestrator
 {
     /// <summary>The current-state label. This build has no state reader, so every dry run and apply compares against nothing.</summary>
     public const string EmptyState = "empty";
@@ -25,7 +24,7 @@ internal static class SetupCommands
     private const string _hashMismatchMessage = "does not match the plan; run the dry run again and apply the hash it prints.";
 
     /// <summary>Validates the merged plan. The file path is read and never echoed.</summary>
-    public static AdminReport Validate(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
+    public static SetupReport Validate(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
     {
         var merged = Merge("validate", configPath, setArguments, environment);
         if (merged.Refusal is not null)
@@ -40,7 +39,7 @@ internal static class SetupCommands
     /// Validates, then lists each change against an empty snapshot. Writes nothing. Held plans still list their changes, with
     /// exit 2, so the operator sees what a hold is blocking.
     /// </summary>
-    public static AdminReport DryRun(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
+    public static SetupReport DryRun(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
     {
         var merged = Merge("dry-run", configPath, setArguments, environment);
         if (merged.Refusal is not null)
@@ -65,7 +64,7 @@ internal static class SetupCommands
     /// (a mismatch exits 1), then the gate. A closed gate exits 2 with <see cref="ApplyUnavailableMessage"/> and never calls the
     /// applier. Only an open gate builds the applier, which then runs its own checks. The entry path comes from the doors used.
     /// </summary>
-    public static async Task<AdminReport> ApplyAsync(
+    public static async Task<SetupReport> ApplyAsync(
         string? configPath,
         IReadOnlyList<string> setArguments,
         IReadOnlyDictionary<string, string?> environment,
@@ -91,20 +90,20 @@ internal static class SetupCommands
 
         if (!string.Equals(load.PlanHash, planHash, StringComparison.OrdinalIgnoreCase))
         {
-            return new AdminReport
+            return new SetupReport
             {
                 Command = "apply",
                 ExitCode = (int)SetupExitCode.InvalidInput,
                 Result = ResultFor("apply", SetupExitCode.InvalidInput),
                 PlanHash = load.PlanHash,
                 CurrentState = EmptyState,
-                Issues = [new AdminIssue { Severity = "error", Path = "planHash", Message = _hashMismatchMessage }],
+                Issues = [new SetupReportIssue { Severity = "error", Path = "planHash", Message = _hashMismatchMessage }],
             };
         }
 
         if (!gate.DurableAuditStoreAvailable)
         {
-            return new AdminReport
+            return new SetupReport
             {
                 Command = "apply",
                 ExitCode = (int)SetupExitCode.Held,
@@ -112,7 +111,7 @@ internal static class SetupCommands
                 Outcome = ApplyUnavailableOutcome,
                 PlanHash = load.PlanHash,
                 CurrentState = EmptyState,
-                Issues = [new AdminIssue { Severity = "hold", Path = "audit", Message = ApplyUnavailableMessage }],
+                Issues = [new SetupReportIssue { Severity = "hold", Path = "audit", Message = ApplyUnavailableMessage }],
             };
         }
 
@@ -125,7 +124,7 @@ internal static class SetupCommands
         var request = new SetupApplyRequest(load.Plan, planHash, entryPath ?? merged.EntryPath, OperatorIdentity(), null, null, null);
         var result = await applier.ApplyAsync(request, cancellationToken);
 
-        return new AdminReport
+        return new SetupReport
         {
             Command = "apply",
             ExitCode = (int)result.ExitCode,
@@ -148,7 +147,7 @@ internal static class SetupCommands
     /// Reads the file (when one is given), merges it with the environment variables and the flags, then loads the result. Either
     /// <see cref="Refusal"/> is set, or <see cref="Load"/> and <see cref="EntryPath"/> are.
     /// </summary>
-    private static (SetupLoadResult? Load, SetupEntryPath EntryPath, AdminReport? Refusal) Merge(
+    private static (SetupLoadResult? Load, SetupEntryPath EntryPath, SetupReport? Refusal) Merge(
         string command,
         string? configPath,
         IReadOnlyList<string> setArguments,
@@ -176,10 +175,10 @@ internal static class SetupCommands
         return (SetupPlanLoader.Load(overlay.MergedJson), overlay.EntryPath, null);
     }
 
-    private static AdminReport FromLoad(string command, SetupLoadResult load, string? currentState)
+    private static SetupReport FromLoad(string command, SetupLoadResult load, string? currentState)
     {
         var code = load.ExitCode;
-        return new AdminReport
+        return new SetupReport
         {
             Command = command,
             ExitCode = (int)code,
@@ -191,10 +190,10 @@ internal static class SetupCommands
     }
 
     /// <summary>A report for door errors. Invalid input (1) is the only code these can give, and no plan hash exists.</summary>
-    private static AdminReport FromIssues(string command, IReadOnlyList<SetupValidationIssue> issues)
+    private static SetupReport FromIssues(string command, IReadOnlyList<SetupValidationIssue> issues)
     {
         var code = SetupExitCodes.ForIssues(issues);
-        return new AdminReport
+        return new SetupReport
         {
             Command = command,
             ExitCode = (int)code,
@@ -205,7 +204,7 @@ internal static class SetupCommands
     }
 
     /// <summary>A report for input that could not be read. No plan is built, so there is no hash.</summary>
-    private static AdminReport Refused(string command, AdminIssue issue) => new()
+    private static SetupReport Refused(string command, SetupReportIssue issue) => new()
     {
         Command = command,
         ExitCode = (int)SetupExitCode.InvalidInput,
@@ -214,7 +213,7 @@ internal static class SetupCommands
     };
 
     /// <summary>The result slug for an exit code. Apply succeeds as "applied"; a check succeeds as "valid".</summary>
-    internal static string ResultFor(string command, SetupExitCode code) => code switch
+    public static string ResultFor(string command, SetupExitCode code) => code switch
     {
         SetupExitCode.Ok => command == "apply" ? "applied" : "valid",
         SetupExitCode.InvalidInput => "invalid-input",
@@ -224,7 +223,7 @@ internal static class SetupCommands
     };
 
     /// <summary>Reads the file. The path is named by its flag only, so an unreadable path never appears in output.</summary>
-    internal static (string? Text, AdminIssue? Issue) ReadConfig(string configPath)
+    public static (string? Text, SetupReportIssue? Issue) ReadConfig(string configPath)
     {
         try
         {
@@ -232,7 +231,7 @@ internal static class SetupCommands
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return (null, new AdminIssue
+            return (null, new SetupReportIssue
             {
                 Severity = "error",
                 Path = "--config",

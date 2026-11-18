@@ -1,14 +1,13 @@
 using System.Text.Json.Nodes;
-using Bazaar.Server.Setup;
 
-namespace Bazaar.Admin;
+namespace Bazaar.Server.Setup;
 
 /// <summary>
 /// Turns the planner's changes and validation issues into the display model. This is the one place that decides what a value
 /// may show. A secret-typed key shows its reference scheme or a count, never the reference text, and a settings key whose name
 /// looks like a secret shows no value. The planner itself is unchanged: it holds the canonical values, and this view hides them.
 /// </summary>
-internal static class SetupChangeView
+public static class SetupChangeView
 {
     /// <summary>The reference-typed keys (doc 45 section 1.6). Their canonical text is a reference, which is never printed.</summary>
     private static readonly string[] _referencePaths = ["custody.kekRef", "custody.mergeCredential.appIdRef"];
@@ -21,7 +20,7 @@ internal static class SetupChangeView
     /// <summary>Name fragments that mark a settings key as secret-typed. Matched case-insensitively.</summary>
     private static readonly string[] _secretNameFragments = ["secret", "credential", "password", "token"];
 
-    public static AdminChange ToChange(SetupChange change) => new()
+    public static SetupReportChange ToChange(SetupChange change) => new()
     {
         Path = change.Path,
         Kind = change.Kind switch
@@ -35,7 +34,7 @@ internal static class SetupChangeView
         Planned = Show(change.Path, change.PlannedValue),
     };
 
-    public static AdminIssue ToIssue(SetupValidationIssue issue) => new()
+    public static SetupReportIssue ToIssue(SetupValidationIssue issue) => new()
     {
         Severity = issue.Severity == SetupIssueSeverity.Hold ? "hold" : "error",
         Path = issue.Path,

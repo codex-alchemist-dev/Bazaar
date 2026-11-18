@@ -14,7 +14,7 @@ internal static class KodoCommands
     /// </summary>
     public static async Task<KodoVerifyReport> VerifyAsync(string configPath, CancellationToken cancellationToken)
     {
-        var read = SetupCommands.ReadConfig(configPath);
+        var read = SetupOrchestrator.ReadConfig(configPath);
         if (read.Issue is not null)
         {
             return Refused(read.Issue);
@@ -44,14 +44,14 @@ internal static class KodoCommands
     }
 
     /// <summary>A report for input that could not be read or loaded. No checks ran, so there is no score.</summary>
-    private static KodoVerifyReport Refused(List<AdminIssue> issues) => new()
+    private static KodoVerifyReport Refused(List<SetupReportIssue> issues) => new()
     {
         ExitCode = KodoVerifyExitCodes.InvalidInput,
         Result = ResultFor(KodoVerifyExitCodes.InvalidInput),
         Issues = issues,
     };
 
-    private static KodoVerifyReport Refused(AdminIssue issue) => Refused([issue]);
+    private static KodoVerifyReport Refused(SetupReportIssue issue) => Refused([issue]);
 
     private static AdminCheck ToAdminCheck(SetupCheckReport row) => new()
     {

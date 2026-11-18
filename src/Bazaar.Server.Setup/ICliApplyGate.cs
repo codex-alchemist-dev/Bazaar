@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Admin;
+namespace Bazaar.Server.Setup;
 
 /// <summary>
 /// Decides whether <c>setup apply</c> may run the applier. The gate fails closed: when <see cref="DurableAuditStoreAvailable"/> is

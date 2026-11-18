@@ -126,9 +126,9 @@ public static class AdminCommandLine
 
         var report = parsed.Action switch
         {
-            AdminAction.Validate => SetupCommands.Validate(parsed.ConfigPath, parsed.SetArguments, variables),
-            AdminAction.DryRun => SetupCommands.DryRun(parsed.ConfigPath, parsed.SetArguments, variables),
-            AdminAction.Apply => await SetupCommands.ApplyAsync(
+            AdminAction.Validate => SetupOrchestrator.Validate(parsed.ConfigPath, parsed.SetArguments, variables),
+            AdminAction.DryRun => SetupOrchestrator.DryRun(parsed.ConfigPath, parsed.SetArguments, variables),
+            AdminAction.Apply => await SetupOrchestrator.ApplyAsync(
                 parsed.ConfigPath, parsed.SetArguments, variables, parsed.PlanHash!, applyGate, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(args), parsed.Action, "Unknown action."),
         };
@@ -164,19 +164,19 @@ public static class AdminCommandLine
         AdminTextRenderer.WriteVerify(report, stdout);
     }
 
-    private static AdminReport UsageReport(AdminUsageException exception) => new()
+    private static SetupReport UsageReport(AdminUsageException exception) => new()
     {
         Command = "usage",
         ExitCode = (int)SetupExitCode.InvalidInput,
         Result = "invalid-input",
-        Issues = [new AdminIssue { Severity = "error", Path = exception.Flag, Message = exception.Message }],
+        Issues = [new SetupReportIssue { Severity = "error", Path = exception.Flag, Message = exception.Message }],
     };
 
-    private static void Emit(AdminReport report, bool json, TextWriter stdout, TextWriter stderr)
+    private static void Emit(SetupReport report, bool json, TextWriter stdout, TextWriter stderr)
     {
         if (json)
         {
-            stdout.WriteLine(JsonSerializer.Serialize(report, AdminJsonContext.Default.AdminReport));
+            stdout.WriteLine(JsonSerializer.Serialize(report, AdminJsonContext.Default.SetupReport));
             return;
         }
 
