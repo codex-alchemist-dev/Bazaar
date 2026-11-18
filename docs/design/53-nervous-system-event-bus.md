@@ -57,12 +57,12 @@ Kept small on purpose.
 - Reach clients as a second channel. Clients get state through the wire streams in doc 02.
 - Move money or grant authority (Resource Economy is REJECTED).
 
-## 6. Open questions for the owner
+## 6. Questions (1 is with the owner; 2 to 5 carry PROPOSED defaults, coordinator 2026-11-18)
 1. **Does the Nervous System become a module, or stay a documented convention over the existing sources?** Options: A) a thin contracts-only module (`Bazaar.Server.Events` plus `.Abstractions`: envelope, kind registry, cross-source subscription) with no broker; B) no new module, doc 53 stays a naming and rules doc and each source stays as is; C) a full internal bus. Recommended: A. It meets the modularity rule without a second broker, and keeps every source's own outbox as the truth. C is not recommended, because C07 already rejected a pub/sub provider dependency.
-2. **Which "history log" does the owner mean?** Options: A) the existing GC log plus per-service event tables (nothing new); B) a separate append-only company event history. Recommended: A. B would duplicate the GC log and the audit log.
-3. **What is `SceneChanged`?** No doc defines a scene. Options: A) an engine event from doc 20 (a Godot or Roblox scene changed, surfaced by the engine adapter); B) a Constellation view change; C) drop the example. Recommended: A, since doc 20 already names `scenes` as an adapter capability.
-4. **Vault and PR event sources.** Doc 38 leaves these inert until a Vault NOTIFY and a persisted PR event table exist. Options: A) build them first as the source work this doc names; B) leave inert. Recommended: A, scoped to those two sources.
-5. **Event retention.** Options: A) follow each owning table's own retention; B) one company-wide retention setting. Recommended: A, which needs no new rule.
+2. **Which "history log" does the owner mean?** Options: A) the existing GC log plus per-service event tables (nothing new); B) a separate append-only company event history. PROPOSED default: A. B would duplicate the GC log and the audit log.
+3. **What is `SceneChanged`?** No doc defines a scene. Options: A) an engine event from doc 20 (a Godot or Roblox scene changed, surfaced by the engine adapter); B) a Constellation view change; C) drop the example. PROPOSED default: A, since doc 20 already names `scenes` as an adapter capability.
+4. **Vault and PR event sources.** Doc 38 leaves these inert until a Vault NOTIFY and a persisted PR event table exist. Options: A) build them first as the source work this doc names; B) leave inert. PROPOSED default: A, scoped to those two sources.
+5. **Event retention.** Options: A) follow each owning table's own retention; B) one company-wide retention setting. PROPOSED default: A, which needs no new rule.
 
 ## 7. Tests (if question 1 = A)
 - The envelope round-trips through the wire codec with no loss.

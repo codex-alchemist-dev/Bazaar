@@ -48,7 +48,7 @@ Status tags follow `docs/deep-dives/Bazaar.md`: DECIDED, PROPOSED, REJECTED, RES
 | Soul System | An agent's complete identity: VM, personality, memory, reputation and accounts. | `docs/design/07-soul-system.md`, `docs/deep-dives/Bazaar.Soul.md` | DECIDED |
 | Soul Passport | The credential registry inside a Soul. It can be mounted per agent, scoped to that agent only. | `docs/design/14-identity-service-and-passport.md` | DECIDED |
 | Identity Service | The single chokepoint for every credential and access request. Holds all provider and GitHub App keys. | `docs/design/14` | PROPOSED; v1 scope |
-| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | `docs/design/54`, `07` | Nature DECIDED; v1 scope OPEN |
+| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | `docs/design/54`, `07` | Nature DECIDED; ships during beta |
 | Talent Pool | A library of reusable subagent templates. Hiring runs as a Council vote. | `docs/design/25`, `docs/design/10` | PROPOSED; v1 scope |
 | Genetic Memory Transfer | Temporary subagents pass candidate lessons back before they end. Candidates need review before entering a Soul. | `docs/design/07` §Genetic, `docs/design/25` | PROPOSED; v1 scope |
 | Council | Whole-team voting and debate. Votes are independent first, then revealed together. Ties go to the owner. | `docs/design/10-council-and-voting.md` | DECIDED |

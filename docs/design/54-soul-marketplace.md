@@ -1,6 +1,6 @@
 # Soul Marketplace
 
-Status: PROPOSED (2026-11-18). This doc gathers what the owner and the other docs already say about the Soul Marketplace in one place and lists what is still open. The nature of the marketplace is DECIDED. Its v1 scope is OPEN (`FEATURES.md`, doc 07 Question 1). Do not build it until question 1 in section 7 is answered.
+Status: PROPOSED (2026-11-18). This doc gathers what the owner and the other docs already say about the Soul Marketplace in one place and lists what is still open. The nature of the marketplace is DECIDED, and the owner decided on 2026-11-16 (module decision cards) that the marketplace ships during beta, so it is in scope for beta. The remaining questions in section 7 carry PROPOSED defaults (coordinator, 2026-11-18) until the owner answers. Note: the 2026-11-16 card is recorded as "marketplace ships during beta"; if it meant only the module marketplace, question 1 reopens.
 Depends on: `07-soul-system.md` (Soul, export format, import quarantine), `33-backup-dr-and-export.md` (Soul export), `44-data-portability.md`, `47-licensing-and-trademarks.md` (licence rules), `48-gap-decisions-security-identity.md` (Verified tag, audit), `15-security-taint-and-approvals.md` (taint, approvals) · Used by: `25-company-systems-knowledge.md` (Talent Pool)
 
 ## Purpose
@@ -14,7 +14,7 @@ An optional place to share preset Souls (behavioural configuration for an agent)
 | Memory and reputation | Never part of anything published. Memory-free by design (the bundle has no field for it), by enforcement (the publish path refuses it), and by test. A separate memory export exists but has no marketplace target. | doc 07 "memory exclusion" (owner, 2026-11-13); DECISIONS-LOG; docs 19, 44 |
 | Audit | Every publish writes an audit record with the bundle hash and the enforcement result. | doc 07; doc 48 |
 | Mirror Agent | The Mirror Agent profile and preferences are excluded from exports. | doc 07, doc 26 |
-| Status | Nature DECIDED, v1 scope OPEN. | `FEATURES.md`; `ROADMAP.md` (v1.x if additive, else v2) |
+| Timing | The marketplace ships during beta (owner module decision cards, 2026-11-16). This replaces the earlier "v1 scope OPEN" note in `FEATURES.md`, `ROADMAP.md` and doc 07 Question 1, which must be aligned. | DECISIONS-LOG, module decisions 2026-11-16 |
 
 ## 2. The bundle (format only, PROPOSED in doc 07)
 The Soul export is the marketplace bundle. Per doc 07: `manifest.json` (schemaVersion, bundleVersion, creator, per-file SHA-256, signature, licence from `soul.export_licence`, exclusions list, extensions), `charter.md`, and `skills/<name>/SKILL.md`.
@@ -41,11 +41,11 @@ Hosting, the listing and search API, ratings, a creator identity or account syst
 ## 6. Module placement (rule, not new design)
 Under the modularity rule the marketplace client and server halves are separate modules, `Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`, each with `.Abstractions`, and nothing goes into Server or Client.Core (`CLAUDE.md`; memory module-sides rule). The name is a working name until the owner picks one. The export and import logic belongs with the Soul module (doc 07 work packages 8 and 9), not the marketplace.
 
-## 7. Open questions for the owner
-1. **Is the marketplace in v1?** Options: A) no, ship only the local export and import of a bundle (doc 07 work packages 8 and 9) and treat the hosted marketplace as v1.x or v2; B) yes. Recommended: A. It is what docs 07 and 33 already default to, `ROADMAP.md` says "v1.x if additive, else v2", and a bundle format plus quarantine import delivers sharing with no hosting.
-2. **Who hosts the catalogue?** Options: A) one Bazaar-run public catalogue; B) a catalogue each operator runs, with import by URL or file; C) both. Recommended: B first, because it needs no central service, no moderation staff and no account system.
-3. **Do Souls use the module marketplace's rules (licence, Verified tag, audit) or their own?** Options: A) reuse the module rules, with the Verified tag redefined for Souls; B) Souls get a lighter rule set (licence plus manifest verification plus quarantine). Recommended: B for v1, since there is no code to scan, only text, skills and a charter, and the quarantine import already gates tool grants.
-4. **Human review before listing.** Doc 07 says export runs a human review. Who reviews a published Soul, and is the creator's own review enough? Options: A) the creator's own review plus the automatic secret and exclusion scan; B) an independent reviewer. Recommended: A for v1 (local and operator-run catalogue), B only if question 2 is A or C.
+## 7. Questions (2 to 5 carry PROPOSED defaults)
+1. **Is the marketplace in scope? ANSWERED (owner, 2026-11-16): it ships during beta.** Build order inside beta is not decided. PROPOSED default: local bundle export and import with quarantine first (doc 07 work packages 8 and 9), then the catalogue.
+2. **Who hosts the catalogue?** Options: A) one Bazaar-run public catalogue; B) a catalogue each operator runs, with import by URL or file; C) both. PROPOSED default: B first, because it needs no central service, no moderation staff and no account system.
+3. **Do Souls use the module marketplace's rules (licence, Verified tag, audit) or their own?** Options: A) reuse the module rules, with the Verified tag redefined for Souls; B) Souls get a lighter rule set (licence plus manifest verification plus quarantine). PROPOSED default: B for v1, since there is no code to scan, only text, skills and a charter, and the quarantine import already gates tool grants.
+4. **Human review before listing.** Doc 07 says export runs a human review. Who reviews a published Soul, and is the creator's own review enough? Options: A) the creator's own review plus the automatic secret and exclusion scan; B) an independent reviewer. PROPOSED default: A for v1 (local and operator-run catalogue), B only if question 2 is A or C.
 5. **Export signing identity** (doc 07 Question 6). Recommended default stays: the exporting agent's GitHub App identity plus an operator key. The signing tool is unverified.
 
 ## 8. Tests (when built)

@@ -64,7 +64,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Soul System | An agent's complete identity: VM, personality, memory, reputation and accounts. | Partial (`src/Bazaar.Server/Souls`: contracts, versions, versioning service) | `docs/design/07`, `docs/deep-dives/Bazaar.Soul.md` |
 | Soul Passport | The credential registry inside a Soul. Mountable per agent, scoped to that agent only. | Partial (`src/Bazaar.Server/Identity`) | `docs/design/14` |
 | Identity Service | The single chokepoint for every credential and access request. Holds all provider and GitHub App keys. | Partial (`src/Bazaar.Server/Identity`, `Secrets`) | `docs/design/14` |
-| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | Planned. Nature decided; v1 scope OPEN. | `docs/design/54`, `07` |
+| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | Planned. Nature decided; ships during beta (owner, 2026-11-16). | `docs/design/54`, `07` |
 | Talent Pool | A library of reusable subagent templates. Hiring runs as a Council vote. | Planned. Blocked on a Council motion-class follow-up (C32). | `docs/design/25`, `docs/design/10` |
 | Genetic Memory Transfer | Temporary subagents pass candidate lessons back before they end. Candidates need review before entering a Soul. | Planned | `docs/design/07`, `docs/design/25` |
 | Council | Whole-team voting and debate. Votes are independent first, then revealed together. Ties go to the owner. | Partial (`src/Bazaar.Server/Council`: lifecycle, tally, eligibility, pilot) | `docs/design/10` |
@@ -266,7 +266,7 @@ These items are named in the sources but their meaning, status or home is not se
 - **Valthyrzmthl**: meaning and an alchemy or star link are still missing.
 - **"Codex"**: no clearance search has been done. Keep it out of public names and package IDs.
 - **Mood Board** and **Macro / Micro / Objective**: earlier names, superseded by Constellation and RyuseiFuda layers.
-- **Soul Marketplace** and **Talent Pool** v1 scope: OPEN or blocked on a Council motion-class follow-up.
+- **Talent Pool** v1 scope: blocked on a Council motion-class follow-up.
 - **Company Constitution**: v1 scope, no text drafted yet.
 - **Bazaar.Core** versus today's `Bazaar.Server/Components` kernel folder: the target split is set; the migration order is wave 3.
 
