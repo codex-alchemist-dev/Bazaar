@@ -1,6 +1,7 @@
 using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Persistence;
 using Bazaar.Server.Modules.Updates;
+using Bazaar.Server.Security.Audit.Db;
 using Bazaar.Server.Tests.Gc;
 using Npgsql;
 
@@ -13,7 +14,7 @@ public sealed class ModuleManagerRepositoryTests(GcDb db) : IClassFixture<GcDb>
 
     private static readonly DateTimeOffset _t0 = new(2026, 11, 1, 10, 0, 0, TimeSpan.Zero);
 
-    private ModuleManagerRepository Repo => new(db.DataSource);
+    private ModuleManagerRepository Repo => new(db.DataSource, new PostgresAuditLog(db.DataSource));
 
     /// <summary>A module id no other test in this class uses: the class shares one database.</summary>
     private static string UniqueModule() => $"mod-{Guid.NewGuid():N}";
@@ -188,6 +189,6 @@ public sealed class ModuleManagerRepositoryTests(GcDb db) : IClassFixture<GcDb>
         // No server is contacted: the argument check runs first, so an unopened source is enough.
         await using var source = NpgsqlDataSource.Create("Host=localhost;Database=unused");
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => new ModuleManagerRepository(source).ListDecisionsAsync("m", limit, Ct));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => new ModuleManagerRepository(source, new PostgresAuditLog(source)).ListDecisionsAsync("m", limit, Ct));
     }
 }
