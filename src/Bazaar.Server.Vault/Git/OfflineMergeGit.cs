@@ -23,6 +23,32 @@ internal static class OfflineMergeGit
             return repo.Info.IsHeadDetached ? null : repo.Head.FriendlyName;
         }, ct);
 
+    /// <summary>The tip SHA of local branch <paramref name="branch"/>, or null when it does not exist.</summary>
+    public static Task<string?> BranchTipAsync(string repoPath, string branch, CancellationToken ct) =>
+        Task.Run(() =>
+        {
+            using var repo = Open(repoPath);
+            return repo.Branches[branch] is { IsRemote: false } found ? found.Tip?.Sha : null;
+        }, ct);
+
+    /// <summary>
+    /// True when <paramref name="branch"/> (with or without <c>refs/heads/</c>) is a git-valid local branch name of at most
+    /// 200 characters, with no whitespace or control characters and every segment passing <see cref="IsSafePath"/>.
+    /// </summary>
+    internal static bool IsValidSourceBranch(string? branch)
+    {
+        if (string.IsNullOrEmpty(branch))
+        {
+            return false;
+        }
+
+        var name = ShortBranchName(branch);
+        return name.Length is > 0 and <= 200
+            && !name.Any(c => char.IsControl(c) || char.IsWhiteSpace(c))
+            && IsSafePath(name)
+            && Reference.IsValidName(_branchPrefix + name);
+    }
+
     /// <summary>True when <paramref name="sha"/> names a commit in the object database.</summary>
     public static Task<bool> CommitExistsAsync(string repoPath, string sha, CancellationToken ct) =>
         Task.Run(() =>

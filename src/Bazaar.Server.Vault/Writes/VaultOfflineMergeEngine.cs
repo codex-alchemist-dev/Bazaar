@@ -30,6 +30,7 @@ namespace Bazaar.Server.Vault.Writes;
 public sealed partial class VaultOfflineMergeEngine : IVaultOfflineMergeEngine
 {
     private const int _maxDeviceSegment = 64;
+    private const int _maxWriteId = 100;
 
     private readonly VaultWriter _writer;
     private readonly string _worktreeRoot;
@@ -66,9 +67,15 @@ public sealed partial class VaultOfflineMergeEngine : IVaultOfflineMergeEngine
             return Task.FromResult<VaultOfflineMergeResult>(Reject("device id is empty or contains control characters"));
         }
 
-        if (string.IsNullOrWhiteSpace(request.Branch))
+        if (!OfflineMergeGit.IsValidSourceBranch(request.Branch))
         {
-            return Task.FromResult<VaultOfflineMergeResult>(Reject("branch is empty"));
+            return Task.FromResult<VaultOfflineMergeResult>(Reject("source branch is not a valid branch name"));
+        }
+
+        if (request.WriteId is not null
+            && (request.WriteId.Length is 0 or > _maxWriteId || request.WriteId.Any(c => char.IsControl(c) || char.IsWhiteSpace(c))))
+        {
+            return Task.FromResult<VaultOfflineMergeResult>(Reject("write id is empty, too long or contains whitespace"));
         }
 
         if (!IsSha(request.HeadCommit) || !IsSha(request.BaseCommit))
@@ -90,10 +97,11 @@ public sealed partial class VaultOfflineMergeEngine : IVaultOfflineMergeEngine
         var head = request.HeadCommit;
         var baseCommit = request.BaseCommit;
 
+        // The target is always the main checkout's branch; the request's branch is the device's source branch.
         var mainBranch = await OfflineMergeGit.CurrentBranchAsync(repoPath, ct);
-        if (mainBranch is null || !string.Equals(OfflineMergeGit.ShortBranchName(request.Branch), mainBranch, StringComparison.Ordinal))
+        if (mainBranch is null)
         {
-            return Reject($"branch '{Printable(request.Branch)}' is not the Vault's main branch");
+            return Reject("the Vault's main checkout has no branch checked out");
         }
 
         if (!await OfflineMergeGit.CommitExistsAsync(repoPath, head, ct))
@@ -104,6 +112,17 @@ public sealed partial class VaultOfflineMergeEngine : IVaultOfflineMergeEngine
         if (!await OfflineMergeGit.CommitExistsAsync(repoPath, baseCommit, ct))
         {
             return Reject($"unknown base commit {baseCommit}");
+        }
+
+        // When the pushed source branch exists here, the head must be on it; otherwise the head SHA alone counts. A
+        // source named like the target (the device's local "main") is the device's own branch, not the server's.
+        var sourceName = OfflineMergeGit.ShortBranchName(request.Branch);
+        var sourceTip = string.Equals(sourceName, mainBranch, StringComparison.Ordinal)
+            ? null
+            : await OfflineMergeGit.BranchTipAsync(repoPath, sourceName, ct);
+        if (sourceTip is not null && !await OfflineMergeGit.IsAncestorAsync(repoPath, head, sourceTip, ct))
+        {
+            return Reject($"head is not reachable from source branch '{sourceName}'");
         }
 
         var oldMain = await _writer.Git.HeadAsync(repoPath, ct);
@@ -231,9 +250,15 @@ public sealed partial class VaultOfflineMergeEngine : IVaultOfflineMergeEngine
     private static string BuildMessage(VaultOfflineMergeRequest request)
     {
         var device = Printable(request.DeviceId);
-        var message = new StringBuilder($"Merge offline push from device {device} into vault");
+        var source = OfflineMergeGit.ShortBranchName(request.Branch);
+        var message = new StringBuilder($"Merge offline push {source} from device {device} into vault");
         message.Append("\n\n");
         message.Append("Bazaar-Device: ").Append(device).Append('\n');
+        message.Append("Bazaar-Offline-Branch: ").Append(source).Append('\n');
+        if (request.WriteId is not null)
+        {
+            message.Append("Bazaar-Offline-Write: ").Append(request.WriteId).Append('\n');
+        }
         message.Append("Bazaar-Edit-Base: ").Append(request.BaseCommit).Append('\n');
         return message.ToString();
     }

@@ -16,10 +16,21 @@ public interface IVaultOfflineMergeEngine
 
 /// <summary>One offline push. The pushed commits must already be in the Vault repository's object database.</summary>
 /// <param name="DeviceId">The pushing device (used in the conflict branch name and the <c>Bazaar-Device</c> trailer).</param>
-/// <param name="Branch">The target branch: the branch of the main checkout, with or without <c>refs/heads/</c>.</param>
-/// <param name="HeadCommit">The full SHA of the device's head commit.</param>
-/// <param name="BaseCommit">The full SHA of the main-branch commit the device last synced.</param>
-public sealed record VaultOfflineMergeRequest(string DeviceId, string Branch, string HeadCommit, string BaseCommit);
+/// <param name="Branch">
+/// The source branch the device pushed, with or without <c>refs/heads/</c>. Validated and recorded in the merge commit;
+/// it is never the target. The target is always the branch of the Vault's main checkout.
+/// </param>
+/// <param name="HeadCommit">The full SHA of the commit the device wants to land.</param>
+/// <param name="BaseCommit">The full SHA of the main-branch commit the device started from.</param>
+/// <param name="WriteId">
+/// The offline write that carried the push, recorded as the <c>Bazaar-Offline-Write</c> trailer for audit; null for none.
+/// </param>
+public sealed record VaultOfflineMergeRequest(
+    string DeviceId,
+    string Branch,
+    string HeadCommit,
+    string BaseCommit,
+    string? WriteId = null);
 
 /// <summary>What an offline push did. Exactly one of the nested records.</summary>
 public abstract record VaultOfflineMergeResult

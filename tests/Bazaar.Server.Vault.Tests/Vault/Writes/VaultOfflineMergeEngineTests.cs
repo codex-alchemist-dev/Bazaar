@@ -210,15 +210,102 @@ public sealed class VaultOfflineMergeEngineTests : IDisposable
     }
 
     [Fact]
-    public async Task A_target_branch_other_than_main_is_rejected()
+    public async Task A_non_main_source_branch_merges_into_main_and_is_recorded()
+    {
+        var head = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 9, "device 9")));
+        var oldMain = MainCommit("doc.md", Edit(_baseDoc, 2, "main 2"));
+
+        var result = await _engine.MergeAsync(
+            new VaultOfflineMergeRequest(_device, "refs/heads/offline/phone-1/drafts", head, _base, "0196a7c4-0000-7000-8000-0000000000aa"),
+            CancellationToken.None);
+
+        var merged = Assert.IsType<VaultOfflineMergeResult.Merged>(result);
+        using var repo = new Repository(_repo.Checkout);
+        Assert.Equal("main", repo.Head.FriendlyName);
+        var commit = repo.Lookup<Commit>(merged.NewHead);
+        Assert.Equal([oldMain, head], commit.Parents.Select(p => p.Sha));
+        Assert.Contains("Bazaar-Offline-Branch: offline/phone-1/drafts", commit.Message, StringComparison.Ordinal);
+        Assert.Contains("Bazaar-Offline-Write: 0196a7c4-0000-7000-8000-0000000000aa", commit.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_source_branch_named_main_is_still_only_the_source()
     {
         var head = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 3, "device 3")));
 
-        var result = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, "drafts", head, _base), CancellationToken.None);
-        var qualified = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, "refs/heads/main", head, _base), CancellationToken.None);
+        // The device pushes its local "main". The server's main does not contain the head yet; that must not block it.
+        var result = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, "refs/heads/main", head, _base), CancellationToken.None);
+
+        Assert.Equal(new VaultOfflineMergeResult.Merged(head), result);
+    }
+
+    [Fact]
+    public async Task An_existing_source_branch_must_contain_the_head()
+    {
+        var head = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 3, "device 3")));
+        var elsewhere = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 4, "device 4")));
+        using (var repo = new Repository(_repo.Checkout))
+        {
+            repo.CreateBranch("offline/phone-1", repo.Lookup<Commit>(elsewhere));
+        }
+
+        var result = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, "offline/phone-1", head, _base), CancellationToken.None);
+        var onBranch = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, "offline/phone-1", elsewhere, _base), CancellationToken.None);
+
+        Assert.Equal("head is not reachable from source branch 'offline/phone-1'", Assert.IsType<VaultOfflineMergeResult.Rejected>(result).Reason);
+        Assert.Equal(new VaultOfflineMergeResult.Merged(elsewhere), onBranch);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("refs/heads/")]
+    [InlineData("has space")]
+    [InlineData("line\nbreak")]
+    [InlineData("../escape")]
+    [InlineData("a/../b")]
+    [InlineData("a//b")]
+    [InlineData(".git/x")]
+    [InlineData("x.lock")]
+    [InlineData("a..b")]
+    [InlineData("tilde~1")]
+    [InlineData("caret^")]
+    [InlineData("colon:x")]
+    [InlineData("star*")]
+    [InlineData("back\\slash")]
+    [InlineData("trailing/")]
+    [InlineData("@{-1}")]
+    public async Task Odd_source_branch_names_are_rejected_without_touching_main(string branch)
+    {
+        var head = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 3, "device 3")));
+
+        var result = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, branch, head, _base), CancellationToken.None);
+
+        Assert.Equal("source branch is not a valid branch name", Assert.IsType<VaultOfflineMergeResult.Rejected>(result).Reason);
+        Assert.Equal(_base, TempGitRepository.HeadOf(_repo.Checkout));
+    }
+
+    [Fact]
+    public async Task A_very_long_source_branch_name_is_rejected()
+    {
+        var head = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 3, "device 3")));
+
+        var result = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, new string('b', 201), head, _base), CancellationToken.None);
 
         Assert.IsType<VaultOfflineMergeResult.Rejected>(result);
-        Assert.Equal(new VaultOfflineMergeResult.Merged(head), qualified);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("two words")]
+    [InlineData("new\nline")]
+    public async Task A_malformed_write_id_is_rejected(string writeId)
+    {
+        var head = DeviceCommit(_base, ("doc.md", Edit(_baseDoc, 3, "device 3")));
+
+        var result = await _engine.MergeAsync(new VaultOfflineMergeRequest(_device, "drafts", head, _base, writeId), CancellationToken.None);
+
+        Assert.Equal("write id is empty, too long or contains whitespace", Assert.IsType<VaultOfflineMergeResult.Rejected>(result).Reason);
     }
 
     [Fact]
