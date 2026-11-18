@@ -4,10 +4,10 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Engines;
 using Bazaar.Contracts.Engines;
 
-namespace Bazaar.Client.Core.Tests.Panes;
+namespace Bazaar.Client.Engines.Tests;
 
 public class EnginePaneViewTests
 {

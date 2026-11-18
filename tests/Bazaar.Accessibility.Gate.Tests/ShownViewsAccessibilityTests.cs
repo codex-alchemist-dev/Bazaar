@@ -9,6 +9,7 @@ using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Engines;
 using Bazaar.Client.RyuseiFuda.Workday;
 using Bazaar.Client.Souls;
 using Bazaar.Client.Vault;

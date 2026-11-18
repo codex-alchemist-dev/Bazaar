@@ -7,6 +7,7 @@
     <Project Path="src/Bazaar.Client.Panes.Abstractions/Bazaar.Client.Panes.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
     <Project Path="src/Bazaar.Client.Vault/Bazaar.Client.Vault.csproj" />
+    <Project Path="src/Bazaar.Client.Engines/Bazaar.Client.Engines.csproj" />
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
@@ -86,6 +87,7 @@
     <Project Path="tests/Bazaar.Secrets.Tests/Bazaar.Secrets.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Vault.Tests/Bazaar.Client.Vault.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Engines.Tests/Bazaar.Client.Engines.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Constellation.Tests/Bazaar.Client.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />

@@ -14,6 +14,7 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
@@ -78,6 +79,7 @@ internal static class Program
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
         var registry = FirstPartyPanes.CreateRegistry(

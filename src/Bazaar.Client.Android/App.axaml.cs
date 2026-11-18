@@ -9,6 +9,7 @@ using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
@@ -55,6 +56,7 @@ public sealed class App : Avalonia.Application
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);

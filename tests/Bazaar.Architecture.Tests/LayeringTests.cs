@@ -34,6 +34,7 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Constellation")]
     [InlineData("Bazaar.Client.Dashboard")]
     [InlineData("Bazaar.Client.Vault")]
+    [InlineData("Bazaar.Client.Engines")]
     [InlineData("Bazaar.Client.Gc")]
     [InlineData("Bazaar.Client.Souls")]
     public void Client_feature_module_does_not_reference_client_core(string project)

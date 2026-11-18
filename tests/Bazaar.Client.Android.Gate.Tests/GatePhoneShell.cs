@@ -9,6 +9,7 @@ using Bazaar.Client.Vault;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Abstractions.Server;
@@ -39,6 +40,7 @@ internal static class GatePhoneShell
             new ConstellationPaneModule(),
             new GcPaneModule(),
             new VaultSearchPaneModule(),
+            new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles).With(vault);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);

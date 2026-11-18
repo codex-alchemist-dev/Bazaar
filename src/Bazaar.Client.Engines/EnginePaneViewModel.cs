@@ -3,7 +3,7 @@ using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Contracts.Engines;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Engines;
 
 /// <summary>One row of an engine pane: a top-level model field and its value as display text.</summary>
 public sealed record EnginePaneField(string Name, string Value);
@@ -12,7 +12,7 @@ public sealed record EnginePaneField(string Name, string Value);
 /// Holds an engine pane snapshot (docs/design/20-engine-integration-api.md, Panes). A snapshot is replaced only
 /// by a newer revision, so a reconnecting client never shows an older view over a newer one. Data only: no Avalonia types.
 /// </summary>
-public sealed class EnginePaneViewModel : INotifyPropertyChanged
+public sealed class EnginePaneViewModel : IPaneViewModel, INotifyPropertyChanged
 {
     /// <summary>Longer values are cut to this many characters so a large model cannot stall the UI.</summary>
     public const int MaxValueLength = 1000;
