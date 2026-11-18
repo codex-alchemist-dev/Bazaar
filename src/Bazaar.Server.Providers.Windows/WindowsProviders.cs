@@ -1,6 +1,6 @@
 using Bazaar.Server.Providers;
-using Bazaar.Vms.WindowsSandbox;
-using Bazaar.Vms.WindowsSandbox.WsbCli;
+using Bazaar.Server.Vms.WindowsSandbox;
+using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 
 namespace Bazaar.Server.Providers.Windows;
 

@@ -1,4 +1,4 @@
-using Bazaar.Vms.Environments;
+using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.AgentSafety.Containment;
 
@@ -9,7 +9,7 @@ public interface IAgentVmDirectory
 }
 
 /// <summary>The production <see cref="IAgentVmDirectory"/>, over the Vms environment repository.</summary>
-public sealed class RepositoryAgentVmDirectory(Bazaar.Vms.Environments.EnvironmentRepository repository) : IAgentVmDirectory
+public sealed class RepositoryAgentVmDirectory(Bazaar.Server.Vms.Environments.EnvironmentRepository repository) : IAgentVmDirectory
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<EnvironmentVmRecord>> ListAsync(Guid agentId, CancellationToken ct) =>

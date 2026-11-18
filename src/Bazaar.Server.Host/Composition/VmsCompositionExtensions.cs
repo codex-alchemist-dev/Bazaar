@@ -1,8 +1,8 @@
 using Bazaar.Server.AgentSafety.Containment;
-using Bazaar.Vms.Environments;
-using Bazaar.Vms.Lifecycle;
-using Bazaar.Vms.WindowsSandbox;
-using Bazaar.Vms.WindowsSandbox.WsbCli;
+using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.Lifecycle;
+using Bazaar.Server.Vms.WindowsSandbox;
+using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 

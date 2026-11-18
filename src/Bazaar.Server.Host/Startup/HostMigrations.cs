@@ -1,5 +1,5 @@
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Vms.Environments;
+using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
 

@@ -1,6 +1,6 @@
 using Bazaar.Server.Security.Quarantine;
-using Bazaar.Vms.Environments;
-using Bazaar.Vms.Lifecycle;
+using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.Lifecycle;
 
 namespace Bazaar.Server.AgentSafety.Containment;
 

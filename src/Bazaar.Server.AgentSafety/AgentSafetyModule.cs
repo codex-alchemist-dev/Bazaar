@@ -10,7 +10,7 @@ using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.KillSwitch.Postgres;
 using Bazaar.Server.Security.Quarantine;
-using Bazaar.Vms.Lifecycle;
+using Bazaar.Server.Vms.Lifecycle;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
