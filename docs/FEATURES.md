@@ -233,7 +233,7 @@ These merged after the 2026-11-09 baseline. Each row names the PRs that landed i
 | Setup plan | Headless setup plan, canonical hash and `bazaar-setup.json` validation (#548). | Partial (plan and validation merged; the wizard is open) | `src/Bazaar.Server/Setup`, `docs/design/45` |
 | Client self-update | A platform-neutral self-update core (#552). | Partial (core merged; per-platform install open) | `src/Bazaar.Client.Core`, `docs/design/37` |
 | Telemetry and crash reporting | Wave 1 (error codes, redaction, fingerprints, #519) and wave 2 (crash DTOs, capture core, consent model, #550). | Partial (waves 1 and 2 merged as contracts and capture core; server-side GitHub filing and LLM diagnosis are Planned, not in code) | `docs/design/43` |
-| Portability | Importer and exporter module core (#540). | Partial (core merged; the Milanote, Miro, Trello and Obsidian importers are Planned) | `src/Bazaar.Portability`, `docs/design/44` |
+| Portability | Importer and exporter module core (#540). | Partial (core merged; the Milanote, Miro, Trello and Obsidian importers are Planned) | `src/Bazaar.Server.Portability`, `src/Bazaar.Client.Portability`, `src/Bazaar.Client.Portability.Avalonia`, `docs/design/44` |
 | Diagnostics | Diagnostics module and tests. | Partial | `src/Bazaar.Diagnostics` |
 | Token budgets and kill switch | See sections 3 and 9 for the safety rows (#545, #566). | Partial | `src/Bazaar.Server/Security` |
 | Linux and Windows heads | Linux display backend chosen from the session environment (#534), headless smoke tests (#541), and a single-instance forwarder for the warm process (#458). | Partial | `src/Bazaar.Client.Linux`, `src/Bazaar.Client.Windows` |
