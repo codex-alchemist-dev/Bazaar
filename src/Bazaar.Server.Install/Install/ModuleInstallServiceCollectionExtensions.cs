@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Bazaar.Install;
+namespace Bazaar.Server.Install;
 
 /// <summary>
 /// Registration for the module install gate. The host must register <c>IModuleInstallStore</c>, <c>IModuleSignatureVerifier</c>

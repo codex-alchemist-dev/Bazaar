@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
-using Bazaar.Install.Abstractions;
+using Bazaar.Server.Install.Abstractions;
 
-namespace Bazaar.Install;
+namespace Bazaar.Server.Install;
 
 /// <summary>The outcome of <see cref="ModuleApprovalService.ApproveAsync"/>. Every refusal records nothing.</summary>
 public abstract record ModuleApprovalResult

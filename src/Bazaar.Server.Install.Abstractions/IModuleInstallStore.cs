@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace Bazaar.Install.Abstractions;
+namespace Bazaar.Server.Install.Abstractions;
 
 /// <summary>
 /// The write seam for the module install gate (doc 48 section 1). The Install module decides; the host supplies a store that

@@ -1,4 +1,4 @@
-namespace Bazaar.Install.Trust;
+namespace Bazaar.Server.Install.Trust;
 
 /// <summary>
 /// The state of one check for one module version. A check that has not run yet is <see cref="Pending"/>, which is not the

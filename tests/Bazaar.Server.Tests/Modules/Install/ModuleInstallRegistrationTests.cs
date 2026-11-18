@@ -1,6 +1,6 @@
-using Bazaar.Install;
-using Bazaar.Install.Abstractions;
-using Bazaar.Install.Trust;
+using Bazaar.Server.Install;
+using Bazaar.Server.Install.Abstractions;
+using Bazaar.Server.Install.Trust;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 

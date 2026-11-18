@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Modules;
 
-namespace Bazaar.Install.Trust;
+namespace Bazaar.Server.Install.Trust;
 
 /// <summary>The install-time decision for one module package (doc 50 section 5). Installable only when both checks pass.</summary>
 public abstract record ModuleInstallDecision

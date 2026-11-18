@@ -1,4 +1,4 @@
-using Bazaar.Install;
+using Bazaar.Server.Install;
 
 namespace Bazaar.Server.Tests.Modules.Install;
 

@@ -1,5 +1,5 @@
 using System.Globalization;
-using Bazaar.Install.Abstractions;
+using Bazaar.Server.Install.Abstractions;
 using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;

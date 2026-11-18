@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Contracts.Modules;
-using Bazaar.Install.Trust;
+using Bazaar.Server.Install.Trust;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Tests.Modules.Trust;
