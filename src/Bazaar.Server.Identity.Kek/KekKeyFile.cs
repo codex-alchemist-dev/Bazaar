@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// Opens the KEK file at an absolute path, creating it with a fresh random key when it is absent. The bytes on disk go

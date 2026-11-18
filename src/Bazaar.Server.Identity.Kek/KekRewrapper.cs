@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>Outcome of one re-wrap pass. Succeeded means every live row now opens under the target KEK.</summary>
 public sealed record KekRewrapReport(int Scanned, int Rewrapped, int AlreadyCurrent, int Conflicts, IReadOnlyList<Guid> Failed)

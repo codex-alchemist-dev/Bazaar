@@ -22,7 +22,7 @@ public static class BazaarHostServiceCollectionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<BazaarHostOptions>, BazaarHostOptionsValidator>();
 
-        // The KEK is registered by the Bazaar.Identity.Kek component through the kernel (doc 14); nothing is defaulted here.
+        // The KEK is registered by the Bazaar.Server.Identity.Kek component through the kernel (doc 14); nothing is defaulted here.
         services.AddHostedService<BazaarHostOptionsLogger>();
         return services;
     }

@@ -1,4 +1,4 @@
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>One live data key row: its id, the wrap, and the id of the KEK that wrapped it.</summary>
 public sealed record SoulDekRecord(Guid DekId, byte[] Wrapped, string KekId);

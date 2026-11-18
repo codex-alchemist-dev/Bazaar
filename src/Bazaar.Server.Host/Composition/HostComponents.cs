@@ -1,7 +1,6 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
-using Bazaar.Identity.Kek;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
@@ -17,6 +16,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Vault;

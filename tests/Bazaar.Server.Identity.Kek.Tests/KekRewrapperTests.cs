@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 
-namespace Bazaar.Identity.Kek.Tests;
+namespace Bazaar.Server.Identity.Kek.Tests;
 
 /// <summary>The KEK re-wrap: move, resume after a crash, verify before replace, and audit. Database-free.</summary>
 public sealed class KekRewrapperTests : IDisposable

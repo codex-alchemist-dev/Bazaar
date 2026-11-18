@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
-    <RootNamespace>Bazaar.Identity.Kek</RootNamespace>
+    <RootNamespace>Bazaar.Server.Identity.Kek</RootNamespace>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 </Project>

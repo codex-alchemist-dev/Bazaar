@@ -1,8 +1,8 @@
 using Bazaar.Core;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Identity.Kek.Tests;
+namespace Bazaar.Server.Identity.Kek.Tests;
 
 /// <summary>File and DPAPI-shaped KEK providers, the factory choice and the kernel registration. Database-free.</summary>
 public sealed class KekProviderTests : IDisposable

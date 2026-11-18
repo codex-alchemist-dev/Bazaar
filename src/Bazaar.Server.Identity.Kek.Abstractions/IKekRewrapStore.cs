@@ -1,4 +1,4 @@
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>One live wrapped data key, with the associated data it was wrapped under.</summary>
 public sealed record KekWrapRecord(Guid Id, byte[] Wrapped, byte[] AssociatedData);

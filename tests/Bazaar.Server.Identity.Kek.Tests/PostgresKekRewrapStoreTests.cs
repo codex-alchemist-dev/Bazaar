@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 using Npgsql;
 
-namespace Bazaar.Identity.Kek.Tests;
+namespace Bazaar.Server.Identity.Kek.Tests;
 
 /// <summary>
 /// The Postgres re-wrap store against a real database. Runs when <c>BAZAAR_TEST_PG</c> holds a connection string (CI Postgres jobs).

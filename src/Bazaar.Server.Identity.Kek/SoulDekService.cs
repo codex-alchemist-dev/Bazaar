@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>An opened data key. Dispose it to zero the key bytes as soon as the caller is done.</summary>
 public sealed class SoulDek(Guid dekId, byte[] key) : IDisposable

@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// Presents the one host KEK (<see cref="IKekProvider"/>, DPAPI or a key file) through the key-id-aware contract the secret store

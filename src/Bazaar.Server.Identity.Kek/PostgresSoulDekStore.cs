@@ -1,7 +1,7 @@
 using Npgsql;
 using NpgsqlTypes;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>The Postgres <see cref="ISoulDekStore"/> over <c>soul_dek</c> (migration <c>common/0019_identity_keys.sql</c>).</summary>
 public sealed class PostgresSoulDekStore(NpgsqlDataSource dataSource) : ISoulDekStore

@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 
-namespace Bazaar.Identity.Kek.Tests;
+namespace Bazaar.Server.Identity.Kek.Tests;
 
 /// <summary>Data-key custody (doc 14): create, reuse, open, crypto-shred, and re-wrap across several stores. Database-free.</summary>
 public sealed class SoulDekTests : IDisposable

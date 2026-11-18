@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// The <c>dpapi</c> KEK provider (doc 14 DECIDED 2026-11-16): the 32-byte KEK is stored in the key file protected by the

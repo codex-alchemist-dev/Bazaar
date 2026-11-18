@@ -1,4 +1,4 @@
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// The <c>file</c> KEK provider (doc 14 <c>identity.kek_provider</c>, used on hosts other than Windows): AES-256-GCM under a

@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// Shared AES-256-GCM wrap for a 32-byte KEK held in memory. Each wrap has a fresh random nonce and is laid out as

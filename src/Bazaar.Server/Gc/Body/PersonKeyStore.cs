@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using Bazaar.Identity.Kek;
+using Bazaar.Server.Identity.Kek;
 using Npgsql;
 
 namespace Bazaar.Server.Gc.Body;
