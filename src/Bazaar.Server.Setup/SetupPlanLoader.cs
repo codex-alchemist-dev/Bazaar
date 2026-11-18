@@ -67,7 +67,7 @@ public static class SetupPlanLoader
     public static SetupLoadResult Load(string json, SettingRegistry? registry = null)
     {
         ArgumentNullException.ThrowIfNull(json);
-        registry ??= SettingRegistry.Known;
+        registry ??= BuiltInSettingRegistries.Known;
 
         var issues = new List<SetupValidationIssue>();
         JsonDocument document;
