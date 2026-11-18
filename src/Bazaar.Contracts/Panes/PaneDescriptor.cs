@@ -35,4 +35,19 @@ public static class PaneKinds
 
     /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
     public const string Workday = "bazaar.ryusei-workday";
+
+    /// <summary>
+    /// Mail quarantine: held inbound mail as metadata only (reason codes, sender domain, auth result, received time, state)
+    /// and the owner's daily digest counts. A body never appears in this model (doc 22, WP12).
+    /// </summary>
+    public const string MailQuarantine = "bazaar.mail.quarantine";
+
+    /// <summary>Mail mailbox: Bazaar-managed inbound messages as plain text, with links shown by real host (doc 22, WP12).</summary>
+    public const string MailMailbox = "bazaar.mail.mailbox";
+
+    /// <summary>Mail approval card: a hard-tainted outbound send waiting for the owner, Tier 2 (doc 22, WP12).</summary>
+    public const string MailApproval = "bazaar.mail.approval";
+
+    /// <summary>Mail DNS: the operator's domain checks as rows with a status and a fix hint (doc 22, WP10 and WP12).</summary>
+    public const string MailDns = "bazaar.mail.dns";
 }
