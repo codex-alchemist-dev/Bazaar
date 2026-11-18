@@ -40,7 +40,9 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
 ### 3. Screens (Ops)
-**Default screen (DECIDED, owner card 2026-11-18): health overview.** The resident TUI opens on one screen with server and Kodo health, anything failing, pending approvals and recent activity. Every other screen is one mnemonic away. It must fit a small terminal (80x24).
+**Scope of the resident TUI (owner, 2026-11-19): server health, not the work.** It shows no agent or GC activity. Admin actions (modules, rebuilds, users) stay available as in section 4, but the screen is about whether the server is healthy.
+
+**Default screen (DECIDED, owner card 2026-11-18): health overview.** The resident TUI opens on one screen with server and Kodo health, anything failing, and recent health events. Every other screen is one mnemonic away. It must fit a small terminal (80x24).
 
 Status and readiness; logs (tail, filter by level and module); Kodo health, incidents and runbook links; modules (selection, build reports, rebuild); users, roles, devices and revocation; approvals; audit view; setup changes through the same wizard (`ISetupPrompter` again). **Permissions (DECIDED, owner card 2026-11-18): everything the apps allow.** An admin can do in the TUI whatever the same account can do in a client, including modules, rebuilds, users, roles and settings. Risky actions keep the usual approval step-up. The TUI adds no privilege.
 
@@ -48,6 +50,8 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 The resident TUI follows Kodo's severity grades (doc 46). A serious failure shows a banner at the top with what failed, and rings the terminal bell once; the banner stays until acknowledged. A minor one only turns its line amber on the overview, with no banner and no sound. Colour is never the only signal (section 4). The bell can be turned off in settings.
 
 **Crash of the TUI itself (DECIDED, owner card 2026-11-18, "Restart itself automatically").** The resident TUI is a separate program from the server, so its crash never affects the server. The service manager (Windows Service or systemd, doc 03 provider) relaunches it within seconds, with bounded restart delays like the server's (`host.service.restart_delays_minutes`). A crash is logged and shown as a line on the next overview.
+
+**Health wins (owner, 2026-11-19: "when it fixed something by itself, or survived a fatal crash").** Good news is health good news: Kodo self-heal and recovery events, a restart that worked, a fatal crash survived, an A/B slot rollback that restored service, a backup or restore that verified. They appear as events on the overview. How loudly (quiet line or a green banner) is asked on a card.
 
 ### 4. Input, access and accessibility
 - Keyboard only, mnemonics from the doc 41 registry with no Ctrl chords, remappable, plus a palette.
