@@ -1,6 +1,6 @@
+using Bazaar.Server.Components.Erasure;
 using Bazaar.Server.Erasure;
 using Bazaar.Server.Erasure.Abstractions;
-using Bazaar.Server.Components.Erasure;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 

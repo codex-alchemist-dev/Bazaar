@@ -1,8 +1,8 @@
 using System.Globalization;
 using Bazaar.Server.Install.Abstractions;
-using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 using Npgsql;
 

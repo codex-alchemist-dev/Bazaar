@@ -1,5 +1,5 @@
-using Bazaar.Server.Community.Quotas;
 using Bazaar.Core;
+using Bazaar.Server.Community.Quotas;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,5 +1,5 @@
-using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Tests.Components.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;

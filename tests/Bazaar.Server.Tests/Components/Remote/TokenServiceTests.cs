@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
-using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Tests.Components.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
