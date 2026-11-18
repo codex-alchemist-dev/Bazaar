@@ -1,6 +1,6 @@
 # Soul Marketplace
 
-Status: PROPOSED (2026-11-18). This doc gathers what the owner and the other docs already say about the Soul Marketplace in one place and lists what is still open. The nature of the marketplace is DECIDED, and the owner decided on 2026-11-16 (module decision cards) that the marketplace ships during beta, so it is in scope for beta. The remaining questions in section 7 carry PROPOSED defaults (coordinator, 2026-11-18) until the owner answers. Note: the 2026-11-16 card is recorded as "marketplace ships during beta"; if it meant only the module marketplace, question 1 reopens.
+Status: PROPOSED (2026-11-18). This doc gathers what the owner and the other docs already say about the Soul Marketplace in one place and lists what is still open. The nature of the marketplace is DECIDED, and the owner decided on 2026-11-16 (module decision cards) that the marketplace ships during beta, so it is in scope for beta. The remaining questions in section 7 carry PROPOSED defaults (coordinator, 2026-11-18) until the owner answers. The owner's naming ("Soul = marketplace") makes that decision cover the Soul Marketplace.
 Depends on: `07-soul-system.md` (Soul, export format, import quarantine), `33-backup-dr-and-export.md` (Soul export), `44-data-portability.md`, `47-licensing-and-trademarks.md` (licence rules), `48-gap-decisions-security-identity.md` (Verified tag, audit), `15-security-taint-and-approvals.md` (taint, approvals) · Used by: `25-company-systems-knowledge.md` (Talent Pool)
 
 ## Purpose
