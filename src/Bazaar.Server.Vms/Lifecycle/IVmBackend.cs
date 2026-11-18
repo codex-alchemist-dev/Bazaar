@@ -24,4 +24,10 @@ public interface IVmBackend
     Task RetireAsync(VmHandle vm, CancellationToken ct);
 
     Task<VmState> GetStateAsync(VmHandle vm, CancellationToken ct);
+
+    /// <summary>
+    /// True when the backend can save a running VM's state and resume it later (Hyper-V). A backend that cannot (Windows Sandbox)
+    /// keeps the default, so a pause there is a power cut and a resume boots the VM fresh.
+    /// </summary>
+    bool SupportsSaveState => false;
 }
