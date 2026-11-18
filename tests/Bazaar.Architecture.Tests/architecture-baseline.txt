@@ -467,16 +467,6 @@ src/Bazaar.Server/Mail/MailContracts.cs
 src/Bazaar.Server/Mail/Parsing/MailLimits.cs
 src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
 src/Bazaar.Server/Mail/Parsing/ParsedMail.cs
-src/Bazaar.Server/Memory/Consolidation/ConsolidationOptions.cs
-src/Bazaar.Server/Memory/Consolidation/ConsolidationPrompt.cs
-src/Bazaar.Server/Memory/Consolidation/ConsolidationReply.cs
-src/Bazaar.Server/Memory/Consolidation/ConsolidationReport.cs
-src/Bazaar.Server/Memory/Consolidation/ConsolidationRunner.cs
-src/Bazaar.Server/Memory/Consolidation/EpisodeNote.cs
-src/Bazaar.Server/Memory/Consolidation/Fakes/InMemoryConsolidationLock.cs
-src/Bazaar.Server/Memory/Consolidation/Fakes/InMemoryEpisodeSource.cs
-src/Bazaar.Server/Memory/Consolidation/IConsolidationLock.cs
-src/Bazaar.Server/Memory/Consolidation/IEpisodeSource.cs
 src/Bazaar.Server/Mentions/HandleSlug.cs
 src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
 src/Bazaar.Server/Modules/Deps/DependencyLineResolver.cs
