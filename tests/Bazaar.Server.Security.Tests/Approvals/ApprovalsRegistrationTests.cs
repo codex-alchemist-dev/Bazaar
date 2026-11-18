@@ -3,7 +3,7 @@ using Bazaar.Approvals.Db;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
-namespace Bazaar.Server.Tests.Security.Approvals;
+namespace Bazaar.Server.Security.Tests.Approvals;
 
 /// <summary>The owner-signature contract is composed once and every owner-gated action resolves the same verifier (doc 32 section 5a).</summary>
 public sealed class ApprovalsRegistrationTests
