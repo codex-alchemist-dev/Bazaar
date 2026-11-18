@@ -25,6 +25,7 @@
       </DockPanel>
     </StackPanel>
     <ListBox x:Name="Lines"
+             AutomationProperties.Name="Chat messages"
              ItemsSource="{Binding Lines}"
              Background="Transparent"
              BorderThickness="0">
