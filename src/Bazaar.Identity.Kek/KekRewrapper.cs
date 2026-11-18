@@ -26,17 +26,31 @@ public static class KekRewriter
     public const string StartedAuditKind = "identity.kek.rewrap.started";
     public const string CompletedAuditKind = "identity.kek.rewrap.completed";
 
-    public static async Task<KekRewrapReport> RunAsync(
+    /// <summary>Re-wraps the rows of one store. See the overload that takes several stores.</summary>
+    public static Task<KekRewrapReport> RunAsync(
         IKekProvider from,
         IKekProvider to,
         IKekRewrapStore store,
+        IKekAuditSink audit,
+        int batchSize = 200,
+        CancellationToken ct = default) =>
+        RunAsync(from, to, [store], audit, batchSize, ct);
+
+    /// <summary>
+    /// Re-wraps every live row of every store (GC person keys and Soul DEKs, for example) as one audited pass. The report totals
+    /// all stores; row ids are Guids and never collide across tables in practice, and a failed id is still listed once.
+    /// </summary>
+    public static async Task<KekRewrapReport> RunAsync(
+        IKekProvider from,
+        IKekProvider to,
+        IReadOnlyList<IKekRewrapStore> stores,
         IKekAuditSink audit,
         int batchSize = 200,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(to);
-        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(stores);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
         if (string.Equals(from.KekId, to.KekId, StringComparison.Ordinal))
@@ -46,37 +60,40 @@ public static class KekRewriter
 
         int scanned = 0, rewrapped = 0, current = 0, conflicts = 0;
         var failed = new List<Guid>();
-        Guid? cursor = null;
 
-        while (true)
+        foreach (var store in stores)
         {
-            var batch = await store.ListLiveWrapsAsync(cursor, batchSize, ct).ConfigureAwait(false);
-            if (batch.Count == 0)
-                break;
-
-            foreach (var row in batch)
+            Guid? cursor = null;
+            while (true)
             {
-                ct.ThrowIfCancellationRequested();
-                scanned++;
-                cursor = row.Id;
+                var batch = await store.ListLiveWrapsAsync(cursor, batchSize, ct).ConfigureAwait(false);
+                if (batch.Count == 0)
+                    break;
 
-                if (await OpensUnder(to, row, ct).ConfigureAwait(false))
+                foreach (var row in batch)
                 {
-                    current++;
-                    continue;
+                    ct.ThrowIfCancellationRequested();
+                    scanned++;
+                    cursor = row.Id;
+
+                    if (await OpensUnder(to, row, ct).ConfigureAwait(false))
+                    {
+                        current++;
+                        continue;
+                    }
+
+                    var outcome = await MoveAsync(from, to, store, row, ct).ConfigureAwait(false);
+                    switch (outcome)
+                    {
+                        case RowOutcome.Rewrapped: rewrapped++; break;
+                        case RowOutcome.Conflict: conflicts++; break;
+                        default: failed.Add(row.Id); break;
+                    }
                 }
 
-                var outcome = await MoveAsync(from, to, store, row, ct).ConfigureAwait(false);
-                switch (outcome)
-                {
-                    case RowOutcome.Rewrapped: rewrapped++; break;
-                    case RowOutcome.Conflict: conflicts++; break;
-                    default: failed.Add(row.Id); break;
-                }
+                if (batch.Count < batchSize)
+                    break;
             }
-
-            if (batch.Count < batchSize)
-                break;
         }
 
         var report = new KekRewrapReport(scanned, rewrapped, current, conflicts, failed);
@@ -128,7 +145,7 @@ public static class KekRewriter
                 CryptographicOperations.ZeroMemory(check);
             }
 
-            return await store.ReplaceWrapAsync(row.Id, row.Wrapped, replacement, ct).ConfigureAwait(false)
+            return await store.ReplaceWrapAsync(row.Id, row.Wrapped, replacement, to.KekId, ct).ConfigureAwait(false)
                 ? RowOutcome.Rewrapped
                 : RowOutcome.Conflict;
         }

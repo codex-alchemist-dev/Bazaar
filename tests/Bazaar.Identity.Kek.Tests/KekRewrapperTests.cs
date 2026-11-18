@@ -32,7 +32,7 @@ public sealed class KekRewrapperTests : IDisposable
             return Task.FromResult(page);
         }
 
-        public Task<bool> ReplaceWrapAsync(Guid id, ReadOnlyMemory<byte> expected, ReadOnlyMemory<byte> replacement, CancellationToken ct)
+        public Task<bool> ReplaceWrapAsync(Guid id, ReadOnlyMemory<byte> expected, ReadOnlyMemory<byte> replacement, string kekId, CancellationToken ct)
         {
             if (FailAfterReplacements is { } limit && _replacements >= limit)
                 throw new IOException("simulated crash during replacement");

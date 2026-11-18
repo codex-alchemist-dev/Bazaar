@@ -41,7 +41,8 @@ public sealed class PostgresKekRewrapStore(NpgsqlDataSource dataSource) : IKekRe
     }
 
     /// <inheritdoc />
-    public async Task<bool> ReplaceWrapAsync(Guid id, ReadOnlyMemory<byte> expected, ReadOnlyMemory<byte> replacement, CancellationToken ct)
+    /// <remarks><c>person_key</c> keeps no KEK id, so <paramref name="kekId"/> is not stored here.</remarks>
+    public async Task<bool> ReplaceWrapAsync(Guid id, ReadOnlyMemory<byte> expected, ReadOnlyMemory<byte> replacement, string kekId, CancellationToken ct)
     {
         await using var command = dataSource.CreateCommand(_replaceSql);
         command.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = id, NpgsqlDbType = NpgsqlDbType.Uuid });

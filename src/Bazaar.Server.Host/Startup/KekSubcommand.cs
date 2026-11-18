@@ -9,7 +9,7 @@ using Npgsql;
 namespace Bazaar.Server.Host.Startup;
 
 /// <summary>
-/// <c>Bazaar.Server.Host kek rewrap --from file|dpapi</c>: moves every live GC data key from the source KEK to the configured
+/// <c>Bazaar.Server.Host kek rewrap --from file|dpapi</c>: moves every live GC person key and Soul DEK from the source KEK to the configured
 /// <c>Bazaar:Identity:KekProvider</c> (doc 14). Run it with the host stopped, then start the host. The source key file is not
 /// deleted. Returns 0 when every live row opens under the target, and 1 otherwise.
 /// </summary>
@@ -51,7 +51,7 @@ public static class KekSubcommand
                 var report = await KekRewriter.RunAsync(
                     source,
                     target,
-                    new PostgresKekRewrapStore(dataSource),
+                    [new PostgresKekRewrapStore(dataSource), new PostgresSoulDekRewrapStore(dataSource)],
                     new AuditLogSink(new PostgresAuditLog(dataSource)),
                     ct: ct);
 

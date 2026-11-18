@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Bazaar.Identity.Kek;
 
@@ -17,7 +18,7 @@ public sealed class KekComponent : IBazaarComponent
         Version: "0.1.0",
         Kind: ComponentKind.Provider,
         DependsOn: [],
-        Provides: ["identity:kek:provider"]);
+        Provides: ["identity:kek:provider", "identity:dek:service"]);
 
     /// <summary>The configuration key holding <c>identity.kek_provider</c>.</summary>
     public const string KekProviderKey = "Bazaar:Identity:KekProvider";
@@ -35,5 +36,10 @@ public sealed class KekComponent : IBazaarComponent
                 ?? throw new InvalidOperationException($"{DataRootKey} is required to open the KEK.");
             return KekProviderFactory.Create(configuration[KekProviderKey], dataRoot);
         });
+        services.AddSingleton<ISoulDekStore>(sp => new PostgresSoulDekStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.AddSingleton(sp => new SoulDekService(
+            sp.GetRequiredService<IKekProvider>(),
+            sp.GetRequiredService<ISoulDekStore>(),
+            sp.GetService<IKekAuditSink>()));
     }
 }
