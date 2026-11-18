@@ -72,7 +72,7 @@ OPEN: the exact VM image for sandbox runs (shared with `16` golden images). Not 
 
 Projects (named per doc 40; neither references `Bazaar.Server.csproj`):
 
-- `Bazaar.Server.DevSandbox.Abstractions`: the contracts. `SandboxRunSpec`, `SandboxPermissionGrant`, `SandboxAction`, `SandboxAuditEvent`, `SandboxRunResult`, `SandboxVerdict`, and the seams `ISandboxRunner`, `ISandboxConfinementProvider` (one per OS), `ISandboxEngine` (WebAssembly or VM), `ISandboxCompanyFactory`, `ISandboxAuditStream`.
+- `Bazaar.Server.DevSandbox.Abstractions`: the contracts. `SandboxRunSpec`, `SandboxPermissionGrant`, `SandboxAction`, `SandboxAuditEvent`, `SandboxRunResult`, `SandboxVerdict`, and the seams `ISandboxRunner`, `ISandboxConfinementProvider` (one per OS), `ISandboxEngine` (WebAssembly or VM), `ISandboxCompanyFactory`, `ISandboxAuditTrail`.
 - `Bazaar.Server.DevSandbox`: the platform-neutral core. Policy engine, hash-chained audit stream, deterministic fake-data company generator with canary values, canary detector, production isolation guard, the runner, replay, and the DI registration `AddBazaarDevSandbox`.
 
 Enforcement rules (all fail closed):

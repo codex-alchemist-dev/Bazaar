@@ -181,7 +181,7 @@ public sealed record SandboxTestCompany(
     IReadOnlyList<string> Canaries);
 
 /// <summary>Append-only, hash-chained record of a run (doc 48 section 2.1 rule 7).</summary>
-public interface ISandboxAuditStream
+public interface ISandboxAuditTrail
 {
     /// <summary>The events so far, in order.</summary>
     IReadOnlyList<SandboxAuditEvent> Events { get; }
