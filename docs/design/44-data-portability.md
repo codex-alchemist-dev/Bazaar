@@ -310,6 +310,8 @@ Re-importing the same source must not create duplicates.
 - Default: staging is deleted when the job commits and verifies. The job keeps the source manifest, hashes and counts.
 - `portability.import.staging_retention_hours`, default 0. The floor is 72 hours unless the owner approves a longer period, because staging holds plaintext personal content.
 
+**Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention above 72 hours is refused without the owner's approval (the doc's word "floor" is read as this protective ceiling; confirm).
+
 ### 8.7 Large dumps
 
 - **Streaming everywhere.** Parsers yield records; nothing holds a whole dump in memory. Staging is on disk with a quota.
@@ -319,6 +321,8 @@ Re-importing the same source must not create duplicates.
 - **Cancel means stop, not undo.** GC history is append-only, so cancelling leaves committed batches in place. Undo is a separate action (section 8.8).
 - **Progress and health.** Progress (items, bytes, ETA, failures) is reported to Observatory (doc 23) and to the health contract (doc 46). A job that makes no progress for a set time is marked `stalled` and alerted.
 - **Size limits.** `portability.import.max_upload_bytes`, default 10 GiB. A larger dump is split by the owner into jobs, or the owner raises the limit, which is audited.
+
+**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Observatory and health reporting are not wired.
 
 ### 8.8 Withdrawing an import
 
