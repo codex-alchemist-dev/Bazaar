@@ -98,6 +98,22 @@ public class ValkeyRegistrationTests
         }
     }
 
+    [Fact]
+    public async Task The_runtime_directory_is_overridable_by_setting()
+    {
+        var services = Register(new Dictionary<string, string?>
+        {
+            ["Bazaar:Cache:Valkey:Endpoint"] = "cache.internal:6379",
+            ["Bazaar:Cache:Valkey:RuntimeDirectory"] = "/var/lib/bazaar/valkey-test",
+        });
+        await using var provider = services.BuildServiceProvider();
+
+        if (OperatingSystem.IsLinux())
+        {
+            Assert.Equal("/var/lib/bazaar/valkey-test", provider.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value.RuntimeDirectory);
+        }
+    }
+
     private static ServiceCollection Register(IReadOnlyDictionary<string, string?> values)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
