@@ -4,7 +4,7 @@ namespace Bazaar.Server.DevSandbox.Linux;
 
 internal static class LinuxProcessFactory
 {
-    /// <summary>Start info with an argument vector (no shell), a scrubbed environment (only PATH), piped stdio and the given cwd.</summary>
+    /// <summary>Start info with an argument vector (no shell), a scrubbed environment (only PATH, plus the helper's start-up variables when hardening is on), piped stdio and the given cwd.</summary>
     internal static ProcessStartInfo CreateStartInfo(LinuxConfinementOptions options, string file, IReadOnlyList<string> arguments, string workingDirectory)
     {
         var psi = new ProcessStartInfo(file)
@@ -23,6 +23,14 @@ internal static class LinuxProcessFactory
 
         psi.Environment.Clear();
         psi.Environment["PATH"] = options.Path;
+        if (options.HelperPath is not null && options.HelperEnvironment is not null)
+        {
+            // For the helper's own start-up only; the helper gives its target an environment holding just PATH.
+            foreach (var (name, value) in options.HelperEnvironment)
+            {
+                psi.Environment[name] = value;
+            }
+        }
         return psi;
     }
 }
