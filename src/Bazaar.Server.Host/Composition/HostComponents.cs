@@ -17,6 +17,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Retention;
@@ -35,6 +36,7 @@ public static class HostComponents
         new AuditComponent(),
         new SettingsComponent(),
         new RetentionComponent(),
+        new KekComponent(),
         new GcComponent(),
         new CompanyComponent(),
         new CompanyBuildComponent(),
