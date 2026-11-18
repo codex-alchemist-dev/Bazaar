@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Bazaar.Tls;
+namespace Bazaar.Server.Tls;
 
 /// <summary>A loaded server certificate with its private key, and the SHA-256 hash of its public key for pinning.</summary>
 /// <param name="Certificate">The certificate. It carries the private key, so the caller disposes this record when done.</param>

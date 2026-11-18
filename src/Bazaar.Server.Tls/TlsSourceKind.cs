@@ -1,4 +1,4 @@
-namespace Bazaar.Tls;
+namespace Bazaar.Server.Tls;
 
 /// <summary>Where the TLS server certificate comes from (docs/design/32 section 2). Wire form is the snake_case name.</summary>
 public enum TlsSourceKind

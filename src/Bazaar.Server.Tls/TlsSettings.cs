@@ -1,4 +1,4 @@
-namespace Bazaar.Tls;
+namespace Bazaar.Server.Tls;
 
 /// <summary>
 /// The <c>tls.certificate_source</c> setting (docs/design/32 settings table: enum pem, acme, overlay; default pem; install

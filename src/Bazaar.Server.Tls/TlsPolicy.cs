@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Bazaar.Tls;
+namespace Bazaar.Server.Tls;
 
 /// <summary>
 /// Where plain <c>ws://</c> is allowed (docs/design/32 section 2). Plain text only on loopback (127.0.0.0/8 and ::1). Any

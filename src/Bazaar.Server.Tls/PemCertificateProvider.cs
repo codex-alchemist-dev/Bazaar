@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Bazaar.Tls;
+namespace Bazaar.Server.Tls;
 
 /// <summary>Loads an operator-supplied PEM certificate file and its PEM private key file.</summary>
 public sealed class PemCertificateProvider : ICertificateProvider

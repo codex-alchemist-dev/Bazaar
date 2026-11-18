@@ -1,4 +1,4 @@
-namespace Bazaar.Tls;
+namespace Bazaar.Server.Tls;
 
 /// <summary>A certificate could not be loaded. The message names the file or source, never key material or a secret value.</summary>
 public sealed class TlsCertificateException : Exception

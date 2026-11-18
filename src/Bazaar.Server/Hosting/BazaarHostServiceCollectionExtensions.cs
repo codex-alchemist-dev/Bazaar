@@ -9,7 +9,7 @@ namespace Bazaar.Server.Hosting;
 public static class BazaarHostServiceCollectionExtensions
 {
     // TODO(component): register from host composition when the component model (PR #125) merges.
-    // AddBazaarTls (Bazaar.Tls) goes here, fed by TlsOptions from the tls.certificate_source setting and the PEM or PFX paths.
+    // AddBazaarTls (Bazaar.Server.Tls) goes here, fed by TlsOptions from the tls.certificate_source setting and the PEM or PFX paths.
 
     /// <summary>
     /// Binds <see cref="BazaarHostOptions"/> from the <c>Bazaar:Host</c> section, validates it on start and logs it once.
