@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Erasure.Abstractions;
+namespace Bazaar.Erasure.Abstractions;
 
 /// <summary>
 /// Answers whether a person is covered by an active legal hold (design doc 48 section 9). Erasure checks this before it

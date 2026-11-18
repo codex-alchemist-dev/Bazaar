@@ -1,7 +1,7 @@
-using Bazaar.Server.Erasure.Abstractions;
+using Bazaar.Erasure.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Server.Erasure;
+namespace Bazaar.Erasure;
 
 public static class LegalHoldRegistration
 {

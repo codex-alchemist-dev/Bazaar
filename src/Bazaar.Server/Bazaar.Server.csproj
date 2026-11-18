@@ -23,7 +23,7 @@
     <ProjectReference Include="..\Bazaar.Server.Audit.Abstractions\Bazaar.Server.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.PrivacyAudit\Bazaar.Server.PrivacyAudit.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.Erasure.Abstractions\Bazaar.Server.Erasure.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>

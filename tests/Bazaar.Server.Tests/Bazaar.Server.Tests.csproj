@@ -30,7 +30,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Install\Bazaar.Server.Install.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Tls\Bazaar.Server.Tls.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Erasure\Bazaar.Server.Erasure.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Fun\Bazaar.Server.Fun.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />

@@ -1,7 +1,7 @@
-using Bazaar.Server.Erasure.Abstractions;
+using Bazaar.Erasure.Abstractions;
 using Npgsql;
 
-namespace Bazaar.Server.Erasure;
+namespace Bazaar.Erasure;
 
 /// <summary>
 /// Reads <c>active_legal_hold</c> (migration erasure/0001) for person-scoped holds. Read-only; holds are created and released
