@@ -44,6 +44,9 @@ The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
 Status and readiness; logs (tail, filter by level and module); Kodo health, incidents and runbook links; modules (selection, build reports, rebuild); users, roles, devices and revocation; approvals; audit view; setup changes through the same wizard (`ISetupPrompter` again). **Permissions (DECIDED, owner card 2026-11-18): everything the apps allow.** An admin can do in the TUI whatever the same account can do in a client, including modules, rebuilds, users, roles and settings. Risky actions keep the usual approval step-up. The TUI adds no privilege.
 
+### 3a. Alerts (DECIDED, owner card 2026-11-18, "Banner for serious, quiet for minor")
+The resident TUI follows Kodo's severity grades (doc 46). A serious failure shows a banner at the top with what failed, and rings the terminal bell once; the banner stays until acknowledged. A minor one only turns its line amber on the overview, with no banner and no sound. Colour is never the only signal (section 4). The bell can be turned off in settings.
+
 ### 4. Input, access and accessibility
 - Keyboard only, mnemonics from the doc 41 registry with no Ctrl chords, remappable, plus a palette.
 - Falls back to the plain wizard when stdout is not a TTY, with `--plain`, with `NO_COLOR` set, or when a screen-reader flag is given. Doc 45 line "Not a TUI" is replaced: the plain wizard stays as the accessible path; the TUI is opt-in beside it.
