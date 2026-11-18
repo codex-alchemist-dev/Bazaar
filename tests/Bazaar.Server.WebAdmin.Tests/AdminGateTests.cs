@@ -103,12 +103,12 @@ public sealed class AdminGateTests
     }
 
     [Fact]
-    public void The_default_wiring_reads_no_session_so_the_panel_is_closed()
+    public void The_default_wiring_reads_the_cookie_and_starts_with_no_sessions_so_the_panel_is_closed()
     {
         var services = new ServiceCollection();
         new WebAdminComponent().AddServices(services, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
 
-        Assert.Contains(services, d => d.ServiceType == typeof(IAdminSessionReader) && d.ImplementationType == typeof(NoSessionReader));
+        Assert.Contains(services, d => d.ServiceType == typeof(IAdminSessionReader) && d.ImplementationType == typeof(Bazaar.Server.WebAdmin.Security.CookieAdminSessionReader));
     }
 
     private static async Task<int> CallAsync(AdminSession? session, params string[] allowed)

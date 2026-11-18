@@ -13,13 +13,13 @@ namespace Bazaar.Server.WebAdmin;
 /// </summary>
 public sealed class AdminGate(IAdminSessionReader reader, IPermissionChecker checker, IAuditLog audit, TimeProvider clock) : IAdminGate
 {
-    private static readonly Capability KodoViewStatus = new("kodo.view.status");
-    private static readonly Capability KodoViewAudit = new("kodo.view.audit");
+    private static readonly Capability _kodoViewStatus = new("kodo.view.status");
+    private static readonly Capability _kodoViewAudit = new("kodo.view.audit");
 
     private static readonly Capability[] _anyAdmin =
     [
         Capabilities.AdminMembers, Capabilities.AdminDevices, Capabilities.AdminPrivacy,
-        Capabilities.AdminBackups, Capabilities.AdminModules, Capabilities.AdminRoles, KodoViewStatus,
+        Capabilities.AdminBackups, Capabilities.AdminModules, Capabilities.AdminRoles, _kodoViewStatus,
     ];
 
 
@@ -31,8 +31,8 @@ public sealed class AdminGate(IAdminSessionReader reader, IPermissionChecker che
         AdminArea.Privacy => [Capabilities.AdminPrivacy],
         AdminArea.Backups => [Capabilities.AdminBackups],
         AdminArea.Modules => [Capabilities.AdminModules],
-        AdminArea.Kodo => [KodoViewStatus],
-        AdminArea.Audit => [KodoViewAudit],
+        AdminArea.Kodo => [_kodoViewStatus],
+        AdminArea.Audit => [_kodoViewAudit],
         AdminArea.Roles => [Capabilities.AdminRoles],
         _ => throw new ArgumentOutOfRangeException(nameof(area)),
     };
