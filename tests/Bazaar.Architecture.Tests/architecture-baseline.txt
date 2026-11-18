@@ -979,11 +979,3 @@ src/Bazaar.Server/Wire/Sync/IGraphLodSource.cs
 src/Bazaar.Server/Wire/Sync/SubscriptionEngine.cs
 src/Bazaar.Server/Wire/Sync/SyncFrames.cs
 src/Bazaar.Server/Wire/Sync/SyncOptions.cs
-src/Bazaar.Server/WorkLife/AgentSchedule.cs
-src/Bazaar.Server/WorkLife/AvailabilityMachine.cs
-src/Bazaar.Server/WorkLife/AvailabilityState.cs
-src/Bazaar.Server/WorkLife/AvailabilityWindow.cs
-src/Bazaar.Server/WorkLife/CalendarEvent.cs
-src/Bazaar.Server/WorkLife/EvaluationOptions.cs
-src/Bazaar.Server/WorkLife/PresenceRules.cs
-src/Bazaar.Server/WorkLife/ScheduleEvaluator.cs
