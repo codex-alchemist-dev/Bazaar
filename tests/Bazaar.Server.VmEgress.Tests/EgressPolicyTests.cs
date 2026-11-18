@@ -258,6 +258,21 @@ public class EgressPolicyTests
     }
 
     [Fact]
+    public async Task Releasing_a_block_with_no_approved_rules_clears_the_flag_and_stays_default_deny()
+    {
+        await using var rig = new Rig();
+        await rig.Policy.BlockAllAsync("ghost", TestContext.Current.CancellationToken);
+        Assert.True(await rig.Store.IsBlockedAsync("ghost", TestContext.Current.CancellationToken));
+
+        var released = await rig.Policy.ReleaseBlockAsync("ghost", TestContext.Current.CancellationToken);
+
+        Assert.True(released.IsApplied);
+        Assert.False(await rig.Store.IsBlockedAsync("ghost", TestContext.Current.CancellationToken));
+        Assert.True(rig.Enforcer.IsBlocked("ghost")); // nothing was re-applied: the switch stays closed
+        Assert.Null(rig.Host.Get("ghost"));
+    }
+
+    [Fact]
     public async Task Block_all_still_closes_the_proxy_when_the_enforcer_fails_and_says_so()
     {
         await using var rig = new Rig();

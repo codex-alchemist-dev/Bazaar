@@ -84,8 +84,15 @@ public sealed class EgressPolicyService(
         var rules = await store.GetAsync(agentId, ct).ConfigureAwait(false);
         if (rules is null)
         {
-            // Nothing was ever approved. Leave the block in place; there is nothing to re-apply.
-            return new EgressApplyResult(EgressApplyOutcome.Blocked, "No approved rules to restore.");
+            // Nothing was ever approved, so there is nothing to re-apply. Egress stays default-deny (the proxy and the switch rule are
+            // already closed); only the block flag is cleared, by compare-and-set so a block that arrives meanwhile still wins.
+            var seen = await store.GetBlockEpochAsync(agentId, ct).ConfigureAwait(false);
+            if (!await store.TryReleaseBlockAsync(agentId, seen, ct).ConfigureAwait(false))
+            {
+                return new EgressApplyResult(EgressApplyOutcome.Blocked, "Egress was blocked again while the release ran.");
+            }
+
+            return new EgressApplyResult(EgressApplyOutcome.Applied, "No approved rules to restore; egress stays default-deny.");
         }
 
         // The block is cleared only by compare-and-set on the epoch read here, after the rules are back. A block that arrives in
