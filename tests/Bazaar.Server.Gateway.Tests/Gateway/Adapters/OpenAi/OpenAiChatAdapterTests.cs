@@ -1,6 +1,5 @@
 using System.Net;
 using Bazaar.Contracts.Gateway;
-using Bazaar.Server.Tests.Testing;
 using Microsoft.Extensions.Time.Testing;
 using static Bazaar.Server.Tests.Gateway.Adapters.OpenAi.OpenAiChatTestRig;
 
