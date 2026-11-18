@@ -235,6 +235,20 @@ The brief's requirement: supervised restart, crash-only design, bulkheads, circu
 - The brief's scale decision is one large company on a single node, splittable to several nodes later. Kodo's probes, journal and API run on that one node by default. Kodo's data volume is bounded by the retention settings (section 20), not by the number of agents.
 - Multi-node splitting is not designed here. When it is, Kodo's journal needs a single writer per install (already true: the journal has one writer, section 5.1) and its probes need a routing table that says which node runs which probe. That design belongs with doc 03's host split and is not started.
 
+### 7.8 Sentinel implementation choices (package 8, PROPOSED 2026-11-18)
+
+The pure parts live in `src/Bazaar.Kodo/Sentinel`, with the OS behind `ISentinelFileStore`, `IKodoProcessLauncher`, `ISentinelJournal` and `ISentinelStatusFile`, and the clock as `TimeProvider`. Every choice below is PROPOSED because the doc leaves it open. Owner to ratify.
+
+- **Stable period.** A run of at least 10 minutes clears the restart backoff. Section 7.1 names no stable period. The schedule's last value is the cap (300 s).
+- **Probation runs after the swap.** The candidate pointer becomes active, then the slot runs its probation window (`kodo.integrity.probation_min`, default 10 minutes). A failed probation rolls back. Section 6.3 says the new Kodo runs in shadow mode before the swap, which would need no rollback. The two readings conflict. This choice follows the package 8 brief, which requires a rollback after a failed probation.
+- **Probation pass.** The process survives the window, and the active pointer and slot verify again at the end.
+- **Rollback order.** Journal event first (`sentinel.rollback`), then the active pointer swap, then the previous pointer is set to the left pointer, then the status file is replaced. A journal write failure does not block the rollback; the status detail records it. The audit event (doc 48) is not written in this slice.
+- **Blocked rollback.** If the previous pointer is missing or does not verify, no flip happens. The candidate stays active with phase `failing` and cause `previous_slot_missing` or `previous_not_verified`.
+- **Startup fallback.** A failed active pointer falls back to the verified previous pointer. The active file is rewritten, and the previous file is left unchanged. Neither pointer verifying gives phase `sealed` with no active slot.
+- **Status file.** `kodo.sentinel.status.json` in the data directory, never in the runtime root. Schema version 1, camelCase, every field always written. Phases: `starting`, `running`, `probation`, `failing`, `sealed`.
+- **Cause codes.** Stable strings in `SentinelCauses`. The verifier's status name goes in `detail`.
+- **Not in this slice.** Crash-loop detection (7.1), the OS launcher and file store, the loopback server, the audit event, and a gate on the supervisor (`RecordKodoExit` is not serialised with start or promotion; the caller must not overlap them).
+
 ## 8. State model
 
 ### 8.1 States
@@ -849,7 +863,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Module identity, naming and projects | PLANNED | No project exists |
 | Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Pure parts built in `src/Bazaar.Kodo/Runtime` (manifest, signature check, slot pointer, verifier; package 7). No sentinel or swap code yet. The design uses a signed pointer file (6.3), not a junction. Needs spike K1 (Windows read-only slot and pointer replace) and spike K2 (Linux bind-mount slots and pointer rename) run on hardware. Proposed for doc 35; not numbered there yet |
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
-| Sentinel process | PLANNED | No code |
+| Sentinel process | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Sentinel` (package 8): restart backoff, slot switch with probation and rollback, startup fallback, loopback status shape. Choices are PROPOSED in 7.8. No OS launcher, file store, loopback server, crash-loop detection or audit event yet |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |
 | Warm standby and fencing | PLANNED, optional | Needs a fencing spike on the chosen database setup |
 | State model (5 states plus `unobserved` display) | PLANNED | Table design in 8 |
