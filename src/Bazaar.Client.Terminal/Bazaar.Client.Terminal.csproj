@@ -5,6 +5,9 @@
     <RootNamespace>Bazaar.Client.Terminal</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Calcinato\Bazaar.Client.Calcinato.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato.Abstractions\Bazaar.Client.Calcinato.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato.Pty\Bazaar.Client.Calcinato.Pty.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
