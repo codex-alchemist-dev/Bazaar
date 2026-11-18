@@ -47,8 +47,10 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 ### 5. Authentication in Ops mode (DECIDED, owner card 2026-11-18, "Owner on the box, plus admin codes")
 Terminals cannot do a passkey ceremony. The owner signs in locally on the box through the same local owner gate as `bazaar-admin` (doc 45 section 1.9). Other admins get a short-lived code issued from a signed-in client and redeem it in the TUI for a session under the same roles check (doc 51 session store). Codes are single-use and audited.
 
-## Open questions (coordinator took the defaults, 2026-11-19; both PROPOSED)
-1. **Remote owner sign-in.** The owner's local gate (section 5) is not available from another machine. How does the owner sign in to a TUI that runs remotely over Conduit? Asked on a card; not yet answered.
+**Remote sign-in over Conduit (DECIDED, owner card 2026-11-18, "Both, owner chooses per machine").** The owner's local gate does not travel, so remotely the owner (and any admin) signs in with the same single-use code from a signed-in client. A machine may also be given a device key, registered once from a signed-in client or on the box, after which sign-in from that machine is signed by the key with no code. The owner chooses per machine, and every grant and revocation is audited.
+
+## Open questions
+None open on sign-in or scope. Open: packaging and the shape of the executable (asked on a card).
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.
