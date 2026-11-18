@@ -118,9 +118,11 @@ public sealed class WebSocketWireTransportTests
         var acceptTask = server.AcceptAsync(Ct);
         await using var pair = await OpenAsync(factory, acceptTask);
 
-        await pair.Server.CloseOutputAsync((WebSocketCloseStatus)WireCloseCodes.UpgradeRequired, "upgrade required", Ct);
+        // Each step is bounded, so a stall fails at the step that stalled instead of running into the test timeout.
+        await pair.Server.CloseOutputAsync((WebSocketCloseStatus)WireCloseCodes.UpgradeRequired, "upgrade required", Ct)
+            .WaitAsync(TimeSpan.FromSeconds(10), Ct);
 
-        WireReceive result = await pair.Client.ReceiveAsync(Ct);
+        WireReceive result = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(10), Ct);
         Assert.True(result.IsClosed);
         Assert.Equal(4426, result.CloseCode);
     }
@@ -280,14 +282,31 @@ public sealed class WebSocketWireTransportTests
     /// <summary>A one-shot loopback WebSocket server built on <see cref="HttpListener"/>.</summary>
     private sealed class LoopbackWebSocketServer : IDisposable
     {
-        private readonly HttpListener _listener = new();
+        private readonly HttpListener _listener;
 
         public LoopbackWebSocketServer()
         {
-            int port = FreePort();
-            Endpoint = new Uri($"ws://127.0.0.1:{port}/ws/");
-            _listener.Prefixes.Add($"http://127.0.0.1:{port}/ws/");
-            _listener.Start();
+            // FreePort releases the port before the listener binds it, so another test can take it in between.
+            // Retry with a fresh port rather than failing on that race.
+            for (int attempt = 1; ; attempt++)
+            {
+                int port = FreePort();
+                var listener = new HttpListener();
+                listener.Prefixes.Add($"http://127.0.0.1:{port}/ws/");
+                try
+                {
+                    listener.Start();
+                }
+                catch (HttpListenerException) when (attempt < 5)
+                {
+                    listener.Close();
+                    continue;
+                }
+
+                _listener = listener;
+                Endpoint = new Uri($"ws://127.0.0.1:{port}/ws/");
+                return;
+            }
         }
 
         public Uri Endpoint { get; }

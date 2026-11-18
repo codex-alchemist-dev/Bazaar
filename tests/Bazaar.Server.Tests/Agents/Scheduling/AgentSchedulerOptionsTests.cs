@@ -17,31 +17,13 @@ public sealed class AgentSchedulerOptionsTests
         Assert.Equal(4, options.MaxConcurrentTurns);
         Assert.Equal(10, options.MaxItemsPerTurn);
         Assert.Equal(TimeSpan.FromMinutes(5), options.GuardTripBackoff);
-        Assert.Equal("", options.Route);
         Assert.Equal("wake", options.HolderPrefix);
-        Assert.Empty(options.ToolAllowlist);
     }
 
     [Fact]
-    public void Enabled_with_a_route_is_valid()
+    public void Enabled_needs_no_route_or_tool_names_because_both_are_per_agent()
     {
-        new AgentSchedulerOptions { Enabled = true, Route = "claude", ToolAllowlist = ["gc.post"] }.Validate();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("  ")]
-    public void Enabled_with_a_blank_route_is_refused(string route)
-    {
-        var ex = Assert.Throws<ArgumentException>(() => new AgentSchedulerOptions { Enabled = true, Route = route }.Validate());
-
-        Assert.Contains("Bazaar:AgentTurns:Scheduler:Route", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void A_blank_route_is_fine_while_disabled()
-    {
-        new AgentSchedulerOptions { Enabled = false, Route = "" }.Validate();
+        new AgentSchedulerOptions { Enabled = true }.Validate();
     }
 
     [Fact]
@@ -69,9 +51,8 @@ public sealed class AgentSchedulerOptionsTests
     }
 
     [Fact]
-    public void A_blank_holder_prefix_or_tool_name_is_refused()
+    public void A_blank_holder_prefix_is_refused()
     {
         Assert.Throws<ArgumentException>(() => new AgentSchedulerOptions { HolderPrefix = " " }.Validate());
-        Assert.Throws<ArgumentException>(() => new AgentSchedulerOptions { ToolAllowlist = ["gc.post", " "] }.Validate());
     }
 }
