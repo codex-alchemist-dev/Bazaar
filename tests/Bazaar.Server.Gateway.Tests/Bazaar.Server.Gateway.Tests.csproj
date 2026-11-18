@@ -21,6 +21,7 @@
     <None Update="Gateway\FreeLlmApi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
