@@ -735,16 +735,6 @@ src/Bazaar.Server/Settings/SettingKey.cs
 src/Bazaar.Server/Settings/SettingRegistry.cs
 src/Bazaar.Server/Settings/SettingTypes.cs
 src/Bazaar.Server/Settings/SettingWriteResult.cs
-src/Bazaar.Server/Setup/SecretReferences.cs
-src/Bazaar.Server/Setup/SetupChangePlanner.cs
-src/Bazaar.Server/Setup/SetupConstants.cs
-src/Bazaar.Server/Setup/SetupExitCode.cs
-src/Bazaar.Server/Setup/SetupPlan.cs
-src/Bazaar.Server/Setup/SetupPlanCanonicalizer.cs
-src/Bazaar.Server/Setup/SetupPlanJsonContext.cs
-src/Bazaar.Server/Setup/SetupPlanLoader.cs
-src/Bazaar.Server/Setup/SetupPlanValidator.cs
-src/Bazaar.Server/Setup/SetupValidationIssue.cs
 src/Bazaar.Server/Skimmer/Data/GateConfigRepository.cs
 src/Bazaar.Server/Skimmer/Data/GateLabelRepository.cs
 src/Bazaar.Server/Skimmer/Data/SkimmerCommands.cs
