@@ -177,6 +177,7 @@ Time Machine, Playtest and What If are separate module pairs (`Bazaar.Server.Tim
 - **Fork links, not copies (Q1 default).** `fork_link` is append-only, and a fork request is idempotent on `(source_gc_id, source_seq, request_id)`.
 - **Missing sources degrade.** If Kanban, Vault or Souls are not loaded, the frame carries that part as `unavailable`, not an error.
 - **Playtest Tier A scenarios** are declared data (engine, build ref, scenario id, assertions); results are state dumps with a content hash. Personas never see pixels. The project hash is recorded before and after a run, and a change fails the run.
+- **Replay view modes.** `current` opens live with no banner, and a read-only banner appears once the viewer scrubs back; `history` keeps the banner on at every seq, the head included. The per-viewer override is a client preference. The client pane model is `{gcId, headSeq, defaultView}`. The replay and fork wire messages need doc 02 before a real client transport exists.
 - **What If** ships contracts and a deterministic fake runner now. The metric spec is canonical JSON hashed with SHA-256 before any branch starts; a mismatch aborts the run.
 
 ## Questions for the owner
