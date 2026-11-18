@@ -61,44 +61,44 @@ public sealed record FocusMessage(long Seq) : HostMessage(Seq);
 [JsonDerivedType(typeof(KeyPressedMessage), "keyPressed")]
 [JsonDerivedType(typeof(SelectionMessage), "selection")]
 [JsonDerivedType(typeof(ErrorMessage), "error")]
-public abstract record EditorMessage([property: JsonRequired] long Seq);
+public abstract record EditorMessage(long Seq);
 
 /// <summary>The editor finished loading and can take host messages.</summary>
-public sealed record ReadyMessage([property: JsonRequired] long Seq) : EditorMessage(Seq);
+public sealed record ReadyMessage(long Seq) : EditorMessage(Seq);
 
 /// <summary>The content changed. <paramref name="Version"/> is a per-document counter that only rises.</summary>
 public sealed record ChangedMessage(
-    [property: JsonRequired] long Seq,
-    [property: JsonRequired] string DocumentId,
-    [property: JsonRequired] long Version,
-    [property: JsonRequired] string Content,
-    [property: JsonRequired] bool Dirty) : EditorMessage(Seq);
+    long Seq,
+    string DocumentId,
+    long Version,
+    string Content,
+    bool Dirty) : EditorMessage(Seq);
 
 /// <summary>The user asked to save a document (the save coordinator decides what happens, doc 52 §5).</summary>
-public sealed record SaveRequestedMessage([property: JsonRequired] long Seq, [property: JsonRequired] string DocumentId)
+public sealed record SaveRequestedMessage(long Seq, string DocumentId)
     : EditorMessage(Seq);
 
 /// <summary>A key the editor saw, handed to the client key router as the editor reports it (doc 52 §7).</summary>
 public sealed record KeyPressedMessage(
-    [property: JsonRequired] long Seq,
-    [property: JsonRequired] string Key,
-    [property: JsonRequired] bool Shift,
-    [property: JsonRequired] bool Alt,
-    [property: JsonRequired] bool Meta,
-    [property: JsonRequired] bool Ctrl) : EditorMessage(Seq);
+    long Seq,
+    string Key,
+    bool Shift,
+    bool Alt,
+    bool Meta,
+    bool Ctrl) : EditorMessage(Seq);
 
 /// <summary>The selection moved. Lines and columns are 1-based.</summary>
 public sealed record SelectionMessage(
-    [property: JsonRequired] long Seq,
-    [property: JsonRequired] string DocumentId,
-    [property: JsonRequired] int StartLine,
-    [property: JsonRequired] int StartColumn,
-    [property: JsonRequired] int EndLine,
-    [property: JsonRequired] int EndColumn) : EditorMessage(Seq);
+    long Seq,
+    string DocumentId,
+    int StartLine,
+    int StartColumn,
+    int EndLine,
+    int EndColumn) : EditorMessage(Seq);
 
 /// <summary>The editor hit an error. <paramref name="DocumentId"/> is set when the error belongs to one document.</summary>
 public sealed record ErrorMessage(
-    [property: JsonRequired] long Seq,
+    long Seq,
     string? DocumentId,
-    [property: JsonRequired] string Code,
-    [property: JsonRequired] string Message) : EditorMessage(Seq);
+    string Code,
+    string Message) : EditorMessage(Seq);

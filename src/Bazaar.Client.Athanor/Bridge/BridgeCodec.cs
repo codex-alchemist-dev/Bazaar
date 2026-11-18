@@ -13,7 +13,21 @@ public sealed class BridgeCodec
     /// <summary>The payload limit when the caller does not set one (doc 52 §4).</summary>
     public const long DefaultMaxPayloadBytes = 8L * 1024 * 1024;
 
-    private const int MaxKeyLength = 64;
+    private const int _maxKeyLength = 64;
+
+    /// <summary>
+    /// The editor message types and the fields each must carry (the <c>type</c> is checked separately). An
+    /// <c>error</c> may omit <c>documentId</c>, so it is not listed.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> _requiredFields = new(StringComparer.Ordinal)
+    {
+        ["ready"] = ["seq"],
+        ["changed"] = ["seq", "documentId", "version", "content", "dirty"],
+        ["saveRequested"] = ["seq", "documentId"],
+        ["keyPressed"] = ["seq", "key", "shift", "alt", "meta", "ctrl"],
+        ["selection"] = ["seq", "documentId", "startLine", "startColumn", "endLine", "endColumn"],
+        ["error"] = ["seq", "code", "message"],
+    };
 
     private readonly long _maxPayloadBytes;
 
@@ -67,7 +81,7 @@ public sealed class BridgeCodec
             return false;
         }
 
-        using JsonDocument document = TryParse(json, out error);
+        using JsonDocument? document = TryParse(json, out error);
         if (document is null)
         {
             return false;
@@ -82,10 +96,20 @@ public sealed class BridgeCodec
             return false;
         }
 
-        if (!IsEditorType(typeElement.GetString()))
+        string? type = typeElement.GetString();
+        if (!_requiredFields.TryGetValue(type ?? string.Empty, out string[]? required))
         {
             error = "The message type is not known.";
             return false;
+        }
+
+        foreach (string field in required)
+        {
+            if (!root.TryGetProperty(field, out _))
+            {
+                error = "The message fields do not match its type.";
+                return false;
+            }
         }
 
         EditorMessage? decoded;
@@ -146,9 +170,6 @@ public sealed class BridgeCodec
         }
     }
 
-    private static bool IsEditorType(string? type) => type is "ready" or "changed" or "saveRequested"
-        or "keyPressed" or "selection" or "error";
-
     private static bool IsValid(EditorMessage message, out string? error)
     {
         error = null;
@@ -179,7 +200,7 @@ public sealed class BridgeCodec
                 return true;
 
             case KeyPressedMessage key:
-                if (string.IsNullOrWhiteSpace(key.Key) || key.Key.Length > MaxKeyLength)
+                if (string.IsNullOrWhiteSpace(key.Key) || key.Key.Length > _maxKeyLength)
                 {
                     error = "The key message has an invalid key.";
                     return false;
