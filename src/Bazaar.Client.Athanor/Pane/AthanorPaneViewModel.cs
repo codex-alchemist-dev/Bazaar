@@ -1,0 +1,215 @@
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Saves;
+using Bazaar.Client.Athanor.Workspace;
+using Bazaar.Client.Core.Panes;
+
+namespace Bazaar.Client.Athanor.Pane;
+
+/// <summary>One tab as the pane shows it: the workspace tab plus the dirty flag the save coordinator holds.</summary>
+public sealed record AthanorTabItem(EditorDocumentId Id, string Title, bool Dirty, bool ReadOnly, bool Active)
+{
+    /// <summary>The label the tab strip shows. A dirty tab carries a trailing dot.</summary>
+    public string Label => Dirty ? Title + " ●" : Title;
+}
+
+/// <summary>
+/// The Athanor editor pane (doc 57 §2): the tab list, the active tab, dirty flags and the save and conflict state, over an
+/// <see cref="EditorWorkspace"/> and a <see cref="SaveCoordinator"/>. Built without a host or a file source it is an empty
+/// state, so a head that has no editor wired still renders the pane.
+/// </summary>
+public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
+{
+    private readonly EditorWorkspace? _workspace;
+    private readonly SaveCoordinator? _saves;
+    private readonly IEditorHost? _host;
+    private readonly RecordingSource? _source;
+
+    /// <summary>Builds the empty state. Nothing can be opened.</summary>
+    public AthanorPaneViewModel(string title)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        Title = title;
+    }
+
+    /// <summary>Builds the working pane over a host and a file source.</summary>
+    public AthanorPaneViewModel(string title, IEditorHost host, IEditorFileSource source, IEditorDraftStore drafts, TimeProvider? clock = null)
+        : this(title)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(drafts);
+
+        _host = host;
+        _source = new RecordingSource(source);
+        _workspace = new EditorWorkspace(host, _source);
+        _saves = new SaveCoordinator(_source, drafts, clock ?? TimeProvider.System);
+
+        _host.Changed += OnHostChanged;
+        _host.SaveRequested += OnHostSaveRequested;
+        _workspace.TabsChanged += OnStateChanged;
+        _saves.StateChanged += OnSaveStateChanged;
+    }
+
+    public string Kind => AthanorPaneKinds.Editor;
+
+    public string Title { get; }
+
+    /// <summary>True when no host or file source was supplied. The view shows <see cref="EmptyMessage"/>.</summary>
+    public bool IsEmpty => _workspace is null;
+
+    public const string EmptyMessage = "The editor is not available in this client.";
+
+    /// <summary>Raised after the tab list, the active tab or any save state changed. May run on any thread.</summary>
+    public event EventHandler? Changed;
+
+    public IReadOnlyList<AthanorTabItem> Tabs
+    {
+        get
+        {
+            if (_workspace is null)
+            {
+                return [];
+            }
+
+            var active = _workspace.ActiveTab?.Id;
+            return _workspace.Tabs
+                .Select(t => new AthanorTabItem(t.Id, t.Title, IsDirty(t.Id), t.ReadOnly, active == t.Id))
+                .ToArray();
+        }
+    }
+
+    public AthanorTabItem? ActiveTab => Tabs.FirstOrDefault(t => t.Active);
+
+    /// <summary>The content of the active document as the coordinator last saw it, or empty when no tab is open.</summary>
+    public string ActiveContent => ActiveState?.Content ?? string.Empty;
+
+    /// <summary>The conflict the last save hit on the active document, or null. The server's copy is in the conflict.</summary>
+    public SaveConflict? ActiveConflict => ActiveState?.Conflict;
+
+    /// <summary>Why the last save did not reach the server (offline, source error), or null.</summary>
+    public string? ActiveUnavailableReason => ActiveState?.UnavailableReason;
+
+    /// <summary>Opens a document in a new tab, or activates it when open. False when it does not exist or cannot be shown.</summary>
+    public async Task<bool> OpenAsync(EditorDocumentId id, CancellationToken cancellationToken = default)
+    {
+        if (_workspace is null || _saves is null || _source is null)
+        {
+            return false;
+        }
+
+        if (!await _workspace.OpenAsync(id, cancellationToken).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        if (_saves.GetState(id) is null && _source.TryTake(id, out var document))
+        {
+            _saves.Track(document);
+        }
+
+        return true;
+    }
+
+    public bool Activate(EditorDocumentId id) => _workspace?.Activate(id) ?? false;
+
+    public async Task CloseAsync(EditorDocumentId id, CancellationToken cancellationToken = default)
+    {
+        if (_workspace is null || _saves is null)
+        {
+            return;
+        }
+
+        await _workspace.CloseAsync(id, cancellationToken).ConfigureAwait(true);
+        _saves.Untrack(id);
+    }
+
+    /// <summary>Saves the active document. Null when no document is open. A conflict stays in <see cref="ActiveConflict"/>.</summary>
+    public Task<SaveOutcome?> SaveActiveAsync(CancellationToken cancellationToken = default) =>
+        _workspace?.ActiveTab is { } tab ? SaveAsync(tab.Id, cancellationToken) : Task.FromResult<SaveOutcome?>(null);
+
+    /// <summary>Keeps the user's text over the server's copy after a conflict. The next save goes against the server revision.</summary>
+    public Task KeepMineAsync() =>
+        _workspace?.ActiveTab is { } tab && _saves is not null ? _saves.ResolveConflictKeepMineAsync(tab.Id) : Task.CompletedTask;
+
+    /// <summary>
+    /// Types into the active document. Only the plain-text fallback host takes input from the pane; a Monaco host owns its
+    /// own surface and reports through <see cref="IEditorHost.Changed"/>.
+    /// </summary>
+    public void EditActive(string content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        if (_host is PlainTextFallbackHost fallback && _workspace?.ActiveTab is { ReadOnly: false } tab)
+        {
+            fallback.Edit(tab.Id, content);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_workspace is null || _saves is null || _host is null)
+        {
+            return;
+        }
+
+        _host.Changed -= OnHostChanged;
+        _host.SaveRequested -= OnHostSaveRequested;
+        _workspace.TabsChanged -= OnStateChanged;
+        _saves.StateChanged -= OnSaveStateChanged;
+        _saves.Dispose();
+        await _workspace.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private DocumentSaveState? ActiveState =>
+        _workspace?.ActiveTab is { } tab ? _saves?.GetState(tab.Id) : null;
+
+    private bool IsDirty(EditorDocumentId id) => _saves?.GetState(id)?.Dirty ?? false;
+
+    private async Task<SaveOutcome?> SaveAsync(EditorDocumentId id, CancellationToken cancellationToken)
+    {
+        if (_saves?.GetState(id) is null)
+        {
+            return null;
+        }
+
+        return await _saves.SaveAsync(id, cancellationToken).ConfigureAwait(true);
+    }
+
+    private void OnHostChanged(object? sender, EditorChange change) => _saves?.OnChanged(change);
+
+    private void OnHostSaveRequested(object? sender, EditorDocumentId id) => _ = SaveAsync(id, CancellationToken.None);
+
+    private void OnStateChanged(object? sender, EventArgs e) => Changed?.Invoke(this, EventArgs.Empty);
+
+    private void OnSaveStateChanged(object? sender, EditorDocumentId id) => Changed?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Passes calls through and remembers the last document each open returned, so the pane can track its revision.</summary>
+    private sealed class RecordingSource(IEditorFileSource inner) : IEditorFileSource
+    {
+        private readonly Dictionary<EditorDocumentId, EditorDocument> _opened = [];
+
+        public async Task<EditorDocument?> OpenAsync(EditorDocumentId id, CancellationToken cancellationToken)
+        {
+            var document = await inner.OpenAsync(id, cancellationToken).ConfigureAwait(false);
+            if (document is not null)
+            {
+                lock (_opened)
+                {
+                    _opened[id] = document;
+                }
+            }
+
+            return document;
+        }
+
+        public Task<SaveOutcome> SaveAsync(EditorDocumentId id, string content, string baseRevision, CancellationToken cancellationToken) =>
+            inner.SaveAsync(id, content, baseRevision, cancellationToken);
+
+        public bool TryTake(EditorDocumentId id, out EditorDocument document)
+        {
+            lock (_opened)
+            {
+                return _opened.Remove(id, out document!);
+            }
+        }
+    }
+}

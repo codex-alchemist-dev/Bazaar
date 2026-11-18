@@ -108,3 +108,12 @@ The owner-signature contract is its own module, not server code. It moved out of
 - `Bazaar.Approvals`: `OwnerSignatureVerifier`, `InMemoryOwnerNonceStore` (tests and dev runs only), and the Postgres stores `Db.PostgresOwnerKeyRegistry` and `Db.PostgresOwnerNonceStore`.
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
+
+## Athanor editor modules (doc 57, PROPOSED 2026-11-18)
+
+The built-in IDE is its own module family, never code in Client.Core:
+
+- `Bazaar.Client.Athanor.Abstractions`: `IEditorHost`, `IEditorFileSource`, `IEditorDraftStore`, `IEditorKeyHandoff`, the document and bridge-message records.
+- `Bazaar.Client.Athanor`: host-agnostic editor logic, the `athanor` pane module and a plain-text fallback host.
+- `Bazaar.Client.Athanor.WebView2` and `Bazaar.Client.Athanor.Bundle`: the Monaco host and bundle, gated by spike S12 (reserved names, no code yet).
+- `Bazaar.Server.Athanor`: server-backed saves, waiting for a wire contract (doc 57 §6).
