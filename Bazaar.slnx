@@ -46,6 +46,8 @@
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
@@ -84,6 +86,7 @@
     <Project Path="tests/Bazaar.Accessibility.Avalonia.Tests/Bazaar.Accessibility.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
