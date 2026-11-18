@@ -12,8 +12,10 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
   with the PR no longer a draft. The check then needs a `Signed-off-by:` line in the description.
 - The human sponsor adds that line. The owner squash-merges with "Pull request title and
   description" as the squash message, so the line reaches the commit on `main`.
-- CI (`ci.yml`) runs on every push and pull request, drafts included. It has no paths filter,
-  so docs-only and YAML-only PRs still run the full build and report.
+- CI (`ci.yml`) and CodeQL run on every push, drafts included, and each commit runs once. The push
+  run is the one that links to the PR by branch name, so same-repo PRs get their checks from it; the
+  `pull_request` run skips every job unless the PR comes from a fork. It has no paths filter, so
+  docs-only and YAML-only PRs still run the full build and report.
 - Required checks are set in the "Protect main" ruleset. Their names must not change:
   renaming a job breaks the match and leaves PRs waiting forever.
 
