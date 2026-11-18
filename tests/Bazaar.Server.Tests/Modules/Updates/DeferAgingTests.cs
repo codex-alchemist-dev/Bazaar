@@ -1,0 +1,102 @@
+using Bazaar.Server.Modules.Updates;
+using Microsoft.Extensions.Time.Testing;
+
+namespace Bazaar.Server.Tests.Modules.Updates;
+
+/// <summary>Defer aging (doc 42 section 10.2): how long a deferred update has waited, against the warning threshold.</summary>
+public sealed class DeferAgingTests
+{
+    private static readonly DateTimeOffset _now = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
+
+    private static DeferAging Make(out FakeTimeProvider clock)
+    {
+        clock = new FakeTimeProvider(_now);
+        return new DeferAging(clock);
+    }
+
+    [Fact]
+    public void Setting_key_and_default_match_the_design()
+    {
+        Assert.Equal("deps.update.deferWarnDays", DeferAging.DeferWarnDaysSettingKey);
+        Assert.Equal(60, DeferAging.DefaultDeferWarnDays);
+    }
+
+    [Fact]
+    public void A_deferral_started_now_has_no_age_and_is_not_aging()
+    {
+        var aging = Make(out _);
+
+        var report = aging.Measure(_now, DeferAging.DefaultDeferWarnDays);
+
+        Assert.Equal(new DeferAgeReport(0, false), report);
+    }
+
+    [Fact]
+    public void Exactly_the_threshold_is_not_yet_aging()
+    {
+        var aging = Make(out _);
+
+        var report = aging.Measure(_now.AddDays(-30), 30);
+
+        Assert.Equal(new DeferAgeReport(30, false), report);
+    }
+
+    [Fact]
+    public void One_minute_past_the_threshold_is_aging()
+    {
+        var aging = Make(out _);
+
+        var report = aging.Measure(_now.AddDays(-30).AddMinutes(-1), 30);
+
+        Assert.Equal(new DeferAgeReport(30, true), report);
+    }
+
+    [Fact]
+    public void Age_is_whole_days_rounded_down()
+    {
+        var aging = Make(out _);
+
+        var report = aging.Measure(_now.AddDays(-7).AddHours(-23), 30);
+
+        Assert.Equal(7, report.AgeDays);
+        Assert.False(report.IsAging);
+    }
+
+    [Fact]
+    public void Age_follows_the_injected_clock()
+    {
+        var aging = Make(out var clock);
+        var since = _now;
+
+        clock.Advance(TimeSpan.FromDays(45));
+
+        Assert.Equal(new DeferAgeReport(45, true), aging.Measure(since, 30));
+    }
+
+    [Fact]
+    public void A_deferral_time_in_the_future_reports_zero_age()
+    {
+        var aging = Make(out _);
+
+        var report = aging.Measure(_now.AddDays(3), 30);
+
+        Assert.Equal(new DeferAgeReport(0, false), report);
+    }
+
+    [Fact]
+    public void A_zero_threshold_flags_any_wait_longer_than_zero()
+    {
+        var aging = Make(out _);
+
+        Assert.True(aging.Measure(_now.AddHours(-1), 0).IsAging);
+        Assert.False(aging.Measure(_now, 0).IsAging);
+    }
+
+    [Fact]
+    public void Negative_threshold_is_a_programmer_error_not_a_normal_path()
+    {
+        var aging = Make(out _);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => aging.Measure(_now, -1));
+    }
+}

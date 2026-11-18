@@ -198,7 +198,7 @@ bazaar-export-<instance-id>-<utc-timestamp>/
   blobs/...
 ```
 
-- [PROPOSED] Wrapping: the default is an encrypted archive. The key is derived from a passphrase with Argon2id, and the archive uses an AEAD cipher. Plaintext bundles need a deliberate choice (`portability.export.encrypt_bundle`, default true; the floor is that personal data is never written plaintext without the owner's explicit confirmation).
+- [PROPOSED] Wrapping: the default is an encrypted archive. The key is derived from a passphrase with Argon2id (RFC 9106, owner choice 2026-11-15 over PBKDF2), and the archive uses AES-256-GCM. The Argon2id cost (memory 64 MiB, time cost 3, parallelism 4 by default) is written into a versioned KDF header (KDF id 1 = Argon2id, parameter version 1), so an archive still opens when the defaults change. The header is authenticated as associated data. Readers refuse parameters outside a floor (19 MiB, time cost 2) and a ceiling (1 GiB, time cost 10, 16 lanes). Plaintext bundles need a deliberate choice (`portability.export.encrypt_bundle`, default true; the floor is that personal data is never written plaintext without the owner's explicit confirmation).
 - [PROPOSED] Splitting: a bundle is split into parts of at most 4 GiB. Each part has its own hash in the manifest, and the manifest lists every part in order.
 - [PROPOSED] Resumption: a large export is written as a sequence of resumable chunks. A failed download restarts at the chunk, not at the beginning.
 
@@ -463,7 +463,7 @@ Conflicts are listed, not silently resolved. Where a conflict needs the owner, i
 11. Mapping engine and preview model; pure mapping tests. Depends on 1.
 12. Commit path: batches, dry-run, verify, withdrawal. Depends on 9, 11, doc 01 GC append and doc 18 VaultWriter.
 13. Generic importers: md, txt and docx (PLANNED). Depends on 10 to 12.
-14. Named importers (PLANNED): Obsidian vault, Trello JSON, Miro export, Milanote export. Each starts from a verified real sample. Format details are not assumed in this doc. Depends on 13.
+14. Named importers (PLANNED): Obsidian vault, Trello JSON, Miro CSV export, Milanote Markdown export. Each starts from a verified real sample. Format details are not assumed in this doc; the Milanote and Miro layouts in the code are modelled until a sample is checked. Depends on 13.
 15. Doc 42 and doc 46 compliance: contract tests for every importer and exporter. Depends on 1 and the module contract.
 
 ## 17. What is PLANNED
@@ -472,7 +472,7 @@ Nothing in this doc is built. The status of each part:
 
 - DECIDED: everything is exportable (D1); importing any mass dump (D2); importers and exporters as modules (D3); the exclusions in section 7 as hard rules.
 - PROPOSED: the bundle layout, formats, signing, verification, the import stages, idempotent re-import, the sandbox limits, the settings table, the plugin interfaces in section 9 (sketch only).
-- PLANNED, named importers: Obsidian vault, Trello (JSON export), Miro (board export), Milanote (board export). Each is a module, starts from a real sample taken by the owner, and is gated by the same tests as any other importer. Their format details are verified when built, not before.
+- PLANNED, named importers: Obsidian vault, Trello (JSON export), Miro (CSV export), Milanote (Markdown export). Each is a module, starts from a real sample taken by the owner, and is gated by the same tests as any other importer. Milanote's ZIP package is not read yet: the public article names it but does not describe its contents. The Milanote Markdown layout (one card per heading) and the Miro CSV header names are modelled, not verified against a real export, until the owner's sample is checked.
 - PLANNED, generic importers: docx, md and txt, and chat-log text dumps.
 - PLANNED, derived exports: the graph GraphML file and the optional Parquet analytics export. Neither is needed for v1.
 - PLANNED, dependencies: doc 42 (module contract), doc 46 (health contract), doc 48 (erasure). This doc follows their drafts when they exist.

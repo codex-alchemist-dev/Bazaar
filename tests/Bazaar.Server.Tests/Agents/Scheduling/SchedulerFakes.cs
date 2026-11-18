@@ -108,3 +108,9 @@ internal sealed class FakeLoopGuard : ILoopGuard
 
     public bool ScoredWakeWithinCap(string agentId) => true;
 }
+
+/// <summary>Grants every agent the same tools, for scheduler tests that are not about grants.</summary>
+internal sealed class FixedGrants(IReadOnlyList<string> tools) : IAgentToolGrants
+{
+    public Task<IReadOnlyList<string>> GrantedToolsAsync(Guid agentId, CancellationToken cancellationToken) => Task.FromResult(tools);
+}

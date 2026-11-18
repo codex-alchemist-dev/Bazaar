@@ -8,7 +8,7 @@ namespace Bazaar.Diagnostics.Redaction;
 /// model. Layers: length limit, exact runtime values, pattern rules, residual scan. Any step that throws
 /// turns the string into <see cref="RedactionMarkers.Failed"/>, so the caller holds the report.
 /// </summary>
-public sealed class Redactor
+public sealed class Redactor : IFieldRedactor
 {
     /// <summary>Strings longer than this are cut before the pattern pass.</summary>
     public const int MaxStringLength = 4096;

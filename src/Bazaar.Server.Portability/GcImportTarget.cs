@@ -1,0 +1,272 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Bazaar.Contracts.Gc;
+using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Edit;
+using Bazaar.Server.Gc.Read;
+using Bazaar.Server.Gc.Write;
+
+namespace Bazaar.Server.Portability;
+
+/// <summary>
+/// The GC append operation the import needs. It has the same shape as the batch append on the GC log writer
+/// (<c>AppendManyAsync</c>), so a host adapts its writer with one call. Duplicate client message ids return the original event.
+/// </summary>
+public interface IGcAppender
+{
+    Task<IReadOnlyList<AppendResult>> AppendManyAsync(IReadOnlyList<AppendRequest> requests, CancellationToken ct);
+}
+
+/// <summary>
+/// Writes import batches as GC messages through the GC abstractions (doc 44 section 8.2, GC entry rule). Bodies are sealed
+/// by <see cref="IGcBodyCodec"/> before they reach the log. The idempotency key is derived from the source key, so a re-run
+/// that appends the same record gets the original event back.
+/// </summary>
+public sealed class GcImportTarget(
+    IGcAppender appender,
+    IGcBodyCodec codec,
+    IGcLogReader reader,
+    Guid gcId,
+    Guid authorId,
+    AuthorKind authorKind,
+    GcPrincipal viewer,
+    IGcMessageEditor? editor = null)
+{
+    /// <summary>
+    /// Appends one batch in one transaction. Replace items are planned through <see cref="IGcMessageEditor"/>, the same path a
+    /// manual edit takes, so the same planner checks apply. A replace without an editor, a replace by another author, or any
+    /// refused edit fails the batch before anything is written. The edit rows and the new messages go in one append, so a
+    /// failure after planning rolls back the whole batch.
+    /// </summary>
+    public async Task AppendBatchAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var replaces = items.Where(i => i.Replaces is not null).ToList();
+        if (replaces.Count > 0 && editor is null)
+        {
+            throw new NotSupportedException("Replace needs a GC message editor; the batch is refused.");
+        }
+
+        var edits = new List<GcMessageEdit>(replaces.Count);
+        foreach (var item in replaces)
+        {
+            var stored = item.Replaces!;
+            if (!string.Equals(stored.Owner, authorId.ToString("D"), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Replace refused: the stored message was written by another author.");
+            }
+            edits.Add(new GcMessageEdit(gcId, Guid.Parse(stored.ObjectId), authorId, PrincipalKindOf(authorKind), item.Record.Body,
+                ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + (int.Parse(stored.Version, CultureInfo.InvariantCulture) + 1).ToString(CultureInfo.InvariantCulture)));
+        }
+
+        var rows = new List<AppendRequest>(items.Count);
+        if (edits.Count > 0)
+        {
+            var plan = await editor!.PlanAsync(edits, ct);
+            switch (plan)
+            {
+                case GcMessageEditPlanned planned:
+                    rows.AddRange(planned.Rows);
+                    break;
+                case GcMessageEditPlanRefused refused:
+                    throw new InvalidOperationException("Replace refused for " + replaces[refused.Index].Provenance.SourceKey + ": " + DescribeRefusal(refused.Outcome));
+                default:
+                    throw new InvalidOperationException("Replace plan returned no result.");
+            }
+        }
+
+        foreach (var item in items.Where(i => i.Replaces is null))
+        {
+            var body = await codec.SealAsync(authorId, item.Record.Body, ct);
+            rows.Add(new AppendRequest(gcId, GcEventKinds.Message, authorKind, authorId, SourceTrust.External, ClientMsgIdFor(item.Provenance.SourceKey))
+            {
+                Message = body,
+                PayloadJson = PayloadFor(jobId, batchIndex, item.Record),
+            });
+        }
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        var results = await appender.AppendManyAsync(rows, ct);
+        if (results.Count != rows.Count)
+        {
+            throw new InvalidOperationException("GC append returned " + results.Count.ToString(CultureInfo.InvariantCulture)
+                + " results for " + rows.Count.ToString(CultureInfo.InvariantCulture) + " requests");
+        }
+    }
+
+    private static string DescribeRefusal(GcMessageEditOutcome outcome) => outcome switch
+    {
+        GcMessageEditRefused refused => refused.Reason,
+        GcMessageEditUnopenable => "the stored message can no longer be opened",
+        _ => "the stored message was not found",
+    };
+
+    private static PrincipalKind PrincipalKindOf(AuthorKind kind) => kind switch
+    {
+        AuthorKind.Owner => PrincipalKind.Owner,
+        AuthorKind.Agent => PrincipalKind.Agent,
+        _ => PrincipalKind.Human,
+    };
+
+    /// <summary>Reads the GC log from the start and returns the source keys of this job's import messages, in log order.</summary>
+    public async Task<IReadOnlyList<string>> ReadSourceKeysAsync(string jobId, CancellationToken ct)
+    {
+        var keys = new List<string>();
+        var after = 0L;
+        while (true)
+        {
+            var page = new List<GcEvent>();
+            await foreach (var ev in reader.ReadAsync(gcId, after, IGcLogReader.MaxLimit, viewer, ct))
+            {
+                page.Add(ev);
+            }
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var ev in page)
+            {
+                after = ev.Seq;
+                if (ev.Kind == GcEventKinds.Message && TryReadPayload(ev.PayloadJson, out var eventJob, out var sourceKey)
+                    && string.Equals(eventJob, jobId, StringComparison.Ordinal))
+                {
+                    keys.Add(sourceKey);
+                }
+            }
+        }
+        return keys;
+    }
+
+    /// <summary>The idempotency key for a record: "import:" plus the SHA-256 of its source key (71 characters).</summary>
+    public static string ClientMsgIdFor(string sourceKey)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sourceKey))).ToLowerInvariant();
+        return "import:" + hash;
+    }
+
+    private static string PayloadFor(string jobId, int batchIndex, SourceRecord record) =>
+        JsonSerializer.Serialize(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["import_job"] = jobId,
+            ["import_batch"] = batchIndex.ToString(CultureInfo.InvariantCulture),
+            ["source_key"] = record.SourceKey,
+            ["kind"] = record.Kind,
+            ["title"] = record.Title,
+        });
+
+    private static bool TryReadPayload(string? json, out string jobId, out string sourceKey)
+    {
+        jobId = string.Empty;
+        sourceKey = string.Empty;
+        if (string.IsNullOrEmpty(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            var values = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (values is null || !values.TryGetValue("import_job", out var job) || !values.TryGetValue("source_key", out var key))
+            {
+                return false;
+            }
+            jobId = job;
+            sourceKey = key;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+}
+
+/// <summary>
+/// Finds imported GC messages by kind and title, with the version each one is at now. Only messages written by the import
+/// carry a title in their payload, so ordinary chat is not matched. A message's version is the highest edit seen in the log.
+/// </summary>
+public sealed class GcExistingObjectIndex(IGcLogReader reader, Guid gcId, GcPrincipal viewer) : IExistingObjectIndex
+{
+    public async Task<IReadOnlyList<ExistingObject>> FindAsync(IReadOnlyList<(string Kind, string Title)> wanted, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(wanted);
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var stored = new Dictionary<Guid, (string Kind, string Title, Guid Author, int Version)>();
+        var after = 0L;
+        while (true)
+        {
+            var page = new List<GcEvent>();
+            await foreach (var ev in reader.ReadAsync(gcId, after, IGcLogReader.MaxLimit, viewer, ct))
+            {
+                page.Add(ev);
+            }
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var ev in page)
+            {
+                after = ev.Seq;
+                if (ev.Kind == GcEventKinds.Message && ev.MessageId is { } id && TryReadStored(ev.PayloadJson, out var kind, out var title))
+                {
+                    stored.TryAdd(id, (kind, title, ev.AuthorId, 1));
+                }
+                else if (ev.Kind == GcEventKinds.MessageEdit && ev.MessageId is { } editOf && ev.Version is { } version
+                    && stored.TryGetValue(editOf, out var current) && version > current.Version)
+                {
+                    stored[editOf] = current with { Version = version };
+                }
+            }
+        }
+
+        var found = new List<ExistingObject>();
+        var seen = new HashSet<(string, string)>();
+        foreach (var (id, item) in stored)
+        {
+            if (wanted.Contains((item.Kind, item.Title)) && seen.Add((item.Kind, item.Title)))
+            {
+                found.Add(new ExistingObject(item.Kind, item.Title, id.ToString("D"), item.Version.ToString(CultureInfo.InvariantCulture))
+                {
+                    Owner = item.Author.ToString("D"),
+                });
+            }
+        }
+        return found;
+    }
+
+    private static bool TryReadStored(string? json, out string kind, out string title)
+    {
+        kind = string.Empty;
+        title = string.Empty;
+        if (string.IsNullOrEmpty(json))
+        {
+            return false;
+        }
+        try
+        {
+            var values = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (values is null || !values.ContainsKey("import_job") || !values.TryGetValue("kind", out var k) || !values.TryGetValue("title", out var t))
+            {
+                return false;
+            }
+            kind = k;
+            title = t;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+}

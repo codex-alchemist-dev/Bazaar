@@ -15,9 +15,11 @@
       <DockPanel>
         <Button x:Name="SendButton"
                 DockPanel.Dock="Right"
+                AutomationProperties.Name="Send message"
                 Content="Send"
                 Margin="8,0,0,0" />
         <TextBox x:Name="DraftBox"
+                 AutomationProperties.Name="Message draft"
                  Text="{Binding Draft}"
                  PlaceholderText="Type a message, Enter to send" />
       </DockPanel>

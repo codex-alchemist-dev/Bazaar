@@ -4,7 +4,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Ryusei;
+using Bazaar.Client.RyuseiFuda.Orrery;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -77,7 +78,7 @@ public class RyuseiTaskChipTests
     [AvaloniaFact]
     public void Board_card_shows_its_trigger_chips_with_their_status_line()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
         var view = registry.CreateView(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Kanban, _board)));
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 

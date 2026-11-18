@@ -123,7 +123,7 @@ interface IIdentityService {
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
-| `identity.kek_provider` | enum: `dpapi`, `openbao` | `dpapi` | install | owner, in setup wizard | yes (DEK re-wrap) |
+| `identity.kek_provider` | enum: `dpapi`, `file`, `openbao` | **DECIDED (owner, 2026-11-16):** `dpapi` on a Windows host, `file` (a protected key file) on other hosts | install | owner, in setup wizard | yes (DEK re-wrap) |
 | `identity.kek_recovery_location` | text (write-once location for the sealed KEK copy) | sealed offline copy held by the owner | install | owner | yes |
 | `identity.lease_ttl_minutes` | int | 15 | install | owner | yes if raised |
 | `identity.approval_expiry_hours` | int | 24 | install | owner | yes if raised |

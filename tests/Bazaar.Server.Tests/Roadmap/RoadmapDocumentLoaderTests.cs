@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using Bazaar.Server.Roadmap;
+using Bazaar.RyuseiFuda.Roadmap;
 
 namespace Bazaar.Server.Tests.Roadmap;
 

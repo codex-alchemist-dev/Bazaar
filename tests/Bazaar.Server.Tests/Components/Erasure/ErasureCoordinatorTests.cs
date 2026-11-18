@@ -1,3 +1,4 @@
+using Bazaar.Erasure.Abstractions;
 using Bazaar.Server.Components.Erasure;
 
 namespace Bazaar.Server.Tests.Components.Erasure;
@@ -9,12 +10,14 @@ public sealed class ErasureCoordinatorTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    private static readonly FakeLegalHoldReader _notHeld = new(held: false);
+
     [Fact]
     public async Task Key_destruction_runs_first_then_participants_in_registration_order()
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 1, AlreadyDestroyed: 0));
-        var coordinator = new ErasureCoordinator(keys, [
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [
             new FakeParticipant("memory", log, ErasureParticipantResult.Removed(3)),
             new FakeParticipant("vault", log, ErasureParticipantResult.NothingToDo()),
             new FakeParticipant("mail", log, ErasureParticipantResult.Removed(1)),
@@ -35,7 +38,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 2, AlreadyDestroyed: 0));
-        var coordinator = new ErasureCoordinator(keys, [
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [
             new FakeParticipant("first", log, ErasureParticipantResult.Removed(1)),
             new FakeParticipant("broken", log, new InvalidOperationException("disk unavailable")),
             new FakeParticipant("last", log, ErasureParticipantResult.NothingToDo()),
@@ -58,7 +61,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new InvalidOperationException("permission denied to set role"));
-        var coordinator = new ErasureCoordinator(keys, [new FakeParticipant("memory", log, ErasureParticipantResult.Removed(4))]);
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [new FakeParticipant("memory", log, ErasureParticipantResult.Removed(4))]);
 
         var report = await coordinator.EraseAsync(_person, Ct);
 
@@ -75,7 +78,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 0, AlreadyDestroyed: 1));
-        var coordinator = new ErasureCoordinator(keys, [new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo())]);
+        var coordinator = new ErasureCoordinator(keys, _notHeld, [new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo())]);
 
         var first = await coordinator.EraseAsync(_person, Ct);
         var second = await coordinator.EraseAsync(_person, Ct);
@@ -92,7 +95,7 @@ public sealed class ErasureCoordinatorTests
     {
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 0, AlreadyDestroyed: 0));
-        var coordinator = new ErasureCoordinator(keys, []);
+        var coordinator = new ErasureCoordinator(keys, _notHeld, []);
 
         var report = await coordinator.EraseAsync(_person, Ct);
 
@@ -108,7 +111,7 @@ public sealed class ErasureCoordinatorTests
         var log = new List<string>();
         var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(1, 0));
 
-        Assert.Throws<ArgumentException>(() => new ErasureCoordinator(keys, [
+        Assert.Throws<ArgumentException>(() => new ErasureCoordinator(keys, _notHeld, [
             new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo()),
             new FakeParticipant("memory", log, ErasureParticipantResult.NothingToDo()),
         ]));
@@ -117,9 +120,101 @@ public sealed class ErasureCoordinatorTests
     [Fact]
     public async Task An_empty_person_id_is_refused()
     {
-        var coordinator = new ErasureCoordinator(new FakeKeyEraser([], new PersonKeyEraseResult(1, 0)), []);
+        var coordinator = new ErasureCoordinator(new FakeKeyEraser([], new PersonKeyEraseResult(1, 0)), _notHeld, []);
 
         await Assert.ThrowsAsync<ArgumentException>(() => coordinator.EraseAsync(Guid.Empty, Ct));
+    }
+
+    [Fact]
+    public async Task A_held_person_runs_no_key_destruction_and_no_participant()
+    {
+        var log = new List<string>();
+        var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 1, AlreadyDestroyed: 0));
+        var coordinator = new ErasureCoordinator(keys, new FakeLegalHoldReader(held: true, log), [
+            new FakeParticipant("memory", log, ErasureParticipantResult.Removed(3)),
+        ]);
+
+        var report = await coordinator.EraseAsync(_person, Ct);
+
+        Assert.Equal(["hold"], log);
+        Assert.Equal(PersonKeyOutcome.HeldQueued, report.KeyOutcome);
+        Assert.False(report.KeyDestroyed);
+        Assert.False(report.IsComplete);
+        Assert.Empty(report.Participants);
+        Assert.Contains("legal hold active; erasure queued", report.Failures);
+    }
+
+    [Fact]
+    public async Task The_hold_is_consulted_before_any_destruction_and_an_unheld_person_runs_the_normal_path()
+    {
+        var log = new List<string>();
+        var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 1, AlreadyDestroyed: 0));
+        var coordinator = new ErasureCoordinator(keys, new FakeLegalHoldReader(held: false, log), [
+            new FakeParticipant("memory", log, ErasureParticipantResult.Removed(3)),
+        ]);
+
+        var report = await coordinator.EraseAsync(_person, Ct);
+
+        Assert.Equal(["hold", "key", "memory"], log);
+        Assert.Equal(PersonKeyOutcome.Destroyed, report.KeyOutcome);
+        Assert.True(report.IsComplete);
+    }
+
+    [Fact]
+    public async Task A_repeat_run_while_held_stays_queued_and_destroys_nothing()
+    {
+        var log = new List<string>();
+        var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 1, AlreadyDestroyed: 0));
+        var coordinator = new ErasureCoordinator(keys, new FakeLegalHoldReader(held: true, log), []);
+
+        var first = await coordinator.EraseAsync(_person, Ct);
+        var second = await coordinator.EraseAsync(_person, Ct);
+
+        Assert.Equal(PersonKeyOutcome.HeldQueued, first.KeyOutcome);
+        Assert.Equal(PersonKeyOutcome.HeldQueued, second.KeyOutcome);
+        Assert.False(second.IsComplete);
+        Assert.Equal(["hold", "hold"], log);
+    }
+
+    [Fact]
+    public async Task A_failing_hold_check_propagates_and_destroys_nothing()
+    {
+        var log = new List<string>();
+        var keys = new FakeKeyEraser(log, new PersonKeyEraseResult(Destroyed: 1, AlreadyDestroyed: 0));
+        var coordinator = new ErasureCoordinator(keys, new FakeLegalHoldReader(new InvalidOperationException("db down"), log), [
+            new FakeParticipant("memory", log, ErasureParticipantResult.Removed(3)),
+        ]);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.EraseAsync(_person, Ct));
+
+        Assert.Equal(["hold"], log);
+    }
+
+    private sealed class FakeLegalHoldReader : ILegalHoldReader
+    {
+        private readonly bool _held;
+        private readonly List<string>? _log;
+        private readonly Exception? _error;
+
+        public FakeLegalHoldReader(bool held, List<string>? log = null)
+        {
+            _held = held;
+            _log = log;
+        }
+
+        public FakeLegalHoldReader(Exception error, List<string> log)
+        {
+            _error = error;
+            _log = log;
+        }
+
+        public Task<bool> IsPersonHeldAsync(Guid personId, CancellationToken ct = default)
+        {
+            _log?.Add("hold");
+            if (_error is not null)
+                throw _error;
+            return Task.FromResult(_held);
+        }
     }
 
     private sealed class FakeKeyEraser : IPersonKeyEraser
