@@ -221,3 +221,29 @@ Bench mode `aggregate`. Release build, Intel Arc B580. Nodes are generated from 
 - Hit-testing and focus are not covered here.
 
 **Variance.** Build time at 100M varies by about 15% across three runs (873 to 1 017 ms). At 1B it varies by about 0.3% (9 632 to 9 660 ms). Per-frame GPU p50 varies by about 25% at 100M (0.020 to 0.025 ms), and by under 2% at 1B. Earlier per-node density rows (section 10.4) were single runs, so their spread is still unmeasured.
+
+### 10.6 Aggregate path re-run and the 1B frame spike (2026-11-18)
+Bench modes `aggregate` and `spike`. Release build, Intel Arc B580. Same method as 10.5.
+
+**Re-run (three runs each, GPU p50 and p95 in ms):**
+
+| Nodes | One-time build (ms) | Per-frame GPU p50 / p95 | Per-frame wall p95 (ms) |
+|---|---|---|---|
+| 100M | 1 061 / 880 / 914 | 0.009 / 0.016, 0.010 / 0.010, 0.016 / 0.016 | 0.13, 0.23, 0.17 |
+| 1B | 9 468 / 9 162 / 9 295 | 0.022 / 0.022, 0.018 / 0.018, 0.061 / 0.071 | 0.22, 0.21, 1.21 |
+
+A second 1B re-run gave the same pattern: 0.018 ms in run 1, then 0.048 and 0.060 ms GPU p50 in runs 2 and 3, with wall p95 at 1.26 and 1.57 ms.
+
+**Spike check.** One 1B build (9 299 ms), then three frame blocks with 60 s idle between them:
+
+| Frame block | GPU p50 / p95 (ms) | Wall p95 (ms) |
+|---|---|---|
+| Immediately after the build | 0.026 / 0.027 | 0.28 |
+| After 60 s idle | 0.059 / 0.072 | 1.29 |
+| After a further 60 s idle | 0.059 / 0.071 | 1.36 |
+
+**Reading.** The slow frames are real and repeatable, but their cause is not known. They are not explained by GPU clock recovery: idling for 60 s does not bring the fast time back. The grid and the shader are the same in every block, so the difference is in driver or runtime state, not in the data. The first block was fast, and every later block was slow.
+
+**Next checks for the spike** (not yet run): time the same frame block in a fresh process without a build, to see if the build leaves state behind; count frames per block and compare the first 200 in a process with no prior work; and read the adapter's clock state before and after a block, if a tool for it is available on this machine.
+
+Per-frame cost at 100M stays far inside the 14 ms PC budget in both states. At 1B the slow state is still about 0.06 ms, so the budget is not at risk from this spike.

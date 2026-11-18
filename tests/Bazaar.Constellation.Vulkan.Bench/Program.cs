@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Threading;
 using Bazaar.Constellation.Vulkan;
 using Bazaar.Constellation.Vulkan.Bench;
 
@@ -50,6 +51,24 @@ if (args.Length > 0 && args[0] == "density")
             before.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), before.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), before.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
         Console.WriteLine(string.Join(',', "density", total, "after_density_grid",
             after.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), after.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), after.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "spike")
+{
+    // Does the slow 1B frame follow the long build, and does it recover after the GPU idles?
+    const int chunk = 16_000_000;
+    double buildMs = bench.BuildAggregate(1_000_000_000L, chunk);
+    Console.WriteLine(string.Join(',', "spike_build", buildMs.ToString("F1", CultureInfo.InvariantCulture)));
+    for (int round = 1; round <= 3; round++)
+    {
+        FrameStats frame = bench.MeasureAggregateFrame(20, 200);
+        Console.WriteLine(string.Join(',', "spike_frame", "after_build_round" + round,
+            frame.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), frame.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+            frame.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+        Thread.Sleep(60_000);
     }
 
     return 0;
