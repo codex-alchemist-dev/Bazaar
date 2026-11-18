@@ -7,6 +7,7 @@
   <ItemGroup>
     <!-- Note-wire and note-id helpers stay internal; only the Bazaar.Server memory tools use them. -->
     <InternalsVisibleTo Include="Bazaar.Server" />
+    <InternalsVisibleTo Include="Bazaar.Server.Memory" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
