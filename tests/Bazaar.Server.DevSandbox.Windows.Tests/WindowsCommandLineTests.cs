@@ -185,7 +185,7 @@ public sealed class WindowsCommandLineTests
     public void Run_environment_has_only_system_root_and_the_work_directory_as_temp()
     {
         var block = WindowsEnvironmentBlock.ForRun("C:\\Windows", "C:\\w\\run");
-        Assert.Equal("SystemRoot=C:\\Windows\0TEMP=C:\\w\\run\0TMP=C:\\w\\run\0\0", block);
+        Assert.Equal("LOCALAPPDATA=C:\\w\\run\0SystemRoot=C:\\Windows\0TEMP=C:\\w\\run\0TMP=C:\\w\\run\0\0", block);
         Assert.DoesNotContain("PATH", block, StringComparison.OrdinalIgnoreCase);
     }
 

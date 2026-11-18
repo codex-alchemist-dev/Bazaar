@@ -6,7 +6,7 @@ namespace Bazaar.Server.DevSandbox.Windows;
 internal static class WindowsEnvironmentBlock
 {
     /// <summary>
-    /// The scrubbed environment of a confined run: <c>SystemRoot</c> (many system DLLs need it), and <c>TEMP</c> and <c>TMP</c> pointing at
+    /// The scrubbed environment of a confined run: <c>SystemRoot</c> (many system DLLs need it), and <c>TEMP</c>, <c>TMP</c> and <c>LOCALAPPDATA</c> (required: without it CreateProcess in an AppContainer fails with ERROR_ENVVAR_NOT_FOUND, 203) pointing at
     /// the per-run work directory (the only place the process can write). No <c>PATH</c>, no user variables, nothing from the host.
     /// </summary>
     internal static string ForRun(string systemRoot, string workDirectory) =>
@@ -15,6 +15,7 @@ internal static class WindowsEnvironmentBlock
             ["SystemRoot"] = systemRoot,
             ["TEMP"] = workDirectory,
             ["TMP"] = workDirectory,
+            ["LOCALAPPDATA"] = workDirectory,
         });
 
     /// <summary>Builds the block. A name must be non-empty, without <c>=</c> or NUL; a value must not hold NUL.</summary>

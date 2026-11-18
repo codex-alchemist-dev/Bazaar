@@ -133,7 +133,7 @@ public sealed class WindowsConfinementProviderTests : IDisposable
         Assert.Equal("\"C:\\Tools\\module.exe\" --run \"a b\"", request.CommandLine);
         Assert.Equal(process.WorkDirectory, request.WorkingDirectory);
         Assert.StartsWith(Path.Combine(_root, "bazaar-sbx-abc-9-"), process.WorkDirectory, StringComparison.Ordinal);
-        Assert.Equal($"SystemRoot=C:\\Windows\0TEMP={process.WorkDirectory}\0TMP={process.WorkDirectory}\0\0", request.EnvironmentBlock);
+        Assert.Equal($"LOCALAPPDATA={process.WorkDirectory}\0SystemRoot=C:\\Windows\0TEMP={process.WorkDirectory}\0TMP={process.WorkDirectory}\0\0", request.EnvironmentBlock);
         Assert.Equal(64L * 1024 * 1024, job.ProcessMemoryBytes);
         Assert.Equal(64L * 1024 * 1024, job.JobMemoryBytes);
         Assert.Equal(TimeSpan.FromSeconds(45), job.CpuTime);
