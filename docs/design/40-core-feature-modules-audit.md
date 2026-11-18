@@ -57,6 +57,8 @@ Applied to the three features:
 - **RyuseiFuda:** `Bazaar.RyuseiFuda` split out of the Kanban project. It depends on `Bazaar.Kanban.Abstractions` and `Bazaar.GC.Abstractions`. Its client pane goes in `Bazaar.Client.RyuseiFuda`.
 - **Install (module install gate, doc 48 section 1):** `Bazaar.Install.Abstractions` (the store seam `IModuleInstallStore`, the audit entry and approval record, the owner signer `IOwnerApprovalSigner`), `Bazaar.Install` (the signature, host and permission checks, the start guard, the install and approval services, and the `Trust` code). It depends on `Bazaar.Contracts` and its own abstractions only. The Server persistence adapter is `ModuleManagerRepository`, which implements `IModuleInstallStore` and runs the audit payload guard before it appends.
 
+- **Knowledge (doc 25, PROPOSED 2026-11-18):** client modules `Bazaar.Client.Health`, `Bazaar.Client.Twin`, `Bazaar.Client.Archive`, `Bazaar.Client.CompanyMemory` and `Bazaar.Client.Hive` (panes only, referencing `Bazaar.Client.Core` and `Bazaar.Contracts`); server modules `Bazaar.Server.Twin.Prose`, `Bazaar.Server.Hive` and `Bazaar.Server.TalentPool`, each with its `.Abstractions`. The existing code under `Bazaar.Server/Knowledge/` moves in the Knowledge extraction.
+
 ## 4a. Renames (planned, small PRs)
 
 | Now | Target | Notes |

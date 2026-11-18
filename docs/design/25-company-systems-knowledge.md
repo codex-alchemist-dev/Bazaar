@@ -109,6 +109,33 @@ No real model or display. Real Postgres (Testcontainers) for rollups, rebuilds, 
 - Archive excludes human text by default; an opted-in GC appears. Council reasons are absent before the reveal.
 - Avalonia.Headless: decision chain and archive views render an unresolved reference as an explicit "missing source" link.
 
+## Modules and client panels (WP4, WP7, WP8, WP10) [PROPOSED]
+
+Added 2026-11-18 (coordinator brief). Every new piece is its own module pair, never a folder in `Bazaar.Server` or `Bazaar.Client.Core`, and no module references `Bazaar.Server.csproj`. The existing Health, Metrics, Twin fact, Archive and decision-chain code stays where it is until the Knowledge extraction moves it. The panes below do not wait for that: the server sends a `PaneDescriptor` whose model is data, and the client module only formats it (the RyuseiFuda precedent, doc 38).
+
+| Module | Holds | Doc 25 package |
+|---|---|---|
+| `Bazaar.Client.Health` | Panes `bazaar.health` (project health block) and `bazaar.analytics` (rollup trends, project morale signals, per-agent view) | 10 |
+| `Bazaar.Client.Twin` | Pane `bazaar.twin` (project card: facts, prose pages, stale marks) | 10 |
+| `Bazaar.Client.Archive` | Pane `bazaar.archive` (read-only book, every sentence linked to its source) | 10 |
+| `Bazaar.Client.CompanyMemory` | Pane `bazaar.company-memory` (decision chain) | 10 |
+| `Bazaar.Client.Hive` | Pane `bazaar.hive` (owner grant matrix, copies labelled by origin) | 10 |
+| `Bazaar.Server.Twin.Prose` + `.Abstractions` | The prose step: a reader-session port, the ref validator that drops a sentence without a valid `source_ref`, writing the page through the Vault writer port | 4 |
+| `Bazaar.Server.Hive` + `.Abstractions` | `hive_grants` store, review-window batching, sanitizer port, the copy flow and revoke-to-deprecate | 7 |
+| `Bazaar.Server.TalentPool` + `.Abstractions` | `talent_templates` store, manifest validator (no memory file, model on the whitelist), submit and quarantine states. The Council `hire` hook waits for C32 | 8 |
+
+Talent Pool, Twin prose and Hive depend on ports (reader session, Vault writer, sanitizer, Soul manifest, whitelist) that are owned by other docs. Each module defines the narrow port it needs in its `.Abstractions` project, tests against fakes, and the owning module adapts it later. The Genetic Memory Transfer and Soul Marketplace stay out of scope.
+
+### Pane models (the wire contract the panes read)
+All field names are camelCase. A missing required field raises `PaneModelException`, so the registry falls back to the generic view. Unknown extra fields are ignored. Every pane shows `trust` and `originKind` where the model carries them, and never turns a missing or unresolvable reference into a blank: it renders an explicit "missing source" row.
+
+- `bazaar.health`: `{ "projects": [ { "projectId", "asOf" (yyyy-MM-dd), "status": "healthy" | "alert" | "noData", "reasons": [ { "kind", "message" } ] } ] }`. `noData` renders as "no data", never as healthy and never as zero.
+- `bazaar.analytics`: `{ "projectId", "windowDays", "series": [ { "metric", "unit", "points": [ { "day", "value" } ] } ], "moraleSignals": [ { "signal", "value" } ], "agentView": { "visibility": "owner" | "owner+self" | "peers", "framing", "agents": [ { "agentId", "displayName", "metrics": [ { "metric", "value" } ] } ] } }`. A series point missing for a day is a gap in the line, not a zero. The per-agent view is optional, is display only, is listed in a fixed order (by name, never by value), and has no rank or score column.
+- `bazaar.twin`: `{ "projects": [ { "projectId", "title", "facts": [ { "factId", "kind", "subject", "value", "confidence", "status": "active" | "stale" | "superseded", "trust", "originKind", "sourceRefs": [ { "kind", "ref", "commit" } ] } ], "pages": [ { "page", "sentences": [ { "text", "sourceRef" } ] } ] } ] }`. A `stale` fact is labelled stale.
+- `bazaar.archive`: `{ "chapters": [ { "id", "title", "version", "predecessorId", "sentences": [ { "text", "sourceRef" } ] } ] }`. A sentence with a null or unresolvable `sourceRef` renders as "missing source".
+- `bazaar.company-memory`: `{ "decisions": [ { "path", "title", "status": "proposed" | "accepted" | "superseded", "decidedIn" } ], "links": [ { "fromDoc", "toDoc", "relation", "status", "fromMissing", "toMissing" } ] }`. A missing end renders as "missing source".
+- `bazaar.hive`: `{ "reviewDays", "grants": [ { "fromProject", "toProject", "kind", "grantedBy" } ], "copies": [ { "path", "originProject", "originKind", "trust", "state": "inReview" | "active" | "deprecated", "reviewUntil" } ] }`. The UI states "copies only". Grant changes leave the client as an owner action through `IHiveGrantActions`; the pane never writes a grant itself.
+
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
 2. Health rules and project panel queries. Needs 1.
