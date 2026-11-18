@@ -14,7 +14,7 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 - **A separate client module, never inside the server process.** Bazaar.Server.md section 4 and doc 03: no admin console inside the service. The TUI is `Bazaar.Client.Tui` plus `Bazaar.Client.Tui.Abstractions`, with its own manifest. It adds nothing to `Bazaar.Server` or `Bazaar.Client.Core`.
 - **The wizard lives once.** The step list, validation, plan hash, apply and audit are in `Bazaar.Server.Setup`. The TUI is only another `ISetupPrompter` (ask, choose, confirm, secret, show) beside the plain console prompter of `bazaar-admin`. The TUI never re-implements a step.
 - **No new privilege and no new server surface.** Live ops reads and writes through the same ports and authorization checks as the web admin panel (doc 51) and the in-client admin views. Every action is audited (doc 15).
-- **Library.** Terminal.Gui v2 is the proposed library (Bazaar.Server.Md research note). The package pin, licence and AOT/trim status are checked in work package 1 before it is referenced. Provisional until then.
+- **Library.** Terminal.Gui v2 is the proposed library (agent research note). The package pin, licence and AOT/trim status are checked in work package 1 before it is referenced. Provisional until then.
 
 ## Design
 
@@ -48,7 +48,7 @@ Status and readiness; logs (tail, filter by level and module); Kodo health, inci
 Terminals cannot do a passkey ceremony. Default: the TUI authenticates with the same local owner gate as `bazaar-admin` (doc 45 section 1.9), and for other admin accounts with a short-lived code issued from a signed-in client that the TUI redeems for a cookie-style session under the same roles check (doc 51 session store). Owner question 1.
 
 ## Open questions for the owner
-1. **Ops authentication.** Default as in section 4 above, or only the local owner? Reason: it decides whether non-owner admins can use the TUI.
+1. **Ops authentication.** Default as in section 5, or only the local owner? Reason: it decides whether non-owner admins can use the TUI.
 2. **Remote use beyond SSH.** Default: SSH only. Alternative: allow the TUI to attach over Conduit like the clients.
 
 ## Testing
