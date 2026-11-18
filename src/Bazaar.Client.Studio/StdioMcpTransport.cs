@@ -17,7 +17,7 @@ public sealed record StdioMcpServerCommand(string Command, IReadOnlyList<string>
 /// </summary>
 public sealed class StdioMcpTransport : IStudioMcpTransport
 {
-    private const string ProtocolVersion = "2025-06-18";
+    private const string _protocolVersion = "2025-06-18";
     private readonly StdioMcpServerCommand? _command;
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -80,7 +80,7 @@ public sealed class StdioMcpTransport : IStudioMcpTransport
             try
             {
                 using var init = JsonDocument.Parse(
-                    $"{{\"protocolVersion\":\"{ProtocolVersion}\",\"capabilities\":{{}},\"clientInfo\":{{\"name\":\"bazaar-studio-bridge\",\"version\":\"0.1.0\"}}}}");
+                    $"{{\"protocolVersion\":\"{_protocolVersion}\",\"capabilities\":{{}},\"clientInfo\":{{\"name\":\"bazaar-studio-bridge\",\"version\":\"0.1.0\"}}}}");
                 await CallAsync("initialize", init.RootElement.Clone(), cancellationToken).ConfigureAwait(false);
                 await WriteLineAsync("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}", cancellationToken).ConfigureAwait(false);
             }
