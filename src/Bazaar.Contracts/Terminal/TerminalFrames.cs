@@ -1,6 +1,6 @@
 namespace Bazaar.Contracts.Terminal;
 
-/// <summary>Base of every terminal frame on the <c>pane:&lt;terminalId&gt;</c> stream (doc 52, section 6).</summary>
+/// <summary>Base of every terminal frame on the <c>pane:&lt;terminalId&gt;</c> stream (doc 55, section 6).</summary>
 public abstract record TerminalFrame(string TerminalId);
 
 /// <summary>Client asks the server to open (or attach to) a terminal. <paramref name="AgentId"/> is null for a human-owned shell.</summary>

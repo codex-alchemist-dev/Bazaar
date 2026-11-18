@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace Bazaar.Server.Terminal.Abstractions;
 
-/// <summary>Who is asking. The caller identity comes from the authenticated connection, never from a frame (doc 52, section 4).</summary>
+/// <summary>Who is asking. The caller identity comes from the authenticated connection, never from a frame (doc 55, section 4).</summary>
 /// <param name="MemberId">Human member or agent id.</param>
 /// <param name="IsOwner">The owner reads every terminal.</param>
 /// <param name="IsAgent">True for an agent session.</param>
@@ -50,7 +50,7 @@ public interface ITerminalAccessPolicy
     bool CanWrite(TerminalCaller caller, TerminalInfo terminal);
 }
 
-/// <summary>Audit sink for control hand-overs and human input (doc 52, section 4).</summary>
+/// <summary>Audit sink for control hand-overs and human input (doc 55, section 4).</summary>
 public interface ITerminalAudit
 {
     /// <summary>Records an event such as <c>open</c>, <c>close</c>, <c>control.take</c>, <c>control.release</c>, <c>input.human</c>.</summary>
@@ -90,7 +90,7 @@ public interface ITerminalSubscription : IAsyncDisposable
     Task<int> Exited { get; }
 }
 
-/// <summary>Creates, tracks and fans out agent terminals (doc 52, section 4).</summary>
+/// <summary>Creates, tracks and fans out agent terminals (doc 55, section 4).</summary>
 public interface ITerminalBroker
 {
     /// <summary>Opens a terminal for an agent in its VM.</summary>

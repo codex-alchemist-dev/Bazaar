@@ -1,4 +1,4 @@
-# 52. Calcinato: the terminal module (server and client halves)
+# 55. Calcinato: the terminal module (server and client halves)
 
 Status: PROPOSED (2026-11-18). Gap-fill under the owner's configurability rule (DECISIONS-LOG round 13) and the "decide the most robust option" rule. Nothing here contradicts a DECIDED item. Items the owner has already decided are cited. Everything else is tagged PROPOSED and can be changed by the owner at any time.
 Docs section this implements: this document, plus doc 28 (Local terminal), doc 41 (sections 4.10, 4.11, client-wide mnemonics), doc 16 (Pty messages, guest agent terminals), doc 02 (the `pane` stream), doc 35 (spikes S10 and S11).

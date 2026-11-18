@@ -2,8 +2,8 @@ using System.Threading.Channels;
 
 namespace Bazaar.Client.Calcinato.Abstractions;
 
-/// <summary>What to start in a local terminal (doc 52, section 5.3).</summary>
-/// <param name="Shell">Shell path or name. Null picks the default by the order in doc 52.</param>
+/// <summary>What to start in a local terminal (doc 55, section 5.3).</summary>
+/// <param name="Shell">Shell path or name. Null picks the default by the order in doc 55.</param>
 /// <param name="Cols">Initial columns.</param>
 /// <param name="Rows">Initial rows.</param>
 /// <param name="WorkingDirectory">Start directory. Null means the user's home.</param>
@@ -43,7 +43,7 @@ public interface IPtySession : IAsyncDisposable
 
 /// <summary>
 /// A byte stream the emulator reads and writes: a local PTY or a server terminal. The engine does not know which
-/// (doc 52, section 5.3).
+/// (doc 55, section 5.3).
 /// </summary>
 public interface ITerminalSource : IAsyncDisposable
 {
