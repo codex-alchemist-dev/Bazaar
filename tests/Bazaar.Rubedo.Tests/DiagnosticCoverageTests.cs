@@ -50,7 +50,7 @@ public class DiagnosticCoverageTests
     /// it should compile. This test is red on purpose until the owner or the engine owner decides the fix.
     /// </summary>
     [Fact]
-    public void KnownBug_expression_of_exactly_256_tokens_is_wrongly_rejected()
+    public void Expression_of_exactly_256_tokens_is_accepted()
     {
         string source = TokenChain(256);
 
