@@ -391,6 +391,8 @@ Doc 47 and CONTRIBUTING.md govern contributions. CONTRIBUTING.md uses DCO only; 
 
 - Each dep line has a recipe in the repo: upstream source pinned by tag and commit SHA, toolchain versions, build flags, and the expected output hashes.
 - Upstream verification: source archives are checked against a pinned SHA-256 and against the upstream signature where one is published. For Windows binaries the source of truth is Q1 in section 18.
+- Source-compile pipeline (Q1 path a, built in parallel with path b): `packaging/postgres/source/` holds the pins (`sources.txt`, PostgreSQL 18 and 19 candidate, pgvector), the Linux build (`build-from-source.sh`), the Windows build (`build-from-source-windows.ps1`, Meson and Ninja under MSVC, pgvector with nmake), a bundle checker, and a throwaway-cluster smoke test. Output has the same folder layout as the upstream bundle and a `SHA256SUMS` file. Its manifest says `signed=false` until the module signing key and its format are defined (open item, see section 18).
+- Known difference (Windows source build): no OpenSSL or zlib is pinned for Windows yet, so that build uses `-Dssl=none -Dzlib=disabled`. The Linux build uses `--with-openssl --with-zlib`. Parity is an open item.
 - The build runs in CI on a clean image. The output gets an SBOM, a provenance record (inputs, recipe hash, toolchain), and a signature by the Bazaar module signing key. Signing keys stay on the build side (brief, releases), and an operator's own build signs with the operator's key.
 
 ### 14.2 Signing and trust
