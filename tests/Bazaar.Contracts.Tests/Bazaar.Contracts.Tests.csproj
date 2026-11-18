@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Wire\**\Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Terminal\**\Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
