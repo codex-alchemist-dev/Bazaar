@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Mail.Abstractions\Bazaar.Mail.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Providers.Abstractions\Bazaar.Providers.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.PrivacyAudit\Bazaar.PrivacyAudit.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
