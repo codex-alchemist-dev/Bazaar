@@ -91,6 +91,23 @@ Enforcement rules (all fail closed):
 
 Project `Bazaar.Server.DevSandbox.Wasm` implements `ISandboxEngine` (Kind = Wasm) as `WasmSandboxEngine`, behind three seams: `IWasmRuntime` (reads a module's declared imports; instantiates it with a supplied `IWasmHostImports` under a memory and fuel limit), `IWasmHostImports` (the host side; each call is an import name and a string argument) and `IWasmModuleSource` (module bytes by id and version). Catalogue rule: `WasmImportCatalogue` is a fixed table of import name to (action kind, permission class), for example `bazaar.vault_read` to HostCall `vault.read`. A declared import is linked only if it is in the table and the spec grants its class. Any other import is not linked, is reported as a `PermissionCheck` action (so the runner records a denied violation), and the module is then never instantiated. Every import call is yielded to the runner before it is serviced; a denied call is never serviced. Results come only from the sandbox test company. `spec.MemoryLimitMb` and a fuel budget are passed to the runtime. OPEN: which WebAssembly runtime package implements `IWasmRuntime` (owner decision; none is referenced yet).
 
+#### VM engine and sandbox VM profile (PROPOSED, 2026-11-18)
+
+Project `Bazaar.Server.DevSandbox.Vm` implements `ISandboxEngine` (Kind = Vm) as `VmSandboxEngine` for modules that need native code or a runtime. It references only `Bazaar.Server.DevSandbox.Abstractions` and meets the VM stack through five narrow seams it defines: `ISandboxVmModuleSource` (image, bundle and entry command by module id and version), `ISandboxVmHost` (create, start, stop, retire; all idempotent), `ISandboxVmMounts` (attach the module bundle read-only, attach one scratch mount read-write, detach all), `ISandboxVmEgress` (apply the test allowlist, block all) and `ISandboxVmGuestChannel` (run the entry command in the guest and stream the guest-reported actions).
+
+**The sandbox VM profile is a preset over doc 16's two images, not a third VM** (doc 16: restore and sandbox roles are profiles on the same two images). It is:
+
+- Image: the Windows or Linux golden image, chosen by the module's host requirement.
+- Headless.
+- No Soul mount and no workspace mount, ever. The mount seam has no method for them. Exactly two mounts: one read-only module bundle and one read-write scratch.
+- Egress: the spec's test allowlist only (hosts ending in `.test`), or block-all when the list is empty.
+- Ephemeral: the VM is created for the run and retired after it. No checkpoint reuse, no reuse between runs.
+- The only company data in the guest is the `SandboxTestCompany` records, delivered through the scratch mount.
+
+Order, all fail closed: create, attach both mounts, apply egress (or confirm block-all), start, run the module. If a mount or the egress step fails, nothing starts and the engine throws (the runner records `Error`). Egress is always in place before the module can run. Teardown runs in a `finally`, including on cancel, a guest failure and a violation: block all egress, stop, detach all, retire; each step is tried even when another failed, and retire is retried once. A violation makes the runner stop consuming actions, which triggers that teardown at once. Guest reports are data: the engine yields them unchanged and only the runner decides policy. A VM id seen before is refused.
+
+Adaptation (not built): once `Bazaar.Server.VmEgress` and `Bazaar.Server.VmMounts` merge (names from PR #767), `ISandboxVmEgress` is adapted onto `IEgressPolicy.ApplyAsync` and `BlockAllAsync`, reusing `EgressRules` as the allowlist type, and `ISandboxVmMounts` onto `IMountManager` (`AttachAsync`, `DetachAsync`, `DetachAllForAgentAsync`) with a bundle mount and a scratch mount; `ISandboxVmHost` is adapted onto `Bazaar.Server.Vms`. Until then only fakes exist. OPEN: the real guest channel and the sandbox image contents.
+
 OPEN (new, not blockers): OS provider implementations (spike per OS in `35`), the WebAssembly engine choice, the VM image (above).
 
 ### Linux provider (PROPOSED)
