@@ -17,12 +17,18 @@ public sealed class PhoneShell : UserControl
     private readonly PaneRegistry _registry;
     private readonly Func<string, Control?>? _paneBody;
     private readonly Carousel _pager = new();
+    private readonly DockPanel _root;
+    private readonly PhoneDrawer? _drawer;
     private IReadOnlyList<IReadOnlyList<string>> _pages = [];
     private IReadOnlyList<string>? _profileKinds;
 
     /// <param name="registry">The panes to page through, in order.</param>
     /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null)
+    /// <param name="drawer">
+    /// The pane shown in the bottom drawer of the unfolded layout, for example the read-only Constellation (doc 29).
+    /// Null shows no drawer. The drawer's body comes from the spec, else from <paramref name="paneBody"/>.
+    /// </param>
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, PhoneDrawerSpec? drawer = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -31,10 +37,26 @@ public sealed class PhoneShell : UserControl
         var title = new TextBlock { Text = "Bazaar", FontSize = 22, Margin = new Thickness(16, 16, 16, 8), FontWeight = FontWeight.SemiBold };
         DockPanel.SetDock(title, Dock.Top);
 
+        _root = new DockPanel { Children = { title } };
+        if (drawer is not null)
+        {
+            var body = drawer.Body?.Invoke() ?? paneBody?.Invoke(drawer.Kind) ?? new TextBlock { Text = drawer.Kind, TextWrapping = TextWrapping.Wrap, FontSize = 16 };
+            _drawer = new PhoneDrawer(drawer, body);
+            DockPanel.SetDock(_drawer, Dock.Bottom);
+        }
+
         // The pager is the last child, so DockPanel gives it the remaining height.
-        Content = new DockPanel { Children = { title, _pager } };
+        _root.Children.Add(_pager);
+        Content = _root;
         BuildPages();
+        UpdateDrawer();
     }
+
+    /// <summary>The bottom drawer, or null when the shell was built without one. It only shows in the unfolded layout.</summary>
+    public PhoneDrawer? Drawer => _drawer;
+
+    /// <summary>True while the drawer is part of the shell's view, which is the unfolded layout with a drawer configured.</summary>
+    public bool IsDrawerShown => _drawer is not null && _root.Children.Contains(_drawer);
 
     public LayoutVariant Layout { get; private set; } = LayoutVariant.Folded;
 
@@ -109,6 +131,27 @@ public sealed class PhoneShell : UserControl
         Layout = variant;
         BuildPages();
         SelectPageContaining(firstPane);
+        UpdateDrawer();
+    }
+
+    /// <summary>Shows the drawer in the unfolded layout and hides it when folded. The drawer object, and so its open state, is kept.</summary>
+    private void UpdateDrawer()
+    {
+        if (_drawer is null)
+        {
+            return;
+        }
+
+        var shown = _root.Children.Contains(_drawer);
+        if (Layout == LayoutVariant.Unfolded && !shown)
+        {
+            // Before the pager, which must stay last so it takes the remaining height.
+            _root.Children.Insert(_root.Children.Count - 1, _drawer);
+        }
+        else if (Layout != LayoutVariant.Unfolded && shown)
+        {
+            _root.Children.Remove(_drawer);
+        }
     }
 
     /// <summary>Index into the pane list of the first pane on the selected page.</summary>

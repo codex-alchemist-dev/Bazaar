@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -14,6 +15,7 @@ using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
+using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Android;
 
@@ -60,7 +62,23 @@ public sealed class App : Avalonia.Application
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
-        return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
+        var bodies = FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry));
+
+        // The unfolded layout's bottom drawer shows the Constellation read-only (doc 29). Its body is built apart from the pager's,
+        // so the pager keeps its own pane list.
+        var drawer = new PhoneDrawerSpec(PaneKinds.Constellation, "Constellation", () => ConstellationDrawerBody(registry));
+        return new PhoneShell(registry, bodies, drawer);
+    }
+
+    private static Control? ConstellationDrawerBody(PaneRegistry registry)
+    {
+        if (!registry.Contains(PaneKinds.Constellation))
+        {
+            return null;
+        }
+
+        var descriptor = new PaneDescriptor(PaneKinds.Constellation, "Constellation", string.Empty, JsonElement.Parse("{}"));
+        return registry.CreateView(registry.Create(descriptor));
     }
 }
 
