@@ -40,6 +40,17 @@ public class AccessibleControlScanTests
     }
 
     [AvaloniaFact]
+    public void An_unnamed_list_box_is_reported()
+    {
+        var list = new ListBox { Name = "lines", ItemsSource = new[] { "one" } };
+        var window = new Window { Content = list };
+        window.Show();
+
+        AccessibleControlProblem problem = Assert.Single(AccessibleControlScan.Find(window));
+        Assert.Equal("ListBox", problem.ControlType);
+    }
+
+    [AvaloniaFact]
     public void A_placeholder_name_is_reported()
     {
         var box = new TextBox { [AutomationProperties.NameProperty] = "button" };
