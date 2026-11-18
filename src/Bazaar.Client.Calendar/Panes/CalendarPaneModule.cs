@@ -6,7 +6,7 @@ namespace Bazaar.Client.Calendar.Panes;
 public sealed class CalendarPaneModule : IPaneModule
 {
     /// <summary>The pane kind; equals <c>PaneKinds.Calendar</c> once Bazaar.Contracts carries it.</summary>
-    public const string PaneKind = "bazaar.calendar";
+    public const string PaneKind = Bazaar.Contracts.Panes.PaneKinds.Calendar;
 
     private readonly CalendarDayMapper? _mapper;
 

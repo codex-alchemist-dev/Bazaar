@@ -7,7 +7,7 @@ namespace Bazaar.Client.Interrupts;
 public static class InterruptPanes
 {
     /// <summary>The interrupt stack pane kind (the value of <c>PaneKinds.InterruptStack</c> once Contracts carries it).</summary>
-    public const string StackKind = "bazaar.interrupt-stack";
+    public const string StackKind = Bazaar.Contracts.Panes.PaneKinds.InterruptStack;
 
     public static IReadOnlyList<IPaneModule> Modules { get; } = [new InterruptStackPaneModule()];
 }

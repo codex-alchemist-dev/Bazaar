@@ -6,7 +6,7 @@ namespace Bazaar.Client.Org.Panes;
 public sealed class OrgPaneModule : IPaneModule
 {
     // Matches PaneKinds.Org ("bazaar.org") once Bazaar.Contracts carries that constant; kept local until then.
-    internal const string Kind = "bazaar.org";
+    internal const string Kind = Bazaar.Contracts.Panes.PaneKinds.Org;
 
     public string Id => Kind;
 

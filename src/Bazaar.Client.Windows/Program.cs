@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
@@ -11,6 +12,8 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Interrupts;
+using Bazaar.Client.Org;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Windows;
@@ -63,7 +66,7 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. OrgPanes.Modules, .. CalendarPanes.Modules, .. InterruptPanes.Modules];
         var registry = FirstPartyPanes.CreateRegistry(
             modules,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),

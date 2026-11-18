@@ -2,10 +2,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Server;
+using Bazaar.Client.Interrupts;
+using Bazaar.Client.Org;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Android;
@@ -40,7 +43,7 @@ public sealed class App : Avalonia.Application
     private static PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
         // The panes this head ships, in pager order: the RyuseiFuda board first, then the Client.Core panes, then the rest of RyuseiFuda.
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. OrgPanes.Modules, .. CalendarPanes.Modules, .. InterruptPanes.Modules];
         var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles);
         return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
     }
