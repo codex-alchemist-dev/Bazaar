@@ -255,11 +255,8 @@ src/Bazaar.Server/Constellation/Memory/MemoryGraphRetriever.cs
 src/Bazaar.Server/Constellation/Memory/MemoryGraphSink.cs
 src/Bazaar.Server/Constellation/Memory/PgMemoryGraphStore.cs
 src/Bazaar.Server/Constellation/Tiles/ConstellationEmptyGraphSource.cs
-src/Bazaar.Server/Constellation/Tiles/ConstellationNoTileSource.cs
 src/Bazaar.Server/Constellation/Tiles/ConstellationTileHandler.cs
-src/Bazaar.Server/Constellation/Tiles/FakeConstellationTileSource.cs
 src/Bazaar.Server/Constellation/Tiles/LayoutTileSource.cs
-src/Bazaar.Server/Constellation/Tiles/QuadtreeTileBuilder.cs
 src/Bazaar.Server/Constellation/Tiles/TileFrameBinaryCodec.cs
 src/Bazaar.Server/Constellation/Tiles/VaultGraphSource.cs
 src/Bazaar.Server/Council/ApprovalChoices.cs
