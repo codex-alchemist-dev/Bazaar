@@ -30,6 +30,7 @@ public sealed class MountManager : IMountManager
     private readonly IMountContentPolicy _policy;
     private readonly IGuestScrubber _scrubber;
     private readonly IHardLinkProbe _linkProbe;
+    private readonly IMountAttachGuard _attachGuard;
     private readonly VmMountOptions _options;
     private readonly TimeProvider _time;
     private readonly HostPathGuard _guard;
@@ -51,6 +52,7 @@ public sealed class MountManager : IMountManager
         IMountContentPolicy policy,
         IGuestScrubber scrubber,
         IHardLinkProbe linkProbe,
+        IMountAttachGuard attachGuard,
         VmMountOptions options,
         TimeProvider? time = null)
     {
@@ -63,6 +65,7 @@ public sealed class MountManager : IMountManager
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
         _scrubber = scrubber ?? throw new ArgumentNullException(nameof(scrubber));
         _linkProbe = linkProbe ?? throw new ArgumentNullException(nameof(linkProbe));
+        _attachGuard = attachGuard ?? throw new ArgumentNullException(nameof(attachGuard));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _time = time ?? TimeProvider.System;
         _guard = new HostPathGuard(options);
@@ -82,6 +85,9 @@ public sealed class MountManager : IMountManager
         {
             EnsureModeMatchesKind(spec);
             guestPath = EnsureGuestPath(spec);
+            // Before any scan, canary, provider or guest work: a veto from the browser module must cost nothing.
+            if (spec.Kind == MountKind.Soul)
+                await _attachGuard.CheckSoulAttachAsync(spec.VmId, ct).ConfigureAwait(false);
             guarded = _guard.Check(spec.AgentId, spec.Kind, spec.HostPath);
             MountTreeScanner.Scan(guarded.MountRoot, spec.Kind, _options.MaxScanEntries, _options.CaseInsensitive, _policy, _linkProbe);
             if (spec.Kind == MountKind.Soul && HostPathGuard.IsLink(ProfileDirectory(guarded.MountRoot)))
@@ -185,9 +191,12 @@ public sealed class MountManager : IMountManager
             writeBack = (await WriteBackCoreAsync(row, guestOs, ct).ConfigureAwait(false)).Outcome;
         }
 
-        // From here on the host side lets go whatever the caller's token says; a server-side limit keeps a hung provider from stalling.
         using var limit = new CancellationTokenSource(_options.ContainmentTimeout);
+        // From here on the host side lets go whatever the caller's token says; a server-side limit keeps a hung provider from stalling.
         Exception? detachFailure = null;
+        Exception? cleanupFailure = null;
+        var profileDeleted = false;
+
         Exception? scrubFailure = null;
         var scrubbed = false;
 
@@ -224,6 +233,27 @@ public sealed class MountManager : IMountManager
             }
         }
 
+        // Invariant: no cookie copy exists in the guest outside an attached Soul mount. Attempted after every Soul detach, last, so a
+        // slow guest never delays the host side letting go; on containment the scrubber is the main defence and this still runs.
+        using var cleanupLimit = new CancellationTokenSource(_options.ContainmentTimeout);
+        if (row.Kind == MountKind.Soul)
+        {
+            try
+            {
+                await _transfer.DeleteGuestCopyAsync(row.VmId, LayoutOf(guestOs).ProfilePath, cleanupLimit.Token).ConfigureAwait(false);
+                profileDeleted = true;
+            }
+            catch (Exception ex)
+            {
+                cleanupFailure = ex;
+                await TryAuditAsync(VmMountAuditActions.GuestCleanupFailed, row, new JsonObject
+                {
+                    ["reason"] = reason.ToString(),
+                    ["error"] = ex.GetType().Name,
+                }).ConfigureAwait(false);
+            }
+        }
+
         if (detachFailure is null)
         {
             await _canaries.StopWatchAsync(mountId).ConfigureAwait(false);
@@ -240,6 +270,7 @@ public sealed class MountManager : IMountManager
                 ["reason"] = reason.ToString(),
                 ["writeback"] = writeBack.ToString(),
                 ["scrubbed"] = scrubbed,
+                ["guest_profile_deleted"] = profileDeleted,
             }, CancellationToken.None).ConfigureAwait(false);
         }
 
@@ -249,7 +280,10 @@ public sealed class MountManager : IMountManager
             throw detachFailure;
         if (scrubFailure is not null)
             throw scrubFailure;
-        return new DetachResult(mountId, true, false, reason, writeBack, scrubbed);
+        // A failed cleanup is tolerated on containment only because the scrub succeeded (checked above); a clean detach reports it.
+        if (cleanupFailure is not null && !containment)
+            throw cleanupFailure;
+        return new DetachResult(mountId, true, false, reason, writeBack, scrubbed, profileDeleted);
     }
 
     public async Task<IReadOnlyList<DetachResult>> DetachAllForAgentAsync(Guid agentId, DetachReason reason, CancellationToken ct)
@@ -466,6 +500,20 @@ public sealed class MountManager : IMountManager
         {
             using var limit = new CancellationTokenSource(_options.ContainmentTimeout);
             await _provider.DetachAsync(request, limit.Token).ConfigureAwait(false);
+            if (row.Kind == MountKind.Soul)
+            {
+                using var cleanup = new CancellationTokenSource(_options.ContainmentTimeout);
+                try
+                {
+                    await _transfer.DeleteGuestCopyAsync(row.VmId, LayoutOf(request.GuestOs).ProfilePath, cleanup.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    await TryAuditAsync(VmMountAuditActions.GuestCleanupFailed, row, new JsonObject { ["reason"] = "AttachRollback", ["error"] = ex.GetType().Name })
+                        .ConfigureAwait(false);
+                }
+            }
+
             await _canaries.StopWatchAsync(row.Id).ConfigureAwait(false);
             if (row.Kind == MountKind.Soul)
             {
@@ -512,7 +560,7 @@ public sealed class MountManager : IMountManager
         return chosen;
     }
 
-    private GuestMountLayout LayoutOf(GuestOs os) => os == GuestOs.Windows ? _options.Windows : _options.Linux;
+    private GuestMountLayout LayoutOf(GuestOs os) => _options.GetLayout(os);
 
     /// <summary>The guest OS comes from the VM's own row. The layout match is only a fallback for a VM row that is gone.</summary>
     private async Task<GuestOs> GuestOsOfAsync(ScopedMountRow row)

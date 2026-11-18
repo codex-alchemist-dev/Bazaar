@@ -34,6 +34,7 @@ public sealed class MountHarness : IDisposable
             GuestIoTimeout = guestIoTimeout ?? TimeSpan.FromMinutes(5),
             Windows = windowsLayout ?? GuestMountLayout.DefaultWindows,
         };
+        AttachGuard = new FakeAttachGuard(() => Provider.Calls);
         Policy = new DefaultMountContentPolicy();
         Transfer = new GuestProfileTransfer(Channel, Policy, Options);
         Manager = NewManager();
@@ -70,6 +71,8 @@ public sealed class MountHarness : IDisposable
 
     public FakeHardLinkProbe LinkProbe { get; } = new();
 
+    public FakeAttachGuard AttachGuard { get; }
+
     public DefaultMountContentPolicy Policy { get; }
 
     public GuestProfileTransfer Transfer { get; }
@@ -80,7 +83,7 @@ public sealed class MountHarness : IDisposable
 
     /// <summary>A manager over the same stores and fakes. Pass a replacement for any part a test needs to change, or build a second manager to model a restart.</summary>
     public MountManager NewManager(IAuditLog? audit = null, IGuestScrubber? scrubber = null) => new(
-        Store, Canaries, Provider, Transfer, Sink, audit ?? Audit, Policy, scrubber ?? Scrubber, LinkProbe, Options, Time);
+        Store, Canaries, Provider, Transfer, Sink, audit ?? Audit, Policy, scrubber ?? Scrubber, LinkProbe, AttachGuard, Options, Time);
 
     /// <summary>Registers another Linux VM for an agent (default: the harness agent) and returns its id.</summary>
     public Guid NewVm(Guid? agent = null, GuestOs os = GuestOs.Linux, bool retired = false)

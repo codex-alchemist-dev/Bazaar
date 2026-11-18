@@ -20,6 +20,9 @@ public static class VmMountAuditActions
     /// <summary>A containment detach could not scrub the guest (<see cref="Abstractions.IGuestScrubber"/> failed or is not wired).</summary>
     public const string ScrubFailed = "vm.mount.scrub_failed";
 
+    /// <summary>The guest's profile copy could not be deleted after a Soul detach.</summary>
+    public const string GuestCleanupFailed = "vm.mount.guest_cleanup_failed";
+
     /// <summary>The guest cookie profile was written to the host profile.</summary>
     public const string WriteBack = "vm.mount.writeback";
 

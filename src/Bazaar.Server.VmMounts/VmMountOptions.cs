@@ -1,12 +1,6 @@
+using Bazaar.Server.VmMounts.Abstractions;
+
 namespace Bazaar.Server.VmMounts;
-
-/// <summary>Guest paths the server chooses for one guest OS. A mount request must name exactly these.</summary>
-public sealed record GuestMountLayout(string SoulPath, string WorkspacePath, string ProfilePath)
-{
-    public static GuestMountLayout DefaultLinux { get; } = new("/mnt/bazaar/soul", "/mnt/bazaar/workspace", "/var/lib/bazaar/profile");
-
-    public static GuestMountLayout DefaultWindows { get; } = new(@"C:\Bazaar\Soul", @"C:\Bazaar\Workspace", @"C:\Bazaar\Profile");
-}
 
 /// <summary>Bounds on a cookie profile in either direction. A profile over any bound is refused, never truncated.</summary>
 public sealed record ProfileLimits(int MaxFiles, long MaxFileBytes, long MaxTotalBytes)
@@ -18,7 +12,7 @@ public sealed record ProfileLimits(int MaxFiles, long MaxFileBytes, long MaxTota
 /// Settings of the scoped-mount module. The fixed floors (Soul read-only, workspace read-write, host paths inside the agent's own
 /// root, no write-back after hard taint) are not options.
 /// </summary>
-public sealed class VmMountOptions
+public sealed class VmMountOptions : IGuestMountLayoutProvider, IWorkShareLayout
 {
     /// <summary>Directory that holds one folder per agent, named by the agent id in <c>N</c> format. An agent's root is <c>AgentsRoot/agentId</c>.</summary>
     public required string AgentsRoot { get; init; }
@@ -58,4 +52,12 @@ public sealed class VmMountOptions
     public GuestMountLayout Linux { get; init; } = GuestMountLayout.DefaultLinux;
 
     public GuestMountLayout Windows { get; init; } = GuestMountLayout.DefaultWindows;
+
+    public GuestMountLayout GetLayout(GuestOs os) => os == GuestOs.Windows ? Windows : Linux;
+
+    /// <summary>PROPOSED. The agent's workspace share root, <c>AgentsRoot/agentId/WorkspaceFolderName</c>.</summary>
+    public string WorkShareRoot(Guid agentId) => Path.Combine(Path.GetFullPath(AgentsRoot), agentId.ToString("N"), WorkspaceFolderName);
+
+    /// <summary>PROPOSED. The agent's Soul/Passport folder, <c>AgentsRoot/agentId/SoulFolderName</c>.</summary>
+    public string PassportFolder(Guid agentId) => Path.Combine(Path.GetFullPath(AgentsRoot), agentId.ToString("N"), SoulFolderName);
 }

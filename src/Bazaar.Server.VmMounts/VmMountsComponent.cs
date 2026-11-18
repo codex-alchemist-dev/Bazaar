@@ -64,6 +64,9 @@ public static class VmMountsRegistration
         services.TryAddSingleton<ICanaryStore, PostgresCanaryStore>();
         services.TryAddSingleton<IGuestScrubber, RefusingGuestScrubber>();
         services.TryAddSingleton<IHardLinkProbe, NullHardLinkProbe>();
+        services.TryAddSingleton<IMountAttachGuard, AllowAllMountAttachGuard>();
+        services.TryAddSingleton<IGuestMountLayoutProvider>(sp => sp.GetRequiredService<VmMountOptions>());
+        services.TryAddSingleton<IWorkShareLayout>(sp => sp.GetRequiredService<VmMountOptions>());
         services.TryAddSingleton<IProfileTransfer, GuestProfileTransfer>();
         services.TryAddSingleton<IMountManager, MountManager>();
         services.AddHostedService<MountWatchRearmService>();

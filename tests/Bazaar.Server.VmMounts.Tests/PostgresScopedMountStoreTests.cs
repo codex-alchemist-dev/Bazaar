@@ -173,7 +173,7 @@ public sealed class PostgresScopedMountStoreTests : MountsDb
         var vm = await InsertVmAsync(h.Agent);
         var provider = new DirectoryMountProvider(Path.Combine(h.Root, "view"));
         var manager = new MountManager(
-            Store, CanaryStore, provider, h.Transfer, h.Sink, h.Audit, h.Policy, h.Scrubber, h.LinkProbe, h.Options, h.Time);
+            Store, CanaryStore, provider, h.Transfer, h.Sink, h.Audit, h.Policy, h.Scrubber, h.LinkProbe, h.AttachGuard, h.Options, h.Time);
 
         var soul = await manager.AttachAsync(h.SoulSpec(vm), Ct);
         Assert.True(provider.IsAttached(vm, soul.MountId));

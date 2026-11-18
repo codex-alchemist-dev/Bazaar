@@ -51,4 +51,10 @@ public interface IProfileTransfer
     /// staging directory is removed and a <see cref="ProfileTransferException"/> is thrown. The caller swaps a good result into place.
     /// </summary>
     Task<ProfileManifest> PullAsync(Guid vmId, GuestOs guestOs, string guestProfileDirectory, string hostStagingDirectory, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes the guest's working copy of the profile. Called after every Soul detach, clean or containment, so that no cookie copy
+    /// exists in the guest outside an attached Soul mount. A missing folder is not an error.
+    /// </summary>
+    Task DeleteGuestCopyAsync(Guid vmId, string guestProfileDirectory, CancellationToken ct);
 }

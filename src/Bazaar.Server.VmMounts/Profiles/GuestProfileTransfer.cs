@@ -148,6 +148,18 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
         }
     }
 
+    public async Task DeleteGuestCopyAsync(Guid vmId, string guestProfileDirectory, CancellationToken ct)
+    {
+        try
+        {
+            await channel.DeleteDirectoryAsync(vmId, guestProfileDirectory, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not ProfileTransferException)
+        {
+            throw new ProfileTransferException(ProfileTransferFailure.Channel, "The guest channel failed while deleting the profile copy.", ex);
+        }
+    }
+
     private void RequireAllowed(string relativePath, long length)
     {
         var decision = policy.Evaluate(new MountContentCandidate(MountKind.Soul, MountContentOrigin.ProfileFile, relativePath, length));

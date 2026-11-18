@@ -125,6 +125,28 @@ public sealed class InMemoryCanaryStore : ICanaryStore
     }
 }
 
+/// <summary>An attach guard that records its calls and the provider calls seen so far, and can refuse.</summary>
+public sealed class FakeAttachGuard(Func<IReadOnlyList<string>>? providerCalls = null) : IMountAttachGuard
+{
+    private int _calls;
+
+    public int Calls => _calls;
+
+    /// <summary>How many provider calls had happened when the guard was last asked. Must be 0: the guard runs before any provider work.</summary>
+    public int ProviderCallsSeen { get; private set; }
+
+    public bool Refuse { get; set; }
+
+    public Task CheckSoulAttachAsync(Guid vmId, CancellationToken ct)
+    {
+        Interlocked.Increment(ref _calls);
+        ProviderCallsSeen = providerCalls?.Invoke().Count ?? 0;
+        return Refuse
+            ? throw new MountRefusedException(MountRefusalReason.AttachGuardRefused, "An anonymous browser runs on this VM.")
+            : Task.CompletedTask;
+    }
+}
+
 public sealed class FakeGuestScrubber : IGuestScrubber
 {
     private readonly ConcurrentQueue<GuestScrubRequest> _requests = new();
@@ -205,6 +227,13 @@ public sealed class FakeGuestChannel : IMountGuestChannel
 
     public Exception? FailPut { get; set; }
 
+    /// <summary>When set, <see cref="DeleteDirectoryAsync"/> throws it.</summary>
+    public Exception? FailDelete { get; set; }
+
+    public int DeleteCalls => _deletes;
+
+    private int _deletes;
+
     /// <summary>When set, <see cref="ListFilesAsync"/> waits until its token is cancelled, like a guest that never answers.</summary>
     public bool ListBlocksUntilCancelled { get; set; }
 
@@ -256,6 +285,9 @@ public sealed class FakeGuestChannel : IMountGuestChannel
 
     public Task DeleteDirectoryAsync(Guid vmId, string guestDirectory, CancellationToken ct)
     {
+        Interlocked.Increment(ref _deletes);
+        if (FailDelete is { } failure)
+            throw failure;
         var prefix = guestDirectory.TrimEnd('/') + "/";
         foreach (var key in _files.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)))
             _files.TryRemove(key, out _);

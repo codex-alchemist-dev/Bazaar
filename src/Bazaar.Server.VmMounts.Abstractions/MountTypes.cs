@@ -86,6 +86,7 @@ public enum WriteBackOutcome
 }
 
 /// <summary>Result of a detach. The mount is detached whenever <see cref="Detached"/> is true, whatever happened to the write-back.</summary>
+/// <param name="GuestProfileDeleted">True when the guest's working copy of the cookie profile was deleted through the guest channel (Soul mounts).</param>
 /// <param name="GuestScrubbed">True when a hard-taint or kill-switch detach also ran <see cref="IGuestScrubber"/> successfully.</param>
 public sealed record DetachResult(
     Guid MountId,
@@ -93,7 +94,8 @@ public sealed record DetachResult(
     bool WasAlreadyDetached,
     DetachReason Reason,
     WriteBackOutcome WriteBack,
-    bool GuestScrubbed = false);
+    bool GuestScrubbed = false,
+    bool GuestProfileDeleted = false);
 
 /// <summary>Result of <see cref="IMountManager.WriteBackProfileAsync"/>.</summary>
 public sealed record WriteBackResult(Guid MountId, WriteBackOutcome Outcome, int FilesWritten, string? Detail);
@@ -130,6 +132,9 @@ public enum MountRefusalReason
 
     /// <summary>The VM does not belong to the agent, runs another OS than the request names, is retired, or does not exist. Also: the agent already has a Soul mount on another VM (single profile writer).</summary>
     VmNotEligible,
+
+    /// <summary>An <see cref="IMountAttachGuard"/> refused the Soul attach (for example an anonymous browser runs on the VM).</summary>
+    AttachGuardRefused,
 }
 
 /// <summary>The manager refused an operation. Nothing was attached or changed.</summary>

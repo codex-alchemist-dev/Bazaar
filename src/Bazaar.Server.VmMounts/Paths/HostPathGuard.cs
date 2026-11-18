@@ -35,6 +35,10 @@ internal sealed class HostPathGuard
         _cmp = _ci ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (!Path.IsPathFullyQualified(options.AgentsRoot))
             throw new ArgumentException("AgentsRoot must be an absolute path.", nameof(options));
+        // The folders of an agent's root must be single safe names and must not alias each other, or the two shares would overlap.
+        string[] folders = [options.SoulFolderName, options.WorkspaceFolderName, options.ProfileFolderName, options.StagingFolderName];
+        if (folders.Any(f => !SafeNames.IsSafeSegment(f)) || folders.Take(2).Concat(folders.Skip(3)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 3)
+            throw new ArgumentException("The soul, workspace and staging folder names must be distinct safe names.", nameof(options));
         _agentsRootLexical = Path.GetFullPath(options.AgentsRoot);
         _agentsRootReal = RealPath(_agentsRootLexical, 0);
         _denyReal = [.. options.DenyPaths.Select(d => RealPath(Path.GetFullPath(d), 0))];

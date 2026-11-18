@@ -18,3 +18,9 @@ public sealed class NullHardLinkProbe : IHardLinkProbe
 {
     public int? GetLinkCount(string filePath) => null;
 }
+
+/// <summary>The shipped <see cref="IMountAttachGuard"/>: it allows every Soul attach. The browser module replaces it.</summary>
+public sealed class AllowAllMountAttachGuard : IMountAttachGuard
+{
+    public Task CheckSoulAttachAsync(Guid vmId, CancellationToken ct) => Task.CompletedTask;
+}
