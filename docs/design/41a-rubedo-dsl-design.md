@@ -108,8 +108,8 @@ Owner correction (2026-11-13): an earlier draft offered "inside Client.Core" as 
 
 ## 10. Document integration
 
-- A layout node gets an optional `visibleWhen` string (a Rubedo source). It replaces the reserved field, which the validator rejects today. This is additive within schema version 1 once the owner approves.
-- Commands may use `enabledWhen` the same way (later WP).
+- A layout node gets an optional `visibleWhen` string (a Rubedo source). It replaces the reserved field. Additive within schema version 1. IMPLEMENTED (WP5): `LayoutValidator` compiles it against the standard schema and requires `bool` (issue codes `bad-visible-when`, `visible-when-invalid`, `visible-when-type`); `LayoutTree.Build` with a `RubedoContext` omits a node whose rule is false, hides children with it, and omits and reports a node whose rule errors (`visible-when-error`, fail closed). A `visibleWhen` string is exempt from the forbidden-fragment scan (rules need `<` and `>`). PROPOSED: a container whose children are all hidden stays as an empty container.
+- Commands may use `enabledWhen` the same way (later WP). PROPOSED: evaluation lives in a client module (`Bazaar.Client.Rubedo.Commands` plus `.Abstractions`), never in Client.Core; Core only calls it through an adapter seam.
 - The document's `dslVersion` (integer, 1 for v1) is checked on load. An unknown version is a document-level rejection.
 
 ## 11. Questions for the owner (answered 2026-11-13)
@@ -126,5 +126,5 @@ Owner answers (2026-11-13, by card):
 2. Type checker with the closed function table, tests for each type mismatch.
 3. Evaluator with decimal arithmetic and budgets, tests for each limit.
 4. Golden corpus (JSON) and a runner shared by every head.
-5. Wire into layout `visibleWhen`, replacing the reserved field, with validator tests.
+5. DONE: wire into layout `visibleWhen`, replacing the reserved field, with validator tests.
 6. Owner review of the corpus before the language is marked DECIDED.
