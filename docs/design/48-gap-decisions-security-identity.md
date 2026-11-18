@@ -66,6 +66,29 @@ Built status: PLANNED. The spike for the sandbox per OS is listed in `35`.
 
 OPEN: the exact VM image for sandbox runs (shared with `16` golden images). Not a blocker for the decision.
 
+### 2.1 Module shape and enforcement rules (PROPOSED, 2026-11-18)
+
+**Status: PROPOSED.** The decision above is binding; this section fills the gaps the owner left (module split, verdicts, enforcement order). Nothing here relaxes a DECIDED item. Built status of this slice: the platform-neutral core is built; the OS confinement providers, the WebAssembly engine and the VM engine are not (they stay behind the interfaces below and the runner refuses to start without a tested one).
+
+Projects (named per doc 40; neither references `Bazaar.Server.csproj`):
+
+- `Bazaar.Server.DevSandbox.Abstractions`: the contracts. `SandboxRunSpec`, `SandboxPermissionGrant`, `SandboxAction`, `SandboxAuditEvent`, `SandboxRunResult`, `SandboxVerdict`, and the seams `ISandboxRunner`, `ISandboxConfinementProvider` (one per OS), `ISandboxEngine` (WebAssembly or VM), `ISandboxCompanyFactory`, `ISandboxAuditStream`.
+- `Bazaar.Server.DevSandbox`: the platform-neutral core. Policy engine, hash-chained audit stream, deterministic fake-data company generator with canary values, canary detector, production isolation guard, the runner, replay, and the DI registration `AddBazaarDevSandbox`.
+
+Enforcement rules (all fail closed):
+
+1. **Deny by default.** Every action (host call, file access, network attempt, secret read, permission check) is decided against the module's approved permission grants (doc 48 section 1 classes) and the run's egress allowlist. An action with no matching grant is recorded as denied and is a violation.
+2. **Any violation fails the run.** The verdict is `UndeclaredAccess`. The run is not retried and the Verified tag check `MonitoredSandboxRun` (section 3) is `Failed`. A run that did not complete (`TimedOut`, `Refused`, `Error`) is `Pending` for the tag, never `Passed`.
+3. **Canaries.** The test company's secrets, mail and Vault pages carry canary values (random per run, derived from the run seed). Any canary seen leaving through a network attempt, a host call argument or a file write is verdict `CanaryTriggered`, which also fails the run and is audited as a high-severity event.
+4. **Egress.** Network egress is blocked except to named test endpoints in `SandboxRunSpec.EgressAllowlist`. An attempt to anything else is a recorded, denied violation. The list may only be empty or contain test endpoints; a production host name in it is refused when the spec is validated.
+5. **Production isolation.** A run uses its own database schema `sandbox_<run id>` and role `sandbox_<run id>`. The isolation guard refuses a spec whose connection target, schema or role names a production company, and refuses any action that targets a non-sandbox schema.
+6. **Provider gate.** The runner starts a run only when an `ISandboxConfinementProvider` for the host OS is registered and reports `Tested = true`, and an `ISandboxEngine` for the module type is registered. Otherwise the verdict is `Refused` with the reason. There is no unconfined fallback.
+7. **Audit.** Every action and decision is appended to a per-run audit stream: a hash chain (each event carries the previous event's SHA-256; the head hash is stored with the run result). The stream is the evidence attached to the verified-tag run. It is append-only; a broken chain on read fails verification.
+8. **Replay.** A run's stream replays through the policy engine with the same grants and allowlist and must yield the same verdict. A replay that differs is reported as `ReplayMismatch`.
+9. **Limits.** Wall-clock timeout and memory ceiling per run come from operator settings with safe defaults (timeout 300 s, memory 512 MB); settings may tighten, not loosen below the floor in section 1.
+
+OPEN (new, not blockers): OS provider implementations (spike per OS in `35`), the WebAssembly engine choice, the VM image (above).
+
 ## 3. Verified tag
 
 **Status: DECIDED.** The marketplace shows a Verified tag on a module version after automated checks, a human review and a monitored sandbox run. A later version that fails any check has its tag revoked automatically. Unverified modules can be installed with a warning.
