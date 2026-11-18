@@ -23,12 +23,14 @@ public static class OfflineSyncModule
         services.TryAddSingleton<IOfflineSyncStore, InMemoryOfflineSyncStore>();
         services.TryAddSingleton<IOfflineMergeAudit, NullOfflineMergeAudit>();
         services.TryAddSingleton<IOfflineClock, SystemOfflineClock>();
+        services.TryAddSingleton<IOfflineWriteScopeFactory, NoOpOfflineWriteScopeFactory>();
         services.TryAddSingleton<OfflineSyncProcessor>(static sp => new OfflineSyncProcessor(
             sp.GetServices<IOfflineMergeRule>(),
             sp.GetRequiredService<IOfflineSyncStore>(),
             sp.GetRequiredService<IOfflineMergeAudit>(),
             sp.GetRequiredService<IOfflineClock>(),
-            sp.GetRequiredService<OfflineSyncOptions>()));
+            sp.GetRequiredService<OfflineSyncOptions>(),
+            sp.GetRequiredService<IOfflineWriteScopeFactory>()));
         return services;
     }
 }

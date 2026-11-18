@@ -66,7 +66,7 @@ Read before adding the module: the GC log writer already dedupes on a client mes
 
 ## 8. Open Questions
 
-1. Postgres schema for the store (tables `offline_write_seen`, `offline_review_item`), including retention of `(DeviceId, WriteId)` rows. PROPOSED: keep for the life of the device registration.
+1. Retention of `(DeviceId, WriteId)` rows. PROPOSED: keep for the life of the device registration. The schema itself (tables `offline_write_seen`, `offline_device_seq`, `offline_write_claim`, `offline_review_item` and the per-class state tables) is built in `Bazaar.Server.OfflineSync.Postgres`, migration namespace `offline_sync`.
 2. Whether `MaxClockSkew` should be per device class (a phone clock drifts more). PROPOSED: one value.
 3. Vault merge rule wiring waits on the Vault and Git client modules.
 
@@ -79,4 +79,4 @@ Read before adding the module: the GC log writer already dedupes on a client mes
 
 ## 9. Build state
 
-PLANNED. Step 1 (this PR set): abstractions, server merge engine with in-memory store, client queue. Step 2: Postgres store and migrations. Step 3: wire endpoints and client head composition. Step 4: Vault rule.
+PLANNED. Step 1 (done): abstractions, server merge engine with in-memory store, client queue. Step 2 (built): Postgres store, one transaction per write with a per-target advisory lock. Step 3 (built, head composition pending): `POST /offline-sync/batch` bound to the authenticated device, client HTTP transport; HTTP credentials do not yet carry a device id, so the route answers 403 `device_unbound` until the identity module issues one (OPEN, Identity). Step 4 (built as a seam): `VaultCommitRule` delegates to `IVaultOfflineMerger`, which the Vault module implements. Torn-queue repair is built (quarantine copies the file rather than moving it, so a crash mid-repair never leaves no queue; the anchor's record count is the highest appended sequence); the replay driver does not yet raise Attention from it.

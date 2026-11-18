@@ -18,6 +18,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Mail;
+using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -45,6 +46,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new RemoteComponent(),
+        new OfflineSyncComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Security.Cryptography;
 using Bazaar.OfflineSync;
 
@@ -14,7 +15,11 @@ namespace Bazaar.Client.OfflineSync;
 /// The associated data of each record is the DeviceId bytes followed by the DeviceSequence (int64 LE). The sequence is not stored
 /// in the record; it follows from position. A swapped, reordered or shifted record therefore fails authentication.
 /// Any verification failure stops the queue: every later call throws <see cref="OfflineQueueCorruptedException"/> and nothing is skipped.
-/// Removing whole records from the end of the file is not detectable by the format alone; see doc 56 open items.
+/// Removing whole records from the end of the file is not detectable by the format alone. An <see cref="IOfflineQueueAnchorStore"/>
+/// kept outside the file (doc 56 section 6, open item 7) closes that gap: each append is fsynced before the anchor records it, and
+/// open fails when the file holds fewer records than the anchor allows.
+/// With <see cref="OfflineQueueRepairMode.QuarantineTornTail"/>, a torn or unauthenticated final record is quarantined and the queue
+/// is rebuilt from the valid prefix, reporting the lost write in <see cref="Repair"/>. Any other failure still stops the queue.
 /// Within one process all members are thread safe. Two processes must not open the same queue directory.
 /// </remarks>
 [SuppressMessage("Naming", "CA1711", Justification = "The name is fixed by the doc 56 client queue contract.")]
@@ -39,24 +44,36 @@ public sealed class EncryptedOfflineQueue : IDisposable
     private readonly Guid _deviceId;
     private readonly OfflineQueueLimits _limits;
     private readonly AesGcm _aes;
+    private readonly IOfflineQueueAnchorStore? _anchors;
+    private readonly OfflineQueueRepairMode _repairMode;
     private long _base;
     private long _next;
     private long _count;
     private long _bytes;
+    private long _acked;
+    private RepairReport? _repair;
     private OfflineQueueCorruptedException? _fault;
     private bool _disposed;
 
     private delegate bool RecordVisitor(OfflineWrite write, byte[] frame);
 
-    private readonly record struct ScanResult(long First, long Count, long Bytes);
+    private readonly record struct ScanResult(long First, long Count, long Bytes, bool TornTail);
 
     /// <summary>Opens the queue in <paramref name="directory"/>, creating it when absent, and verifies every record.</summary>
     /// <param name="directory">The directory that holds the queue file.</param>
     /// <param name="deviceId">The device whose writes this queue holds.</param>
     /// <param name="keyProvider">Supplies the 32-byte key.</param>
     /// <param name="limits">Size limits; null for the defaults.</param>
-    /// <exception cref="OfflineQueueCorruptedException">A record failed verification.</exception>
-    public EncryptedOfflineQueue(string directory, Guid deviceId, IOfflineQueueKeyProvider keyProvider, OfflineQueueLimits? limits = null)
+    /// <param name="repairMode">What to do with a torn final record. The default fails closed.</param>
+    /// <param name="anchorStore">Where the anchor lives, outside the file. Null disables anchor checks (and torn-tail repair).</param>
+    /// <exception cref="OfflineQueueCorruptedException">A record failed verification, or the file disagrees with the anchor.</exception>
+    public EncryptedOfflineQueue(
+        string directory,
+        Guid deviceId,
+        IOfflineQueueKeyProvider keyProvider,
+        OfflineQueueLimits? limits = null,
+        OfflineQueueRepairMode repairMode = OfflineQueueRepairMode.FailClosed,
+        IOfflineQueueAnchorStore? anchorStore = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(directory);
         ArgumentNullException.ThrowIfNull(keyProvider);
@@ -72,21 +89,43 @@ public sealed class EncryptedOfflineQueue : IDisposable
         }
 
         _deviceId = deviceId;
+        _repairMode = repairMode;
+        _anchors = anchorStore;
         _aes = new AesGcm(key.Span, _tagBytes);
         try
         {
             Directory.CreateDirectory(directory);
             _path = Path.Combine(directory, FileName);
+            var anchor = _anchors?.Load();
             if (!File.Exists(_path))
             {
+                if (anchor is { RecordCount: > 0 })
+                {
+                    throw Corrupt($"the queue file is missing but the anchor records {anchor.RecordCount} writes");
+                }
+
                 CreateEmpty(_path);
             }
 
-            var scan = Scan(visit: null, maxRecords: int.MaxValue);
+            var tolerateTornTail = _repairMode == OfflineQueueRepairMode.QuarantineTornTail && _anchors is not null;
+            var scan = Scan(visit: null, maxRecords: int.MaxValue, tolerateTornTail);
+            var lastValid = scan.First + scan.Count - 1;
             _base = scan.First;
             _count = scan.Count;
             _bytes = scan.Bytes;
-            _next = _base + _count;
+            _next = lastValid + 1;
+            _acked = _base - 1;
+
+            var lost = VerifyAgainstAnchor(anchor, lastValid, scan.TornTail);
+            if (scan.TornTail)
+            {
+                RepairTornTail(scan, lost);
+            }
+
+            if (_anchors is not null && !Equals(anchor, new OfflineQueueAnchor(_next - 1, _acked)))
+            {
+                SaveAnchor();
+            }
         }
         catch
         {
@@ -97,6 +136,9 @@ public sealed class EncryptedOfflineQueue : IDisposable
 
     /// <summary>The device this queue holds writes for.</summary>
     public Guid DeviceId => _deviceId;
+
+    /// <summary>The repair made when the queue was opened, or null when none was needed. The driver raises Attention for a repair.</summary>
+    public RepairReport? Repair => _repair;
 
     /// <summary>Whether the queue has stopped after a verification failure.</summary>
     public bool IsStopped
@@ -183,6 +225,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
             _count++;
             _bytes += frame.Length;
             _next++;
+            SaveAnchor();
             return EnqueueResult.Accepted;
         }
     }
@@ -238,6 +281,8 @@ public sealed class EncryptedOfflineQueue : IDisposable
             try
             {
                 Compact(upToSequence);
+                _acked = upToSequence;
+                SaveAnchor();
             }
             catch (OfflineQueueCorruptedException ex)
             {
@@ -261,6 +306,65 @@ public sealed class EncryptedOfflineQueue : IDisposable
             _aes.Dispose();
         }
     }
+
+    /// <summary>Checks the file against the anchor and returns the writes lost to a torn tail (0 or 1).</summary>
+    private static long VerifyAgainstAnchor(OfflineQueueAnchor? anchor, long lastValid, bool tornTail)
+    {
+        if (anchor is null)
+        {
+            if (tornTail)
+            {
+                throw Corrupt("a torn tail cannot be told apart from truncation without an anchor");
+            }
+
+            return 0;
+        }
+
+        // The anchor is saved after each fsynced append, so it never runs ahead of the file by more than the torn record.
+        var allowed = lastValid + (tornTail ? 1 : 0);
+        if (anchor.RecordCount > allowed)
+        {
+            throw Corrupt($"the file holds {lastValid} records but the anchor expects {anchor.RecordCount}; records were removed");
+        }
+
+        if (anchor.AckedSequence > lastValid)
+        {
+            throw Corrupt($"the file ends at {lastValid} but the anchor acknowledges {anchor.AckedSequence}");
+        }
+
+        return Math.Max(0, anchor.RecordCount - lastValid);
+    }
+
+    /// <summary>
+    /// Keeps a copy of the whole damaged file under a quarantine name, then truncates the queue file to its valid prefix. The
+    /// copy is made first so a crash never loses the original bytes.
+    /// </summary>
+    private void RepairTornTail(ScanResult scan, long lostWrites)
+    {
+        var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+        var quarantine = $"{_path}.quarantine-{stamp}";
+        for (var attempt = 2; File.Exists(quarantine); attempt++)
+        {
+            quarantine = $"{_path}.quarantine-{stamp}-{attempt.ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        using (var source = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var copy = new FileStream(quarantine, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            source.CopyTo(copy);
+            copy.Flush(flushToDisk: true);
+        }
+
+        using (var stream = new FileStream(_path, FileMode.Open, FileAccess.Write, FileShare.None))
+        {
+            stream.SetLength(_headerBytes + scan.Bytes);
+            stream.Flush(flushToDisk: true);
+        }
+
+        _repair = new RepairReport(lostWrites, quarantine);
+    }
+
+    private void SaveAnchor() => _anchors?.Save(new OfflineQueueAnchor(_next - 1, _acked));
 
     private static void CreateEmpty(string path)
     {
@@ -310,20 +414,29 @@ public sealed class EncryptedOfflineQueue : IDisposable
         return frame;
     }
 
-    private OfflineWrite Open(long sequence, ReadOnlySpan<byte> body)
+    private bool TryDecrypt(long sequence, ReadOnlySpan<byte> body, out byte[] plaintext)
     {
         var nonce = body[.._nonceBytes];
         var cipher = body[_nonceBytes..^_tagBytes];
         var tag = body[^_tagBytes..];
-        var plaintext = new byte[cipher.Length];
+        plaintext = new byte[cipher.Length];
 
         Span<byte> associated = stackalloc byte[_associatedDataBytes];
         WriteAssociatedData(_deviceId, sequence, associated);
         try
         {
             _aes.Decrypt(nonce, cipher, tag, plaintext, associated);
+            return true;
         }
         catch (CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    private OfflineWrite Open(long sequence, ReadOnlySpan<byte> body)
+    {
+        if (!TryDecrypt(sequence, body, out var plaintext))
         {
             throw Corrupt($"record {sequence} failed authentication");
         }
@@ -347,7 +460,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
     }
 
     /// <summary>Reads and verifies records from the start of the file, calling <paramref name="visit"/> for each.</summary>
-    private ScanResult Scan(RecordVisitor? visit, int maxRecords)
+    private ScanResult Scan(RecordVisitor? visit, int maxRecords, bool tolerateTornTail = false)
     {
         using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.SequentialScan);
 
@@ -367,6 +480,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
         var sequence = first;
         long count = 0;
         long bytes = 0;
+        var tornTail = false;
         while (count < maxRecords)
         {
             var read = ReadFully(stream, prefix);
@@ -377,6 +491,12 @@ public sealed class EncryptedOfflineQueue : IDisposable
 
             if (read < _lengthBytes)
             {
+                if (tolerateTornTail)
+                {
+                    tornTail = true;
+                    break;
+                }
+
                 throw Corrupt($"record {sequence} is truncated");
             }
 
@@ -390,7 +510,20 @@ public sealed class EncryptedOfflineQueue : IDisposable
             prefix.CopyTo(frame);
             if (ReadFully(stream, frame.AsSpan(_lengthBytes)) != bodyLength)
             {
+                if (tolerateTornTail)
+                {
+                    tornTail = true;
+                    break;
+                }
+
                 throw Corrupt($"record {sequence} is truncated");
+            }
+
+            // Only the final record may be forgiven: it must end exactly at the end of the file and fail authentication.
+            if (tolerateTornTail && stream.Position == stream.Length && !TryDecrypt(sequence, frame.AsSpan(_lengthBytes), out _))
+            {
+                tornTail = true;
+                break;
             }
 
             var write = Open(sequence, frame.AsSpan(_lengthBytes));
@@ -404,7 +537,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
             sequence++;
         }
 
-        return new ScanResult(first, count, bytes);
+        return new ScanResult(first, count, bytes, tornTail);
     }
 
     /// <summary>Rewrites the file without the records up to <paramref name="upToSequence"/>. Every record is verified on the way.</summary>

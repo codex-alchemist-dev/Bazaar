@@ -64,7 +64,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 
 ## Component namespaces
 
-A component keeps its own migrations in `components/<name>/NNNN_name.sql`, numbered from `0001` in its own namespace. Those files do not share numbers with `common/`. Component tables have no cross-table foreign keys to `common/` tables. VM1 is the first: `components/vms/0001_vm_environment.sql` (`golden_image`, `environment_vm`, `environment_checkpoint`, `scoped_mount`, `exec_log`; doc 16).
+A component keeps its own migrations in `components/<name>/NNNN_name.sql`, numbered from `0001` in its own namespace. Those files do not share numbers with `common/`. Component tables have no cross-table foreign keys to `common/` tables. VM1 is the first: `components/vms/0001_vm_environment.sql` (`golden_image`, `environment_vm`, `environment_checkpoint`, `scoped_mount`, `exec_log`; doc 16). `components/offline_sync/0001_offline_sync.sql` is the offline sync module's (doc 56), embedded in `Bazaar.Server.OfflineSync.Postgres`.
 
 ## Claiming a number
 

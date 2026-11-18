@@ -14,6 +14,7 @@ public sealed class OfflineSyncProcessor
     private readonly IOfflineMergeAudit _audit;
     private readonly IOfflineClock _clock;
     private readonly OfflineSyncOptions _options;
+    private readonly IOfflineWriteScopeFactory _scopes;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _deviceLocks = new();
 
     /// <summary>Creates a processor. When several rules claim one data class the last one wins.</summary>
@@ -22,12 +23,14 @@ public sealed class OfflineSyncProcessor
     /// <param name="audit">Audit sink.</param>
     /// <param name="clock">Server clock.</param>
     /// <param name="options">Operator settings.</param>
+    /// <param name="scopes">Wraps each applied write in one unit of work; null means none (in-memory state).</param>
     public OfflineSyncProcessor(
         IEnumerable<IOfflineMergeRule> rules,
         IOfflineSyncStore store,
         IOfflineMergeAudit audit,
         IOfflineClock clock,
-        OfflineSyncOptions options)
+        OfflineSyncOptions options,
+        IOfflineWriteScopeFactory? scopes = null)
     {
         ArgumentNullException.ThrowIfNull(rules);
         _rules = [];
@@ -40,6 +43,7 @@ public sealed class OfflineSyncProcessor
         _audit = audit;
         _clock = clock;
         _options = options;
+        _scopes = scopes ?? new NoOpOfflineWriteScopeFactory();
     }
 
     /// <summary>Processes one device batch. Concurrent calls for the same device run one after another.</summary>
@@ -101,10 +105,17 @@ public sealed class OfflineSyncProcessor
                 continue;
             }
 
-            outcome = await DecideAsync(write, cancellationToken).ConfigureAwait(false);
-            await _store.RecordAsync(deviceId, write.DeviceSequence, outcome, cancellationToken).ConfigureAwait(false);
+            // The merge, the outcome record and the audit record commit together (doc 56 section 8, item 4).
+            var scope = _scopes.Begin(write);
+            await using (scope.ConfigureAwait(false))
+            {
+                outcome = await DecideAsync(write, cancellationToken).ConfigureAwait(false);
+                await _store.RecordAsync(deviceId, write.DeviceSequence, outcome, cancellationToken).ConfigureAwait(false);
+                await _audit.RecordAsync(write, outcome, cancellationToken).ConfigureAwait(false);
+                await scope.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             acked = write.DeviceSequence;
-            await _audit.RecordAsync(write, outcome, cancellationToken).ConfigureAwait(false);
             outcomes.Add(outcome);
         }
 
