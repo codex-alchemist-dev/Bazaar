@@ -97,3 +97,23 @@ public interface ICrashRetention
     /// <summary>Removes screenshots, reports and groups older than the policy allows at <paramref name="now"/>. A group with a report left, or with an unfinished outbox row, is kept.</summary>
     Task<CrashPurgeResult> PurgeAsync(DateTimeOffset now, CrashRetentionPolicy policy, CancellationToken ct = default);
 }
+
+/// <summary>Maps installs to people so sealing and erasure can find the right key and rows. The identity component supplies it.</summary>
+public interface ICrashInstallDirectory
+{
+    /// <summary>The person who owns the install, or null for a shared device, which is sealed with the company key.</summary>
+    Task<Guid?> GetOwnerAsync(Guid installId, CancellationToken ct = default);
+
+    /// <summary>Every install the person has ever registered, including retired ones.</summary>
+    Task<IReadOnlyList<Guid>> GetInstallsAsync(Guid personId, CancellationToken ct = default);
+}
+
+/// <summary>What erasing a set of installs removed.</summary>
+public sealed record CrashEraseResult(int Reports, int Attachments);
+
+/// <summary>Removes the stored reports and screenshots of given installs. Group summaries stay, because they hold no personal data (doc 43 section 11.3).</summary>
+public interface ICrashErasure
+{
+    /// <summary>Deletes every report, with its screenshots, that the installs sent. Safe to run twice.</summary>
+    Task<CrashEraseResult> EraseInstallsAsync(IReadOnlyCollection<Guid> installIds, CancellationToken ct = default);
+}

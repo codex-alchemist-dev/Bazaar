@@ -27,6 +27,7 @@
     <Project Path="src/Bazaar.Diagnostics/Bazaar.Diagnostics.csproj" />
     <Project Path="src/Bazaar.Server.Diagnostics/Bazaar.Server.Diagnostics.csproj" />
     <Project Path="src/Bazaar.Server.Diagnostics.Abstractions/Bazaar.Server.Diagnostics.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Diagnostics.Adapters/Bazaar.Server.Diagnostics.Adapters.csproj" />
     <Project Path="src/Bazaar.GC.Abstractions/Bazaar.GC.Abstractions.csproj" />
     <Project Path="src/Bazaar.Constellation.Abstractions/Bazaar.Constellation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Vault.Abstractions/Bazaar.Vault.Abstractions.csproj" />

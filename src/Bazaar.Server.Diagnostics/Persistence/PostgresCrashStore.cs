@@ -10,7 +10,7 @@ namespace Bazaar.Server.Diagnostics.Persistence;
 /// transaction: the group row is changed under an optimistic version check, then the report, screenshot, outbox rows and
 /// filing-budget rows are written. A lost race or a retried report writes nothing.
 /// </summary>
-public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashIntakeStore, ICrashActionOutbox, ICrashRetention
+public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashIntakeStore, ICrashActionOutbox, ICrashRetention, ICrashErasure
 {
     private const string _groupColumns =
         "fingerprint, version, status, occurrence_count, first_seen_version, last_seen_version, first_seen_at, last_seen_at, " +
@@ -179,6 +179,37 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
             now - policy.GroupRetention, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return new CrashPurgeResult(attachments, reports, groups);
+    }
+
+    /// <inheritdoc />
+    public async Task<CrashEraseResult> EraseInstallsAsync(IReadOnlyCollection<Guid> installIds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(installIds);
+        if (installIds.Count == 0)
+        {
+            return new CrashEraseResult(0, 0);
+        }
+
+        var ids = installIds.ToArray();
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        int attachments;
+        await using (var cmd = new NpgsqlCommand(
+            "DELETE FROM crash_attachment a USING crash_report r WHERE a.report_id = r.report_id AND r.install_id = ANY($1)", conn, tx))
+        {
+            cmd.Parameters.AddWithValue(ids);
+            attachments = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        int reports;
+        await using (var cmd = new NpgsqlCommand("DELETE FROM crash_report WHERE install_id = ANY($1)", conn, tx))
+        {
+            cmd.Parameters.AddWithValue(ids);
+            reports = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new CrashEraseResult(reports, attachments);
     }
 
     private static async Task<int> DeleteOlderAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string sql, DateTimeOffset cutoff, CancellationToken ct)

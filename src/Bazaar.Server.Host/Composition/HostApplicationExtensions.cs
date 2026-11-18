@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
+using Bazaar.Server.Diagnostics.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -38,6 +39,7 @@ public static class HostApplicationExtensions
         services.AddBazaarPostgresCredentialLeases();
         services.AddBazaarVms(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
+        services.AddBazaarDiagnosticsModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();

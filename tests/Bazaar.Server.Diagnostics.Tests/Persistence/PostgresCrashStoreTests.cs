@@ -52,4 +52,36 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
         Assert.Equal(new CrashPurgeResult(0, 0, 1), afterGroup);
         Assert.Null(await store.GetGroupAsync(fp, ct));
     }
+
+    [Fact]
+    public async Task Erasing_installs_removes_their_reports_and_screenshots_and_keeps_the_group()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, _, handle) = await CreateAsync(ct);
+        await using var _h = handle;
+        var t0 = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        const string fp = "fp1:0123456789abcdef0123456789abcdef";
+        var group = new StoredCrashGroup(
+            new Bazaar.Diagnostics.Grouping.GroupState { Fingerprint = fp, OccurrenceCount = 2, FirstSeenVersion = "0.1.0", LastSeenVersion = "0.1.0", FirstSeenAt = t0, LastSeenAt = t0 },
+            new CrashIssueFacts(null, "System.Exception", [], null, null), 1);
+        var sealedBody = new SealedPayload("k", [1], [2], [3]);
+        var mine = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var report = new StoredCrashReport(Guid.NewGuid(), mine, fp, t0, t0, "0.1.0", Bazaar.Diagnostics.Ingestion.SymbolsState.Missing, new string('a', 64), sealedBody);
+        var shot = new StoredCrashAttachment(Guid.NewGuid(), report.ReportId, "image/png", new string('b', 64), sealedBody);
+        await store.CommitAsync(new CrashCommit(report, shot, group, null, []), ct);
+        var kept = new StoredCrashReport(Guid.NewGuid(), other, fp, t0, t0, "0.1.0", Bazaar.Diagnostics.Ingestion.SymbolsState.Missing, new string('c', 64), sealedBody);
+        await store.CommitAsync(new CrashCommit(kept, null, group, 1, []), ct);
+        var erasure = (ICrashErasure)store;
+
+        var first = await erasure.EraseInstallsAsync([mine], ct);
+        var again = await erasure.EraseInstallsAsync([mine], ct);
+        var none = await erasure.EraseInstallsAsync([], ct);
+
+        Assert.Equal(new CrashEraseResult(1, 1), first);
+        Assert.Equal(new CrashEraseResult(0, 0), again);
+        Assert.Equal(new CrashEraseResult(0, 0), none);
+        Assert.NotNull(await store.GetGroupAsync(fp, ct));
+        Assert.Equal(new CrashEraseResult(1, 0), await erasure.EraseInstallsAsync([other], ct));
+    }
 }
