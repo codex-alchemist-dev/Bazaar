@@ -63,6 +63,7 @@
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Http.Auth.Abstractions/Bazaar.Server.Http.Auth.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Data.Migrations.Abstractions/Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Data.Migrations/Bazaar.Server.Data.Migrations.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />

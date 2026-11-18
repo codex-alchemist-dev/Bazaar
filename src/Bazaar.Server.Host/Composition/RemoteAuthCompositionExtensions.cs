@@ -1,6 +1,7 @@
 using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Host.Auth;
+using Bazaar.Server.Http.Auth;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Host.Composition;
@@ -23,18 +24,28 @@ public static class RemoteAuthCompositionExtensions
 
         services.AddBazaarPrivacyAudit();
         services.AddBazaarRemoteTokens();
+        // One dev issuer instance signs and verifies, so the verifier accepts exactly the tokens this process issued. It is registered
+        // always, but it is handed out only when the dev gate is open.
+        services.TryAddSingleton(sp => new DevAccessTokenIssuer(sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<IAccessTokenIssuer>(sp =>
-        {
-            var environment = sp.GetService<IHostEnvironment>();
-            var devEnabled = configuration.GetValue<bool>(DevIssuerEnabledKey) && environment is not null && environment.IsDevelopment();
-            return devEnabled
-                ? new DevAccessTokenIssuer(sp.GetRequiredService<TimeProvider>())
-                : new UnavailableAccessTokenIssuer();
-        });
+            DevIssuerEnabled(sp, configuration)
+                ? sp.GetRequiredService<DevAccessTokenIssuer>()
+                : new UnavailableAccessTokenIssuer());
+        services.TryAddSingleton<IAccessTokenVerifier>(sp =>
+            DevIssuerEnabled(sp, configuration)
+                ? new DevAccessTokenVerifier(sp.GetRequiredService<DevAccessTokenIssuer>())
+                : new UnavailableAccessTokenVerifier());
 
         // Dev-only owner row for the dev issuer. Registered only with the flag; DevOwnerSeed also checks Development when it starts.
         if (configuration.GetValue<bool>(DevIssuerEnabledKey))
             services.AddHostedService<DevOwnerSeed>();
         return services;
+    }
+
+    /// <summary>The dev gate: the configuration flag AND the Development environment.</summary>
+    private static bool DevIssuerEnabled(IServiceProvider services, IConfiguration configuration)
+    {
+        var environment = services.GetService<IHostEnvironment>();
+        return configuration.GetValue<bool>(DevIssuerEnabledKey) && environment is not null && environment.IsDevelopment();
     }
 }
