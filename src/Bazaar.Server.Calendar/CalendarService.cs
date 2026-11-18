@@ -30,7 +30,7 @@ public interface ICalendarService
 
 /// <summary>
 /// Calendar writes (docs/design/24 section 4). Each change runs in one transaction that locks the row, checks the actor and the
-/// expected version, and writes the new version. After the commit it appends one GC line through <see cref="IGcLogWriter"/>.
+/// expected version, and writes the new version. After the commit it appends one GC line through <see cref="ICalendarGcAppender"/>.
 /// <para>
 /// GC seam: the GC writer opens its own connection and transaction, so the line cannot share the calendar transaction. The
 /// line's client message id is <c>calendar:{id}:{version}:{change}</c>, so <see cref="AnnounceAsync"/> can be run again
@@ -45,7 +45,7 @@ public interface ICalendarService
 public sealed class CalendarService(
     NpgsqlDataSource dataSource,
     IGcBodyCodec bodies,
-    IGcLogWriter gcWriter,
+    ICalendarGcAppender gcWriter,
     CalendarPolicy? policy = null) : ICalendarService
 {
     private readonly CalendarRepository _events = new(dataSource);

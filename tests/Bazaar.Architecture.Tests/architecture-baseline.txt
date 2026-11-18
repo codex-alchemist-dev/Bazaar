@@ -186,11 +186,7 @@ src/Bazaar.Server/Backup/Manifest/ManifestFinding.cs
 src/Bazaar.Server/Backup/Manifest/ManifestJson.cs
 src/Bazaar.Server/Backup/Manifest/ManifestVerifier.cs
 src/Bazaar.Server/Backup/Manifest/ManifestWriter.cs
-src/Bazaar.Server/Calendar/CalendarRepository.cs
-src/Bazaar.Server/Calendar/CalendarRules.cs
-src/Bazaar.Server/Calendar/CalendarService.cs
 src/Bazaar.Server/Calendar/CalendarSettings.cs
-src/Bazaar.Server/Calendar/CalendarTypes.cs
 src/Bazaar.Server/Coding/Checks/ChangedFile.cs
 src/Bazaar.Server/Coding/Checks/CheckSummary.cs
 src/Bazaar.Server/Coding/Checks/FakeSuccessScanner.cs
