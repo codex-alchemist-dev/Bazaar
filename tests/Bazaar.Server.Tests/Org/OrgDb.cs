@@ -1,5 +1,4 @@
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.Org;
 using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Org;
@@ -8,7 +7,7 @@ namespace Bazaar.Server.Tests.Org;
 internal static class OrgTestMigrations
 {
     public static InMemoryMigrationSource Org18() =>
-        new(new EmbeddedMigrationSource(typeof(OrgRelation).Assembly).Load(MigrationRunner.Common).Where(f => f.Version == 18));
+        new(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common).Where(f => f.Version == 18));
 }
 
 /// <summary>A per-class database with migration 0018 applied, for the constraint and repository tests.</summary>

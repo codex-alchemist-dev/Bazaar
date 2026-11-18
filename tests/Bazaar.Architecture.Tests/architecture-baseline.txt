@@ -675,8 +675,6 @@ src/Bazaar.Server/Modules/Updates/UpdatePolicyDocumentJson.cs
 src/Bazaar.Server/Modules/Updates/UpdatePolicyDocumentLoader.cs
 src/Bazaar.Server/Modules/Updates/UpdatePolicyEvaluator.cs
 src/Bazaar.Server/Modules/Updates/UpdatePolicyModels.cs
-src/Bazaar.Server/Org/Data/OrgRelationRepository.cs
-src/Bazaar.Server/Org/OrgRelation.cs
 src/Bazaar.Server/Providers/Fakes/FakeCacheProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeSearchProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeServiceHostProvider.cs

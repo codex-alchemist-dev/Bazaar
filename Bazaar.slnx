@@ -57,6 +57,7 @@
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
+    <Project Path="src/Bazaar.Server.Org/Bazaar.Server.Org.csproj" />
     <Project Path="src/Bazaar.Server.Calendar.Abstractions/Bazaar.Server.Calendar.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Calendar/Bazaar.Server.Calendar.csproj" />
     <Project Path="src/Bazaar.Server.Sanitization/Bazaar.Server.Sanitization.csproj" />
