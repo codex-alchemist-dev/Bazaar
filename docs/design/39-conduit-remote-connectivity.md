@@ -12,7 +12,7 @@ Pairing (32, section 3), the wire format (02, JSON via `IWireCodec`) and authent
 - Remote access is the operator's choice. The home host accepts no inbound connections by default (32, section 1; DECISIONS-LOG round 8).
 - The network is never the only gate. Every connection presents a per-device credential, whatever the Conduit (32, trust rule).
 - Plain `ws://` is allowed only on loopback. Everything else is TLS with the server key hash pinned at pairing (32, section 2).
-- No web client, ever. No Conduit module serves Bazaar content to a browser (CLAUDE.md).
+- No Conduit module serves Bazaar content to a browser.
 - Wire format is JSON source-generated `System.Text.Json` behind `IWireCodec`. Adding a Conduit adds no codec (CLAUDE.md, owner 2026-10-25).
 - The server does all compute; clients render (CLAUDE.md). Client-side connection helpers (for example a local terminal relay) are unchanged.
 - Anything OS-specific sits behind a provider interface (03). Module code is platform-neutral; process launching (cloudflared) and sockets go through that same rule.
@@ -185,7 +185,6 @@ Each module has unit tests against fakes; a shared contract suite runs against e
 ## Conflicts
 - 32 section 1 lists five options; this doc adds the catalogue. 32 remains the source for trust, pairing and sign-in. Wording in 32 that calls Cloudflare Tunnel "operator option only" is kept and repeated here.
 - 02 says "the socket is the only channel"; offer delivery (`conduit.offers`) is a frame on that socket, so the statement holds.
-- CLAUDE.md "No web client, ever" is unaffected: no module serves a browser client.
 - `p2p` and `relay` need a QUIC or WebSocket framing choice that 02 does not yet fix. The P2P data path stays unimplemented until 02 settles it.
 
 ## Questions for the owner

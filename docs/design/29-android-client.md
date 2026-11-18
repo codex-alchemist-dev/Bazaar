@@ -14,14 +14,14 @@ Bazaar.Android is the phone and foldable head of the Bazaar client: a Developmen
 - Voice: raw transcription, then on-device NPU cleanup; fully on-device. On-device inference, with summaries and prompt rewrite, is a ratified client-side exception to "the server does all compute" (CLAUDE.md; DECISIONS-LOG round 4, C17).
 - Qualcomm NPU only, via ONNX Runtime Mobile with QNN (Bazaar.Android §4). Foldable detection via Jetpack WindowManager bindings through .NET for Android (RESEARCHED).
 - Push: content-free. A bare wake hint carries no chat id and no sequence number. Three wake kinds (mention, DM, owner decision) plus opt-in quota alerts. Content is fetched over the authenticated connection (CLAUDE.md; DECISIONS-LOG round 5, C41). FCM and UnifiedPush sit behind one provider interface.
-- Transport: WebSocket for realtime; authenticated HTTP for blobs (screenshots), search and pairing (DECISIONS-LOG round 6, C15; doc 02).
+- Transport: WebSocket for realtime; authenticated HTTP for blobs (screenshots) and search (DECISIONS-LOG round 6, C15; doc 02). No pairing (owner, 2026-11-16).
 - Taint: external content taints hard; agent text taints softly. Tier 2 actions are gated on hard taint. Outward high-impact actions (posting, sending, spending, repo push or merge) need owner approval; routine internal work does not (DECISIONS-LOG rounds 2 and 6, C06 and C18; doc 15 ladder).
-- The owner merges from the apps. The client holds no GitHub credential; the server performs the squash merge on the owner's signed approval, with the `Signed-off-by` line (DECISIONS-LOG round 8, C25; credential choice in docs 14 and 21, round 12).
+- The owner merges from the apps. The client holds no provider credential (GitHub or GitLab); the server performs the squash merge on the owner's signed approval, with the `Signed-off-by` line (DECISIONS-LOG round 8, C25; credential choice in docs 14 and 21, round 12).
 - Done means the PR is merged. Reviewer approval is a visible flag (DECISIONS-LOG round 8, C28).
 - Monaco is not supported on mobile (UI framework contingency note, 2026-10-25). Phone diffs need a native surface (see Conflicts).
 - Google Play closed test is the first distribution (CLAUDE.md).
 - **Owner decision (2026-11-12):** each company builds its own Android client; the repo ships server builds only (doc 37). The APK and Play steps below apply per company.
-- No web client. GCs are append-only with kept edit versions. Kanban is a dependency board (CLAUDE.md).
+- GCs are append-only with kept edit versions. Kanban is a dependency board (CLAUDE.md).
 
 ## Design
 ### Components
@@ -100,7 +100,7 @@ Registry rules per doc 03 (DECISIONS-LOG round 13). Every change is written to t
 - Doze delays wakes. Cursors make late or repeated wakes harmless.
 - A token change (FCM Installation ID or UnifiedPush endpoint) re-registers. The server drops a token after a failed push.
 - Dictation requires the foreground; there is no screen-off dictation.
-- Keystore loss (device reset) forces re-pairing (doc 32).
+- Keystore loss (device reset) forces a new sign-in and approval key enrolment (doc 32, section 5a; no pairing).
 - Attachments never travel on the socket (256 KiB frame limit, doc 02); they use the HTTP blob channel.
 - A merge request is sent only after a fresh signed approval. If the PR head changed since the card was shown, the approval is invalidated.
 
@@ -122,7 +122,7 @@ Registry rules per doc 03 (DECISIONS-LOG round 13). Every change is written to t
 5. Speech and cleanup providers: NPU first, CPU fallback, fakes. Depends on 1 and doc 31.
 6. Cleaner eval harness and corpus. Depends on 5.
 7. Push providers (FCM, UnifiedPush) and bare-wake handler. Depends on doc 02 wake and push packages.
-8. Approval card, biometric gate, device-key signing. Depends on doc 15 packages 5 and 6, and doc 32 pairing.
+8. Approval card, biometric gate, device-key signing. Depends on doc 15 packages 5 and 6, and doc 32 section 5a (enrolment path open, doc 32 Question 4).
 9. Kanban pane with revision-checked moves. Depends on 3 and doc 12.
 10. Constellation drawer, read-only. Depends on 3 and doc 19.
 11. Screenshot annotation over the HTTP blob channel. Depends on the doc 02 HTTP surface.

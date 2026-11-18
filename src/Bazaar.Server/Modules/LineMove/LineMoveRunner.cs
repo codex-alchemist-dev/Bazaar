@@ -27,7 +27,7 @@ public enum LineMoveStatus
     /// <summary>A failure after the switch was rolled back inside the automatic window.</summary>
     RolledBack,
 
-    /// <summary>Rollback is needed but was not automatic: a failed switch, a closed window, or a rollback step that failed.</summary>
+    /// <summary>Rollback is needed but was not automatic: the rollback window was closed, or the rollback step itself failed.</summary>
     ManualRollbackRequired,
 
     /// <summary>The run was cancelled. No success is claimed; see <see cref="LineMoveOutcome.RollbackRequired"/>.</summary>
@@ -154,16 +154,11 @@ public sealed class LineMoveRunner
             if (!result.Succeeded)
             {
                 await AuditAsync(context, step, LineMoveAuditKind.Failed, result.Text);
-                if (step == LineMoveStep.Verify)
-                    return await RecoverAsync(request, context, lastSucceeded!.Value);
-
-                // A failed switch may have stopped the old line half way. Automatic rollback is defined only for a Verify failure
-                // (doc 42 section 10.3), so a failed switch is handed to the operator as a manual rollback decision.
-                if (step == LineMoveStep.Switch)
-                {
-                    await AuditAsync(context, step, LineMoveAuditKind.ManualRollbackRequired, "Switch failed; the data state needs a manual rollback decision.");
-                    return new LineMoveOutcome(LineMoveStatus.ManualRollbackRequired, step, context.SnapshotId, true, []);
-                }
+                // A failed switch may have stopped the old line or changed the data directory half way. The snapshot is the
+                // rollback point for that too, so a switch failure follows the same recovery as a Verify failure: automatic inside
+                // the rollback window, a manual runbook step after it (doc 42 section 10.3, owner decision 2026-11-15).
+                if (step is LineMoveStep.Verify or LineMoveStep.Switch)
+                    return await RecoverAsync(request, context, step);
 
                 return new LineMoveOutcome(LineMoveStatus.Failed, step, context.SnapshotId, false, []);
             }
@@ -196,18 +191,18 @@ public sealed class LineMoveRunner
             ]);
     }
 
-    // Verify failed after a successful switch (lastSucceeded is Switch). Downgrade is not supported: rollback restores the
-    // snapshot and starts the old line. It is automatic only inside the window.
-    private async Task<LineMoveOutcome> RecoverAsync(LineMoveRequest request, LineMoveContext context, LineMoveStep lastSucceeded)
+    // Verify or Switch failed after the switch was attempted. Downgrade is not supported: rollback restores the snapshot and
+    // starts the old line. It is automatic only inside the window. A failed Switch may have partly happened, so the rollback
+    // is allowed from Switch whichever of the two steps failed.
+    private async Task<LineMoveOutcome> RecoverAsync(LineMoveRequest request, LineMoveContext context, LineMoveStep failedStep)
     {
-        const LineMoveStep failedStep = LineMoveStep.Verify;
         if (!request.RollbackWindowOpen)
         {
             await AuditAsync(context, failedStep, LineMoveAuditKind.ManualRollbackRequired, "Rollback window is closed; manual runbook step required.");
             return new LineMoveOutcome(LineMoveStatus.ManualRollbackRequired, failedStep, context.SnapshotId, true, []);
         }
 
-        LineMoveSequence.EnsureCanRun(LineMoveStep.RolledBack, lastSucceeded);
+        LineMoveSequence.EnsureCanRun(LineMoveStep.RolledBack, LineMoveStep.Switch);
         // The rollback is not cancelled by the caller's token: a rollback that stops half way is worse than a late one.
         var rollback = await _executors[LineMoveStep.RolledBack].ExecuteAsync(context, CancellationToken.None);
         if (rollback.Succeeded)

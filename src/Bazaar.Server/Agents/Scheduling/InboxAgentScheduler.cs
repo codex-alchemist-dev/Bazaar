@@ -27,11 +27,13 @@ public sealed partial class InboxAgentScheduler(
     IDueAgentReader dueAgents,
     TurnStarter turns,
     ILoopGuard guard,
+    IAgentToolGrants grants,
     AgentSchedulerOptions options,
     TimeProvider time,
     ILogger<InboxAgentScheduler> logger) : IAgentScheduler
 {
     private readonly IDueAgentReader _dueAgents = dueAgents;
+    private readonly IAgentToolGrants _grants = grants;
     private readonly TurnStarter _turns = turns;
     private readonly ILoopGuard _guard = guard;
     private readonly AgentSchedulerOptions _options = options;
@@ -88,8 +90,10 @@ public sealed partial class InboxAgentScheduler(
                 Guid.CreateVersion7(),
                 TurnRole.Actor,
                 $"{_options.HolderPrefix}:{agentId:D}",
-                _options.Route,
-                _options.ToolAllowlist,
+                // Blank route: the gateway resolves this agent's own policy default route (doc 05, per-agent routing).
+                // The agent's own grants (doc 06, "Created"): a tool outside them is never offered. No grant, no tool.
+                string.Empty,
+                await _grants.GrantedToolsAsync(agentId, ct).ConfigureAwait(false),
                 _options.MaxItemsPerTurn);
             var result = await _turns.StartAsync(request, ct).ConfigureAwait(false);
 

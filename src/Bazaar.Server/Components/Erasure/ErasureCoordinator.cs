@@ -1,9 +1,13 @@
+using Bazaar.Erasure.Abstractions;
+
 namespace Bazaar.Server.Components.Erasure;
 
 /// <summary>
 /// Runs one person's erasure: key destruction first, then each participant in registration order. A failing step is recorded
 /// in the <see cref="ErasureReport"/> and does not stop the others or hide the key result. A repeat run for the same person
-/// reports <see cref="PersonKeyOutcome.AlreadyDestroyed"/> and does not throw.
+/// reports <see cref="PersonKeyOutcome.AlreadyDestroyed"/> and does not throw. A person under an active legal hold is not
+/// touched: no key is destroyed and no participant runs; the report is <see cref="PersonKeyOutcome.HeldQueued"/>. The hold
+/// check runs first, and if it throws the exception propagates, so nothing is destroyed (fail closed).
 /// </summary>
 /// <remarks>
 /// The steps are mechanical. Whether key destruction plus tombstones is legally sufficient erasure is OPEN and needs counsel
@@ -12,16 +16,20 @@ namespace Bazaar.Server.Components.Erasure;
 public sealed class ErasureCoordinator
 {
     private readonly IPersonKeyEraser _keys;
+    private readonly ILegalHoldReader _holds;
     private readonly List<IErasureParticipant> _participants;
 
     /// <param name="keys">The built-in key eraser. Always runs first.</param>
+    /// <param name="holds">Legal hold reader, consulted before anything is destroyed.</param>
     /// <param name="participants">Participants in the order they run. Names must be unique.</param>
-    public ErasureCoordinator(IPersonKeyEraser keys, IEnumerable<IErasureParticipant> participants)
+    public ErasureCoordinator(IPersonKeyEraser keys, ILegalHoldReader holds, IEnumerable<IErasureParticipant> participants)
     {
         ArgumentNullException.ThrowIfNull(keys);
+        ArgumentNullException.ThrowIfNull(holds);
         ArgumentNullException.ThrowIfNull(participants);
 
         _keys = keys;
+        _holds = holds;
         _participants = participants.ToList();
 
         var duplicate = _participants.GroupBy(p => p.Name, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1);
@@ -33,6 +41,10 @@ public sealed class ErasureCoordinator
     {
         if (personId == Guid.Empty)
             throw new ArgumentException("A person id is required.", nameof(personId));
+
+        // Legal hold blocks removal (doc 48 section 9). Checked before any destruction; the request is queued, not refused.
+        if (await _holds.IsPersonHeldAsync(personId, ct).ConfigureAwait(false))
+            return new ErasureReport(personId, PersonKeyOutcome.HeldQueued, null, []);
 
         var (keyOutcome, keyError) = await DestroyKeyAsync(personId, ct).ConfigureAwait(false);
 

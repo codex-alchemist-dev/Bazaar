@@ -1,5 +1,5 @@
+using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Posting;
-using Bazaar.Server.Components;
 using Bazaar.Server.Gc.Wire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

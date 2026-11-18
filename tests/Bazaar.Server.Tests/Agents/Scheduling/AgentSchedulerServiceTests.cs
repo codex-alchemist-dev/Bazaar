@@ -16,7 +16,7 @@ public sealed class AgentSchedulerServiceTests
 
     private AgentSchedulerService Service(IAgentScheduler scheduler) => new(
         scheduler,
-        new AgentSchedulerOptions { Enabled = true, Route = "route-1", PollInterval = _interval },
+        new AgentSchedulerOptions { Enabled = true, PollInterval = _interval },
         _time,
         NullLogger<AgentSchedulerService>.Instance);
 

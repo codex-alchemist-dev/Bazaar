@@ -35,9 +35,9 @@ public sealed class RoadmapGraphProjectionTests
 
         Assert.Equal(
         [
-            new GraphEdge("objective:roadmap/objectives/a.md", "objective:roadmap/objectives/b.md"),
-            new GraphEdge("objective:roadmap/objectives/a.md", "phase:one"),
-            new GraphEdge("objective:roadmap/objectives/b.md", "phase:one"),
+            new GraphEdge("objective:roadmap/objectives/a.md", "objective:roadmap/objectives/b.md", GraphEdgeKind.DependsOn),
+            new GraphEdge("objective:roadmap/objectives/a.md", "phase:one", GraphEdgeKind.PhaseMembership),
+            new GraphEdge("objective:roadmap/objectives/b.md", "phase:one", GraphEdgeKind.PhaseMembership),
         ], graph.Edges);
     }
 
@@ -49,7 +49,7 @@ public sealed class RoadmapGraphProjectionTests
         Assert.DoesNotContain(graph.Edges, e => e.From == e.To);
         // Only the edge to the phase remains for objective a.
         Assert.Equal(
-            [new GraphEdge("objective:roadmap/objectives/a.md", "phase:one")],
+            [new GraphEdge("objective:roadmap/objectives/a.md", "phase:one", GraphEdgeKind.PhaseMembership)],
             graph.Edges.Where(e => e.From == "objective:roadmap/objectives/a.md"));
     }
 
@@ -60,5 +60,30 @@ public sealed class RoadmapGraphProjectionTests
 
         Assert.Equal(first, RoadmapGraphProjection.Build(Sample("b")).GraphVersion);
         Assert.NotEqual(first, RoadmapGraphProjection.Build(Sample()).GraphVersion);
+    }
+
+    [Fact]
+    public void Nodes_and_edges_carry_their_typed_kinds()
+    {
+        var graph = RoadmapGraphProjection.Build(Sample("b"));
+
+        Assert.Equal(
+        [
+            new GraphNode("objective:roadmap/objectives/a.md", GraphNodeKind.Objective),
+            new GraphNode("objective:roadmap/objectives/b.md", GraphNodeKind.Objective),
+            new GraphNode("objective:roadmap/objectives/loose.md", GraphNodeKind.Objective),
+            new GraphNode("phase:one", GraphNodeKind.Phase),
+        ], graph.Nodes);
+
+        Assert.Contains(new GraphEdge("objective:roadmap/objectives/a.md", "objective:roadmap/objectives/b.md", GraphEdgeKind.DependsOn), graph.Edges);
+        Assert.Contains(new GraphEdge("objective:roadmap/objectives/a.md", "phase:one", GraphEdgeKind.PhaseMembership), graph.Edges);
+        Assert.DoesNotContain(graph.Edges, e => e.Kind == GraphEdgeKind.Unspecified);
+    }
+
+    [Fact]
+    public void Kind_defaults_to_unspecified_for_producers_that_do_not_set_it()
+    {
+        Assert.Equal(GraphNodeKind.Unspecified, new GraphNode("vault:note").Kind);
+        Assert.Equal(GraphEdgeKind.Unspecified, new GraphEdge("a", "b").Kind);
     }
 }
