@@ -1,4 +1,5 @@
 using System.Globalization;
+using Bazaar.Vms.Sockets;
 
 namespace Bazaar.Guest.Agent;
 
@@ -26,12 +27,29 @@ public sealed record GuestAgentOptions
     /// <summary>Gap between the heartbeats the agent sends on its own.</summary>
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>Byte channel to the host. Stdio unless the boot unit says otherwise.</summary>
+    public GuestTransportKind Transport { get; init; } = GuestTransportKind.Stdio;
+
+    /// <summary>Hyper-V service GUID to dial for <see cref="GuestTransportKind.HvSocket"/>. The default matches the host listener's default.</summary>
+    public Guid HvSocketServiceId { get; init; } = HvSocketAddress.DefaultServiceId;
+
+    /// <summary>Port to dial for <see cref="GuestTransportKind.Vsock"/>. The default matches the host listener's default.</summary>
+    public uint VsockPort { get; init; } = HvSocketAddress.DefaultPort;
+
+    /// <summary>CID to dial for <see cref="GuestTransportKind.Vsock"/>. 2 is the host.</summary>
+    public uint VsockHostCid { get; init; } = 2;
+
+    /// <summary>How long a socket transport keeps retrying to reach the host before the agent gives up.</summary>
+    public TimeSpan ConnectTimeout { get; init; } = TimeSpan.FromSeconds(60);
+
     /// <summary>Agent build string sent in Hello.</summary>
     public string AgentVersion { get; init; } = typeof(GuestAgentOptions).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     /// <summary>
     /// Parses the command line. Options: <c>--vm-id</c> and <c>--nonce</c> (both required), <c>--root</c> (repeatable,
-    /// absolute, at least one), <c>--shell</c>, <c>--max-execs</c>, <c>--heartbeat-seconds</c>.
+    /// absolute, at least one), <c>--shell</c>, <c>--max-execs</c>, <c>--heartbeat-seconds</c>, <c>--transport</c>
+    /// (<c>stdio</c>, <c>hvsock</c> or <c>vsock</c>; default <c>stdio</c>), <c>--hvsock-service-id</c>, <c>--vsock-port</c>, <c>--vsock-cid</c>,
+    /// <c>--connect-timeout-seconds</c>.
     /// </summary>
     /// <remarks>
     /// VM id and nonce come from the command line, not from the image. The golden image is shared by every VM of a
@@ -48,6 +66,11 @@ public sealed record GuestAgentOptions
         var roots = new List<string>();
         var maxExecs = 4;
         var heartbeatSeconds = 30;
+        var transport = GuestTransportKind.Stdio;
+        var serviceId = HvSocketAddress.DefaultServiceId;
+        var vsockPort = HvSocketAddress.DefaultPort;
+        uint vsockCid = 2;
+        var connectSeconds = 60;
 
         for (var i = 0; i < args.Count; i++)
         {
@@ -77,6 +100,29 @@ public sealed record GuestAgentOptions
                     break;
                 case "--heartbeat-seconds":
                     heartbeatSeconds = ParsePositive(name, value);
+                    break;
+                case "--transport":
+                    transport = value switch
+                    {
+                        "stdio" => GuestTransportKind.Stdio,
+                        "hvsock" => GuestTransportKind.HvSocket,
+                        "vsock" => GuestTransportKind.Vsock,
+                        _ => throw new ArgumentException("--transport must be stdio, hvsock or vsock."),
+                    };
+                    break;
+                case "--hvsock-service-id":
+                    serviceId = Guid.TryParse(value, out var parsed) && parsed != Guid.Empty
+                        ? parsed
+                        : throw new ArgumentException("--hvsock-service-id must be a GUID.");
+                    break;
+                case "--vsock-port":
+                    vsockPort = (uint)ParsePositive(name, value);
+                    break;
+                case "--vsock-cid":
+                    vsockCid = (uint)ParsePositive(name, value);
+                    break;
+                case "--connect-timeout-seconds":
+                    connectSeconds = ParsePositive(name, value);
                     break;
                 default:
                     throw new ArgumentException($"Unknown option '{name}'.");
@@ -114,6 +160,11 @@ public sealed record GuestAgentOptions
             ShellPath = shell ?? DefaultShell,
             MaxConcurrentExecs = maxExecs,
             HeartbeatInterval = TimeSpan.FromSeconds(heartbeatSeconds),
+            Transport = transport,
+            HvSocketServiceId = serviceId,
+            VsockPort = vsockPort,
+            VsockHostCid = vsockCid,
+            ConnectTimeout = TimeSpan.FromSeconds(connectSeconds),
         };
     }
 

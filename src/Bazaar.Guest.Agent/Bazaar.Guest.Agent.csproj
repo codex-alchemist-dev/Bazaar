@@ -7,6 +7,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <!--
+      The socket plumbing for AF_HYPERV and AF_VSOCK is one set of files shared with the host module Bazaar.Server.VmTransport. The guest is a
+      separate binary that must not reference server projects, so the files are compiled in rather than referenced.
+    -->
+    <Compile Include="..\Bazaar.Server.VmTransport\Sockets\*.cs" LinkBase="Sockets" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
 </Project>
