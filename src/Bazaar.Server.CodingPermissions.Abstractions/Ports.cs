@@ -28,6 +28,16 @@ public interface IToolCallTrace
 {
     /// <summary>Appends one row. A throw means the row was not written.</summary>
     ValueTask AppendAsync(ToolCallRecord record, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records the outcome of a row appended by <see cref="AppendAsync"/>. The table allows this transition once.
+    /// </summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="status">The outcome; <see cref="ToolCallStatus.Unknown"/> is not an outcome and is rejected.</param>
+    /// <param name="exitCode">The process exit code, when there was one.</param>
+    /// <param name="cancellationToken">Cancellation.</param>
+    /// <returns>True when the row was completed; false when it does not exist or already has an outcome. A throw means the store failed.</returns>
+    ValueTask<bool> CompleteAsync(Guid id, ToolCallStatus status, int? exitCode, CancellationToken cancellationToken);
 }
 
 /// <summary>Freezes an agent and notifies the owner (doc 17: a rate-cap breach freezes the agent and notifies the owner).</summary>

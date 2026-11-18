@@ -22,16 +22,33 @@ public sealed class FakeGenericToolPolicy : IGenericToolPolicy
     public GenericPolicyDecision Evaluate(ToolCallContext context) => _decide(context);
 }
 
-/// <summary>In-memory append-only trace. <see cref="FailWrites"/> simulates a broken store.</summary>
+/// <summary>In-memory append-only trace. <see cref="FailWrites"/> simulates a broken store; <see cref="FailCompletes"/> a store that cannot complete rows.</summary>
 public sealed class InMemoryToolCallTrace : IToolCallTrace
 {
-    private readonly ConcurrentQueue<ToolCallRecord> _rows = new();
+    private readonly Lock _gate = new();
+    private readonly List<ToolCallRecord> _rows = [];
+    private readonly TimeProvider _time;
+
+    /// <summary>Creates the trace.</summary>
+    public InMemoryToolCallTrace(TimeProvider? time = null) => _time = time ?? TimeProvider.System;
 
     /// <summary>When true, <see cref="AppendAsync"/> throws.</summary>
     public bool FailWrites { get; set; }
 
-    /// <summary>The rows written so far, in order.</summary>
-    public IReadOnlyList<ToolCallRecord> Rows => [.. _rows];
+    /// <summary>When true, <see cref="CompleteAsync"/> throws.</summary>
+    public bool FailCompletes { get; set; }
+
+    /// <summary>The rows written so far, in order, with any outcome applied.</summary>
+    public IReadOnlyList<ToolCallRecord> Rows
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _rows];
+            }
+        }
+    }
 
     /// <inheritdoc />
     public ValueTask AppendAsync(ToolCallRecord record, CancellationToken cancellationToken)
@@ -41,8 +58,38 @@ public sealed class InMemoryToolCallTrace : IToolCallTrace
             throw new InvalidOperationException("Trace store unavailable.");
         }
 
-        _rows.Enqueue(record);
+        lock (_gate)
+        {
+            _rows.Add(record);
+        }
+
         return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<bool> CompleteAsync(Guid id, ToolCallStatus status, int? exitCode, CancellationToken cancellationToken)
+    {
+        if (FailCompletes)
+        {
+            throw new InvalidOperationException("Trace store unavailable.");
+        }
+
+        if (status == ToolCallStatus.Unknown)
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), "Unknown is not an outcome.");
+        }
+
+        lock (_gate)
+        {
+            var i = _rows.FindIndex(r => r.Id == id);
+            if (i < 0 || _rows[i].EndedAt is not null)
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            _rows[i] = _rows[i] with { Status = status, ExitCode = exitCode, EndedAt = _time.GetUtcNow() };
+            return ValueTask.FromResult(true);
+        }
     }
 }
 

@@ -23,8 +23,25 @@ public sealed class HostAdapterTests
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask<bool> CompleteAsync(Guid id, ToolCallStatus status, int? exitCode, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(false);
+        public List<(Guid Id, ToolCallStatus Status, int? Exit)> Completions { get; } = [];
+
+        public ValueTask<bool> CompleteAsync(Guid id, ToolCallStatus status, int? exitCode, CancellationToken cancellationToken)
+        {
+            Completions.Add((id, status, exitCode));
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    [Fact]
+    public async Task Tool_call_trace_forwards_completion_to_the_log()
+    {
+        var log = new FakeLog();
+        var id = Guid.NewGuid();
+
+        var ok = await new ToolCallLogTrace(log).CompleteAsync(id, ToolCallStatus.Failed, 2, TestContext.Current.CancellationToken);
+
+        Assert.True(ok);
+        Assert.Equal((id, ToolCallStatus.Failed, (int?)2), Assert.Single(log.Completions));
     }
 
     private static SubagentTraceEntry Entry(SubagentTraceKind kind, SubagentStatus? status = null) => new(
