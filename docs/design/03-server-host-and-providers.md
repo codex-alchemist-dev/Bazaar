@@ -19,7 +19,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 - Distribution (C23, round 4): signed builds contain OSI-only components; Postgres full-text search on Windows.
 - Configurability (round 13): operator-chosen values are settings in the registry below, with safe defaults. DECIDED items and security floors are not settings.
 - Project names (C37, round 10): `Bazaar.Server.Providers.Windows` and `.Linux` are approved.
-- GCs are append-only and never purged (Bazaar.md §2). No web client; a read-only status page is allowed.
+- GCs are append-only and never purged (Bazaar.md §2). A read-only status page is allowed.
 - PostgreSQL 18 with pgvector; raw Npgsql 10; embedded versioned SQL migrations; `BackgroundService` plus Postgres tables (implementation-plan.md; Bazaar.Server.md §3).
 - Model routing, including the Claude lane (C14), is doc 05's. This doc supplies bootstrap secrets only.
 
