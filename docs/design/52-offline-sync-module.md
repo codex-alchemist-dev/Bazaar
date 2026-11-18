@@ -19,6 +19,10 @@ Per the module-sides rule, server and client halves are separate modules, with a
 
 Component ids: `offline-sync` (server) and its client counterpart. Soft dependencies: `gc`, `kanban`, `vault`, `audit`. A missing dependency disables only the merge rule for that data class; the queue still holds the writes and reports them as "waiting for module".
 
+### 2a. Overlap check (2026-11-18)
+
+Read before adding the module: the GC log writer already dedupes on a client message id (`Bazaar.Server/Gc/Write`, doc 02 replay), the wire layer already resumes GC feeds (`Bazaar.Server/Wire/Sync`), Kodo has its own journal replay (doc 46), and `Bazaar.Vault.Abstractions` holds the Vault contracts. No HLC, device queue or per-class merge exists elsewhere. So: the GC rules are thin adapters that call the GC writer through `Bazaar.GC.Abstractions` and keep its client-id idempotency (this module's `WriteId` is that client id); the Vault rule is implemented by the Vault module; live GC feed resume stays in the wire layer, and this module covers only writes made while offline.
+
 ## 3. Shared shapes (PROPOSED)
 
 - **Hybrid logical clock (HLC).** `(wallMillis: long, counter: int, deviceId: Guid)`, ordered by wall time, then counter, then device id, so the order is total. `Tick(now)` and `Receive(remote, now)` follow the standard HLC algorithm. The server rejects writes whose wall time is more than `MaxClockSkew` (default 24 hours, operator setting, floor 1 minute) ahead of the server clock; such a write is held for review, never dropped.
