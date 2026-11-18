@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Bazaar.Server.Settings;
 
-namespace Bazaar.Settings.Tests;
+namespace Bazaar.Server.Settings.Tests;
 
 /// <summary>The abstraction types on their own: typed reads, write evaluation and the contribution shape. No server.</summary>
 public sealed class SettingKeyTests
