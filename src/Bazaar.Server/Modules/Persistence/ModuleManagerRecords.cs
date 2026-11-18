@@ -23,3 +23,4 @@ public sealed record ModuleUpdateDecisionRecord(
     string? PolicyId,
     DateTimeOffset DecidedAt,
     string Actor);
+

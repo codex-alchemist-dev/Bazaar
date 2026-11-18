@@ -29,6 +29,14 @@ Every component declares one manifest. In code (first-party) it is a static `Com
 | `trust` | `first-party` (compiled in) or `third-party` (section 8). Default for first-party components. |
 | `process` | `in-process` (default) or `out-of-process` (section 7). |
 
+### 2.1 Module sides (owner, 2026-11-16)
+
+A feature that has a server part and a client part is **two modules**, never one module with both halves. The server half is `Bazaar.Server.<Name>` and the client half is `Bazaar.Client.<Name>`, for example `Bazaar.Server.Constellation` and `Bazaar.Client.Constellation`. Each half has its own manifest, version, `kind` and migrations, and its own `Abstractions` project where another module needs it. The halves talk only through public contracts in `Bazaar.Contracts` (wire messages) or in the module's `.Abstractions` project, never by referencing each other's internals.
+
+- A client module may depend on server contracts (wire types). It never depends on a server module's implementation.
+- A feature with no client surface has only the server module, and the reverse holds for a client-only feature.
+- A client module may depend on a shared client-side module that is not part of any one feature. The Constellation renderer (`Bazaar.Client.Constellation.Renderer`, the Vulkan renderer with a Skia fallback) is the first case. It is a standalone, shared module that other modules depend on through its contract (for example RyuseiFuda, and later other CDAX projects). It is not a sub-part of Constellation. It is internal today and will later become an externally imported dependency, with a Bazaar-free core plus an adapter in its own repo. Its manifest identity does not change when that happens.
+
 The manifest is data. The kernel reads it before it runs any component code, so a bad graph fails at startup with a clear message.
 
 ## 3. Entry point and lifecycle
