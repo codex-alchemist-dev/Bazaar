@@ -174,7 +174,7 @@ Every change writes an `audit_log` entry (doc 15). Settings never loosen the fix
 | `memory.note_max_bytes` | int | 4096 | install | operator | No |
 | `memory.query_candidates` | int | 2000 | install | operator | No |
 | `memory.max_notes_per_agent` | int | 100000 | install | operator | No |
-| `hive.allowed_kinds` | list: `procedure`, `failure`, `technical-fact` | all three | install | operator; Council may propose (C32) | Yes (Council vote); excluded classes cannot be added |
+| `hive.allowed_kinds` | list: `procedure`, `failure`, `technical-fact` | `procedure`, `failure` (technical facts are an explicit opt-in) [PROPOSED] | install | operator; Council may propose (C32) | Yes (Council vote); excluded classes cannot be added |
 | `hive.grants` | list of (source project, target project, kind) | empty (no transfer) | install | operator; Council may propose | Yes |
 
 `hive.grant_review_days` is doc 25's key (default 30) and is not repeated here.
