@@ -1,6 +1,6 @@
 namespace Bazaar.Client.Athanor;
 
-/// <summary>A locally kept unsaved edit (doc 28 renderer crash, doc 52 §5).</summary>
+/// <summary>A locally kept unsaved edit (doc 28 renderer crash, doc 57 §5).</summary>
 public sealed record EditorDraft(EditorDocumentId Id, string Content, string BaseRevision, DateTimeOffset SavedAt);
 
 /// <summary>Holds dirty content until the server accepts it, so a crash or restart loses nothing.</summary>

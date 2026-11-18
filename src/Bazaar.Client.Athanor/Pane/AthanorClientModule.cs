@@ -2,7 +2,7 @@ using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Athanor.Pane;
 
-/// <summary>The Athanor client module: its manifest and what it registers (doc 52 §2, §8; doc 41 §8).</summary>
+/// <summary>The Athanor client module: its manifest and what it registers (doc 57 §2, §8; doc 41 §8).</summary>
 public sealed class AthanorClientModule : IClientModule
 {
     // The validator requires a dotted id, so the module is bazaar.athanor, like bazaar.gc in its own examples.

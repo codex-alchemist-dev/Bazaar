@@ -3,14 +3,14 @@ using System.Text;
 namespace Bazaar.Client.Athanor;
 
 /// <summary>
-/// Turns a raw path typed or sent by a client into the normalised, workspace-relative form that doc 52 §5 requires.
+/// Turns a raw path typed or sent by a client into the normalised, workspace-relative form that doc 57 §5 requires.
 /// Backslashes become forward slashes, repeated slashes collapse, <c>.</c> segments drop, and <c>..</c> resolves
 /// only while it stays inside the root. Encoded forms (<c>%2e%2e</c>) are not decoded, so they stay literal names.
 /// The server repeats this check; the client never relies on its own result alone.
 /// </summary>
 public static class EditorPathNormalizer
 {
-    /// <summary>The longest raw path accepted, in characters (doc 52 §5 bounds the path length).</summary>
+    /// <summary>The longest raw path accepted, in characters (doc 57 §5 bounds the path length).</summary>
     public const int MaxPathLength = 1024;
 
     /// <summary>

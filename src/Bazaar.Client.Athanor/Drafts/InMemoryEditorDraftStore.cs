@@ -4,7 +4,7 @@ namespace Bazaar.Client.Athanor.Drafts;
 
 /// <summary>
 /// A thread-safe draft store that keeps everything in memory. Used by tests and by hosts that must not touch disk.
-/// The draft key is the workspace id and path only; the revision is not part of the key (doc 52 §5).
+/// The draft key is the workspace id and path only; the revision is not part of the key (doc 57 §5).
 /// <see cref="EditorDraft.SavedAt"/> is stamped from the store's clock on write.
 /// </summary>
 public sealed class InMemoryEditorDraftStore : IEditorDraftStore

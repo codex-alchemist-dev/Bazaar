@@ -3,7 +3,7 @@ using System.Collections.Frozen;
 namespace Bazaar.Client.Athanor;
 
 /// <summary>
-/// The immutable language table that picks a Monaco language id for a document (doc 52 §5). Lookup order:
+/// The immutable language table that picks a Monaco language id for a document (doc 57 §5). Lookup order:
 /// well-known file name, then extension, then the first-line hint (shebang or <c>&lt;?xml</c>), then plaintext.
 /// Language servers are not part of the registry; Monaco's built-in services are the only ones in v1.
 /// </summary>
@@ -28,7 +28,7 @@ public sealed class LanguageRegistry
     /// <summary>The table this registry was built from, in order.</summary>
     public IReadOnlyList<LanguageDefinition> Definitions { get; }
 
-    /// <summary>The shipped table, covering the languages listed in doc 52 §5 and the Monaco ids they map to.</summary>
+    /// <summary>The shipped table, covering the languages listed in doc 57 §5 and the Monaco ids they map to.</summary>
     public static LanguageRegistry Default { get; } = new(DefaultTable());
 
     /// <summary>

@@ -1,10 +1,10 @@
 namespace Bazaar.Client.Athanor.Hosting;
 
-/// <summary>The last diff the host was asked to show (doc 52 §3).</summary>
+/// <summary>The last diff the host was asked to show (doc 57 §3).</summary>
 public sealed record PlainTextDiffRequest(string Original, string Modified, string LanguageId);
 
 /// <summary>
-/// An <see cref="IEditorHost"/> with in-memory buffers and no real editor surface (doc 52 §3). It stands in for Monaco in
+/// An <see cref="IEditorHost"/> with in-memory buffers and no real editor surface (doc 57 §3). It stands in for Monaco in
 /// headless tests, on Linux before its spike, and as the failure fallback if S12 fails. It never touches the network.
 /// Single-threaded, like the UI host it replaces. Surface operations throw while the host is crashed, until
 /// <see cref="SimulateReady"/> is called. Buffers survive a simulated crash so tests can inspect them.
@@ -14,7 +14,7 @@ public sealed class PlainTextFallbackHost : IEditorHost
     private readonly IEditorKeyHandoff? _handoff;
     private readonly Dictionary<EditorDocumentId, OpenBuffer> _buffers = [];
 
-    // Per-document version counters survive close and reopen so the counter only ever rises (doc 52 §3).
+    // Per-document version counters survive close and reopen so the counter only ever rises (doc 57 §3).
     private readonly Dictionary<EditorDocumentId, long> _versions = [];
     private bool _readyRaised;
     private bool _crashed;

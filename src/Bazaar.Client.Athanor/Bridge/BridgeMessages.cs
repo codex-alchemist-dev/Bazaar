@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Bazaar.Client.Athanor.Bridge;
 
 /// <summary>
-/// A message the host sends to the editor over the bridge (doc 52 §4). The <c>type</c> discriminator is written by the
+/// A message the host sends to the editor over the bridge (doc 57 §4). The <c>type</c> discriminator is written by the
 /// codec; <see cref="Seq"/> rises for every message the host sends.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -51,7 +51,7 @@ public sealed record ApplyEditMessage(
 public sealed record FocusMessage(long Seq) : HostMessage(Seq);
 
 /// <summary>
-/// A message the editor sends to the host (doc 52 §4). Decoded from untrusted input, so every field is required and
+/// A message the editor sends to the host (doc 57 §4). Decoded from untrusted input, so every field is required and
 /// the codec checks the values after decoding.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -74,11 +74,11 @@ public sealed record ChangedMessage(
     string Content,
     bool Dirty) : EditorMessage(Seq);
 
-/// <summary>The user asked to save a document (the save coordinator decides what happens, doc 52 §5).</summary>
+/// <summary>The user asked to save a document (the save coordinator decides what happens, doc 57 §5).</summary>
 public sealed record SaveRequestedMessage(long Seq, string DocumentId)
     : EditorMessage(Seq);
 
-/// <summary>A key the editor saw, handed to the client key router as the editor reports it (doc 52 §7).</summary>
+/// <summary>A key the editor saw, handed to the client key router as the editor reports it (doc 57 §7).</summary>
 public sealed record KeyPressedMessage(
     long Seq,
     string Key,

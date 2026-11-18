@@ -4,13 +4,13 @@ using System.Text.Json;
 namespace Bazaar.Client.Athanor.Bridge;
 
 /// <summary>
-/// Encodes host messages to JSON and decodes editor messages from JSON (doc 52 §4). The codec only builds JSON through
+/// Encodes host messages to JSON and decodes editor messages from JSON (doc 57 §4). The codec only builds JSON through
 /// the source-generated serializer. It never builds a script string from user text, so a document's content is data
 /// and never code.
 /// </summary>
 public sealed class BridgeCodec
 {
-    /// <summary>The payload limit when the caller does not set one (doc 52 §4).</summary>
+    /// <summary>The payload limit when the caller does not set one (doc 57 §4).</summary>
     public const long DefaultMaxPayloadBytes = 8L * 1024 * 1024;
 
     private const int _maxKeyLength = 64;

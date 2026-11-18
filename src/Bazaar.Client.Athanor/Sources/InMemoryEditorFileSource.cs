@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Bazaar.Client.Athanor.Sources;
 
 /// <summary>
-/// An <see cref="IEditorFileSource"/> that keeps documents in memory (doc 52 §3, §5). It backs tests and any
+/// An <see cref="IEditorFileSource"/> that keeps documents in memory (doc 57 §3, §5). It backs tests and any
 /// read-only sample workspace. Every member takes one lock, so it is safe to share across threads. Revisions come from
 /// one counter, so they only rise. A save is accepted only when its base revision is still current; otherwise it returns
 /// a conflict that carries the current server content. Saves to a read-only document, or to a document that was never

@@ -1,6 +1,6 @@
 namespace Bazaar.Client.Athanor.Saves;
 
-/// <summary>The server copy a rejected save ran into (doc 52 §5). The editor shows a diff against it.</summary>
+/// <summary>The server copy a rejected save ran into (doc 57 §5). The editor shows a diff against it.</summary>
 public sealed record SaveConflict(string ServerRevision, string ServerContent);
 
 /// <summary>A point-in-time view of one tracked document, for the UI.</summary>

@@ -1,7 +1,7 @@
 namespace Bazaar.Client.Athanor.Workspace;
 
 /// <summary>
-/// One open tab as the workspace reports it (doc 52 §3). Immutable: a new snapshot is built on every change, so a
+/// One open tab as the workspace reports it (doc 57 §3). Immutable: a new snapshot is built on every change, so a
 /// caller that holds a tab keeps a consistent view.
 /// </summary>
 /// <param name="Id">The document the tab shows.</param>

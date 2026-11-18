@@ -13,7 +13,7 @@ public sealed record AthanorTabItem(EditorDocumentId Id, string Title, bool Dirt
 }
 
 /// <summary>
-/// The Athanor editor pane (doc 52 §2): the tab list, the active tab, dirty flags and the save and conflict state, over an
+/// The Athanor editor pane (doc 57 §2): the tab list, the active tab, dirty flags and the save and conflict state, over an
 /// <see cref="EditorWorkspace"/> and a <see cref="SaveCoordinator"/>. Built without a host or a file source it is an empty
 /// state, so a head that has no editor wired still renders the pane.
 /// </summary>

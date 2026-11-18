@@ -3,7 +3,7 @@ using Bazaar.Client.Core.Theme;
 namespace Bazaar.Client.Athanor.Hosting;
 
 /// <summary>
-/// Turns the client's current theme into a Monaco defineTheme payload and pushes it to an editor host (doc 52 §3).
+/// Turns the client's current theme into a Monaco defineTheme payload and pushes it to an editor host (doc 57 §3).
 /// The payload comes from <see cref="MonacoThemeGenerator"/>, so Athanor has no second palette (doc 41 §4.15).
 /// The last payload is cached by theme identity: the same <see cref="ThemeDefinition"/> instance gives the same JSON
 /// without regenerating it. Single-threaded, like the UI thread that calls it.

@@ -1,6 +1,6 @@
-# 52. Athanor: the built-in IDE and editor
+# 57. Athanor: the built-in IDE and editor
 
-Status: PROPOSED (2026-11-18). Implements the module split for Athanor. The name, Monaco, the WebView2 island, the key model and the theme rule are DECIDED elsewhere and only restated here with their source. Everything else here is PROPOSED and was filled by the working session where the docs were silent (CLAUDE.md, configurability rule).
+Status: PROPOSED (2026-11-18). Number 57 (52 to 56 taken by other docs). Implements the module split for Athanor. The name, Monaco, the WebView2 island, the key model and the theme rule are DECIDED elsewhere and only restated here with their source. Everything else here is PROPOSED and was filled by the working session where the docs were silent (CLAUDE.md, configurability rule).
 Depends on: 41 §4.10, §4.12, §4.14, §4.15; 27 (client architecture, `IEditorHost`); 28 (editor host, process model, Monaco gate); 41b (client module boundaries); 40 (module layout); 49 (keyboard model).
 
 ## 1. What is DECIDED (restated, not new)

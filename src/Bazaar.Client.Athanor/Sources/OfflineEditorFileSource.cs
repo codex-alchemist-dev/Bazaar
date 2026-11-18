@@ -1,7 +1,7 @@
 namespace Bazaar.Client.Athanor.Sources;
 
 /// <summary>
-/// The file source used while the server cannot be reached (doc 52 §6, doc 28). It opens nothing and refuses every save,
+/// The file source used while the server cannot be reached (doc 57 §6, doc 28). It opens nothing and refuses every save,
 /// so the editor shows only cached state. There is no write queue: a refused save keeps its draft in the draft store.
 /// </summary>
 public sealed class OfflineEditorFileSource : IEditorFileSource

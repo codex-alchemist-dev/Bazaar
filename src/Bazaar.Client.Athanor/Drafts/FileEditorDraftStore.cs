@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Bazaar.Client.Athanor.Drafts;
 
 /// <summary>
-/// Keeps each draft as one JSON file under <c>rootDirectory</c> (doc 52 §5, doc 28 renderer crash recovery).
+/// Keeps each draft as one JSON file under <c>rootDirectory</c> (doc 57 §5, doc 28 renderer crash recovery).
 /// The file name is the SHA-256 hex of "workspaceId\npath", so a raw path never becomes a file name and cannot escape the root.
 /// Writes go to a temp file in the same folder and then replace the target, so a crash leaves either the old or the new draft.
 /// Corrupt, truncated or foreign files are skipped on read and list. The draft key is the workspace id and path only.

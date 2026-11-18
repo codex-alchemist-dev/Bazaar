@@ -1,6 +1,6 @@
 namespace Bazaar.Client.Athanor;
 
-/// <summary>Builds <see cref="EditorDocumentId"/> values from client input, normalising the path first (doc 52 §5).</summary>
+/// <summary>Builds <see cref="EditorDocumentId"/> values from client input, normalising the path first (doc 57 §5).</summary>
 public static class EditorDocumentIds
 {
     /// <summary>

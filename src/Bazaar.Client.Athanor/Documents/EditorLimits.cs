@@ -1,7 +1,7 @@
 namespace Bazaar.Client.Athanor;
 
 /// <summary>
-/// Size and content limits for opening a document (doc 52 §5). Documents above <see cref="MaxOpenBytes"/> open
+/// Size and content limits for opening a document (doc 57 §5). Documents above <see cref="MaxOpenBytes"/> open
 /// read-only, and binary content is refused. The limit is configurable; the default is 5 MiB.
 /// </summary>
 public sealed record EditorLimits

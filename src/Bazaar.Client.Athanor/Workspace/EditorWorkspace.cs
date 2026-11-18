@@ -3,7 +3,7 @@ using System.Text;
 namespace Bazaar.Client.Athanor.Workspace;
 
 /// <summary>
-/// The ordered tab list over one <see cref="IEditorHost"/> (doc 52 §3, §5). Owns the host: disposing the workspace
+/// The ordered tab list over one <see cref="IEditorHost"/> (doc 57 §3, §5). Owns the host: disposing the workspace
 /// disposes it. Documents come from <see cref="IEditorFileSource"/>; the workspace never touches the network.
 /// </summary>
 /// <remarks>
@@ -13,7 +13,7 @@ namespace Bazaar.Client.Athanor.Workspace;
 /// </remarks>
 public sealed class EditorWorkspace : IAsyncDisposable
 {
-    /// <summary>Documents above this many UTF-8 bytes open read-only (doc 52 §5, default 5 MiB).</summary>
+    /// <summary>Documents above this many UTF-8 bytes open read-only (doc 57 §5, default 5 MiB).</summary>
     public const int MaxEditableBytes = 5 * 1024 * 1024;
 
     private readonly IEditorHost _host;

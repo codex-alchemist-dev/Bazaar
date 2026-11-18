@@ -3,12 +3,12 @@ using System.Collections.Concurrent;
 namespace Bazaar.Client.Athanor.Saves;
 
 /// <summary>
-/// Owns save and draft behaviour for open documents (doc 52 §5): revision-checked saves that never overwrite,
+/// Owns save and draft behaviour for open documents (doc 57 §5): revision-checked saves that never overwrite,
 /// and a debounced local draft that stays until the server accepts the content. Safe to call from any thread.
 /// </summary>
 public sealed class SaveCoordinator : IDisposable
 {
-    /// <summary>Default draft debounce (doc 52 §5).</summary>
+    /// <summary>Default draft debounce (doc 57 §5).</summary>
     public static readonly TimeSpan DefaultDraftDebounce = TimeSpan.FromSeconds(1);
 
     private readonly IEditorFileSource _source;

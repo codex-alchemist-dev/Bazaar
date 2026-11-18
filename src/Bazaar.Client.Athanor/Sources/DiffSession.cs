@@ -1,7 +1,7 @@
 namespace Bazaar.Client.Athanor.Sources;
 
 /// <summary>
-/// Shows a side-by-side diff in an editor host (doc 52 §3). The language comes from the registry, using the path name first
+/// Shows a side-by-side diff in an editor host (doc 57 §3). The language comes from the registry, using the path name first
 /// and the first line of the modified text only when the name does not decide it. The host is the single diff component
 /// (doc 41 §4.15). This helper never touches the network.
 /// </summary>

@@ -1,6 +1,6 @@
 namespace Bazaar.Client.Athanor;
 
-/// <summary>Where a document lives: a workspace the server controls and a normalised path inside it (doc 52 §5).</summary>
+/// <summary>Where a document lives: a workspace the server controls and a normalised path inside it (doc 57 §5).</summary>
 /// <param name="WorkspaceId">The workspace id.</param>
 /// <param name="Path">Forward-slash path relative to the workspace root, with no <c>.</c> or <c>..</c> segments.</param>
 public readonly record struct EditorDocumentId(string WorkspaceId, string Path)
@@ -16,7 +16,7 @@ public sealed record EditorDocument(
     string LanguageId,
     bool ReadOnly);
 
-/// <summary>A save result (doc 52 §5). A conflict carries the server copy so the editor can show a diff.</summary>
+/// <summary>A save result (doc 57 §5). A conflict carries the server copy so the editor can show a diff.</summary>
 public abstract record SaveOutcome
 {
     private SaveOutcome() { }

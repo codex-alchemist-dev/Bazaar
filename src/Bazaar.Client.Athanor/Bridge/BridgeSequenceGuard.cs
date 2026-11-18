@@ -1,7 +1,7 @@
 namespace Bazaar.Client.Athanor.Bridge;
 
 /// <summary>
-/// Tracks the last <c>seq</c> the editor sent and refuses anything that does not rise (doc 52 §4). One guard per editor
+/// Tracks the last <c>seq</c> the editor sent and refuses anything that does not rise (doc 57 §4). One guard per editor
 /// connection. It is not thread-safe: the host reads the bridge on one thread.
 /// </summary>
 public sealed class BridgeSequenceGuard
