@@ -87,6 +87,10 @@ Enforcement rules (all fail closed):
 8. **Replay.** A run's stream replays through the policy engine with the same grants and allowlist and must yield the same verdict. A replay that differs is reported as `ReplayMismatch`.
 9. **Limits.** Wall-clock timeout and memory ceiling per run come from operator settings with safe defaults (timeout 300 s, memory 512 MB); settings may tighten, not loosen below the floor in section 1.
 
+#### WebAssembly engine (PROPOSED, 2026-11-18)
+
+Project `Bazaar.Server.DevSandbox.Wasm` implements `ISandboxEngine` (Kind = Wasm) as `WasmSandboxEngine`, behind three seams: `IWasmRuntime` (reads a module's declared imports; instantiates it with a supplied `IWasmHostImports` under a memory and fuel limit), `IWasmHostImports` (the host side; each call is an import name and a string argument) and `IWasmModuleSource` (module bytes by id and version). Catalogue rule: `WasmImportCatalogue` is a fixed table of import name to (action kind, permission class), for example `bazaar.vault_read` to HostCall `vault.read`. A declared import is linked only if it is in the table and the spec grants its class. Any other import is not linked, is reported as a `PermissionCheck` action (so the runner records a denied violation), and the module is then never instantiated. Every import call is yielded to the runner before it is serviced; a denied call is never serviced. Results come only from the sandbox test company. `spec.MemoryLimitMb` and a fuel budget are passed to the runtime. OPEN: which WebAssembly runtime package implements `IWasmRuntime` (owner decision; none is referenced yet).
+
 OPEN (new, not blockers): OS provider implementations (spike per OS in `35`), the WebAssembly engine choice, the VM image (above).
 
 ## 3. Verified tag

@@ -48,6 +48,7 @@
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox.Abstractions/Bazaar.Server.DevSandbox.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox/Bazaar.Server.DevSandbox.csproj" />
+    <Project Path="src/Bazaar.Server.DevSandbox.Wasm/Bazaar.Server.DevSandbox.Wasm.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.GitHub/Bazaar.GitHub.csproj" />
@@ -106,6 +107,7 @@
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DevSandbox.Tests/Bazaar.Server.DevSandbox.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.DevSandbox.Wasm.Tests/Bazaar.Server.DevSandbox.Wasm.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
