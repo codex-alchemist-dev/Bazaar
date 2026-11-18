@@ -63,6 +63,8 @@
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
+    <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Jobs/Bazaar.Server.Jobs.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
@@ -115,6 +117,7 @@
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Tests/Bazaar.Server.Gateway.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Jobs.Tests/Bazaar.Server.Jobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />

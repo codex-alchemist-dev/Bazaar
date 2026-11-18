@@ -1,6 +1,6 @@
 using Bazaar.Server.Jobs;
 
-namespace Bazaar.Server.Tests.Jobs;
+namespace Bazaar.Server.Jobs.Tests;
 
 /// <summary>The recurring-job seam (doc 03, Background jobs): interval validation and the bucket rules. No database.</summary>
 public sealed class RecurringJobTests

@@ -18,6 +18,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 | Kanban (`kanban`) | Own project `Bazaar.Server.Components.Kanban` | Board pane in `Client.Core` | none | Uses GC (optional: `IGcLogWriter`, `IGcExistence`). Works without GC. |
 | RyuseiFuda schedule (`ryusei`, formerly `ryusei-schedule`) | Project `Bazaar.RyuseiFuda` (split from the Kanban project in #384), namespace `Bazaar.RyuseiFuda.Orrery` (was `Bazaar.Server.Kanban.Ryusei`) | `Client.Core/Ryusei/RyuseiMicroPaneViewModel` | `kanban` (plus `gc` and `audit` after this PR) | Hard: `GcNotifyListener`, `ITransactionalAuditLog`. Optional: `IGcLogWriter`, `GcCreateService`. |
 | Agent safety (`agent-safety`, PR #665) | Project `Bazaar.Server.AgentSafety` (module wiring, durable nonce store, containment adapters, startup gate); `Bazaar.Server.Identity.Postgres` (durable credential leases) | none | `vms`, `identity` (leases), `audit` (via kill switch audit sink) | Kill switch and containment in `Bazaar.Server/Security/KillSwitch`; the host composes the module and the Vms module. Fail closed when no VM backend is configured. |
+| Background jobs (`jobs`, host service, not a component) | Projects `Bazaar.Server.Jobs.Abstractions` (`IJobHandler`, `JobRecord`, `RecurringJob`) and `Bazaar.Server.Jobs` (poller, `JobStore`, recurring scheduler, `AddBazaarJobs`). The job table DDL stays in `Bazaar.Server` `common/` (0006). | none | none declared; the host calls `AddBazaarJobs` | Consumers reference the abstractions only: `Bazaar.Server` (agent lease recovery), `Bazaar.Server.Components.Backup`, `Bazaar.RyuseiFuda`. Only the host references the implementation. |
 
 ## 3. Gaps
 
@@ -107,7 +108,7 @@ The owner-signature contract is its own module, not server code. It moved out of
 - `Bazaar.Approvals.Abstractions`: `OwnerSignedPayload` (the `bazaar.owner.v1` byte layout), `IOwnerSignatureVerifier` and its verdicts, `IOwnerNonceStore`, `IOwnerKeyRegistry` and `OwnerDeviceKey`, and `OwnerSignatureCrypto` (the ECDSA P-256 check).
 - `Bazaar.Approvals`: `OwnerSignatureVerifier`, `InMemoryOwnerNonceStore` (tests and dev runs only), and the Postgres stores `Db.PostgresOwnerKeyRegistry` and `Db.PostgresOwnerNonceStore`.
 
-The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. The module does not yet register an `IBazaarComponent`; that comes with the merge gate work.
+The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
 
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
 
