@@ -4,6 +4,12 @@ namespace Bazaar.Server.VmMounts.Abstractions;
 /// Owns the scoped mounts of the agent VMs (doc 16 WP8, doc 15 WP8). Operations on one VM never overlap; operations on different
 /// VMs run in parallel. Every attach, detach and write-back writes an audit row.
 /// </summary>
+/// <remarks>
+/// A hard-taint or kill-switch detach is a containment detach: it never queues behind guest I/O (it cancels the VM's in-flight guest
+/// calls first), never writes the profile back, and asks <see cref="IGuestScrubber"/> to quarantine the guest. A profile is written by
+/// at most one VM at a time: an agent may have only one attached Soul mount, so a second VM of the same agent is refused until the
+/// first detaches (<see cref="MountRefusalReason.VmNotEligible"/>). Both VMs may still share the workspace, each on its own guest path.
+/// </remarks>
 public interface IMountManager
 {
     /// <summary>
@@ -32,4 +38,10 @@ public interface IMountManager
     /// attached mount, the use is sent to <see cref="ICanarySink"/> and true is returned. The value itself is never stored or logged.
     /// </summary>
     Task<bool> ReportCanaryTokenUseAsync(string tokenValue, string source, CancellationToken ct);
+
+    /// <summary>
+    /// Re-arms the canary watches of every attached Soul mount from the persisted canary records. The host calls this once at
+    /// startup (the registration adds a hosted service that does). Returns the number of mounts re-armed.
+    /// </summary>
+    Task<int> RearmWatchesAsync(CancellationToken ct);
 }

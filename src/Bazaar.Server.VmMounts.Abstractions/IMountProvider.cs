@@ -22,11 +22,13 @@ public sealed record CanaryAccess(Guid MountId, string RelativePath, DateTimeOff
 /// <summary>
 /// The OS-specific part of a mount: the SMB share and ACL on a Windows host, the bind or export on a Linux host, and the mount
 /// inside the guest. The manager calls it only after its own checks. The Windows and Linux providers are built later from the S8
-/// runbooks on the owner's PC; the cloud build ships <c>DirectoryMountProvider</c> and <c>FakeMountProvider</c>.
+/// runbooks on the owner's PC; the cloud tests use a directory provider and a fake that live in the test project.
 /// </summary>
 /// <remarks>
-/// Contract for real providers: the share must not follow links that leave the mount root, a Soul share must be read-only for the
-/// guest account, and the workspace share needs its own guest OS account. <see cref="DetachAsync"/> must be idempotent and
+/// Contract for real providers: the share must be created so that it never follows a link (symbolic link, junction or reparse
+/// point) out of the mount root, a Soul share must be read-only for the guest account, and the workspace share needs its own guest OS
+/// account. The manager's tree scan at attach is advisory only: it is a point-in-time look, and a writable workspace can gain a link
+/// or a hard link the moment after. The no-follow rule in the provider is the real control. <see cref="DetachAsync"/> must be idempotent and
 /// must not need the guest to answer: it removes host-side access first.
 /// </remarks>
 public interface IMountProvider

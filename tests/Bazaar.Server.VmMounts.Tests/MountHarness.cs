@@ -1,11 +1,12 @@
+using Bazaar.Server.Security.Audit;
 using Bazaar.Server.VmMounts.Abstractions;
 using Bazaar.Server.VmMounts.Paths;
 using Bazaar.Server.VmMounts.Profiles;
-using Bazaar.Server.VmMounts.Providers;
+using Bazaar.Server.VmMounts.Tests.Providers;
 
 namespace Bazaar.Server.VmMounts.Tests;
 
-/// <summary>A temp directory tree, one agent, and a manager wired to fakes. Disposing removes the tree.</summary>
+/// <summary>A temp directory tree, one agent with one Linux VM, and a manager wired to fakes. Disposing removes the tree.</summary>
 public sealed class MountHarness : IDisposable
 {
     public const string LinuxProfile = "/var/lib/bazaar/profile";
@@ -14,7 +15,9 @@ public sealed class MountHarness : IDisposable
         bool caseInsensitive = false,
         IReadOnlyList<string>? denyRelativeToAgentsRoot = null,
         int maxScanEntries = 10_000,
-        ProfileLimits? limits = null)
+        ProfileLimits? limits = null,
+        TimeSpan? guestIoTimeout = null,
+        GuestMountLayout? windowsLayout = null)
     {
         Root = Directory.CreateTempSubdirectory("vmmounts-").FullName;
         AgentsRoot = Path.Combine(Root, "agents");
@@ -28,11 +31,14 @@ public sealed class MountHarness : IDisposable
             DenyPaths = [.. (denyRelativeToAgentsRoot ?? []).Select(p => Path.Combine(AgentsRoot, p.Replace("{agent}", Agent.ToString("N"), StringComparison.Ordinal)))],
             MaxScanEntries = maxScanEntries,
             ProfileLimits = limits ?? ProfileLimits.Default,
+            GuestIoTimeout = guestIoTimeout ?? TimeSpan.FromMinutes(5),
+            Windows = windowsLayout ?? GuestMountLayout.DefaultWindows,
         };
         Policy = new DefaultMountContentPolicy();
         Transfer = new GuestProfileTransfer(Channel, Policy, Options);
-        Manager = new MountManager(Store, Provider, Transfer, Sink, Audit, Policy, Options, Time);
+        Manager = NewManager();
         CreateAgent(Agent);
+        Store.RegisterVm(Vm, Agent);
     }
 
     public string Root { get; }
@@ -50,6 +56,8 @@ public sealed class MountHarness : IDisposable
 
     public InMemoryScopedMountStore Store { get; } = new();
 
+    public InMemoryCanaryStore Canaries { get; } = new();
+
     public FakeMountProvider Provider { get; } = new();
 
     public FakeGuestChannel Channel { get; } = new();
@@ -58,6 +66,10 @@ public sealed class MountHarness : IDisposable
 
     public RecordingCanarySink Sink { get; } = new();
 
+    public FakeGuestScrubber Scrubber { get; } = new();
+
+    public FakeHardLinkProbe LinkProbe { get; } = new();
+
     public DefaultMountContentPolicy Policy { get; }
 
     public GuestProfileTransfer Transfer { get; }
@@ -65,6 +77,18 @@ public sealed class MountHarness : IDisposable
     public TimeProvider Time { get; } = TimeProvider.System;
 
     public MountManager Manager { get; }
+
+    /// <summary>A manager over the same stores and fakes. Pass a replacement for any part a test needs to change, or build a second manager to model a restart.</summary>
+    public MountManager NewManager(IAuditLog? audit = null, IGuestScrubber? scrubber = null) => new(
+        Store, Canaries, Provider, Transfer, Sink, audit ?? Audit, Policy, scrubber ?? Scrubber, LinkProbe, Options, Time);
+
+    /// <summary>Registers another Linux VM for an agent (default: the harness agent) and returns its id.</summary>
+    public Guid NewVm(Guid? agent = null, GuestOs os = GuestOs.Linux, bool retired = false)
+    {
+        var vm = Guid.CreateVersion7();
+        Store.RegisterVm(vm, agent ?? Agent, os, retired);
+        return vm;
+    }
 
     public string AgentRoot(Guid agent) => Path.Combine(AgentsRoot, agent.ToString("N"));
 

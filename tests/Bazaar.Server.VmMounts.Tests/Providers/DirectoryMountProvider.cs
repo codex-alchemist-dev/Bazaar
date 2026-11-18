@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Bazaar.Server.VmMounts.Abstractions;
 
-namespace Bazaar.Server.VmMounts.Providers;
+namespace Bazaar.Server.VmMounts.Tests.Providers;
 
 /// <summary>
 /// A provider that "mounts" with plain directories, for tests and for a developer machine with no hypervisor. Attaching creates a

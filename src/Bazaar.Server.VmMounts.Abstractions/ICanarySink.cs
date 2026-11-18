@@ -13,6 +13,7 @@ public enum CanaryUseKind
 /// <summary>
 /// One use of a planted canary. <see cref="CanaryId"/> is the SHA-256 fingerprint of the canary value in lower-case hex; the value
 /// itself is never reported. <see cref="Source"/> names the observer (a provider name or a caller-supplied source).
+/// <see cref="Retired"/> is true when the mount was already detached: a canary value that turns up after a detach is still a leak.
 /// </summary>
 public sealed record CanaryUseReport(
     Guid AgentId,
@@ -22,7 +23,8 @@ public sealed record CanaryUseReport(
     string RelativePath,
     CanaryUseKind Kind,
     string Source,
-    DateTimeOffset At);
+    DateTimeOffset At,
+    bool Retired = false);
 
 /// <summary>
 /// Receives canary use reports. The agent-safety module implements it and turns a report into the page-and-freeze action

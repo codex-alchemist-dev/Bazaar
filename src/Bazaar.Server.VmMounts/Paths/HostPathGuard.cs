@@ -62,7 +62,7 @@ internal sealed class HostPathGuard
         foreach (var segment in below)
         {
             if (!SafeNames.IsSafeSegment(segment))
-                throw Refuse(MountRefusalReason.InvalidPath, $"The host path segment '{segment}' is not a safe name.");
+                throw Refuse(MountRefusalReason.InvalidPath, $"The host path segment '{SafeText.Clean(segment)}' is not a safe name.");
         }
 
         var agentName = agentId.ToString("N");
@@ -82,7 +82,16 @@ internal sealed class HostPathGuard
         foreach (var segment in below.Skip(2))
         {
             if (_deniedSegments.Contains(segment))
-                throw Refuse(MountRefusalReason.DeniedPath, $"The host path segment '{segment}' is denied.");
+                throw Refuse(MountRefusalReason.DeniedPath, $"The host path segment '{SafeText.Clean(segment)}' is denied.");
+        }
+
+        // Deny paths are compared case-insensitively whatever the volume: a wrong "no overlap" would expose a denied folder, while a
+        // wrong "overlap" only refuses a mount. This runs before the walk, so a denied path is refused whether or not it exists.
+        var lexical = Path.Combine([_agentsRootReal, .. below]);
+        foreach (var deny in _denyReal)
+        {
+            if (SafeNames.IsUnderOrEqual(deny, lexical, caseInsensitive: true) || SafeNames.IsUnderOrEqual(lexical, deny, caseInsensitive: true))
+                throw Refuse(MountRefusalReason.DeniedPath, "The host path overlaps a denied location.");
         }
 
         // Walk from the agents root, one segment at a time. A link anywhere on the way is refused, even if it points back inside.
@@ -91,14 +100,14 @@ internal sealed class HostPathGuard
         {
             current = Path.Combine(current, segment);
             if (IsLink(current))
-                throw Refuse(MountRefusalReason.LinkNotAllowed, $"'{segment}' is a link; mounts never follow links.");
+                throw Refuse(MountRefusalReason.LinkNotAllowed, $"'{SafeText.Clean(segment)}' is a link; mounts never follow links.");
             if (!Directory.Exists(current))
-                throw Refuse(MountRefusalReason.InvalidPath, $"'{segment}' is not an existing directory.");
+                throw Refuse(MountRefusalReason.InvalidPath, $"'{SafeText.Clean(segment)}' is not an existing directory.");
         }
 
         foreach (var deny in _denyReal)
         {
-            if (SafeNames.IsUnderOrEqual(deny, current, _ci) || SafeNames.IsUnderOrEqual(current, deny, _ci))
+            if (SafeNames.IsUnderOrEqual(deny, current, caseInsensitive: true) || SafeNames.IsUnderOrEqual(current, deny, caseInsensitive: true))
                 throw Refuse(MountRefusalReason.DeniedPath, "The host path overlaps a denied location.");
         }
 

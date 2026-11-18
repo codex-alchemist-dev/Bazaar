@@ -17,6 +17,9 @@ public static class VmMountAuditActions
     /// <summary>The provider failed to detach; the mount row stays attached.</summary>
     public const string DetachFailed = "vm.mount.detach_failed";
 
+    /// <summary>A containment detach could not scrub the guest (<see cref="Abstractions.IGuestScrubber"/> failed or is not wired).</summary>
+    public const string ScrubFailed = "vm.mount.scrub_failed";
+
     /// <summary>The guest cookie profile was written to the host profile.</summary>
     public const string WriteBack = "vm.mount.writeback";
 

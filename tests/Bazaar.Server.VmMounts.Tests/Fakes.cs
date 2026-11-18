@@ -5,11 +5,12 @@ using Bazaar.Server.VmMounts.Abstractions;
 
 namespace Bazaar.Server.VmMounts.Tests;
 
-/// <summary>An in-memory <see cref="IScopedMountStore"/> with the same one-attached-mount-per-VM-and-guest-path rule as the database.</summary>
+/// <summary>An in-memory <see cref="IScopedMountStore"/> with the one-attached-mount-per-VM-and-guest-path rule and the VM checks of the database.</summary>
 public sealed class InMemoryScopedMountStore : IScopedMountStore
 {
     private readonly object _gate = new();
     private readonly List<ScopedMountRow> _rows = [];
+    private readonly Dictionary<Guid, (Guid Agent, GuestOs Os, bool Retired)> _vms = [];
 
     public IReadOnlyList<ScopedMountRow> All
     {
@@ -20,21 +21,41 @@ public sealed class InMemoryScopedMountStore : IScopedMountStore
         }
     }
 
-    public Task<bool> TryInsertAsync(ScopedMountRow row, CancellationToken ct)
+    public void RegisterVm(Guid vmId, Guid agentId, GuestOs os = GuestOs.Linux, bool retired = false)
+    {
+        lock (_gate)
+            _vms[vmId] = (agentId, os, retired);
+    }
+
+    public Task<MountInsertResult> TryInsertAsync(ScopedMountRow row, GuestOs guestOs, CancellationToken ct)
     {
         lock (_gate)
         {
+            if (!_vms.TryGetValue(row.VmId, out var vm) || vm.Agent != row.AgentId || vm.Os != guestOs || vm.Retired)
+                return Task.FromResult(MountInsertResult.VmNotEligible);
             if (_rows.Any(r => r.DetachedAt is null && r.VmId == row.VmId && r.GuestPath == row.GuestPath))
-                return Task.FromResult(false);
+                return Task.FromResult(MountInsertResult.GuestPathTaken);
             _rows.Add(row);
-            return Task.FromResult(true);
+            return Task.FromResult(MountInsertResult.Inserted);
         }
+    }
+
+    public Task<GuestOs?> GetVmGuestOsAsync(Guid vmId, CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult<GuestOs?>(_vms.TryGetValue(vmId, out var vm) ? vm.Os : null);
     }
 
     public Task<ScopedMountRow?> GetAsync(Guid mountId, CancellationToken ct)
     {
         lock (_gate)
             return Task.FromResult(_rows.FirstOrDefault(r => r.Id == mountId));
+    }
+
+    public Task<IReadOnlyList<ScopedMountRow>> ListAttachedAsync(CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult<IReadOnlyList<ScopedMountRow>>([.. _rows.Where(r => r.DetachedAt is null).OrderBy(r => r.Id)]);
     }
 
     public Task<IReadOnlyList<ScopedMountRow>> ListAttachedForAgentAsync(Guid agentId, CancellationToken ct)
@@ -54,6 +75,84 @@ public sealed class InMemoryScopedMountStore : IScopedMountStore
             return Task.FromResult(true);
         }
     }
+}
+
+public sealed class InMemoryCanaryStore : ICanaryStore
+{
+    private readonly object _gate = new();
+    private readonly List<CanaryRecord> _rows = [];
+
+    public IReadOnlyList<CanaryRecord> All
+    {
+        get
+        {
+            lock (_gate)
+                return [.. _rows];
+        }
+    }
+
+    public Task InsertAsync(IReadOnlyList<CanaryRecord> canaries, CancellationToken ct)
+    {
+        lock (_gate)
+            _rows.AddRange(canaries);
+        return Task.CompletedTask;
+    }
+
+    public Task<CanaryRecord?> FindByFingerprintAsync(string fingerprint, CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult(_rows.FirstOrDefault(r => r.Fingerprint == fingerprint));
+    }
+
+    public Task<IReadOnlyList<CanaryRecord>> ListActiveForMountAsync(Guid mountId, CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult<IReadOnlyList<CanaryRecord>>([.. _rows.Where(r => r.MountId == mountId && r.RetiredAt is null)]);
+    }
+
+    public Task RetireForMountAsync(Guid mountId, DateTimeOffset at, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            for (var i = 0; i < _rows.Count; i++)
+            {
+                if (_rows[i].MountId == mountId && _rows[i].RetiredAt is null)
+                    _rows[i] = _rows[i] with { RetiredAt = at };
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeGuestScrubber : IGuestScrubber
+{
+    private readonly ConcurrentQueue<GuestScrubRequest> _requests = new();
+
+    public IReadOnlyList<GuestScrubRequest> Requests => [.. _requests];
+
+    public Exception? Fail { get; set; }
+
+    public Task ScrubAsync(GuestScrubRequest request, CancellationToken ct)
+    {
+        _requests.Enqueue(request);
+        return Fail is { } failure ? Task.FromException(failure) : Task.CompletedTask;
+    }
+}
+
+/// <summary>Reports a hard link count for files whose name is in <see cref="Linked"/>, and null (cannot tell) for the rest.</summary>
+public sealed class FakeHardLinkProbe : IHardLinkProbe
+{
+    public HashSet<string> Linked { get; } = [];
+
+    public int? GetLinkCount(string filePath) => Linked.Contains(Path.GetFileName(filePath)) ? 2 : null;
+}
+
+/// <summary>Throws from the audit log for the named kinds only.</summary>
+public sealed class SelectiveThrowingAudit(params string[] kinds) : IAuditLog
+{
+    public Task AppendAsync(AuditEntry e, CancellationToken ct = default) =>
+        kinds.Contains(e.Kind) ? throw new InvalidOperationException("audit store down") : Task.CompletedTask;
 }
 
 public sealed class RecordingAuditLog : IAuditLog
@@ -106,6 +205,12 @@ public sealed class FakeGuestChannel : IMountGuestChannel
 
     public Exception? FailPut { get; set; }
 
+    /// <summary>When set, <see cref="ListFilesAsync"/> waits until its token is cancelled, like a guest that never answers.</summary>
+    public bool ListBlocksUntilCancelled { get; set; }
+
+    /// <summary>Called when a <see cref="GetFileAsync"/> starts.</summary>
+    public Action? OnGetStarted { get; set; }
+
     public IReadOnlyDictionary<string, byte[]> Files => _files;
 
     /// <summary>Writes a file directly into the guest, as the agent's browser would.</summary>
@@ -127,15 +232,18 @@ public sealed class FakeGuestChannel : IMountGuestChannel
     public async Task GetFileAsync(Guid vmId, string guestPath, Stream sink, CancellationToken ct)
     {
         Interlocked.Increment(ref _gets);
+        OnGetStarted?.Invoke();
         var bytes = _files[guestPath];
         if (GetTransform is { } transform)
             bytes = transform(guestPath, bytes);
         await sink.WriteAsync(bytes, ct);
     }
 
-    public Task<IReadOnlyList<GuestFileInfo>> ListFilesAsync(Guid vmId, string guestDirectory, CancellationToken ct)
+    public async Task<IReadOnlyList<GuestFileInfo>> ListFilesAsync(Guid vmId, string guestDirectory, CancellationToken ct)
     {
         Interlocked.Increment(ref _lists);
+        if (ListBlocksUntilCancelled)
+            await Task.Delay(Timeout.Infinite, ct);
         var prefix = guestDirectory.TrimEnd('/') + "/";
         IReadOnlyList<GuestFileInfo> listed =
         [
@@ -143,7 +251,7 @@ public sealed class FakeGuestChannel : IMountGuestChannel
                 .Where(f => f.Key.StartsWith(prefix, StringComparison.Ordinal))
                 .Select(f => new GuestFileInfo(f.Key[prefix.Length..], f.Value.Length, Convert.ToHexStringLower(SHA256.HashData(f.Value)))),
         ];
-        return Task.FromResult(ListTransform is { } transform ? transform(listed) : listed);
+        return ListTransform is { } transform ? transform(listed) : listed;
     }
 
     public Task DeleteDirectoryAsync(Guid vmId, string guestDirectory, CancellationToken ct)

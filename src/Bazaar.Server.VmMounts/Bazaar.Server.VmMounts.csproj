@@ -6,6 +6,10 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
   <ItemGroup>
     <!-- No reference to Bazaar.Server: the module meets the rest only through abstractions and the vms tables (doc 16 WP8). -->

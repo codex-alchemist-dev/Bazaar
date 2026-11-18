@@ -47,6 +47,12 @@ public sealed class VmMountOptions
     /// <summary>Canary credentials planted in a Soul mount.</summary>
     public int CanaryCount { get; init; } = 2;
 
+    /// <summary>Server-side limit on one guest operation (a whole profile push or pull, or a provider attach). The guest never sets it.</summary>
+    public TimeSpan GuestIoTimeout { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Limit on the host-side detach and the guest scrub of a containment detach, so a hung provider cannot stall the kill switch.</summary>
+    public TimeSpan ContainmentTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
     public ProfileLimits ProfileLimits { get; init; } = ProfileLimits.Default;
 
     public GuestMountLayout Linux { get; init; } = GuestMountLayout.DefaultLinux;

@@ -6,11 +6,17 @@ namespace Bazaar.Server.VmMounts.Paths;
 /// <summary>
 /// Walks a tree that is about to be shared and refuses it when it holds something the share must not expose: a file the content
 /// policy refuses, a link that leaves the tree, or more entries than the scan limit (a tree too big to check is not mounted).
-/// A link that stays inside the tree is allowed but never followed, so a loop cannot trap the scan.
+/// A link that stays inside the tree is allowed but never followed, so a loop cannot trap the scan. A file with more than one hard
+/// link is refused where the host can tell (<see cref="IHardLinkProbe"/>).
 /// </summary>
+/// <remarks>
+/// The scan is advisory. It is a point-in-time look at a tree that, for a workspace, the guest can change the next moment, and it
+/// cannot see hard links on a host with no probe. The control that holds is the provider's rule never to follow a link out of the
+/// share (<see cref="IMountProvider"/>); the scan only stops an obviously bad tree from being offered at all.
+/// </remarks>
 internal static class MountTreeScanner
 {
-    public static void Scan(string mountRoot, MountKind kind, int maxEntries, bool caseInsensitive, IMountContentPolicy policy)
+    public static void Scan(string mountRoot, MountKind kind, int maxEntries, bool caseInsensitive, IMountContentPolicy policy, IHardLinkProbe linkProbe)
     {
         var realRoot = HostPathGuard.RealPath(mountRoot, 0);
         var pending = new Stack<string>();
@@ -37,12 +43,15 @@ internal static class MountTreeScanner
                     var target = info.ResolveLinkTarget(returnFinalTarget: true);
                     if (target is null || !SafeNames.IsUnderOrEqual(realRoot, HostPathGuard.RealPath(target.FullName, 0), caseInsensitive))
                         throw new MountRefusedException(
-                            MountRefusalReason.LinkNotAllowed, $"'{relative}' is a link that leads out of the mount tree.");
+                            MountRefusalReason.LinkNotAllowed, $"'{SafeText.Clean(relative)}' is a link that leads out of the mount tree.");
                     Judge(policy, kind, relative, 0);
                     continue;
                 }
 
                 var isDirectory = Directory.Exists(entry);
+                if (!isDirectory && linkProbe.GetLinkCount(entry) is > 1)
+                    throw new MountRefusedException(
+                        MountRefusalReason.LinkNotAllowed, $"'{SafeText.Clean(relative)}' has more than one hard link.");
                 Judge(policy, kind, relative, isDirectory ? 0 : new FileInfo(entry).Length);
                 if (isDirectory)
                     pending.Push(entry);
@@ -54,6 +63,6 @@ internal static class MountTreeScanner
     {
         var decision = policy.Evaluate(new MountContentCandidate(kind, MountContentOrigin.MountTree, relative, length));
         if (!decision.Allowed)
-            throw new MountRefusedException(MountRefusalReason.ContentRefused, $"'{relative}' is refused: {decision.Reason}.");
+            throw new MountRefusedException(MountRefusalReason.ContentRefused, $"'{SafeText.Clean(relative)}' is refused: {SafeText.Clean(decision.Reason)}.");
     }
 }

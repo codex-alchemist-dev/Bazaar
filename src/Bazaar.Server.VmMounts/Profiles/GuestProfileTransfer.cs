@@ -12,6 +12,11 @@ namespace Bazaar.Server.VmMounts.Profiles;
 /// accept each file, and every file's bytes must match the length and SHA-256 the guest listed. Anything else rejects the whole
 /// pull and removes the staging directory, so a profile is written back completely or not at all.
 /// </summary>
+/// <remarks>
+/// Validation is structural only (see <see cref="IProfileTransfer"/>): it cannot judge what the cookie database holds, and a hash the
+/// guest itself supplied proves consistency, not honesty. Names from the guest are cleaned (<see cref="SafeText"/>) before they reach
+/// a message, an audit row or a result.
+/// </remarks>
 public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountContentPolicy policy, VmMountOptions options) : IProfileTransfer
 {
     public async Task<ProfileManifest> PushAsync(
@@ -23,7 +28,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
         {
             var relative = Path.GetRelativePath(hostProfileDirectory, path).Replace('\\', '/');
             if (HostPathGuard.IsLink(path))
-                throw Invalid($"The host profile holds a link: '{relative}'.");
+                throw Invalid($"The host profile holds a link: '{SafeText.Clean(relative)}'.");
             files.Add((relative, path, new FileInfo(path).Length));
         }
 
@@ -31,7 +36,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
         foreach (var dir in Directory.EnumerateDirectories(hostProfileDirectory, "*", SearchOption.AllDirectories))
         {
             if (HostPathGuard.IsLink(dir))
-                throw Invalid($"The host profile holds a link: '{Path.GetRelativePath(hostProfileDirectory, dir)}'.");
+                throw Invalid($"The host profile holds a link: '{SafeText.Clean(Path.GetRelativePath(hostProfileDirectory, dir))}'.");
         }
 
         ValidateList(files.Select(f => (f.Relative, f.Length)), limits);
@@ -85,7 +90,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
             foreach (var f in listed)
             {
                 if (f.Sha256 is not { Length: 64 } || !f.Sha256.All(Uri.IsHexDigit))
-                    throw Invalid($"The guest gave no valid SHA-256 for '{f.RelativePath}'.");
+                    throw Invalid($"The guest gave no valid SHA-256 for '{SafeText.Clean(f.RelativePath)}'.");
                 RequireAllowed(f.RelativePath, f.Length);
             }
 
@@ -95,7 +100,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
             {
                 var target = Path.GetFullPath(Path.Combine(staging, f.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
                 if (!SafeNames.IsUnderOrEqual(staging, target, caseInsensitive: false) || target.Equals(staging, StringComparison.Ordinal))
-                    throw Invalid($"'{f.RelativePath}' resolves outside the staging directory.");
+                    throw Invalid($"'{SafeText.Clean(f.RelativePath)}' resolves outside the staging directory.");
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
 
                 string actualHash;
@@ -111,7 +116,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
                     catch (Exception ex) when (ex is not OperationCanceledException and not ProfileTransferException)
                     {
                         throw new ProfileTransferException(
-                            ProfileTransferFailure.Channel, $"The guest channel failed while reading '{f.RelativePath}'.", ex);
+                            ProfileTransferFailure.Channel, $"The guest channel failed while reading '{SafeText.Clean(f.RelativePath)}'.", ex);
                     }
 
                     (actualHash, actualLength) = sink.Finish();
@@ -119,7 +124,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
 
                 if (actualLength != f.Length || !actualHash.Equals(f.Sha256, StringComparison.OrdinalIgnoreCase))
                     throw new ProfileTransferException(
-                        ProfileTransferFailure.HashMismatch, $"'{f.RelativePath}' does not match the length or hash the guest listed.");
+                        ProfileTransferFailure.HashMismatch, $"'{SafeText.Clean(f.RelativePath)}' does not match the length or hash the guest listed.");
                 manifest.Add(new ProfileFile(f.RelativePath, f.Length, actualHash));
             }
 
@@ -147,7 +152,7 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
     {
         var decision = policy.Evaluate(new MountContentCandidate(MountKind.Soul, MountContentOrigin.ProfileFile, relativePath, length));
         if (!decision.Allowed)
-            throw Invalid($"'{relativePath}' is refused by the content policy: {decision.Reason}.");
+            throw Invalid($"'{SafeText.Clean(relativePath)}' is refused by the content policy: {SafeText.Clean(decision.Reason)}.");
     }
 
     private static void ValidateList(IEnumerable<(string Relative, long Length)> files, ProfileLimits limits)
@@ -157,14 +162,14 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
         foreach (var (relative, length) in files)
         {
             if (!SafeNames.IsSafeRelativePath(relative))
-                throw Invalid($"'{relative}' is not a safe relative path.");
+                throw Invalid($"'{SafeText.Clean(relative)}' is not a safe relative path.");
             // Case-insensitive on every OS: two names that differ only in case would collide on a Windows host.
             if (!seen.Add(relative))
-                throw Invalid($"'{relative}' appears twice, or differs from another file only by case.");
+                throw Invalid($"'{SafeText.Clean(relative)}' appears twice, or differs from another file only by case.");
             if (seen.Count > limits.MaxFiles)
                 throw Invalid($"The profile has more than {limits.MaxFiles} files.");
             if (length < 0 || length > limits.MaxFileBytes)
-                throw Invalid($"'{relative}' is larger than {limits.MaxFileBytes} bytes.");
+                throw Invalid($"'{SafeText.Clean(relative)}' is larger than {limits.MaxFileBytes} bytes.");
             total += length;
             if (total > limits.MaxTotalBytes)
                 throw Invalid($"The profile is larger than {limits.MaxTotalBytes} bytes.");

@@ -35,6 +35,12 @@ public sealed class ProfileTransferException(ProfileTransferFailure failure, str
 /// Moves the browser cookie profile between the host Soul folder and the guest's local working copy (doc 16 Conflicts 1). The guest
 /// is untrusted: everything read back is hash-checked and validated before it lands host-side.
 /// </summary>
+/// <remarks>
+/// Validation is structural only: safe paths, no aliasing, size and count limits, the content policy's name rules, and bytes that match
+/// what the guest listed. It cannot tell whether the cookie database itself is benign. A compromised guest can write any cookies, and
+/// the host copies them to the profile on a clean detach. The defences are that a hard-taint session is never written back, and that
+/// the hash only guards against corruption, not against a lying guest.
+/// </remarks>
 public interface IProfileTransfer
 {
     /// <summary>Replaces the guest working copy with the host profile, file by file, each hash-checked. Returns what was copied.</summary>

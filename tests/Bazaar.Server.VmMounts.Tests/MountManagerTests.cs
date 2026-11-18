@@ -111,6 +111,7 @@ public sealed class MountManagerTests
 
         var result = Assert.Single(results);
         Assert.True(result.Detached);
+        Assert.True(result.GuestScrubbed);
         Assert.Equal(WriteBackOutcome.NotAttempted, result.WriteBack);
         Assert.Equal("trusted", h.ReadHostProfile("Default/Cookies"));
         Assert.Equal(listsBefore, h.Channel.ListCalls);
@@ -140,11 +141,11 @@ public sealed class MountManagerTests
         using var h = new MountHarness();
         var otherAgent = Guid.CreateVersion7();
         h.CreateAgent(otherAgent);
-        var vm2 = Guid.CreateVersion7();
+        var vm2 = h.NewVm();
         await h.Manager.AttachAsync(h.SoulSpec(), MountHarness.Ct);
         await h.Manager.AttachAsync(h.WorkspaceSpec(), MountHarness.Ct);
         await h.Manager.AttachAsync(h.WorkspaceSpec(vm2), MountHarness.Ct);
-        var bystander = await h.Manager.AttachAsync(h.WorkspaceSpec(Guid.CreateVersion7(), otherAgent), MountHarness.Ct);
+        var bystander = await h.Manager.AttachAsync(h.WorkspaceSpec(h.NewVm(otherAgent), otherAgent), MountHarness.Ct);
 
         var results = await h.Manager.DetachAllForAgentAsync(h.Agent, DetachReason.KillSwitch, MountHarness.Ct);
         var again = await h.Manager.DetachAllForAgentAsync(h.Agent, DetachReason.KillSwitch, MountHarness.Ct);
@@ -343,7 +344,7 @@ public sealed class MountManagerTests
     }
 
     [Fact]
-    public async Task A_canary_value_seen_elsewhere_is_reported_until_the_mount_is_detached()
+    public async Task A_canary_value_seen_elsewhere_is_reported_and_still_reported_after_the_mount_is_detached()
     {
         using var h = new MountHarness();
         var mount = await h.Manager.AttachAsync(h.SoulSpec(), MountHarness.Ct);
@@ -356,11 +357,15 @@ public sealed class MountManagerTests
         var report = Assert.Single(h.Sink.Reports);
         Assert.Equal(CanaryUseKind.TokenSeen, report.Kind);
         Assert.Equal("egress", report.Source);
+        Assert.False(report.Retired);
         Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(token))), report.CanaryId);
         Assert.DoesNotContain(h.Audit.Entries, e => e.Payload.Contains(token, StringComparison.Ordinal));
 
+        // Detaching retires the canary; it does not forget it. The value showing up later is still a leak.
         await h.Manager.DetachAsync(mount.MountId, DetachReason.Clean, MountHarness.Ct);
-        Assert.False(await h.Manager.ReportCanaryTokenUseAsync(token, "egress", MountHarness.Ct));
+        Assert.All(h.Canaries.All, c => Assert.NotNull(c.RetiredAt));
+        Assert.True(await h.Manager.ReportCanaryTokenUseAsync(token, "egress", MountHarness.Ct));
+        Assert.True(h.Sink.Reports[^1].Retired);
     }
 
     [Fact]
@@ -397,8 +402,7 @@ public sealed class MountManagerTests
     public async Task A_failed_audit_write_rolls_the_attach_back()
     {
         using var h = new MountHarness();
-        var failing = new MountManager(
-            h.Store, h.Provider, h.Transfer, h.Sink, new ThrowingAudit(), h.Policy, h.Options, h.Time);
+        var failing = h.NewManager(audit: new ThrowingAudit());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => failing.AttachAsync(h.WorkspaceSpec(), MountHarness.Ct));
 
@@ -437,7 +441,7 @@ public sealed class MountManagerTests
         var gate = new TaskCompletionSource();
         h.Provider.AttachGate = gate.Task;
         h.Provider.OnAttachStarted = () => Interlocked.Increment(ref started);
-        var otherVm = Guid.CreateVersion7();
+        var otherVm = h.NewVm();
 
         var first = h.Manager.AttachAsync(h.WorkspaceSpec(), MountHarness.Ct);
         await WaitUntilAsync(() => Volatile.Read(ref started) == 1);
@@ -467,7 +471,7 @@ public sealed class MountManagerTests
         await WaitUntilAsync(() => Volatile.Read(ref started) == 1);
         var row = Assert.Single(h.Store.All);
 
-        var detach = h.Manager.DetachAsync(row.Id, DetachReason.KillSwitch, MountHarness.Ct);
+        var detach = h.Manager.DetachAsync(row.Id, DetachReason.Clean, MountHarness.Ct);
         await Task.Delay(100, MountHarness.Ct);
         Assert.DoesNotContain($"detach:{row.Id}", h.Provider.Calls);
 
@@ -478,6 +482,25 @@ public sealed class MountManagerTests
         Assert.True(result.Detached);
         Assert.False(result.WasAlreadyDetached);
         Assert.Empty(h.Provider.Attached);
+    }
+
+    [Fact]
+    public async Task A_containment_detach_cancels_an_attach_that_is_stuck_in_the_provider_and_the_attach_is_rolled_back()
+    {
+        using var h = new MountHarness();
+        var started = 0;
+        h.Provider.AttachGate = new TaskCompletionSource().Task;
+        h.Provider.OnAttachStarted = () => Interlocked.Increment(ref started);
+        var attach = h.Manager.AttachAsync(h.WorkspaceSpec(), MountHarness.Ct);
+        await WaitUntilAsync(() => Volatile.Read(ref started) == 1);
+
+        var results = await h.Manager.DetachAllForAgentAsync(h.Agent, DetachReason.KillSwitch, MountHarness.Ct)
+            .WaitAsync(TimeSpan.FromSeconds(5), MountHarness.Ct);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => attach);
+        Assert.Empty(h.Provider.Attached);
+        Assert.All(h.Store.All, r => Assert.NotNull(r.DetachedAt));
+        Assert.True(results.Count <= 1);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

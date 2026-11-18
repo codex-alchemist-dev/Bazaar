@@ -298,7 +298,7 @@ public sealed class PathSafetyTests
         Assert.Equal(MountRefusalReason.GuestPathNotAllowed, bad.Reason);
 
         var ok = await h.Manager.AttachAsync(
-            h.WorkspaceSpec() with { GuestOs = GuestOs.Windows, GuestPath = @"c:\bazaar\WORKSPACE" }, MountHarness.Ct);
+            h.WorkspaceSpec(h.NewVm(os: GuestOs.Windows)) with { GuestOs = GuestOs.Windows, GuestPath = @"c:\bazaar\WORKSPACE" }, MountHarness.Ct);
         Assert.Equal(@"C:\Bazaar\Workspace", ok.GuestPath);
     }
 }

@@ -12,12 +12,15 @@ public sealed class PostgresScopedMountStore(NpgsqlDataSource dataSource) : ISco
 {
     private const string _columns = "id, agent_id, vm_id, kind, host_path, guest_path, mode, detached_at";
 
-    public async Task<bool> TryInsertAsync(ScopedMountRow row, CancellationToken ct)
+    public async Task<MountInsertResult> TryInsertAsync(ScopedMountRow row, GuestOs guestOs, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(row);
+        // One statement: the VM must exist, belong to the agent, run the named OS and not be Retired. Zero rows inserted means it did not.
         await using var cmd = dataSource.CreateCommand("""
             INSERT INTO scoped_mount (id, agent_id, vm_id, kind, host_path, guest_path, mode, detached_at)
-            VALUES (@id, @agent_id, @vm_id, @kind, @host_path, @guest_path, @mode, @detached_at)
+            SELECT @id, @agent_id, @vm_id, @kind, @host_path, @guest_path, @mode, @detached_at
+            FROM environment_vm
+            WHERE id = @vm_id AND agent_id = @agent_id AND os = @os AND state <> 'Retired'
             """);
         cmd.Parameters.AddWithValue("id", row.Id);
         cmd.Parameters.AddWithValue("agent_id", row.AgentId);
@@ -27,16 +30,36 @@ public sealed class PostgresScopedMountStore(NpgsqlDataSource dataSource) : ISco
         cmd.Parameters.AddWithValue("guest_path", row.GuestPath);
         cmd.Parameters.AddWithValue("mode", ModeText(row.Mode));
         cmd.Parameters.AddWithValue("detached_at", (object?)row.DetachedAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("os", guestOs == GuestOs.Windows ? "windows" : "linux");
         try
         {
-            await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-            return true;
+            return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1
+                ? MountInsertResult.Inserted
+                : MountInsertResult.VmNotEligible;
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation && row.DetachedAt is null
             && ex.ConstraintName == "scoped_mount_attached_guest_path_idx")
         {
-            return false;
+            return MountInsertResult.GuestPathTaken;
         }
+    }
+
+    public async Task<GuestOs?> GetVmGuestOsAsync(Guid vmId, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT os FROM environment_vm WHERE id = @id");
+        cmd.Parameters.AddWithValue("id", vmId);
+        return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) switch
+        {
+            "windows" => GuestOs.Windows,
+            "linux" => GuestOs.Linux,
+            _ => null,
+        };
+    }
+
+    public async Task<IReadOnlyList<ScopedMountRow>> ListAttachedAsync(CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand($"SELECT {_columns} FROM scoped_mount WHERE detached_at IS NULL ORDER BY id");
+        return await ReadAsync(cmd, ct).ConfigureAwait(false);
     }
 
     public async Task<ScopedMountRow?> GetAsync(Guid mountId, CancellationToken ct)
