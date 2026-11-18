@@ -36,7 +36,7 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
 ### 3. Screens (Ops)
-Status and readiness; logs (tail, filter by level and module); Kodo health, incidents and runbook links; modules (selection, build reports, rebuild); users, roles, devices and revocation; approvals; audit view; setup changes through the same wizard (`ISetupPrompter` again). Write actions use the same approval step-up as the clients.
+Status and readiness; logs (tail, filter by level and module); Kodo health, incidents and runbook links; modules (selection, build reports, rebuild); users, roles, devices and revocation; approvals; audit view; setup changes through the same wizard (`ISetupPrompter` again). **Permissions (DECIDED, owner card 2026-11-18): everything the apps allow.** An admin can do in the TUI whatever the same account can do in a client, including modules, rebuilds, users, roles and settings. Risky actions keep the usual approval step-up. The TUI adds no privilege.
 
 ### 4. Input, access and accessibility
 - Keyboard only, mnemonics from the doc 41 registry with no Ctrl chords, remappable, plus a palette.
