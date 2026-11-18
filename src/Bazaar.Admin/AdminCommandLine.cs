@@ -101,7 +101,7 @@ public static class AdminCommandLine
     {
         if (parsed.Action == AdminAction.Wizard)
         {
-            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout), variables, applyGate);
+            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout, secretInput ?? ConsoleSecretValueSource.Instance), variables, applyGate, secretWriter ?? new UnavailableSetupSecretWriter());
             var outcome = await wizard.RunAsync(cancellationToken);
             return outcome.ExitCode;
         }

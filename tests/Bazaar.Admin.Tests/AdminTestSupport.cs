@@ -1,4 +1,5 @@
 using Bazaar.Admin;
+using Bazaar.Server.Setup;
 
 namespace Bazaar.Admin.Tests;
 
