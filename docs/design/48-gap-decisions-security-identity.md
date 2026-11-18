@@ -228,6 +228,20 @@ Design consequences:
 - Raw audit read records (section 5) have their own retention period, a setting. Their personal fields are crypto-erasable like any other.
 - Retention changes are high-risk actions (section 8).
 
+**Retention category table [PROPOSED].** Seeded only with the categories other docs already name; periods are copied from those docs and "not specified" means no doc gives one. The owner confirms or replaces this table. The GC log is not in it: it is never purged.
+
+| Category | Setting key | Default period | Store | Hold behaviour | Erasure method | Status |
+|---|---|---|---|---|---|---|
+| Gateway usage (doc 05) | `gateway.usage.retention_days` | 0 = indefinite (needs counsel); a non-zero value needs owner approval | `gw_usage` | A non-person hold blocks the sweep; usage rows are keyed by agent, so no person hold applies | Delete | BUILT (`Bazaar.Server.Retention`) |
+| Agent turn bodies (doc 06) | `runtime.turn_body_retention_days` (not registered yet) | 90 (needs counsel; upper bound is the erasure window) | `turn_step` payloads | A non-person hold blocks it | Unspecified (clear the payload or delete the row) | PLANNED |
+| Quarantined mail raw content (doc 22) | `mail.quarantine.raw_retention_days` | 90 (needs counsel) | None yet | A non-person hold blocks it | Delete the raw content; the metadata entry stays in the GC | PLANNED |
+| Raw metrics (doc 25) | `metrics.raw_retention_days` | 90 (needs counsel) | None yet | A non-person hold blocks it | Unspecified | PLANNED |
+| Raw audit read records (section 5) | Not specified | Not specified | None yet | A non-person hold blocks it | Personal fields crypto-erasable; removal unspecified | PLANNED |
+| Logs (docs 03 and 23) | `host.log.retention_days` (doc 03) or `logs.retention_days` (doc 23): the two docs disagree, OPEN | 14 | Log files, no table | A non-person hold blocks it | Delete | PLANNED |
+| Crash telemetry (doc 43) | `telemetry.crash.retention_days`, `telemetry.crash.screenshot_retention_days` | 90 and 30 | None yet | A non-person hold blocks it | Soft delete, then removal | PLANNED |
+
+**Hold rule for sweeps [PROPOSED].** A retention sweep runs only when no hold could cover what it removes. Any active hold that is not about a person (scope `gc`, `company` or `category`) blocks every sweep, because how such a hold maps to a table is not decided (OPEN, owner). For a person hold, a sweep is blocked when any person whose data the category holds is under an active person hold (`ILegalHoldReader`); categories whose rows are not tied to a person (gateway usage) have none to check. If the hold check fails for any reason, the sweep does nothing and writes an audit row naming only the category, the cutoff and the exception type (fail closed). Each sweep is bounded per run and writes an audit row with counts, the cutoff and the hold decision, never content, and never touches the audit chain.
+
 OPEN: erasure inside Vault history and git history (`33` Q6, C38). The owner has not decided this, and the options are encrypted personal notes or history rewrite. Needs counsel. The shipped default for Vault pages is the most protective option (no personal data in a Vault page without per-subject encryption), still to be designed in `18`.
 
 OPEN: whether key destruction counts as erasure under each jurisdiction (C01 (c)). Needs counsel.

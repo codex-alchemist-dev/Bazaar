@@ -43,17 +43,18 @@ public sealed class GatewayUsagePurgeDbTests(RetentionDb db) : IClassFixture<Ret
     private GatewayUsageRetentionCategory Category() => new(db.App, new FakeSettings());
 
     [Fact]
-    public async Task Runtime_role_has_select_and_delete_on_gw_usage_but_not_update()
+    public async Task Runtime_role_has_select_insert_and_delete_on_gw_usage_but_not_update()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         await using var cmd = db.Owner.CreateCommand(
             "SELECT has_table_privilege('bazaar_app', 'gw_usage', 'SELECT'), has_table_privilege('bazaar_app', 'gw_usage', 'DELETE'), " +
-            "has_table_privilege('bazaar_app', 'gw_usage', 'UPDATE')");
+            "has_table_privilege('bazaar_app', 'gw_usage', 'UPDATE'), has_table_privilege('bazaar_app', 'gw_usage', 'INSERT')");
         await using var reader = await cmd.ExecuteReaderAsync(Ct);
         Assert.True(await reader.ReadAsync(Ct));
         Assert.True(reader.GetBoolean(0));
         Assert.True(reader.GetBoolean(1));
         Assert.False(reader.GetBoolean(2));
+        Assert.True(reader.GetBoolean(3));
     }
 
     [Fact]
