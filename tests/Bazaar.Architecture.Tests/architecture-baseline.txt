@@ -686,11 +686,7 @@ src/Bazaar.Server/Providers/Fakes/FakeSearchProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeServiceHostProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeVmProvider.cs
 src/Bazaar.Server/Providers/ICacheProvider.cs
-src/Bazaar.Server/Providers/ICapacityLimitedProvider.cs
-src/Bazaar.Server/Providers/IProvider.cs
 src/Bazaar.Server/Providers/ISearchProvider.cs
-src/Bazaar.Server/Providers/IServiceHostProvider.cs
-src/Bazaar.Server/Providers/IVmProvider.cs
 src/Bazaar.Server/Providers/Linux/IValkeyClient.cs
 src/Bazaar.Server/Providers/Linux/LinuxProviders.cs
 src/Bazaar.Server/Providers/Linux/StackExchangeValkeyClient.cs
@@ -703,7 +699,6 @@ src/Bazaar.Server/Providers/ProviderRole.cs
 src/Bazaar.Server/Providers/ProviderRoleExtensions.cs
 src/Bazaar.Server/Providers/ProviderSelection.cs
 src/Bazaar.Server/Providers/ProviderSelector.cs
-src/Bazaar.Server/Providers/ProviderStatus.cs
 src/Bazaar.Server/Providers/Search/PgFts/PgFtsSearchProvider.cs
 src/Bazaar.Server/Reputation/Evidence.cs
 src/Bazaar.Server/Reputation/EvidenceKind.cs
