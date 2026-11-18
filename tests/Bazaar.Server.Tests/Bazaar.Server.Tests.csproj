@@ -22,16 +22,19 @@
     <Compile Include="..\Bazaar.Server.Agents.Tests\Scheduling\SchedulerFakes.cs" Link="Agents\Scheduling\SchedulerFakes.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Gateway\Adapters\OpenAi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Gateway\Adapters\Anthropic\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Gateway\Adapters\Gemini\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Gateway\FreeLlmApi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Testing\Replay\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- AgentResponderGatewayTests drives the gateway through GatewayHarness. Its source is linked from the
+         Gateway tests project (no test-to-test reference); move both to a shared test-support project when one exists. -->
+    <Compile Include="..\Bazaar.Server.Gateway.Tests\Gateway\Pipeline\GatewayHarness.cs" Link="Gateway\Pipeline\GatewayHarness.cs" />
+    <Compile Include="..\Bazaar.Server.Gateway.Tests\Gateway\Policy\PolicyTestKit.cs" Link="Gateway\Policy\PolicyTestKit.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Install\Bazaar.Install.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Tls\Bazaar.Tls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Erasure\Bazaar.Erasure.csproj" />
