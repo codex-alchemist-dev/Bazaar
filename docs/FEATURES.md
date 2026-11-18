@@ -54,7 +54,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Skimmer Bouncer | A cheap gatekeeper model that skims GC messages and wakes the full agent only when relevant. Starts defer-only, so it never drops a message. | Partial (`src/Bazaar.Server/Skimmer`: rules, scoring, digest, labels) | `docs/design/13` |
 | Nigerian Prince Protocol | An optional scam-baiting protocol behind a setup wizard. Without it, scam emails are quarantined. | Partial (`MailBackends/ScamBait`); optional, not yet behind the wizard | `Bazaar.md` §2 |
 | Agent email | Each agent's external email address, on a domain the operator configures. External only. | Partial (`src/Bazaar.Server.MailBackends`: Cloudflare, generic, scam-bait; built-in SMTP/IMAP server blocked on doc 22 Q2) | `docs/design/22` |
-| Nervous System | An internal event bus whose events drive software reactions. It never replaces GCs. | Planned | `Bazaar.md` §2 |
+| Nervous System | An internal event bus whose events drive software reactions. It never replaces GCs. | Planned | `docs/design/53` |
 | Inbox | Per-agent inbox with priority. | Shipped (`src/Bazaar.Server/Agents/Inbox`) | `docs/design/06` |
 
 ## 3. Agents, identity and governance
@@ -64,7 +64,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Soul System | An agent's complete identity: VM, personality, memory, reputation and accounts. | Partial (`src/Bazaar.Server/Souls`: contracts, versions, versioning service) | `docs/design/07`, `docs/deep-dives/Bazaar.Soul.md` |
 | Soul Passport | The credential registry inside a Soul. Mountable per agent, scoped to that agent only. | Partial (`src/Bazaar.Server/Identity`) | `docs/design/14` |
 | Identity Service | The single chokepoint for every credential and access request. Holds all provider and GitHub App keys. | Partial (`src/Bazaar.Server/Identity`, `Secrets`) | `docs/design/14` |
-| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | Planned. Nature decided; v1 scope OPEN. | `docs/design/07` |
+| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | Planned. Nature decided; v1 scope OPEN. | `docs/design/54`, `07` |
 | Talent Pool | A library of reusable subagent templates. Hiring runs as a Council vote. | Planned. Blocked on a Council motion-class follow-up (C32). | `docs/design/25`, `docs/design/10` |
 | Genetic Memory Transfer | Temporary subagents pass candidate lessons back before they end. Candidates need review before entering a Soul. | Planned | `docs/design/07`, `docs/design/25` |
 | Council | Whole-team voting and debate. Votes are independent first, then revealed together. Ties go to the owner. | Partial (`src/Bazaar.Server/Council`: lifecycle, tally, eligibility, pilot) | `docs/design/10` |
