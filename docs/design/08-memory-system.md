@@ -98,6 +98,14 @@ Boundary mapping [PROPOSED; doc 15's provenance table is the reference]: a write
 - Allowed: procedural and failure lessons, and technical facts naming no project, customer or person. Excluded: preferences, reputation, private memory, GC text, credentials, subject-tagged items, T0 and T1.
 - A sanitizer pass runs before copying. Grants per project pair and kind and the allowed kinds are install settings (`hive.grants`, `hive.allowed_kinds`, Settings table); the review window is doc 25's `hive.grant_review_days` (default 30, then automatic under the grant).
 
+#### Hive copy flow (built: `Bazaar.Server.Hive`)
+
+- A copy request names a lesson, a target project and the source text. It is refused unless the source is a procedural, failure or semantic (technical-fact) memory note at T2 or higher, untainted, active and without subject tags, the kind is in `hive.allowed_kinds` and a grant covers (origin project, target project, kind). With no grants nothing transfers.
+- The sanitizer (pure) checks title and body for the origin project, other project names, customers, people (names passed in by the caller) and secret patterns (`SecretScanner`). It reports finding codes, never the matched text.
+- An eligible copy is held, not written. After `hive.grant_review_days` it is released under the grant (re-checked at release); with 0 it is released only by an owner approval. Release writes `hive/<kind>/<slug>.md` in one `IMemoryBatchSink` commit with front matter `memory.kind: hive` plus `origin_project`, `origin_note`, `origin_kind` and `trust` (the source tier). The copy's own `memory.trust` is capped at T2 so a copy never promotes itself.
+- Revoking a grant removes it, drops held copies under it and sets the copies' status to `deprecated` (version plus one, deprecation record) through the writer. Files are never deleted; a copy another grant still covers stays active.
+- Operator options with protective defaults: allowed kinds default to procedure and failure (doc 25; doc 08's table also lists technical facts, so technical facts need an explicit opt-in), writer agent id `hive`, copy tier cap T2.
+
 ### 7. Consolidation ("coffee break") [PROPOSED]
 
 - Runs in the agent's own break window from the Work-Life scheduler (doc 09), never inside a turn. Time and token caps are settings (`memory.consolidation.max_minutes`, `memory.consolidation.max_tokens`).
