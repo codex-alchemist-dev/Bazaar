@@ -60,6 +60,8 @@
     <Project Path="src/Bazaar.Server.CodingReview/Bazaar.Server.CodingReview.csproj" />
     <Project Path="src/Bazaar.Server.Subagents.Abstractions/Bazaar.Server.Subagents.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Subagents/Bazaar.Server.Subagents.csproj" />
+    <Project Path="src/Bazaar.Server.CodingStore.Abstractions/Bazaar.Server.CodingStore.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingStore/Bazaar.Server.CodingStore.csproj" />
     <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
     <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mail/Bazaar.Server.Mail.csproj" />
@@ -128,6 +130,7 @@
     <Project Path="tests/Bazaar.Server.CodingGit.Tests/Bazaar.Server.CodingGit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingReview.Tests/Bazaar.Server.CodingReview.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Subagents.Tests/Bazaar.Server.Subagents.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingStore.Tests/Bazaar.Server.CodingStore.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Mail.Tests/Bazaar.Server.Mail.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
