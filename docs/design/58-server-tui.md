@@ -12,6 +12,8 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 
 **Gap to close first.** The docs describe no graphical server installer: doc 30 line 71 plans an MSI (WiX) for the Windows server, and doc 45 section 1.1 lists the plain wizard and the in-client wizard only. The GUI installer is the owner's stated intent, but its design (technology, platforms, who builds it) belongs to the onboarding work, not to this doc. This doc requires only that the GUI installer and the installer TUI share one wizard engine (`ISetupPrompter`), so the wizard logic exists once.
 
+**Two programs (DECIDED, owner card 2026-11-18, "Two separate programs").** The installer TUI goes away after setup. The resident TUI stays. They share one kit so nothing is written twice: `Bazaar.Client.Tui` (shell, theme, palette, widgets) with `Bazaar.Client.Tui.Abstractions`, then two heads on it, `Bazaar.Client.Tui.Installer` (the `ISetupPrompter` and report renderer) and `Bazaar.Client.Tui.Dashboard` (the Ops screens). Names are provisional.
+
 ## Decided inputs
 - **A separate client module, never inside the server process.** Bazaar.Server.md section 4 and doc 03: no admin console inside the service. The TUI is `Bazaar.Client.Tui` plus `Bazaar.Client.Tui.Abstractions`, with its own manifest. It adds nothing to `Bazaar.Server` or `Bazaar.Client.Core`.
 - **The wizard lives once.** The step list, validation, plan hash, apply and audit are in `Bazaar.Server.Setup`. The TUI is only another `ISetupPrompter` (`ShowMessage`, `ShowProgress`, `AskText`, `ChooseOne`, `ChooseMany`, `Confirm`, `AskSecret`; in `Bazaar.Server.Setup.Abstractions`, PR #824), driven by `SetupWizardEngine.RunAsync` with `SetupWizardSteps.Create()` and applied through `SetupWizardBackend` (`ISetupWizardBackend`, over `SetupOrchestrator`: validate, dry run, apply; `ICliApplyGate`, `SetupChangeView`, neutral `SetupReport` types). The backend takes an `ISetupReportRenderer`, so the TUI supplies its own renderer as well as its prompter beside the plain console prompter of `bazaar-admin`. The TUI never re-implements a step.
@@ -54,8 +56,7 @@ Terminals cannot do a passkey ceremony. The owner signs in locally on the box th
 **Remote sign-in (DECIDED, owner card 2026-11-18, "Both, owner chooses per machine"; applies if the TUI is ever used over Conduit, which is secondary, see section 2).** The owner's local gate does not travel, so remotely the owner (and any admin) signs in with the same single-use code from a signed-in client. A machine may also be given a device key, registered once from a signed-in client or on the box, after which sign-in from that machine is signed by the key with no code. The owner chooses per machine, and every grant and revocation is audited.
 
 ## Open questions
-1. **Packaging.** Whether the installer TUI and the resident TUI are one program or two. A standalone download for remote machines is no longer needed (remote use is the HTML panel). Not yet asked in plain terms.
-2. **GUI installer.** Owner intent recorded; design is with the onboarding thread (see above).
+1. **GUI installer.** Owner intent recorded; design is with the onboarding thread (see above).
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.
