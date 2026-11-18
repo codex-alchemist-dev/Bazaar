@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Contracts.Graph;
 
 namespace Bazaar.Client.Constellation;

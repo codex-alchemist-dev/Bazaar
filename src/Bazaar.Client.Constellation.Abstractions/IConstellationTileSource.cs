@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Graph;
 
-namespace Bazaar.Client.Constellation;
+namespace Bazaar.Client.Constellation.Abstractions;
 
 /// <summary>
 /// Fetches the tile for one viewport request from the server (the Constellation tile endpoint, <c>POST /constellation/tiles</c>).
@@ -11,9 +11,3 @@ public interface IConstellationTileSource
 {
     Task<TileFrame?> GetFrameAsync(ViewportRequest request, CancellationToken cancellationToken = default);
 }
-
-/// <summary>A box in graph (layout) coordinates, used as the visible area of the Constellation pane.</summary>
-public readonly record struct ConstellationBox(float MinX, float MinY, float MaxX, float MaxY);
-
-/// <summary>One node of a tile frame, positioned in graph coordinates.</summary>
-public readonly record struct TileNode(string Id, float X, float Y);

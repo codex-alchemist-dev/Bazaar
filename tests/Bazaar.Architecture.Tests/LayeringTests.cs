@@ -32,6 +32,7 @@ public class LayeringTests
     [Theory]
     [InlineData("Bazaar.Client.Chat")]
     [InlineData("Bazaar.Client.Constellation")]
+    [InlineData("Bazaar.Client.Dashboard")]
     [InlineData("Bazaar.Client.Vault")]
     [InlineData("Bazaar.Client.Gc")]
     [InlineData("Bazaar.Client.Souls")]

@@ -4,9 +4,11 @@ using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Dashboard;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Contracts.Graph;
@@ -29,12 +31,12 @@ internal static class GatePhoneShell
     {
         var tiles = new EmptyTileSource();
         var vault = VaultApiFactory.Create(PairedEndpoint, new EmptyResponseHandler());
-        // The Constellation module sits after the Dashboard, as in the Android head (pager order).
+        // The Dashboard, then Constellation, then the rest of the Client.Core panes, as in the Android head (pager order).
         IPaneModule[] modules =
         [
-            .. FirstPartyPanes.Modules.Take(1),
+            new DashboardPaneModule(),
             new ConstellationPaneModule(),
-            .. FirstPartyPanes.Modules.Skip(1),
+            .. FirstPartyPanes.Modules,
             new VaultSearchPaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles).With(vault);

@@ -2,7 +2,7 @@ using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.Dashboard;
 
 /// <summary>A labelled figure on the dashboard, for example "Unread GCs" with "3".</summary>
 public sealed record DashboardItem(string Label, string Value);

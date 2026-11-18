@@ -8,11 +8,13 @@ using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Dashboard;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
@@ -67,13 +69,13 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        // The Constellation module sits after the Dashboard, where it was before it moved out of Client.Core (pager order).
+        // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes (pager order, as before the modules moved out).
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
-            .. FirstPartyPanes.Modules.Take(1),
+            new DashboardPaneModule(),
             new ConstellationPaneModule(),
-            .. FirstPartyPanes.Modules.Skip(1),
+            .. FirstPartyPanes.Modules,
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
         ];

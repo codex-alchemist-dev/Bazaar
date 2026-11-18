@@ -32,8 +32,6 @@ src/Bazaar.Client.Core/Mobile/PhoneWidgetPolicy.cs
 src/Bazaar.Client.Core/Mobile/PostureLayout.cs
 src/Bazaar.Client.Core/Mobile/PostureShellBinder.cs
 src/Bazaar.Client.Core/Mobile/RadialMenu.cs
-src/Bazaar.Client.Core/Panes/DashboardPaneModule.cs
-src/Bazaar.Client.Core/Panes/DashboardPaneViewModel.cs
 src/Bazaar.Client.Core/Panes/EnginePaneView.cs
 src/Bazaar.Client.Core/Panes/EnginePaneViewModel.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs

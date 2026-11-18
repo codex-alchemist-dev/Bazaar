@@ -1,4 +1,5 @@
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 

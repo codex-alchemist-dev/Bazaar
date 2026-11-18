@@ -23,12 +23,11 @@ public static class FirstPartyPanes
 
     /// <summary>
     /// The pane modules Client.Core itself ships, in registration order. A head composes them with the feature modules
-    /// it ships (for example <c>Bazaar.Client.RyuseiFuda</c> or <c>Bazaar.Client.Constellation</c>) and passes the full list to
-    /// <see cref="CreateRegistry"/>. The phone pager lists panes in the order of that list (doc 29).
+    /// it ships (for example <c>Bazaar.Client.Dashboard</c>, <c>Bazaar.Client.RyuseiFuda</c> or <c>Bazaar.Client.Constellation</c>)
+    /// and passes the full list to <see cref="CreateRegistry"/>. The phone pager lists panes in the order of that list (doc 29).
     /// </summary>
     public static IReadOnlyList<IPaneModule> Modules { get; } =
     [
-        new DashboardPaneModule(),
         new GcPaneModule(),
     ];
 

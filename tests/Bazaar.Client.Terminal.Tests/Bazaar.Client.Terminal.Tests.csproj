@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.Terminal\Bazaar.Client.Terminal.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
   </ItemGroup>
 </Project>
