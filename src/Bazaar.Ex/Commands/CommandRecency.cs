@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Commands;
+namespace Bazaar.Ex.Commands;
 
 /// <summary>
 /// Session-local list of recently run command ids, most recent first. Held in memory only, never persisted.

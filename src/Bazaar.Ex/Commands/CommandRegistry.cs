@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Commands;
+namespace Bazaar.Ex.Commands;
 
 /// <summary>A server command that was not loaded, with the reason.</summary>
 public sealed record SkippedCommand(Command Command, string Reason);

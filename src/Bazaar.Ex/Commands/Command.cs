@@ -1,4 +1,7 @@
-namespace Bazaar.Client.Core.Commands;
+using Bazaar.Rubedo;
+using Bazaar.Rubedo.Rules;
+
+namespace Bazaar.Ex.Commands;
 
 /// <summary>
 /// A command the palette can list and run. Pure data plus an optional enabled predicate;
@@ -12,7 +15,8 @@ public sealed class Command
         string mnemonic,
         IEnumerable<string>? keywords,
         CommandSource source,
-        Func<bool>? enabled = null)
+        Func<bool>? enabled = null,
+        string? enabledWhen = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -28,7 +32,11 @@ public sealed class Command
         Keywords = (keywords ?? []).Select(ValidateKeyword).ToArray();
         Source = source;
         Enabled = enabled;
+        EnabledWhen = enabledWhen;
+        _enabledRule = CompileEnabledWhen(enabledWhen);
     }
+
+    private readonly VisibilityRule? _enabledRule;
 
     public string Id { get; }
 
@@ -44,8 +52,46 @@ public sealed class Command
     /// <summary>Evaluated at query time, never cached. Null means always enabled.</summary>
     public Func<bool>? Enabled { get; }
 
-    /// <summary>Evaluates the enabled predicate now.</summary>
-    public bool IsEnabled() => Enabled?.Invoke() ?? true;
+    /// <summary>Optional Rubedo bool source (doc 41a section 10). Compiled at construction; null means no rule.</summary>
+    public string? EnabledWhen { get; }
+
+    /// <summary>
+    /// Evaluates the enabled predicate now. A command with an <see cref="EnabledWhen"/> rule has no context here, so it
+    /// is disabled (fail closed); use <see cref="IsEnabled(RubedoContext)"/> for those.
+    /// </summary>
+    public bool IsEnabled() => _enabledRule is null && (Enabled?.Invoke() ?? true);
+
+    /// <summary>
+    /// Evaluates the predicate and the rule; both must pass when both are set. A rule that fails at run time disables the
+    /// command (fail closed). The predicate is not called when the rule already disables it.
+    /// </summary>
+    public bool IsEnabled(RubedoContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (_enabledRule is not null && !_enabledRule.Evaluate(context).Visible)
+        {
+            return false;
+        }
+
+        return Enabled?.Invoke() ?? true;
+    }
+
+    private static VisibilityRule? CompileEnabledWhen(string? enabledWhen)
+    {
+        if (enabledWhen is null)
+        {
+            return null;
+        }
+
+        (VisibilityRule? rule, IReadOnlyList<RubedoDiagnostic> diagnostics) = VisibilityRule.Compile(enabledWhen);
+        if (rule is null)
+        {
+            throw new ArgumentException($"enabledWhen rejected ({diagnostics[0].Code}): {diagnostics[0].Message}", nameof(enabledWhen));
+        }
+
+        return rule;
+    }
 
     private static void ValidateMnemonic(string mnemonic)
     {

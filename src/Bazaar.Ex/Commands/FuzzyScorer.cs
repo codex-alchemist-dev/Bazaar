@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Commands;
+namespace Bazaar.Ex.Commands;
 
 /// <summary>A successful subsequence match. Positions are indexes into the candidate text.</summary>
 public sealed record FuzzyResult(int Score, IReadOnlyList<int> Positions);

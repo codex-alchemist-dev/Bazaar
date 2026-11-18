@@ -1,6 +1,6 @@
-using Bazaar.Client.Core.Commands;
+using Bazaar.Ex.Commands;
 
-namespace Bazaar.Client.Core.Tests.Commands;
+namespace Bazaar.Ex.Tests.Commands;
 
 public class CommandRegistryTests
 {
