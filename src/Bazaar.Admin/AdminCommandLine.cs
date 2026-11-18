@@ -48,8 +48,15 @@ public static class AdminCommandLine
 
         if (parsed.Action == AdminAction.Help)
         {
-            stdout.Write(parsed.HelpForSetup ? AdminHelp.Setup : AdminHelp.Top);
+            stdout.Write(HelpText(parsed));
             return (int)SetupExitCode.Ok;
+        }
+
+        if (parsed.Action == AdminAction.Verify)
+        {
+            var verify = await KodoCommands.VerifyAsync(parsed.ConfigPath!, cancellationToken);
+            EmitVerify(verify, json, stdout);
+            return verify.ExitCode;
         }
 
         var report = parsed.Action switch
@@ -63,6 +70,28 @@ public static class AdminCommandLine
 
         Emit(report, json, stdout, stderr);
         return report.ExitCode;
+    }
+
+    /// <summary>The help text for a help request. The Kodo help is chosen only when the first word is <c>kodo</c>.</summary>
+    private static string HelpText(ParsedArguments parsed)
+    {
+        if (parsed.HelpForSetup)
+        {
+            return AdminHelp.Setup;
+        }
+
+        return parsed.HelpForKodo ? AdminHelp.Kodo : AdminHelp.Top;
+    }
+
+    private static void EmitVerify(KodoVerifyReport report, bool json, TextWriter stdout)
+    {
+        if (json)
+        {
+            stdout.WriteLine(JsonSerializer.Serialize(report, AdminJsonContext.Default.KodoVerifyReport));
+            return;
+        }
+
+        AdminTextRenderer.WriteVerify(report, stdout);
     }
 
     private static AdminReport UsageReport(AdminUsageException exception) => new()
