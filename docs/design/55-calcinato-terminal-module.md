@@ -83,6 +83,18 @@ Pure state machine, no UI types, same style as `Bazaar.Ex`.
 - **AI suggestions** (doc 41 section 4.11): the engine exposes `ISuggestionSource`. The default source returns nothing. The NPU source lives in `Bazaar.Client.LocalInference` and is wired in only when the person has turned the setting on. Suggestions are ghost text, accepted with `Tab` in Insert mode, and never executed without that accept.
 - **Accessibility** (doc 49). Every mode change and command result has a speech string through the same live-region feed `Bazaar.Ex` uses. The screen is also exposed as a line-oriented text model for screen readers (the visible rows plus the cursor row), updated on output with a rate limit so a fast stream does not flood the reader.
 
+#### 5.2 addendum: the leader key (PROPOSED, 2026-11-18)
+
+Review found that the modal engine checks only the first key of a typed Normal-mode sequence against the motion keymap. A client-wide mnemonic whose first letter is a motion (`ngc1`, `nrfdrm`, `unread`, `intr`) could never be reached. This addendum replaces nothing above. It adds a leader.
+
+- **Leader.** In Normal mode the leader key (`Space` by default) starts a mnemonic sequence. Every later key is appended to the sequence and offered to the `IMnemonicBridge` with no motion lookup. `intr` is therefore reachable as `<Space>intr`.
+- **Keys.** `Esc` cancels. Any navigation key or control byte cancels. `Enter` submits an exact match. `Backspace` removes the last key, and cancels when the sequence is empty.
+- **Prefix and exact rules.** While the sequence is a proper prefix of a longer mnemonic the engine waits, with no timeout. An exact match that nothing longer extends runs at once. An exact match that is also a prefix runs on `Enter`, or when the next key cannot extend it. In that last case the key that broke the match is dropped.
+- **Built-in intr.** The engine sends Ctrl-C for `intr` inside a leader sequence. `Bazaar.Ex` reserves the letter `i`, so the client-wide table cannot hold `intr`.
+- **Remap.** The leader is a `ModalKeymap` setting. It may be Space or a printable ASCII character that is not a digit and is not bound to a motion. Binding a motion to the leader fails. `Clone` keeps it.
+- **Scope.** The leader applies only in Normal mode. Visual and Insert are unchanged. The existing first-key path stays for mnemonics that do not begin with a motion key.
+- **Status.** PROPOSED. Not yet recorded in `docs/design/DECISIONS-LOG.md`. The owner decides before it becomes DECIDED.
+
 ### 5.3 Sessions and sources
 
 - `ITerminalSource` is one byte stream plus size and exit: either a **local** source (an `IPtySession` from the head's `IPtyBackend`) or a **remote** source (a server terminal over the `pane` stream through the wire client). The engine does not know which.

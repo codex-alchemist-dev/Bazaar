@@ -4,6 +4,12 @@ public sealed partial class ModalEngine
 {
     private void HandleNormalOrVisual(TerminalKey key, List<ModalEffect> fx)
     {
+        if (_leading)
+        {
+            HandleLeader(key, fx);
+            return;
+        }
+
         switch (key.Kind)
         {
             case TerminalKeyKind.Named:
@@ -82,6 +88,13 @@ public sealed partial class ModalEngine
             return;
         }
 
+        if (c == _keymap.LeaderKey && Mode == ModalMode.Normal)
+        {
+            TakeCount();
+            StartLeader(fx);
+            return;
+        }
+
         if (c is >= '1' and <= '9' || (c == '0' && _count > 0))
         {
             _count = Math.Min(_count * 10 + (c - '0'), _maxCount);
@@ -127,6 +140,12 @@ public sealed partial class ModalEngine
         }
 
         _typedSequence.Clear();
+        RunMnemonic(typed, fx);
+    }
+
+    // Runs a complete mnemonic: the built-in intr sends Ctrl-C, anything else goes to the bridge.
+    private void RunMnemonic(string typed, List<ModalEffect> fx)
+    {
         if (typed == _interruptMnemonic)
         {
             SendToShell(fx, new[] { _interruptByte }, "Interrupt sent.");

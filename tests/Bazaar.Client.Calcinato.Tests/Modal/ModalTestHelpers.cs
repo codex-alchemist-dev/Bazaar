@@ -80,6 +80,8 @@ internal sealed class FakeBridge : IMnemonicBridge
 
     public bool IsPrefix(string typedSequence) =>
         _mnemonics.Any(m => m.Length > typedSequence.Length && m.StartsWith(typedSequence, StringComparison.Ordinal));
+
+    public bool IsExact(string typedSequence) => _mnemonics.Contains(typedSequence);
 }
 
 /// <summary>Suggestion source with a fixed answer. An optional hook runs before the answer returns.</summary>

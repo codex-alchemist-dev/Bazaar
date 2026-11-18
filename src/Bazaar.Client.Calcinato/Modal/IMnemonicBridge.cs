@@ -17,4 +17,10 @@ public interface IMnemonicBridge
     /// also a proper prefix of a longer one waits for more keys, because the engine has no timeout (Esc cancels).
     /// </summary>
     bool IsPrefix(string typedSequence);
+
+    /// <summary>
+    /// True when <paramref name="typedSequence"/> is exactly one mnemonic. Used by the leader sequence (doc 55, section
+    /// 5.2), which needs to know whether Enter or an unambiguous next key should run it without running it first.
+    /// </summary>
+    bool IsExact(string typedSequence);
 }
