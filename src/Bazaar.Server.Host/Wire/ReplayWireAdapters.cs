@@ -87,9 +87,22 @@ public static class ReplayWireServiceCollectionExtensions
             sp.GetService<IForkTargetProvisioner>() is null ? new UnboundForkService() : sp.GetRequiredService<IForkService>(),
             sp.GetRequiredService<IGcReadAccess>(),
             sp.GetRequiredService<IGcLogReader>()));
-        services.AddSingleton<IWireRequestHandler>(sp => new ReplayFrameWireAdapter(sp));
-        services.AddSingleton<IWireRequestHandler>(sp => new ReplayForkWireAdapter(sp));
+        services.AddSingleton<IWireRequestHandler>(sp => new ReplayFrameWireAdapter(RequireBindings(sp)));
+        services.AddSingleton<IWireRequestHandler>(sp => new ReplayForkWireAdapter(RequireBindings(sp)));
         return services;
+    }
+
+    /// <summary>
+    /// Fail closed at startup: wire handlers are built when the connection manager is, so a host without the Time Machine
+    /// component or the GC read services stops there instead of answering the first replay request with an internal error.
+    /// The fork provisioner is deliberately not required; forks answer <c>unsupported</c> without one.
+    /// </summary>
+    private static IServiceProvider RequireBindings(IServiceProvider sp)
+    {
+        _ = sp.GetRequiredService<IReplayProjector>();
+        _ = sp.GetRequiredService<IGcReadAccess>();
+        _ = sp.GetRequiredService<IGcLogReader>();
+        return sp;
     }
 
     private sealed class UnboundForkService : IForkService

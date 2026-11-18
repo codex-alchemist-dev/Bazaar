@@ -87,6 +87,27 @@ public sealed class ReplayWireAdapterTests
         _codec.DecodePayload<T>(new Envelope(1, type, EnvelopeKind.Response, "req-1", "req-1", null, null, null, reply.Payload));
 
     [Fact]
+    public void Missing_gc_read_services_fail_when_the_handlers_are_built()
+    {
+        var services = new ServiceCollection();
+        services.AddBazaarTimeMachine();
+        services.AddSingleton<IForkLinkStore, InMemoryForkLinkStore>();
+        services.AddBazaarReplayWire();
+        using var sp = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => sp.GetServices<IWireRequestHandler>().ToArray());
+    }
+
+    [Fact]
+    public async Task Handlers_build_at_startup_without_a_fork_provisioner()
+    {
+        var log = new FakeLog(Guid.CreateVersion7(), Guid.CreateVersion7());
+        await using var sp = Services(log, withProvisioner: false);
+
+        Assert.Equal(2, sp.GetServices<IWireRequestHandler>().Count(h => h.Type is WireTypes.ReplayFrame or WireTypes.ReplayFork));
+    }
+
+    [Fact]
     public async Task Frame_decodes_the_payload_and_calls_the_handler()
     {
         var gc = Guid.CreateVersion7();
