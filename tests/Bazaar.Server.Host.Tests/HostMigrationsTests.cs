@@ -24,4 +24,13 @@ public sealed class HostMigrationsTests
         var files = source.Load("mail");
         Assert.Contains(files, f => f.Version == 21 && f.Name == "mail_core");
     }
+
+    [Fact]
+    public void Mail_namespace_adds_the_quarantine_columns_at_version_22()
+    {
+        var files = HostMigrations.Source().Load("mail");
+
+        Assert.Contains(files, f => f.Version == 22 && f.Name == "mail_quarantine");
+        Assert.Equal(1, files.Count(f => f.Version == 21));
+    }
 }
