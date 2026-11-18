@@ -143,6 +143,42 @@ public sealed class TerminalSession : IAsyncDisposable
         RaiseChanged();
     }
 
+    /// <summary>
+    /// Sends pasted text to the source. When the program has turned bracketed paste on (DECSET 2004), the text is
+    /// wrapped in the paste markers so the shell does not run it line by line. Refused for a read-only viewer.
+    /// </summary>
+    /// <param name="text">The text to paste.</param>
+    /// <param name="ct">Cancels the write to the source.</param>
+    /// <returns>False when the source is read-only and nothing was sent.</returns>
+    public async ValueTask<bool> PasteAsync(string text, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ThrowIfDisposed();
+
+        bool bracketed;
+        lock (_syncRoot)
+        {
+            bracketed = Emulator.BracketedPaste;
+        }
+
+        byte[] payload = System.Text.Encoding.UTF8.GetBytes(text);
+        if (bracketed)
+        {
+            byte[] start = "\u001b[200~"u8.ToArray();
+            byte[] end = "\u001b[201~"u8.ToArray();
+            payload = [.. start, .. payload, .. end];
+        }
+
+        bool sent = await WriteIfWritableAsync(payload, ct).ConfigureAwait(false);
+        if (!sent)
+        {
+            SetStatus(_readOnlyStatus);
+            RaiseChanged();
+        }
+
+        return sent;
+    }
+
     /// <summary>Resizes the emulator and the source together.</summary>
     /// <param name="cols">Columns, at least 1.</param>
     /// <param name="rows">Rows, at least 1.</param>

@@ -63,6 +63,9 @@ public sealed class TerminalPaneViewModel : IPaneViewModel, INotifyPropertyChang
     /// <inheritdoc />
     public string Title { get; }
 
+    /// <summary>The session manager this pane follows, or null for the empty state. The head's control sends input through it.</summary>
+    public TerminalSessionManager? Manager => _manager;
+
     /// <summary>What the renderer draws. Replaced on every change, never mutated.</summary>
     public TerminalPaneSnapshot Snapshot { get; private set; }
 
@@ -189,7 +192,9 @@ public sealed class TerminalPaneViewModel : IPaneViewModel, INotifyPropertyChang
                 Title: emulator.Title,
                 IsReadOnly: session.IsReadOnly,
                 IsReplaying: session.IsReplaying,
-                ExitCode: session.ExitCode);
+                ExitCode: session.ExitCode,
+                SelectionAnchorRow: engine.AnchorRow - top,
+                SelectionAnchorColumn: engine.AnchorColumn);
         }
     }
 

@@ -99,6 +99,12 @@ public sealed partial class ModalEngine
     /// <summary>First visible absolute row.</summary>
     public int TopRow => _top;
 
+    /// <summary>Visual selection anchor row, absolute. Meaningful in the Visual modes.</summary>
+    public int AnchorRow => _anchorRow;
+
+    /// <summary>Visual selection anchor column, 0-based. Meaningful in the Visual modes.</summary>
+    public int AnchorColumn => _anchorCol;
+
     /// <summary>The ghost text currently offered, or null.</summary>
     public string? GhostSuggestion => _ghost;
 
