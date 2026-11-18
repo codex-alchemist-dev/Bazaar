@@ -77,9 +77,9 @@ public class ValkeyManagedCacheTests
     }
 
     [Fact]
-    public void The_start_window_defaults_to_fifteen_seconds()
+    public void The_start_window_defaults_to_thirty_seconds()
     {
-        Assert.Equal(15, new ValkeyCacheOptions().StartWindowSeconds);
+        Assert.Equal(30, new ValkeyCacheOptions().StartWindowSeconds);
     }
 
     [Fact]

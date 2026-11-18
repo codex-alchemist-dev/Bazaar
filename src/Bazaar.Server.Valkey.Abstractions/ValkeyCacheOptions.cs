@@ -34,7 +34,7 @@ public sealed class ValkeyCacheOptions
     /// The window, in seconds (1 to 120), in which the first cache probe retries while a managed child starts. Doc 42 section 15 row
     /// <c>deps.valkey.startWindowSeconds</c>. When the window expires the cache is reported unusable, and startup goes on without it.
     /// </summary>
-    public int StartWindowSeconds { get; set; } = 15;
+    public int StartWindowSeconds { get; set; } = 30;
 
     /// <summary>
     /// When true, the host runs a hidden <c>valkey-server</c> child on loopback and supervises it (doc 42 section 6). Off by default:
