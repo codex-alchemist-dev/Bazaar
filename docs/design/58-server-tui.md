@@ -51,7 +51,7 @@ The resident TUI follows Kodo's severity grades (doc 46). A serious failure show
 
 **Crash of the TUI itself (DECIDED, owner card 2026-11-18, "Restart itself automatically").** The resident TUI is a separate program from the server, so its crash never affects the server. The service manager (Windows Service or systemd, doc 03 provider) relaunches it within seconds, with bounded restart delays like the server's (`host.service.restart_delays_minutes`). A crash is logged and shown as a line on the next overview.
 
-**Health wins (owner, 2026-11-19: "when it fixed something by itself, or survived a fatal crash").** Good news is health good news: Kodo self-heal and recovery events, a restart that worked, a fatal crash survived, an A/B slot rollback that restored service, a backup or restore that verified. They appear as events on the overview. How loudly (quiet line or a green banner) is asked on a card.
+**Health wins (owner, 2026-11-19: "when it fixed something by itself, or survived a fatal crash").** Good news is health good news: Kodo self-heal and recovery events, a restart that worked, a fatal crash survived, an A/B slot rollback that restored service, a backup or restore that verified. They appear as events on the overview. **DECIDED (owner card 2026-11-18, "Banner plus a daily summary line"):** bigger wins, such as surviving a fatal crash, show a green banner at the top until dismissed; smaller fixes are green lines in the event list; and the overview shows a daily summary line such as "N things fixed themselves today".
 
 ### 4. Input, access and accessibility
 - Keyboard only, mnemonics from the doc 41 registry with no Ctrl chords, remappable, plus a palette.
