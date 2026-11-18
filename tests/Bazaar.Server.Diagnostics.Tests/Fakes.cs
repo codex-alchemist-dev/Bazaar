@@ -197,7 +197,7 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
                 return Task.FromResult(CrashCommitStatus.VersionConflict);
             }
 
-            _groups[fingerprint] = commit.Group;
+            _groups[fingerprint] = commit.Group with { Version = (commit.ExpectedGroupVersion ?? 0) + 1 };
             if (commit.Report is { } storedReport)
             {
                 _reports[storedReport.ReportId] = storedReport;
