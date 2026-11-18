@@ -611,6 +611,21 @@ Errors use one shape: `code`, `message`, `retryable` and `correlationId`. No end
 - The status listener is doc 03's, bound to loopback by default. The `/status` route format is doc 02's. The public status page (12.4) and any non-loopback exposure need owner approval recorded through the settings registry and the Tier 2 approval of doc 15. This follows doc 03's floor: a non-loopback bind is refused unless `Bazaar:Host:Status:OwnerApprovedWideBind` is true.
 - A browser view of the status page is allowed by CLAUDE.md as a read-only server status page. Kodo adds no interactive browser surface. The narrow passkey sign-in page of doc 32 is unrelated and stays separate.
 
+### 15.6 Read API core choices (package 9, PROPOSED 2026-11-18)
+
+The pure core lives in `src/Bazaar.Kodo/Api`: the status snapshot and its builder, the `kodo` stream writer, and the client-side `unobserved` derivation. It has no HTTP route, socket or `/ws` registration. Every choice below is PROPOSED because this section or section 15 leaves it open. Owner to ratify.
+
+- **Stream numbering is `revision`, not a sequence.** The package brief said sequence numbers. Doc 02's registry says state streams carry a `revision`, and this section already speaks of "revisioned deltas". The `kodo` stream is state, so each event takes the next revision: one counter per stream, rising by exactly one, gap-free. A snapshot event takes a revision too, and its snapshot reflects that same revision, so deltas after it apply on top.
+- **Event types** on the stream are `state_changed`, `snapshot` and `heartbeat`. The webhook names of 15.3 keep the `kodo.` prefix. The stream does not need it.
+- **Only displayed-state changes emit `state_changed`.** A change of the underlying state while the display stays `frozen` writes no event. The underlying state is still carried in the snapshot and in each state-change payload.
+- **Revisions are not persisted by the writer.** A restarted Kodo starts from the revision its caller supplies. Clients treat a revision lower than the one they hold as a reset and re-fetch the snapshot. Whether the counter is persisted is open.
+- **Freshness budget.** Section 8.3 names the budget but gives no value. PROPOSED default: 60 seconds, separate from the 30-second heartbeat budget. Both are constructor values in this slice. They become settings keys (for example `kodo.stream.heartbeat_budget_s` and `kodo.stream.freshness_budget_s`) when they are added to section 20.
+- **The client clock decides `unobserved`.** Both budgets are measured from the time the client received the last event and the last snapshot, so server clock skew does not matter. A receive time later than the client's `now` counts as age zero.
+- **Edges.** Exactly at a budget is still observed. One tick past it is `unobserved`. A client that has never received a state, an event or a snapshot shows `unobserved`.
+- **Heartbeat cadence** is not set in section 8.3 or 15.2. PROPOSED: the server sends a heartbeat every 10 seconds, a third of the budget, so one lost frame does not trip it. Not built in this slice.
+- **Snapshot shape.** `schemaVersion` is the schema field and `generatedAt` is the `asOf` of section 15.1. Components are sorted by id. A green component carries no cause. A component that is not green needs a cause. The journal head is the lowercase hex of its 32-byte hash, and null while the journal has no records.
+- **Wire strings.** The wire carries strings from `KodoWireNames`, never C# member names. Probe statuses are `green`, `amber`, `red` and `unknown`. `unobserved` is a display value only.
+
 ## 16. Recovery: alerts, runbooks and incident mode
 
 ### 16.1 Alerts
@@ -873,7 +888,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Prediction (forecast, baseline, drift) | PLANNED | Deterministic parts first |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
-| Read API, stream, webhooks, metrics and OTel export | PLANNED | Depends on doc 02 registry and doc 23 pipeline |
+| Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): status snapshot and builder, `kodo` stream revisions, client `unobserved` derivation. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
 | Alerts, runbooks, incident mode, summaries | PLANNED | Depends on doc 15 approval gates |
 | Release ring cohort signals and auto-halt | PLANNED | Depends on doc 49 (rings, channels) and doc 37 (signed releases) |
 | Testing: fault harness, self-checks, chaos mode | PLANNED | Depends on doc 17 sandbox and doc 33 restore |
