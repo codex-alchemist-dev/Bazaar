@@ -954,12 +954,6 @@ src/Bazaar.Server/Vault/Writes/VaultConflictCard.cs
 src/Bazaar.Server/Vault/Writes/VaultConflictCardPublisher.cs
 src/Bazaar.Server/Vault/Writes/VaultWriter.Move.cs
 src/Bazaar.Server/Vault/Writes/VaultWriter.cs
-src/Bazaar.Server/Verification/GateModel.cs
-src/Bazaar.Server/Verification/GitRepo.cs
-src/Bazaar.Server/Verification/PathRules.cs
-src/Bazaar.Server/Verification/ProcessRunner.cs
-src/Bazaar.Server/Verification/TestCounter.cs
-src/Bazaar.Server/Verification/VerificationGate.cs
 src/Bazaar.Server/Wire/Connection/Authentication.cs
 src/Bazaar.Server/Wire/Connection/Handlers.cs
 src/Bazaar.Server/Wire/Connection/IdempotentRequestExecutor.cs
