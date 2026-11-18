@@ -86,6 +86,8 @@ Boundary rules for these rows:
 Dependencies and open items:
 
 1. **Server half of the Studio path is not built.** The tool dispatch bridge (doc 20 WP4: grant check against `engine_grants`, `audit_log` and the GC record) comes later. `Bazaar.Client.Studio` codes against `IStudioGrantVerifier` with a fake; the real verifier lands with WP4. Until then the relay cannot run end to end. Open follow-up.
+2. **Overlap check (2026-11-18, PROPOSED).** The coding harness (doc 17, verification check 6) consumes `ILuauChecker` and writes `check_runs`; it does not duplicate the runner. `Bazaar.Server.Luau` has its own `ILuauToolRunner` seam because `Bazaar.Engines` still references `Bazaar.Server`; merge it with Rojo's `IProcessRunner` when `Bazaar.Engines` is extracted. Playtest Tier A (doc 26) calls the Luau checker.
+3. **Assumptions to verify against real tools (PROPOSED).** luau-analyze, selene (`--display-style=Json2`) and stylua (`--check`) output shapes and the `list_roblox_studios` result shape are assumed; re-record fixtures from pinned binaries and a real Studio. Doc 20 must classify `screen_capture` and name the input tools (the code denies unknown tools).
 2. **Adapter placement** (doc 20, Q9) stays OPEN; `Bazaar.Server.Luau` works on either placement.
 3. **Studio MCP has no authentication** (doc 20, conflict 4). Only the relay process connects, and every call still needs a grant on the server.
 
