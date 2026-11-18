@@ -18,7 +18,7 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
     private CouncilStore NewStore() => new(db.DataSource, new CouncilTestCipher());
 
-    private static CouncilVoteRecord NewVote(Guid gcId, VoteKind kind = VoteKind.ApproveReject, IReadOnlyList<string>? options = null) => new(
+    private static CouncilVoteRecord NewVote(Guid gcId, VoteKind kind = VoteKind.ApproveReject, IReadOnlyList<string>? options = null, bool highImpact = false) => new(
         Guid.CreateVersion7(),
         gcId,
         "task:42",
@@ -34,7 +34,8 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
         "agent-author",
         987654321L,
         null,
-        _opened);
+        _opened,
+        highImpact);
 
     private static StoredBallot NewBallot(Guid voteId, string voter, BallotPhase phase, string choice, string reasoning, DateTimeOffset at) =>
         new(voteId, voter, phase, choice, reasoning, TaintedAtWrite: false, SubmittedAt: at);
@@ -92,6 +93,21 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
         // Opening writes the first transition in the same transaction: null to Collecting, reason "open".
         Assert.Equal([(1L, (string?)null, "collecting", "open")], await TransitionsAsync(vote.VoteId));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_high_impact_flag_round_trips(bool highImpact)
+    {
+        SkipWithoutDatabase();
+        var store = NewStore();
+        var gcId = await db.CreateGcAsync();
+        var vote = NewVote(gcId, highImpact: highImpact);
+
+        await store.InsertVoteAsync(vote, Ct);
+
+        Assert.Equal(highImpact, (await store.FindVoteAsync(vote.VoteId, Ct))!.HighImpact);
     }
 
     [Fact]

@@ -13,6 +13,8 @@ namespace Bazaar.Server.Council.Service;
 /// <param name="Deadline">The requested deadline. The service caps it at council.vote_deadline_cap_hours from open.</param>
 /// <param name="MembershipSubjectId">For membership votes (hire, promote, retire), the agent the vote is about. Excluded
 /// from voting when council.exclude_membership_subject is set. Null for other motions.</param>
+/// <param name="HighImpact">Set by the proposer: a high-impact ordinary motion goes to follow-up on enough dissent
+/// (council.followup_dissent_share). Stored on the vote; default false.</param>
 public sealed record MotionDraft(
     string SubjectRef,
     VoteKind Kind,
@@ -22,7 +24,8 @@ public sealed record MotionDraft(
     string ProposerId,
     string? SubjectAuthorId,
     DateTimeOffset Deadline,
-    string? MembershipSubjectId = null);
+    string? MembershipSubjectId = null,
+    bool HighImpact = false);
 
 /// <summary>
 /// Council operations (docs/design/10-council-and-voting.md, Data and interfaces). Vote ids are Guids, generated at open.

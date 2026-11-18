@@ -1,5 +1,6 @@
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Service;
+using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Tests.Council.Service;
 
@@ -134,6 +135,21 @@ internal sealed class RecordingDecisionWriter : ICouncilDecisionWriter
     }
 }
 
+/// <summary>Settings fake that serves one value for the dissent-share key and the key default for everything else.</summary>
+internal sealed class FixedDissentShareSettings : ISettingStore
+{
+    public decimal? Share { get; set; }
+
+    public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default) =>
+        Task.FromResult(Share is { } share && key.Name == "council.followup_dissent_share" ? (T)(object)share : key.Default);
+
+    public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    public Task<SettingWriteResult> SetJsonAsync(string key, System.Text.Json.JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Wires the fakes together and builds a service over them.</summary>
 internal sealed class CouncilHarness
 {
@@ -153,8 +169,10 @@ internal sealed class CouncilHarness
 
     public bool WithWriter { get; set; } = true;
 
+    public ISettingStore? Settings { get; set; }
+
     public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null);
+        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings);
 
     /// <summary>Adds agent members and, optionally, the owner.</summary>
     public void AddAgents(params string[] agents)
@@ -174,7 +192,8 @@ internal sealed class CouncilHarness
         string proposer = "ada",
         string? author = null,
         string? membershipSubject = null,
-        DateTimeOffset? deadline = null) =>
+        DateTimeOffset? deadline = null,
+        bool highImpact = false) =>
         new(
             SubjectRef: "task/42",
             Kind: kind,
@@ -184,7 +203,8 @@ internal sealed class CouncilHarness
             ProposerId: proposer,
             SubjectAuthorId: author,
             Deadline: deadline ?? Clock.Now.AddHours(100),
-            MembershipSubjectId: membershipSubject);
+            MembershipSubjectId: membershipSubject,
+            HighImpact: highImpact);
 
     /// <summary>The standard three-voter electorate: ada proposes, cal, dot and eve vote.</summary>
     public void AddThreeVoters()

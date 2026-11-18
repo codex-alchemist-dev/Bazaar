@@ -19,6 +19,7 @@ namespace Bazaar.Server.Council.Service;
 /// <param name="RevealSeed">Seed for the stored, randomised reason order (council.reason_order).</param>
 /// <param name="VaultDecisionNo">NNNN of the decision file, once written; null before.</param>
 /// <param name="CreatedAt">When the vote opened.</param>
+/// <param name="HighImpact">The proposer's high-impact flag, fixed at open (doc 10, Follow-up on dissent).</param>
 public sealed record CouncilVoteRecord(
     Guid VoteId,
     Guid GcId,
@@ -35,7 +36,8 @@ public sealed record CouncilVoteRecord(
     string? SubjectAuthorId,
     long RevealSeed,
     int? VaultDecisionNo,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool HighImpact = false);
 
 /// <summary>
 /// One stored ballot (council_ballot, one row per voter and phase). Reasoning is plaintext here; the store encrypts it
