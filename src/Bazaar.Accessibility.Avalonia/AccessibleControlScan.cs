@@ -29,6 +29,7 @@ public static class AccessibleControlScan
         typeof(TextBox),
         typeof(ComboBox),
         typeof(Slider),
+        typeof(ListBox),
     ];
 
     /// <summary>Returns every interactive control under <paramref name="root"/> (inclusive) that fails the name check.</summary>
