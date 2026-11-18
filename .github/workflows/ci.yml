@@ -12,6 +12,11 @@
 # PR by branch name. The pull_request run would repeat the same jobs, so every job skips
 # it unless the PR comes from a fork (a fork has no push run in this repo). Job names, and
 # so the required check names, are the same either way.
+#
+# The Android emulator job and the PostgreSQL 19 job are the slowest. Each one starts with a
+# scope step (scripts/ci/ci-scope-step.sh) and skips its expensive steps when every changed
+# file is known not to affect it. The job still runs and reports success, so its check name
+# does not change. Main, release tags, manual runs and any doubt run the full job.
 
 name: CI
 
@@ -126,15 +131,29 @@ jobs:
         with:
           persist-credentials: false
 
+      # Skips the steps below when no changed file can affect the Android head or its gate.
+      - name: Decide whether this change needs the Android build and emulator
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/ci/ci-scope-step.sh android
+
       - name: Set up .NET SDK from global.json
+        if: steps.scope.outputs.heavy == 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
       - name: Install .NET Android workload
+        if: steps.scope.outputs.heavy == 'true'
         run: dotnet workload install android
 
       - name: Build Android head (Release)
+        if: steps.scope.outputs.heavy == 'true'
         run: |
           set -euo pipefail
           dotnet build src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
@@ -143,12 +162,14 @@ jobs:
       # Accessibility gate on Android (doc 49 section 2). The desktop gate cannot construct the Android views, so the
       # gate app runs the same AccessibleControlScan on an emulator. Build only here; the emulator step installs it.
       - name: Build Android accessibility gate (Release)
+        if: steps.scope.outputs.heavy == 'true'
         run: |
           set -euo pipefail
           dotnet build tests/Bazaar.Client.Android.Gate.Tests/Bazaar.Client.Android.Gate.Tests.csproj \
             -c Release -p:BazaarAndroid=true
 
       - name: Enable KVM for the emulator
+        if: steps.scope.outputs.heavy == 'true'
         run: |
           set -euo pipefail
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -160,6 +181,7 @@ jobs:
       # unless the app logs RESULT=PASS. The script installs the app with dotnet build -t:Install.
       # Inline emulator steps: no third-party action to pin (doc 49 section 2, supply chain).
       - name: Install Android emulator and system image
+        if: steps.scope.outputs.heavy == 'true'
         run: |
           # No pipefail here: `yes |` gets SIGPIPE once sdkmanager stops reading, which is expected.
           set -eu
@@ -182,12 +204,14 @@ jobs:
           echo "$sdk/emulator" >> "$GITHUB_PATH"
 
       - name: Start emulator
+        if: steps.scope.outputs.heavy == 'true'
         run: |
           set -eu
           nohup "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim \
             -gpu swiftshader_indirect -no-snapshot > "$RUNNER_TEMP/emulator.log" 2>&1 &
 
       - name: Run Android accessibility gate on emulator
+        if: steps.scope.outputs.heavy == 'true'
         run: bash scripts/ci/android-a11y-gate.sh
 
   secret-scan:
@@ -254,12 +278,25 @@ jobs:
         with:
           persist-credentials: false
 
+      # Skips the steps below when no changed file can reach PostgreSQL: docs and the client side only.
+      - name: Decide whether this change needs the PostgreSQL 19 run
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/ci/ci-scope-step.sh pg19
+
       - name: Set up .NET SDK from global.json
+        if: steps.scope.outputs.heavy == 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
       - name: Cache NuGet packages
+        if: steps.scope.outputs.heavy == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
@@ -270,6 +307,7 @@ jobs:
       # PostgreSQL 19 RC with pgvector from PGDG, built from the same Dockerfile as the Compose image.
       # The RC base tag is set here; bump to the GA tag on 2026-11-19 or later.
       - name: Build and start PostgreSQL 19 RC with pgvector
+        if: steps.scope.outputs.heavy == 'true'
         run: |
           set -euo pipefail
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
@@ -284,10 +322,11 @@ jobs:
           echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux, PostgreSQL 19 RC)
+        if: steps.scope.outputs.heavy == 'true'
         run: ./build.sh
 
       - name: Upload test results on failure
-        if: failure()
+        if: failure() && steps.scope.outputs.heavy == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-pg19
