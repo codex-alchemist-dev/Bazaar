@@ -242,8 +242,8 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
         }
 
         await using var cmd = dataSource.CreateCommand(
-            "INSERT INTO crash_diagnosis (diagnosis_id, fingerprint, report_id, label, produced_at, role_model, input_hash, text_out, posted_to_issue) " +
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)");
+            "INSERT INTO crash_diagnosis (diagnosis_id, fingerprint, report_id, label, produced_at, role_model, input_hash, text_out, posted_to_issue, occurrence_count) " +
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)");
         cmd.Parameters.AddWithValue(diagnosis.DiagnosisId);
         cmd.Parameters.AddWithValue(diagnosis.Fingerprint);
         cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)diagnosis.ReportId ?? DBNull.Value });
@@ -253,6 +253,7 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
         cmd.Parameters.AddWithValue(diagnosis.InputHash);
         cmd.Parameters.AddWithValue(diagnosis.Text);
         cmd.Parameters.AddWithValue(diagnosis.PostedToIssue);
+        cmd.Parameters.AddWithValue(diagnosis.OccurrenceCount);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
@@ -260,15 +261,39 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
     public async Task<StoredCrashDiagnosis?> GetLatestAsync(string fingerprint, CancellationToken ct = default)
     {
         await using var cmd = dataSource.CreateCommand(
-            "SELECT diagnosis_id, fingerprint, report_id, label, produced_at, role_model, input_hash, text_out, posted_to_issue " +
+            "SELECT diagnosis_id, fingerprint, report_id, label, produced_at, role_model, input_hash, text_out, posted_to_issue, occurrence_count " +
             "FROM crash_diagnosis WHERE fingerprint = $1 ORDER BY produced_at DESC, diagnosis_id DESC LIMIT 1");
         cmd.Parameters.AddWithValue(fingerprint);
         await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await r.ReadAsync(ct).ConfigureAwait(false)
             ? new StoredCrashDiagnosis(
                 r.GetGuid(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetGuid(2), r.GetString(3), r.GetFieldValue<DateTimeOffset>(4),
-                r.GetString(5), r.GetFieldValue<byte[]>(6), r.GetString(7), r.GetBoolean(8))
+                r.GetString(5), r.GetFieldValue<byte[]>(6), r.GetString(7), r.GetBoolean(8), r.GetInt64(9))
             : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(int max, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(max);
+        // The CASE mirrors the comment thresholds of GroupTransition (1, 10, 100, 1000).
+        await using var cmd = dataSource.CreateCommand(
+            "WITH t(n) AS (VALUES (1), (10), (100), (1000)) " +
+            "SELECT g.fingerprint FROM crash_group g " +
+            "LEFT JOIN LATERAL (SELECT d.occurrence_count FROM crash_diagnosis d WHERE d.fingerprint = g.fingerprint " +
+            "ORDER BY d.produced_at DESC, d.diagnosis_id DESC LIMIT 1) last ON true " +
+            "WHERE EXISTS (SELECT 1 FROM crash_report r WHERE r.fingerprint = g.fingerprint) " +
+            "AND (SELECT max(n) FROM t WHERE n <= g.occurrence_count) > COALESCE((SELECT max(n) FROM t WHERE n <= last.occurrence_count), 0) " +
+            "ORDER BY g.last_seen_at, g.fingerprint LIMIT $1");
+        cmd.Parameters.AddWithValue(max);
+        var list = new List<string>();
+        await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await r.ReadAsync(ct).ConfigureAwait(false))
+        {
+            list.Add(r.GetString(0));
+        }
+
+        return list;
     }
 
     /// <inheritdoc />

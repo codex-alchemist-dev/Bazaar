@@ -6,6 +6,7 @@ namespace Bazaar.Server.Diagnostics.Adapters;
 /// <summary>Runs the filing outbox and the retention purge on a timer. A failed pass is logged and tried again on the next tick.</summary>
 public sealed partial class CrashMaintenanceService(
     CrashActionDispatcher dispatcher,
+    CrashDiagnosisService diagnosis,
     ICrashRetention retention,
     CrashRetentionPolicy policy,
     CrashFilingOptions options,
@@ -39,6 +40,8 @@ public sealed partial class CrashMaintenanceService(
             {
                 _ = await dispatcher.RunOnceAsync(ct: ct).ConfigureAwait(false);
             }
+
+            _ = await diagnosis.RunAutoAsync(ct: ct).ConfigureAwait(false);
 
             if (clock.GetUtcNow() >= nextPurge)
             {

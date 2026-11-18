@@ -11,6 +11,7 @@ CREATE TABLE crash_diagnosis (
     produced_at    timestamptz NOT NULL,
     role_model     text        NOT NULL CHECK (btrim(role_model) <> ''),
     input_hash     bytea       NOT NULL CHECK (octet_length(input_hash) = 32),
+    occurrence_count bigint    NOT NULL DEFAULT 0 CHECK (occurrence_count >= 0),
     text_out       text        NOT NULL,
     posted_to_issue boolean    NOT NULL DEFAULT false
 );

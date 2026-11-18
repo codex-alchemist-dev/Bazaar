@@ -11,10 +11,12 @@ public class CrashDiagnosisServiceTests
     private readonly FakeSealer _sealer = new();
     private readonly RecordingAudit _audit = new();
     private readonly RecordingFiler _filer = new();
-    private readonly FakeDiagnosisStore _diagnoses = new();
+    private readonly FakeDiagnosisStore _diagnoses;
     private readonly FakeDiagnosisBudget _budget = new();
     private readonly FakeDiagnosisModel _model = new();
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 11, 18, 10, 0, 0, TimeSpan.Zero));
+
+    public CrashDiagnosisServiceTests() => _diagnoses = new FakeDiagnosisStore { Groups = _store };
 
     private CrashDiagnosisService Service(CrashDiagnosisOptions? options = null, bool withModel = true) => new(
         _store, _store, _sealer, withModel ? _model : null, _budget, _diagnoses, _filer, _audit, _clock, options ?? new CrashDiagnosisOptions());
@@ -158,6 +160,35 @@ public class CrashDiagnosisServiceTests
     }
 
     [Fact]
+    public async Task The_auto_pass_diagnoses_a_group_once_per_threshold_and_not_in_ask_mode()
+    {
+        var group = await StoreAsync();
+        var auto = new CrashDiagnosisOptions(CrashDiagnosisMode.Auto, PostToIssue: true);
+
+        Assert.Equal(0, await Service().RunAutoAsync(ct: TestContext.Current.CancellationToken));
+        Assert.Equal(1, await Service(auto).RunAutoAsync(ct: TestContext.Current.CancellationToken));
+        Assert.Equal(0, await Service(auto).RunAutoAsync(ct: TestContext.Current.CancellationToken));
+
+        var seeded = _store.Group(group)!;
+        _store.Seed(seeded with { State = seeded.State with { OccurrenceCount = 9 } });
+        Assert.Equal(0, await Service(auto).RunAutoAsync(ct: TestContext.Current.CancellationToken));
+        _store.Seed(seeded with { State = seeded.State with { OccurrenceCount = 10 } });
+        Assert.Equal(1, await Service(auto).RunAutoAsync(ct: TestContext.Current.CancellationToken));
+        Assert.Equal(2, _diagnoses.All.Count);
+        Assert.Equal(10, _diagnoses.All[1].OccurrenceCount);
+    }
+
+    [Fact]
+    public async Task The_auto_pass_stops_when_the_budget_is_spent()
+    {
+        await StoreAsync();
+        _budget.Allow = false;
+
+        Assert.Equal(0, await Service(new CrashDiagnosisOptions(CrashDiagnosisMode.Auto)).RunAutoAsync(ct: TestContext.Current.CancellationToken));
+        Assert.Empty(_diagnoses.All);
+    }
+
+    [Fact]
     public async Task The_writer_refuses_any_label_but_the_constant()
     {
         var bad = new StoredCrashDiagnosis(Guid.NewGuid(), "fp", null, "verified fix", DateTimeOffset.UnixEpoch, "m", new byte[32], "t", false);
@@ -226,6 +257,18 @@ internal sealed class FakeDiagnosisStore : ICrashDiagnosisStore
 
     public Task<StoredCrashDiagnosis?> GetLatestAsync(string fingerprint, CancellationToken ct = default) =>
         Task.FromResult(_all.Where(d => d.Fingerprint == fingerprint).OrderByDescending(d => d.ProducedAt).FirstOrDefault());
+
+    public InMemoryCrashStore? Groups { get; set; }
+
+    private static long Threshold(long count) => count >= 1000 ? 1000 : count >= 100 ? 100 : count >= 10 ? 10 : count >= 1 ? 1 : 0;
+
+    public Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(int max, CancellationToken ct = default)
+    {
+        IReadOnlyList<string> list = [.. Groups!.AllGroups
+            .Where(g => Threshold(g.State.OccurrenceCount) > Threshold(_all.Where(d => d.Fingerprint == g.State.Fingerprint).OrderByDescending(d => d.ProducedAt).FirstOrDefault()?.OccurrenceCount ?? 0))
+            .OrderBy(g => g.State.LastSeenAt).Select(g => g.State.Fingerprint).Take(max)];
+        return Task.FromResult(list);
+    }
 
     public Task MarkPostedAsync(Guid diagnosisId, CancellationToken ct = default)
     {

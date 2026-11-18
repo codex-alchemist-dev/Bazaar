@@ -100,7 +100,7 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
         var report = new StoredCrashReport(Guid.NewGuid(), install, fp, t0, t0, "0.1.0", Bazaar.Diagnostics.Ingestion.SymbolsState.Missing, new string('a', 64), new SealedPayload("k", [1], [2], [3]));
         await store.CommitAsync(new CrashCommit(report, null, group, null, []), ct);
         var diagnoses = (ICrashDiagnosisStore)store;
-        var made = new StoredCrashDiagnosis(Guid.NewGuid(), fp, report.ReportId, CrashDiagnosisLabel.Unverified, t0, "light-model", new byte[32], "Check it.", false);
+        var made = new StoredCrashDiagnosis(Guid.NewGuid(), fp, report.ReportId, CrashDiagnosisLabel.Unverified, t0, "light-model", new byte[32], "Check it.", false, 1);
 
         await diagnoses.AddAsync(made, ct);
         await diagnoses.MarkPostedAsync(made.DiagnosisId, ct);
@@ -112,6 +112,11 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
         Assert.Equal(report.ReportId, latest!.ReportId);
         Assert.Equal(report.Body.Ciphertext, latest.Body.Ciphertext);
         await Assert.ThrowsAnyAsync<Exception>(() => diagnoses.AddAsync(made with { DiagnosisId = Guid.NewGuid(), Label = "verified" }, ct));
+
+        Assert.Empty(await diagnoses.ListNeedingAutoDiagnosisAsync(10, ct));
+        var bumped = group with { State = group.State with { OccurrenceCount = 10 }, Version = 2 };
+        await store.CommitAsync(new CrashCommit(null, null, bumped, 1, []), ct);
+        Assert.Equal([fp], await diagnoses.ListNeedingAutoDiagnosisAsync(10, ct));
 
         await ((ICrashErasure)store).EraseInstallsAsync([install], ct);
 

@@ -87,6 +87,7 @@ public interface ICrashDiagnosisBudget
 /// <param name="InputHash">SHA-256 of the exact input.</param>
 /// <param name="Text">The sanitised text.</param>
 /// <param name="PostedToIssue">True once it was posted to the issue.</param>
+/// <param name="OccurrenceCount">The group's occurrence count when it was made. Auto mode compares thresholds against it.</param>
 public sealed record StoredCrashDiagnosis(
     Guid DiagnosisId,
     string Fingerprint,
@@ -96,7 +97,8 @@ public sealed record StoredCrashDiagnosis(
     string RoleModel,
     byte[] InputHash,
     string Text,
-    bool PostedToIssue);
+    bool PostedToIssue,
+    long OccurrenceCount = 0);
 
 /// <summary>Stores diagnoses. Implementations refuse any label other than <see cref="CrashDiagnosisLabel.Unverified"/>.</summary>
 public interface ICrashDiagnosisStore
@@ -106,6 +108,12 @@ public interface ICrashDiagnosisStore
 
     /// <summary>Returns the newest diagnosis of a group, or null.</summary>
     Task<StoredCrashDiagnosis?> GetLatestAsync(string fingerprint, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lists groups, oldest first, that reached a filing threshold (1, 10, 100 or 1000 occurrences, doc 43 section 8.4) which no
+    /// stored diagnosis covers yet: no diagnosis at all, or the highest threshold reached is above the one the newest diagnosis saw.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(int max, CancellationToken ct = default);
 
     /// <summary>Marks a diagnosis as posted to the issue.</summary>
     Task MarkPostedAsync(Guid diagnosisId, CancellationToken ct = default);

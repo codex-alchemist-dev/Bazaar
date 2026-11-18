@@ -92,7 +92,8 @@ public sealed class CrashDiagnosisService
             return new CrashDiagnosisResult(CrashDiagnosisStatus.Disabled);
         }
 
-        if (await _groups.GetGroupAsync(fingerprint, ct).ConfigureAwait(false) is null
+        var group = await _groups.GetGroupAsync(fingerprint, ct).ConfigureAwait(false);
+        if (group is null
             || await _reports.GetLatestReportAsync(fingerprint, ct).ConfigureAwait(false) is not { } stored)
         {
             return new CrashDiagnosisResult(CrashDiagnosisStatus.NoReport);
@@ -138,10 +139,42 @@ public sealed class CrashDiagnosisService
             output.ModelLabel,
             SHA256.HashData(Encoding.UTF8.GetBytes(input)),
             DiagnosisText.Sanitize(output.Text, _options.MaxOutputChars),
-            false);
+            false,
+            group.State.OccurrenceCount);
         await _diagnoses.AddAsync(diagnosis, ct).ConfigureAwait(false);
         await AppendAuditAsync("crash.diagnosis.produced", fingerprint, diagnosis, ct).ConfigureAwait(false);
         return new CrashDiagnosisResult(CrashDiagnosisStatus.Produced, diagnosis);
+    }
+
+    /// <summary>
+    /// The auto pass (doc 43 section 9.1): in <see cref="CrashDiagnosisMode.Auto"/>, diagnoses groups that reached a filing
+    /// threshold no diagnosis covers yet, then posts each one when posting is on. It stops at the first paused budget. Returns how
+    /// many diagnoses it produced.
+    /// </summary>
+    public async Task<int> RunAutoAsync(int max = 5, CancellationToken ct = default)
+    {
+        if (_model is null || _options.Mode != CrashDiagnosisMode.Auto)
+        {
+            return 0;
+        }
+
+        var produced = 0;
+        foreach (var fingerprint in await _diagnoses.ListNeedingAutoDiagnosisAsync(max, ct).ConfigureAwait(false))
+        {
+            var result = await DiagnoseAsync(fingerprint, CrashDiagnosisTrigger.Auto, ct).ConfigureAwait(false);
+            if (result.Status == CrashDiagnosisStatus.PausedBudget)
+            {
+                break;
+            }
+
+            if (result.Status == CrashDiagnosisStatus.Produced)
+            {
+                produced++;
+                _ = await PostToIssueAsync(fingerprint, ct).ConfigureAwait(false);
+            }
+        }
+
+        return produced;
     }
 
     /// <summary>

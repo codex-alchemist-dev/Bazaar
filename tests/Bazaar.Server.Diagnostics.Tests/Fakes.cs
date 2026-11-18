@@ -146,6 +146,8 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
         }
     }
 
+    public IReadOnlyList<StoredCrashGroup> AllGroups => [.. _groups.Values];
+
     public StoredCrashGroup? Group(string fingerprint) => _groups.GetValueOrDefault(fingerprint);
 
     public void Seed(StoredCrashGroup group) => _groups[group.State.Fingerprint] = group;
