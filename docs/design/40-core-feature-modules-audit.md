@@ -82,6 +82,26 @@ Each step is a small PR with tests, per `CLAUDE.md`.
 
 Not now: a runtime plugin loader, a module framework with its own container, or splitting every folder before step 3 exists.
 
+## 5a. GC extraction work packages (measured 2026-11-18)
+
+Measured on the tree after the Soul-binding PR. The production consumers of `Bazaar.Server/Gc` outside the folder are only `Agents/Turns` (5 files) and `Agents/Responder` (2 files), far fewer than section 2 lists, so the extraction is small once Agents leaves `Bazaar.Server`. Tests are the larger part (about 60 files under `tests/Bazaar.Server.Tests/Gc` move with the module).
+
+Steps, each its own PR:
+
+1. **Contracts (done in the early Abstractions PR).** `IGcLogWriter`, `IGcStreamSource`, `IGcAccessPolicy`, `IGcNotificationSource`, `MentionSpan`, `AcceptedMention`, `InboxRow`, `InboxReason` and `IInboxRowWriter` move to `Bazaar.GC.Abstractions` with their namespaces unchanged. The transaction overload of `IInboxRowWriter` takes `DbTransaction`, so the contract carries no Npgsql reference.
+2. **Remaining concrete uses by consumers.** Moving the folder to `Bazaar.Server.Gc` leaves these references in `Bazaar.Server`. Each needs a contract or a move:
+   - `GcEnumText` (used by `PgResponderGcStore`): a pure text mapper; moves to the abstractions.
+   - `GcRecord` and the other `GcModel.cs` records: plain data; move to the abstractions.
+   - `InboxPlanner`, `MentionValidator` (used by `GcAgentPostSink`): pure functions over abstraction types; move to the abstractions or sit behind a `IMentionPlanner` contract. Decide when writing the PR.
+   - `GcSendHandler.MaxTextLength`: becomes a constant on a contract type (`GcLimits`).
+   - `InboxRowWriter` registration in `AgentPostServiceCollectionExtensions`: moves to the GC module's own DI registration.
+   - `GcSettings.All` in `Settings/SettingRegistry`: the GC module registers its own settings through the module contract, as the Souls module does.
+3. **Move.** `git mv src/Bazaar.Server/Gc` to `src/Bazaar.Server.Gc`; it references `Bazaar.GC.Abstractions`, `Bazaar.Souls.Abstractions` and, until Wire and Identity are extracted, `Bazaar.Server`. `Bazaar.Server` must not reference `Bazaar.Server.Gc`; the Host composes it. `GcComponent` becomes the module entry point.
+4. **Guard.** A layering test in `tests/Bazaar.Architecture.Tests`: no project other than `Bazaar.Server.Gc`, the Host and tests references `Bazaar.Server.Gc`; every other consumer references `Bazaar.GC.Abstractions` only. The architecture baseline shrinks by the moved files.
+5. **Module contracts owed by other modules.** The Time Machine needs `IForkTargetProvisioner` implemented in the GC module (creates an empty linked project GC; idempotent on a request id). `GcEvent` `MessageId`, `Version` and `TargetSeq` stay stable for replay.
+
+Order: step 1 first (unblocks the Agents extraction), then steps 2 to 4 once Agents is out of `Bazaar.Server`, so the two moves do not conflict.
+
 ## 6. Decisions
 
 Recorded 2026-11-09 by the coordinator, relaying the owner's choices:
