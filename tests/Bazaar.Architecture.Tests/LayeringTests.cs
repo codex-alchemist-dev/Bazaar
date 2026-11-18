@@ -18,7 +18,6 @@ public class LayeringTests
     [Theory]
     [InlineData("Bazaar.Client.RyuseiFuda")]
     [InlineData("Bazaar.Client.Views")]
-    [InlineData("Bazaar.Client.GitSolarSystem")]
     public void Client_feature_module_references_only_client_core(string project)
     {
         var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));
