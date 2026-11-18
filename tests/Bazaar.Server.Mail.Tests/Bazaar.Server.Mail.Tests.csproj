@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
   </ItemGroup>
 </Project>
