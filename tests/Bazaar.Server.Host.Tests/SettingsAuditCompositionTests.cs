@@ -56,7 +56,10 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     {
         await using var sp = Build();
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
-        Assert.Same(SettingRegistry.Known, sp.GetRequiredService<SettingRegistry>());
+        // The host extends the known registry with module-owned keys (backup offsite), so it is a superset, not the same instance.
+        var registry = sp.GetRequiredService<SettingRegistry>();
+        Assert.All(SettingRegistry.Known.Definitions, d => Assert.True(registry.Contains(d)));
+        Assert.True(registry.TryGet("backup.offsite_target", out _));
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
     }
 
