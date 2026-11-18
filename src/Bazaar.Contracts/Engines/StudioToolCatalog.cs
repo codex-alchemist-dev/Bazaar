@@ -1,10 +1,8 @@
-using Bazaar.Contracts.Engines;
-
-namespace Bazaar.Client.Studio.Abstractions;
+namespace Bazaar.Contracts.Engines;
 
 /// <summary>
 /// The Studio tool allow-list and risk classes (docs/design/20-engine-integration-api.md, Roblox adapter; classes are [PROPOSED]).
-/// It must match the server's list; a tool not listed is denied.
+/// Shared by the server dispatch and the Studio bridge, so both use the identical list; a tool not listed is denied.
 /// </summary>
 public static class StudioToolCatalog
 {
@@ -28,6 +26,7 @@ public static class StudioToolCatalog
         ["execute_luau"] = RiskClass.Exec,
         ["start_stop_play"] = RiskClass.Exec,
         ["http_get"] = RiskClass.Exec,
+        ["screen_capture"] = RiskClass.Exec,
         ["user_keyboard_input"] = RiskClass.Exec,
         ["user_mouse_input"] = RiskClass.Exec,
         ["character_navigation"] = RiskClass.Exec,
