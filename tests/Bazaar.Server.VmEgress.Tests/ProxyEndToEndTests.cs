@@ -342,6 +342,162 @@ public class ProxyEndToEndTests
         Assert.Equal(2, rig.Proxy.ActiveConnections);
     }
 
+    [Fact]
+    public async Task A_pipelined_second_request_in_the_same_write_never_reaches_upstream()
+    {
+        await using var rig = Build(false, ["example.com"], r => r.Answer("example.com", ["8.8.8.8"]));
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync("GET http://example.com/first HTTP/1.1\r\n\r\nGET http://example.com/second HTTP/1.1\r\nHost: other.test\r\n\r\n");
+        var (text, closed) = await client.ReadToEndAsync(_wait);
+
+        Assert.StartsWith("HTTP/1.1 400", text, StringComparison.Ordinal);
+        Assert.True(closed);
+        Assert.Empty(rig.Connector.Requested);
+        Assert.Equal("", rig.Upstream.AllBytes);
+        Assert.Contains("pipelined-request", Assert.Single(rig.Audit.OfKind(EgressAuditor.DenyKind)).Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Bytes_sent_after_the_declared_body_are_dropped_and_the_connection_closes()
+    {
+        await using var rig = Build(false, ["example.com"], r => r.Answer("example.com", ["8.8.8.8"]));
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync("POST http://example.com/up HTTP/1.1\r\nContent-Length: 4\r\n\r\nabcd");
+        await WaitForAsync(() => rig.Upstream.AllBytes.Contains("abcd", StringComparison.Ordinal));
+        await client.SendAsync("GET http://example.com/second HTTP/1.1\r\nHost: other.test\r\n\r\n");
+        var (_, closed) = await client.ReadToEndAsync(_wait);
+        await Task.Delay(500, TestContext.Current.CancellationToken); // longer than the upstream's drain window
+
+        Assert.True(closed);
+        Assert.Contains("Content-Length: 4", rig.Upstream.AllBytes, StringComparison.Ordinal);
+        Assert.DoesNotContain("second", rig.Upstream.AllBytes, StringComparison.Ordinal);
+        Assert.DoesNotContain("other.test", rig.Upstream.AllBytes, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_body_with_content_length_is_forwarded_exactly()
+    {
+        await using var rig = Build(false, ["example.com"], r => r.Answer("example.com", ["8.8.8.8"]));
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync("POST http://example.com/up HTTP/1.1\r\nContent-Length: 10\r\n\r\n01234");
+        await client.SendAsync("56789");
+        await client.ReadToEndAsync(_wait);
+
+        Assert.EndsWith("\r\n\r\n0123456789", rig.Upstream.AllBytes, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Chunked_requests_are_refused_because_their_end_is_not_parsed()
+    {
+        await using var rig = Build(false, ["example.com"], r => r.Answer("example.com", ["8.8.8.8"]));
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync("POST http://example.com/up HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n");
+        var (text, _) = await client.ReadToEndAsync(_wait);
+
+        Assert.StartsWith("HTTP/1.1 501", text, StringComparison.Ordinal);
+        Assert.Empty(rig.Connector.Requested);
+    }
+
+    [Fact]
+    public async Task A_shrink_closes_open_tunnels_to_removed_destinations_and_keeps_the_others()
+    {
+        await using var rig = Build(true, ["a.example", "b.example"], r => r.Answer("a.example", ["8.8.8.8"]).Answer("b.example", ["8.8.4.4"]));
+        using var a = await RawClient.ConnectAsync(rig.Endpoint);
+        using var b = await RawClient.ConnectAsync(rig.Endpoint);
+        await a.SendAsync("CONNECT a.example:443 HTTP/1.1\r\n\r\n");
+        await a.ReadUntilAsync("\r\n\r\n", _wait);
+        await b.SendAsync("CONNECT b.example:443 HTTP/1.1\r\n\r\n");
+        await b.ReadUntilAsync("\r\n\r\n", _wait);
+
+        Assert.True(Allowlist.TryCompile(["b.example"], out var shrunk, out _));
+        rig.Proxy.UpdateAllowlist(shrunk);
+
+        var (_, aClosed) = await a.ReadToEndAsync(_wait);
+        Assert.True(aClosed);
+        await b.SendAsync("still-here");
+        Assert.Contains("still-here", await b.ReadUntilAsync("still-here", _wait), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("CONNECT user:pw@secret-token-host:443 HTTP/1.1\r\n\r\n", "secret-token-host")]
+    [InlineData("GET /private?token=abc123 HTTP/1.1\r\nHost: x\r\n\r\n", "abc123")]
+    [InlineData("GET http://user@evil.test/?token=abc123 HTTP/1.1\r\n\r\n", "abc123")]
+    public async Task Deny_rows_never_carry_the_raw_request_target(string request, string secret)
+    {
+        await using var rig = Build(true, ["example.com"]);
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync(request);
+        await client.ReadToEndAsync(_wait);
+
+        var row = Assert.Single(rig.Audit.OfKind(EgressAuditor.DenyKind));
+        Assert.DoesNotContain(secret, row.Payload, StringComparison.Ordinal);
+        Assert.Contains("(unparsed)", row.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Stopping_the_proxy_writes_the_held_back_deny_count()
+    {
+        await using var rig = Build(true, ["example.com"], options: new VmEgressOptions { AuditRowsPerWindow = 1 });
+        for (var i = 0; i < 4; i++)
+        {
+            using var client = await RawClient.ConnectAsync(rig.Endpoint);
+            await client.SendAsync("CONNECT other.test:443 HTTP/1.1\r\n\r\n");
+            await client.ReadToEndAsync(_wait);
+        }
+
+        Assert.Empty(rig.Audit.OfKind(EgressAuditor.SuppressedKind));
+        rig.Proxy.Stop();
+        await rig.Proxy.DisposeAsync();
+
+        var summary = Assert.Single(rig.Audit.OfKind(EgressAuditor.SuppressedKind));
+        Assert.Contains("\"count\":3", summary.Payload, StringComparison.Ordinal);
+    }
+
+    private sealed class BadHeader(string name, string value) : IProxyRequestFilter
+    {
+        public ValueTask FilterAsync(ProxyRequestContext context, CancellationToken ct)
+        {
+            context.Headers.Add(new(name, value));
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Theory]
+    [InlineData("X-A", "v\r\nInjected: yes")]
+    [InlineData("X-A", "v\nInjected: yes")]
+    [InlineData("X-A", "v\0")]
+    [InlineData("X-A\r\nInjected", "yes")]
+    [InlineData("", "v")]
+    [InlineData("X:A", "v")]
+    public async Task A_filter_cannot_put_line_breaks_or_nul_into_the_head(string name, string value)
+    {
+        await using var rig = Build(false, ["example.com"], r => r.Answer("example.com", ["8.8.8.8"]), filters: [new BadHeader(name, value)]);
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync("GET http://example.com/ HTTP/1.1\r\n\r\n");
+        var (text, _) = await client.ReadToEndAsync(_wait);
+
+        Assert.StartsWith("HTTP/1.1 403", text, StringComparison.Ordinal);
+        Assert.Equal("", rig.Upstream.AllBytes);
+    }
+
+    [Fact]
+    public async Task A_filter_cannot_change_the_body_framing()
+    {
+        await using var rig = Build(false, ["example.com"], r => r.Answer("example.com", ["8.8.8.8"]), filters: [new BadHeader("Transfer-Encoding", "chunked")]);
+        using var client = await RawClient.ConnectAsync(rig.Endpoint);
+
+        await client.SendAsync("GET http://example.com/ HTTP/1.1\r\n\r\n");
+        await client.ReadToEndAsync(_wait);
+
+        Assert.DoesNotContain("Transfer-Encoding", rig.Upstream.AllBytes, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class HeaderAdder : IProxyRequestFilter
     {
         public ValueTask FilterAsync(ProxyRequestContext context, CancellationToken ct)

@@ -9,7 +9,8 @@ namespace Bazaar.Server.VmEgress;
 public sealed class InMemoryEgressAllowlistStore : IEgressAllowlistStore
 {
     private readonly ConcurrentDictionary<string, EgressRules> _rules = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, bool> _blocked = new(StringComparer.Ordinal);
+    private readonly object _gate = new();
+    private readonly Dictionary<string, (bool Blocked, long Epoch)> _blocks = new(StringComparer.Ordinal);
 
     /// <inheritdoc />
     public Task<EgressRules?> GetAsync(string agentId, CancellationToken ct = default) =>
@@ -23,14 +24,47 @@ public sealed class InMemoryEgressAllowlistStore : IEgressAllowlistStore
     }
 
     /// <inheritdoc />
-    public Task<bool> IsBlockedAsync(string agentId, CancellationToken ct = default) =>
-        Task.FromResult(_blocked.TryGetValue(agentId, out var blocked) && blocked);
+    public Task<bool> IsBlockedAsync(string agentId, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            return Task.FromResult(_blocks.TryGetValue(agentId, out var b) && b.Blocked);
+        }
+    }
 
     /// <inheritdoc />
-    public Task SetBlockedAsync(string agentId, bool blocked, CancellationToken ct = default)
+    public Task<long> GetBlockEpochAsync(string agentId, CancellationToken ct = default)
     {
-        _blocked[agentId] = blocked;
-        return Task.CompletedTask;
+        lock (_gate)
+        {
+            return Task.FromResult(_blocks.TryGetValue(agentId, out var b) ? b.Epoch : 0L);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> BlockAsync(string agentId, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            var epoch = (_blocks.TryGetValue(agentId, out var b) ? b.Epoch : 0L) + 1;
+            _blocks[agentId] = (true, epoch);
+            return Task.FromResult(epoch);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> TryReleaseBlockAsync(string agentId, long expectedEpoch, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            if (_blocks.TryGetValue(agentId, out var b) && b.Blocked && b.Epoch == expectedEpoch)
+            {
+                _blocks[agentId] = (false, b.Epoch);
+                return Task.FromResult(true);
+            }
+
+            return Task.FromResult(false);
+        }
     }
 }
 

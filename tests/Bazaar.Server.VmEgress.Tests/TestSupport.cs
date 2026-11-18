@@ -80,6 +80,8 @@ internal sealed class FakeUpstream : IAsyncDisposable
     private int _connections;
     private int _closedByPeer;
 
+    public TimeSpan DrainFor { get; init; } = TimeSpan.FromMilliseconds(300);
+
     public FakeUpstream(bool echo)
     {
         _echo = echo;
@@ -95,6 +97,28 @@ internal sealed class FakeUpstream : IAsyncDisposable
     public int ClosedByPeer => Volatile.Read(ref _closedByPeer);
 
     public ConcurrentQueue<string> Heads { get; } = new();
+
+    private readonly StringBuilder _all = new();
+
+    /// <summary>Every byte the HTTP-mode upstream received, as text, including any after the request.</summary>
+    public string AllBytes
+    {
+        get
+        {
+            lock (_all)
+            {
+                return _all.ToString();
+            }
+        }
+    }
+
+    private void Record(string chunk)
+    {
+        lock (_all)
+        {
+            _all.Append(chunk);
+        }
+    }
 
     private async Task AcceptAsync()
     {
@@ -141,10 +165,26 @@ internal sealed class FakeUpstream : IAsyncDisposable
                     }
 
                     text.Append(Encoding.UTF8.GetString(buffer, 0, n));
+                    Record(Encoding.UTF8.GetString(buffer, 0, n));
                 }
 
                 Heads.Enqueue(text.ToString());
                 await socket.SendAsync("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"u8.ToArray(), _cts.Token);
+
+                // Keep listening briefly so a request pipelined behind this one would show up in AllBytes.
+                using var drain = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                drain.CancelAfter(DrainFor);
+                try
+                {
+                    int m;
+                    while ((m = await socket.ReceiveAsync(buffer, drain.Token)) > 0)
+                    {
+                        Record(Encoding.UTF8.GetString(buffer, 0, m));
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
             }
             catch (SocketException) when (_echo)
             {

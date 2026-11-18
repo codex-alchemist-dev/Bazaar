@@ -295,6 +295,225 @@ public class EgressPolicyTests
         Assert.Null(await rig.Store.GetAsync("a1", TestContext.Current.CancellationToken));
     }
 
+    /// <summary>An enforcer whose apply can be held, to make a race deterministic. Records whether block calls were cancellable.</summary>
+    private sealed class GatedEnforcer : IEgressEnforcer
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource? Hold { get; set; }
+
+        public List<string> Calls { get; } = [];
+
+        public List<bool> BlockTokensCancellable { get; } = [];
+
+        public async Task ApplyAsync(string agentId, EgressRules rules, CancellationToken ct = default)
+        {
+            lock (Calls)
+            {
+                Calls.Add("apply");
+            }
+
+            Entered.TrySetResult();
+            if (Hold is { } hold)
+            {
+                await hold.Task.WaitAsync(ct);
+            }
+        }
+
+        public Task BlockAllAsync(string agentId, CancellationToken ct = default)
+        {
+            lock (Calls)
+            {
+                Calls.Add("block");
+                BlockTokensCancellable.Add(ct.CanBeCanceled);
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingStore(InMemoryEgressAllowlistStore inner) : IEgressAllowlistStore
+    {
+        public int ThrowOnBlockedCheck { get; set; }
+
+        private int _checks;
+
+        public Task<EgressRules?> GetAsync(string agentId, CancellationToken ct = default) => inner.GetAsync(agentId, ct);
+
+        public Task SaveAsync(string agentId, EgressRules rules, CancellationToken ct = default) => inner.SaveAsync(agentId, rules, ct);
+
+        public Task<bool> IsBlockedAsync(string agentId, CancellationToken ct = default) =>
+            ThrowOnBlockedCheck != 0 && Interlocked.Increment(ref _checks) == ThrowOnBlockedCheck
+                ? throw new InvalidOperationException("store down")
+                : inner.IsBlockedAsync(agentId, ct);
+
+        public Task<long> GetBlockEpochAsync(string agentId, CancellationToken ct = default) => inner.GetBlockEpochAsync(agentId, ct);
+
+        public Task<long> BlockAsync(string agentId, CancellationToken ct = default) => inner.BlockAsync(agentId, ct);
+
+        public Task<bool> TryReleaseBlockAsync(string agentId, long expectedEpoch, CancellationToken ct = default) => inner.TryReleaseBlockAsync(agentId, expectedEpoch, ct);
+    }
+
+    private static EgressRules ApprovedRules() => Rig.RulesFor("api.github.com");
+
+    [Fact]
+    public async Task A_release_cannot_undo_a_block_that_arrives_while_it_runs()
+    {
+        var options = new VmEgressOptions();
+        var store = new InMemoryEgressAllowlistStore();
+        var enforcer = new GatedEnforcer();
+        var audit = new CapturingAuditLog();
+        var auditor = new EgressAuditor(audit, options, TimeProvider.System);
+        await using var host = new EgressProxyHost(options, auditor);
+        var policy = new EgressPolicyService(store, enforcer, host, new ScriptedGate(), auditor, options);
+        await store.SaveAsync("a1", ApprovedRules(), TestContext.Current.CancellationToken);
+        await policy.BlockAllAsync("a1", TestContext.Current.CancellationToken);
+        enforcer.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var release = policy.ReleaseBlockAsync("a1", TestContext.Current.CancellationToken);
+        await enforcer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var epochBefore = await store.GetBlockEpochAsync("a1", TestContext.Current.CancellationToken);
+
+        await policy.BlockAllAsync("a1", TestContext.Current.CancellationToken); // the kill switch fires mid-release
+        enforcer.Hold.SetResult();
+        var result = await release;
+
+        Assert.Equal(EgressApplyOutcome.Blocked, result.Outcome);
+        Assert.True(await store.IsBlockedAsync("a1", TestContext.Current.CancellationToken));
+        Assert.True(await store.GetBlockEpochAsync("a1", TestContext.Current.CancellationToken) > epochBefore);
+        Assert.True(host.Get("a1")!.IsStopped);
+        Assert.Equal("block", enforcer.Calls[^1]);
+        Assert.Throws<EgressBlockedException>(() => host.StartOrUpdate("a1", ApprovedRules()));
+    }
+
+    [Fact]
+    public async Task Block_epochs_make_release_a_compare_and_set()
+    {
+        var store = new InMemoryEgressAllowlistStore();
+        var first = await store.BlockAsync("a1", TestContext.Current.CancellationToken);
+        var second = await store.BlockAsync("a1", TestContext.Current.CancellationToken);
+
+        Assert.True(second > first);
+        Assert.False(await store.TryReleaseBlockAsync("a1", first, TestContext.Current.CancellationToken));
+        Assert.True(await store.IsBlockedAsync("a1", TestContext.Current.CancellationToken));
+        Assert.True(await store.TryReleaseBlockAsync("a1", second, TestContext.Current.CancellationToken));
+        Assert.False(await store.IsBlockedAsync("a1", TestContext.Current.CancellationToken));
+        Assert.False(await store.TryReleaseBlockAsync("a1", second, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_cancelled_apply_closes_the_proxy_and_the_switch_rule_with_an_uncancellable_token()
+    {
+        var options = new VmEgressOptions();
+        var store = new InMemoryEgressAllowlistStore();
+        var enforcer = new GatedEnforcer { Hold = new TaskCompletionSource() };
+        var auditor = new EgressAuditor(new CapturingAuditLog(), options, TimeProvider.System);
+        await using var host = new EgressProxyHost(options, auditor);
+        var policy = new EgressPolicyService(store, enforcer, host, new ScriptedGate { Answer = EgressApprovalState.Approved }, auditor, options);
+        using var cts = new CancellationTokenSource();
+
+        var apply = policy.ApplyAsync("a1", ApprovedRules(), cts.Token);
+        await enforcer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var endpoint = host.Get("a1")!.LocalEndPoint!;
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => apply);
+
+        Assert.False(await IsListeningAsync(endpoint));
+        Assert.Contains("block", enforcer.Calls);
+        Assert.All(enforcer.BlockTokensCancellable, cancellable => Assert.False(cancellable));
+        Assert.Null(await store.GetAsync("a1", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_failing_block_recheck_after_apply_closes_everything()
+    {
+        var options = new VmEgressOptions();
+        var store = new ThrowingStore(new InMemoryEgressAllowlistStore());
+        var enforcer = new GatedEnforcer();
+        var auditor = new EgressAuditor(new CapturingAuditLog(), options, TimeProvider.System);
+        await using var host = new EgressProxyHost(options, auditor);
+        var policy = new EgressPolicyService(store, enforcer, host, new ScriptedGate { Answer = EgressApprovalState.Approved }, auditor, options);
+        store.ThrowOnBlockedCheck = 2; // the check at the start passes, the re-check after the apply throws
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => policy.ApplyAsync("a1", ApprovedRules(), TestContext.Current.CancellationToken));
+
+        Assert.True(host.Get("a1")!.IsStopped);
+        Assert.Equal("block", enforcer.Calls[^1]);
+        Assert.Null(await store.GetAsync("a1", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task The_kill_switch_ignores_a_cancelled_token()
+    {
+        await using var rig = new Rig();
+        await rig.Policy.InitialiseAsync("a1", IPAddress.Loopback, 0, TestContext.Current.CancellationToken);
+        var endpoint = rig.Host.Get("a1")!.LocalEndPoint!;
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await rig.Policy.BlockAllAsync("a1", cts.Token);
+
+        Assert.False(await IsListeningAsync(endpoint));
+        Assert.True(rig.Enforcer.IsBlocked("a1"));
+        Assert.True(await rig.Store.IsBlockedAsync("a1", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_blocked_host_refuses_to_start_a_proxy_even_if_the_store_is_clear()
+    {
+        await using var rig = new Rig();
+        rig.Gate.Answer = EgressApprovalState.Approved;
+        rig.Host.Block("a1");
+
+        Assert.Throws<EgressBlockedException>(() => rig.Host.StartOrUpdate("a1", Rig.RulesFor("a.example")));
+        var result = await rig.Policy.ApplyAsync("a1", Rig.RulesFor("a.example"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(EgressApplyOutcome.Blocked, result.Outcome);
+        Assert.Null(rig.Host.Get("a1"));
+
+        rig.Host.Unblock("a1");
+        Assert.NotNull(rig.Host.StartOrUpdate("a1", Rig.RulesFor("a.example")));
+    }
+
+    [Theory]
+    [InlineData("0.0.0.0")]
+    [InlineData("::")]
+    [InlineData("224.0.0.1")]
+    [InlineData("239.1.2.3")]
+    [InlineData("255.255.255.255")]
+    [InlineData("ff02::1")]
+    public async Task Unspecified_and_multicast_proxy_addresses_are_refused(string address)
+    {
+        await using var rig = new Rig();
+
+        var result = await rig.Policy.ApplyAsync("a1", new EgressRules([], IPAddress.Parse(address), 0), TestContext.Current.CancellationToken);
+
+        Assert.Equal(EgressApplyOutcome.Invalid, result.Outcome);
+        Assert.Empty(rig.Enforcer.Calls);
+        Assert.Null(rig.Host.Get("a1"));
+    }
+
+    [Fact]
+    public async Task A_changed_proxy_address_restarts_the_listener_on_the_new_address()
+    {
+        await using var rig = new Rig();
+        rig.Gate.Answer = EgressApprovalState.Approved;
+        var first = await rig.Policy.ApplyAsync("a1", new EgressRules(["a.example"], IPAddress.Parse("127.0.0.1"), 0), TestContext.Current.CancellationToken);
+        var oldEndpoint = rig.Host.Get("a1")!.LocalEndPoint!;
+
+        var second = await rig.Policy.ApplyAsync("a1", new EgressRules(["a.example"], IPAddress.Parse("127.0.0.2"), 0), TestContext.Current.CancellationToken);
+
+        Assert.True(first.IsApplied);
+        Assert.True(second.IsApplied);
+        Assert.Single(rig.Gate.Requests); // only the first apply asked; an address change alone is not growth
+        var proxy = rig.Host.Get("a1")!;
+        Assert.Equal(IPAddress.Parse("127.0.0.2"), proxy.LocalEndPoint!.Address);
+        Assert.False(await IsListeningAsync(oldEndpoint));
+        Assert.True(await IsListeningAsync(proxy.LocalEndPoint));
+        Assert.Equal(IPAddress.Parse("127.0.0.2"), rig.Enforcer.AppliedFor("a1")!.ProxyAddress);
+    }
+
     [Fact]
     public async Task Module_defaults_fail_closed()
     {

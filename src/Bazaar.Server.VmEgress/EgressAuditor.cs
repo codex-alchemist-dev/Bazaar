@@ -62,10 +62,46 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
     public Task AllowAsync(string agentId, string host, int port, CancellationToken ct = default) =>
         RequestAsync(AllowKind, agentId, host, port, null, ct);
 
+    /// <summary>
+    /// Writes the held-back count for each of the agent's windows as summary rows and clears it. Called when the agent's proxy
+    /// stops, so suppressed events are not lost until some later event. Never throws.
+    /// </summary>
+    public async Task FlushAsync(string agentId)
+    {
+        foreach (var window in _windows.Values.Where(w => w.Agent == agentId))
+        {
+            var count = window.TakeSuppressed();
+            if (count == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                await log.AppendAsync(
+                    new AuditEntry(
+                        time.GetUtcNow(),
+                        Actor,
+                        SuppressedKind,
+                        Json(w =>
+                        {
+                            w.WriteString("agent", agentId);
+                            w.WriteString("kind", window.Kind);
+                            w.WriteNumber("count", count);
+                        })),
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Same rule as the other rows: audit trouble never reaches the proxy.
+            }
+        }
+    }
+
     private async Task RequestAsync(string kind, string agentId, string host, int port, string? reason, CancellationToken ct)
     {
         var now = time.GetUtcNow();
-        var window = _windows.GetOrAdd(kind + "|" + agentId, _ => new Window(now));
+        var window = _windows.GetOrAdd(kind + "|" + agentId, _ => new Window(agentId, kind, now));
         var (write, suppressed) = window.Take(now, options.AuditWindow, options.AuditRowsPerWindow);
         try
         {
@@ -124,12 +160,27 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
         return Encoding.UTF8.GetString(buffer.WrittenSpan);
     }
 
-    private sealed class Window(DateTimeOffset start)
+    private sealed class Window(string agent, string kind, DateTimeOffset start)
     {
         private readonly object _gate = new();
         private DateTimeOffset _start = start;
         private int _written;
         private int _suppressed;
+
+        public string Agent { get; } = agent;
+
+        public string Kind { get; } = kind;
+
+        /// <summary>Takes and clears the held-back count.</summary>
+        public int TakeSuppressed()
+        {
+            lock (_gate)
+            {
+                var count = _suppressed;
+                _suppressed = 0;
+                return count;
+            }
+        }
 
         /// <summary>Decides whether this event gets a row. Also returns the count held back in the window that just ended.</summary>
         public (bool Write, int PreviousSuppressed) Take(DateTimeOffset now, TimeSpan length, int limit)

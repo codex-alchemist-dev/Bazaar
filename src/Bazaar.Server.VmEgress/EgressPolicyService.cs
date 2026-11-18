@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net;
+using System.Net.Sockets;
 using Bazaar.Server.VmEgress.Matching;
 using Bazaar.Server.VmEgress.Proxy;
 
@@ -10,6 +11,11 @@ namespace Bazaar.Server.VmEgress;
 /// The egress policy (doc 15 <c>IEgressPolicy</c>, doc 16 WP9). Keeps the three layers in step: the proxy allowlist, the switch rules
 /// through <see cref="IEgressEnforcer"/>, and the stored approved allowlist. Growth needs approval; a shrink applies at once.
 /// </summary>
+/// <remarks>
+/// Every path that closes egress (the kill switch, and the clean-up after a failed or interrupted apply) uses
+/// <see cref="CancellationToken.None"/>, so a cancelled caller can never leave a proxy or switch rule open. Residual: the
+/// enforcer and the stored block flag are separate systems, so a crash between them is resolved by the next block or apply.
+/// </remarks>
 public sealed class EgressPolicyService(
     IEgressAllowlistStore store,
     IEgressEnforcer enforcer,
@@ -26,7 +32,7 @@ public sealed class EgressPolicyService(
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentNullException.ThrowIfNull(rules);
         using var _ = await LockAsync(agentId, ct).ConfigureAwait(false);
-        return await ApplyLockedAsync(agentId, rules, seed: false, ct).ConfigureAwait(false);
+        return await ApplyLockedAsync(agentId, rules, seed: false, releaseEpoch: null, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -37,55 +43,27 @@ public sealed class EgressPolicyService(
         using var _ = await LockAsync(agentId, ct).ConfigureAwait(false);
         if (await store.GetAsync(agentId, ct).ConfigureAwait(false) is { } existing)
         {
-            return await ApplyLockedAsync(agentId, existing, seed: false, ct).ConfigureAwait(false);
+            return await ApplyLockedAsync(agentId, existing, seed: false, releaseEpoch: null, ct).ConfigureAwait(false);
         }
 
-        return await ApplyLockedAsync(agentId, new EgressRules(options.DefaultAllowlist, proxyAddress, proxyPort), seed: true, ct).ConfigureAwait(false);
+        return await ApplyLockedAsync(agentId, new EgressRules(options.DefaultAllowlist, proxyAddress, proxyPort), seed: true, releaseEpoch: null, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
+    /// <remarks>The <paramref name="ct"/> is ignored on purpose: a kill switch that can be cancelled is not a kill switch.</remarks>
     public async Task BlockAllAsync(string agentId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        _ = ct;
+        var none = CancellationToken.None;
 
-        // No lock: the kill switch must not queue behind an approval round trip or a slow enforcer. The flag goes first, so an
-        // Apply that is running right now sees it and shuts itself down again.
+        // No lock: the kill switch must not queue behind an approval round trip or a slow enforcer. The flag and epoch go first,
+        // so an Apply or Release that is running right now sees them and shuts itself down again.
         List<Exception> failures = [];
-        try
-        {
-            await store.SetBlockedAsync(agentId, true, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            failures.Add(ex);
-        }
-
-        try
-        {
-            proxies.Close(agentId);
-        }
-        catch (Exception ex)
-        {
-            failures.Add(ex);
-        }
-
-        try
-        {
-            await enforcer.BlockAllAsync(agentId, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            failures.Add(ex);
-        }
-
-        try
-        {
-            await auditor.RuleChangeAsync(agentId, "block-all", [], null, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            failures.Add(ex);
-        }
+        Try(() => proxies.Block(agentId), failures);
+        await TryAsync(() => store.BlockAsync(agentId, none), failures).ConfigureAwait(false);
+        await TryAsync(() => enforcer.BlockAllAsync(agentId, none), failures).ConfigureAwait(false);
+        await TryAsync(() => auditor.RuleChangeAsync(agentId, "block-all", [], null, none), failures).ConfigureAwait(false);
 
         if (failures.Count > 0)
         {
@@ -98,6 +76,11 @@ public sealed class EgressPolicyService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         using var _ = await LockAsync(agentId, ct).ConfigureAwait(false);
+        if (!await store.IsBlockedAsync(agentId, ct).ConfigureAwait(false))
+        {
+            return new EgressApplyResult(EgressApplyOutcome.Applied, "Egress was not blocked.");
+        }
+
         var rules = await store.GetAsync(agentId, ct).ConfigureAwait(false);
         if (rules is null)
         {
@@ -105,13 +88,11 @@ public sealed class EgressPolicyService(
             return new EgressApplyResult(EgressApplyOutcome.Blocked, "No approved rules to restore.");
         }
 
-        await store.SetBlockedAsync(agentId, false, ct).ConfigureAwait(false);
-        var result = await ApplyLockedAsync(agentId, rules, seed: false, ct).ConfigureAwait(false);
-        if (!result.IsApplied)
-        {
-            await store.SetBlockedAsync(agentId, true, ct).ConfigureAwait(false);
-        }
-        else
+        // The block is cleared only by compare-and-set on the epoch read here, after the rules are back. A block that arrives in
+        // between raises the epoch, the clear fails, and the apply shuts itself down again.
+        var epoch = await store.GetBlockEpochAsync(agentId, ct).ConfigureAwait(false);
+        var result = await ApplyLockedAsync(agentId, rules, seed: false, releaseEpoch: epoch, ct).ConfigureAwait(false);
+        if (result.IsApplied)
         {
             await auditor.RuleChangeAsync(agentId, "release-block", rules.AllowedDestinations, null, ct).ConfigureAwait(false);
         }
@@ -119,19 +100,19 @@ public sealed class EgressPolicyService(
         return result;
     }
 
-    private async Task<EgressApplyResult> ApplyLockedAsync(string agentId, EgressRules rules, bool seed, CancellationToken ct)
+    private async Task<EgressApplyResult> ApplyLockedAsync(string agentId, EgressRules rules, bool seed, long? releaseEpoch, CancellationToken ct)
     {
         if (!Allowlist.TryCompile(rules.AllowedDestinations, out var proposed, out _))
         {
             return new EgressApplyResult(EgressApplyOutcome.Invalid, "Invalid allowlist entry.");
         }
 
-        if (rules.ProxyPort is < 0 or > 65535)
+        if (rules.ProxyPort is < 0 or > 65535 || !IsUsableProxyAddress(rules.ProxyAddress))
         {
-            return new EgressApplyResult(EgressApplyOutcome.Invalid, "Invalid proxy port.");
+            return new EgressApplyResult(EgressApplyOutcome.Invalid, "Invalid proxy address or port.");
         }
 
-        if (await store.IsBlockedAsync(agentId, ct).ConfigureAwait(false))
+        if (releaseEpoch is null && await store.IsBlockedAsync(agentId, ct).ConfigureAwait(false))
         {
             return new EgressApplyResult(EgressApplyOutcome.Blocked, "Egress is blocked by the kill switch.");
         }
@@ -162,30 +143,107 @@ public sealed class EgressPolicyService(
         var canonical = ImmutableArray.CreateRange(proposed.Entries.Select(e => e.Canonical));
         var normalised = new EgressRules(canonical, rules.ProxyAddress, rules.ProxyPort);
 
-        var endpoint = proxies.StartOrUpdate(agentId, normalised);
-        var bound = normalised.WithProxyPort(endpoint.Port);
+        // From here on, anything that goes wrong or is interrupted closes egress. A half-applied state is never left open.
         try
         {
+            if (releaseEpoch is not null)
+            {
+                proxies.Unblock(agentId);
+            }
+
+            var endpoint = proxies.StartOrUpdate(agentId, normalised);
+            var bound = normalised.WithProxyPort(endpoint.Port);
             await enforcer.ApplyAsync(agentId, bound, ct).ConfigureAwait(false);
+
+            if (releaseEpoch is { } epoch)
+            {
+                if (!await store.TryReleaseBlockAsync(agentId, epoch, ct).ConfigureAwait(false))
+                {
+                    await CloseEverythingAsync(agentId, releaseEpoch is not null).ConfigureAwait(false);
+                    return new EgressApplyResult(EgressApplyOutcome.Blocked, "Egress was blocked again while the release ran.");
+                }
+            }
+            else if (await store.IsBlockedAsync(agentId, ct).ConfigureAwait(false))
+            {
+                // The kill switch fired while this call ran. It wins.
+                await CloseEverythingAsync(agentId, releaseEpoch is not null).ConfigureAwait(false);
+                return new EgressApplyResult(EgressApplyOutcome.Blocked, "Egress is blocked by the kill switch.");
+            }
+
+            await store.SaveAsync(agentId, bound, ct).ConfigureAwait(false);
+            await auditor.RuleChangeAsync(agentId, change, change == "grow" ? additions : canonical, null, ct).ConfigureAwait(false);
+            return new EgressApplyResult(EgressApplyOutcome.Applied);
+        }
+        catch (EgressBlockedException)
+        {
+            await CloseEverythingAsync(agentId, releaseEpoch is not null).ConfigureAwait(false);
+            return new EgressApplyResult(EgressApplyOutcome.Blocked, "Egress is blocked by the kill switch.");
         }
         catch
         {
-            // Fail closed: a proxy with no switch rule behind it is not a state to leave running.
-            proxies.Close(agentId);
+            await CloseEverythingAsync(agentId, releaseEpoch is not null).ConfigureAwait(false);
             throw;
         }
+    }
 
-        if (await store.IsBlockedAsync(agentId, ct).ConfigureAwait(false))
+    /// <summary>Closes the proxy and drops the switch allow rule. Never cancelled, and never throws: the caller is already failing closed.</summary>
+    private async Task CloseEverythingAsync(string agentId, bool reblock)
+    {
+        try
         {
-            // The kill switch fired while this call ran. It wins.
-            proxies.Close(agentId);
-            await enforcer.BlockAllAsync(agentId, ct).ConfigureAwait(false);
-            return new EgressApplyResult(EgressApplyOutcome.Blocked, "Egress is blocked by the kill switch.");
+            if (reblock)
+            {
+                proxies.Block(agentId);
+            }
+            else
+            {
+                proxies.Close(agentId);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Closing again below and the original failure are what the caller sees.
         }
 
-        await store.SaveAsync(agentId, bound, ct).ConfigureAwait(false);
-        await auditor.RuleChangeAsync(agentId, change, change == "grow" ? additions : canonical, null, ct).ConfigureAwait(false);
-        return new EgressApplyResult(EgressApplyOutcome.Applied);
+        try
+        {
+            await enforcer.BlockAllAsync(agentId, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The enforcer is unreachable. The proxy is closed, which is the layer this module controls.
+        }
+    }
+
+    private static bool IsUsableProxyAddress(IPAddress address) =>
+        address.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6
+        && !address.Equals(IPAddress.Any)
+        && !address.Equals(IPAddress.IPv6Any)
+        && !address.Equals(IPAddress.Broadcast)
+        && !(address.AddressFamily == AddressFamily.InterNetworkV6 ? address.IsIPv6Multicast : address.GetAddressBytes()[0] >= 224);
+
+    private static void Try(Action action, List<Exception> failures)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+    }
+
+    private static async Task TryAsync(Func<Task> action, List<Exception> failures)
+    {
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
     }
 
     private async Task<IDisposable> LockAsync(string agentId, CancellationToken ct)

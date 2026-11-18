@@ -15,6 +15,15 @@ public interface IEgressAllowlistStore
     /// <summary>Whether the kill switch has blocked this agent's egress. Survives a restart, so the host stays closed.</summary>
     Task<bool> IsBlockedAsync(string agentId, CancellationToken ct = default);
 
-    /// <summary>Records the blocked flag.</summary>
-    Task SetBlockedAsync(string agentId, bool blocked, CancellationToken ct = default);
+    /// <summary>The agent's block epoch: 0 until the first block, then raised by every <see cref="BlockAsync"/>.</summary>
+    Task<long> GetBlockEpochAsync(string agentId, CancellationToken ct = default);
+
+    /// <summary>Sets the blocked flag and raises the epoch, in one atomic step. Returns the new epoch. Safe to repeat; each call raises it.</summary>
+    Task<long> BlockAsync(string agentId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Clears the blocked flag only if the epoch is still <paramref name="expectedEpoch"/>, atomically. Returns false when another
+    /// block got in first (or the flag was already clear); the block then stays. This is how a release cannot undo a newer block.
+    /// </summary>
+    Task<bool> TryReleaseBlockAsync(string agentId, long expectedEpoch, CancellationToken ct = default);
 }

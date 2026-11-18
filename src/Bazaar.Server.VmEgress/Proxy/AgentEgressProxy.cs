@@ -31,7 +31,9 @@ public sealed class AgentEgressProxy : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly ConcurrentDictionary<Socket, byte> _open = new();
     private readonly ConcurrentDictionary<Task, byte> _handlers = new();
+    private readonly ConcurrentDictionary<Socket, Flow> _flows = new();
     private TcpListener? _listener;
+    private Task _flush = Task.CompletedTask;
     private Task _acceptLoop = Task.CompletedTask;
     private Allowlist _allowlist;
     private int _active;
@@ -74,6 +76,9 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         _connector = connector;
     }
 
+    /// <summary>The address the proxy listens on.</summary>
+    public IPAddress ListenAddress => _listenAddress;
+
     /// <summary>The bound endpoint, once started.</summary>
     public IPEndPoint? LocalEndPoint => _listener?.LocalEndpoint as IPEndPoint;
 
@@ -99,8 +104,21 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         return LocalEndPoint!;
     }
 
-    /// <summary>Replaces the allowlist. New requests see it at once; tunnels already open are not interrupted by a change.</summary>
-    public void UpdateAllowlist(Allowlist allowlist) => Volatile.Write(ref _allowlist, allowlist ?? throw new ArgumentNullException(nameof(allowlist)));
+    /// <summary>Replaces the allowlist. New requests see it at once, and open connections to destinations it no longer allows are closed.</summary>
+    public void UpdateAllowlist(Allowlist allowlist)
+    {
+        Volatile.Write(ref _allowlist, allowlist ?? throw new ArgumentNullException(nameof(allowlist)));
+
+        // A shrink also ends tunnels and requests already open to a destination the new list no longer allows.
+        foreach (var (client, flow) in _flows)
+        {
+            if (!allowlist.IsAllowed(flow.Host, flow.Port))
+            {
+                CloseNow(client);
+                CloseNow(flow.Upstream);
+            }
+        }
+    }
 
     /// <summary>
     /// Closes the listener and every open connection, client and upstream side, right now. Idempotent. This is the kill-switch path,
@@ -134,6 +152,9 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         {
             CloseNow(socket);
         }
+
+        // Rows held back by the audit rate limit are written as a summary now, not left until the next event.
+        _flush = _auditor.FlushAsync(_agentId);
     }
 
     /// <summary>Stops, then waits briefly for handlers to finish.</summary>
@@ -142,7 +163,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         Stop();
         try
         {
-            await Task.WhenAll([_acceptLoop, .. _handlers.Keys]).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            await Task.WhenAll([_acceptLoop, _flush, .. _handlers.Keys]).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
@@ -252,7 +273,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
     {
         if (!RequestTarget.TryParseAuthority(head.Target, 443, out var host, out var port))
         {
-            await DenyAsync(client, 400, "Bad Request", Trim(head.Target), 0, "bad-target").ConfigureAwait(false);
+            await DenyAsync(client, 400, "Bad Request", "(unparsed)", 0, "bad-target").ConfigureAwait(false);
             return;
         }
 
@@ -264,6 +285,11 @@ public sealed class AgentEgressProxy : IAsyncDisposable
 
         try
         {
+            if (!RegisterFlow(client, upstream, host, port))
+            {
+                return;
+            }
+
             await _auditor.AllowAsync(_agentId, host.Name, port).ConfigureAwait(false);
             await SendAllAsync(client, "HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray(), _stop.Token).ConfigureAwait(false);
             if (!leftover.IsEmpty)
@@ -271,7 +297,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
                 await SendAllAsync(upstream, leftover, _stop.Token).ConfigureAwait(false);
             }
 
-            await RelayAsync(client, upstream, closeAllOnUpstreamEof: false).ConfigureAwait(false);
+            await RelayAsync(client, upstream, closeAllOnUpstreamEof: false, clientBodyLimit: null, host.Name, port).ConfigureAwait(false);
         }
         finally
         {
@@ -284,7 +310,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         if (!RequestTarget.TryParseAbsoluteHttp(head.Target, out var host, out var port, out var path))
         {
             // Origin-form requests are not proxy requests; https must use CONNECT.
-            await DenyAsync(client, 400, "Bad Request", Trim(head.Target), 0, "not-a-proxy-request").ConfigureAwait(false);
+            await DenyAsync(client, 400, "Bad Request", "(unparsed)", 0, "not-a-proxy-request").ConfigureAwait(false);
             return;
         }
 
@@ -296,6 +322,27 @@ public sealed class AgentEgressProxy : IAsyncDisposable
             return;
         }
 
+        if (hasTransferEncoding)
+        {
+            // Chunked bodies are not parsed here, so there is no safe way to tell where the request ends.
+            await DenyAsync(client, 501, "Not Implemented", host.Name, port, "transfer-encoding-not-supported").ConfigureAwait(false);
+            return;
+        }
+
+        long bodyLength = 0;
+        if (lengths.Count == 1 && !long.TryParse(lengths[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out bodyLength))
+        {
+            await DenyAsync(client, 400, "Bad Request", host.Name, port, "ambiguous-body-framing").ConfigureAwait(false);
+            return;
+        }
+
+        if (leftover.Length > bodyLength)
+        {
+            // Bytes after the declared body are a second, pipelined request. It must never reach the upstream.
+            await DenyAsync(client, 400, "Bad Request", host.Name, port, "pipelined-request").ConfigureAwait(false);
+            return;
+        }
+
         var upstream = await AdmitAsync(client, host, port).ConfigureAwait(false);
         if (upstream is null)
         {
@@ -304,7 +351,12 @@ public sealed class AgentEgressProxy : IAsyncDisposable
 
         try
         {
-            await ForwardPlainAsync(client, upstream, head, host, port, path, leftover).ConfigureAwait(false);
+            if (!RegisterFlow(client, upstream, host, port))
+            {
+                return;
+            }
+
+            await ForwardPlainAsync(client, upstream, head, host, port, path, leftover, bodyLength, lengths.Count == 1).ConfigureAwait(false);
         }
         finally
         {
@@ -312,7 +364,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         }
     }
 
-    private async Task ForwardPlainAsync(Socket client, Socket upstream, RequestHead head, HostName host, int port, string path, ReadOnlyMemory<byte> leftover)
+    private async Task ForwardPlainAsync(Socket client, Socket upstream, RequestHead head, HostName host, int port, string path, ReadOnlyMemory<byte> leftover, long bodyLength, bool hadLength)
     {
         var headers = head.Headers.Where(h => !_hopByHop.Contains(h.Key, StringComparer.OrdinalIgnoreCase)).ToList();
         var context = new ProxyRequestContext(_agentId, host.Name, port, head.Method, path, headers);
@@ -324,6 +376,14 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         if (context.Rejected)
         {
             await DenyAsync(client, 403, "Forbidden", host.Name, port, "filter-rejected").ConfigureAwait(false);
+            return;
+        }
+
+        // Filters must not break the framing the proxy checked, or smuggle a line break into the head.
+        context.Headers.RemoveAll(h => h.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase) || h.Key.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase));
+        if (context.Headers.Any(h => h.Key.Length == 0 || HasControl(h.Key) || h.Key.Contains(':', StringComparison.Ordinal) || HasControl(h.Value)))
+        {
+            await DenyAsync(client, 403, "Forbidden", host.Name, port, "filter-invalid-header").ConfigureAwait(false);
             return;
         }
 
@@ -339,6 +399,11 @@ public sealed class AgentEgressProxy : IAsyncDisposable
             }
         }
 
+        if (hadLength)
+        {
+            text.Append("Content-Length: ").Append(bodyLength.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append("\r\n");
+        }
+
         text.Append("Connection: close\r\n\r\n");
         await _auditor.AllowAsync(_agentId, host.Name, port).ConfigureAwait(false);
         await SendAllAsync(upstream, Encoding.UTF8.GetBytes(text.ToString()), _stop.Token).ConfigureAwait(false);
@@ -347,7 +412,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
             await SendAllAsync(upstream, leftover, _stop.Token).ConfigureAwait(false);
         }
 
-        await RelayAsync(client, upstream, closeAllOnUpstreamEof: true).ConfigureAwait(false);
+        await RelayAsync(client, upstream, closeAllOnUpstreamEof: true, bodyLength - leftover.Length, host.Name, port).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -439,7 +504,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         }
     }
 
-    private async Task RelayAsync(Socket client, Socket upstream, bool closeAllOnUpstreamEof)
+    private async Task RelayAsync(Socket client, Socket upstream, bool closeAllOnUpstreamEof, long? clientBodyLimit, string host, int port)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
         var idleMs = (long)_options.IdleTimeout.TotalMilliseconds;
@@ -448,15 +513,27 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         async Task Pump(Socket from, Socket to, bool fromUpstream)
         {
             var buf = ArrayPool<byte>.Shared.Rent(16 * 1024);
+            long? remaining = fromUpstream ? null : clientBodyLimit;
             try
             {
                 while (true)
                 {
-                    var n = await from.ReceiveAsync(buf.AsMemory(), SocketFlags.None, cts.Token).ConfigureAwait(false);
+                    var want = remaining is { } r ? (int)Math.Min(Math.Max(r, 1), buf.Length) : buf.Length;
+                    var n = await from.ReceiveAsync(buf.AsMemory(0, want), SocketFlags.None, cts.Token).ConfigureAwait(false);
                     if (n == 0)
                     {
                         break;
                     }
+
+                    if (remaining is 0)
+                    {
+                        // The declared body is complete and the client sent more: a pipelined request. Drop the connection.
+                        await _auditor.DenyAsync(_agentId, host, port, "pipelined-request").ConfigureAwait(false);
+                        await cts.CancelAsync().ConfigureAwait(false);
+                        return;
+                    }
+
+                    remaining -= n;
 
                     Volatile.Write(ref last, Environment.TickCount64);
                     await SendAllAsync(to, buf.AsMemory(0, n), cts.Token).ConfigureAwait(false);
@@ -522,6 +599,24 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         }
     }
 
+    private bool RegisterFlow(Socket client, Socket upstream, HostName host, int port)
+    {
+        _flows[client] = new Flow(host, port, upstream);
+
+        // An allowlist update between the admit check and now would have missed this connection; check again.
+        if (Volatile.Read(ref _allowlist).IsAllowed(host, port))
+        {
+            return true;
+        }
+
+        CloseNow(upstream);
+        return false;
+    }
+
+    private static bool HasControl(string text) => text.Any(c => c < 0x20 && c != '\t' || c == 0x7f);
+
+    private sealed record Flow(HostName Host, int Port, Socket Upstream);
+
     private bool Track(Socket socket)
     {
         _open[socket] = 0;
@@ -538,6 +633,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
     private void Release(Socket socket)
     {
         _open.TryRemove(socket, out _);
+        _flows.TryRemove(socket, out _);
         CloseNow(socket);
     }
 
@@ -551,8 +647,6 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         {
         }
     }
-
-    private static string Trim(string text) => text.Length <= 200 ? text : text[..200];
 
     private static bool IsExpected(Exception ex) =>
         ex is SocketException or IOException or ObjectDisposedException or OperationCanceledException or InvalidOperationException;
