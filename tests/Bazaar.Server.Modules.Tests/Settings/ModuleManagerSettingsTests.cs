@@ -1,14 +1,18 @@
 using System.Text.Json;
 using Bazaar.Server.Modules.LineMove;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Modules.Updates;
 using Bazaar.Server.Settings;
 
-namespace Bazaar.Server.Tests.Modules.Settings;
+namespace Bazaar.Server.Modules.Tests.Settings;
 
 /// <summary>Module manager operator keys (doc 42 sections 10 and 15, doc 49 section 6): registration, defaults, bounds and the ring order rule.</summary>
 public sealed class ModuleManagerSettingsTests
 {
     private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
+
+    /// <summary>The registry the host builds: the built-in keys plus this module's contribution.</summary>
+    private static readonly SettingRegistry _known = SettingRegistry.WithContributions([new ModuleManagerSettingContribution()]);
 
     private static readonly string[] _expectedNames =
     [
@@ -28,21 +32,21 @@ public sealed class ModuleManagerSettingsTests
 
     private static SettingEvaluation Eval(string name, string json, SettingActor? actor = null)
     {
-        Assert.True(SettingRegistry.Known.TryGet(name, out var definition));
+        Assert.True(_known.TryGet(name, out var definition));
         Assert.NotNull(definition);
         using var doc = JsonDocument.Parse(json);
         return definition.Evaluate(actor ?? _operator, doc.RootElement);
     }
 
     [Fact]
-    public void Known_registry_holds_exactly_the_module_manager_keys()
+    public void Composed_registry_holds_exactly_the_module_manager_keys()
     {
         var names = ModuleManagerSettings.All.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
         Assert.Equal(_expectedNames.OrderBy(n => n, StringComparer.Ordinal), names);
 
         foreach (var definition in ModuleManagerSettings.All)
         {
-            Assert.True(SettingRegistry.Known.Contains(definition), definition.Name);
+            Assert.True(_known.Contains(definition), definition.Name);
         }
     }
 
@@ -61,8 +65,8 @@ public sealed class ModuleManagerSettingsTests
     public void No_key_stands_in_for_a_decided_invariant()
     {
         // Beta-never-auto and GA-major-needs-approval are DECIDED invariants, not settings (CLAUDE.md).
-        Assert.DoesNotContain(SettingRegistry.Known.Definitions, d => d.Name.Contains("beta", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(SettingRegistry.Known.Definitions, d => d.Name.Contains("major", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(_known.Definitions, d => d.Name.Contains("beta", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(_known.Definitions, d => d.Name.Contains("major", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

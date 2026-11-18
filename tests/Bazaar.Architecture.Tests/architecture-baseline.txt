@@ -801,7 +801,6 @@ src/Bazaar.Server/Settings/HostSettings.cs
 src/Bazaar.Server/Settings/ISettingAuditSink.cs
 src/Bazaar.Server/Settings/ISettingStore.cs
 src/Bazaar.Server/Settings/InMemorySettingAuditSink.cs
-src/Bazaar.Server/Settings/ModuleManagerSettings.cs
 src/Bazaar.Server/Settings/NpgsqlSettingStore.cs
 src/Bazaar.Server/Settings/PostgresSettingAuditSink.cs
 src/Bazaar.Server/Settings/SecurityFloors.cs
