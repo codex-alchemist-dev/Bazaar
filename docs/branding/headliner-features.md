@@ -39,7 +39,6 @@ Status tags follow `docs/deep-dives/Bazaar.md`: DECIDED, PROPOSED, REJECTED, RES
 | Skimmer Bouncer | A cheap gatekeeper model that skims GC messages and wakes the full agent only when relevant. Starts defer-only, so it never drops a message. | `docs/design/13-skimmer-bouncer.md` | PROPOSED; v1 scope |
 | Nigerian Prince Protocol | An optional scam-baiting protocol behind a setup wizard. Without it, scam emails are quarantined. | `Bazaar.md` §2 | PROPOSED; v1 scope, optional |
 | Agent email | Each agent's external email address, on whatever domain the operator configures. External only; internal coordination stays in GCs. | `docs/design/22-email-subsystem.md` | DECIDED |
-| Nervous System | An internal event bus whose events drive software reactions. It never replaces GCs. | `docs/design/53` | PROPOSED |
 
 ## 3. Agents and identity
 

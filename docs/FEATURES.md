@@ -54,7 +54,6 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Skimmer Bouncer | A cheap gatekeeper model that skims GC messages and wakes the full agent only when relevant. Starts defer-only, so it never drops a message. | Partial (`src/Bazaar.Server/Skimmer`: rules, scoring, digest, labels) | `docs/design/13` |
 | Nigerian Prince Protocol | An optional scam-baiting protocol behind a setup wizard. Without it, scam emails are quarantined. | Partial (`MailBackends/ScamBait`); optional, not yet behind the wizard | `Bazaar.md` §2 |
 | Agent email | Each agent's external email address, on a domain the operator configures. External only. | Partial (`src/Bazaar.Server.MailBackends`: Cloudflare, generic, scam-bait; built-in SMTP/IMAP server blocked on doc 22 Q2) | `docs/design/22` |
-| Nervous System | An internal event bus whose events drive software reactions. It never replaces GCs. | Planned | `docs/design/53` |
 | Inbox | Per-agent inbox with priority. | Shipped (`src/Bazaar.Server/Agents/Inbox`) | `docs/design/06` |
 
 ## 3. Agents, identity and governance
