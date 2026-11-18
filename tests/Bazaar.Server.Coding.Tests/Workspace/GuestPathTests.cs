@@ -1,6 +1,6 @@
 using Bazaar.Server.Coding.Workspace;
 
-namespace Bazaar.Server.Tests.Coding.Workspace;
+namespace Bazaar.Server.Coding.Tests.Workspace;
 
 public class GuestPathTests
 {

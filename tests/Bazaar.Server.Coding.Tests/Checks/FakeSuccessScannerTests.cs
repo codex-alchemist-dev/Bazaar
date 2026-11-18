@@ -1,6 +1,6 @@
 using Bazaar.Server.Coding.Checks;
 
-namespace Bazaar.Server.Tests.Coding.Checks;
+namespace Bazaar.Server.Coding.Tests.Checks;
 
 /// <summary>Fake-success scan (doc 17, Verification step 4): each flag has a positive and a negative case.</summary>
 public sealed class FakeSuccessScannerTests
