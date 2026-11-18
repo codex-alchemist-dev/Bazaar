@@ -8,7 +8,7 @@ namespace Bazaar.GitHub.Adapter;
 /// <see cref="IOwnerSignatureVerifier"/>; and the PR's head is still that sha. A moved head voids the approval, and the owner
 /// must approve again (doc 21, doc 32 section 5a).
 /// </summary>
-internal sealed class OwnerSignedMerge
+internal sealed class OwnerSignedMerge : IOwnerSignedMergeService
 {
     private readonly IGitHubAdapter _adapter;
     private readonly IGitHubMergeExecutor _executor;

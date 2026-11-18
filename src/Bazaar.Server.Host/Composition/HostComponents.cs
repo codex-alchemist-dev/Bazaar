@@ -1,6 +1,7 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
+using Bazaar.GitHub;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
@@ -45,6 +46,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new RemoteComponent(),
+        new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
