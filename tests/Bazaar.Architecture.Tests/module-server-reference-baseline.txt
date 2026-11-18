@@ -1,6 +1,5 @@
 Bazaar.Admin
 Bazaar.Community
-Bazaar.Engines
 Bazaar.Fun
 Bazaar.GitHub
 Bazaar.RyuseiFuda
