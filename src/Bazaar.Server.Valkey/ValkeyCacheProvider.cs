@@ -20,6 +20,9 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
 
     private const string _ttlFeature = "ttl";
 
+    /// <summary>Pause between readiness checks inside the start window.</summary>
+    private static readonly TimeSpan _startPollInterval = TimeSpan.FromMilliseconds(50);
+
     private readonly ValkeyCacheOptions _options;
     private readonly ISecretResolver? _secretResolver;
     private readonly IValkeyClientFactory _clientFactory;
@@ -28,6 +31,7 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
     private readonly SemaphoreSlim _clientGate = new(1, 1);
     private IValkeyClient? _client;
     private string? _clientConnectionString;
+    private int _startWindowPending = 1;
 
     /// <summary>Creates the provider. Nothing connects until the first probe or cache call.</summary>
     /// <param name="options">Endpoint or secret reference (unmanaged), key prefix and probe timeout.</param>
@@ -55,12 +59,23 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
     /// <inheritdoc />
     public string Kind => KindName;
 
+    /// <summary>True when the cache uses the host's managed child rather than an operator endpoint.</summary>
+    public bool IsManaged => _managed is not null;
+
     /// <inheritdoc />
     public ProviderStatus Probe()
     {
         if (ConfigurationError() is { } configurationError)
         {
             return Unusable(configurationError);
+        }
+
+        // Only the first probe waits for a managed child to start (doc 40 section 4b.4 item 8). Later probes answer at once, so a status
+        // request is never held for the window.
+        if (_managed is not null && Interlocked.Exchange(ref _startWindowPending, 0) == 1
+            && !WaitForManagedChild().GetAwaiter().GetResult())
+        {
+            return Unusable($"managed server did not answer within {_options.StartWindowSeconds} seconds of start");
         }
 
         try
@@ -184,7 +199,43 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
             return "ProbeTimeout must be positive";
         }
 
+        if (_options.StartWindowSeconds is < 1 or > 120)
+        {
+            return "StartWindowSeconds must be between 1 and 120";
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// Retries the managed connection until the child is ready or the start window closes. Returns false when the window closes first.
+    /// A failed attempt is only "not ready yet", so it never throws out of here.
+    /// </summary>
+    private async Task<bool> WaitForManagedChild()
+    {
+        using var window = new CancellationTokenSource(TimeSpan.FromSeconds(_options.StartWindowSeconds));
+        while (true)
+        {
+            try
+            {
+                // The source does not observe the window token: the check is a state read, not a network call.
+                await _managed!.GetConnectionStringAsync(CancellationToken.None);
+                return true;
+            }
+            catch (Exception)
+            {
+                // Not ready yet: the child has not answered its readiness ping.
+            }
+
+            try
+            {
+                await Task.Delay(_startPollInterval, window.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+        }
     }
 
     private async Task PingAsync(CancellationToken ct)

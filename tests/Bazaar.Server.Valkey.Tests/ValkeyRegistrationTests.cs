@@ -70,7 +70,11 @@ public class ValkeyRegistrationTests
     [Fact]
     public async Task A_managed_cache_connects_through_the_managed_connection_and_takes_no_endpoint()
     {
-        var services = Register(new Dictionary<string, string?> { ["Bazaar:Cache:Valkey:Managed"] = "true" });
+        var services = Register(new Dictionary<string, string?>
+        {
+            ["Bazaar:Cache:Valkey:Managed"] = "true",
+            ["Bazaar:Cache:Valkey:StartWindowSeconds"] = "1",
+        });
         await using var provider = services.BuildServiceProvider();
 
         if (OperatingSystem.IsLinux())

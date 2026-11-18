@@ -13,6 +13,7 @@ using Bazaar.Server.Providers.Windows;
 using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Valkey;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -110,12 +111,22 @@ public static class HostCompositionExtensions
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
                 ProviderSelector.Select(ProviderRole.Vm, options.Vm, vms, ProviderRequirements.AgentPairConcurrency),
-                ProviderSelector.Select(ProviderRole.Cache, options.Cache, caches),
+                ProviderSelector.Select(ProviderRole.Cache, CacheRequest(options.Cache, caches), caches),
                 ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
             ]);
         });
         return services;
     }
+
+    /// <summary>
+    /// An explicit request for the managed Valkey cache selects like <c>auto</c>. A managed child that does not answer inside its start window
+    /// then leaves the cache out and the reason stays in the report, instead of failing the start (doc 40 section 4b.4 item 8, C07). Any other
+    /// request keeps the explicit, fail-closed selection.
+    /// </summary>
+    private static string CacheRequest(string requested, IReadOnlyList<ICacheProvider> caches) =>
+        caches.Any(c => c is ValkeyCacheProvider { IsManaged: true } && c.Kind.Equals(requested, StringComparison.OrdinalIgnoreCase))
+            ? ProviderSelector.Auto
+            : requested;
 
     /// <summary>
     /// Wire connection manager and codec, with a fail-closed authenticator until the Identity Service supplies the real one.
