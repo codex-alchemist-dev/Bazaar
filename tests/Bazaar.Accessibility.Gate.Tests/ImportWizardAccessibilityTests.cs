@@ -3,9 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Bazaar.Accessibility.Avalonia;
-using Bazaar.Portability;
-using Bazaar.Portability.Client;
-using Bazaar.Portability.Client.Avalonia;
+using Bazaar.Client.Portability;
+using Bazaar.Client.Portability.Avalonia;
+using Bazaar.Server.Portability;
 
 namespace Bazaar.Accessibility.Gate.Tests;
 
@@ -14,7 +14,7 @@ namespace Bazaar.Accessibility.Gate.Tests;
 // checks that the controls it scans were actually rendered, so an empty tree cannot pass the scan.
 public class ImportWizardAccessibilityTests
 {
-    private static readonly IReadOnlySet<string> NoKeys = new HashSet<string>(StringComparer.Ordinal);
+    private static readonly IReadOnlySet<string> _noKeys = new HashSet<string>(StringComparer.Ordinal);
 
     [AvaloniaFact]
     public void Import_wizard_preview_step_has_named_controls()
@@ -47,8 +47,8 @@ public class ImportWizardAccessibilityTests
     private static Window ShowWizard(WizardState state, IExistingObjectIndex? index = null)
     {
         var viewModel = index is null
-            ? new WizardViewModel(new ImportWizard(new ImportPipeline([])), new NoopCommitter(), NoKeys, () => Task.FromResult<ImportSource?>(null), state)
-            : new WizardViewModel(new ImportWizard(new ImportPipeline([])), new NoopCommitter(), NoKeys, () => Task.FromResult<ImportSource?>(null), state, index);
+            ? new WizardViewModel(new ImportWizard(new ImportPipeline([])), new NoopCommitter(), _noKeys, () => Task.FromResult<ImportSource?>(null), state)
+            : new WizardViewModel(new ImportWizard(new ImportPipeline([])), new NoopCommitter(), _noKeys, () => Task.FromResult<ImportSource?>(null), state, index);
         var window = new Window { DataContext = viewModel, Content = new ImportWizardView() };
         window.Show();
         // Items are only realised after a layout pass, so measure and arrange before scanning.

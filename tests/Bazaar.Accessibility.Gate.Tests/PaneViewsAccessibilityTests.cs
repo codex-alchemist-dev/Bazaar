@@ -3,11 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Bazaar.Accessibility.Avalonia;
+using Bazaar.Client.Core;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Client.RyuseiFuda.Panes;
-using Bazaar.Client.Core;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Accessibility.Gate.Tests;
@@ -16,7 +16,7 @@ namespace Bazaar.Accessibility.Gate.Tests;
 // controls the test expects are checked as rendered, so an empty tree cannot pass.
 public class PaneViewsAccessibilityTests
 {
-    private const string ScheduleModel = """
+    private const string _scheduleModel = """
         {"triggers":[
           {"id":"b","kind":"interval","state":"active","nextFire":"2026-11-11T09:00:00+00:00","targetNames":["Charles"],"purpose":"Daily check"},
           {"id":"a","kind":"timer","state":"paused","nextFire":null,"targetNames":[],"purpose":"Paused wake"}
@@ -39,7 +39,7 @@ public class PaneViewsAccessibilityTests
         var registry = PaneRegistry.Compose(
             [new RyuseiSchedulePaneModule()],
             new PaneModuleContext().With<IRyuseiTriggerActions>(new IdleTriggerActions()));
-        var descriptor = new PaneDescriptor(PaneKinds.RyuseiSchedule, "RyuseiFuda · Schedule", string.Empty, JsonElement.Parse(ScheduleModel));
+        var descriptor = new PaneDescriptor(PaneKinds.RyuseiSchedule, "RyuseiFuda · Schedule", string.Empty, JsonElement.Parse(_scheduleModel));
         var window = new Window { Content = PaneHost.Build([descriptor], registry) };
         window.Show();
 
