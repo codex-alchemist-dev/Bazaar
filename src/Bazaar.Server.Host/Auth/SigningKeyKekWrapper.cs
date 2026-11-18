@@ -1,4 +1,4 @@
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Identity.Signing;
 
 namespace Bazaar.Server.Host.Auth;

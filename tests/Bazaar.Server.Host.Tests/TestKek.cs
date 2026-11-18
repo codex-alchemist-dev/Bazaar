@@ -1,6 +1,6 @@
 using System.Linq;
 using System.Security.Cryptography;
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Server.Identity.Kek;
 
 namespace Bazaar.Server.Host.Tests;
 

@@ -2,7 +2,7 @@ using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Http.Auth;
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Identity.Signing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
