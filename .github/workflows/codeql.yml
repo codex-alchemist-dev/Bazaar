@@ -37,6 +37,10 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    # Each commit is analysed once. A same-repo branch is covered by its push run, so the
+    # pull_request run only does the work for a fork pull request (a fork has no push run
+    # here). The job and check names do not change.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
