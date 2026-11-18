@@ -42,7 +42,7 @@ public sealed class EngineToolDispatcher
     }
 
     // Swap for Bazaar.Contracts.Engines.StudioToolCatalog.TryGetRiskClass at merge.
-    private static bool LookupTool(string? tool, out RiskClass riskClass) => TemporaryStudioToolCatalog.TryGetRiskClass(tool, out riskClass);
+    private static bool LookupTool(string? tool, out RiskClass riskClass) => StudioToolCatalog.TryGetRiskClass(tool, out riskClass);
 
     /// <summary>
     /// The call the wire layer makes for <c>IStudioGrantVerifier</c> (stream registration is a follow-up, doc 02): true only

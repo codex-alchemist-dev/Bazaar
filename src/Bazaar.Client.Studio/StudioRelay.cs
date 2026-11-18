@@ -12,7 +12,7 @@ namespace Bazaar.Client.Studio;
 /// </summary>
 public sealed class StudioRelay : IStudioRelay
 {
-    private const string ListTool = "list_roblox_studios";
+    private const string _listTool = "list_roblox_studios";
     private readonly IStudioMcpTransport _transport;
     private readonly IStudioGrantVerifier _verifier;
     private readonly StudioRelayOptions _options;
@@ -199,7 +199,7 @@ public sealed class StudioRelay : IStudioRelay
         JsonElement listing;
         try
         {
-            using var args = JsonDocument.Parse($"{{\"name\":\"{ListTool}\",\"arguments\":{{}}}}");
+            using var args = JsonDocument.Parse($"{{\"name\":\"{_listTool}\",\"arguments\":{{}}}}");
             listing = await _transport.CallAsync("tools/call", args.RootElement.Clone(), timeout.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
