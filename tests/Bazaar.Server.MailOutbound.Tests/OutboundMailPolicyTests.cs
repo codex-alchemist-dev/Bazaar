@@ -20,6 +20,8 @@ public sealed class FakeSettings : IOutboundMailSettings
 {
     public int NewRecipientsPerAgentDay { get; set; } = OutboundDefaults.NewRecipientsPerAgentDay;
     public int SentPerDay { get; set; } = OutboundDefaults.SentPerDay;
+    public int SentPerAgentDay { get; set; } = OutboundDefaults.SentPerAgentDay;
+    public string? OperatorContact { get; set; }
     public string? FooterWording { get; set; } = "Custom footer.";
     public long MaxMessageBytes { get; set; } = OutboundDefaults.MaxMessageBytes;
     public int MaxAttachments { get; set; } = OutboundDefaults.MaxAttachments;
@@ -129,11 +131,84 @@ public class OutboundMailPolicyTests
     }
 
     [Fact]
-    public async Task One_external_recipient_is_not_bazaar_to_bazaar()
+    public async Task Mixed_bazaar_and_external_recipients_need_approval_not_refusal()
     {
         var d = await Policy(directory: new FakeDirectory("a@mail.test")).EvaluateAsync(Request(to: ["a@mail.test", "friend@example.org"]), TestContext.Current.CancellationToken);
 
-        Assert.NotEqual(OutboundReason.BazaarToBazaar, d.Reason);
+        Assert.Equal(OutboundDecisionKind.NeedsOwnerApproval, d.Kind);
+        Assert.Equal(OutboundReason.MixedBazaarRecipients, d.Reason);
+    }
+
+    [Fact]
+    public async Task Bazaar_recipients_do_not_count_as_new_recipients()
+    {
+        var policy = Policy(new FakeSettings { NewRecipientsPerAgentDay = 1 }, new FakeDirectory("a@mail.test", "b@mail.test"));
+
+        var d = await policy.EvaluateAsync(Request(to: ["a@mail.test", "b@mail.test", "friend@example.org"]), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OutboundDecisionKind.NeedsOwnerApproval, d.Kind);
+    }
+
+    [Fact]
+    public async Task Install_total_is_shared_across_agents()
+    {
+        var policy = Policy(new FakeSettings { SentPerDay = 1 });
+
+        var first = await policy.EvaluateAsync(Request(agent: "agent-1"), TestContext.Current.CancellationToken);
+        var second = await policy.EvaluateAsync(Request(agent: "agent-2", nonce: "n2"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OutboundDecisionKind.Send, first.Kind);
+        Assert.Equal(OutboundReason.DailyQuota, second.Reason);
+    }
+
+    [Fact]
+    public async Task Per_agent_sub_limit_pauses_one_agent_only()
+    {
+        var policy = Policy(new FakeSettings { SentPerAgentDay = 1 });
+
+        await policy.EvaluateAsync(Request(agent: "agent-1"), TestContext.Current.CancellationToken);
+        var again = await policy.EvaluateAsync(Request(agent: "agent-1", nonce: "n2"), TestContext.Current.CancellationToken);
+        var other = await policy.EvaluateAsync(Request(agent: "agent-2", nonce: "n3"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OutboundReason.AgentDailyQuota, again.Reason);
+        Assert.Equal(OutboundDecisionKind.Send, other.Kind);
+    }
+
+    [Fact]
+    public async Task Agent_denial_takes_no_slot_from_the_shared_bucket()
+    {
+        // Agent 1 is denied by its own sub-limit. The agent check runs first, so the install total is untouched.
+        var limiter = new InMemoryRateLimiter(TimeProvider.System);
+        var settings = new FakeSettings { SentPerAgentDay = 1, SentPerDay = 2 };
+        var policy = Policy(settings, limiter: limiter);
+
+        await policy.EvaluateAsync(Request(agent: "agent-1"), TestContext.Current.CancellationToken);
+        var denied = await policy.EvaluateAsync(Request(agent: "agent-1", nonce: "n2"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OutboundReason.AgentDailyQuota, denied.Reason);
+        var probe = limiter.TryAcquire(OutboundMailPolicy.SendPolicy(settings), OutboundMailPolicy.InstallKey);
+        Assert.True(probe.Allowed);
+        Assert.Equal(0, probe.Remaining);
+    }
+
+    [Fact]
+    public async Task Operator_contact_adds_a_line_and_keeps_the_ai_statement()
+    {
+        var settings = new FakeSettings { FooterWording = null, OperatorContact = "ops@example.org\nsecond line" };
+        var d = await Policy(settings).EvaluateAsync(Request(), TestContext.Current.CancellationToken);
+
+        Assert.StartsWith(OutboundDefaults.Footer, d.Footer);
+        Assert.EndsWith("Operator contact: ops@example.org second line", d.Footer);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    public async Task Blank_operator_contact_adds_no_line(string? contact)
+    {
+        var d = await Policy(new FakeSettings { FooterWording = null, OperatorContact = contact }).EvaluateAsync(Request(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(OutboundDefaults.Footer, d.Footer);
     }
 
     [Theory]

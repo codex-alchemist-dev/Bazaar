@@ -32,33 +32,37 @@ public sealed class OutboundMailPolicy(
         if (recipients.Any(r => !IsPlainAddress(r)) || request.Subject.IndexOfAny(['\r', '\n']) >= 0) return Refuse(OutboundReason.InvalidMessage);
 
         // Internal traffic stays in GCs. Only a message whose every recipient is a Bazaar address is refused (mixed: PROPOSED gap).
-        var allBazaar = true;
+        var external = new List<string>();
         foreach (var recipient in recipients)
         {
-            if (!await directory.IsBazaarAddressAsync(recipient, ct).ConfigureAwait(false))
-            {
-                allBazaar = false;
-                break;
-            }
+            if (!await directory.IsBazaarAddressAsync(recipient, ct).ConfigureAwait(false)) external.Add(recipient);
         }
 
-        if (allBazaar) return Refuse(OutboundReason.BazaarToBazaar);
+        if (external.Count == 0) return Refuse(OutboundReason.BazaarToBazaar);
+        var mixed = external.Count < recipients.Length;
 
         if (request.AttachmentCount > EffectiveMaxAttachments(settings)) return Refuse(OutboundReason.TooManyAttachments);
         var size = Encoding.UTF8.GetByteCount(request.Subject) + Encoding.UTF8.GetByteCount(request.TextBody) + Math.Max(0, request.AttachmentBytes);
         if (size > EffectiveMaxBytes(settings)) return Refuse(OutboundReason.TooLarge);
 
         var newRecipients = 0;
-        foreach (var recipient in recipients)
+        foreach (var recipient in external)
         {
             if (!await approved.IsApprovedAsync(request.AgentId, recipient, ct).ConfigureAwait(false)) newRecipients++;
         }
 
         // Rate limits through the shared contract. A denied call is not counted, so a retry does not extend the penalty.
         // A limit of 0 is the tightest setting (the limiter itself needs at least 1), so it pauses without asking the limiter.
+        // Two send limits are enforced: the install total and the per-agent sub-limit. The agent bucket is taken first, so a denial by
+        // the install total can leak one slot only in that agent's own bucket, never in the shared one.
+        var agentPolicy = AgentSendPolicy(settings);
+        if (agentPolicy.Limit == 0) return Pause(OutboundReason.AgentDailyQuota, agentPolicy.Window);
+        var agentSlot = limiter.TryAcquire(agentPolicy, request.AgentId);
+        if (!agentSlot.Allowed) return Pause(OutboundReason.AgentDailyQuota, agentSlot.RetryAfter);
+
         var sendPolicy = SendPolicy(settings);
         if (sendPolicy.Limit == 0) return Pause(OutboundReason.DailyQuota, sendPolicy.Window);
-        var quota = limiter.TryAcquire(sendPolicy, request.AgentId);
+        var quota = limiter.TryAcquire(sendPolicy, InstallKey);
         if (!quota.Allowed) return Pause(OutboundReason.DailyQuota, quota.RetryAfter);
 
         var capPolicy = NewRecipientPolicy(settings);
@@ -75,6 +79,7 @@ public sealed class OutboundMailPolicy(
         // Tier 2 reasons in a fixed order, so the code is stable. Hard taint comes first and no setting reaches it.
         OutboundReason? tier2 =
             request.Taint == MailTaint.Hard ? OutboundReason.HardTaint
+            : mixed ? OutboundReason.MixedBazaarRecipients
             : newRecipients > 0 ? OutboundReason.NewRecipient
             : request.DerivedFromInboundMail ? OutboundReason.DerivedFromInboundMail
             : request.AttachmentCount > 0 ? OutboundReason.Attachment
@@ -88,8 +93,15 @@ public sealed class OutboundMailPolicy(
     }
 
     /// <summary>The footer to append: the setting, or the shipped footer when it is empty or whitespace. Never empty.</summary>
-    public static string EffectiveFooter(IOutboundMailSettings settings) =>
-        string.IsNullOrWhiteSpace(settings.FooterWording) ? OutboundDefaults.Footer : settings.FooterWording.Trim();
+    public static string EffectiveFooter(IOutboundMailSettings settings)
+    {
+        var footer = string.IsNullOrWhiteSpace(settings.FooterWording) ? OutboundDefaults.Footer : settings.FooterWording.Trim();
+
+        // The contact adds a line. It never replaces the AI-agent statement. Line breaks collapse so it stays one line.
+        if (string.IsNullOrWhiteSpace(settings.OperatorContact)) return footer;
+        var contact = string.Join(' ', settings.OperatorContact.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return footer + "\nOperator contact: " + contact;
+    }
 
     /// <summary>The byte limit: the setting (default when not positive), capped by the back end's hard cap.</summary>
     public static long EffectiveMaxBytes(IOutboundMailSettings settings)
@@ -102,9 +114,25 @@ public sealed class OutboundMailPolicy(
     public static int EffectiveMaxAttachments(IOutboundMailSettings settings) =>
         settings.MaxAttachments < 0 ? OutboundDefaults.MaxAttachments : settings.MaxAttachments;
 
-    /// <summary>The shared <see cref="SharedRateLimitPolicies.MailSentPerDay"/> row with the setting's limit (default when negative).</summary>
+    /// <summary>The scope key of the install-wide bucket.</summary>
+    public const string InstallKey = "install";
+
+    /// <summary>The per-agent sub-limit on sends per day (PROPOSED setting <c>mail.sent_per_agent_day</c>; default when negative).</summary>
+    public static RateLimitPolicy AgentSendPolicy(IOutboundMailSettings settings) =>
+        SharedRateLimitPolicies.MailSentPerDay with
+        {
+            Name = "mail_sent_per_agent_day",
+            Limit = settings.SentPerAgentDay < 0 ? OutboundDefaults.SentPerAgentDay : settings.SentPerAgentDay,
+            SettingKey = "mail.sent_per_agent_day",
+        };
+
+    /// <summary>The shared <see cref="SharedRateLimitPolicies.MailSentPerDay"/> row at install scope with the setting's limit (default when negative).</summary>
     public static RateLimitPolicy SendPolicy(IOutboundMailSettings settings) =>
-        SharedRateLimitPolicies.MailSentPerDay with { Limit = settings.SentPerDay < 0 ? OutboundDefaults.SentPerDay : settings.SentPerDay };
+        SharedRateLimitPolicies.MailSentPerDay with
+        {
+            Scope = RateLimitScope.Installation,
+            Limit = settings.SentPerDay < 0 ? OutboundDefaults.SentPerDay : settings.SentPerDay,
+        };
 
     /// <summary>The new-recipient cap with the setting's limit (default when negative).</summary>
     public static RateLimitPolicy NewRecipientPolicy(IOutboundMailSettings settings) =>

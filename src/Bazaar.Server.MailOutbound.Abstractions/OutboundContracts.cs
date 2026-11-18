@@ -69,6 +69,9 @@ public enum OutboundReason
     /// <summary>Approval: the session is hard-tainted (C06).</summary>
     HardTaint,
 
+    /// <summary>Approval: Bazaar-managed and external recipients together (not refused; the owner decides).</summary>
+    MixedBazaarRecipients,
+
     /// <summary>Approval: at least one recipient is new.</summary>
     NewRecipient,
 
@@ -102,8 +105,11 @@ public enum OutboundReason
     /// <summary>Pause: the rate limiter denied the new-recipient daily cap.</summary>
     NewRecipientCap,
 
-    /// <summary>Pause: the rate limiter denied the daily send quota (<c>security.quota.mail_sent_per_day</c>).</summary>
+    /// <summary>Pause: the rate limiter denied the install-wide daily send quota (<c>security.quota.mail_sent_per_day</c>).</summary>
     DailyQuota,
+
+    /// <summary>Pause: the rate limiter denied this agent's daily send sub-limit.</summary>
+    AgentDailyQuota,
 }
 
 /// <summary>
@@ -154,6 +160,12 @@ public interface IOutboundMailSettings
     /// <summary><c>security.quota.mail_sent_per_day</c> (owned by doc 15).</summary>
     int SentPerDay { get; }
 
+    /// <summary>Per-agent sub-limit on sends per day (PROPOSED <c>mail.sent_per_agent_day</c>), enforced on top of <see cref="SentPerDay"/>.</summary>
+    int SentPerAgentDay { get; }
+
+    /// <summary><c>mail.footer.operator_contact</c> (PROPOSED). Blank adds no contact line. It never replaces the footer.</summary>
+    string? OperatorContact { get; }
+
     /// <summary><c>mail.footer.wording</c>. Empty or whitespace falls back to the shipped footer.</summary>
     string? FooterWording { get; }
 
@@ -173,6 +185,8 @@ public static class OutboundDefaults
     public const int NewRecipientsPerAgentDay = 20;
 
     public const int SentPerDay = 20;
+
+    public const int SentPerAgentDay = 20;
 
     public const long MaxMessageBytes = 10L * 1024 * 1024;
 
