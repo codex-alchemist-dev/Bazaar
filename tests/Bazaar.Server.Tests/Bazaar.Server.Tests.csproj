@@ -18,10 +18,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Pre-existing break on main: imports the removed Bazaar.Server.Modules.Trust namespace. Excluded until it is fixed. -->
-    <Compile Remove="Modules\Trust\ModulePackageSignerTests.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <None Update="Gateway\Adapters\OpenAi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Gateway\Adapters\Anthropic\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Gateway\Adapters\Gemini\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
