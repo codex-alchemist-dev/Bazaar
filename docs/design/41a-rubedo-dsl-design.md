@@ -49,8 +49,9 @@ A head supplies every identifier on each evaluation. A missing value is a runtim
 expr      := or
 or        := and ( "||" and )*
 and       := equality ( "&&" equality )*
-equality  := relation ( ("==" | "!=") relation )?
+equality  := operand ( ("==" | "!=") operand )?
 relation  := sum ( ("<" | "<=" | ">" | ">=") sum )?
+operand   := sum | "(" relation ")"   -- a relation under == or != needs parentheses
 sum       := product ( ("+" | "-") product )*
 product   := unary ( ("*" | "/" | "%") unary )*
 unary     := ("!" | "-") unary | call
