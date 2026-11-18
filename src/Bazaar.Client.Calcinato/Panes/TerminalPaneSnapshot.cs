@@ -42,6 +42,8 @@ public sealed record TerminalAccessibleText(IReadOnlyList<string> VisibleRows, i
 /// <param name="IsReadOnly">True for a viewer without the writer role.</param>
 /// <param name="IsReplaying">True while output from the scrollback ring is still arriving.</param>
 /// <param name="ExitCode">The exit code once the terminal ended, or null.</param>
+/// <param name="SelectionAnchorRow">Visual selection anchor row relative to <paramref name="Rows"/>; may lie off screen. Meaningful in the Visual modes.</param>
+/// <param name="SelectionAnchorColumn">Visual selection anchor column, 0-based.</param>
 public sealed record TerminalPaneSnapshot(
     bool HasSession,
     IReadOnlyList<TerminalRow> Rows,
@@ -56,7 +58,9 @@ public sealed record TerminalPaneSnapshot(
     string Title,
     bool IsReadOnly,
     bool IsReplaying,
-    int? ExitCode)
+    int? ExitCode,
+    int SelectionAnchorRow = -1,
+    int SelectionAnchorColumn = 0)
 {
     /// <summary>Status shown when no terminal is open.</summary>
     public const string NoSessionStatus = "No terminal is open. Use :new to start a shell.";
@@ -76,5 +80,7 @@ public sealed record TerminalPaneSnapshot(
         Title: string.Empty,
         IsReadOnly: false,
         IsReplaying: false,
-        ExitCode: null);
+        ExitCode: null,
+        SelectionAnchorRow: -1,
+        SelectionAnchorColumn: 0);
 }
