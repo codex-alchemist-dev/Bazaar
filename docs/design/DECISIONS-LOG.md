@@ -386,6 +386,6 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 
 | Decision | Owner ruling | Docs |
 |---|---|---|
-| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 56, 03, 45, 40, CLAUDE.md, ROADMAP |
-| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 56 |
+| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 58, 03, 45, 40, CLAUDE.md, ROADMAP |
+| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 58 |
 | Open | Ops-mode authentication for non-owner admins; remote use beyond SSH. | 56 |
