@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Approvals;
+namespace Bazaar.Approvals;
 
 /// <summary>Process-local nonce store. Use only in tests and single-process dev runs; the durable store is <see cref="Db.PostgresOwnerNonceStore"/>.</summary>
 public sealed class InMemoryOwnerNonceStore : IOwnerNonceStore

@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Approvals;
+namespace Bazaar.Approvals;
 
 /// <summary>Why an owner signature was accepted or refused. Only <see cref="Valid"/> lets an action run.</summary>
 public enum OwnerSignatureVerdict

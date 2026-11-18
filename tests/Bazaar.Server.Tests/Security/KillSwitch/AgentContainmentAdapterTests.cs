@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.KillSwitch;

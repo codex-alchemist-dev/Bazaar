@@ -1,4 +1,4 @@
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 
 namespace Bazaar.Server.GitHub.Adapter;
 

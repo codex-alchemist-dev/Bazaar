@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 
 namespace Bazaar.Server.GitHub.Adapter;
 

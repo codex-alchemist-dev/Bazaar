@@ -1,4 +1,4 @@
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Audit;

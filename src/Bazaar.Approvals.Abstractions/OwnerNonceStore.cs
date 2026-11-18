@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Approvals;
+namespace Bazaar.Approvals;
 
 /// <summary>Remembers the owner nonces already used, so a signed payload works once (doc 32 section 5a).</summary>
 public interface IOwnerNonceStore

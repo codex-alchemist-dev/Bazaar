@@ -1,4 +1,4 @@
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 using Bazaar.Server.Security.Budgets;
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Configuration;

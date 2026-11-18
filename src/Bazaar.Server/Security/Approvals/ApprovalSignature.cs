@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 
 namespace Bazaar.Server.Security.Approvals;
 

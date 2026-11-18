@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Approvals;
+using Bazaar.Approvals;
 using Bazaar.Server.Modules.Health;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.KillSwitch;

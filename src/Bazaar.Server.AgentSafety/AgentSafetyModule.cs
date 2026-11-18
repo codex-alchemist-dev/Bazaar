@@ -1,8 +1,8 @@
+using Bazaar.Approvals;
+using Bazaar.Approvals.Db;
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.AgentSafety.Startup;
-using Bazaar.Server.Approvals;
-using Bazaar.Server.Approvals.Db;
 using Bazaar.Server.Identity.Leases;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Budgets;

@@ -26,7 +26,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Approvals\Bazaar.Server.Approvals.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Install\Bazaar.Install.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Tls\Bazaar.Server.Tls.csproj" />
