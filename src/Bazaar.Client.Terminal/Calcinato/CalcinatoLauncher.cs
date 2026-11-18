@@ -23,6 +23,9 @@ public static class CalcinatoLauncher
             return 1;
         }
 
+        // Windows consoles draw ANSI sequences only when asked; this is a no-op elsewhere or when output is redirected.
+        WindowsConsoleMode.EnableVirtualTerminal();
+
         var manager = new TerminalSessionManager(host);
         await using var calcinato = new CalcinatoHost(new SystemConsoleSurface(), manager);
         try

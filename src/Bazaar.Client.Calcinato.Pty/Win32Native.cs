@@ -13,6 +13,7 @@ internal static unsafe partial class Win32Native
     internal const uint ExtendedStartupInfoPresent = 0x00080000;
     internal const uint CreateUnicodeEnvironment = 0x00000400;
     internal const uint CreateSuspended = 0x00000004;
+    internal const uint StartfUseStdHandles = 0x00000100;
     internal const int JobObjectExtendedLimitInformation = 9;
     internal const uint JobObjectLimitKillOnJobClose = 0x00002000;
     internal const uint Infinite = 0xFFFFFFFF;

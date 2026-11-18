@@ -52,6 +52,24 @@ internal sealed class PtyTranscript : IAsyncDisposable
         return Text.Contains(text, StringComparison.Ordinal);
     }
 
+    /// <summary>Polls the transcript until it matches <paramref name="pattern"/> or the timeout passes.</summary>
+    public async Task<bool> WaitForMatchAsync(string pattern, TimeSpan timeout)
+    {
+        var regex = new System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        var clock = Stopwatch.StartNew();
+        while (clock.Elapsed < timeout)
+        {
+            if (regex.IsMatch(Text))
+            {
+                return true;
+            }
+
+            await Task.Delay(50);
+        }
+
+        return regex.IsMatch(Text);
+    }
+
     public async ValueTask DisposeAsync()
     {
         try

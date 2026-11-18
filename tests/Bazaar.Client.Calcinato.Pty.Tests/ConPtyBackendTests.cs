@@ -7,6 +7,7 @@ namespace Bazaar.Client.Calcinato.Pty.Tests;
 /// Linux, so these tests are skipped here and have not been run in this environment.
 /// </summary>
 [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+[Collection("ConPty")]
 public sealed class ConPtyBackendTests
 {
     private static readonly TimeSpan _wait = TimeSpan.FromSeconds(10);
@@ -34,7 +35,8 @@ public sealed class ConPtyBackendTests
         await using var session = new ConPtyBackend().Open(new TerminalSpec("cmd.exe", 80, 25));
         await using var transcript = new PtyTranscript(session);
 
-        await session.WriteAsync("set /a X=6*7 & echo S11_RESULT_%X%\r\n"u8.ToArray(), TestContext.Current.CancellationToken);
+        // At the prompt %X% is expanded before set runs, so "call echo %^X%" defers it. The typed text never contains the result.
+        await session.WriteAsync("set /a X=6*7 & call echo S11_RESULT_%^X%\r\n"u8.ToArray(), TestContext.Current.CancellationToken);
 
         Assert.True(await transcript.WaitForAsync("S11_RESULT_42", _wait), transcript.Text);
     }
@@ -49,7 +51,7 @@ public sealed class ConPtyBackendTests
         session.Resize(100, 30);
         await session.WriteAsync("mode con\r\n"u8.ToArray(), TestContext.Current.CancellationToken);
 
-        Assert.True(await transcript.WaitForAsync("Columns: 100", _wait), transcript.Text);
+        Assert.True(await transcript.WaitForMatchAsync(@"Columns:\s+100", _wait), transcript.Text);
     }
 
     [Fact]
@@ -62,7 +64,7 @@ public sealed class ConPtyBackendTests
         await session.WriteAsync("ping -t 127.0.0.1\r\n"u8.ToArray(), TestContext.Current.CancellationToken);
         await Task.Delay(1500, TestContext.Current.CancellationToken);
         await session.WriteAsync(new byte[] { 0x03 }, TestContext.Current.CancellationToken);
-        await session.WriteAsync("set /a X=1+1 & echo CTRLC_%X%\r\n"u8.ToArray(), TestContext.Current.CancellationToken);
+        await session.WriteAsync("set /a X=1+1 & call echo CTRLC_%^X%\r\n"u8.ToArray(), TestContext.Current.CancellationToken);
 
         Assert.True(await transcript.WaitForAsync("CTRLC_2", _wait), transcript.Text);
     }

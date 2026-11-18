@@ -67,6 +67,10 @@ public sealed class ConPtyBackend : IPtyBackend
             {
                 Cb = (uint)Marshal.SizeOf<StartupInfoEx>(),
                 AttributeList = attributes,
+
+                // Null standard handles with this flag stop the shell from adopting the host's own (possibly redirected)
+                // stdout and stdin instead of the pseudo console.
+                Flags = Win32Native.StartfUseStdHandles,
             };
             var commandLine = Marshal.StringToHGlobalUni($"\"{shell}\"");
             var environment = Marshal.StringToHGlobalUni(EnvironmentFilter.WindowsBlock(env));
