@@ -20,7 +20,13 @@ public enum OfflineReplayStatus
 /// <param name="AckedSequence">Highest device sequence acknowledged in this run.</param>
 /// <param name="AttentionCount">Writes that need a person in this run (Conflict, HeldForReview, Rejected), plus one for a stall.</param>
 /// <param name="Reason">Why the run stopped early; null when drained.</param>
-public sealed record OfflineReplayResult(OfflineReplayStatus Status, long AckedSequence, int AttentionCount, string? Reason = null);
+/// <param name="RepairedLostWrites">Writes lost to a torn-tail repair when the queue opened (doc 56 section 6). Already counted in <paramref name="AttentionCount"/>.</param>
+public sealed record OfflineReplayResult(
+    OfflineReplayStatus Status,
+    long AckedSequence,
+    int AttentionCount,
+    string? Reason = null,
+    long RepairedLostWrites = 0);
 
 /// <summary>
 /// Replays the queue to the server (doc 56 section 6). Sends the front batch, acknowledges the queue up to the server's AckedSequence,
@@ -68,7 +74,8 @@ public sealed class OfflineReplayDriver
     /// <summary>Runs one pass until the queue is drained, the transport fails, or progress stops.</summary>
     public async Task<OfflineReplayResult> RunAsync(CancellationToken cancellationToken)
     {
-        var run = new RunProgress(_queue.PendingCount);
+        var lost = _queue.Repair?.LostWrites ?? 0;
+        var run = new RunProgress(_queue.PendingCount, lost);
         try
         {
             return await ReplayAsync(run, cancellationToken).ConfigureAwait(false);
@@ -92,7 +99,7 @@ public sealed class OfflineReplayDriver
             if (batch.Count == 0)
             {
                 _state.Set(run.Attention > 0 ? new ConnectionState.Attention(run.Attention) : new ConnectionState.Live());
-                return new OfflineReplayResult(OfflineReplayStatus.Drained, run.Acked, run.Attention);
+                return new OfflineReplayResult(OfflineReplayStatus.Drained, run.Acked, run.Attention, null, run.RepairedLostWrites);
             }
 
             var front = batch[0].DeviceSequence;
@@ -114,7 +121,7 @@ public sealed class OfflineReplayDriver
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _state.Set(new ConnectionState.Offline(_time.GetUtcNow()));
-                return new OfflineReplayResult(OfflineReplayStatus.Offline, run.Acked, run.Attention, ex.Message);
+                return new OfflineReplayResult(OfflineReplayStatus.Offline, run.Acked, run.Attention, ex.Message, run.RepairedLostWrites);
             }
 
             run.Attention += result.Outcomes.Count(o =>
@@ -160,15 +167,18 @@ public sealed class OfflineReplayDriver
     {
         run.Attention++;
         _state.Set(new ConnectionState.Attention(run.Attention));
-        return new OfflineReplayResult(OfflineReplayStatus.Stalled, run.Acked, run.Attention, reason);
+        return new OfflineReplayResult(OfflineReplayStatus.Stalled, run.Acked, run.Attention, reason, run.RepairedLostWrites);
     }
 
-    private sealed class RunProgress(long total)
+    private sealed class RunProgress(long total, long repairedLostWrites)
     {
         public long Total { get; set; } = total;
 
         public long Acked { get; set; }
 
-        public int Attention { get; set; }
+        /// <summary>Writes lost to the torn-tail repair at open. Each one needs a person to redo it, so each counts as Attention.</summary>
+        public long RepairedLostWrites { get; } = repairedLostWrites;
+
+        public int Attention { get; set; } = checked((int)repairedLostWrites);
     }
 }

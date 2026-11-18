@@ -160,6 +160,53 @@ public sealed class OfflineReplayDriverTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task RepairedTornTail_CountsTheLostWriteIntoAttention()
+    {
+        var anchors = new InMemoryOfflineQueueAnchorStore();
+        using (var first = new EncryptedOfflineQueue(_dir.Root, OfflineTestData.Device, OfflineTestData.Key(), anchorStore: anchors))
+        {
+            for (var sequence = 1; sequence <= 3; sequence++)
+            {
+                first.Enqueue(OfflineTestData.Write(OfflineTestData.Device, sequence, "write " + sequence));
+            }
+        }
+
+        var file = Path.Combine(_dir.Root, EncryptedOfflineQueue.FileName);
+        var bytes = File.ReadAllBytes(file);
+        File.WriteAllBytes(file, bytes[..^5]);
+
+        var queue = new EncryptedOfflineQueue(
+            _dir.Root,
+            OfflineTestData.Device,
+            OfflineTestData.Key(),
+            repairMode: OfflineQueueRepairMode.QuarantineTornTail,
+            anchorStore: anchors);
+        _queues.Add(queue);
+        var server = new FakeOfflineServer();
+        server.Overrides[WriteIdAt(queue, 1)] = OfflineOutcomeKind.Conflict;
+        var state = new ConnectionStateTracker();
+
+        var result = await new OfflineReplayDriver(queue, server, state).RunAsync(CancellationToken.None);
+
+        Assert.Equal(OfflineReplayStatus.Drained, result.Status);
+        Assert.Equal(1, result.RepairedLostWrites);
+        Assert.Equal(2, result.AttentionCount);
+        Assert.Equal(new ConnectionState.Attention(2), state.Current);
+        Assert.Single(server.AppliedLog);
+    }
+
+    [Fact]
+    public async Task CleanQueue_ReportsNoRepairedWrites()
+    {
+        var queue = NewQueue(directory: _dir.Root, count: 2);
+
+        var result = await new OfflineReplayDriver(queue, new FakeOfflineServer(), new ConnectionStateTracker()).RunAsync(CancellationToken.None);
+
+        Assert.Equal(0, result.RepairedLostWrites);
+        Assert.Equal(0, result.AttentionCount);
+    }
+
     private EncryptedOfflineQueue NewQueue(string directory, int count)
     {
         var queue = new EncryptedOfflineQueue(directory, OfflineTestData.Device, OfflineTestData.Key());
