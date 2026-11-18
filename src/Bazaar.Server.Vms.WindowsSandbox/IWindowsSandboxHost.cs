@@ -26,9 +26,3 @@ public interface IWindowsSandboxHost
     /// <summary>Deletes a config file that is no longer needed.</summary>
     Task DeleteConfigAsync(string configPath, CancellationToken ct);
 }
-
-/// <summary>Probes the host's facts for <see cref="Bazaar.Contracts.Modules.HostCompatibility"/>. Must be synchronous and change nothing.</summary>
-public interface IHostFactsSource
-{
-    HostFacts Current();
-}
