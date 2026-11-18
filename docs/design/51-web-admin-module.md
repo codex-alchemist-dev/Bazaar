@@ -1,6 +1,6 @@
 # Web admin panel (admin-only module)
 
-Status: DECIDED for the rule and scope (owner, 2026-11-16: "Allow admin-only web panel"). PLANNED for mechanics. The name `Bazaar.WebAdmin` is provisional under the naming rule in DECISIONS-LOG.
+Status: DECIDED for the rule and scope (owner, 2026-11-16: "Allow admin-only web panel"). PLANNED for mechanics. The module is server-side only, so it follows the module-sides rule: `Bazaar.Server.WebAdmin.Abstractions` plus `Bazaar.Server.WebAdmin` (replaces the provisional `Bazaar.WebAdmin`; the name stays provisional under the naming rule in DECISIONS-LOG).
 Depends on: 02 (HTTP surface), 03 (listeners, bind floor), 15 (approvals, audit), 32 (roles, passkey sign-in page), 37 (company build), 41 (module selection and rebuild), 46 (Kodo health) · Used by: CLAUDE.md, 45 (setup wizard hand-off)
 
 ## Purpose
@@ -28,6 +28,8 @@ Kodo's own rule holds: Kodo adds no interactive browser surface of its own (doc 
 ### 2. Auth
 - Only accounts that hold the admin permission may open the panel. The permission belongs to the roles model (doc 48 section 4, custom roles; doc 32 section 6 lists the built-in role templates). Coworkers get a 403, not a login page.
 - The session is the passkey sign-in of doc 32 section 4. It is short-lived, and it ends when the owner revokes the device or the account.
+- Gate mechanics (work package 2). `IAdminSessionReader` (in the Abstractions project) turns a request into an `AdminSession` (principal id, principal kind, device id) or nothing. The passkey sign-in module supplies the real reader and is the only place that checks the device is not revoked, so a revoked device reads as no session at once. With no reader registered the default reads nothing, so every panel route answers 401 (fail closed).
+- `AdminGate` asks `IPermissionChecker` (Bazaar.Roles) for the route's capability at instance scope: `admin.members` for Users, `admin.modules` for module selection and rebuild, `admin.privacy` for DM access requests, `admin.backups` for backups, `admin.devices` for devices, and `admin.roles` for roles. Admin status, Kodo health and the audit log view need any one `admin.*` capability. No session gives 401. A session without the capability gives 403, and agents and services always get 403. Each 403 is audited (`webadmin.denied`, principal, route, capability); a 401 is not, so unauthenticated traffic cannot flood the log.
 - No content is shown before sign-in. The panel's entry page shows only the server display name and the sign-in control, the same rule as the sign-in page.
 
 ### 3. Network
