@@ -86,6 +86,7 @@ public sealed class ProviderHardeningTests
     [Fact]
     public void The_policy_the_provider_writes_is_accepted_by_the_helpers_parser_and_is_least_privilege()
     {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "The policy paths are POSIX paths; Path handling differs on Windows.");
         var options = new LinuxConfinementOptions { Path = "/usr/bin:/bin" };
         var command = new LinuxLaunchCommand("/opt/mod/bin/run", ["x"], ["/opt/mod/data"]);
 

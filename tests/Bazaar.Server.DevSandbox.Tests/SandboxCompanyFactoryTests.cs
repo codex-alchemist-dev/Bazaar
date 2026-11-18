@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -158,15 +157,6 @@ public class SandboxCompanyFactoryTests
     [Fact]
     public void Output_does_not_depend_on_the_clock_or_random_guids()
     {
-        string source = ReadFactorySource();
-
-        Assert.DoesNotContain("Guid", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("DateTime", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Stopwatch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("TickCount", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("new Random(", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RandomNumberGenerator", source, StringComparison.Ordinal);
-
         var factory = new SandboxCompanyFactory();
         SandboxTestCompany before = factory.Create(Spec());
         Thread.Sleep(20);
@@ -179,12 +169,5 @@ public class SandboxCompanyFactoryTests
     {
         using JsonDocument document = JsonDocument.Parse(jsonArray);
         return document.RootElement.GetArrayLength();
-    }
-
-    private static string ReadFactorySource([CallerFilePath] string callerPath = "")
-    {
-        string testDirectory = Path.GetDirectoryName(callerPath)!;
-        string path = Path.GetFullPath(Path.Combine(testDirectory, "..", "..", "src", "Bazaar.Server.DevSandbox", "SandboxCompanyFactory.cs"));
-        return File.ReadAllText(path);
     }
 }

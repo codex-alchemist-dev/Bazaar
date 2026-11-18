@@ -57,15 +57,12 @@ public static class LinuxConfinementSelfTest
 
     /// <summary>Runs the self-test with the real process runner.</summary>
     public static Task<LinuxConfinementSelfTestResult> RunAsync(LinuxConfinementOptions options, CancellationToken ct = default) =>
-        RunAsync(options, new ProcessProbeRunner(options), ct);
+        OperatingSystem.IsLinux()
+            ? RunAsync(options, new ProcessProbeRunner(options), ct)
+            : Task.FromResult(new LinuxConfinementSelfTestResult(false, ["host is not Linux"]));
 
     internal static async Task<LinuxConfinementSelfTestResult> RunAsync(LinuxConfinementOptions options, ILinuxProbeRunner runner, CancellationToken ct)
     {
-        if (!OperatingSystem.IsLinux())
-        {
-            return new(false, ["host is not Linux"]);
-        }
-
         var reasons = new List<string>();
         var unshare = options.ResolveUnshare();
         var prlimit = options.ResolvePrlimit();
@@ -91,7 +88,9 @@ public static class LinuxConfinementSelfTest
 
         if (options.HelperPath is not null)
         {
+#pragma warning disable CA1416 // The public entry point refuses non-Linux hosts; the internal seam is exercised with a scripted runner on any OS.
             return await RunHardenedAsync(options, runner, unshare!, prlimit!, ct).ConfigureAwait(false);
+#pragma warning restore CA1416
         }
 
         var command = new LinuxLaunchCommand(options.ShellPath, ["-c", _probeScript]);
