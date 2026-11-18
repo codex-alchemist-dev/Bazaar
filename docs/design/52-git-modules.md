@@ -36,6 +36,9 @@ Tests live in `tests/<Project>.Tests`. Migrations: none in v1 (state is in the f
 - The merge gate checks, in order and refusing on the first failure: approval and request name the same head sha; the approval's action and argument hash match; the owner signature verifies (`IOwnerSignatureVerifier`, doc 32); the PR head is still that sha; every check on that head passes. Only then does it call the executor. Results map to doc 21's route results (`merge_not_approved` with a short reason). Each outcome is audited.
 - `IForgeRegistry` resolves a provider by id. An unknown provider id is a typed refusal, never a fallback.
 
+### Repository directory [PROPOSED]
+`IGitRepositoryDirectory` (in `Bazaar.Server.Git.Abstractions`) maps a Bazaar repository id to `GitRepositoryInfo`: the `RepoRef` (provider and full name), the host-side clone path, the provider installation id (null when the provider has none) and the provider's own stable repo id. It is read-only. The module that stores repos implements it; the coding harness (doc 17) binds to it, so it needs no provider-specific type. The GitHub module supplies the GitHub rows after #733.
+
 ### Wire and routes [PROPOSED]
 DTOs live in `Bazaar.Contracts/Git/`, JSON through `IWireCodec` (source-generated; no reflection). Routes sit on the guarded HTTP surface (doc 02): `GET /git/{provider}/repos/{owner}/{repo}/prs`, `GET .../prs/{n}`, `GET .../prs/{n}/files?head={sha}`, `GET .../prs/{n}/checks`. A request whose `head` no longer matches returns `409 head_moved` with the current sha. Merge keeps the route from PR 723 until a neutral `POST /git/merge` replaces it in a later docs PR. Responses are capped (`git.max_diff_bytes`); a larger file returns metadata and `truncated: true`.
 
