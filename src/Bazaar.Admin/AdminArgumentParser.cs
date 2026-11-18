@@ -9,8 +9,11 @@ public enum AdminAction
     Apply,
 }
 
-/// <summary>The parsed command line. <see cref="ConfigPath"/> is set for every action except help.</summary>
-public sealed record ParsedArguments(AdminAction Action, string? ConfigPath, string? PlanHash, bool HelpForSetup);
+/// <summary>
+/// The parsed command line. <see cref="ConfigPath"/> is set for every action except help, unless the values come from <c>--set</c>
+/// flags or environment variables instead of a file. <see cref="SetArguments"/> holds the <c>--set</c> values in the order given.
+/// </summary>
+public sealed record ParsedArguments(AdminAction Action, string? ConfigPath, string? PlanHash, bool HelpForSetup, IReadOnlyList<string> SetArguments);
 
 /// <summary>
 /// An argument error. <see cref="Flag"/> names the flag or the position, and <see cref="Exception.Message"/> names the rule. Neither
@@ -31,12 +34,16 @@ public static class AdminArgumentParser
     private const string _planHashFlag = "--plan-hash";
     private const string _dryRunFlag = "--dry-run";
     private const string _jsonFlag = "--json";
+    private const string _setFlag = "--set";
     private const string _validateWord = "validate";
     private const string _applyWord = "apply";
     private const int _planHashLength = 64;
 
-    /// <summary>Parses the arguments, or throws <see cref="AdminUsageException"/>.</summary>
-    public static ParsedArguments Parse(IReadOnlyList<string> args)
+    /// <summary>
+    /// Parses the arguments, or throws <see cref="AdminUsageException"/>. <paramref name="environmentOverrides"/> is true when a
+    /// <c>BAZAAR__SETUP__</c> variable gives values, which makes <c>--config</c> optional the same way a <c>--set</c> flag does.
+    /// </summary>
+    public static ParsedArguments Parse(IReadOnlyList<string> args, bool environmentOverrides = false)
     {
         ArgumentNullException.ThrowIfNull(args);
 
@@ -47,7 +54,7 @@ public static class AdminArgumentParser
 
         if (args.Any(IsHelpFlag) || args[0] == "help")
         {
-            return new ParsedArguments(AdminAction.Help, null, null, HelpForSetup: args[0] == AdminConstants.SetupCommandWord);
+            return new ParsedArguments(AdminAction.Help, null, null, HelpForSetup: args[0] == AdminConstants.SetupCommandWord, []);
         }
 
         if (args[0] != AdminConstants.SetupCommandWord)
@@ -70,6 +77,7 @@ public static class AdminArgumentParser
         string? config = null;
         string? planHash = null;
         var dryRun = false;
+        var sets = new List<string>();
         for (; index < args.Count; index++)
         {
             var token = args[index];
@@ -84,6 +92,9 @@ public static class AdminArgumentParser
                     break;
                 case _planHashFlag:
                     planHash = ValueOf(args, ref index, name, inline);
+                    break;
+                case _setFlag:
+                    sets.Add(SetValueOf(args, ref index, inline));
                     break;
                 case _jsonFlag:
                     RejectInline(name, inline);
@@ -106,14 +117,14 @@ public static class AdminArgumentParser
             }
 
             RejectFlag(planHash is not null, _planHashFlag, "is only for apply.");
-            return Build(AdminAction.DryRun, config, null);
+            return Build(AdminAction.DryRun, config, null, sets, environmentOverrides);
         }
 
         if (subcommand == _validateWord)
         {
             RejectFlag(dryRun, _dryRunFlag, "is not used with validate. Use setup --dry-run.");
             RejectFlag(planHash is not null, _planHashFlag, "is only for apply.");
-            return Build(AdminAction.Validate, config, null);
+            return Build(AdminAction.Validate, config, null, sets, environmentOverrides);
         }
 
         RejectFlag(dryRun, _dryRunFlag, "is not used with apply.");
@@ -127,17 +138,34 @@ public static class AdminArgumentParser
             throw new AdminUsageException(_planHashFlag, $"must be the {_planHashLength}-character hex hash that the dry run printed.");
         }
 
-        return Build(AdminAction.Apply, config, planHash);
+        return Build(AdminAction.Apply, config, planHash, sets, environmentOverrides);
     }
 
-    private static ParsedArguments Build(AdminAction action, string? config, string? planHash)
+    private static ParsedArguments Build(AdminAction action, string? config, string? planHash, List<string> sets, bool environmentOverrides)
     {
-        if (config is null)
+        // A file is optional when some value comes from a flag or an environment variable (doc 45 section 1.5, the overlay).
+        if (config is null && sets.Count == 0 && !environmentOverrides)
         {
-            throw new AdminUsageException(_configFlag, "is required. Give the path to the setup file.");
+            throw new AdminUsageException(_configFlag, "is required unless --set or a BAZAAR__SETUP__ variable gives the values. Give the path to the setup file.");
         }
 
-        return new ParsedArguments(action, config, planHash, HelpForSetup: false);
+        return new ParsedArguments(action, config, planHash, HelpForSetup: false, sets);
+    }
+
+    /// <summary>
+    /// The value of one <c>--set</c>, from <c>=value</c> or the next token. It must hold a path and an equals sign. The text is never
+    /// echoed in an error, so a value typed in the wrong place cannot reach the output.
+    /// </summary>
+    private static string SetValueOf(IReadOnlyList<string> args, ref int index, string? inline)
+    {
+        var value = ValueOf(args, ref index, _setFlag, inline);
+        var equals = value.IndexOf('=', StringComparison.Ordinal);
+        if (equals <= 0)
+        {
+            throw new AdminUsageException(_setFlag, "must be a path and a value joined by an equals sign, for example install.companyName=Example Studio.");
+        }
+
+        return value;
     }
 
     private static bool IsHelpFlag(string token) => token is "--help" or "-h";
