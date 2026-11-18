@@ -155,7 +155,8 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
         var wrapped = await _wrapper.WrapAsync(key, associated, cancellationToken).ConfigureAwait(false);
         CryptographicOperations.ZeroMemory(key);
 
-        await _store.RotateAsync(new NewSigningKey(dekId, Scope, wrapped, _wrapper.KekId, now), now, cancellationToken).ConfigureAwait(false);
+        // When another host rotated first, the store returns its live row and our wrap is discarded; we sign with the winner's key.
+        var live = await _store.RotateAsync(new NewSigningKey(dekId, Scope, wrapped, _wrapper.KekId, now), now, cancellationToken).ConfigureAwait(false);
 
         // Live entries cached before this rotation still say "live"; drop them so the next verify sees the retirement.
         lock (_cacheLock)
@@ -166,7 +167,7 @@ public sealed class AccessTokenSigner : IAccessTokenSigner, IDisposable
             }
         }
 
-        return new SigningKeyRow(dekId, Scope, wrapped, _wrapper.KekId, now, null);
+        return live;
     }
 
     private bool IsDue(SigningKeyRow live) => live.CreatedAt.Add(TimeSpan.FromDays(_options.SigningKeyRotationDays)) <= _time.GetUtcNow();

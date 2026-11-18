@@ -34,9 +34,10 @@ public interface ISigningKeyStore
 
     /// <summary>
     /// Retires the scope's live row at <paramref name="retiredAt"/> and inserts <paramref name="newKey"/> as the new live row, in one
-    /// transaction.
+    /// transaction. If another host committed its own live row first (a lost race on the one-live rule), nothing is inserted or
+    /// retired here and the winning live row is returned instead. Returns the live row the scope holds after the call.
     /// </summary>
-    ValueTask RotateAsync(NewSigningKey newKey, DateTimeOffset retiredAt, CancellationToken cancellationToken = default);
+    ValueTask<SigningKeyRow> RotateAsync(NewSigningKey newKey, DateTimeOffset retiredAt, CancellationToken cancellationToken = default);
 
     /// <summary>Clears the wrapped key of retired rows of the scope that retired on or before <paramref name="retiredOnOrBefore"/>.</summary>
     ValueTask ClearRetiredWrapsAsync(string scope, DateTimeOffset retiredOnOrBefore, CancellationToken cancellationToken = default);

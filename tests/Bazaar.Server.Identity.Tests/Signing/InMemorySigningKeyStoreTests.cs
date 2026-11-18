@@ -54,4 +54,36 @@ public sealed class InMemorySigningKeyStoreTests
 
         Assert.Null(await store.GetLiveAsync("install", Ct));
     }
+
+    [Fact]
+    public async Task A_lost_rotation_race_returns_the_winning_live_row_and_inserts_nothing()
+    {
+        var store = new InMemorySigningKeyStore();
+        var first = Key(_t0);
+        await store.RotateAsync(first, _t0, Ct);
+        var winner = Key(_t0.AddHours(1));
+        var loser = Key(_t0.AddHours(1));
+        store.ArrangeLostRace(winner);
+
+        var returned = await store.RotateAsync(loser, _t0.AddHours(1), Ct);
+
+        Assert.Equal(winner.DekId, returned.DekId);
+        Assert.Equal(winner.DekId, (await store.GetLiveAsync("access-token", Ct))!.DekId);
+        var rows = await store.ListAsync("access-token", Ct);
+        Assert.Equal(2, rows.Count);
+        Assert.DoesNotContain(rows, r => r.DekId == loser.DekId);
+        Assert.Equal(_t0.AddHours(1), rows.Single(r => r.DekId == first.DekId).RetiredAt);
+    }
+
+    [Fact]
+    public async Task An_uncontended_rotation_returns_the_new_live_row()
+    {
+        var store = new InMemorySigningKeyStore();
+        var key = Key(_t0);
+
+        var returned = await store.RotateAsync(key, _t0, Ct);
+
+        Assert.Equal(key.DekId, returned.DekId);
+        Assert.Null(returned.RetiredAt);
+    }
 }

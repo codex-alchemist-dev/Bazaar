@@ -275,4 +275,36 @@ public sealed class AccessTokenSignerTests
 
     /// <summary>The default grace period (15 minutes lifetime plus 60 seconds skew).</summary>
     private static TimeSpan AccessTokenSigningOptions_Grace() => new AccessTokenSigningOptions().Grace;
+
+    [Fact]
+    public async Task A_lost_rotation_race_signs_with_the_live_key_the_other_host_inserted()
+    {
+        var h = Create();
+        var winnerId = Guid.NewGuid();
+        var winnerKey = RandomNumberGenerator.GetBytes(32);
+        var wrapped = await h.Wrapper.WrapAsync(winnerKey, winnerId.ToByteArray(), Ct);
+        h.Store.ArrangeLostRace(new NewSigningKey(winnerId, Scope, wrapped, h.Wrapper.KekId, h.Time.GetUtcNow()));
+        var deviceId = Guid.NewGuid();
+        var humanId = Guid.NewGuid();
+
+        var token = await h.Signer.SignAsync(deviceId, humanId, h.Time.GetUtcNow().AddMinutes(15), Ct);
+
+        Assert.Equal(winnerId.ToString("N"), token.Split('.')[1]);
+        Assert.Equal(new AccessTokenClaims(deviceId, humanId), await h.Signer.VerifyAsync(token, Ct));
+        Assert.Equal(winnerId, (await h.Store.GetLiveAsync(Scope, Ct))!.DekId);
+    }
+
+    [Fact]
+    public async Task A_lost_rotation_race_leaves_no_row_of_the_losing_signer_live()
+    {
+        var h = Create();
+        var winnerId = Guid.NewGuid();
+        var wrapped = await h.Wrapper.WrapAsync(RandomNumberGenerator.GetBytes(32), winnerId.ToByteArray(), Ct);
+        h.Store.ArrangeLostRace(new NewSigningKey(winnerId, Scope, wrapped, h.Wrapper.KekId, h.Time.GetUtcNow()));
+
+        await h.Signer.SignAsync(Guid.NewGuid(), Guid.NewGuid(), h.Time.GetUtcNow().AddMinutes(15), Ct);
+
+        var rows = await h.Store.ListAsync(Scope, Ct);
+        Assert.Equal(winnerId, Assert.Single(rows, r => r.RetiredAt is null).DekId);
+    }
 }

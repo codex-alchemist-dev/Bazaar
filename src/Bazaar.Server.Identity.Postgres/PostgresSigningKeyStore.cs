@@ -44,32 +44,55 @@ public sealed class PostgresSigningKeyStore(NpgsqlDataSource dataSource) : ISign
     }
 
     /// <inheritdoc />
-    public async ValueTask RotateAsync(NewSigningKey newKey, DateTimeOffset retiredAt, CancellationToken cancellationToken = default)
+    public async ValueTask<SigningKeyRow> RotateAsync(NewSigningKey newKey, DateTimeOffset retiredAt, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(newKey);
+        if (await TryRotateAsync(newKey, retiredAt, cancellationToken).ConfigureAwait(false))
+        {
+            return new SigningKeyRow(newKey.DekId, newKey.Scope, newKey.WrappedDek, newKey.KekId, newKey.CreatedAt, null);
+        }
+
+        // Lost race: another host committed its live row first, so our transaction rolled back. Use the row that won.
+        var winner = await GetLiveAsync(newKey.Scope, cancellationToken).ConfigureAwait(false);
+        return winner ?? throw new InvalidOperationException("A signing-key rotation lost a race, and no live key was found afterwards.");
+    }
+
+    /// <summary>
+    /// Retires and inserts in one transaction. Returns false when the insert violates the one-live index (SQLSTATE 23505): the
+    /// transaction is rolled back and nothing changed.
+    /// </summary>
+    private async ValueTask<bool> TryRotateAsync(NewSigningKey newKey, DateTimeOffset retiredAt, CancellationToken cancellationToken)
+    {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-
-        await using (var retire = new NpgsqlCommand(_retireLive, connection))
+        try
         {
-            retire.Transaction = tx;
-            retire.Parameters.Add(new NpgsqlParameter<string> { TypedValue = newKey.Scope });
-            retire.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = retiredAt });
-            await retire.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
+            await using (var retire = new NpgsqlCommand(_retireLive, connection))
+            {
+                retire.Transaction = tx;
+                retire.Parameters.Add(new NpgsqlParameter<string> { TypedValue = newKey.Scope });
+                retire.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = retiredAt });
+                await retire.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
 
-        await using (var insert = new NpgsqlCommand(_insert, connection))
+            await using (var insert = new NpgsqlCommand(_insert, connection))
+            {
+                insert.Transaction = tx;
+                insert.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = newKey.DekId });
+                insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = newKey.Scope });
+                insert.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = newKey.WrappedDek });
+                insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = newKey.KekId });
+                insert.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = newKey.CreatedAt });
+                await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
-            insert.Transaction = tx;
-            insert.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = newKey.DekId });
-            insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = newKey.Scope });
-            insert.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = newKey.WrappedDek });
-            insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = newKey.KekId });
-            insert.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = newKey.CreatedAt });
-            await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            return false;
         }
-
-        await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

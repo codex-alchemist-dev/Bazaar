@@ -81,4 +81,48 @@ public sealed class PostgresSigningKeyStoreTests
         Assert.Equal("kek-1", live.KekId);
         Assert.Null(await store.GetLiveAsync("install", Ct));
     }
+
+    [Fact]
+    public async Task A_lost_rotation_race_returns_the_live_row_the_other_host_inserted()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        await using var db = await PgTestDatabase.CreateAsync("signing", MigrateAsync, Ct);
+        var store = new PostgresSigningKeyStore(db.DataSource);
+        var first = Key(_t0);
+        await store.RotateAsync(first, _t0, Ct);
+
+        // Another host retires the live row and inserts its own, but has not committed yet.
+        var other = Key(_t0.AddHours(1));
+        await using var otherConnection = await db.DataSource.OpenConnectionAsync(Ct);
+        await using var otherTx = await otherConnection.BeginTransactionAsync(Ct);
+        await using (var retire = new NpgsqlCommand("UPDATE soul_dek SET retired_at = $2 WHERE scope = $1 AND retired_at IS NULL", otherConnection, otherTx))
+        {
+            retire.Parameters.Add(new NpgsqlParameter<string> { TypedValue = Scope });
+            retire.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = _t0.AddHours(1) });
+            await retire.ExecuteNonQueryAsync(Ct);
+        }
+
+        await using (var insert = new NpgsqlCommand(
+            "INSERT INTO soul_dek (dek_id, scope, wrapped_dek, kek_id, created_at) VALUES ($1, $2, $3, $4, $5)", otherConnection, otherTx))
+        {
+            insert.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = other.DekId });
+            insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = Scope });
+            insert.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = other.WrappedDek });
+            insert.Parameters.Add(new NpgsqlParameter<string> { TypedValue = other.KekId });
+            insert.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = other.CreatedAt });
+            await insert.ExecuteNonQueryAsync(Ct);
+        }
+
+        // Our rotation blocks on the other host's row lock; once it commits, our insert hits the one-live index.
+        var ours = Key(_t0.AddHours(1));
+        var rotating = store.RotateAsync(ours, _t0.AddHours(1), Ct).AsTask();
+        await otherTx.CommitAsync(Ct);
+        var returned = await rotating;
+
+        Assert.Equal(other.DekId, returned.DekId);
+        var rows = await store.ListAsync(Scope, Ct);
+        Assert.Equal(2, rows.Count);
+        Assert.DoesNotContain(rows, r => r.DekId == ours.DekId);
+        Assert.Equal(other.DekId, (await store.GetLiveAsync(Scope, Ct))!.DekId);
+    }
 }
