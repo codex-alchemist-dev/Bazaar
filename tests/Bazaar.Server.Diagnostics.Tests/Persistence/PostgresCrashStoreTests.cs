@@ -162,7 +162,7 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
 
         Assert.Equal(person, await directory.GetOwnerAsync(a, ct));
         Assert.Null(await directory.GetOwnerAsync(shared, ct));
-        Assert.Equal([a, b], (await directory.GetInstallsAsync(person, ct)).Order());
+        Assert.Equal(new[] { a, b }.Order(), (await directory.GetInstallsAsync(person, ct)).Order());
         Assert.Empty(await directory.GetInstallsAsync(Guid.NewGuid(), ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => directory.GetOwnerAsync(Guid.NewGuid(), ct));
     }
