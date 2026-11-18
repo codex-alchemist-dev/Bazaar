@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Bazaar.Core;
+using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
@@ -26,7 +27,8 @@ public sealed class SettingsComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton(SettingRegistry.Known);
+        // Known plus the keys of components that live outside Bazaar.Server (the offsite backup keys, doc 33), so the store can read them.
+        services.TryAddSingleton(new SettingRegistry(SettingRegistry.Known.Definitions.Concat(BackupSettings.All)));
         services.TryAddSingleton<ISettingAuditSink, AuditLogSettingSink>();
         services.TryAddSingleton<ISettingStore, NpgsqlSettingStore>();
     }
