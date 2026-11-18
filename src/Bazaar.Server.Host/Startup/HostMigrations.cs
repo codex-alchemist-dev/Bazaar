@@ -9,5 +9,8 @@ public static class HostMigrations
     /// <summary>Server and Vms migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
         new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
-        new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly));
+        new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.TimeMachine.TimeMachineComponent).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.Playtest.PlaytestComponent).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.WhatIf.WhatIfComponent).Assembly));
 }
