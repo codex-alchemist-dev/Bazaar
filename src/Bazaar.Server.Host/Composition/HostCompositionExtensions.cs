@@ -96,13 +96,12 @@ public static class HostCompositionExtensions
     public static IServiceCollection AddBazaarProviders(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<BazaarProviderOptions>().Bind(configuration.GetSection(BazaarProviderOptions.SectionName));
-        services.AddOptions<ValkeyCacheOptions>().Bind(configuration.GetSection(ValkeyCacheOptions.SectionName));
         services.TryAddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<BazaarProviderOptions>>().Value;
-            var valkey = sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
-            IReadOnlyList<ICacheProvider> caches = LinuxProviders.CacheCandidates(valkey, sp.GetService<ISecretResolver>());
+            // Cache candidates come from the registered cache modules (the Valkey component on Linux; none elsewhere).
+            IReadOnlyList<ICacheProvider> caches = [.. sp.GetServices<ICacheProvider>()];
             // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
             IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
                 ? []

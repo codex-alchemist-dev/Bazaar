@@ -1,6 +1,7 @@
+using Bazaar.Server.Providers;
 using Bazaar.Server.Secrets;
 
-namespace Bazaar.Server.Providers.Linux;
+namespace Bazaar.Server.Valkey;
 
 /// <summary>
 /// The Linux cache and presence provider on Valkey (doc 03 WP12, C07). Cache only: GC fan-out stays on Postgres NOTIFY, and the
