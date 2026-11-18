@@ -1,6 +1,6 @@
-using Bazaar.Server.Memory.Trust;
+using Bazaar.Server.Security.Quarantine;
 
-namespace Bazaar.Server.Security.Quarantine;
+namespace Bazaar.Server.Memory.Trust;
 
 /// <summary>
 /// Maps a subject's quarantine state to its memory and Vault tier (doc 08, section 5; doc 15, "Writes").

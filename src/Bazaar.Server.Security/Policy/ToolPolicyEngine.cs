@@ -3,16 +3,6 @@ using Bazaar.Server.Security.Taint;
 namespace Bazaar.Server.Security.Policy;
 
 /// <summary>
-/// Decides whether one tool call may run (doc 15, "Enforcement"). <c>ToolDispatcher</c> is the only caller; a prompt
-/// may describe these rules but never changes them.
-/// </summary>
-public interface IToolPolicyEngine
-{
-    /// <summary>Returns Allow, RequireApproval or Deny with the reason. An allowed call that has a quota counts against it.</summary>
-    PolicyDecision Evaluate(DispatchContext context);
-}
-
-/// <summary>
 /// The pure decision table for tool calls. The only side effect is counting an allowed call against its quota.
 /// Fails closed: an unknown tool, an unknown role or a malformed context is denied.
 /// </summary>

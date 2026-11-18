@@ -1,7 +1,8 @@
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Security.Quarantine;
+using Bazaar.Server.Tests.Security.Quarantine;
 
-namespace Bazaar.Server.Tests.Security.Quarantine;
+namespace Bazaar.Server.Tests.Memory.Trust;
 
 public class QuarantineTierMappingTests
 {
