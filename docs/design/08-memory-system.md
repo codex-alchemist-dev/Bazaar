@@ -148,6 +148,16 @@ memory_spool(spool_id uuid pk, agent_id uuid, payload jsonb, created_at timestam
 ```
 `memory_state` is derived from front matter and rebuilt from the repo; it is never authoritative.
 
+### 11. Vault-backed implementation (`GitMemoryVault`) [PROPOSED; implements 2, 3, 8 and doc 18 "Write path"]
+
+The module `Bazaar.Server.Memory` implements `IMemoryVault` over the Vault's git repository. It is the seam that the memory tools, the write queue and the Constellation graph sink (`MemoryGraphSink.Wrap`) bind to. It adds no spec; it follows doc 18.
+
+- **Reads.** All reads are of the main checkout's head commit through `IGitProvider` (`ReadTextAsync`, `ListFilesAsync`), so a read never sees a half-merged tree. A missing file is `null`. `FindNoteByIdAsync` resolves an id from a map of `agents/` and `shared/` notes, rebuilt when the head commit moves; files that do not parse as notes are left out. Reads are raw; callers apply `IVaultAccess`.
+- **Lexical search.** Through a seam `IMemoryLexicalIndex` (default implementation: the Vault search service, owner caller, results cut to the area prefix). It returns note paths as `RankedHit.Id`.
+- **Commit.** One batch is one commit on its own branch, then one merge (doc 18 write path 2, 3, 7): create branch `agent/memory-<agent>-<first write id>` and a worktree from head, write each item, commit with `MemoryCommitMessage` (trailers `Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`, ...), and submit through `IVaultWriter` with a per-agent document id so one agent's batches queue one at a time. A batch may write only under `agents/<batch agent>/memory/`; any other path fails the whole batch before anything is written. `Merged` and `UpToDate` return `Success(newCommit)`. `Conflicted` and `Refused` return `Failure(reason)`, keep the branch, and leave the writes queued and spooled (doc 08 section 3). The worktree directory is always removed and stale worktrees are pruned.
+- **Author.** The commit author comes from an operator-supplied function per agent id (doc 18 "Commit attribution": the agent's App identity, format unverified). There is no default identity or domain.
+- **Not here.** Personal-data encryption and crypto-erase (section 9, OPEN), embeddings, and the Hive and Company areas.
+
 ### Settings [PROPOSED; registry in doc 03]
 
 Every change writes an `audit_log` entry (doc 15). Settings never loosen the fixed floors, which are not settings: only humans promote T1 to T2 and T2 to T3 (votes and reviews cannot); peers never read private paths; the excluded Hive classes (preferences, reputation, private memory, GC text, credentials, subject-tagged items, T0 and T1) stay excluded; there is no hard-delete tool and decay never deletes; failure and T3 decay floors apply.
