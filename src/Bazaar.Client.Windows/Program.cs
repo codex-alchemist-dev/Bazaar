@@ -12,11 +12,11 @@ using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Preload;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
 
@@ -63,9 +63,7 @@ internal static class Program
         }
 
         var chatSettings = ChatSettings(args);
-        GcChatSession? chat = null;
-        Control? chatContent = null;
-        using var chatStop = new CancellationTokenSource();
+        ChatHost? chat = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
@@ -95,14 +93,10 @@ internal static class Program
         {
             if (chatSettings is not null)
             {
-                chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
-                chatContent = ChatViewFactory.Instance.Create(new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action)));
-                _ = chat.StartAsync(chatStop.Token).ContinueWith(
-                    task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
-                    TaskContinuationOptions.OnlyOnFaulted);
+                chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
             }
 
-            var window = chatContent is null ? new MainWindow() : new MainWindow(chatContent);
+            var window = chat is null ? new MainWindow() : new MainWindow(chat.View);
             if (preloadStart)
             {
                 // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).
@@ -122,7 +116,6 @@ internal static class Program
         }
         finally
         {
-            chatStop.Cancel();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             listenerStop.Cancel();
         }
