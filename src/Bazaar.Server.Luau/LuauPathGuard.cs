@@ -51,7 +51,8 @@ internal static class LuauPathGuard
                 throw new LuauRequestRejectedException($"Luau check file '{candidate}' does not exist under the project root.");
             }
 
-            string rel = Path.GetRelativePath(fullRoot, full);
+            // Forward slashes on every host: stable arguments for the tools and stable file names in diagnostics.
+            string rel = Path.GetRelativePath(fullRoot, full).Replace(Path.DirectorySeparatorChar, '/');
             if (!relative.Contains(rel, StringComparer.Ordinal))
             {
                 relative.Add(rel);
