@@ -1,6 +1,6 @@
 using Bazaar.Server.Coding.Checks;
 
-namespace Bazaar.Server.Tests.Coding.Checks;
+namespace Bazaar.Server.Coding.Tests.Checks;
 
 /// <summary>Test-count gate (doc 17, Verification step 2): the head count may not drop below base minus tolerance.</summary>
 public sealed class TestCountGateTests

@@ -1,6 +1,6 @@
 using Bazaar.Server.Coding.Checks;
 
-namespace Bazaar.Server.Tests.Coding.Checks;
+namespace Bazaar.Server.Coding.Tests.Checks;
 
 /// <summary>Test-file flag (doc 17, Verification step 3): any changed test path needs a named reviewer.</summary>
 public sealed class TestFileChangeFlaggerTests
