@@ -73,6 +73,9 @@ Read before adding the module: the GC log writer already dedupes on a client mes
 4. Persistent merge-state stores must apply the claim of a `WriteId` and the state change in one transaction, and the host must serialize merges per `Target` (the Kanban edge cycle check relies on it). The in-memory states in step 1 are for tests and dev only.
 5. Where a held safety preference stores its value until review. PROPOSED: in the review item.
 6. Kanban Blocked recompute is delegated to the transition checker supplied by the Kanban module.
+7. Queue integrity limits: dropping whole records from the file end, or deleting the file, is not detectable without an anchor outside the file. PROPOSED: store the acked sequence and record count in platform key storage next to the key. A torn tail after a crash refuses to open (fail closed) until a repair step is designed; PROPOSED: a documented repair that truncates to the last valid record after owner confirmation in the client.
+8. `ModuleUnavailable` outcomes: the client keeps those writes queued and shows them as waiting for module (this matches section 2). The first implementation acks them per the server's `AckedSequence`; follow-up before heads ship.
+9. A queue directory is single-process. PROPOSED: an exclusive file lock.
 
 ## 9. Build state
 
