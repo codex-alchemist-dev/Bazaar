@@ -805,7 +805,6 @@ src/Bazaar.Server/Settings/NpgsqlSettingStore.cs
 src/Bazaar.Server/Settings/PostgresSettingAuditSink.cs
 src/Bazaar.Server/Settings/SecurityFloors.cs
 src/Bazaar.Server/Settings/SecuritySettings.cs
-src/Bazaar.Server/Settings/SettingRegistry.cs
 src/Bazaar.Server/Settings/SettingWriteResult.cs
 src/Bazaar.Server/Setup/SecretReferences.cs
 src/Bazaar.Server/Setup/SetupChangePlanner.cs
