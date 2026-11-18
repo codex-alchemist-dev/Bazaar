@@ -14,4 +14,14 @@ public sealed class HostMigrationsTests
         var files = source.Load("council");
         Assert.Contains(files, f => f.Version == 1 && f.Name == "council");
     }
+
+    [Fact]
+    public void Mail_namespace_is_read_from_the_mail_module_at_version_21()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("mail", source.Namespaces());
+        var files = source.Load("mail");
+        Assert.Contains(files, f => f.Version == 21 && f.Name == "mail_core");
+    }
 }

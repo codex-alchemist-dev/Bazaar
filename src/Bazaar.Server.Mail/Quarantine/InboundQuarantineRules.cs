@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Bazaar.Server.Email.Quarantine;
+namespace Bazaar.Server.Mail.Quarantine;
 
 /// <summary>One attachment as parsed from a message.</summary>
 /// <param name="FileName">The attachment's file name as sent.</param>
