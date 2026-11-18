@@ -25,18 +25,34 @@ public class ImportStagingTests
     }
 
     [Fact]
-    public void Default_retention_is_zero_so_staging_is_due_at_verification()
+    public void Default_and_minimum_retention_is_72_hours()
     {
-        Assert.Equal(0, StagingRetention.Default.Hours);
-        Assert.True(StagingRetention.Default.IsDue(_t0, _t0));
+        Assert.Equal(72, StagingRetention.Default.Hours);
+        Assert.False(StagingRetention.Default.IsDue(_t0, _t0.AddHours(71)));
+        Assert.True(StagingRetention.Default.IsDue(_t0, _t0.AddHours(72)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new StagingRetention(71));
     }
 
     [Fact]
-    public void Retention_above_72_hours_needs_owner_approval()
+    public async Task Longer_retention_is_an_audited_admin_change()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new StagingRetention(73));
-        Assert.Equal(96, new StagingRetention(96, ownerApprovedLonger: true).Hours);
-        Assert.Throws<ArgumentOutOfRangeException>(() => new StagingRetention(-1));
+        var audit = new InMemoryAuditSink();
+        var longer = await StagingRetention.Default.ChangeAsync(168, "admin-1", audit, TimeProvider.System, CancellationToken.None);
+
+        Assert.Equal(168, longer.Hours);
+        var entry = Assert.Single(audit.Records);
+        Assert.Equal(StagingRetention.ChangeAuditKind, entry.Kind);
+        Assert.Equal("admin-1", entry.JobId);
+        Assert.Equal("72->168", entry.ContentHash);
+    }
+
+    [Fact]
+    public async Task A_failed_audit_leaves_the_setting_unchanged()
+    {
+        var audit = new InMemoryAuditSink { FailAppends = true };
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            StagingRetention.Default.ChangeAsync(168, "admin-1", audit, TimeProvider.System, CancellationToken.None));
+        Assert.Equal(72, StagingRetention.Default.Hours);
     }
 
     [Fact]
@@ -45,7 +61,7 @@ public class ImportStagingTests
         var store = new FakeStore(("old", _t0), ("new", _t0.AddHours(60)), ("bad", _t0)) { FailFor = "bad" };
         var clock = new FixedClock(_t0.AddHours(80));
 
-        var deleted = await ImportStagingSweeper.SweepAsync(store, new StagingRetention(72), clock, CancellationToken.None);
+        var deleted = await ImportStagingSweeper.SweepAsync(store, StagingRetention.Default, clock, CancellationToken.None);
 
         Assert.Equal(["old"], deleted);
         Assert.Equal(["old"], store.Deleted);

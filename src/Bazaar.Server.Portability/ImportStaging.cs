@@ -1,26 +1,25 @@
 namespace Bazaar.Server.Portability;
 
 /// <summary>
-/// Staging retention setting (doc 44 section 8.6). Zero means staging is deleted when the job commits and verifies.
-/// A longer period is allowed up to <see cref="MaxWithoutApprovalHours"/>; anything longer needs the owner's approval,
-/// because staging holds plaintext personal content. The doc says "floor"; this reads it as the protective ceiling.
+/// Staging retention setting (doc 44 section 8.6). The minimum and the default are 72 hours, because staging holds
+/// plaintext personal content and is kept until it is safe to delete. A longer period is an admin setting, and every
+/// change is audited through <see cref="ChangeAsync"/>. This reads the doc's "default 0, floor 72" as one rule: 72 hours.
 /// </summary>
 public sealed record StagingRetention
 {
-    /// <summary>Longest retention allowed without the owner's approval.</summary>
-    public const int MaxWithoutApprovalHours = 72;
+    /// <summary>The shortest retention, and the default.</summary>
+    public const int MinimumHours = 72;
 
-    public StagingRetention(int hours, bool ownerApprovedLonger = false)
+    /// <summary>The audit kind written when the setting changes.</summary>
+    public const string ChangeAuditKind = "portability.import.staging_retention_changed";
+
+    public StagingRetention(int hours)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(hours);
-        if (hours > MaxWithoutApprovalHours && !ownerApprovedLonger)
-        {
-            throw new ArgumentOutOfRangeException(nameof(hours), "retention above 72 hours needs the owner's approval");
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThan(hours, MinimumHours);
         Hours = hours;
     }
 
-    public static StagingRetention Default { get; } = new(0);
+    public static StagingRetention Default { get; } = new(MinimumHours);
 
     public int Hours { get; }
 
@@ -28,6 +27,19 @@ public sealed record StagingRetention
     public DateTimeOffset DeleteAfter(DateTimeOffset verifiedAt) => verifiedAt.AddHours(Hours);
 
     public bool IsDue(DateTimeOffset verifiedAt, DateTimeOffset now) => now >= DeleteAfter(verifiedAt);
+
+    /// <summary>Applies a new retention and audits the change. The audit entry is written first; if it fails nothing changes.</summary>
+    public async Task<StagingRetention> ChangeAsync(int newHours, string actor, IAuditSink audit, TimeProvider now, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(actor);
+        ArgumentNullException.ThrowIfNull(audit);
+        ArgumentNullException.ThrowIfNull(now);
+
+        var next = new StagingRetention(newHours);
+        var detail = Hours.ToString(System.Globalization.CultureInfo.InvariantCulture) + "->" + newHours.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        await audit.AppendAsync(new ImportAuditRecord(ChangeAuditKind, actor, 1, 1, detail, now.GetUtcNow()), ct);
+        return next;
+    }
 }
 
 /// <summary>Staging area for uploaded sources and parse output.</summary>

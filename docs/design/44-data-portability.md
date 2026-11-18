@@ -310,7 +310,7 @@ Re-importing the same source must not create duplicates.
 - Default: staging is deleted when the job commits and verifies. The job keeps the source manifest, hashes and counts.
 - `portability.import.staging_retention_hours`, default 0. The floor is 72 hours unless the owner approves a longer period, because staging holds plaintext personal content.
 
-**Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention above 72 hours is refused without the owner's approval (the doc's word "floor" is read as this protective ceiling; confirm).
+**Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention defaults to and may not go below 72 hours (the doc's "default 0, floor 72" is read as 72 hours); a longer period is an admin setting and each change is audited as `portability.import.staging_retention_changed`.
 
 ### 8.7 Large dumps
 
