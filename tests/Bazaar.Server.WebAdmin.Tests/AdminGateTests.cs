@@ -59,7 +59,7 @@ public sealed class AdminGateTests
 
         Assert.Equal(AdminDecision.Forbidden, access.Decision);
         var entry = Assert.Single(audit.Entries);
-        Assert.Equal("webadmin.denied", entry.Kind);
+        Assert.Equal("admin.web.denied", entry.Kind);
         Assert.Contains("/admin/modules", entry.Payload);
     }
 
@@ -74,6 +74,16 @@ public sealed class AdminGateTests
         Assert.Equal(AdminDecision.Forbidden, (await gate.CheckAsync(new DefaultHttpContext(), AdminArea.Modules, Ct)).Decision);
     }
 
+    [Fact]
+    public async Task Kodo_and_audit_areas_use_their_own_view_capabilities()
+    {
+        var gate = Gate(Human(), new RecordingAudit(), "kodo.view.status");
+
+        Assert.Equal(AdminDecision.Allowed, (await gate.CheckAsync(new DefaultHttpContext(), AdminArea.Kodo, Ct)).Decision);
+        Assert.Equal(AdminDecision.Allowed, (await gate.CheckAsync(new DefaultHttpContext(), AdminArea.Overview, Ct)).Decision);
+        Assert.Equal(AdminDecision.Forbidden, (await gate.CheckAsync(new DefaultHttpContext(), AdminArea.Audit, Ct)).Decision);
+    }
+
     [Theory]
     [InlineData(PrincipalKind.Agent)]
     [InlineData(PrincipalKind.Service)]
@@ -86,10 +96,10 @@ public sealed class AdminGateTests
     }
 
     [Fact]
-    public void Every_area_maps_to_admin_capabilities_only()
+    public void Every_area_maps_to_admin_or_kodo_view_capabilities_only()
     {
         foreach (var area in Enum.GetValues<AdminArea>())
-            Assert.All(AdminGate.CapabilitiesFor(area), c => Assert.True(c.IsAdmin));
+            Assert.All(AdminGate.CapabilitiesFor(area), c => Assert.True(c.IsAdmin || c.Value.StartsWith("kodo.view.", StringComparison.Ordinal)));
     }
 
     [Fact]

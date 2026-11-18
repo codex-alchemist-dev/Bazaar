@@ -9,15 +9,18 @@ namespace Bazaar.Server.WebAdmin;
 /// <summary>
 /// Doc 51 section 2. No session gives <see cref="AdminDecision.Unauthenticated"/>. A session whose principal lacks the area's
 /// capability at instance scope, or is not a human, gives <see cref="AdminDecision.Forbidden"/> and is audited
-/// (<c>webadmin.denied</c>). A missing session is not audited, so unauthenticated traffic cannot flood the log.
+/// (<c>admin.web.denied</c>). A missing session is not audited, so unauthenticated traffic cannot flood the log.
 /// </summary>
 public sealed class AdminGate(IAdminSessionReader reader, IPermissionChecker checker, IAuditLog audit, TimeProvider clock) : IAdminGate
 {
     private static readonly Capability[] _anyAdmin =
     [
         Capabilities.AdminMembers, Capabilities.AdminDevices, Capabilities.AdminPrivacy,
-        Capabilities.AdminBackups, Capabilities.AdminModules, Capabilities.AdminRoles,
+        Capabilities.AdminBackups, Capabilities.AdminModules, Capabilities.AdminRoles, KodoViewStatus,
     ];
+
+    private static readonly Capability KodoViewStatus = new("kodo.view.status");
+    private static readonly Capability KodoViewAudit = new("kodo.view.audit");
 
     public static IReadOnlyList<Capability> CapabilitiesFor(AdminArea area) => area switch
     {
@@ -27,6 +30,8 @@ public sealed class AdminGate(IAdminSessionReader reader, IPermissionChecker che
         AdminArea.Privacy => [Capabilities.AdminPrivacy],
         AdminArea.Backups => [Capabilities.AdminBackups],
         AdminArea.Modules => [Capabilities.AdminModules],
+        AdminArea.Kodo => [KodoViewStatus],
+        AdminArea.Audit => [KodoViewAudit],
         AdminArea.Roles => [Capabilities.AdminRoles],
         _ => throw new ArgumentOutOfRangeException(nameof(area)),
     };
@@ -71,6 +76,6 @@ public sealed class AdminGate(IAdminSessionReader reader, IPermissionChecker che
         }
 
         return audit.AppendAsync(
-            new AuditEntry(clock.GetUtcNow(), session.PrincipalId.ToString("D"), "webadmin.denied", Encoding.UTF8.GetString(stream.ToArray())), ct);
+            new AuditEntry(clock.GetUtcNow(), session.PrincipalId.ToString("D"), "admin.web.denied", Encoding.UTF8.GetString(stream.ToArray())), ct);
     }
 }
