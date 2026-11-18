@@ -20,7 +20,7 @@ public sealed record GitSolarListItem(string Sha, string ShortSha, string Subjec
 
 /// <summary>
 /// The Git Solar System pane (pane kind <see cref="PaneKinds.GitSolarSystem"/>, doc 19). Model:
-/// <c>{ "repository": "owner/repo" }</c>. A missing or empty repository raises <see cref="PaneModelException"/>.
+/// <c>{ "repository": "provider/owner/repo" }</c>. A missing or empty repository raises <see cref="PaneModelException"/>.
 /// </summary>
 /// <remarks>
 /// The pane consumes <see cref="IGitSolarSource.UpdatesAsync"/> and applies each update through <see cref="IGitSolarModel"/>.
