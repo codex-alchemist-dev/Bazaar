@@ -11,6 +11,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
