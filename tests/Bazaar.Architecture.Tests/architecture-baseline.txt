@@ -538,12 +538,6 @@ src/Bazaar.Server/Identity/Totp/Base32.cs
 src/Bazaar.Server/Identity/Totp/TotpAccessPolicy.cs
 src/Bazaar.Server/Identity/Totp/TotpAlgorithm.cs
 src/Bazaar.Server/Identity/Totp/TotpGenerator.cs
-src/Bazaar.Server/Interrupts/IInterruptStackService.cs
-src/Bazaar.Server/Interrupts/InterruptModels.cs
-src/Bazaar.Server/Interrupts/InterruptReasonCipher.cs
-src/Bazaar.Server/Interrupts/InterruptStackExceptions.cs
-src/Bazaar.Server/Interrupts/InterruptStackService.cs
-src/Bazaar.Server/Interrupts/InterruptWakePolicy.cs
 src/Bazaar.Server/Jobs/IJobHandler.cs
 src/Bazaar.Server/Jobs/JobPoller.cs
 src/Bazaar.Server/Jobs/JobPollerOptions.cs

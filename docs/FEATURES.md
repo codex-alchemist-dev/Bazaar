@@ -32,7 +32,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Bazaar.Contracts | Shared wire and contract types for client and server. AGPL-3.0 (owner card, 2026-11-13). | Shipped | `src/Bazaar.Contracts` |
 | Company Constitution | The `/company` docs: culture, principles, mission and decision records that every Soul onboards with. | Planned (v1 scope). No text drafted yet. | `docs/design/24` §1 |
 | Org Chart | Relationship structure for the company, not a rigid hierarchy. | Partial (`src/Bazaar.Server/Org`) | `docs/design/24` §2 |
-| Interrupt System | A formal interrupt and resume stack for work. | Partial (`src/Bazaar.Server/Interrupts`; stack service merged) | `docs/design/24` §3 |
+| Interrupt System | A formal interrupt and resume stack for work. | Partial (`src/Bazaar.Server.Interrupts`; stack service merged) | `docs/design/24` §3 |
 | Company Calendar | Internal planning, release and vacation calendar. | Partial (`src/Bazaar.Server/Calendar`) | `docs/design/24` §4 |
 | Company Memory | Institutional memory and decision chains, kept in the Vault (`company/memory/`). | Planned (v1 scope) | `docs/design/08` §6, `docs/design/25` |
 | Health System | Per-project tech debt, morale and coverage metrics. | Planned (v1 scope) | `docs/design/25` |
@@ -68,7 +68,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Talent Pool | A library of reusable subagent templates. Hiring runs as a Council vote. | Planned. Blocked on a Council motion-class follow-up (C32). | `docs/design/25`, `docs/design/10` |
 | Genetic Memory Transfer | Temporary subagents pass candidate lessons back before they end. Candidates need review before entering a Soul. | Planned | `docs/design/07`, `docs/design/25` |
 | Council | Whole-team voting and debate. Votes are independent first, then revealed together. Ties go to the owner. | Partial (`src/Bazaar.Server/Council`: lifecycle, tally, eligibility, pilot) | `docs/design/10` |
-| Reputation | Scores that combine peer review with hard outcomes (CI, reverts, owner accept or reject). | Partial (`src/Bazaar.Server/Reputation`; weights OPEN) | `docs/design/11` |
+| Reputation | Scores that combine peer review with hard outcomes (CI, reverts, owner accept or reject). | Partial (`src/Bazaar.Server.Reputation`; weights OPEN) | `docs/design/11` |
 | Psych Ward (The Asylum) | The recovery workflow for stuck or spiralling agents. Loop-guard trips go there, including RyuseiFuda event-fire guard trips (#469). | Partial (`src/Bazaar.Server.Components.Fun`; workflow semi-serious and PROPOSED) | `docs/design/26` §1, `docs/design/06` |
 | Vent post | A mandatory, public reflective post after a failure. | Partial (`Fun/Vent`) | `docs/design/26` §2 |
 | Loop guards | Server-side counters that stop agents looping, tripping into the Psych Ward. | Partial (`src/Bazaar.Server/Agents/LoopGuard`; RyuseiFuda chain-depth and single-flight guards, #467) | `docs/design/06`, `docs/design/09` |
