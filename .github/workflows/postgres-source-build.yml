@@ -1,0 +1,194 @@
+# Source-compile pipeline for the packaged PostgreSQL bundle (doc 42 section 14.1, Q1 path a).
+# Builds PostgreSQL from the pins in packaging/postgres/source/sources.txt, builds pgvector against it, checks the bundle
+# layout and hashes, and runs a throwaway cluster on Linux (never a shared or system database).
+#
+# Line 18 jobs are required. The line 19 jobs use a release-candidate pin and are informational (continue-on-error)
+# until PostgreSQL 19 is GA and the pgvector build against it passes. The research note marks pgvector on 19 as
+# unverified; a passing 19 job is the gate for shipping a 19 bundle.
+#
+# Pins: every third-party action is pinned to a full commit SHA, the same pins as postgres-bundle.yml.
+
+name: PostgreSQL source build
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/postgres/**'
+      - '.github/workflows/postgres-source-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/postgres/**'
+      - '.github/workflows/postgres-source-build.yml'
+  workflow_dispatch:
+    inputs:
+      release_key_id:
+        description: 'Publisher key id the bundle is signed under (doc 48 section 1). Required, no default.'
+        required: true
+      release_publisher_id:
+        description: 'Publisher id registered with the key in the server trust store (doc 48 section 1). Required, no default.'
+        required: true
+      release_public_key_path:
+        description: 'Repository path of the public key the signature is verified with. Not a secret. Required, no default.'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux source build, layout, throwaway cluster (PostgreSQL ${{ matrix.major }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: ${{ matrix.major == '19' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        major: ['18', '19']
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bison flex libssl-dev zlib1g-dev pkg-config postgresql-client
+
+      - name: Build PostgreSQL and pgvector from source
+        run: |
+          packaging/postgres/source/build-from-source.sh --major "${{ matrix.major }}" \
+            --out "$RUNNER_TEMP/pg-src-bundle" --work "$RUNNER_TEMP/pg-src-work"
+
+      - name: Check the bundle layout, manifest and hashes
+        run: |
+          packaging/postgres/source/test-source-bundle.sh --bundle "$RUNNER_TEMP/pg-src-bundle/${{ matrix.major }}" \
+            --major "${{ matrix.major }}" --platform linux
+
+      - name: Start a throwaway cluster, create pgvector, run a halfvec query
+        run: packaging/postgres/source/smoke-throwaway-cluster.sh --bundle "$RUNNER_TEMP/pg-src-bundle/${{ matrix.major }}"
+
+      - name: Upload the bundle and its hashes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pg-src-bundle-linux-${{ matrix.major }}
+          path: ${{ runner.temp }}/pg-src-bundle/${{ matrix.major }}
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows source build and layout (PostgreSQL ${{ matrix.major }})
+    runs-on: windows-latest
+    timeout-minutes: 90
+    continue-on-error: ${{ matrix.major == '19' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        major: ['18', '19']
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load the MSVC build environment
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vcvars = & $vswhere -latest -products * -find 'VC\Auxiliary\Build\vcvars64.bat' | Select-Object -First 1
+          if (-not $vcvars) { throw 'vcvars64.bat not found' }
+          # Import the environment that vcvars64 sets (cl.exe, nmake, INCLUDE, LIB) into later steps.
+          cmd /c "`"$vcvars`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])" }
+          }
+
+      - name: Install flex and bison for Windows (win_flex, win_bison), pinned and checksum-verified
+        shell: pwsh
+        env:
+          # winflexbison3 2.5.24.20210105 from the Chocolatey feed. SHA-512 is the feed's PackageHash (base64).
+          WINFLEXBISON_VERSION: '2.5.24.20210105'
+          WINFLEXBISON_SHA512_BASE64: 'np0yvphgaNeVRLXH2lhKBaDi5MsIjmKhEQ2toV2tGCHzPb9eufl8U99GgLQzqtbo5WPuMBb/FOcNOU4iOak7Bw=='
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'winflexbison-pkg'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $nupkg = Join-Path $dir "winflexbison3.$env:WINFLEXBISON_VERSION.nupkg"
+          Invoke-WebRequest -Uri "https://community.chocolatey.org/api/v2/package/winflexbison3/$env:WINFLEXBISON_VERSION" -OutFile $nupkg -UseBasicParsing
+          $actual = [Convert]::ToBase64String([Security.Cryptography.SHA512]::HashData([IO.File]::ReadAllBytes($nupkg)))
+          if ($actual -ne $env:WINFLEXBISON_SHA512_BASE64) { throw "winflexbison3 SHA-512 mismatch: expected $env:WINFLEXBISON_SHA512_BASE64, got $actual" }
+          Write-Host 'winflexbison3 SHA-512 verified.'
+          choco install winflexbison3 --version $env:WINFLEXBISON_VERSION --source $dir --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "choco install winflexbison3 failed ($LASTEXITCODE)" }
+
+      - name: Install Meson and Ninja
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check meson ninja
+
+      - name: Build PostgreSQL and pgvector from source
+        shell: pwsh
+        run: ./packaging/postgres/source/build-from-source-windows.ps1 -Major "${{ matrix.major }}" -OutDir "$env:RUNNER_TEMP\pg-src-bundle" -Work "$env:RUNNER_TEMP\pg-src-work"
+
+      - name: Check the bundle layout, manifest and hashes
+        shell: bash
+        run: |
+          packaging/postgres/source/test-source-bundle.sh --bundle "$RUNNER_TEMP/pg-src-bundle/${{ matrix.major }}" \
+            --major "${{ matrix.major }}" --platform windows
+
+      - name: Upload the bundle and its hashes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pg-src-bundle-windows-${{ matrix.major }}
+          path: ${{ runner.temp }}\pg-src-bundle\${{ matrix.major }}
+          if-no-files-found: error
+          retention-days: 14
+
+  sign-linux-18:
+    # Release signing (doc 49 section 3). Runs only on a manual dispatch from the release environment, never on a pull
+    # request, because a pull request could read the release secret. The key comes from the environment secret and is
+    # written to a file that is removed when the job ends. Publisher and key id are inputs, so they stay configurable.
+    name: Sign the Linux PostgreSQL 18 bundle (release only)
+    if: github.event_name == 'workflow_dispatch'
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    env:
+      RELEASE_KEY_PEM: ${{ secrets.BAZAAR_RELEASE_SIGNING_KEY_PEM }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Fetch the bundle built by the Linux job
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4.3.0
+        with:
+          name: pg-src-bundle-linux-18
+          path: ${{ runner.temp }}/pg-src-bundle/18
+
+      - name: Check the bundle before signing
+        run: packaging/postgres/source/test-source-bundle.sh --bundle "$RUNNER_TEMP/pg-src-bundle/18" --major 18 --platform linux
+
+      - name: Sign the bundle as a module package
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/release-signing-key.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$RELEASE_KEY_PEM" > "$key"
+          chmod 600 "$key"
+          dotnet run packaging/postgres/source/SignBundle.cs -- sign \
+            --bundle "$RUNNER_TEMP/pg-src-bundle/18" --module-id postgresql --version 18.7.0 \
+            --permission fs.dataRoot --key-id "${{ inputs.release_key_id }}" \
+            --private-key "$key" --out "$RUNNER_TEMP/pg-src-bundle/18.package.json"
+          dotnet run packaging/postgres/source/SignBundle.cs -- verify \
+            --package "$RUNNER_TEMP/pg-src-bundle/18.package.json" --public-key "${{ inputs.release_public_key_path }}" \
+            --key-id "${{ inputs.release_key_id }}" --publisher-id "${{ inputs.release_publisher_id }}" --bundle "$RUNNER_TEMP/pg-src-bundle/18"
