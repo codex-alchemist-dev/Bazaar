@@ -4,11 +4,13 @@ Status: DECIDED for scope (owner decision card, 2026-11-19 02:13 Manila, option 
 Depends on: 03 (host, `bazaar-admin`), 45 (setup wizard, sections 1.1, 1.9, 1.12), 46 (Kodo, section 14), 51 (web admin ports), 32 (roles, sign-in), 15 (approvals, audit), 41 and 55 (mnemonics, Calcinato) · Used by: CLAUDE.md, 03, 45, Bazaar.Server.md
 
 ## Purpose
-An interactive full-screen terminal app, run over SSH or on the server box. It does two jobs:
-1. **Install.** It runs the setup wizard headless, before any client exists.
-2. **Live ops.** After install it gives status, logs, Kodo health, modules, users and rebuilds.
+Two roles, one module family, both text-only because the server is headless (owner, 2026-11-19):
+1. **Installer TUI.** The server installer comes in a full-screen terminal version and a graphical (GUI) version. Both run the same setup wizard. The TUI version is for a box with no desktop and for SSH.
+2. **Resident TUI.** A separate TUI that runs 24/7 on the headless server after install: a persistent console dashboard for status, logs, Kodo health, modules, users and rebuilds. It is not only an on-demand tool.
 
-Owner's wording: "Install wizard + live ops": an interactive full-screen terminal app (run over SSH or on the box) that runs the setup wizard headless and then gives status, logs, Kodo health, modules, users and rebuilds afterwards. The owner's reason: the server must be installable headless, and it keeps running headless after install.
+Owner's wording: "Install wizard + live ops": an interactive full-screen terminal app (run over SSH or on the box) that runs the setup wizard headless and then gives status, logs, Kodo health, modules, users and rebuilds afterwards. Clarified 2026-11-19: "we'll be using TUI in installer (beside having a GUI version installer too) and separately the TUI that runs 24/7 after installation since the server itself is headless."
+
+**Gap to close first.** The docs describe no graphical server installer: doc 30 line 71 plans an MSI (WiX) for the Windows server, and doc 45 section 1.1 lists the plain wizard and the in-client wizard only. The GUI installer is the owner's stated intent, but its design (technology, platforms, who builds it) belongs to the onboarding work, not to this doc. This doc requires only that the GUI installer and the installer TUI share one wizard engine (`ISetupPrompter`), so the wizard logic exists once.
 
 ## Decided inputs
 - **A separate client module, never inside the server process.** Bazaar.Server.md section 4 and doc 03: no admin console inside the service. The TUI is `Bazaar.Client.Tui` plus `Bazaar.Client.Tui.Abstractions`, with its own manifest. It adds nothing to `Bazaar.Server` or `Bazaar.Client.Core`.
@@ -30,8 +32,8 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 ### 2. Modes
 | Mode | When | Backend |
 |---|---|---|
-| Install | No server is running yet, on the box | The setup engine in-process, same as `bazaar-admin setup`: same plan, same hash, same audit. Access rule is doc 45 section 1.9 (loopback and one-time bootstrap code). |
-| Ops | Server is running | The admin ports of doc 51. Three ways to run it (owner, 2026-11-19, "Also remote over Conduit"): on the box, over SSH to the box (then loopback), and from any machine through Conduit (doc 39), which needs remote sign-in. A non-loopback bind needs the doc 03 approval. |
+| Install (installer TUI) | No server is running yet, on the box | The setup engine in-process, same as `bazaar-admin setup`: same plan, same hash, same audit. Access rule is doc 45 section 1.9 (loopback and one-time bootstrap code). |
+| Ops (resident TUI, runs 24/7) | Server is running | The admin ports of doc 51. Three ways to run it (owner, 2026-11-19, "Also remote over Conduit"): on the box, over SSH to the box (then loopback), and from any machine through Conduit (doc 39), which needs remote sign-in. A non-loopback bind needs the doc 03 approval. |
 
 The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
@@ -50,7 +52,8 @@ Terminals cannot do a passkey ceremony. The owner signs in locally on the box th
 **Remote sign-in over Conduit (DECIDED, owner card 2026-11-18, "Both, owner chooses per machine").** The owner's local gate does not travel, so remotely the owner (and any admin) signs in with the same single-use code from a signed-in client. A machine may also be given a device key, registered once from a signed-in client or on the box, after which sign-in from that machine is signed by the key with no code. The owner chooses per machine, and every grant and revocation is audited.
 
 ## Open questions
-None open on sign-in or scope. Open: packaging and the shape of the executable (asked on a card).
+1. **Packaging.** Whether the installer TUI and the resident TUI are one program or two, and whether a remote machine can get the resident TUI without the server bundle. Not yet asked in plain terms.
+2. **GUI installer.** Owner intent recorded; design is with the onboarding thread (see above).
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.
