@@ -1,8 +1,8 @@
+using Bazaar.Contracts.Backup;
 using Bazaar.Server.Backup.Engines;
 using Bazaar.Server.Backup.Jobs;
 using Bazaar.Server.Backup.Offsite;
 using Bazaar.Server.Backup.Retention;
-using Bazaar.Contracts.Backup;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Backup.Tests;

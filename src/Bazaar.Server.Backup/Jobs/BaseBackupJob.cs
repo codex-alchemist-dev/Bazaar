@@ -1,8 +1,8 @@
 using System.Text.Json;
+using Bazaar.Contracts.Backup;
 using Bazaar.Server.Backup.Engines;
 using Bazaar.Server.Backup.Processes;
 using Bazaar.Server.Backup.Retention;
-using Bazaar.Contracts.Backup;
 
 namespace Bazaar.Server.Backup.Jobs;
 
