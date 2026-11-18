@@ -76,9 +76,9 @@ internal static class ViewFixtures
             "icon" => Node("icon", [], ("name", Lit("check")), ("label", Lit("Done"))),
             "button" => Node("button", [], ("label", Lit("Open")), ("action", Lit("open"))),
             "input" => Node("input", [], ("label", Lit("Name")), ("value", Lit("")), ("onChange", Lit("set-name"))),
-            "list" => Node("list", [Node("text", [], ("text", Bind("title")))], ("over", Lit("items")), ("key", Lit("id"))),
+            "list" => Node("list", [Node("text", [], ("value", Bind("title")))], ("over", Lit("items")), ("key", Lit("id"))),
             "tabs" => Node("tabs", [Node("tab", [Text("page")], ("title", Lit("Tab one")))]),
-            "badge" => Node("badge", [], ("text", Lit("3")), ("variant", Lit("owner"))),
+            "badge" => Node("badge", [], ("value", Lit("3")), ("variant", Lit("owner"))),
             "divider" => Node("divider"),
             "placeholder" => Node("placeholder", [], ("message", Lit("Coming later."))),
             _ => throw new ArgumentOutOfRangeException(nameof(widget), widget, "Not one of the 13 widgets."),
@@ -95,7 +95,7 @@ internal static class ViewFixtures
         return new ViewDocument(ViewValidator.SupportedDslVersion, "bazaar.test.view", data, root, new Dictionary<string, ViewAction>());
     }
 
-    public static ViewNode Text(string text) => Node("text", [], ("text", Lit(text)));
+    public static ViewNode Text(string text) => Node("text", [], ("value", Lit(text)));
 
     public static Dictionary<string, object?> Data(params (string Name, object? Value)[] values) =>
         values.ToDictionary(v => v.Name, v => v.Value, StringComparer.Ordinal);
