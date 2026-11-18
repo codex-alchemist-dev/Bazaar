@@ -2,6 +2,7 @@ using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.Identity.Kek;
+using Bazaar.Identity.Kek.OpenBao;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
@@ -34,6 +35,7 @@ public static class HostComponents
         new AuditComponent(),
         new SettingsComponent(),
         new KekComponent(),
+        new OpenBaoKekComponent(),
         new GcComponent(),
         new CompanyComponent(),
         new FunComponent(),

@@ -32,6 +32,7 @@
     <Project Path="src/Bazaar.Server.Components.Backup/Bazaar.Server.Components.Backup.csproj" />
     <Project Path="src/Bazaar.Identity.Kek.Abstractions/Bazaar.Identity.Kek.Abstractions.csproj" />
     <Project Path="src/Bazaar.Identity.Kek/Bazaar.Identity.Kek.csproj" />
+    <Project Path="src/Bazaar.Identity.Kek.OpenBao/Bazaar.Identity.Kek.OpenBao.csproj" />
     <Project Path="src/Bazaar.Tls/Bazaar.Tls.csproj" />
     <Project Path="src/Bazaar.Secrets/Bazaar.Secrets.csproj" />
     <Project Path="src/Bazaar.Approvals/Bazaar.Approvals.csproj" />
@@ -75,6 +76,7 @@
     <Project Path="tests/Bazaar.Ex.Tests/Bazaar.Ex.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
     <Project Path="tests/Bazaar.Identity.Kek.Tests/Bazaar.Identity.Kek.Tests.csproj" />
+    <Project Path="tests/Bazaar.Identity.Kek.OpenBao.Tests/Bazaar.Identity.Kek.OpenBao.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
     <Project Path="tests/Bazaar.Secrets.Tests/Bazaar.Secrets.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />

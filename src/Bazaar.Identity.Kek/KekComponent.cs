@@ -30,11 +30,15 @@ public sealed class KekComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton<IKekProvider>(_ =>
+        services.AddSingleton<IKekProvider>(sp =>
         {
             var dataRoot = configuration[DataRootKey]
                 ?? throw new InvalidOperationException($"{DataRootKey} is required to open the KEK.");
-            return KekProviderFactory.Create(configuration[KekProviderKey], dataRoot);
+            var kind = KekProviderFactory.NormaliseKind(configuration[KekProviderKey]);
+            var plugged = sp.GetServices<IKekProviderKind>().FirstOrDefault(k => string.Equals(k.Kind, kind, StringComparison.Ordinal));
+            return plugged is not null
+                ? plugged.Create(key => configuration[key], dataRoot)
+                : KekProviderFactory.Create(kind, dataRoot);
         });
         // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
         services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));
