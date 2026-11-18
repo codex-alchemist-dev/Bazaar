@@ -89,6 +89,10 @@ Enforcement rules (all fail closed):
 
 OPEN (new, not blockers): OS provider implementations (spike per OS in `35`), the WebAssembly engine choice, the VM image (above).
 
+### Linux provider (PROPOSED)
+
+**Status: PROPOSED.** Project `Bazaar.Server.DevSandbox.Linux` implements `ISandboxConfinementProvider` for Linux with namespaces and rlimits only: util-linux `unshare` (user, net, pid, mount, ipc, uts; `--fork --kill-child --mount-proc`) wrapped by `prlimit` (address space, CPU time, process count, open files), an empty environment except PATH, an empty private working directory, and a closed stdin. It reports `Tested` only when a startup self-test proves on the host that unshare works, only loopback is visible, the module is pid 1 of its pid namespace and the memory limit is applied; otherwise it exposes an untested reason and the runner refuses (rule 6). It does not provide Landlock or seccomp, does not confine file system access, and its memory limit is an address-space limit, not a cgroup. Landlock and seccomp are a follow-up hardening step that needs a native helper, because .NET cannot run code between fork and exec.
+
 ## 3. Verified tag
 
 **Status: DECIDED.** The marketplace shows a Verified tag on a module version after automated checks, a human review and a monitored sandbox run. A later version that fails any check has its tag revoked automatically. Unverified modules can be installed with a warning.
