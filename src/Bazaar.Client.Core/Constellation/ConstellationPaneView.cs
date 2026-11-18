@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -58,6 +59,7 @@ public sealed class ConstellationPaneView : Grid
             Margin = new Thickness(8, 0, 0, 0),
             ItemsSource = AccessibleRows(),
         };
+        AutomationProperties.SetName(_list, "Graph nodes");
         _list.SelectionChanged += OnListSelectionChanged;
         Grid.SetColumn(_list, 1);
         Children.Add(_canvas);
