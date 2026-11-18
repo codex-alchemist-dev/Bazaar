@@ -148,6 +148,8 @@ Shared quota keys are owned by doc 15 and are not redefined here: `security.quot
 12. Opt-in live GitHub spike (throwaway repo). Dep: 7.
 13. Other adapters (forums, Discord, Reddit). Blocked until each platform is verified and the owner decides.
 
+Module names for WP 7 and WP 8 [PROPOSED, 2026-11-18]: WP 7 is `Bazaar.Server.Community.GitHub`. WP 8 is `Bazaar.Contracts/Community` (draft-review contracts) with `Bazaar.Client.Community` (view model) and `Bazaar.Client.Community.Avalonia` (view and `IPaneModule`). Layout and rules: doc 40, section 4b.
+
 ## Conflicts
 1. **Reply path vs taint (remaining).** Rounds 2 and 4 keep the reader/actor split in v1 and forbid an autonomous reply from the session that read the thread. Doc 15 must still specify the hand-over format and the fresh-session path. Until Q1 is confirmed, every reply is Tier 2.
 2. **GitHub reach (remaining risk).** The owner keeps fork-and-PR as decided (round 3, C13). Issue creation on uninstalled public repos and org-fork PRs remain unverified. Spike S22 runs before WP 7's fork path; fallback is installed repos only, with the owner posting drafts elsewhere.
