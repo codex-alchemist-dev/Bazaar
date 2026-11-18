@@ -4,8 +4,9 @@ namespace Bazaar.Admin;
 
 /// <summary>
 /// Decides whether <c>setup apply</c> may run the applier. The gate fails closed: when <see cref="DurableAuditStoreAvailable"/> is
-/// false, apply stops after the load, validation and hash checks, exits 2 and never calls the applier. The Host adapter supplies
-/// a gate that is open, with the real instance lock and audit log registered through <see cref="RegisterApplyServices"/>.
+/// false, apply stops after the load, validation and hash checks, exits 2 and never calls the applier. The CLI composes a Postgres-backed
+/// gate (<c>PostgresApplyGate</c>) that is open only when the audit store is reachable, with the real instance lock and audit log
+/// registered through <see cref="RegisterApplyServices"/>.
 /// </summary>
 public interface ICliApplyGate
 {

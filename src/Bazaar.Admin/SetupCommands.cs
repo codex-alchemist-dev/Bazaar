@@ -19,7 +19,7 @@ internal static class SetupCommands
 
     /// <summary>The one plain line an unavailable apply prints. It names the missing store and the adapter that provides it.</summary>
     public const string ApplyUnavailableMessage =
-        "apply is unavailable: this build has no durable audit store (doc 15 audit_log); the Host adapter provides it";
+        "apply is unavailable: no durable audit store is reachable (doc 15 audit_log); set BAZAAR__HOST__DATABASECONNECTIONREFERENCE to an env: or file: reference for a migrated database";
 
     /// <summary>The message for a hash that does not match the plan. It is the applier's own wording, so the two paths agree.</summary>
     private const string _hashMismatchMessage = "does not match the plan; run the dry run again and apply the hash it prints.";

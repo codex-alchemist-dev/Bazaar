@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bazaar.Admin.Composition;
 using Bazaar.Admin.Placeholders;
 using Bazaar.Server.Setup;
 
@@ -15,7 +16,8 @@ public static class AdminCommandLine
 
     /// <summary>
     /// Runs the command and returns its exit code (0, 1, 2 or 3, the <see cref="SetupExitCode"/> values). <paramref name="applyGate"/>
-    /// decides whether apply may run; left out, the placeholder gate is used, which is closed in this build.
+    /// decides whether apply may run; left out, the gate is built from the database connection reference in the environment
+    /// (see <see cref="PostgresApplyGate"/>) and is closed when no durable audit store is reachable.
     /// <paramref name="environment"/> supplies the <c>BAZAAR__SETUP__</c> variables; left out, the process environment is read.
     /// The wizard reads answers from <paramref name="prompter"/> (left out, the console); <c>secret set</c> reads its value from
     /// <paramref name="secretInput"/> and stores it in <paramref name="secretWriter"/>. Left out, both fail closed or read the console.
@@ -34,7 +36,6 @@ public static class AdminCommandLine
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
-        applyGate ??= new PlaceholderApplyGate();
         var variables = (environment ?? ProcessSetupEnvironment.Instance).Variables;
 
         // The JSON choice is read from the raw arguments first, so a usage error still answers a script in JSON.
@@ -57,6 +58,47 @@ public static class AdminCommandLine
             return (int)SetupExitCode.Ok;
         }
 
+        // Only the commands that apply need a gate, so only they probe the database. A gate built here is disposed here.
+        PostgresApplyGate? ownedGate = null;
+        if (applyGate is null)
+        {
+            if (parsed.Action is AdminAction.Wizard or AdminAction.Apply)
+            {
+                ownedGate = await PostgresApplyGate.FromEnvironmentAsync(variables, cancellationToken);
+                applyGate = ownedGate;
+            }
+            else
+            {
+                applyGate = PostgresApplyGate.Closed;
+            }
+        }
+
+        try
+        {
+            return await DispatchAsync(parsed, applyGate, args, json, variables, stdout, stderr, prompter, secretInput, secretWriter, cancellationToken);
+        }
+        finally
+        {
+            if (ownedGate is not null)
+            {
+                await ownedGate.DisposeAsync();
+            }
+        }
+    }
+
+    private static async Task<int> DispatchAsync(
+        ParsedArguments parsed,
+        ICliApplyGate applyGate,
+        IReadOnlyList<string> args,
+        bool json,
+        IReadOnlyDictionary<string, string?> variables,
+        TextWriter stdout,
+        TextWriter stderr,
+        ISetupPrompter? prompter,
+        ISecretValueSource? secretInput,
+        ISetupSecretWriter? secretWriter,
+        CancellationToken cancellationToken)
+    {
         if (parsed.Action == AdminAction.Wizard)
         {
             var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout), variables, applyGate);
