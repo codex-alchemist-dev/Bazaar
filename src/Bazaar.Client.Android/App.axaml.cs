@@ -62,7 +62,7 @@ public sealed class App : Avalonia.Application
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {

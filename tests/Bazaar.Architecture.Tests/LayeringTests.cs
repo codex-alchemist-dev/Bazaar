@@ -37,6 +37,7 @@ public class LayeringTests
     /// module can be built and tested without the shared UI. A project that does not exist yet is skipped.
     /// </summary>
     [Theory]
+    [InlineData("Bazaar.Client.RyuseiFuda")]
     [InlineData("Bazaar.Client.Chat")]
     [InlineData("Bazaar.Client.Constellation")]
     [InlineData("Bazaar.Client.Dashboard")]

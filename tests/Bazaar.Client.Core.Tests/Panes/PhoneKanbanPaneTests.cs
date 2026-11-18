@@ -7,6 +7,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Mobile;
+using Bazaar.Client.RyuseiFuda;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -17,7 +18,7 @@ public class PhoneKanbanPaneTests
     public void Gc_page_renders_the_empty_state_with_no_session()
     {
         var registry = Panes.TestPanes.CreateRegistry();
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => GcPaneModule.PhoneBody(kind, registry)));
         var window = new Window { Content = shell, Width = 360, Height = 740 };
         window.Show();
 
@@ -28,7 +29,7 @@ public class PhoneKanbanPaneTests
     public void Kanban_page_renders_the_board_with_no_snapshot()
     {
         var registry = Panes.TestPanes.CreateRegistry();
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry)));
         var window = new Window { Content = shell, Width = 360, Height = 740 };
         window.Show();
 
@@ -47,7 +48,7 @@ public class PhoneKanbanPaneTests
             "ownerAgentId":null,"unfinishedBlockerIds":["0196a6f0-0000-7000-8000-000000000009"],"blockerTitles":["Other"]}]}
             """);
         var registry = Panes.TestPanes.CreateRegistry();
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, model));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry, model)));
         var window = new Window { Content = shell, Width = 360, Height = 740 };
         window.Show();
 
@@ -61,7 +62,7 @@ public class PhoneKanbanPaneTests
     {
         var model = JsonElement.Parse("""{"tasks":[]}""");
         var registry = Panes.TestPanes.CreateRegistry(report: _ => { });
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, model));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry, model)));
         var window = new Window { Content = shell, Width = 360, Height = 740 };
         window.Show();
 
@@ -72,7 +73,7 @@ public class PhoneKanbanPaneTests
     public void Other_kinds_get_no_body_so_they_keep_the_placeholder()
     {
         var registry = Panes.TestPanes.CreateRegistry();
-        var bodies = FirstPartyPanes.PhonePaneBodies(registry);
+        var bodies = FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry));
 
         Assert.Null(bodies(PaneKinds.Dashboard));
     }

@@ -92,7 +92,7 @@ internal static class Program
             var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
             if (showPanes)
             {
-                window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
+                window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
 
             return window;
