@@ -1,4 +1,4 @@
-namespace Bazaar.Push.Tests;
+namespace Bazaar.Client.Push.Tests;
 
 /// <summary>A scripted FCM provider. Registration returns a fixed token and records each call.</summary>
 public sealed class FakeFcmPushProvider : IPushProvider

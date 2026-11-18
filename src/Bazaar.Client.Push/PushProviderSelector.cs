@@ -1,6 +1,6 @@
 using Bazaar.Client.Core.Mobile;
 
-namespace Bazaar.Push;
+namespace Bazaar.Client.Push;
 
 /// <summary>
 /// Picks the push provider named by <c>android.push_provider</c> (<see cref="AndroidSettings.PushProvider"/>). Each

@@ -1,6 +1,6 @@
 using Bazaar.Client.Core.Mobile;
 
-namespace Bazaar.Push.Tests;
+namespace Bazaar.Client.Push.Tests;
 
 /// <summary>The provider selector, driven by the install-scope setting <c>android.push_provider</c>.</summary>
 public sealed class PushProviderSelectorTests

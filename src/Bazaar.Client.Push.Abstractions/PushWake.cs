@@ -1,4 +1,4 @@
-namespace Bazaar.Push;
+namespace Bazaar.Client.Push;
 
 /// <summary>
 /// The wake kinds the server may send (doc 02, Android; doc 29). <see cref="Unknown"/> covers any value this build does not know.

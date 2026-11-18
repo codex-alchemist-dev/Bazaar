@@ -5,7 +5,7 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Push.Abstractions\Bazaar.Push.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Push.Abstractions\Bazaar.Client.Push.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
   </ItemGroup>
 </Project>

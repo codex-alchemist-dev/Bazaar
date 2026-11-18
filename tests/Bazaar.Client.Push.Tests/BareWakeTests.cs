@@ -1,4 +1,4 @@
-namespace Bazaar.Push.Tests;
+namespace Bazaar.Client.Push.Tests;
 
 /// <summary>Kind parsing and the bare-wake handler. Pure: fakes only, no socket, no notification service.</summary>
 public sealed class BareWakeTests

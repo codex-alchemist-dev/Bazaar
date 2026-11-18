@@ -1,4 +1,4 @@
-namespace Bazaar.Push;
+namespace Bazaar.Client.Push;
 
 /// <summary>
 /// Reads the kind token of a bare wake. The wire value is the kind alone (<c>mention</c>, <c>dm</c>, <c>owner_decision</c>,

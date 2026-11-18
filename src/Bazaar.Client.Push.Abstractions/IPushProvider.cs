@@ -1,4 +1,4 @@
-namespace Bazaar.Push;
+namespace Bazaar.Client.Push;
 
 /// <summary>
 /// A push transport for content-free wake-ups (doc 29, Background delivery). A provider carries no message content:

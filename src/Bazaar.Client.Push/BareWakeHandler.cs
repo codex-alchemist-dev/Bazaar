@@ -1,4 +1,4 @@
-namespace Bazaar.Push;
+namespace Bazaar.Client.Push;
 
 /// <summary>
 /// Turns a content-free wake into one fetch and, when the fetch found something, one local notification. The fetch is

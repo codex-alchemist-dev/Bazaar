@@ -11,6 +11,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Bazaar.Push\Bazaar.Push.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Push\Bazaar.Client.Push.csproj" />
   </ItemGroup>
 </Project>
