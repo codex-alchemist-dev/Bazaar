@@ -1,4 +1,4 @@
-using Bazaar.Erasure.Abstractions;
+using Bazaar.Server.Erasure.Abstractions;
 
 namespace Bazaar.Server.Components.Erasure;
 

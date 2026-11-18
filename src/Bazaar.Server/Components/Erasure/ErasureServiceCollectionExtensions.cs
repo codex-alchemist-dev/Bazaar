@@ -5,7 +5,7 @@ namespace Bazaar.Server.Components.Erasure;
 public static class ErasureServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the built-in key eraser (<see cref="PostgresPersonKeyEraser"/>) and <see cref="ErasureCoordinator"/>. The legal hold reader is composed by the host (Bazaar.Erasure, AddBazaarLegalHoldReader). The host
+    /// Registers the built-in key eraser (<see cref="PostgresPersonKeyEraser"/>) and <see cref="ErasureCoordinator"/>. The legal hold reader is composed by the host (Bazaar.Server.Erasure, AddBazaarLegalHoldReader). The host
     /// must register an <c>NpgsqlDataSource</c> first. Register <see cref="IErasureParticipant"/> implementations before or after
     /// this call; the coordinator runs them in the order they were registered.
     /// </summary>

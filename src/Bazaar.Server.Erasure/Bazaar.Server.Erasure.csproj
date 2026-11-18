@@ -7,6 +7,6 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Erasure.Abstractions\Bazaar.Server.Erasure.Abstractions.csproj" />
   </ItemGroup>
 </Project>
