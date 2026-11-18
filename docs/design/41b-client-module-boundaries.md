@@ -33,9 +33,9 @@ Each feature with a client surface has a separate server module and client modul
 | Constellation | `Bazaar.Server.Constellation` | `Bazaar.Client.Constellation` with `Bazaar.Client.Constellation.Abstractions` | Client panes and views. The abstractions hold the tile-source contract. |
 | Constellation renderer (shared renderer) | none | `Bazaar.Client.Constellation.Renderer` (name as the owner gave it; standalone and shared, see note) | Not part of Constellation, despite the name, which is the owner's and may be renamed. A general Vulkan renderer with a Skia fallback, used by Constellation and by other modules such as RyuseiFuda, and later other CDAX projects. Future Dep: it will become an externally imported dependency, with a Bazaar-free core and an adapter in its own repo. Other modules depend on it only through its contract. |
 | GC | `Bazaar.Server.GC` | `Bazaar.Client.Gc` | GC pane. Depends on `Bazaar.Client.Chat.Abstractions` for the chat contract. |
-| Chat | none (chat rides the GC wire) | `Bazaar.Client.Chat` with `Bazaar.Client.Chat.Abstractions` | Chat view, timeline and connection. The GC pane binds it only through the abstractions. |
-| Souls | `Bazaar.Server.Souls` | `Bazaar.Client.Souls` | Soul panes and binding views. |
-| Dashboard | none | `Bazaar.Client.Dashboard` | Start-screen dashboard pane. Reads Constellation tiles only through `Bazaar.Client.Constellation.Abstractions`. |
+| Chat | not specified here | `Bazaar.Client.Chat` with `Bazaar.Client.Chat.Abstractions` | Chat view, timeline and connection. The GC pane binds it only through the abstractions. |
+| Souls | not specified here | `Bazaar.Client.Souls` | Soul panes and binding views. |
+| Dashboard | not specified here | `Bazaar.Client.Dashboard` | Start-screen dashboard pane. Reads Constellation tiles only through `Bazaar.Client.Constellation.Abstractions`. |
 | Git | `Bazaar.Server.Git` | `Bazaar.Client.GitGui` (with `.Github`, `.Gitlab`) | Per doc 41 §4.14. |
 | Kanban (RyuseiFuda) | `Bazaar.Server.RyuseiFuda` | `Bazaar.Client.RyuseiFuda` | Dependency board views. |
 | Vault | `Bazaar.Server.Vault` | `Bazaar.Client.Vault` | Vault search pane. |
