@@ -1,7 +1,7 @@
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Eligibility;
 
-namespace Bazaar.Server.Tests.Council.Eligibility;
+namespace Bazaar.Server.Council.Tests.Eligibility;
 
 public class ExtensionRulesTests
 {

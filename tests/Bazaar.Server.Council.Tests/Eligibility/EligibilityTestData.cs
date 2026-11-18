@@ -2,7 +2,7 @@ using System.Globalization;
 using Bazaar.Server.Council.Eligibility;
 using Bazaar.Server.WorkLife;
 
-namespace Bazaar.Server.Tests.Council.Eligibility;
+namespace Bazaar.Server.Council.Tests.Eligibility;
 
 /// <summary>Shared fixtures for the Council eligibility tests: a fake schedule source and small builders.</summary>
 internal static class EligibilityTestData

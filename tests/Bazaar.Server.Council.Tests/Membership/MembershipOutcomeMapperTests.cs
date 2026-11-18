@@ -1,7 +1,7 @@
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Membership;
 
-namespace Bazaar.Server.Tests.Council.Membership;
+namespace Bazaar.Server.Council.Tests.Membership;
 
 public class MembershipOutcomeMapperTests
 {

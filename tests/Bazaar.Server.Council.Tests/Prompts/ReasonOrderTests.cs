@@ -1,6 +1,6 @@
 using Bazaar.Server.Council.Prompts;
 
-namespace Bazaar.Server.Tests.Council.Prompts;
+namespace Bazaar.Server.Council.Tests.Prompts;
 
 public class ReasonOrderTests
 {

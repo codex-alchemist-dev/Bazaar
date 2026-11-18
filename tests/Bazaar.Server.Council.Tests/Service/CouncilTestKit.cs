@@ -1,7 +1,7 @@
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Service;
 
-namespace Bazaar.Server.Tests.Council.Service;
+namespace Bazaar.Server.Council.Tests.Service;
 
 /// <summary>Clock the tests move by hand.</summary>
 internal sealed class ManualClock : TimeProvider

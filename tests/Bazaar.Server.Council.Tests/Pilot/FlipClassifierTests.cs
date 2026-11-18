@@ -2,7 +2,7 @@ using Bazaar.Server.Council;
 using Bazaar.Server.Council.Pilot;
 using Bazaar.Server.Council.Service;
 
-namespace Bazaar.Server.Tests.Council.Pilot;
+namespace Bazaar.Server.Council.Tests.Pilot;
 
 public class FlipClassifierTests
 {

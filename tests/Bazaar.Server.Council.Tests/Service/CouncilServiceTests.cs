@@ -2,7 +2,7 @@ using System.Text.Json;
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Service;
 
-namespace Bazaar.Server.Tests.Council.Service;
+namespace Bazaar.Server.Council.Tests.Service;
 
 public class CouncilServiceTests
 {

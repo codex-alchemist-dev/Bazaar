@@ -1,6 +1,6 @@
 using Bazaar.Server.Council.Pilot;
 
-namespace Bazaar.Server.Tests.Council.Pilot;
+namespace Bazaar.Server.Council.Tests.Pilot;
 
 public class PilotSettingsTests
 {

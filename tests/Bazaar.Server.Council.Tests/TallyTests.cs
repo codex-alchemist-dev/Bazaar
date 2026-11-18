@@ -1,6 +1,6 @@
 using Bazaar.Server.Council;
 
-namespace Bazaar.Server.Tests.Council;
+namespace Bazaar.Server.Council.Tests;
 
 public class TallyTests
 {

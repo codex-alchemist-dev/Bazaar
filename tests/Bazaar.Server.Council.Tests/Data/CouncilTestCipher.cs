@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Server.Council.Data;
 
-namespace Bazaar.Server.Tests.Council.Data;
+namespace Bazaar.Server.Council.Tests.Data;
 
 /// <summary>
 /// TEST FAKE for <see cref="ICouncilReasoningCipher"/>. It XORs with a random per-voter key and nonce so tests can check

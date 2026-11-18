@@ -3,7 +3,7 @@ using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Service;
 using Bazaar.Testing.Postgres;
 
-namespace Bazaar.Server.Tests.Council.Data;
+namespace Bazaar.Server.Council.Tests.Data;
 
 /// <summary>Council tables (migration council/0001) and <see cref="CouncilStore"/> on real PostgreSQL (doc 10, WP3).</summary>
 public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>

@@ -3,7 +3,7 @@ using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
-namespace Bazaar.Server.Tests.Council.Data;
+namespace Bazaar.Server.Council.Tests.Data;
 
 /// <summary>
 /// A cloned test database with the core GC schema (0001, for <c>gc</c> and the append-only trigger function) and the

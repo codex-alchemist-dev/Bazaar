@@ -1,8 +1,8 @@
 using Bazaar.Server.Council.Eligibility;
 using Bazaar.Server.WorkLife;
-using static Bazaar.Server.Tests.Council.Eligibility.EligibilityTestData;
+using static Bazaar.Server.Council.Tests.Eligibility.EligibilityTestData;
 
-namespace Bazaar.Server.Tests.Council.Eligibility;
+namespace Bazaar.Server.Council.Tests.Eligibility;
 
 public class AbsenceExclusionTests
 {
