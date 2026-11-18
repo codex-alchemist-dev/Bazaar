@@ -68,6 +68,9 @@ public sealed class WasmtimeRuntime : IWasmRuntime
     private static Config NewConfig() => new Config()
         .WithFuelConsumption(true)
         .WithEpochInterruption(true)
+        // Explicit trap checks instead of hardware faults: on Windows a signal-based trap (e.g. `unreachable`) kills the .NET
+        // host with 0xC0000409 (fail-fast) instead of surfacing as a TrapException. Costs a little speed, keeps every trap a managed exception.
+        .WithSignalsBasedTraps(false)
         .WithWasmThreads(false)
         .WithComponentModel(false);
 
