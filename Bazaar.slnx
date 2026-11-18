@@ -48,6 +48,8 @@
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
     <Project Path="src/Bazaar.Server.TimeMachine.Abstractions/Bazaar.Server.TimeMachine.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.TimeMachine/Bazaar.Server.TimeMachine.csproj" />
+    <Project Path="src/Bazaar.Server.Playtest.Abstractions/Bazaar.Server.Playtest.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Playtest/Bazaar.Server.Playtest.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.GitHub/Bazaar.GitHub.csproj" />
@@ -106,6 +108,7 @@
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.TimeMachine.Tests/Bazaar.Server.TimeMachine.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Playtest.Tests/Bazaar.Server.Playtest.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
