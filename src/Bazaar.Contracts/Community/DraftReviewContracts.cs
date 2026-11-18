@@ -52,4 +52,7 @@ public sealed record DraftReviewDecisionDto(Guid DraftId, ApprovalDecisionDto De
 [JsonSerializable(typeof(QualityGateFindingDto))]
 [JsonSerializable(typeof(DraftReviewCardDto))]
 [JsonSerializable(typeof(DraftReviewDecisionDto))]
+[JsonSerializable(typeof(CommunityLogRowDto))]
+[JsonSerializable(typeof(CommunityLogPageDto))]
+[JsonSerializable(typeof(CommunityLogQueryDto))]
 public sealed partial class CommunityContractsJsonContext : JsonSerializerContext;
