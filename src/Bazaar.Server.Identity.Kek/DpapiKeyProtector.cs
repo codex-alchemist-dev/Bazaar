@@ -1,7 +1,7 @@
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// DPAPI protection of the KEK file (doc 14: <c>dpapi</c> on a Windows host, tied to the machine). Machine scope, so the

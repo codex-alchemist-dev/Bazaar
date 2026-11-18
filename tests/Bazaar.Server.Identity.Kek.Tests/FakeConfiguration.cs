@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 
-namespace Bazaar.Identity.Kek.Tests;
+namespace Bazaar.Server.Identity.Kek.Tests;
 
 /// <summary>A flat key/value configuration for tests. Keys use the <c>:</c> separator, as configuration does.</summary>
 public sealed class FakeConfiguration(IReadOnlyDictionary<string, string?> values) : IConfiguration

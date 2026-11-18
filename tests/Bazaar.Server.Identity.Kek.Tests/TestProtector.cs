@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bazaar.Identity.Kek.Tests;
+namespace Bazaar.Server.Identity.Kek.Tests;
 
 /// <summary>
 /// Stands in for DPAPI off Windows: AES-GCM under a key fixed per instance. A blob sealed by one instance does not open under another,

@@ -1,4 +1,4 @@
-namespace Bazaar.Identity.Kek;
+namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// Protects the KEK bytes at rest with an operating-system facility. The seam keeps <see cref="DpapiKekProvider"/> testable
