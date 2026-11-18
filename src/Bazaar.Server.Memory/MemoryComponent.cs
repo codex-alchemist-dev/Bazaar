@@ -2,6 +2,7 @@ using Bazaar.Core;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
+using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Search;
 using Bazaar.Server.Vault.Writes;
@@ -96,8 +97,19 @@ public sealed class MemoryComponent : IBazaarComponent
         services.TryAddSingleton<IMemoryVault>(sp => sp.GetRequiredService<GitMemoryVault>());
 
         // Writes go to the Vault first; the graph sink then projects them when a graph store exists.
-        services.TryAddSingleton<IMemoryBatchSink>(sp => sp.GetService<IMemoryGraphStore>() is { } graph
-            ? MemoryGraphSink.Wrap(sp.GetRequiredService<IMemoryVault>(), graph, sp.GetRequiredService<ILogger<MemoryGraphSink>>())
+        // Every graph change made through the memory path is audited (doc 19) when a graph store and an audit log exist.
+        // The audited store is its own service: component start order is not guaranteed between the memory and Constellation
+        // components, so the Constellation registration of IMemoryGraphStore is left alone. Callers that roll a note back
+        // (the endpoint slice) take AuditingMemoryGraphStore so the rollback is audited too.
+        services.TryAddSingleton(sp => new AuditingMemoryGraphStore(
+            sp.GetRequiredService<IMemoryGraphStore>(),
+            sp.GetRequiredService<IAuditLog>(),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System));
+        services.TryAddSingleton<IMemoryBatchSink>(sp => sp.GetService<IMemoryGraphStore>() is { } store
+            ? MemoryGraphSink.Wrap(
+                sp.GetRequiredService<IMemoryVault>(),
+                sp.GetService<IAuditLog>() is not null ? sp.GetRequiredService<AuditingMemoryGraphStore>() : store,
+                sp.GetRequiredService<ILogger<MemoryGraphSink>>())
             : sp.GetRequiredService<IMemoryVault>());
     }
 

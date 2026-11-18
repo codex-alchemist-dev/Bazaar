@@ -3,6 +3,7 @@ using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
+using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Tests.Memory.Notes;
 using Bazaar.Server.Tests.Vault.Git;
 using Microsoft.Extensions.Configuration;
@@ -87,6 +88,20 @@ public sealed class MemoryComponentTests : IDisposable
     }
 
     [Fact]
+    public async Task With_an_audit_log_the_projected_note_is_audited()
+    {
+        var audit = new RecordingAudit();
+        using var provider = Build(new RecordingGraphStore(), audit);
+
+        var result = await provider.GetRequiredService<IMemoryBatchSink>().CommitAsync(Batch(), CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.FailureReason);
+        var entry = Assert.Single(audit.Entries);
+        Assert.Equal(AuditingMemoryGraphStore.StoredKind, entry.Kind);
+        Assert.Equal("agent:alpha", entry.Actor);
+    }
+
+    [Fact]
     public async Task Without_a_vault_id_search_has_no_candidates()
     {
         using var provider = Build(graph: null);
@@ -96,7 +111,7 @@ public sealed class MemoryComponentTests : IDisposable
         Assert.Empty(hits);
     }
 
-    private ServiceProvider Build(IMemoryGraphStore? graph)
+    private ServiceProvider Build(IMemoryGraphStore? graph, IAuditLog? audit = null)
     {
         var values = FullConfig();
         var worktrees = values[MemoryComponent.WorktreeRootKey]!;
@@ -106,6 +121,11 @@ public sealed class MemoryComponentTests : IDisposable
         if (graph is not null)
         {
             services.AddSingleton(graph);
+        }
+
+        if (audit is not null)
+        {
+            services.AddSingleton(audit);
         }
 
         new MemoryComponent().AddServices(services, Config(values));
@@ -126,6 +146,17 @@ public sealed class MemoryComponentTests : IDisposable
 
     private static MemoryBatch Batch() =>
         MemoryBatch.Create("alpha", [new MemoryWriteItem(Guid.NewGuid(), _notePath, NoteFixtures.Text(), null, null, "ok")]);
+
+    private sealed class RecordingAudit : IAuditLog
+    {
+        public List<AuditEntry> Entries { get; } = [];
+
+        public Task AppendAsync(AuditEntry e, CancellationToken ct = default)
+        {
+            Entries.Add(e);
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class RecordingGraphStore : IMemoryGraphStore
     {
