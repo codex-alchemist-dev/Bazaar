@@ -451,7 +451,6 @@ src/Bazaar.Server/Gc/Mentions/BroadcastPolicy.cs
 src/Bazaar.Server/Gc/Mentions/InboxPlanner.cs
 src/Bazaar.Server/Gc/Mentions/InboxRowWriter.cs
 src/Bazaar.Server/Gc/Mentions/MentionRecords.cs
-src/Bazaar.Server/Gc/Mentions/MentionSpan.cs
 src/Bazaar.Server/Gc/Mentions/MentionValidator.cs
 src/Bazaar.Server/Gc/Model/GcModel.cs
 src/Bazaar.Server/Gc/Provenance/DefaultGcTrustHook.cs
@@ -475,7 +474,6 @@ src/Bazaar.Server/Gc/Wire/GcWireServiceCollectionExtensions.cs
 src/Bazaar.Server/Gc/Write/CoalescingGcNotifier.cs
 src/Bazaar.Server/Gc/Write/GcLogWriter.cs
 src/Bazaar.Server/Gc/Write/GcStaleHeadException.cs
-src/Bazaar.Server/Gc/Write/IGcLogWriter.cs
 src/Bazaar.Server/GitHub/Webhooks/DeliveryDedupe.cs
 src/Bazaar.Server/GitHub/Webhooks/WebhookSignature.cs
 src/Bazaar.Server/Hosting/BazaarHostOptions.cs
@@ -974,7 +972,6 @@ src/Bazaar.Server/Wire/Sync/GcDispatcher.cs
 src/Bazaar.Server/Wire/Sync/GcDispatcherService.cs
 src/Bazaar.Server/Wire/Sync/GcSubscription.cs
 src/Bazaar.Server/Wire/Sync/IConnectionOutbound.cs
-src/Bazaar.Server/Wire/Sync/IGcStreamSource.cs
 src/Bazaar.Server/Wire/Sync/IGraphLodSource.cs
 src/Bazaar.Server/Wire/Sync/SubscriptionEngine.cs
 src/Bazaar.Server/Wire/Sync/SyncFrames.cs
