@@ -31,7 +31,7 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 | `grid` | yes | Two-dimensional grid, column count prop |
 | `scroll` | one | Scrolling region |
 | `text` | no | Text with a style token; localisation key or literal |
-| `icon` | no | Icon from a closed icon set, chosen by a required `name` prop (a name outside the set fails the node) |
+| `icon` | no | Icon from a closed icon set, chosen by a required `name` prop (a name outside the set fails the node; the validator reports `view.missing_icon_name` when it is absent) |
 | `button` | no | Calls a named action |
 | `input` | no | Text input bound to a value (write goes through an action) |
 | `list` | template | Keyed list over a data source, one item template |
