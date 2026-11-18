@@ -8,14 +8,14 @@ namespace Bazaar.Server.Playtest;
 /// <summary>Postgres store over <c>playtest_run</c> (migration 0001 in the <c>playtest</c> namespace). JSON is built by hand so the type stays AOT friendly.</summary>
 public sealed class PostgresPlaytestRunStore(NpgsqlDataSource dataSource) : IPlaytestRunStore
 {
-    private const string InsertSql = """
+    private const string _insertSql = """
         INSERT INTO playtest_run (id, engine, build_ref, mode, scenario_id, status, state_dump_hash, project_hash_before,
                                   project_hash_after, assertion_specs, timeout_seconds, assertion_results, created_at)
         VALUES (@id, @engine, @build_ref, @mode, @scenario_id, @status, @state_dump_hash, @before, @after,
                 @specs, @timeout, @results, @created_at)
         """;
 
-    private const string SelectSql = """
+    private const string _selectSql = """
         SELECT engine, build_ref, scenario_id, status, state_dump_hash, project_hash_before, project_hash_after,
                assertion_specs::text, timeout_seconds, assertion_results::text, created_at
         FROM playtest_run WHERE id = @id
@@ -24,7 +24,7 @@ public sealed class PostgresPlaytestRunStore(NpgsqlDataSource dataSource) : IPla
     public async Task SaveAsync(PlaytestResult result, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(result);
-        await using var command = dataSource.CreateCommand(InsertSql);
+        await using var command = dataSource.CreateCommand(_insertSql);
         command.Parameters.AddWithValue("id", result.RunId);
         command.Parameters.AddWithValue("engine", EngineText(result.Scenario.Engine));
         command.Parameters.AddWithValue("build_ref", result.Scenario.BuildRef);
@@ -43,7 +43,7 @@ public sealed class PostgresPlaytestRunStore(NpgsqlDataSource dataSource) : IPla
 
     public async Task<PlaytestResult?> GetAsync(Guid runId, CancellationToken cancellationToken)
     {
-        await using var command = dataSource.CreateCommand(SelectSql);
+        await using var command = dataSource.CreateCommand(_selectSql);
         command.Parameters.AddWithValue("id", runId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
