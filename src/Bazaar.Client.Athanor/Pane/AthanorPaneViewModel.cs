@@ -23,6 +23,9 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
     private readonly SaveCoordinator? _saves;
     private readonly IEditorHost? _host;
     private readonly RecordingSource? _source;
+    private readonly IEditorDraftStore? _drafts;
+    private readonly Lock _pendingGate = new();
+    private readonly Dictionary<EditorDocumentId, (EditorDocument Document, EditorDraft Draft)> _pending = [];
 
     /// <summary>Builds the empty state. Nothing can be opened.</summary>
     public AthanorPaneViewModel(string title)
@@ -40,6 +43,7 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(drafts);
 
         _host = host;
+        _drafts = drafts;
         _source = new RecordingSource(source);
         _workspace = new EditorWorkspace(host, _source);
         _saves = new SaveCoordinator(_source, drafts, clock ?? TimeProvider.System);
@@ -89,6 +93,26 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
     /// <summary>Why the last save did not reach the server (offline, source error), or null.</summary>
     public string? ActiveUnavailableReason => ActiveState?.UnavailableReason;
 
+    /// <summary>
+    /// A local draft found for the active document when it was opened, or null. The view offers it back; it stays pending
+    /// until <see cref="RestoreDraftAsync"/> or <see cref="DiscardDraftAsync"/>. Read-only documents are never offered one.
+    /// </summary>
+    public EditorDraft? PendingDraft
+    {
+        get
+        {
+            if (_workspace?.ActiveTab is not { } tab)
+            {
+                return null;
+            }
+
+            lock (_pendingGate)
+            {
+                return _pending.TryGetValue(tab.Id, out var entry) ? entry.Draft : null;
+            }
+        }
+    }
+
     /// <summary>Opens a document in a new tab, or activates it when open. False when it does not exist or cannot be shown.</summary>
     public async Task<bool> OpenAsync(EditorDocumentId id, CancellationToken cancellationToken = default)
     {
@@ -105,8 +129,40 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
         if (_saves.GetState(id) is null && _source.TryTake(id, out var document))
         {
             _saves.Track(document);
+            await OfferDraftAsync(document, cancellationToken).ConfigureAwait(true);
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Applies the pending draft to the active document: it becomes dirty with the draft's content and the draft's base
+    /// revision, so saving over a newer server revision conflicts instead of overwriting. False when nothing is pending.
+    /// </summary>
+    public async Task<bool> RestoreDraftAsync(CancellationToken cancellationToken = default)
+    {
+        if (_saves is null || _host is null || TakePending() is not var (document, draft))
+        {
+            return false;
+        }
+
+        _saves.Track(document, draft);
+        // Show the draft text in the editor surface; the coordinator already holds it as dirty content.
+        await _host.OpenAsync(document with { Content = draft.Content }, cancellationToken).ConfigureAwait(true);
+        Changed?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    /// <summary>Deletes the pending draft of the active document and keeps the server's copy. False when nothing is pending.</summary>
+    public async Task<bool> DiscardDraftAsync(CancellationToken cancellationToken = default)
+    {
+        if (_drafts is null || TakePending() is not var (_, draft))
+        {
+            return false;
+        }
+
+        await _drafts.DeleteAsync(draft.Id, cancellationToken).ConfigureAwait(true);
+        Changed?.Invoke(this, EventArgs.Empty);
         return true;
     }
 
@@ -121,6 +177,10 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
 
         await _workspace.CloseAsync(id, cancellationToken).ConfigureAwait(true);
         _saves.Untrack(id);
+        lock (_pendingGate)
+        {
+            _pending.Remove(id);
+        }
     }
 
     /// <summary>Saves the active document. Null when no document is open. A conflict stays in <see cref="ActiveConflict"/>.</summary>
@@ -157,6 +217,40 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
         _saves.StateChanged -= OnSaveStateChanged;
         _saves.Dispose();
         await _workspace.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private async Task OfferDraftAsync(EditorDocument document, CancellationToken cancellationToken)
+    {
+        if (_drafts is null || document.ReadOnly)
+        {
+            return;
+        }
+
+        var draft = await _drafts.ReadAsync(document.Id, cancellationToken).ConfigureAwait(true);
+        if (draft is null || (draft.BaseRevision == document.Revision && draft.Content == document.Content))
+        {
+            return;
+        }
+
+        lock (_pendingGate)
+        {
+            _pending[document.Id] = (document, draft);
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private (EditorDocument Document, EditorDraft Draft)? TakePending()
+    {
+        if (_workspace?.ActiveTab is not { } tab)
+        {
+            return null;
+        }
+
+        lock (_pendingGate)
+        {
+            return _pending.Remove(tab.Id, out var entry) ? entry : null;
+        }
     }
 
     private DocumentSaveState? ActiveState =>

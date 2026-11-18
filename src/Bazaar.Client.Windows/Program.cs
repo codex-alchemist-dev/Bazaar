@@ -2,6 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Drafts;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
+using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
@@ -12,6 +17,7 @@ using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Windows;
 
@@ -63,11 +69,9 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
-        var registry = FirstPartyPanes.CreateRegistry(
-            modules,
-            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            tiles: HttpConstellationTileSource.Create(ClientServer.Current));
+        var registry = CreatePaneRegistry(
+            HttpConstellationTileSource.Create(ClientServer.Current),
+            message => Console.Error.WriteLine($"Bazaar: {message}"));
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -109,6 +113,31 @@ internal static class Program
             listenerStop.Cancel();
         }
     }
+
+    /// <summary>
+    /// The pane modules the Windows head ships, in pager order. The Athanor editor is Windows-only here: Monaco and the
+    /// editor are not on Android (doc 27, doc 57).
+    /// </summary>
+    internal static IReadOnlyList<IPaneModule> PaneModules() =>
+        [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, new AthanorPaneModule()];
+
+    /// <summary>The client modules the Windows head ships (doc 41 section 8).</summary>
+    internal static IReadOnlyList<IClientModule> ClientModules() => [new AthanorClientModule()];
+
+    /// <summary>Composes the pane registry with the services the head hands the Athanor module.</summary>
+    internal static PaneRegistry CreatePaneRegistry(IConstellationTileSource? tiles, Action<string>? report)
+    {
+        // The head supplies the editor services through the context (doc 57 section 2). No server-backed file source
+        // exists yet, so the editor opens nothing and refuses saves until doc 57 section 6 lands.
+        var context = new PaneModuleContext(Tiles: tiles, Report: report)
+            .With<IEditorHost>(new PlainTextFallbackHost())
+            .With<IEditorFileSource>(new OfflineEditorFileSource())
+            .With<IEditorDraftStore>(new FileEditorDraftStore(AthanorDraftsPath(), TimeProvider.System));
+        return PaneRegistry.Compose(PaneModules(), context);
+    }
+
+    private static string AthanorDraftsPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "athanor-drafts");
 
     /// <summary>
     /// Chat settings from the environment. <c>--dev-gc</c> overrides <c>BAZAAR_GC</c> for this run. Null means no chat is configured.

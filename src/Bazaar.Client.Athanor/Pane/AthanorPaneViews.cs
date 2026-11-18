@@ -27,6 +27,14 @@ internal static class AthanorPaneViews
         var banner = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.OrangeRed };
         var keepMine = new Button { Content = "Keep mine", HorizontalAlignment = HorizontalAlignment.Left };
         keepMine.Click += (_, _) => _ = pane.KeepMineAsync();
+        var draftText = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var restore = new Button { Content = "Restore", HorizontalAlignment = HorizontalAlignment.Left };
+        AutomationProperties.SetName(restore, "Restore draft");
+        restore.Click += (_, _) => _ = pane.RestoreDraftAsync();
+        var discard = new Button { Content = "Discard", HorizontalAlignment = HorizontalAlignment.Left };
+        AutomationProperties.SetName(discard, "Discard draft");
+        discard.Click += (_, _) => _ = pane.DiscardDraftAsync();
+        var draftBanner = new StackPanel { Spacing = 4, Children = { draftText, restore, discard } };
         var save = new Button { Content = "Save", HorizontalAlignment = HorizontalAlignment.Left };
         AutomationProperties.SetName(save, "Save document");
         save.Click += (_, _) => _ = pane.SaveActiveAsync();
@@ -64,6 +72,9 @@ internal static class AthanorPaneViews
                     ? "The server has a newer revision of this document."
                     : pane.ActiveUnavailableReason is { } reason ? "Not saved: " + reason : string.Empty;
                 keepMine.IsVisible = conflict is not null;
+                var draft = pane.PendingDraft;
+                draftBanner.IsVisible = draft is not null;
+                draftText.Text = draft is null ? string.Empty : $"An unsaved draft from {draft.SavedAt.LocalDateTime:g} was found.";
             }
             finally
             {
@@ -84,7 +95,7 @@ internal static class AthanorPaneViews
         }
 
         var root = new DockPanel { LastChildFill = true };
-        var header = new StackPanel { Spacing = 4, Children = { tabs, save, banner, keepMine } };
+        var header = new StackPanel { Spacing = 4, Children = { tabs, draftBanner, save, banner, keepMine } };
         DockPanel.SetDock(header, Dock.Top);
         root.Children.Add(header);
         root.Children.Add(editor);
