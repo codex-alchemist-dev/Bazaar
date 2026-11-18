@@ -10,6 +10,7 @@
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
+    <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Michi/Bazaar.Michi.csproj" />
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
@@ -71,6 +72,7 @@
     <Project Path="tests/Bazaar.Components.ManagedPostgres.Tests/Bazaar.Components.ManagedPostgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Chat.Tests/Bazaar.Client.Components.Chat.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Launcher.Tests/Bazaar.Client.Components.Launcher.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Constellation.Tests/Bazaar.Client.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Kodo.Tests/Bazaar.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Ex.Tests/Bazaar.Ex.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
