@@ -571,7 +571,6 @@ src/Bazaar.Server/Knowledge/Metrics/MetricTypes.cs
 src/Bazaar.Server/Knowledge/Twin/TwinFact.cs
 src/Bazaar.Server/Knowledge/Twin/TwinFactExtractor.cs
 src/Bazaar.Server/Mail/MailComponent.cs
-src/Bazaar.Server/Mail/MailContracts.cs
 src/Bazaar.Server/Mail/Parsing/MailLimits.cs
 src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
 src/Bazaar.Server/Mail/Parsing/ParsedMail.cs
