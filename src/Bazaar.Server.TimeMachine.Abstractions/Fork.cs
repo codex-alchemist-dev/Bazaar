@@ -50,8 +50,8 @@ public interface IForkLinkStore
 /// </summary>
 public interface IForkTargetProvisioner
 {
-    /// <summary>Creates the target for a fork of <paramref name="sourceGcId"/> at <paramref name="effectiveSeq"/>.</summary>
-    Task<ForkTarget> ProvisionAsync(Guid sourceGcId, long effectiveSeq, GcPrincipal requester, CancellationToken ct);
+    /// <summary>Creates the target for a fork of <paramref name="sourceGcId"/> at <paramref name="effectiveSeq"/>. Must be idempotent on <paramref name="requestId"/> (the same id returns the same target).</summary>
+    Task<ForkTarget> ProvisionAsync(Guid requestId, Guid sourceGcId, long effectiveSeq, GcPrincipal requester, CancellationToken ct);
 }
 
 /// <summary>What a provisioner made.</summary>

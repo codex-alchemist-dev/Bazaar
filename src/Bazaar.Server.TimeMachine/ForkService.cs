@@ -34,7 +34,7 @@ public sealed class ForkService(
         if (existing is not null)
             return new ForkResult(existing, false);
 
-        var target = await provisioner.ProvisionAsync(request.SourceGcId, seq, request.Requester, ct).ConfigureAwait(false);
+        var target = await provisioner.ProvisionAsync(request.RequestId, request.SourceGcId, seq, request.Requester, ct).ConfigureAwait(false);
         var link = new ForkLink(target.NewGcId, request.SourceGcId, seq, target.VaultCommit, request.RequestId, _time.GetUtcNow());
         var (stored, created) = await store.AppendAsync(link, ct).ConfigureAwait(false);
         return new ForkResult(stored, created);

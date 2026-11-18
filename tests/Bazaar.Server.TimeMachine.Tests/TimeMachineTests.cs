@@ -174,7 +174,7 @@ public class ForkServiceTests
     {
         public int Calls { get; private set; }
 
-        public Task<ForkTarget> ProvisionAsync(Guid sourceGcId, long effectiveSeq, GcPrincipal requester, CancellationToken ct)
+        public Task<ForkTarget> ProvisionAsync(Guid requestId, Guid sourceGcId, long effectiveSeq, GcPrincipal requester, CancellationToken ct)
         {
             Calls++;
             return Task.FromResult(new ForkTarget(Guid.NewGuid(), "abc123"));
