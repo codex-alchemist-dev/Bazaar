@@ -12,6 +12,10 @@ public sealed class ToolCallLogTrace(IToolCallLog log) : IToolCallTrace
 {
     /// <inheritdoc />
     public ValueTask AppendAsync(ToolCallRecord record, CancellationToken cancellationToken) => log.AppendAsync(record, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask<bool> CompleteAsync(Guid id, ToolCallStatus status, int? exitCode, CancellationToken cancellationToken) =>
+        log.CompleteAsync(id, status, exitCode, cancellationToken);
 }
 
 /// <summary>

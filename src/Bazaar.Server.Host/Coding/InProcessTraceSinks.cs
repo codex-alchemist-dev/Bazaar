@@ -61,13 +61,29 @@ public sealed class InProcessAppendOnlyLog<T>
 public sealed class InProcessToolCallTrace : IToolCallTrace
 {
     private readonly InProcessAppendOnlyLog<ToolCallRecord> _log;
+    private readonly Lock _gate = new();
+    private readonly Dictionary<Guid, (ToolCallStatus Status, int? ExitCode, DateTimeOffset At)> _outcomes = [];
+    private readonly TimeProvider _time;
 
     /// <summary>Creates the sink.</summary>
-    public InProcessToolCallTrace(int capacity = InProcessAppendOnlyLog<ToolCallRecord>.DefaultCapacity) =>
+    public InProcessToolCallTrace(int capacity = InProcessAppendOnlyLog<ToolCallRecord>.DefaultCapacity, TimeProvider? time = null)
+    {
         _log = new InProcessAppendOnlyLog<ToolCallRecord>(capacity);
+        _time = time ?? TimeProvider.System;
+    }
 
-    /// <summary>The rows written so far.</summary>
-    public IReadOnlyList<ToolCallRecord> Rows => _log.Snapshot();
+    /// <summary>The rows written so far, with any outcome applied.</summary>
+    public IReadOnlyList<ToolCallRecord> Rows
+    {
+        get
+        {
+            var rows = _log.Snapshot();
+            lock (_gate)
+            {
+                return [.. rows.Select(r => _outcomes.TryGetValue(r.Id, out var o) ? r with { Status = o.Status, ExitCode = o.ExitCode, EndedAt = o.At } : r)];
+            }
+        }
+    }
 
     /// <inheritdoc />
     public ValueTask AppendAsync(ToolCallRecord record, CancellationToken cancellationToken)
@@ -75,6 +91,28 @@ public sealed class InProcessToolCallTrace : IToolCallTrace
         cancellationToken.ThrowIfCancellationRequested();
         _log.Append(record);
         return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<bool> CompleteAsync(Guid id, ToolCallStatus status, int? exitCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (status == ToolCallStatus.Unknown)
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), "Unknown is not an outcome.");
+        }
+
+        var row = _log.Snapshot().FirstOrDefault(r => r.Id == id);
+        lock (_gate)
+        {
+            if (row is null || row.EndedAt is not null || _outcomes.ContainsKey(id))
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            _outcomes[id] = (status, exitCode, _time.GetUtcNow());
+            return ValueTask.FromResult(true);
+        }
     }
 }
 

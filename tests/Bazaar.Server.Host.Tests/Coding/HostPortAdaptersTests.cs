@@ -29,6 +29,24 @@ public sealed class HostPortAdaptersTests
     }
 
     [Fact]
+    public async Task The_tool_call_trace_completes_a_row_once()
+    {
+        var trace = new InProcessToolCallTrace();
+        var row = Row();
+        await trace.AppendAsync(row, CancellationToken.None);
+
+        Assert.True(await trace.CompleteAsync(row.Id, ToolCallStatus.Succeeded, 0, CancellationToken.None));
+        Assert.False(await trace.CompleteAsync(row.Id, ToolCallStatus.Failed, 1, CancellationToken.None));
+        Assert.False(await trace.CompleteAsync(Guid.NewGuid(), ToolCallStatus.Failed, 1, CancellationToken.None));
+        var done = Assert.Single(trace.Rows);
+        Assert.Equal(ToolCallStatus.Succeeded, done.Status);
+        Assert.Equal(0, done.ExitCode);
+        Assert.NotNull(done.EndedAt);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+            await trace.CompleteAsync(row.Id, ToolCallStatus.Unknown, null, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task The_subagent_trace_appends_and_fails_closed_when_full()
     {
         var trace = new InProcessSubagentTrace(capacity: 1);

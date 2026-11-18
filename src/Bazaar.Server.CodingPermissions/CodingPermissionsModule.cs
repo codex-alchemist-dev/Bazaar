@@ -23,6 +23,10 @@ public static class CodingPermissionsModule
             sp.GetRequiredService<IAgentFreeze>(),
             sp.GetRequiredService<CodingPermissionOptions>(),
             sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IToolCallRecorder>(sp => new ToolCallOutcomeRecorder(
+            sp.GetRequiredService<IToolPermissionGate>() as IIdentifiedToolPermissionGate
+                ?? throw new InvalidOperationException("The registered permission gate does not report row ids, so outcomes cannot be recorded."),
+            sp.GetRequiredService<IToolCallTrace>()));
         return services;
     }
 }

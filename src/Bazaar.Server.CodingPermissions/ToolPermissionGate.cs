@@ -7,7 +7,7 @@ namespace Bazaar.Server.CodingPermissions;
 /// Server's generic policy behind <see cref="IGenericToolPolicy"/>; this type adds the doc 17 rules: agent/* push rules,
 /// default-branch denial, repo-config refusal, and a trace row before every return. Fails closed.
 /// </summary>
-public sealed class ToolPermissionGate : IToolPermissionGate
+public sealed class ToolPermissionGate : IIdentifiedToolPermissionGate
 {
     private const string _agentBranchPrefix = "agent/";
 
@@ -38,7 +38,11 @@ public sealed class ToolPermissionGate : IToolPermissionGate
     }
 
     /// <inheritdoc />
-    public async ValueTask<PermissionDecision> EvaluateAsync(ToolCallContext context, CancellationToken cancellationToken)
+    public async ValueTask<PermissionDecision> EvaluateAsync(ToolCallContext context, CancellationToken cancellationToken) =>
+        (await EvaluateWithIdAsync(context, cancellationToken).ConfigureAwait(false)).Decision;
+
+    /// <inheritdoc />
+    public async ValueTask<GateEvaluation> EvaluateWithIdAsync(ToolCallContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         var started = _time.GetUtcNow();
@@ -57,10 +61,13 @@ public sealed class ToolPermissionGate : IToolPermissionGate
             decision = PermissionDecision.Deny($"Permission check failed closed: {ex.GetType().Name}.");
         }
 
+        ToolCallRecord record;
+
         // The row is written before the decision is returned. If it cannot be written, nothing runs.
         try
         {
-            await _trace.AppendAsync(ToRecord(context, decision, started), cancellationToken).ConfigureAwait(false);
+            record = ToRecord(context, decision, started);
+            await _trace.AppendAsync(record, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -68,10 +75,10 @@ public sealed class ToolPermissionGate : IToolPermissionGate
         }
         catch (Exception)
         {
-            return PermissionDecision.Deny("The tool-call trace could not be written, so the call is refused.");
+            return new GateEvaluation(PermissionDecision.Deny("The tool-call trace could not be written, so the call is refused."), null);
         }
 
-        return decision;
+        return new GateEvaluation(decision, record.Id);
     }
 
     private static bool AlwaysNeedsApproval(ToolCapabilityClass c) =>
