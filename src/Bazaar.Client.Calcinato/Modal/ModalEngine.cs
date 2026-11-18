@@ -15,15 +15,15 @@ namespace Bazaar.Client.Calcinato.Modal;
 public sealed partial class ModalEngine
 {
     /// <summary>The built-in mnemonic that sends Ctrl-C (0x03) to the shell.</summary>
-    private const string InterruptMnemonic = "intr";
+    private const string _interruptMnemonic = "intr";
 
-    private const byte InterruptByte = 0x03;
-    private const byte EndOfFileByte = 0x04;
-    private const byte SuspendByte = 0x1A;
-    private const int MaxCount = 99_999;
-    private const int MaxCommandLength = 4096;
-    private const int HistoryLimit = 200;
-    private const string ReadOnlyMessage = "Read-only session: input is not sent.";
+    private const byte _interruptByte = 0x03;
+    private const byte _endOfFileByte = 0x04;
+    private const byte _suspendByte = 0x1A;
+    private const int _maxCount = 99_999;
+    private const int _maxCommandLength = 4096;
+    private const int _historyLimit = 200;
+    private const string _readOnlyMessage = "Read-only session: input is not sent.";
 
     private readonly IScreen _screen;
     private readonly IMnemonicBridge? _mnemonics;
@@ -349,7 +349,7 @@ public sealed partial class ModalEngine
     {
         if (!CanWrite)
         {
-            Status(fx, ReadOnlyMessage);
+            Status(fx, _readOnlyMessage);
             return;
         }
 

@@ -6,9 +6,9 @@ namespace Bazaar.Client.Calcinato.Modal;
 /// </summary>
 internal static class WordMotion
 {
-    private const int Blank = 0;
-    private const int Punctuation = 1;
-    private const int Word = 2;
+    private const int _blank = 0;
+    private const int _punctuation = 1;
+    private const int _word = 2;
 
     internal delegate (int Row, int Col) Step(Func<int, string> lines, int total, int row, int col);
 
@@ -18,7 +18,7 @@ internal static class WordMotion
         var start = (Row: row, Col: col);
         var p = start;
         int cls = ClassAt(lines, p);
-        if (cls != Blank)
+        if (cls != _blank)
         {
             while (true)
             {
@@ -36,7 +36,7 @@ internal static class WordMotion
             }
         }
 
-        while (ClassAt(lines, p) == Blank)
+        while (ClassAt(lines, p) == _blank)
         {
             if (p.Row != start.Row && LengthOf(lines, p.Row) == 0)
             {
@@ -66,7 +66,7 @@ internal static class WordMotion
         }
 
         p = prev.Value;
-        while (ClassAt(lines, p) == Blank)
+        while (ClassAt(lines, p) == _blank)
         {
             if (LengthOf(lines, p.Row) == 0)
             {
@@ -105,7 +105,7 @@ internal static class WordMotion
         }
 
         var p = next.Value;
-        while (ClassAt(lines, p) == Blank)
+        while (ClassAt(lines, p) == _blank)
         {
             var step = Next(lines, total, p);
             if (step is null)
@@ -135,16 +135,16 @@ internal static class WordMotion
         string text = lines(p.Row);
         if (p.Col >= text.Length)
         {
-            return Blank;
+            return _blank;
         }
 
         char c = text[p.Col];
         if (char.IsWhiteSpace(c))
         {
-            return Blank;
+            return _blank;
         }
 
-        return char.IsLetterOrDigit(c) || c == '_' || char.IsSurrogate(c) ? Word : Punctuation;
+        return char.IsLetterOrDigit(c) || c == '_' || char.IsSurrogate(c) ? _word : _punctuation;
     }
 
     private static int LengthOf(Func<int, string> lines, int row) => lines(row).Length;

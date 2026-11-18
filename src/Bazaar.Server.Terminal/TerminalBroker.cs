@@ -9,7 +9,7 @@ namespace Bazaar.Server.Terminal;
 /// </summary>
 public sealed class TerminalBroker : ITerminalBroker, IAsyncDisposable
 {
-    private static readonly TerminalCaller SystemCaller = new("system:terminal", IsOwner: false, IsAgent: false);
+    private static readonly TerminalCaller _systemCaller = new("system:terminal", IsOwner: false, IsAgent: false);
 
     private readonly ConcurrentDictionary<string, TerminalSession> _sessions = new(StringComparer.Ordinal);
     private readonly object _registry = new();
@@ -367,7 +367,7 @@ public sealed class TerminalBroker : ITerminalBroker, IAsyncDisposable
 
             if (session.IsReady && now - session.LastActivity >= _options.IdleClose)
             {
-                await CloseSessionAsync(session, SystemCaller, CancellationToken.None).ConfigureAwait(false);
+                await CloseSessionAsync(session, _systemCaller, CancellationToken.None).ConfigureAwait(false);
                 closed++;
             }
         }

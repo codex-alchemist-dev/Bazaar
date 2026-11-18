@@ -10,7 +10,7 @@ namespace Bazaar.Client.Calcinato.Emulation;
 /// </summary>
 public static class CharWidth
 {
-    private static readonly (int First, int Last)[] WideRanges =
+    private static readonly (int First, int Last)[] _wideRanges =
     [
         (0x1100, 0x115F), (0x231A, 0x231B), (0x2329, 0x232A), (0x23E9, 0x23EC), (0x23F0, 0x23F0), (0x23F3, 0x23F3),
         (0x25FD, 0x25FE), (0x2614, 0x2615), (0x2648, 0x2653), (0x267F, 0x267F), (0x2693, 0x2693), (0x26A1, 0x26A1),
@@ -64,11 +64,11 @@ public static class CharWidth
     private static bool IsWide(int value)
     {
         int low = 0;
-        int high = WideRanges.Length - 1;
+        int high = _wideRanges.Length - 1;
         while (low <= high)
         {
             int middle = (low + high) >> 1;
-            (int first, int last) = WideRanges[middle];
+            (int first, int last) = _wideRanges[middle];
             if (value < first)
             {
                 high = middle - 1;

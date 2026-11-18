@@ -6,7 +6,7 @@ namespace Bazaar.Client.Calcinato.Tests.Sources;
 
 public sealed class TerminalHostTests
 {
-    private static readonly TerminalSpec Spec = new("bash", 80, 24);
+    private static readonly TerminalSpec _spec = new("bash", 80, 24);
 
     [Fact]
     public void Host_without_a_backend_has_no_local_terminals()
@@ -14,7 +14,7 @@ public sealed class TerminalHostTests
         var host = new TerminalHost(null, new FakeHub(new FakeWire()));
 
         Assert.False(host.SupportsLocal);
-        Assert.Throws<NotSupportedException>(() => host.OpenLocal(Spec));
+        Assert.Throws<NotSupportedException>(() => host.OpenLocal(_spec));
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public sealed class TerminalHostTests
         var host = new TerminalHost(backend, new FakeHub(new FakeWire()));
 
         Assert.False(host.SupportsLocal);
-        Assert.Throws<NotSupportedException>(() => host.OpenLocal(Spec));
+        Assert.Throws<NotSupportedException>(() => host.OpenLocal(_spec));
         Assert.Empty(backend.Opened);
     }
 
@@ -35,11 +35,11 @@ public sealed class TerminalHostTests
         var host = new TerminalHost(backend, new FakeHub(new FakeWire()));
 
         Assert.True(host.SupportsLocal);
-        await using var source = host.OpenLocal(Spec);
+        await using var source = host.OpenLocal(_spec);
 
         Assert.False(source.IsRemote);
         Assert.True(source.CanWrite);
-        Assert.Equal(Spec, Assert.Single(backend.Opened));
+        Assert.Equal(_spec, Assert.Single(backend.Opened));
     }
 
     [Fact]

@@ -162,14 +162,14 @@ internal sealed class UnixPtySession : IPtySession
         return members;
     }
 
-    private const int RetryCode = int.MinValue;
+    private const int _retryCode = int.MinValue;
 
     private int WaitForShell()
     {
         while (true)
         {
             var code = WaitOnce(_pid);
-            if (code != RetryCode)
+            if (code != _retryCode)
             {
                 return code;
             }
@@ -187,7 +187,7 @@ internal sealed class UnixPtySession : IPtySession
 
         if (rc < 0 && Marshal.GetLastPInvokeError() == UnixNative.EINTR)
         {
-            return RetryCode;
+            return _retryCode;
         }
 
         return -1;

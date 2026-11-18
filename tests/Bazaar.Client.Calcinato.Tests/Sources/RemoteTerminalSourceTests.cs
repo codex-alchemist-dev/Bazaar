@@ -7,18 +7,18 @@ namespace Bazaar.Client.Calcinato.Tests.Sources;
 
 public sealed class RemoteTerminalSourceTests
 {
-    private const string Id = "t1";
+    private const string _id = "t1";
 
     private static async Task<RemoteTerminalSource> OpenAsync(FakeWire wire, bool writerHeld = false, long replayFrom = 1, int capacity = 256)
     {
-        var source = new RemoteTerminalSource(wire, Id, capacity);
+        var source = new RemoteTerminalSource(wire, _id, capacity);
         var open = source.OpenAsync(80, 24, TestContext.Current.CancellationToken);
-        wire.Push(new TerminalOpened(Id, writerHeld, replayFrom));
+        wire.Push(new TerminalOpened(_id, writerHeld, replayFrom));
         await open;
         return source;
     }
 
-    private static TerminalOutput Out(long seq, byte value) => new(Id, seq, [value]);
+    private static TerminalOutput Out(long seq, byte value) => new(_id, seq, [value]);
 
     [Fact]
     public async Task Open_sends_TerminalOpen_and_a_held_writer_makes_the_viewer_read_only()
@@ -181,7 +181,7 @@ public sealed class RemoteTerminalSourceTests
         await source.TakeAsync(TestContext.Current.CancellationToken);
         Assert.Equal("take", Assert.Single(wire.SentOf<TerminalControl>()).Action);
 
-        wire.Push(new TerminalControl(Id, "granted"));
+        wire.Push(new TerminalControl(_id, "granted"));
         await Eventually.TrueAsync(() => source.CanWrite);
         await source.WriteAsync(new byte[] { 0x62 }, TestContext.Current.CancellationToken);
         Assert.Equal([0x62], wire.SentOf<TerminalInput>().Single().Bytes);
@@ -199,7 +199,7 @@ public sealed class RemoteTerminalSourceTests
         var statuses = new ConcurrentQueue<TerminalSourceStatus>();
         source.StatusChanged += (_, s) => statuses.Enqueue(s);
 
-        wire.Push(new TerminalControl(Id, "denied"));
+        wire.Push(new TerminalControl(_id, "denied"));
         await Eventually.TrueAsync(() => statuses.Any(s => s.Kind == TerminalStatusKind.ControlChanged));
 
         Assert.False(source.CanWrite);
@@ -229,7 +229,7 @@ public sealed class RemoteTerminalSourceTests
         await using var source = await OpenAsync(wire);
 
         wire.Push(Out(1, 1));
-        wire.Push(new TerminalExit(Id, 3));
+        wire.Push(new TerminalExit(_id, 3));
 
         Assert.Equal(3, await source.Exited);
         Assert.Equal(1L, (await Eventually.NextAsync(source.Output)).Seq);
@@ -251,7 +251,7 @@ public sealed class RemoteTerminalSourceTests
         var statuses = new ConcurrentQueue<TerminalSourceStatus>();
         source.StatusChanged += (_, s) => statuses.Enqueue(s);
 
-        wire.Push(new TerminalError(Id, "denied", "not allowed"));
+        wire.Push(new TerminalError(_id, "denied", "not allowed"));
         await Eventually.TrueAsync(() => statuses.Any(s => s.Kind == TerminalStatusKind.Error));
 
         var error = statuses.First(s => s.Kind == TerminalStatusKind.Error);
@@ -315,7 +315,7 @@ public sealed class RemoteTerminalSourceTests
     {
         var wire = new FakeWire();
         var source = await OpenAsync(wire);
-        wire.Push(new TerminalExit(Id, 0));
+        wire.Push(new TerminalExit(_id, 0));
         await source.Exited;
 
         await source.DisposeAsync();
@@ -327,7 +327,7 @@ public sealed class RemoteTerminalSourceTests
     public async Task Attach_fails_when_the_wire_closes_before_the_terminal_opens()
     {
         var wire = new FakeWire();
-        var source = new RemoteTerminalSource(wire, Id);
+        var source = new RemoteTerminalSource(wire, _id);
         var open = source.OpenAsync(80, 24, TestContext.Current.CancellationToken);
         wire.Close();
 

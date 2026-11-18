@@ -19,11 +19,11 @@ public sealed class VtParser
     /// <summary>Most intermediate bytes in one sequence. More discards the sequence.</summary>
     public const int MaxIntermediates = 2;
 
-    private const int MaxParameterValue = 65535;
-    private const byte Bel = 0x07;
-    private const byte Can = 0x18;
-    private const byte Sub = 0x1A;
-    private const byte Esc = 0x1B;
+    private const int _maxParameterValue = 65535;
+    private const byte _bel = 0x07;
+    private const byte _can = 0x18;
+    private const byte _sub = 0x1A;
+    private const byte _esc = 0x1B;
 
     private enum State : byte
     {
@@ -94,11 +94,11 @@ public sealed class VtParser
 
         switch (b)
         {
-            case Can:
-            case Sub:
+            case _can:
+            case _sub:
                 _state = State.Ground;
                 return;
-            case Esc:
+            case _esc:
                 EnterEscape();
                 return;
         }
@@ -363,7 +363,7 @@ public sealed class VtParser
 
     private void ConsumeOsc(byte b)
     {
-        if (b == Bel)
+        if (b == _bel)
         {
             DispatchOsc();
             _state = State.Ground;
@@ -432,7 +432,7 @@ public sealed class VtParser
             return;
         }
 
-        _params[_paramIndex] = Math.Min((_params[_paramIndex] * 10) + (b - '0'), MaxParameterValue);
+        _params[_paramIndex] = Math.Min((_params[_paramIndex] * 10) + (b - '0'), _maxParameterValue);
     }
 
     private void CollectIntermediate(byte b)

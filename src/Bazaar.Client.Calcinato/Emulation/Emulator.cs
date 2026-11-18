@@ -12,12 +12,12 @@ public sealed class Emulator : IScreen
     /// <summary>Device replies allowed per second, with the same figure as the burst size.</summary>
     public const int ResponsesPerSecond = 16;
 
-    private const int ResponseBurst = 16;
+    private const int _responseBurst = 16;
 
     private readonly ScreenBuffer _screen;
     private readonly VtParser _parser;
     private readonly TimeProvider _timeProvider;
-    private double _tokens = ResponseBurst;
+    private double _tokens = _responseBurst;
     private long _lastRefill;
 
     /// <summary>Creates an emulator using the system clock for response rate limiting.</summary>
@@ -116,7 +116,7 @@ public sealed class Emulator : IScreen
         double seconds = (now - _lastRefill) / (double)System.Diagnostics.Stopwatch.Frequency;
         if (seconds > 0)
         {
-            _tokens = Math.Min(ResponseBurst, _tokens + (seconds * ResponsesPerSecond));
+            _tokens = Math.Min(_responseBurst, _tokens + (seconds * ResponsesPerSecond));
             _lastRefill = now;
         }
 

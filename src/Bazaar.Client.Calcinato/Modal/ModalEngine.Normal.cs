@@ -84,7 +84,7 @@ public sealed partial class ModalEngine
 
         if (c is >= '1' and <= '9' || (c == '0' && _count > 0))
         {
-            _count = Math.Min(_count * 10 + (c - '0'), MaxCount);
+            _count = Math.Min(_count * 10 + (c - '0'), _maxCount);
             return;
         }
 
@@ -120,16 +120,16 @@ public sealed partial class ModalEngine
     {
         string typed = _typedSequence.ToString();
         bool longerPossible = (_mnemonics?.IsPrefix(typed) ?? false)
-            || (typed.Length < InterruptMnemonic.Length && InterruptMnemonic.StartsWith(typed, StringComparison.Ordinal));
+            || (typed.Length < _interruptMnemonic.Length && _interruptMnemonic.StartsWith(typed, StringComparison.Ordinal));
         if (longerPossible)
         {
             return;
         }
 
         _typedSequence.Clear();
-        if (typed == InterruptMnemonic)
+        if (typed == _interruptMnemonic)
         {
-            SendToShell(fx, new[] { InterruptByte }, "Interrupt sent.");
+            SendToShell(fx, new[] { _interruptByte }, "Interrupt sent.");
             return;
         }
 

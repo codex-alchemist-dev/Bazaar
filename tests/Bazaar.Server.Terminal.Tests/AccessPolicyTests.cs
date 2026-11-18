@@ -4,7 +4,7 @@ namespace Bazaar.Server.Terminal.Tests;
 
 public class AccessPolicyTests
 {
-    private static readonly TerminalInfo Terminal = new("t1", "agent-1", "vm-1", 80, 24, null, 0);
+    private static readonly TerminalInfo _terminal = new("t1", "agent-1", "vm-1", 80, 24, null, 0);
 
     private static (DefaultTerminalAccessPolicy Policy, TableGrants Grants) Make()
     {
@@ -16,19 +16,19 @@ public class AccessPolicyTests
     public void Owner_can_view_and_write_every_terminal()
     {
         var (p, _) = Make();
-        Assert.True(p.CanView(Harness.Owner, Terminal));
-        Assert.True(p.CanWrite(Harness.Owner, Terminal));
-        Assert.True(p.CanView(Harness.Owner, Terminal with { AgentId = "agent-9" }));
+        Assert.True(p.CanView(Harness.Owner, _terminal));
+        Assert.True(p.CanWrite(Harness.Owner, _terminal));
+        Assert.True(p.CanView(Harness.Owner, _terminal with { AgentId = "agent-9" }));
     }
 
     [Fact]
     public void Agent_can_view_and_write_only_its_own_terminal()
     {
         var (p, _) = Make();
-        Assert.True(p.CanView(Harness.Agent1, Terminal));
-        Assert.True(p.CanWrite(Harness.Agent1, Terminal));
-        Assert.False(p.CanView(Harness.Agent2, Terminal));
-        Assert.False(p.CanWrite(Harness.Agent2, Terminal));
+        Assert.True(p.CanView(Harness.Agent1, _terminal));
+        Assert.True(p.CanWrite(Harness.Agent1, _terminal));
+        Assert.False(p.CanView(Harness.Agent2, _terminal));
+        Assert.False(p.CanWrite(Harness.Agent2, _terminal));
     }
 
     [Fact]
@@ -36,16 +36,16 @@ public class AccessPolicyTests
     {
         var (p, _) = Make();
         var fake = new TerminalCaller("agent-2", IsOwner: true, IsAgent: true);
-        Assert.False(p.CanView(fake, Terminal));
-        Assert.False(p.CanWrite(fake, Terminal));
+        Assert.False(p.CanView(fake, _terminal));
+        Assert.False(p.CanWrite(fake, _terminal));
     }
 
     [Fact]
     public void Ungranted_human_is_denied_everything()
     {
         var (p, _) = Make();
-        Assert.False(p.CanView(Harness.Human, Terminal));
-        Assert.False(p.CanWrite(Harness.Human, Terminal));
+        Assert.False(p.CanView(Harness.Human, _terminal));
+        Assert.False(p.CanWrite(Harness.Human, _terminal));
     }
 
     [Fact]
@@ -53,8 +53,8 @@ public class AccessPolicyTests
     {
         var (p, g) = Make();
         g.View.Add("human");
-        Assert.True(p.CanView(Harness.Human, Terminal));
-        Assert.False(p.CanWrite(Harness.Human, Terminal));
+        Assert.True(p.CanView(Harness.Human, _terminal));
+        Assert.False(p.CanWrite(Harness.Human, _terminal));
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public class AccessPolicyTests
     {
         var (p, g) = Make();
         g.Write.Add("human");
-        Assert.True(p.CanWrite(Harness.Human, Terminal));
-        Assert.True(p.CanView(Harness.Human, Terminal));
+        Assert.True(p.CanWrite(Harness.Human, _terminal));
+        Assert.True(p.CanView(Harness.Human, _terminal));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class AccessPolicyTests
     {
         var (p, g) = Make();
         g.Write.Add("someone-else");
-        Assert.False(p.CanView(Harness.Human, Terminal));
+        Assert.False(p.CanView(Harness.Human, _terminal));
     }
 
     [Theory]
@@ -80,32 +80,32 @@ public class AccessPolicyTests
     public void A_blank_member_id_is_denied_even_for_the_owner(string id)
     {
         var (p, _) = Make();
-        Assert.False(p.CanView(new TerminalCaller(id, true, false), Terminal));
-        Assert.False(p.CanWrite(new TerminalCaller(id, true, false), Terminal));
+        Assert.False(p.CanView(new TerminalCaller(id, true, false), _terminal));
+        Assert.False(p.CanWrite(new TerminalCaller(id, true, false), _terminal));
     }
 
     [Fact]
     public void A_terminal_without_an_agent_is_not_owned_by_any_agent()
     {
         var (p, _) = Make();
-        Assert.False(p.CanView(Harness.Agent1, Terminal with { AgentId = null }));
-        Assert.False(p.CanWrite(new TerminalCaller("", false, true), Terminal with { AgentId = "" }));
+        Assert.False(p.CanView(Harness.Agent1, _terminal with { AgentId = null }));
+        Assert.False(p.CanWrite(new TerminalCaller("", false, true), _terminal with { AgentId = "" }));
     }
 
     [Fact]
     public void Agent_ids_compare_exactly()
     {
         var (p, _) = Make();
-        Assert.False(p.CanView(new TerminalCaller("Agent-1", false, true), Terminal));
-        Assert.False(p.CanView(new TerminalCaller("agent-1 ", false, true), Terminal));
+        Assert.False(p.CanView(new TerminalCaller("Agent-1", false, true), _terminal));
+        Assert.False(p.CanView(new TerminalCaller("agent-1 ", false, true), _terminal));
     }
 
     [Fact]
     public void No_grants_source_grants_nothing()
     {
         var g = new NoTerminalGrants();
-        Assert.False(g.IsViewGranted("x", Terminal));
-        Assert.False(g.IsWriteGranted("x", Terminal));
+        Assert.False(g.IsViewGranted("x", _terminal));
+        Assert.False(g.IsWriteGranted("x", _terminal));
     }
 
     [Fact]

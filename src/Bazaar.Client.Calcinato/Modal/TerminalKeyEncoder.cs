@@ -8,9 +8,9 @@ namespace Bazaar.Client.Calcinato.Modal;
 /// </summary>
 public static class TerminalKeyEncoder
 {
-    private const string Esc = "\u001b";
-    private const string Csi = "\u001b[";
-    private const string Ss3 = "\u001bO";
+    private const string _esc = "\u001b";
+    private const string _csi = "\u001b[";
+    private const string _ss3 = "\u001bO";
 
     /// <summary>Encodes one key. Text is UTF-8, raw control keys are their byte, named keys follow xterm.</summary>
     /// <param name="key">The key to encode.</param>
@@ -37,11 +37,11 @@ public static class TerminalKeyEncoder
             case KeyName.Enter:
                 return [0x0D];
             case KeyName.Tab:
-                return shift ? Ascii(Csi + "Z") : new byte[] { 0x09 };
+                return shift ? Ascii(_csi + "Z") : new byte[] { 0x09 };
             case KeyName.Backspace:
                 return [0x7F];
             case KeyName.Escape:
-                return Ascii(Esc);
+                return Ascii(_esc);
             case KeyName.Up:
                 return Cursor('A', shift, application);
             case KeyName.Down:
@@ -63,13 +63,13 @@ public static class TerminalKeyEncoder
             case KeyName.PageDown:
                 return Tilde(6, shift);
             case KeyName.F1:
-                return shift ? Ascii(Csi + "1;2P") : Ascii(Ss3 + "P");
+                return shift ? Ascii(_csi + "1;2P") : Ascii(_ss3 + "P");
             case KeyName.F2:
-                return shift ? Ascii(Csi + "1;2Q") : Ascii(Ss3 + "Q");
+                return shift ? Ascii(_csi + "1;2Q") : Ascii(_ss3 + "Q");
             case KeyName.F3:
-                return shift ? Ascii(Csi + "1;2R") : Ascii(Ss3 + "R");
+                return shift ? Ascii(_csi + "1;2R") : Ascii(_ss3 + "R");
             case KeyName.F4:
-                return shift ? Ascii(Csi + "1;2S") : Ascii(Ss3 + "S");
+                return shift ? Ascii(_csi + "1;2S") : Ascii(_ss3 + "S");
             case KeyName.F5:
                 return Tilde(15, shift);
             case KeyName.F6:
@@ -96,14 +96,14 @@ public static class TerminalKeyEncoder
     {
         if (shift)
         {
-            return Ascii(Csi + "1;2" + final);
+            return Ascii(_csi + "1;2" + final);
         }
 
-        return Ascii((application ? Ss3 : Csi) + final);
+        return Ascii((application ? _ss3 : _csi) + final);
     }
 
     private static byte[] Tilde(int number, bool shift) =>
-        Ascii(shift ? $"{Csi}{number};2~" : $"{Csi}{number}~");
+        Ascii(shift ? $"{_csi}{number};2~" : $"{_csi}{number}~");
 
     private static byte[] Ascii(string text) => Encoding.ASCII.GetBytes(text);
 }

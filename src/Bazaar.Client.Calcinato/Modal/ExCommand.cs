@@ -88,7 +88,7 @@ public sealed record ExParseResult(ExCommand? Command, string? Error)
 /// </summary>
 public static class ExCommandParser
 {
-    private static readonly char[] SplitChars = { ' ', '\t' };
+    private static readonly char[] _splitChars = { ' ', '\t' };
 
     /// <summary>Parses one line, without the leading colon.</summary>
     /// <param name="input">The typed text.</param>
@@ -181,7 +181,7 @@ public static class ExCommandParser
 
     private static ExParseResult ParseCrash(string rest)
     {
-        string[] tokens = rest.Split(SplitChars, StringSplitOptions.RemoveEmptyEntries);
+        string[] tokens = rest.Split(_splitChars, StringSplitOptions.RemoveEmptyEntries);
         if (tokens.Length == 0)
         {
             return Fail("crash needs list, preview N, send N or drop N.");

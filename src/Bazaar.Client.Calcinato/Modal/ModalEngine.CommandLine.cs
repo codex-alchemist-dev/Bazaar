@@ -31,7 +31,7 @@ public sealed partial class ModalEngine
         switch (key.Kind)
         {
             case TerminalKeyKind.Text:
-                if (_commandText.Length + key.Text.Length > MaxCommandLength)
+                if (_commandText.Length + key.Text.Length > _maxCommandLength)
                 {
                     return;
                 }
@@ -181,7 +181,7 @@ public sealed partial class ModalEngine
         {
             if (!CanWrite)
             {
-                Status(fx, ReadOnlyMessage);
+                Status(fx, _readOnlyMessage);
                 return;
             }
 
@@ -189,9 +189,9 @@ public sealed partial class ModalEngine
             ExitCommandLine(fx);
             byte value = command.Kind switch
             {
-                ExCommandKind.Interrupt => InterruptByte,
-                ExCommandKind.Eof => EndOfFileByte,
-                _ => SuspendByte,
+                ExCommandKind.Interrupt => _interruptByte,
+                ExCommandKind.Eof => _endOfFileByte,
+                _ => _suspendByte,
             };
             fx.Add(new ModalEffect.SendBytes(new[] { value }));
             Status(fx, Describe(command));
@@ -212,7 +212,7 @@ public sealed partial class ModalEngine
         }
 
         _history.Add(text);
-        if (_history.Count > HistoryLimit)
+        if (_history.Count > _historyLimit)
         {
             _history.RemoveAt(0);
         }

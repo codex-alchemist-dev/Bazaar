@@ -5,11 +5,11 @@ namespace Bazaar.Client.Calcinato.Tests.Emulation;
 
 public sealed class FuzzTests
 {
-    private const int Streams = 200;
-    private const int StreamLength = 64 * 1024;
-    private const int ScrollbackLimit = 1000;
+    private const int _streams = 200;
+    private const int _streamLength = 64 * 1024;
+    private const int _scrollbackLimit = 1000;
 
-    private static readonly string[] Fragments =
+    private static readonly string[] _fragments =
     [
         "\u001b[", "\u001b]", "\u001bP", "\u001b\\", "\u0007", "\u001b7", "\u001b8", "\u001bD", "\u001bM", "\u001bE",
         "\u001b[?1049h", "\u001b[?1049l", "\u001b[?47h", "\u001b[?47l", "\u001b[1;31m", "\u001b[38;5;196m",
@@ -26,10 +26,10 @@ public sealed class FuzzTests
     {
         var random = new Random(20261118);
 
-        for (int stream = 0; stream < Streams; stream++)
+        for (int stream = 0; stream < _streams; stream++)
         {
-            var emulator = new Emulator(80, 24, ScrollbackLimit);
-            byte[] data = BuildStream(random, StreamLength);
+            var emulator = new Emulator(80, 24, _scrollbackLimit);
+            byte[] data = BuildStream(random, _streamLength);
 
             int offset = 0;
             while (offset < data.Length)
@@ -53,10 +53,10 @@ public sealed class FuzzTests
     {
         var random = new Random(7);
 
-        for (int stream = 0; stream < Streams; stream++)
+        for (int stream = 0; stream < _streams; stream++)
         {
             var emulator = new Emulator(40, 10, 200);
-            var data = new byte[StreamLength];
+            var data = new byte[_streamLength];
             random.NextBytes(data);
             emulator.Feed(data);
             AssertCaps(emulator);
@@ -89,7 +89,7 @@ public sealed class FuzzTests
             switch (random.Next(4))
             {
                 case 0:
-                    builder.Append(Fragments[random.Next(Fragments.Length)]);
+                    builder.Append(_fragments[random.Next(_fragments.Length)]);
                     break;
                 case 1:
                     builder.Append((char)random.Next(0x20, 0x7F));
@@ -108,7 +108,7 @@ public sealed class FuzzTests
 
     private static void AssertCaps(Emulator emulator)
     {
-        Assert.True(emulator.ScrollbackCount <= ScrollbackLimit);
+        Assert.True(emulator.ScrollbackCount <= _scrollbackLimit);
         Assert.InRange(emulator.CursorRow, 0, emulator.Rows - 1);
         Assert.InRange(emulator.CursorCol, 0, emulator.Cols - 1);
         Assert.True(emulator.Title.Length <= ScreenBuffer.MaxTitleLength);

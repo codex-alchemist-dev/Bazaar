@@ -45,9 +45,9 @@ public sealed class ScreenBuffer : IVtSink
     /// <summary>Longest grapheme cluster kept in one cell, in UTF-16 units. Extra combining marks are dropped.</summary>
     public const int MaxClusterLength = 32;
 
-    private const int TabWidth = 8;
+    private const int _tabWidth = 8;
 
-    private static readonly string[] AsciiText = CreateAsciiText();
+    private static readonly string[] _asciiText = CreateAsciiText();
 
     private readonly Grid _primary;
     private readonly Grid _alternate;
@@ -242,7 +242,7 @@ public sealed class ScreenBuffer : IVtSink
             cells[col + 1] = Cell.Blank(cells[col + 1].Style);
         }
 
-        string text = value < AsciiText.Length ? AsciiText[value] : rune.ToString();
+        string text = value < _asciiText.Length ? _asciiText[value] : rune.ToString();
         cells[col] = new Cell(text, (byte)width, _pen);
         if (width == 2)
         {
@@ -276,7 +276,7 @@ public sealed class ScreenBuffer : IVtSink
                 _grid.WrapPending = false;
                 break;
             case 0x09:
-                _grid.CursorCol = Math.Min(_cols - 1, ((_grid.CursorCol / TabWidth) + 1) * TabWidth);
+                _grid.CursorCol = Math.Min(_cols - 1, ((_grid.CursorCol / _tabWidth) + 1) * _tabWidth);
                 _grid.WrapPending = false;
                 break;
             case 0x0A:
