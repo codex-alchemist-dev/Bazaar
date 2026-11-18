@@ -64,6 +64,8 @@ public interface ITerminalBackend {
 
 **[PROPOSED]** Ship self-contained builds (no Native AOT in v1, per Bazaar.Server.md) as a tarball and an AppImage. Spike Flatpak. Defer deb and rpm. Whether Velopack covers Linux is unverified.
 
+**Implemented:** `packaging/linux/build-tarball.sh` publishes the self-contained client (`linux-x64` or `linux-arm64`) and writes a reproducible `Bazaar-<version>-linux-<arch>.tar.gz` with a `.sha256` file (sorted names, fixed owner and times, `gzip -n`; two builds of one commit give the same bytes). `--verify` extracts the archive and starts the client on Xvfb. The AppImage script is `packaging/linux-appimage/build-appimage.sh`; it needs an `appimagetool` the operator supplies.
+
 ### 4. Installers and update paths [PROPOSED]
 - **Windows client:** Velopack, approved as the client updater and packaging tool (DECISIONS-LOG round 10, C37). Per-user install under `%LocalAppData%`, delta updates from GitHub Releases (verified in Velopack docs). Velopack does not sign, does not cover Windows Services and does not document machine-wide installs. `VelopackApp.Build().Run()` must be the first call in the entry point.
 - **Windows server:** Worker Service with `AddWindowsService()`. Installer as **MSI built with WiX v5** (unverified), which registers the service, keeps data under `%ProgramData%` and upgrades with MajorUpgrade. MSIX is an open gap.
