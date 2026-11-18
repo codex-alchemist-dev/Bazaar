@@ -346,7 +346,8 @@ public static partial class SetupPlanValidator
             return;
         }
 
-        var value = JsonSerializer.SerializeToElement(true, SettingJson.Options);
+        using var valueDoc = JsonDocument.Parse("true");
+        var value = valueDoc.RootElement.Clone();
         CheckRegistryValue(definition, "scamMailProtocol.enabled", value, issues);
     }
 
