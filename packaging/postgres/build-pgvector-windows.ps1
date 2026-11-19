@@ -5,6 +5,7 @@
 #   <OutDir>\<major>\share    share\extension\vector.control and vector--*.sql
 # Run from a Visual Studio Developer shell (cl.exe and nmake on PATH). CI sets this up with ilammy/msvc-dev-cmd.
 param(
+    [string]$Major = '',   # PostgreSQL major to bundle; empty means PG_MAJOR from versions.txt
     [string]$OutDir = "$PSScriptRoot\..\..\artifacts\pg-bundle",
     [string]$Work = $(if ($env:RUNNER_TEMP) { Join-Path $env:RUNNER_TEMP 'pg-bundle-work' } else { Join-Path ([IO.Path]::GetTempPath()) 'pg-bundle-work' })
 )
@@ -14,9 +15,14 @@ $versions = @{}
 Get-Content "$PSScriptRoot\versions.txt" | Where-Object { $_ -match '^[A-Z_0-9]+=' } | ForEach-Object {
     $k, $v = $_ -split '=', 2; $versions[$k] = $v.Trim()
 }
-$major = $versions['PG_MAJOR']
-$pgVersion = $versions['PG_VERSION']
-$build = $versions['PG_EDB_BUILD']
+$major = if ($Major) { $Major } else { $versions['PG_MAJOR'] }
+# Every major pins its own EDB download. A major with no pins fails here instead of fetching an unverified zip.
+$pgVersion = $versions["PG${major}_VERSION"]
+$build = $versions["PG${major}_EDB_BUILD"]
+$pgZipSha = $versions["PG${major}_SHA256"]
+foreach ($pin in @(@('VERSION', $pgVersion), @('EDB_BUILD', $build), @('SHA256', $pgZipSha))) {
+    if (-not $pin[1]) { throw "versions.txt has no PG${major}_$($pin[0]); PostgreSQL $major is not pinned, so it cannot be bundled" }
+}
 $pgvector = $versions['PGVECTOR_VERSION']
 
 # Verify a download against the SHA-256 pinned in versions.txt. A mismatch deletes the file and fails the build.
@@ -37,7 +43,7 @@ $pgUrl = "https://get.enterprisedb.com/postgresql/postgresql-$pgVersion-$build-w
 if (-not (Test-Path $zip)) {
     Invoke-WebRequest -Uri $pgUrl -OutFile $zip -UseBasicParsing
 }
-$pgSha = Assert-Sha256 $zip $versions['PG_SHA256'] 'PostgreSQL binaries zip'
+$pgSha = Assert-Sha256 $zip $pgZipSha "PostgreSQL $major binaries zip"
 $pgExtract = Join-Path $Work 'pg-extract'
 Remove-Item $pgExtract -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip -DestinationPath $pgExtract
