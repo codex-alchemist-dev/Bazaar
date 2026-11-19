@@ -1,6 +1,6 @@
 using Bazaar.Server.Secrets;
 
-namespace Bazaar.Server.Tests.Secrets;
+namespace Bazaar.Secrets.Tests;
 
 public class BootstrapSecretResolverTests : IDisposable
 {
