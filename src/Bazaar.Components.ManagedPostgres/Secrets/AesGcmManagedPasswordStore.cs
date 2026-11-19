@@ -86,7 +86,7 @@ public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProv
                 stream.Flush(flushToDisk: true);
             }
 
-            File.Move(temp, path, overwrite: true);
+            await MoveIntoPlaceAsync(temp, path, cancellationToken);
         }
         finally
         {
@@ -97,6 +97,27 @@ public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProv
             catch (IOException)
             {
                 // Best effort: a leftover temp name is unique and never read.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Moves the finished temp file over the store. On Windows a replace is refused while another save is replacing the same
+    /// file or a reader has it open, so the move is tried again for up to a second; elsewhere a rename over the target is atomic.
+    /// </summary>
+    private static async Task MoveIntoPlaceAsync(string temp, string target, CancellationToken cancellationToken)
+    {
+        const int attempts = 50;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temp, target, overwrite: true);
+                return;
+            }
+            catch (Exception error) when (OperatingSystem.IsWindows() && attempt < attempts && error is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
             }
         }
     }
