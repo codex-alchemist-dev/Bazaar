@@ -45,14 +45,14 @@ public sealed class TwinProseTests : IDisposable
     private static string Reply(params (string Text, string? Ref)[] sentences) =>
         JsonSerializer.Serialize(sentences.Select(s => new Dictionary<string, string?> { ["text"] = s.Text, ["source_ref"] = s.Ref }).ToList());
 
-    private const string NpgsqlRef = "twin_fact:dependency:Npgsql";
+    private const string _npgsqlRef = "twin_fact:dependency:Npgsql";
 
     [Fact]
     public void Sentence_without_a_ref_is_dropped()
     {
         var page = TwinRefValidator.Validate(
             Request(),
-            [new TwinProseSentence("Uses Npgsql.", NpgsqlRef), new TwinProseSentence("Trust me.", null), new TwinProseSentence("Blank ref.", "  ")]);
+            [new TwinProseSentence("Uses Npgsql.", _npgsqlRef), new TwinProseSentence("Trust me.", null), new TwinProseSentence("Blank ref.", "  ")]);
 
         Assert.Single(page.Sentences);
         Assert.Equal(2, page.Dropped[TwinDropReason.MissingRef]);
@@ -78,7 +78,7 @@ public sealed class TwinProseTests : IDisposable
     {
         var page = TwinRefValidator.Validate(
             Request(),
-            [new TwinProseSentence("Line one\nline two.", NpgsqlRef), new TwinProseSentence("Close --> early.", NpgsqlRef), new TwinProseSentence(" ", NpgsqlRef)]);
+            [new TwinProseSentence("Line one\nline two.", _npgsqlRef), new TwinProseSentence("Close --> early.", _npgsqlRef), new TwinProseSentence(" ", _npgsqlRef)]);
 
         Assert.Empty(page.Sentences);
         Assert.Equal(2, page.Dropped[TwinDropReason.UnsafeText]);
@@ -104,7 +104,7 @@ public sealed class TwinProseTests : IDisposable
     public async Task Valid_sentences_land_in_the_vault_with_front_matter_and_the_dropped_count()
     {
         var head = TempGitRepository.HeadOf(_repo.Checkout);
-        var step = new TwinProseStep(new FakeModel(Reply(("Npgsql is pinned.", NpgsqlRef), ("Made up.", null))), _pages);
+        var step = new TwinProseStep(new FakeModel(Reply(("Npgsql is pinned.", _npgsqlRef), ("Made up.", null))), _pages);
 
         var result = await step.RunAsync(Request(), head, CancellationToken.None);
 
@@ -113,8 +113,8 @@ public sealed class TwinProseTests : IDisposable
         var text = File.ReadAllText(Path.Combine(_repo.Checkout, "twin", "bazaar", "overview.md"));
         Assert.Contains("type: twin\n", text);
         Assert.Contains("dropped_sentences: 1\n", text);
-        Assert.Contains("source_refs:\n  - " + NpgsqlRef + "\n", text);
-        Assert.Contains("Npgsql is pinned. <!-- source: " + NpgsqlRef + " -->", text);
+        Assert.Contains("source_refs:\n  - " + _npgsqlRef + "\n", text);
+        Assert.Contains("Npgsql is pinned. <!-- source: " + _npgsqlRef + " -->", text);
         Assert.DoesNotContain("Made up.", text);
 
         using var repo = new Repository(_repo.Checkout);
@@ -124,14 +124,14 @@ public sealed class TwinProseTests : IDisposable
     [Fact]
     public async Task Regenerating_an_identical_page_is_up_to_date_and_a_changed_page_overwrites()
     {
-        var model = new FakeModel(Reply(("Npgsql is pinned.", NpgsqlRef)));
+        var model = new FakeModel(Reply(("Npgsql is pinned.", _npgsqlRef)));
         var step = new TwinProseStep(model, _pages);
         var first = await step.RunAsync(Request(), TempGitRepository.HeadOf(_repo.Checkout), CancellationToken.None);
 
         var again = await step.RunAsync(Request(), first.Edit!.NewCommit, CancellationToken.None);
         Assert.Equal(VaultEditOutcome.UpToDate, again.Edit!.Outcome);
 
-        model.Next = Reply(("Npgsql is pinned and current.", NpgsqlRef));
+        model.Next = Reply(("Npgsql is pinned and current.", _npgsqlRef));
         var changed = await step.RunAsync(Request(), first.Edit.NewCommit, CancellationToken.None);
         Assert.Equal(VaultEditOutcome.Merged, changed.Edit!.Outcome);
         Assert.Contains("and current.", File.ReadAllText(Path.Combine(_repo.Checkout, "twin", "bazaar", "overview.md")));
@@ -170,7 +170,7 @@ public sealed class TwinProseTests : IDisposable
     [InlineData("bazaar\\x", "page")]
     public async Task Path_traversal_and_unsafe_names_are_refused(string project, string page)
     {
-        var step = new TwinProseStep(new FakeModel(Reply(("x", NpgsqlRef))), _pages);
+        var step = new TwinProseStep(new FakeModel(Reply(("x", _npgsqlRef))), _pages);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             step.RunAsync(new TwinProseRequest(project, page, "T", [Fact("Npgsql")]), TempGitRepository.HeadOf(_repo.Checkout), CancellationToken.None));
@@ -180,7 +180,7 @@ public sealed class TwinProseTests : IDisposable
     [Fact]
     public void Rendering_is_deterministic()
     {
-        var page = TwinRefValidator.Validate(Request(), [new TwinProseSentence("Uses Npgsql.", NpgsqlRef)]);
+        var page = TwinRefValidator.Validate(Request(), [new TwinProseSentence("Uses Npgsql.", _npgsqlRef)]);
 
         Assert.Equal(TwinPageRenderer.Render(page), TwinPageRenderer.Render(page));
         Assert.Equal(TwinPageRenderer.DocId("bazaar", "overview"), TwinPageRenderer.DocId("bazaar", "overview"));
