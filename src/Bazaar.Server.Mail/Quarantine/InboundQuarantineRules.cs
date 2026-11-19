@@ -5,7 +5,16 @@ namespace Bazaar.Server.Mail.Quarantine;
 /// <summary>One attachment as parsed from a message.</summary>
 /// <param name="FileName">The attachment's file name as sent.</param>
 /// <param name="ContentType">The declared media type, or null when none was given. Not used by the screens yet.</param>
-public sealed record AttachmentInfo(string FileName, string? ContentType);
+/// <param name="Archive">Metadata read from the archive's directory by <see cref="Bazaar.Server.Mail.Parsing.ZipArchiveInspector"/>, or null when the attachment is not an inspected archive.</param>
+public sealed record AttachmentInfo(string FileName, string? ContentType, ArchiveFacts? Archive = null);
+
+/// <summary>What an archive's directory declares. Nothing was unpacked to learn it.</summary>
+/// <param name="EntryCount">Entries the directory declares.</param>
+/// <param name="CompressedBytes">Sum of the declared compressed sizes.</param>
+/// <param name="UncompressedBytes">Sum of the declared uncompressed sizes.</param>
+/// <param name="ContainsArchive">True when an entry name has an archive extension.</param>
+/// <param name="Malformed">True when the directory is inconsistent, truncated, or uses a form the inspector refuses (ZIP64, entry count above the limit).</param>
+public sealed record ArchiveFacts(int EntryCount, long CompressedBytes, long UncompressedBytes, bool ContainsArchive, bool Malformed);
 
 /// <summary>A link in a message body: the text the reader sees and the URL it points to.</summary>
 /// <param name="VisibleText">The link's visible text.</param>
@@ -43,6 +52,18 @@ public sealed record InboundQuarantineOptions
 
     /// <summary>The most attachments a message may carry (<c>mail.max_attachments</c>).</summary>
     public int MaxAttachments { get; init; } = 5;
+
+    /// <summary>Domains a sender must not imitate: the operator's own mail domains plus any extra list. Empty turns the lookalike screen off. Nothing is built in.</summary>
+    public IReadOnlyList<string> ProtectedDomains { get; init; } = [];
+
+    /// <summary>Most entries an archive may declare (PROPOSED <c>mail.max_archive_entries</c>).</summary>
+    public int MaxArchiveEntries { get; init; } = 100;
+
+    /// <summary>Most uncompressed bytes an archive may declare (PROPOSED <c>mail.max_archive_uncompressed_bytes</c>).</summary>
+    public long MaxArchiveUncompressedBytes { get; init; } = 100L * 1024 * 1024;
+
+    /// <summary>Highest declared uncompressed-to-compressed ratio (PROPOSED <c>mail.max_archive_ratio</c>).</summary>
+    public int MaxArchiveCompressionRatio { get; init; } = 100;
 }
 
 /// <summary>
@@ -74,6 +95,10 @@ public static class InboundQuarantineRules
         ArgumentNullException.ThrowIfNull(options);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxMessageBytes);
         ArgumentOutOfRangeException.ThrowIfNegative(options.MaxAttachments);
+        ArgumentNullException.ThrowIfNull(options.ProtectedDomains);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxArchiveEntries);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxArchiveUncompressedBytes);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxArchiveCompressionRatio);
         ArgumentOutOfRangeException.ThrowIfNegative(headers.MessageBytes);
         ArgumentNullException.ThrowIfNull(headers.Attachments);
         ArgumentNullException.ThrowIfNull(headers.Links);
@@ -90,8 +115,20 @@ public static class InboundQuarantineRules
             reasons.Add(QuarantineReason.DisplayNameMismatch);
         }
 
+        if (options.ProtectedDomains.Count > 0
+            && EmailAddressParser.TryParseMailbox(headers.From, out var sender)
+            && LookalikeDomainDetector.IsLookalike(sender!.Address.Domain, options.ProtectedDomains))
+        {
+            reasons.Add(QuarantineReason.LookalikeSenderDomain);
+        }
+
         foreach (var attachment in headers.Attachments)
         {
+            if (attachment.Archive is { } archive && IsArchiveSuspect(archive, options))
+            {
+                reasons.Add(QuarantineReason.NestedArchive);
+            }
+
             var extension = ExtensionOf(attachment.FileName);
             if (extension is null)
             {
@@ -130,6 +167,20 @@ public static class InboundQuarantineRules
         }
 
         return new QuarantineDecision(QuarantineAction.Quarantine, [.. reasons]);
+    }
+
+    private static bool IsArchiveSuspect(ArchiveFacts archive, InboundQuarantineOptions options)
+    {
+        if (archive.ContainsArchive || archive.Malformed
+            || archive.EntryCount > options.MaxArchiveEntries
+            || archive.UncompressedBytes > options.MaxArchiveUncompressedBytes)
+        {
+            return true;
+        }
+
+        // Multiplied, not divided, so a zero compressed size with data declared still trips.
+        return archive.UncompressedBytes > 0
+            && (double)archive.UncompressedBytes > (double)archive.CompressedBytes * options.MaxArchiveCompressionRatio;
     }
 
     /// <summary>SPF, DKIM and DMARC report "fail" as a failure. Other results (none, neutral, temperror) are not screened here.</summary>

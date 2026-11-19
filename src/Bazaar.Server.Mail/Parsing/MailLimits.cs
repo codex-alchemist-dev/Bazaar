@@ -18,6 +18,15 @@ public sealed record MailLimits
     /// <summary>Total MIME parts in one message. Not a settings row yet; fixed here.</summary>
     public int MaxParts { get; init; } = 64;
 
+    /// <summary>Most entries an attached archive may list before it is held. PROPOSED key <c>mail.max_archive_entries</c>.</summary>
+    public int MaxArchiveEntries { get; init; } = 100;
+
+    /// <summary>Most bytes an attached archive may declare once unpacked. PROPOSED key <c>mail.max_archive_uncompressed_bytes</c>.</summary>
+    public long MaxArchiveUncompressedBytes { get; init; } = 100L * 1024 * 1024;
+
+    /// <summary>Highest declared uncompressed-to-compressed ratio. PROPOSED key <c>mail.max_archive_ratio</c>.</summary>
+    public int MaxArchiveCompressionRatio { get; init; } = 100;
+
     public static MailLimits Defaults { get; } = new();
 
     public void Validate()
@@ -26,5 +35,8 @@ public sealed record MailLimits
         if (MaxAttachments < 0) throw new ArgumentOutOfRangeException(nameof(MaxAttachments));
         if (MaxDepth <= 0) throw new ArgumentOutOfRangeException(nameof(MaxDepth));
         if (MaxParts <= 0) throw new ArgumentOutOfRangeException(nameof(MaxParts));
+        if (MaxArchiveEntries <= 0) throw new ArgumentOutOfRangeException(nameof(MaxArchiveEntries));
+        if (MaxArchiveUncompressedBytes <= 0) throw new ArgumentOutOfRangeException(nameof(MaxArchiveUncompressedBytes));
+        if (MaxArchiveCompressionRatio <= 0) throw new ArgumentOutOfRangeException(nameof(MaxArchiveCompressionRatio));
     }
 }

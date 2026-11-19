@@ -25,4 +25,10 @@ public enum QuarantineReason
 
     /// <summary>The message has more attachments than the configured limit.</summary>
     TooManyAttachments,
+
+    /// <summary>The sender's domain is a near-copy of a protected domain (confusable characters or one edit away).</summary>
+    LookalikeSenderDomain,
+
+    /// <summary>An attachment is an archive that holds another archive, or declares an archive-bomb shape.</summary>
+    NestedArchive,
 }
