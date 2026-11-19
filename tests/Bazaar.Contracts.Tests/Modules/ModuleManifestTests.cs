@@ -100,6 +100,20 @@ public class ModuleManifestTests
     }
 
     [Fact]
+    public void Dependencies_must_be_dotted_module_ids_and_default_to_none()
+    {
+        Assert.True(ModuleManifestValidator.Validate(Valid()).IsValid);
+        Assert.Empty(Valid().Hard);
+        Assert.Empty(Valid().Soft);
+        Assert.True(ModuleManifestValidator.Validate(Valid() with { DependsOn = ["bazaar.gc"], SoftDependsOn = ["bazaar.vault"] }).IsValid);
+
+        ModuleManifestResult result = ModuleManifestValidator.Validate(Valid() with { DependsOn = ["Not Dotted"], SoftDependsOn = ["nodots"] });
+
+        Assert.Contains(result.Issues, i => i.Path == "/dependsOn/0" && i.Code == "bad-dependency");
+        Assert.Contains(result.Issues, i => i.Path == "/softDependsOn/0" && i.Code == "bad-dependency");
+    }
+
+    [Fact]
     public void Undefined_isolation_value_is_rejected()
     {
         ModuleManifestResult result = ModuleManifestValidator.Validate(Valid() with { Isolation = (ModuleIsolation)99 });
