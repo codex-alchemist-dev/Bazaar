@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using Bazaar.Server.Kanban;
-using Bazaar.Server.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
