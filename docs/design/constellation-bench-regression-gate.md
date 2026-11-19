@@ -12,7 +12,10 @@ Status: implementation detail of `constellation-scale-and-lod.md` section 7 (ben
 - Exit codes: 0 passed, 1 regression or missing row, 2 bad input.
 
 ## Where it runs
-GPU timings only mean something on the same GPU and driver as the baseline. Hosted CI runners have no GPU, so the gate is **not** a required PR check. It runs on a self-hosted runner that has a GPU, with the baseline stored per machine. Wiring that runner job is a follow-up and needs a GPU runner label.
+GPU timings only mean something on the same GPU and driver as the baseline. Hosted CI runners have no GPU, so the gate is **not** a required PR check. It runs on a self-hosted runner that has a GPU, with the baseline stored per machine. The runner needs the `gpu` label.
+
+## Workflow
+`.github/workflows/gpu-bench.yml` runs the bench and the gate on a self-hosted runner labelled `gpu` (`[self-hosted, windows, gpu]`), on a weekly schedule and on demand, never on pull requests, so untrusted code cannot reach that machine. The baseline lives at `tests/Bazaar.Constellation.Vulkan.BenchGate/baselines/pc-gpu.csv`; with no baseline the job records the run as an artifact and passes.
 
 ## Usage
 `dotnet run --project tests/Bazaar.Constellation.Vulkan.BenchGate -- baseline.csv candidate.csv [maxRatio] [absoluteFloorMs]`
