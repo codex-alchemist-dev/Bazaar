@@ -1,4 +1,4 @@
-using Bazaar.Server.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Npgsql;
 
 namespace Bazaar.RyuseiFuda.Orrery;
