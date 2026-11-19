@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Approvals;
+using Bazaar.Contracts.GitHub;
 
 namespace Bazaar.GitHub.Adapter;
 
@@ -51,6 +52,9 @@ public enum MergeRefusalReason
 
     /// <summary>The PR head moved after approval.</summary>
     HeadMoved,
+
+    /// <summary>Checks at the approved head are not passing.</summary>
+    ChecksNotPassing,
 }
 
 /// <summary>A squash merge was refused because its owner approval did not hold. No merge request was sent.</summary>
@@ -61,12 +65,16 @@ public sealed class MergeNotApprovedException : Exception
     {
     }
 
-    public MergeNotApprovedException(string reason, MergeRefusalReason refusal, OwnerSignatureVerdict? verdict = null)
+    public MergeNotApprovedException(string reason, MergeRefusalReason refusal, OwnerSignatureVerdict? verdict = null, PrChecksRollup? checks = null)
         : base($"The squash merge was refused: {reason}.")
     {
         Reason = refusal;
         Verdict = verdict;
+        Checks = checks;
     }
+
+    /// <summary>The checks rollup when <see cref="Reason"/> is <see cref="MergeRefusalReason.ChecksNotPassing"/>.</summary>
+    public PrChecksRollup? Checks { get; }
 
     /// <summary>The check that failed.</summary>
     public MergeRefusalReason Reason { get; }

@@ -18,6 +18,19 @@ public class PrWireJsonTests
         Assert.Equal(reply, JsonSerializer.Deserialize(json, WireJsonContext.Default.PrMergeReply));
     }
 
+    [Theory]
+    [InlineData(PrMergeStatus.NotMergeable, "not_mergeable")]
+    [InlineData(PrMergeStatus.Conflict, "conflict")]
+    public void New_merge_statuses_travel_as_snake_case(PrMergeStatus status, string wire)
+    {
+        var reply = new PrMergeReply(status, null, "why");
+
+        string json = JsonSerializer.Serialize(reply, WireJsonContext.Default.PrMergeReply);
+
+        Assert.Contains("\"" + wire + "\"", json, StringComparison.Ordinal);
+        Assert.Equal(reply, JsonSerializer.Deserialize(json, WireJsonContext.Default.PrMergeReply));
+    }
+
     [Fact]
     public void Merge_request_round_trips_with_its_signature_and_nonce()
     {

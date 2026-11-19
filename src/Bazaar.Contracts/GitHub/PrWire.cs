@@ -225,6 +225,12 @@ public enum PrMergeStatus
     /// <summary>The owner signature was not accepted (forged, expired, unknown or revoked device, or replayed).</summary>
     [JsonStringEnumMemberName("bad_signature")] BadSignature,
 
+    /// <summary>GitHub refused the merge as not mergeable (HTTP 405 or 422): branch protection, required reviews, or a closed PR.</summary>
+    [JsonStringEnumMemberName("not_mergeable")] NotMergeable,
+
+    /// <summary>GitHub refused the merge on a conflict (HTTP 409): the head moved at GitHub or the branch conflicts.</summary>
+    [JsonStringEnumMemberName("conflict")] Conflict,
+
     /// <summary>Anything else: wrong action, approval for a different merge, malformed request.</summary>
     [JsonStringEnumMemberName("refused")] Refused,
 }
