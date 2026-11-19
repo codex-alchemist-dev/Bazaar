@@ -136,6 +136,13 @@ All field names are camelCase. A missing required field raises `PaneModelExcepti
 - `bazaar.company-memory`: `{ "decisions": [ { "path", "title", "status": "proposed" | "accepted" | "superseded", "decidedIn" } ], "links": [ { "fromDoc", "toDoc", "relation", "status", "fromMissing", "toMissing" } ] }`. A missing end renders as "missing source".
 - `bazaar.hive`: `{ "reviewDays", "grants": [ { "fromProject", "toProject", "kind", "grantedBy" } ], "copies": [ { "path", "originProject", "originKind", "trust", "state": "inReview" | "active" | "deprecated", "reviewUntil" } ] }`. The UI states "copies only". Grant changes leave the client as an owner action through `IHiveGrantActions`; the pane never writes a grant itself.
 
+### Hive grant wire request [PROPOSED]
+Gives `IHiveGrantActions` a wire implementation (`WireHiveGrantActions` in `Bazaar.Client.Hive`). Two owner-only request kinds with the same body:
+- `hive.grant.set` and `hive.grant.revoke`, body `{ "fromProject", "toProject", "kind" }`.
+- Reply `{ "accepted": bool, "reason": string|null, "approvalRequired": bool }`. `reason` is null when accepted.
+
+Owner approval stays server-side: `hive.grants` changes need owner approval (doc 08 settings, doc 15). The server may therefore answer `accepted: true, approvalRequired: true`, meaning the change is queued and not in force. The pane then shows "waiting for owner approval" and never "granted"; the matrix changes only when a later `bazaar.hive` model shows it. A refusal carries `reason`. A lost connection throws and leaves the matrix unchanged. The contract types are `Bazaar.Contracts.Hive.HiveGrantChangeRequest` and `HiveGrantChangeReply`, registered in `WireJson`.
+
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
 2. Health rules and project panel queries. Needs 1.

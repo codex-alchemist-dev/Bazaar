@@ -13,5 +13,8 @@ public sealed record HiveGrant(string FromProject, string ToProject, string Kind
 /// <summary>The identity of one grant: (from project, to project, kind). Grants are never written by the pane.</summary>
 public sealed record HiveGrantKey(string FromProject, string ToProject, string Kind);
 
-/// <summary>The server's answer to a grant or revoke request. <see cref="Reason"/> is empty when accepted.</summary>
-public sealed record HiveGrantResult(bool Accepted, string Reason);
+/// <summary>
+/// The server's answer to a grant or revoke request. <see cref="Reason"/> is empty when accepted.
+/// <see cref="ApprovalRequired"/> means the change waits for owner approval and is not in force yet.
+/// </summary>
+public sealed record HiveGrantResult(bool Accepted, string Reason, bool ApprovalRequired = false);

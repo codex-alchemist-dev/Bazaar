@@ -76,7 +76,9 @@ public sealed class HivePaneViewModel : IPaneViewModel
             var result = grant
                 ? await _actions.GrantAsync(key, ct).ConfigureAwait(true)
                 : await _actions.RevokeAsync(key, ct).ConfigureAwait(true);
-            LastStatus = result.Accepted
+            LastStatus = result.Accepted && result.ApprovalRequired
+                ? "Waiting for owner approval. Nothing changes until it is approved."
+                : result.Accepted
                 ? "Requested. The matrix changes when the server confirms."
                 : $"Refused: {result.Reason}";
         }
