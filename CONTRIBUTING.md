@@ -115,6 +115,17 @@ Never commit secrets, credentials, API keys or tokens, Soul data, or private
 company material. Keep local secrets in `.env` files or `*.local.json` files,
 which are gitignored.
 
+### Fake keys in tests
+
+The CI secret scan reads the full history of every branch, so one secret-shaped
+literal in a test turns every pull request red. Never write your own `ghp_...`,
+`sk-ant-...`, `AKIA...` or similar string in a test. Use `Bazaar.Testing.Secrets.FakeSecrets`
+(in `src/Bazaar.Testing`), for example `FakeSecrets.GitHubPat`. `.gitleaks.toml`
+allowlists exactly those values, each by an anchored regex, and nothing broader.
+Need a shape that is missing? Add a constant to `FakeSecrets` and its anchored
+regex to `.gitleaks.toml` in the same PR; `FakeSecretsAllowlistTests` checks they
+match. Do not allowlist by path or by rule, and do not add one-off entries.
+
 If a secret reaches a commit, tell the owner at once and treat the secret as
 compromised. Rotating it matters more than removing it from history.
 

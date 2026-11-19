@@ -23,3 +23,14 @@ commits = ["7581e7afbc85c4d40539c8d498d28037e7ab3225", "44e954f9236cf12958dd88cf
 # cc75f1d holds a code identifier (MnemonicKeyMapper), flagged by the generic-api-key rule. Commit-scoped, not a credential.
 # 9ce11f1 (lan-mdns, doc 39) added MdnsCodecTests.cs with fake mDNS TXT literals (keyhash=0123456789abcdef). Not credentials.
 paths = ['''tests/Bazaar\.Server\.Tests/Identity/Totp/Base32Tests\.cs$''', '''tests/Bazaar\.Server\.Transports\.Tests/LanMdns/MdnsCodecTests\.cs$''']
+# Shared fake test keys (Bazaar.Testing.Secrets.FakeSecrets). Exact values only: each regex is anchored to one literal,
+# so no path, rule or other secret-shaped string is skipped. Tests use FakeSecrets instead of new token literals.
+regexes = [
+    '''^ghp_BazaarFakeTestOnly000000000000000000$''',
+    '''^github_pat_BazaarFakeTestOnly0000000000000000000000000000000000000000000000000000000000000000$''',
+    '''^AKIAFAKETESTKEYAAAAA$''',
+    '''^sk-ant-api03-BazaarFakeTestOnly000000000000000000000000000000000000000000000000000000000000000000000000000AA$''',
+    '''^xoxb-BazaarFakeTestOnly0000$''',
+    '''^AIzaBazaarFakeTestOnly00000000000000000$''',
+    '''^bazaar_fake_test_only_api_key_Q9x7Lm2Zk4Vt8Rw1$''',
+]
