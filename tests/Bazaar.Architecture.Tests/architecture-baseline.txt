@@ -236,11 +236,9 @@ src/Bazaar.Server/Constellation/Clustering/WeightedEdge.cs
 src/Bazaar.Server/Constellation/ConstellationComponent.cs
 src/Bazaar.Server/Constellation/ConstellationSettingsResolver.cs
 src/Bazaar.Server/Constellation/GitDag/ConstellationGitDagIndexer.cs
-src/Bazaar.Server/Constellation/GitDag/GitDagRecords.cs
 src/Bazaar.Server/Constellation/Layout/BarnesHutTree.cs
 src/Bazaar.Server/Constellation/Layout/ConstellationLayoutOptionsMapper.cs
 src/Bazaar.Server/Constellation/Layout/ForceLayout.cs
-src/Bazaar.Server/Constellation/Layout/LayoutGraph.cs
 src/Bazaar.Server/Constellation/Layout/LayoutOptions.cs
 src/Bazaar.Server/Constellation/Layout/RepulsionBruteForce.cs
 src/Bazaar.Server/Constellation/Layout/ReverseGravity.cs
