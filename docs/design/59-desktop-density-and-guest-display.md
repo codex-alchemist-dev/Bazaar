@@ -152,7 +152,7 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 - Work package 5: PR #857.
 - Work package 8: PR #868 (session manager only; the pool VM image and host adapter are still to do).
 - Agent tools `screen.capture` and `screen.input`: PR #878. They stay refused until the server's tool policy lists them.
-- Section 7 rules (peer approval of account creation, what a site vote opens): PR #889, module `Bazaar.Server.AccountApproval`. State is in memory for now. The shipped list of senior peers is empty, so every request goes to the owner until the operator names them. A vote counts as unanimous only with at least `account_approval.min_unanimous_voters` voters (default 2, a setting that can only tighten).
+- Section 7 rules (peer approval of account creation, what a site vote opens): PR #889, module `Bazaar.Server.AccountApproval`. State is in memory for now. The shipped list of senior peers is empty, so every request goes to the owner until the operator names them. A vote counts as unanimous only with at least `MinUnanimousVoters` voters (module option, default 2, minimum 1; it has no settings key yet).
 
 ### Browser pool isolation: what holds and what does not (measured, PR #868)
 Each session has its own slot: a Linux uid, an empty profile, `setpriv` (no new privileges, empty capability sets), a `bwrap` sandbox that hides `/root`, `/var`, `/home`, `/etc/passwd` and the other slots, Chromium's own sandbox left on (renderers under seccomp), and a per-uid nftables rule that allows only that agent's egress proxy. A real Chromium in this sandbox sent its page request to the proxy and nothing else was reachable by path.
