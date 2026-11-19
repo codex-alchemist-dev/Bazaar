@@ -41,6 +41,7 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
+        services.AddBazaarSecretStore(configuration);
         services.AddBazaarJobs();
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
