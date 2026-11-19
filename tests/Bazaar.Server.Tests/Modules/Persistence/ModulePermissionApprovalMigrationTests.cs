@@ -3,7 +3,7 @@ using Bazaar.Server.Data.Migrations;
 
 namespace Bazaar.Server.Tests.Modules.Persistence;
 
-/// <summary>The text of <c>modules/0002</c>: the table's guards and grants. The behaviour is checked against Postgres in <see cref="Install.ModuleApprovalPersistenceTests"/>.</summary>
+/// <summary>The text of <c>modules/0002</c>: the table's guards and grants. The behaviour is checked against Postgres in <c>Bazaar.Server.Modules.Tests.Install.ModuleApprovalPersistenceTests</c>.</summary>
 public sealed class ModulePermissionApprovalMigrationTests
 {
     private static readonly EmbeddedMigrationSource _source = new(typeof(MigrationRunner).Assembly);
