@@ -3,6 +3,7 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 
@@ -31,6 +32,7 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
+app.MapBazaarSignIn();
 app.MapBazaarHttpSurface();
 app.UseBazaarWire();
 

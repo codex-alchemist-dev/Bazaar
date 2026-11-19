@@ -19,6 +19,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Kanban;
 using Bazaar.Server.Mail;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
 
@@ -42,6 +43,7 @@ public static class HostComponents
         new RoadmapComponent(),
         new CommunityComponent(),
         new RolesComponent(),
+        new SignInComponent(),
         new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
