@@ -278,7 +278,7 @@ public sealed class KvmAdversarialTests
 
         var virsh = _runner.Calls.Where(c => c[0] == "virsh").ToList();
         Assert.True(virsh.Count >= 10);
-        string[] verbs = ["start", "destroy", "shutdown", "domstate", "managedsave", "snapshot-create-as", "snapshot-revert", "dominfo", "undefine", "define"];
+        string[] verbs = ["start", "destroy", "shutdown", "domstate", "managedsave", "managedsave-remove", "snapshot-create-as", "snapshot-revert", "dominfo", "undefine", "define"];
         foreach (var call in virsh)
         {
             Assert.Equal("--connect", call[1]);
