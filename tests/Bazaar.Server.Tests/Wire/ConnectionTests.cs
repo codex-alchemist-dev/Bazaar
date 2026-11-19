@@ -296,6 +296,26 @@ public sealed class ConnectionTests
     }
 
     [Fact]
+    public async Task A_client_that_asks_but_never_reads_is_closed_instead_of_growing_the_reply_queue()
+    {
+        // Replies are not events, so wire.outbound_queue_max never bounded them: a peer that kept sending requests (which also
+        // keeps the heartbeat quiet) and never read grew the queue until the host ran out of memory.
+        var big = System.Text.Encoding.UTF8.GetBytes("\"" + new string('a', 200_000) + "\"");
+        var bulk = new DelegateHandler("bulk", (_, _) => ValueTask.FromResult(WireReply.Ok(big)));
+        await using var server = await WireTestServer.StartAsync(o => o.OutboundQueueMax = 5, handlers: [bulk]);
+        await using var client = await WireTestClient.ConnectedAsync(server);
+
+        // Far more than the socket buffers hold, sent without reading a single reply.
+        for (var i = 0; i < 90; i++)
+        {
+            await client.SendAsync(client.RequestOf("bulk", new Ping(null)));
+            if (i % 30 == 29) await Task.Delay(100);
+        }
+
+        Assert.Equal(1013, await client.WaitForCloseAsync());
+    }
+
+    [Fact]
     public async Task Server_pings_every_interval_and_any_frame_keeps_the_socket_alive()
     {
         await using var server = await WireTestServer.StartAsync();

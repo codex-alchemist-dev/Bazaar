@@ -20,6 +20,8 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private const int _serverMajor = 1;
     private const int _heartbeatCloseCode = 1001;
     private const int _serverFaultCloseCode = 1011;
+    private const int _backlogCloseCode = 1013; // Try Again Later: the peer is not reading what it asked for.
+    private const long _maxPendingReplyBytes = 32L * 1024 * 1024;
 
     private readonly WebSocket _socket;
     private readonly string? _headerCredential;
@@ -49,6 +51,8 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private (int Code, string Reason)? _closeRequest;
     private volatile bool _closing;
     private int _pendingEvents;
+    private int _pendingReplies;
+    private long _pendingReplyBytes;
     private int _inflight;
     private long _lastActivityTicks;
     private DateTimeOffset? _expiresAt;
@@ -522,8 +526,35 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private Envelope Frame(string type, EnvelopeKind kind, string? re, string? stream, DateTimeOffset? ts, ReadOnlyMemory<byte> payload) =>
         new(_version, type, kind, null, re, stream, null, ts, payload);
 
-    private bool Enqueue(Envelope envelope) =>
-        !_closing && _outbound.Writer.TryWrite(new Outbound(EncodeFrame(envelope), IsEvent: false));
+    // Replies, pings and control notices are not events, so the event bound does not cover them: a peer that keeps sending
+    // requests but never reads would otherwise grow this queue without limit (its requests also keep the heartbeat quiet).
+    // Past the bound the peer is not reading, so the socket closes (doc 02, Backpressure: the outbound queue is bounded).
+    private bool Enqueue(Envelope envelope)
+    {
+        if (_closing) return false;
+        var data = EncodeFrame(envelope);
+        var bytes = Interlocked.Add(ref _pendingReplyBytes, data.Length);
+        if (Interlocked.Increment(ref _pendingReplies) > _options.OutboundQueueMax || bytes > _maxPendingReplyBytes)
+        {
+            ReleaseReply(data.Length);
+            _ = CloseAsync(_backlogCloseCode, "outbound backlog").AsTask();
+            return false;
+        }
+
+        if (_outbound.Writer.TryWrite(new Outbound(data, IsEvent: false)))
+        {
+            return true;
+        }
+
+        ReleaseReply(data.Length);
+        return false;
+    }
+
+    private void ReleaseReply(int length)
+    {
+        Interlocked.Add(ref _pendingReplyBytes, -length);
+        Interlocked.Decrement(ref _pendingReplies);
+    }
 
     private byte[] EncodeFrame(in Envelope envelope)
     {
@@ -539,6 +570,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             await foreach (var item in _outbound.Reader.ReadAllAsync().ConfigureAwait(false))
             {
                 if (item.IsEvent) Interlocked.Decrement(ref _pendingEvents);
+                else ReleaseReply(item.Data.Length);
                 await _socket.SendAsync(
                     item.Data,
                     _codec.IsBinary ? WebSocketMessageType.Binary : WebSocketMessageType.Text,
