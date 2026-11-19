@@ -36,3 +36,28 @@ public sealed record CompanyBuildReport(
 
 /// <summary>A company build request that cannot be composed (unknown module, or a plan the kernel refuses).</summary>
 public sealed class CompanyBuildException(string message) : Exception(message);
+
+/// <summary>One client artifact a company build produces (docs/design/37 section 4a): an output id and the project it is built from.</summary>
+/// <param name="Id">Output folder name and artifact id, for example <c>windows-msix</c>. Letters, digits, dot, dash and underscore only.</param>
+/// <param name="ProjectPath">The client project the target is published from.</param>
+public sealed record CompanyBuildTarget(string Id, string ProjectPath);
+
+/// <summary>The outcome of one target within a company build set.</summary>
+/// <param name="TargetId">The target's id.</param>
+/// <param name="Report">The runner's report, including every retry.</param>
+public sealed record CompanyBuildTargetReport(string TargetId, CompanyBuildReport Report);
+
+/// <summary>The outcome of a full company build: one report per target and whether the set is complete.</summary>
+/// <param name="CompanyId">The company the set was built for.</param>
+/// <param name="FinishedAt">When the set finished.</param>
+/// <param name="Targets">One report per target, in build order.</param>
+/// <param name="Complete">True only when every target succeeded. A set that is not complete is never published as complete.</param>
+/// <param name="IsSigned">Whether signing was configured. Unsigned sets are labelled in the output folder's README.txt.</param>
+/// <param name="OutputDirectory">The company's output folder.</param>
+public sealed record CompanyBuildSetReport(
+    string CompanyId,
+    DateTimeOffset FinishedAt,
+    IReadOnlyList<CompanyBuildTargetReport> Targets,
+    bool Complete,
+    bool IsSigned,
+    string OutputDirectory);
