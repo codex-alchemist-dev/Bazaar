@@ -60,7 +60,8 @@ jobs:
 
       # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
       # files that matter, listed by git.
-      - name: Compute NuGet cache key
+      - name: Compute NuGet cache key (Linux)
+        if: runner.os != 'Windows'
         id: nugetkey
         shell: bash
         run: |
@@ -68,11 +69,23 @@ jobs:
           hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
           echo "hash=$hash" >> "$GITHUB_OUTPUT"
 
+      # The Windows self-hosted runners have no bash on PATH, so this leg uses Windows PowerShell (5.1 compatible).
+      - name: Compute NuGet cache key (Windows)
+        if: runner.os == 'Windows'
+        id: nugetkey-win
+        shell: powershell
+        run: |
+          $files = git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | Sort-Object
+          $parts = $files | ForEach-Object { "$_ " + (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash }
+          $bytes = [System.Text.Encoding]::UTF8.GetBytes(($parts -join "`n"))
+          $hash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
+          "hash=$hash" >> $env:GITHUB_OUTPUT
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash || steps.nugetkey-win.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
