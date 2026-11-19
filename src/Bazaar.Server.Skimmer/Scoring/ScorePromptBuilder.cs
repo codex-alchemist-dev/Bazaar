@@ -40,10 +40,10 @@ public static class ScorePromptBuilder
             var subscriptions = new JsonArray();
             foreach (var subscription in agent.Subscriptions)
             {
-                subscriptions.Add(subscription);
+                subscriptions.Add((JsonNode?)JsonValue.Create(subscription));
             }
 
-            agents.Add(new JsonObject
+            agents.Add((JsonNode?)new JsonObject
             {
                 ["agent"] = agent.AgentId.ToString("D"),
                 ["name"] = agent.Name,
