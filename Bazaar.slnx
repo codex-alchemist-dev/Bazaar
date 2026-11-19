@@ -28,6 +28,8 @@
     <Project Path="src/Bazaar.Core/Bazaar.Core.csproj" />
     <Project Path="src/Bazaar.Install.Abstractions/Bazaar.Install.Abstractions.csproj" />
     <Project Path="src/Bazaar.Install/Bazaar.Install.csproj" />
+    <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Modules.Abstractions/Bazaar.Server.Modules.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Modules/Bazaar.Server.Modules.csproj" />
     <Project Path="src/Bazaar.Diagnostics/Bazaar.Diagnostics.csproj" />
@@ -91,6 +93,7 @@
     <Project Path="tests/Bazaar.Kodo.Tests/Bazaar.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Ex.Tests/Bazaar.Ex.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Modules.Tests/Bazaar.Server.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Kek.Tests/Bazaar.Server.Identity.Kek.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
