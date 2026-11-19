@@ -13,7 +13,17 @@ public sealed class KvmDomainXmlTests
 
     private static readonly string[] _headedDevices = ["graphics", "video", "sound", "usb", "input", "serial", "console"];
 
-    private static readonly string[] _allowedDevices = ["disk", "vsock", "controller", "rng", "memballoon"];
+    private static readonly string[] _allowedDevices = ["controller", "controller", "controller", "controller", "disk", "vsock", "controller", "rng", "watchdog", "memballoon"];
+
+    [Fact]
+    public void Pci_ports_are_declared_for_the_three_virtio_devices_and_the_watchdog_cannot_reset()
+    {
+        var root = System.Xml.Linq.XDocument.Parse(KvmDomainXml.Build(Definition())).Root!;
+
+        var ports = root.Descendants("controller").Where(c => (string?)c.Attribute("model") == "pcie-root-port").ToArray();
+        Assert.Equal(3, ports.Length);
+        Assert.Equal("none", (string?)root.Descendants("watchdog").Single().Attribute("action"));
+    }
 
     private static KvmDomainDefinition Definition(string? diskPath = null, int vcpu = 2, int memoryMb = 2048) =>
         new(KvmNames.Domain(_domainId), VmOs.Linux, vcpu, memoryMb, diskPath ?? _diskPath);

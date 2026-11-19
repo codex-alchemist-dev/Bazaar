@@ -16,6 +16,8 @@ public static class KvmDomainXml
 
     private const int _minMemoryMb = 512;
 
+    private const int _rootPorts = 3;
+
     /// <summary>Returns the domain XML document for <paramref name="domain"/>. Uses XmlWriter, never string concatenation.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="domain"/> is null.</exception>
     /// <exception cref="ArgumentException">The name, CPU count, memory or disk path is outside the accepted shape.</exception>
@@ -82,6 +84,13 @@ public static class KvmDomainXml
 
             xml.WriteStartElement("devices");
 
+            // Declare exactly the PCIe ports the three virtio devices need (disk, rng, vsock). Left to itself, libvirt adds a spare port.
+            WriteEmpty(xml, "controller", ("type", "pci"), ("index", "0"), ("model", "pcie-root"));
+            for (var port = 1; port <= _rootPorts; port++)
+            {
+                WriteEmpty(xml, "controller", ("type", "pci"), ("index", Int(port)), ("model", "pcie-root-port"));
+            }
+
             xml.WriteStartElement("disk");
             xml.WriteAttributeString("type", "file");
             xml.WriteAttributeString("device", "disk");
@@ -106,6 +115,11 @@ public static class KvmDomainXml
             xml.WriteString("/dev/urandom");
             xml.WriteEndElement();
             xml.WriteEndElement();
+
+            // q35 always carries the ICH9 TCO watchdog and libvirt cannot drop it (model 'none' is invalid). Set its action to none so a guest
+            // that arms it cannot reset the VM behind the backend's back. The SATA controller and PS/2 input are chipset-built-in on q35 too
+            // (verified on libvirt 10.0.0, QEMU 8.2.2) and cannot be removed by XML.
+            WriteEmpty(xml, "watchdog", ("model", "itco"), ("action", "none"));
 
             // No serial or console device on purpose: a guest-written host pty is a terminal-escape injection surface for whoever attaches to it.
             WriteEmpty(xml, "memballoon", ("model", "none"));

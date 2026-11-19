@@ -16,9 +16,9 @@ public sealed class KvmAdversarialTests
     private static readonly string _images = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bazaar-kvm-adv-images"));
 
     private static readonly string[] _forbiddenElements =
-        ["interface", "graphics", "hostdev", "filesystem", "channel", "serial", "console", "redirdev", "smartcard", "sound", "video", "input", "tpm", "parallel", "watchdog", "panic", "shmem"];
+        ["interface", "graphics", "hostdev", "filesystem", "channel", "serial", "console", "redirdev", "smartcard", "sound", "video", "input", "tpm", "parallel", "panic", "shmem"];
 
-    private static readonly string[] _allowedDevices = ["disk", "vsock", "memballoon", "controller", "rng"];
+    private static readonly string[] _allowedDevices = ["disk", "vsock", "memballoon", "controller", "controller", "controller", "controller", "controller", "rng", "watchdog"];
 
     private readonly RecordingRunner _runner = new();
     private readonly RecordingFiles _files = new();
@@ -303,7 +303,7 @@ public sealed class KvmAdversarialTests
             Assert.Empty(root.Descendants(forbidden));
         }
 
-        var usb = Assert.Single(devices.Elements("controller"));
+        var usb = Assert.Single(devices.Elements("controller"), c => (string?)c.Attribute("type") == "usb");
         Assert.Equal("usb", (string?)usb.Attribute("type"));
         Assert.Equal("none", (string?)usb.Attribute("model"));
         Assert.NotNull(root.Element("memoryBacking")!.Element("nosharepages"));
