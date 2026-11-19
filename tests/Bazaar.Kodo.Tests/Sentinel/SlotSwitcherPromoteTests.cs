@@ -49,7 +49,17 @@ public sealed class SlotSwitcherPromoteTests
         // The status file shows probation before the launcher's run is recorded as finished, and ends with running.
         Assert.Contains(rig.StatusFile.Writes, write => write.Contains("\"phase\":\"probation\"", StringComparison.Ordinal));
         Assert.Contains("\"phase\":\"running\"", rig.StatusFile.Writes[^1], StringComparison.Ordinal);
-        Assert.Equal(["replace:kodo.pointer.previous.json", "replace:kodo.pointer.json", "status", "probation:slot-b", "status"], rig.Log);
+        Assert.Equal(
+            [
+                "replace:kodo.pointer.previous.json",
+                "replace:kodo.probation.pending",
+                "replace:kodo.pointer.json",
+                "status",
+                "probation:slot-b",
+                "delete:kodo.probation.pending",
+                "status",
+            ],
+            rig.Log);
     }
 
     [Fact]
@@ -176,7 +186,7 @@ public sealed class SlotSwitcherPromoteTests
     public async Task RollbackStopsWhenThePreviousSlotIsGoneAndKeepsTheCandidateFailing()
     {
         (SentinelHarness.Rig rig, _, byte[] pointerB) = await ActiveAWithCandidateB();
-        rig.Store.Slots.Remove(SentinelHarness.SlotA);
+        rig.Launcher.BeforeOutcome = () => rig.Store.Slots.Remove(SentinelHarness.SlotA);
         rig.Launcher.Outcomes.Enqueue(new KodoRunOutcome(KodoRunKind.Exited, 1));
 
         PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
@@ -195,7 +205,7 @@ public sealed class SlotSwitcherPromoteTests
     public async Task RollbackStopsWhenThePreviousSlotNoLongerVerifies()
     {
         (SentinelHarness.Rig rig, _, byte[] pointerB) = await ActiveAWithCandidateB();
-        rig.Store.Slots[SentinelHarness.SlotA]["kodo.dll"] = Encoding.UTF8.GetBytes("tampered");
+        rig.Launcher.BeforeOutcome = () => rig.Store.Slots[SentinelHarness.SlotA]["kodo.dll"] = Encoding.UTF8.GetBytes("tampered");
         rig.Launcher.Outcomes.Enqueue(new KodoRunOutcome(KodoRunKind.Exited, 1));
 
         PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
@@ -214,7 +224,9 @@ public sealed class SlotSwitcherPromoteTests
         await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
 
         Assert.True(rig.Store.Slots.ContainsKey(SentinelHarness.SlotB));
-        Assert.DoesNotContain(rig.Log, entry => entry.StartsWith("delete:", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            rig.Log,
+            entry => entry.StartsWith("delete:", StringComparison.Ordinal) && entry != "delete:" + SentinelLayout.ProbationMarkerFileName);
     }
 
     [Fact]
@@ -246,5 +258,127 @@ public sealed class SlotSwitcherPromoteTests
         Assert.Equal(TimeSpan.FromSeconds(1), stable.Delay);
         Assert.Equal(3, rig.Switcher.Status.RestartCount);
         Assert.Contains("\"restartCount\":3", rig.StatusFile.Writes[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MarkerExistsDuringProbationAndIsGoneAfterwards()
+    {
+        (SentinelHarness.Rig rig, _, byte[] pointerB) = await ActiveAWithCandidateB();
+        string? seen = null;
+        rig.Launcher.BeforeOutcome = () => seen = Encoding.UTF8.GetString(rig.Store.Root[SentinelLayout.ProbationMarkerFileName]);
+
+        await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(SentinelHarness.SlotB, seen);
+        Assert.DoesNotContain(SentinelLayout.ProbationMarkerFileName, rig.Store.Root.Keys);
+    }
+
+    [Fact]
+    public async Task CancellationDuringProbationRollsBackThenRethrows()
+    {
+        (SentinelHarness.Rig rig, byte[] pointerA, byte[] pointerB) = await ActiveAWithCandidateB();
+        using CancellationTokenSource cts = new();
+        rig.Launcher.BeforeOutcome = cts.Cancel;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => rig.Switcher.PromoteAsync(pointerB, cts.Token));
+
+        Assert.Equal(pointerA, rig.Store.Root[RuntimeLayout.PointerFileName]);
+        Assert.Equal(SentinelHarness.SlotA, rig.Switcher.Status.ActiveSlot);
+        Assert.Equal(SentinelCauses.ProbationFailed, rig.Switcher.Status.Cause);
+        Assert.NotNull(rig.Switcher.Status.LastRollback);
+        Assert.DoesNotContain(SentinelLayout.ProbationMarkerFileName, rig.Store.Root.Keys);
+    }
+
+    [Fact]
+    public async Task ThrowingLauncherCountsAsFailedProbation()
+    {
+        (SentinelHarness.Rig rig, byte[] pointerA, byte[] pointerB) = await ActiveAWithCandidateB();
+        rig.Launcher.Throw = new InvalidOperationException("no process");
+
+        PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(PromotionOutcome.RolledBack, outcome);
+        Assert.Equal(pointerA, rig.Store.Root[RuntimeLayout.PointerFileName]);
+        Assert.Equal(SentinelHarness.SlotA, rig.Switcher.Status.ActiveSlot);
+        Assert.Contains("InvalidOperationException", rig.Switcher.Status.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StatusWriteFailingAfterTheSwapRollsBackWithoutRunningProbation()
+    {
+        (SentinelHarness.Rig rig, byte[] pointerA, byte[] pointerB) = await ActiveAWithCandidateB();
+        rig.StatusFile.FailOn = text => text.Contains("\"phase\":\"probation\"", StringComparison.Ordinal);
+
+        PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(PromotionOutcome.RolledBack, outcome);
+        Assert.Equal(pointerA, rig.Store.Root[RuntimeLayout.PointerFileName]);
+        Assert.Empty(rig.Launcher.Calls);
+        Assert.Equal(SentinelHarness.SlotA, rig.Switcher.Status.ActiveSlot);
+    }
+
+    [Fact]
+    public async Task ConcurrentExitsDuringProbationAreAllCountedAndThePhaseStaysConsistent()
+    {
+        (SentinelHarness.Rig rig, _, byte[] pointerB) = await ActiveAWithCandidateB();
+        DateTimeOffset now = rig.Clock.GetUtcNow();
+        const int exits = 400;
+        rig.Launcher.BeforeOutcome = () =>
+            Parallel.For(0, exits, _ => rig.Switcher.RecordKodoExit(now, now.AddSeconds(1)));
+
+        PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(PromotionOutcome.Promoted, outcome);
+        Assert.Equal(exits, rig.Switcher.Status.RestartCount);
+        Assert.Equal(SentinelPhases.Running, rig.Switcher.Status.Phase);
+        Assert.Contains($"\"restartCount\":{exits}", rig.StatusFile.Writes[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MissingActivePointerRejectsPromotionAndLeavesAStalePreviousAlone()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        byte[] stale = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        byte[] pointerB = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotB, "b");
+        rig.Store.Root[RuntimeLayout.PreviousPointerFileName] = stale;
+
+        PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(PromotionOutcome.Rejected, outcome);
+        Assert.Equal(SentinelCauses.ActivePointerNotVerified, rig.Switcher.Status.Cause);
+        Assert.DoesNotContain(RuntimeLayout.PointerFileName, rig.Store.Root.Keys);
+        Assert.Empty(rig.Launcher.Calls);
+        Assert.DoesNotContain(rig.Log, entry => entry.StartsWith("replace:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PromoteBeforeStartVerifiesTheActivePointerFromDisk()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        byte[] pointerA = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        byte[] pointerB = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotB, "b");
+        rig.Store.Root[RuntimeLayout.PointerFileName] = pointerA;
+
+        PromotionOutcome same = await rig.Switcher.PromoteAsync(pointerA, CancellationToken.None);
+        PromotionOutcome promoted = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(PromotionOutcome.Rejected, same);
+        Assert.Equal(PromotionOutcome.Promoted, promoted);
+        Assert.Equal(pointerA, rig.Store.Root[RuntimeLayout.PreviousPointerFileName]);
+        Assert.Equal(pointerB, rig.Store.Root[RuntimeLayout.PointerFileName]);
+    }
+
+    [Fact]
+    public async Task UnverifiedActivePointerRejectsPromotionBeforeStart()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        rig.Store.Root[RuntimeLayout.PointerFileName] = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a", RuntimeTestSigning.OtherKey);
+        byte[] pointerB = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotB, "b");
+
+        PromotionOutcome outcome = await rig.Switcher.PromoteAsync(pointerB, CancellationToken.None);
+
+        Assert.Equal(PromotionOutcome.Rejected, outcome);
+        Assert.Equal(SentinelCauses.ActivePointerNotVerified, rig.Switcher.Status.Cause);
+        Assert.Empty(rig.Launcher.Calls);
     }
 }
