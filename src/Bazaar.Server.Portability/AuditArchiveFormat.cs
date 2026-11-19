@@ -59,6 +59,62 @@ public static class AuditArchiveFormat
         return rows;
     }
 
+    /// <summary>
+    /// Reads the row file one line at a time, so a large archive is never held in memory. A line that is not a valid row (or
+    /// invalid UTF-8) yields one null and ends the sequence; <see cref="AuditChainReplay"/> reports a null row as malformed input.
+    /// </summary>
+    public static IEnumerable<AuditRow> StreamRows(Stream content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        using var reader = new StreamReader(content, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+        while (true)
+        {
+            string? line = null;
+            var invalid = false;
+            try
+            {
+                line = reader.ReadLine();
+            }
+            catch (DecoderFallbackException)
+            {
+                invalid = true;
+            }
+
+            if (invalid)
+            {
+                yield return null!;
+                yield break;
+            }
+
+            if (line is null)
+            {
+                yield break;
+            }
+
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            RowLine? parsed = null;
+            try
+            {
+                parsed = JsonSerializer.Deserialize(line, AuditJson.Default.RowLine);
+            }
+            catch (JsonException)
+            {
+            }
+
+            if (parsed is null || parsed.Actor is null || parsed.Kind is null || parsed.Payload is null || parsed.PrevHash is null || parsed.Hash is null)
+            {
+                yield return null!;
+                yield break;
+            }
+
+            yield return new AuditRow(parsed.Seq, parsed.Ts, parsed.Actor, parsed.Kind, parsed.Payload, parsed.PrevHash, parsed.Hash);
+        }
+    }
+
     /// <summary>Parses the checkpoint file. Returns null for malformed content; never throws on bad input.</summary>
     public static IReadOnlyList<AuditCheckpointRecord>? TryReadCheckpoints(ReadOnlySpan<byte> content)
     {
