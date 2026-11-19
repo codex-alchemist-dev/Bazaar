@@ -38,7 +38,7 @@ These are not violations of the rules above. They are things that will block a c
 
 1. **Ordering keys are named for Bazaar.** `RenderFrame` and `FrameSequencer` use `GraphVersion` and `LayoutSeq`. They are generic sequence numbers and should get neutral names.
 2. **One spatial grid (done, #473).** The client's hit-testing uses `src/Bazaar.Constellation.Rendering/Core/SpatialGrid.cs`. The duplicate in `Bazaar.Client.Core` was removed. The grid is 2D only; 3D frames need a dimension-aware rebuild before the server sends them.
-3. **No GPU consumer for the instance buffer yet.** The Vulkan backend does not draw nodes yet, so the node instance buffer has no consumer. Its layout is not proven on a device, and it should not be frozen as a public contract until it is.
+3. **GPU consumer for the instance buffer (drawn, not frozen).** The Vulkan backend draws node instances, and the layout is checked on a device by an offscreen readback test. Each instance is x, y and a style index (`NodeInstanceBuffer`, 3 floats). The style table is a separate `NodeStylePalette` of distinct styles (colour, radius, ring width), uploaded to a GPU storage buffer, so a style change does not re-upload the instances. The layout still should not be frozen as a public contract until it is proven across more devices.
 4. **Bazaar service registration in the Vulkan project.** `Bazaar.Constellation.Vulkan` still uses a Bazaar service registration, so the backend cannot be reused on its own.
 
 ## 5. Future extraction steps
