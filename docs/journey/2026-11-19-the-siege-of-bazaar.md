@@ -224,6 +224,27 @@ What held in the third wave: every GC operation by a non-member answers the same
 
 New cracks from the third wave are items 22 to 36 below.
 
+## The fourth wave (late that night)
+
+Until now every attack had been aimed at the server. The fourth wave turned around: the client facing a hostile server, the parsers that read mail and Markdown written by strangers, and the install, the bundled Postgres and the agent that lives inside each VM. Twenty-two more real bugs, all fixed with tests.
+
+- **A client that could be hung for good.** After a terminal close (4401, 4403, 4426) every waiting request, and every later one, waited for ever. A server that never said `welcome`, or stopped reading, held the connection open indefinitely because the heartbeat's own ping blocked on the stuck socket. A connect that timed out inside the transport stopped the client permanently as "cancelled". All three now fail fast or reconnect; the handshake has a 30 second limit.
+- **A server could fill the client's disk.** Events for streams the client never subscribed to were delivered and each made a cursor entry in the saved cursor file. They are now dropped. The relay socket also buffered an endless fragmented message (64 MiB in the test); it stops at 64 KiB.
+- **Failures that took the app down or said nothing.** A refused tile endpoint threw into an `async void` handler, which ends the process. The Vault pane swallowed garbled answers and kept showing stale results. Both now degrade to a status line.
+- **Mail attachments that were not called attachments.** The parser listed only parts marked `attachment`, so an executable sent inline skipped the executable screen and the attachment count. `invoice.exe` followed by a NUL and `.pdf` was screened as a PDF. Link targets written as `//host`, `https:host` or `javascript:` had no host as far as the check could tell, so a link whose text said one site and whose target was another went unnoticed. All three closed.
+- **The signed mail queue.** A correctly signed but malformed batch threw five different unplanned exceptions. A quoted `@` in a recipient address (the sender controls it) made the whole batch fail on every pull. Mailbox matching was case-sensitive, so mail to a differently cased address was dropped.
+- **One Markdown file could stop the Vault index.** A committed note with 5,000 nested quotes made the Markdown parser throw an exception the indexer did not expect, so every catch-up failed and the index never advanced again. The file is now marked invalid and skipped.
+- **The guest agent died on `{}`.** A frame with missing fields threw a null reference out of the read loop and killed the agent. An exec with a timeout of `int.MaxValue` threw after the process had started, killing the agent and orphaning the child.
+- **The bundled Postgres trusted a stale pid file.** If the pid had been reused by another program, the manager adopted it, timed out, and could later kill that unrelated program. It now checks the process is Postgres.
+- **The managed superuser password** was saved through one fixed temp name, so two saves at once raced. Now a unique owner-only temp file, flushed and moved into place.
+- **A VM stuck in "provisioning" for ever** if the host stopped at the wrong moment: the reconciler skipped it and retire refused it. The reconciler now returns it to absent.
+- **The clock, again.** After the clock stepped back a day the rate limiter stayed shut for a day against a one-minute window.
+- **Smaller:** the setup plan loader threw on a `null` list item; a heartbeat gap or a token lifetime large enough to overflow was accepted at start and failed later.
+
+What held in the fourth wave: update version checks (downgrade, insecure URL, hash and signature); header injection on send and every MIME bomb tried; GitHub webhook signatures and dedupe; the Rubedo parser under deep nesting; 300,000 fuzzed inputs each against the mDNS, STUN, signalling and relay codecs; TLS certificate loading with wrong keys and garbage; and the guest agent against a file write aimed at a directory, absurd terminal sizes and NUL in arguments.
+
+New cracks from the fourth wave are items 37 to 50 below.
+
 ## Still standing, with cracks (needs the owner or a design doc)
 
 None of these were changed. Each needs a decision first.
@@ -264,6 +285,20 @@ None of these were changed. Each needs a decision first.
 34. **About eight more places cut text by UTF-16 unit.** None write to Postgres text today. A shared "cut without splitting a character" helper would end the class; where it lives needs deciding.
 35. **Agent-made daily schedules step in UTC**, not the agent's time zone: the tool passes no zone.
 36. **Smaller:** the wire decoder accepts duplicate fields and trailing bytes; two regexes (path globs, the Constitution heading) are slow on crafted input and only one has a timeout; a former member is refused history but served search up to the point they left.
+37. **A server can poison a client's cursor.** A message numbered `long.MaxValue` pins the cursor so every later message is dropped, and a resync never lowers it. A live jump of more than one is not treated as a hole either.
+38. **One undecodable frame makes the client reconnect about once a second for ever.** The attempt counter resets on every `welcome`.
+39. **The client trusts the heartbeat values in `welcome`.** An interval over about 49 days kills the heartbeat silently; a huge timeout switches silence detection off. It needs a clamp, and a number.
+40. **The client has no size cap on HTTP bodies** (tiles, Vault, the outside probe), and its message and resync queues are unbounded.
+41. **Do inline images count toward the attachment limit?** They do now, so ordinary HTML mail with more than five images would be held. Doc 22 does not say.
+42. **A malformed item inside a validly signed mail batch** refuses the whole batch. Skip and quarantine the one item instead?
+43. **`Authentication-Results` is read from the first header of that name.** If the receiver adds none, the sender's own claim is trusted.
+44. **Smaller mail items:** a header over 16 KiB escapes as the wrong exception; text is always decoded as UTF-8 whatever the charset says; the IMAP back end has no size cap before the limit check and was not tested live.
+45. **The Vault indexer has no file size cap,** and a 2.5 MB note of deeply nested lists takes the Markdown parser 7.5 seconds.
+46. **A bundled Postgres that crashed half way through its first initialisation** refuses to start and refuses to initialise. Recovery is by hand; wiping automatically would be destructive.
+47. **Nothing times out a VM back end call or the keyring tool.** One hung call blocks that VM and the whole start-up reconcile; a locked keyring blocks host start.
+48. **Expired TLS certificates load without a word,** and a key file readable by group or world is accepted silently.
+49. **The guest's nonce is on its command line,** readable by other users in the guest. The server side of the guest handshake is not built, so identity claims could not be attacked yet.
+50. **If the final audit write of a setup run fails** after every step applied, nothing rolls back.
 
 ## How to do it again
 
