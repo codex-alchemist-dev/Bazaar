@@ -391,3 +391,13 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+
+## Round 28 (2026-11-19): Linux TPM-sealed KEK
+
+| Decision | Status | Docs |
+|---|---|---|
+| `identity.kek_provider` gains an explicit `tpm` value (not folded into `file`); auditable, fails closed | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Shipped PCR policy: signed policy (PCR 7 plus a policy authorised by an offline-held signing key), key held in the owner's recovery bundle; fallback raw PCR-7-only policy if the owner declines to hold a key | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Sealing path: `systemd-creds` where systemd is present; direct tpm2-tools only on non-systemd hosts | **DECIDED 2026-11-19 (owner card)** | 14 |
+| vTPM (swtpm, Hyper-V, QEMU) accepted as weaker custody: setup warning, custody class in the audit log, never counts as hardware custody for the doc 48 floors | **DECIDED 2026-11-19 (owner card)** | 14, 48 |
+| Linux host that is itself a VM: default `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning | **DECIDED 2026-11-19 (owner card)** | 14 |

@@ -65,7 +65,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 | OpenBao transit | Possible if self-hosted | Windows server support not documented on the fetched page. [unverified] |
 | Linux (TPM-bound or systemd credentials) | Needed for the Linux provider | PROPOSED option; see "Linux TPM-sealed KEK" below. The decided Linux default remains `file`. |
 
-**Linux TPM-sealed KEK** [PROPOSED] (research, 2026-11-19; nothing here is DECIDED, and `identity.kek_provider` stays `dpapi` or `file` as decided 2026-11-16)
+**Linux TPM-sealed KEK** [research PROPOSED; the five open questions are DECIDED (owner, 2026-11-19), see the end of this section]
 
 Facts (sources are the official tpm2-software docs, the tpm2-tools man pages and the systemd man pages):
 - tpm2-tools can seal a small secret under a TPM primary key: `tpm2_createprimary -C o`, then `tpm2_create -C <primary> -i <secret> -u obj.pub -r obj.priv` (the secret is a sealing object, input from a file or `-` for stdin), `tpm2_load`, and `tpm2_unseal -c <ctx>`; `tpm2_evictcontrol` can persist the object at a handle. The sealed object has a stated maximum size of 128 bytes, so the sealed value is a 32-byte KEK, never bulk data. [tpm2-tools `tpm2_create` man page; tpm2-software "Disk Encryption" article, 2020-04-13]
@@ -85,17 +85,12 @@ VM caveats:
 - A Bazaar.Server running inside a VM sees only a virtual TPM. QEMU provides one through swtpm (`--tpmstate dir=<path>`, TIS or CRB front ends), and its state is a host directory that the hypervisor operator can read. Snapshots and migration need identical swtpm and QEMU command lines, and mismatched swtpm or libtpms versions can make the destination reject the state, so a restored or migrated VM may be unable to unseal. [QEMU TPM device docs]
 - Agent VMs (doc 35) never hold the KEK; this applies only to the host that runs the Identity Service.
 
-Open questions for the owner (each stays OPEN until the owner approves; the recommendations are not decisions):
-- **OPEN:** add a `tpm` value to `identity.kek_provider`, or fold TPM sealing into `file` as an optional wrap?
-  - Recommended (not decided): add an explicit `tpm` value. It is auditable (the provider in force is visible in settings and the audit log), it fails closed, and it keeps `file` meaning one thing.
-- **OPEN:** shipped PCR policy (options 1 to 3) and who holds a policy signing key.
-  - Recommended (not decided): a signed PCR policy (PCR 7 plus a policy authorised by an offline-held signing key), so firmware and kernel updates do not brick unseal. The signing key sits in the owner's recovery bundle. If the owner declines to hold a key, fall back to a raw PCR-7-only policy, with the escrowed KEK copy as the recovery path.
-- **OPEN:** direct `tpm2-tss` or `tpm2-tools` use versus the `systemd-creds` wrapper (the wrapper adds a systemd dependency; a direct call needs a .NET binding or process call, behind the KEK provider interface).
-  - Recommended (not decided): use `systemd-creds` where systemd is present (maintained sealing UX, less custom code), and a direct tpm2-tools path only on non-systemd hosts.
-- **OPEN:** whether a virtual TPM counts as acceptable custody for the owner's threat model.
-  - Recommended (not decided): accept a vTPM (swtpm, Hyper-V, QEMU) but class it as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
-- **OPEN:** behaviour of `file` and `tpm` providers on a Linux host that is itself a VM (benchmark with the QEMU backend spike).
-  - Recommended (not decided): default to `file` unless a vTPM is present and the operator opts in to `tpm`, with the weaker-custody warning above.
+Decisions (owner, 2026-11-19; DECISIONS-LOG round 28):
+- **DECIDED:** `identity.kek_provider` gains an explicit `tpm` value (enum: `dpapi`, `file`, `tpm`, `openbao`). It is auditable and fails closed; it is not folded into `file`.
+- **DECIDED:** the shipped PCR policy is a signed one: PCR 7 plus a policy authorised by an offline-held signing key, so firmware and kernel updates do not brick unseal. The signing key is held in the owner's recovery bundle. If the owner declines to hold a key, the fallback is a raw PCR-7-only policy, with the escrowed KEK copy as the recovery path.
+- **DECIDED:** use `systemd-creds` where systemd is present (maintained sealing UX, less custom code). A direct tpm2-tools path is used only on non-systemd hosts.
+- **DECIDED:** a vTPM (swtpm, Hyper-V, QEMU) is accepted but classed as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
+- **DECIDED:** on a Linux host that is itself a VM, the default is `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning above.
 
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
@@ -155,7 +150,7 @@ interface IIdentityService {
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
-| `identity.kek_provider` | enum: `dpapi`, `file`, `openbao` | **DECIDED (owner, 2026-11-16):** `dpapi` on a Windows host, `file` (a protected key file) on other hosts | install | owner, in setup wizard | yes (DEK re-wrap) |
+| `identity.kek_provider` | enum: `dpapi`, `file`, `tpm`, `openbao` | **DECIDED (owner, 2026-11-16):** `dpapi` on a Windows host, `file` (a protected key file) on other hosts. **DECIDED (owner, 2026-11-19):** `tpm` is an explicit opt-in value on Linux (see "Linux TPM-sealed KEK"); a Linux VM host defaults to `file` | install | owner, in setup wizard | yes (DEK re-wrap) |
 | `identity.kek_recovery_location` | text (write-once location for the sealed KEK copy) | sealed offline copy held by the owner | install | owner | yes |
 | `identity.lease_ttl_minutes` | int | 15 | install | owner | yes if raised |
 | `identity.approval_expiry_hours` | int | 24 | install | owner | yes if raised |
