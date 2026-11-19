@@ -148,6 +148,8 @@ Shared quota keys are owned by doc 15 and are not redefined here: `security.quot
 12. Opt-in live GitHub spike (throwaway repo). Dep: 7.
 13. Other adapters (forums, Discord, Reddit). Blocked until each platform is verified and the owner decides.
 
+WP 11 schema [PROPOSED, 2026-11-19]: the reader returns a `community_thread_summary` hand-over (doc 15, "Hand-over"). Fields: `platform` (enum), `item_kind` (enum: issue, pr, thread, comment), `target_ref` (text, 120), `summary` (text, 800), `topic_tags` (up to 5 tags of 40, optional), `tone` (enum), `flags` (enum list, optional; reader observations only), `reply_wanted` (bool), `confidence` (0 to 100) and `source_refs` (1 to 20 GUIDs, required lineage). There is no URL type, and URL-like text is refused in every text field. Unknown fields are rejected. The schema and a System.Text.Json validator live in `Bazaar.Server.Community.Abstractions`; the host maps the schema into doc 15's registry. Bounded text can still carry injected wording, so the actor treats `summary` and `topic_tags` as quoted data, never as instructions.
+
 Module names for WP 7 and WP 8 [PROPOSED, 2026-11-18]: WP 7 is `Bazaar.Server.Community.GitHub`. WP 8 is `Bazaar.Contracts/Community` (draft-review contracts) with `Bazaar.Client.Community` (view model) and `Bazaar.Client.Community.Avalonia` (view and `IPaneModule`). Layout and rules: doc 40, section 4b.
 
 ## Conflicts
