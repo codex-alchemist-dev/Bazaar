@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
 
@@ -11,7 +12,7 @@ public class PaneViewsHeadlessTests
     [AvaloniaFact]
     public void Each_first_party_pane_renders_to_a_frame()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
         var panes = new[]
         {
             registry.Create(PaneRegistryTests.Descriptor(Bazaar.Contracts.Panes.PaneKinds.Kanban, """
@@ -41,7 +42,7 @@ public class PaneViewsHeadlessTests
             "bazaar.kanban",
             "{\"cards\":[{\"id\":\"0196a6f0-0000-7000-8000-000000000001\",\"title\":\"Schema\",\"state\":\"ready\",\"unfinishedBlockerIds\":[\"0196a6f0-0000-7000-8000-000000000009\"],\"blockerTitles\":[\"Other\"]}]}"));
 
-        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
+        var view = TestPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Ready (1)", texts);

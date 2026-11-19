@@ -1,0 +1,1560 @@
+{
+  "schemaVersion": 1,
+  "language": "rubedo-views",
+  "description": "Golden view documents (list item scope included) (doc 41c, section 8). Each case gives a JSON document and one expectation: codes (the exact ordered diagnostic codes, [] when valid) or readError (the JSON reader must refuse the shape).",
+  "cases": [
+    {
+      "name": "minimal_valid_text",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "stack",
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "Hello"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "valid_with_data_expression_and_action",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.kodo.status",
+        "data": {
+          "unread": {
+            "capability": "gc.feed",
+            "type": "number"
+          }
+        },
+        "actions": {
+          "openFeed": {
+            "kind": "navigate",
+            "target": "gc/feed"
+          }
+        },
+        "root": {
+          "widget": "row",
+          "children": [
+            {
+              "widget": "badge",
+              "props": {
+                "label": "Unread",
+                "visibleWhen": {
+                  "expr": "unread > 0"
+                }
+              }
+            },
+            {
+              "widget": "button",
+              "props": {
+                "label": "Open",
+                "action": "openFeed"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "list_with_one_template",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "Row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "tabs_and_grid_and_scroll_are_valid",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.layout.sample",
+        "root": {
+          "widget": "scroll",
+          "children": [
+            {
+              "widget": "tabs",
+              "children": [
+                {
+                  "widget": "tab",
+                  "props": {
+                    "title": "Grid"
+                  },
+                  "children": [
+                    {
+                      "widget": "grid",
+                      "props": {
+                        "columns": 2
+                      },
+                      "children": [
+                        {
+                          "widget": "divider"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "placeholder_is_a_valid_widget",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.fallback.card",
+        "root": {
+          "widget": "placeholder",
+          "props": {
+            "label": "Unavailable"
+          }
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "unsupported_dsl_version",
+      "document": {
+        "dslVersion": 2,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.dsl_version"
+        ]
+      }
+    },
+    {
+      "name": "name_with_upper_case",
+      "document": {
+        "dslVersion": 1,
+        "name": "Bazaar.gc",
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.bad_name"
+        ]
+      }
+    },
+    {
+      "name": "name_with_empty_segment",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar..gc",
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.bad_name"
+        ]
+      }
+    },
+    {
+      "name": "name_single_segment_is_rejected",
+      "document": {
+        "dslVersion": 1,
+        "name": "feed",
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.bad_name"
+        ]
+      }
+    },
+    {
+      "name": "unknown_widget_stops_the_walk",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "carousel",
+          "children": [
+            {
+              "widget": "button"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.unknown_widget"
+        ]
+      }
+    },
+    {
+      "name": "button_without_label",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "button"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.missing_label"
+        ]
+      }
+    },
+    {
+      "name": "icon_with_empty_label",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "icon",
+          "props": {
+            "label": ""
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.missing_label"
+        ]
+      }
+    },
+    {
+      "name": "input_without_label",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "input"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.missing_label"
+        ]
+      }
+    },
+    {
+      "name": "button_points_at_undeclared_action",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "button",
+          "props": {
+            "label": "Go",
+            "action": "missing"
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.unknown_action"
+        ]
+      }
+    },
+    {
+      "name": "button_action_must_be_a_string",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "button",
+          "props": {
+            "label": "Go",
+            "action": 3
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.unknown_action"
+        ]
+      }
+    },
+    {
+      "name": "leaf_with_children",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "text",
+          "props": {
+            "label": "x"
+          },
+          "children": [
+            {
+              "widget": "divider"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.unexpected_children"
+        ]
+      }
+    },
+    {
+      "name": "list_without_template",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_template"
+        ]
+      }
+    },
+    {
+      "name": "list_with_two_templates",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "a"
+              }
+            },
+            {
+              "widget": "text",
+              "props": {
+                "label": "b"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_template"
+        ]
+      }
+    },
+    {
+      "name": "data_name_with_hyphen",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "data": {
+          "unread-count": {
+            "capability": "gc.feed",
+            "type": "number"
+          }
+        },
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.bad_data_name"
+        ]
+      }
+    },
+    {
+      "name": "data_name_shadows_context",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "data": {
+          "widthDp": {
+            "capability": "gc.feed",
+            "type": "number"
+          }
+        },
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.data_shadows_context"
+        ]
+      }
+    },
+    {
+      "name": "visible_when_must_be_bool",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "data": {
+          "unread": {
+            "capability": "gc.feed",
+            "type": "number"
+          }
+        },
+        "root": {
+          "widget": "text",
+          "props": {
+            "label": "x",
+            "visibleWhen": {
+              "expr": "unread + 1"
+            }
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "result-type"
+        ]
+      }
+    },
+    {
+      "name": "enabled_when_must_be_bool",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "data": {
+          "title": {
+            "capability": "gc.feed",
+            "type": "text"
+          }
+        },
+        "root": {
+          "widget": "button",
+          "props": {
+            "label": "Send",
+            "enabledWhen": {
+              "expr": "title"
+            }
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "result-type"
+        ]
+      }
+    },
+    {
+      "name": "expression_uses_undeclared_name",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "text",
+          "props": {
+            "label": "x",
+            "visibleWhen": {
+              "expr": "secret > 0"
+            }
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "unknown-identifier"
+        ]
+      }
+    },
+    {
+      "name": "expression_that_does_not_parse",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "text",
+          "props": {
+            "label": "x",
+            "visibleWhen": {
+              "expr": "((("
+            }
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "syntax"
+        ]
+      }
+    },
+    {
+      "name": "several_problems_keep_walk_order",
+      "document": {
+        "dslVersion": 1,
+        "name": "Bad",
+        "root": {
+          "widget": "stack",
+          "children": [
+            {
+              "widget": "button"
+            },
+            {
+              "widget": "nope"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.bad_name",
+          "view.missing_label",
+          "view.unknown_widget"
+        ]
+      }
+    },
+    {
+      "name": "document_missing_root_is_a_read_error",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed"
+      },
+      "expect": {
+        "readError": true
+      }
+    },
+    {
+      "name": "prop_that_is_an_object_without_expr",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "text",
+          "props": {
+            "label": {
+              "text": "x"
+            }
+          }
+        }
+      },
+      "expect": {
+        "readError": true
+      }
+    },
+    {
+      "name": "unknown_data_type_is_a_read_error",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "data": {
+          "x": {
+            "capability": "gc.feed",
+            "type": "list"
+          }
+        },
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "readError": true
+      }
+    },
+    {
+      "name": "unknown_action_kind_is_a_read_error",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "actions": {
+          "go": {
+            "kind": "fetch"
+          }
+        },
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "readError": true
+      }
+    },
+    {
+      "name": "list_item_fields_in_template",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "badge",
+              "props": {
+                "label": "Unread",
+                "visibleWhen": {
+                  "expr": "unread > 0"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "list_item_field_outside_template",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "stack",
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "x",
+                "visibleWhen": {
+                  "expr": "unread > 0"
+                }
+              }
+            },
+            {
+              "widget": "list",
+              "props": {
+                "over": "feed",
+                "key": "id"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "row"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "unknown-identifier"
+        ]
+      }
+    },
+    {
+      "name": "list_without_over",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_source"
+        ]
+      }
+    },
+    {
+      "name": "list_over_scalar_source",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "count": {
+            "capability": "gc.feed",
+            "type": "number"
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "count",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_source"
+        ]
+      }
+    },
+    {
+      "name": "list_over_undeclared_source",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_source"
+        ]
+      }
+    },
+    {
+      "name": "list_missing_key",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_key"
+        ]
+      }
+    },
+    {
+      "name": "list_key_not_a_field",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "nope"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_key"
+        ]
+      }
+    },
+    {
+      "name": "list_field_shadows_scalar_data",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "unread": {
+            "capability": "gc.feed",
+            "type": "number"
+          },
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.item_field_shadows"
+        ]
+      }
+    },
+    {
+      "name": "list_field_shadows_context",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "sized": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "widthDp": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "sized",
+            "key": "widthDp"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.item_field_shadows"
+        ]
+      }
+    },
+    {
+      "name": "list_field_name_not_an_identifier",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "bad": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "bad-name": "text"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "bad",
+            "key": "bad-name"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.bad_field_name"
+        ]
+      }
+    },
+    {
+      "name": "list_item_expression_must_be_bool",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "row",
+                "visibleWhen": {
+                  "expr": "title"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "result-type"
+        ]
+      }
+    },
+    {
+      "name": "nested_list_field_shadows_outer_item",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "list",
+              "props": {
+                "over": "feed",
+                "key": "id"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "row"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.item_field_shadows",
+          "view.item_field_shadows",
+          "view.item_field_shadows"
+        ]
+      }
+    },
+    {
+      "name": "list_with_two_templates_and_a_key",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "text",
+              "title": "text",
+              "unread": "number"
+            }
+          }
+        },
+        "root": {
+          "widget": "list",
+          "props": {
+            "over": "feed",
+            "key": "id"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "a"
+              }
+            },
+            {
+              "widget": "text",
+              "props": {
+                "label": "b"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.list_template"
+        ]
+      }
+    },
+    {
+      "name": "list_source_without_fields_is_a_read_error",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list"
+          }
+        },
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "readError": true
+      }
+    },
+    {
+      "name": "list_field_with_unknown_type_is_a_read_error",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.list",
+        "data": {
+          "feed": {
+            "capability": "gc.feed",
+            "type": "list",
+            "fields": {
+              "id": "record"
+            }
+          }
+        },
+        "root": {
+          "widget": "stack"
+        }
+      },
+      "expect": {
+        "readError": true
+      }
+    },
+    {
+      "name": "tabs_with_two_tabs",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            },
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Settings"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    },
+    {
+      "name": "tabs_without_tabs_is_empty",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs"
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tabs_empty"
+        ]
+      }
+    },
+    {
+      "name": "tabs_child_is_not_a_tab",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "Page"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_child"
+        ]
+      }
+    },
+    {
+      "name": "tab_missing_title",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {},
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_title"
+        ]
+      }
+    },
+    {
+      "name": "tab_empty_title",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": ""
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_title"
+        ]
+      }
+    },
+    {
+      "name": "tab_without_page",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": []
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_page"
+        ]
+      }
+    },
+    {
+      "name": "tab_with_two_pages",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                },
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_page"
+        ]
+      }
+    },
+    {
+      "name": "tab_as_root",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tab",
+          "props": {
+            "title": "Feed"
+          },
+          "children": [
+            {
+              "widget": "text",
+              "props": {
+                "label": "Page"
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_placement"
+        ]
+      }
+    },
+    {
+      "name": "tab_inside_stack",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "stack",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_placement"
+        ]
+      }
+    },
+    {
+      "name": "tab_nested_inside_tab_page",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "tab",
+                  "props": {
+                    "title": "Inner"
+                  },
+                  "children": [
+                    {
+                      "widget": "text",
+                      "props": {
+                        "label": "Page"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.tab_placement"
+        ]
+      }
+    },
+    {
+      "name": "tab_page_unknown_widget_is_still_walked",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "carousel"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.unknown_widget"
+        ]
+      }
+    },
+    {
+      "name": "tab_title_is_not_a_widget_prop_on_tabs",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.tabs",
+        "root": {
+          "widget": "tabs",
+          "props": {
+            "title": "x"
+          },
+          "children": [
+            {
+              "widget": "tab",
+              "props": {
+                "title": "Feed"
+              },
+              "children": [
+                {
+                  "widget": "text",
+                  "props": {
+                    "label": "Page"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "codes": []
+      }
+    }
+  ]
+}

@@ -8,6 +8,10 @@
     <PackageReference Include="Vortice.Vulkan" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Shaders\*.glsl" />
+    <EmbeddedResource Include="Shaders\*.spv" LogicalName="Bazaar.Constellation.Vulkan.Shaders.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Constellation.Rendering\Bazaar.Constellation.Rendering.csproj" />
   </ItemGroup>
 </Project>
