@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Bazaar.Server.VmDisplay.Codecs;
 
@@ -16,6 +17,8 @@ public sealed class GuestDisplayService : IGuestDisplay
     private readonly IReadOnlyList<IHypervisorConsole> _hypervisors;
     private readonly IReadOnlyList<IDisplayGuestExec> _guestExecs;
     private readonly IReadOnlyList<IBrowserPageDriver> _browsers;
+    // The native size of the last guest-source frame per VM: the extent the guest pointer tool maps coordinates onto.
+    private readonly ConcurrentDictionary<Guid, (int Width, int Height)> _guestSizes = new();
     private readonly SlidingWindowRateLimiter _captureLimiter;
     private readonly SlidingWindowRateLimiter _inputLimiter;
 
@@ -137,11 +140,12 @@ public sealed class GuestDisplayService : IGuestDisplay
             throw Refuse(target, "input", DisplayFailure.RateLimited, "the input rate limit was reached");
 
         bool hasPointer = actions.Any(a => a is PointerMove or PointerClick or PointerScroll or PointerButton);
-        if (hasPointer && batch.Source == DisplaySourceKind.Guest)
+        (int Width, int Height)? guestSize = _guestSizes.TryGetValue(target.VmId, out (int Width, int Height) known) ? known : null;
+        if (hasPointer && batch.Source == DisplaySourceKind.Guest && guestSize is null)
             throw Refuse(target, "input", DisplayFailure.InvalidInput, LinuxInputArgv.PointerRefusal);
         IReadOnlyList<DisplaySourceKind> order = Plan(target, batch.Source);
-        // The guest source has no pointer tool, so an unnamed pointer batch skips it.
-        if (hasPointer)
+        // The guest pointer tool needs the output size, learned from a capture, so an unnamed pointer batch skips the guest source until then.
+        if (hasPointer && guestSize is null)
             order = [.. order.Where(k => k != DisplaySourceKind.Guest)];
         if (order.Count == 0)
             throw Refuse(target, "input", DisplayFailure.NoSourceAvailable, batch.Source is { } named
@@ -162,7 +166,7 @@ public sealed class GuestDisplayService : IGuestDisplay
                     await _hypervisors.First(h => h.Supports(target)).SendInputAsync(target, actions, ct).ConfigureAwait(false);
                     break;
                 default:
-                    await GuestSource.SendInputAsync(_guestExecs.First(e => e.Supports(target)), target, actions, timeout, ct).ConfigureAwait(false);
+                    await GuestSource.SendInputAsync(_guestExecs.First(e => e.Supports(target)), target, actions, guestSize, timeout, ct).ConfigureAwait(false);
                     break;
             }
         }
@@ -201,6 +205,9 @@ public sealed class GuestDisplayService : IGuestDisplay
                 {
                     IDisplayGuestExec exec = _guestExecs.First(e => e.Supports(target));
                     byte[] png = await GuestSource.CaptureAsync(exec, target, TimeSpan.FromSeconds(_options.GuestCaptureTimeoutSeconds), limits.MaxEncodedBytes, ct).ConfigureAwait(false);
+                    // The size before any downscaling is the guest's output size, which is what pointer coordinates refer to.
+                    PngInfo native = PngInspector.Inspect(png, limits.MaxEncodedBytes);
+                    _guestSizes[target.VmId] = (native.Width, native.Height);
                     return FrameNormalizer.FromPng(png, limits);
                 }
         }

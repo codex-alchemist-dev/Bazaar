@@ -284,29 +284,132 @@ public class InputTests
 
     [Theory]
     [MemberData(nameof(PointerActions))]
-    public void Pointer_actions_are_refused_by_the_guest_argv_builder(InputAction action)
+    public void Pointer_actions_without_an_output_size_are_refused_by_the_guest_argv_builder(InputAction action)
     {
         DisplayException e = Assert.Throws<DisplayException>(() => LinuxInputArgv.Build([action]));
         Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
-        Assert.Equal("Pointer input is not available on the guest source yet; use the browser or hypervisor source.", e.Message);
+        // A lone button event is refused for its missing position; every other action for the missing output size.
+        Assert.Equal(action is PointerButton ? "A pointer button needs a pointer move, click or scroll before it in the same batch." : LinuxInputArgv.PointerRefusal, e.Message);
+    }
+
+    private static string[] Argv(IReadOnlyList<IReadOnlyList<string>> commands, int index) => [.. commands[index]];
+
+    [Fact]
+    public void Pointer_actions_render_bazaar_pointer_argv_with_the_output_size_as_the_extent()
+    {
+        IReadOnlyList<IReadOnlyList<string>> c = LinuxInputArgv.Build(
+            [
+                new PointerMove(9, 8),
+                new PointerClick(120, 45, PointerButtonKind.Right, 2),
+                new PointerClick(1, 2),
+                new PointerScroll(1, 2, 3, -4),
+            ],
+            (1280, 720));
+        Assert.Equal(4, c.Count);
+        Assert.Equal(["bazaar-pointer", "move", "9", "8", "1280", "720"], Argv(c, 0));
+        Assert.Equal(["bazaar-pointer", "click", "120", "45", "1280", "720", "right", "2"], Argv(c, 1));
+        Assert.Equal(["bazaar-pointer", "click", "1", "2", "1280", "720", "left", "1"], Argv(c, 2));
+        Assert.Equal(["bazaar-pointer", "scroll", "1", "2", "1280", "720", "1", "-1"], Argv(c, 3));
+    }
+
+    [Theory]
+    [InlineData(0, "0")]
+    [InlineData(1, "1")]
+    [InlineData(100, "1")]
+    [InlineData(101, "2")]
+    [InlineData(-250, "-3")]
+    [InlineData(10_000, "30")]
+    [InlineData(-10_000, "-30")]
+    public void Scroll_pixels_become_bounded_wheel_steps(int delta, string expected)
+    {
+        IReadOnlyList<IReadOnlyList<string>> c = LinuxInputArgv.Build([new PointerScroll(5, 5, 0, delta)], (1280, 720));
+        Assert.Equal(["bazaar-pointer", "scroll", "5", "5", "1280", "720", "0", expected], Argv(c, 0));
+    }
+
+    [Fact]
+    public void A_button_event_acts_at_the_position_set_earlier_in_the_batch()
+    {
+        IReadOnlyList<IReadOnlyList<string>> c = LinuxInputArgv.Build(
+            [new PointerMove(30, 40), new PointerButton(PointerButtonKind.Left, true), new PointerButton(PointerButtonKind.Left, false)],
+            (800, 600));
+        Assert.Equal(["bazaar-pointer", "down", "30", "40", "800", "600", "left"], Argv(c, 1));
+        Assert.Equal(["bazaar-pointer", "up", "30", "40", "800", "600", "left"], Argv(c, 2));
+    }
+
+    [Fact]
+    public void A_button_event_with_no_known_position_is_refused()
+    {
+        DisplayException e = Assert.Throws<DisplayException>(() => LinuxInputArgv.Build([new PointerButton(PointerButtonKind.Left, true)], (800, 600)));
+        Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
+        Assert.Contains("needs a pointer move", e.Message);
+    }
+
+    [Fact]
+    public void A_position_outside_the_output_is_refused()
+    {
+        DisplayException e = Assert.Throws<DisplayException>(() => LinuxInputArgv.Build([new PointerMove(800, 10)], (800, 600)));
+        Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
     }
 
     [Theory]
     [MemberData(nameof(PointerActions))]
-    public async Task A_named_guest_source_with_pointer_input_is_invalid_and_runs_nothing(InputAction action)
+    public async Task A_named_guest_source_with_pointer_input_before_any_capture_is_invalid_and_runs_nothing(InputAction action)
     {
         Rig r = NewRig();
         var batch = new InputBatch(Rig.Linux(), [new KeyStroke("Tab"), action], DisplaySourceKind.Guest);
         DisplayException e = await Fails(r.Build().SendInputAsync(batch, TestContext.Current.CancellationToken));
         Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
-        Assert.Contains("Pointer input is not available on the guest source", e.Message);
+        Assert.Contains("needs the output size", e.Message);
         Assert.Empty(r.Guest.Execs);
         Assert.Empty(r.Hypervisor.Inputs);
     }
 
+    private static async Task<(Rig Rig, GuestDisplayService Service)> CapturedGuest()
+    {
+        Rig r = NewRig();
+        r.Guest.OnGetFile = (_, s) => s.Write(Images.Png(64, 48));
+        GuestDisplayService service = r.Build();
+        await service.CaptureAsync(new CaptureRequest(Rig.Linux(), DisplaySourceKind.Guest), TestContext.Current.CancellationToken);
+        r.Guest.Execs.Clear();
+        return (r, service);
+    }
+
+    [Fact]
+    public async Task After_a_guest_capture_the_named_guest_source_runs_bazaar_pointer_with_the_captured_size()
+    {
+        (Rig r, GuestDisplayService service) = await CapturedGuest();
+
+        await service.SendInputAsync(new InputBatch(Rig.Linux(), [new PointerClick(10, 20)], DisplaySourceKind.Guest), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["bazaar-pointer", "click", "10", "20", "64", "48", "left", "1"], Assert.Single(r.Guest.Execs));
+        Assert.Empty(r.Hypervisor.Inputs);
+    }
+
+    [Fact]
+    public async Task After_a_guest_capture_an_unnamed_pointer_batch_prefers_the_guest_source()
+    {
+        (Rig r, GuestDisplayService service) = await CapturedGuest();
+
+        await service.SendInputAsync(Batch(Rig.Linux(), new PointerMove(5, 6)), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["bazaar-pointer", "move", "5", "6", "64", "48"], Assert.Single(r.Guest.Execs));
+        Assert.Empty(r.Hypervisor.Inputs);
+        Assert.Contains("input:Guest:1", r.Audit.Rows);
+    }
+
+    [Fact]
+    public async Task The_captured_size_is_per_vm()
+    {
+        (_, GuestDisplayService service) = await CapturedGuest();
+        DisplayTarget other = new("agent-2", Guid.Parse("33333333-3333-3333-3333-333333333333"), DisplayGuestOs.Linux, "vm-other");
+
+        DisplayException e = await Fails(service.SendInputAsync(new InputBatch(other, [new PointerMove(1, 1)], DisplaySourceKind.Guest), TestContext.Current.CancellationToken));
+        Assert.Contains("needs the output size", e.Message);
+    }
+
     [Theory]
     [MemberData(nameof(PointerActions))]
-    public async Task An_unnamed_pointer_batch_on_linux_goes_to_the_hypervisor(InputAction action)
+    public async Task An_unnamed_pointer_batch_on_linux_before_any_guest_capture_goes_to_the_hypervisor(InputAction action)
     {
         Rig r = NewRig();
         InputAction[] actions = [new KeyStroke("Tab"), action];
