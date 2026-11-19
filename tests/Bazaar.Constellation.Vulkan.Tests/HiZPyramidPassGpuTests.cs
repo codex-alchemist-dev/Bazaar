@@ -67,15 +67,6 @@ public unsafe class HiZPyramidPassGpuTests
         List<float[]> gpu = BuildOnGpu(renderer, depth, width, height, out (int W, int H)[] sizes);
         var reference = new HiZPyramid(depth, width, height);
         float globalMin = depth.Min();
-        if (reference.LevelCount == 1)
-        {
-            // A 1x1 depth image has no coarser reference level; the GPU pyramid still has its single 1x1 mip, which is the texel itself.
-            Assert.Single(gpu);
-            Assert.Equal(depth[0], gpu[0][0]);
-            AssertNoValidationErrors(renderer);
-            return;
-        }
-
         Assert.Equal(reference.LevelCount - 1, gpu.Count);
         for (int mip = 0; mip < gpu.Count; mip++)
         {
