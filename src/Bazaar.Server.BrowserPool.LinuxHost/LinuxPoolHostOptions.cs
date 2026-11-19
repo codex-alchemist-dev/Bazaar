@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Bazaar.Server.BrowserPool.Abstractions;
 
 namespace Bazaar.Server.BrowserPool.LinuxHost;
 
@@ -30,6 +31,20 @@ public sealed partial class LinuxPoolHostOptions
     /// <summary>The most stdout and the most stderr characters kept per command. The rest is discarded.</summary>
     public int MaxCapturedChars { get; set; } = 16 * 1024;
 
+    /// <summary>
+    /// Absolute path of the <c>bazaar-pool-spawn</c> tool (<c>Bazaar.Guest.PoolSpawn</c>). When set, every launch gets a DevTools pipe
+    /// (see <see cref="IPoolDevToolsPipes"/>): the tool is put at the front of the launch argv and passes two FIFOs to the browser as
+    /// descriptors 3 and 4. Null (the default) means no pipe, and the launch argv is run as given.
+    /// </summary>
+    public string? PoolSpawnHelperPath { get; set; }
+
+    /// <summary>
+    /// Where the FIFOs for the DevTools pipes are made. It must be a root-only directory that no slot can see: it is created with mode
+    /// 0700, and a launch whose argv names this directory, or any directory above or below it (a bind into the sandbox), is refused.
+    /// Used only when <see cref="PoolSpawnHelperPath"/> is set.
+    /// </summary>
+    public string PipeDirectory { get; set; } = "/run/bazaar-pool/pipes";
+
     /// <summary>Returns the reasons these options are unusable; empty when they are fine.</summary>
     public IReadOnlyList<string> Validate()
     {
@@ -57,6 +72,23 @@ public sealed partial class LinuxPoolHostOptions
         if (MaxCapturedChars is < 256 or > 1024 * 1024)
         {
             errors.Add("MaxCapturedChars must be 256 to 1048576.");
+        }
+
+        if (PoolSpawnHelperPath is not null)
+        {
+            if (!PoolPipePlan.IsSafeAbsolutePath(PoolSpawnHelperPath))
+            {
+                errors.Add("PoolSpawnHelperPath must be an absolute path (letters, digits and . _ + - only, no '..'), or null.");
+            }
+
+            if (!PoolPipePlan.IsSafeAbsolutePath(PipeDirectory))
+            {
+                errors.Add("PipeDirectory must be an absolute path (letters, digits and . _ + - only, no '..').");
+            }
+            else if (PoolSpawnHelperPath is not null && PoolPipePlan.IsSafeAbsolutePath(PoolSpawnHelperPath) && PoolPipePlan.Overlaps(PipeDirectory, PoolSpawnHelperPath))
+            {
+                errors.Add("PoolSpawnHelperPath may not sit inside PipeDirectory.");
+            }
         }
 
         return errors;

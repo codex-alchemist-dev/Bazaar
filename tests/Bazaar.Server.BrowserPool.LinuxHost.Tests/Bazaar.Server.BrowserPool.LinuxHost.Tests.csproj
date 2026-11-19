@@ -13,5 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool.LinuxHost\Bazaar.Server.BrowserPool.LinuxHost.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
+    <!-- The real pipe tests build the launch argv with PoolCommandLine and run the real bazaar-pool-spawn tool. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool\Bazaar.Server.BrowserPool.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Guest.PoolSpawn\Bazaar.Guest.PoolSpawn.csproj" />
   </ItemGroup>
 </Project>

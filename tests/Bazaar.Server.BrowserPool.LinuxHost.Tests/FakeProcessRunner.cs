@@ -22,8 +22,16 @@ internal sealed class FakeProcessRunner : IProcessRunner
         return Task.FromResult(_handler(request));
     }
 
+    /// <summary>When set, <see cref="Start"/> throws it (a launch that fails at spawn).</summary>
+    public Exception? StartFailure { get; set; }
+
     public IRunningProcess Start(ProcessRequest request)
     {
+        if (StartFailure is not null)
+        {
+            throw StartFailure;
+        }
+
         var running = new FakeRunning(1000 + Started.Count, request);
         Started.Add(running);
         return running;
