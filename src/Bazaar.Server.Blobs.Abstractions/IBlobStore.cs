@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Http.Blobs;
+namespace Bazaar.Server.Blobs;
 
 /// <summary>An unfinished upload.</summary>
 /// <param name="Id">32 hex characters, server generated.</param>
