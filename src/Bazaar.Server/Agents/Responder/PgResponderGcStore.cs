@@ -105,21 +105,30 @@ public sealed class PgResponderGcStore(NpgsqlDataSource dataSource, IGcBodyCodec
 
     private async Task<IReadOnlyList<ResponderMessage>> ReadMessagesAsync(NpgsqlCommand cmd, CancellationToken ct)
     {
-        var messages = new List<ResponderMessage>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        // Bodies are opened after the reader closes: opening one takes a second pooled connection for its key, and doing that
+        // while this reader still holds the first deadlocks the pool when enough reads overlap.
+        var rows = new List<(long Seq, Guid MessageId, AuthorKind Kind, Guid AuthorId, byte[] Body, byte[]? Nonce, Guid KeyId, Guid[] Mentions)>();
+        await using (var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
         {
-            var body = reader.GetFieldValue<byte[]>(4);
-            var nonce = reader.IsDBNull(5) ? ReadOnlyMemory<byte>.Empty : reader.GetFieldValue<byte[]>(5);
-            var keyId = reader.IsDBNull(6) ? Guid.Empty : reader.GetGuid(6);
-            var text = await bodies.OpenAsync(body, keyId, nonce, ct).ConfigureAwait(false) ?? GcBodyText.ErasedText;
-            messages.Add(new ResponderMessage(
-                reader.GetInt64(0),
-                reader.GetGuid(1),
-                GcEnumText.ParseAuthorKind(reader.GetString(2)),
-                reader.GetGuid(3),
-                text,
-                reader.GetFieldValue<Guid[]>(7)));
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                rows.Add((
+                    reader.GetInt64(0),
+                    reader.GetGuid(1),
+                    GcEnumText.ParseAuthorKind(reader.GetString(2)),
+                    reader.GetGuid(3),
+                    reader.GetFieldValue<byte[]>(4),
+                    reader.IsDBNull(5) ? null : reader.GetFieldValue<byte[]>(5),
+                    reader.IsDBNull(6) ? Guid.Empty : reader.GetGuid(6),
+                    reader.GetFieldValue<Guid[]>(7)));
+            }
+        }
+
+        var messages = new List<ResponderMessage>(rows.Count);
+        foreach (var row in rows)
+        {
+            var text = await bodies.OpenAsync(row.Body, row.KeyId, row.Nonce ?? [], ct).ConfigureAwait(false) ?? GcBodyText.ErasedText;
+            messages.Add(new ResponderMessage(row.Seq, row.MessageId, row.Kind, row.AuthorId, text, row.Mentions));
         }
 
         return messages;

@@ -121,31 +121,45 @@ public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec b
 
     private async Task<List<WireGcMessage>> ReadMessagesAsync(NpgsqlCommand cmd, Guid gcId, CancellationToken ct)
     {
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        var items = new List<WireGcMessage>();
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        // Read every row first and open the bodies after the reader is closed. Opening a body fetches its key through the same
+        // pool, so doing it mid-read held one connection while asking for a second: with as many concurrent replays as the pool
+        // has connections (100) every replay waited for a connection the others held, and all of them stalled until the 15 s
+        // pool timeout (chaos run: 100 subscribers to a 300-message GC got nothing for 15 s and six never got their replay).
+        var rows = new List<(WireGcMessage Message, byte[]? Ciphertext, byte[]? Nonce, Guid KeyId)>();
+        await using (var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                rows.Add((
+                    new WireGcMessage(
+                        gcId,
+                        N: reader.GetInt64(1),
+                        Ev: reader.GetInt64(4),
+                        MessageId: reader.GetGuid(0),
+                        AuthorId: reader.GetGuid(2),
+                        Text: string.Empty,
+                        Ts: reader.GetFieldValue<DateTimeOffset>(8),
+                        Edited: reader.GetInt32(3) > 1,
+                        Mentions: reader.GetFieldValue<Guid[]>(10),
+                        ReplyToN: reader.IsDBNull(9) ? null : reader.GetInt64(9)),
+                    reader.IsDBNull(5) ? null : reader.GetFieldValue<byte[]>(5),
+                    reader.IsDBNull(6) ? null : reader.GetFieldValue<byte[]>(6),
+                    reader.IsDBNull(7) ? Guid.Empty : reader.GetGuid(7)));
+            }
+        }
+
+        var items = new List<WireGcMessage>(rows.Count);
+        foreach (var (message, ciphertext, nonce, keyId) in rows)
         {
             // A tombstone has no body (docs/design/04): its text is empty.
-            var text = string.Empty;
-            if (!reader.IsDBNull(5))
+            if (ciphertext is null)
             {
-                ReadOnlyMemory<byte> ciphertext = reader.GetFieldValue<byte[]>(5);
-                ReadOnlyMemory<byte> nonce = reader.IsDBNull(6) ? ReadOnlyMemory<byte>.Empty : reader.GetFieldValue<byte[]>(6);
-                var keyId = reader.IsDBNull(7) ? Guid.Empty : reader.GetGuid(7);
-                text = await bodies.OpenAsync(ciphertext, keyId, nonce, ct).ConfigureAwait(false) ?? GcBodyText.ErasedText;
+                items.Add(message);
+                continue;
             }
 
-            items.Add(new WireGcMessage(
-                gcId,
-                N: reader.GetInt64(1),
-                Ev: reader.GetInt64(4),
-                MessageId: reader.GetGuid(0),
-                AuthorId: reader.GetGuid(2),
-                Text: text,
-                Ts: reader.GetFieldValue<DateTimeOffset>(8),
-                Edited: reader.GetInt32(3) > 1,
-                Mentions: reader.GetFieldValue<Guid[]>(10),
-                ReplyToN: reader.IsDBNull(9) ? null : reader.GetInt64(9)));
+            var text = await bodies.OpenAsync(ciphertext, keyId, nonce ?? [], ct).ConfigureAwait(false) ?? GcBodyText.ErasedText;
+            items.Add(message with { Text = text });
         }
 
         return items;
