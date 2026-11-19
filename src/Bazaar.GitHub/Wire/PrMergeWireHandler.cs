@@ -9,8 +9,9 @@ namespace Bazaar.GitHub.Wire;
 /// <summary>
 /// <c>pr.merge</c> (doc 21, Merge request path; doc 32 section 5a; C25): builds the <see cref="OwnerMergeApproval"/> from the
 /// request's owner payload and signature and runs it through <see cref="OwnerSignedMerge"/>, the only route to a squash merge.
-/// No verifier lives here. Before the signature is spent, the handler checks the head is still the approved sha (reply
-/// <c>stale</c>) and that checks pass (reply <c>checks_failed</c>), so a stale or red PR does not burn the owner's nonce.
+/// No verifier and no gate live here: the head and checks gates are in <see cref="OwnerSignedMerge"/> and run before the
+/// owner's nonce is spent. The handler maps refusals to replies (<c>stale</c>, <c>checks_failed</c>, <c>bad_signature</c>,
+/// <c>refused</c>) and GitHub's own merge refusals to <c>not_mergeable</c> (405, 422) and <c>conflict</c> (409).
 /// Owner principals only; an agent never reaches it.
 /// </summary>
 public sealed class PrMergeWireHandler : IWireRequestHandler
@@ -33,7 +34,7 @@ public sealed class PrMergeWireHandler : IWireRequestHandler
     /// and the internal merge executor.
     /// </summary>
     public PrMergeWireHandler(GitHubAdapter adapter, IGitHubPrReadModel reads, IOwnerSignatureVerifier verifier, TimeProvider? time = null)
-        : this(adapter, reads, new OwnerSignedMerge(adapter, adapter, verifier, time), time)
+        : this(adapter, reads, new OwnerSignedMerge(adapter, adapter, reads, verifier, time), time)
     {
     }
 
@@ -72,29 +73,21 @@ public sealed class PrMergeWireHandler : IWireRequestHandler
             var merge = new MergeRequest(request.HeadSha, request.CommitTitle, request.CommitMessage ?? string.Empty);
             var approval = new OwnerMergeApproval(pr, ToPayload(request.Owner), request.Signature);
 
-            // Cheap refusals first. None of them spends the owner's single-use nonce.
-            var current = await _adapter.GetHeadShaAsync(pr, cancellationToken).ConfigureAwait(false);
-            if (!string.Equals(current, request.HeadSha, StringComparison.OrdinalIgnoreCase))
-            {
-                return Reply(context, PrMergeStatus.Stale, current, "The PR head moved. Approve again.");
-            }
-
-            var checks = await _reads.GetChecksAsync(pr, request.HeadSha, cancellationToken).ConfigureAwait(false);
-            if (checks != PrChecksRollup.Passing)
-            {
-                return Reply(context, PrMergeStatus.ChecksFailed, current, $"Checks are {checks.ToString().ToLowerInvariant()}.");
-            }
-
+            // The head and checks gates live in OwnerSignedMerge and run before the owner's nonce is spent.
             try
             {
                 await _gate.MergeAsync(approval, merge, cancellationToken).ConfigureAwait(false);
             }
             catch (MergeNotApprovedException refused)
             {
-                return await MapRefusalAsync(context, refused, pr, cancellationToken).ConfigureAwait(false);
+                return await MapRefusalAsync(context, refused, pr, request.HeadSha, cancellationToken).ConfigureAwait(false);
+            }
+            catch (GitHubApiException error) when (MapMergeFailure(context, error) is { } mapped)
+            {
+                return mapped;
             }
 
-            return Reply(context, PrMergeStatus.Merged, current, null);
+            return Reply(context, PrMergeStatus.Merged, request.HeadSha, null);
         }
         catch (GitHubApiException error)
         {
@@ -102,18 +95,42 @@ public sealed class PrMergeWireHandler : IWireRequestHandler
         }
     }
 
-    private async Task<WireReply> MapRefusalAsync(WireRequestContext context, MergeNotApprovedException refused, PrRef pr, CancellationToken ct)
+    private async Task<WireReply> MapRefusalAsync(WireRequestContext context, MergeNotApprovedException refused, PrRef pr, string head, CancellationToken ct)
     {
         switch (refused.Reason)
         {
             case MergeRefusalReason.SignatureRejected:
                 return Reply(context, PrMergeStatus.BadSignature, null, $"The owner signature was refused ({refused.Verdict}).");
+            case MergeRefusalReason.ChecksNotPassing:
+                return Reply(context, PrMergeStatus.ChecksFailed, head, $"Checks are {refused.Checks.ToString()!.ToLowerInvariant()}.");
             case MergeRefusalReason.HeadMoved:
                 var now = await _adapter.GetHeadShaAsync(pr, ct).ConfigureAwait(false);
                 return Reply(context, PrMergeStatus.Stale, now, "The PR head moved. Approve again.");
             default:
                 return Reply(context, PrMergeStatus.Refused, null, refused.Message);
         }
+    }
+
+    /// <summary>
+    /// Maps GitHub's own refusal of the merge call (not a rate limit) to its reply code, so the owner learns the real reason.
+    /// Null for anything else, which falls through to the generic failure mapping.
+    /// </summary>
+    private static WireReply? MapMergeFailure(WireRequestContext context, GitHubApiException error)
+    {
+        if (error is GitHubRateLimitedException)
+        {
+            return null;
+        }
+
+        var detail = string.IsNullOrWhiteSpace(error.GitHubMessage) ? null : $" ({error.GitHubMessage})";
+        return error.StatusCode switch
+        {
+            System.Net.HttpStatusCode.MethodNotAllowed or System.Net.HttpStatusCode.UnprocessableEntity =>
+                Reply(context, PrMergeStatus.NotMergeable, null, "GitHub says the PR is not mergeable" + detail + "."),
+            System.Net.HttpStatusCode.Conflict =>
+                Reply(context, PrMergeStatus.Conflict, null, "GitHub reports a merge conflict or a moved head" + detail + "."),
+            _ => null,
+        };
     }
 
     private static OwnerPayload ToPayload(PrOwnerPayload p) =>

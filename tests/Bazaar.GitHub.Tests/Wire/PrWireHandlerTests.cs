@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using Bazaar.Approvals;
 using Bazaar.Contracts.GitHub;
@@ -47,6 +48,7 @@ public sealed class PrWireHandlerTests
         public string Head { get; set; } = _head;
         public List<ReviewRequest> Reviews { get; } = [];
         public List<MergeRequest> Merges { get; } = [];
+        public Exception? MergeFailure { get; set; }
         public int FileCalls { get; private set; }
 
         public Task<PullRequestRef> OpenDraftPrAsync(OpenPrRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -67,6 +69,11 @@ public sealed class PrWireHandlerTests
 
         public Task SquashMergeAsync(PrRef pr, MergeRequest merge, CancellationToken cancellationToken)
         {
+            if (MergeFailure is not null)
+            {
+                throw MergeFailure;
+            }
+
             Merges.Add(merge);
             return Task.CompletedTask;
         }
@@ -102,7 +109,7 @@ public sealed class PrWireHandlerTests
             Key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var deviceKey = new OwnerDeviceKey(_ownerHuman.ToString("D"), _ownerDeviceId, Key.ExportSubjectPublicKeyInfo());
             var verifier = new OwnerSignatureVerifier(new SingleKeyRegistry(deviceKey), new InMemoryOwnerNonceStore());
-            Merge = new PrMergeWireHandler(Adapter, Reads, new OwnerSignedMerge(Adapter, Adapter, verifier));
+            Merge = new PrMergeWireHandler(Adapter, Reads, new OwnerSignedMerge(Adapter, Adapter, Reads, verifier));
         }
 
         public ECDsa Key { get; }
@@ -322,6 +329,33 @@ public sealed class PrWireHandlerTests
 
         Assert.Equal(PrMergeStatus.ChecksFailed, reply.Status);
         Assert.Empty(f.Adapter.Merges);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.MethodNotAllowed, PrMergeStatus.NotMergeable)]
+    [InlineData(HttpStatusCode.UnprocessableEntity, PrMergeStatus.NotMergeable)]
+    [InlineData(HttpStatusCode.Conflict, PrMergeStatus.Conflict)]
+    public async Task Merge_refused_by_github_replies_with_its_own_code_not_a_generic_failure(HttpStatusCode status, PrMergeStatus expected)
+    {
+        using var f = new Fixture();
+        f.Adapter.MergeFailure = new GitHubApiException(status, "Required status check is expected.", "merge failed");
+
+        var reply = await MergeAsync(f, SignedMerge(f.Key));
+
+        Assert.Equal(expected, reply.Status);
+        Assert.Contains("Required status check", reply.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Merge_hitting_a_github_rate_limit_stays_a_wire_rate_limited_error()
+    {
+        using var f = new Fixture();
+        f.Adapter.MergeFailure = new GitHubRateLimitedException(1, DateTimeOffset.UtcNow.AddMinutes(1), HttpStatusCode.Forbidden, "limited");
+
+        var reply = await f.Merge.HandleAsync(Request(new FakeConnection("owner"), WireTypes.PrMerge, SignedMerge(f.Key)), Ct);
+
+        Assert.False(reply.IsOk);
+        Assert.Equal(WireErrorCodes.RateLimited, reply.Error?.Code);
     }
 
     [Fact]
