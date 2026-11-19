@@ -10,7 +10,7 @@ public sealed record RestartDecision(TimeSpan Delay, int ConsecutiveExits, int R
 /// The sentinel's restart backoff (doc 46 section 7.1, setting <c>kodo.supervise.restart_backoff_s</c>). Each exit of Kodo
 /// waits for the next delay in the schedule. The last delay is the cap, so every later exit waits that long. A run that lasts
 /// at least the stable period clears the count, so the next exit starts again at the first delay. Pure: the caller passes the
-/// times it observed.
+/// times it observed. Not thread-safe: <see cref="SlotSwitcher"/> calls it under its own lock.
 /// </summary>
 public sealed class RestartBackoff
 {
