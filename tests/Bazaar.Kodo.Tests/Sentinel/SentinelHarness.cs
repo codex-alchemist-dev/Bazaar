@@ -73,12 +73,21 @@ internal sealed class FakeKodoProcessLauncher(List<string> log) : IKodoProcessLa
     /// <summary>Runs before the outcome is returned, so a test can change files while the slot is on probation.</summary>
     public Action? BeforeOutcome { get; set; }
 
+    /// <summary>When set, the run throws this, as a launcher that cannot start the process would.</summary>
+    public Exception? Throw { get; set; }
+
     /// <inheritdoc />
     public Task<KodoRunOutcome> RunProbationAsync(string slotId, TimeSpan window, CancellationToken cancellationToken)
     {
         log.Add("probation:" + slotId);
         Calls.Add((slotId, window));
         BeforeOutcome?.Invoke();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Throw is not null)
+        {
+            throw Throw;
+        }
+
         KodoRunOutcome outcome = Outcomes.Count > 0 ? Outcomes.Dequeue() : new KodoRunOutcome(KodoRunKind.SurvivedWindow, null);
         return Task.FromResult(outcome);
     }
@@ -112,11 +121,20 @@ internal sealed class FakeStatusFile(List<string> log) : ISentinelStatusFile
     /// <summary>Every whole-file write, as UTF-8 text.</summary>
     public List<string> Writes { get; } = [];
 
+    /// <summary>When set, a write whose text matches throws <see cref="IOException"/> and is not recorded.</summary>
+    public Predicate<string>? FailOn { get; set; }
+
     /// <inheritdoc />
     public void Replace(ReadOnlyMemory<byte> bytes)
     {
+        string text = System.Text.Encoding.UTF8.GetString(bytes.Span);
+        if (FailOn?.Invoke(text) == true)
+        {
+            throw new IOException("The status file cannot be written in this test.");
+        }
+
         log.Add("status");
-        Writes.Add(System.Text.Encoding.UTF8.GetString(bytes.Span));
+        Writes.Add(text);
     }
 }
 
