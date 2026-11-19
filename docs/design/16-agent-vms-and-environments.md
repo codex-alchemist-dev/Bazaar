@@ -154,7 +154,7 @@ Registry owned by doc 03 [PROPOSED]. Changes are written to `audit_log` (doc 15)
 8. Scoped mounts: Soul folder (cookie profile, detach on taint) and workspace share, ACLs, guest mount. (after 2, 5, doc 15 isolation)
 9. Egress enforcement at the switch. (after 5 and the egress design)
 10. Startup reconciliation and audit rows. (after 2, 3)
-11. Benchmark harness and report. (after 5, 6, 8)
+11. Benchmark harness and report. (after 5, 6, 8) Module pair `Bazaar.Server.VmBench` (doc 40): runner, statistics, Markdown and JSON report, run-to-run comparison over an `IVmBenchHost`; the Hyper-V host adapter lands with WP5 to WP8.
 12. KVM provider and Linux host spike. (after 3; later)
 13. Browser profiles in the pair; third VM only if the headed and headless spike needs it. (after 6, 8, 9)
 
