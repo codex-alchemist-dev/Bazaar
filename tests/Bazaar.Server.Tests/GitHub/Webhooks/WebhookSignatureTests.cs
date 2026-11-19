@@ -1,7 +1,7 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
-using Bazaar.Server.GitHub.Webhooks;
+using Bazaar.GitHub.Webhooks;
 
 namespace Bazaar.Server.Tests.GitHub.Webhooks;
 

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Android accessibility gate (doc 49 section 2). The desktop gate (Bazaar.Accessibility.Gate.Tests) cannot construct
+    src/Bazaar.Client.Android's views, so this project runs the same scan on an emulator. It is an Android app, not a
+    unit-test project, and it is not in Bazaar.slnx: the Android workload is not on the hosted CI runners.
+
+    Like the head, it stays a plain net11.0 project unless BazaarAndroid=true, so restore succeeds on hosts without the
+    workload (GitHub's dependency submission restores every project it finds).
+    Run by the build-android job in .github/workflows/ci.yml.
+  -->
+  <PropertyGroup>
+    <BazaarAndroid Condition="'$(BazaarAndroid)' == ''">false</BazaarAndroid>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Bazaar.Client.Android.Gate</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BazaarAndroid)' == 'true'">
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>35</SupportedOSPlatformVersion>
+    <!-- Same target as the head (#423): pinned so a newer installed platform does not change targetSdkVersion silently. -->
+    <TargetPlatformVersion>37.0</TargetPlatformVersion>
+    <ApplicationId>org.bazaar.client.accessibilitygate</ApplicationId>
+    <ApplicationTitle>Bazaar accessibility gate</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <AndroidUseAapt2>true</AndroidUseAapt2>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BazaarAndroid)' != 'true'">
+    <OutputType>Library</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BazaarAndroid)' != 'true'">
+    <Compile Remove="**/*.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(BazaarAndroid)' == 'true'">
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Accessibility.Avalonia\Bazaar.Accessibility.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+  </ItemGroup>
+</Project>

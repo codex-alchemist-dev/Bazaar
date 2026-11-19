@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 

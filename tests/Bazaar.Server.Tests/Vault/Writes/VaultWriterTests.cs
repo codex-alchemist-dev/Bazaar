@@ -53,6 +53,27 @@ public sealed class VaultWriterTests : IDisposable
     }
 
     [Fact]
+    public async Task Edits_to_different_lines_of_one_file_both_merge()
+    {
+        var baseCommit = TempGitRepository.HeadOf(_repo.Checkout);
+        await NewAgentBranchAsync("task-a");
+        await NewAgentBranchAsync("task-b");
+        await EditAndCommit(_repo.WorktreePath("task-a"), "doc.md", 2, "agent a");
+        await EditAndCommit(_repo.WorktreePath("task-b"), "doc.md", 9, "agent b");
+
+        var first = await _writer.SubmitAsync(
+            new VaultEditRequest(_docId, baseCommit, "agent/task-a", "agent-a", "gc-1", "task-a"), CancellationToken.None);
+        var second = await _writer.SubmitAsync(
+            new VaultEditRequest(_docId, baseCommit, "agent/task-b", "agent-b", "gc-1", "task-b"), CancellationToken.None);
+
+        Assert.Equal(VaultEditOutcome.Merged, first.Outcome);
+        Assert.Equal(VaultEditOutcome.Merged, second.Outcome);
+        var merged = TempGitRepository.ReadFile(_repo.Checkout, "doc.md");
+        Assert.Contains("agent a", merged, StringComparison.Ordinal);
+        Assert.Contains("agent b", merged, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Memory_writes_without_gc_or_task_omit_those_trailers()
     {
         var baseCommit = TempGitRepository.HeadOf(_repo.Checkout);

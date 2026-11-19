@@ -3,6 +3,7 @@ using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Health;
@@ -23,7 +24,8 @@ namespace Bazaar.Server.Host.Composition;
 /// <summary>
 /// Wires the model gateway (docs/design/05-model-gateway.md) onto the host's database. Database repositories replace the
 /// in-memory usage stand-in from <c>AddBazaarAgentSafety</c>. FreeLLMAPI is registered from <c>Bazaar:Gateway:FreeLlmApi</c>
-/// when enabled; otherwise provider secrets fail closed.
+/// and the owner's Anthropic key from <c>Bazaar:Gateway:AnthropicDirect</c>, each only when enabled; otherwise provider secrets
+/// fail closed.
 /// </summary>
 public static class GatewayCompositionExtensions
 {
@@ -66,9 +68,13 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
         services.Replace(ServiceDescriptor.Singleton<IUsageStore, UsageRepository>());
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
-        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => FreeLlmApiWiring.CreateDirectory(
-            sp.GetRequiredService<GatewayDirectoryRepository>(),
-            FreeLlmApiOptionsOf(sp),
+        // Config-defined sources overlay the stored directory: FreeLLMAPI first, then the owner's Anthropic key on top.
+        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => AnthropicDirectWiring.CreateDirectory(
+            FreeLlmApiWiring.CreateDirectory(
+                sp.GetRequiredService<GatewayDirectoryRepository>(),
+                FreeLlmApiOptionsOf(sp),
+                sp.GetRequiredService<TimeProvider>()),
+            AnthropicDirectOptionsOf(sp),
             sp.GetRequiredService<TimeProvider>())));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
@@ -91,11 +97,21 @@ public static class GatewayCompositionExtensions
     private static FreeLlmApiOptions FreeLlmApiOptionsOf(IServiceProvider sp) =>
         sp.GetService<IOptions<FreeLlmApiOptions>>()?.Value ?? new FreeLlmApiOptions();
 
+    /// <summary>
+    /// The Anthropic options when <see cref="AnthropicDirectComponent"/> is registered and on, otherwise the disabled defaults:
+    /// no provider, no route, no key.
+    /// </summary>
+    private static AnthropicDirectOptions AnthropicDirectOptionsOf(IServiceProvider sp) =>
+        sp.GetService<IOptions<AnthropicDirectOptions>>()?.Value ?? new AnthropicDirectOptions();
+
     private static IProviderSecretSource CreateProviderSecretSource(IServiceProvider sp) =>
-        FreeLlmApiWiring.CreateProviderSecretSource(
-            FreeLlmApiOptionsOf(sp),
+        AnthropicDirectWiring.CreateProviderSecretSource(
+            AnthropicDirectOptionsOf(sp),
             sp.GetRequiredService<ISecretResolver>(),
-            new GatewaySecretSource(sp.GetRequiredService<ISecretResolver>()));
+            FreeLlmApiWiring.CreateProviderSecretSource(
+                FreeLlmApiOptionsOf(sp),
+                sp.GetRequiredService<ISecretResolver>(),
+                new GatewaySecretSource(sp.GetRequiredService<ISecretResolver>())));
 
     /// <summary>Builds the registry from every adapter the enabled components registered. Two registrations for one name fail the start.</summary>
     private static DictionaryAdapterRegistry CreateAdapterRegistry(IServiceProvider sp)

@@ -34,3 +34,12 @@ Status legend: **[DECIDED]** / **[PROPOSED]** / **[REJECTED/CHANGED]** / **[RESE
 ## Open Questions (Constellation)
 
 None specific to this doc beyond what's tracked in Bazaar.Server (search stack) and Bazaar.Windows (rendering "feel" validation spike).
+
+## Agent memory governance (GraphDRAG, 2026-11-13)
+
+- **[DECIDED 2026-11-13]** Agent memory and GraphDRAG belong to the Constellation's server side (`Server.Constellation`), not to a separate module. The client renders; it does not hold the memory store.
+- **[DECIDED 2026-11-13]** Memory is server-held and owner-visible. Each agent's memory is isolated, with role scoping for everyone else.
+- **[DECIDED 2026-11-13]** Retention and crypto-erase apply (doc 48). Every memory item has provenance: its source and author are recorded in the audit log.
+- **[DECIDED 2026-11-13]** An item can be corrected or rolled back. Memory is portable between servers through the memory export (doc 44, section 4.x).
+- **[DECIDED 2026-11-13]** Memory is never published to the Soul Marketplace (doc 07).
+- **[PLANNED]** All of the above is designed intent. Full detail is in doc 19, section "Agent memory governance (GraphDRAG, 2026-11-13)".

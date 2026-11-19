@@ -4,7 +4,7 @@ using NpgsqlTypes;
 
 namespace Bazaar.Server.Tests.Remote;
 
-/// <summary>Applies components/remote/0001 to a clean database and checks the constraints doc 32 relies on.</summary>
+/// <summary>Applies remote/0001 to a clean database and checks the constraints doc 32 relies on that remain after pairing removal.</summary>
 public sealed class RemotePairingSchemaTests : PgFixture, IAsyncLifetime
 {
     public override async ValueTask InitializeAsync()
@@ -19,8 +19,8 @@ public sealed class RemotePairingSchemaTests : PgFixture, IAsyncLifetime
     private static string ReadMigration()
     {
         var assembly = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly;
-        using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Data.Sql.components.remote.0001_pairing_auth.sql")
-            ?? throw new InvalidOperationException("components/remote/0001_pairing_auth.sql is not embedded.");
+        using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Data.Sql.remote.0001_pairing_auth.sql")
+            ?? throw new InvalidOperationException("remote/0001_pairing_auth.sql is not embedded.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
@@ -50,20 +50,6 @@ public sealed class RemotePairingSchemaTests : PgFixture, IAsyncLifetime
         }
 
         await InsertRefreshAsync(device, 3);
-    }
-
-    [Fact]
-    public async Task UserCodeHashMustBe32Bytes()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL on this host.");
-        var owner = await InsertHumanAsync("coworker");
-        await using var cmd = DataSource.CreateCommand(
-            "INSERT INTO pairing_offer (id, created_by, role, user_code_hash, expires_at) VALUES ($1, $2, 'coworker', $3, now() + interval '10 minutes')");
-        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = Guid.CreateVersion7() });
-        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = owner });
-        cmd.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = new byte[31], NpgsqlDbType = NpgsqlDbType.Bytea });
-        var error = await Assert.ThrowsAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
-        Assert.Equal("23514", error.SqlState);
     }
 
     private async Task<Guid> InsertHumanAsync(string role)

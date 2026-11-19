@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 
 namespace Bazaar.Server.Tests.Components;
 
@@ -21,6 +21,44 @@ public class ComponentGraphTests
         var ordered = ComponentGraph.Order([M("skimmer"), M("kanban"), M("calendar")]);
 
         Assert.Equal(["calendar", "kanban", "skimmer"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void A_soft_dependency_does_not_set_start_order()
+    {
+        // "aaa" softly depends on "zzz". A soft edge would start "zzz" first. Id order must win, so "aaa" starts first.
+        var ordered = ComponentGraph.Order([new ComponentManifest("aaa", "0.1.0", ComponentKind.Feature, [], [], ["zzz"]), M("zzz")]);
+
+        Assert.Equal(["aaa", "zzz"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void Mutual_soft_links_are_allowed_and_ordered_by_id()
+    {
+        var ordered = ComponentGraph.Order(
+            [new ComponentManifest("a", "0.1.0", ComponentKind.Feature, ["c"], [], ["b"]),
+             new ComponentManifest("b", "0.1.0", ComponentKind.Feature, ["c"], [], ["a"]),
+             M("c")]);
+
+        Assert.Equal(["c", "a", "b"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void A_missing_soft_dependency_is_not_an_error()
+    {
+        var ordered = ComponentGraph.Order([new ComponentManifest("kanban", "0.1.0", ComponentKind.Feature, [], [], ["gc"])]);
+
+        Assert.Equal(["kanban"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void A_hard_cycle_is_rejected_even_when_soft_links_exist()
+    {
+        var ex = Assert.Throws<ComponentGraphException>(() => ComponentGraph.Order(
+            [new ComponentManifest("a", "0.1.0", ComponentKind.Feature, ["b"], [], ["c"]),
+             new ComponentManifest("b", "0.1.0", ComponentKind.Feature, ["a"], [])]));
+
+        Assert.Contains("cycle", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

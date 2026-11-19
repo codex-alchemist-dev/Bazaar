@@ -1,5 +1,5 @@
 using System.Globalization;
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Npgsql;
 
 namespace Bazaar.Server.Data.Migrations;

@@ -3,6 +3,8 @@
 Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 6
 Depends on: 02-wire-protocol-and-sync.md, 03-server-host-and-providers.md, 04-postgres-schema-and-migrations.md, 14-identity-service-and-passport.md, 21-github-integration.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md · Used by: 32-remote-access-auth-and-privacy.md, 33-backup-dr-and-export.md, 34-testing-strategy.md, 35-spikes-plan.md
 
+> **Owner decision (2026-11-12):** each company builds its own Linux client; the repo ships server builds only (doc 37).
+
 ## Purpose
 Defines the Linux desktop client (`Bazaar.Client.Linux`), built last on the shared Avalonia UI, and how every Bazaar component is packaged, versioned, updated and signed. Server installs (Windows Service and systemd) are included because they share the upgrade and rollback rules.
 
@@ -61,6 +63,8 @@ public interface ITerminalBackend {
 | deb / rpm | Native installs | We would host and sign our own repositories |
 
 **[PROPOSED]** Ship self-contained builds (no Native AOT in v1, per Bazaar.Server.md) as a tarball and an AppImage. Spike Flatpak. Defer deb and rpm. Whether Velopack covers Linux is unverified.
+
+**Implemented:** `packaging/linux/build-tarball.sh` publishes the self-contained client (`linux-x64` or `linux-arm64`) and writes a reproducible `Bazaar-<version>-linux-<arch>.tar.gz` with a `.sha256` file (sorted names, fixed owner and times, `gzip -n`; two builds of one commit give the same bytes). `--verify` extracts the archive and starts the client on Xvfb. The AppImage script is `packaging/linux-appimage/build-appimage.sh`; it needs an `appimagetool` the operator supplies.
 
 ### 4. Installers and update paths [PROPOSED]
 - **Windows client:** Velopack, approved as the client updater and packaging tool (DECISIONS-LOG round 10, C37). Per-user install under `%LocalAppData%`, delta updates from GitHub Releases (verified in Velopack docs). Velopack does not sign, does not cover Windows Services and does not document machine-wide installs. `VelopackApp.Build().Run()` must be the first call in the entry point.
@@ -136,8 +140,9 @@ Registry owned by doc 03 (round 13). Each change is audited (doc 15 `audit_log`)
 ## Testing
 - Version negotiation: table tests for accept, upgrade-required and refuse-downgrade, using doc 02's `major.minor` rule.
 - Migrations on real Postgres: upgrade N-1 to N with data; roll back to N-1 on an expand-only schema; startup refuses a mismatched schema.
-- Service install: fake host in CI; real install on the NUC is a spike. Linux unit: `systemd-analyze verify`.
+- Service install: fake host in CI; real install on the owner's PC is a spike. Linux unit: `systemd-analyze verify`.
 - PTY on `ubuntu-latest` with a real PTY; Linux client via Avalonia.Headless; packaged builds smoke-tested headless.
+- Linux client start-up: the `linux-client-startup` CI job runs `scripts/ci/linux-client-startup.sh`, which starts the built head on Xvfb. The headless tests cannot see a start-up that aborts on a real display (missing `UseSkia()` and `UseHarfBuzz()` reached main that way). The default and explicit X11 starts must stay up; an explicit Wayland request on an X-only session must fail, not fall back.
 - Release gate: a script verifies every checksum and signature before the draft is created.
 - Channel selection: table tests that each `update.channel` value maps to the right source and that Latest-Commit is refused for non-owner installs.
 

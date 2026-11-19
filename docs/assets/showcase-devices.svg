@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" role="img" aria-labelledby="t d">
+  <title id="t">Each device has its own purpose</title>
+  <desc id="d">Windows is the desktop command room for heavy work and monitoring, with panes. Android is the phone and foldable development console: folded shows the chat, unfolded shows the work. Linux is a desktop head with the same packaging approach. Terminal is Calcinato for shells on any machine.</desc>
+  <rect width="960" height="260" rx="16" fill="#0f1420"/>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="15">
+    <rect x="30" y="40" width="210" height="180" rx="12" fill="#1d2a44" stroke="#4d6fb3"/>
+    <text x="135" y="74" text-anchor="middle" fill="#e8eefc" font-size="18" font-weight="700">Windows</text>
+    <text x="135" y="104" text-anchor="middle" fill="#9fb3d9">Desktop command room:</text>
+    <text x="135" y="124" text-anchor="middle" fill="#9fb3d9">panes, Constellation,</text>
+    <text x="135" y="144" text-anchor="middle" fill="#9fb3d9">RyuseiFuda, code and diffs</text>
+    <rect x="260" y="40" width="210" height="180" rx="12" fill="#1d2a44" stroke="#4d6fb3"/>
+    <text x="365" y="74" text-anchor="middle" fill="#e8eefc" font-size="18" font-weight="700">Android</text>
+    <text x="365" y="104" text-anchor="middle" fill="#9fb3d9">Development console:</text>
+    <text x="365" y="124" text-anchor="middle" fill="#9fb3d9">folded = chat, unfolded =</text>
+    <text x="365" y="144" text-anchor="middle" fill="#9fb3d9">work; approvals and merges</text>
+    <rect x="490" y="40" width="210" height="180" rx="12" fill="#1d2a44" stroke="#4d6fb3"/>
+    <text x="595" y="74" text-anchor="middle" fill="#e8eefc" font-size="18" font-weight="700">Linux</text>
+    <text x="595" y="104" text-anchor="middle" fill="#9fb3d9">Desktop head and</text>
+    <text x="595" y="124" text-anchor="middle" fill="#9fb3d9">packaging, following the</text>
+    <text x="595" y="144" text-anchor="middle" fill="#9fb3d9">Windows and Android heads</text>
+    <rect x="720" y="40" width="210" height="180" rx="12" fill="#2a2140" stroke="#7d5fc4"/>
+    <text x="825" y="74" text-anchor="middle" fill="#f4edff" font-size="18" font-weight="700">Calcinato</text>
+    <text x="825" y="104" text-anchor="middle" fill="#c8b8ea">Terminal and CLI for</text>
+    <text x="825" y="124" text-anchor="middle" fill="#c8b8ea">shells on any device;</text>
+    <text x="825" y="144" text-anchor="middle" fill="#c8b8ea">runs standalone too</text>
+  </g>
+</svg>

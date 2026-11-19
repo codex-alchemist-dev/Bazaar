@@ -1,4 +1,5 @@
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
 

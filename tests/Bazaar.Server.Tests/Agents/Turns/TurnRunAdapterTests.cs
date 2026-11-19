@@ -18,7 +18,8 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
     private static void SkipWithoutDatabase() =>
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
 
-    private TurnRunner Runner(ScriptedModelGateway gateway, TurnRunnerOptions? options = null) => new(db.DataSource, gateway, options);
+    private TurnRunner Runner(ScriptedModelGateway gateway, TurnRunnerOptions? options = null) =>
+        new(db.DataSource, gateway, new RecordingToolDispatcher(), options);
 
     private TurnRepository Turns => new(db.DataSource);
 
@@ -104,7 +105,7 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
         SkipWithoutDatabase();
         var agent = await Agents.CreateAsync("adapter", null, Ct);
         var gateway = new ScriptedModelGateway().Reply(FinalAnswer("done"));
-        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), _route);
+        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler());
 
         var outcome = await adapter.RunAsync(
             new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "mention", [], "holder", _route, []), Ct);
@@ -123,7 +124,7 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
         var first = await EnqueueAsync(agent, "a");
         var second = await EnqueueAsync(agent, "b");
         var untouched = await EnqueueAsync(agent, "c");
-        var adapter = new TurnRunAdapter(Runner(new ScriptedModelGateway().Reply(FinalAnswer("ok"))), new StubAssembler(), _route);
+        var adapter = new TurnRunAdapter(Runner(new ScriptedModelGateway().Reply(FinalAnswer("ok"))), new StubAssembler());
 
         var outcome = await adapter.RunAsync(
             new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "mention", [first, second], "holder", _route, []), Ct);
@@ -140,7 +141,7 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
         SkipWithoutDatabase();
         var agent = await Agents.CreateAsync("adapter-tools", null, Ct);
         var gateway = new ScriptedModelGateway().Reply(FinalAnswer("ok"));
-        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), _route, [_read, _write]);
+        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), [_read, _write]);
 
         await adapter.RunAsync(
             new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "mention", [], "holder", _route, ["write_note"]), Ct);
@@ -154,7 +155,7 @@ public sealed class TurnRunAdapterTests(AgentDb db) : IClassFixture<AgentDb>
         SkipWithoutDatabase();
         var agent = await Agents.CreateAsync("adapter-reader", null, Ct);
         var gateway = new ScriptedModelGateway().Reply(FinalAnswer("ok"));
-        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), _route, [_read, _write]);
+        var adapter = new TurnRunAdapter(Runner(gateway), new StubAssembler(), [_read, _write]);
 
         await adapter.RunAsync(
             new TurnRunRequest(agent, Guid.CreateVersion7(), TurnRole.Reader, "mention", [], "holder", _route, ["read_note", "write_note"]), Ct);

@@ -1,11 +1,14 @@
 # Pinned inputs for the packaged PostgreSQL bundle (docs/research/notes/Bazaar server packaging/packaging.md).
 # Read by the Windows and Linux bundle builds and by .github/workflows/postgres-bundle.yml.
 # Bump deliberately: the bundle check in CI must pass before a new value merges.
+# PG_MAJOR is the default major the build and the layout check use. Each major pins its own EDB download as
+# PG<major>_VERSION, PG<major>_EDB_BUILD and PG<major>_SHA256. A major with no pins cannot be built (the scripts stop).
+# PostgreSQL 19 gets its three keys when EDB publishes a Windows 19 zip and both runners agree on its hash (#491).
 PG_MAJOR=18
-PG_VERSION=18.0
-PG_EDB_BUILD=1
-PGVECTOR_VERSION=0.8.1
+PG18_VERSION=18.7
+PG18_EDB_BUILD=1
+PGVECTOR_VERSION=0.8.7
 # SHA-256 of each download, checked by build-pgvector-windows.ps1 before use. Pinned from a download on the owner's PC
-# on 2026-11-09; the upstream publishers do not publish these values here, so re-check them when a version is bumped.
-PG_SHA256=4A1EA6E6ECBDE1747103C7B5BC0674CC415B9AA8EF7B7BAD3A4EE38C37C051B1
-PGVECTOR_SHA256=A9094DFB85CCDDE3CBB295F1086D4C71A20DB1D26BF1D6C39F07A7D164033EB4
+# on 2026-11-09 (18.0). The pgvector 0.8.7 value was computed on both a Linux and a Windows GitHub runner from the v0.8.7 archive on 2026-11-15 and matched (run 43711548274). The pgvector 0.8.2 value was computed in CI from the v0.8.2 GitHub archive on 2026-11-12. The 18.6 value was computed from the EDB download on 2026-11-11; the 18.7 value was computed from the EDB download on 2026-11-12; the upstream publishers do not publish these values here, so re-check them when a version is bumped.
+PG18_SHA256=EAD0BBC27FB678FA24DCF86B738981323042ABD073C744103BF7F3AED23F9A33
+PGVECTOR_SHA256=CAC0B10C360F05B2D521200105BA3697E773D4CD3731F5A915A7E37EBE0BEA85

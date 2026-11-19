@@ -1,3 +1,5 @@
+using Bazaar.Constellation.Rendering.Core;
+
 namespace Bazaar.Constellation.Rendering.Tests;
 
 public class FrameInterpolatorTests

@@ -43,8 +43,13 @@ internal sealed class FakePostSink : IAgentPostSink
 
     public List<Post> Posts { get; } = [];
 
+    /// <summary>When set, the post throws this instead of recording (a refused post appends nothing).</summary>
+    public Exception? ThrowOnPost { get; set; }
+
     public Task PostAsync(Guid agentId, Guid turnId, string gcId, string text, CancellationToken cancellationToken)
     {
+        if (ThrowOnPost is { } failure)
+            throw failure;
         Posts.Add(new Post(agentId, turnId, gcId, text));
         return Task.CompletedTask;
     }

@@ -43,7 +43,7 @@ public sealed class GcLogJudgmentPosterTests
         var body = Assert.Single(log.Requests).Message;
         Assert.NotNull(body);
         Assert.Equal(PlaintextGcBodyCodec.PlaintextKeyId, body.KeyId);
-        Assert.Equal("Chose promote.", codec.Open(body.BodyCiphertext, body.KeyId, body.Nonce));
+        Assert.Equal("Chose promote.", await codec.OpenAsync(body.BodyCiphertext, body.KeyId, body.Nonce, TestContext.Current.CancellationToken));
     }
 
     [Fact]

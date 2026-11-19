@@ -32,6 +32,26 @@ public enum GcDmAccessApprovers
     OwnerOrDmMember,
 }
 
+/// <summary>Setting <c>gc.broadcast_mentions</c>: who may use <c>@here</c> and <c>@all</c>.</summary>
+public enum GcBroadcastMentions
+{
+    /// <summary>Only the owner may broadcast.</summary>
+    OwnerOnly,
+
+    /// <summary>The owner, and agents within <c>gc.broadcast_mention_rate_per_hour</c> (the default).</summary>
+    OwnerAndAgentsRateLimited,
+}
+
+/// <summary>Setting <c>gc.vault_embed_pin</c>: which revision a Vault embed shows.</summary>
+public enum GcVaultEmbedPin
+{
+    /// <summary>The commit the embed was made at (the default). A newer-version hint is shown.</summary>
+    Commit,
+
+    /// <summary>The branch head.</summary>
+    BranchHead,
+}
+
 /// <summary>Type keys the membership rules depend on. Other keys are plain membership GCs.</summary>
 public static class GcTypeKeys
 {

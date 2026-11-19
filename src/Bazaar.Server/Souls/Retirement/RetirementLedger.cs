@@ -3,8 +3,7 @@ using Bazaar.Contracts.Soul;
 namespace Bazaar.Server.Souls.Retirement;
 
 /// <summary>
-/// Records the latest outcome of each retirement step per subject, so a re-run skips steps that already succeeded. The
-/// durable store is not yet built (it needs a migration, which this work package does not add).
+/// Records the latest outcome of each retirement step per subject, so a re-run skips steps that already succeeded.
 /// </summary>
 public interface IRetirementLedger
 {
@@ -16,8 +15,8 @@ public interface IRetirementLedger
 }
 
 /// <summary>
-/// Process-local <see cref="IRetirementLedger"/>. Lost on restart, so it is for tests and single-run use only. A durable
-/// ledger replaces it when the retirement tables are migrated.
+/// Process-local <see cref="IRetirementLedger"/>. Lost on restart, so it is for tests and single-run use only. Production
+/// hosts should use <see cref="PostgresRetirementLedger"/>.
 /// </summary>
 public sealed class InMemoryRetirementLedger : IRetirementLedger
 {

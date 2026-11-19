@@ -64,7 +64,7 @@ public sealed class TurnToolOfferTests
     {
         // The argument check runs before the lease is taken, so an offline data source is enough.
         await using var source = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=unused");
-        var runner = new TurnRunner(source, new ScriptedModelGateway());
+        var runner = new TurnRunner(source, new ScriptedModelGateway(), new RecordingToolDispatcher());
         var request = new TurnRequest(
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
