@@ -130,8 +130,25 @@ public sealed class PgTemplate
         }
     }
 
-    internal Task DropAsync(string database) =>
-        ExecAdminAsync(_source, $"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)");
+    /// <summary>
+    /// Drops a cloned database during teardown. Bounded and tolerant: a database that is still in use
+    /// (55006), already gone (3D000) or whose drop was cancelled (57014) must not fail the test class,
+    /// because a leftover clone is only test data and the per-run container or database is discarded.
+    /// </summary>
+    internal async Task DropAsync(string database)
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            await ExecAsync(_source.AdminConnectionString, $"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)", budget.Token).ConfigureAwait(false);
+        }
+        catch (PostgresException ex) when (ex.SqlState is "55006" or "3D000" or "57014")
+        {
+        }
+        catch (OperationCanceledException) when (budget.IsCancellationRequested)
+        {
+        }
+    }
 
     internal string ConnectionStringFor(string database) => _source.ConnectionStringFor(database);
 
