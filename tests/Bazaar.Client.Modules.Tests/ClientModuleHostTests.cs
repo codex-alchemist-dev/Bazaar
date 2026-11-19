@@ -140,3 +140,49 @@ public class ClientModuleHostTests
         Assert.Throws<ArgumentNullException>(() => ClientModuleHost.Load([], null!));
     }
 }
+
+public class ClientModuleLoadResultTests
+{
+    private sealed class Pane(string id) : IClientModule
+    {
+        public ModuleManifest Manifest { get; } = new(
+            id, "0.1.0", 1, [id], [], [], ["ui:pane"], ModuleIsolation.InProcessCompiled,
+            new HostRequirements(1, ["linux"], ["x64"], []));
+
+        public void Register(ClientModuleBuilder builder) => builder.AddPaneKind(Manifest.PaneKinds[0]);
+    }
+
+    [Fact]
+    public void Only_keeps_the_modules_that_loaded_in_their_original_order()
+    {
+        var kept1 = new Pane("bazaar.one");
+        var skipped = new Pane("bazaar.two");
+        var kept2 = new Pane("bazaar.three");
+        var wrongHost = new HostFacts("windows", "x64", new HashSet<string>(StringComparer.Ordinal));
+
+        var result = ClientModuleHost.Load([kept1, skipped, kept2], wrongHost);
+        var linux = ClientModuleHost.Load([kept1, skipped, kept2], new HostFacts("linux", "x64", new HashSet<string>(StringComparer.Ordinal)));
+
+        Assert.Empty(result.Only<IClientModule>([kept1, skipped, kept2]));
+        Assert.Equal([kept1, skipped, kept2], linux.Only<IClientModule>([kept1, skipped, kept2]));
+    }
+
+    [Fact]
+    public void Only_drops_entries_that_are_not_client_modules()
+    {
+        var module = new Pane("bazaar.one");
+        var result = ClientModuleHost.Load([module], new HostFacts("linux", "x64", new HashSet<string>(StringComparer.Ordinal)));
+
+        Assert.Equal<object>([module], result.Only<object>([new object(), module]));
+    }
+
+    [Fact]
+    public void Current_host_facts_name_a_known_os_and_architecture_on_a_supported_machine()
+    {
+        var facts = ClientHostFacts.Current();
+
+        Assert.Contains(facts.OperatingSystem, HostCompatibility.KnownOperatingSystems);
+        Assert.Contains(facts.Architecture, HostCompatibility.KnownArchitectures);
+        Assert.Empty(facts.Features);
+    }
+}

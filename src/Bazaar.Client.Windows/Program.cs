@@ -16,10 +16,12 @@ using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Launcher;
+using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Windows;
 
@@ -72,8 +74,10 @@ internal static class Program
             new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
+        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
-            modules,
+            shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);

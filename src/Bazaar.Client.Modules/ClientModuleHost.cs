@@ -29,6 +29,18 @@ public sealed class ClientModuleLoadResult
     /// <summary>Modules that were left out, with the reason. A skipped module costs only its own features.</summary>
     public IReadOnlyList<ClientModuleSkip> Skipped { get; }
 
+    /// <summary>
+    /// Keeps, from <paramref name="modules"/>, only the entries that loaded, in their original order. A head composes a
+    /// module's other contracts (for example its pane module) from what this returns, so a skipped module adds nothing.
+    /// </summary>
+    public IReadOnlyList<T> Only<T>(IEnumerable<T> modules)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(modules);
+        var ids = new HashSet<string>(Loaded.Select(manifest => manifest.Id), StringComparer.Ordinal);
+        return [.. modules.Where(module => module is IClientModule client && ids.Contains(client.Manifest.Id))];
+    }
+
     /// <summary>Pane kind to the id of the module that registered it.</summary>
     public IReadOnlyDictionary<string, string> PaneKindOwners { get; }
 

@@ -6,14 +6,16 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
-using Bazaar.Client.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.Mobile;
+using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Android;
 
@@ -61,7 +63,9 @@ public sealed class App : Avalonia.Application
             new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
-        var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
+        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
+        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
         var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
