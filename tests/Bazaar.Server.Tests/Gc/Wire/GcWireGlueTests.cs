@@ -105,6 +105,27 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
     }
 
     [Fact]
+    public async Task A_message_over_the_body_cap_in_bytes_is_refused_before_anything_is_stored()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(member);
+        var connection = new FakeWireConnection(db.DataSource, member);
+
+        // doc 01: gc.message_max_bytes is 32768 bytes. 20,000 three-byte characters are under the character limit and over
+        // the byte cap; an edit of the same text is already refused, so a send must be too.
+        var text = new string('\u20ac', 20_000);
+        var refused = await SendAsync(connection, gc, text, "big-1", ct: ct);
+        var atCap = await SendAsync(connection, gc, new string('a', 32768), "cap-1", ct: ct);
+
+        Assert.False(refused.IsOk);
+        Assert.Equal(WireErrorCodes.BadRequest, refused.Error!.Code);
+        Assert.True(atCap.IsOk);
+        Assert.Equal(1, (await Source.GetHeadAsync(gc, ct))!.Value.LatestN);
+    }
+
+    [Fact]
     public async Task Repeating_the_request_id_returns_the_original_sequence()
     {
         GcTestSkip.WithoutDatabase();

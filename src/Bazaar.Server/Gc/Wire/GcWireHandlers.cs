@@ -1,6 +1,8 @@
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
+using System.Text;
 using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Edit;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Wire.Connection;
@@ -72,6 +74,9 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
         if (string.IsNullOrWhiteSpace(request.Text))
             return WireReply.Fail(WireErrorCodes.BadRequest, "Message text is empty.");
         if (request.Text.Length > MaxTextLength)
+            return WireReply.Fail(WireErrorCodes.BadRequest, "Message text is too long.");
+        // gc.message_max_bytes (doc 01) is a byte cap; the same default as an edit, which already refuses a longer body.
+        if (Encoding.UTF8.GetByteCount(request.Text) > MessageEditPlanner.DefaultMaxBodyBytes)
             return WireReply.Fail(WireErrorCodes.BadRequest, "Message text is too long.");
         if (string.IsNullOrEmpty(clientMsgId))
             return WireReply.Fail(WireErrorCodes.BadRequest, "A send needs a request id.");
