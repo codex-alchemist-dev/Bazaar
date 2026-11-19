@@ -34,11 +34,43 @@ public static class OwnerMergeArgs
     private static void Append(StringBuilder sb, string value) => sb.Append(value.Length).Append(':').Append(value).Append(';');
 }
 
+/// <summary>Why <see cref="OwnerSignedMerge"/> refused a merge, so a caller can answer without parsing a message.</summary>
+public enum MergeRefusalReason
+{
+    /// <summary>The approval and the merge name different head shas.</summary>
+    HeadMismatch,
+
+    /// <summary>The approval is not for <c>pr.merge</c>.</summary>
+    WrongAction,
+
+    /// <summary>The approval's args hash is for a different merge.</summary>
+    DifferentMerge,
+
+    /// <summary>The owner signature verifier refused (forged, expired, unknown or revoked device, or a replayed nonce).</summary>
+    SignatureRejected,
+
+    /// <summary>The PR head moved after approval.</summary>
+    HeadMoved,
+}
+
 /// <summary>A squash merge was refused because its owner approval did not hold. No merge request was sent.</summary>
 public sealed class MergeNotApprovedException : Exception
 {
     public MergeNotApprovedException(string reason)
-        : base($"The squash merge was refused: {reason}.")
+        : this(reason, MergeRefusalReason.DifferentMerge)
     {
     }
+
+    public MergeNotApprovedException(string reason, MergeRefusalReason refusal, OwnerSignatureVerdict? verdict = null)
+        : base($"The squash merge was refused: {reason}.")
+    {
+        Reason = refusal;
+        Verdict = verdict;
+    }
+
+    /// <summary>The check that failed.</summary>
+    public MergeRefusalReason Reason { get; }
+
+    /// <summary>The verifier's verdict when <see cref="Reason"/> is <see cref="MergeRefusalReason.SignatureRejected"/>.</summary>
+    public OwnerSignatureVerdict? Verdict { get; }
 }
