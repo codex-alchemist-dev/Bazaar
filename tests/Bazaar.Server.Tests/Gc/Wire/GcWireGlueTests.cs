@@ -245,6 +245,71 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await Task.WhenAny(dispatching, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None));
     }
 
+    // Scaled-down form of the chaos ramp (docs/design/46 section 17.1): concurrent writers on one GC, live subscribers, subscribers that
+    // drop their connection and resume from their cursor, and one that joins late. Every one of them must see seq 1..N once, in order.
+    [Fact]
+    public async Task Concurrent_writers_and_reconnecting_subscribers_see_every_message_exactly_once_and_in_order()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(member);
+        var notifications = new ChannelGcNotifications();
+        var writer = new GcLogWriter(db.DataSource, notifications);
+        var source = Source;
+        var dispatcher = new GcDispatcher(source, new SyncOptions());
+        var engine = new SubscriptionEngine(source, new GcStreamAccessPolicy(Access), dispatcher, new SyncOptions());
+        using var running = new CancellationTokenSource();
+        var dispatching = dispatcher.RunAsync(notifications, null, running.Token);
+        const int writers = 6;
+        const int perWriter = 20;
+        const int total = writers * perWriter;
+
+        async Task<List<(long N, long Ev)>> CollectAsync(bool reconnecting)
+        {
+            var log = new List<(long N, long Ev)>();
+            while (log.Count < total)
+            {
+                // One loop pass is one connection: its own queue and session, dropped without a goodbye.
+                using var outbound = new BoundedOutbound(10_000);
+                using var session = engine.CreateSession(member.Id, _codec, outbound);
+                var cursor = log.Count == 0 ? (N: 0L, Ev: 0L) : log[^1];
+                var outcome = await session.SubscribeAsync(new Subscribe([new StreamCursor(WireStreams.Gc(gc), cursor.N, cursor.Ev)]), ct);
+                Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single().Status);
+                _ = outcome.StartAsync();
+                var taken = 0;
+                await foreach (var envelope in outbound.ReadAllAsync(ct))
+                {
+                    if (envelope.T != WireTypes.GcMessage)
+                        continue;
+                    var message = _codec.DecodePayload<WireGcMessage>(envelope);
+                    log.Add((message.N, message.Ev));
+                    if (log.Count == total || (reconnecting && ++taken == 25))
+                        break;
+                }
+            }
+
+            return log;
+        }
+
+        var early = new[] { CollectAsync(false), CollectAsync(false), CollectAsync(true), CollectAsync(true) }
+            .Select(t => t.WaitAsync(TimeSpan.FromSeconds(60), ct)).ToArray();
+        await Task.WhenAll(Enumerable.Range(0, writers).Select(w => Task.Run(async () =>
+        {
+            for (var i = 0; i < perWriter; i++)
+                await writer.AppendAsync(TextAppend(gc, member, $"w{w}-{i}", $"w{w}-{i}"), ct);
+        }, ct)));
+        var late = await CollectAsync(false).WaitAsync(TimeSpan.FromSeconds(60), ct);
+        var logs = (await Task.WhenAll(early)).Append(late).ToList();
+
+        var expected = Enumerable.Range(1, total).Select(n => ((long)n, (long)n)).ToList();
+        foreach (var log in logs)
+            Assert.Equal(expected, log);
+        Assert.Equal((long)total, await db.ScalarAsync<long>("SELECT count(DISTINCT seq) FROM gc_event WHERE gc_id = $1 AND seq BETWEEN 1 AND $2", gc, (long)total));
+        running.Cancel();
+        await Task.WhenAny(dispatching, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None));
+    }
+
     private static async Task<WireReply> EditAsync(FakeWireConnection connection, Guid gc, Guid messageId, string text, string requestId)
     {
         var handler = new GcEditHandler(
