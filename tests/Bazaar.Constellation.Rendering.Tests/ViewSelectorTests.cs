@@ -5,8 +5,8 @@ namespace Bazaar.Constellation.Rendering.Tests;
 
 public sealed class ViewSelectorTests
 {
-    private static readonly TileBounds World2D = new(-1_000_000f, -1_000_000f, 0f, 1_000_000f, 1_000_000f, 0f);
-    private static readonly TileBounds World3D = new(-1_000_000f, -1_000_000f, -1_000_000f, 1_000_000f, 1_000_000f, 1_000_000f);
+    private static readonly TileBounds _world2D = new(-1_000_000f, -1_000_000f, 0f, 1_000_000f, 1_000_000f, 0f);
+    private static readonly TileBounds _world3D = new(-1_000_000f, -1_000_000f, -1_000_000f, 1_000_000f, 1_000_000f, 1_000_000f);
 
     private static OrthoView Ortho(float zoom, float cx = 0, float cy = 0)
     {
@@ -25,7 +25,7 @@ public sealed class ViewSelectorTests
     [InlineData(1_000_000_000_000L)]
     public void TwoD_SelectionIsBoundedAndIndependentOfGraphSize(long nodes)
     {
-        var tree = new ImplicitTileTree(World2D, 2, nodes);
+        var tree = new ImplicitTileTree(_world2D, 2, nodes);
         var opts = new ViewSelectorOptions(MaxInstances: 2_000_000, MaxTiles: 4096);
         ViewSelection sel = ViewSelector.Select(tree, Ortho(0.05f), opts);
         Assert.InRange(sel.TotalInstances, 1, opts.MaxInstances);
@@ -37,7 +37,7 @@ public sealed class ViewSelectorTests
     [Fact]
     public void TwoD_ZoomedIn_OnlyVisibleTilesAreChosen()
     {
-        var tree = new ImplicitTileTree(World2D, 2, 2_000_000_000L);
+        var tree = new ImplicitTileTree(_world2D, 2, 2_000_000_000L);
         ViewSelection sel = ViewSelector.Select(tree, Ortho(8f, 500_000, -250_000));
         var view = Ortho(8f, 500_000, -250_000);
         Assert.NotEmpty(sel.Tiles);
@@ -48,7 +48,7 @@ public sealed class ViewSelectorTests
     [Fact]
     public void TileOutsideTheView_IsNotSelected()
     {
-        var tree = new ImplicitTileTree(World2D, 2, 1_000_000L);
+        var tree = new ImplicitTileTree(_world2D, 2, 1_000_000L);
         ViewSelection sel = ViewSelector.Select(tree, Ortho(1f, 5_000_000, 5_000_000));
         Assert.Empty(sel.Tiles);
         Assert.Equal(0, sel.TotalInstances);
@@ -57,7 +57,7 @@ public sealed class ViewSelectorTests
     [Fact]
     public void TighterInstanceCap_NeverExceeded()
     {
-        var tree = new ImplicitTileTree(World2D, 2, 2_000_000_000L);
+        var tree = new ImplicitTileTree(_world2D, 2, 2_000_000_000L);
         var opts = new ViewSelectorOptions(MaxInstances: 300, MaxTiles: 64);
         ViewSelection sel = ViewSelector.Select(tree, Ortho(0.05f), opts);
         Assert.True(sel.TotalInstances <= 300);
@@ -67,7 +67,7 @@ public sealed class ViewSelectorTests
     [Fact]
     public void MoreZoom_RefinesTowardsLeaves()
     {
-        var tree = new ImplicitTileTree(World2D, 2, 1_000_000L, leafCapacity: 1000);
+        var tree = new ImplicitTileTree(_world2D, 2, 1_000_000L, leafCapacity: 1000);
         int coarse = ViewSelector.Select(tree, Ortho(0.05f)).Tiles.Max(t => t.Key.Level);
         int fine = ViewSelector.Select(tree, Ortho(64f)).Tiles.Max(t => t.Key.Level);
         Assert.True(fine >= coarse);
@@ -78,7 +78,7 @@ public sealed class ViewSelectorTests
     [InlineData(1_000_000_000_000L)]
     public void ThreeD_SelectionIsBoundedAndSeesTheFrustumOnly(long nodes)
     {
-        var tree = new ImplicitTileTree(World3D, 3, nodes);
+        var tree = new ImplicitTileTree(_world3D, 3, nodes);
         var cam = new PerspectiveCamera3D(0, 0, 3_000_000, 0, 0, 0, Far: 1.0e8f);
         var view = new PerspectiveView(cam, 1920, 1080);
         var opts = new ViewSelectorOptions(MaxInstances: 2_000_000, MaxTiles: 4096);
@@ -112,7 +112,7 @@ public sealed class ViewSelectorTests
     [Fact]
     public void ImplicitTree_LeafCountsStayWithinCapacity()
     {
-        var tree = new ImplicitTileTree(World3D, 3, 2_000_000_000L, leafCapacity: 4096);
+        var tree = new ImplicitTileTree(_world3D, 3, 2_000_000_000L, leafCapacity: 4096);
         TileInfo leaf = tree.GetInfo(new TileKey(tree.LeafLevel, 0, 0, 0));
         Assert.True(leaf.IsLeaf);
         Assert.True(leaf.NodeCount <= 4096);
