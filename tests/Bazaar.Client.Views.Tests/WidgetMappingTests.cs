@@ -122,4 +122,19 @@ public class WidgetMappingTests
         var bad = ViewFixtures.Node("icon", [], ("name", ViewFixtures.Lit("skull")), ("label", ViewFixtures.Lit("x")));
         Assert.Contains("not in the icon set", ViewFixtures.PlaceholderText(harness.Build(ViewFixtures.Document(bad))));
     }
+
+    /// <summary>A button label is a localisation key or a literal: a known key shows its translation, a literal shows as written.</summary>
+    [AvaloniaFact]
+    public void Button_label_goes_through_the_localiser()
+    {
+        var harness = new Harness();
+        var actions = ("go", new ViewAction(ViewActionKind.Navigate, "gc.feed"));
+        ViewNode Button(string label) => ViewFixtures.Node("button", [], ("label", ViewFixtures.Lit(label)), ("action", ViewFixtures.Lit("go")));
+
+        var key = Assert.IsType<Button>(harness.Build(ViewFixtures.Document(Button("greeting"), actions)));
+        var literal = Assert.IsType<Button>(harness.Build(ViewFixtures.Document(Button("Open"), actions)));
+
+        Assert.Equal("Hello from the catalogue", key.Content);
+        Assert.Equal("Open", literal.Content);
+    }
 }

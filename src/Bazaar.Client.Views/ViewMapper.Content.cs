@@ -43,7 +43,7 @@ public sealed partial class ViewMapper
 
     private Path MapIcon(ViewNode node, Scope scope)
     {
-        string label = Text(node, "label", scope);
+        string label = Label(node, "label", scope);
         var icon = new Path
         {
             Data = Geometry.Parse(IconPath(LiteralString(node, "name"))),
@@ -59,7 +59,7 @@ public sealed partial class ViewMapper
 
     private Button MapButton(ViewNode node, Scope scope)
     {
-        string label = Text(node, "label", scope);
+        string label = Label(node, "label", scope);
         ViewAction action = ActionOf(node, "action", scope);
         if (action.Kind == ViewActionKind.SetSetting)
         {
@@ -77,7 +77,7 @@ public sealed partial class ViewMapper
     /// </summary>
     private TextBox MapInput(ViewNode node, Scope scope)
     {
-        string label = Text(node, "label", scope);
+        string label = Label(node, "label", scope);
         ViewAction setting = ActionOf(node, "onChange", scope);
         if (setting.Kind != ViewActionKind.SetSetting)
         {

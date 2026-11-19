@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Android Vulkan benchmark APK. Not in Bazaar.slnx: the Android workload is not on the hosted CI runners.
+    Build it on a machine with the workload and the Android SDK:
+      dotnet build tests/Bazaar.Constellation.Vulkan.Bench.Android -p:BazaarAndroid=true
+
+    Without BazaarAndroid=true this project targets plain net11.0 with no Android items, so restore
+    succeeds on hosts without the workload. GitHub's automatic dependency submission (the "submit-nuget"
+    check) restores every project it finds, and a net11.0-android restore fails there with NETSDK1147.
+  -->
+  <PropertyGroup>
+    <BazaarAndroid Condition="'$(BazaarAndroid)' == ''">false</BazaarAndroid>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BazaarAndroid)' == 'true'">
+    <TargetFramework>net11.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ApplicationId>org.bazaar.constellation.vulkanbench</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>29</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BazaarAndroid)' != 'true'">
+    <TargetFramework>net11.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Vulkan" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Constellation.Vulkan\Bazaar.Constellation.Vulkan.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The same benchmark code and SPIR-V shaders as the PC bench, compiled into the APK. -->
+    <Compile Include="..\Bazaar.Constellation.Vulkan.Bench\NodeBenchmark.cs" Link="NodeBenchmark.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(BazaarAndroid)' != 'true'">
+    <!-- Android-only sources; the plain build is just enough to restore and compile. -->
+    <Compile Remove="MainActivity.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(BazaarAndroid)' == 'true'">
+    <AndroidAsset Include="..\Bazaar.Constellation.Vulkan.Bench\Shaders\*.spv" LogicalName="Shaders\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
