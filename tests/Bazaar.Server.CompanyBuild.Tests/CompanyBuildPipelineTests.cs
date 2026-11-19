@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.CompanyIdentity;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyBuild.Abstractions;
 

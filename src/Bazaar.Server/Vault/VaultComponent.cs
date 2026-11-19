@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Vault.Search;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Vault;
 /// Registers the read side (<c>AddBazaarVaultSearch</c>). The write side (indexer, <c>IGitProvider</c>, link resolver) has no
 /// registration in the host yet; add it here when it lands, so the component stays the single owner of its services.
 /// </remarks>
-public sealed class VaultComponent : IBazaarComponent
+public sealed class VaultComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "vault",

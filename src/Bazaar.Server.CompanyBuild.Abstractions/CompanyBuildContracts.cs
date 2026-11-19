@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 
 namespace Bazaar.Server.CompanyBuild.Abstractions;
 

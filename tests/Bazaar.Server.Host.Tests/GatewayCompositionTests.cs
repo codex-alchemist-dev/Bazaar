@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -67,7 +67,7 @@ public sealed class GatewayCompositionTests
         try
         {
             // The three wire-family adapters arrive through their Bazaar Components, as the host registers them.
-            await using var sp = Build(s => s.AddBazaarComponents(new ConfigurationBuilder().Build(), [
+            await using var sp = Build(s => s.AddCdaxModules(new ConfigurationBuilder().Build(), [
                 new OpenAiChatAdapterComponent(),
                 new AnthropicMessagesAdapterComponent(),
                 new GeminiGenerateContentAdapterComponent(),
@@ -126,7 +126,7 @@ public sealed class GatewayCompositionTests
         try
         {
             // Off (the default): the stored directory is used as it is.
-            await using (var off = Build(s => s.AddBazaarComponents(new ConfigurationBuilder().Build(), [new AnthropicDirectComponent()])))
+            await using (var off = Build(s => s.AddCdaxModules(new ConfigurationBuilder().Build(), [new AnthropicDirectComponent()])))
             {
                 Assert.IsType<GatewayDirectoryRepository>(off.GetRequiredService<IGatewayDirectory>());
                 Assert.IsType<GatewaySecretSource>(off.GetRequiredService<IProviderSecretSource>());
@@ -137,7 +137,7 @@ public sealed class GatewayCompositionTests
                 [$"{AnthropicDirectOptions.SectionName}:Enabled"] = "true",
                 [$"{AnthropicDirectOptions.SectionName}:ApiKey"] = "env:BAZAAR_TEST_ANTHROPIC_KEY_NOT_SET",
             }).Build();
-            await using var on = Build(s => s.AddBazaarComponents(configuration, [new AnthropicDirectComponent()]));
+            await using var on = Build(s => s.AddCdaxModules(configuration, [new AnthropicDirectComponent()]));
             var directory = on.GetRequiredService<IGatewayDirectory>();
             Assert.IsType<AnthropicDirectGatewayDirectory>(directory);
             var provider = await directory.GetProviderAsync(AnthropicDirectProvider.ProviderId, TestContext.Current.CancellationToken);

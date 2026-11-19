@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.RyuseiFuda.Orrery;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.Tests.Components;
 /// </summary>
 public sealed class RyuseiScheduleDependencyTests
 {
-    private sealed class StubComponent(ComponentManifest manifest) : IBazaarComponent
+    private sealed class StubComponent(ComponentManifest manifest) : ICdaxModule
     {
         public ComponentManifest Manifest { get; } = manifest;
 
@@ -35,19 +35,19 @@ public sealed class RyuseiScheduleDependencyTests
     public void Ryusei_keeps_the_old_enablement_key_working()
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:ryusei-schedule:Enabled"] = "false" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cdax:Modules:ryusei-schedule:Enabled"] = "false" })
             .Build();
 
-        Assert.False(BazaarComponentRegistration.IsEnabled(configuration, "ryusei"));
+        Assert.False(CdaxModuleRegistration.IsEnabled(configuration, "ryusei"));
     }
 
     [Fact]
     public void Ryusei_will_not_start_when_its_gc_component_is_disabled()
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:gc:Enabled"] = "false" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cdax:Modules:gc:Enabled"] = "false" })
             .Build();
-        var components = new IBazaarComponent[]
+        var components = new ICdaxModule[]
         {
             new StubComponent(new ComponentManifest("gc", "0.1.0", ComponentKind.Feature, [], [])),
             new StubComponent(new ComponentManifest("audit", "0.1.0", ComponentKind.Feature, [], [])),
@@ -56,7 +56,7 @@ public sealed class RyuseiScheduleDependencyTests
         };
 
         var ex = Assert.Throws<ComponentGraphException>(() =>
-            new ServiceCollection().AddBazaarComponents(configuration, components));
+            new ServiceCollection().AddCdaxModules(configuration, components));
 
         Assert.Contains("ryusei", ex.Message, StringComparison.Ordinal);
         Assert.Contains("gc", ex.Message, StringComparison.Ordinal);

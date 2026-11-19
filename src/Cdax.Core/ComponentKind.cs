@@ -1,4 +1,4 @@
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>What a Bazaar Component is for (docs/design/BAZAAR-COMPONENTS.md section 2).</summary>
 public enum ComponentKind

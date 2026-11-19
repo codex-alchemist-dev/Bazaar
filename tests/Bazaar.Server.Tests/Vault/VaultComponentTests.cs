@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Vault;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Tests.Vault;
 
 public class VaultComponentTests
 {
-    private sealed class MarkerComponent(string id) : IBazaarComponent
+    private sealed class MarkerComponent(string id) : ICdaxModule
     {
         public ComponentManifest Manifest { get; } = new(id, "0.1.0", ComponentKind.Feature, [], []);
 
@@ -52,7 +52,7 @@ public class VaultComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(Config(), [new KanbanComponent(), new VaultComponent()]);
+        services.AddCdaxModules(Config(), [new KanbanComponent(), new VaultComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.Same(dataSource, provider.GetRequiredService<NpgsqlDataSource>());
@@ -64,7 +64,7 @@ public class VaultComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(), [new MarkerComponent("vault")]);
+        services.AddCdaxModules(Config(), [new MarkerComponent("vault")]);
 
         Assert.Single(services, d => d.ServiceType == typeof(Marker));
     }
@@ -74,7 +74,7 @@ public class VaultComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(("Bazaar:Components:vault:Enabled", "false")), [new MarkerComponent("vault")]);
+        services.AddCdaxModules(Config(("Cdax:Modules:vault:Enabled", "false")), [new MarkerComponent("vault")]);
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(Marker));
     }

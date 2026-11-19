@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Posting;
@@ -27,7 +27,7 @@ public class GcComponentTests
     [Fact]
     public void Gc_and_kanban_manifests_have_unique_ids_and_provides()
     {
-        var manifests = new IBazaarComponent[] { new GcComponent(), new KanbanComponent() }.Select(c => c.Manifest).ToList();
+        var manifests = new ICdaxModule[] { new GcComponent(), new KanbanComponent() }.Select(c => c.Manifest).ToList();
 
         Assert.Equal(manifests.Count, manifests.Select(m => m.Id).Distinct(StringComparer.Ordinal).Count());
         var provides = manifests.SelectMany(m => m.Provides).ToList();
@@ -42,7 +42,7 @@ public class GcComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new GcComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new GcComponent()]);
 
         await using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<IGcLogWriter>());
@@ -58,7 +58,7 @@ public class GcComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new GcComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new GcComponent()]);
 
         Assert.Contains(services, d => d.ServiceType == typeof(IAgentPostSink)
             && d.ImplementationType == typeof(GcAgentPostSink));
@@ -71,10 +71,10 @@ public class GcComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:gc:Enabled"] = "false" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cdax:Modules:gc:Enabled"] = "false" })
             .Build();
 
-        services.AddBazaarComponents(configuration, [new GcComponent()]);
+        services.AddCdaxModules(configuration, [new GcComponent()]);
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IGcLogWriter));
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IGcLogReader));

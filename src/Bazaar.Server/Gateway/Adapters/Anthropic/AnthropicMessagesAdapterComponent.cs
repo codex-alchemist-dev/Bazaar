@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Gateway.Adapters.Anthropic;
 
 /// <summary>The Anthropic Messages wire-family adapter as a Bazaar Component (docs/design/BAZAAR-COMPONENTS.md).</summary>
-public sealed class AnthropicMessagesAdapterComponent : IBazaarComponent
+public sealed class AnthropicMessagesAdapterComponent : ICdaxModule
 {
     /// <summary>The adapter name stored on provider rows.</summary>
     public const string WireName = "anthropic_messages";

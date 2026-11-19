@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Mentions;
@@ -17,7 +17,7 @@ public sealed class AgentTurnsComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new AgentTurnsComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new AgentTurnsComponent()]);
 
         await using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<AgentRepository>());
@@ -30,7 +30,7 @@ public sealed class AgentTurnsComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new AgentTurnsComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new AgentTurnsComponent()]);
 
         await using var provider = services.BuildServiceProvider();
         var assigner = provider.GetRequiredService<IAgentHandleAssigner>();

@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Host.Components.Settings;
 /// <see cref="ISettingStore"/>, and an <see cref="ISettingAuditSink"/> that writes each setting change into <see cref="IAuditLog"/>.
 /// It depends on <c>audit</c> because the sink appends to the audit log, so the kernel starts audit first.
 /// </summary>
-public sealed class SettingsComponent : IBazaarComponent
+public sealed class SettingsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "settings",
