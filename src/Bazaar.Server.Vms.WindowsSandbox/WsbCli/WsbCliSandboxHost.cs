@@ -77,6 +77,56 @@ public sealed class WsbCliSandboxHost(IWsbCommandRunner runner, string configDir
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
+    public async Task<SandboxExecResult> ExecAsync(string instanceId, IReadOnlyList<string> command, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(instanceId);
+        ArgumentNullException.ThrowIfNull(command);
+        if (command.Count == 0 || string.IsNullOrWhiteSpace(command[0]))
+        {
+            throw new ArgumentException("A command needs a program path.", nameof(command));
+        }
+
+        // `wsb exec` takes one command line, so each part is quoted for the Windows guest. Nothing goes through a host shell.
+        var commandLine = string.Join(' ', command.Select(QuoteForWindows));
+        var result = await runner.RunAsync(["exec", "--id", instanceId, "-r", "System", "-c", commandLine, "--raw"], ct);
+        return new SandboxExecResult(result.ExitCode, result.StandardOutput, result.StandardError);
+    }
+
+    // CommandLineToArgvW rules: wrap in quotes when needed, double the backslashes before a quote, escape inner quotes.
+    private static string QuoteForWindows(string argument)
+    {
+        if (argument.Length > 0 && argument.All(c => !char.IsWhiteSpace(c) && c != '"'))
+        {
+            return argument;
+        }
+
+        var builder = new StringBuilder("\"");
+        var backslashes = 0;
+        foreach (var c in argument)
+        {
+            if (c == '\\')
+            {
+                backslashes++;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                builder.Append('\\', (backslashes * 2) + 1).Append('"');
+            }
+            else
+            {
+                builder.Append('\\', backslashes).Append(c);
+            }
+
+            backslashes = 0;
+        }
+
+        builder.Append('\\', backslashes * 2).Append('"');
+        return builder.ToString();
+    }
+
     private async Task<IReadOnlyList<string>> ListRunningAsync(CancellationToken ct)
     {
         var result = await runner.RunAsync(["list", "--raw"], ct);
