@@ -96,6 +96,23 @@ public sealed class HostRunTests
         Assert.Equal(0, code);
     }
 
+    // Seen live: RyuseiEventListener, GcNotifyListener and a third service all threw, and the host raised one AggregateException.
+    [Fact]
+    public async Task Several_stops_that_overrun_the_shutdown_timeout_return_the_exit_code_instead_of_throwing()
+    {
+        using var host = Build(acquire: true, s =>
+        {
+            s.AddSingleton<IHostedService, SlowStop>();
+            s.AddSingleton<IHostedService, SlowStop>();
+        }, TimeSpan.FromMilliseconds(200));
+        var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+        lifetime.ApplicationStarted.Register(lifetime.StopApplication);
+
+        var code = await HostRun.RunAsync(host).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, code);
+    }
+
     [Fact]
     public async Task A_real_start_failure_still_fails_the_run()
     {

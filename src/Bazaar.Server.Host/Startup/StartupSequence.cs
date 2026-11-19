@@ -111,13 +111,21 @@ public static partial class HostRun
             // Logged by StartupSequence; a deliberate refusal exits with code 1 and no crash dump.
             return 1;
         }
-        catch (OperationCanceledException) when (lifetime.ApplicationStopping.IsCancellationRequested)
+        catch (Exception ex) when (lifetime.ApplicationStopping.IsCancellationRequested && OnlyCancellations(ex))
         {
             LogStopCancelled(logger);
         }
 
         return exitCode.Value;
     }
+
+    // Several hosted services that each honour the cancelled stop token arrive as one AggregateException.
+    private static bool OnlyCancellations(Exception ex) => ex switch
+    {
+        OperationCanceledException => true,
+        AggregateException aggregate => aggregate.InnerExceptions.Count > 0 && aggregate.InnerExceptions.All(OnlyCancellations),
+        _ => false,
+    };
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The host stopped before a hosted service finished starting or stopping; work it did not finish is recovered on the next start.")]
     private static partial void LogStopCancelled(ILogger logger);
