@@ -65,6 +65,8 @@ The last feature code in Client.Core is pure library code with no Avalonia depen
 | `Bazaar.Client.Input` | `KeyStroke`, `KeyRouter`, `Mnemonic`, `MnemonicTable` | The mnemonic key model with no Ctrl chords (doc 27, doc 28 section 4). `Bazaar.Ex` builds on it, so it can stop referencing `Bazaar.Client.Core`. |
 | `Bazaar.Client.Preload` | `PreloadAutostart` | The preloader's autostart entry (doc 40, ReadyToRun and preloader). |
 
+Two more modules take what the heads each carried a copy of. `Bazaar.Client.Launcher` holds the Avalonia side of the single-instance launcher (the pipe listener, bringing the main window forward, hiding the window of the warm preload process) on top of the pure `Bazaar.Client.Components.Launcher`. `Chat.ChatHost` in `Bazaar.Client.Chat` owns the chat start, error logging and disposal order. `Bazaar.Client.Modules` is the host side of the module contract (doc 41 section 8): `ClientModuleHost.Load` checks each `IClientModule` manifest the same way for every module (validity, host requirements, unique id, pane kinds and commands) and calls `Register` once; a module that fails is skipped and reported, and the rest still load. It references only `Bazaar.Contracts`. First-party modules do not implement `IClientModule` yet, so heads still compose `IPaneModule`s directly.
+
 Each of the four references only `Bazaar.Contracts` (Theme and Commands need nothing else), and each gets the architecture rule that it never references `Bazaar.Client.Core`. Heads reference them directly.
 
 ## 3. Dependencies after the move
