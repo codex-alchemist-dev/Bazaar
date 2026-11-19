@@ -1,6 +1,6 @@
 # 60. Legal team: terms review, accepted-terms ledger and legal Souls
 
-Status: PROPOSED (2026-11-19). Nothing here is DECIDED except the inputs listed below. Written at the owner's request: "we definitely need an agent or team of agents dedicated to legal whose souls are dedicated to making the best legal bots." Owner questions: 3, one answered (section 12).
+Status: PROPOSED (2026-11-19). Nothing here is DECIDED except the inputs listed below. Written at the owner's request: "we definitely need an agent or team of agents dedicated to legal whose souls are dedicated to making the best legal bots." Owner questions: 3, two answered (section 12).
 Depends on: `07-soul-system.md` (presets, Talent Pool, hiring), `10-council-and-voting.md` (`site_allowlist`, `hire`), `14-identity-service-and-passport.md` (sign-up whitelist), `15-security-taint-and-approvals.md` (reader sessions, peer approval of account creation, terms acceptance), `59-desktop-density-and-guest-display.md` (site triage, section 7), `36-community-and-external-platforms.md` (`ServiceTerms`), `11-reputation-and-peer-review.md`, `18-vault.md`, `05-model-gateway.md` · Used by: `07`, `10`, `15`, `59`
 
 ## 1. Purpose
@@ -143,7 +143,7 @@ Legal members are scored on hard outcomes first: human counsel agreement or corr
 | `legal.review_required_for_site_votes` | bool | true | install | operator | owner; audited; may be turned off, never silently [PROPOSED] |
 | `legal.review_required_for_account_approval` | bool | true | install | operator | owner; audited [PROPOSED] |
 | `legal.recheck_interval_days` | int 1 to 365 | 30 | install | operator | audit entry |
-| `legal.on_material_change` | enum: notify_only, pause_outward, suspend_account | pause_outward | install | operator | owner; audited (Q2) |
+| `legal.on_material_change` | enum: notify_only, pause_outward, suspend_account | pause_outward | install | operator | owner; audited |
 | `legal.adversary_required` | bool | true | install | operator | owner; audited |
 | `legal.private_facts_lanes` | list of routes | none (private facts allowed nowhere) | install | operator | owner; audited |
 | `legal.eval_min_forbidding_recall` | decimal | 0.98 | install | operator | tighten freely; loosening needs owner |
@@ -182,7 +182,7 @@ WPs 1 to 4 are pure or near-pure and can start as soon as this doc is accepted; 
 ## 12. Questions for the owner
 
 1. **Advisor or voter?** ANSWERED (owner card, 2026-11-19): advisory, no vote. The Legal lead's brief goes to voters; a `blocked` rating stays a hard stop. A hiring vote for the team is still needed.
-2. **When accepted terms change materially,** what should happen to the account? Proposed: pause outward actions on that account until a person or two senior peers re-approve, with a GC notice to you. Alternatives: notify only, or suspend the whole account.
+2. **When accepted terms change materially,** ANSWERED (owner card, 2026-11-19): pause outward actions on that account until a person or two senior peers re-approve, with a GC notice to the owner.
 3. **Review cost and scope.** Proposed: always run the full analyst, adversary and lead for every new site and every account approval (reviews are rare and cached by hash), with the terms clerk handling re-checks on the cheap lane. If you want a lighter path for read-only sites (analyst only, adversary only when the analyst flags something), say so.
 
 ## 13. Conflicts and notes
