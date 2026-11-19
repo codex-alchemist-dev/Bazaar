@@ -9,7 +9,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 ## Decided inputs
 - One OS-agnostic .NET 11 build; Windows is the first supported and tested host. (CLAUDE.md; Bazaar.Server.md §1)
 - Service host, VM backend, cache and search are per-OS providers. No Windows-only API outside a provider. (CLAUDE.md; Bazaar.Server.md §3)
-- Pub/sub (C07, round 1): GC fan-out is Postgres NOTIFY, owned by doc 04 and not a provider. Valkey (Linux) or Garnet (Windows) serve cache and presence only. Garnet waits for spike S2.
+- Pub/sub (C07, round 1): GC fan-out is Postgres NOTIFY, owned by doc 04 and not a provider. Valkey (Linux) or Garnet (Windows) serve cache and presence only. Spike S2 passed (DECISIONS-LOG round 28), so Garnet is the Windows cache provider.
 - VM topology (C03, round 1, owner 2026-10-24): two VMs per agent, a Windows VM and a Linux VM. Spike S8 is for sizing only. The VM contract is doc 16's.
 - Secrets (C05, round 2): doc 14's `ISecretStore` holds provider and GitHub App keys. This doc's resolver only bootstraps the key-encryption key (KEK) and the database credential.
 - Migrations (C44, round 11): an explicit `migrate` command. Startup only checks the schema version and refuses on mismatch.
@@ -34,7 +34,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 |---|---|---|---|
 | `ServiceHost` | Windows Service | systemd | required when run as a service |
 | `Vm` | Hyper-V | QEMU/KVM | per doc 16; optional by default |
-| `Cache` | Garnet, only after S2 | Valkey | optional; presence and cache only |
+| `Cache` | Garnet (S2 passed) | Valkey | optional; presence and cache only |
 | `Search` | Postgres FTS plus pgvector index | `pg_search` (WP14), Postgres FTS fallback | Postgres FTS always usable |
 
 **Provider selection [PROPOSED].** Each `host.provider.<role>` setting is `auto` or an explicit kind. `auto` is a capability probe: it picks the highest-priority candidate whose `Probe()` is usable, so FTS works on both OSes and the Vm and Cache roles differ per OS. An explicit kind that is unusable fails startup; there is no silent fallback.
@@ -102,7 +102,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 |---|---|---|---|---|---|
 | `host.provider.service_host` | `auto`, `windows_service`, `systemd` | `auto` | install | operator | no |
 | `host.provider.vm` | `auto`, `hyperv`, `qemu_kvm`, `none` | `auto` | install | operator | no |
-| `host.provider.cache` | `auto`, `garnet`, `valkey` | `auto` (Garnet only after S2) | install | operator | no |
+| `host.provider.cache` | `auto`, `garnet`, `valkey` | `auto` (Garnet on Windows, Valkey on Linux) | install | operator | no |
 | `host.provider.search` | `auto`, `postgres_fts`, `pg_search` | `auto` | install | operator | no |
 | `host.readiness.required_roles` | list of roles | `search`, `service_host` | install | operator | no |
 | `host.shutdown_timeout_seconds` | int, 5 to 120 | 20 | install | operator | no |
@@ -157,7 +157,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 9. Linux module: systemd, journald, systemd-creds. [2, 3]
 10. Postgres FTS search (OS-neutral). [2, 04]
 11. Kill and stop rig; soak harness. [5, 6, 06]
-12. Cache provider: Valkey on Linux; Garnet on Windows only after spike S2. [2]
+12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2]
 13. `Vm` provider registration against doc 16's contract; S8 sizing. [2, 16]. Unblocked by C03.
 14. `pg_search` provider. Blocked on counsel review.
 15. Settings registry: typed keys, floors and validation, `setting` table, audit on change. [1, 04, 15]
