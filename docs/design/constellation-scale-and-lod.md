@@ -153,3 +153,29 @@ Run: `Bazaar.Constellation.Vulkan.Bench.Android` on an Android 15 (API 35) x86_6
 | instances | 16.8M | 16.8M | 1M | 8 001 | 2.29 | 3.67 | 1.92 | 3.30 |
 
 The 300k-instance cap is the phone-tier figure from section 6. Above it, the emulator tracks the PC roughly linearly and did not show the PC cliff in the range measured here (1M instances at 1.9 ms GPU p50). The emulator's translation layer dominates these numbers, so they don't say anything about phone-GPU cliffs.
+
+## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
+
+**Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
+
+**What this changes in section 6.** The 60 fps rows stay as the floor for phones. On the PC tier the target becomes:
+
+| Item | PC tier target |
+|---|---|
+| Frame time, p95, GPU | 400 fps: ≤ 2.5 ms; floor 300 fps: ≤ 3.3 ms |
+| Frame time, p99 | ≤ 3.3 ms (no hitch below 300 fps) |
+| Instances drawn per frame | hard cap, default 2 000 000 (the B580 draws 2M in about 1 ms, section 10), operator-tightenable |
+| Edges drawn per frame | hard cap, default 1 000 000 line segments, bundled or sampled beyond that |
+| Graph size | no term: frame cost depends on the caps and the view, never on node count |
+
+**Method.** Out-of-core and bounded per frame; none of this touches data the view cannot show.
+1. **Selection.** Each frame the client picks a bounded set of tiles by walking the tile tree from the root, splitting the largest on-screen tile first, stopping at the instance cap, the tile cap, or the pixel threshold (below 96 px a tile is drawn from its sample). The CPU reference is `ViewSelector` in `Bazaar.Constellation.Rendering.Core`; the GPU compute pass must produce the same set and is tested against it.
+2. **Tree.** 2D uses the quadtree, 3D the octree from section 3 (tile format v1 already carries `dimensions`). 3D uses a perspective camera and frustum culling; far tiles collapse to density splats and cluster impostors.
+3. **Far and mid.** A density field (compute splat, section 5) and per-tile sampled nodes. Edges are drawn from per-tile bundled summaries (cluster-to-cluster ribbons), not per edge, until a tile is near.
+4. **Near.** All nodes and their real edges for the few visible leaf tiles, under the caps.
+5. **GPU-driven draw.** Compute culling writes indirect arguments; one indirect-count draw per layer. Tile data resident in a fixed GPU pool with LRU, streamed under the section 6 bandwidth limit. A frame that would exceed a cap drops detail (coarser tiles), never frames.
+6. **Not yet measured on the B580:** swapchain present cost, compute culling, density splat, indirect count draws, mesh shaders, 3D. These decide whether 400 fps holds or only 300; they are the first benchmark milestone.
+
+**Benchmark (extends section 7).** A synthetic generator (`ImplicitTileTree` for tile structure, so nothing is stored) at 100 million, 1 billion and 2 billion nodes. Topologies: uniform, clustered (Louvain-like blobs), power-law hubs, grid, chain/ring. Modes: 2D orthographic and 3D perspective, each with a fixed pan/zoom/orbit script. Report GPU p50, p95 and p99 per frame, instances and tiles per frame, and tile bytes streamed. Pass: p99 ≤ 3.3 ms and p95 ≤ 2.5 ms at every size. The owner's PC runs it (benchmark thread).
+
+**Honest limit.** "No matter what" is met by bounding work per frame, so detail drops under extreme views rather than fps. Whether the B580 reaches 400 rather than 300 is not known until item 6 is measured.
