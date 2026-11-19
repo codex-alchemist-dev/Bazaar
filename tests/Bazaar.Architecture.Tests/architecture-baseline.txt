@@ -563,6 +563,11 @@ src/Bazaar.Server/Mentions/HandleSlug.cs
 src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
 src/Bazaar.Server/Org/Data/OrgRelationRepository.cs
 src/Bazaar.Server/Org/OrgRelation.cs
+src/Bazaar.Server/Providers/Linux/IValkeyClient.cs
+src/Bazaar.Server/Providers/Linux/LinuxProviders.cs
+src/Bazaar.Server/Providers/Linux/StackExchangeValkeyClient.cs
+src/Bazaar.Server/Providers/Linux/ValkeyCacheOptions.cs
+src/Bazaar.Server/Providers/Linux/ValkeyCacheProvider.cs
 src/Bazaar.Server/Reputation/Evidence.cs
 src/Bazaar.Server/Reputation/EvidenceKind.cs
 src/Bazaar.Server/Reputation/ScoreMath.cs

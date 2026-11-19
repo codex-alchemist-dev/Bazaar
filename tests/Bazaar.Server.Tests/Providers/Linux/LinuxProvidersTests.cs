@@ -1,7 +1,7 @@
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 
-namespace Bazaar.Server.Providers.Linux.Tests;
+namespace Bazaar.Server.Tests.Providers.Linux;
 
 public class LinuxProvidersTests
 {
