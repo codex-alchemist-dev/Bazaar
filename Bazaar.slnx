@@ -73,6 +73,8 @@
     <Project Path="src/Bazaar.Server.Remote/Bazaar.Server.Remote.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay/Bazaar.Server.VmDisplay.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.HyperV/Bazaar.Server.VmDisplay.HyperV.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Kvm/Bazaar.Server.VmDisplay.Kvm.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
@@ -135,6 +137,8 @@
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.HyperV.Tests/Bazaar.Server.VmDisplay.HyperV.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Kvm.Tests/Bazaar.Server.VmDisplay.Kvm.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
   </Folder>
 </Solution>
