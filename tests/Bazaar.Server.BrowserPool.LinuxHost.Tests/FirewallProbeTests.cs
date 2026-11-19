@@ -229,7 +229,7 @@ public sealed class FirewallProbeTests
         await host.StartAsync(PerSlot(), TestContext.Current.CancellationToken);
 
         var request = Assert.Single(Probes(runner), r => Target(r) == _vethHost + ":40123");
-        var enter = new[] { "nsenter", "--net=/run/netns/bzpool-1", "--", "setpriv", "--reuid", "10001", "--regid", "10001", "--clear-groups", "--no-new-privs", "--inh-caps=-all", "--bounding-set=-all", "--", _tool, "--probe-connect", _vethHost + ":40123", "--timeout-ms", "1000" };
+        var enter = new[] { "nsenter", "--net=/run/netns/bzpool-1", "--", "setpriv", "--reuid", "10001", "--regid", "10001", "--clear-groups", "--no-new-privs", "--inh-caps=-all", "--bounding-set=-all", "--", _tool, "--probe-connect", _vethHost + ":40123", "--timeout-ms", "300" };
         Assert.Equal(enter, request.Argv);
         Assert.Null(request.StdIn);
 
@@ -458,7 +458,7 @@ public sealed class FirewallProbeTests
         var o = new LinuxPoolHostOptions();
         Assert.True(o.ProbeEnabled);
         Assert.Null(o.ProbeToolPath);
-        Assert.Equal(TimeSpan.FromSeconds(1), o.ProbeTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(300), o.ProbeTimeout);
         Assert.Equal(TimeSpan.Zero, o.ProbeMinInterval);
         Assert.Equal("setpriv", o.SetprivPath);
         Assert.Equal("nsenter", o.NsenterPath);

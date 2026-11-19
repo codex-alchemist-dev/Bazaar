@@ -64,7 +64,7 @@ public sealed partial class LinuxPoolHostOptions
     public string? ProbeToolPath { get; set; }
 
     /// <summary>How long one probe connection waits before it counts as blocked. A blocked connection always waits this long, so it is the time the probe adds to a launch. 100 ms to 30 s.</summary>
-    public TimeSpan ProbeTimeout { get; set; } = TimeSpan.FromSeconds(1);
+    public TimeSpan ProbeTimeout { get; set; } = TimeSpan.FromMilliseconds(300);
 
     /// <summary>
     /// The shortest gap between two passing probes for the same slot uid; a launch inside the gap relies on the textual check alone.
