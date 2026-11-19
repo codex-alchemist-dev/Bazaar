@@ -1,6 +1,7 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Bazaar.Accessibility.Avalonia;
 
 namespace Bazaar.Accessibility.Avalonia.Tests;
@@ -40,6 +41,17 @@ public class AccessibleControlScanTests
     }
 
     [AvaloniaFact]
+    public void An_unnamed_list_box_is_reported()
+    {
+        var list = new ListBox { Name = "lines", ItemsSource = new[] { "one" } };
+        var window = new Window { Content = list };
+        window.Show();
+
+        AccessibleControlProblem problem = Assert.Single(AccessibleControlScan.Find(window));
+        Assert.Equal("ListBox", problem.ControlType);
+    }
+
+    [AvaloniaFact]
     public void A_placeholder_name_is_reported()
     {
         var box = new TextBox { [AutomationProperties.NameProperty] = "button" };
@@ -54,6 +66,38 @@ public class AccessibleControlScanTests
     public void Non_interactive_controls_are_not_checked()
     {
         var window = new Window { Content = new TextBlock { Text = "Hello" } };
+        window.Show();
+
+        Assert.Empty(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void A_button_that_cannot_take_focus_is_reported()
+    {
+        var button = new Button { Name = "skipped", Focusable = false, [AutomationProperties.NameProperty] = "Skipped" };
+        var window = new Window { Content = button };
+        window.Show();
+
+        AccessibleControlProblem problem = Assert.Single(AccessibleControlScan.Find(window));
+        Assert.Equal(AccessibleControlScan.KeyboardProblem, problem.Problem);
+    }
+
+    [AvaloniaFact]
+    public void A_button_outside_the_tab_order_is_reported()
+    {
+        var button = new Button { [AutomationProperties.NameProperty] = "Out of order" };
+        KeyboardNavigation.SetIsTabStop(button, false);
+        var window = new Window { Content = button };
+        window.Show();
+
+        Assert.Single(AccessibleControlScan.Find(window));
+    }
+
+    [AvaloniaFact]
+    public void A_disabled_unfocusable_button_is_not_reported()
+    {
+        var button = new Button { IsEnabled = false, Focusable = false, [AutomationProperties.NameProperty] = "Off" };
+        var window = new Window { Content = button };
         window.Show();
 
         Assert.Empty(AccessibleControlScan.Find(window));
