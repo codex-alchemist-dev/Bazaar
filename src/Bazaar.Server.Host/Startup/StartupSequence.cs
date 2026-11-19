@@ -84,3 +84,41 @@ public sealed class HostExitCode
 
 /// <summary>Startup stopped on purpose (second instance, schema mismatch, database unreachable). The reason is already logged; the process exits with code 1.</summary>
 public sealed class StartupRefusedException(string message) : Exception(message);
+
+/// <summary>
+/// Runs the host to its end and returns the process exit code. A stop that was asked for is never a crash: a stop requested while
+/// the host is still starting (the second instance, or SIGTERM during start) cancels the start token, so the next hosted service
+/// throws <see cref="OperationCanceledException"/> out of <c>RunAsync</c>; and a stop that overruns the host's shutdown timeout
+/// cancels the stop token, so any <c>StopAsync</c> that honours it throws the same way. Unhandled, either ended the process with
+/// SIGABRT (exit 134) instead of the designed exit code (chaos finding, crash-only campaign).
+/// </summary>
+public static partial class HostRun
+{
+    public static async Task<int> RunAsync(IHost host)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+
+        // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
+        var exitCode = host.Services.GetRequiredService<HostExitCode>();
+        var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+        var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(HostRun).FullName!);
+        try
+        {
+            await host.RunAsync().ConfigureAwait(false);
+        }
+        catch (StartupRefusedException)
+        {
+            // Logged by StartupSequence; a deliberate refusal exits with code 1 and no crash dump.
+            return 1;
+        }
+        catch (OperationCanceledException) when (lifetime.ApplicationStopping.IsCancellationRequested)
+        {
+            LogStopCancelled(logger);
+        }
+
+        return exitCode.Value;
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The host stopped before a hosted service finished starting or stopping; work it did not finish is recovered on the next start.")]
+    private static partial void LogStopCancelled(ILogger logger);
+}
