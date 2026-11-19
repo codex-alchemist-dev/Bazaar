@@ -382,9 +382,19 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
 
-## Round 27 (2026-11-16): Kanban card revision and client move command
+## Round 28 (2026-11-16): Kanban card revision and client move command
 
 | Decision | Owner ruling | Docs |
 |---|---|---|
 | Kanban card revision and `board.move` | Decided by delegation: the owner's full-control instruction of 2026-11-16 (relayed by the coordinator) told the build to decide the wire shape without asking. Each `board.snapshot` card carries `revision` (the task version). `board.move` carries project id, card id, target state, expected revision and an optional reason. It runs `TransitionAsync` as the owner principal and answers `applied`, `conflict` (current revision), `refused` (blocker titles, reason; a PR-tied Review to Done is refused, C28) or `invalid`. Owner-only; others get `not_found`. | 12 (Card revision and client move command), 02, 29 (work package 9) |
 
+
+## Round 27 (2026-11-18): Web admin panel mechanics
+
+| Decision | Status | Docs |
+|---|---|---|
+| Names `Bazaar.Server.WebAdmin` and `Bazaar.Server.WebAdmin.Abstractions`, component id `web-admin` | PROPOSED (follows the module sides rule, 2026-11-17) | 51, 40 |
+| Panel session: `/signin?audience=admin` hands off to `/admin/session/redeem`, which sets one HttpOnly, SameSite=Strict cookie; 15 min sliding, 8 h absolute; revocation ends it at once | PROPOSED | 51 section 5, 32 section 4 |
+| Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
+| Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
+| Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
