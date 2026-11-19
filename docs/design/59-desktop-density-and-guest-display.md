@@ -1,6 +1,6 @@
 # Desktop density and guest display
 
-Status: PROPOSED (owner request, 2026-11-19). Sections 3 to 6 are build design within doc 16's decided topology. Sections 7 and 8 change or extend a decided item and wait for the owner (section 12). Platform facts carry a tag: MEASURED (this repo's notes), SOURCED (primary source in the research notes) or UNVERIFIED (needs the spike in section 10).
+Status: PROPOSED (owner request, 2026-11-19). Sections 3 to 6 are build design within doc 16's decided topology. Section 7 is DECIDED (owner card, 2026-11-19). Section 8 is PROPOSED build design with configurable defaults. Platform facts carry a tag: MEASURED (this repo's notes), SOURCED (primary source in the research notes) or UNVERIFIED (needs the spike in section 10).
 Depends on: `16-agent-vms-and-environments.md` (topology, guest protocol, profiles, settings), `50-windows-sandbox-provider.md`, `14-identity-service-and-passport.md` (browser profiles, C22), `15-security-taint-and-approvals.md` (taint, audit, kill switch), `03-server-host-and-providers.md` (providers) · Used by: `17-coding-agent-harness.md` (tools), `06-agent-runtime.md` (tool catalogue), `26-fun-systems.md` (Playtest), `20-engine-integration-api.md`
 Research: `docs/research/notes/desktop-density/` (measurements and sourced notes).
 
@@ -71,7 +71,7 @@ A profile in doc 16's sense: a preset over the same golden image, not a third VM
 
 **Headed or headless browser.** `browser.display_default` stays `headless` (doc 16). Headless plus the `browser` source already gives screenshots and input at a third of the memory. Headed is for work that needs the real window: extensions, file dialogs, downloads UI, pop-ups, sites that fingerprint headless, and playtests.
 
-## 7. Where browsers run (owner decision, section 12 question 1)
+## 7. Where browsers run (DECIDED, owner card 2026-11-19)
 C22 decided: Chromium runs inside the agent's existing VMs. The owner asked (2026-11-19) whether browsers could instead run outside the VMs, sandboxed by Bazaar.
 
 | Placement | Memory per extra browser | What an escaped browser exploit reaches | Screenshots | Fit with decided items |
@@ -82,7 +82,7 @@ C22 decided: Chromium runs inside the agent's existing VMs. The owner asked (202
 
 Chromium's own sandbox is strong, but it is the only wall in option B, and agents open arbitrary pages all day. Chromium's own threat model assumes a compromised renderer and expects outside containment (SOURCED). Hosted browser services put each browser in its own VM or microVM, not on a shared host (SOURCED: Browserbase documents one VM per session). Option C keeps a hypervisor wall in front of the host and still shares the browser's pages on one kernel.
 
-*Recommended:* anonymous profiles (no credentials, the bulk of browsing) run in the pool VM, each in its own OS user, namespace sandbox and profile directory, with egress through the per-agent proxy as today. Account profiles (Passport cookies) stay in the agent's own VM as C22 decided, so a pool escape never reaches a logged-in session. Setting `browser.placement.anonymous` = `agent_vm` | `pool_vm`; `browser.placement.account` is fixed to `agent_vm`. Host placement (B) is not offered as a setting unless the owner asks for it.
+**Decided (owner, 2026-11-19): shared browser VM.** Anonymous profiles (no credentials, the bulk of browsing) run in the pool VM, each in its own OS user, namespace sandbox and profile directory, with egress through the per-agent proxy as today. Account profiles (Passport cookies) stay in the agent's own VM as C22 decided, so a pool escape never reaches a logged-in session. Setting `browser.placement.anonymous` = `agent_vm` | `pool_vm`, default `pool_vm` once the pool VM ships and `agent_vm` until then; `browser.placement.account` is fixed to `agent_vm`. Host placement (B) is not offered.
 
 **From discovery to an account (owner, 2026-11-19).** The owner wants agents to find sites, triage them and later make their own accounts. The placement above is that path, and the approval rules already exist:
 1. *Discover and triage* happens in an anonymous profile (the pool VM if question 1 is answered that way). No credential is present, so a hostile site gains nothing. Screenshots from triage are untrusted content (section 5).
@@ -116,7 +116,7 @@ Registry per doc 03. Changes are audited.
 | `vm.display.input_batches_per_minute` | int | 120 | operator | Per agent. |
 | `vm.display.guest_capture_timeout_s` | int | 10 | operator | |
 | `vm.linux.desktop_profile` | enum: none, kiosk | kiosk | operator | `none` leaves only the `browser` and `hypervisor` sources. |
-| `browser.placement.anonymous` | enum: agent_vm, pool_vm | agent_vm until question 1 | operator | Section 7. |
+| `browser.placement.anonymous` | enum: agent_vm, pool_vm | pool_vm (agent_vm until the pool VM ships) | operator | Section 7, decided. |
 | `vm.pair.start_policy` | enum: both, on_demand | on_demand | operator | Section 8. |
 | `vm.density.host_reserve_mb` | int | 4096 | operator | Free host memory the governor keeps. |
 | `vm.density.max_running` | int | 0 (no fixed cap) | operator | Optional hard cap besides the memory rule. |
@@ -136,10 +136,10 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 5. `Bazaar.Server.VmDensity`: governor, pressure order, queue, settings, tests against a fake backend. (no dependency)
 6. Agent tools `screen.capture` and `screen.input` in the tool catalogue with the taint tag. (after 1, doc 06)
 7. VmBench scenarios and the S-DSP spike. (after 1, 2, 4; PR #842)
-8. Browser pool VM. (only after question 1)
+8. Browser pool VM: one light Linux VM, a per-agent OS user and namespace sandbox per session, per-agent egress proxy, kiosk profile, pool recycling. Own module `Bazaar.Server.BrowserPool`. (after 1, 4; PR #832)
 
 ## 12. Questions for the owner
-1. **Where do anonymous browsers run?** *Recommend* a shared browser VM for anonymous profiles, with account profiles staying in each agent's own VM (section 7). Alternatives: everything in the agent's own VM (today), or on the host sandboxed by Bazaar (lightest, weakest).
+1. **Where do anonymous browsers run?** ANSWERED (owner card, 2026-11-19): a shared browser VM for anonymous profiles; account profiles stay in each agent's own VM (section 7).
 2. **Start the Windows VM only on first use?** *Recommend* yes (`vm.pair.start_policy = on_demand`). This is a default, so it follows the configurability rule and is not blocked on an answer.
 
 ## 13. Conflicts and notes
