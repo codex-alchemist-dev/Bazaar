@@ -1,15 +1,15 @@
 using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Jobs;
-using Bazaar.Server.Kanban.Data;
-using Bazaar.Server.Kanban.Wire;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>
 /// Kanban as a Bazaar Component (docs/design/12-kanban-and-dependencies.md, docs/design/BAZAAR-COMPONENTS.md). Registers the task

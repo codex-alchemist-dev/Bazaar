@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Agents.Turns.Tools;
-using Bazaar.Server.Kanban;
-using Bazaar.Server.Kanban.Data;
 using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
