@@ -40,6 +40,8 @@
     <Project Path="src/Bazaar.Server.DataVolume.Windows/Bazaar.Server.DataVolume.Windows.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek.Abstractions/Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek/Bazaar.Server.Identity.Kek.csproj" />
+    <Project Path="src/Bazaar.Server.ColumnSeal.Abstractions/Bazaar.Server.ColumnSeal.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.ColumnSeal/Bazaar.Server.ColumnSeal.csproj" />
     <Project Path="src/Bazaar.Tls/Bazaar.Tls.csproj" />
     <Project Path="src/Bazaar.Secrets/Bazaar.Secrets.csproj" />
     <Project Path="src/Bazaar.Approvals/Bazaar.Approvals.csproj" />
@@ -97,6 +99,7 @@
     <Project Path="tests/Bazaar.Server.DataVolume.Linux.Tests/Bazaar.Server.DataVolume.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DataVolume.Windows.Tests/Bazaar.Server.DataVolume.Windows.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Kek.Tests/Bazaar.Server.Identity.Kek.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.ColumnSeal.Tests/Bazaar.Server.ColumnSeal.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
     <Project Path="tests/Bazaar.Secrets.Tests/Bazaar.Secrets.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Core.Tests/Bazaar.Client.Core.Tests.csproj" />
