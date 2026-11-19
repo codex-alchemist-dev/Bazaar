@@ -4,14 +4,14 @@ namespace Bazaar.Server.VmDisplay.Tests;
 
 public class CaptureServiceTests
 {
-    private static readonly byte[] s_png = Images.Png(64, 48);
+    private static readonly byte[] _png = Images.Png(64, 48);
 
     private static Rig WorkingRig()
     {
         var r = new Rig();
-        r.Hypervisor.Frame = () => new RawFrame(RawPixelFormat.Png, s_png, 0, 0);
-        r.Guest.OnGetFile = (_, s) => s.Write(s_png);
-        r.Browser.Png = () => s_png;
+        r.Hypervisor.Frame = () => new RawFrame(RawPixelFormat.Png, _png, 0, 0);
+        r.Guest.OnGetFile = (_, s) => s.Write(_png);
+        r.Browser.Png = () => _png;
         return r;
     }
 
@@ -260,7 +260,7 @@ public class CaptureServiceTests
         Assert.Equal((64, 48), (w, h));
         Assert.Equal(f.Png.Length, bytes);
         Assert.Equal(f.Sha256, sha);
-        Assert.Equal(ScreenFrame.ComputeSha256(s_png), sha);
+        Assert.Equal(ScreenFrame.ComputeSha256(_png), sha);
         Assert.Equal(64, sha.Length);
         // The sink interface has no byte[] parameter at all; this guards the contract shape.
         Assert.DoesNotContain(typeof(IDisplayAuditSink).GetMethods().SelectMany(m => m.GetParameters()), p => p.ParameterType == typeof(byte[]));
@@ -279,7 +279,7 @@ public class CaptureServiceTests
     {
         Rig r = WorkingRig();
         ScreenFrame f = await r.Build().CaptureAsync(new CaptureRequest(Rig.Linux("s")), TestContext.Current.CancellationToken);
-        Assert.Same(s_png, f.Png);
+        Assert.Same(_png, f.Png);
         Assert.Equal((64, 48), (f.Width, f.Height));
     }
 

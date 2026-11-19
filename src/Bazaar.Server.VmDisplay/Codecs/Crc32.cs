@@ -3,14 +3,14 @@ namespace Bazaar.Server.VmDisplay.Codecs;
 /// <summary>CRC-32 (IEEE 802.3, as PNG uses it), table driven.</summary>
 internal static class Crc32
 {
-    private static readonly uint[] s_table = BuildTable();
+    private static readonly uint[] _table = BuildTable();
 
     /// <summary>The CRC-32 of <paramref name="data"/>.</summary>
     public static uint Compute(ReadOnlySpan<byte> data)
     {
         uint crc = 0xFFFFFFFFu;
         foreach (byte b in data)
-            crc = s_table[(crc ^ b) & 0xFF] ^ (crc >> 8);
+            crc = _table[(crc ^ b) & 0xFF] ^ (crc >> 8);
         return crc ^ 0xFFFFFFFFu;
     }
 

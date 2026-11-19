@@ -5,7 +5,7 @@ namespace Bazaar.Server.VmDisplay.Tests;
 
 public partial class GuestSourceTests
 {
-    private static readonly byte[] s_png = Images.Png(32, 32);
+    private static readonly byte[] _png = Images.Png(32, 32);
 
     [GeneratedRegex("^/run/bazaar/display/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.png$")]
     private static partial Regex ServerPath();
@@ -13,7 +13,7 @@ public partial class GuestSourceTests
     private static Rig GuestOnly()
     {
         var r = new Rig { UseBrowser = false, UseHypervisor = false };
-        r.Guest.OnGetFile = (_, s) => s.Write(s_png);
+        r.Guest.OnGetFile = (_, s) => s.Write(_png);
         return r;
     }
 

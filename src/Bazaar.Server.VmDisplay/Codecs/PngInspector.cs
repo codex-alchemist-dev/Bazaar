@@ -12,7 +12,7 @@ internal readonly record struct PngInfo(int Width, int Height, int BitDepth, int
 /// </summary>
 internal static class PngInspector
 {
-    private static readonly byte[] s_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    private static readonly byte[] _signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>Checks <paramref name="data"/> and returns what IHDR declares.</summary>
     /// <exception cref="DisplayException"><see cref="DisplayFailure.FrameTooLarge"/> or <see cref="DisplayFailure.FrameMalformed"/>.</exception>
@@ -21,7 +21,7 @@ internal static class PngInspector
         if (data.Length > maxEncodedBytes)
             throw new DisplayException(DisplayFailure.FrameTooLarge, $"The PNG is {data.Length} bytes, above the {maxEncodedBytes} byte limit.");
         // Signature (8) + IHDR chunk (25) + IEND chunk (12).
-        if (data.Length < 8 + 25 + 12 || !data[..8].SequenceEqual(s_signature))
+        if (data.Length < 8 + 25 + 12 || !data[..8].SequenceEqual(_signature))
             throw Malformed("The data is not a PNG.");
 
         // IHDR must come first and carry 13 bytes. Dimensions are checked before any walk or allocation.

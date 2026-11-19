@@ -8,7 +8,7 @@ namespace Bazaar.Server.VmDisplay.Tests;
 
 public class CodecTests
 {
-    private const int Max = 32 * 1024 * 1024;
+    private const int _max = 32 * 1024 * 1024;
 
     private static DisplayFailure FailureOf(Action act) => Assert.Throws<DisplayException>(act).Failure;
 
@@ -32,7 +32,7 @@ public class CodecTests
     public void Png_encode_then_decode_round_trips(int channels)
     {
         PixelBuffer src = Images.Gradient(37, 23, channels);
-        PixelBuffer back = PngDecoder.Decode(PngEncoder.Encode(src), Max);
+        PixelBuffer back = PngDecoder.Decode(PngEncoder.Encode(src), _max);
         Assert.Equal(src.Width, back.Width);
         Assert.Equal(src.Height, back.Height);
         Assert.Equal(channels, back.Channels);
@@ -42,7 +42,7 @@ public class CodecTests
     [Fact]
     public void Inspector_reports_declared_size_without_decoding()
     {
-        PngInfo info = PngInspector.Inspect(Images.Png(40, 30), Max);
+        PngInfo info = PngInspector.Inspect(Images.Png(40, 30), _max);
         Assert.Equal(40, info.Width);
         Assert.Equal(30, info.Height);
         Assert.Equal(8, info.BitDepth);
@@ -56,7 +56,7 @@ public class CodecTests
         const int h = 10;
         PixelBuffer src = Images.Gradient(w, h);
         byte[] png = BuildFilteredPng(src, y => (byte)(y % 5));
-        Assert.Equal(src.Data, PngDecoder.Decode(png, Max).Data);
+        Assert.Equal(src.Data, PngDecoder.Decode(png, _max).Data);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class CodecTests
     {
         PixelBuffer src = Images.Gradient(4, 4);
         byte[] png = BuildFilteredPng(src, _ => 9);
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(png, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(png, _max)));
     }
 
     [Fact]
@@ -74,9 +74,9 @@ public class CodecTests
         byte[] palette = RewriteIhdr(png, b => b[25] = 3);
         byte[] deep = RewriteIhdr(png, b => b[24] = 16);
         byte[] interlaced = RewriteIhdr(png, b => b[28] = 1);
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(palette, Max)));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(deep, Max)));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(interlaced, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(palette, _max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(deep, _max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(interlaced, _max)));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class CodecTests
     {
         byte[] png = Images.Png(16, 16);
         byte[] taller = RewriteIhdr(png, b => BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(20), 40));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(taller, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(taller, _max)));
     }
 
     [Fact]
@@ -92,16 +92,16 @@ public class CodecTests
     {
         byte[] png = Images.Png(16, 16);
         byte[] shorter = RewriteIhdr(png, b => BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(20), 4));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(shorter, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngDecoder.Decode(shorter, _max)));
     }
 
     [Fact]
     public void Inspector_rejects_a_truncated_ihdr()
     {
         byte[] png = Images.Png(8, 8);
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(png.AsSpan(0, 20), Max)));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(png.AsSpan(0, 33), Max)));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect([], Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(png.AsSpan(0, 20), _max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(png.AsSpan(0, 33), _max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect([], _max)));
     }
 
     [Fact]
@@ -111,14 +111,14 @@ public class CodecTests
         byte[] huge = (byte[])png.Clone();
         BinaryPrimitives.WriteUInt32BigEndian(huge.AsSpan(16), 100_000);
         BinaryPrimitives.WriteUInt32BigEndian(huge.AsSpan(20), uint.MaxValue);
-        Assert.Equal(DisplayFailure.FrameTooLarge, FailureOf(() => PngInspector.Inspect(huge, Max)));
+        Assert.Equal(DisplayFailure.FrameTooLarge, FailureOf(() => PngInspector.Inspect(huge, _max)));
     }
 
     [Fact]
     public void Inspector_rejects_zero_dimensions()
     {
         byte[] zero = RewriteIhdr(Images.Png(8, 8), b => BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(16), 0));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(zero, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(zero, _max)));
     }
 
     [Fact]
@@ -129,9 +129,9 @@ public class CodecTests
             BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(16), DisplayLimits.CeilingWidth);
             BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(20), DisplayLimits.CeilingHeight);
         });
-        Assert.Equal(DisplayLimits.CeilingWidth, PngInspector.Inspect(ok, Max).Width);
+        Assert.Equal(DisplayLimits.CeilingWidth, PngInspector.Inspect(ok, _max).Width);
         byte[] over = RewriteIhdr(ok, b => BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(16), DisplayLimits.CeilingWidth + 1));
-        Assert.Equal(DisplayFailure.FrameTooLarge, FailureOf(() => PngInspector.Inspect(over, Max)));
+        Assert.Equal(DisplayFailure.FrameTooLarge, FailureOf(() => PngInspector.Inspect(over, _max)));
     }
 
     [Fact]
@@ -151,9 +151,9 @@ public class CodecTests
         byte[] badCrc = (byte[])png.Clone();
         badCrc[40] ^= 0xFF;
         byte[] trailing = [.. png, 0];
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(badSig, Max)));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(badCrc, Max)));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(trailing, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(badSig, _max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(badCrc, _max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(trailing, _max)));
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class CodecTests
         byte[] bad = (byte[])png.Clone();
         // The IDAT length field follows the 33 byte signature + IHDR prefix.
         BinaryPrimitives.WriteUInt32BigEndian(bad.AsSpan(33), 0x7FFFFFFF);
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(bad, Max)));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => PngInspector.Inspect(bad, _max)));
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class CodecTests
         for (int i = 0; i < raw.Length; i++)
             raw[i] = (byte)(i * 7);
         PixelBuffer rgb = Rgb565Converter.ToRgb(raw, 12, 7);
-        Assert.Equal(rgb.Data, PngDecoder.Decode(PngEncoder.Encode(rgb), Max).Data);
+        Assert.Equal(rgb.Data, PngDecoder.Decode(PngEncoder.Encode(rgb), _max).Data);
     }
 
     [Theory]
@@ -217,7 +217,7 @@ public class CodecTests
         PixelBuffer src = Images.Gradient(20, 11);
         PixelBuffer parsed = PpmParser.Parse(Images.Ppm(20, 11));
         Assert.Equal(src.Data, parsed.Data);
-        Assert.Equal(src.Data, PngDecoder.Decode(PngEncoder.Encode(parsed), Max).Data);
+        Assert.Equal(src.Data, PngDecoder.Decode(PngEncoder.Encode(parsed), _max).Data);
     }
 
     [Fact]
@@ -300,7 +300,7 @@ public class CodecTests
     public void Normalizer_passes_a_png_within_limits_through_untouched()
     {
         byte[] png = Images.Png(64, 48);
-        NormalizedFrame f = FrameNormalizer.FromPng(png, new FrameLimits(1920, 1200, Max));
+        NormalizedFrame f = FrameNormalizer.FromPng(png, new FrameLimits(1920, 1200, _max));
         Assert.Same(png, f.Png);
         Assert.Equal((64, 48), (f.Width, f.Height));
     }
@@ -310,23 +310,23 @@ public class CodecTests
     {
         // 16-bit PNGs are fine when no downscale is needed; only resizing needs the decoder.
         byte[] png = RewriteIhdr(Images.Png(8, 8), b => b[24] = 16);
-        NormalizedFrame f = FrameNormalizer.FromPng(png, new FrameLimits(1920, 1200, Max));
+        NormalizedFrame f = FrameNormalizer.FromPng(png, new FrameLimits(1920, 1200, _max));
         Assert.Same(png, f.Png);
     }
 
     [Fact]
     public void Normalizer_downscales_an_oversized_png()
     {
-        NormalizedFrame f = FrameNormalizer.FromPng(Images.Png(400, 100), new FrameLimits(200, 200, Max));
+        NormalizedFrame f = FrameNormalizer.FromPng(Images.Png(400, 100), new FrameLimits(200, 200, _max));
         Assert.Equal((200, 50), (f.Width, f.Height));
-        PngInfo info = PngInspector.Inspect(f.Png, Max);
+        PngInfo info = PngInspector.Inspect(f.Png, _max);
         Assert.Equal((200, 50), (info.Width, info.Height));
     }
 
     [Fact]
     public void Normalizer_converts_each_raw_format_to_png()
     {
-        var limits = new FrameLimits(1920, 1200, Max);
+        var limits = new FrameLimits(1920, 1200, _max);
         NormalizedFrame a = FrameNormalizer.FromRaw(new RawFrame(RawPixelFormat.Rgb565, new byte[8 * 4 * 2], 8, 4), limits);
         NormalizedFrame b = FrameNormalizer.FromRaw(new RawFrame(RawPixelFormat.Bgra32, new byte[8 * 4 * 4], 8, 4), limits);
         NormalizedFrame c = FrameNormalizer.FromRaw(new RawFrame(RawPixelFormat.Ppm, Images.Ppm(8, 4), 0, 0), limits);
@@ -345,8 +345,8 @@ public class CodecTests
     [Fact]
     public void Normalizer_rejects_null_data()
     {
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => FrameNormalizer.FromPng(null!, new FrameLimits(10, 10, Max))));
-        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => FrameNormalizer.FromRaw(new RawFrame(RawPixelFormat.Ppm, null!, 0, 0), new FrameLimits(10, 10, Max))));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => FrameNormalizer.FromPng(null!, new FrameLimits(10, 10, _max))));
+        Assert.Equal(DisplayFailure.FrameMalformed, FailureOf(() => FrameNormalizer.FromRaw(new RawFrame(RawPixelFormat.Ppm, null!, 0, 0), new FrameLimits(10, 10, _max))));
     }
 
     // Applies the forward PNG filters so every unfilter branch is exercised.

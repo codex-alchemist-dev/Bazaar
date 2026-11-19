@@ -20,9 +20,9 @@ internal static class LinuxInputArgv
     // space; letters and digits survived). A leading Shift_L key tap absorbs the loss: 5 of 5 strings arrived whole, where a plain
     // call and a "-M shift -m shift" prefix each lost 2 of 5 (measured 2026-11-19,
     // docs/research/notes/desktop-density/measurements-2026-11-19.md).
-    private static readonly string[] s_warmUp = ["-k", "Shift_L"];
+    private static readonly string[] _warmUp = ["-k", "Shift_L"];
 
-    private static readonly Dictionary<string, string> s_namedKeys = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> _namedKeys = new(StringComparer.Ordinal)
     {
         ["Enter"] = "Return",
         ["Tab"] = "Tab",
@@ -50,7 +50,7 @@ internal static class LinuxInputArgv
             switch (action)
             {
                 case TypeText t:
-                    commands.Add(["wtype", .. s_warmUp, "--", t.Text]);
+                    commands.Add(["wtype", .. _warmUp, "--", t.Text]);
                     break;
                 case KeyStroke k:
                     commands.Add(Key(k));
@@ -67,7 +67,7 @@ internal static class LinuxInputArgv
     /// <summary>The xkb key name <c>wtype -k</c> takes for an allowlisted key, or <see langword="null"/>.</summary>
     public static string? XkbName(string key)
     {
-        if (s_namedKeys.TryGetValue(key, out string? named))
+        if (_namedKeys.TryGetValue(key, out string? named))
             return named;
         if (key.Length == 4 && key.StartsWith("Key", StringComparison.Ordinal) && key[3] is >= 'A' and <= 'Z')
             return char.ToLowerInvariant(key[3]).ToString();
@@ -84,7 +84,7 @@ internal static class LinuxInputArgv
         var argv = new List<string> { "wtype" };
         List<string> mods = ModifierNames(k.Modifiers);
         if (mods.Count == 0)
-            argv.AddRange(s_warmUp);
+            argv.AddRange(_warmUp);
         foreach (string m in mods)
         {
             argv.Add("-M");
