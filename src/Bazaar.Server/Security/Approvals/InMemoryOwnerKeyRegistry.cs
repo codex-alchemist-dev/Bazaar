@@ -1,3 +1,5 @@
+using Bazaar.Approvals;
+
 namespace Bazaar.Server.Security.Approvals;
 
 /// <summary>Process-local owner key registry. Keys are added by the owner's setup flow; revocation flips <see cref="OwnerDeviceKey.Revoked"/>.</summary>

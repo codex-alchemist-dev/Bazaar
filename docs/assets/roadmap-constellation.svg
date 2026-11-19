@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Roadmap clusters in Constellation</title>
+  <desc id="d">The v1.0.0 readiness point sits at the centre, with objective clusters for GC, Constellation, RyuseiFuda and the Vault arranged around it.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Roadmap in Constellation: each objective is a cluster of its documents</text>
+  <circle cx="480" cy="160" r="16" fill="#f5c451"/>
+  <text x="480" y="200" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#f5c451" text-anchor="middle">v1.0.0 Zuhal</text>
+  <line x1="480" y1="160" x2="230" y2="120" stroke="#2c3a66" stroke-width="2"/>
+  <circle cx="230" cy="120" r="30" fill="#7fb0ff" opacity="0.25"/>
+  <circle cx="230" cy="120" r="9" fill="#7fb0ff"/>
+  <text x="230" y="80" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">GC</text>
+  <line x1="480" y1="160" x2="730" y2="120" stroke="#2c3a66" stroke-width="2"/>
+  <circle cx="730" cy="120" r="30" fill="#7fb0ff" opacity="0.25"/>
+  <circle cx="730" cy="120" r="9" fill="#7fb0ff"/>
+  <text x="730" y="80" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Constellation</text>
+  <line x1="480" y1="160" x2="230" y2="230" stroke="#2c3a66" stroke-width="2"/>
+  <circle cx="230" cy="230" r="30" fill="#7fb0ff" opacity="0.25"/>
+  <circle cx="230" cy="230" r="9" fill="#7fb0ff"/>
+  <text x="230" y="190" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">RyuseiFuda</text>
+  <line x1="480" y1="160" x2="730" y2="230" stroke="#2c3a66" stroke-width="2"/>
+  <circle cx="730" cy="230" r="30" fill="#7fb0ff" opacity="0.25"/>
+  <circle cx="730" cy="230" r="9" fill="#7fb0ff"/>
+  <text x="730" y="190" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Vault</text>
+  <text x="40" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Roadmap reads objectives from Vault documents. Constellation draws them, so progress is visible as shape.</text>
+
+</svg>

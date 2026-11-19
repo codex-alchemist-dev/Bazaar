@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 296" role="img" aria-labelledby="t d">
+  <title id="t">Kodo scope: the server, modules, the client fleet and the whole environment, with forecasts</title>
+  <desc id="d">Kodo watches the server, every module through a health contract, the fleet of clients, and the environment around them. Forecasts and learned baselines flag drift before a threshold trips.</desc>
+  <rect width="960" height="296" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc">Everything around the company, not only the server</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="40" y="70" width="170" height="60" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="125" y="96" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Server</text>
+    <text x="125" y="116" font-size="11" fill="#9fb3d9" text-anchor="middle">process · disk · backups</text>
+    <rect x="40" y="142" width="170" height="60" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="125" y="168" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Modules</text>
+    <text x="125" y="188" font-size="11" fill="#9fb3d9" text-anchor="middle">health contract on each</text>
+    <rect x="40" y="214" width="170" height="60" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="125" y="240" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Client fleet</text>
+    <text x="125" y="260" font-size="11" fill="#9fb3d9" text-anchor="middle">every head reports in</text>
+    <rect x="250" y="70" width="330" height="204" rx="12" fill="#14291f" stroke="#9be38f" stroke-width="2"/>
+    <text x="415" y="96" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Environment</text>
+    <g font-size="12" fill="#c9d1d9">
+      <text x="272" y="124">Disks: SMART and temperature</text>
+      <text x="272" y="148">Power and sensors</text>
+      <text x="272" y="172">Conduit network paths</text>
+      <text x="272" y="196">Certificates and expiry</text>
+      <text x="272" y="220">Clock drift</text>
+      <text x="272" y="244">AI model endpoints</text>
+    </g>
+    <rect x="610" y="70" width="310" height="204" rx="12" fill="#151d30" stroke="#7cc4ff" stroke-width="2"/>
+    <text x="765" y="96" font-size="13" font-weight="600" fill="#e8eefc" text-anchor="middle">Forecast and baseline</text>
+    <line x1="630" y1="230" x2="900" y2="230" stroke="#3b4a63" stroke-width="2"/>
+    <polyline points="630,200 680,190 730,182 780,170 830,160" fill="none" stroke="#9fb3d9" stroke-width="2"/>
+    <polyline points="830,160 860,150 900,138" fill="none" stroke="#7cc4ff" stroke-width="2" stroke-dasharray="6 4"/>
+    <rect x="630" y="104" width="270" height="26" rx="6" fill="#0d1117"/>
+    <text x="645" y="122" font-size="11" fill="#9fb3d9">learned per-install band, drift flagged</text>
+    <text x="765" y="258" font-size="11" fill="#9fb3d9" text-anchor="middle">rules first, model explanations optional</text>
+  </g>
+  <text x="480" y="287" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#f2b84b" text-anchor="middle">Planned. Kodo is designed in doc 46 and not yet built. Forecasts are shown as estimates.</text>
+</svg>

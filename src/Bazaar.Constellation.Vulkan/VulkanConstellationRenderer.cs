@@ -1,11 +1,13 @@
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 
 namespace Bazaar.Constellation.Vulkan;
 
 /// <summary>
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
-/// Node drawing is not in this slice yet: frames are accepted and ordered, and the swapchain shows the background.
+/// Draw clears the background and draws the latest interpolated frame as instanced node discs.
+/// Node styles are one fallback style for now, so per-node colours and radii are not yet mapped from the adapter.
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
@@ -13,10 +15,17 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     /// <summary>Background colour cleared each frame until node drawing lands (RGBA, linear).</summary>
     private static readonly (float R, float G, float B, float A) _background = (0.05f, 0.06f, 0.08f, 1f);
 
+    /// <summary>Style used for every node until per-node styles arrive from the adapter (RGBA, radius in world units).</summary>
+    private static readonly NodeStyle _nodeStyle = NodeStyle.Create(0.80f, 0.86f, 0.95f, 1f, 0.012f);
+
     private readonly Lazy<VulkanProbeResult> _probe;
     private readonly Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)> _createSwapchain;
     private readonly FrameSequencer _sequencer = new();
     private readonly FrameInterpolator _interpolator;
+    private readonly NodeInstanceBuffer _instances = new();
+    private NodeStyleTable? _styles;
+    private int _dimensions;
+    private float[] _positions = [];
     private VulkanSwapchain? _swapchain;
     private ConstellationScene? _scene;
     private int _widthPixels;
@@ -77,6 +86,9 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(scene);
         _scene = scene;
+        _styles = new NodeStyleTable(scene.NodeCount, _nodeStyle);
+        _instances.Clear();
+        _dimensions = 0;
         _sequencer.Reset();
         _interpolator.Reset();
     }
@@ -95,6 +107,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
             return false;
         }
 
+        _dimensions = frame.Dimensions;
         _interpolator.Push(frame, nowSeconds);
         return true;
     }
@@ -112,7 +125,10 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         }
     }
 
-    /// <summary>Clears and presents the background. Does nothing until a surface is attached.</summary>
+    /// <summary>
+    /// Clears the background, draws the interpolated node instances, and presents.
+    /// Does nothing until a surface is attached. Before the first accepted frame only the background is shown.
+    /// </summary>
     public void Draw(double nowSeconds)
     {
         ThrowIfDisposed();
@@ -121,7 +137,50 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
             return;
         }
 
-        _ = _swapchain.ClearAndPresent(_background);
+        ReadOnlySpan<float> positions = SamplePositions(nowSeconds);
+        if (positions.IsEmpty || _styles is null)
+        {
+            _ = _swapchain.Present(_background, ReadOnlySpan<byte>.Empty, 0, NodeView.Identity);
+            return;
+        }
+
+        _instances.Fill(positions, _dimensions, _styles);
+        NodeView view = FitView(positions, _dimensions);
+        _ = _swapchain.Present(_background, _instances.Bytes, _instances.InstanceCount, view);
+    }
+
+    private ReadOnlySpan<float> SamplePositions(double nowSeconds)
+    {
+        if (!_interpolator.HasFrame || _dimensions == 0)
+        {
+            return ReadOnlySpan<float>.Empty;
+        }
+
+        int length = _interpolator.NodeCount * _dimensions;
+        if (_positions.Length < length)
+        {
+            _positions = new float[length];
+        }
+
+        Span<float> destination = _positions.AsSpan(0, length);
+        return _interpolator.Sample(nowSeconds, destination) ? destination : ReadOnlySpan<float>.Empty;
+    }
+
+    /// <summary>
+    /// Scales the scene so the furthest node sits at 90% of the half-window, keeping world units square on screen.
+    /// Positions are read as x, y (z is ignored for 3D input).
+    /// </summary>
+    private NodeView FitView(ReadOnlySpan<float> positions, int dimensions)
+    {
+        float extent = 1e-6f;
+        for (int index = 0; index + 1 < positions.Length; index += dimensions)
+        {
+            extent = MathF.Max(extent, MathF.Max(MathF.Abs(positions[index]), MathF.Abs(positions[index + 1])));
+        }
+
+        float scaleY = 0.9f / extent;
+        float aspect = _heightPixels > 0 && _widthPixels > 0 ? (float)_heightPixels / _widthPixels : 1f;
+        return new NodeView(0f, 0f, scaleY * aspect, scaleY);
     }
 
     public void Dispose()

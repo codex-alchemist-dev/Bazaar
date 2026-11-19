@@ -134,6 +134,40 @@ public sealed class GcLogWriterBehaviourTests(GcDb db) : IClassFixture<GcDb>
     }
 
     [Fact]
+    public async Task Stale_expected_head_throws_and_writes_nothing()
+    {
+        GcTestSkip.WithoutDatabase();
+        var gc = await db.CreateGcAsync();
+        var author = Guid.CreateVersion7();
+        var notifier = new RecordingNotifier();
+        var writer = new GcLogWriter(db.DataSource, notifier);
+        await writer.AppendAsync(Message(gc, author, "k1"), TestContext.Current.CancellationToken);
+
+        // The head is now 1; a plan made against head 0 must not be written.
+        var stale = Structured(gc, author, "k2") with { ExpectedHeadSeq = 0 };
+        await Assert.ThrowsAsync<GcStaleHeadException>(() => writer.AppendAsync(stale, TestContext.Current.CancellationToken));
+
+        Assert.Single(notifier.Calls);
+        Assert.Equal(1L, await db.ScalarAsync<long>("SELECT count(*) FROM gc_event WHERE gc_id = $1", gc));
+        Assert.Equal(1L, await db.ScalarAsync<long>("SELECT head_seq FROM gc WHERE gc_id = $1", gc));
+    }
+
+    [Fact]
+    public async Task Current_expected_head_is_accepted()
+    {
+        GcTestSkip.WithoutDatabase();
+        var gc = await db.CreateGcAsync();
+        var author = Guid.CreateVersion7();
+        var writer = new GcLogWriter(db.DataSource, new RecordingNotifier());
+        await writer.AppendAsync(Message(gc, author, "k1"), TestContext.Current.CancellationToken);
+
+        var current = Structured(gc, author, "k2") with { ExpectedHeadSeq = 1 };
+        var result = await writer.AppendAsync(current, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2L, result.Seq);
+    }
+
+    [Fact]
     public async Task Archived_gc_throws_and_does_not_notify()
     {
         GcTestSkip.WithoutDatabase();

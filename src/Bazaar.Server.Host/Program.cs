@@ -10,6 +10,11 @@ if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreC
     return await MigrateSubcommand.RunAsync(args[1..], Console.Out);
 }
 
+if (args.Length > 0 && args[0].Equals("db", StringComparison.OrdinalIgnoreCase))
+{
+    return await DbSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddBazaarHostApplication(builder.Configuration);

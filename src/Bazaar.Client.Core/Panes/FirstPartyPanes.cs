@@ -22,34 +22,30 @@ public static class FirstPartyPanes
     private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
     /// <summary>
-    /// The first-party pane modules, in registration order. The phone pager lists panes in this order (doc 29).
-    /// A head that wants a different set composes its own list with <see cref="PaneRegistry.Compose"/>.
+    /// The pane modules Client.Core itself ships, in registration order. A head composes them with the feature modules
+    /// it ships (for example <c>Bazaar.Client.RyuseiFuda</c>) and passes the full list to <see cref="CreateRegistry"/>.
+    /// The phone pager lists panes in the order of that list (doc 29).
     /// </summary>
     public static IReadOnlyList<IPaneModule> Modules { get; } =
     [
-        new KanbanPaneModule(),
         new DashboardPaneModule(),
         new ConstellationPaneModule(),
         new VaultSearchPaneModule(),
         new GcPaneModule(),
-        new RyuseiSchedulePaneModule(),
-        new RoadmapPaneModule(),
-        new WorkdayPaneModule(),
     ];
 
-    // TODO(component): the kernel (Bazaar.Server.Components, IBazaarComponent) is server-side and the client has no DI
-    // container yet. Decide how client components register (a head composition root or a client kernel), then turn this
-    // into per-component registrations. Until then the heads call CreateRegistry.
+    /// <param name="modules">The pane modules the head ships, in pager order.</param>
     /// <param name="report">Called once per kind that falls back to the generic view.</param>
     /// <param name="tiles">The Constellation tile source the heads inject. Null leaves the pane without tile requests.</param>
     /// <param name="vault">The Vault API to use. Null builds one for <see cref="ClientServer.Current"/>.</param>
     /// <param name="chat">The group chat the GC pane shows. Null when no session is connected; the pane then shows its empty state.</param>
     public static PaneRegistry CreateRegistry(
+        IEnumerable<IPaneModule> modules,
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
         ChatViewModel? chat = null) =>
-        PaneRegistry.Compose(Modules, new PaneModuleContext(tiles, vault, chat, report));
+        PaneRegistry.Compose(modules, new PaneModuleContext(tiles, vault, chat, report));
 
     /// <summary>
     /// The panes the Windows head shows when started with <c>--panes</c>: the Kanban board and the Constellation
@@ -64,7 +60,7 @@ public static class FirstPartyPanes
     /// <summary>
     /// Pane bodies for the phone pager. The Kanban pane renders its real board from <paramref name="kanbanModel"/>
     /// (the server's board snapshot, Guid-parsed by the pane), or an empty board when none is given. The GC pane
-    /// renders the chat through <see cref="PaneViews"/>, or its empty state when no session is connected. Other kinds
+    /// renders the chat through the registry's view, or its empty state when no session is connected. Other kinds
     /// return null and keep the pager's kind-name placeholder until their phone views land.
     /// </summary>
     /// <param name="registry">The registry the shell pages through. Its factories build the view models.</param>
@@ -78,13 +74,13 @@ public static class FirstPartyPanes
             if (kind == GcPaneViewModel.PaneKind)
             {
                 // The GC pane has no model of its own: the registry's chat supplies it, or the pane shows its empty state.
-                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
             }
 
             if (kind == PaneKinds.Kanban)
             {
                 var model = kanbanModel ?? _emptyKanbanModel;
-                return PaneViews.Create(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, _kanbanTitle, string.Empty, model)));
             }
 
             return null;

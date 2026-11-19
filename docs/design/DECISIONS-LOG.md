@@ -128,6 +128,7 @@ Owner answers to the cross-cutting conflicts in `CONFLICT-REGISTER.md`, in the o
 | Versions | **RESOLVED (owner)**: SemVer `vMAJOR.MINOR.PATCH`; pre-release builds are `v0.x` with the placeholder codename "Beta"; v1.0.0 is a deliberate jump. Inspired by RESIBO V3. | `docs/VERSIONING.md`; `VersionPrefix` in `Directory.Build.props`; `Bazaar.Contracts.ProductVersion`. |
 | Codenames | **RESOLVED (owner)**: majors named Z to A, theme "words that belong to both alchemy and the stars". Owner rejected Claude's first pick "Zodiac" and chose **"Zuhal"** (Arabic name of Saturn; Saturn is lead in alchemy) for v1.0.0; owner accepted Yliaster (v2), Xerion (v3) and Venus (v5) and rejected "Wandering Star" (v4); the owner rejected "Wolf" and accepted Wormwood (v4). **Update (owner pick, 2026-11-08): v4 is now "Weltseele" (anima mundi, the world soul), replacing Wormwood.** Owner pick (2026-11-08): v5 is now "Valthyrzmthl", replacing Venus; its meaning note is pending. Owner pick (2026-11-08): v3 is now "Xylokrator" ("ruler of the wood"), replacing Xerion. | `docs/VERSIONING.md` section 2. |
 | Channels | **RESOLVED (owner)**: LTSC, Stable, Beta, Alpha and an owner-only Latest-Commit channel; the operator picks per install. Stable, Beta and Alpha are immutable tags on `main`; LTSC is a real branch. | `docs/VERSIONING.md` section 4; doc 30. |
+| Version display | **RESOLVED (owner, 2026-11-12)**: plain SemVer with the commit appended, for example `0.1.0+a1b2c3d`. No `x` or `v` prefix and no zero padding. Release tags are `vMAJOR.MINOR.PATCH` with no commit. Applies to every CDAX project. Supersedes the zero-padded `xAA.BB.CC` and `vAA.BB.CC` forms of 2026-10-29 and 2026-11-08. | `docs/VERSIONING.md` section 1; `docs/release.md`. |
 | Merging | **RESOLVED (owner)**: during full development Claude may merge PRs that pass the requirements (green CI on the head, no conflict, no blocking review). DCO sign-off for these merges is OPEN until before the first public release. | CLAUDE.md repo rules; `docs/VERSIONING.md` section 3. |
 | Roadmap | **RESOLVED (owner)**: stay in Beta (v0.x) for a long while, through the owner's first projects on Bazaar; v1.0.0 only when truly ready, with no date. **PROPOSED**: Beta stages 1 to 9, extendable (relabelled from v0.1 to v0.9 on 2026-10-29, because stage numbers are not release versions). | `docs/ROADMAP.md`. |
 | Provenance placement | **RESOLVED by Claude (schema shape, within C09)**: `source_trust`, `tainted_at_write`, `taint_sources`, `derived_from` live on `gc_event`; an edit is a `message_edit` event, so each version carries its editor's provenance. | Docs 01, 04, 15 aligned. |
@@ -208,7 +209,7 @@ Defaults taken by WP-R4 (PR #339, squash-merged) for doc 38 open questions. Two 
 | Authority | Pause and resume: owner or a target agent. Cancel: creator or owner. Owner may target resting agents (the fire skips them). Agents may not target resting or retired agents. | Yes. |
 | Idempotent create | Not implemented. Doc 38's per-(created_by, purpose, spec) minute window is deferred. | Yes. |
 | Component dependency | `ryusei-schedule` depends on `kanban` only. It resolves `IAuditLog`, so audit must be enabled. | Owner may add `audit` to DependsOn. |
-| Migration namespace | Component id `ryusei-schedule` maps to namespace `ryusei_schedule`, while the SQL folder is `ryusei`. | Owner may rename either. |
+| Migration namespace | Closed 2026-11-16. The SQL folder `Data/Sql/ryusei` is the namespace `ryusei`. The folder is not renamed, because renaming it would change applied migration history (keyed by folder name). Doc 40 item 7 holds the component-id side. | None. |
 
 **Open for owner:** none from WP-R4. The owner may still change any default above.
 
@@ -312,3 +313,71 @@ Coordinator choices under the safe-defaults rule (the owner may change any of th
 | Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
 | Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
 | Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
+
+## Round 24 (2026-11-11): turn starter, post guards, mention handles and the wake loop
+
+Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mention parsing" and "Loop guards" rows of round 22. The owner may change any row marked "Yes".
+
+| Item | Default taken | Owner may change |
+|---|---|---|
+| Turn starter (#436) | One turn per call from the agent's due pending inbox items, read without claiming (`InboxRepository.PeekDueAsync`); the runner claims them by id. The wake reason is the kind of the highest-priority item. The trigger GC line comes from the first GC-backed item. | Yes. |
+| Chain depth of a woken turn (#436) | The largest depth any item reports. A `ryusei_*` item carries its fire id in `source_ref`, and the depth is read from that fire. | Yes. |
+| Unreadable fire depth (#436) | Fails closed: counted as `TurnStarterOptions.UnknownRyuseiDepth` (3, the maximum), never as 0, so the turn cannot schedule deeper. | No (security floor; the value may only be tightened). |
+| Loop guard on agent posts (#438) | `GcAgentPostSink` checks `ILoopGuard` before the append. A tripped post is refused (`AgentPostRefusedException`), the turn ends as `PostRefused`, and its items and lease are released. The mention depth passed to the guard is always 0, and a retry is counted again. | Yes. |
+| Guard trip record (#438) | Logged only. The guard kind and reason are not stored, and there is no Psych Ward hand-off yet. | Follow-up. |
+| Mentions in agent posts (#438) | Parsed from the text as `@handle`, validated against the GC roster, and written as mention inbox rows after the append. `@here` and `@all` are ignored. Without a mention directory the sink attaches no mentions. | Yes. |
+| Principal handle (#443) | Optional, unique, lowercase, in `principal_handle` (migration namespace `mentions/`). Shape `^[a-z0-9][a-z0-9_-]{1,31}$`; `here` and `all` are reserved. No row means not mentionable. | Shape and length: yes. Table and namespace: no. |
+| Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
+| Handles for new agents (#443) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
+| Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
+| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
+| Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
+| Wake loop and the guard (#442) | The guard is asked before each wake. A tripped agent is skipped and held for 5 minutes (`GuardTripBackoff`, in memory) before the guard is asked again; its items stay pending. | Yes. |
+| Session per turn (#442) | Each woken turn gets a new session id, so taint does not carry from one turn to the next. Interim, until a session model exists (doc 06, doc 15). | Follow-up. |
+| Route and tools of a woken turn (#442) | One gateway route and one tool allowlist for every woken turn, from the scheduler settings. The route is required when the loop is enabled and is separate from `Bazaar:Turns:Route` (round 23); the allowlist is empty by default. | Follow-up (per-agent policy). |
+
+**Open for owner:** none blocking. The GC component calls `AddGcAgentPostSink()`, so mentions in agent posts are live once #443 merges. Before the wake loop is switched on, the host must supply a model gateway.
+
+## Round 25 (2026-11-13): owner decisions of the 2026-11-13 docs set
+
+Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 24 (2026-11-11) already exist above, so the number repeats. The owner may renumber this round. Each row names the doc that carries the decision. Rows marked "Follow-up" list a repo file that still disagrees and needs its own small change.
+
+| Item | Decision | Doc that carries it |
+|---|---|---|
+| Licence | AGPL-3.0 for every repo, including `Bazaar.Sdk` and `Bazaar.Contracts`. Apache-2.0 is retired for those two packages. Csproj licence fields are AGPL-3.0-only. Follow-up: `NOTICE`, `README.md` (licence section and lines 29 to 30), `CLAUDE.md` decisions line, the `LICENSE` files in `src/Bazaar.Sdk` and `src/Bazaar.Contracts`, and `CONTRIBUTING.md` still say Apache-2.0 or the directory split. | 47 (section 3 and status of M1) |
+| Module exception | The AGPL core carries a written module exception. Modules that use only the public module API may be under any licence, including closed commercial. Wording is for counsel. | 47 (section 6) |
+| Contributions | DCO sign-off for modules and small fixes. CLA for core code, which keeps the right to relicense and to offer commercial licences. The CLA also applies to extracted repos. Follow-up: `CONTRIBUTING.md` has DCO only. | 47 (section 7) |
+| Commercial licence | Dual licence. Pricing is decided later. Until customers exist: AGPL plus "contact us". No prices in any doc. | 47 (section 1 and 3) |
+| Trademarks | A published trademark policy. Core marks (Bazaar, CDAX, key module names) are registered after clearance. "Codex" and "RUBEDO" need clearance before use in public names. | 47 (section 9) |
+| Dependencies | Must be AGPL-compatible. Bundled dependencies are modules, with no separate dependency manager. | 47 (section 8), 42 |
+| Agent budgets | Token and quota budgets only. No money caps. Cost is shown for display and analysis only. Doc 48 says "token and cost budgets"; read that as the cost part being display only. | 48 (AI agent safety), 23 |
+| Soul export | Keeps the exact scope of doc 33: no memory, no reputation, no Passport. | 33 (update note), 07 |
+| Memory export | A separate export of agent memory and reputation. Permissioned, audited, private to the company and its owner. Encrypted per subject. | 44 (section 4.x), 33 (update note) |
+| Memory never on the Soul Marketplace | Agent memory and reputation are never part of anything published to the Soul Marketplace. The marketplace export is memory-free by design and by enforcement, and tested. The memory export has no marketplace target. | 07 (memory exclusion section), 44 |
+| Agent memory and GraphDRAG | Belong to Constellation's server side (Server.Constellation), not a separate module. Server-held, owner-visible, per-agent isolation with role scoping, retention and crypto-erase, provenance on every item, correction and rollback, portable between servers. | 19 and Bazaar.Constellation.md (governance section) |
+| Release channels | Stable, beta, nightly and LTS releases. Staged rings (canary, early, broad) follow Kodo health signals. A bad release auto-halts. Update policies can follow any channel. | 49, 37 (build flow) |
+| Governance | Owner-led, with a public roadmap and design RFCs. The owner keeps the final say. | 49 |
+| Security programme | Security policy, private vulnerability reporting, advisories. Bug bounty later. | 49 |
+| Client mnemonics | The whole client is navigable by mnemonics, not only Calcinato. A command palette lists every command, opened by a mnemonic with no Ctrl chords. Users remap; modules register and remap their own; conflicts are detected. Calcinato is Vim-style. Local NPU suggestions are off by default. | 41 (client-wide mnemonic navigation) |
+| Kodo | The named Health API module, Bazaar.KODO (write as Bazaar.Kodo in code naming). Immutable runtime with A/B rollback, monitor pane in every client, health contract for every module, incident mode. A normal first-party module for now. | 46 |
+| Data portability | Everything is exportable. Import any mass dump of docx, md and txt, plus Milanote, Miro, Trello, Obsidian and similar. Importers and exporters are modules. | 44 |
+| Onboarding | Server setup is headless-first (wizard, declarative config, CLI, provisioning API, dry-run validation, Kodo verification), with one audit trail. Client first run is automatic pairing, an intro and a skippable keyboard-first tour. No sample-data sandbox. | 45 |
+| Deps as modules | No separate dependency manager. PostgreSQL, pgvector and runtimes are modules tagged Deps. PG 18 and PG 19 are two versions of one module. Zero external installs for users. | 42 |
+| Telemetry and crash reports | Per-company setting off, ask or auto, default ask. On-device redaction. Server files issues with fingerprint deduplication. Server-side diagnosis is labelled "unverified diagnosis". | 43 |
+| Gap decisions | Module trust, roles, audit hash chain, disaster recovery, owner recovery, biometrics, retention, secrets, updates, AI agent safety, privacy law and the other gap cards. | 48 |
+| Build flow | The server builds or regenerates `.msix`, `.apk` and `.exe`. Signing keys stay on the server. Clients update in place. No manual pairing. One company per install. Install and build-from-source are separate documents. | 37 (build flow), 41 |
+| Onboarding and portability names | Pilot company is Bazaar.CDAX. Module names: Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda, Bazaar.Conduit, Bazaar.KODO. CALCINATO is the terminal and ATHANOR is the IDE. | 41, 47 |
+| Extraction | Kodo and Constellation.Renderer stay first-party modules until the owner asks for extraction. | 46, 19 |
+| KEK custody default (doc 14, `identity.kek_provider`) | **DECIDED 2026-11-16 (owner card):** the KEK is protected by DPAPI on a Windows host, tied to the machine or service account. Other OSes use a protected key file (`file`). Supersedes the random key file default in code. | 14, 33 |
+| Principles | Open source, modern, novel, performant, forward-facing, modular first. Beta 0.x. | 42, 49, FORWARD-FACING.md |
+
+**Open for owner:** the licence pricing (decided later); whether the module exception wording and the CLA mechanism (47, M4) are accepted by counsel; the number of this round.
+
+## Round 26 (2026-11-17): "No web client" rule removed
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| "No web client" rule | Removed entirely (owner, decision card, 2026-11-17). The owner did not write it. It first appeared in CLAUDE.md in the foundation commit 71ee1047 (2026-10-25, PR #2) as an agent's paraphrase, under a "(owner's words ...)" label. The owner recognised it as not theirs. | CLAUDE.md; docs 02, 03, 20, 27, 29, 32, 35, 39, 46; CONFLICT-REGISTER; Bazaar.Server.md; Bazaar.Windows.md |
+| Clients | Clients stay native, as already built. Native clients may embed web components such as Monaco (Bazaar.Server.md §1). | 27, 35 |
+| Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
+| Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |

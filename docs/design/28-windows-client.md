@@ -7,7 +7,7 @@ Depends on: 02-wire-protocol-and-sync.md, 12-kanban-and-dependencies.md, 14-iden
 The Windows head of the Avalonia client. It hosts the IDE, the human's local terminal, the PR and diff UI, the desktop-only Roblox Studio bridge and the local NPU run. It owns OS integration (detached windows, file and terminal handlers, installer) and holds no durable state beyond a cache. Agent terminals run inside the agents' VMs and are streamed by the server (16, 17); this client does not host them.
 
 ## Decided inputs
-- Philosophy "Build products"; full scope: IDE, terminal, custom GitHub diff/PR/issue UI, Constellation, Vault, Kanban, Godot and Roblox panels, Observatory, dashboard. (Bazaar.Windows §1)
+- Philosophy "Build products"; full scope: IDE, terminal, custom diff/PR/issue UI for GitHub and GitLab (Bazaar.Client.GitGui, doc 41 section 4.14), Constellation, Vault, Kanban, Godot and Roblox panels, Observatory, dashboard. (Bazaar.Windows §1)
 - Clients render; the server computes. Ratified client-side exceptions (DECISIONS-LOG round 4, C17): NPU inference, the human's local terminal, the Roblox Studio bridge relay, and syncing the viewed branch to a local folder. Layout stays server-side.
 - Local terminal: a built-in replacement for Windows Terminal running locally (DECISIONS-LOG round 4, C31). Agent terminals are server-side (doc 17). ConPTY behind it; library OPEN.
 - Monaco in a WebView2 island, with composition embedding as the first design (owner, 2026-10-24). No verified Avalonia path exists for composition (C01). Monaco hosting is a GATE for the Avalonia decision as a whole; the spike uses free, OSI-compatible routes only (DECISIONS-LOG round 5, C26).
@@ -45,7 +45,7 @@ The Windows head of the Avalonia client. It hosts the IDE, the human's local ter
 
 Spike pass criteria: composition or HWND embedding; keyboard and focus handoff to the Vim layer; IME in Monaco; memory per window; Monaco ready time with a pre-warmed environment; theme injection without reload. If no free route passes, the project may move off Avalonia to another open-source platform, with the owner's accepted migration (round 5). The contingency survey (`docs/research/notes/Bazaar UI framework contingency/ui_framework_alternatives.md`) recommends the order: Windows WebView2 Monaco, then Linux WebKitGTK, then a native Android surface, then AvaloniaEdit as the native fallback. Monaco is not used on Android (CLAUDE.md).
 
-**Editor, diff and PR panes [PROPOSED].** The editor is Monaco per window behind `IEditorHost`, so a native fallback can replace it. Local-disk saves follow `windows.editor.local_write` (default `server-backed`: local folders stay read-only until a save is accepted). Diffs use Monaco diff mode. PR and issue lists, reviews and comments are native Avalonia. PR body Markdown renders in the WebView (no paid control). **In-app review and merge:** the owner reviews in the client; the client sends a signed approval; the server merges (squash, with the `Signed-off-by` line from CLAUDE.md) and records the platform's signed human identity (17, 21). The client holds no GitHub credential; all GitHub reads and writes go through the server (21, 14).
+**Editor, diff and PR panes [PROPOSED].** The editor is Monaco per window behind `IEditorHost`, so a native fallback can replace it. Local-disk saves follow `windows.editor.local_write` (default `server-backed`: local folders stay read-only until a save is accepted). Diffs use Monaco diff mode. PR and issue lists, reviews and comments are native Avalonia in Bazaar.Client.GitGui. PR body Markdown renders in the WebView (no paid control). **In-app review and merge:** the owner reviews in the client; the client sends a signed approval; the server merges (squash, with the `Signed-off-by` line from CLAUDE.md) and records the platform's signed human identity (17, 21). The client holds no GitHub credential; all GitHub reads and writes go through the server (21, 14).
 
 **Desktop Studio bridge [PROPOSED].** The client is an MCP client of Roblox's built-in Studio server over local stdio, when Studio is open. Each relay call carries a grant ID that points to a durable `engine_grants` row or approval (15, 20), not a fresh grant per call. The client runs only calls that carry a valid grant, returns the result, and keeps no grants and no audit log. Studio writes follow doc 20's default (agents write freely to a designated dev place); the open owner question is doc 20's Q5. Studio's server has no authentication, so only this client process connects.
 
@@ -58,6 +58,8 @@ Spike pass criteria: composition or HWND embedding; keyboard and focus handoff t
 **Start screen [PROPOSED layout].** Sections in order: unread and mentions; awaiting you; agents and Kanban; build health and usage. Fed by one server "since last seen" query (02). Offline, the dashboard shows only the cached profile and derived counters, never message bodies (round 5, C27; doc 27 owns the offline fallback shell).
 
 **OS integration [PROPOSED].** The installer registers per-user ProgIDs and capabilities (HKCU). It never writes UserChoice. An in-app "Make Bazaar default" action opens Windows Settings default apps and explains the one step.
+
+> **Owner decision (2026-11-12):** each company builds its own Windows client; see doc 37.
 
 **Installer [PROPOSED].** Velopack per-user install, GitHub Releases feed, delta updates. No service. Velopack does not sign code or install machine-wide (C11), so the release pipeline signs with SignPath (round 4). WebView2 Runtime checked at first run (redistribution terms need a check).
 
@@ -110,7 +112,7 @@ Keys are read from the server registry (doc 03) and cached for offline use (doc 
 - **WebView2 and ConPTY:** a Windows CI runner with a fixture shell. Not headless.
 - **Handler registration:** a throwaway Windows user account checks ProgID and capability keys. The Settings step is a manual checklist.
 - **Studio:** a fake stdio MCP server with recorded responses. No live Studio in CI.
-- **GitHub merge path:** a fake GitHub provider; no live credentials in CI.
+- **Merge path:** a fake GitHub provider and a fake GitLab provider; no live credentials in CI.
 - **Manual desktop pass:** IME in Monaco and terminal; DPI at 100, 150 and 200 percent; detached-window focus; default-app step.
 
 ## Work packages

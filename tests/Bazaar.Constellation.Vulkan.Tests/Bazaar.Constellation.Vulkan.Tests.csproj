@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Test fixtures pass small literal arrays inline; CA1861 is noise here. -->
     <NoWarn>$(NoWarn);CA1861</NoWarn>
   </PropertyGroup>

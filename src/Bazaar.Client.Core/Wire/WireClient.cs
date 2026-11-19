@@ -15,7 +15,7 @@ public sealed class WireClient(
     IWireCodec codec,
     ICursorStore cursors,
     WireClientOptions options,
-    TimeProvider time)
+    TimeProvider time) : IWireRequester
 {
     private readonly Channel<WireGcMessage> _messages = Channel.CreateUnbounded<WireGcMessage>();
     private readonly Channel<Resync> _resyncs = Channel.CreateUnbounded<Resync>();
