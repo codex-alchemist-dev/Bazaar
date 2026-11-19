@@ -24,8 +24,18 @@ public static class FreeLlmApiSidecarState
     };
 
     /// <summary>Returns the 32-byte encryption key as 64 hex characters, creating it on first use.</summary>
-    public static string EnsureEncryptionKey(string stateDirectory) =>
-        ReadOrCreateSecret(Path.Combine(stateDirectory, EncryptionKeyFile), () => Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant());
+    public static string EnsureEncryptionKey(string stateDirectory)
+    {
+        var path = Path.Combine(stateDirectory, EncryptionKeyFile);
+        var key = ReadOrCreateSecret(path, () => Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant());
+        if (key.Length != 64 || !key.All(Uri.IsHexDigit))
+        {
+            // A key that is not 64 hex characters cannot be repaired: new data would not decrypt the old. Values are not shown.
+            throw new InvalidDataException($"The sidecar encryption key file '{path}' does not hold a 64-character hex key. Restore it from a backup or remove it to start with a fresh key.");
+        }
+
+        return key;
+    }
 
     /// <summary>Returns the sidecar admin password, creating it on first use.</summary>
     public static string EnsureAdminPassword(string stateDirectory) =>
@@ -39,8 +49,17 @@ public static class FreeLlmApiSidecarState
             return [];
         }
 
-        var entries = JsonSerializer.Deserialize<List<ProviderKeyEntry>>(File.ReadAllText(path), _json)
-            ?? throw new InvalidDataException($"Provider keys file '{path}' must be a JSON array.");
+        List<ProviderKeyEntry>? parsed;
+        try
+        {
+            parsed = JsonSerializer.Deserialize<List<ProviderKeyEntry>>(File.ReadAllText(path), _json);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidDataException($"Provider keys file '{path}' is not valid JSON. Values are not shown.");
+        }
+
+        var entries = parsed ?? throw new InvalidDataException($"Provider keys file '{path}' must be a JSON array.");
         foreach (var entry in entries)
         {
             if (string.IsNullOrWhiteSpace(entry.Platform) || string.IsNullOrWhiteSpace(entry.Key))
@@ -92,7 +111,13 @@ public static class FreeLlmApiSidecarState
     {
         if (File.Exists(path))
         {
-            return File.ReadAllText(path).Trim();
+            var existing = File.ReadAllText(path).Trim();
+            if (existing.Length > 0)
+            {
+                return existing;
+            }
+
+            // A zero-byte file is a first write that was cut short: nothing was ever protected by it, so it is replaced.
         }
 
         var value = create();
@@ -104,11 +129,16 @@ public static class FreeLlmApiSidecarState
     private static void WriteSecretFile(string path, string content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, content);
+
+        // Write beside the target and move into place, so a crash never leaves a half-written secret.
+        var temp = path + ".tmp";
+        File.WriteAllText(temp, content);
         if (!OperatingSystem.IsWindows())
         {
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
+
+        File.Move(temp, path, overwrite: true);
     }
 }
 

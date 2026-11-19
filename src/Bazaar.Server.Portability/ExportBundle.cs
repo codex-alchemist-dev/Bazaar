@@ -178,18 +178,57 @@ public static class ExportBundleWriter
         }
 
         var prefix = root + Path.DirectorySeparatorChar;
+        var createdRoot = !Directory.Exists(root);
         Directory.CreateDirectory(root);
-        foreach (var file in bundle.Files)
+        try
         {
-            var target = Path.GetFullPath(Path.Combine(root, file.Path.Replace('/', Path.DirectorySeparatorChar)));
-            if (!target.StartsWith(prefix, StringComparison.Ordinal))
+            // The manifest goes last: a directory that has one is a complete export.
+            foreach (var file in bundle.Files.OrderBy(f => f.Path == ManifestFileName))
             {
-                throw new InvalidOperationException("Bundle path escapes the target directory: " + file.Path);
+                var target = Path.GetFullPath(Path.Combine(root, file.Path.Replace('/', Path.DirectorySeparatorChar)));
+                if (!target.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("Bundle path escapes the target directory: " + file.Path);
+                }
+
+                var folder = Path.GetDirectoryName(target);
+                if (folder is not null) Directory.CreateDirectory(folder);
+                File.WriteAllBytes(target, file.Content);
+            }
+        }
+        catch
+        {
+            // The directory was empty or new when the write began, so everything in it is this partial export.
+            RemovePartial(root, createdRoot);
+            throw;
+        }
+    }
+
+    private static void RemovePartial(string root, bool removeRoot)
+    {
+        try
+        {
+            if (removeRoot)
+            {
+                Directory.Delete(root, recursive: true);
+                return;
             }
 
-            var folder = Path.GetDirectoryName(target);
-            if (folder is not null) Directory.CreateDirectory(folder);
-            File.WriteAllBytes(target, file.Content);
+            foreach (var entry in Directory.EnumerateFileSystemEntries(root))
+            {
+                if (Directory.Exists(entry))
+                {
+                    Directory.Delete(entry, recursive: true);
+                }
+                else
+                {
+                    File.Delete(entry);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort: the original failure is the one to report.
         }
     }
 

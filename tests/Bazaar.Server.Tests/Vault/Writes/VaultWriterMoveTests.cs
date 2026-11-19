@@ -49,6 +49,34 @@ public sealed class VaultWriterMoveTests : IDisposable
     }
 
     [Fact]
+    public async Task A_failed_commit_restores_the_moved_file_and_the_rewritten_links()
+    {
+        string metaDir;
+        using (var repo = new LibGit2Sharp.Repository(_repo.Checkout))
+        {
+            metaDir = repo.Info.Path;
+        }
+
+        var lockPath = Path.Combine(metaDir, "index.lock");
+        await File.WriteAllTextAsync(lockPath, string.Empty, TestContext.Current.CancellationToken);
+        try
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() => _writer.MoveAsync(
+                new VaultMoveRequest(_docId, "other.md", "archive/other.md", "agent-ana", null, null, VaultCaller.Owner),
+                CancellationToken.None));
+        }
+        finally
+        {
+            File.Delete(lockPath);
+        }
+
+        Assert.True(File.Exists(Path.Combine(_repo.Checkout, "other.md")));
+        Assert.False(File.Exists(Path.Combine(_repo.Checkout, "archive", "other.md")));
+        Assert.Equal("See [[other]] and [[other.md]] and [[Other Doc]].\n", TempGitRepository.ReadFile(_repo.Checkout, "doc.md"));
+        Assert.Equal(0, TempGitRepository.DirtyEntryCount(_repo.Checkout));
+    }
+
+    [Fact]
     public async Task Moving_onto_an_existing_path_is_refused()
     {
         await Assert.ThrowsAsync<ArgumentException>(() => _writer.MoveAsync(
