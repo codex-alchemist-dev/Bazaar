@@ -126,6 +126,7 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
     private readonly List<PendingCrashAction> _outbox = [];
     private readonly List<DateOnly> _filings = [];
     private readonly HashSet<Guid> _dead = [];
+    private readonly Dictionary<Guid, DateTimeOffset> _leases = [];
 
     /// <summary>Forces this many <see cref="CrashCommitStatus.VersionConflict"/> results before a commit may succeed.</summary>
     public int ForcedConflicts { get; set; }
@@ -235,7 +236,14 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
     {
         lock (_gate)
         {
-            IReadOnlyList<PendingCrashAction> due = [.. _outbox.Where(row => row.NotBefore <= now && !_dead.Contains(row.Id)).OrderBy(row => row.CreatedAt).Take(max)];
+            IReadOnlyList<PendingCrashAction> due = [.. _outbox
+                .Where(row => row.NotBefore <= now && !_dead.Contains(row.Id) && (!_leases.TryGetValue(row.Id, out var until) || until <= now))
+                .OrderBy(row => row.CreatedAt).Take(max)];
+            foreach (var row in due)
+            {
+                _leases[row.Id] = now.AddMinutes(5);
+            }
+
             return Task.FromResult(due);
         }
     }
@@ -257,6 +265,7 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
             if (index >= 0)
             {
                 _outbox[index] = _outbox[index] with { Attempts = _outbox[index].Attempts + 1, NotBefore = notBefore };
+                _leases.Remove(id);
             }
 
             return Task.CompletedTask;

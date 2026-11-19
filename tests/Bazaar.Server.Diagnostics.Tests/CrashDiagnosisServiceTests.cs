@@ -206,6 +206,35 @@ public class CrashDiagnosisServiceTests
         Assert.EndsWith("…", cleaned, StringComparison.Ordinal);
         Assert.DoesNotContain('\u0007', cleaned);
     }
+
+    [Fact]
+    public void Mentions_and_issue_references_are_neutralised()
+    {
+        var cleaned = DiagnosisText.Sanitize("Ask @alice and @org/team, see #123 and fix#4. Email a@b.c stays.", 200);
+
+        Assert.DoesNotContain("@alice", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("@org", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("#123", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("#4", cleaned, StringComparison.Ordinal);
+        Assert.Contains("alice", cleaned, StringComparison.Ordinal);
+        Assert.Contains("123", cleaned, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_group_that_keeps_failing_does_not_starve_the_others()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var auto = new CrashDiagnosisOptions(CrashDiagnosisMode.Auto);
+        var good = _store.Group(await StoreAsync("good"))!;
+        // An older group without a stored report fails every time ("no report") and sorts first.
+        _store.Seed(good with { State = good.State with { Fingerprint = "fp-without-report", LastSeenAt = good.State.LastSeenAt.AddDays(-1) } });
+
+        var first = await Service(auto).RunAutoAsync(max: 1, ct: ct);
+        var second = await Service(auto).RunAutoAsync(max: 1, ct: ct);
+
+        Assert.Equal(0, first);
+        Assert.Equal(1, second);
+    }
 }
 
 internal sealed class FakeDiagnosisModel : ICrashDiagnosisModel
@@ -262,9 +291,18 @@ internal sealed class FakeDiagnosisStore : ICrashDiagnosisStore
 
     private static long Threshold(long count) => count >= 1000 ? 1000 : count >= 100 ? 100 : count >= 10 ? 10 : count >= 1 ? 1 : 0;
 
-    public Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(int max, CancellationToken ct = default)
+    private readonly Dictionary<string, DateTimeOffset> _backoff = [];
+
+    public Task RecordAutoFailureAsync(string fingerprint, DateTimeOffset now, CancellationToken ct = default)
+    {
+        _backoff[fingerprint] = now.AddMinutes(10);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(DateTimeOffset now, int max, CancellationToken ct = default)
     {
         IReadOnlyList<string> list = [.. Groups!.AllGroups
+            .Where(g => !_backoff.TryGetValue(g.State.Fingerprint, out var until) || until <= now)
             .Where(g => Threshold(g.State.OccurrenceCount) > Threshold(_all.Where(d => d.Fingerprint == g.State.Fingerprint).OrderByDescending(d => d.ProducedAt).FirstOrDefault()?.OccurrenceCount ?? 0))
             .OrderBy(g => g.State.LastSeenAt).Select(g => g.State.Fingerprint).Take(max)];
         return Task.FromResult(list);

@@ -159,9 +159,14 @@ public sealed class CrashDiagnosisService
         }
 
         var produced = 0;
-        foreach (var fingerprint in await _diagnoses.ListNeedingAutoDiagnosisAsync(max, ct).ConfigureAwait(false))
+        foreach (var fingerprint in await _diagnoses.ListNeedingAutoDiagnosisAsync(_clock.GetUtcNow(), max, ct).ConfigureAwait(false))
         {
             var result = await DiagnoseAsync(fingerprint, CrashDiagnosisTrigger.Auto, ct).ConfigureAwait(false);
+            if (result.Status is CrashDiagnosisStatus.Failed or CrashDiagnosisStatus.NoReport)
+            {
+                await _diagnoses.RecordAutoFailureAsync(fingerprint, _clock.GetUtcNow(), ct).ConfigureAwait(false);
+            }
+
             if (result.Status == CrashDiagnosisStatus.PausedBudget)
             {
                 break;

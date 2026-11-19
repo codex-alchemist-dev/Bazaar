@@ -112,8 +112,15 @@ public interface ICrashDiagnosisStore
     /// <summary>
     /// Lists groups, oldest first, that reached a filing threshold (1, 10, 100 or 1000 occurrences, doc 43 section 8.4) which no
     /// stored diagnosis covers yet: no diagnosis at all, or the highest threshold reached is above the one the newest diagnosis saw.
+    /// Groups still in backoff after a failed attempt (<see cref="RecordAutoFailureAsync"/>) are left out until their time comes.
     /// </summary>
-    Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(int max, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(DateTimeOffset now, int max, CancellationToken ct = default);
+
+    /// <summary>
+    /// Records a failed automatic attempt so the group waits longer before the next one (10 minutes, then doubling, at most a day).
+    /// Storing a diagnosis clears the backoff.
+    /// </summary>
+    Task RecordAutoFailureAsync(string fingerprint, DateTimeOffset now, CancellationToken ct = default);
 
     /// <summary>Marks a diagnosis as posted to the issue.</summary>
     Task MarkPostedAsync(Guid diagnosisId, CancellationToken ct = default);

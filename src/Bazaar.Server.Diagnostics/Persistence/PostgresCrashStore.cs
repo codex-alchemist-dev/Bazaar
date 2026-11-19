@@ -109,9 +109,12 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
     public async Task<IReadOnlyList<PendingCrashAction>> GetDueAsync(DateTimeOffset now, int max, CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(max);
+        // Claim the rows: another instance (or the next tick) skips them until the lease ends.
         await using var cmd = dataSource.CreateCommand(
-            "SELECT id, fingerprint, kind, payload::text, created_at, attempts, not_before FROM crash_action_outbox " +
-            "WHERE NOT dead AND not_before <= $1 ORDER BY created_at, id LIMIT $2");
+            "UPDATE crash_action_outbox SET locked_until = $1::timestamptz + interval '5 minutes' WHERE id IN (" +
+            "SELECT id FROM crash_action_outbox WHERE NOT dead AND not_before <= $1::timestamptz AND (locked_until IS NULL OR locked_until <= $1::timestamptz) " +
+            "ORDER BY created_at, id LIMIT $2 FOR UPDATE SKIP LOCKED) " +
+            "RETURNING id, fingerprint, kind, payload::text, created_at, attempts, not_before");
         cmd.Parameters.AddWithValue(Micro(now));
         cmd.Parameters.AddWithValue(max);
         var list = new List<PendingCrashAction>();
@@ -128,6 +131,7 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
                 r.GetFieldValue<DateTimeOffset>(6)));
         }
 
+        list.Sort(static (a, b) => a.CreatedAt != b.CreatedAt ? a.CreatedAt.CompareTo(b.CreatedAt) : a.Id.CompareTo(b.Id));
         return list;
     }
 
@@ -144,7 +148,7 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
     {
         ArgumentNullException.ThrowIfNull(reason);
         await using var cmd = dataSource.CreateCommand(
-            "UPDATE crash_action_outbox SET attempts = attempts + 1, not_before = $2, last_error = $3 WHERE id = $1");
+            "UPDATE crash_action_outbox SET attempts = attempts + 1, not_before = $2, last_error = $3, locked_until = NULL WHERE id = $1");
         cmd.Parameters.AddWithValue(id);
         cmd.Parameters.AddWithValue(Micro(notBefore));
         cmd.Parameters.AddWithValue(reason);
@@ -156,7 +160,7 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
     {
         ArgumentNullException.ThrowIfNull(reason);
         await using var cmd = dataSource.CreateCommand(
-            "UPDATE crash_action_outbox SET dead = true, attempts = attempts + 1, last_error = $2 WHERE id = $1");
+            "UPDATE crash_action_outbox SET dead = true, attempts = attempts + 1, last_error = $2, locked_until = NULL WHERE id = $1");
         cmd.Parameters.AddWithValue(id);
         cmd.Parameters.AddWithValue(reason);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -255,6 +259,24 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
         cmd.Parameters.AddWithValue(diagnosis.PostedToIssue);
         cmd.Parameters.AddWithValue(diagnosis.OccurrenceCount);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+
+        await using var clear = dataSource.CreateCommand("DELETE FROM crash_diagnosis_backoff WHERE fingerprint = $1");
+        clear.Parameters.AddWithValue(diagnosis.Fingerprint);
+        await clear.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task RecordAutoFailureAsync(string fingerprint, DateTimeOffset now, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fingerprint);
+        // 10 minutes after the first failure, then 5 minutes times 2^n, at most a day.
+        await using var cmd = dataSource.CreateCommand(
+            "INSERT INTO crash_diagnosis_backoff (fingerprint, failures, next_attempt_at) VALUES ($1, 1, $2::timestamptz + interval '10 minutes') " +
+            "ON CONFLICT (fingerprint) DO UPDATE SET failures = crash_diagnosis_backoff.failures + 1, " +
+            "next_attempt_at = $2::timestamptz + least(interval '24 hours', interval '5 minutes' * power(2, least(crash_diagnosis_backoff.failures + 1, 10)))");
+        cmd.Parameters.AddWithValue(fingerprint);
+        cmd.Parameters.AddWithValue(Micro(now));
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -273,7 +295,7 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(int max, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> ListNeedingAutoDiagnosisAsync(DateTimeOffset now, int max, CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(max);
         // The CASE mirrors the comment thresholds of GroupTransition (1, 10, 100, 1000).
@@ -284,7 +306,9 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
             "ORDER BY d.produced_at DESC, d.diagnosis_id DESC LIMIT 1) last ON true " +
             "WHERE EXISTS (SELECT 1 FROM crash_report r WHERE r.fingerprint = g.fingerprint) " +
             "AND (SELECT max(n) FROM t WHERE n <= g.occurrence_count) > COALESCE((SELECT max(n) FROM t WHERE n <= last.occurrence_count), 0) " +
-            "ORDER BY g.last_seen_at, g.fingerprint LIMIT $1");
+            "AND NOT EXISTS (SELECT 1 FROM crash_diagnosis_backoff b WHERE b.fingerprint = g.fingerprint AND b.next_attempt_at > $1::timestamptz) " +
+            "ORDER BY g.last_seen_at, g.fingerprint LIMIT $2");
+        cmd.Parameters.AddWithValue(Micro(now));
         cmd.Parameters.AddWithValue(max);
         var list = new List<string>();
         await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);

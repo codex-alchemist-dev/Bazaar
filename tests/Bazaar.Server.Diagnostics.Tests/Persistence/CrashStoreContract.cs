@@ -158,7 +158,21 @@ public abstract class CrashStoreContract
 
         await outbox.CompleteAsync(comment.Id, ct);
 
-        Assert.Equal([reopen.Id], (await outbox.GetDueAsync(_t0.AddHours(1), 10, ct)).Select(d => d.Id));
+        Assert.Equal([reopen.Id], (await outbox.GetDueAsync(_t0.AddHours(2), 10, ct)).Select(d => d.Id));
+    }
+
+    [Fact]
+    public async Task A_row_handed_out_is_leased_so_a_second_dispatcher_does_not_get_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, outbox, handle) = await CreateAsync(ct);
+        await using var _h = handle;
+        var row = Action(new AddComment(CommentReason.OccurrenceThreshold, 10, "x"));
+        await store.CommitAsync(new CrashCommit(Report(), null, NewGroup(), null, [row]), ct);
+
+        Assert.Single(await outbox.GetDueAsync(_t0.AddHours(1), 10, ct));
+        Assert.Empty(await outbox.GetDueAsync(_t0.AddHours(1).AddMinutes(1), 10, ct));
+        Assert.Single(await outbox.GetDueAsync(_t0.AddHours(1).AddMinutes(6), 10, ct));
     }
 
     [Fact]

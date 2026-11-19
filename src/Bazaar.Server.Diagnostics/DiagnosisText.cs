@@ -52,7 +52,10 @@ internal static partial class DiagnosisText
         s = MarkdownLink().Replace(s, "$1");
         s = HtmlTag().Replace(s, string.Empty);
         s = Url().Replace(s, "[link removed]");
-        s = ControlChars().Replace(s, string.Empty).Trim();
+        s = ControlChars().Replace(s, string.Empty);
+        // GitHub turns @name into a notification and #123 into a cross-link; a zero-width space breaks both without changing the look.
+        s = Mention().Replace(s, "@\u200B");
+        s = IssueRef().Replace(s, "#\u200B").Trim();
         return s.Length <= maxChars ? s : s[..maxChars].TrimEnd() + "…";
     }
 
@@ -73,6 +76,12 @@ internal static partial class DiagnosisText
 
     [GeneratedRegex(@"(?i)\b(?:https?|ftp|data|file|javascript):[^\s)>\]]*|\bwww\.[^\s)>\]]+", RegexOptions.None, 250)]
     private static partial Regex Url();
+
+    [GeneratedRegex(@"@(?=[A-Za-z0-9_])", RegexOptions.None, 250)]
+    private static partial Regex Mention();
+
+    [GeneratedRegex(@"#(?=\d)", RegexOptions.None, 250)]
+    private static partial Regex IssueRef();
 
     [GeneratedRegex(@"[\p{Cc}-[\n\t]]", RegexOptions.None, 250)]
     private static partial Regex ControlChars();

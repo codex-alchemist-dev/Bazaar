@@ -113,10 +113,18 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
         Assert.Equal(report.Body.Ciphertext, latest.Body.Ciphertext);
         await Assert.ThrowsAnyAsync<Exception>(() => diagnoses.AddAsync(made with { DiagnosisId = Guid.NewGuid(), Label = "verified" }, ct));
 
-        Assert.Empty(await diagnoses.ListNeedingAutoDiagnosisAsync(10, ct));
+        Assert.Empty(await diagnoses.ListNeedingAutoDiagnosisAsync(t0, 10, ct));
         var bumped = group with { State = group.State with { OccurrenceCount = 10 }, Version = 2 };
         await store.CommitAsync(new CrashCommit(null, null, bumped, 1, []), ct);
-        Assert.Equal([fp], await diagnoses.ListNeedingAutoDiagnosisAsync(10, ct));
+        Assert.Equal([fp], await diagnoses.ListNeedingAutoDiagnosisAsync(t0, 10, ct));
+
+        await diagnoses.RecordAutoFailureAsync(fp, t0, ct);
+        Assert.Empty(await diagnoses.ListNeedingAutoDiagnosisAsync(t0.AddMinutes(9), 10, ct));
+        Assert.Equal([fp], await diagnoses.ListNeedingAutoDiagnosisAsync(t0.AddMinutes(11), 10, ct));
+        await diagnoses.RecordAutoFailureAsync(fp, t0, ct);
+        Assert.Empty(await diagnoses.ListNeedingAutoDiagnosisAsync(t0.AddMinutes(11), 10, ct));
+        await diagnoses.AddAsync(made with { DiagnosisId = Guid.NewGuid(), ProducedAt = t0.AddMinutes(1), OccurrenceCount = 10 }, ct);
+        Assert.Empty(await diagnoses.ListNeedingAutoDiagnosisAsync(t0.AddMinutes(11), 10, ct));
 
         await ((ICrashErasure)store).EraseInstallsAsync([install], ct);
 
