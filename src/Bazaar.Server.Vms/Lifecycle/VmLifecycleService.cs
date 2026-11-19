@@ -68,9 +68,10 @@ public sealed class VmLifecycleService(
 
     /// <summary>
     /// Starts the VM without the containment check. Only the owner-signed containment release uses it: it resumes the VMs while the
-    /// agent is still in the containment store, and removes the agent from the store afterwards.
+    /// agent is still in the containment store, and removes the agent from the store afterwards. It is internal: only
+    /// <c>Bazaar.Server.AgentSafety</c> (and the Vms tests) can reach it, and an architecture test pins which file calls it.
     /// </summary>
-    public Task<VmOperationResult> StartForReleaseAsync(Guid vmId, CancellationToken ct) =>
+    internal Task<VmOperationResult> StartForReleaseAsync(Guid vmId, CancellationToken ct) =>
         RunAsync(vmId, VmState.Running, h => backend.StartAsync(h, ct), ct);
 
     public Task<VmOperationResult> StopAsync(Guid vmId, StopMode mode, CancellationToken ct) =>

@@ -6,6 +6,10 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.AgentSafety" />
+    <InternalsVisibleTo Include="Bazaar.Server.Vms.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>
