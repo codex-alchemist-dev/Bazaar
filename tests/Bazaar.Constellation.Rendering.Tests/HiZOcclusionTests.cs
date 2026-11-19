@@ -94,16 +94,16 @@ public sealed class HiZOcclusionTests
 
         // A near slab at z=-10 covering the screen, rasterised as a flat depth image.
         var wallBounds = new TileBounds(-50f, -50f, -10.5f, 50f, 50f, -10f);
-        Assert.True(OcclusionCuller.TryProject(wallBounds, m, W, H, false, out ScreenBox wall));
+        Assert.True(OcclusionCuller.TryProject(wallBounds, m, W, H, true, out ScreenBox wall));
         float[] d = Wall(W, H, 0, 0, W - 1, H - 1, wall.NearestDepth);
         var p = new HiZPyramid(d, W, H);
 
         var behind = new TileBounds(-1f, -1f, -60f, 1f, 1f, -50f);
-        Assert.True(OcclusionCuller.TryProject(behind, m, W, H, false, out ScreenBox bBehind));
+        Assert.True(OcclusionCuller.TryProject(behind, m, W, H, true, out ScreenBox bBehind));
         Assert.True(OcclusionCuller.IsOccluded(p, bBehind));
 
         var front = new TileBounds(-0.5f, -0.5f, -5f, 0.5f, 0.5f, -4f);
-        Assert.True(OcclusionCuller.TryProject(front, m, W, H, false, out ScreenBox bFront));
+        Assert.True(OcclusionCuller.TryProject(front, m, W, H, true, out ScreenBox bFront));
         Assert.False(OcclusionCuller.IsOccluded(p, bFront));
     }
 
@@ -113,7 +113,7 @@ public sealed class HiZOcclusionTests
         var cam = new PerspectiveCamera3D(0, 0, 0, 0, 0, -1);
         float[] m = new float[16];
         cam.WriteViewProjection(m, 1f);
-        Assert.False(OcclusionCuller.TryProject(new TileBounds(-1, -1, -1, 1, 1, 1), m, 64, 64, false, out _));
+        Assert.False(OcclusionCuller.TryProject(new TileBounds(-1, -1, -1, 1, 1, 1), m, 64, 64, true, out _));
     }
 
     [Fact]
