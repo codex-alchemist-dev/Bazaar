@@ -46,7 +46,7 @@ public sealed record ScreenFrame(byte[] Png, int Width, int Height, DisplaySourc
 ```
 
 Ports the host adapts (the module holds no hypervisor, guest or browser code of its own):
-- `IHypervisorConsole`: read the framebuffer and send input for a backend reference. Implemented beside each VM backend (Hyper-V, KVM).
+- `IHypervisorConsole`: read the framebuffer and send input for a backend reference. Implemented beside each VM backend (Hyper-V, KVM). The KVM adapter speaks QMP (`screendump` with PNG, QEMU 7.1 or newer, and `input-send-event` with an absolute tablet device) through the monitor, not `virsh screenshot`, which fails when the domain has no graphics element (SECONDARY). `screendump` with `-display none` is MEASURED on QEMU 8.2.
 - `IDisplayGuestExec`: run a fixed argv and fetch a file in a VM. The host adapts the guest channel (doc 16 WP7).
 - `IBrowserPageDriver`: screenshot and input for a browser session. The host adapts the browser module (doc 16 WP13).
 - `IDisplayGate`: taint and kill-switch state (doc 15). `IDisplayAuditSink`: audit rows.
@@ -80,7 +80,7 @@ C22 decided: Chromium runs inside the agent's existing VMs. The owner asked (202
 | B. On the host, sandboxed by Bazaar | About 61 MB headless, 195 MB headed; binary shared | The server host, which holds Identity keys, the database and every agent's data | `browser` source only | Changes C22. Breaks doc 16's rule that egress is enforced outside the workload. |
 | C. A shared browser VM ("browser pool") | Same as B, plus one VM for all | The pool VM: other agents' browser sessions in it, not the host | `browser` and `guest` | Uses C22's "third VM only if a spike needs it", as one shared VM instead of one per agent |
 
-Chromium's own sandbox is strong, but it is the only wall in option B, and agents open arbitrary pages all day. Option C keeps a hypervisor wall in front of the host and still shares the browser's pages on one kernel.
+Chromium's own sandbox is strong, but it is the only wall in option B, and agents open arbitrary pages all day. Chromium's own threat model assumes a compromised renderer and expects outside containment (SOURCED). Hosted browser services put each browser in its own VM or microVM, not on a shared host (SOURCED: Browserbase documents one VM per session). Option C keeps a hypervisor wall in front of the host and still shares the browser's pages on one kernel.
 
 *Recommended:* anonymous profiles (no credentials, the bulk of browsing) run in the pool VM, each in its own OS user, namespace sandbox and profile directory, with egress through the per-agent proxy as today. Account profiles (Passport cookies) stay in the agent's own VM as C22 decided, so a pool escape never reaches a logged-in session. Setting `browser.placement.anonymous` = `agent_vm` | `pool_vm`; `browser.placement.account` is fixed to `agent_vm`. Host placement (B) is not offered as a setting unless the owner asks for it.
 
