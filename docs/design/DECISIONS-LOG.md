@@ -405,4 +405,7 @@ The round number is set at merge; other open PRs also add rounds.
 | Modules `Bazaar.Server.DataVolume` (+ `.Abstractions`, `.Windows`, `.Linux`) and `Bazaar.Server.ColumnSeal` (+ `.Abstractions`) | PROPOSED | 63, 40 |
 | Supersedes doc 61's inventory row "Postgres data directory: out of scope" | DECIDED (follows from the owner's message) | 61, 63 |
 
-**Open for owner (cards):** what goes inside the volume (default: whole data root); unlock after restart (default: automatic); external database mode (default: refused unless attested).
+| The whole data root is inside the encrypted volume, not only the PostgreSQL folder | DECIDED (owner card, 2026-11-19) | 63 section 2 |
+| Unlock after a restart is automatic now; owner unlock is built as the setting `storage.volume.unlock = owner` for later | DECIDED (owner card, 2026-11-19) | 63 section 6 |
+
+**Open for owner:** external database mode (setting, default: refused unless attested); Windows Home hosts (default: not supported).

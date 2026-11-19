@@ -1,6 +1,6 @@
 # Encrypted data folder: at-rest encryption for the data root and PostgreSQL
 
-Status: DECIDED for the requirement (owner, 2026-11-19, message `cmsg_01MC1BkUhiVHzqr38uyxWzeHPuokZJa7aiq87n8BAaMdas`); the mechanics below are PROPOSED until the owner's cards are answered, and facts about BitLocker, VHDX and LUKS are unverified until spike D1 runs (section 12).
+Status: DECIDED for the requirement (owner, 2026-11-19, message `cmsg_01MC1BkUhiVHzqr38uyxWzeHPuokZJa7aiq87n8BAaMdas`); the scope (whole data root) and the unlock mode are DECIDED (owner cards, 2026-11-19); the other mechanics are PROPOSED, and facts about BitLocker, VHDX and LUKS are unverified until spike D1 runs (section 12).
 Depends on: `03-server-host-and-providers.md` (startup, providers, floors), `04-postgres-schema-and-migrations.md` (per-person keys), `14-identity-service-and-passport.md` (KEK, `identity.kek_provider`), `33-backup-dr-and-export.md`, `42-deps-as-modules.md` (bundled PostgreSQL), `45-onboarding.md` (setup steps), `46-kodo-health-module.md`, `48-gap-decisions-security-identity.md` (sections 5, 6, 9, 10), `61-sealed-storage.md`
 Modules: `Bazaar.Server.DataVolume` and `.Abstractions` (component id `data-volume`), provider modules `Bazaar.Server.DataVolume.Windows` and `Bazaar.Server.DataVolume.Linux`, and `Bazaar.Server.ColumnSeal` and `.Abstractions` (component id `column-seal`)
 
@@ -22,7 +22,7 @@ Does not protect against: an administrator (or the Bazaar service account) on th
 A stolen whole machine: protection is exactly as strong as the KEK custody (doc 14). With `dpapi` or `file`, the key material is on the same machine, so an attacker who can read the system disk offline can recover it. Only a TPM-bound KEK (doc 14 `tpm`, PR #873) or an owner unlock (section 6) resists whole-machine theft. Setup states this in plain words and records the custody class.
 
 ## 2. Layout: boot root and data root
-Two folders, both set in host config (doc 03):
+**DECIDED (owner card, 2026-11-19): the whole data root is inside the encrypted volume**, not only the PostgreSQL folder. Two folders, both set in host config (doc 03):
 
 | Folder | Config key | Encrypted | Holds |
 |---|---|---|---|
@@ -67,12 +67,12 @@ Any failure: PostgreSQL is not started (or is stopped), one log line names the c
 
 **While running.** Kodo (doc 46) runs the guard as a probe every `storage.volume.recheck_seconds`. If the volume locks, unmounts or changes identity, the host stops crash-only (doc 46 section 7.2): it does not try to remount or continue. `/health/ready` reports `data_volume` as a readiness role that can never be removed from the set (doc 03 floor list gains this line). Every refusal, open and close writes an audit entry when the audit log is reachable (`storage.volume.opened`, `.closed`, `.refused`) and always a local OS log line.
 
-**External database mode** (hidden advanced, doc 42). Bazaar cannot inspect another machine's disk. PROPOSED default: `storage.external_db.at_rest = refuse` unless the owner records an attestation naming the method (Tier 2, audited); the status page and Kodo then show "at rest: attested, not verified". When the external server is on the same host, the guard runs the OS checks on `SHOW data_directory` and treats the result as verified. Owner card Q3.
+**External database mode** (hidden advanced, doc 42). Bazaar cannot inspect another machine's disk. PROPOSED default: `storage.external_db.at_rest = refuse` unless the owner records an attestation naming the method (Tier 2, audited); the status page and Kodo then show "at rest: attested, not verified". When the external server is on the same host, the guard runs the OS checks on `SHOW data_directory` and treats the result as verified. It is a setting with the most protective default (configurability rule), question 3.
 
 ## 6. Keys and unlock
 - **Volume key:** 32 random bytes, generated in setup inside the volume unit, used as the BitLocker external key or the LUKS key-slot key, kept only wrapped in the descriptor. It never touches disk in clear and is never logged.
 - **Custody:** the volume key hangs off the KEK provider, so it inherits `dpapi`, `file`, `tpm` (PR #873) or `openbao` with no new custody decision. Recovery needs no new secret either: the sealed KEK copy (doc 14, doc 48 section 6) plus the descriptor (ciphertext, included in the recovery bundle) reopen the volume on the same disk. On new hardware the path is the normal restore: new volume, restore the database from the encrypted backup.
-- **Unlock mode** (`storage.volume.unlock`): `auto` (default; the volume unit opens the volume at boot with no person present, which keeps unattended restarts working) or `owner` (after each host restart the volume stays locked until an owner approves the unlock from a signed-in client device; the host is down until then). Owner card Q2. With `owner`, the wrapped volume key is additionally sealed to the owner's device key so the server alone cannot open it [mechanics OPEN, depends on doc 48 section 7].
+- **Unlock mode** (`storage.volume.unlock`), **DECIDED (owner card, 2026-11-19): automatic now, owner unlock built as a setting for later.** `auto` (default; the volume unit opens the volume at boot with no person present, which keeps unattended restarts working) or `owner` (after each host restart the volume stays locked until an owner approves the unlock from a signed-in client device; the host is down until then). With `owner`, the wrapped volume key is additionally sealed to the owner's device key so the server alone cannot open it [mechanics OPEN, depends on doc 48 section 7].
 - **Rotation:** KEK rotation re-wraps the descriptor. Volume key rotation adds a new protector or key slot and removes the old one; it does not re-encrypt the data. Full re-encryption is done by migrating to a new volume (section 10).
 - **Erase:** destroying the descriptor and the protector makes the volume unreadable. This is recorded as an option for doc 48 section 9; crypto-erase stays parked there pending counsel.
 
@@ -138,9 +138,9 @@ The volume protects files. Columns are sealed so that a SQL session, a logical d
 | `storage.volume.container` | enum: `file`, `device` | `file` | install | owner, in setup | fixed after setup |
 | `storage.volume.max_gb` | integer | hosting drive free space minus reserve | install | admin | audited |
 | `storage.volume.grow_step_gb` | integer | 8 | install | admin | audited |
-| `storage.volume.unlock` | enum: `auto`, `owner` | `auto` (card Q2) | install | owner | Tier 2 |
+| `storage.volume.unlock` | enum: `auto`, `owner` | `auto` (DECIDED) | install | owner | Tier 2 |
 | `storage.volume.recheck_seconds` | integer, 5 to 300 | 30 | install | admin | audited |
-| `storage.external_db.at_rest` | enum: `refuse`, `attested` | `refuse` (card Q3) | install | owner | Tier 2 |
+| `storage.external_db.at_rest` | enum: `refuse`, `attested` | `refuse` | install | owner | Tier 2 |
 | `storage.column_seal.extra` | list of `table.column` | empty | install | admin | audited; adds columns to the sealed set, never removes |
 
 Floors (not settings): a managed database always runs inside a verified encrypted volume on a production instance; the guard and the Kodo probe cannot be disabled; the cipher is never below AES-256-XTS; the class A, B and C sets can grow and never shrink; the host never creates keys, volumes or clusters at start.
@@ -149,7 +149,8 @@ Floors (not settings): a managed database always runs inside a verified encrypte
 Fakes: every refusal reason; descriptor edited (unwrap fails); marker missing, edited, from another install; data root replaced by a plain folder, by a symlink to a plain folder, by an empty mount point; KEK missing or zero bytes (no key is created, exit 78); tablespace or `pg_wal` outside the volume; volume locked while running (host stops). Real volumes: loop-device LUKS2 on the Linux runners (create, open with stdin key, wrong key, grow, dismount under load); BitLocker VHDX on the owner's PC (`Category=Windows-host`). Column seal: round trip; value moved to another row, column or table fails; erased person key leaves class B unreadable; no plaintext of a canary string in `pg_dump` output for sealed columns; the column-class registry test.
 
 ## 15. Questions for the owner
-1. **What goes inside the encrypted volume.** Default: the whole data root (PostgreSQL, blobs, logs, backup staging, sealed-storage files). Alternative: only the PostgreSQL data directory. Why the default: one rule ("everything under the data root is encrypted") and no plain copies of database content in logs or dumps.
-2. **Unlock after a restart.** Default: automatic (the server comes back by itself after a reboot or power cut; strength equals KEK custody). Alternative: owner unlock from a client device after every restart (resists whole-machine theft; the company is down until you approve).
+ANSWERED: What goes inside the encrypted volume: the whole data root (owner card, 2026-11-19).
+ANSWERED: Unlock after a restart: automatic now, with owner unlock as a setting for later (owner card, 2026-11-19).
+
 3. **External database mode.** Default: refused unless you record an attestation of how that server is encrypted; shown as "attested, not verified". Alternative: refuse always.
 4. **Windows Home hosts.** Default: not supported for the server (no BitLocker management), stated at preflight. Alternative: add a second Windows provider later. No action needed unless you want Home supported.
