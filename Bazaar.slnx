@@ -70,6 +70,7 @@
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Android/Bazaar.Server.Vms.Android.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.MicroVm/Bazaar.Server.Vms.MicroVm.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Devices.Abstractions/Bazaar.Server.Vms.Devices.Abstractions.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
@@ -140,5 +141,6 @@
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Android.Tests/Bazaar.Server.Vms.Android.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.MicroVm.Tests/Bazaar.Server.Vms.MicroVm.Tests.csproj" />
   </Folder>
 </Solution>

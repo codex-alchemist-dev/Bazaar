@@ -216,4 +216,4 @@ Each is its own module project with tests. The abstractions and node client come
 - Doc 59 lists three display sources. Work package 10 adds a fourth, `device`; doc 59 itself stays unedited here because its PR is open (#851).
 
 ## 14. Build status
-Built (2026-11-19, PR #870): `Bazaar.Server.Vms.Devices.Abstractions`, `Bazaar.Server.Vms.Android` (backend, argv builders, host seam, fake-host tests), `VmOs.Android` with the vms migration `0002_device_guest_os.sql`, and the `android-emulator` host feature. Not built yet: the real SDK adapter (WP4), the microVM module, the client pane, the setup step.
+Built (2026-11-19, PR #870): `Bazaar.Server.Vms.Devices.Abstractions`, `Bazaar.Server.Vms.Android` (backend, argv builders, host seam, fake-host tests), `VmOs.Android` with the vms migration `0002_device_guest_os.sql`, and the `android-emulator` host feature. Also built: `Bazaar.Server.Vms.MicroVm` backend on a fake monitor (save, checkpoint and restore report unsupported until spike S-MVM). Not built yet: the real SDK adapter (WP4), the Firecracker and Cloud Hypervisor adapters, the client pane, the setup step.

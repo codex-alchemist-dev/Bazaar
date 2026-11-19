@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Platform-neutral: the module reaches Firecracker and Cloud Hypervisor only through IMicroVmMonitor (doc 62 section 5.0). -->
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+  </ItemGroup>
+</Project>
