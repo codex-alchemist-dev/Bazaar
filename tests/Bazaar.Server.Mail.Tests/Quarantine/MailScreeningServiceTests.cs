@@ -221,4 +221,20 @@ public sealed class MailScreeningServiceTests
 
         Assert.Equal([QuarantineReason.LookalikeSenderDomain], await ReasonsAsync(service, "boss@exarnple.org"));
     }
+
+    [Fact]
+    public async Task Display_name_showing_another_address_is_held()
+    {
+        var mail = Mail("real@sender.test") with { FromDisplayName = "boss@bank.test" };
+        var decision = await Screen(Service(), mail, []);
+
+        Assert.Equal([QuarantineReason.DisplayNameMismatch], decision.Reasons);
+    }
+
+    [Fact]
+    public async Task Display_name_with_the_senders_own_address_or_plain_words_is_delivered()
+    {
+        Assert.Equal(QuarantineAction.Deliver, (await Screen(Service(), Mail("real@sender.test") with { FromDisplayName = "real@sender.test" }, [])).Action);
+        Assert.Equal(QuarantineAction.Deliver, (await Screen(Service(), Mail("real@sender.test") with { FromDisplayName = "Pat Doe" }, [])).Action);
+    }
 }
