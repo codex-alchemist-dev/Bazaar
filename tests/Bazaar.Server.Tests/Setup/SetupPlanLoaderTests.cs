@@ -230,7 +230,7 @@ public sealed class SetupPlanLoaderTests
     {
         var result = SetupPlanLoader.Load(SetupFixtures.Valid
             .Replace("\"email\": { \"enabled\": false }", "\"email\": { \"enabled\": true }", StringComparison.Ordinal)
-            .Replace("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }", StringComparison.Ordinal));
+            .Replace("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }", StringComparison.Ordinal), RegistrySetupSettingCatalog.Known);
 
         Assert.NotNull(result.Plan);
         Assert.Contains(result.Issues, issue => issue.Severity == SetupIssueSeverity.Hold && issue.Path == "scamMailProtocol.enabled");
@@ -240,7 +240,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Enabling_the_scam_mail_protocol_with_email_off_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }"));
+        var result = SetupPlanLoader.Load(SetupFixtures.With("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }"), RegistrySetupSettingCatalog.Known);
 
         Assert.True(HasError(result, "scamMailProtocol.enabled"));
         Assert.Null(result.Plan);
@@ -251,7 +251,7 @@ public sealed class SetupPlanLoaderTests
     {
         var result = SetupPlanLoader.Load(SetupFixtures.With(
             "\"settings\": { \"host.shutdown_timeout_seconds\": 20 }",
-            "\"settings\": { \"host.shutdown_timeout_seconds\": 20, \"security.scam_mail.protocol_enabled\": true }"));
+            "\"settings\": { \"host.shutdown_timeout_seconds\": 20, \"security.scam_mail.protocol_enabled\": true }"), RegistrySetupSettingCatalog.Known);
 
         Assert.True(HasError(result, "settings.security.scam_mail.protocol_enabled"));
     }
@@ -259,7 +259,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void The_scam_mail_protocol_off_adds_no_issue()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.Valid);
+        var result = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known);
 
         Assert.DoesNotContain(result.Issues, issue => issue.Path.StartsWith("scamMailProtocol", StringComparison.Ordinal));
     }
