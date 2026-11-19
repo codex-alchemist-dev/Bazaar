@@ -94,7 +94,12 @@ public sealed class ConPtyS11Tests
         Assert.True(await transcript.WaitForAsync("Reply from", _wait), transcript.Text);
 
         await session.WriteAsync(new byte[] { 0x03 }, TestContext.Current.CancellationToken);
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+
+        // Ping prints its statistics only once it has stopped. Typing before the shell has redrawn its prompt loses
+        // the input on a slow runner (the console flushes pending input while it handles Ctrl-C), so wait for the
+        // statistics and then give the shell a moment to redraw before sending the next command.
+        Assert.True(await transcript.WaitForAsync("Ping statistics", _wait), transcript.Text);
+        await Task.Delay(1500, TestContext.Current.CancellationToken);
         await session.WriteAsync(Line(AliveCommand(shell)), TestContext.Current.CancellationToken);
 
         Assert.True(await transcript.WaitForAsync("ALIVE", _wait), transcript.Text);
