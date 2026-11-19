@@ -109,3 +109,27 @@ The owner-signature contract is its own module, not server code. It moved out of
 - `Bazaar.Approvals`: `OwnerSignatureVerifier`, `InMemoryOwnerNonceStore` (tests and dev runs only), and the Postgres stores `Db.PostgresOwnerKeyRegistry` and `Db.PostgresOwnerNonceStore`.
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
+
+## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
+
+Docs section this implements: this section (wave 1 of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
+
+The agent runtime (`Bazaar.Server/Agents`, 91 files) is split into two module projects. The namespaces did not change (`Bazaar.Server.Agents.*`), so callers only changed their project references.
+
+- `Bazaar.Server.Agents.Abstractions`: the contracts that code outside the Agents folder uses, plus what they need. It holds the `Inbox` folder whole (`InboxKind`, `InboxPriority`, `InboxCandidate`, `InboxSelector`, digest types), `AgentRuntimeTypes` (the agent, turn and inbox enums), the records in `Data/AgentRecords`, `IAgentHandleAssigner`, `IAgentLifecycleObserver`, the loop-guard contract (`ILoopGuard`, `GuardKind`, `GuardVerdict`, `LoopEvent`, `ThreadStats`, `LoopGuardOptions`), the turn contracts (`ITurnRunner`, `IAgentPostSink`, `IToolDispatcher` and their records), `TurnRequest`, `TurnStartRequest`, `TurnStarterOptions`, `IWakeChainDepthSource`, the tool contracts (`ITool`, `IContextualTool`, `IToolRegistry`, `ToolRegistry`, `ToolRegistration`, `IInFlightCallStore`, `ToolDispatcherOptions`), `TurnRunnerOptions`, the subagent contracts and exception, `AgentPostRefusedException`, `IGcMentionDirectory` and its records, `AgentResponderOptions` and `AgentSchedulerOptions`. It references `Bazaar.Contracts` only and never the implementation project.
+- `Bazaar.Server.Agents`: everything else that compiles without `Bazaar.Server`: the Postgres repositories and SQL (`Data`), `AgentLifecycle`, the scheduler and its Postgres grants, the context assembler and sources, `TurnStarter`, the subagent runner, `ToolCatalogue`, the in-flight call store, the loop-guard facade and fingerprints, the lease recovery service, the mention directory and `ResponderPrompt`. It references the Abstractions project and the GC, Audit and Approvals abstractions. It does not reference `Bazaar.Server`.
+
+`Bazaar.Server` references both projects. `tests/Bazaar.Server.Agents.Tests` holds the tests that need only moved code (136 tests, all passing without a database). The Postgres-backed tests and the ones that drive `TurnRunner`, `AgentTurnsComponent` or the responder stay in `tests/Bazaar.Server.Tests/Agents`, which also links `SchedulerFakes.cs` from the new test project.
+
+Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
+
+- `Recovery/AgentLeaseRecoveryHandler.cs`: uses `IJobHandler` and `JobRecord` (`Bazaar.Server.Jobs`). Moves with the Jobs abstractions.
+- `Responder/AgentResponder.cs`, `Responder/AgentResponderService.cs`: use `IModelGateway` (`Bazaar.Server.Gateway`) and `IGcNotificationSource` (`Bazaar.Server.Wire.Sync`). Move with the Gateway and Wire abstractions.
+- `Responder/AgentResponderServiceCollectionExtensions.cs`: registers the two classes above, so it stays with them.
+- `Responder/PgResponderGcStore.cs`: uses the internal `GcEnumText` in `Bazaar.Server.Gc`. Moves when that helper is public or moves to the GC abstractions.
+- `Turns/AgentTurnsComponent.cs`, `Turns/TurnRunner.cs`, `Turns/Runner/TurnRunner.cs`, `Turns/TurnRunAdapter.cs`: use `IModelGateway`, the mention and wire types, and `TurnRunner`. Move with the Gateway work.
+- `Turns/Context/GcContextSource.cs`: uses `IGcStreamSource` (`Bazaar.Server.Wire.Sync`).
+- `Turns/Posting/AgentMentionParser.cs`, `Turns/Posting/GcAgentPostSink.cs`, `Turns/Posting/AgentPostServiceCollectionExtensions.cs`: use `MentionSpan`, `AcceptedMention`, `IGcLogWriter` and `IInboxRowWriter` (`Bazaar.Server.Gc.Mentions`, `Gc.Write`). Move with the GC abstractions.
+- `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs`, `Turns/Tools/Db/SessionTaintMapping.cs`: use `IToolPolicyEngine`, `SessionRoles`, `SessionTaint`, `TaintState` and `TaintSource` (`Bazaar.Server.Security`). Move with the Security abstractions.
+
+Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
