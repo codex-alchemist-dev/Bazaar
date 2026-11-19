@@ -141,6 +141,60 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
     private static Task<HttpResponseMessage> ChunkAsync(HttpClient client, string id, long offset, byte[] data, string token = "alice") =>
         client.SendAsync(Req(HttpMethod.Patch, $"/blobs/uploads/{id}", token, data, ("Upload-Offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture))), TestContext.Current.CancellationToken);
 
+    [Fact]
+    public async Task A_blob_volume_that_is_wiped_while_running_heals_on_the_next_upload()
+    {
+        // Chaos campaign disk-clock-resources: the store created its directories once, in the constructor, so a volume that was
+        // unmounted or wiped while the host ran made every later POST /blobs a 500 until restart.
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var first = new byte[10];
+            Random.Shared.NextBytes(first);
+            Assert.Equal(HttpStatusCode.OK, (await ChunkAsync(client, await OpenAsync(client, first.Length, Sha(first)), 0, first)).StatusCode);
+            Assert.True(Directory.Exists(_root));
+            Directory.Delete(_root, recursive: true);
+
+            var data = new byte[50];
+            Random.Shared.NextBytes(data);
+            var id = await OpenAsync(client, data.Length, Sha(data));
+            var done = await ChunkAsync(client, id, 0, data);
+            Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task A_storage_failure_during_commit_answers_507_and_the_last_chunk_can_be_resent()
+    {
+        // A file where the blob's fan-out directory must go makes the commit fail the way a full or read-only volume does.
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var data = new byte[150];
+            Random.Shared.NextBytes(data);
+            var sha = Sha(data);
+            var id = await OpenAsync(client, data.Length, sha);
+            Assert.Equal(HttpStatusCode.NoContent, (await ChunkAsync(client, id, 0, data[..100])).StatusCode);
+
+            var blocker = Path.Combine(_root, "blobs", sha[..2]);
+            await File.WriteAllTextAsync(blocker, "in the way", TestContext.Current.CancellationToken);
+
+            var failed = await ChunkAsync(client, id, 100, data[100..]);
+            Assert.Equal(HttpStatusCode.InsufficientStorage, failed.StatusCode);
+            Assert.Contains("storage_unavailable", await failed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+            Assert.Equal("100", failed.Headers.GetValues("Upload-Offset").Single());
+            Assert.Equal(100, new FileInfo(Path.Combine(_root, "uploads", id + ".part")).Length);
+
+            File.Delete(blocker);
+            var retried = await ChunkAsync(client, id, 100, data[100..]);
+            Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+
+            var get = await client.SendAsync(Req(HttpMethod.Get, "/blobs/" + sha, "alice"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+            Assert.Equal(data, await get.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+        }
+    }
+
     [Theory]
     [InlineData("POST", "/blobs")]
     [InlineData("PATCH", "/blobs/uploads/00000000000000000000000000000000")]

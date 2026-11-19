@@ -28,6 +28,9 @@ public enum AppendStatus
 
     /// <summary>The assembled bytes do not match the declared hash; the upload is discarded.</summary>
     HashMismatch,
+
+    /// <summary>The storage volume refused the write (full, read-only or gone). The upload keeps its last good offset, so the chunk can be resent.</summary>
+    StorageUnavailable,
 }
 
 /// <summary>Result of <see cref="IBlobStore.AppendAsync"/>.</summary>

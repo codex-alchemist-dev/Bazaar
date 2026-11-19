@@ -26,6 +26,12 @@ public sealed class FileBlobStore : IBlobStore
         var root = options.ResolveBlobRoot();
         _blobs = Path.Combine(root, "blobs");
         _uploads = Path.Combine(root, "uploads");
+        EnsureDirectories();
+    }
+
+    /// <summary>Creates the store's directories. Idempotent, and called again before every new upload so a volume that was unmounted, wiped or restored while the host ran heals without a restart.</summary>
+    private void EnsureDirectories()
+    {
         Directory.CreateDirectory(_blobs);
         Directory.CreateDirectory(_uploads);
     }
@@ -41,6 +47,7 @@ public sealed class FileBlobStore : IBlobStore
     /// <inheritdoc />
     public async ValueTask<UploadSession?> CreateUploadAsync(Guid owner, long length, string? declaredSha256, CancellationToken ct)
     {
+        EnsureDirectories();
         var cutoff = (_time.GetUtcNow() - TimeSpan.FromHours(_options.UploadTtlHours)).UtcDateTime;
         var held = 0;
         foreach (var meta in Directory.EnumerateFiles(_uploads, "*.meta"))
@@ -61,8 +68,18 @@ public sealed class FileBlobStore : IBlobStore
 
         var newId = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         var text = string.Join('\n', owner.ToString("N"), length.ToString(CultureInfo.InvariantCulture), declaredSha256 ?? string.Empty);
-        await File.WriteAllTextAsync(Meta(newId), text, ct).ConfigureAwait(false);
-        await using (new FileStream(Part(newId), FileMode.CreateNew, FileAccess.Write)) { }
+        try
+        {
+            await File.WriteAllTextAsync(Meta(newId), text, ct).ConfigureAwait(false);
+            await using (new FileStream(Part(newId), FileMode.CreateNew, FileAccess.Write)) { }
+        }
+        catch (IOException)
+        {
+            // A full or read-only volume: leave no half-made session behind (an orphan .meta with no .part), then let the caller report it.
+            TryDiscard(newId);
+            throw;
+        }
+
         return new UploadSession(newId, owner, length, 0, declaredSha256);
     }
 
@@ -87,20 +104,30 @@ public sealed class FileBlobStore : IBlobStore
             if (offset != session.Offset) return new(AppendStatus.OffsetMismatch, session.Offset, null);
             if (count < 0 || offset + count > session.Length) return new(AppendStatus.BadChunk, session.Offset, null);
 
-            await using (var part = new FileStream(Part(id), FileMode.Open, FileAccess.Write, FileShare.None))
+            try
             {
-                part.Seek(offset, SeekOrigin.Begin);
-                var written = await CopyExactAsync(body, part, count, ct).ConfigureAwait(false);
-                if (written != count)
+                await using (var part = new FileStream(Part(id), FileMode.Open, FileAccess.Write, FileShare.None))
                 {
-                    part.SetLength(offset);
-                    return new(AppendStatus.BadChunk, offset, null);
+                    part.Seek(offset, SeekOrigin.Begin);
+                    var written = await CopyExactAsync(body, part, count, ct).ConfigureAwait(false);
+                    if (written != count)
+                    {
+                        part.SetLength(offset);
+                        return new(AppendStatus.BadChunk, offset, null);
+                    }
                 }
-            }
 
-            var total = offset + count;
-            if (total < session.Length) return new(AppendStatus.Accepted, total, null);
-            return await CommitAsync(session, ct).ConfigureAwait(false);
+                var total = offset + count;
+                if (total < session.Length) return new(AppendStatus.Accepted, total, null);
+                return await CommitAsync(session, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The volume is full, read-only or gone. Drop the half-written chunk (and a failed commit's final chunk) so the
+                // upload stays at the last good offset and the client can resend the chunk once space returns.
+                TryTruncate(id, offset);
+                return new(AppendStatus.StorageUnavailable, offset, null);
+            }
         }
         finally
         {
@@ -158,9 +185,12 @@ public sealed class FileBlobStore : IBlobStore
 
         var target = BlobPath(actual);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+
+        // The owner record goes first: if the volume fills here the blob is not yet in place and the last chunk can be resent. The
+        // other order left a committed blob nobody could read. An owner line with no blob is harmless (the blob is simply absent).
+        await File.AppendAllTextAsync(target + ".owners", session.Owner.ToString("N") + "\n", ct).ConfigureAwait(false);
         if (File.Exists(target)) File.Delete(Part(session.Id));
         else File.Move(Part(session.Id), target);
-        await File.AppendAllTextAsync(target + ".owners", session.Owner.ToString("N") + "\n", ct).ConfigureAwait(false);
         File.Delete(Meta(session.Id));
         return new(AppendStatus.Completed, session.Length, actual);
     }
@@ -182,6 +212,31 @@ public sealed class FileBlobStore : IBlobStore
         var declared = lines.Length > 2 && lines[2].Length > 0 ? lines[2] : null;
         var part = new FileInfo(Part(id));
         return part.Exists ? new UploadSession(id, owner, length, part.Length, declared) : null;
+    }
+
+    private void TryTruncate(string id, long length)
+    {
+        try
+        {
+            using var part = new FileStream(Part(id), FileMode.Open, FileAccess.Write, FileShare.None);
+            part.SetLength(length);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort: the next HEAD reports whatever length the file really has.
+        }
+    }
+
+    private void TryDiscard(string id)
+    {
+        try
+        {
+            Discard(id);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort; the TTL sweep removes leftovers.
+        }
     }
 
     private void Discard(string id)

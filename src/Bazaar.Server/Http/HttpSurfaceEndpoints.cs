@@ -127,10 +127,26 @@ public static class HttpSurfaceEndpoints
             declared = normalized;
         }
 
-        var session = await http.RequestServices.GetRequiredService<IBlobStore>()
-            .CreateUploadAsync(principal.Id, length, declared, http.RequestAborted);
+        UploadSession? session;
+        try
+        {
+            session = await http.RequestServices.GetRequiredService<IBlobStore>()
+                .CreateUploadAsync(principal.Id, length, declared, http.RequestAborted);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return StorageUnavailable(http);
+        }
+
         if (session is null) return Error(StatusCodes.Status429TooManyRequests, "too_many_uploads");
         return Results.Json(new { upload_id = session.Id, offset = 0L, length }, statusCode: StatusCodes.Status201Created);
+    }
+
+    /// <summary>507 with a stable code and a retry hint: the blob volume is full, read-only or missing. Nothing else about the host is affected.</summary>
+    private static IResult StorageUnavailable(HttpContext http)
+    {
+        http.Response.Headers.RetryAfter = "30";
+        return Error(StatusCodes.Status507InsufficientStorage, "storage_unavailable");
     }
 
     private static async Task<IResult> UploadStatusAsync(HttpContext http, PrincipalRef principal, string id)
@@ -165,6 +181,7 @@ public static class HttpSurfaceEndpoints
             AppendStatus.OffsetMismatch => Error(StatusCodes.Status409Conflict, "offset_mismatch"),
             AppendStatus.HashMismatch => Error(StatusCodes.Status422UnprocessableEntity, "hash_mismatch"),
             AppendStatus.BadChunk => Error(StatusCodes.Status400BadRequest, "bad_chunk"),
+            AppendStatus.StorageUnavailable => StorageUnavailable(http),
             _ => Error(StatusCodes.Status404NotFound, "not_found"),
         };
     }
