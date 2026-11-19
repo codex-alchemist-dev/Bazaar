@@ -23,7 +23,8 @@ namespace Bazaar.Server.Http;
 /// <item><c>HEAD|PATCH /blobs/uploads/{id}</c> reports the offset or appends a chunk at <c>Upload-Offset</c>.</item>
 /// <item><c>GET /blobs/{hash}</c> serves a blob with range support; a non-viewer gets 404.</item>
 /// <item><c>GET /search?gc=&amp;q=</c> searches one GC, answering only what the caller can read.</item>
-/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19).</item>
+/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19). The projection is per
+/// viewer, by the Vault access rule that search uses: only nodes the caller may read, and only edges whose both ends they may read.</item>
 /// </list>
 /// </summary>
 public static class HttpSurfaceEndpoints
@@ -109,7 +110,7 @@ public static class HttpSurfaceEndpoints
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
 
-        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, http.RequestAborted);
+        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, GraphViewerFor(principal), http.RequestAborted);
         http.Response.StatusCode = response.StatusCode;
         http.Response.ContentType = response.ContentType;
         await http.Response.Body.WriteAsync(response.Body, http.RequestAborted);
@@ -317,6 +318,13 @@ public static class HttpSurfaceEndpoints
         "agent" => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: "agent:" + principal.Id.ToString("D")),
         _ => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: null),
     };
+
+    /// <summary>The Constellation viewer for a principal: the same reader as <see cref="VaultCallerFor"/>, so the graph and search agree.</summary>
+    private static GraphViewer GraphViewerFor(PrincipalRef principal)
+    {
+        var caller = VaultCallerFor(principal);
+        return new GraphViewer(caller.IsOwner, caller.AgentOwner);
+    }
 
     /// <summary>The search scope under which a GC's documents are indexed.</summary>
     public static string GcSearchScope(Guid gcId) => "gc:" + gcId.ToString("D");

@@ -1,4 +1,5 @@
 using Bazaar.Server.Vault.Links;
+using Bazaar.Server.Vault.Search;
 using Npgsql;
 
 namespace Bazaar.Server.Vault.Data;
@@ -299,6 +300,29 @@ public sealed class VaultIndexRepository(NpgsqlDataSource dataSource)
     /// <summary>Links that resolve to one document. Callers filter these by the caller's access before showing them.</summary>
     public async Task<IReadOnlyList<VaultLinkRecord>> GetBacklinksAsync(Guid docId, CancellationToken cancellationToken = default) =>
         await ReadLinksAsync("WHERE target_doc = $1", docId, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// The ids of the documents <paramref name="caller"/> may read, by the same SQL access clause search uses (doc 18, "Access").
+    /// Feeds the per-viewer Constellation graph.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> ListReadableDocIdsAsync(Guid vaultId, VaultCaller caller, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+        await using var cmd = dataSource.CreateCommand($"""
+            SELECT d.doc_id FROM vault_docs d WHERE d.vault_id = $3 AND {VaultSearchRepository.AccessClause} ORDER BY d.doc_id
+            """);
+        cmd.Parameters.AddWithValue(caller.IsOwner);
+        cmd.Parameters.AddWithValue((object?)caller.AgentOwner ?? DBNull.Value);
+        cmd.Parameters.AddWithValue(vaultId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var ids = new List<Guid>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            ids.Add(reader.GetGuid(0));
+        }
+
+        return ids;
+    }
 
     /// <summary>
     /// Resolved links between documents of one Vault, as (source, target) pairs. Feeds the Constellation graph, which needs no
