@@ -5,10 +5,9 @@ namespace Bazaar.Constellation.Vulkan.Tests;
 
 /// <summary>
 /// Runs <see cref="HiZPyramidPass"/> on the physical GPU against known depth images and compares every pyramid mip with the CPU
-/// reference (<see cref="HiZPyramid"/>, reversed-Z, conservative MIN). Power-of-two sizes must match the reference texel for texel.
-/// Odd sizes use the GPU's 3x3 footprint rule on the last texel (so no source texel is dropped), which the 2x2 reference does not
-/// have, so they are checked against a CPU emulation of that rule plus the invariants that matter for culling: every mip keeps the
-/// global minimum, and the 1x1 mip equals it. The test uses the offscreen renderer's device with the validation layer on and
+/// reference (<see cref="HiZPyramid"/>, reversed-Z, conservative MIN), texel for texel, for power-of-two and odd sizes (the reference
+/// follows the GPU rule: ceil size for the first level, floor size and a 3-wide last texel on odd sources after that). Odd sizes also
+/// check that every mip keeps the global minimum and that the 1x1 mip equals it. The test uses the offscreen renderer's device with the validation layer on and
 /// fails on any validation error. It skips where the loader finds no usable device.
 /// </summary>
 public unsafe class HiZPyramidPassGpuTests
@@ -61,32 +60,37 @@ public unsafe class HiZPyramidPassGpuTests
 
     [Theory]
     [MemberData(nameof(OddSizes))]
-    public void Odd_depth_images_follow_the_footprint_rule_and_never_drop_a_texel(int width, int height)
+    public void Odd_depth_images_match_the_cpu_reference_texel_for_texel_and_keep_the_global_minimum(int width, int height)
     {
         using VulkanOffscreenRenderer renderer = CreateOrSkip();
         float[] depth = MakeDepth(width, height, seed: 11);
         List<float[]> gpu = BuildOnGpu(renderer, depth, width, height, out (int W, int H)[] sizes);
-
-        // CPU emulation of hiz_downsample.comp.glsl, mip by mip, with the plan's sizes.
-        (uint baseW, uint baseH) = HiZPyramidPlan.BaseExtent((uint)width, (uint)height);
-        float[] source = depth;
-        int sourceW = width;
-        int sourceH = height;
+        var reference = new HiZPyramid(depth, width, height);
         float globalMin = depth.Min();
+        if (reference.LevelCount == 1)
+        {
+            // A 1x1 depth image has no coarser reference level; the GPU pyramid still has its single 1x1 mip, which is the texel itself.
+            Assert.Single(gpu);
+            Assert.Equal(depth[0], gpu[0][0]);
+            AssertNoValidationErrors(renderer);
+            return;
+        }
+
+        Assert.Equal(reference.LevelCount - 1, gpu.Count);
         for (int mip = 0; mip < gpu.Count; mip++)
         {
-            (uint dw, uint dh) = HiZPyramidPlan.MipExtent(baseW, baseH, (uint)mip);
-            Assert.Equal(((int)dw, (int)dh), sizes[mip]);
-            float[] expected = EmulateShader(source, sourceW, sourceH, (int)dw, (int)dh);
-            for (int i = 0; i < expected.Length; i++)
+            int level = mip + 1;
+            Assert.Equal((reference.LevelWidth(level), reference.LevelHeight(level)), sizes[mip]);
+            for (int y = 0; y < sizes[mip].H; y++)
             {
-                Assert.True(expected[i] == gpu[mip][i], $"{width}x{height} mip {mip} texel {i}: GPU {gpu[mip][i]} != footprint rule {expected[i]}");
+                for (int x = 0; x < sizes[mip].W; x++)
+                {
+                    float actual = gpu[mip][(y * sizes[mip].W) + x];
+                    Assert.True(reference.Get(level, x, y) == actual, $"{width}x{height} mip {mip} texel ({x},{y}): GPU {actual} != reference {reference.Get(level, x, y)}");
+                }
             }
 
             Assert.Equal(globalMin, gpu[mip].Min());
-            source = expected;
-            sourceW = (int)dw;
-            sourceH = (int)dh;
         }
 
         Assert.Single(gpu[^1]);
@@ -116,34 +120,6 @@ public unsafe class HiZPyramidPassGpuTests
         }
 
         return depth;
-    }
-
-    /// <summary>The shader's rule: 3x3 min over (2d, 2d+1, extra) with clamping; the extra column or row only on an odd source's last texel.</summary>
-    private static float[] EmulateShader(float[] source, int sourceW, int sourceH, int destW, int destH)
-    {
-        var result = new float[destW * destH];
-        for (int dy = 0; dy < destH; dy++)
-        {
-            for (int dx = 0; dx < destW; dx++)
-            {
-                bool extraX = (sourceW & 1) == 1 && dx == destW - 1;
-                bool extraY = (sourceH & 1) == 1 && dy == destH - 1;
-                int[] cols = [dx * 2, (dx * 2) + 1, extraX ? (dx * 2) + 2 : (dx * 2) + 1];
-                int[] rows = [dy * 2, (dy * 2) + 1, extraY ? (dy * 2) + 2 : (dy * 2) + 1];
-                float min = float.MaxValue;
-                foreach (int row in rows)
-                {
-                    foreach (int col in cols)
-                    {
-                        min = Math.Min(min, source[(Math.Min(row, sourceH - 1) * sourceW) + Math.Min(col, sourceW - 1)]);
-                    }
-                }
-
-                result[(dy * destW) + dx] = min;
-            }
-        }
-
-        return result;
     }
 
     /// <summary>Uploads <paramref name="depth"/> into a D32 image, runs the pass, and reads every mip back as floats.</summary>
