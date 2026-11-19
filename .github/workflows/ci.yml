@@ -72,16 +72,18 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          docker rm -f bazaar-pg >/dev/null 2>&1 || true
-          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+          PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
+          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             pgvector/pgvector:pg18
           for _ in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
           done
-          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
-          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ]
+          PG_PORT="$(docker port "$PG_NAME" 5432/tcp | head -n1 | sed 's/.*://')"
+          echo "BAZAAR_TEST_PG=Host=127.0.0.1;Port=${PG_PORT};Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          echo "PG_NAME=$PG_NAME" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux)
         if: runner.os == 'Linux'
@@ -93,6 +95,10 @@ jobs:
         run: ./build.ps1
 
       # Test output is only kept when the run fails, to keep artifact storage small.
+      - name: Remove the PostgreSQL container
+        if: always() && env.PG_NAME != ''
+        run: docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -307,20 +313,26 @@ jobs:
       - name: Build and start PostgreSQL 19 RC with pgvector
         run: |
           set -euo pipefail
-          docker rm -f bazaar-pg >/dev/null 2>&1 || true
+          PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
-          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             bazaar-pg19:ci
           for _ in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
           done
-          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
-          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ]
+          PG_PORT="$(docker port "$PG_NAME" 5432/tcp | head -n1 | sed 's/.*://')"
+          echo "BAZAAR_TEST_PG=Host=127.0.0.1;Port=${PG_PORT};Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          echo "PG_NAME=$PG_NAME" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux, PostgreSQL 19 RC)
         run: ./build.sh
+
+      - name: Remove the PostgreSQL container
+        if: always() && env.PG_NAME != ''
+        run: docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
 
       - name: Upload test results on failure
         if: failure()
