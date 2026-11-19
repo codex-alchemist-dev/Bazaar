@@ -45,7 +45,7 @@ Four roles ship in v1; two more are listed for later. Presets are data files (do
 
 | Preset | Role | Model lane | Session type | Notes |
 |---|---|---|---|---|
-| Legal lead | Owns the legal brief for each review: weighs the analyst's findings and the adversary's objections, states the risk rating and what is unknown. Escalates to human counsel. | Frontier whitelist (Claude architect lane and Gemi lane, by availability); Opus or Fable only when the live model list shows them | Actor (reads only validated findings, never raw terms) | Advisory (section 6). Not in `peer_approvers`. |
+| Legal lead | Owns the legal brief for each review: weighs the analyst's findings and the adversary's objections, states the risk rating and what is unknown. Escalates to human counsel. | Frontier whitelist (Claude architect lane and Gemi lane, by availability); Opus or Fable only when the live model list shows them | Actor (reads only validated findings, never raw terms) | Head of legal (owner, 2026-11-19): always a frontier-tier model, and a senior peer for doc 15 account approval (section 6.1). Advisory on Council motions (Q1). |
 | Terms analyst | Reads the raw terms text and produces a structured `TermsReview`: clause by clause, verbatim quote plus locator for every finding. | Frontier whitelist, a different provider from the Legal lead where two lanes exist | Reader (holds untrusted text, no credentials, no outward tools) | Output is schema-validated; free text never reaches actors. |
 | Adversarial reviewer | Second, independent read of the same text: looks for what the analyst missed or softened. Votes blind before seeing the analyst's output (doc 10 independent-first pattern). | A different model family from the analyst | Reader | Disagreement between analyst and adversary is itself a finding. |
 | Terms clerk | Keeps the ledger, fetches snapshots, hashes, diffs, schedules re-checks, drafts the owner notice. Mostly deterministic module code; the Soul only phrases notices. | Cheap `custom/*` whitelist (doc 07 Juniors lane) | Actor, no external content | Cheapest member by design. |
@@ -85,7 +85,7 @@ A template does not reach the hiring vote until it passes the legal eval (doc 34
 
 ### 5.2 Account approval and agent-accepted terms (doc 15)
 
-Before the two senior peers approve a sign-up, the request shows the terms link (doc 15) plus the Legal lead's brief and the snapshot hash. The peers still decide; they are not bound by the brief but see a rating of `blocked` as a hard stop: a `blocked` brief makes the request Deny, never reaching the peers.
+Before the two senior peers approve a sign-up, the request shows the terms link (doc 15) plus the Legal lead's brief and the snapshot hash. The peers (the Legal lead may be one of them, section 6.1) still decide; they are not bound by the brief but see a rating of `blocked` as a hard stop: a `blocked` brief makes the request Deny, never reaching the peers.
 
 The gate holds the other direction too: if the terms shown to the agent at acceptance time hash differently from the reviewed snapshot, acceptance is refused and the review is redone. This closes the window where a site swaps terms between approval and click.
 
@@ -112,7 +112,9 @@ Dependencies follow the soft-edge rule: **hard** on `settings` and `audit`; **so
 
 ### 6.1 Authority limits (enforced in code, not charter)
 
-- The legal team has no approval power: it is not in `security.account_approval.peer_approvers` by default, it has no Council vote on `site_allowlist` or any motion (advisory seat, see Q1), and it holds no Passport credentials or outward tools.
+- **Head of legal is a senior peer (owner, 2026-11-19: "at least one senior/frontier-tier model agent as the head of legal ... they count as a frontier-tier senior too").** The Legal lead must run on a frontier whitelist route, never a fallback, and is added to the shipped default of `security.account_approval.peer_approvers`, so its approval counts toward the two-peer quorum (doc 15). Two guards keep review and approval honest: at least one of the two approvers must be outside the legal team, and a `blocked` brief makes the request Deny before any approval counts. All other doc 15 peer rules apply (not the requester, untainted session, frontier model).
+- Otherwise the team has no approval power: it has no Council vote on `site_allowlist` or any motion (advisory seat, Q1), and it holds no Passport credentials or outward tools.
+- If the install has no frontier lane for the Legal lead, it is not hired as head of legal; the clerk and analyst roles can run, and the brief goes to the existing senior peers.
 - The gate is one-way: a legal rating can add a Deny or an escalation; it can never turn a Deny, Tier 3 or owner-only item into an allowed one, and never lowers a quorum or an expiry.
 - Violating any of that is a module bug caught by an architecture/contract test, not a policy a Soul can argue its way past.
 
