@@ -96,6 +96,9 @@ public sealed partial class ParserJsonContext : JsonSerializerContext;
 /// <summary>Length-prefixed frames: a 4-byte little-endian length, then that many bytes of UTF-8 JSON.</summary>
 public static class ParserFrames
 {
+    /// <summary>Bytes read from the pipe per step while a frame body is collected.</summary>
+    public const int ChunkBytes = 64 * 1024;
+
     /// <summary>The largest frame a reader accepts for records of <paramref name="maxRecordBytes"/> (JSON escaping can double a body).</summary>
     public static int MaxFrameBytes(int maxRecordBytes) =>
         (int)Math.Min(int.MaxValue, (2L * maxRecordBytes) + (1024 * 1024));
@@ -115,10 +118,19 @@ public static class ParserFrames
         if (got < 4) throw new InvalidDataException("truncated frame header");
         var length = BinaryPrimitives.ReadInt32LittleEndian(header);
         if (length < 0 || length > maxFrameBytes) throw new FrameTooLargeException(length, maxFrameBytes);
-        var body = new byte[length];
-        if (await ReadUpToAsync(stream, body, ct).ConfigureAwait(false) < length)
-            throw new InvalidDataException("truncated frame body");
-        return body;
+        // Read in bounded chunks: the announced length alone never allocates, so a child that sends a header and then
+        // nothing pins at most one chunk.
+        using var body = new MemoryStream();
+        var chunk = new byte[Math.Min(length, ChunkBytes)];
+        var remaining = length;
+        while (remaining > 0)
+        {
+            var n = await stream.ReadAsync(chunk.AsMemory(0, Math.Min(chunk.Length, remaining)), ct).ConfigureAwait(false);
+            if (n == 0) throw new InvalidDataException("truncated frame body");
+            body.Write(chunk, 0, n);
+            remaining -= n;
+        }
+        return body.ToArray();
     }
 
     /// <summary>Reads and decodes one response frame, or null at a clean end of stream.</summary>

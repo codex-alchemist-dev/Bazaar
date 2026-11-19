@@ -92,48 +92,50 @@ public class ParserSandboxTests
     }
 
     [Fact]
-    public void A_hanging_parse_is_killed_at_the_record_timeout_and_the_job_fails()
+    public void A_hanging_parse_is_killed_at_the_job_timeout_and_the_job_fails()
     {
-        var runner = Runner(o => o with { RecordTimeout = TimeSpan.FromSeconds(1) });
+        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(1) });
         var started = Stopwatch.StartNew();
 
         var error = Fails(() => runner.Parse("test.hang", Source()));
 
-        Assert.Equal(ParserFailureKind.Timeout, error.Kind);
-        Assert.Contains("record", error.Message, StringComparison.Ordinal);
+        Assert.Equal(ParserFailureKind.JobTimeout, error.Kind);
+        Assert.Contains("job", error.Message, StringComparison.Ordinal);
         Assert.True(started.Elapsed < TimeSpan.FromSeconds(20), "the kill must not wait for the hang");
     }
 
     [Fact]
     public void A_hanging_detect_is_killed_too()
     {
-        var runner = Runner(o => o with { RecordTimeout = TimeSpan.FromSeconds(1) });
+        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(1) });
 
         var error = Assert.Throws<ParserSandboxException>(() => runner.Detect("test.hangdetect", Source()));
 
-        Assert.Equal(ParserFailureKind.Timeout, error.Kind);
+        Assert.Equal(ParserFailureKind.JobTimeout, error.Kind);
     }
 
     [Fact]
-    public void The_job_timeout_ends_a_job_even_when_each_record_is_in_time()
+    public void The_wait_for_the_first_frame_uses_the_job_timeout_not_the_frame_gap_timeout()
     {
-        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(1) });
-
-        var error = Fails(() => runner.Parse("test.hang", Source()));
-
-        Assert.Equal(ParserFailureKind.Timeout, error.Kind);
-        Assert.Contains("job", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void A_slow_record_fails_the_record_timeout_but_not_a_longer_one()
-    {
-        Assert.Equal(
-            ParserFailureKind.Timeout,
-            Assert.Throws<ParserSandboxException>(() => Runner(o => o with { RecordTimeout = TimeSpan.FromSeconds(1) }).Parse("test.slow", Source())).Kind);
-
-        var records = Runner(o => o with { RecordTimeout = TimeSpan.FromSeconds(30) }).Parse("test.slow", Source());
+        // The slow importer needs about 4 s before its first frame. A 1 s frame-gap timeout must not apply to that wait.
+        var records = Runner(o => o with { FrameGapTimeout = TimeSpan.FromSeconds(1) }).Parse("test.slow", Source());
         Assert.Equal("late", Assert.Single(records).Body);
+
+        var error = Assert.Throws<ParserSandboxException>(() =>
+            Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(1) }).Parse("test.slow", Source()));
+        Assert.Equal(ParserFailureKind.JobTimeout, error.Kind);
+    }
+
+    [Fact]
+    public void A_job_timeout_does_not_feed_the_crash_loop()
+    {
+        var sink = new RecordingSink();
+        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(1), CrashLoopThreshold = 1 }, sink);
+
+        Assert.Equal(ParserFailureKind.JobTimeout, Assert.Throws<ParserSandboxException>(() => runner.Parse("test.hang", Source())).Kind);
+
+        Assert.False(runner.CrashTracker.IsOpen("test.hang"));
+        Assert.Empty(sink.Signals);
     }
 
     [Fact]
@@ -141,12 +143,102 @@ public class ParserSandboxTests
     {
         Assert.SkipUnless(OperatingSystem.IsLinux(), "the /proc scan is Linux only");
         var marker = "7" + Random.Shared.Next(100000, 999999) + ".5";
-        var runner = Runner(o => o with { RecordTimeout = TimeSpan.FromSeconds(2) });
+        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(2) });
 
         var error = Assert.Throws<ParserSandboxException>(() => runner.Parse("test.spawn", Source(marker)));
 
-        Assert.Equal(ParserFailureKind.Timeout, error.Kind);
+        Assert.Equal(ParserFailureKind.JobTimeout, error.Kind);
         Assert.False(ProcessWithArgumentExists(marker), "the grandchild must be killed with the tree");
+    }
+
+    [Fact]
+    public void An_incomplete_record_frame_is_a_protocol_violation()
+    {
+        var runner = Runner();
+
+        var error = Fails(() => runner.Parse("test.nullattrs", Source()));
+
+        Assert.Equal(ParserFailureKind.ProtocolViolation, error.Kind);
+    }
+
+    [Fact]
+    public void A_detect_confidence_outside_zero_to_one_is_a_protocol_violation()
+    {
+        var error = Assert.Throws<ParserSandboxException>(() => Runner().Detect("test.badconfidence", Source()));
+
+        Assert.Equal(ParserFailureKind.ProtocolViolation, error.Kind);
+    }
+
+    [Fact]
+    public void An_oversize_or_control_character_source_name_is_refused_before_a_child_starts()
+    {
+        var runner = Runner();
+
+        var long_ = Assert.Throws<ParserSandboxException>(() => runner.Parse("bazaar.import.txt", Source(new string('n', ParserSandboxRunner.MaxSourceNameBytes + 1))));
+        var control = Assert.Throws<ParserSandboxException>(() => runner.Parse("bazaar.import.txt", Source("a\nb.txt")));
+
+        Assert.Equal(ParserFailureKind.LimitExceeded, long_.Kind);
+        Assert.Equal(ParserFailureKind.LimitExceeded, control.Kind);
+        Assert.Null(runner.LastRun);
+    }
+
+    [Fact]
+    public void A_host_that_rejects_the_request_is_a_bad_request_not_a_crash()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
+        var script = Path.Combine(Path.GetTempPath(), "bazaar-exit2-" + Guid.NewGuid().ToString("N") + ".sh");
+        File.WriteAllText(script, "exit 2\n");
+        try
+        {
+            var sink = new RecordingSink();
+            var runner = Runner(o => o with { DotnetPath = "/bin/sh", HostAssemblyPath = script, CrashLoopThreshold = 1 }, sink);
+
+            var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+
+            Assert.Equal(ParserFailureKind.BadRequest, error.Kind);
+            Assert.False(runner.CrashTracker.IsOpen("bazaar.import.txt"));
+            Assert.Empty(sink.Signals);
+        }
+        finally
+        {
+            File.Delete(script);
+        }
+    }
+
+    [Fact]
+    public void A_provider_that_fails_to_attach_ends_the_job_cleanly_and_is_not_a_crash()
+    {
+        var runner = Runner(o => o with { CrashLoopThreshold = 1 }, confinement: new ThrowingAttachConfinement());
+
+        var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.ConfinementUnavailable, error.Kind);
+        Assert.False(runner.CrashTracker.IsOpen("bazaar.import.txt"));
+    }
+
+    [Fact]
+    public void The_default_confinement_on_linux_is_the_linux_provider()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Linux default");
+
+        Assert.IsType<LinuxParserConfinement>(ParserConfinements.CreateDefault());
+    }
+
+    [Fact]
+    public void The_default_output_cap_is_256_mib()
+    {
+        Assert.Equal(256L * 1024 * 1024, new ParserSandboxOptions().MaxOutputBytes);
+    }
+
+    private sealed class ThrowingAttachConfinement : IParserConfinement
+    {
+        public string Name => "throwing";
+
+        public ConfinementPlan Prepare(ConfinementLimits limits, LaunchCommand command) =>
+            new(command, [], [])
+            {
+                AttachAfterStart = _ => throw new InvalidProgramException("attach failed"),
+            };
     }
 
     private static bool ProcessWithArgumentExists(string marker)
@@ -283,7 +375,7 @@ public class ParserSandboxTests
 
         var error = Fails(() => runner.Parse("test.hog", Source()));
 
-        Assert.Equal(ParserFailureKind.Crash, error.Kind);
+        Assert.Equal(ParserFailureKind.LimitExceeded, error.Kind);
     }
 
     [Fact]
@@ -378,7 +470,7 @@ public class ParserSandboxTests
     [Fact]
     public void Options_reject_values_below_their_floors()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ParserSandboxOptions { RecordTimeout = TimeSpan.Zero }.Validate());
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ParserSandboxOptions { FrameGapTimeout = TimeSpan.Zero }.Validate());
         Assert.Throws<ArgumentOutOfRangeException>(() => new ParserSandboxOptions { MaxMemoryBytes = 1024 }.Validate());
         Assert.Throws<ArgumentOutOfRangeException>(() => new ParserSandboxOptions { CrashLoopThreshold = 0 }.Validate());
         new ParserSandboxOptions().Validate();

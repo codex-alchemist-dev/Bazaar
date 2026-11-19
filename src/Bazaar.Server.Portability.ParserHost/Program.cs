@@ -119,7 +119,12 @@ catch (ImportLimitException ex)
     Fail(stdout, ParserErrorKinds.Limit, ex.Message);
     return 0;
 }
-catch (Exception ex) when (ex is not OutOfMemoryException)
+catch (OutOfMemoryException)
+{
+    Fail(stdout, ParserErrorKinds.Limit, "the parser ran out of memory (memory ceiling)");
+    return 0;
+}
+catch (Exception ex)
 {
     Fail(stdout, ParserErrorKinds.Parser, ex.GetType().Name + ": " + ex.Message);
     return 0;

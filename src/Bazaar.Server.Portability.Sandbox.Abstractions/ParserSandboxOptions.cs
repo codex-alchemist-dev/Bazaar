@@ -13,14 +13,14 @@ public sealed record ParserSandboxOptions
     /// <summary>Default CPU-time ceiling for the child, 300 seconds.</summary>
     public const int DefaultMaxCpuSeconds = 300;
 
-    /// <summary>Default cap on all bytes the child may write back for one job, 1 GiB.</summary>
-    public const long DefaultMaxOutputBytes = 1L * 1024 * 1024 * 1024;
+    /// <summary>Default cap on all bytes the child may write back for one job, 256 MiB.</summary>
+    public const long DefaultMaxOutputBytes = 256L * 1024 * 1024;
 
     /// <summary>Default number of abnormal child endings that open the crash-loop circuit.</summary>
     public const int DefaultCrashLoopThreshold = 3;
 
-    /// <summary>Default wall-clock allowance between two frames from the child (one record), 30 seconds.</summary>
-    public static TimeSpan DefaultRecordTimeout => TimeSpan.FromSeconds(30);
+    /// <summary>Default wall-clock allowance between two frames from the child, 30 seconds.</summary>
+    public static TimeSpan DefaultFrameGapTimeout => TimeSpan.FromSeconds(30);
 
     /// <summary>Default wall-clock allowance for a whole detect or parse job, 15 minutes.</summary>
     public static TimeSpan DefaultJobTimeout => TimeSpan.FromMinutes(15);
@@ -40,8 +40,12 @@ public sealed record ParserSandboxOptions
     /// <summary>Size and shape limits the child enforces.</summary>
     public ImportLimits Limits { get; init; } = ImportLimits.Default;
 
-    /// <summary>Wall-clock allowance for one record, measured as the wait for the next frame.</summary>
-    public TimeSpan RecordTimeout { get; init; } = DefaultRecordTimeout;
+    /// <summary>
+    /// Wall-clock allowance between two frames from the child, after the first. This is not a per-record parse timeout:
+    /// the importer contract returns a materialized list, so the whole parse happens before the first frame, and that
+    /// wait is bounded by <see cref="JobTimeout"/> only.
+    /// </summary>
+    public TimeSpan FrameGapTimeout { get; init; } = DefaultFrameGapTimeout;
 
     /// <summary>Wall-clock allowance for the whole job.</summary>
     public TimeSpan JobTimeout { get; init; } = DefaultJobTimeout;
@@ -72,7 +76,7 @@ public sealed record ParserSandboxOptions
     public void Validate()
     {
         ArgumentNullException.ThrowIfNull(Limits);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(RecordTimeout, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(FrameGapTimeout, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(JobTimeout, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxMemoryBytes, 64L * 1024 * 1024);
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxCpuSeconds, 1);

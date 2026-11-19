@@ -14,6 +14,9 @@ public sealed class ParserSandboxRunner
 {
     private const string _hostFileName = "Bazaar.Server.Portability.ParserHost.dll";
     private const int _stderrTailChars = 2048;
+
+    /// <summary>Longest source name, in UTF-8 bytes, that is sent to the child.</summary>
+    public const int MaxSourceNameBytes = 1024;
     private static readonly TimeSpan _exitGrace = TimeSpan.FromSeconds(5);
     private static readonly string[] _inheritedEnvironment =
         ["PATH", "DOTNET_ROOT", "SystemRoot", "windir", "TEMP", "TMP", "TMPDIR"];
@@ -44,6 +47,7 @@ public sealed class ParserSandboxRunner
     public async Task<DetectResult> DetectAsync(string importerId, ImportSource source, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(source);
+        CheckSourceName(source.Name);
         var request = ParserRequest.For(ParserOps.Detect, importerId, source.Name, source.Content.LongLength, _options.Limits);
         var messages = await RunAsync(request, source.Content, importerId, ct).ConfigureAwait(false);
         var detect = messages.FirstOrDefault(m => m.Type == ParserMessageTypes.DetectResult)
@@ -54,9 +58,11 @@ public sealed class ParserSandboxRunner
     public async Task<IReadOnlyList<SourceRecord>> ParseAsync(string importerId, ImportSource source, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(source);
+        CheckSourceName(source.Name);
         var request = ParserRequest.For(ParserOps.Parse, importerId, source.Name, source.Content.LongLength, _options.Limits);
         var messages = await RunAsync(request, source.Content, importerId, ct).ConfigureAwait(false);
-        return [.. messages.Where(m => m.Type == ParserMessageTypes.Record).Select(m => m.Record!)];
+        // ValidateMessage guarantees every record frame carries a complete record.
+        return [.. messages.Where(m => m.Type == ParserMessageTypes.Record).Select(m => m.Record ?? throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "record frame without a record"))];
     }
 
     /// <summary>Asks the child which importers it can run. Used to build <see cref="SandboxedImporter"/> wrappers.</summary>
@@ -142,7 +148,7 @@ public sealed class ParserSandboxRunner
             {
                 guard = plan.AttachAfterStart?.Invoke(process) ?? new ProcessTreeGuard(process);
             }
-            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+            catch (Exception ex)
             {
                 new ProcessTreeGuard(process).KillTree();
                 throw new ParserSandboxException(ParserFailureKind.ConfinementUnavailable, "the confinement provider could not attach to the child: " + ex.Message, ex);
@@ -218,8 +224,10 @@ public sealed class ParserSandboxRunner
         {
             while (true)
             {
-                using var recordCts = new CancellationTokenSource(_options.RecordTimeout);
-                using var recordReg = recordCts.Token.Register(() => Kill(1));
+                // Parse returns a materialized list, so the first frame only arrives after the whole parse. That wait is
+                // bounded by the job timeout alone; the frame-gap timeout applies between the frames that follow.
+                using var gapCts = new CancellationTokenSource(messages.Count == 0 ? Timeout.InfiniteTimeSpan : _options.FrameGapTimeout);
+                using var gapReg = gapCts.Token.Register(() => Kill(1));
                 byte[]? body;
                 try
                 {
@@ -244,11 +252,18 @@ public sealed class ParserSandboxRunner
                 {
                     message = System.Text.Json.JsonSerializer.Deserialize(body, ParserJsonContext.Default.ParserMessage)
                         ?? throw new System.Text.Json.JsonException("empty message");
+                    ValidateMessage(request.Op, message);
                 }
-                catch (System.Text.Json.JsonException ex)
+                catch (ParserSandboxException)
                 {
                     guard.KillTree();
-                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent a frame that is not valid JSON", ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Any failure to decode a child frame is a protocol violation, never a server error.
+                    guard.KillTree();
+                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent a frame that is not valid: " + ex.Message, ex);
                 }
 
                 if (message.Type is ParserMessageTypes.Done or ParserMessageTypes.Error)
@@ -293,14 +308,19 @@ public sealed class ParserSandboxRunner
 
         await Task.WhenAll(writeTask, stderrTask).ConfigureAwait(false);
 
-        switch (Volatile.Read(ref timeoutReason))
+        // A finished job (done or error frame) stands even if a timer fired while the child was exiting.
+        if (terminal is null)
         {
-            case 1:
-                throw new ParserSandboxException(ParserFailureKind.Timeout, $"the parser did not finish a record within {_options.RecordTimeout}; its process tree was killed");
-            case 2:
-                throw new ParserSandboxException(ParserFailureKind.Timeout, $"the parser job ran longer than {_options.JobTimeout}; its process tree was killed");
-            case 3:
-                throw new OperationCanceledException(ct);
+            switch (Volatile.Read(ref timeoutReason))
+            {
+                case 1:
+                    throw new ParserSandboxException(ParserFailureKind.Timeout, $"the parser sent no frame for {_options.FrameGapTimeout}; its process tree was killed");
+                case 2:
+                    // Not counted toward the crash loop: a legitimately slow parse of a large source looks the same.
+                    throw new ParserSandboxException(ParserFailureKind.JobTimeout, $"the parser job ran longer than {_options.JobTimeout}; its process tree was killed");
+                case 3:
+                    throw new OperationCanceledException(ct);
+            }
         }
 
         if (readFailure is FrameTooLargeException tooLarge)
@@ -316,8 +336,16 @@ public sealed class ParserSandboxRunner
             {
                 tail = stderrTail.ToString().Trim();
             }
+            var exitCode = process.HasExited ? process.ExitCode : -1;
+            var combined = tail + (readFailure?.Message ?? string.Empty);
+            // Exit code 2 is the host rejecting the request: the caller's input, not a crash.
+            var failure = exitCode == 2 && readFailure is null
+                ? ParserFailureKind.BadRequest
+                : combined.Contains("OutOfMemory", StringComparison.OrdinalIgnoreCase) || combined.Contains("Out of memory", StringComparison.OrdinalIgnoreCase)
+                    ? ParserFailureKind.LimitExceeded
+                    : ParserFailureKind.Crash;
             throw new ParserSandboxException(
-                ParserFailureKind.Crash,
+                failure,
                 $"the parser process ended without a result (exit code {exit})" + (tail.Length > 0 ? ": " + tail : string.Empty)
                 + (readFailure is null ? string.Empty : "; " + readFailure.Message));
         }
@@ -335,6 +363,54 @@ public sealed class ParserSandboxRunner
         }
 
         return messages;
+    }
+
+    private static void CheckSourceName(string name)
+    {
+        if (Encoding.UTF8.GetByteCount(name) > MaxSourceNameBytes)
+        {
+            throw new ParserSandboxException(ParserFailureKind.LimitExceeded, $"the source name is over {MaxSourceNameBytes} bytes");
+        }
+        foreach (var c in name)
+        {
+            if (char.IsControl(c))
+            {
+                throw new ParserSandboxException(ParserFailureKind.LimitExceeded, "the source name contains a control character");
+            }
+        }
+    }
+
+    /// <summary>Every child frame is untrusted: a frame must be complete for its type before the server uses it.</summary>
+    private static void ValidateMessage(string op, ParserMessage message)
+    {
+        switch (message.Type)
+        {
+            case ParserMessageTypes.Record:
+                var r = message.Record;
+                if (op != ParserOps.Parse || r is null || r.SourceKey is null || r.Kind is null || r.Title is null || r.Body is null || r.Attributes is null
+                    || r.Attributes.Any(a => a.Key is null || a.Value is null))
+                {
+                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent an incomplete record frame");
+                }
+                break;
+            case ParserMessageTypes.DetectResult:
+                if (op != ParserOps.Detect || !(message.Confidence >= 0 && message.Confidence <= 1))
+                {
+                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent an invalid detect frame");
+                }
+                break;
+            case ParserMessageTypes.Importers:
+                if (op != ParserOps.List || message.Importers is null || message.Importers.Any(i => i is null || string.IsNullOrEmpty(i.Id) || i.Version is null))
+                {
+                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent an invalid importer list");
+                }
+                break;
+            case ParserMessageTypes.Done:
+            case ParserMessageTypes.Error:
+                break;
+            default:
+                throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent an unknown frame type");
+        }
     }
 
     private static void WriteInput(Process process, ParserRequest request, byte[] content)

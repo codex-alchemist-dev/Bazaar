@@ -25,6 +25,18 @@ public sealed class ParserCrashTracker
         _time = time ?? TimeProvider.System;
     }
 
+    /// <summary>How many importers the tracker currently holds state for. Aged-out importers are pruned.</summary>
+    public int TrackedImporterCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _states.Count;
+            }
+        }
+    }
+
     /// <summary>True while the circuit for this importer is open.</summary>
     public bool IsOpen(string importerId)
     {
@@ -52,6 +64,7 @@ public sealed class ParserCrashTracker
         lock (_gate)
         {
             var now = _time.GetUtcNow();
+            Prune(now);
             if (!_states.TryGetValue(importerId, out var state))
             {
                 state = new State();
@@ -105,6 +118,22 @@ public sealed class ParserCrashTracker
         lock (_gate)
         {
             _states.Remove(importerId);
+        }
+    }
+
+    /// <summary>Drops importers whose circuit is closed and whose failures have all aged out, so the map cannot grow without bound.</summary>
+    private void Prune(DateTimeOffset now)
+    {
+        List<string>? stale = null;
+        foreach (var (id, state) in _states)
+        {
+            var open = state.OpenUntil is { } until && until > now;
+            var recent = state.Failures.Count > 0 && now - state.Failures.Peek() <= _window;
+            if (!open && !recent) (stale ??= []).Add(id);
+        }
+        if (stale is not null)
+        {
+            foreach (var id in stale) _states.Remove(id);
         }
     }
 

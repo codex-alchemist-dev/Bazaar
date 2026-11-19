@@ -114,4 +114,32 @@ public class CrashTrackerAndFramesTests
 
         Assert.Equal(limits, back);
     }
+
+    [Fact]
+    public async Task A_frame_header_with_no_body_does_not_allocate_the_announced_length()
+    {
+        // Announces 100 MiB, then ends. The reader must fail without ever holding that much.
+        var header = BitConverter.GetBytes(100 * 1024 * 1024);
+        using var stream = new MemoryStream(header);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => ParserFrames.ReadFrameAsync(stream, 200 * 1024 * 1024, CancellationToken.None));
+
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 8 * 1024 * 1024);
+    }
+
+    [Fact]
+    public void Importers_with_no_recent_failures_are_pruned_from_the_tracker()
+    {
+        var time = new ManualTime();
+        var tracker = new ParserCrashTracker(3, TimeSpan.FromMinutes(10), null, time);
+        tracker.RecordFailure("a", "x");
+        tracker.RecordFailure("b", "x");
+        Assert.Equal(2, tracker.TrackedImporterCount);
+
+        time.Advance(TimeSpan.FromMinutes(11));
+        tracker.RecordFailure("c", "x");
+
+        Assert.Equal(1, tracker.TrackedImporterCount);
+    }
 }

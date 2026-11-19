@@ -7,8 +7,33 @@ namespace Bazaar.Server.Portability.Sandbox;
 /// <summary>Chooses the confinement provider for the running OS. Windows registers its job-object provider from Bazaar.Server.Providers.Windows.</summary>
 public static class ParserConfinements
 {
-    public static IParserConfinement CreateDefault() =>
-        OperatingSystem.IsLinux() ? new LinuxParserConfinement() : new TreeKillOnlyConfinement();
+    private const string _windowsProviders = "Bazaar.Server.Providers.Windows.WindowsProviders, Bazaar.Server.Providers.Windows";
+
+    /// <summary>
+    /// Linux gets the rlimit and namespace provider. Windows gets the job-object provider from
+    /// <c>WindowsProviders.ParserConfinement()</c> in Bazaar.Server.Providers.Windows, found by name because that assembly
+    /// depends on the server and this one must not. If it is not deployed, the tree-kill-only fallback is used and every
+    /// confinement item is reported as not applied (so <c>RequireFullConfinement</c> refuses to run).
+    /// </summary>
+    public static IParserConfinement CreateDefault()
+    {
+        if (OperatingSystem.IsLinux()) return new LinuxParserConfinement();
+        if (OperatingSystem.IsWindows() && LoadWindowsProvider() is { } windows) return windows;
+        return new TreeKillOnlyConfinement();
+    }
+
+    internal static IParserConfinement? LoadWindowsProvider()
+    {
+        try
+        {
+            var type = Type.GetType(_windowsProviders, throwOnError: false);
+            return type?.GetMethod("ParserConfinement", Type.EmptyTypes)?.Invoke(null, null) as IParserConfinement;
+        }
+        catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or FileLoadException or BadImageFormatException or MethodAccessException)
+        {
+            return null;
+        }
+    }
 }
 
 /// <summary>Kills the child and its descendants with the framework tree kill. Never throws.</summary>

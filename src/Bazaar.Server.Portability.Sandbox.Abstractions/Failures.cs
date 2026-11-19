@@ -3,8 +3,14 @@ namespace Bazaar.Server.Portability.Sandbox;
 /// <summary>Why a sandboxed parser job failed. A failure never writes to the instance.</summary>
 public enum ParserFailureKind
 {
-    /// <summary>The child did not answer within the record or job allowance and its tree was killed.</summary>
+    /// <summary>The child sent no frame for the frame-gap allowance and its tree was killed. Counts toward the crash loop.</summary>
     Timeout,
+
+    /// <summary>The whole job ran past the job timeout and the tree was killed. Does not count toward the crash loop, because a legitimately slow parse of a big source ends this way too.</summary>
+    JobTimeout,
+
+    /// <summary>The parser host rejected the request (exit code 2). The caller's input, not a crash.</summary>
+    BadRequest,
 
     /// <summary>The child ended without a result: a crash, a kill by the OS (memory or CPU ceiling), or a bad exit.</summary>
     Crash,
@@ -15,7 +21,7 @@ public enum ParserFailureKind
     /// <summary>The child sent something that is not the protocol.</summary>
     ProtocolViolation,
 
-    /// <summary>The source broke an import limit or an archive safety rule (a zip bomb, an oversize record).</summary>
+    /// <summary>The source broke an import limit or an archive safety rule (a zip bomb, an oversize record), or the child ran out of memory.</summary>
     LimitExceeded,
 
     /// <summary>The importer threw, or is not known to the child.</summary>

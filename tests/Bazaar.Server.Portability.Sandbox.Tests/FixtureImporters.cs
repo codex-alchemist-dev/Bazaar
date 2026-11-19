@@ -182,3 +182,23 @@ public sealed class EnvProbeImporter : IPortabilityImporter
     public IReadOnlyList<SourceRecord> Parse(ImportSource source) =>
         [Fixture.Record("env", Environment.GetEnvironmentVariable("BAZAAR_TEST_SECRET") ?? "none")];
 }
+
+/// <summary>Returns a record whose Attributes is missing on the wire.</summary>
+public sealed class NullAttributesImporter : IPortabilityImporter
+{
+    public string Id => "test.nullattrs";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "nullattrs");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source) =>
+        [new SourceRecord("k", "document", "t", "b", null!)];
+}
+
+/// <summary>Returns a detect confidence outside [0,1].</summary>
+public sealed class BadConfidenceImporter : IPortabilityImporter
+{
+    public string Id => "test.badconfidence";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(5, "too sure");
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source) => [];
+}

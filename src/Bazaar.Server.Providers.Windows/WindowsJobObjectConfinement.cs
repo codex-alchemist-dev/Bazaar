@@ -117,6 +117,20 @@ public sealed class WindowsJobObjectConfinement : IParserConfinement
             var job = CreateJobObjectW(IntPtr.Zero, null);
             if (job == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
 
+            try
+            {
+                return Configure(job, process, limits);
+            }
+            catch
+            {
+                // Whatever went wrong, the job handle must not leak and the child must not stay outside the job.
+                _ = CloseHandle(job);
+                throw;
+            }
+        }
+
+        private static JobGuard Configure(IntPtr job, Process process, ConfinementLimits limits)
+        {
             var info = new ExtendedLimitInformation();
             info.BasicLimitInformation.LimitFlags = _limitKillOnJobClose | _limitProcessMemory | _limitProcessTime;
             info.BasicLimitInformation.PerProcessUserTimeLimit = limits.CpuSeconds * 10_000_000L;
@@ -130,9 +144,7 @@ public sealed class WindowsJobObjectConfinement : IParserConfinement
             if (!SetInformationJobObject(job, _extendedLimitInformation, ref info, Marshal.SizeOf<ExtendedLimitInformation>())
                 || !AssignProcessToJobObject(job, process.Handle))
             {
-                var error = Marshal.GetLastWin32Error();
-                CloseHandle(job);
-                throw new Win32Exception(error);
+                throw new Win32Exception(Marshal.GetLastWin32Error());
             }
 
             return new JobGuard(job);
