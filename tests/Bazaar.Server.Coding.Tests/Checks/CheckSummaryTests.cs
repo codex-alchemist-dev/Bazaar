@@ -1,6 +1,6 @@
 using Bazaar.Server.Coding.Checks;
 
-namespace Bazaar.Server.Tests.Coding.Checks;
+namespace Bazaar.Server.Coding.Tests.Checks;
 
 /// <summary>Summary rules (doc 17, Verification): a pass needs a clean build, only allowed flags, and no count drop.</summary>
 public sealed class CheckSummaryTests
