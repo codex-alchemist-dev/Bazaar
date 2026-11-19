@@ -67,7 +67,7 @@ Source paths are relative to the Resibo repo. `DDnn` means `docs/apis/v3-deepdiv
 | R005 | P1.4 no hardcoded TUI; menu data plus generic screen; closed list of custom screens | PR 1.4 | AIE | Doc 41 and 41c (Rubedo) plus the open `TODO(component)` in `FirstPartyPanes.cs`. Add the rule "closed, named list of custom panes; everything else is declared data". |
 | R006 | P1.5 shared substrate without conflating domains (static hardware vs live ledger) | PR 1.5 | AAM | 74: `Hardware` (static probe) and `ResourceLedger` (live) stay separate modules. |
 | R007 | P1.6 install dir: shared state at top, releases as siblings, setup deletes itself | PR 1.6 | AIE | Docs 37 and 45: installer is idempotent, never moves itself, strips dev content. Slot module in section 6 (source-clone updates). |
-| R008 | P1.7 one OS process per Core API, gRPC only | PR 1.7 | REJ (default) | Bazaar default is in-process modules over `IWireCodec` JSON. The process-per-module mode is Core's out-of-process mode (section 6.5), not gRPC. |
+| R008 | P1.7 one OS process per Core API, gRPC only | PR 1.7 | REJ (default) | Bazaar default is in-process modules over `IWireCodec` JSON; gRPC and HTTP/3 arrive as optional wire modules (owner 2026-11-19). The process-per-module mode is Core's out-of-process mode (section 6.5), not gRPC. |
 | R009 | P1.8 sub-API gets its own doc when it has two of four traits | PR 1.8 | AIE | CLAUDE.md "every new feature is its own module" plus doc template `_BRIEF.md`: add the two-of-four test as the trigger for a module doc. |
 | R010 | P1.9 backward-carrying: live capability is one function reusable by sweeps | PR 1.9 | AAM | 82 `Runs`: stage functions are pure and callable by both live runs and retroactive sweeps (reindex, re-score, re-embed). |
 | R011 | P2.1 frozen contracts, FrozenDict | PR 2.1 | AIE | Section 5 item 3: records with `init`, `FrozenDictionary`, `ImmutableArray`; architecture test for mutable collections in contract types. |
@@ -452,7 +452,7 @@ Resolution: two modules. Default: Postgres (decided). Slot: `Aludel` multi-datab
 ### 6.4 Wire format
 
 Bazaar: JSON via `IWireCodec` (DECIDED 2026-10-25), no Protobuf tooling. Resibo: gRPC plus protobuf.
-Resolution: Bazaar wins and a gRPC module is not added to this repo. A gRPC codec would be one more `IWireCodec` implementation in a separate repository if a program needs it; adding it here needs the owner to lift the "no Protobuf tooling" rule (question 2). Conventions that survive any codec: errors as data (5.1), additive-only evolution (5.19).
+Resolution (owner, 2026-11-19, in words): keep JSON as the default and add gRPC, HTTP/3 over QUIC and other codecs and transports as optional modules; the "no Protobuf tooling" rule is lifted for those modules only. The thread "Add pluggable wire transports and codecs" owns this work. Superseded text follows: Bazaar wins and a gRPC module is not added to this repo. A gRPC codec would be one more `IWireCodec` implementation in a separate repository if a program needs it; adding it here needs the owner to lift the "no Protobuf tooling" rule (question 2). Conventions that survive any codec: errors as data (5.1), additive-only evolution (5.19).
 
 ### 6.5 Process model
 
