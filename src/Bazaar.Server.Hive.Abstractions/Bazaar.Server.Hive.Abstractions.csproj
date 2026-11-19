@@ -4,4 +4,7 @@
     <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+  </ItemGroup>
 </Project>

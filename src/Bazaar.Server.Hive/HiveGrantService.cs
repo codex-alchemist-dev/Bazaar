@@ -16,10 +16,7 @@ public sealed class HiveGrantService(
     /// <summary>Grants <paramref name="from"/> a copy path into <paramref name="to"/> for one kind. False when it already existed.</summary>
     public async Task<bool> GrantAsync(ProjectId from, ProjectId to, string kind, string grantedBy, CancellationToken ct)
     {
-        if (from.IsEmpty || to.IsEmpty || from.Equals(to))
-            throw new ArgumentException("A grant needs two different projects.");
-        if (!HiveKinds.All.Contains(kind))
-            throw new ArgumentException($"Kind '{kind}' cannot cross projects.", nameof(kind));
+        HiveGrantRules.ValidatePair(from, to, kind);
         if (string.IsNullOrWhiteSpace(grantedBy))
             throw new ArgumentException("A grant records who granted it.", nameof(grantedBy));
 
@@ -49,6 +46,21 @@ public sealed class HiveGrantService(
         foreach (var copy in await copies.ListLiveAsync(from, to, kind, ct).ConfigureAwait(false))
             await HiveCopyService.DeprecateAsync(copy, copies, writer, audit, now, revokedBy, ct).ConfigureAwait(false);
         return true;
+    }
+
+    /// <summary>
+    /// Applies a change the owner approved in the approvals module. Wraps <see cref="GrantAsync"/> or <see cref="RevokeAsync"/>,
+    /// so the same checks and audit entries apply. <paramref name="approvedBy"/> is recorded as the grantor or the revoker.
+    /// </summary>
+    public Task<bool> ApplyApprovedAsync(HiveGrantChange change, string approvedBy, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        return change.Action switch
+        {
+            HiveGrantAction.Set => GrantAsync(change.FromProject, change.ToProject, change.Kind, approvedBy, ct),
+            HiveGrantAction.Revoke => RevokeAsync(change.FromProject, change.ToProject, change.Kind, approvedBy, ct),
+            _ => throw new ArgumentOutOfRangeException(nameof(change), change.Action, "Unknown grant action."),
+        };
     }
 
     private static string Describe(ProjectId from, ProjectId to, string kind) => $"from={from} to={to} kind={kind}";

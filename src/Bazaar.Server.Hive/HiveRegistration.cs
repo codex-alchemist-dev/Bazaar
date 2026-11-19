@@ -18,6 +18,8 @@ public static class HiveRegistration
         services.TryAddSingleton<IHiveGrantPolicy, HiveGrantPolicy>();
         services.TryAddSingleton<HiveGrantService>();
         services.TryAddSingleton<HiveCopyService>();
+        services.TryAddSingleton<IHiveGrantApprovals, DenyAllHiveGrantApprovals>();
+        services.TryAddSingleton<IHiveGrantWireHandler, HiveGrantWireHandler>();
         return services;
     }
 }

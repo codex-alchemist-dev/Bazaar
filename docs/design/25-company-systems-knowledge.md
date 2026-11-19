@@ -155,6 +155,12 @@ Gives `IHiveGrantActions` a wire implementation (`WireHiveGrantActions` in `Baza
 
 Owner approval stays server-side: `hive.grants` changes need owner approval (doc 08 settings, doc 15). The server may therefore answer `accepted: true, approvalRequired: true`, meaning the change is queued and not in force. The pane then shows "waiting for owner approval" and never "granted"; the matrix changes only when a later `bazaar.hive` model shows it. A refusal carries `reason`. A lost connection throws and leaves the matrix unchanged. The contract types are `Bazaar.Contracts.Hive.HiveGrantChangeRequest` and `HiveGrantChangeReply`, registered in `WireJson`.
 
+Defaults chosen by the main session (PROPOSED, replaceable; the owner may change any of them):
+1. **Approval.** The server side is the port `IHiveGrantApprovals.RequestAsync(HiveGrantChange, requestedBy)` in `Bazaar.Server.Hive.Abstractions`. The wire handler never applies a change: it queues through the port and replies `accepted: true, approvalRequired: true`. When the approvals module records the owner's approval, it calls `HiveGrantService.ApplyApprovedAsync(change, approvedBy)`, which wraps `GrantAsync` or `RevokeAsync` and keeps their checks and audit entries. The default registration is `DenyAllHiveGrantApprovals`, which refuses with reason "approvals not configured" (fail closed).
+2. **Dispatch.** `IHiveGrantWireHandler.HandleAsync(wireType, request, caller, ct)` lives in `Bazaar.Server.Hive.Abstractions` and is implemented by `HiveGrantWireHandler` in `Bazaar.Server.Hive`. The host adapter that maps a wire frame to this call is a later change and sits in `Bazaar.Server`, not in this module.
+3. **Caller.** `HiveCaller(Principal, IsOwner)` is supplied by the host adapter from the authenticated session. A non-owner is refused with reason "owner only". `Principal` is recorded as `grantedBy` (or as the revoker).
+4. **Refusals.** Every validation error (same project or empty project, a kind outside `HiveKinds.All`, a blank principal) and an unknown wire type come back as `accepted: false` with the reason set to the existing `ArgumentException` message, or "unknown wire type". Only cancellation and infrastructure failures throw.
+
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
 2. Health rules and project panel queries. Needs 1.
