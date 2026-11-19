@@ -198,14 +198,15 @@ public sealed partial class RealSandboxTests : IDisposable
     {
         var options = perSlot ? _perSlot : _options;
         var slot = perSlot ? _netnsSlot : _slot;
-        var uid = PoolCommandLine.SlotUid(options, slot);
         var reason = SkipReason();
         if (perSlot)
         {
             reason ??= NetnsRealTests.SkipReason(options);
         }
 
+        // Skip before anything reads the options: off Linux the slot root is a path the options validator refuses.
         Assert.SkipWhen(reason is not null, reason ?? string.Empty);
+        var uid = PoolCommandLine.SlotUid(options, slot);
         Prepare(slot);
         var probe = RunBlocking([.. PoolCommandLine.SandboxPrefix(_options, slot, false), "/usr/bin/id", "-u"]);
         Assert.SkipWhen(probe.Exit != 0 && UserNamespaceDenied(probe.Err), "Unprivileged user namespaces are refused here: " + probe.Err.Trim());
