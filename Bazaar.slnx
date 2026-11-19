@@ -37,6 +37,7 @@
     <Project Path="src/Bazaar.Server.DataVolume.Abstractions/Bazaar.Server.DataVolume.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.DataVolume/Bazaar.Server.DataVolume.csproj" />
     <Project Path="src/Bazaar.Server.DataVolume.Linux/Bazaar.Server.DataVolume.Linux.csproj" />
+    <Project Path="src/Bazaar.Server.DataVolume.Windows/Bazaar.Server.DataVolume.Windows.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek.Abstractions/Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek/Bazaar.Server.Identity.Kek.csproj" />
     <Project Path="src/Bazaar.Tls/Bazaar.Tls.csproj" />
@@ -94,6 +95,7 @@
     <Project Path="tests/Bazaar.Server.Modules.Tests/Bazaar.Server.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DataVolume.Tests/Bazaar.Server.DataVolume.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DataVolume.Linux.Tests/Bazaar.Server.DataVolume.Linux.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.DataVolume.Windows.Tests/Bazaar.Server.DataVolume.Windows.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Kek.Tests/Bazaar.Server.Identity.Kek.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
     <Project Path="tests/Bazaar.Secrets.Tests/Bazaar.Secrets.Tests.csproj" />
