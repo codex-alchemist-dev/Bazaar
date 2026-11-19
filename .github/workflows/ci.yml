@@ -18,6 +18,9 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly run so the full-history secret scan also runs when no push happens (Mondays 03:17 UTC).
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
@@ -73,9 +76,11 @@ jobs:
         run: |
           set -euo pipefail
           PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
+          # Throwaway test database: data on tmpfs and no fsync, so a loaded runner does not time out on disk I/O.
           docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
+            --tmpfs /var/lib/postgresql:rw,size=4g \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            pgvector/pgvector:pg18 -c max_locks_per_transaction=512
+            pgvector/pgvector:pg18 -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
@@ -256,7 +261,7 @@ jobs:
       # issued through a sign-up form and the action itself is under a
       # custom licence, not an OSI open-source one. The gitleaks CLI is MIT
       # licensed and needs no key, so we download the pinned release, verify its
-      # SHA-256 and run it directly. Scans all refs and full history.
+      # SHA-256 and run it directly. See the scan step for what each trigger scans.
       - name: Install gitleaks CLI (checksum verified)
         run: |
           set -euo pipefail
@@ -268,11 +273,22 @@ jobs:
           "$RUNNER_TEMP/gitleaks" version
 
       - name: Scan git history for secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # --log-opts=--all scans every ref in the fetched history, not just HEAD.
-          # --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
-          "$RUNNER_TEMP/gitleaks" git --log-opts=--all --redact --exit-code 1 --verbose .
+          # A pull request scans only its own commits (base..head), so another branch's fake token cannot turn this
+          # PR red. Pushes, the weekly schedule and manual runs scan every ref in the fetched history, so nothing
+          # stays unscanned. --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          else
+            range="--all"
+          fi
+          echo "gitleaks scope: $range"
+          "$RUNNER_TEMP/gitleaks" git --log-opts="$range" --redact --exit-code 1 --verbose .
 
 # CodeQL analysis trigger (no functional change).
 
@@ -317,7 +333,7 @@ jobs:
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
           docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            bazaar-pg19:ci -c max_locks_per_transaction=512
+            bazaar-pg19:ci -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
