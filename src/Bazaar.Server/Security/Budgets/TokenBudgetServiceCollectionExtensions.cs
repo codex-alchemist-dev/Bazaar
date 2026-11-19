@@ -59,9 +59,12 @@ public static class TokenBudgetServiceCollectionExtensions
         options.LargeAmountStagingHours = ReadInt(section, nameof(TokenBudgetOptions.LargeAmountStagingHours), options.LargeAmountStagingHours);
 
         var parseBounds = options.AmountParseBounds;
-        options.HourlyTokens = ReadLimit(section, nameof(TokenBudgetOptions.HourlyTokens), options.HourlyTokens, options.AmountIntakeMaxDigits, parseBounds);
-        options.DailyTokens = ReadLimit(section, nameof(TokenBudgetOptions.DailyTokens), options.DailyTokens, options.AmountIntakeMaxDigits, parseBounds);
-        options.WeeklyTokens = ReadLimit(section, nameof(TokenBudgetOptions.WeeklyTokens), options.WeeklyTokens, options.AmountIntakeMaxDigits, parseBounds);
+        (options.HourlyTokens, options.HourlyTokensReference) =
+            ReadLimit(section, nameof(TokenBudgetOptions.HourlyTokens), options.HourlyTokens, options.AmountIntakeMaxDigits, parseBounds);
+        (options.DailyTokens, options.DailyTokensReference) =
+            ReadLimit(section, nameof(TokenBudgetOptions.DailyTokens), options.DailyTokens, options.AmountIntakeMaxDigits, parseBounds);
+        (options.WeeklyTokens, options.WeeklyTokensReference) =
+            ReadLimit(section, nameof(TokenBudgetOptions.WeeklyTokens), options.WeeklyTokens, options.AmountIntakeMaxDigits, parseBounds);
         return options;
     }
 
@@ -72,12 +75,22 @@ public static class TokenBudgetServiceCollectionExtensions
                 ? value
                 : throw Malformed(section, key, "expected a whole number");
 
-    private static TokenAmount ReadLimit(
+    /// <summary>
+    /// One window limit: an amount in text, or the id (UUID text, <c>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</c>) of a sealed intake
+    /// amount, which is then the limit (doc 48, DECIDED 11.4, "Limits as large amounts"). The two forms cannot be confused:
+    /// an amount has no <c>-</c>.
+    /// </summary>
+    private static (TokenAmount Amount, Guid? Reference) ReadLimit(
         IConfigurationSection section, string key, TokenAmount fallback, TokenAmountBounds guard, TokenAmountBounds parseBounds)
     {
         if (section[key] is not { } text)
         {
-            return fallback;
+            return (fallback, null);
+        }
+
+        if (Guid.TryParseExact(text.AsSpan().Trim(), "D", out var reference))
+        {
+            return (fallback, reference);
         }
 
         // The guard's own text length is checked before any character is looked at, so over-long text costs nothing.
@@ -87,8 +100,8 @@ public static class TokenBudgetServiceCollectionExtensions
         }
 
         return TokenAmount.TryParse(text, parseBounds, out var amount)
-            ? amount
-            : throw Malformed(section, key, $"expected a token amount (ASCII digits, an optional fraction and exponent) within {parseBounds} digits");
+            ? (amount, null)
+            : throw Malformed(section, key, $"expected a token amount (ASCII digits, an optional fraction and exponent) within {parseBounds} digits, or the id of an intake amount");
     }
 
     private static InvalidOperationException Malformed(IConfigurationSection section, string key, string reason) =>

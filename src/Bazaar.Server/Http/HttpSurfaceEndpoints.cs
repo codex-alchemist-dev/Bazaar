@@ -45,7 +45,11 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// Runs <paramref name="run"/> for an authenticated caller: the transport rule (401/403), the bearer credential (401) and
+    /// the HTTP rate bucket (429) come first. Module routes on this surface use it, so they share one access rule.
+    /// </summary>
+    public static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;

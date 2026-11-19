@@ -12,7 +12,15 @@ namespace Bazaar.Server.Security.Budgets;
 /// cannot be represented).</param>
 /// <param name="RetryAfter">When denied, the time until enough earlier spend leaves the blocking window. <see cref="TimeSpan.Zero"/>
 /// when allowed. <see cref="TimeSpan.MaxValue"/> when the call alone is larger than the window limit and can never fit.</param>
-public sealed record TokenBudgetDecision(bool Allowed, TokenBudgetWindow? Window, TokenAmount Remaining, TimeSpan RetryAfter);
+public sealed record TokenBudgetDecision(bool Allowed, TokenBudgetWindow? Window, TokenAmount Remaining, TimeSpan RetryAfter)
+{
+    /// <summary>
+    /// True when the remaining count has more digits than <c>agent.budget.in_memory_max_digits</c>, which only a limit given
+    /// by reference allows (doc 48, DECIDED 11.4, "Limits as large amounts"). It is not materialised, and
+    /// <see cref="Remaining"/> is then zero and carries no meaning.
+    /// </summary>
+    public bool RemainingTooLarge { get; init; }
+}
 
 /// <summary>
 /// Token quota enforcement per agent (doc 48 section 11). A breach denies the call; the caller reports it. Cost never

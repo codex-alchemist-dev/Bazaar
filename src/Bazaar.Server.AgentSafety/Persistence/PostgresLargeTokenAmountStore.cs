@@ -1,3 +1,4 @@
+using System.Buffers;
 using Bazaar.Contracts.Numerics;
 using Npgsql;
 
@@ -43,6 +44,10 @@ public sealed class PostgresLargeTokenAmountStore
     private const string _deleteStagedHeader = "DELETE FROM token_amount_large WHERE id = $1 AND state = 'writing'";
     private const string _sweepHeaders =
         "DELETE FROM token_amount_large WHERE state = 'writing' AND created_at < $1 RETURNING id";
+    private const string _insertIntake = "INSERT INTO token_amount_intake (amount_id, created_by, created_at) VALUES ($1, $2, $3)";
+    private const string _readIntakeHeader =
+        "SELECT l.integer_digits, l.fraction_digits, l.sha256 FROM token_amount_large l " +
+        "JOIN token_amount_intake i ON i.amount_id = l.id WHERE l.id = $1 AND l.state = 'sealed'";
 
     private readonly NpgsqlDataSource _dataSource;
     private readonly TimeProvider _time;
@@ -246,6 +251,87 @@ public sealed class PostgresLargeTokenAmountStore
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return ids.Count;
+    }
+
+    /// <summary>
+    /// Reads a plain decimal from <paramref name="source"/> as a digit stream and stores it as a sealed large amount owned by
+    /// a <c>token_amount_intake</c> row (doc 48, DECIDED 11.4, "Transport above the frame size"). The digits are staged twice,
+    /// first as received into a scratch amount and then aligned into the new amount, both in batches of
+    /// <see cref="ChunksPerTransaction"/> chunks, so memory stays a few chunks whatever the length; the scratch amount is
+    /// deleted as soon as the new one is complete.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="guard"/> is enforced while reading: the read stops at the first digit beyond it. The amount is sealed
+    /// only after the whole stream was read and checked, in the transaction that inserts its owner row. On any failure,
+    /// including cancellation and a dropped source, both staged amounts are deleted, or left <c>writing</c> for the sweeper
+    /// when the delete itself fails; nothing partial is ever sealed.
+    /// </remarks>
+    /// <returns>The sealed amount's id, which a window limit setting may refer to, and its digit counts.</returns>
+    /// <exception cref="TokenAmountIntakeException">The text is malformed or over the guard, or the amount is zero or fits
+    /// the inline tier (<see cref="TokenAmountIntakeFailure.FitsInline"/>: one value has one representation).</exception>
+    public async Task<(Guid Id, TokenAmountDigitCounts Digits)> IntakeAsync(
+        Stream source, TokenAmountBounds guard, Guid createdBy, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        await using var scratch = await BeginStagingAsync(ct).ConfigureAwait(false);
+        await using var staged = await BeginStagingAsync(ct).ConfigureAwait(false);
+        var digits = await Codec.WriteDecimalStreamAsync(source, guard, new StagedScratch(scratch), staged, ct).ConfigureAwait(false);
+        await scratch.DisposeAsync().ConfigureAwait(false);
+
+        var inline = TokenAmountBounds.PostgresNumeric;
+        if (digits.IntegerDigits <= inline.MaxIntegerDigits && digits.FractionDigits <= inline.MaxFractionDigits)
+        {
+            throw new TokenAmountIntakeException(
+                TokenAmountIntakeFailure.FitsInline,
+                $"The amount has {digits}; it is zero or fits the inline tier ({inline} digits), so it is sent as text, not stored as a large amount.");
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await SealAsync(conn, tx, staged.Id, ct).ConfigureAwait(false);
+        await using (var owner = new NpgsqlCommand(_insertIntake, conn, tx))
+        {
+            owner.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = staged.Id });
+            owner.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = createdBy });
+            owner.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = TruncateToMicroseconds(_time.GetUtcNow()) });
+            await owner.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        staged.Keep();
+        return (staged.Id, digits);
+    }
+
+    /// <summary>
+    /// The header of a sealed intake amount (one with a <c>token_amount_intake</c> row), read inside the caller's transaction:
+    /// what a window limit setting may refer to. Null when there is none with that id.
+    /// </summary>
+    public static async Task<(TokenAmountDigitCounts Digits, byte[] Sha256)?> ReadIntakeHeaderAsync(
+        NpgsqlConnection connection, NpgsqlTransaction? transaction, Guid id, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        await using var cmd = new NpgsqlCommand(_readIntakeHeader, connection, transaction);
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = id });
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (!await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return (new TokenAmountDigitCounts(reader.GetInt64(0), reader.GetInt64(1)), reader.GetFieldValue<byte[]>(2));
+    }
+
+    /// <summary>A staged amount used as the scratch space of a digit stream; it is never completed or sealed.</summary>
+    private sealed class StagedScratch(PostgresStagedTokenAmount staged) : ITokenAmountDigitScratch
+    {
+        public ValueTask WriteAsync(TokenAmountPart part, long seq, ReadOnlyMemory<byte> bytes, CancellationToken ct) =>
+            staged.WriteChunkAsync(part, seq, bytes, ct);
+
+        public ValueTask FlushAsync(CancellationToken ct) => staged.FlushAsync(ct);
+
+        public ValueTask<IMemoryOwner<byte>> ReadAsync(TokenAmountPart part, long seq, CancellationToken ct) =>
+            staged.ReadWrittenChunkAsync(part, seq, ct);
     }
 
     private static async Task<(TokenAmountDigitCounts Digits, byte[] Sha256)?> ReadSealedHeaderAsync(

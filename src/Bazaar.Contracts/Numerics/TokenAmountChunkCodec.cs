@@ -32,7 +32,7 @@ namespace Bazaar.Contracts.Numerics;
 /// </para>
 /// <para>Thread-safe: the codec keeps no per-call state.</para>
 /// </remarks>
-public sealed class TokenAmountChunkCodec
+public sealed partial class TokenAmountChunkCodec
 {
     /// <summary>A zero chunk to emit for runs of zero bytes, shared and never written to.</summary>
     private static readonly byte[] _zeroChunk = new byte[TokenAmountChunkLayout.StandardChunkBytes];

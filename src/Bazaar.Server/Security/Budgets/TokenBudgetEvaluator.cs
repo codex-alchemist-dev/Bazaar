@@ -26,11 +26,23 @@ public static class TokenBudgetEvaluator
     /// <see cref="TimeSpan.MaxValue"/> and a remaining count of zero, since nothing was counted), or null when the call
     /// needs the full check. Costs only digit-count comparisons, so a hostile amount of any size is cheap to refuse.
     /// </summary>
+    /// <exception cref="InvalidOperationException">A window limit is a reference; use the overload that takes the limits' digit counts.</exception>
     public static TokenBudgetDecision? RejectOversized(TokenAmount tokens, TokenBudgetOptions limits)
     {
+        ArgumentNullException.ThrowIfNull(limits);
+        return RejectOversized(tokens, window => limits.LimitFor(window).IntegerDigitCount);
+    }
+
+    /// <summary>
+    /// The fast path over the limits' integer digit counts alone, for limits that are not held in memory (doc 48, DECIDED 11.4,
+    /// "Limits as large amounts": the counts come from the stored headers).
+    /// </summary>
+    public static TokenBudgetDecision? RejectOversized(TokenAmount tokens, Func<TokenBudgetWindow, long> limitIntegerDigits)
+    {
+        ArgumentNullException.ThrowIfNull(limitIntegerDigits);
         foreach (var window in _checkOrder)
         {
-            if (tokens.IntegerDigitCount > limits.LimitFor(window).IntegerDigitCount)
+            if (tokens.IntegerDigitCount > limitIntegerDigits(window))
             {
                 return new TokenBudgetDecision(Allowed: false, Window: window, Remaining: TokenAmount.Zero, RetryAfter: TimeSpan.MaxValue);
             }
@@ -154,9 +166,18 @@ public static class TokenBudgetEvaluator
         return TimeSpan.MaxValue;
     }
 
-    /// <summary>Full decision over an in-hand spend list (oldest first), including the retry time on denial.</summary>
+    /// <summary>
+    /// Full decision over an in-hand spend list (oldest first), including the retry time on denial. A limit given by reference
+    /// (doc 48, DECIDED 11.4) cannot be read here, so while one is set every call is denied as unrepresentable: fail closed.
+    /// </summary>
     public static TokenBudgetDecision Evaluate(IReadOnlyList<TokenBudgetSpend> spends, DateTimeOffset now, TokenAmount tokens, TokenBudgetOptions limits)
     {
+        ArgumentNullException.ThrowIfNull(limits);
+        if (limits.HasLargeLimits)
+        {
+            return Unrepresentable();
+        }
+
         if (RejectOversized(tokens, limits) is { } oversized)
         {
             return oversized;

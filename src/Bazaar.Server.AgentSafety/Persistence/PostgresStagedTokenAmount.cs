@@ -1,3 +1,4 @@
+using System.Buffers;
 using Bazaar.Contracts.Numerics;
 using Npgsql;
 using NpgsqlTypes;
@@ -115,6 +116,25 @@ public sealed class PostgresStagedTokenAmount : ITokenAmountChunkWriter, IAsyncD
         await CommitBatchAsync(ct).ConfigureAwait(false);
         await CloseConnectionAsync().ConfigureAwait(false);
         SetComplete(digits, hash);
+    }
+
+    /// <summary>Commits the open batch, so every chunk written so far is visible to other connections.</summary>
+    public async ValueTask FlushAsync(CancellationToken ct = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await CommitBatchAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads back one chunk as it was written, on a pooled connection, before the amount is complete: for a staged amount
+    /// used as scratch space (<see cref="ITokenAmountDigitScratch"/>), whose chunks are not in the stored layout. Call
+    /// <see cref="FlushAsync"/> first. The buffer comes from the store's pool; the caller disposes it.
+    /// </summary>
+    /// <exception cref="TokenAmountIntegrityException">No such chunk was written.</exception>
+    public ValueTask<IMemoryOwner<byte>> ReadWrittenChunkAsync(TokenAmountPart part, long seq, CancellationToken ct = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return PostgresTokenAmountChunkReader.Over(_dataSource, Id, default, [], _store.Codec.Pool).ReadChunkAsync(part, seq, ct);
     }
 
     /// <summary>A reader over the completed (not necessarily sealed) chunks, for streamed arithmetic on a scratch result.</summary>

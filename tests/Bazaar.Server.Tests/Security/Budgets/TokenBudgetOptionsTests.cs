@@ -180,7 +180,7 @@ public class TokenBudgetOptionsTests
     [Fact]
     public void Validate_rejects_a_limit_with_more_digits_than_the_in_memory_maximum()
     {
-        // Limits stored as large amounts are PLANNED; until then a limit must be materialisable.
+        // A limit given as an amount must be materialisable; a larger one is given by reference (next tests).
         var tooLong = TokenAmount.Parse("1e147455", new TokenAmountBounds(150_000, 0));
         var options = new TokenBudgetOptions { WeeklyTokens = tooLong };
 
@@ -231,6 +231,66 @@ public class TokenBudgetOptionsTests
         Assert.Contains("not read", error.Message, StringComparison.Ordinal);
         Assert.Throws<InvalidOperationException>(() => Bind(new() { ["AmountIntakeMaxDigits"] = "5,0", ["WeeklyTokens"] = "999999" }));
         Assert.Equal(TokenAmount.FromInt64(99_999), Bind(new() { ["AmountIntakeMaxDigits"] = "5,0", ["WeeklyTokens"] = "99999" }).WeeklyTokens);
+    }
+
+    [Fact]
+    public void A_limit_setting_holding_an_intake_reference_binds_as_that_window_reference()
+    {
+        var reference = Guid.Parse("01890000-0000-7000-8000-000000000001");
+
+        var options = Bind(new() { ["WeeklyTokens"] = " " + reference.ToString("D") + " ", ["HourlyTokens"] = "500" });
+
+        Assert.Equal(reference, options.WeeklyTokensReference);
+        Assert.Equal(reference, options.LimitReferenceFor(TokenBudgetWindow.Week));
+        Assert.Null(options.HourlyTokensReference);
+        Assert.Null(options.LimitReferenceFor(TokenBudgetWindow.Day));
+        Assert.True(options.HasLargeLimits);
+        Assert.Equal(TokenAmount.FromInt64(500), options.LimitFor(TokenBudgetWindow.Hour));
+
+        // A referenced limit is never read as an in-memory amount, so no stale value can stand in for it.
+        Assert.Throws<InvalidOperationException>(() => options.LimitFor(TokenBudgetWindow.Week));
+        Assert.False(new TokenBudgetOptions().HasLargeLimits);
+    }
+
+    [Fact]
+    public void A_limit_given_by_reference_need_not_fit_the_in_memory_maximum()
+    {
+        // The in-memory value of the window is ignored once a reference is set, even when it would not validate.
+        var options = new TokenBudgetOptions { DailyTokens = TokenAmount.Zero, DailyTokensReference = Guid.Parse("01890000-0000-7000-8000-000000000002") };
+
+        options.Validate();
+    }
+
+    [Theory]
+    [InlineData("{01890000-0000-7000-8000-000000000001}")]
+    [InlineData("0189000000007000800000000000000a")]
+    [InlineData("01890000-0000-7000-8000-00000000000g")]
+    public void A_reference_in_another_form_is_not_a_reference_and_not_an_amount(string value)
+    {
+        Assert.Throws<InvalidOperationException>(() => Bind(new() { ["DailyTokens"] = value }));
+    }
+
+    [Fact]
+    public void The_shared_evaluator_denies_every_call_while_a_limit_is_a_reference()
+    {
+        var options = new TokenBudgetOptions { HourlyTokensReference = Guid.Parse("01890000-0000-7000-8000-000000000003") };
+
+        var decision = TokenBudgetEvaluator.Evaluate([], DateTimeOffset.UnixEpoch, TokenAmount.FromInt64(1), options);
+
+        Assert.False(decision.Allowed);
+        Assert.Equal(TimeSpan.MaxValue, decision.RetryAfter);
+    }
+
+    [Fact]
+    public void The_fast_path_over_digit_counts_denies_a_spend_with_more_integer_digits_than_a_limit()
+    {
+        var limits = new Dictionary<TokenBudgetWindow, long> { [TokenBudgetWindow.Hour] = 200_001, [TokenBudgetWindow.Day] = 3, [TokenBudgetWindow.Week] = 200_001 };
+
+        var denied = TokenBudgetEvaluator.RejectOversized(TokenAmount.FromInt64(1_000), window => limits[window]);
+
+        Assert.NotNull(denied);
+        Assert.Equal(TokenBudgetWindow.Day, denied.Window);
+        Assert.Null(TokenBudgetEvaluator.RejectOversized(TokenAmount.FromInt64(999), window => limits[window]));
     }
 
     [Theory]

@@ -1,3 +1,4 @@
+using Bazaar.Server.AgentSafety.Http;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -30,6 +31,7 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapBazaarTokenAmountIntake();
 app.UseBazaarWire();
 
 return await HostRun.RunAsync(app);

@@ -36,6 +36,12 @@ namespace Bazaar.Server.AgentSafety.Persistence;
 /// memory while they fit that maximum and are staged in the large tier, then deleted, when they do not.
 /// </para>
 /// <para>
+/// <b>Limits by reference.</b> A window limit may be a reference to a sealed intake amount (doc 48, DECIDED 11.4, "Limits as
+/// large amounts"; <see cref="TokenBudgetOptions.LimitReferenceFor"/>). Then the window sums stay in the streamed form and
+/// every window is decided by the streamed comparer, so neither a sum nor the limit is materialised; the remaining count is
+/// reported only when it fits the in-memory maximum, and a denial's retry time is unknown.
+/// </para>
+/// <para>
 /// <b>Integrity.</b> A large row whose header is missing or unsealed, or whose chunks fail their structure or SHA-256 check
 /// on a full read, is a data integrity finding: it is logged and the call is denied, never allowed and never thrown to the
 /// caller of <see cref="TryConsume"/>. <see cref="LoadSince"/> throws <see cref="TokenAmountIntegrityException"/>.
@@ -158,6 +164,11 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
         ArgumentNullException.ThrowIfNull(limits);
         ct.ThrowIfCancellationRequested();
 
+        if (limits.HasLargeLimits)
+        {
+            return await TryConsumeUnderLargeLimitsAsync(agentId, at, tokens, limits, ct).ConfigureAwait(false);
+        }
+
         // Before any database work: more integer digits than a limit can never fit, whatever has been spent. Nothing is stored.
         if (TokenBudgetEvaluator.RejectOversized(tokens, limits) is { } oversized)
         {
@@ -227,6 +238,126 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
     }
 
     /// <summary>
+    /// <see cref="TryConsume"/> when a window limit is a reference to a sealed intake amount (doc 48, DECIDED 11.4, "Limits as
+    /// large amounts"). The referenced headers are read first, and a spend with more integer digits than a limit is denied
+    /// from the counts alone. Then, under the per-agent lock, each window sum is kept in the streamed form and each window is
+    /// decided by the streamed comparer: the spend fits when it is at most the limit minus the sum. Neither a sum nor a limit
+    /// is materialised. The remaining count is materialised only when it fits the in-memory maximum, and the retry time of a
+    /// denial is unknown (the maximum). A reference that is missing, not sealed, not an intake amount or corrupt denies.
+    /// </summary>
+    private async Task<TokenBudgetDecision> TryConsumeUnderLargeLimitsAsync(
+        string agentId, DateTimeOffset at, TokenAmount tokens, TokenBudgetOptions limits, CancellationToken ct)
+    {
+        var codec = _large.Codec;
+        var now = TruncateToMicroseconds(at);
+        var weekStart = TokenBudgetEvaluator.WidestStart(now);
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        TokenBudgetDecision decision;
+        try
+        {
+            // 1. The limits: headers of the referenced ones, chunked forms of the in-memory ones. Then the fast path.
+            var limitChunks = new ITokenAmountChunkReader[_windows.Length];
+            for (var i = 0; i < _windows.Length; i++)
+            {
+                if (limits.LimitReferenceFor(_windows[i]) is { } reference)
+                {
+                    var header = await PostgresLargeTokenAmountStore.ReadIntakeHeaderAsync(conn, tx, reference, ct).ConfigureAwait(false)
+                        ?? throw new TokenAmountIntegrityException(
+                            $"The {_windows[i]} limit refers to large token amount {reference}, which is not a sealed intake amount.");
+                    limitChunks[i] = PostgresTokenAmountChunkReader.Within(conn, tx, reference, header.Digits, header.Sha256, codec.Pool);
+                }
+                else
+                {
+                    limitChunks[i] = await InMemoryChunkedTokenAmount.FromAsync(limits.LimitFor(_windows[i]), codec, ct).ConfigureAwait(false);
+                }
+            }
+
+            if (TokenBudgetEvaluator.RejectOversized(tokens, window => limitChunks[Array.IndexOf(_windows, window)].Digits.IntegerDigits) is { } oversized)
+            {
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return oversized;
+            }
+
+            // 2. Serialise every consumer of this agent until commit or rollback.
+            await using (var lockCmd = new NpgsqlCommand(_lock, conn, tx))
+            {
+                lockCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = agentId });
+                await lockCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+
+            // 3. The window sums, streamed, with the early stop against the largest limit.
+            var largest = limitChunks[0];
+            for (var i = 1; i < limitChunks.Length; i++)
+            {
+                if (await codec.CompareAsync(limitChunks[i], largest, ct).ConfigureAwait(false) > 0)
+                {
+                    largest = limitChunks[i];
+                }
+            }
+
+            var (inline, addends) = await CollectWindowRowsAsync(conn, tx, agentId, now, weekStart, ct).ConfigureAwait(false);
+            await using var scratch = new ScratchSpace(_large, conn, tx, limits.InMemoryMaxDigits);
+            var used = await SumWindowsStreamedAsync(scratch, inline, addends, now, largest, ct).ConfigureAwait(false);
+
+            // 4. Room per window (limit minus sum, or none when the window is over its limit or its sum is over every limit),
+            // the tightest room, and the first window the spend does not fit, all by the streamed comparer.
+            var spend = await InMemoryChunkedTokenAmount.FromAsync(tokens, codec, ct).ConfigureAwait(false);
+            var none = await InMemoryChunkedTokenAmount.FromAsync(TokenAmount.Zero, codec, ct).ConfigureAwait(false);
+            ITokenAmountChunkReader? tightest = null;
+            TokenBudgetWindow? blocked = null;
+            for (var i = 0; i < _windows.Length; i++)
+            {
+                var room = used[i] is { } sum ? await scratch.TrySubtractAsync(limitChunks[i], sum, ct).ConfigureAwait(false) : null;
+                var effective = room ?? none;
+                if (tightest is null || await codec.CompareAsync(effective, tightest, ct).ConfigureAwait(false) < 0)
+                {
+                    tightest = effective;
+                }
+
+                if (blocked is null && (room is null || await codec.CompareAsync(spend, room, ct).ConfigureAwait(false) > 0))
+                {
+                    blocked = _windows[i];
+                }
+            }
+
+            var left = blocked is null ? await scratch.TrySubtractAsync(tightest!, spend, ct).ConfigureAwait(false) : tightest;
+            var remaining = left is null ? null : await codec.TryReadAsync(left, limits.InMemoryMaxDigits, ct).ConfigureAwait(false);
+            decision = new TokenBudgetDecision(
+                Allowed: blocked is null,
+                Window: blocked,
+                Remaining: remaining ?? TokenAmount.Zero,
+                RetryAfter: blocked is null ? TimeSpan.Zero : TimeSpan.MaxValue)
+            {
+                RemainingTooLarge = remaining is null,
+            };
+        }
+        catch (TokenAmountIntegrityException ex)
+        {
+            LogIntegrityFinding(ex, agentId);
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return TokenBudgetEvaluator.Unrepresentable();
+        }
+
+        if (!decision.Allowed)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return decision;
+        }
+
+        if (tokens.IsZero)
+        {
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return decision;
+        }
+
+        await RecordAsync(conn, tx, agentId, now, tokens, ct).ConfigureAwait(false);
+        return decision;
+    }
+
+    /// <summary>
     /// Inserts one spend in <paramref name="tx"/> and commits: inline when it fits <c>numeric</c>, otherwise staged in the large
     /// tier and sealed in the same transaction as the row that refers to it.
     /// </summary>
@@ -265,6 +396,39 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
     private async Task<TokenAmount?[]> WindowSumsAsync(
         NpgsqlConnection conn, NpgsqlTransaction tx, string agentId, DateTimeOffset now, DateTimeOffset weekStart,
         TokenBudgetOptions limits, CancellationToken ct)
+    {
+        var (inline, addends) = await CollectWindowRowsAsync(conn, tx, agentId, now, weekStart, ct).ConfigureAwait(false);
+        if (addends.Count == 0)
+        {
+            return inline;
+        }
+
+        var codec = _large.Codec;
+        var inMemory = limits.InMemoryMaxDigits;
+        var largestLimit = TokenAmount.Max(limits.HourlyTokens, TokenAmount.Max(limits.DailyTokens, limits.WeeklyTokens));
+        var largestLimitChunks = await InMemoryChunkedTokenAmount.FromAsync(largestLimit, codec, ct).ConfigureAwait(false);
+
+        await using var scratch = new ScratchSpace(_large, conn, tx, inMemory);
+        var totals = await SumWindowsStreamedAsync(scratch, inline, addends, now, largestLimitChunks, ct).ConfigureAwait(false);
+        var used = new TokenAmount?[totals.Length];
+        for (var i = 0; i < totals.Length; i++)
+        {
+            if (totals[i] is { } total)
+            {
+                used[i] = await codec.TryReadAsync(total, inMemory, ct).ConfigureAwait(false);
+                await scratch.ReleaseAsync(total).ConfigureAwait(false);
+            }
+        }
+
+        return used;
+    }
+
+    /// <summary>
+    /// The rows of the week window: the inline sums per window from SQL, and the rows the streamed adder must add (the large
+    /// rows, plus every inline row when the SQL sum overflows <c>numeric</c>), newest first.
+    /// </summary>
+    private static async Task<(TokenAmount?[] Inline, List<Addend> Addends)> CollectWindowRowsAsync(
+        NpgsqlConnection conn, NpgsqlTransaction tx, string agentId, DateTimeOffset now, DateTimeOffset weekStart, CancellationToken ct)
     {
         TokenAmount?[] inline = [TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero];
         var inlineOverflow = false;
@@ -315,31 +479,25 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
             }
         }
 
-        if (addends.Count == 0)
-        {
-            return inline;
-        }
-
         // Newest first, so each window's rows are a prefix of the next window's.
         addends.Sort((left, right) => right.At.CompareTo(left.At));
-        return await AddStreamedAsync(conn, tx, inline, addends, now, limits, ct).ConfigureAwait(false);
+        return (inline, addends);
     }
 
-    /// <summary>Adds the rows to the inline sums with the streamed adder, reading each large row once (see the type remarks).</summary>
-    private async Task<TokenAmount?[]> AddStreamedAsync(
-        NpgsqlConnection conn, NpgsqlTransaction tx, TokenAmount?[] inline, List<Addend> addends, DateTimeOffset now,
-        TokenBudgetOptions limits, CancellationToken ct)
+    /// <summary>
+    /// Adds the rows to the inline sums with the streamed adder, reading each large row once (see the type remarks). Returns
+    /// each window's total in <paramref name="scratch"/>, never materialised; null where it is over
+    /// <paramref name="largestLimit"/>, and so over every limit.
+    /// </summary>
+    private async Task<ITokenAmountChunkReader?[]> SumWindowsStreamedAsync(
+        ScratchSpace scratch, TokenAmount?[] inline, List<Addend> addends, DateTimeOffset now, ITokenAmountChunkReader largestLimit,
+        CancellationToken ct)
     {
         var codec = _large.Codec;
-        var inMemory = limits.InMemoryMaxDigits;
-        var largestLimit = TokenAmount.Max(limits.HourlyTokens, TokenAmount.Max(limits.DailyTokens, limits.WeeklyTokens));
-        var largestLimitChunks = await InMemoryChunkedTokenAmount.FromAsync(largestLimit, codec, ct).ConfigureAwait(false);
-
-        await using var scratch = new ScratchSpace(_large, conn, tx, inMemory);
         ITokenAmountChunkReader partial = await InMemoryChunkedTokenAmount.FromAsync(TokenAmount.Zero, codec, ct).ConfigureAwait(false);
         var overEveryLimit = false;
         var next = 0;
-        var used = new TokenAmount?[_windows.Length];
+        var used = new ITokenAmountChunkReader?[_windows.Length];
 
         for (var i = 0; i < _windows.Length; i++)
         {
@@ -352,7 +510,7 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
                     continue;
                 }
 
-                if (addend.Digits.IntegerDigits > largestLimit.IntegerDigitCount)
+                if (addend.Digits.IntegerDigits > largestLimit.Digits.IntegerDigits)
                 {
                     // Over the largest limit from its header alone: no chunk of it is read.
                     overEveryLimit = true;
@@ -360,12 +518,12 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
                 }
 
                 ITokenAmountChunkReader operand = addend.Large is { } large
-                    ? PostgresTokenAmountChunkReader.Within(conn, tx, large.Id, large.Digits, large.Sha256, codec.Pool)
+                    ? scratch.Read(large.Id, large.Digits, large.Sha256)
                     : await InMemoryChunkedTokenAmount.FromAsync(addend.Inline, codec, ct).ConfigureAwait(false);
                 var sum = await scratch.AddAsync(partial, operand, ct).ConfigureAwait(false);
                 await scratch.ReleaseAsync(partial).ConfigureAwait(false);
                 partial = sum;
-                overEveryLimit = await codec.CompareAsync(partial, largestLimitChunks, ct).ConfigureAwait(false) > 0;
+                overEveryLimit = await codec.CompareAsync(partial, largestLimit, ct).ConfigureAwait(false) > 0;
             }
 
             if (overEveryLimit || inline[i] is not { } start)
@@ -375,9 +533,7 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
             }
 
             var startChunks = await InMemoryChunkedTokenAmount.FromAsync(start, codec, ct).ConfigureAwait(false);
-            var total = await scratch.AddAsync(startChunks, partial, ct).ConfigureAwait(false);
-            used[i] = await codec.TryReadAsync(total, inMemory, ct).ConfigureAwait(false);
-            await scratch.ReleaseAsync(total).ConfigureAwait(false);
+            used[i] = await scratch.AddAsync(startChunks, partial, ct).ConfigureAwait(false);
         }
 
         return used;
@@ -471,19 +627,48 @@ public sealed partial class PostgresTokenBudgetStore : ITokenBudgetStore
     {
         private readonly Dictionary<ITokenAmountChunkReader, PostgresStagedTokenAmount> _staged = [];
 
-        public async Task<ITokenAmountChunkReader> AddAsync(ITokenAmountChunkReader left, ITokenAmountChunkReader right, CancellationToken ct)
+        /// <summary>A reader over a sealed amount inside the locked transaction.</summary>
+        public PostgresTokenAmountChunkReader Read(Guid id, TokenAmountDigitCounts digits, byte[] sha256) =>
+            PostgresTokenAmountChunkReader.Within(conn, tx, id, digits, sha256, large.Codec.Pool);
+
+        public Task<ITokenAmountChunkReader> AddAsync(ITokenAmountChunkReader left, ITokenAmountChunkReader right, CancellationToken ct) =>
+            CombineAsync(
+                TokenAmountChunkCodec.SumBound(left.Digits, right.Digits),
+                async (destination, token) =>
+                {
+                    await large.Codec.AddAsync(left, right, destination, token).ConfigureAwait(false);
+                    return true;
+                },
+                ct)!;
+
+        /// <summary><paramref name="left"/> minus <paramref name="right"/>; null when <paramref name="right"/> is larger.</summary>
+        public Task<ITokenAmountChunkReader?> TrySubtractAsync(ITokenAmountChunkReader left, ITokenAmountChunkReader right, CancellationToken ct) =>
+            CombineAsync(
+                new TokenAmountDigitCounts(left.Digits.IntegerDigits, Math.Max(left.Digits.FractionDigits, right.Digits.FractionDigits)),
+                (destination, token) => large.Codec.TrySubtractAsync(left, right, destination, token),
+                ct);
+
+        /// <summary>
+        /// Runs <paramref name="write"/> into memory when <paramref name="bound"/> fits the in-memory maximum, otherwise into a
+        /// staged amount. Null (and nothing kept) when it writes nothing.
+        /// </summary>
+        private async Task<ITokenAmountChunkReader?> CombineAsync(
+            TokenAmountDigitCounts bound, Func<ITokenAmountChunkWriter, CancellationToken, ValueTask<bool>> write, CancellationToken ct)
         {
-            if (TokenAmountChunkCodec.SumBound(left.Digits, right.Digits).TotalAtMost(inMemoryMaxDigits))
+            if (bound.TotalAtMost(inMemoryMaxDigits))
             {
-                var sum = new InMemoryChunkedTokenAmount();
-                await large.Codec.AddAsync(left, right, sum, ct).ConfigureAwait(false);
-                return sum;
+                var result = new InMemoryChunkedTokenAmount();
+                return await write(result, ct).ConfigureAwait(false) ? result : null;
             }
 
             var staged = await large.BeginStagingAsync(ct).ConfigureAwait(false);
             try
             {
-                await large.Codec.AddAsync(left, right, staged, ct).ConfigureAwait(false);
+                if (!await write(staged, ct).ConfigureAwait(false))
+                {
+                    await staged.DisposeAsync().ConfigureAwait(false);
+                    return null;
+                }
             }
             catch
             {

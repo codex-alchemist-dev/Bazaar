@@ -45,3 +45,26 @@ public interface ITokenAmountChunkWriter
     /// <summary>Records the header: the true digit counts and the SHA-256 of the packed digits. Called once, last.</summary>
     ValueTask CompleteAsync(TokenAmountDigitCounts digits, ReadOnlyMemory<byte> sha256, CancellationToken ct);
 }
+
+/// <summary>
+/// Temporary storage for a digit stream before its length is known (doc 48, DECIDED 11.4, "Transport above the frame size").
+/// <see cref="TokenAmountChunkCodec.WriteDecimalStreamAsync"/> writes the digits as they arrive, packed two per byte in reading
+/// order, one chunk per call, then reads them back one chunk at a time to align them at the decimal point. The bytes are not
+/// in the stored layout and never become a stored amount.
+/// </summary>
+/// <remarks>
+/// The buffer passed to <see cref="WriteAsync"/> belongs to the codec and is reused after the call returns, so an
+/// implementation copies or sends it before returning. A chunk is read only after <see cref="FlushAsync"/>.
+/// </remarks>
+public interface ITokenAmountDigitScratch
+{
+    /// <summary>Stores scratch chunk <paramref name="seq"/> of <paramref name="part"/>.</summary>
+    ValueTask WriteAsync(TokenAmountPart part, long seq, ReadOnlyMemory<byte> bytes, CancellationToken ct);
+
+    /// <summary>Makes every chunk written so far readable.</summary>
+    ValueTask FlushAsync(CancellationToken ct);
+
+    /// <summary>Returns scratch chunk <paramref name="seq"/> of <paramref name="part"/>. The caller disposes it.</summary>
+    /// <exception cref="TokenAmountIntegrityException">The chunk is missing.</exception>
+    ValueTask<IMemoryOwner<byte>> ReadAsync(TokenAmountPart part, long seq, CancellationToken ct);
+}
