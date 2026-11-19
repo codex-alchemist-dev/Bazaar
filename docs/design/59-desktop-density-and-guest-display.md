@@ -145,6 +145,24 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 7. VmBench scenarios and the S-DSP spike. (after 1, 2, 4; PR #842)
 8. Browser pool VM: one light Linux VM, a per-agent OS user and namespace sandbox per session, per-agent egress proxy, kiosk profile, pool recycling. Own module `Bazaar.Server.BrowserPool`. (after 1, 4; PR #832)
 
+### Build status (2026-11-19)
+- Work package 1: PR #860. Guest typing uses `wtype` with a leading `-k Shift_L`; guest pointer input is refused until the absolute-pointer helper of work package 4 exists (measurements note).
+- Work package 2: PR #867. The KVM adapter is tested against a real QEMU. The Hyper-V scripts are unverified until spike S-DSP.
+- Work package 5: PR #857.
+- Work package 8: PR #868 (session manager only; the pool VM image and host adapter are still to do).
+
+### Browser pool isolation: what holds and what does not (measured, PR #868)
+Each session has its own slot: a Linux uid, an empty profile, `setpriv` (no new privileges, empty capability sets), a `bwrap` sandbox that hides `/root`, `/var`, `/home`, `/etc/passwd` and the other slots, Chromium's own sandbox left on (renderers under seccomp), and a per-uid nftables rule that allows only that agent's egress proxy. A real Chromium in this sandbox sent its page request to the proxy and nothing else was reachable by path.
+
+Known limits, in order of weight:
+1. Slots share the pool VM's network namespace, so abstract UNIX sockets in that VM are reachable and nftables does not filter them. Follow-up: a network namespace per slot with a veth to the proxy. Until then the pool VM image must run no service on an abstract socket.
+2. Slots share one kernel. A kernel exploit reaches every slot; the VM wall protects the host and the agent VMs. This is the reason account profiles stay out of the pool (section 7).
+3. Confinement to the proxy rests on the host adapter applying the rendered rules. The adapter must ship a health check that proves a slot uid reaches nothing but its proxy, and the pool refuses to open sessions when the check fails.
+4. No per-slot disk or CPU cap yet; memory and task caps need `systemd-run`.
+5. Chromium sends background requests to Google hosts through the proxy even with background networking disabled. The proxy allowlist refuses them.
+6. Stock Ubuntu 24.04 restricts unprivileged user namespaces, so the pool image needs an AppArmor profile for `bwrap`. Without it sessions fail closed. `--no-sandbox` is never the fix.
+7. Egress endpoints are IPv4 literals only for now.
+
 ## 12. Questions for the owner
 1. **Where do anonymous browsers run?** ANSWERED (owner card, 2026-11-19): a shared browser VM for anonymous profiles; account profiles stay in each agent's own VM (section 7).
 2. **Start the Windows VM only on first use?** *Recommend* yes (`vm.pair.start_policy = on_demand`). This is a default, so it follows the configurability rule and is not blocked on an answer.
