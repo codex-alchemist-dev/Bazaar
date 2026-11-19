@@ -296,6 +296,39 @@ public sealed class ConnectionTests
     }
 
     [Fact]
+    public async Task Queued_events_are_bounded_by_size_as_well_as_by_count()
+    {
+        // 1000 queued events was the only bound, so a stalled reader of 100 KB messages pinned 100 MB per connection.
+        await using var server = await WireTestServer.StartAsync();
+        await using var client = await WireTestClient.ConnectedAsync(server);
+        var connection = Assert.Single(server.Manager.Registry.Connections);
+        var payload = System.Text.Encoding.UTF8.GetBytes("\"" + new string('b', 1_000_000) + "\"");
+        var accepted = 0;
+
+        // The client never reads, so nothing leaves the queue once the socket buffers are full.
+        for (var i = 0; i < 100; i++)
+        {
+            var envelope = new Envelope(1, WireTypes.GcMessage, EnvelopeKind.Event, null, null, "gc:test", i, null, payload);
+            if (connection.TryEnqueueEvent(envelope)) accepted++;
+        }
+
+        Assert.InRange(accepted, 1, 40);
+    }
+
+    [Fact]
+    public async Task A_graceful_stop_closes_connected_sockets_with_1001_instead_of_waiting_out_the_stop_timeout()
+    {
+        // Seen in the chaos run: one connected client made SIGTERM take the whole 30 s host stop timeout, after which the host aborted.
+        await using var server = await WireTestServer.StartAsync();
+        await using var client = await WireTestClient.ConnectedAsync(server);
+
+        var stopping = server.StopAsync();
+
+        Assert.Equal(1001, await client.WaitForCloseAsync());
+        Assert.Same(stopping, await Task.WhenAny(stopping, Task.Delay(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken)));
+    }
+
+    [Fact]
     public async Task A_client_that_asks_but_never_reads_is_closed_instead_of_growing_the_reply_queue()
     {
         // Replies are not events, so wire.outbound_queue_max never bounded them: a peer that kept sending requests (which also

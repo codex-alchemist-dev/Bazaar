@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.Numerics;
 
 namespace Bazaar.Server.Agents.Turns;
 
@@ -11,7 +12,7 @@ public sealed record ModelStepResponse(
     string StopReason,
     string ServedModel,
     IReadOnlyList<ModelStepToolCall> ToolCalls,
-    long Tokens);
+    TokenAmount Tokens);
 
 /// <summary>One tool call the model asked for, with its arguments as the JSON the model produced.</summary>
 public sealed record ModelStepToolCall(string CallId, string Name, string ArgumentsJson);

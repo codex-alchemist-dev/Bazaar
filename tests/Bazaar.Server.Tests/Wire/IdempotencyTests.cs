@@ -29,6 +29,24 @@ public sealed class IdempotencyTests
     }
 
     [Fact]
+    public async Task A_reply_too_big_to_keep_is_forgotten_so_the_table_cannot_pin_large_pages_for_a_day()
+    {
+        var executor = Executor(new FakeClock());
+        var runs = 0;
+        ValueTask<WireReply> Big(CancellationToken _)
+        {
+            Interlocked.Increment(ref runs);
+            return ValueTask.FromResult(WireReply.Ok(new byte[IdempotentRequestExecutor.MaxRememberedPayloadBytes + 1]));
+        }
+
+        await executor.ExecuteAsync("d", "page", Big, default);
+        await executor.ExecuteAsync("d", "page", Big, default);
+
+        Assert.Equal(2, runs);
+        Assert.Equal(0, executor.Count);
+    }
+
+    [Fact]
     public async Task Ids_are_scoped_to_the_device()
     {
         var executor = Executor(new FakeClock());

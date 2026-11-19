@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 
 namespace Bazaar.Contracts.Tests.Gateway;
 
@@ -123,9 +124,63 @@ public class GatewayContractsTests
 
         var back = Deserialize<GatewayTokenUsage>(Serialize(usage));
 
-        Assert.Equal(2000, back.CacheWrite5m);
-        Assert.Equal(500, back.CacheWrite1h);
+        Assert.Equal(TokenAmount.FromInt64(2000), back.CacheWrite5m);
+        Assert.Equal(TokenAmount.FromInt64(500), back.CacheWrite1h);
         Assert.Equal(usage, back);
+    }
+
+    [Fact]
+    public void Usage_counts_are_written_as_exact_strings_and_survive_past_the_long_range()
+    {
+        var huge = TokenAmount.Parse("123456789012345678901234567890");
+        var usage = new GatewayTokenUsage(huge, TokenAmount.Parse("0.5"), TokenAmount.Zero, TokenAmount.FromInt64(long.MaxValue), huge, TokenAmount.One);
+
+        var json = Serialize(usage);
+
+        using (var doc = JsonDocument.Parse(json))
+        {
+            Assert.Equal(JsonValueKind.String, doc.RootElement.GetProperty("input").ValueKind);
+            Assert.Equal("123456789012345678901234567890", doc.RootElement.GetProperty("input").GetString());
+            Assert.Equal("0.5", doc.RootElement.GetProperty("cacheWrite5m").GetString());
+            Assert.Equal("9223372036854775807", doc.RootElement.GetProperty("cacheRead").GetString());
+        }
+
+        Assert.Equal(usage, Deserialize<GatewayTokenUsage>(json));
+    }
+
+    [Fact]
+    public void Usage_counts_still_read_from_plain_json_numbers_as_older_stored_rows_have_them()
+    {
+        var back = Deserialize<GatewayTokenUsage>(
+            """{"input":42,"cacheWrite5m":1200,"cacheWrite1h":800,"cacheRead":5000,"output":123456789012345678901234567890,"thinking":0}""");
+
+        Assert.Equal(new GatewayTokenUsage(Input: 42, CacheWrite5m: 1200, CacheWrite1h: 800, CacheRead: 5000, Output: 0, Thinking: 0) with { Output = TokenAmount.Parse("123456789012345678901234567890") }, back);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("\"-1\"")]
+    [InlineData("\"NaN\"")]
+    [InlineData("\"1e999999999\"")]
+    [InlineData("null")]
+    [InlineData("true")]
+    public void A_bad_usage_count_is_refused_not_wrapped_or_clamped(string input)
+    {
+        var json = $$"""{"input":{{input}},"cacheWrite5m":0,"cacheWrite1h":0,"cacheRead":0,"output":0,"thinking":0}""";
+
+        Assert.ThrowsAny<JsonException>(() => Deserialize<GatewayTokenUsage>(json));
+    }
+
+    [Fact]
+    public void A_usage_event_and_a_usage_record_round_trip_with_huge_counts()
+    {
+        var tokens = new GatewayTokenUsage(TokenAmount.Parse("99999999999999999999999"), TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Parse("77777777777777777777777"), TokenAmount.Zero);
+
+        var back = Assert.IsType<ModelEvent.UsageReported>(Deserialize<ModelEvent>(Serialize<ModelEvent>(new ModelEvent.UsageReported(tokens))));
+        Assert.Equal(tokens, back.Usage);
+
+        var record = new GatewayUsageRecord(Guid.NewGuid(), _moment, "agent-1", null, "p", "k", "m", null, GatewayIdentity.Pooled, tokens, 5, UsageStatus.Success, null, null, false, null);
+        Assert.Equal(record, Deserialize<GatewayUsageRecord>(Serialize(record)));
     }
 
     [Fact]

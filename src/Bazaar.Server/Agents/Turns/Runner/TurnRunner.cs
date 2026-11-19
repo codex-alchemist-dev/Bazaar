@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gateway;
@@ -190,7 +191,7 @@ public sealed class TurnRunner : ITurnRunner
             }
 
             messages.Add(new ModelMessage(ModelRole.Assistant, response.Text, ToolCalls: response.ToolCalls));
-            if (run.Tokens >= _options.TokenCeiling)
+            if (CeilingReached(run.Tokens, _options.TokenCeiling))
                 return TurnEndReason.TokenCeiling;
 
             foreach (var call in response.ToolCalls)
@@ -415,8 +416,13 @@ public sealed class TurnRunner : ITurnRunner
     private static TurnStepStatus UnfinishedStatus(TurnStepKind kind, bool idempotent) =>
         kind == TurnStepKind.Model || (kind == TurnStepKind.Tool && idempotent) ? TurnStepStatus.Abandoned : TurnStepStatus.Unknown;
 
-    private static long TotalTokens(GatewayTokenUsage usage) =>
+    // Thinking is inside Output (doc 05), but this run counts it again, as before; the sum is exact and cannot wrap.
+    private static TokenAmount TotalTokens(GatewayTokenUsage usage) =>
         usage.Input + usage.CacheWrite5m + usage.CacheWrite1h + usage.CacheRead + usage.Output + usage.Thinking;
+
+    /// <summary>True when the run's tokens reach the ceiling. A negative ceiling is reached by any count.</summary>
+    private static bool CeilingReached(TokenAmount tokens, long ceiling) =>
+        ceiling < 0 || tokens >= TokenAmount.FromInt64(ceiling);
 
     private static string ToolContent(ToolDispatchOutcome outcome, string? resultJson, string? reason) => outcome switch
     {
@@ -443,7 +449,7 @@ public sealed class TurnRunner : ITurnRunner
         public Guid TurnId { get; set; }
         public int StepCount { get; set; }
         public int ModelResponses { get; set; }
-        public long Tokens { get; set; }
+        public TokenAmount Tokens { get; set; }
         public string? Summary { get; set; }
         public TurnEndReason? Reason { get; set; }
         public bool PostDone { get; set; }

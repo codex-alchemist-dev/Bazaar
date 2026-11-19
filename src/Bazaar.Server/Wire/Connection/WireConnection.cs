@@ -22,6 +22,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private const int _serverFaultCloseCode = 1011;
     private const int _backlogCloseCode = 1013; // Try Again Later: the peer is not reading what it asked for.
     private const long _maxPendingReplyBytes = 32L * 1024 * 1024;
+    private const long _maxPendingEventBytes = 8L * 1024 * 1024;
 
     private readonly WebSocket _socket;
     private readonly string? _headerCredential;
@@ -51,6 +52,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private (int Code, string Reason)? _closeRequest;
     private volatile bool _closing;
     private int _pendingEvents;
+    private long _pendingEventBytes;
     private int _pendingReplies;
     private long _pendingReplyBytes;
     private int _inflight;
@@ -115,8 +117,21 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             return false;
         }
 
-        if (!_outbound.Writer.TryWrite(new Outbound(EncodeFrame(envelope), IsEvent: true)))
+        // The event bound counts frames, and a frame can be 100 KB or more: 1000 queued events behind a stalled reader were
+        // 100 MB or more, per connection (chaos run: 200 stalled replays of a 30 KB-message GC took the host to 3 GB). The byte
+        // bound refuses the same way (live delivery turns into `lagged`, a replay waits), except that an empty queue takes any frame.
+        var data = EncodeFrame(envelope);
+        var bytes = Interlocked.Add(ref _pendingEventBytes, data.Length);
+        if (bytes > _maxPendingEventBytes && bytes != data.Length)
         {
+            Interlocked.Add(ref _pendingEventBytes, -data.Length);
+            Interlocked.Decrement(ref _pendingEvents);
+            return false;
+        }
+
+        if (!_outbound.Writer.TryWrite(new Outbound(data, IsEvent: true)))
+        {
+            Interlocked.Add(ref _pendingEventBytes, -data.Length);
             Interlocked.Decrement(ref _pendingEvents);
             return false;
         }
@@ -569,7 +584,11 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         {
             await foreach (var item in _outbound.Reader.ReadAllAsync().ConfigureAwait(false))
             {
-                if (item.IsEvent) Interlocked.Decrement(ref _pendingEvents);
+                if (item.IsEvent)
+                {
+                    Interlocked.Decrement(ref _pendingEvents);
+                    Interlocked.Add(ref _pendingEventBytes, -item.Data.Length);
+                }
                 else ReleaseReply(item.Data.Length);
                 await _socket.SendAsync(
                     item.Data,

@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-
+using Bazaar.Contracts.Numerics;
 namespace Bazaar.Server.Tests.Gateway.Adapters.Anthropic;
 
 /// <summary>Usage mapping. Cache writes stay split into the 5-minute and 1-hour buckets (decision C33).</summary>
@@ -53,7 +53,7 @@ public class AnthropicMessagesUsageTests
         // message_start reports output 1; message_delta reports the running total 6, which must win.
         var usage = Assert.Single(await UsageEvents(AnthropicTestSupport.Fixture("text_stream.sse"))).Usage;
 
-        Assert.Equal(6, usage.Output);
+        Assert.Equal(TokenAmount.FromInt64(6), usage.Output);
     }
 
     [Fact]
@@ -109,5 +109,66 @@ public class AnthropicMessagesUsageTests
         var events = await AnthropicTestSupport.Collect(adapter, AnthropicTestSupport.Endpoint(), AnthropicTestSupport.SimpleRequest(), TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(events, e => e is ModelEvent.UsageReported);
+    }
+
+    private static string UsageStream(string startInput, string deltaOutput) =>
+        "event: message_start\n"
+        + "data: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-haiku-5-5\",\"content\":[],\"usage\":{\"input_tokens\":" + startInput + ",\"output_tokens\":1}}}\n\n"
+        + "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"
+        + "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\n"
+        + "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+        + "event: message_delta\n"
+        + "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":" + deltaOutput + "}}\n\n"
+        + "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+
+    private static async Task<List<ModelEvent>> Events(string stream)
+    {
+        using var handler = new StubHandler(_ => AnthropicTestSupport.Sse(stream));
+        var adapter = AnthropicTestSupport.Adapter(handler);
+        return await AnthropicTestSupport.Collect(adapter, AnthropicTestSupport.Endpoint(), AnthropicTestSupport.SimpleRequest(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_count_past_the_long_range_is_read_exactly()
+    {
+        var events = await Events(UsageStream("92233720368547758070", "4"));
+
+        var usage = Assert.Single(events.OfType<ModelEvent.UsageReported>()).Usage;
+        Assert.Equal(TokenAmount.Parse("92233720368547758070"), usage.Input);
+        Assert.Equal(TokenAmount.FromInt64(4), usage.Output);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
+    }
+
+    [Theory]
+    [InlineData("1.5e3", "1500")]
+    [InlineData("12.5", "12.5")]
+    [InlineData("7", "7")]
+    public async Task A_decimal_or_exponent_count_is_read_exactly_never_through_a_float(string wire, string exact)
+    {
+        var usage = Assert.Single((await Events(UsageStream(wire, "4"))).OfType<ModelEvent.UsageReported>()).Usage;
+
+        Assert.Equal(TokenAmount.Parse(exact), usage.Input);
+    }
+
+    [Theory]
+    [InlineData("-5", "4")]
+    [InlineData("-92233720368547758070", "4")]
+    [InlineData("10", "-1")]
+    [InlineData("1e999999999", "4")]
+    public async Task A_negative_or_absurd_count_drops_the_report_and_the_call_still_completes(string input, string output)
+    {
+        var events = await Events(UsageStream(input, output));
+
+        Assert.DoesNotContain(events, e => e is ModelEvent.UsageReported);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
+    }
+
+    [Fact]
+    public async Task A_count_beyond_the_numeric_digit_bounds_drops_the_report()
+    {
+        var events = await Events(UsageStream(new string('9', 131_073), "4"));
+
+        Assert.DoesNotContain(events, e => e is ModelEvent.UsageReported);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
     }
 }

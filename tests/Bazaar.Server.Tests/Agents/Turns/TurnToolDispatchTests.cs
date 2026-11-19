@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Agents;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns;
@@ -53,7 +54,7 @@ public sealed class TurnToolDispatchTests(AgentDb db) : IClassFixture<AgentDb>
 
     /// <summary>The stored response of a model step that asked for one tool call.</summary>
     private static string ModelStepJson(ModelStepToolCall call) =>
-        JsonSerializer.Serialize(new ModelStepResponse(string.Empty, "ToolUse", "fake-model", [call], 3), _json);
+        JsonSerializer.Serialize(new ModelStepResponse(string.Empty, "ToolUse", "fake-model", [call], TokenAmount.FromInt64(3)), _json);
 
     private static ModelStepToolCall ReadFile() => new("call-1", "read_file", """{"path":"notes.md"}""");
 

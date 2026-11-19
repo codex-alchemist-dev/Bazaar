@@ -27,7 +27,7 @@ Rules of engagement: a finding only counts with a repro that was actually run; e
 | Migrations | 300 murders of `migrate` | 6 | 2 |
 | Modules and Kodo | Truncation at every byte, bit flips, liar probes | 8 | 5 |
 | Agent misbehaviour | A model that stalls, shouts and reports negative tokens | 6 | 2 |
-| Concurrent load | Up to 2,000 clients, dead peers, partitions | see below | see below |
+| Concurrent load | Up to 2,000 clients, dead peers, partitions | 7 | 5 |
 
 Several attackers found the same bug from different directions without knowing about each other. Those are counted once in the stories below.
 
@@ -122,7 +122,15 @@ All three now get the documented client error (4400, `bad_request`, 400).
 
 Both were found separately by the crash-only and the concurrent-load campaigns.
 
-### 12. The model that never hangs up
+### 12. The herd that starved itself
+
+The thundering-herd test restarted the host and had 2,000 clients reconnect and replay at once. After 400 seconds, 96 of them had finished.
+
+The host was not busy. It was idle, waiting on itself. Each replay held one pooled database connection for its row reader and then asked for a second one to unwrap the author's key for each message body. A hundred overlapping replays each held one connection and waited for another that the other ninety-nine were holding. Everyone timed out after 15 seconds, politely, in turn.
+
+**Fix:** read the rows, close the reader, then open the bodies. The same 2,000 clients now finish in 28 seconds.
+
+### 13. The model that never hangs up
 
 A fake model sent one chunk and then went silent. Sixteen minutes later the call was still open and still holding that GC's reply gate, so the agent was mute in that chat. The 120-second client timeout covered the headers, not the streamed body.
 
@@ -130,20 +138,21 @@ A fake model sent one chunk and then went silent. Sixteen minutes later the call
 
 Also from the fake model: an 8 MB agent reply was written into the append-only, never-purged GC log as a single 8,388,760-byte row. People are capped at 64 Ki characters; now agents are too.
 
-### 13. Kodo's journal and the half line
+### 14. Kodo's journal and the half line
 
 A failed append to the Kodo spill file (disk full) left half a line. The next append glued itself onto it, and the file was unreadable forever after. Appends were not locked either.
 
 **Fix:** the writer rolls back to the last complete record and serialises appenders.
 
-### 14. Smaller victories
+### 15. Smaller victories
 
 - A probe that blocks its thread before its first `await` hung the caller; the timeout never fired. Fixed in two places.
 - .NET's `$` matches before a final newline, so `"postgresql\n"` and `"bazaar.gc\n"` passed id validators. Three regexes fixed; a sweep of the rest is on the list below.
 - Installed `0.1.0-rc.10`, offered `0.1.0-rc.2`: accepted as an update, because pre-releases were compared as strings. Now SemVer 2.0 order.
 - A component that threw half way through registration left half its services registered. Now all or nothing.
 - A crashing line-move executor escaped with no audit entry and no rollback. Now it is a failed, audited step.
-- A reply queue with no bound: a client that asks but never reads grew host memory by about 14 MB per second. Now it is closed with 1013.
+- A reply queue with no bound: a client that asks but never reads grew host memory by about 14 MB per second. Now it is closed with 1013. Queued events are bounded by bytes as well as by count.
+- The request-id table kept every reply for 24 hours, including 100 KB history pages: 5,000 requests pinned 837 MB after the client had left. Replies over 16 KiB are now forgotten once delivered (they are all reads, and a retried read simply runs again).
 - `/health/ready` hung for as long as Postgres was frozen. Each check is now bounded and the answer is 503.
 - A corrupt heap page made every subscribe answer `lagged` with nothing in the log. It is logged now.
 
@@ -162,6 +171,10 @@ This is the part that should make the builders smile.
 - **Approvals:** forged, replayed and retargeted grants all failed.
 - **Loop guard:** agent ping-pong cut at 6 messages.
 - **Auth and access:** constant-time token compare, no data from a GC you are not in, no file ever served from a traversal path, **no secret in `/status`, `/health/ready` or any error output.**
+- **2,000 clients on one GC, and 6,000 subscriptions across 200 GCs:** every subscriber saw every message exactly once and in order, through more than 250 reconnects with a cursor.
+- **Postgres partitions of 5, 25, 60 and 300 seconds:** writers retried the same ids. 0 duplicates, 0 lost acks.
+- **100,000 notifications queued while the host was frozen:** nothing lost. Commits with no notification at all were found by the 30-second sweep.
+- **Dead peers:** half the clients silently dropped off the network and were reaped at 60 seconds with host memory flat.
 - **20 MB of heap:** requests failed one at a time, the process lived, nothing was corrupted.
 - **A 100 MB frame:** cut off after about 3 MB. Never buffered.
 
@@ -189,7 +202,10 @@ None of these were changed. Each needs a decision first.
 9. **Kodo evaluator:** hysteresis counts caller wall time, the flap rule can move `recovering` to `degraded` (not a row in doc 46 section 8.2), and a truncated journal tail cannot be told from a crash until checkpoints and anchors exist.
 10. **Stream timeout:** total deadline (what the fix does) or idle timeout? The Anthropic and Gemini adapters share the pattern and were not changed.
 11. **The `$` regex sweep** across the remaining validators.
-12. **File descriptor exhaustion:** the accept loop spins at about 86% of a core and `/health/live` goes dark until sockets free up.
+12. **Replay pages are not bounded by bytes.** 200 stalled replays of a GC with 30 KB messages still took the host to about 3 GB. The same run burned 34 to 57% of a core with the cause not found.
+13. **The replay cutoff counts a new message twice**, so `resync` triggers at about 1,000 missed messages, not the documented 2,000. And the `gc.edit` reply carries the edit event's sequence number where doc 02 says the original `n`.
+14. **Memory creep:** 159 MB to about 570 MB over 15 cycles of 400 connects and disconnects, with file descriptors and threads flat. Part of it was the reply table (now fixed); the rest is unattributed.
+15. **File descriptor exhaustion:** the accept loop spins at about 86% of a core and `/health/live` goes dark until sockets free up.
 
 ## How to do it again
 
