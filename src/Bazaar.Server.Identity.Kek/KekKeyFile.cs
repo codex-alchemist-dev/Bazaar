@@ -34,19 +34,7 @@ internal static class KekKeyFile
                 Array.Clear(fresh);
             }
 
-            try
-            {
-                // CreateNew fails if another start created the file first; that start's key is read below.
-                using var stream = new FileStream(keyPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-                stream.Write(sealed_);
-                stream.Flush(flushToDisk: true);
-            }
-            catch (IOException) when (File.Exists(keyPath))
-            {
-                // Lost the race to another start; fall through and read its key.
-            }
-
-            RestrictToOwner(keyPath);
+            Publish(keyPath, sealed_);
         }
 
         var bytes = File.ReadAllBytes(keyPath);
@@ -67,6 +55,42 @@ internal static class KekKeyFile
         }
 
         return key;
+    }
+
+    /// <summary>
+    /// Writes the sealed key to a private temp file, flushes it, and moves it into place without overwriting. A failed write (a full
+    /// disk, a killed process) leaves no <c>kek.bin</c> behind, so the next start creates it again instead of choking on a torn file;
+    /// a reader never sees a half-written key. If another start published first, its key wins.
+    /// </summary>
+    private static void Publish(string keyPath, byte[] sealedKey)
+    {
+        var temp = keyPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(sealedKey);
+                stream.Flush(flushToDisk: true);
+            }
+
+            RestrictToOwner(temp);
+            File.Move(temp, keyPath, overwrite: false);
+        }
+        catch (IOException) when (File.Exists(keyPath) && new FileInfo(keyPath).Length > 0)
+        {
+            // Lost the race to another start; its key is read below.
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (IOException)
+            {
+                // Best effort: a leftover temp file is harmless.
+            }
+        }
     }
 
     private static void RestrictToOwner(string keyPath)
