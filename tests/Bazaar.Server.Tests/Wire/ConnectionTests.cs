@@ -440,6 +440,26 @@ public sealed class ConnectionTests
         Assert.Equal(7, lagged?.LastSent);
     }
 
+    // Chaos finding (crash-only campaign): with one idle client connected, SIGTERM took the full 30 s host shutdown timeout, the
+    // client saw 1006 (no close frame), and the overrun crashed the process. A stop now closes every socket with 1001 at once.
+    [Fact]
+    public async Task A_graceful_stop_closes_live_sockets_with_1001_without_waiting_for_the_shutdown_timeout()
+    {
+        var server = await WireTestServer.StartAsync();
+        await using var first = await WireTestClient.ConnectedAsync(server, "device-1");
+        await using var second = await WireTestClient.ConnectedAsync(server, "device-2");
+        var closedFirst = first.WaitForCloseAsync();
+        var closedSecond = second.WaitForCloseAsync();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        await server.StopAsync();
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"stop took {watch.Elapsed}");
+        Assert.Equal(1001, await closedFirst);
+        Assert.Equal(1001, await closedSecond);
+        await server.DisposeAsync();
+    }
+
     [Fact]
     public async Task Hello_cursors_reach_the_connection()
     {

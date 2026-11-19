@@ -80,6 +80,9 @@ public sealed class WireTestServer : IAsyncDisposable
         }
     }
 
+    /// <summary>Runs the server's graceful stop, as a SIGTERM to the host does.</summary>
+    public Task StopAsync() => _app.StopAsync();
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {

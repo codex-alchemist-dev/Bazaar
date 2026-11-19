@@ -34,6 +34,15 @@ public sealed class WireConnectionRegistry
         }
     }
 
+    /// <summary>Closes every live socket with the given code (1001 when the server stops).</summary>
+    public async ValueTask CloseAllAsync(int closeCode, string reason)
+    {
+        foreach (var c in Connections)
+        {
+            await c.CloseAsync(closeCode, reason).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Closes every socket of a principal with the given code.</summary>
     public async ValueTask ClosePrincipalAsync(Guid principalId, int closeCode, string reason)
     {
