@@ -85,12 +85,17 @@ VM caveats:
 - A Bazaar.Server running inside a VM sees only a virtual TPM. QEMU provides one through swtpm (`--tpmstate dir=<path>`, TIS or CRB front ends), and its state is a host directory that the hypervisor operator can read. Snapshots and migration need identical swtpm and QEMU command lines, and mismatched swtpm or libtpms versions can make the destination reject the state, so a restored or migrated VM may be unable to unseal. [QEMU TPM device docs]
 - Agent VMs (doc 35) never hold the KEK; this applies only to the host that runs the Identity Service.
 
-Open questions for the owner:
+Open questions for the owner (each stays OPEN until the owner approves; the recommendations are not decisions):
 - **OPEN:** add a `tpm` value to `identity.kek_provider`, or fold TPM sealing into `file` as an optional wrap?
+  - Recommended (not decided): add an explicit `tpm` value. It is auditable (the provider in force is visible in settings and the audit log), it fails closed, and it keeps `file` meaning one thing.
 - **OPEN:** shipped PCR policy (options 1 to 3) and who holds a policy signing key.
+  - Recommended (not decided): a signed PCR policy (PCR 7 plus a policy authorised by an offline-held signing key), so firmware and kernel updates do not brick unseal. The signing key sits in the owner's recovery bundle. If the owner declines to hold a key, fall back to a raw PCR-7-only policy, with the escrowed KEK copy as the recovery path.
 - **OPEN:** direct `tpm2-tss` or `tpm2-tools` use versus the `systemd-creds` wrapper (the wrapper adds a systemd dependency; a direct call needs a .NET binding or process call, behind the KEK provider interface).
+  - Recommended (not decided): use `systemd-creds` where systemd is present (maintained sealing UX, less custom code), and a direct tpm2-tools path only on non-systemd hosts.
 - **OPEN:** whether a virtual TPM counts as acceptable custody for the owner's threat model.
+  - Recommended (not decided): accept a vTPM (swtpm, Hyper-V, QEMU) but class it as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
 - **OPEN:** behaviour of `file` and `tpm` providers on a Linux host that is itself a VM (benchmark with the QEMU backend spike).
+  - Recommended (not decided): default to `file` unless a vTPM is present and the operator opts in to `tpm`, with the weaker-custody warning above.
 
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
