@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Company.Org;
+using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Org.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,8 @@ public sealed class CompanyComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.TryAddSingleton<CalendarRepository>();
+        services.TryAddSingleton<ICalendarGcAppender>(sp =>
+            new DelegateCalendarGcAppender((request, ct) => sp.GetRequiredService<IGcLogWriter>().AppendAsync(request, ct)));
         services.TryAddSingleton<ICalendarService, CalendarService>();
         services.TryAddSingleton<OrgRelationRepository>();
         services.TryAddSingleton<OrgLoanService>();
