@@ -32,6 +32,13 @@ public sealed class BrowserComponent : IBazaarComponent
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton(options);
         services.AddSingleton<IBrowserLauncher, BrowserLauncher>();
+        services.AddSingleton(new BrowserHostOptions());
+
+        // The guest host needs the guest pipe port; the real channel registers it when it ships. Do not require it.
+        if (services.Any(d => d.ServiceType == typeof(IBrowserGuestPipe)))
+        {
+            services.TryAddSingleton<IBrowserGuestHost, GuestPipeBrowserHost>();
+        }
     }
 
     private static string Pick(IConfigurationSection section, string key, string fallback) =>

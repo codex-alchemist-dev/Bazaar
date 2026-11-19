@@ -150,3 +150,23 @@ public interface IBrowserGuestHost
     /// <summary>Clears every cookie, then stops the process tree.</summary>
     Task StopAsync(BrowserProcessHandle handle, CancellationToken ct);
 }
+
+/// <summary>
+/// Narrow port: a byte pipe to a Chromium process in a guest (doc 16 WP6-7). Chromium is started with
+/// <c>--remote-debugging-pipe</c>, so the guest exposes its fd3 and fd4 as this pipe. The real guest channel adapts to it.
+/// </summary>
+public interface IBrowserGuestPipe
+{
+    /// <summary>Starts the process and returns the guest process id.</summary>
+    Task<string> StartProcessAsync(BrowserGuestOs os, string executable, IReadOnlyList<string> args, CancellationToken ct);
+
+    /// <summary>Writes one CDP frame (already NUL-terminated by the caller) to the process.</summary>
+    Task WritePipeAsync(string guestProcessId, ReadOnlyMemory<byte> frame, CancellationToken ct);
+
+    /// <summary>Reads one CDP JSON message, without its NUL terminator.</summary>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    Task<byte[]> ReadPipeFrameAsync(string guestProcessId, CancellationToken ct);
+
+    /// <summary>Kills the process and its children.</summary>
+    Task KillProcessTreeAsync(string guestProcessId, CancellationToken ct);
+}
