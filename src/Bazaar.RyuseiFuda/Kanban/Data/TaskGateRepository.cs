@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>SQL-first access to <c>task_gate_decisions</c> (doc 12, WP9). Decisions are append-only; the latest one wins.</summary>
 public sealed class TaskGateRepository(NpgsqlDataSource dataSource)
