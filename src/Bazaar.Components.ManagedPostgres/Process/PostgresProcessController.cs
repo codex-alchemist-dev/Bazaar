@@ -22,6 +22,7 @@ public sealed class PostgresProcessController : IAsyncDisposable
 
     private readonly PostgresProcessOptions _options;
     private readonly IPostgresCommandRunner _runner;
+    private readonly IPostgresPortProbe _portProbe;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private volatile PostgresProcessState _state = PostgresProcessState.Stopped;
     private volatile bool _stopRequested;
@@ -32,13 +33,21 @@ public sealed class PostgresProcessController : IAsyncDisposable
 
     /// <summary>Creates a controller. Throws when the options cannot work.</summary>
     public PostgresProcessController(PostgresProcessOptions options, IPostgresCommandRunner runner)
+        : this(options, runner, new TcpPostgresPortProbe())
+    {
+    }
+
+    /// <summary>Creates a controller with its own port probe, so tests need no real sockets.</summary>
+    public PostgresProcessController(PostgresProcessOptions options, IPostgresCommandRunner runner, IPostgresPortProbe portProbe)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(runner);
+        ArgumentNullException.ThrowIfNull(portProbe);
         options.Validate();
 
         _options = options;
         _runner = runner;
+        _portProbe = portProbe;
     }
 
     /// <summary>Lifecycle state as the controller sees it.</summary>
@@ -500,16 +509,10 @@ public sealed class PostgresProcessController : IAsyncDisposable
     {
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         attempt.CancelAfter(_probeAttemptTimeout);
-        using var client = new TcpClient();
 
         try
         {
-            await client.ConnectAsync(ProbeHost, _options.Port, attempt.Token);
-            return true;
-        }
-        catch (SocketException)
-        {
-            return false;
+            return await _portProbe.IsAcceptingAsync(ProbeHost, _options.Port, attempt.Token);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
