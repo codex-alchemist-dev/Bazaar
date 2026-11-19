@@ -9,7 +9,7 @@ namespace Bazaar.Server.Hosting;
 public static class BazaarHostServiceCollectionExtensions
 {
     // TODO(component): register from host composition when the component model (PR #125) merges.
-    // AddBazaarTls (Components/Tls) goes here, fed by TlsOptions from the tls.certificate_source setting and the PEM or PFX paths.
+    // AddBazaarTls (Bazaar.Tls) goes here, fed by TlsOptions from the tls.certificate_source setting and the PEM or PFX paths.
 
     /// <summary>
     /// Binds <see cref="BazaarHostOptions"/> from the <c>Bazaar:Host</c> section, validates it on start and logs it once.
@@ -22,13 +22,7 @@ public static class BazaarHostServiceCollectionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<BazaarHostOptions>, BazaarHostOptionsValidator>();
 
-        // Default KEK: a random key file in the data root (Identity/Keys/FileKekProvider). A platform provider registered
-        // earlier or later replaces it, because this is only a default.
-        services.TryAddSingleton<Bazaar.Server.Identity.Keys.IKekProvider>(sp =>
-        {
-            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BazaarHostOptions>>().Value;
-            return Bazaar.Server.Identity.Keys.FileKekProvider.Open(Path.Combine(options.DataRoot, "keys", "kek.bin"));
-        });
+        // The KEK is registered by the Bazaar.Server.Identity.Kek component through the kernel (doc 14); nothing is defaulted here.
         services.AddHostedService<BazaarHostOptionsLogger>();
         return services;
     }

@@ -17,19 +17,14 @@ namespace Bazaar.Server.Agents.Turns;
 /// </summary>
 /// <param name="runner">The consolidated runner that runs the loop.</param>
 /// <param name="assembler">Builds the context once the turn row exists.</param>
-/// <param name="route">The model route every turn uses.</param>
 /// <param name="toolCatalogue">The tool definitions a turn may be offered. Empty by default, so no tools are offered.</param>
 public sealed class TurnRunAdapter(
     TurnRunner runner,
     ITurnContextAssembler assembler,
-    string route,
     IReadOnlyList<ModelToolDefinition>? toolCatalogue = null) : ITurnRunner
 {
     private readonly TurnRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
     private readonly ITurnContextAssembler _assembler = assembler ?? throw new ArgumentNullException(nameof(assembler));
-    private readonly string _route = !string.IsNullOrWhiteSpace(route)
-        ? route
-        : throw new ArgumentException("A route is required.", nameof(route));
     private readonly IReadOnlyList<ModelToolDefinition> _toolCatalogue = toolCatalogue ?? [];
 
     /// <inheritdoc />
@@ -42,7 +37,8 @@ public sealed class TurnRunAdapter(
                 request.AgentId,
                 request.SessionId,
                 request.WakeReason,
-                _route,
+                // Per-agent routing: the gateway resolves each agent's own policy default route (doc 05).
+                string.Empty,
                 Messages: [],
                 Tools: TurnToolOffer.Select(request.Role, _toolCatalogue, request.ToolAllowlist),
                 InboxClaimLimit: 0,

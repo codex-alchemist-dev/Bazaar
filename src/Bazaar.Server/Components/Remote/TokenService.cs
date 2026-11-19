@@ -1,4 +1,4 @@
-using Bazaar.Server.Components.PrivacyAudit;
+using Bazaar.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Options;
 

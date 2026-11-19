@@ -29,6 +29,14 @@ Every component declares one manifest. In code (first-party) it is a static `Com
 | `trust` | `first-party` (compiled in) or `third-party` (section 8). Default for first-party components. |
 | `process` | `in-process` (default) or `out-of-process` (section 7). |
 
+### 2.1 Module sides (owner, 2026-11-16)
+
+A feature that has a server part and a client part is **two modules**, never one module with both halves. The server half is `Bazaar.Server.<Name>` and the client half is `Bazaar.Client.<Name>`, for example `Bazaar.Server.Constellation` and `Bazaar.Client.Constellation`. Each half has its own manifest, version, `kind` and migrations, and its own `Abstractions` project where another module needs it. The halves talk only through public contracts in `Bazaar.Contracts` (wire messages) or in the module's `.Abstractions` project, never by referencing each other's internals.
+
+- A client module may depend on server contracts (wire types). It never depends on a server module's implementation.
+- A feature with no client surface has only the server module, and the reverse holds for a client-only feature.
+- A client module may depend on a shared client-side module that is not part of any one feature. The Constellation renderer (`Bazaar.Client.Constellation.Renderer`, the Vulkan renderer with a Skia fallback) is the first case. It is a standalone, shared module that other modules depend on through its contract (for example RyuseiFuda, and later other CDAX projects). It is not a sub-part of Constellation. It is internal today and will later become an externally imported dependency, with a Bazaar-free core plus an adapter in its own repo. Its manifest identity does not change when that happens.
+
 The manifest is data. The kernel reads it before it runs any component code, so a bad graph fails at startup with a clear message.
 
 ## 3. Entry point and lifecycle
@@ -61,6 +69,15 @@ Enablement comes from settings (`Bazaar:Components:<id>:Enabled`). A disabled co
 - Cross-component calls go through interfaces resolved from DI. A component never constructs another component's concrete class.
 - Wire messages (client and server) stay in `Bazaar.Contracts` with the JSON codec (doc 02). A component that adds a wire message adds its contract types there, namespaced by component.
 - Providers and adapters are a `provides` role. A role has one selected implementation, chosen by settings with the existing `auto` or explicit rule (doc 03). Adapters are many: each registers under its wire family name (for example `openai_chat`) and the gateway looks them up by name.
+
+### 4.1 One dependency graph for Deps and written modules (owner, 2026-11-16, PLANNED)
+
+Dependency modules (doc 42, tagged `Deps`) and written modules (first-party and third-party components) are one graph. Any node may depend on any other node, in either direction. There is no separate dependency manager and no one-way rule from modules to deps.
+
+- **Hard edges** (`dependsOn`, and `requires` for kernel capabilities) mean the dependent cannot work without the target. Hard edges form a directed acyclic graph. The kernel checks this at install and at start, and names the cycle's ids when it fails. Hard edges set start order.
+- **Soft edges** (`softDependsOn`) mean a feature works better with the target. Soft edges may form cycles, for example A and B each softly depend on each other while both hard-depend on C. Soft edges never set start order. A missing or disabled soft target degrades only the features that name it. The rest of the module still runs.
+- Resolution happens from metadata before anything loads. The kernel reads all manifests, validates the hard graph, then computes start order from hard edges alone. Soft edges are wired after start, from the readiness of each target.
+- Kodo readiness gates (doc 46 §10) follow hard edges. A failed hard target opens the readiness gate of every node that hard-depends on it. Soft targets raise an amber state, not a red one.
 
 ## 5. Data ownership: migrations per component
 

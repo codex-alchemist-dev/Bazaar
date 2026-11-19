@@ -5,10 +5,12 @@
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.Wayland" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Android" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.HarfBuzz" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.6" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="11.0.0" />
@@ -39,6 +41,11 @@
     <PackageVersion Include="Vortice.Vulkan" Version="3.3.0" />
     <!-- 3.2.x, not 4.0.x: Avalonia.Headless.XUnit 12.1.4 is binary-incompatible with xunit.v3 4.0.2 (MissingMethodException at discovery). -->
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
+    <!-- Passphrase KDF for encrypted export bundles (doc 44 section 5): Argon2id, RFC 9106. Vetted 2026-11-15: MIT (Keef Aragon),
+         source github.com/kmaragon/Konscious.Security.Cryptography, sha512 6301179dbd560b3f4ed8b81acc0e65851d2c60a6c4c5552edd058a36c915d1615d2dc6a8a1e65d987da02d8fac8409aa592d74e7ff05e510db112a793ac74ea7.
+         Only transitive dependency on net8+: Konscious.Security.Cryptography.Blake2 1.1.1 (MIT, same author, sha512 b05af3d189f4748bb0680fc403f9e94ef1be678085995cdfe12598fd7d07d82381be301ce4ef7af6d76e8e648f89e430fc4e7e0563a69caaa0870a7d944fd897).
+         Output is checked against an independent reference (argon2-cffi, PHC C implementation) in ExportBundleCryptoTests. -->
+    <PackageVersion Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
     <!-- Local Co-Worker CPU tier (doc 31 WP5): ONNX Runtime CPU execution provider, latest stable. -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
     <!-- Android fold posture (doc 29, WP2): Jetpack WindowManager bindings. Pinned, not yet referenced; the mapping in Bazaar.Client.Core is pure. Provisional, pending spike S13. -->
