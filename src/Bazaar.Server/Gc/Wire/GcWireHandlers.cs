@@ -34,11 +34,16 @@ public sealed class SubscribeHandler : IWireRequestHandler
     /// <inheritdoc />
     public async ValueTask<WireReply> HandleAsync(WireRequestContext context, CancellationToken cancellationToken)
     {
+        var request = context.Payload<Subscribe>();
+        // A missing stream list or a null entry is a malformed payload, not a server fault: answer bad_request rather than
+        // letting the null reach the subscription engine (which would throw and look like an internal error).
+        if (request.Streams is null || request.Streams.Any(static s => s is null))
+            return WireReply.Fail(WireErrorCodes.BadRequest, "A subscribe needs a list of streams.");
+
         var session = context.Connection.Subscriptions;
         if (session is null)
             return WireReply.Fail(WireErrorCodes.Unsupported, "This server has no subscription engine.");
 
-        var request = context.Payload<Subscribe>();
         var outcome = await session.SubscribeAsync(request, cancellationToken).ConfigureAwait(false);
         return WireReply.OkThen(context.Connection.Codec, outcome.Result, outcome.StartAsync);
     }

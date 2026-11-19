@@ -453,4 +453,21 @@ public sealed class ConnectionTests
         var connection = server.Manager.Registry.ForDevice("device-1").Single();
         Assert.Equal(new StreamCursor("gc:x", 4, 2), connection.HelloCursors.Single());
     }
+
+    // Regression (chaos wire-fuzz): a hello whose codec list is null decoded to a null IReadOnlyList, which the codec
+    // negotiation passed to Enumerable.Contains and crashed with ArgumentNullException, closing the socket 1011 (server
+    // fault). A malformed hello must close with 4400 bad frame instead.
+    [Theory]
+    [InlineData("""{"v":1,"t":"hello","k":"req","id":"h","p":{"versionMin":1,"versionMax":1,"minor":0,"codecs":null,"deviceId":"d","deviceClass":"c","clientBuild":"b","credential":"good"}}""")]
+    [InlineData("""{"v":1,"t":"hello","k":"req","id":"h","p":{"versionMin":1,"versionMax":1,"minor":0,"codecs":[],"deviceId":"d","deviceClass":"c","clientBuild":"b","credential":"good"}}""")]
+    public async Task Hello_without_codecs_closes_with_4400(string helloJson)
+    {
+        await using var server = await WireTestServer.StartAsync();
+        await using var client = new WireTestClient();
+        await client.ConnectAsync(server.SocketUri, "good");
+
+        await client.SendRawAsync(System.Text.Encoding.UTF8.GetBytes(helloJson), WebSocketMessageType.Text);
+
+        Assert.Equal(WireCloseCodes.BadFrame, await client.WaitForCloseAsync());
+    }
 }

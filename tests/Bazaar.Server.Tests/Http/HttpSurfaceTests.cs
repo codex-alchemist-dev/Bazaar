@@ -367,6 +367,28 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         Assert.True(a.TryAcquire(_alice, out _));
     }
 
+    // Regression (chaos wire-fuzz): POST /auth/refresh with a body but no (or a non-JSON) content type threw
+    // InvalidOperationException from ReadFromJsonAsync, which escaped as an unhandled 500. A malformed request must
+    // answer 400, not 500 (and never log an unhandled Kestrel exception).
+    [Theory]
+    [InlineData(null)]
+    [InlineData("application/x-www-form-urlencoded")]
+    [InlineData("text/plain")]
+    public async Task Auth_refresh_with_non_json_content_type_is_400_not_500(string? contentType)
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh")
+            {
+                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("refresh_token=x")),
+            };
+            request.Content.Headers.ContentType = contentType is null ? null : new MediaTypeHeaderValue(contentType);
+            var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
     [Fact]
     public void Blob_ids_must_be_hex_hashes()
     {

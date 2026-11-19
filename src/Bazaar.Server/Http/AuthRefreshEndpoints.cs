@@ -81,6 +81,11 @@ public static class AuthRefreshEndpoints
         {
             return null;
         }
+        catch (InvalidOperationException)
+        {
+            // A missing or non-JSON content type: treat it as a malformed request (400), not a server fault (500).
+            return null;
+        }
     }
 
     private static IResult Json<T>(T value, int status) =>

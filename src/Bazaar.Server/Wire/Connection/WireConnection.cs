@@ -230,6 +230,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             if (hello.T != WireTypes.Hello || hello.K != EnvelopeKind.Request) throw new WireFormatException("First frame must be hello.");
             body = _codec.DecodePayload<Hello>(hello);
             if (string.IsNullOrWhiteSpace(body.DeviceId) || body.DeviceId.Length > 128) throw new WireFormatException("Bad device id.");
+            // A null or empty codec list is a malformed hello, not a version mismatch: fail it as a bad frame rather than
+            // dereferencing null during codec negotiation below.
+            if (body.Codecs is null || body.Codecs.Count == 0) throw new WireFormatException("Hello lists no codecs.");
         }
         catch (WireFormatException)
         {
