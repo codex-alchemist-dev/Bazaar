@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
+using Bazaar.Server.Blobs;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -50,6 +51,7 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentResponder(configuration);
         // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.
         services.AddBazaarRemoteAuth(configuration);
+        services.AddBazaarBlobs(configuration);
         services.AddBazaarHttpSurface(configuration);
         return services;
     }
