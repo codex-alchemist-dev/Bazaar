@@ -122,9 +122,21 @@ Added 2026-11-18 (coordinator brief). Every new piece is its own module pair, ne
 | `Bazaar.Client.Hive` | Pane `bazaar.hive` (owner grant matrix, copies labelled by origin) | 10 |
 | `Bazaar.Server.Twin.Prose` + `.Abstractions` | The prose step: a reader-session port, the ref validator that drops a sentence without a valid `source_ref`, writing the page through the Vault writer port | 4 |
 | `Bazaar.Server.Hive` + `.Abstractions` | `hive_grants` store, review-window batching, sanitizer port, the copy flow and revoke-to-deprecate | 7 |
-| `Bazaar.Server.TalentPool` + `.Abstractions` | `talent_templates` store, manifest validator (no memory file, model on the whitelist), submit and quarantine states. The Council `hire` hook waits for C32 | 8 |
+| `Bazaar.Server.TalentPool` + `.Abstractions` | `talent_templates` store, manifest validator (no memory file, model on the whitelist), submit and quarantine states. The Council `hire` hook is specified below (PROPOSED) | 8 |
 
 Talent Pool, Twin prose and Hive depend on ports (reader session, Vault writer, sanitizer, Soul manifest, whitelist) that are owned by other docs. Each module defines the narrow port it needs in its `.Abstractions` project, tests against fakes, and the owning module adapts it later. The Genetic Memory Transfer and Soul Marketplace stay out of scope.
+
+### Council hire hook [PROPOSED]
+
+Implements the Talent Pool side of the `hire` motion (doc 10, Membership and role votes, C32). The Council module is not built yet, so the hook is coded against ports and fakes; the Council adapts them later.
+
+- **Submit.** For a quarantined template version the Talent Pool submits a `hire` motion through the port `ICouncilHireMotions` (in `Bazaar.Server.TalentPool.Abstractions`) and records the returned motion id with the template id, version and content hash. The motion class (`bigger_change` or `ordinary`) is the Council's setting, not the Talent Pool's. The subject and proposer cannot vote (doc 10).
+- **Outcome.** The Talent Pool later receives a `council.decision` outcome: `{ motionId, templateId, version, result }` with `result` one of `passed` (unanimous), `failed`, `escalated_to_owner` (split or tied on a bigger change), `owner_approved`, `owner_rejected`. `escalated_to_owner` is not final: the owner's call arrives as `owner_approved` or `owner_rejected`.
+- **Gate.** The hire gate approves a version only when its recorded outcome is `passed` or `owner_approved` and the motion was for exactly that content hash. `failed`, `escalated_to_owner`, `owner_rejected` and "no outcome yet" all deny. With no motion port registered the default stays `DenyAllTalentHireGate`.
+- **Mismatch.** An outcome for an unknown motion, or whose template id or version differs from what the motion was submitted for, is ignored and audited (`talent.hire_outcome_ignored`). A different result arriving after a final one is ignored and audited too.
+- **Replay.** The same outcome delivered again changes nothing and is not an error.
+- **Tier 2.** A template with a tool grant still needs Tier 2 approval at instantiation (`TalentInstantiationDecision.RequiresTier2`); a passed hire does not replace it.
+- **Storage.** The outcome store is a port with an in-memory fake; the Postgres table lands with the Council adapter.
 
 ### Pane models (the wire contract the panes read)
 All field names are camelCase. A missing required field raises `PaneModelException`, so the registry falls back to the generic view. Unknown extra fields are ignored. Every pane shows `trust` and `originKind` where the model carries them, and never turns a missing or unresolvable reference into a blank: it renders an explicit "missing source" row.
