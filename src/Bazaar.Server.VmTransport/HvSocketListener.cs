@@ -6,7 +6,12 @@ namespace Bazaar.Server.VmTransport;
 /// <summary>Settings of the Hyper-V socket listener.</summary>
 /// <param name="ServiceId">The service GUID guests dial. The setting <c>vm.transport.service_guid</c> will feed it; the default is a fixed GUID.</param>
 /// <param name="Backlog">Pending connections the OS queues.</param>
-public sealed record HvSocketListenerOptions(Guid ServiceId, int Backlog = 16)
+/// <param name="BindVmId">
+/// The one VM to listen for. The default, <see cref="Guid.Empty"/>, listens for every VM. A Windows Sandbox guest connects only to a listener
+/// bound to its own VM id (measured on a Windows 11 host: a wildcard listener was refused), so the sandbox wiring sets it. A listener bound to one
+/// VM still accepts only connections the hypervisor reports as coming from that VM.
+/// </param>
+public sealed record HvSocketListenerOptions(Guid ServiceId, int Backlog = 16, Guid BindVmId = default)
 {
     /// <summary>The shipped default: vsock port 5000 in the Hyper-V service template, so Windows and Linux guests reach the same listener.</summary>
     public static HvSocketListenerOptions Default { get; } = new(HvSocketAddress.DefaultServiceId);
@@ -51,8 +56,9 @@ public sealed class HvSocketListener : PeerMatchedListener
 internal sealed class HvSocketAcceptor : IPeerAcceptor
 {
     private readonly Socket _listener;
+    private readonly Guid _boundVmId;
 
-    /// <summary>Binds to every VM and the given service, and starts listening.</summary>
+    /// <summary>Binds to the configured VM (every VM by default) and the given service, and starts listening.</summary>
     public HvSocketAcceptor(HvSocketListenerOptions options)
     {
         if (!OperatingSystem.IsWindows())
@@ -60,10 +66,11 @@ internal sealed class HvSocketAcceptor : IPeerAcceptor
             throw new PlatformNotSupportedException("Hyper-V sockets need a Windows host.");
         }
 
+        _boundVmId = options.BindVmId;
         _listener = new Socket((AddressFamily)HvSocketAddress.Family, SocketType.Stream, (ProtocolType)HvSocketAddress.ProtocolRaw);
         try
         {
-            _listener.Bind(new HvSocketEndPoint(HvSocketAddress.WildcardVmId, options.ServiceId));
+            _listener.Bind(new HvSocketEndPoint(options.BindVmId == Guid.Empty ? HvSocketAddress.WildcardVmId : options.BindVmId, options.ServiceId));
             _listener.Listen(options.Backlog);
         }
         catch
@@ -92,7 +99,7 @@ internal sealed class HvSocketAcceptor : IPeerAcceptor
             try
             {
                 // The peer address is the hypervisor's report of which VM connected, not anything the guest sent.
-                if (socket.RemoteEndPoint is HvSocketEndPoint peer && peer.VmId != Guid.Empty)
+                if (socket.RemoteEndPoint is HvSocketEndPoint peer && peer.VmId != Guid.Empty && (_boundVmId == Guid.Empty || peer.VmId == _boundVmId))
                 {
                     return new AcceptedPeer(peer.VmId.ToString("D"), new NetworkStream(socket, ownsSocket: true));
                 }

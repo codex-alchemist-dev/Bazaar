@@ -35,6 +35,7 @@ public partial class SocketLevelTests
         Assert.Equal(HvSocketAddress.DefaultServiceId, HvSocketAddress.ServiceIdForPort(HvSocketAddress.DefaultPort));
         Assert.Equal(5000u, new VsockListenerOptions().Port);
         Assert.Equal(HvSocketAddress.DefaultServiceId, HvSocketListenerOptions.Default.ServiceId);
+        Assert.Equal(Guid.Empty, HvSocketListenerOptions.Default.BindVmId);
         Assert.Equal(HvSocketAddress.DefaultServiceId, new GuestAgentOptions { VmId = "v", Nonce = "n", AllowedRoots = ["/"] }.HvSocketServiceId);
     }
 
