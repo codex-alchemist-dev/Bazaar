@@ -46,7 +46,20 @@ public class ComponentTests
     [InlineData(false)]
     public void One_host_serves_both_ports_in_either_registration_order(bool hostFirst)
     {
-        using ServiceProvider sp = Compose(hostFirst, isLinux: true).BuildServiceProvider();
+        ServiceCollection services = Compose(hostFirst, isLinux: true);
+
+        // The registrations themselves hold on every OS: one host, and it is the only provider of both ports.
+        Assert.Single(services, d => d.ServiceType == typeof(LinuxPoolVmHost));
+        Assert.Single(services, d => d.ServiceType == typeof(IPoolVmHost));
+        Assert.Single(services, d => d.ServiceType == typeof(IPoolDevToolsPipes));
+
+        if (!OperatingSystem.IsLinux())
+        {
+            // LinuxPoolVmHost refuses to be constructed off Linux, so the instances can only be resolved on Linux.
+            return;
+        }
+
+        using ServiceProvider sp = services.BuildServiceProvider();
 
         IPoolVmHost host = sp.GetRequiredService<IPoolVmHost>();
         IPoolDevToolsPipes pipes = sp.GetRequiredService<IPoolDevToolsPipes>();
