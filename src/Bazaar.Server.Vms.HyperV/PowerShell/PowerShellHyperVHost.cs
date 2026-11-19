@@ -19,10 +19,7 @@ public sealed class PowerShellHyperVHost(IHyperVCommandRunner runner, string scr
     public async Task<string> CreateDifferencingDiskAsync(string vmName, string parentDiskPath, CancellationToken ct)
     {
         RequireVmName(vmName);
-        if (!Path.IsPathFullyQualified(parentDiskPath) || !parentDiskPath.EndsWith(".vhdx", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException("The parent disk must be a full path to a .vhdx file.", nameof(parentDiskPath));
-        }
+        RequireVhdxPath(parentDiskPath, nameof(parentDiskPath));
 
         var folder = Path.Combine(vmDirectory, vmName);
         Directory.CreateDirectory(folder);
@@ -37,6 +34,15 @@ public sealed class PowerShellHyperVHost(IHyperVCommandRunner runner, string scr
     {
         ArgumentNullException.ThrowIfNull(vm);
         RequireVmName(vm.Name);
+
+        // The VM may boot only from the disk this provider created for it. A free path would let a caller attach any VHDX on the host.
+        var expected = Path.GetFullPath(Path.Combine(vmDirectory, vm.Name, "disk.vhdx"));
+        if (string.IsNullOrEmpty(vm.DiskPath)
+            || vm.DiskPath.Any(char.IsControl)
+            || !string.Equals(Path.GetFullPath(vm.DiskPath), expected, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("The disk must be the VM's own disk.vhdx under the VM directory.", nameof(vm));
+        }
 
         await RunAsync(
             [
@@ -157,12 +163,31 @@ public sealed class PowerShellHyperVHost(IHyperVCommandRunner runner, string scr
         try
         {
             Directory.CreateDirectory(scriptDirectory);
+            if (OperatingSystem.IsWindows() && new DirectoryInfo(scriptDirectory).Attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                throw new HyperVCommandException("The script directory is a reparse point (junction or symbolic link); refusing to run a script from it.");
+            }
+
             var path = Path.Combine(scriptDirectory, $"bazaar-hyperv-{HyperVScript.Hash()}.ps1");
 
-            // Checked on every call: a script file that was changed on disk is replaced before it runs.
-            if (!File.Exists(path) || await File.ReadAllTextAsync(path, ct).ConfigureAwait(false) != HyperVScript.Text)
+            // Checked on every call: a script file that was changed on disk (or is a link) is replaced before it runs. The replacement is
+            // written under a temporary name and moved over the target, so PowerShell never reads a half-written file.
+            // Residual race: between this check and powershell.exe opening the file, a principal who can write the directory can still swap
+            // it. That cannot be closed from here, so the directory must be writable only by the service account and administrators.
+            if (!File.Exists(path)
+                || new FileInfo(path).LinkTarget is not null
+                || await File.ReadAllTextAsync(path, ct).ConfigureAwait(false) != HyperVScript.Text)
             {
-                await File.WriteAllTextAsync(path, HyperVScript.Text, _utf8Bom, ct).ConfigureAwait(false);
+                var temp = Path.Combine(scriptDirectory, $".bazaar-hyperv-{Guid.NewGuid():N}.tmp");
+                try
+                {
+                    await File.WriteAllTextAsync(temp, HyperVScript.Text, _utf8Bom, ct).ConfigureAwait(false);
+                    File.Move(temp, path, overwrite: true);
+                }
+                finally
+                {
+                    File.Delete(temp);
+                }
             }
 
             return path;
@@ -179,6 +204,21 @@ public sealed class PowerShellHyperVHost(IHyperVCommandRunner runner, string scr
         {
             var detail = string.IsNullOrWhiteSpace(result.StandardError) ? result.StandardOutput.Trim() : result.StandardError.Trim();
             throw new HyperVCommandException($"Hyper-V could not {what} (exit {result.ExitCode}): {detail}");
+        }
+    }
+
+    private static void RequireVhdxPath(string path, string parameter)
+    {
+        // Fail closed on anything the script's own ValidatePattern would also refuse: wildcards, control characters, '..' segments, UNC.
+        if (string.IsNullOrEmpty(path)
+            || !Path.IsPathFullyQualified(path)
+            || !path.EndsWith(".vhdx", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(@"\\", StringComparison.Ordinal)
+            || path.StartsWith("//", StringComparison.Ordinal)
+            || path.Any(c => char.IsControl(c) || c is '*' or '?' or '[' or ']' or '<' or '>' or '|' or '"')
+            || path.Split('\\', '/').Contains(".."))
+        {
+            throw new ArgumentException("The parent disk must be a full local path to a .vhdx file.", parameter);
         }
     }
 

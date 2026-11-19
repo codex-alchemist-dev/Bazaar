@@ -18,17 +18,29 @@ public static class HyperVScript
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)][ValidateSet('CreateDisk', 'CreateVm', 'Start', 'Stop', 'Save', 'Checkpoint', 'Restore', 'Remove', 'State')][string]$Operation,
-            [Parameter(Mandatory)][ValidatePattern('^bazaar-[0-9a-f]{32}$')][string]$Name,
-            [string]$ParentPath,
-            [string]$DiskPath,
+            [Parameter(Mandatory)][ValidatePattern('(?-i)^bazaar-[0-9a-f]{32}\z')][string]$Name,
+            [ValidatePattern('(?-i)^[A-Za-z]:\\(?!(.*\\)?\.\.(\\|\z))[^*?\[\]<>|"\x00-\x1f]+\.vhdx\z')][string]$ParentPath,
+            [ValidatePattern('(?-i)^[A-Za-z]:\\(?!(.*\\)?\.\.(\\|\z))[^*?\[\]<>|"\x00-\x1f]+\.vhdx\z')][string]$DiskPath,
             [ValidateSet('Windows', 'Linux')][string]$GuestOs,
             [ValidateRange(1, 64)][int]$Vcpu = 2,
             [ValidateRange(512, 1048576)][int]$MemoryMb = 2048,
-            [ValidatePattern('^bazaar-cp-[0-9a-f]{32}$')][string]$CheckpointName,
+            [ValidatePattern('(?-i)^bazaar-cp-[0-9a-f]{32}\z')][string]$CheckpointName,
             [switch]$Force,
             [switch]$DeleteDisk
         )
         $ErrorActionPreference = 'Stop'
+
+        # A disk may be deleted only when it sits in a directory named for this VM (the layout the provider creates). A VM whose disk was
+        # re-pointed elsewhere keeps that other file. With -Standard the file must also be the provider's own 'disk.vhdx'.
+        function Test-OwnedDisk([string]$Path, [string]$VmName, [switch]$Standard) {
+            if ([string]::IsNullOrEmpty($Path) -or $Path -match '[*?\[\]]') { return $false }
+            $full = [System.IO.Path]::GetFullPath($Path)
+            if ([System.IO.Path]::GetExtension($full) -ne '.vhdx') { return $false }
+            if ($Standard -and [System.IO.Path]::GetFileName($full) -ne 'disk.vhdx') { return $false }
+            $directory = [System.IO.Path]::GetDirectoryName($full)
+            if ([string]::IsNullOrEmpty($directory)) { return $false }
+            return ([System.IO.Path]::GetFileName($directory) -eq $VmName)
+        }
 
         switch ($Operation) {
             'CreateDisk' {
@@ -45,6 +57,18 @@ public static class HyperVScript
                     Set-VMFirmware -VM $vm -SecureBootTemplate 'MicrosoftWindows'
                 }
                 # The VM is created with no switch, so its network adapter is disconnected: default-deny egress (doc 16).
+                # Everything below removes attack surface explicitly instead of relying on defaults (doc 16: the guest is hostile).
+                # Guest Service Interface lets the host copy files into the guest, and Key-Value Pair Exchange and VSS add host-guest data channels.
+                # Matched by the language-neutral component GUID at the end of the Id, never by the localized name. Heartbeat, Shutdown and
+                # Time Synchronization stay, because the backend needs them.
+                $unneeded = @('6C09BB55-D683-4DA0-8931-C9BF705F6480', '2A34B1C2-FD73-4043-8A5B-DD2159BC743F', '5CED1297-4598-4915-A5FC-AD21BB4D02A4')
+                Get-VMIntegrationService -VM $vm | Where-Object { $unneeded -contains ([string]$_.Id).Split('\')[-1] } | Disable-VMIntegrationService
+                # No optical drive: nothing for the guest to read or for an ISO to be mounted into.
+                Get-VMDvdDrive -VM $vm | Remove-VMDvdDrive
+                # Every network adapter is disconnected, whatever New-VM created.
+                Get-VMNetworkAdapter -VM $vm | Disconnect-VMNetworkAdapter
+                # No nested virtualization: the guest must not get a hypervisor of its own.
+                Set-VMProcessor -VM $vm -ExposeVirtualizationExtensions $false
             }
             'Start' { Start-VM -Name $Name | Out-Null }
             'Stop' {
@@ -60,10 +84,10 @@ public static class HyperVScript
                     Get-VMSnapshot -VMName $Name -ErrorAction SilentlyContinue | Remove-VMSnapshot -IncludeAllChildSnapshots -ErrorAction SilentlyContinue
                     Remove-VM -Name $Name -Force
                     if ($DeleteDisk) {
-                        foreach ($path in $disks) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force } }
+                        foreach ($path in $disks) { if ((Test-OwnedDisk -Path $path -VmName $Name) -and (Test-Path -LiteralPath $path)) { Remove-Item -LiteralPath $path -Force } }
                     }
                 }
-                elseif ($DeleteDisk -and $DiskPath -and (Test-Path -LiteralPath $DiskPath)) {
+                elseif ($DeleteDisk -and $DiskPath -and (Test-OwnedDisk -Path $DiskPath -VmName $Name -Standard) -and (Test-Path -LiteralPath $DiskPath)) {
                     Remove-Item -LiteralPath $DiskPath -Force
                 }
             }
