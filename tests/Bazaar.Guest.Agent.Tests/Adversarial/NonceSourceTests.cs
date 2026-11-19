@@ -3,6 +3,14 @@ using Bazaar.Contracts.Vms;
 namespace Bazaar.Guest.Agent.Tests.Adversarial;
 
 /// <summary>The Hello nonce must not travel on a command line that every process in the guest can read, and must never reach an exec's child.</summary>
+/// <summary>Runs alone: two tests here set the real <c>BAZAAR_GUEST_NONCE</c>, which every other <c>Parse</c> call in the process would read.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class ProcessEnvironmentGroup
+{
+    public const string Name = "process environment";
+}
+
+[Collection(ProcessEnvironmentGroup.Name)]
 public sealed class NonceSourceTests
 {
     private const string _name = GuestAgentOptions.NonceEnvironmentVariable;
