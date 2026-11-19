@@ -117,17 +117,6 @@ src/Bazaar.Server/Calendar/CalendarRules.cs
 src/Bazaar.Server/Calendar/CalendarService.cs
 src/Bazaar.Server/Calendar/CalendarSettings.cs
 src/Bazaar.Server/Calendar/CalendarTypes.cs
-src/Bazaar.Server/Coding/Checks/ChangedFile.cs
-src/Bazaar.Server/Coding/Checks/CheckSummary.cs
-src/Bazaar.Server/Coding/Checks/FakeSuccessScanner.cs
-src/Bazaar.Server/Coding/Checks/FlagFinding.cs
-src/Bazaar.Server/Coding/Checks/TestCountGate.cs
-src/Bazaar.Server/Coding/Checks/TestFileChangeFlagger.cs
-src/Bazaar.Server/Coding/Workspace/GuestChannelWorkspace.cs
-src/Bazaar.Server/Coding/Workspace/GuestPath.cs
-src/Bazaar.Server/Coding/Workspace/GuestPorts.cs
-src/Bazaar.Server/Coding/Workspace/IWorkspace.cs
-src/Bazaar.Server/Coding/Workspace/InMemoryGuestChannel.cs
 src/Bazaar.Server/Company/Availability/CalendarAvailabilityFeed.cs
 src/Bazaar.Server/Company/CompanyComponent.cs
 src/Bazaar.Server/Company/Constitution/ConstitutionAcceptance.cs
