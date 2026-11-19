@@ -517,6 +517,20 @@ The brief's requirement: threshold alerts, trend forecasting, learned per-instal
 - Redaction runs on the input before the gateway call, and it is deterministic, never model-based (brief: redaction is never model-dependent).
 - A later on-device explanation path through the NPU (doc 31) is optional and off by default. It follows the same labelling and the same no-action rule.
 
+### 13.6 Predictor implementation choices (package 11, PROPOSED 2026-11-19)
+
+The pure core lives in `src/Bazaar.Kodo/Prediction`. It has no I/O, takes a `TimeProvider` or a time argument, and is advisory only (13.1). Doc 13.2 and 13.3 stay the target; these are the choices where the doc is silent or the first build is simpler. Nothing here is DECIDED.
+
+- **Trend fit.** A robust Theil-Sen line (median of pairwise slopes) over at most 256 samples in the window, not damped Holt. The 10th and 90th percentile slopes give the time-to-threshold band (`earliest`, `latest`); a null `latest` means the shallow end never reaches the threshold. Holt with damping and residual-based bands stays the longer-term target of 13.2.
+- **Confidence class.** `Unknown` (no forecast), `Low`, `Medium`, `High`, from the band width relative to the estimate (at most 0.5 is High, at most 1.5 is Medium, otherwise or unbounded Low). Only Medium and High can raise amber.
+- **Defaults.** Window 14 days and minimum span 72 hours (13.2). Minimum samples 24, sample cap 256, stale after 24 hours, future skew 5 minutes, amber horizon 7 days, forecast cap 365 days, value magnitude cap 1e15. All PROPOSED, all operator settings once the registry carries them; shipped values are the conservative ones.
+- **Insufficient or bad data is Unknown, never green.** NaN, infinity, out-of-range, out-of-order, equal-timestamp, future-stamped and stale samples all produce an Unknown result with a cause (`insufficient_data`, `invalid_sample`, `out_of_order_sample`, `future_sample`, `stale_data`). A rejected sample changes no stored state.
+- **Already past the threshold** is reported as `Breached` and mapped to amber `forecast_threshold_soon`; the deterministic rules own the real state.
+- **Baseline.** One entry per hour-of-week bucket (168, UTC) and week, latest wins, `TrailingWeeks` 4 and `MinWeeks` 3 (13.3). Median and MAD (scaled 1.4826) of earlier weeks only. Memory is at most 168 x 5 values. The scale has a floor of 5 percent of the median and an absolute floor of 1.0 in the series' unit (PROPOSED; set it per series for fractional series). A bucket below `MinWeeks` is warming up: Unknown with `baseline_warming_up`.
+- **Drift.** A two-sided CUSUM on residuals in scale units, slack 0.5, alarm level 5, residual clamped to 4 so one outlier never alarms, statistic capped at 10 times the alarm level. The alarm records the start of the excursion and the magnitude, and clears by itself when the series returns. The Page-Hinkley test from 13.3 is not built yet. Drift is amber with `drift_up` or `drift_down`, never red and never a bare number (13.1). The owner's request for an amber or red drift result is held to amber because 13.1 says a learned signal raises amber at most.
+- **Reset.** `BaselineDriftProbe.Reset` forgets everything learned. The caller writes the audit entry (13.3).
+- **Memory.** `PredictionMemory` (version 1) is source-generated camelCase JSON with unknown members rejected and a 1 MiB parse cap. Restore validates sizes, ranges, order and duplicates, and on any failure the caller keeps or starts fresh state. Times are UTC ticks.
+
 ## 14. Monitor pane in every client
 
 The brief's requirement: every client has a Monitor pane with status, live metrics, logs and traces, history time-travel with audit and update events, a Constellation-style system map, and role-gated controls (restart, isolate, roll back). Each client renders what the server computes (CLAUDE.md); no client computes health.
@@ -886,7 +900,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Built-in probes | PLANNED | Catalogue in 9.1; most depend on modules that are not built |
 | Module health contract | PLANNED | Depends on doc 42 |
 | Score and SLOs | PLANNED | Formula in 12 |
-| Prediction (forecast, baseline, drift) | PLANNED | Deterministic parts first |
+| Prediction (forecast, baseline, drift) | PARTIAL | Pure core in `src/Bazaar.Kodo/Prediction` (package 11): robust trend forecaster, per-install baseline learner, CUSUM drift detector, saved memory (JSON), probe adapters. Choices PROPOSED in 13.6. No scheduler, storage, Page-Hinkley test, hourly recompute, alert wiring or Monitor pane yet |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
 | Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
