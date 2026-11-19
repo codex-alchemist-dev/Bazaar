@@ -128,4 +128,22 @@ public class IcuMessageTests
         Assert.Equal("<bad: invalid>", text.ResolveIcu("bad", Args(("n", 1))));
         Assert.Equal("<gone>", text.ResolveIcu("gone", Args()));
     }
+
+    [Theory]
+    [InlineData("pt-BR", 0, PluralCategory.One)]
+    [InlineData("pt-PT", 0, PluralCategory.Other)]
+    [InlineData("pt-PT", 1, PluralCategory.One)]
+    [InlineData("fr", 1000000, PluralCategory.Many)]
+    [InlineData("es", 2000000, PluralCategory.Many)]
+    [InlineData("es", 0, PluralCategory.Other)]
+    public void Pt_pt_and_many_follow_CLDR(string locale, int n, PluralCategory expected) =>
+        Assert.Equal(expected, PluralRules.Select(locale, n));
+
+    [Fact]
+    public void Unsigned_counts_are_numbers() =>
+        Assert.Equal("2 files", IcuMessage.Format("{n, plural, one {# file} other {# files}}", "en", new Dictionary<string, object?> { ["n"] = 2UL }));
+
+    [Fact]
+    public void Non_finite_numbers_are_a_format_error() =>
+        Assert.Throws<FormatException>(() => IcuMessage.Format("{n, plural, one {#} other {#}}", "en", new Dictionary<string, object?> { ["n"] = double.NaN }));
 }

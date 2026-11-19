@@ -7,8 +7,8 @@ namespace Bazaar.Localisation;
 /// Normalises text for matching (doc 49 section 2: search and the command palette normalise Unicode to NFC and ignore
 /// case and diacritics). <see cref="Fold"/> decomposes, drops combining marks, recomposes to NFC and lower-cases, so
 /// "Café", "cafe" and "CAFÉ" (precomposed or with a combining accent) fold to the same string. It is for comparing
-/// and never for display. Dropping every combining mark is deliberately loose: it can make two distinct words in a
-/// script that writes vowels as marks match each other, which only widens a search result.
+/// and never for display. Combining marks are dropped except the Japanese voiced and semi-voiced sound marks, which change the word;
+/// final sigma folds to sigma.
 /// </summary>
 public static class TextFold
 {
@@ -24,13 +24,15 @@ public static class TextFold
         var sb = new StringBuilder(decomposed.Length);
         foreach (char c in decomposed)
         {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            // Keep the Japanese (semi-)voiced sound marks: they change the word (は, ば, ぱ), unlike accents.
+            if (c is '\u3099' or '\u309A' || CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
             {
                 sb.Append(c);
             }
         }
 
-        return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
+        // Greek final sigma lower-cases to itself, so map it to sigma to match the capital.
+        return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant().Replace('\u03C2', '\u03C3');
     }
 
     /// <summary>True when the folded <paramref name="text"/> starts with the folded <paramref name="prefix"/>.</summary>

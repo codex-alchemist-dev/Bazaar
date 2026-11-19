@@ -290,17 +290,31 @@ public static class IcuMessage
             _ => v.ToString() ?? string.Empty,
         };
 
-        private static decimal ToNumber(object? v, string name) => v switch
+        private static decimal ToNumber(object? v, string name)
         {
-            decimal d => d,
-            int i => i,
-            long l => l,
-            short s => s,
-            byte b => b,
-            double dbl => (decimal)dbl,
-            float fl => (decimal)fl,
-            _ => throw new FormatException($"Argument '{name}' is not a number."),
-        };
+            try
+            {
+                return v switch
+                {
+                    decimal d => d,
+                    int i => i,
+                    long l => l,
+                    short s => s,
+                    byte b => b,
+                    sbyte sb => sb,
+                    ushort us => us,
+                    uint ui => ui,
+                    ulong ul => ul,
+                    double dbl when double.IsFinite(dbl) => (decimal)dbl,
+                    float fl when float.IsFinite(fl) => (decimal)fl,
+                    _ => throw new FormatException($"Argument '{name}' is not a finite number."),
+                };
+            }
+            catch (OverflowException)
+            {
+                throw new FormatException($"Argument '{name}' is out of range.");
+            }
+        }
 
         private char? Peek() => _i < _s.Length ? _s[_i] : null;
 

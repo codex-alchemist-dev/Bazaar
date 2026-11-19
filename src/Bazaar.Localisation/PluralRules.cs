@@ -46,9 +46,15 @@ public static class PluralRules
         switch (language)
         {
             case "fr":
-                return abs is 0 or 1 ? PluralCategory.One : PluralCategory.Other;
+                return abs == 0 || abs == 1 ? PluralCategory.One : ManyOrOther(abs);
             case "pt":
-                return abs is 0 or 1 ? PluralCategory.One : PluralCategory.Other;
+                // pt-PT: "one" is only 1 (CLDR); pt and pt-BR treat 0 and 1 as "one".
+                bool portugal = locale.Split('-', '_').Skip(1).Any(part => string.Equals(part, "PT", StringComparison.OrdinalIgnoreCase));
+                return (portugal ? abs == 1 : abs is 0 or 1) ? PluralCategory.One : ManyOrOther(abs);
+            case "es":
+            case "it":
+            case "ca":
+                return abs == 1 ? PluralCategory.One : ManyOrOther(abs);
             case "ru":
             case "uk":
             case "be":
@@ -99,4 +105,8 @@ public static class PluralRules
                 return abs == 1 ? PluralCategory.One : PluralCategory.Other;
         }
     }
+
+    /// <summary>CLDR 42: fr, es, it, pt and ca use "many" for non-zero whole multiples of 1,000,000.</summary>
+    private static PluralCategory ManyOrOther(decimal abs) =>
+        abs != 0 && abs % 1_000_000 == 0 ? PluralCategory.Many : PluralCategory.Other;
 }

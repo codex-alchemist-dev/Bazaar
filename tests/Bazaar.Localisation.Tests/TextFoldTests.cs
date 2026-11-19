@@ -39,4 +39,15 @@ public class TextFoldTests
     {
         Assert.NotEqual(TextFold.Fold("o"), TextFold.Fold("ø"));
     }
+
+    [Fact]
+    public void Japanese_voiced_marks_are_kept()
+    {
+        Assert.NotEqual(TextFold.Fold("\u306F"), TextFold.Fold("\u3070"));
+        Assert.NotEqual(TextFold.Fold("\u3070"), TextFold.Fold("\u3071"));
+    }
+
+    [Fact]
+    public void Final_sigma_matches_capital_sigma() =>
+        Assert.Equal(TextFold.Fold("\u039F\u0394\u039F\u03A3"), TextFold.Fold("\u03BF\u03B4\u03BF\u03C2"));
 }
