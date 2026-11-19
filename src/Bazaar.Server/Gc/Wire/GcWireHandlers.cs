@@ -1,6 +1,6 @@
+using System.Text;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
-using System.Text;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Edit;
 using Bazaar.Server.Gc.Read;
