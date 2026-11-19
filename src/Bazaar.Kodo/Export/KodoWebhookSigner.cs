@@ -52,10 +52,10 @@ public static class KodoWebhookSigner
     public static TimeSpan ReplayWindow { get; } = TimeSpan.FromMinutes(5);
 
     // The largest timestamp DateTimeOffset.FromUnixTimeSeconds accepts is 253402300799 (9999-12-31T23:59:59Z).
-    private const long MaxUnixSeconds = 253402300799L;
+    private const long _maxUnixSeconds = 253402300799L;
 
     // HMAC-SHA256 output is 32 bytes.
-    private const int HmacSha256Size = 32;
+    private const int _hmacSha256Size = 32;
 
     /// <summary>Signs a body at a given time.</summary>
     /// <param name="key">The signing key.</param>
@@ -118,7 +118,7 @@ public static class KodoWebhookSigner
         provided = [];
 
         if (!long.TryParse(timestampHeader, NumberStyles.None, CultureInfo.InvariantCulture, out unixSeconds)
-            || unixSeconds > MaxUnixSeconds
+            || unixSeconds > _maxUnixSeconds
             || signatureHeader is null
             || !signatureHeader.StartsWith(SignaturePrefix, StringComparison.Ordinal))
         {
@@ -134,7 +134,7 @@ public static class KodoWebhookSigner
             return false;
         }
 
-        return provided.Length == HmacSha256Size;
+        return provided.Length == _hmacSha256Size;
     }
 
     private static byte[] ComputeMac(KodoWebhookSigningKey key, long unixSeconds, ReadOnlySpan<byte> body)

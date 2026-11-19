@@ -1,5 +1,5 @@
-using Bazaar.Contracts.Kodo;
 using System.Text.RegularExpressions;
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Export;
 using Bazaar.Kodo.Probes;
 

@@ -1,6 +1,6 @@
-using Bazaar.Contracts.Kodo;
 using System.Text;
 using System.Text.Json;
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Export;
 
 namespace Bazaar.Kodo.Tests.Export;
