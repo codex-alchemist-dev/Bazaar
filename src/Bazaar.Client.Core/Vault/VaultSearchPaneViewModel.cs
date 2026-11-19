@@ -88,7 +88,7 @@ public sealed class VaultSearchPaneViewModel : IPaneViewModel
                 _ => $"Search failed (HTTP {(int)ex.Status}).",
             };
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (IsTransportFailure(ex, cancellationToken))
         {
             if (generation != _searchGeneration) return;
             Results = [];
@@ -117,7 +117,7 @@ public sealed class VaultSearchPaneViewModel : IPaneViewModel
             OpenedCard = card;
             OpenedBody = $"Could not open the document (HTTP {(int)ex.Status}).";
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (IsTransportFailure(ex, cancellationToken))
         {
             OpenedCard = card;
             OpenedBody = "Could not reach the server.";
@@ -125,6 +125,14 @@ public sealed class VaultSearchPaneViewModel : IPaneViewModel
 
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// The request did not complete: the network failed, the client's own timeout fired, or the endpoint was refused before any
+    /// connection (<see cref="InvalidOperationException"/>). The caller's own cancellation is not one, and still propagates.
+    /// </summary>
+    private static bool IsTransportFailure(Exception ex, CancellationToken cancellationToken) =>
+        ex is HttpRequestException or InvalidOperationException
+        || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested);
 
     private static Guid ParseVault(JsonElement model)
     {
