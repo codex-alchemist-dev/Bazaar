@@ -84,7 +84,6 @@ src/Bazaar.Client.Core/Wire/IWireTransport.cs
 src/Bazaar.Client.Core/Wire/WebSocketWireTransport.cs
 src/Bazaar.Client.Core/Wire/WireClient.cs
 src/Bazaar.Client.Core/Wire/WireClientOptions.cs
-src/Bazaar.Server/Agents/Responder/AgentResponderServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Turns/AgentTurnsComponent.cs
 src/Bazaar.Server/Agents/Turns/Posting/AgentPostServiceCollectionExtensions.cs
 src/Bazaar.Server/AssemblyMarker.cs

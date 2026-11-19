@@ -4,6 +4,7 @@
     <RootNamespace>Bazaar.Server.Agents</RootNamespace>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <IsAotCompatible>true</IsAotCompatible>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
