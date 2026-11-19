@@ -391,3 +391,18 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+
+## Round 29 (2026-11-19): Encrypted data folder
+
+The round number is set at merge; other open PRs also add rounds.
+
+| Decision | Status | Docs |
+|---|---|---|
+| The data folder (data root, including the PostgreSQL data directory) is encrypted at the folder level by Bazaar, as a hard install requirement. Owner, 2026-11-19 (message `cmsg_01MC1BkUhiVHzqr38uyxWzeHPuokZJa7aiq87n8BAaMdas`): "Encryption is on the disk data folder level." Operator whole-disk encryption does not satisfy it alone. | DECIDED | 63 |
+| The host refuses to start on a missing, unmounted, unencrypted or foreign data folder, and never creates a key, volume or cluster at start (closes the chaos finding of PR #872, open item 1) | DECIDED as a requirement; mechanics PROPOSED | 63 section 5, 03, 14 |
+| Mechanism: BitLocker-protected VHDX on Windows, LUKS2 container on Linux, volume key wrapped by the KEK provider, privileged volume unit plus unprivileged host guard, boot root beside the data root | PROPOSED (spike D1) | 63 sections 2 to 6 |
+| More columns sealed by default (classes A, B, C) through one `IColumnSealer`; search copies stay plain inside the volume | PROPOSED | 63 section 9 |
+| Modules `Bazaar.Server.DataVolume` (+ `.Abstractions`, `.Windows`, `.Linux`) and `Bazaar.Server.ColumnSeal` (+ `.Abstractions`) | PROPOSED | 63, 40 |
+| Supersedes doc 61's inventory row "Postgres data directory: out of scope" | DECIDED (follows from the owner's message) | 61, 63 |
+
+**Open for owner (cards):** what goes inside the volume (default: whole data root); unlock after restart (default: automatic); external database mode (default: refused unless attested).
