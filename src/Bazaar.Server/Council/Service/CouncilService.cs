@@ -416,7 +416,10 @@ public sealed class CouncilService : ICouncilService
             vote.EligibleVoterIds,
             ballots.Select(ballot => new Ballot(ballot.VoterId, ballot.Choice, ballot.Reasoning, ballot.Phase)).ToList(),
             vote.Options,
-            _options.QuorumMin);
+            _options.QuorumMin,
+            // No stored vote carries the high-impact flag yet (doc 10, Follow-up on dissent), so it is always false here.
+            HighImpact: false,
+            FollowupDissentShare: _options.FollowupDissentShare);
         var decision = Tally.Decide(request);
 
         // Under the all-members electorate, a member who cannot vote makes a bigger change not unanimous.
