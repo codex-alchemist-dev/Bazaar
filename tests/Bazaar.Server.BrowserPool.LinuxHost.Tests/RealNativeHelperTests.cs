@@ -95,7 +95,7 @@ public sealed class RealNativeHelperTests : IDisposable
 
         var ct = TestContext.Current.CancellationToken;
         var pipeDir = "/run/bazaar-pool-native-" + _unique + "/pipes";
-        var host = new LinuxPoolVmHost(Render, new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound, PoolSpawnHelperPath = helper, PipeDirectory = pipeDir });
+        var host = new LinuxPoolVmHost(Render, new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound, PoolSpawnHelperPath = helper, PipeDirectory = pipeDir, ProbeEnabled = false });
         _touchedTable = true;
         var rule = new PoolFirewallRule(58001, "127.0.0.1", 3128);
         await host.ApplyFirewallAsync([rule], ct);

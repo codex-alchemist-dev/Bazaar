@@ -108,12 +108,14 @@ public sealed partial class RealChromiumTests : IDisposable
     [GeneratedRegex("^/[A-Za-z0-9._+/-]+$")]
     private static partial Regex SafePath();
 
+    // The drop covers the pool's real slot uids (SlotUidBase 20000, MaxSessions 4). It once covered an unrelated range, so the
+    // slot was never dropped; the active firewall probe is what showed it.
     private static string Render(IReadOnlyList<PoolFirewallRule> rules)
     {
         var accepts = string.Concat(rules.Select(r => $"    meta skuid {r.Uid} ip daddr {r.ProxyHost} tcp dport {r.ProxyPort} accept\n"));
         return $"table inet {_table}\ndelete table inet {_table}\ntable inet {_table} {{\n  chain output {{\n    type filter hook output priority 0; policy accept;\n"
             + accepts
-            + "    meta skuid >= 58000 meta skuid <= 58010 drop\n  }\n"
+            + "    meta skuid >= 20000 meta skuid <= 20003 drop\n  }\n"
             + "  chain input {\n    type filter hook input priority 0; policy accept;\n    iifname \"bzv*\" drop\n  }\n"
             + "  chain forward {\n    type filter hook forward priority 0; policy accept;\n    iifname \"bzv*\" drop\n  }\n}\n";
     }
@@ -254,9 +256,30 @@ public sealed partial class RealChromiumTests : IDisposable
         var port = ((IPEndPoint)_server.LocalEndpoint).Port;
         _ = ServeAsync(_server);
 
+        // The firewall probe (doc 59 section 7) runs the native bazaar-pool-spawn as the slot's uid, which cannot execute the
+        // framework-dependent test build. With BAZAAR_TEST_POOL_SPAWN_NATIVE set, the probe is on, against a world-readable copy; without it,
+        // it is off for this test only, so the page-driver coverage still runs.
+        var native = Environment.GetEnvironmentVariable("BAZAAR_TEST_POOL_SPAWN_NATIVE");
+        var probeTool = _temp + "/bazaar-pool-spawn";
+        var probeOn = OperatingSystem.IsLinux() && !string.IsNullOrEmpty(native) && File.Exists(native);
+        if (probeOn && OperatingSystem.IsLinux())
+        {
+            File.Copy(native!, probeTool);
+            File.SetUnixFileMode(probeTool, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
+
         var host = new LinuxPoolVmHost(
             Render,
-            new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound, PoolSpawnHelperPath = HelperPath, PipeDirectory = _pipeDir });
+            new LinuxPoolHostOptions
+            {
+                TableName = _table,
+                NftPath = "/usr/sbin/nft",
+                FirewallTimeout = _bound,
+                PoolSpawnHelperPath = HelperPath,
+                PipeDirectory = _pipeDir,
+                ProbeEnabled = probeOn,
+                ProbeToolPath = probeOn ? probeTool : null,
+            });
         _touchedTable = true;
         var sessionId = "display" + _unique;
         var spec = PoolCommandLine.Build(_pool, sessionId, _slot, new PoolSessionRequest("real-agent", StartUrl: "http://page.test/"), new PoolEgressEndpoint("127.0.0.1", port));
