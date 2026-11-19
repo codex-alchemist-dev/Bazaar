@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>Builds commands on the transaction's connection when there is one, else on a pooled connection.</summary>
 internal static class KanbanCommands
