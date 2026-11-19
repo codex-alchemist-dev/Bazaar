@@ -10,16 +10,15 @@ public class NodeInstanceVertexLayoutTests
         Assert.Equal((uint)(NodeInstanceBuffer.FloatsPerInstance * sizeof(float)), NodeInstanceVertexLayout.InstanceStride);
 
     [Fact]
-    public void Attributes_cover_the_packed_fields_without_gaps_or_overlap()
+    public void Instance_block_is_centre_then_style_index()
     {
         VkVertexInputAttributeDescription[] attributes = NodeInstanceVertexLayout.Attributes;
         var instance = attributes.Where(a => a.binding == 1).OrderBy(a => a.offset).ToArray();
 
-        Assert.Equal(3, instance.Length);
+        Assert.Equal(2, instance.Length);
         Assert.Equal(0u, instance[0].offset);   // centre x, y
-        Assert.Equal(8u, instance[1].offset);   // radius
-        Assert.Equal(12u, instance[2].offset);  // r, g, b, a
-        Assert.Equal(NodeInstanceVertexLayout.InstanceStride, instance[2].offset + 16u);
+        Assert.Equal(8u, instance[1].offset);   // style index
+        Assert.Equal(NodeInstanceVertexLayout.InstanceStride, instance[1].offset + 4u);
     }
 
     [Fact]
