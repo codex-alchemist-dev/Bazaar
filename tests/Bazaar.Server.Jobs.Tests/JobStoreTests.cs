@@ -3,7 +3,7 @@ using Bazaar.Server.Jobs;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
-namespace Bazaar.Server.Tests.Jobs;
+namespace Bazaar.Server.Jobs.Tests;
 
 public sealed class JobStoreTests(JobDb db) : IClassFixture<JobDb>
 {
