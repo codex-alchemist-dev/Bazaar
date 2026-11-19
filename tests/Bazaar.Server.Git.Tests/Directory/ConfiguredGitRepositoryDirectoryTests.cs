@@ -45,13 +45,16 @@ public class ConfiguredGitRepositoryDirectoryTests
     }
 
     [Fact]
-    public async Task List_returns_every_entry_ordered_by_repository_id()
+    public async Task List_returns_every_entry_ordered_by_provider_then_full_name()
     {
-        var directory = Build(Entry("zeta"), Entry("alpha", provider: "gitlab", fullName: "group/project"), Entry("Mid"));
+        var directory = Build(
+            Entry("id-1", provider: "gitlab", fullName: "group/project"),
+            Entry("id-2", fullName: "org/zeta"),
+            Entry("id-3", fullName: "org/alpha"));
 
         var list = await directory.ListAsync(CancellationToken.None);
 
-        Assert.Equal(["Mid", "alpha", "zeta"], list.Select(static r => r.RepositoryId));
+        Assert.Equal(["id-3", "id-2", "id-1"], list.Select(static r => r.RepositoryId));
     }
 
     [Fact]

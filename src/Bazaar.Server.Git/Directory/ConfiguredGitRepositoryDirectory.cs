@@ -49,7 +49,7 @@ public sealed class ConfiguredGitRepositoryDirectory : IGitRepositoryDirectory
         if (errors.Count > 0)
             throw new InvalidOperationException($"Invalid Bazaar:Git:Repositories configuration: {string.Join("; ", errors)}");
 
-        _ordered = _byId.Values.OrderBy(static info => info.RepositoryId, StringComparer.Ordinal).ToArray();
+        _ordered = _byId.Values.OrderBy(static info => info.Repo.Provider, StringComparer.Ordinal).ThenBy(static info => info.Repo.FullName, StringComparer.Ordinal).ToArray();
     }
 
     /// <inheritdoc />
