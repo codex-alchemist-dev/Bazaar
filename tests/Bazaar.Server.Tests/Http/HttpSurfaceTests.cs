@@ -58,7 +58,7 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
             gcId == _readableGc && viewer.Id == _alice ? GcReadGrant.Through(5) : GcReadGrant.Denied);
     }
 
-    private async Task<(WebApplication App, HttpClient Client)> StartAsync(Action<Dictionary<string, string?>>? settings = null, Action<WireOptions>? wire = null)
+    private async Task<(WebApplication App, HttpClient Client)> StartAsync(Action<Dictionary<string, string?>>? settings = null, Action<WireOptions>? wire = null, Action<IServiceCollection>? services = null)
     {
         var values = new Dictionary<string, string?> { ["Bazaar:Http:BlobRoot"] = _root, ["Bazaar:Http:MaxBlobBytes"] = "1000", ["Bazaar:Http:MaxChunkBytes"] = "100" };
         settings?.Invoke(values);
@@ -74,6 +74,7 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         builder.Services.AddSingleton<ISearchProvider, FixedSearch>();
         builder.Services.AddBazaarBlobs(builder.Configuration);
         builder.Services.AddBazaarHttpSurface(builder.Configuration);
+        services?.Invoke(builder.Services);
         new ConstellationComponent().AddServices(builder.Services, builder.Configuration);
         var app = builder.Build();
         app.MapBazaarHttpSurface();
@@ -95,17 +96,57 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         }
     }
 
+    /// <summary>A graph whose projection depends on the viewer, to prove the endpoint passes the authenticated principal through.</summary>
+    private sealed class ViewerGraph : Bazaar.Server.Constellation.Tiles.IConstellationGraphSource
+    {
+        public Task<Bazaar.Contracts.Graph.GraphSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
+            GetSnapshotAsync(Bazaar.Server.Constellation.Tiles.GraphViewer.Owner, cancellationToken);
+
+        public Task<Bazaar.Contracts.Graph.GraphSnapshot> GetSnapshotAsync(Bazaar.Server.Constellation.Tiles.GraphViewer viewer, CancellationToken cancellationToken = default)
+        {
+            var (version, ids) = viewer.IsOwner
+                ? (11L, new[] { "shared", "agent-private", "other-private" })
+                : viewer.AgentOwner == "agent:" + _agent.ToString("D") ? (12L, new[] { "shared", "agent-private" })
+                : viewer.AgentOwner is null ? (13L, new[] { "shared" })
+                : (0L, Array.Empty<string>());
+            return Task.FromResult(new Bazaar.Contracts.Graph.GraphSnapshot(version, ids.Select(id => new Bazaar.Contracts.Graph.GraphNode(id)).ToArray(), []));
+        }
+    }
+
+    private static string TileBodyFor(long version) => _tileBody
+        .Replace("\"graph_version\":0", "\"graph_version\":" + version, StringComparison.Ordinal)
+        .Replace("-1,", "-1000000,", StringComparison.Ordinal)
+        .Replace("\"max_x\":1,\"max_y\":1,\"max_z\":1", "\"max_x\":1000000,\"max_y\":1000000,\"max_z\":1000000", StringComparison.Ordinal);
+
+    [Theory]
+    [InlineData("owner", 11, 3)]
+    [InlineData("agent", 12, 2)]
+    [InlineData("alice", 13, 1)]
+    public async Task Tile_endpoint_serves_each_principal_only_its_own_projection(string token, long version, int nodes)
+    {
+        var (app, client) = await StartAsync(services: s => s.AddSingleton<Bazaar.Server.Constellation.Tiles.IConstellationGraphSource, ViewerGraph>());
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", token, Encoding.UTF8.GetBytes(TileBodyFor(version))), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var frame = Bazaar.Server.Constellation.Tiles.TileFrameBinaryCodec.Decode(await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(version, frame.GraphVersion);
+            Assert.Equal(nodes, frame.NodeIds.Count);
+        }
+    }
+
     [Theory]
     [InlineData("alice")]
     [InlineData("agent")]
-    public async Task Tile_endpoint_refuses_a_non_owner_principal(string token)
+    public async Task Tile_endpoint_gives_a_principal_with_no_readable_notes_an_empty_tile_not_an_error(string token)
     {
         var (app, client) = await StartAsync();
         await using (app)
         {
             var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", token, Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-            Assert.Contains("forbidden", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var frame = Bazaar.Server.Constellation.Tiles.TileFrameBinaryCodec.Decode(await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+            Assert.Empty(frame.NodeIds);
         }
     }
 

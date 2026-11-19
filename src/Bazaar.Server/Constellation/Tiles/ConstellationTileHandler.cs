@@ -21,14 +21,19 @@ public sealed class ConstellationTileHandler(IConstellationTileSource source, in
         ? nodeCap
         : throw new ArgumentOutOfRangeException(nameof(nodeCap), nodeCap, "The node cap must be positive.");
 
-    public async Task<TileResponse> HandleAsync(ViewportRequest request, CancellationToken cancellationToken = default)
+    /// <summary>The owner's tile. Serve anyone else through the overload that takes a viewer.</summary>
+    public Task<TileResponse> HandleAsync(ViewportRequest request, CancellationToken cancellationToken = default) =>
+        HandleAsync(request, GraphViewer.Owner, cancellationToken);
+
+    public async Task<TileResponse> HandleAsync(ViewportRequest request, GraphViewer viewer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(viewer);
 
         // The operator's cap wins over a larger request, so a client cannot ask for more nodes than the server allows.
         var capped = request with { MaxNodes = Math.Min(request.MaxNodes, _nodeCap) };
 
-        TileFrame? frame = await _source.GetFrameAsync(capped, cancellationToken).ConfigureAwait(false);
+        TileFrame? frame = await _source.GetFrameAsync(capped, viewer, cancellationToken).ConfigureAwait(false);
         if (frame is null)
             return Text(404, "No tile for this view.");
 
