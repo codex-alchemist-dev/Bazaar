@@ -338,16 +338,11 @@ src/Bazaar.Server/Gc/Write/CoalescingGcNotifier.cs
 src/Bazaar.Server/Gc/Write/GcLogWriter.cs
 src/Bazaar.Server/Gc/Write/GcStaleHeadException.cs
 src/Bazaar.Server/Gc/Write/IGcLogWriter.cs
-src/Bazaar.Server/GitHub/Webhooks/DeliveryDedupe.cs
-src/Bazaar.Server/GitHub/Webhooks/WebhookSignature.cs
 src/Bazaar.Server/Hosting/BazaarHostOptions.cs
 src/Bazaar.Server/Hosting/BazaarHostOptionsLogger.cs
 src/Bazaar.Server/Hosting/BazaarHostOptionsValidator.cs
 src/Bazaar.Server/Hosting/BazaarHostServiceCollectionExtensions.cs
 src/Bazaar.Server/Http/AuthRefreshEndpoints.cs
-src/Bazaar.Server/Http/Blobs/BlobReadAccess.cs
-src/Bazaar.Server/Http/Blobs/FileBlobStore.cs
-src/Bazaar.Server/Http/Blobs/IBlobStore.cs
 src/Bazaar.Server/Http/ConstellationTileRequest.cs
 src/Bazaar.Server/Http/HttpRateLimiter.cs
 src/Bazaar.Server/Http/HttpSurfaceEndpoints.cs
@@ -535,7 +530,6 @@ src/Bazaar.Server/Sanitization/RedactionKind.cs
 src/Bazaar.Server/Sanitization/SanitizedText.cs
 src/Bazaar.Server/Sanitization/SensitiveTerms.cs
 src/Bazaar.Server/Sanitization/TextSanitizer.cs
-src/Bazaar.Server/Secrets/BootstrapSecretResolver.cs
 src/Bazaar.Server/Security/AgentSafetyServiceCollectionExtensions.cs
 src/Bazaar.Server/Security/Approvals/ApprovalCardMapper.cs
 src/Bazaar.Server/Security/Approvals/ApprovalDecisionMapper.cs
