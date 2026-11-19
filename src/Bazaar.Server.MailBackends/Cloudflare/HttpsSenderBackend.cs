@@ -43,7 +43,7 @@ public sealed class HttpsSenderBackend(
             throw new InvalidOperationException("Sender domain does not match this back end.");
         }
 
-        var message = OutboundMessageBuilder.Build(mail, footer);
+        var message = OutboundMessageBuilder.Build(mail, string.IsNullOrWhiteSpace(mail.Footer) ? footer : mail.Footer);
         var messageId = OutboundMessageBuilder.MessageIdFor(mail.Key, domain);
         var text = message.Body is MimeKit.TextPart plain ? plain.Text : string.Empty;
         var body = new ApiSendBody(mail.From.Address, mail.To, mail.Subject, text, messageId);
