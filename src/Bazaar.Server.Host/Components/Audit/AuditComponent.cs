@@ -1,8 +1,8 @@
-using Cdax.Core;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Anchors;
 using Bazaar.Server.Security.Audit.Db;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

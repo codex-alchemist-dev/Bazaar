@@ -1,6 +1,6 @@
-using Cdax.Core;
 using Bazaar.Fun;
 using Bazaar.Fun.Ward;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
