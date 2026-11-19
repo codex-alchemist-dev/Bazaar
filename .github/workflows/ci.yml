@@ -34,7 +34,7 @@ jobs:
   # Do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
     name: Build and test (${{ matrix.os }})
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(matrix.os == 'windows-latest' && '["self-hosted","bazaar-win"]' || '["self-hosted","bazaar-linux-pg"]') || matrix.os }}
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNERS != 'off' && github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(matrix.os == 'windows-latest' && '["self-hosted","bazaar-win"]' || '["self-hosted","bazaar-linux-pg"]') || matrix.os }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -235,7 +235,7 @@ jobs:
 
   secret-scan:
     name: Secret scan (full history)
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNERS != 'off' && github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -280,7 +280,7 @@ jobs:
   # Not required until PostgreSQL 19 is GA; then drop continue-on-error and add it to branch protection.
   build-test-pg19:
     name: Build and test (Linux, PostgreSQL 19 RC)
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (vars.SELF_HOSTED_RUNNERS != 'off' && github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     continue-on-error: true
     permissions:
