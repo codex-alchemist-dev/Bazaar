@@ -79,6 +79,10 @@ Dependency modules (doc 42, tagged `Deps`) and written modules (first-party and 
 - Resolution happens from metadata before anything loads. The kernel reads all manifests, validates the hard graph, then computes start order from hard edges alone. Soft edges are wired after start, from the readiness of each target.
 - Kodo readiness gates (doc 46 §10) follow hard edges. A failed hard target opens the readiness gate of every node that hard-depends on it. Soft targets raise an amber state, not a red one.
 
+### 4.2 Principal: who did it (owner, 2026-11-19)
+
+Every record of who acted uses one type, `Principal`, defined in `Bazaar.Core` (it carries no feature): a `kind` and an `id`. Kinds are `agent`, `user`, `service` and `system`. Its canonical text form is `kind:id` (for example `user:dom`, `agent:charles`, `service:kek`, `system:setup`). Audit entries, setting changes, module and install decisions, secret scopes and callers, approvals and telemetry consent all carry a `Principal`, so a person's change is recorded the same way as an agent's. An agent-only field remains only where the thing really is per-agent (for example an agent's own model usage or Kanban assignee). The audit log keeps its single `actor` text column and its hash chain, now written as the canonical `kind:id`, so no migration is needed. Existing bare values (`kek`, `setup:plan`) are read as `service:` or `system:` by a one-time mapping.
+
 ## 5. Data ownership: migrations per component
 
 - Each component owns a migration namespace: `src/<Component>/Data/Sql/<component-id>/NNNN_name.sql`. Numbers are local to the namespace.
