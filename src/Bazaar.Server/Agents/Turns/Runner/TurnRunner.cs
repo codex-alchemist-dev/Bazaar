@@ -483,9 +483,15 @@ public sealed class TurnRunner : ITurnRunner
             switch (ev)
             {
                 case ModelEvent.TextDelta text:
+                    // The step response is stored as jsonb, which cannot hold NUL: a response carrying one is a bad upstream
+                    // response, not a server fault.
+                    if (HasNul(text.Text))
+                        return FailBadText();
                     _text.Append(text.Text);
                     return false;
                 case ModelEvent.ToolCallStart start:
+                    if (HasNul(start.CallId) || HasNul(start.Name) || HasNul(start.ProviderData))
+                        return FailBadText();
                     _calls.Add(new PendingCall(start.CallId, start.Name, start.ProviderData));
                     return false;
                 case ModelEvent.ToolCallArgsDelta args:
@@ -496,6 +502,8 @@ public sealed class TurnRunner : ITurnRunner
                         return true;
                     }
 
+                    if (HasNul(args.ArgumentsFragment))
+                        return FailBadText();
                     call.Arguments.Append(args.ArgumentsFragment);
                     return false;
                 case ModelEvent.UsageReported usage:
@@ -505,6 +513,8 @@ public sealed class TurnRunner : ITurnRunner
                     _failed = true;
                     return true;
                 case ModelEvent.Done done:
+                    if (HasNul(done.ServedModel))
+                        return FailBadText();
                     _done = true;
                     _stop = done.StopReason;
                     _servedModel = done.ServedModel;
@@ -516,6 +526,14 @@ public sealed class TurnRunner : ITurnRunner
         }
 
         public void Fail() => _failed = true;
+
+        private static bool HasNul(string? value) => value is not null && value.Contains('\0');
+
+        private bool FailBadText()
+        {
+            _failed = true;
+            return true;
+        }
 
         public ModelStepPayload ToPayload() => new(
             _text.ToString(),
