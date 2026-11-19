@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Server.GitHub.Webhooks;
 
-namespace Bazaar.GitHub.Tests.Webhooks;
+namespace Bazaar.Server.GitHub.Tests.Webhooks;
 
 public class WebhookSignatureTests
 {
