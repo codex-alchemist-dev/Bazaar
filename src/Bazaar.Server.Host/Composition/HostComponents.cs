@@ -15,13 +15,13 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
-using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Vault;
 
