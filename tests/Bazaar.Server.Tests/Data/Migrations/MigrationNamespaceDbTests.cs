@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 using Npgsql;

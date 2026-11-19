@@ -16,7 +16,7 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Cdax.Core.Hosting\Cdax.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
     <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />

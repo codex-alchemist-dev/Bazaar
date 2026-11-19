@@ -1,5 +1,5 @@
 using Bazaar.Community.Quotas;
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,7 +23,7 @@ public class CommunityComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new CommunityComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new CommunityComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.IsType<InMemoryCommunityFreezeStore>(provider.GetRequiredService<ICommunityFreezeStore>());

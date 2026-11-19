@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Company;
 using Bazaar.Server.Company.Org;

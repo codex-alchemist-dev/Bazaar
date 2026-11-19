@@ -6,6 +6,6 @@
     <RootNamespace>Bazaar.Server.CompanyBuild.Abstractions</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Cdax.Core.Hosting\Cdax.Core.Hosting.csproj" />
   </ItemGroup>
 </Project>

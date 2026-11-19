@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Backup;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Components.Backup.Engines;
 using Bazaar.Server.Components.Backup.Jobs;
 using Bazaar.Server.Jobs;

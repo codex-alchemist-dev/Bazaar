@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,7 +6,7 @@ namespace Bazaar.Server.Tests.Components;
 
 public class ComponentServiceCollectionTests
 {
-    private sealed class FakeComponent(string id, Action<IServiceCollection>? register = null, params string[] dependsOn) : IBazaarComponent
+    private sealed class FakeComponent(string id, Action<IServiceCollection>? register = null, params string[] dependsOn) : ICdaxModule
     {
         public ComponentManifest Manifest { get; } = new(id, "0.1.0", ComponentKind.Feature, dependsOn, []);
 
@@ -22,7 +22,7 @@ public class ComponentServiceCollectionTests
         var log = new List<string>();
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(), [
+        services.AddCdaxModules(Config(), [
             new FakeComponent("agents", _ => log.Add("agents"), "gc"),
             new FakeComponent("gc", _ => log.Add("gc")),
         ]);
@@ -36,7 +36,7 @@ public class ComponentServiceCollectionTests
         var log = new List<string>();
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(("Bazaar:Components:kanban:Enabled", "false")), [
+        services.AddCdaxModules(Config(("Cdax:Modules:kanban:Enabled", "false")), [
             new FakeComponent("kanban", _ => log.Add("kanban")),
         ]);
 
@@ -48,8 +48,8 @@ public class ComponentServiceCollectionTests
     {
         var services = new ServiceCollection();
 
-        var ex = Assert.Throws<ComponentGraphException>(() => services.AddBazaarComponents(
-            Config(("Bazaar:Components:gc:Enabled", "false")),
+        var ex = Assert.Throws<ComponentGraphException>(() => services.AddCdaxModules(
+            Config(("Cdax:Modules:gc:Enabled", "false")),
             [new FakeComponent("gc"), new FakeComponent("agents", null, "gc")]));
 
         Assert.Contains("'agents' needs disabled component(s): gc", ex.Message, StringComparison.Ordinal);
@@ -60,15 +60,24 @@ public class ComponentServiceCollectionTests
     {
         var services = new ServiceCollection();
 
-        Assert.Throws<ComponentGraphException>(() => services.AddBazaarComponents(
-            Config(("Bazaar:Components:kanban:Enabled", "false")),
+        Assert.Throws<ComponentGraphException>(() => services.AddCdaxModules(
+            Config(("Cdax:Modules:kanban:Enabled", "false")),
             [new FakeComponent("kanban", null, "missing")]));
     }
 
     [Fact]
     public void Unset_or_unparseable_enablement_means_enabled()
     {
-        Assert.True(BazaarComponentRegistration.IsEnabled(Config(), "kanban"));
-        Assert.True(BazaarComponentRegistration.IsEnabled(Config(("Bazaar:Components:kanban:Enabled", "maybe")), "kanban"));
+        Assert.True(CdaxModuleRegistration.IsEnabled(Config(), "kanban"));
+        Assert.True(CdaxModuleRegistration.IsEnabled(Config(("Cdax:Modules:kanban:Enabled", "maybe")), "kanban"));
+    }
+
+    [Fact]
+    public void The_previous_Bazaar_settings_key_still_disables_a_module_and_the_new_key_wins()
+    {
+        Assert.False(CdaxModuleRegistration.IsEnabled(Config(("Bazaar:Components:kanban:Enabled", "false")), "kanban"));
+        Assert.True(CdaxModuleRegistration.IsEnabled(
+            Config(("Bazaar:Components:kanban:Enabled", "false"), ("Cdax:Modules:kanban:Enabled", "true")),
+            "kanban"));
     }
 }

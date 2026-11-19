@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Tools;
@@ -24,7 +24,7 @@ namespace Bazaar.RyuseiFuda.Orrery;
 /// It needs the shared <c>NpgsqlDataSource</c>, <see cref="ITransactionalAuditLog"/> and <see cref="TimeProvider"/>. The event
 /// bridge and the agent tools come in later work packages (doc 38, WP-R6 to WP-R9).
 /// </summary>
-public sealed class RyuseiScheduleComponent : IBazaarComponent
+public sealed class RyuseiScheduleComponent : ICdaxModule
 {
     /// <summary>Configuration section for the RyuseiFuda caps (doc 38, Settings).</summary>
     public const string SectionName = "Bazaar:Ryusei";

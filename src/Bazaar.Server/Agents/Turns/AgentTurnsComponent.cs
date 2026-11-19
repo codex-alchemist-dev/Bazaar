@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
@@ -43,7 +43,7 @@ namespace Bazaar.Server.Agents.Turns;
 /// missing.
 /// </para>
 /// </remarks>
-public sealed class AgentTurnsComponent : IBazaarComponent
+public sealed class AgentTurnsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "agent-turns",

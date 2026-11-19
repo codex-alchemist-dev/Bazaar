@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Pipeline;
@@ -325,7 +325,7 @@ public sealed class AnthropicDirectTests
     private static ServiceCollection Register(IConfiguration configuration)
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(configuration, [new AnthropicDirectComponent()]);
+        services.AddCdaxModules(configuration, [new AnthropicDirectComponent()]);
         return services;
     }
 
@@ -380,12 +380,12 @@ public sealed class AnthropicDirectTests
     [Fact]
     public void Gateway_on_with_the_component_disabled_fails_startup_and_names_both_settings()
     {
-        var configuration = Config([.. EnabledValues(), ("Bazaar:Components:anthropic-direct:Enabled", "false")]);
+        var configuration = Config([.. EnabledValues(), ("Cdax:Modules:anthropic-direct:Enabled", "false")]);
 
         var ex = Assert.Throws<InvalidOperationException>(() => AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration));
 
         Assert.Contains("Bazaar:Gateway:AnthropicDirect:Enabled", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Bazaar:Components:anthropic-direct:Enabled=false", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Cdax:Modules:anthropic-direct:Enabled=false", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -393,7 +393,7 @@ public sealed class AnthropicDirectTests
     {
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(Config());
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(Config(EnabledValues()));
-        AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(Config(("Bazaar:Components:anthropic-direct:Enabled", "false")));
+        AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(Config(("Cdax:Modules:anthropic-direct:Enabled", "false")));
     }
 
     // ---- fakes ----
