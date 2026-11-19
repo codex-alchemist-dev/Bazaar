@@ -97,6 +97,12 @@ public sealed partial class LinuxParserConfinement : IParserConfinement
     public const string ItemGroupKill = "process-group-kill";
     public const string ItemNoChildProcesses = "no-child-processes";
     public const string ItemFileReadScope = "file-read-scope";
+    public const string ItemMemoryLimit = "memory-limit-native";
+
+    // Headroom above the managed heap ceiling for the runtime's own native memory (JIT, W^X mappings, thread stacks).
+    // RLIMIT_DATA counts private writable mappings only, so the reserved-but-unused GC address space does not count.
+    // Measured: the ParserHost starts under --data as low as 256 MiB with a small DOTNET_GCHeapHardLimit.
+    private const long _nativeHeadroomBytes = 1024L * 1024 * 1024;
 
     private const int _sigkill = 9;
     private static readonly string[] _binDirs = ["/usr/bin", "/bin", "/usr/sbin", "/sbin"];
@@ -109,6 +115,7 @@ public sealed partial class LinuxParserConfinement : IParserConfinement
     {
         if (limits.NoNetwork) yield return ItemNoNetwork;
         yield return ItemCpuLimit;
+        yield return ItemMemoryLimit;
         if (limits.NoFileWrites) yield return ItemNoFileWrites;
         yield return ItemNoCoreDumps;
         yield return ItemGroupKill;
@@ -158,6 +165,9 @@ public sealed partial class LinuxParserConfinement : IParserConfinement
             prefix.Add(prlimit);
             prefix.Add("--cpu=" + limits.CpuSeconds);
             prefix.Add("--core=0");
+            // Native memory ceiling (managed heap is limited separately by DOTNET_GCHeapHardLimit from the runner).
+            prefix.Add("--data=" + (limits.MemoryBytes + _nativeHeadroomBytes).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            applied.Add(ItemMemoryLimit);
             applied.Add(ItemCpuLimit);
             applied.Add(ItemNoCoreDumps);
             prefix.Add("--");
@@ -165,6 +175,7 @@ public sealed partial class LinuxParserConfinement : IParserConfinement
         else
         {
             notApplied.Add(ItemCpuLimit);
+            notApplied.Add(ItemMemoryLimit);
             notApplied.Add(ItemNoCoreDumps);
         }
 

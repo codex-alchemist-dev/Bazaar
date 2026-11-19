@@ -133,6 +133,26 @@ public static class ParserFrames
         return body.ToArray();
     }
 
+    /// <summary>Most JSON tokens a child frame may hold. Records carry few attributes; this bounds the work and memory of decoding.</summary>
+    public const int MaxFrameTokens = 100_000;
+
+    /// <summary>Deepest JSON nesting a child frame may hold. The frames are flat, so the shipped shapes need 5.</summary>
+    public const int MaxFrameDepth = 16;
+
+    /// <summary>
+    /// Scans a frame body without building anything: rejects malformed JSON, invalid UTF-8, nesting over
+    /// <see cref="MaxFrameDepth"/> and more than <see cref="MaxFrameTokens"/> tokens. Throws <see cref="JsonException"/>.
+    /// </summary>
+    public static void CheckShape(ReadOnlySpan<byte> body)
+    {
+        var reader = new Utf8JsonReader(body, new JsonReaderOptions { MaxDepth = MaxFrameDepth });
+        var tokens = 0;
+        while (reader.Read())
+        {
+            if (++tokens > MaxFrameTokens) throw new JsonException("frame has too many JSON tokens");
+        }
+    }
+
     /// <summary>Reads and decodes one response frame, or null at a clean end of stream.</summary>
     public static async Task<ParserMessage?> ReadMessageAsync(Stream stream, int maxFrameBytes, CancellationToken ct)
     {

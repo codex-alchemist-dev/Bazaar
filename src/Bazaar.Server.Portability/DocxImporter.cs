@@ -61,7 +61,7 @@ public sealed class DocxImporter : IPortabilityImporter
 
         // The part is read under a byte cap and an expansion-ratio cap, then scanned for nesting depth, before
         // any tree is built (doc 44 section 8.3).
-        var xml = ArchiveGuard.ReadEntry(entry, _limits, _limits.MaxExpandedBytes);
+        var xml = ArchiveGuard.ReadEntry(entry, _limits, new ArchiveBudget(_limits.MaxExpandedBytes));
         ArchiveGuard.CheckXmlDepth(xml, _limits);
 
         var paragraphs = new List<string>();

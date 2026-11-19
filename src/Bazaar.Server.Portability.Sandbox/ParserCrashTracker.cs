@@ -12,11 +12,14 @@ public sealed class ParserCrashTracker
     private readonly TimeSpan _window;
     private readonly IParserSignalSink? _sink;
     private readonly TimeProvider _time;
+    private readonly int _maxTrackedKeys;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, State> _states = new(StringComparer.Ordinal);
 
-    public ParserCrashTracker(int threshold, TimeSpan window, IParserSignalSink? sink = null, TimeProvider? time = null)
+    public ParserCrashTracker(int threshold, TimeSpan window, IParserSignalSink? sink = null, TimeProvider? time = null, int maxTrackedKeys = 100_000)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxTrackedKeys, 1);
+        _maxTrackedKeys = maxTrackedKeys;
         ArgumentOutOfRangeException.ThrowIfLessThan(threshold, 1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(window, TimeSpan.Zero);
         _threshold = threshold;
@@ -67,6 +70,7 @@ public sealed class ParserCrashTracker
             Prune(now);
             if (!_states.TryGetValue(importerId, out var state))
             {
+                EvictForRoom();
                 state = new State();
                 _states[importerId] = state;
             }
@@ -134,6 +138,29 @@ public sealed class ParserCrashTracker
         if (stale is not null)
         {
             foreach (var id in stale) _states.Remove(id);
+        }
+    }
+
+    /// <summary>
+    /// Keeps the map bounded when many distinct keys fail (one per hostile file). Closed circuits go first, oldest first;
+    /// only if every entry is open does the oldest open one go, so memory never grows past the cap.
+    /// </summary>
+    private void EvictForRoom()
+    {
+        while (_states.Count >= _maxTrackedKeys)
+        {
+            string? victim = null;
+            foreach (var (id, state) in _states)
+            {
+                victim ??= id;
+                if (state.OpenUntil is null)
+                {
+                    victim = id;
+                    break;
+                }
+            }
+            if (victim is null) return;
+            _states.Remove(victim);
         }
     }
 

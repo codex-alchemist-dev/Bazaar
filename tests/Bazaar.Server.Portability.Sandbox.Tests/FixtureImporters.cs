@@ -125,7 +125,7 @@ public sealed class SpawnImporter : IPortabilityImporter
     public IReadOnlyList<SourceRecord> Parse(ImportSource source)
     {
         var marker = source.Name;
-        var info = new ProcessStartInfo("sleep") { UseShellExecute = false };
+        var info = new ProcessStartInfo(File.Exists("/usr/bin/sleep") ? "/usr/bin/sleep" : "/bin/sleep") { UseShellExecute = false };
         info.ArgumentList.Add(marker);
         Process.Start(info);
         Thread.Sleep(Timeout.Infinite);
@@ -201,4 +201,20 @@ public sealed class BadConfidenceImporter : IPortabilityImporter
     public string Version => "1.0.0";
     public DetectResult Detect(ImportSource source) => new(5, "too sure");
     public IReadOnlyList<SourceRecord> Parse(ImportSource source) => [];
+}
+
+/// <summary>Allocates native (unmanaged) memory without limit, which the managed heap ceiling does not see.</summary>
+public sealed class NativeHogImporter : IPortabilityImporter
+{
+    public string Id => "test.native";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "native");
+
+    public unsafe IReadOnlyList<SourceRecord> Parse(ImportSource source)
+    {
+        // 6 GiB in one block, then touch it: with an address-space data limit of memory + 1 GiB this must fail.
+        var block = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc(checked((nuint)Math.Min(6L * 1024 * 1024 * 1024, (long)nuint.MaxValue)));
+        for (long i = 0; i < 6L * 1024 * 1024 * 1024; i += 4096) block[i] = 1;
+        return [Fixture.Record("native", "allocated")];
+    }
 }

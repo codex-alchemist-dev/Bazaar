@@ -66,6 +66,29 @@ public sealed record ParserSandboxOptions
     /// </summary>
     public bool RequireFullConfinement { get; init; }
 
+    /// <summary>
+    /// Confinement items that must appear in the provider's applied list or the job is refused before a child starts
+    /// (<see cref="ParserFailureKind.ConfinementUnavailable"/>). Untrusted files must not be parsed with network access or
+    /// without a way to kill the whole child tree, so the default differs per OS: Linux requires <c>no-network</c> and
+    /// <c>process-group-kill</c>; Windows requires <c>process-tree-kill</c> and <c>no-child-processes</c>. Operators may
+    /// add items, and may empty the set only knowingly (setup warns).
+    /// </summary>
+    public IReadOnlyCollection<string> RequiredConfinement { get; init; } = DefaultRequiredConfinement();
+
+    /// <summary>Default maximum number of record frames accepted from the child for one parse job.</summary>
+    public const int DefaultMaxRecords = 500_000;
+
+    /// <summary>Cap on record frames per parse. Every record is held in server memory, so the byte cap alone is not enough.</summary>
+    public int MaxRecords { get; init; } = DefaultMaxRecords;
+
+    /// <summary>The shipped <see cref="RequiredConfinement"/> for the running OS.</summary>
+    public static IReadOnlyCollection<string> DefaultRequiredConfinement()
+    {
+        if (OperatingSystem.IsWindows()) return ["process-tree-kill", "no-child-processes"];
+        if (OperatingSystem.IsLinux()) return ["no-network", "process-group-kill"];
+        return ["process-tree-kill"];
+    }
+
     /// <summary>Abnormal endings of one importer's child within <see cref="CrashLoopWindow"/> that raise <c>parser_crash_loop</c>.</summary>
     public int CrashLoopThreshold { get; init; } = DefaultCrashLoopThreshold;
 
@@ -82,6 +105,8 @@ public sealed record ParserSandboxOptions
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxCpuSeconds, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxOutputBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(CrashLoopThreshold, 1);
+        ArgumentNullException.ThrowIfNull(RequiredConfinement);
+        ArgumentOutOfRangeException.ThrowIfLessThan(MaxRecords, 1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(CrashLoopWindow, TimeSpan.Zero);
     }
 }

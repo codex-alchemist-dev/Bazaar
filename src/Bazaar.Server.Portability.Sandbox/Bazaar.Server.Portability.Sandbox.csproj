@@ -8,6 +8,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Portability.Sandbox.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Portability\Bazaar.Server.Portability.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Portability.Sandbox.Abstractions\Bazaar.Server.Portability.Sandbox.Abstractions.csproj" />
     <!-- The child executable is built and copied next to this assembly, so the default HostAssemblyPath resolves. -->
