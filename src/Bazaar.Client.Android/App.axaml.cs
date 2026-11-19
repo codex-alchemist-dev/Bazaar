@@ -38,12 +38,33 @@ public sealed class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
+    // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
+    private readonly List<IDisposable> _postureBindings = [];
+
+    private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
         // The panes this head ships, in pager order: the RyuseiFuda board first, then the Client.Core panes, then the rest of RyuseiFuda.
         IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. MailPanes.Modules];
         var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles);
-        return new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        var source = MainActivity.Current?.Posture;
+        if (source is not null)
+        {
+            foreach (var old in _postureBindings)
+            {
+                old.Dispose();
+            }
+            _postureBindings.Clear();
+            _postureBindings.Add(new PostureShellBinder(source, shell, WidthDp, new AndroidSettings().HalfOpenLayout));
+        }
+        return shell;
+    }
+
+    // Width of the display in dp. Zero before the activity exists, so the shell falls back to the folded layout.
+    private static double WidthDp()
+    {
+        var metrics = MainActivity.Current?.Resources?.DisplayMetrics;
+        return metrics is null ? 0 : metrics.WidthPixels / metrics.Density;
     }
 }
 
