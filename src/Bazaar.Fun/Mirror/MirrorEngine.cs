@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace Bazaar.Server.Fun.Mirror;
+namespace Bazaar.Fun.Mirror;
 
 /// <summary>
 /// Engine for the Mirror Agent preference model (docs/design/26-fun-systems.md §5).

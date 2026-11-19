@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Mirror;
+namespace Bazaar.Fun.Mirror;
 
 /// <summary>
 /// Persistence interface for the Mirror Agent (docs/design/26-fun-systems.md §5, <c>mirror_signal</c> and <c>mirror_profile</c>).

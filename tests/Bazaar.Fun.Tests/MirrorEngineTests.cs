@@ -1,8 +1,8 @@
-using Bazaar.Server.Fun.Mirror;
+using Bazaar.Fun.Mirror;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
-namespace Bazaar.Server.Tests.Fun.Mirror;
+namespace Bazaar.Fun.Tests;
 
 public sealed class MirrorEngineTests
 {

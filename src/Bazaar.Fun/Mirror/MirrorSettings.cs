@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Fun.Mirror;
+namespace Bazaar.Fun.Mirror;
 
 /// <summary><c>mirror.model_source</c> values (doc 26 §5, Settings table).</summary>
 public enum MirrorModelSource

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace Bazaar.Server.Fun.Mirror;
+namespace Bazaar.Fun.Mirror;
 
 /// <summary>
 /// In-memory implementation of <see cref="IMirrorStore"/> for fast headless testing and local execution.
