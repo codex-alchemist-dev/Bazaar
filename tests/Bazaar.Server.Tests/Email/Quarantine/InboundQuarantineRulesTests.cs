@@ -209,4 +209,34 @@ public class InboundQuarantineRulesTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             InboundQuarantineRules.Evaluate(Clean(), new InboundQuarantineOptions { MaxMessageBytes = 0 }));
     }
+
+    [Theory]
+    [InlineData("//phish.example/login")]
+    [InlineData("///phish.example/login")]
+    [InlineData("https:phish.example/login")]
+    [InlineData("https:/phish.example/login")]
+    [InlineData("https:\\\\phish.example\\login")]
+    [InlineData("https://www.bank.example@phish.example/login")]
+    [InlineData("https://www.bank.example.phish.example/login")]
+    [InlineData("javascript:window.location='https://phish.example'")]
+    [InlineData("data:text/html;base64,PGh0bWw+")]
+    public void Link_target_forms_that_hide_another_host_are_quarantined(string target)
+    {
+        var headers = Clean() with { Links = [new LinkInfo("www.bank.example", target)] };
+
+        var decision = InboundQuarantineRules.Evaluate(headers, _defaults);
+
+        Assert.Equal(new[] { QuarantineReason.LinkTextMismatch }, decision.Reasons.ToArray());
+    }
+
+    [Theory]
+    [InlineData("invoice.exe\0.pdf")]
+    [InlineData("invoice.exe\u0000")]
+    [InlineData("invoice.scr\0\0.txt")]
+    public void A_file_name_cut_short_by_a_null_character_is_screened_as_the_name_the_file_system_sees(string fileName)
+    {
+        var decision = InboundQuarantineRules.Evaluate(WithAttachments(fileName), _defaults);
+
+        Assert.Contains(QuarantineReason.ExecutableAttachment, decision.Reasons);
+    }
 }

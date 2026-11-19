@@ -23,7 +23,18 @@ public static class VaultMarkdown
         ArgumentNullException.ThrowIfNull(source);
         var split = FrontMatterSplitter.Split(source);
         var frontMatter = split.Yaml is null ? null : VaultFrontMatterReader.Read(split.Yaml);
-        var document = Markdig.Markdown.Parse(source, _pipeline);
+        Markdig.Syntax.MarkdownDocument document;
+        try
+        {
+            document = Markdig.Markdown.Parse(source, _pipeline);
+        }
+        catch (ArgumentException)
+        {
+            // Markdig refuses input nested past its depth limit with an ArgumentException. One such file must not
+            // stop the index run, so it is reported like any other malformed document.
+            throw new VaultFormatException("The document is nested too deeply to parse.");
+        }
+
         var links = document.Descendants<WikiLinkInline>()
             .Select(inline => inline.Link)
             .OrderBy(link => link.Start)

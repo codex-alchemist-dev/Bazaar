@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -34,12 +35,19 @@ public sealed class SignedQueueReceiver(byte[] sharedKey, TimeProvider clock, Ti
     public IReadOnlyList<RawMail> Receive(string timestamp, string signature, ReadOnlySpan<byte> body, MailboxRef? onlyFor = null)
     {
         if (sharedKey.Length < 32) throw new InvalidOperationException("Shared key must be at least 32 bytes.");
-        if (!long.TryParse(timestamp, out var unix)) throw new UnauthorizedAccessException("Bad timestamp.");
+        if (!long.TryParse(timestamp, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var unix))
+        {
+            throw new UnauthorizedAccessException("Bad timestamp.");
+        }
+
+        // FromUnixTimeSeconds throws outside year 1 to 9999; a header outside that range is just a bad timestamp.
+        if (unix is < -62135596800L or > 253402300799L) throw new UnauthorizedAccessException("Bad timestamp.");
 
         var sent = DateTimeOffset.FromUnixTimeSeconds(unix);
         var skew = (clock.GetUtcNow() - sent).Duration();
         if (skew > window) throw new UnauthorizedAccessException("Batch outside the accepted window.");
 
+        if (signature is null) throw new UnauthorizedAccessException("Bad signature.");
         var expected = Sign(timestamp, body);
         if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(expected), Encoding.ASCII.GetBytes(signature)))
         {
@@ -52,15 +60,46 @@ public sealed class SignedQueueReceiver(byte[] sharedKey, TimeProvider clock, Ti
             if (!_seen.TryAdd(signature, sent)) throw new UnauthorizedAccessException("Replayed batch.");
         }
 
-        var batch = JsonSerializer.Deserialize<QueuedMailBatch>(body) ?? throw new InvalidDataException("Empty batch.");
+        QueuedMailBatch? batch;
+        try
+        {
+            batch = JsonSerializer.Deserialize<QueuedMailBatch>(body);
+        }
+        catch (JsonException)
+        {
+            throw new InvalidDataException("The batch is not valid JSON.");
+        }
+
+        if (batch?.Items is null) throw new InvalidDataException("Empty batch.");
         var result = new List<RawMail>(batch.Items.Count);
         foreach (var item in batch.Items)
         {
-            var parts = item.Mailbox.Split('@');
-            if (parts.Length != 2) throw new InvalidDataException("Bad mailbox address in batch.");
-            var box = new MailboxRef(parts[1], parts[0]);
-            if (onlyFor is { } want && want != box) continue;
-            result.Add(new RawMail($"cf:{item.Id}", box, Convert.FromBase64String(item.RawBase64), item.ReceivedAt));
+            if (item?.Id is null || item.Mailbox is null || item.RawBase64 is null) throw new InvalidDataException("Incomplete item in batch.");
+
+            // The last '@' splits the address, so a quoted local part that holds an '@' stays one mailbox.
+            var at = item.Mailbox.LastIndexOf('@');
+            if (at <= 0 || at == item.Mailbox.Length - 1) throw new InvalidDataException("Bad mailbox address in batch.");
+            var box = new MailboxRef(item.Mailbox[(at + 1)..], item.Mailbox[..at]);
+
+            // Domains are case-insensitive and mail systems treat local parts alike, so differently cased mail still arrives.
+            if (onlyFor is { } want
+                && !(string.Equals(want.Domain, box.Domain, StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(want.LocalPart, box.LocalPart, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            byte[] raw;
+            try
+            {
+                raw = Convert.FromBase64String(item.RawBase64);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidDataException("Bad base64 in batch.");
+            }
+
+            result.Add(new RawMail($"cf:{item.Id}", box, raw, item.ReceivedAt));
         }
 
         return result;
