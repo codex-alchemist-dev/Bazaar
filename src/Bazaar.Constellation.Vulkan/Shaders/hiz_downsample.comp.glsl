@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_samplerless_texture_functions : require
 // Hi-Z downsample for reversed-Z depth (1 near, 0 far): one mip of the pyramid from the mip above it.
 // Each output texel is the MIN (the farthest surface) over the source texels it covers, so an occlusion test against
 // it is conservative: a tile is culled only when it lies behind everything in the footprint.
