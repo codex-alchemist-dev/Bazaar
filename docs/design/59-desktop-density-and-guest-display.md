@@ -146,7 +146,8 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 8. Browser pool VM: one light Linux VM, a per-agent OS user and namespace sandbox per session, per-agent egress proxy, kiosk profile, pool recycling. Own module `Bazaar.Server.BrowserPool`. (after 1, 4; PR #832)
 
 ### Build status (2026-11-19)
-- Work package 1: PR #860. Guest typing uses `wtype` with a leading `-k Shift_L`; guest pointer input is refused until the absolute-pointer helper of work package 4 exists (measurements note).
+- Work package 1: PR #860. Guest typing uses `wtype` with a leading `-k Shift_L`.
+- Work package 4, pointer part: in PR #860. `bazaar-pointer` (project `Bazaar.Guest.Pointer`) is a small managed tool that speaks the Wayland virtual-pointer protocol with absolute coordinates. The guest source uses it once a guest capture has told the server the output size; before that, guest pointer input is still refused. Still to do: ship the tool in the guest image, and convert coordinates when an agent works from a downscaled frame (work package 6).
 - Work package 2: PR #867. The KVM adapter is tested against a real QEMU. The Hyper-V scripts are unverified until spike S-DSP.
 - Work package 5: PR #857.
 - Work package 8: PR #868 (session manager only; the pool VM image and host adapter are still to do).
