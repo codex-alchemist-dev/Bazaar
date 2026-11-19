@@ -145,6 +145,24 @@ public sealed class AgentEgressProxy : IAsyncDisposable
 
         try
         {
+            // A client whose handshake finished but whom the accept loop has not taken yet sits in the kernel backlog, where no
+            // tracked socket covers it. Take those now and reset them, so none is left open on a listener that is going away.
+            var listener = _listener;
+            if (listener is not null)
+            {
+                while (listener.Pending())
+                {
+                    using var queued = listener.AcceptSocket();
+                    queued.Close(0);
+                }
+            }
+        }
+        catch (Exception ex) when (IsExpected(ex))
+        {
+        }
+
+        try
+        {
             _listener?.Stop();
         }
         catch (SocketException)

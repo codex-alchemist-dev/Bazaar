@@ -533,6 +533,9 @@ public class EgressEscapeTests
         using var idle = await RawClient.ConnectAsync(rig.Endpoint);
         var endpoint = rig.Endpoint;
 
+        // The idle client's handshake can finish before the accept loop has taken it; wait until it is being served.
+        Assert.True(await ProxyRig.EventuallyAsync(() => rig.Proxy.ActiveConnections == 3));
+
         rig.Proxy.Stop();
 
         Assert.True((await a.ReadToEndAsync(Wait)).Closed);
