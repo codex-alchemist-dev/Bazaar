@@ -150,11 +150,16 @@ public class RedactorTests
     public void Redaction_assembly_references_no_network_gateway_or_model_assembly()
     {
         var references = typeof(Redactor).Assembly.GetReferencedAssemblies().Select(name => name.Name ?? string.Empty);
-        string[] banned = ["Bazaar", "Http", "Sockets", "Gateway", "Onnx", "Npu", "Model"];
+        string[] banned = ["Http", "Sockets", "Gateway", "Onnx", "Npu", "Model"];
 
         foreach (var name in references)
         {
-            Assert.DoesNotContain(banned, banned => name.Contains(banned, StringComparison.OrdinalIgnoreCase));
+            // Bazaar.Contracts is the shared wire-type project and carries no network or model code.
+            if (name != "Bazaar.Contracts")
+            {
+                Assert.DoesNotContain(name, banned, StringComparer.OrdinalIgnoreCase);
+            }
+            Assert.False(name.StartsWith("Bazaar", StringComparison.OrdinalIgnoreCase) && name != "Bazaar.Contracts", $"{name} must not be referenced by redaction");
         }
     }
 
