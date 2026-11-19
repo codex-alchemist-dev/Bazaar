@@ -391,3 +391,12 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+
+## Round 28 (2026-11-19): Exact token amounts
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Agent token budget amounts | **DECIDED** (owner, 2026-11-19, project chat). A chaos test found that a reported spend of the largest 64-bit value wrapped the window sum negative and was admitted. The owner's words: "Ofc we can just gate it and say null... Or we can over engineer and support millions of digits, decimals, and a number so astronomically large that it's honestly inappropriate. Because we love over engineering... The only concern is how we store that in postgres." Agent token budget amounts become exact, decimal-capable values of any size that can never wrap. | 48 section 11 (DECIDED 11.3), 15, 04 |
+| Consequences | One `TokenAmount` type in `Bazaar.Contracts` for every spend, limit, sum and remaining count. It is exact, never wraps and has no maximum of its own. Size limits are a separate `TokenAmountBounds` policy; this slice uses the PostgreSQL `numeric` limits (131,072 digits before the point, 16,383 after). A value outside them is refused; a sum outside them denies the call. A spend with more integer digits than a limit is denied before anything is summed. Parsing checks length and exponent before any big-number work. JSON is a string, read from a string or a raw number, never through `double`. This slice stores amounts inline: `agent_token_spend.tokens` becomes unconstrained `numeric` with `CHECK (tokens > 0)` (`agent_safety/0005`), sent and read as text. | 48 section 11, 04 |
+| Chunked tier | **PLANNED**, specified separately: amounts beyond the `numeric` limits stored in chunks inside the same Postgres database. Not designed in this round. | 48 section 11 |
+| Follow-up | **PLANNED**, not done: the gateway usage counters (`gw_usage` token columns, `ModelUsage`, the rollups in 05 and 23) stay `bigint` and `long`. Until then an upstream usage value outside the `long` range is ignored and the estimate is used, as today. | 05, 23, 48 section 11 |

@@ -269,6 +269,22 @@ OPEN 11.1: the default token quota values per agent class. These are settings wi
 
 DECIDED 11.2 (owner, 2026-11-13, card answer): token and quota budgets only. No money budgets and no money cap that stops work. Cost is shown as display and analysis only, and never gates an agent.
 
+DECIDED 11.3 (owner, 2026-11-19, project chat): agent token budget amounts are exact numbers of any size, and they never wrap. A chaos test reported a spend of the largest 64-bit value, the window sum wrapped negative, and the call was admitted. The owner chose to support any size instead of capping: "Or we can over engineer and support millions of digits, decimals, and a number so astronomically large that it's honestly inappropriate. Because we love over engineering... The only concern is how we store that in postgres." The rules:
+
+- One value type, `TokenAmount` in `Bazaar.Contracts`, carries every agent token budget amount: a spend, a limit, a window sum, and the remaining count in a decision. It is an arbitrary-size integer with a decimal scale, so it is exact and can hold fractions. It is never negative, NaN or infinite, and it never wraps. The type has no maximum of its own. No binary floating point is used anywhere on this path.
+- Size limits are a separate policy value, `TokenAmountBounds` (digits allowed before and after the point). Parsing, JSON reading and bounded addition take a bound. This slice uses `TokenAmountBounds.PostgresNumeric` everywhere: the PostgreSQL `numeric` limits of 131,072 digits before the decimal point and 16,383 after. A value outside the bound is refused. A sum outside it is not representable, and the budget treats it as over every limit, so the call is denied. Nothing saturates silently.
+- Fast path: a spend with more integer digits than a window's limit can never fit. It is denied as never fitting before anything is summed, so a hostile amount costs only a digit-count comparison.
+- Text form: ASCII digits, an optional fraction after one `.`, and an optional exponent (`e`, an optional sign, digits). No sign, spaces, separators, NaN or infinity. Length and exponent are checked before any big-number work, so hostile input cannot slow a budget check.
+- JSON: written as a string holding the canonical decimal. Read from a string or a raw number token, never through `double`.
+- Postgres: this slice stores amounts inline. `agent_token_spend.tokens` becomes unconstrained `numeric` and keeps `CHECK (tokens > 0)` (migration `agent_safety/0005`). The store sends amounts as text cast to `numeric` and reads them, and their sums, as text, because the driver's `decimal` and `BigInteger` mappings cannot carry every scale. An amount outside the `numeric` limits cannot be stored. It is denied, never truncated; this can only happen when the operator set a limit beyond those limits. A sum that the database or `TokenAmount` cannot hold denies the call. It never surfaces as an allow.
+- Unchanged: a zero spend is checked and not recorded; the per-agent lock and the atomic check-and-record stay as they are. Each window limit is a setting and must be greater than zero.
+
+Scope of 11.3 now: agent token budgets only (spends, limits, sums, decisions and the `agent_token_spend` table), stored inline as `numeric`.
+
+PLANNED, not done: a larger tier that stores amounts beyond the `numeric` limits in chunks inside the same Postgres database. It is specified separately and is not designed here. The separate bounds policy is what lets it be added without changing `TokenAmount`.
+
+PLANNED follow-up, not done: the gateway usage counters (the `gw_usage` token columns, `ModelUsage`, and the usage rollups in `05` and `23`) stay `bigint` in Postgres and `long` in code for now. Until that slice lands, an upstream usage value outside the `long` range keeps today's behaviour: it is ignored and the row uses the estimate.
+
 ## 12. Privacy law
 
 **Status: DECIDED.** The platform ships data-subject tools for export, deletion and access. It generates compliance reports in GDPR and SOC 2 style. Instances are private by default. Compliance settings are global when several human members are present.
