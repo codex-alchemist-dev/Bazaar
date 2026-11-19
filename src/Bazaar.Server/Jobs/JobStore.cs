@@ -40,6 +40,13 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         RETURNING j.id, j.kind, j.dedupe_key, j.attempts, j.payload::text
         """;
 
+    private const string _releaseSql = """
+        UPDATE job
+        SET state = 'queued', lease_owner = NULL, lease_until = NULL,
+            attempts = GREATEST(attempts - 1, 0), updated_at = now()
+        WHERE id = ANY(@ids) AND state = 'running' AND lease_owner = @owner
+        """;
+
     private const string _completeSql = """
         UPDATE job
         SET state = 'succeeded', lease_owner = NULL, lease_until = NULL, last_error = NULL, updated_at = now()
@@ -112,6 +119,20 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         // UPDATE ... RETURNING has no order guarantee; hand jobs out oldest first.
         claimed.Sort((a, b) => a.Id.CompareTo(b.Id));
         return claimed;
+    }
+
+    /// <summary>
+    /// Gives back jobs this owner claimed but never started (the host is stopping): they are queued again at once and the
+    /// claim does not count as an attempt. Jobs the owner no longer holds are left alone. Returns how many were released.
+    /// </summary>
+    public async Task<int> ReleaseUnstartedAsync(string owner, IReadOnlyCollection<long> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+            return 0;
+        await using var cmd = dataSource.CreateCommand(_releaseSql);
+        cmd.Parameters.AddWithValue("owner", owner);
+        cmd.Parameters.AddWithValue("ids", ids.ToArray());
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>Marks a claimed job succeeded. Returns false when the lease is no longer held by <paramref name="owner"/>.</summary>

@@ -189,4 +189,41 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
         await loop.WaitAsync(TimeSpan.FromSeconds(30), Ct);
         Assert.Null(poller.LastPollError);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_stop_during_a_batch_gives_back_the_jobs_it_never_started_without_spending_their_attempts(bool handlerThrows)
+    {
+        // Chaos race round 2: the host claimed a batch, then stopped. The unstarted jobs kept their lease (five minutes) and
+        // lost one attempt each, so a few restarts could fail jobs that had never run.
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var kind = "stop-" + Guid.NewGuid().ToString("N");
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        var handler = new Handler(kind, async (_, ct) =>
+        {
+            await cts.CancelAsync();
+            if (handlerThrows)
+                ct.ThrowIfCancellationRequested();
+        });
+        var poller = new JobPoller(Store, [handler], new FakeClock());
+        var ids = new List<long>();
+        for (var i = 0; i < 3; i++)
+            ids.Add((await Store.EnqueueAsync(kind, "{}", ct: Ct))!.Value);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => poller.PollOnceAsync(cts.Token));
+
+        Assert.Single(handler.Seen);
+        foreach (var id in ids.Skip(1))
+        {
+            var state = (await Store.GetAsync(id, Ct))!;
+            Assert.Equal("queued", state.State);
+            Assert.Equal(0, state.Attempts);
+            Assert.Null(state.LeaseOwner);
+        }
+
+        var next = await Store.ClaimDueAsync("next-host", TimeSpan.FromMinutes(1), 10, Ct);
+        Assert.Equal(ids.Skip(1).Order(), next.Where(j => j.Kind == kind).Select(j => j.Id).Order());
+    }
 }

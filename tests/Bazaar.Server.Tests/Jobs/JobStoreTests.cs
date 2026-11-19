@@ -182,4 +182,24 @@ public sealed class JobStoreTests(JobDb db) : IClassFixture<JobDb>
         var ex = await Assert.ThrowsAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync(Ct));
         Assert.Equal("23514", ex.SqlState);
     }
+
+    [Fact]
+    public async Task Release_unstarted_requeues_only_jobs_the_owner_still_holds_and_refunds_the_attempt()
+    {
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var mine = (await Store.EnqueueAsync("release", "{}", ct: Ct))!.Value;
+        var theirs = (await Store.EnqueueAsync("release", "{}", ct: Ct))!.Value;
+        Assert.Equal(2, (await Store.ClaimDueAsync("owner-a", TimeSpan.FromMinutes(1), 10, Ct)).Count);
+
+        // owner-b stole nothing: only owner-a's own claim on `mine` is released; a foreign id list changes nothing.
+        Assert.Equal(0, await Store.ReleaseUnstartedAsync("owner-b", [mine, theirs], Ct));
+        Assert.Equal(1, await Store.ReleaseUnstartedAsync("owner-a", [mine], Ct));
+        Assert.Equal(0, await Store.ReleaseUnstartedAsync("owner-a", [mine], Ct));
+
+        var released = (await Store.GetAsync(mine, Ct))!;
+        Assert.Equal(("queued", 0), (released.State, released.Attempts));
+        Assert.Equal("running", (await Store.GetAsync(theirs, Ct))!.State);
+        Assert.Equal(mine, Assert.Single(await Store.ClaimDueAsync("owner-c", TimeSpan.FromMinutes(1), 10, Ct)).Id);
+    }
 }

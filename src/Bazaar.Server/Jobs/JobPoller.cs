@@ -49,9 +49,25 @@ public sealed class JobPoller
 
         await _store.FailExhaustedAsync(Options.MaxAttempts, ct).ConfigureAwait(false);
         var claimed = await _store.ClaimDueAsync(Owner, Options.LeaseDuration, Options.BatchSize, ct).ConfigureAwait(false);
-        foreach (var job in claimed)
+        for (var i = 0; i < claimed.Count; i++)
         {
-            await RunOneAsync(job, ct).ConfigureAwait(false);
+            var inHandler = false;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                inHandler = true;
+                await RunOneAsync(claimed[i], ct).ConfigureAwait(false);
+                inHandler = false;
+                ct.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // The host is stopping. Jobs not started yet go back to the queue so they neither wait out their lease nor
+                // lose an attempt; the job being run keeps its lease, as a handler that stops mid-way may be half done.
+                var next = inHandler ? i + 1 : i;
+                await _store.ReleaseUnstartedAsync(Owner, claimed.Skip(next).Select(j => j.Id).ToList(), CancellationToken.None).ConfigureAwait(false);
+                throw;
+            }
         }
 
         return claimed.Count;
