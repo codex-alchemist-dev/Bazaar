@@ -176,8 +176,9 @@ public sealed class PostgresTokenBudgetChaosTests
     }
 
     [Fact]
-    public async Task An_amount_beyond_numeric_is_denied_when_the_limit_allows_it_and_never_truncated()
+    public async Task An_amount_beyond_numeric_is_stored_in_the_large_tier_when_the_limit_allows_it_and_never_truncated()
     {
+        // Doc 48, DECIDED 11.4: the disk is the limit. Under 11.3 alone this spend was denied because numeric cannot hold it.
         SkipWithoutDatabase();
         await using var db = await BudgetTestDb.CreateAsync(Ct);
         var store = new PostgresTokenBudgetStore(db.DataSource);
@@ -186,10 +187,11 @@ public sealed class PostgresTokenBudgetChaosTests
         var limits = new TokenBudgetOptions { HourlyTokens = huge + huge, DailyTokens = huge + huge, WeeklyTokens = huge + huge };
 
         var decision = await store.TryConsume("agent-a", _t0, huge, limits, Ct);
+        await store.Append("agent-a", _t0.AddSeconds(1), huge, Ct);
 
-        Assert.False(decision.Allowed);
-        Assert.Equal(TimeSpan.MaxValue, decision.RetryAfter);
-        Assert.Empty(await store.LoadSince("agent-a", _t0.AddDays(-8), Ct));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.Append("agent-a", _t0, huge, Ct));
+        Assert.True(decision.Allowed);
+        Assert.Equal(huge, decision.Remaining);
+        Assert.Equal([huge, huge], (await store.LoadSince("agent-a", _t0.AddDays(-8), Ct)).Select(spend => spend.Tokens));
+        Assert.False((await store.TryConsume("agent-a", _t0.AddSeconds(2), TokenAmount.One, limits, Ct)).Allowed);
     }
 }
