@@ -1,5 +1,5 @@
-using Cdax.Core;
 using Bazaar.Server.Vault.Search;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

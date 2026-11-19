@@ -1,5 +1,4 @@
 using Bazaar.Contracts.Wire.Codec;
-using Cdax.Core;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
@@ -7,6 +6,7 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Secrets;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

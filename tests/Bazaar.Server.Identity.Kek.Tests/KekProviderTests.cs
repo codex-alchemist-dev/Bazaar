@@ -1,5 +1,5 @@
-using Cdax.Core;
 using Bazaar.Server.Identity.Kek;
+using Cdax.Core;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Identity.Kek.Tests;

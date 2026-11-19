@@ -1,5 +1,4 @@
 using Bazaar.Contracts.Gateway;
-using Cdax.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
@@ -16,6 +15,7 @@ using Bazaar.Server.Mentions;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Sync;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
