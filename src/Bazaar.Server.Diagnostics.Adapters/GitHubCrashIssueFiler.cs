@@ -79,6 +79,8 @@ public sealed class GitHubCrashIssueFiler(HttpClient http, ICrashGitHubTokenSour
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", ApiVersion);
+        // GitHub rejects API requests that carry no User-Agent.
+        request.Headers.UserAgent.ParseAdd("Bazaar-Crash/1");
         var response = await http.SendAsync(request, ct).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
