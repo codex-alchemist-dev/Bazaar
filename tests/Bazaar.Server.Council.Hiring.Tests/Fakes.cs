@@ -7,12 +7,18 @@ namespace Bazaar.Server.Council.Hiring.Tests;
 /// <summary>Records opened motions and returns predictable vote ids. Other operations are not used by the hire adapter.</summary>
 internal sealed class FakeCouncilService : ICouncilService
 {
+    private readonly object _gate = new();
+
     public List<(string Caller, MotionDraft Draft, Guid VoteId)> Opened { get; } = [];
 
     public Task<Guid> OpenAsync(string callerId, MotionDraft motion, CancellationToken ct)
     {
         var voteId = Guid.NewGuid();
-        Opened.Add((callerId, motion, voteId));
+        lock (_gate)
+        {
+            Opened.Add((callerId, motion, voteId));
+        }
+
         return Task.FromResult(voteId);
     }
 
@@ -29,19 +35,35 @@ internal sealed class FakeCouncilService : ICouncilService
 internal sealed class InMemoryHireDecisionStore : IHireDecisionStore
 {
     private readonly Dictionary<string, HireVoteState> _states = new(StringComparer.Ordinal);
+    private readonly object _gate = new();
 
     public int SaveCount { get; private set; }
 
     /// <summary>Stores a state without counting it as a save, so tests can assert on writes made by the code under test.</summary>
-    public void Seed(HireVoteState state) => _states[state.TemplateId] = state;
+    public void Seed(HireVoteState state)
+    {
+        lock (_gate)
+        {
+            _states[state.TemplateId] = state;
+        }
+    }
 
-    public Task<HireVoteState?> FindAsync(string templateId, CancellationToken ct) =>
-        Task.FromResult(_states.TryGetValue(templateId, out var state) ? state : null);
+    public Task<HireVoteState?> FindAsync(string templateId, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            return Task.FromResult(_states.TryGetValue(templateId, out var state) ? state : null);
+        }
+    }
 
     public Task SaveAsync(HireVoteState state, CancellationToken ct)
     {
-        _states[state.TemplateId] = state;
-        SaveCount++;
+        lock (_gate)
+        {
+            _states[state.TemplateId] = state;
+            SaveCount++;
+        }
+
         return Task.CompletedTask;
     }
 }

@@ -103,6 +103,45 @@ public class CouncilTalentHireGateTests
     }
 
     [Fact]
+    public async Task Twenty_concurrent_requests_for_one_template_open_exactly_one_vote()
+    {
+        var store = new YieldingHireDecisionStore(_store);
+        var gate = new CouncilTalentHireGate(_council, store, new HireMotionDraftBuilder(new HireMotionClassifier()), _time);
+
+        var requests = Enumerable.Range(0, 20)
+            .Select(_ => Task.Run(() => gate.RequestAsync(Samples.Request("talent-analyst-v2"), TestContext.Current.CancellationToken)))
+            .ToArray();
+        var states = await Task.WhenAll(requests);
+
+        var opened = Assert.Single(_council.Opened);
+        Assert.All(states, state => Assert.Equal(opened.VoteId, state.VoteId));
+        Assert.Equal(HireStatus.Pending, Assert.Single(states.Select(s => s.Status).Distinct()));
+    }
+
+    [Fact]
+    public async Task A_request_for_one_template_does_not_block_a_request_for_another()
+    {
+        var release = new TaskCompletionSource();
+        var entered = new TaskCompletionSource();
+        var store = new BlockingHireDecisionStore(_store, "talent-blocked", entered, release.Task);
+        var gate = new CouncilTalentHireGate(_council, store, new HireMotionDraftBuilder(new HireMotionClassifier()), _time);
+
+        var blocked = gate.RequestAsync(Samples.Request("talent-blocked"), TestContext.Current.CancellationToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        var other = gate.RequestAsync(Samples.Request("talent-free"), TestContext.Current.CancellationToken);
+
+        // Throws TimeoutException when the other template waits behind the blocked one.
+        var state = await other.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.Equal("talent-free", state.TemplateId);
+        Assert.False(blocked.IsCompleted);
+        release.SetResult();
+        await blocked;
+        Assert.Equal(2, _council.Opened.Count);
+    }
+
+    [Fact]
     public async Task Null_request_is_rejected()
     {
         var gate = Gate();
@@ -116,5 +155,38 @@ public class CouncilTalentHireGateTests
         var gate = Gate();
 
         await Assert.ThrowsAsync<ArgumentException>(() => gate.IsReleasedAsync(" ", CancellationToken.None));
+    }
+
+    /// <summary>Yields inside the read so concurrent callers interleave: a check-then-open without the lock would open twice.</summary>
+    private sealed class YieldingHireDecisionStore(IHireDecisionStore inner) : IHireDecisionStore
+    {
+        public async Task<HireVoteState?> FindAsync(string templateId, CancellationToken ct)
+        {
+            await Task.Yield();
+            return await inner.FindAsync(templateId, ct);
+        }
+
+        public Task SaveAsync(HireVoteState state, CancellationToken ct) => inner.SaveAsync(state, ct);
+    }
+
+    /// <summary>Holds the read of one template until released, to show other templates are not stuck behind it.</summary>
+    private sealed class BlockingHireDecisionStore(
+        IHireDecisionStore inner,
+        string blockedTemplateId,
+        TaskCompletionSource entered,
+        Task release) : IHireDecisionStore
+    {
+        public async Task<HireVoteState?> FindAsync(string templateId, CancellationToken ct)
+        {
+            if (string.Equals(templateId, blockedTemplateId, StringComparison.Ordinal))
+            {
+                entered.TrySetResult();
+                await release;
+            }
+
+            return await inner.FindAsync(templateId, ct);
+        }
+
+        public Task SaveAsync(HireVoteState state, CancellationToken ct) => inner.SaveAsync(state, ct);
     }
 }

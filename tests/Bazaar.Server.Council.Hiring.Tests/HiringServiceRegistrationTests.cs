@@ -35,12 +35,11 @@ public class HiringServiceRegistrationTests
     [Fact]
     public void Registration_applies_the_configured_bigger_change_classes()
     {
-        using var provider = Build(classes: ["retire"]);
-        var builder = provider.GetRequiredService<HireMotionDraftBuilder>();
+        using var provider = Build(classes: ["hire"]);
+        var classifier = provider.GetRequiredService<HireMotionClassifier>();
 
-        var motion = builder.Build(Samples.Request());
-
-        Assert.Equal(MotionClass.Ordinary, motion.Draft.MotionClass);
+        Assert.Equal(MotionClass.BiggerChange, classifier.Classify(MembershipMotionKind.Hire));
+        Assert.Equal(MotionClass.Ordinary, classifier.Classify(MembershipMotionKind.Retire));
     }
 
     [Fact]
@@ -58,6 +57,56 @@ public class HiringServiceRegistrationTests
         var services = new ServiceCollection();
 
         Assert.Throws<ArgumentException>(() => services.AddBazaarCouncilHiring(["hire", "not_a_class"]));
+    }
+
+    [Fact]
+    public void A_list_without_hire_fails_at_registration()
+    {
+        AssertRejectsWithoutHire(["promote"]);
+    }
+
+    [Fact]
+    public void An_empty_list_fails_at_registration()
+    {
+        AssertRejectsWithoutHire([]);
+    }
+
+    [Fact]
+    public void A_list_of_other_classes_only_fails_at_registration()
+    {
+        AssertRejectsWithoutHire(["retire", "role_change", "constitution_change"]);
+    }
+
+    private static void AssertRejectsWithoutHire(string[] classes)
+    {
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<ArgumentException>(() => services.AddBazaarCouncilHiring(classes));
+
+        Assert.Contains("hire", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("council.bigger_change_classes", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(services);
+    }
+
+    [Fact]
+    public void A_list_with_hire_plus_extras_registers()
+    {
+        using var provider = Build(classes: ["hire", "promote", "retire", "role_change", "constitution_change"]);
+
+        var classifier = provider.GetRequiredService<HireMotionClassifier>();
+
+        Assert.Equal(MotionClass.BiggerChange, classifier.Classify(MembershipMotionKind.Hire));
+        Assert.Equal(MotionClass.BiggerChange, classifier.Classify(MembershipMotionKind.Promote));
+    }
+
+    [Fact]
+    public void Omitted_setting_registers_with_the_shipped_default()
+    {
+        using var provider = Build(classes: null);
+
+        var classifier = provider.GetRequiredService<HireMotionClassifier>();
+
+        Assert.Equal(MotionClass.BiggerChange, classifier.Classify(MembershipMotionKind.Hire));
     }
 
     [Fact]
