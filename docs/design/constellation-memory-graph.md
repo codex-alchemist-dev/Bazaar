@@ -59,7 +59,20 @@ Writes use raw Npgsql through the shared `NpgsqlDataSource` (CLAUDE.md data-acce
 
 ## Sink
 
-`MemoryGraphSink : IMemoryBatchSink` wraps the real sink. On a successful commit it parses each `MemoryWriteItem.Content` with `NoteDocument.Parse`, projects the note, and calls `StoreRevisionAsync`. A projection failure is logged and does not fail the commit: the Vault is the source of truth and the graph can be rebuilt from it. Rebuild from the Vault is a later slice.
+`MemoryGraphSink : IMemoryBatchSink` wraps the real sink. On a successful commit it parses each `MemoryWriteItem.Content` with `NoteDocument.Parse`, projects the note, and calls `StoreRevisionAsync`. A projection failure is logged and does not fail the commit: the Vault is the source of truth and the graph can be rebuilt from it.
+
+## Rebuild
+
+`MemoryGraphRebuilder.RebuildAgentAsync(agentId, ct)` rebuilds one agent's graph from the Vault (the source of truth), reading `agents/<agent>/memory/` through `IMemoryVault`. Two passes: parse every file and build a title map from titles that are unique within the agent's area (an ambiguous title is dropped, so it makes no edge); then project each note. A note whose active revision is already at or past the Vault version is skipped, so a rebuild is idempotent and never writes an older revision over a newer one. Files that do not parse, or stores that are refused, are counted as failed and logged; they never stop the rest. The result is `(Scanned, Stored, UpToDate, Failed)`.
+
+## Audit
+
+Doc 19 ("Agent memory governance", DECIDED) requires that each memory item's source and author are written to the audit log (doc 48). `AuditingMemoryGraphStore` decorates `IMemoryGraphStore` and appends one `AuditEntry` after each change that succeeds:
+
+- `memory.revision.stored` after `StoreRevisionAsync`. Actor `agent:<scope agent id>`. Payload: `note_id`, `version`, `scope_agent_id`, `memory_kind`, `trust`, and the provenance edges as `written_by`, `from_gc` and `from_messages` (ids only). Never the title, the body or the vault path.
+- `memory.revision.activated` after `ActivateRevisionAsync` returns true (a rollback). Actor `system:memory`, because the store interface carries no acting principal; the endpoint slice adds one. Payload: `note_id`, `version` and the same provenance as the activated revision.
+
+The payload goes through the shared payload guard, so no secret-like key can enter. The audit append happens after the store call and its exceptions propagate: a revision that could not be audited is reported, not hidden. Failing the audit never rolls the stored revision back (revisions are append-only). The memory component registers the decorator as its own service (`AuditingMemoryGraphStore`) and uses it for the write-path sink when an `IAuditLog` is registered; without one the graph store is used as is. The Constellation registration of `IMemoryGraphStore` is left alone, because component start order is not guaranteed. Callers that roll a note back (the endpoint slice) take the decorator so the rollback is audited too.
 
 ## Tests
 
@@ -75,13 +88,14 @@ Done (2026-11-16):
 
 - Model, projector (`MemoryGraphProjector`), Postgres store (`PgMemoryGraphStore`, migration `constellation/0001`, registered in `ConstellationComponent` as `IMemoryGraphStore`), retriever (`MemoryGraphRetriever`).
 - Sink: `MemoryGraphSink` projects only items under `agents/<batch agent>/memory/`. Items that fail to parse, or whose store call throws, are logged and skipped; the commit result is returned unchanged. `MemoryGraphSink.Wrap` is the helper that the memory component wiring calls when it lands. The decorator is not registered globally.
-- Tests: projector, retriever, store (Postgres), sink.
+- Tests: projector, retriever, store (Postgres), sink, rebuilder.
+- Rebuild: `MemoryGraphRebuilder` (see Rebuild). Wiring it to a startup or admin trigger waits for the production Vault.
 
 Known open items:
 
 a. The retriever does not re-expand a neighbour reached later with a higher score. The first score wins for expansion. The spec was silent here; this is the chosen behaviour.
 b. Cross-note wiki-link resolution by title needs the Vault index. The sink passes an empty title map today, so `[[Title]]` links produce no edge. Only `[[note id]]` links resolve.
-c. Not built: retention, crypto-erase, legal hold, the Hive and Company areas, vector seeds, the owner read-audit (the store only exposes the hook), HTTP and wire endpoints, rebuild from the Vault, and the client view.
+c. Not built: retention, crypto-erase, legal hold, the Hive and Company areas, vector seeds, the owner read-audit (the store only exposes the hook), HTTP and wire endpoints, and the client view.
 
 ## Owner questions
 
