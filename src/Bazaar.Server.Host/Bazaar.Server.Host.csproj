@@ -30,6 +30,7 @@
     <ProjectReference Include="..\Bazaar.Fun\Bazaar.Fun.csproj" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />

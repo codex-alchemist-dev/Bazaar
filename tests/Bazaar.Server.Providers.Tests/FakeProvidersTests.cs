@@ -1,7 +1,7 @@
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Fakes;
 
-namespace Bazaar.Server.Tests.Providers;
+namespace Bazaar.Server.Providers.Tests;
 
 public class FakeProvidersTests
 {

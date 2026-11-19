@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Providers.Abstractions\Bazaar.Server.Providers.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Valkey client (doc 03 WP12), behind IValkeyClient. Linux-only code lives in this assembly, not in Bazaar.Server. -->
+    <PackageReference Include="StackExchange.Redis" />
+  </ItemGroup>
+</Project>
