@@ -25,7 +25,6 @@
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mail.Abstractions\Bazaar.Server.Mail.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Abstractions\Bazaar.Server.Providers.Abstractions.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers\Bazaar.Server.Providers.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Sanitization.Abstractions\Bazaar.Server.Sanitization.Abstractions.csproj" />

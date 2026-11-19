@@ -1,6 +1,6 @@
 using Bazaar.Server.WorkLife;
 
-namespace Bazaar.Server.WorkLife.Tests;
+namespace Bazaar.Server.Tests.WorkLife;
 
 public class PresenceRulesTests
 {
