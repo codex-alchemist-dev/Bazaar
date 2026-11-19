@@ -14,7 +14,7 @@ public sealed class HttpSurfaceOptions
     /// <summary>Largest blob the operator may allow (hard ceiling for <see cref="MaxBlobBytes"/>).</summary>
     public const long BlobCeilingBytes = 1024L * 1024 * 1024;
 
-    /// <summary>Directory of the blob store. Operator-set only, never taken from a request. Null means the per-user data folder.</summary>
+    /// <summary>Directory of the blob store, read by the blob module (<c>Bazaar.Server.Blobs</c>). Operator-set only, never taken from a request. Null means the per-user data folder.</summary>
     public string? BlobRoot { get; set; }
 
     /// <summary>Largest blob in bytes (<c>gc.blob_max_bytes</c>, default 25 MiB).</summary>
@@ -37,15 +37,6 @@ public sealed class HttpSurfaceOptions
 
     /// <summary>Most search hits one request returns.</summary>
     public int SearchMaxResults { get; set; } = 50;
-
-    /// <summary>The directory the store uses: <see cref="BlobRoot"/> or the per-user default.</summary>
-    public string ResolveBlobRoot()
-    {
-        if (!string.IsNullOrWhiteSpace(BlobRoot)) return Path.GetFullPath(BlobRoot);
-        var data = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (string.IsNullOrEmpty(data)) throw new InvalidOperationException("No per-user data folder; set Bazaar:Http:BlobRoot.");
-        return Path.Combine(data, "Bazaar", "blobs");
-    }
 }
 
 /// <summary>Rejects HTTP settings that make no sense or exceed the ceilings.</summary>
