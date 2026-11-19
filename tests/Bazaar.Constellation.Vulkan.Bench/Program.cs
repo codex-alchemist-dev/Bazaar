@@ -56,6 +56,81 @@ if (args.Length > 0 && args[0] == "density")
     return 0;
 }
 
+if (args.Length > 0 && (args[0] == "topology-draw" || args[0] == "topology-density"))
+{
+    // Procedural billion-node benchmark: topologies, 2D and 3D, three viewpoints. Usage: topology-draw|topology-density [csv] [quick]
+    bench.InitializeTopology(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, args[0] + ".csv");
+    bool quick = args.Length > 2 && args[2] == "quick";
+    int warm = quick ? 5 : WarmupFrames;
+    int meas = quick ? 20 : MeasuredFrames;
+    const int edgeCap = 1_000_000;
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    void Emit(string section, long total, long instances, double buildMs, int edges, CellStats s)
+    {
+        string line = NodeBenchmark.CsvLine(section, total, instances, buildMs, NodeBenchmark.TopologyGpuBytes, edges, s);
+        csv.Add(line);
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} N={total} M={instances} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} fps(p50)={1000.0 / s.WallP50:F0} fps(p99)={1000.0 / s.WallP99:F0} frames={s.Frames} [{breakdown}]"));
+    }
+
+    Topology[] topologies = Enum.GetValues<Topology>();
+    Viewpoint[] views = Enum.GetValues<Viewpoint>();
+    if (args[0] == "topology-draw")
+    {
+        var cells = new List<(long N, int M)>();
+        foreach (int m in new[] { 500_000, 1_000_000, 2_000_000 })
+        {
+            cells.Add((1_000_000_000L, m));
+        }
+
+        cells.Add((100_000_000L, 1_000_000));
+        cells.Add((2_000_000_000L, 1_000_000));
+        foreach ((long n, int m) in cells)
+        {
+            foreach (int dim in new[] { 2, 3 })
+            {
+                foreach (Topology topology in topologies)
+                {
+                    foreach (Viewpoint view in views)
+                    {
+                        CellStats s = bench.MeasureDraw(topology, dim, n, view, m, edgeCap, warm, meas);
+                        Emit($"draw_{topology}_{dim}d_{view}".ToLowerInvariant(), n, m, 0, edgeCap, s);
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    foreach (long n in new[] { 100_000_000L, 1_000_000_000L, 2_000_000_000L })
+    {
+        foreach (int dim in new[] { 2, 3 })
+        {
+            foreach (Topology topology in topologies)
+            {
+                int splatFrames = n <= 100_000_000L ? 10 : 3;
+                CellStats full = bench.MeasureFullSplat(topology, dim, n, Viewpoint.Whole, 1, quick ? 2 : splatFrames);
+                Emit($"splat_{topology}_{dim}d_whole".ToLowerInvariant(), n, 0, 0, 0, full);
+                double buildMs = bench.BuildAggregate(topology, dim, n);
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"aggregate build {topology} {dim}d N={n}: {buildMs:F0} ms"));
+                foreach (Viewpoint view in views)
+                {
+                    CellStats agg = bench.MeasureAggregate(topology, dim, n, view, edgeCap, warm, meas);
+                    Emit($"agg_{topology}_{dim}d_{view}".ToLowerInvariant(), n, 0, buildMs, edgeCap, agg);
+                    CellStats cached = bench.MeasureCachedShade(topology, dim, n, view, edgeCap, warm, meas);
+                    Emit($"cached_{topology}_{dim}d_{view}".ToLowerInvariant(), n, 0, buildMs, edgeCap, cached);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length > 0 && args[0] == "spike")
 {
     // Does the slow 1B frame follow the long build, and does it recover after the GPU idles?
