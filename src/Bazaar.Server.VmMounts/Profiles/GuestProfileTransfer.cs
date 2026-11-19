@@ -71,6 +71,9 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
         Guid vmId, GuestOs guestOs, string guestProfileDirectory, string hostStagingDirectory, CancellationToken ct)
     {
         var staging = Path.GetFullPath(hostStagingDirectory);
+        // A link as the staging directory would send every write to wherever the link points. Checked before anything is created.
+        if (HostPathGuard.IsLink(staging))
+            throw Invalid("The staging directory is a link.");
         if (Directory.Exists(staging) && Directory.EnumerateFileSystemEntries(staging).Any())
             throw Invalid("The staging directory is not empty.");
 
@@ -130,21 +133,31 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
 
             return Build(manifest);
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A name the host file system refuses (for example a file and a folder of the same name) must not surface as a raw IO error.
+            RemoveStaging(staging);
+            throw new ProfileTransferException(ProfileTransferFailure.Invalid, "The host could not write the pulled profile into staging.", ex);
+        }
         catch
         {
-            try
-            {
-                if (Directory.Exists(staging))
-                    Directory.Delete(staging, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-
+            RemoveStaging(staging);
             throw;
+        }
+    }
+
+    private static void RemoveStaging(string staging)
+    {
+        try
+        {
+            if (Directory.Exists(staging) && !HostPathGuard.IsLink(staging))
+                Directory.Delete(staging, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
         }
     }
 
@@ -182,9 +195,22 @@ public sealed class GuestProfileTransfer(IMountGuestChannel channel, IMountConte
                 throw Invalid($"The profile has more than {limits.MaxFiles} files.");
             if (length < 0 || length > limits.MaxFileBytes)
                 throw Invalid($"'{SafeText.Clean(relative)}' is larger than {limits.MaxFileBytes} bytes.");
-            total += length;
-            if (total > limits.MaxTotalBytes)
+            // Compared before adding: a guest that lists huge lengths must not wrap the running total around.
+            if (length > limits.MaxTotalBytes - total)
                 throw Invalid($"The profile is larger than {limits.MaxTotalBytes} bytes.");
+            total += length;
+        }
+
+        // A path that is also a folder of another path (a file "a" next to "a/b") cannot exist on disk. Whole segments, any case.
+        foreach (var relative in seen)
+        {
+            var slash = relative.IndexOf('/', StringComparison.Ordinal);
+            while (slash >= 0)
+            {
+                if (seen.Contains(relative[..slash]))
+                    throw Invalid($"'{SafeText.Clean(relative)}' lies below another listed file.");
+                slash = relative.IndexOf('/', slash + 1);
+            }
         }
     }
 

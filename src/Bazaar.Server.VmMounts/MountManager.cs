@@ -419,6 +419,8 @@ public sealed class MountManager : IMountManager
             using var agentLease = await _agentLocks.AcquireAsync(row.AgentId, ct).ConfigureAwait(false);
             if (HostPathGuard.IsLink(profileDirectory))
                 throw new ProfileTransferException(ProfileTransferFailure.Invalid, "The host profile folder is a link.");
+            if (HostPathGuard.IsLink(Path.GetDirectoryName(staging)!))
+                throw new ProfileTransferException(ProfileTransferFailure.Invalid, "The staging folder is a link.");
 
             var manifest = await _io.RunAsync(
                 row.VmId, t => _transfer.PullAsync(row.VmId, guestOs, LayoutOf(guestOs).ProfilePath, staging, t), ct).ConfigureAwait(false);

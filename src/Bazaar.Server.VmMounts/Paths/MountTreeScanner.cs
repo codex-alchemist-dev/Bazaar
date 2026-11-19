@@ -33,15 +33,15 @@ internal static class MountTreeScanner
                         MountRefusalReason.ContentRefused, $"The mount tree has more than {maxEntries} entries and cannot be checked.");
 
                 var name = Path.GetFileName(entry);
-                if (directory == mountRoot && name == CanaryRegistry.FolderName)
+                // Only the Soul share carries host-planted canaries (and it is read-only to the guest). In any other share the guest can
+                // create this folder itself, so it is scanned like every other entry.
+                if (kind == MountKind.Soul && directory == mountRoot && name == CanaryRegistry.FolderName)
                     continue;
 
                 var relative = Path.GetRelativePath(mountRoot, entry).Replace('\\', '/');
                 if (HostPathGuard.IsLink(entry))
                 {
-                    FileSystemInfo info = Directory.Exists(entry) ? new DirectoryInfo(entry) : new FileInfo(entry);
-                    var target = info.ResolveLinkTarget(returnFinalTarget: true);
-                    if (target is null || !SafeNames.IsUnderOrEqual(realRoot, HostPathGuard.RealPath(target.FullName, 0), caseInsensitive))
+                    if (!LinkStaysInside(entry, realRoot, caseInsensitive))
                         throw new MountRefusedException(
                             MountRefusalReason.LinkNotAllowed, $"'{SafeText.Clean(relative)}' is a link that leads out of the mount tree.");
                     Judge(policy, kind, relative, 0);
@@ -56,6 +56,24 @@ internal static class MountTreeScanner
                 if (isDirectory)
                     pending.Push(entry);
             }
+        }
+    }
+
+    /// <summary>
+    /// Whether a link resolves to a place inside the tree. A link that cannot be resolved (a loop, too many levels, a permission
+    /// error) is treated as leading out: the scan never lets a hostile link turn into a raw IO exception.
+    /// </summary>
+    private static bool LinkStaysInside(string entry, string realRoot, bool caseInsensitive)
+    {
+        try
+        {
+            FileSystemInfo info = Directory.Exists(entry) ? new DirectoryInfo(entry) : new FileInfo(entry);
+            var target = info.ResolveLinkTarget(returnFinalTarget: true);
+            return target is not null && SafeNames.IsUnderOrEqual(realRoot, HostPathGuard.RealPath(target.FullName, 0), caseInsensitive);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

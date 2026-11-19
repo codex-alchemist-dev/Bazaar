@@ -141,7 +141,17 @@ internal sealed class HostPathGuard
             FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
             if (info.LinkTarget is null)
                 continue;
-            var target = info.ResolveLinkTarget(returnFinalTarget: true);
+            FileSystemInfo? target;
+            try
+            {
+                target = info.ResolveLinkTarget(returnFinalTarget: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A loop or an unreadable link is a link we cannot vouch for, never a raw IO error.
+                throw Refuse(MountRefusalReason.LinkNotAllowed, "A link on the path cannot be resolved.");
+            }
+
             if (target is not null)
                 current = RealPath(target.FullName, depth + 1);
         }
