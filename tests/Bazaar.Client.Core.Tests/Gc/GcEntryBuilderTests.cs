@@ -19,8 +19,8 @@ public class GcEntryBuilderTests
 
     private static readonly GcPrincipal[] _principals =
     [
-        new(_alice, PrincipalKind.Owner, "Dom"),
-        new(_bob, PrincipalKind.Agent, "Bob"),
+        new(_alice, GcParticipantKind.Owner, "Dom"),
+        new(_bob, GcParticipantKind.Agent, "Bob"),
     ];
 
     private static GcEvent Event(
@@ -151,7 +151,7 @@ public class GcEntryBuilderTests
         var entries = Builder().Build(events, [], _principals);
 
         Assert.Equal("Bob", entries[0].Header.AuthorName);
-        Assert.Equal(PrincipalKind.Agent, entries[0].Header.AuthorPrincipalKind);
+        Assert.Equal(GcParticipantKind.Agent, entries[0].Header.AuthorPrincipalKind);
         Assert.Null(entries[1].Header.AuthorName);
         Assert.Null(entries[1].Header.AuthorPrincipalKind);
     }

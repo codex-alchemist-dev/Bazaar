@@ -29,7 +29,7 @@ public sealed record GcRecord(Guid GcId, Guid? ParentGcId, string TypeKey, DateT
 public sealed record GcMemberRecord(
     Guid GcId,
     Guid PrincipalId,
-    PrincipalKind Kind,
+    GcParticipantKind Kind,
     GcMemberRole Role,
     long JoinedSeq,
     long? LeftSeq);
@@ -37,7 +37,7 @@ public sealed record GcMemberRecord(
 /// <summary>Who is asking to read or write. Built from an authenticated session, never from client input.</summary>
 /// <param name="PrincipalId">The caller.</param>
 /// <param name="Kind">Owner, human or agent.</param>
-public sealed record GcViewer(Guid PrincipalId, PrincipalKind Kind);
+public sealed record GcViewer(Guid PrincipalId, GcParticipantKind Kind);
 
 /// <summary>
 /// A row a pure planner wants appended. The writer (Gc/Write) assigns seq, event id and server

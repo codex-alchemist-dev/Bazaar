@@ -176,11 +176,11 @@ public static class MessageEditPlanner
     /// </summary>
     public static readonly Guid SystemAuthorId = Guid.Empty;
 
-    private static AuthorKind ToAuthorKind(PrincipalKind kind) => kind switch
+    private static AuthorKind ToAuthorKind(GcParticipantKind kind) => kind switch
     {
-        PrincipalKind.Owner => AuthorKind.Owner,
-        PrincipalKind.Human => AuthorKind.Human,
-        PrincipalKind.Agent => AuthorKind.Agent,
+        GcParticipantKind.Owner => AuthorKind.Owner,
+        GcParticipantKind.Human => AuthorKind.Human,
+        GcParticipantKind.Agent => AuthorKind.Agent,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown principal kind."),
     };
 }

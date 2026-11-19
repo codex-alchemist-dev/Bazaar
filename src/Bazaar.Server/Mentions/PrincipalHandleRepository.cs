@@ -8,7 +8,7 @@ namespace Bazaar.Server.Mentions;
 /// <param name="PrincipalId">The principal: an agent id or a human id.</param>
 /// <param name="Kind">What kind of principal it is.</param>
 /// <param name="Handle">The handle, lowercase, without the "@".</param>
-public sealed record PrincipalHandle(Guid PrincipalId, PrincipalKind Kind, string Handle);
+public sealed record PrincipalHandle(Guid PrincipalId, GcParticipantKind Kind, string Handle);
 
 /// <summary>The handle does not have the shape <see cref="HandleSlug.IsValid"/> accepts, or is a broadcast word.</summary>
 public sealed class InvalidHandleException(string handle)
@@ -87,7 +87,7 @@ public sealed class PrincipalHandleRepository(NpgsqlDataSource dataSource) : IAg
     /// <returns>The stored handle.</returns>
     /// <exception cref="InvalidHandleException">The handle is not valid.</exception>
     /// <exception cref="HandleTakenException">Another principal holds the handle.</exception>
-    public async Task<PrincipalHandle> SetAsync(Guid principalId, PrincipalKind kind, string handle, CancellationToken ct = default)
+    public async Task<PrincipalHandle> SetAsync(Guid principalId, GcParticipantKind kind, string handle, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         var normalized = HandleSlug.Normalize(handle);
@@ -171,19 +171,19 @@ public sealed class PrincipalHandleRepository(NpgsqlDataSource dataSource) : IAg
         return new PrincipalHandle(reader.GetGuid(0), ParseKind(reader.GetString(1)), reader.GetString(2));
     }
 
-    private static string KindText(PrincipalKind kind) => kind switch
+    private static string KindText(GcParticipantKind kind) => kind switch
     {
-        PrincipalKind.Owner => "owner",
-        PrincipalKind.Human => "human",
-        PrincipalKind.Agent => "agent",
+        GcParticipantKind.Owner => "owner",
+        GcParticipantKind.Human => "human",
+        GcParticipantKind.Agent => "agent",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
-    private static PrincipalKind ParseKind(string text) => text switch
+    private static GcParticipantKind ParseKind(string text) => text switch
     {
-        "owner" => PrincipalKind.Owner,
-        "human" => PrincipalKind.Human,
-        "agent" => PrincipalKind.Agent,
+        "owner" => GcParticipantKind.Owner,
+        "human" => GcParticipantKind.Human,
+        "agent" => GcParticipantKind.Agent,
         _ => throw new InvalidDataException($"Unknown principal_kind '{text}'."),
     };
 }

@@ -56,7 +56,7 @@ public sealed class GcCatchUpReader(NpgsqlDataSource dataSource)
 
         await using var cmd = dataSource.CreateCommand(_sql);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = viewer.Id });
-        cmd.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = viewer.Kind == PrincipalKind.Owner });
+        cmd.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = viewer.Kind == GcParticipantKind.Owner });
 
         var items = new List<GcCatchUpItem>();
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);

@@ -39,7 +39,7 @@ public static class ThinkingGcRules
         }
 
         var row = GcAccessPolicy.CurrentRow(workingGc, workingMembers, agentId);
-        if (!GcAccessPolicy.IsActive(row) || row.Role != GcMemberRole.Member || row.Kind != PrincipalKind.Agent)
+        if (!GcAccessPolicy.IsActive(row) || row.Role != GcMemberRole.Member || row.Kind != GcParticipantKind.Agent)
         {
             return GcPlanResult.Refused(GcPlanRefusal.AgentNotWorkingMember);
         }
@@ -50,7 +50,7 @@ public static class ThinkingGcRules
         }
 
         var gc = new GcRecord(thinkingGcId, workingGc.GcId, GcTypeKeys.Thinking, null);
-        var member = new GcMemberRecord(thinkingGcId, agentId, PrincipalKind.Agent, GcMemberRole.Member, 0, null);
+        var member = new GcMemberRecord(thinkingGcId, agentId, GcParticipantKind.Agent, GcMemberRole.Member, 0, null);
         return GcPlanResult.Ok(gc, member, null);
     }
 
@@ -69,7 +69,7 @@ public static class ThinkingGcRules
         }
 
         return members
-            .Where(m => m.GcId == gc.GcId && m.Kind == PrincipalKind.Agent)
+            .Where(m => m.GcId == gc.GcId && m.Kind == GcParticipantKind.Agent)
             .OrderBy(m => m.JoinedSeq)
             .ThenBy(m => m.PrincipalId)
             .Select(m => (Guid?)m.PrincipalId)

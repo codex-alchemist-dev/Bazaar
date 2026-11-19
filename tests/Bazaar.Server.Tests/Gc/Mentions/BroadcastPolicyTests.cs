@@ -8,17 +8,17 @@ public class BroadcastPolicyTests
 {
     private static Guid Id(int n) => new(n, 0, 0, new byte[8]);
 
-    private static GcViewer Viewer(PrincipalKind kind) => new(Id(10), kind);
+    private static GcViewer Viewer(GcParticipantKind kind) => new(Id(10), kind);
 
     [Theory]
-    [InlineData(PrincipalKind.Owner, BroadcastPolicy.OwnerOnly, true, BroadcastDenial.None)]
-    [InlineData(PrincipalKind.Owner, BroadcastPolicy.OwnerAndAgentsRateLimited, true, BroadcastDenial.None)]
-    [InlineData(PrincipalKind.Human, BroadcastPolicy.OwnerOnly, false, BroadcastDenial.HumanMemberNotAllowed)]
-    [InlineData(PrincipalKind.Human, BroadcastPolicy.OwnerAndAgentsRateLimited, false, BroadcastDenial.HumanMemberNotAllowed)]
-    [InlineData(PrincipalKind.Agent, BroadcastPolicy.OwnerOnly, false, BroadcastDenial.AgentNotAllowedByPolicy)]
-    [InlineData(PrincipalKind.Agent, BroadcastPolicy.OwnerAndAgentsRateLimited, true, BroadcastDenial.None)]
+    [InlineData(GcParticipantKind.Owner, BroadcastPolicy.OwnerOnly, true, BroadcastDenial.None)]
+    [InlineData(GcParticipantKind.Owner, BroadcastPolicy.OwnerAndAgentsRateLimited, true, BroadcastDenial.None)]
+    [InlineData(GcParticipantKind.Human, BroadcastPolicy.OwnerOnly, false, BroadcastDenial.HumanMemberNotAllowed)]
+    [InlineData(GcParticipantKind.Human, BroadcastPolicy.OwnerAndAgentsRateLimited, false, BroadcastDenial.HumanMemberNotAllowed)]
+    [InlineData(GcParticipantKind.Agent, BroadcastPolicy.OwnerOnly, false, BroadcastDenial.AgentNotAllowedByPolicy)]
+    [InlineData(GcParticipantKind.Agent, BroadcastPolicy.OwnerAndAgentsRateLimited, true, BroadcastDenial.None)]
     public void Broadcast_follows_policy_and_actor_kind(
-        PrincipalKind kind,
+        GcParticipantKind kind,
         BroadcastPolicy policy,
         bool allowed,
         BroadcastDenial denial)
@@ -36,7 +36,7 @@ public class BroadcastPolicyTests
     public void Agent_rate_limit_boundary_at_two_per_hour(int broadcastsInLastHour, bool allowed)
     {
         var result = BroadcastPolicyRules.CanBroadcast(
-            Viewer(PrincipalKind.Agent),
+            Viewer(GcParticipantKind.Agent),
             BroadcastPolicy.OwnerAndAgentsRateLimited,
             broadcastsInLastHour,
             ratePerHour: 2);
@@ -49,7 +49,7 @@ public class BroadcastPolicyTests
     public void Owner_is_not_rate_limited()
     {
         var result = BroadcastPolicyRules.CanBroadcast(
-            Viewer(PrincipalKind.Owner),
+            Viewer(GcParticipantKind.Owner),
             BroadcastPolicy.OwnerAndAgentsRateLimited,
             broadcastsInLastHour: 50,
             ratePerHour: 2);
@@ -61,12 +61,12 @@ public class BroadcastPolicyTests
     public void Zero_rate_refuses_agents_but_not_the_owner()
     {
         var agent = BroadcastPolicyRules.CanBroadcast(
-            Viewer(PrincipalKind.Agent),
+            Viewer(GcParticipantKind.Agent),
             BroadcastPolicy.OwnerAndAgentsRateLimited,
             broadcastsInLastHour: 0,
             ratePerHour: 0);
         var owner = BroadcastPolicyRules.CanBroadcast(
-            Viewer(PrincipalKind.Owner),
+            Viewer(GcParticipantKind.Owner),
             BroadcastPolicy.OwnerAndAgentsRateLimited,
             broadcastsInLastHour: 0,
             ratePerHour: 0);

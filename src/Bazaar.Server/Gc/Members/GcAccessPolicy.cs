@@ -34,7 +34,7 @@ public static class GcAccessPolicy
         ArgumentNullException.ThrowIfNull(viewer);
         ArgumentNullException.ThrowIfNull(approvedAccessPrincipals);
 
-        if (viewer.Kind == PrincipalKind.Owner)
+        if (viewer.Kind == GcParticipantKind.Owner)
         {
             return AllEvents;
         }
@@ -73,7 +73,7 @@ public static class GcAccessPolicy
             return false;
         }
 
-        if (viewer.Kind == PrincipalKind.Owner)
+        if (viewer.Kind == GcParticipantKind.Owner)
         {
             return true;
         }

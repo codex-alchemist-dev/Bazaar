@@ -17,7 +17,7 @@ public sealed class GcStreamAccessPolicy(IGcReadAccess access) : IGcAccessPolicy
     /// <inheritdoc />
     public async ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct)
     {
-        var grant = await access.GetGrantAsync(gcId, new GcPrincipal(principalId, PrincipalKind.Human, string.Empty), ct)
+        var grant = await access.GetGrantAsync(gcId, new GcPrincipal(principalId, GcParticipantKind.Human, string.Empty), ct)
             .ConfigureAwait(false);
         return grant is { Allowed: true, ThroughSeq: null };
     }

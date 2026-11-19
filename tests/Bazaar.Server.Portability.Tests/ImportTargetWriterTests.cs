@@ -40,7 +40,7 @@ public class ImportTargetWriterTests : IDisposable
         var gc = new InMemoryGcLog();
         var git = new InMemoryVaultGit();
         var identity = new GitIdentity("Bazaar Import", "import@example.invalid");
-        var viewer = new GcPrincipal(_author, PrincipalKind.Owner, "owner");
+        var viewer = new GcPrincipal(_author, GcParticipantKind.Owner, "owner");
         var gcTarget = new GcImportTarget(gc, new PlainGcBodyCodec(), gc, _gcId, _author, AuthorKind.Owner, viewer);
         var vaultTarget = new VaultImportTarget(git, _checkout, _checkout, identity);
         return new Harness(new ImportTargetWriter(gcTarget, vaultTarget), gc, git);

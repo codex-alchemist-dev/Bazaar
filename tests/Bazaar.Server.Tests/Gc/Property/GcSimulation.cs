@@ -75,10 +75,10 @@ internal sealed class GcSimulation
         _draw = new DeterministicIds(seed);
         _gcId = _draw.NextGuid();
 
-        _owner = new SimPrincipal(_draw.NextGuid(), PrincipalKind.Owner);
-        _agents = MakePool(4, PrincipalKind.Agent);
-        _humans = MakePool(3, PrincipalKind.Human);
-        _outsiders = [new SimPrincipal(_draw.NextGuid(), PrincipalKind.Human), new SimPrincipal(_draw.NextGuid(), PrincipalKind.Agent)];
+        _owner = new SimPrincipal(_draw.NextGuid(), GcParticipantKind.Owner);
+        _agents = MakePool(4, GcParticipantKind.Agent);
+        _humans = MakePool(3, GcParticipantKind.Human);
+        _outsiders = [new SimPrincipal(_draw.NextGuid(), GcParticipantKind.Human), new SimPrincipal(_draw.NextGuid(), GcParticipantKind.Agent)];
         _everyone = [_owner, .. _agents, .. _humans, .. _outsiders];
 
         _maxBodyBytes = _draw.NextInt(2) == 0 ? 40 : MessageEditPlanner.DefaultMaxBodyBytes;
@@ -98,7 +98,7 @@ internal sealed class GcSimulation
         {
             // Thinking GC: the agent-owned GC nested under a working GC (ThinkingGcRules.Create).
             var working = new GcRecord(_draw.NextGuid(), null, GcTypeKeys.General, null);
-            var workingRows = new[] { new GcMemberRecord(working.GcId, _agents[0].Id, PrincipalKind.Agent, GcMemberRole.Member, 1, null) };
+            var workingRows = new[] { new GcMemberRecord(working.GcId, _agents[0].Id, GcParticipantKind.Agent, GcMemberRole.Member, 1, null) };
             var plan = ThinkingGcRules.Create(working, workingRows, _agents[0].Id, _gcId, agentHasThinkingGc: false);
             _gc = plan.Gc ?? throw new InvalidOperationException("Thinking GC plan refused in the harness setup.");
             _thinkingOwner = _agents[0].Id;
@@ -153,7 +153,7 @@ internal sealed class GcSimulation
         ReaderStep,
     }
 
-    private SimPrincipal[] MakePool(int count, PrincipalKind kind) =>
+    private SimPrincipal[] MakePool(int count, GcParticipantKind kind) =>
         Enumerable.Range(0, count).Select(_ => new SimPrincipal(_draw.NextGuid(), kind)).ToArray();
 
     private void Bootstrap()
@@ -167,7 +167,7 @@ internal sealed class GcSimulation
 
         if (_thinkingOwner is { } owningAgent)
         {
-            _rows.Add(new GcMemberRecord(_gcId, owningAgent, PrincipalKind.Agent, GcMemberRole.Member, 1, null));
+            _rows.Add(new GcMemberRecord(_gcId, owningAgent, GcParticipantKind.Agent, GcMemberRole.Member, 1, null));
             _faultsEnabled = true;
             return;
         }
@@ -680,7 +680,7 @@ internal sealed class GcSimulation
             var last = LastRow(principal.Id);
             var approved = _approved.Contains(principal.Id);
 
-            if (principal.Kind != PrincipalKind.Owner && !approved)
+            if (principal.Kind != GcParticipantKind.Owner && !approved)
             {
                 if (last is { LeftSeq: { } left } && readable is { } upTo && upTo > left)
                 {
@@ -709,7 +709,7 @@ internal sealed class GcSimulation
 
     private void CheckThinkingExclusion()
     {
-        foreach (var agent in _everyone.Where(p => p.Kind == PrincipalKind.Agent))
+        foreach (var agent in _everyone.Where(p => p.Kind == GcParticipantKind.Agent))
         {
             var excluded = ThinkingGcRules.IsExcludedFromContext(_gc, _rows, agent.Id);
             var expected = _thinkingOwner is { } owner && agent.Id != owner;
@@ -771,7 +771,7 @@ internal sealed class GcSimulation
 
     private HashSet<Guid> ActiveIds() =>
         _everyone
-            .Where(p => p.Kind != PrincipalKind.Owner && LastRow(p.Id) is { LeftSeq: null })
+            .Where(p => p.Kind != GcParticipantKind.Owner && LastRow(p.Id) is { LeftSeq: null })
             .Select(p => p.Id)
             .ToHashSet();
 
@@ -782,7 +782,7 @@ internal sealed class GcSimulation
             return false;
         }
 
-        if (principal.Kind == PrincipalKind.Owner)
+        if (principal.Kind == GcParticipantKind.Owner)
         {
             return true;
         }
@@ -819,20 +819,20 @@ internal sealed class GcSimulation
 
     private static AuthorKind AuthorKindOf(SimPrincipal principal) => principal.Kind switch
     {
-        PrincipalKind.Owner => AuthorKind.Owner,
-        PrincipalKind.Agent => AuthorKind.Agent,
+        GcParticipantKind.Owner => AuthorKind.Owner,
+        GcParticipantKind.Agent => AuthorKind.Agent,
         _ => AuthorKind.Human,
     };
 
     private static SourceTrust TrustOf(SimPrincipal principal) => principal.Kind switch
     {
-        PrincipalKind.Owner => SourceTrust.Owner,
-        PrincipalKind.Agent => SourceTrust.Agent,
+        GcParticipantKind.Owner => SourceTrust.Owner,
+        GcParticipantKind.Agent => SourceTrust.Agent,
         _ => SourceTrust.MemberHuman,
     };
 
     /// <summary>A principal in the simulated pool. Ids come from the seeded stream.</summary>
-    private sealed record SimPrincipal(Guid Id, PrincipalKind Kind);
+    private sealed record SimPrincipal(Guid Id, GcParticipantKind Kind);
 
     /// <summary>Oracle record of one message: its versions as the planners produced them.</summary>
     private sealed class SimMessage(Guid messageId, Guid authorId, long firstSeq, DateTimeOffset createdAt, bool actedOn, MessageVersionRecord first)

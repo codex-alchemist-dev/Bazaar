@@ -312,7 +312,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
             new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
             new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data), SettingsFor());
         return await handler.HandleAsync(
-            Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, PrincipalKind.Human, "member")),
+            Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, GcParticipantKind.Human, "member")),
             TestContext.Current.CancellationToken);
     }
 

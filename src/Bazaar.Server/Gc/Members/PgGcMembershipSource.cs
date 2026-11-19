@@ -50,7 +50,7 @@ public sealed class PgGcMembershipSource(NpgsqlDataSource dataSource)
             members.Add(new GcMemberRecord(
                 gcId,
                 rows.GetGuid(0),
-                PrincipalKind.Human,
+                GcParticipantKind.Human,
                 Bazaar.Server.Gc.GcEnumText.ParseMemberRole(rows.GetString(1)),
                 rows.GetInt64(2),
                 rows.IsDBNull(3) ? null : rows.GetInt64(3)));

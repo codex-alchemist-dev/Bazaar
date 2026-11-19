@@ -12,7 +12,7 @@ namespace Bazaar.Server.Gc.Read;
 /// </summary>
 /// <remarks>
 /// <c>gc_member</c> has no principal-kind column: principal identity is owned by doc 14 (docs/design/04). Rows therefore
-/// load as <see cref="PrincipalKind.Human"/>, except the viewer's own row, which takes the viewer's kind. That keeps
+/// load as <see cref="GcParticipantKind.Human"/>, except the viewer's own row, which takes the viewer's kind. That keeps
 /// Thinking GC ownership working for the agent reading its own GC. For other agents the owner is not found, so
 /// Thinking GC reads fail closed until doc 14 supplies kinds.
 /// </remarks>
@@ -110,7 +110,7 @@ public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess
         {
             var principal = reader.GetGuid(0);
             // Only the viewer's own kind is known here (see the remarks); everyone else is treated as a human.
-            var kind = principal == viewer.Id ? viewer.Kind : PrincipalKind.Human;
+            var kind = principal == viewer.Id ? viewer.Kind : GcParticipantKind.Human;
             var role = GcEnumText.ParseMemberRole(reader.GetString(1));
             var joinedSeq = reader.GetInt64(2);
             var leftSeq = reader.IsDBNull(3) ? (long?)null : reader.GetInt64(3);

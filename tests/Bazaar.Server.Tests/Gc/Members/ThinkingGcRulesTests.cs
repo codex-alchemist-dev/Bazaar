@@ -17,21 +17,21 @@ public class ThinkingGcRulesTests
     private static GcRecord Working(string typeKey = GcTypeKeys.General, bool archived = false) =>
         new(WorkingId, null, typeKey, archived ? DateTimeOffset.UnixEpoch : null);
 
-    private static GcMemberRecord Row(Guid gcId, Guid principal, PrincipalKind kind, GcMemberRole role, long joined, long? left = null) =>
+    private static GcMemberRecord Row(Guid gcId, Guid principal, GcParticipantKind kind, GcMemberRole role, long joined, long? left = null) =>
         new(gcId, principal, kind, role, joined, left);
 
     private static IReadOnlyCollection<GcMemberRecord> WorkingMembers() =>
     [
-        Row(WorkingId, AgentA, PrincipalKind.Agent, GcMemberRole.Member, 1),
-        Row(WorkingId, AgentB, PrincipalKind.Agent, GcMemberRole.Observer, 1),
-        Row(WorkingId, Human, PrincipalKind.Human, GcMemberRole.Member, 1),
+        Row(WorkingId, AgentA, GcParticipantKind.Agent, GcMemberRole.Member, 1),
+        Row(WorkingId, AgentB, GcParticipantKind.Agent, GcMemberRole.Observer, 1),
+        Row(WorkingId, Human, GcParticipantKind.Human, GcMemberRole.Member, 1),
     ];
 
     private static GcRecord Thinking() => new(ThinkingId, WorkingId, GcTypeKeys.Thinking, null);
 
     private static IReadOnlyCollection<GcMemberRecord> ThinkingMembers(Guid owner) =>
     [
-        Row(ThinkingId, owner, PrincipalKind.Agent, GcMemberRole.Member, 0),
+        Row(ThinkingId, owner, GcParticipantKind.Agent, GcMemberRole.Member, 0),
     ];
 
     [Fact]
@@ -42,7 +42,7 @@ public class ThinkingGcRulesTests
         Assert.True(result.Succeeded);
         Assert.Equal(new GcRecord(ThinkingId, WorkingId, GcTypeKeys.Thinking, null), result.Gc);
         Assert.Equal(WorkingId, result.Gc!.ParentGcId);
-        Assert.Equal(new GcMemberRecord(ThinkingId, AgentA, PrincipalKind.Agent, GcMemberRole.Member, 0, null), result.Member);
+        Assert.Equal(new GcMemberRecord(ThinkingId, AgentA, GcParticipantKind.Agent, GcMemberRole.Member, 0, null), result.Member);
         Assert.Null(result.Event);
     }
 
@@ -86,8 +86,8 @@ public class ThinkingGcRulesTests
         var gc = Thinking();
         var members = new List<GcMemberRecord>
         {
-            Row(ThinkingId, AgentB, PrincipalKind.Agent, GcMemberRole.Member, 5),
-            Row(ThinkingId, AgentA, PrincipalKind.Agent, GcMemberRole.Member, 0),
+            Row(ThinkingId, AgentB, GcParticipantKind.Agent, GcMemberRole.Member, 5),
+            Row(ThinkingId, AgentA, GcParticipantKind.Agent, GcMemberRole.Member, 0),
         };
 
         Assert.Equal(AgentA, ThinkingGcRules.OwningAgentId(gc, members));
@@ -145,8 +145,8 @@ public class ThinkingGcRulesTests
         var members = new List<GcMemberRecord> { result.Member! };
         var noApprovals = new HashSet<Guid>();
 
-        Assert.Equal(GcAccessPolicy.AllEvents, GcAccessPolicy.ReadableUpToSeq(result.Gc!, members, new GcViewer(AgentA, PrincipalKind.Agent), noApprovals));
-        Assert.Null(GcAccessPolicy.ReadableUpToSeq(result.Gc!, members, new GcViewer(AgentB, PrincipalKind.Agent), noApprovals));
-        Assert.Equal(GcAccessPolicy.AllEvents, GcAccessPolicy.ReadableUpToSeq(result.Gc!, members, new GcViewer(AgentB, PrincipalKind.Agent), new HashSet<Guid> { AgentB }));
+        Assert.Equal(GcAccessPolicy.AllEvents, GcAccessPolicy.ReadableUpToSeq(result.Gc!, members, new GcViewer(AgentA, GcParticipantKind.Agent), noApprovals));
+        Assert.Null(GcAccessPolicy.ReadableUpToSeq(result.Gc!, members, new GcViewer(AgentB, GcParticipantKind.Agent), noApprovals));
+        Assert.Equal(GcAccessPolicy.AllEvents, GcAccessPolicy.ReadableUpToSeq(result.Gc!, members, new GcViewer(AgentB, GcParticipantKind.Agent), new HashSet<Guid> { AgentB }));
     }
 }

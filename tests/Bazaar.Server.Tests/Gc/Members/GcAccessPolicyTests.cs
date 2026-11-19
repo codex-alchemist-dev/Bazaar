@@ -36,7 +36,7 @@ public class GcAccessPolicyTests
     private static GcRecord Gc(string typeKey, bool archived) =>
         new(GcId, typeKey == GcTypeKeys.Thinking ? ParentId : null, typeKey, archived ? DateTimeOffset.UnixEpoch : null);
 
-    private static GcMemberRecord Row(Guid principal, PrincipalKind kind, GcMemberRole role, long joined, long? left) =>
+    private static GcMemberRecord Row(Guid principal, GcParticipantKind kind, GcMemberRole role, long joined, long? left) =>
         new(GcId, principal, kind, role, joined, left);
 
     /// <summary>Membership fixture per type. Thinking GCs hold only the owning agent as a member row.</summary>
@@ -44,33 +44,33 @@ public class GcAccessPolicyTests
     {
         GcTypeKeys.Thinking =>
         [
-            Row(OwningAgent, PrincipalKind.Agent, GcMemberRole.Member, 0, null),
-            Row(MemberA, PrincipalKind.Human, GcMemberRole.Member, 1, null),
-            Row(Former, PrincipalKind.Human, GcMemberRole.Member, 1, _leftSeq),
+            Row(OwningAgent, GcParticipantKind.Agent, GcMemberRole.Member, 0, null),
+            Row(MemberA, GcParticipantKind.Human, GcMemberRole.Member, 1, null),
+            Row(Former, GcParticipantKind.Human, GcMemberRole.Member, 1, _leftSeq),
         ],
         GcTypeKeys.Dm =>
         [
-            Row(MemberA, PrincipalKind.Human, GcMemberRole.Member, 1, null),
-            Row(MemberB, PrincipalKind.Human, GcMemberRole.Member, 1, null),
-            Row(Former, PrincipalKind.Human, GcMemberRole.Member, 1, _leftSeq),
+            Row(MemberA, GcParticipantKind.Human, GcMemberRole.Member, 1, null),
+            Row(MemberB, GcParticipantKind.Human, GcMemberRole.Member, 1, null),
+            Row(Former, GcParticipantKind.Human, GcMemberRole.Member, 1, _leftSeq),
         ],
         _ =>
         [
-            Row(MemberA, PrincipalKind.Human, GcMemberRole.Member, 1, null),
-            Row(Observer, PrincipalKind.Human, GcMemberRole.Observer, 1, null),
-            Row(Former, PrincipalKind.Human, GcMemberRole.Member, 1, _leftSeq),
+            Row(MemberA, GcParticipantKind.Human, GcMemberRole.Member, 1, null),
+            Row(Observer, GcParticipantKind.Human, GcMemberRole.Observer, 1, null),
+            Row(Former, GcParticipantKind.Human, GcMemberRole.Member, 1, _leftSeq),
         ],
     };
 
     private static GcViewer Viewer(Relation relation) => relation switch
     {
-        Relation.Owner => new GcViewer(OwnerId, PrincipalKind.Owner),
-        Relation.ActiveMember => new GcViewer(MemberA, PrincipalKind.Human),
-        Relation.Observer => new GcViewer(Observer, PrincipalKind.Human),
-        Relation.FormerMember => new GcViewer(Former, PrincipalKind.Human),
-        Relation.Outsider => new GcViewer(Outsider, PrincipalKind.Human),
-        Relation.OwningAgent => new GcViewer(OwningAgent, PrincipalKind.Agent),
-        _ => new GcViewer(OtherAgent, PrincipalKind.Agent),
+        Relation.Owner => new GcViewer(OwnerId, GcParticipantKind.Owner),
+        Relation.ActiveMember => new GcViewer(MemberA, GcParticipantKind.Human),
+        Relation.Observer => new GcViewer(Observer, GcParticipantKind.Human),
+        Relation.FormerMember => new GcViewer(Former, GcParticipantKind.Human),
+        Relation.Outsider => new GcViewer(Outsider, GcParticipantKind.Human),
+        Relation.OwningAgent => new GcViewer(OwningAgent, GcParticipantKind.Agent),
+        _ => new GcViewer(OtherAgent, GcParticipantKind.Agent),
     };
 
     public static TheoryData<string, Relation, bool, bool, long?, bool> MatrixRows()
@@ -154,8 +154,8 @@ public class GcAccessPolicyTests
         var gc = Gc(GcTypeKeys.General, archived: false);
         var members = new List<GcMemberRecord>
         {
-            Row(Former, PrincipalKind.Human, GcMemberRole.Member, 1, _leftSeq),
-            Row(Former, PrincipalKind.Human, GcMemberRole.Member, 12, null),
+            Row(Former, GcParticipantKind.Human, GcMemberRole.Member, 1, _leftSeq),
+            Row(Former, GcParticipantKind.Human, GcMemberRole.Member, 12, null),
         };
 
         Assert.Equal(GcAccessPolicy.AllEvents, GcAccessPolicy.ReadableUpToSeq(gc, members, Viewer(Relation.FormerMember), new HashSet<Guid>()));
@@ -165,7 +165,7 @@ public class GcAccessPolicyTests
     public void Rows_of_other_GCs_are_ignored()
     {
         var gc = Gc(GcTypeKeys.General, archived: false);
-        var otherGc = new GcMemberRecord(Id(999), MemberA, PrincipalKind.Human, GcMemberRole.Member, 1, null);
+        var otherGc = new GcMemberRecord(Id(999), MemberA, GcParticipantKind.Human, GcMemberRole.Member, 1, null);
 
         Assert.Null(GcAccessPolicy.ReadableUpToSeq(gc, [otherGc], Viewer(Relation.ActiveMember), new HashSet<Guid>()));
         Assert.False(GcAccessPolicy.CanWrite(gc, [otherGc], Viewer(Relation.ActiveMember)));

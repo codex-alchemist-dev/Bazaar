@@ -50,19 +50,19 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         var principal = Guid.CreateVersion7();
         var handle = Unique("readback");
 
-        var stored = await Repo.SetAsync(principal, PrincipalKind.Human, handle, Ct);
+        var stored = await Repo.SetAsync(principal, GcParticipantKind.Human, handle, Ct);
 
-        var expected = new PrincipalHandle(principal, PrincipalKind.Human, handle);
+        var expected = new PrincipalHandle(principal, GcParticipantKind.Human, handle);
         Assert.Equal(expected, stored);
         Assert.Equal(expected, await Repo.GetAsync(principal, Ct));
         Assert.Equal(expected, await Repo.FindByHandleAsync(handle, Ct));
     }
 
     [Theory]
-    [InlineData(PrincipalKind.Owner, "owner")]
-    [InlineData(PrincipalKind.Human, "human")]
-    [InlineData(PrincipalKind.Agent, "agent")]
-    public async Task Each_principal_kind_is_stored_under_its_wire_name(PrincipalKind kind, string text)
+    [InlineData(GcParticipantKind.Owner, "owner")]
+    [InlineData(GcParticipantKind.Human, "human")]
+    [InlineData(GcParticipantKind.Agent, "agent")]
+    public async Task Each_principal_kind_is_stored_under_its_wire_name(GcParticipantKind kind, string text)
     {
         GcTestSkip.WithoutDatabase();
         var principal = Guid.CreateVersion7();
@@ -80,7 +80,7 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         var principal = Guid.CreateVersion7();
         var handle = Unique("mixed");
 
-        var stored = await Repo.SetAsync(principal, PrincipalKind.Agent, "  " + handle.ToUpperInvariant() + " ", Ct);
+        var stored = await Repo.SetAsync(principal, GcParticipantKind.Agent, "  " + handle.ToUpperInvariant() + " ", Ct);
 
         Assert.Equal(handle, stored.Handle);
         Assert.Equal(handle, await db.ScalarAsync<string>("SELECT handle FROM principal_handle WHERE principal_id = $1", principal));
@@ -94,9 +94,9 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         var first = Guid.CreateVersion7();
         var second = Guid.CreateVersion7();
         var handle = Unique("taken");
-        await Repo.SetAsync(first, PrincipalKind.Agent, handle, Ct);
+        await Repo.SetAsync(first, GcParticipantKind.Agent, handle, Ct);
 
-        var ex = await Assert.ThrowsAsync<HandleTakenException>(() => Repo.SetAsync(second, PrincipalKind.Agent, handle, Ct));
+        var ex = await Assert.ThrowsAsync<HandleTakenException>(() => Repo.SetAsync(second, GcParticipantKind.Agent, handle, Ct));
 
         Assert.Equal(handle, ex.Handle);
         Assert.Null(await Repo.GetAsync(second, Ct));
@@ -108,10 +108,10 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
     {
         GcTestSkip.WithoutDatabase();
         var handle = Unique("case");
-        await Repo.SetAsync(Guid.CreateVersion7(), PrincipalKind.Agent, handle, Ct);
+        await Repo.SetAsync(Guid.CreateVersion7(), GcParticipantKind.Agent, handle, Ct);
 
         await Assert.ThrowsAsync<HandleTakenException>(
-            () => Repo.SetAsync(Guid.CreateVersion7(), PrincipalKind.Human, handle.ToUpperInvariant(), Ct));
+            () => Repo.SetAsync(Guid.CreateVersion7(), GcParticipantKind.Human, handle.ToUpperInvariant(), Ct));
     }
 
     [Fact]
@@ -121,9 +121,9 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         var principal = Guid.CreateVersion7();
         var old = Unique("old");
         var replacement = Unique("new");
-        await Repo.SetAsync(principal, PrincipalKind.Agent, old, Ct);
+        await Repo.SetAsync(principal, GcParticipantKind.Agent, old, Ct);
 
-        await Repo.SetAsync(principal, PrincipalKind.Agent, replacement, Ct);
+        await Repo.SetAsync(principal, GcParticipantKind.Agent, replacement, Ct);
 
         Assert.Equal(replacement, (await Repo.GetAsync(principal, Ct))!.Handle);
         Assert.Null(await Repo.FindByHandleAsync(old, Ct));
@@ -131,7 +131,7 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
 
         // The freed handle can go to someone else.
         var other = Guid.CreateVersion7();
-        await Repo.SetAsync(other, PrincipalKind.Agent, old, Ct);
+        await Repo.SetAsync(other, GcParticipantKind.Agent, old, Ct);
         Assert.Equal(other, (await Repo.FindByHandleAsync(old, Ct))!.PrincipalId);
     }
 
@@ -141,9 +141,9 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         GcTestSkip.WithoutDatabase();
         var principal = Guid.CreateVersion7();
         var handle = Unique("same");
-        await Repo.SetAsync(principal, PrincipalKind.Agent, handle, Ct);
+        await Repo.SetAsync(principal, GcParticipantKind.Agent, handle, Ct);
 
-        var again = await Repo.SetAsync(principal, PrincipalKind.Agent, handle, Ct);
+        var again = await Repo.SetAsync(principal, GcParticipantKind.Agent, handle, Ct);
 
         Assert.Equal(handle, again.Handle);
     }
@@ -162,7 +162,7 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         GcTestSkip.WithoutDatabase();
         var principal = Guid.CreateVersion7();
 
-        await Assert.ThrowsAsync<InvalidHandleException>(() => Repo.SetAsync(principal, PrincipalKind.Agent, handle, Ct));
+        await Assert.ThrowsAsync<InvalidHandleException>(() => Repo.SetAsync(principal, GcParticipantKind.Agent, handle, Ct));
 
         Assert.Null(await Repo.GetAsync(principal, Ct));
     }
@@ -221,7 +221,7 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         var handle = await Repo.EnsureAgentHandleAsync(agent, name, Ct);
 
         Assert.Equal(HandleSlug.FromName(name), handle);
-        Assert.Equal(new PrincipalHandle(agent, PrincipalKind.Agent, handle!), await Repo.GetAsync(agent, Ct));
+        Assert.Equal(new PrincipalHandle(agent, GcParticipantKind.Agent, handle!), await Repo.GetAsync(agent, Ct));
     }
 
     [Fact]
@@ -230,7 +230,7 @@ public sealed class PrincipalHandleRepositoryTests(GcDb db) : IClassFixture<GcDb
         GcTestSkip.WithoutDatabase();
         var agent = await NewAgentAsync("Keeper");
         var chosen = Unique("chosen");
-        await Repo.SetAsync(agent, PrincipalKind.Agent, chosen, Ct);
+        await Repo.SetAsync(agent, GcParticipantKind.Agent, chosen, Ct);
 
         var handle = await Repo.EnsureAgentHandleAsync(agent, "Some Other Name " + Guid.NewGuid().ToString("N")[..8], Ct);
 

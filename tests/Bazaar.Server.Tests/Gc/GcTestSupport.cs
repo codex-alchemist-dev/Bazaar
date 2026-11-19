@@ -32,7 +32,7 @@ internal sealed class AllowAllAccess : IGcReadAccess
 
 internal static class GcTestData
 {
-    public static readonly GcPrincipal Viewer = new(Guid.Parse("00000000-0000-7000-8000-0000000000aa"), PrincipalKind.Owner, "viewer");
+    public static readonly GcPrincipal Viewer = new(Guid.Parse("00000000-0000-7000-8000-0000000000aa"), GcParticipantKind.Owner, "viewer");
 
     public static AppendRequest System(Guid gc, string key, Guid? author = null) =>
         new(gc, GcEventKinds.System, AuthorKind.System, author ?? Guid.Parse("00000000-0000-7000-8000-000000000001"), SourceTrust.System, key);

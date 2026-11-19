@@ -95,7 +95,7 @@ public sealed class GcMessageEditor(
             now,
             editWindow,
             MessageEditPlanner.DefaultMaxBodyBytes,
-            request.EditorKind == PrincipalKind.Agent ? SourceTrust.Agent : request.EditorKind == PrincipalKind.Owner ? SourceTrust.Owner : SourceTrust.MemberHuman,
+            request.EditorKind == GcParticipantKind.Agent ? SourceTrust.Agent : request.EditorKind == GcParticipantKind.Owner ? SourceTrust.Owner : SourceTrust.MemberHuman,
             messageWasActedOn: false);
 
         if (plan is MessageEditRefused refused)
@@ -137,10 +137,10 @@ public sealed class GcMessageEditor(
         return (null, rows, accepted.NewVersion.Version);
     }
 
-    private static AuthorKind AuthorKindOf(PrincipalKind kind) => kind switch
+    private static AuthorKind AuthorKindOf(GcParticipantKind kind) => kind switch
     {
-        PrincipalKind.Owner => AuthorKind.Owner,
-        PrincipalKind.Agent => AuthorKind.Agent,
+        GcParticipantKind.Owner => AuthorKind.Owner,
+        GcParticipantKind.Agent => AuthorKind.Agent,
         _ => AuthorKind.Human,
     };
 

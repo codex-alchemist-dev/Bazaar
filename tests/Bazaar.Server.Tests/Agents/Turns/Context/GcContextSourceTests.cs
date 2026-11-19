@@ -123,7 +123,7 @@ public class GcContextSourceTests
     {
         public ValueTask<GcReadGrant> GetGrantAsync(Guid gcId, GcPrincipal viewer, CancellationToken ct)
         {
-            Assert.Equal(PrincipalKind.Agent, viewer.Kind);
+            Assert.Equal(GcParticipantKind.Agent, viewer.Kind);
             return ValueTask.FromResult(grant);
         }
     }

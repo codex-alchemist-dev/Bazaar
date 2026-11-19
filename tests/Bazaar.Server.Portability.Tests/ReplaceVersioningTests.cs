@@ -29,7 +29,7 @@ public class ReplaceVersioningTests : IDisposable
         new(key, "document", title, body, new Dictionary<string, string>());
 
     private static GcImportTarget GcTarget(InMemoryGcLog gc, Guid author, IGcMessageEditor? editor = null) =>
-        new(gc, new PlainGcBodyCodec(), gc, _gcId, author, AuthorKind.Owner, new GcPrincipal(author, PrincipalKind.Owner, "owner"), editor);
+        new(gc, new PlainGcBodyCodec(), gc, _gcId, author, AuthorKind.Owner, new GcPrincipal(author, GcParticipantKind.Owner, "owner"), editor);
 
     /// <summary>
     /// Stands in for the server's editor: plans every edit with the next version, or refuses. An edit whose text is
@@ -71,7 +71,7 @@ public class ReplaceVersioningTests : IDisposable
     {
         var gc = new InMemoryGcLog();
         var target = GcTarget(gc, _author, new FakeEditor());
-        var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner"));
+        var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, GcParticipantKind.Owner, "owner"));
         await target.AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
 
         var before = Assert.Single(await index.FindAsync([("document", "Plan")], CancellationToken.None));
@@ -86,7 +86,7 @@ public class ReplaceVersioningTests : IDisposable
         Assert.Equal(before.ObjectId, after.ObjectId);
         // The original message is still in the log, and the edit sits after it.
         var events = new List<GcEvent>();
-        await foreach (var ev in gc.ReadAsync(_gcId, 0, 100, new GcPrincipal(_author, PrincipalKind.Owner, "owner"), CancellationToken.None))
+        await foreach (var ev in gc.ReadAsync(_gcId, 0, 100, new GcPrincipal(_author, GcParticipantKind.Owner, "owner"), CancellationToken.None))
         {
             events.Add(ev);
         }
@@ -99,7 +99,7 @@ public class ReplaceVersioningTests : IDisposable
     {
         var gc = new InMemoryGcLog();
         await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
-        var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner"));
+        var index = new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, GcParticipantKind.Owner, "owner"));
         var stored = Assert.Single(await index.FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
@@ -116,7 +116,7 @@ public class ReplaceVersioningTests : IDisposable
     {
         var gc = new InMemoryGcLog();
         await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
-        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
+        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, GcParticipantKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
         // Edit one is valid, edit two is refused by the editor, and there is also a new message in the batch.
@@ -136,7 +136,7 @@ public class ReplaceVersioningTests : IDisposable
     {
         var gc = new InMemoryGcLog();
         await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
-        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
+        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, GcParticipantKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
         var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };
@@ -150,7 +150,7 @@ public class ReplaceVersioningTests : IDisposable
     {
         var gc = new InMemoryGcLog();
         await GcTarget(gc, _author, new FakeEditor()).AppendBatchAsync("job-1", 0, [new ImportItem(Note("g1", "Plan", "first"), new ImportProvenance("job-1", "g1"))], CancellationToken.None);
-        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, PrincipalKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
+        var stored = Assert.Single(await new GcExistingObjectIndex(gc, _gcId, new GcPrincipal(_author, GcParticipantKind.Owner, "owner")).FindAsync([("document", "Plan")], CancellationToken.None));
         var before = gc.Count;
 
         var replace = new ImportItem(Note("g1", "Plan", "second"), new ImportProvenance("job-2", "g1")) { Replaces = stored };

@@ -4,4 +4,4 @@ namespace Bazaar.Contracts.Gc;
 /// <param name="Id">Stable principal id.</param>
 /// <param name="Kind">Owner, human or agent.</param>
 /// <param name="DisplayName">Name shown in messages and profile cards.</param>
-public sealed record GcPrincipal(Guid Id, PrincipalKind Kind, string DisplayName);
+public sealed record GcPrincipal(Guid Id, GcParticipantKind Kind, string DisplayName);

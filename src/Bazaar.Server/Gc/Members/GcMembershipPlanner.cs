@@ -23,7 +23,7 @@ public static class GcMembershipPlanner
         IReadOnlyCollection<GcMemberRecord> members,
         GcViewer actor,
         Guid newPrincipalId,
-        PrincipalKind newKind,
+        GcParticipantKind newKind,
         GcMemberRole role,
         long headSeq,
         GcInvitePolicy invitePolicy)
@@ -42,7 +42,7 @@ public static class GcMembershipPlanner
             return GcPlanResult.Refused(GcPlanRefusal.ThinkingMembershipFixed);
         }
 
-        if (newKind == PrincipalKind.Owner)
+        if (newKind == GcParticipantKind.Owner)
         {
             return GcPlanResult.Refused(GcPlanRefusal.OwnerHasNoRow);
         }
@@ -52,7 +52,7 @@ public static class GcMembershipPlanner
             return GcPlanResult.Refused(GcPlanRefusal.NotPermitted);
         }
 
-        if (invitePolicy == GcInvitePolicy.OwnerOnly && actor.Kind != PrincipalKind.Owner)
+        if (invitePolicy == GcInvitePolicy.OwnerOnly && actor.Kind != GcParticipantKind.Owner)
         {
             return GcPlanResult.Refused(GcPlanRefusal.OwnerOnlyInvites);
         }
@@ -102,7 +102,7 @@ public static class GcMembershipPlanner
             return GcPlanResult.Refused(GcPlanRefusal.NoActiveMembership);
         }
 
-        if (actor.Kind != PrincipalKind.Owner && actor.PrincipalId != targetPrincipalId)
+        if (actor.Kind != GcParticipantKind.Owner && actor.PrincipalId != targetPrincipalId)
         {
             return GcPlanResult.Refused(GcPlanRefusal.NotPermitted);
         }
@@ -119,7 +119,7 @@ public static class GcMembershipPlanner
         ArgumentNullException.ThrowIfNull(gc);
         ArgumentNullException.ThrowIfNull(actor);
 
-        if (actor.Kind != PrincipalKind.Owner)
+        if (actor.Kind != GcParticipantKind.Owner)
         {
             return GcPlanResult.Refused(GcPlanRefusal.NotPermitted);
         }
@@ -152,7 +152,7 @@ public static class GcMembershipPlanner
             return GcPlanResult.Refused(GcPlanRefusal.NotArchived);
         }
 
-        var allowed = actor.Kind == PrincipalKind.Owner
+        var allowed = actor.Kind == GcParticipantKind.Owner
             || (unarchivePolicy == GcUnarchivePolicy.AnyMember
                 && GcAccessPolicy.IsActiveMemberWithRole(gc, members, actor.PrincipalId, GcMemberRole.Member));
         if (!allowed)
@@ -247,7 +247,7 @@ public static class GcMembershipPlanner
 
     private static bool CanApprove(GcRecord gc, IReadOnlyCollection<GcMemberRecord> members, GcViewer approver, GcDmAccessApprovers dmApprovers)
     {
-        if (approver.Kind == PrincipalKind.Owner)
+        if (approver.Kind == GcParticipantKind.Owner)
         {
             return true;
         }
@@ -261,8 +261,8 @@ public static class GcMembershipPlanner
     {
         var (authorKind, trust) = actor.Kind switch
         {
-            PrincipalKind.Owner => (AuthorKind.Owner, SourceTrust.Owner),
-            PrincipalKind.Agent => (AuthorKind.Agent, SourceTrust.Agent),
+            GcParticipantKind.Owner => (AuthorKind.Owner, SourceTrust.Owner),
+            GcParticipantKind.Agent => (AuthorKind.Agent, SourceTrust.Agent),
             _ => (AuthorKind.Human, SourceTrust.MemberHuman),
         };
 

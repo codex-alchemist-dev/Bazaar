@@ -30,7 +30,7 @@ public sealed class GcVersionPropertyTests
         var draw = new DeterministicIds(seed);
         var gc = new GcRecord(draw.NextGuid(), null, GcTypeKeys.General, null);
         var members = Enumerable.Range(0, 4)
-            .Select(i => new GcMemberRecord(gc.GcId, draw.NextGuid(), i % 2 == 0 ? PrincipalKind.Human : PrincipalKind.Agent, GcMemberRole.Member, 1, null))
+            .Select(i => new GcMemberRecord(gc.GcId, draw.NextGuid(), i % 2 == 0 ? GcParticipantKind.Human : GcParticipantKind.Agent, GcMemberRole.Member, 1, null))
             .ToList();
         var log = new ReferenceGcLog();
         var messages = new List<SimMessage>();
@@ -103,7 +103,7 @@ public sealed class GcVersionPropertyTests
         }
 
         var viewer = draw.NextInt(5) == 0
-            ? new GcViewer(OwnerId, PrincipalKind.Owner)
+            ? new GcViewer(OwnerId, GcParticipantKind.Owner)
             : new GcViewer(editor.PrincipalId, editor.Kind);
 
         var current = message.Versions[^1];
@@ -155,7 +155,7 @@ public sealed class GcVersionPropertyTests
     private static void CheckAgainstLog(
         GcRecord gc, ReferenceGcLog log, List<SimMessage> messages, TestSeed seed, string where, DeterministicIds draw, List<GcMemberRecord> members)
     {
-        var owner = new GcViewer(OwnerId, PrincipalKind.Owner);
+        var owner = new GcViewer(OwnerId, GcParticipantKind.Owner);
         var member = members[draw.NextInt(members.Count)];
         var memberViewer = new GcViewer(member.PrincipalId, member.Kind);
 
@@ -205,9 +205,9 @@ public sealed class GcVersionPropertyTests
         return string.Join(' ', parts);
     }
 
-    private static AuthorKind KindOf(GcMemberRecord member) => member.Kind == PrincipalKind.Agent ? AuthorKind.Agent : AuthorKind.Human;
+    private static AuthorKind KindOf(GcMemberRecord member) => member.Kind == GcParticipantKind.Agent ? AuthorKind.Agent : AuthorKind.Human;
 
-    private static SourceTrust TrustOf(GcMemberRecord member) => member.Kind == PrincipalKind.Agent ? SourceTrust.Agent : SourceTrust.MemberHuman;
+    private static SourceTrust TrustOf(GcMemberRecord member) => member.Kind == GcParticipantKind.Agent ? SourceTrust.Agent : SourceTrust.MemberHuman;
 
     private static void Expect(bool condition, TestSeed seed, string where, string message)
     {

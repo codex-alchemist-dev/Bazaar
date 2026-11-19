@@ -83,8 +83,8 @@ public sealed class BlobModuleTests : IDisposable
         var store = sp.GetRequiredService<IBlobStore>();
         var hash = await UploadAsync(store, _alice, [9, 9]);
         var access = sp.GetRequiredService<IBlobReadAccess>();
-        Assert.True(await access.CanReadAsync(hash, new GcPrincipal(_alice, PrincipalKind.Human, "alice"), TestContext.Current.CancellationToken));
-        Assert.False(await access.CanReadAsync(hash, new GcPrincipal(_bob, PrincipalKind.Human, "bob"), TestContext.Current.CancellationToken));
+        Assert.True(await access.CanReadAsync(hash, new GcPrincipal(_alice, GcParticipantKind.Human, "alice"), TestContext.Current.CancellationToken));
+        Assert.False(await access.CanReadAsync(hash, new GcPrincipal(_bob, GcParticipantKind.Human, "bob"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class BlobModuleTests : IDisposable
         var store = sp.GetRequiredService<IBlobStore>();
         var hash = await UploadAsync(store, _alice, [7]);
         var access = sp.GetRequiredService<IBlobReadAccess>();
-        Assert.True(await access.CanReadAsync(hash, new GcPrincipal(_bob, PrincipalKind.Human, "bob"), TestContext.Current.CancellationToken));
+        Assert.True(await access.CanReadAsync(hash, new GcPrincipal(_bob, GcParticipantKind.Human, "bob"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class BlobModuleTests : IDisposable
         await using var sp = Build(new Grant(gc, _bob, 5), new Links(new BlobGcLink(gc, 6)));
         var store = sp.GetRequiredService<IBlobStore>();
         var hash = await UploadAsync(store, _alice, [7]);
-        Assert.False(await sp.GetRequiredService<IBlobReadAccess>().CanReadAsync(hash, new GcPrincipal(_bob, PrincipalKind.Human, "bob"), TestContext.Current.CancellationToken));
+        Assert.False(await sp.GetRequiredService<IBlobReadAccess>().CanReadAsync(hash, new GcPrincipal(_bob, GcParticipantKind.Human, "bob"), TestContext.Current.CancellationToken));
     }
 
     [Fact]

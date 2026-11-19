@@ -100,18 +100,18 @@ public class GcContractTests
     [Fact]
     public void Principal_round_trips_and_compares_by_value()
     {
-        var principal = new GcPrincipal(_authorId, PrincipalKind.Agent, "Charles");
+        var principal = new GcPrincipal(_authorId, GcParticipantKind.Agent, "Charles");
 
         var back = JsonSerializer.Deserialize<GcPrincipal>(JsonSerializer.Serialize(principal, GcJson.Options), GcJson.Options);
 
         Assert.Equal(principal, back);
-        Assert.Equal(new GcPrincipal(_authorId, PrincipalKind.Agent, "Charles"), principal);
-        Assert.NotEqual(new GcPrincipal(_authorId, PrincipalKind.Human, "Charles"), principal);
+        Assert.Equal(new GcPrincipal(_authorId, GcParticipantKind.Agent, "Charles"), principal);
+        Assert.NotEqual(new GcPrincipal(_authorId, GcParticipantKind.Human, "Charles"), principal);
     }
 
     [Fact]
     public void Principal_kind_serializes_as_its_wire_name() =>
-        Assert.Equal("\"agent\"", JsonSerializer.Serialize(PrincipalKind.Agent, GcJson.Options));
+        Assert.Equal("\"agent\"", JsonSerializer.Serialize(GcParticipantKind.Agent, GcJson.Options));
 
     [Fact]
     public void Message_round_trips_and_reports_edits()
