@@ -100,7 +100,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     public CancellationToken Closed => _cts.Token;
 
     /// <inheritdoc />
-    public SubscriptionSession? Subscriptions { get; private set; }
+    public ISubscriptionSession? Subscriptions { get; private set; }
 
     public bool TryEnqueueEvent(Envelope envelope)
     {

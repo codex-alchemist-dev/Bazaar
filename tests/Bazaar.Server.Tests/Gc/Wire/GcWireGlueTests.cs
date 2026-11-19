@@ -393,7 +393,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
 
         public IReadOnlyList<StreamCursor> HelloCursors => [];
 
-        public SubscriptionSession? Subscriptions => null;
+        public ISubscriptionSession? Subscriptions => null;
 
         public CancellationToken Closed => CancellationToken.None;
 

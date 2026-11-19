@@ -23,26 +23,8 @@ public sealed class SubscriptionEngine(
         new(principalId, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
 }
 
-/// <summary>What <see cref="SubscriptionSession.SubscribeAsync"/> decided, and the work to start once the response is queued.</summary>
-public sealed class SubscribeOutcome
-{
-    private readonly IReadOnlyList<Func<Task>> _starts;
-
-    internal SubscribeOutcome(SubscribeResult result, IReadOnlyList<Func<Task>> starts)
-    {
-        Result = result;
-        _starts = starts;
-    }
-
-    /// <summary>The <c>res</c> payload; send it before calling <see cref="StartAsync"/> so replay never overtakes it.</summary>
-    public SubscribeResult Result { get; }
-
-    /// <summary>Runs replay (or sends <c>resync</c>) for every accepted stream. Completes when each stream is live or closed.</summary>
-    public Task StartAsync() => Task.WhenAll(_starts.Select(start => start()));
-}
-
 /// <summary>One connection's subscriptions. Thread-safe: <c>subscribe</c> requests may overlap.</summary>
-public sealed class SubscriptionSession : IDisposable
+public sealed class SubscriptionSession : ISubscriptionSession
 {
     private readonly Guid _principalId;
     private readonly IGcStreamSource _source;
