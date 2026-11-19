@@ -5,7 +5,7 @@ namespace Bazaar.Server.SealedStorage.Tests;
 
 public sealed class SealedStoreTests : IDisposable
 {
-    private const string Canary = "CANARY-soul-charter-do-not-leak-7731";
+    private const string _canary = "CANARY-soul-charter-do-not-leak-7731";
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "bazaar-sealed-" + Guid.NewGuid().ToString("N"));
     private readonly RecordingSink _audit = new();
     private readonly InMemorySealAnchor _anchor = new();
@@ -25,9 +25,9 @@ public sealed class SealedStoreTests : IDisposable
     public async Task Round_trips_and_lists_from_the_manifest()
     {
         using var scope = await Store().OpenScopeAsync("soul:1");
-        var gen = await scope.WriteAsync("charter.md", Bytes(Canary), expectedGeneration: 0);
+        var gen = await scope.WriteAsync("charter.md", Bytes(_canary), expectedGeneration: 0);
         var read = await scope.ReadAsync("charter.md");
-        Assert.Equal(Canary, Encoding.UTF8.GetString(read!.Content));
+        Assert.Equal(_canary, Encoding.UTF8.GetString(read!.Content));
         Assert.Equal(gen, read.Generation);
         Assert.Equal(["charter.md"], (await scope.ListAsync()).Select(e => e.Path));
         Assert.Null(await scope.ReadAsync("missing.md"));
@@ -37,11 +37,11 @@ public sealed class SealedStoreTests : IDisposable
     public async Task Nothing_on_disk_contains_plaintext_or_the_path()
     {
         using var scope = await Store().OpenScopeAsync("soul:1");
-        await scope.WriteAsync("agents/ada/charter.md", Bytes(Canary));
+        await scope.WriteAsync("agents/ada/charter.md", Bytes(_canary));
         foreach (var file in Directory.EnumerateFiles(_dir, "*", SearchOption.AllDirectories).Where(f => !f.EndsWith("kek.key", StringComparison.Ordinal)))
         {
             var text = Encoding.Latin1.GetString(File.ReadAllBytes(file));
-            Assert.DoesNotContain(Canary, text, StringComparison.Ordinal);
+            Assert.DoesNotContain(_canary, text, StringComparison.Ordinal);
             Assert.DoesNotContain("charter", Path.GetFileName(file), StringComparison.Ordinal);
         }
     }
@@ -51,7 +51,7 @@ public sealed class SealedStoreTests : IDisposable
     {
         using (var scope = await Store().OpenScopeAsync("soul:1"))
         {
-            await scope.WriteAsync("charter.md", Bytes(Canary));
+            await scope.WriteAsync("charter.md", Bytes(_canary));
         }
 
         var file = Directory.GetFiles(ScopeDir(), "*.bzs").Single();
@@ -188,7 +188,7 @@ public sealed class SealedStoreTests : IDisposable
     {
         using var scope = await Store().OpenScopeAsync("soul:1");
         await scope.WriteAsync("a.md", Bytes("one"));
-        File.WriteAllText(Path.Combine(ScopeDir(), "evil.bzs"), Canary);
+        File.WriteAllText(Path.Combine(ScopeDir(), "evil.bzs"), _canary);
         Assert.Single(await scope.ListAsync());
         var report = await scope.VerifyAsync();
         Assert.Equal(["evil.bzs"], report.UnreferencedFiles);
@@ -223,7 +223,7 @@ public sealed class SealedStoreTests : IDisposable
     {
         var store = Store();
         var scope = await store.OpenScopeAsync("soul:1");
-        await scope.WriteAsync("a.md", Bytes(Canary));
+        await scope.WriteAsync("a.md", Bytes(_canary));
         await scope.ShredAsync();
         Assert.False(Directory.Exists(Path.Combine(_dir, "root")) && Directory.GetDirectories(Path.Combine(_dir, "root")).Length > 0);
         Assert.Null(await _anchor.GetAsync("soul:1", CancellationToken.None));
