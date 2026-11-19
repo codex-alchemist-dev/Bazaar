@@ -6,7 +6,7 @@ namespace Bazaar.Server.AgentSafety.Tests.Anomaly;
 
 public sealed class AnomalyEngineTests
 {
-    private static readonly AnomalyEvent SomeEvent = new(AnomalyEventKind.CanaryTouched, "agent-a", "session-1", null, InScope: true, FakeClock.DefaultStart);
+    private static readonly AnomalyEvent _someEvent = new(AnomalyEventKind.CanaryTouched, "agent-a", "session-1", null, InScope: true, FakeClock.DefaultStart);
 
     [Fact]
     public async Task Every_alert_from_every_rule_is_published_in_rule_order()
@@ -17,7 +17,7 @@ public sealed class AnomalyEngineTests
             sink,
             new CapturingLogger());
 
-        await engine.HandleAsync(SomeEvent, TestContext.Current.CancellationToken);
+        await engine.HandleAsync(_someEvent, TestContext.Current.CancellationToken);
 
         Assert.Equal(["first", "second"], sink.Published.Select(a => a.RuleId));
     }
@@ -33,7 +33,7 @@ public sealed class AnomalyEngineTests
             new CapturingLogger(),
             (ruleId, error) => reported.Add((ruleId, error)));
 
-        await engine.HandleAsync(SomeEvent, TestContext.Current.CancellationToken);
+        await engine.HandleAsync(_someEvent, TestContext.Current.CancellationToken);
 
         Assert.Equal(["healthy"], sink.Published.Select(a => a.RuleId));
         var failure = Assert.Single(reported);
@@ -48,7 +48,7 @@ public sealed class AnomalyEngineTests
         var sink = new RecordingSink();
         var engine = new AnomalyEngine([new ThrowingRule("broken"), new FixedRule("healthy", Alert("healthy"))], sink, logger);
 
-        await engine.HandleAsync(SomeEvent, TestContext.Current.CancellationToken);
+        await engine.HandleAsync(_someEvent, TestContext.Current.CancellationToken);
 
         Assert.Equal(["healthy"], sink.Published.Select(a => a.RuleId));
         var entry = Assert.Single(logger.Entries);
@@ -68,7 +68,7 @@ public sealed class AnomalyEngineTests
             new CapturingLogger(),
             (ruleId, _) => reported.Add(ruleId));
 
-        await engine.HandleAsync(SomeEvent, TestContext.Current.CancellationToken);
+        await engine.HandleAsync(_someEvent, TestContext.Current.CancellationToken);
 
         Assert.Equal(["two"], sink.Published.Select(a => a.Detail));
         Assert.Equal(["multi"], reported);
@@ -81,8 +81,8 @@ public sealed class AnomalyEngineTests
         var rule = new FlakyRule();
         var engine = new AnomalyEngine([rule], sink, new CapturingLogger());
 
-        await engine.HandleAsync(SomeEvent, TestContext.Current.CancellationToken);
-        await engine.HandleAsync(SomeEvent, TestContext.Current.CancellationToken);
+        await engine.HandleAsync(_someEvent, TestContext.Current.CancellationToken);
+        await engine.HandleAsync(_someEvent, TestContext.Current.CancellationToken);
 
         Assert.Equal(["second"], sink.Published.Select(a => a.Detail));
     }

@@ -6,8 +6,8 @@ namespace Bazaar.Architecture.Tests;
 /// </summary>
 public class ContainmentGateTests
 {
-    private const string Method = "StartForReleaseAsync";
-    private static readonly string[] Expected = ["VmContainmentPauser.cs", "VmLifecycleService.cs"];
+    private const string _method = "StartForReleaseAsync";
+    private static readonly string[] _expected = ["VmContainmentPauser.cs", "VmLifecycleService.cs"];
 
     private static IEnumerable<string> SourceFiles() =>
         Directory.EnumerateFiles(Path.Combine(RepoPaths.Root, "src"), "*.cs", SearchOption.AllDirectories)
@@ -19,7 +19,7 @@ public class ContainmentGateTests
     {
         var declaration = SourceFiles()
             .SelectMany(File.ReadAllLines)
-            .Single(l => l.Contains($"Task<VmOperationResult> {Method}", StringComparison.Ordinal));
+            .Single(l => l.Contains($"Task<VmOperationResult> {_method}", StringComparison.Ordinal));
         Assert.DoesNotContain("public ", declaration, StringComparison.Ordinal);
     }
 
@@ -27,10 +27,10 @@ public class ContainmentGateTests
     public void Only_the_containment_pauser_calls_the_release_start()
     {
         var callers = SourceFiles()
-            .Where(f => File.ReadAllText(f).Contains(Method, StringComparison.Ordinal))
+            .Where(f => File.ReadAllText(f).Contains(_method, StringComparison.Ordinal))
             .Select(f => Path.GetFileName(f))
             .Order(StringComparer.Ordinal)
             .ToArray();
-        Assert.Equal(Expected, callers);
+        Assert.Equal(_expected, callers);
     }
 }

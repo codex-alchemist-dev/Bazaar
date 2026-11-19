@@ -6,7 +6,7 @@ namespace Bazaar.Server.AgentSafety.Tests.Anomaly;
 
 public sealed class AnomalyRuleTests
 {
-    private static readonly WindowedRuleOptions ThreeInAMinute = new(3, TimeSpan.FromMinutes(1), AnomalySeverity.High);
+    private static readonly WindowedRuleOptions _threeInAMinute = new(3, TimeSpan.FromMinutes(1), AnomalySeverity.High);
 
     private static DateTimeOffset At(int seconds) => FakeClock.DefaultStart.AddSeconds(seconds);
 
@@ -19,7 +19,7 @@ public sealed class AnomalyRuleTests
     [Fact]
     public void Read_burst_fires_at_the_threshold_and_not_below()
     {
-        var rule = new ReadBurstRule(ThreeInAMinute);
+        var rule = new ReadBurstRule(_threeInAMinute);
 
         Assert.Empty(rule.Evaluate(Read("agent-a", 0)));
         Assert.Empty(rule.Evaluate(Read("agent-a", 1)));
@@ -35,7 +35,7 @@ public sealed class AnomalyRuleTests
     [Fact]
     public void Read_burst_counts_only_events_inside_the_window()
     {
-        var rule = new ReadBurstRule(ThreeInAMinute);
+        var rule = new ReadBurstRule(_threeInAMinute);
 
         // The first event is 61 seconds before the third, so the three are not inside one minute.
         Assert.Empty(rule.Evaluate(Read("agent-a", 0)));
@@ -144,7 +144,7 @@ public sealed class AnomalyRuleTests
     [Fact]
     public void Approval_flood_fires_at_the_threshold_and_not_below()
     {
-        var rule = new ApprovalFloodRule(ThreeInAMinute);
+        var rule = new ApprovalFloodRule(_threeInAMinute);
 
         Assert.Empty(rule.Evaluate(Approval("agent-a", 0)));
         Assert.Empty(rule.Evaluate(Approval("agent-a", 1)));

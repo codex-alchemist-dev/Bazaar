@@ -9,7 +9,7 @@ public sealed class SlidingWindowAdversarialTests
     private static readonly WindowedRuleOptions _threeInAMinute = new(3, TimeSpan.FromMinutes(1), AnomalySeverity.High);
 
     // The shipped key limit of one rule (SlidingWindowCounter.DefaultMaxKeys, which is internal).
-    private const int TableSize = 4096;
+    private const int _tableSize = 4096;
 
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 11, 19, 9, 0, 0, TimeSpan.Zero));
 
@@ -25,7 +25,7 @@ public sealed class SlidingWindowAdversarialTests
         Assert.Empty(rule.Evaluate(Read("victim", "contacts", now)));
 
         // Far more distinct keys than the whole table holds, from one agent.
-        for (var i = 0; i < TableSize * 2; i++)
+        for (var i = 0; i < _tableSize * 2; i++)
         {
             rule.Evaluate(Read("attacker", "class-" + i, now));
         }
@@ -41,7 +41,7 @@ public sealed class SlidingWindowAdversarialTests
         rule.Evaluate(Read("victim", "contacts", now));
         rule.Evaluate(Read("victim", "contacts", now));
 
-        for (var i = 0; i < TableSize + 500; i++)
+        for (var i = 0; i < _tableSize + 500; i++)
         {
             rule.Evaluate(Read("noise-" + i, "contacts", now));
         }

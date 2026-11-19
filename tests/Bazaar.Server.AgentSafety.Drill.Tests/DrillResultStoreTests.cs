@@ -1,5 +1,5 @@
-using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.AgentSafety.Drill.Persistence;
+using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.AgentSafety.Drill.Tests;
