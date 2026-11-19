@@ -10,8 +10,12 @@ public abstract record ModuleStartDecision
     {
     }
 
-    /// <summary>The signature verifies and the approved set covers every declared permission.</summary>
-    public sealed record Startable : ModuleStartDecision;
+    /// <summary>
+    /// The signature verifies and the approved set covers every declared permission. <paramref name="Permissions"/> is the set
+    /// the host puts in force for the run: what this version declares, sorted, never the wider set an earlier version was
+    /// approved for.
+    /// </summary>
+    public sealed record Startable(IReadOnlyList<string> Permissions) : ModuleStartDecision;
 
     /// <summary>The signature does not verify now. The module must not start.</summary>
     public sealed record RefusedSignature(ModuleSignatureStatus Status) : ModuleStartDecision;
@@ -49,7 +53,7 @@ public static class ModuleStartGuard
         var approved = ModuleApprovalCheck.ApprovedFor(package, approvals, ownerVerifier);
         var permissions = PermissionApproval.Evaluate(package.DeclaredPermissions, approved);
         return permissions.IsApproved
-            ? new ModuleStartDecision.Startable()
+            ? new ModuleStartDecision.Startable([.. package.DeclaredPermissions.Order(StringComparer.Ordinal)])
             : new ModuleStartDecision.RefusedUnapproved(permissions.Unapproved);
     }
 }

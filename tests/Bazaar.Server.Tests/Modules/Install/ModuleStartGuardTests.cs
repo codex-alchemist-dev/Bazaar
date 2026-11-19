@@ -30,7 +30,18 @@ public class ModuleStartGuardTests
 
         var decision = ModuleStartGuard.EnsureStartable(package, verifier, Approved("storage:local"), _owner);
 
-        Assert.IsType<ModuleStartDecision.Startable>(decision);
+        Assert.Equal(["storage:local"], Assert.IsType<ModuleStartDecision.Startable>(decision).Permissions);
+    }
+
+    [Fact]
+    public void A_narrowed_version_starts_with_its_own_declared_set_not_the_wider_approved_one()
+    {
+        var (verifier, key) = ModuleSigningTestHelper.Setup();
+        var narrowed = ModuleSigningTestHelper.Sign(_windowsSandbox, key, ["secret:weather/api-key"]);
+
+        var decision = ModuleStartGuard.EnsureStartable(narrowed, verifier, Approved("secret:weather/*", "gc.post"), _owner);
+
+        Assert.Equal(["secret:weather/api-key"], Assert.IsType<ModuleStartDecision.Startable>(decision).Permissions);
     }
 
     [Fact]
