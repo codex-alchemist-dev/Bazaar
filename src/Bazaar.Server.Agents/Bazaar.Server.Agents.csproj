@@ -15,6 +15,8 @@
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.LoopGuard.Abstractions\Bazaar.LoopGuard.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Souls.Abstractions\Bazaar.Souls.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
