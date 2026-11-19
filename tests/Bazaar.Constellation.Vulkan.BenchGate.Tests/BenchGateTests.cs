@@ -60,4 +60,21 @@ public class BenchGateTests
         GateReport r = BenchGate.Compare(BenchGate.ParseCsv(Csv(5.0, 6.0)), BenchGate.ParseCsv(Csv(1.0, 1.4)), new GateOptions());
         Assert.True(r.Passed);
     }
+
+    [Fact]
+    public void Envelope_keeps_the_slowest_p50_and_p95_per_row()
+    {
+        IReadOnlyList<BenchRow> env = BenchGate.Envelope([BenchGate.ParseCsv(Csv(1.0, 1.4)), BenchGate.ParseCsv(Csv(2.6, 3.5))]);
+        BenchRow row = Assert.Single(env);
+        Assert.Equal(2.6, row.GpuP50Ms);
+        Assert.Equal(3.5, row.GpuP95Ms);
+    }
+
+    [Fact]
+    public void A_swinging_row_passes_against_an_envelope_that_includes_its_swing()
+    {
+        IReadOnlyList<BenchRow> env = BenchGate.Envelope([BenchGate.ParseCsv(Csv(1.2, 1.2)), BenchGate.ParseCsv(Csv(2.6, 3.5))]);
+        GateReport r = BenchGate.Compare(env, BenchGate.ParseCsv(Csv(2.4, 3.0)), new GateOptions());
+        Assert.True(r.Passed);
+    }
 }

@@ -93,6 +93,26 @@ public static class BenchGate
         return rows;
     }
 
+    /// <summary>
+    /// Merges several runs of the same machine into one baseline envelope: each row keeps its slowest p50 and p95 seen.
+    /// Rows that swing between runs (GPU clock ramp-up) therefore get a baseline that already includes the swing.
+    /// </summary>
+    public static IReadOnlyList<BenchRow> Envelope(IEnumerable<IReadOnlyList<BenchRow>> runs)
+    {
+        var merged = new Dictionary<string, BenchRow>();
+        foreach (IReadOnlyList<BenchRow> run in runs)
+        {
+            foreach (BenchRow r in run)
+            {
+                merged[r.Key] = merged.TryGetValue(r.Key, out BenchRow? m)
+                    ? m with { GpuP50Ms = Math.Max(m.GpuP50Ms, r.GpuP50Ms), GpuP95Ms = Math.Max(m.GpuP95Ms, r.GpuP95Ms) }
+                    : r;
+            }
+        }
+
+        return [.. merged.Values];
+    }
+
     /// <summary>Compares a candidate run against a baseline run, row by row, on GPU p50 and p95.</summary>
     public static GateReport Compare(IReadOnlyList<BenchRow> baseline, IReadOnlyList<BenchRow> candidate, GateOptions options)
     {

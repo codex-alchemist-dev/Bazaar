@@ -17,5 +17,8 @@ GPU timings only mean something on the same GPU and driver as the baseline. Host
 ## Workflow
 `.github/workflows/gpu-bench.yml` runs the bench and the gate on a self-hosted runner labelled `gpu` (`[self-hosted, gpu]`), on a weekly schedule and on demand, never on pull requests, so untrusted code cannot reach that machine. The baseline lives at `tests/Bazaar.Constellation.Vulkan.BenchGate/baselines/pc-gpu.csv`; with no baseline the job records the run as an artifact and passes.
 
+## Noisy rows
+Rows measured while the GPU clock ramps up swing between runs (1M nodes: 1.2 to 2.6 ms). The gate takes several baseline runs, comma-separated, and uses the slowest p50 and p95 seen per row, so the baseline already contains the swing. Take at least three runs on a quiet GPU. The bench should also warm the GPU before its first sweep.
+
 ## Usage
-`dotnet run --project tests/Bazaar.Constellation.Vulkan.BenchGate -- baseline.csv candidate.csv [maxRatio] [absoluteFloorMs]`
+`dotnet run --project tests/Bazaar.Constellation.Vulkan.BenchGate -- baseline1.csv[,baseline2.csv,...] candidate.csv [maxRatio] [absoluteFloorMs]`
