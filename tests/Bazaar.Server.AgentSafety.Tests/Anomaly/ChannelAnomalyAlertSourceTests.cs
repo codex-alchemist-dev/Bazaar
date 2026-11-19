@@ -64,6 +64,70 @@ public sealed class ChannelAnomalyAlertSourceTests
     }
 
     [Fact]
+    public async Task A_flood_of_lesser_alerts_cannot_push_out_a_serious_one()
+    {
+        var source = new ChannelAnomalyAlertSource(capacity: 4);
+        var ct = TestContext.Current.CancellationToken;
+        await source.PublishAsync(new AnomalyAlert("canary_hit", "agent-a", null, AnomalySeverity.Critical, FakeClock.DefaultStart, "detail"), ct);
+        for (var i = 0; i < 100; i++)
+        {
+            await source.PublishAsync(new AnomalyAlert("flood-" + i, "agent-b", null, AnomalySeverity.High, FakeClock.DefaultStart, "detail"), ct);
+        }
+
+        var read = await ReadAsync(source, 4);
+
+        Assert.Equal("canary_hit", read[0].RuleId);
+        Assert.Equal(97, source.DroppedCount);
+    }
+
+    [Fact]
+    public async Task A_lesser_alert_arriving_at_a_full_queue_of_serious_ones_is_the_one_dropped()
+    {
+        var source = new ChannelAnomalyAlertSource(capacity: 2);
+        var ct = TestContext.Current.CancellationToken;
+        await source.PublishAsync(new AnomalyAlert("r1", "agent-a", null, AnomalySeverity.Critical, FakeClock.DefaultStart, "detail"), ct);
+        await source.PublishAsync(new AnomalyAlert("r2", "agent-b", null, AnomalySeverity.Critical, FakeClock.DefaultStart, "detail"), ct);
+        await source.PublishAsync(new AnomalyAlert("r3", "agent-c", null, AnomalySeverity.Low, FakeClock.DefaultStart, "detail"), ct);
+
+        var read = await ReadAsync(source, 2);
+
+        Assert.Equal(["r1", "r2"], read.Select(a => a.RuleId));
+        Assert.Equal(1, source.DroppedCount);
+    }
+
+    [Fact]
+    public async Task Repeats_for_one_agent_and_rule_merge_and_keep_the_highest_severity()
+    {
+        var source = new ChannelAnomalyAlertSource(capacity: 2);
+        var ct = TestContext.Current.CancellationToken;
+        await source.PublishAsync(new AnomalyAlert("out_of_scope_read", "agent-a", null, AnomalySeverity.Medium, FakeClock.DefaultStart, "detail"), ct);
+        for (var i = 0; i < 50; i++)
+        {
+            await source.PublishAsync(new AnomalyAlert("out_of_scope_read", "agent-a", null, AnomalySeverity.High, FakeClock.DefaultStart, "detail"), ct);
+        }
+        await source.PublishAsync(Alert("other"), ct);
+
+        var read = await ReadAsync(source, 2);
+
+        Assert.Equal(["out_of_scope_read", "other"], read.Select(a => a.RuleId));
+        Assert.Equal(AnomalySeverity.High, read[0].Severity);
+        Assert.Equal(0, source.DroppedCount);
+    }
+
+    [Fact]
+    public async Task An_alert_read_from_the_queue_no_longer_absorbs_the_next_one()
+    {
+        var source = new ChannelAnomalyAlertSource(capacity: 2);
+        var ct = TestContext.Current.CancellationToken;
+        await source.PublishAsync(Alert("one"), ct);
+        Assert.Equal("one", Assert.Single(await ReadAsync(source, 1)).RuleId);
+
+        await source.PublishAsync(Alert("one"), ct);
+
+        Assert.Equal("one", Assert.Single(await ReadAsync(source, 1)).RuleId);
+    }
+
+    [Fact]
     public void Capacity_below_one_is_rejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new ChannelAnomalyAlertSource(0));

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Bazaar.Approvals;
@@ -10,7 +11,7 @@ namespace Bazaar.Server.Security.KillSwitch;
 
 /// <summary>
 /// Host-side containment for an agent stop (doc 15; kill switch). On contain it revokes the agent's tokens and leases, then
-/// pauses its VMs. On release it undoes that in reverse order: VMs first, then tokens.
+/// pauses its VMs; a failed revoke does not skip the pause. On release it undoes that in reverse order: VMs first, then tokens.
 /// </summary>
 /// <remarks>
 /// Release is owner-only and signed. The caller first gets a single-use nonce from <see cref="IssueReleaseChallengeAsync"/>,
@@ -109,8 +110,31 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             _contained[agentId] = 0;
         }, ct).ConfigureAwait(false);
 
-        await _revoker.RevokeAsync(agentId, ct).ConfigureAwait(false);
-        await _pauser.PauseAsync(agentId, ct).ConfigureAwait(false);
+        // Both steps always run: a lease store that fails must not leave the agent's VMs running, and the other way round.
+        // The first failure is the one reported, so the caller still sees the contain as failed and can retry it.
+        Exception? revokeFailure = null;
+        try
+        {
+            await _revoker.RevokeAsync(agentId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            revokeFailure = ex;
+        }
+
+        try
+        {
+            await _pauser.PauseAsync(agentId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException && revokeFailure is not null)
+        {
+            throw new AggregateException("The agent's tokens could not be revoked and its VMs could not be paused.", revokeFailure, ex);
+        }
+
+        if (revokeFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(revokeFailure).Throw();
+        }
     }
 
     /// <inheritdoc />

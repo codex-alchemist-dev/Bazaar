@@ -9,21 +9,22 @@ namespace Bazaar.Server.AgentSafety.AutoContainment;
 
 /// <summary>
 /// Turns anomaly alerts into automatic containment of the one agent an alert is about (doc 48 section 5.6). An alert at or above
-/// <see cref="AutoContainmentOptions.Threshold"/> contains that agent through <see cref="IAgentContainment.ContainAsync"/> with the
-/// breach actor <c>anomaly:&lt;ruleId&gt;</c>; a lower alert is only logged. Global containment is never started here: it needs the
-/// owner's role.
+/// <see cref="AutoContainmentOptions.Threshold"/> engages that agent's kill switch stop through <see cref="IAgentStop.EngageAsync"/> with
+/// the breach actor <c>anomaly:&lt;ruleId&gt;</c>, so its tool calls are denied and it is contained; a lower alert is only logged. Global
+/// containment is never started here: it needs the owner's role.
 /// </summary>
 /// <remarks>
 /// Alerts are handled one at a time, so a burst for one agent yields one containment; an agent that is already contained (by the
-/// store or by an InForce record) is not contained again. A record is written as <see cref="ContainmentRecordState.InForce"/> only after
-/// <see cref="IAgentContainment.ContainAsync"/> completed. A throwing contain is retried with doubling backoff on the injected
-/// <see cref="TimeProvider"/>; when attempts run out a <see cref="ContainmentRecordState.Failed"/> record and a notice say so. Notice
-/// failures are logged and never block containment. A second loop marks elapsed undo windows as expired.
+/// store or by an InForce record) is not contained again. When the stores that answer that question cannot be read, the agent is
+/// contained anyway (fail closed; the stop is idempotent). A record is written as <see cref="ContainmentRecordState.InForce"/> only after
+/// <see cref="IAgentStop.EngageAsync"/> completed. A throwing contain is retried with doubling backoff on the injected
+/// <see cref="TimeProvider"/>; when attempts run out a <see cref="ContainmentRecordState.Failed"/> record and a notice say so. Notice,
+/// audit and record-store failures are logged and never block containment or the owner's notice. A second loop marks elapsed undo windows as expired.
 /// </remarks>
 public sealed partial class AutoContainmentService : BackgroundService
 {
     private readonly IAnomalyAlertSource _alerts;
-    private readonly IAgentContainment _containment;
+    private readonly IAgentStop _stop;
     private readonly IContainmentStateStore _containedStore;
     private readonly IContainmentRecordStore _records;
     private readonly IAuditLog _audit;
@@ -35,7 +36,7 @@ public sealed partial class AutoContainmentService : BackgroundService
     /// <summary>Creates the service. Throws when the options are invalid.</summary>
     public AutoContainmentService(
         IAnomalyAlertSource alerts,
-        IAgentContainment containment,
+        IAgentStop stop,
         IContainmentStateStore containedStore,
         IContainmentRecordStore records,
         IAuditLog audit,
@@ -45,7 +46,7 @@ public sealed partial class AutoContainmentService : BackgroundService
         ILogger<AutoContainmentService> logger)
     {
         _alerts = alerts ?? throw new ArgumentNullException(nameof(alerts));
-        _containment = containment ?? throw new ArgumentNullException(nameof(containment));
+        _stop = stop ?? throw new ArgumentNullException(nameof(stop));
         _containedStore = containedStore ?? throw new ArgumentNullException(nameof(containedStore));
         _records = records ?? throw new ArgumentNullException(nameof(records));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
@@ -125,18 +126,31 @@ public sealed partial class AutoContainmentService : BackgroundService
             return;
         }
 
-        var latest = await _records.GetLatestAsync(alert.AgentId, ct).ConfigureAwait(false);
-        var contained = (await _containedStore.LoadAsync(ct).ConfigureAwait(false)).Any(a => a.AgentId == alert.AgentId);
-        if (contained && latest?.State != ContainmentRecordState.Failed)
+        ContainmentRecord? latest = null;
+        var contained = false;
+        var stateKnown = true;
+        try
+        {
+            latest = await _records.GetLatestAsync(alert.AgentId, ct).ConfigureAwait(false);
+            contained = (await _containedStore.LoadAsync(ct).ConfigureAwait(false)).Any(a => a.AgentId == alert.AgentId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Fail closed: bookkeeping that cannot be read must not let an alert at the threshold pass. The stop is idempotent.
+            stateKnown = false;
+            LogStateUnreadable(ex, alert.RuleId);
+        }
+
+        if (stateKnown && contained && latest?.State != ContainmentRecordState.Failed)
         {
             LogAlreadyContained(alert.RuleId);
             return;
         }
 
-        if (latest?.State == ContainmentRecordState.InForce)
+        if (stateKnown && latest?.State == ContainmentRecordState.InForce)
         {
             // The agent is not contained any more, so the owner released it by the normal path: the record is history.
-            await _records.TryTransitionAsync(latest.Id, ContainmentRecordState.InForce, ContainmentRecordState.Released, ct).ConfigureAwait(false);
+            await SafeRecordAsync(() => _records.TryTransitionAsync(latest.Id, ContainmentRecordState.InForce, ContainmentRecordState.Released, ct)).ConfigureAwait(false);
         }
 
         var actor = AutoContainmentAudit.BreachActor(alert.RuleId);
@@ -146,8 +160,8 @@ public sealed partial class AutoContainmentService : BackgroundService
 
         if (failure is not null)
         {
-            await _records.TryAddAsync(
-                new ContainmentRecord(Guid.NewGuid(), alert.AgentId, alert.RuleId, alert.Severity, now, now, ContainmentRecordState.Failed), ct).ConfigureAwait(false);
+            await SafeRecordAsync(() => _records.TryAddAsync(
+                new ContainmentRecord(Guid.NewGuid(), alert.AgentId, alert.RuleId, alert.Severity, now, now, ContainmentRecordState.Failed), ct)).ConfigureAwait(false);
             LogContainFailed(failure, alert.RuleId, _options.MaxContainAttempts);
             await SafeAuditAsync(actor, "contain_failed", alert, severity, null, ct).ConfigureAwait(false);
             await SafeNoticeAsync(new ContainmentNotice(ContainmentNoticeKind.ContainmentFailed, alert.AgentId, alert.RuleId, alert.Severity, null, alert.Detail), ct).ConfigureAwait(false);
@@ -155,29 +169,47 @@ public sealed partial class AutoContainmentService : BackgroundService
         }
 
         var undoUntil = now + _options.UndoWindow;
-        var added = await _records.TryAddAsync(
-            new ContainmentRecord(Guid.NewGuid(), alert.AgentId, alert.RuleId, alert.Severity, now, undoUntil, ContainmentRecordState.InForce), ct).ConfigureAwait(false);
-        if (!added)
+        var added = await SafeRecordAsync(() => _records.TryAddAsync(
+            new ContainmentRecord(Guid.NewGuid(), alert.AgentId, alert.RuleId, alert.Severity, now, undoUntil, ContainmentRecordState.InForce), ct)).ConfigureAwait(false);
+        if (added == false)
         {
             LogAlreadyContained(alert.RuleId);
             return;
         }
 
+        // added is null when the record could not be written: the agent is contained all the same, so the owner is still told.
+        // Without a record there is no undo window, and only the normal owner release applies.
+        DateTimeOffset? undoable = added == true ? undoUntil : null;
         LogContained(alert.RuleId, severity);
-        await SafeAuditAsync(actor, "contained", alert, severity, undoUntil, ct).ConfigureAwait(false);
-        await SafeNoticeAsync(new ContainmentNotice(ContainmentNoticeKind.Contained, alert.AgentId, alert.RuleId, alert.Severity, undoUntil, alert.Detail), ct).ConfigureAwait(false);
+        await SafeAuditAsync(actor, "contained", alert, severity, undoable, ct).ConfigureAwait(false);
+        await SafeNoticeAsync(new ContainmentNotice(ContainmentNoticeKind.Contained, alert.AgentId, alert.RuleId, alert.Severity, undoable, alert.Detail), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Runs one record-store write. Returns its result, or null when the store failed; the failure is logged, never thrown.</summary>
+    private async Task<bool?> SafeRecordAsync(Func<Task<bool>> write)
+    {
+        try
+        {
+            return await write().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogRecordFailed(ex);
+            return null;
+        }
     }
 
     /// <summary>Contains the agent, retrying a throwing contain. Returns the last exception when every attempt failed, otherwise null.</summary>
     private async Task<Exception?> ContainWithRetryAsync(AnomalyAlert alert, string actor, CancellationToken ct)
     {
         var delay = _options.RetryBackoff;
+        var reason = $"Automatic containment: anomaly rule {alert.RuleId} ({alert.Severity}).";
         Exception? last = null;
         for (var attempt = 1; attempt <= _options.MaxContainAttempts; attempt++)
         {
             try
             {
-                await _containment.ContainAsync(alert.AgentId, actor, ct).ConfigureAwait(false);
+                await _stop.EngageAsync(alert.AgentId, actor, reason, ct).ConfigureAwait(false);
                 return null;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -218,6 +250,12 @@ public sealed partial class AutoContainmentService : BackgroundService
             LogNoticeFailed(ex, notice.Kind);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "The containment state could not be read for an alert from rule {RuleId}; containing anyway.")]
+    private partial void LogStateUnreadable(Exception ex, string ruleId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Writing an automatic containment record failed; containment is unaffected.")]
+    private partial void LogRecordFailed(Exception ex);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Ignored a malformed anomaly alert.")]
     private partial void LogMalformedAlert();

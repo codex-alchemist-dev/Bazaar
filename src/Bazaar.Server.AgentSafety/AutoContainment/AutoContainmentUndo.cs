@@ -29,7 +29,7 @@ public sealed record AutoContainmentUndoResult(AutoContainmentUndoOutcome Outcom
 public interface IAutoContainmentUndo
 {
     /// <summary>
-    /// Undoes the agent's automatic containment. The undo happens only when <see cref="IAgentContainment.ReleaseAsync"/> returns
+    /// Undoes the agent's automatic containment. The undo happens only when <see cref="IAgentStop.ResumeAsync"/> returns
     /// <see cref="ContainmentReleaseOutcome.Released"/> for the signed <paramref name="request"/> and the window is still open.
     /// </summary>
     Task<AutoContainmentUndoResult> UndoAsync(string agentId, ContainmentReleaseRequest request, CancellationToken ct = default);
@@ -37,15 +37,16 @@ public interface IAutoContainmentUndo
 
 /// <summary>
 /// Default <see cref="IAutoContainmentUndo"/>. It adds no authority of its own: the owner's device signature, the single-use
-/// nonce and the device registry are checked by <see cref="IAgentContainment.ReleaseAsync"/>, which this class calls and never
-/// bypasses. It refuses without calling release when the window has elapsed, marks the record Undone only after a Released
+/// nonce and the device registry are checked by the kill switch behind <see cref="IAgentStop.ResumeAsync"/>, which this class calls and
+/// never bypasses. A release lifts the agent's stop as well as its containment. It refuses without calling release when the window has elapsed, marks the record Undone only after a Released
 /// outcome, and audits every refusal and the undo.
 /// </summary>
 public sealed partial class AutoContainmentUndo : IAutoContainmentUndo
 {
     private const string _undoActor = "anomaly:undo";
+    private const string _undoReason = "Owner undo of an automatic containment.";
 
-    private readonly IAgentContainment _containment;
+    private readonly IAgentStop _stop;
     private readonly IContainmentRecordStore _records;
     private readonly IAuditLog _audit;
     private readonly INoticeSink _notices;
@@ -54,14 +55,14 @@ public sealed partial class AutoContainmentUndo : IAutoContainmentUndo
 
     /// <summary>Creates the undo service.</summary>
     public AutoContainmentUndo(
-        IAgentContainment containment,
+        IAgentStop stop,
         IContainmentRecordStore records,
         IAuditLog audit,
         INoticeSink notices,
         TimeProvider time,
         ILogger<AutoContainmentUndo> logger)
     {
-        _containment = containment ?? throw new ArgumentNullException(nameof(containment));
+        _stop = stop ?? throw new ArgumentNullException(nameof(stop));
         _records = records ?? throw new ArgumentNullException(nameof(records));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _notices = notices ?? throw new ArgumentNullException(nameof(notices));
@@ -90,7 +91,7 @@ public sealed partial class AutoContainmentUndo : IAutoContainmentUndo
         }
 
         // The owner's signature, nonce and device are verified here; this class never decides who may release.
-        var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
+        var release = await _stop.ResumeAsync(agentId, _undoReason, request, ct).ConfigureAwait(false);
         if (release.Outcome != ContainmentReleaseOutcome.Released)
         {
             await AuditAsync("undo_refused_release_" + release.Outcome.ToString().ToLowerInvariant(), agentId, record, ct).ConfigureAwait(false);

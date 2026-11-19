@@ -11,7 +11,8 @@ public static class AutoContainmentServiceCollectionExtensions
     /// <summary>
     /// Registers the auto-containment service, its undo, an in-memory record store and a null notice sink (all TryAdd, so durable
     /// or real ones registered first win), and validates <see cref="AutoContainmentOptions"/> on start. The caller registers
-    /// <c>IAnomalyAlertSource</c>, <c>IAgentContainment</c>, <c>IContainmentStateStore</c>, <c>IAuditLog</c> and <c>TimeProvider</c>.
+    /// <c>IAnomalyAlertSource</c>, <c>KillSwitchEngine</c> (or its own <see cref="IAgentStop"/>), <c>IContainmentStateStore</c>,
+    /// <c>IAuditLog</c> and <c>TimeProvider</c>.
     /// </summary>
     public static IServiceCollection AddBazaarAutoContainment(this IServiceCollection services)
     {
@@ -22,6 +23,7 @@ public static class AutoContainmentServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IContainmentRecordStore, InMemoryContainmentRecordStore>();
         services.TryAddSingleton<INoticeSink, NullNoticeSink>();
+        services.TryAddSingleton<IAgentStop, KillSwitchAgentStop>();
         services.TryAddSingleton<IAutoContainmentUndo, AutoContainmentUndo>();
         if (!services.Any(d => d.ServiceType == typeof(AutoContainmentService)))
         {

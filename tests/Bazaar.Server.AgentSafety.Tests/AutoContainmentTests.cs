@@ -14,8 +14,10 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.AgentSafety.Tests;
 
-internal sealed class FakeContainment : IAgentContainment
+internal sealed class FakeContainment : IAgentContainment, IAgentStop
 {
+    public List<string> Reasons { get; } = [];
+
     public List<(string AgentId, string ActorId)> Contained { get; } = [];
     public int ContainCalls { get; private set; }
     public int ReleaseCalls { get; private set; }
@@ -33,6 +35,15 @@ internal sealed class FakeContainment : IAgentContainment
         return Task.CompletedTask;
     }
 
+    public Task EngageAsync(string agentId, string actorId, string reason, CancellationToken ct = default)
+    {
+        Reasons.Add(reason);
+        return ContainAsync(agentId, actorId, ct);
+    }
+
+    public Task<ContainmentReleaseResult> ResumeAsync(string agentId, string reason, ContainmentReleaseRequest request, CancellationToken ct = default) =>
+        ReleaseAsync(agentId, request, ct);
+
     public Task<ReleaseChallenge?> IssueReleaseChallengeAsync(string agentId, string deviceId, CancellationToken ct = default) =>
         Task.FromResult<ReleaseChallenge?>(null);
 
@@ -41,6 +52,26 @@ internal sealed class FakeContainment : IAgentContainment
         ReleaseCalls++;
         return Task.FromResult(new ContainmentReleaseResult(ReleaseOutcome));
     }
+}
+
+internal sealed class NullKillSwitchAuditSink : IKillSwitchAuditSink
+{
+    public Task RecordAsync(KillSwitchAuditEntry entry, CancellationToken ct = default) => Task.CompletedTask;
+}
+
+/// <summary>A record store that can be switched to throw, over the in-memory one.</summary>
+internal sealed class FlakyRecordStore(InMemoryContainmentRecordStore inner) : IContainmentRecordStore
+{
+    public bool Down { get; set; }
+
+    public Task<bool> TryAddAsync(ContainmentRecord record, CancellationToken ct = default) => Down ? throw new InvalidOperationException("db down") : inner.TryAddAsync(record, ct);
+
+    public Task<ContainmentRecord?> GetLatestAsync(string agentId, CancellationToken ct = default) => Down ? throw new InvalidOperationException("db down") : inner.GetLatestAsync(agentId, ct);
+
+    public Task<bool> TryTransitionAsync(Guid id, ContainmentRecordState expected, ContainmentRecordState target, CancellationToken ct = default) =>
+        Down ? throw new InvalidOperationException("db down") : inner.TryTransitionAsync(id, expected, target, ct);
+
+    public Task<int> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default) => Down ? throw new InvalidOperationException("db down") : inner.ExpireDueAsync(now, ct);
 }
 
 internal sealed class ListAuditLog : IAuditLog
@@ -367,6 +398,7 @@ public sealed class AutoContainmentTests
         public RecordingNoticeSink Notices { get; } = new();
         public NoopPauser Pauser { get; } = new();
         public AgentContainmentAdapter Adapter { get; }
+        public KillSwitchEngine Engine { get; }
         public AutoContainmentService Service { get; }
         public AutoContainmentUndo Undo { get; }
 
@@ -375,9 +407,11 @@ public sealed class AutoContainmentTests
             var owners = new InMemoryOwnerKeyRegistry();
             owners.Register(new OwnerDeviceKey("owner-1", "dev-owner", OwnerKey.ExportSubjectPublicKeyInfo()));
             Adapter = new AgentContainmentAdapter(Pauser, new NoopRevoker(), owners, Audit, new InMemoryNonceStore(Clock), Contained, Clock);
+            Engine = new KillSwitchEngine(new NullKillSwitchAuditSink(), Adapter, Clock);
+            var stop = new KillSwitchAgentStop(Engine);
             Service = new AutoContainmentService(
-                new ListAlertSource(), Adapter, Contained, Records, Audit, Notices, Options.Create(new AutoContainmentOptions()), Clock, NullLogger<AutoContainmentService>.Instance);
-            Undo = new AutoContainmentUndo(Adapter, Records, Audit, Notices, Clock, NullLogger<AutoContainmentUndo>.Instance);
+                new ListAlertSource(), stop, Contained, Records, Audit, Notices, Options.Create(new AutoContainmentOptions()), Clock, NullLogger<AutoContainmentService>.Instance);
+            Undo = new AutoContainmentUndo(stop, Records, Audit, Notices, Clock, NullLogger<AutoContainmentUndo>.Instance);
         }
 
         public async Task<ContainmentReleaseRequest> SignedAsync(ECDsa? key = null, CancellationToken ct = default)
@@ -392,6 +426,75 @@ public sealed class AutoContainmentTests
     }
 
     private static AnomalyAlert HighAlert(DateTimeOffset at) => new("canary_hit", "agent-a", null, AnomalySeverity.High, at, "reason");
+
+    [Fact]
+    public async Task An_unreadable_record_store_does_not_let_the_alert_pass()
+    {
+        var flaky = new FlakyRecordStore(_records) { Down = true };
+        var service = new AutoContainmentService(
+            new ListAlertSource(), _containment, _contained, flaky, _audit, _notices, Options.Create(_options), _clock, NullLogger<AutoContainmentService>.Instance);
+
+        await service.HandleAlertAsync(Alert(), TestContext.Current.CancellationToken);
+
+        // Fail closed: the agent is contained, and the owner is told, although no record could be read or written.
+        Assert.Equal(("agent-a", "anomaly:canary_hit"), Assert.Single(_containment.Contained));
+        var notice = Assert.Single(_notices.Notices);
+        Assert.Equal(ContainmentNoticeKind.Contained, notice.Kind);
+        Assert.Null(notice.UndoUntil);
+    }
+
+    [Fact]
+    public async Task A_failed_containment_still_reaches_the_owner_when_the_record_store_is_down()
+    {
+        _options.MaxContainAttempts = 1;
+        _containment.FailFirst = int.MaxValue;
+        var flaky = new FlakyRecordStore(_records) { Down = true };
+        var service = new AutoContainmentService(
+            new ListAlertSource(), _containment, _contained, flaky, _audit, _notices, Options.Create(_options), _clock, NullLogger<AutoContainmentService>.Instance);
+
+        await service.HandleAlertAsync(Alert(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ContainmentNoticeKind.ContainmentFailed, Assert.Single(_notices.Notices).Kind);
+        Assert.Contains(_audit.Entries, e => e.Payload.Contains("contain_failed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Automatic_containment_engages_the_kill_switch_stop_and_undo_lifts_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var rig = new UndoRig();
+        Assert.True(rig.Engine.Evaluate("agent-a", ToolEffect.Write).Allowed);
+
+        await rig.Service.HandleAlertAsync(HighAlert(rig.Clock.GetUtcNow()), ct);
+
+        // The stop is what denies the agent's tool calls; containment alone (leases, VMs) would leave them allowed.
+        foreach (var effect in Enum.GetValues<ToolEffect>())
+        {
+            Assert.False(rig.Engine.Evaluate("agent-a", effect).Allowed);
+        }
+        Assert.True(rig.Engine.Evaluate("agent-b", ToolEffect.Write).Allowed);
+        Assert.Equal("anomaly:canary_hit", Assert.Single(rig.Engine.GetStatus().AgentStops).ActorId);
+
+        var undone = await rig.Undo.UndoAsync("agent-a", await rig.SignedAsync(ct: ct), ct);
+
+        Assert.Equal(AutoContainmentUndoOutcome.Undone, undone.Outcome);
+        Assert.True(rig.Engine.Evaluate("agent-a", ToolEffect.Write).Allowed);
+    }
+
+    [Fact]
+    public async Task A_refused_undo_leaves_the_kill_switch_stop_in_place()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var rig = new UndoRig();
+        await rig.Service.HandleAlertAsync(HighAlert(rig.Clock.GetUtcNow()), ct);
+        using var attacker = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+
+        var result = await rig.Undo.UndoAsync("agent-a", await rig.SignedAsync(attacker, ct), ct);
+
+        Assert.Equal(AutoContainmentUndoOutcome.ReleaseRefused, result.Outcome);
+        Assert.False(rig.Engine.Evaluate("agent-a", ToolEffect.Read).Allowed);
+        Assert.Single(rig.Engine.GetStatus().AgentStops);
+    }
 
     [Fact]
     public async Task Undo_inside_the_window_with_a_signed_release_restores_and_is_audited()
