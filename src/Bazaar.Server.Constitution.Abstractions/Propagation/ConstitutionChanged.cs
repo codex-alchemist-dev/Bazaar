@@ -1,4 +1,3 @@
-using Bazaar.Server.Company.Constitution;
 
 namespace Bazaar.Server.Company.Constitution.Propagation;
 

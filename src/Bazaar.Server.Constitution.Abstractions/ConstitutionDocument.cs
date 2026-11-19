@@ -1,4 +1,3 @@
-// TODO(component): move to the Company component project when PR #125 merges.
 namespace Bazaar.Server.Company.Constitution;
 
 /// <summary>One section of a Constitution: its level-2 heading and the Markdown body under it.</summary>

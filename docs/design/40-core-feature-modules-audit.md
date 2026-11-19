@@ -134,3 +134,19 @@ Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
 - `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs`, `Turns/Tools/Db/SessionTaintMapping.cs`: use `IToolPolicyEngine`, `SessionRoles`, `SessionTaint`, `TaintState` and `TaintSource` (`Bazaar.Server.Security`). Move with the Security abstractions.
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
+
+## Company Constitution module (extraction from `Bazaar.Server/Company/Constitution`)
+
+Docs section this implements: this section (doc 24 section 1, Company Constitution; the owner's direction to accelerate modularity transfer; Server-extraction rule #719).
+
+Decision: the Constitution is its own module pair, like Org and Calendar, not part of a shared "Company" module. Doc 24 lists four separate company systems, each with its own owning service, and Org and Calendar already extract as their own modules (PR #749). The Constitution has no dependency on either, so a shared `Bazaar.Server.Company` project would only couple them. The namespaces did not change (`Bazaar.Server.Company.Constitution.*`).
+
+- `Bazaar.Server.Constitution.Abstractions`: `ConstitutionSection`, `ConstitutionDocument`, `ConstitutionChanged` (the `constitution.changed` event) and `ConstitutionSectionChanges` (the section diff that `ConstitutionChanged.FromDocuments` calls). It references `Bazaar.Contracts` only.
+- `Bazaar.Server.Constitution`: the acceptance check (`ConstitutionAcceptance`), the parser and its result types, the decision-link reader, `ConstitutionChangeNotice` and `ExcerptRefresh`. It references the Constitution and Agents abstractions (`InboxKind`, `InboxCandidate`), not `Bazaar.Server`.
+
+`Bazaar.Server` and `Bazaar.Server.Host` reference both. `tests/Bazaar.Server.Constitution.Tests` holds the 53 moved tests. All of these types are pure, so the module registers no `IBazaarComponent`.
+
+Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), with the reason each one stays:
+
+- `CompanyComponent.cs`: registers `CalendarRepository`, `CalendarService`, `OrgRelationRepository` and `OrgLoanService`, which are still in `Bazaar.Server` on main. Moves or is replaced once PR #749 lands.
+- `Availability/CalendarAvailabilityFeed.cs`: reads `CalendarEventRecord` and `CalendarKind` (`Bazaar.Server.Calendar`) and `CalendarEvent` and `EvaluationOptions` (`Bazaar.Server.WorkLife`). Moves with the Calendar abstractions and the WorkLife extraction.
