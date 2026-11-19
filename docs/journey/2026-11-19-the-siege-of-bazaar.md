@@ -61,6 +61,10 @@ Report a spend of `long.MaxValue` tokens. The budget check adds it to the used a
 
 **Fix:** overflow-safe arithmetic in the window check. Its cousin, an upstream reporting *negative* token counts, is now ignored and replaced by an estimate.
 
+**Epilogue.** The owner read this one and was offered the sensible fix: gate the number and call it null. The reply: "Or we can over engineer and support millions of digits, decimals, and a number so astronomically large that it's honestly inappropriate. Because we love over engineering." A few minutes later: "why not. Make the disk the limit."
+
+So budget amounts are now an exact decimal type that cannot wrap, stored as Postgres `numeric` (131,072 digits before the point, 16,383 after), and doc 48 section 11.4 specifies chunked rows in the same database for anything bigger, with the arithmetic streamed so that neither RAM nor a single field is the ceiling. A spend with more digits than the limit is refused from its digit count alone, so the only thing a hostile receipt can exhaust is its sender's patience. The chunked tier is designed, not built yet.
+
 ### 4. Death by polite shutdown
 
 `kill -9` was survivable. Asking nicely was not.
