@@ -62,7 +62,7 @@ public static class UsageRollup
         private int _calls;
         private int _errors;
         private int _estimated;
-        private GatewayTokenUsage _tokens = new(0, 0, 0, 0, 0, 0);
+        private GatewayTokenUsage _tokens = GatewayTokenUsage.Zero;
 
         public void Add(GatewayUsageRecord record)
         {

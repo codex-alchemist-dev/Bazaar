@@ -90,14 +90,19 @@ public static class ModuleHealthAggregator
         foreach (var check in checks)
         {
             ArgumentNullException.ThrowIfNull(check);
-            if (Severity(check.Status) > Severity(worst))
+            var status = Normalised(check.Status);
+            if (Severity(status) > Severity(worst))
             {
-                worst = check.Status;
+                worst = status;
             }
         }
 
         return worst;
     }
+
+    // A status outside the enum is garbage from a probe: it reads as Unknown, so it is never green and never counted healthy.
+    private static ModuleHealthStatus Normalised(ModuleHealthStatus status) =>
+        Enum.IsDefined(status) ? status : ModuleHealthStatus.Unknown;
 
     private static int Severity(ModuleHealthStatus status) => status switch
     {
@@ -122,7 +127,7 @@ public static class ModuleHealthAggregator
             score = Math.Min(score, FailingScoreCap);
         }
 
-        if (checks.Any(c => c.Status == ModuleHealthStatus.Unknown))
+        if (checks.Any(c => Normalised(c.Status) == ModuleHealthStatus.Unknown))
         {
             score = Math.Min(score, UnknownScoreCap);
         }

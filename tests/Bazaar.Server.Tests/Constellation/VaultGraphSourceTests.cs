@@ -4,6 +4,7 @@ using Bazaar.Contracts.Graph;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Tests.Vault.Data;
 using Bazaar.Server.Vault.Data;
+using Bazaar.Server.Vault.Search;
 using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Constellation;
@@ -117,6 +118,116 @@ public sealed class VaultGraphSourceDataTests(VaultDb db) : IClassFixture<VaultD
         Assert.Equal(a.ToString("D"), edge.From);
         Assert.Equal(b.ToString("D"), edge.To);
         Assert.NotEqual(0, graph.GraphVersion);
+    }
+
+    private static VaultDocRecord Memory(Guid vaultId, Guid docId, string path, string owner) =>
+        new(docId, vaultId, path, path, "memory", null, "agents/memory", owner, "{}", null, _t0);
+
+    private static readonly GraphViewer _agentA = new(IsOwner: false, AgentOwner: "agent:aaaaaaaa-0000-0000-0000-000000000001");
+    private static readonly GraphViewer _agentB = new(IsOwner: false, AgentOwner: "agent:bbbbbbbb-0000-0000-0000-000000000002");
+    private static readonly GraphViewer _human = new(IsOwner: false, AgentOwner: null);
+
+    /// <summary>Shared note S links to A's and B's private memory; A's memory links to S; B's memory links to B's second note.</summary>
+    private async Task<(Guid Vault, Guid Shared, Guid MemA, Guid MemB, Guid MemB2, VaultIndexRepository Repo)> SeedAsync()
+    {
+        var repo = new VaultIndexRepository(db.DataSource);
+        var vault = Guid.NewGuid();
+        var shared = Guid.NewGuid();
+        var memA = Guid.NewGuid();
+        var memB = Guid.NewGuid();
+        var memB2 = Guid.NewGuid();
+        await repo.ReplaceDocumentAsync(Memory(vault, memA, "agents/a/memory/one.md", _agentA.AgentOwner!), [Block("a")], [], Ct);
+        await repo.ReplaceDocumentAsync(Memory(vault, memB2, "agents/b/memory/two.md", _agentB.AgentOwner!), [Block("b2")], [], Ct);
+        await repo.ReplaceDocumentAsync(Memory(vault, memB, "agents/b/memory/one.md", _agentB.AgentOwner!), [Block("b")], [Link(memB, 0, "Two", memB2)], Ct);
+        await repo.ReplaceDocumentAsync(
+            Doc(vault, shared, "projects/x/Shared.md"),
+            [Block("shared")],
+            [Link(shared, 0, "A", memA), Link(shared, 1, "B", memB)],
+            Ct);
+        // The target must exist before a link to it, so A's link back to the shared note is written last.
+        await repo.ReplaceDocumentAsync(Memory(vault, memA, "agents/a/memory/one.md", _agentA.AgentOwner!), [Block("a")], [Link(memA, 0, "Shared", shared)], Ct);
+        return (vault, shared, memA, memB, memB2, repo);
+    }
+
+    private static string[] Ids(GraphSnapshot graph) => graph.Nodes.Select(n => n.Id).ToArray();
+
+    private static string[] Ordered(params Guid[] ids) => ids.Select(id => id.ToString("D")).Order(StringComparer.Ordinal).ToArray();
+
+    [Fact]
+    public async Task The_owner_sees_every_note_and_link()
+    {
+        SkipWithoutDatabase();
+        var (vault, shared, memA, memB, memB2, repo) = await SeedAsync();
+
+        var graph = await new VaultGraphSource(repo, vault).GetSnapshotAsync(GraphViewer.Owner, Ct);
+
+        Assert.Equal(Ordered(shared, memA, memB, memB2), Ids(graph));
+        Assert.Equal(4, graph.Edges.Count);
+    }
+
+    [Fact]
+    public async Task An_agent_sees_its_own_memory_and_shared_notes_but_none_of_another_agents()
+    {
+        SkipWithoutDatabase();
+        var (vault, shared, memA, _, _, repo) = await SeedAsync();
+
+        var graph = await new VaultGraphSource(repo, vault).GetSnapshotAsync(_agentA, Ct);
+
+        Assert.Equal(Ordered(shared, memA), Ids(graph));
+        // Only edges with both ends readable: Shared to A and A to Shared. Nothing points at B's notes.
+        Assert.Equal(2, graph.Edges.Count);
+        Assert.All(graph.Edges, edge => Assert.Contains(edge.From, Ids(graph)));
+        Assert.All(graph.Edges, edge => Assert.Contains(edge.To, Ids(graph)));
+    }
+
+    [Fact]
+    public async Task A_human_member_sees_what_Vault_search_would_show_them_and_no_private_memory()
+    {
+        SkipWithoutDatabase();
+        var (vault, shared, _, _, _, repo) = await SeedAsync();
+
+        var graph = await new VaultGraphSource(repo, vault).GetSnapshotAsync(_human, Ct);
+
+        Assert.Equal(Ordered(shared), Ids(graph));
+        Assert.Empty(graph.Edges);
+    }
+
+    [Fact]
+    public async Task The_graph_follows_the_same_rule_as_Vault_search_for_every_viewer()
+    {
+        SkipWithoutDatabase();
+        var (vault, shared, memA, memB, memB2, repo) = await SeedAsync();
+        var search = new VaultSearchRepository(db.DataSource);
+
+        foreach (var viewer in new[] { GraphViewer.Owner, _agentA, _agentB, _human })
+        {
+            var caller = new VaultCaller(viewer.IsOwner, viewer.IsOwner ? null : viewer.AgentOwner);
+            var graph = await new VaultGraphSource(repo, vault).GetSnapshotAsync(viewer, Ct);
+
+            // The body fetch applies the search clause per document: a node is in the graph exactly when its body is readable.
+            foreach (var id in new[] { shared, memA, memB, memB2 })
+            {
+                var readable = await search.GetBodyAsync(vault, id, 0, caller, Ct) is not null;
+                Assert.Equal(readable, Ids(graph).Contains(id.ToString("D")));
+            }
+        }
+    }
+
+    [Fact]
+    public async Task A_viewer_with_no_readable_notes_gets_an_empty_graph_that_hides_what_exists()
+    {
+        SkipWithoutDatabase();
+        var repo = new VaultIndexRepository(db.DataSource);
+        var vault = Guid.NewGuid();
+        var only = Guid.NewGuid();
+        await repo.ReplaceDocumentAsync(Memory(vault, only, "agents/b/memory/solo.md", _agentB.AgentOwner!), [Block("solo")], [], Ct);
+
+        var graph = await new VaultGraphSource(repo, vault).GetSnapshotAsync(_agentA, Ct);
+        var empty = VaultGraphProjection.Build([], []);
+
+        Assert.Empty(graph.Nodes);
+        Assert.Empty(graph.Edges);
+        Assert.Equal(empty.GraphVersion, graph.GraphVersion);
     }
 
     [Fact]

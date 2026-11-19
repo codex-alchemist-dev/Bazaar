@@ -4,4 +4,8 @@
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Tests drive the chunked codec with small chunk sizes (TokenAmountChunkLayout's internal constructor). -->
+    <InternalsVisibleTo Include="Bazaar.Contracts.Tests" />
+  </ItemGroup>
 </Project>

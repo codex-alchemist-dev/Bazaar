@@ -135,6 +135,29 @@ public class ExportBundleTests
     }
 
     [Fact]
+    public void A_failed_WriteTo_leaves_no_partial_export_behind()
+    {
+        // "a.txt" is a file, so creating the folder "a.txt" for the second entry fails part-way through the write.
+        var files = new List<BundleFile> { new("a.txt", [1, 2, 3]), new("a.txt/b.txt", [4, 5, 6]) };
+        var bundle = ExportBundleWriter.Build("inst-1", _created, files);
+        var dir = Path.Combine(Path.GetTempPath(), "bazaar-bundle-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Assert.ThrowsAny<IOException>(() => ExportBundleWriter.WriteTo(bundle, dir));
+
+            Assert.False(Directory.Exists(dir) && Directory.EnumerateFileSystemEntries(dir).Any());
+
+            // The same directory can be used again once the cause is gone.
+            ExportBundleWriter.WriteTo(ExportBundleWriter.Build("inst-1", _created, SampleFiles()), dir);
+            Assert.True(File.Exists(Path.Combine(dir, "manifest.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void WriteTo_refuses_a_non_empty_directory()
     {
         var bundle = ExportBundleWriter.Build("inst-1", _created, SampleFiles());

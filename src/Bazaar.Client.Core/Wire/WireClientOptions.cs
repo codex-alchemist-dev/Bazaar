@@ -29,6 +29,9 @@ public sealed class WireClientOptions
     /// <summary>Longest reconnect delay (<c>wire.reconnect_backoff_max_s</c>).</summary>
     public TimeSpan BackoffMax { get; init; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>How long to wait for <c>welcome</c> after connecting before dropping the socket and reconnecting.</summary>
+    public TimeSpan HandshakeTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
     /// <summary>Source of jitter in [0, 1). Tests pass a fixed value.</summary>
     public Func<double> Jitter { get; init; } = Random.Shared.NextDouble;
 }

@@ -9,4 +9,14 @@ namespace Bazaar.Server.Constellation.Tiles;
 public interface IConstellationTileSource
 {
     Task<TileFrame?> GetFrameAsync(ViewportRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The tile one viewer may see (doc 19, "Visibility"): nodes, edges, positions and the graph version come from that viewer's
+    /// projection only. The default fails closed: the owner gets the plain tile and everyone else gets none.
+    /// </summary>
+    Task<TileFrame?> GetFrameAsync(ViewportRequest request, GraphViewer viewer, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(viewer);
+        return viewer.IsOwner ? GetFrameAsync(request, cancellationToken) : Task.FromResult<TileFrame?>(null);
+    }
 }

@@ -34,6 +34,18 @@ public sealed class PgVersionFileTests : IDisposable
     }
 
     [Fact]
+    public void Write_replaces_an_existing_file_without_leaving_a_temporary_one()
+    {
+        var data = Path.Combine(_temp, "data");
+        PgVersionFile.Write(data, 18);
+
+        PgVersionFile.Write(data, 19);
+
+        Assert.Equal(19, PgVersionFile.Read(data));
+        Assert.Single(Directory.EnumerateFileSystemEntries(data));
+    }
+
+    [Fact]
     public void Read_accepts_surrounding_whitespace()
     {
         var data = Path.Combine(_temp, "data");

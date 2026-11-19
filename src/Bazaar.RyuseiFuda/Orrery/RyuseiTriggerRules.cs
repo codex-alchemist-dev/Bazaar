@@ -128,6 +128,12 @@ public static class RyuseiTriggerRules
             return RyuseiCheck.Refuse(RyuseiRefusal.InvalidPurpose, "A trigger needs a purpose.");
         }
 
+        // NUL cannot be stored in the purpose column (Postgres text), so it is a refusal here and not a failed insert.
+        if (request.Purpose.Contains('\0'))
+        {
+            return RyuseiCheck.Refuse(RyuseiRefusal.InvalidPurpose, "The purpose cannot hold a NUL character.");
+        }
+
         if (request.PingMode == RyuseiPingMode.Attach && request.AttachGcId is null)
         {
             return RyuseiCheck.Refuse(RyuseiRefusal.PingModeMismatch, "Attach ping mode needs an attach GC.");

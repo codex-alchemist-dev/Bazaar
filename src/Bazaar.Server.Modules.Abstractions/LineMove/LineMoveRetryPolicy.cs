@@ -26,8 +26,12 @@ public sealed record LineMoveRetryPolicy(int MaxAttempts, TimeSpan InitialBackof
             throw new ArgumentOutOfRangeException(nameof(Multiplier), Multiplier, "Multiplier must be from 1 to 10.");
         if (MaxBackoff < InitialBackoff)
             throw new ArgumentOutOfRangeException(nameof(MaxBackoff), MaxBackoff, "MaxBackoff cannot be shorter than InitialBackoff.");
+        if (MaxBackoff > _longestWait)
+            throw new ArgumentOutOfRangeException(nameof(MaxBackoff), MaxBackoff, "MaxBackoff cannot be longer than 30 days: the delay API cannot wait longer than about 49 days.");
         return this;
     }
+
+    private static readonly TimeSpan _longestWait = TimeSpan.FromDays(30);
 
     /// <summary>The wait after failed attempt <paramref name="attempt"/> (1-based), before the next one. Capped at <see cref="MaxBackoff"/>.</summary>
     public TimeSpan BackoffAfter(int attempt)

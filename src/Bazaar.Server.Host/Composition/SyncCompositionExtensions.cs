@@ -39,7 +39,8 @@ public static class SyncCompositionExtensions
             sp.GetRequiredService<IGcAccessPolicy>(),
             sp.GetRequiredService<GcDispatcher>(),
             sp.GetRequiredService<IOptions<SyncOptions>>().Value,
-            sp.GetService<TimeProvider>()));
+            sp.GetService<TimeProvider>(),
+            logger: sp.GetService<ILogger<SubscriptionEngine>>()));
         return services;
     }
 

@@ -623,7 +623,6 @@ src/Bazaar.Server/Security/Audit/Db/PostgresAuditLog.cs
 src/Bazaar.Server/Security/Budgets/ITokenBudgetService.cs
 src/Bazaar.Server/Security/Budgets/ITokenBudgetStore.cs
 src/Bazaar.Server/Security/Budgets/InMemoryTokenBudgetStore.cs
-src/Bazaar.Server/Security/Budgets/Postgres/PostgresTokenBudgetStore.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetEvaluator.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetOptions.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetService.cs

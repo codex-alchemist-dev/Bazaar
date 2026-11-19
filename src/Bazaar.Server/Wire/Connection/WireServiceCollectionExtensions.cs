@@ -12,6 +12,8 @@ namespace Bazaar.Server.Wire.Connection;
 /// <summary>Registration of the wire connection module (doc 02 WP4).</summary>
 public static class WireServiceCollectionExtensions
 {
+    private const int _goingAwayCloseCode = 1001;
+
     /// <summary>
     /// Adds the connection manager, idempotent request layer and JSON codec. The host registers an
     /// <see cref="IConnectionAuthenticator"/> and any <see cref="IWireRequestHandler"/>s.
@@ -35,12 +37,26 @@ public static class WireServiceCollectionExtensions
     public static WebApplication UseBazaarWire(this WebApplication app)
     {
         var options = app.Services.GetRequiredService<IOptions<WireOptions>>().Value;
+        var stopping = app.Lifetime.ApplicationStopping;
+
+        // A socket is a request that never ends by itself, so the server's graceful stop would wait for each one until the host's
+        // shutdown timeout and then abort it (the peer saw 1006, the stop overran its budget). Close them with 1001 "going away"
+        // as soon as the stop begins; clients reconnect with backoff and resume from their cursors.
+        var registry = app.Services.GetRequiredService<WireConnectionRegistry>();
+        stopping.Register(() => _ = registry.CloseAllAsync(_goingAwayCloseCode, "server stopping").AsTask());
+
         app.UseWebSockets();
         app.MapGet(options.Path, async (HttpContext http, WireConnectionManager manager) =>
         {
             if (!http.WebSockets.IsWebSocketRequest)
             {
                 http.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return;
+            }
+
+            if (stopping.IsCancellationRequested)
+            {
+                http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 return;
             }
 

@@ -5,7 +5,6 @@ using Bazaar.Server.AgentSafety.Startup;
 using Bazaar.Server.Identity.Leases;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Budgets;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.KillSwitch.Postgres;
 using Bazaar.Server.Security.Quarantine;
@@ -14,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Npgsql;
 
 namespace Bazaar.Server.AgentSafety;
 
@@ -37,6 +37,7 @@ public static class AgentSafetyModule
         services.TryAddSingleton<IKillSwitchStateStore, PostgresKillSwitchStateStore>();
         services.TryAddSingleton<IContainmentStateStore, PostgresContainmentStateStore>();
         services.TryAddSingleton<INonceStore, PostgresNonceStore>();
+        services.TryAddSingleton(sp => new PostgresLargeTokenAmountStore(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<TimeProvider>()));
         services.TryAddSingleton<ITokenBudgetStore, PostgresTokenBudgetStore>();
         services.AddBazaarApprovals();
         services.TryAddSingleton<IAgentTokenRevoker>(sp => new LeaseTokenRevoker(sp.GetRequiredService<ICredentialLeaseStore>()));
@@ -49,6 +50,7 @@ public static class AgentSafetyModule
 
         services.AddAgentSafety(configuration);
         services.AddHostedService<KillSwitchStartupGate>();
+        services.AddHostedService<LargeTokenAmountSweeper>();
         return services;
     }
 }

@@ -75,6 +75,11 @@ public sealed class KanbanTransitionTool(TaskService tasks) : IContextualTool
             }
 
             reason = reasonElement.GetString();
+            if (reason is not null && reason.Contains('\0'))
+            {
+                // The reason is stored in jsonb payloads, which cannot hold NUL.
+                return Refusal("reason cannot hold a NUL character.").ToJsonString();
+            }
         }
 
         // The actor is the calling agent, never a value from the model's arguments.

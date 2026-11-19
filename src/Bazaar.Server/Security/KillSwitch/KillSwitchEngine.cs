@@ -169,13 +169,18 @@ public sealed class KillSwitchEngine
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-        KillSwitchStop? previous;
-        lock (_gate)
+        // The stop this resume lifts is read and cleared in one lane step, so an engage either lands before it (and is lifted
+        // with it) or after it (and is written to the store again). It never falls between the read and the clear.
+        KillSwitchStop? previous = null;
+        await _lane.RunAsync(async () =>
         {
-            _agentStops.TryGetValue(agentId, out previous);
-        }
+            lock (_gate)
+            {
+                _agentStops.TryGetValue(agentId, out previous);
+            }
 
-        await _lane.RunAsync(() => _store.ClearAgentStopAsync(agentId, ct), ct).ConfigureAwait(false);
+            await _store.ClearAgentStopAsync(agentId, ct).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
 
         try
         {
@@ -188,7 +193,12 @@ public sealed class KillSwitchEngine
 
             lock (_gate)
             {
-                _agentStops.Remove(agentId);
+                // Only the stop that was cleared is lifted. A stop engaged while the release ran (a new breach) is a different
+                // instance, is already in the store, and stays in force.
+                if (_agentStops.TryGetValue(agentId, out var current) && ReferenceEquals(current, previous))
+                {
+                    _agentStops.Remove(agentId);
+                }
             }
 
             await _audit.RecordAsync(new KillSwitchAuditEntry(_time.GetUtcNow(), actorId, KillSwitchAction.Resumed, KillSwitchScope.Agent, agentId, reason), ct)
@@ -275,6 +285,15 @@ public sealed class KillSwitchEngine
             }
             else
             {
+                lock (_gate)
+                {
+                    // A newer stop engaged since the resume began is already stored; it wins over the one being restored.
+                    if (_agentStops.TryGetValue(agentId, out var current) && !ReferenceEquals(current, previous))
+                    {
+                        return;
+                    }
+                }
+
                 await _store.SetAgentStopAsync(previous, ct).ConfigureAwait(false);
                 lock (_gate)
                 {

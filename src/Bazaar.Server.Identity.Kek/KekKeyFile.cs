@@ -34,19 +34,7 @@ internal static class KekKeyFile
                 Array.Clear(fresh);
             }
 
-            try
-            {
-                // CreateNew fails if another start created the file first; that start's key is read below.
-                using var stream = new FileStream(keyPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-                stream.Write(sealed_);
-                stream.Flush(flushToDisk: true);
-            }
-            catch (IOException) when (File.Exists(keyPath))
-            {
-                // Lost the race to another start; fall through and read its key.
-            }
-
-            RestrictToOwner(keyPath);
+            Publish(keyPath, sealed_);
         }
 
         var bytes = File.ReadAllBytes(keyPath);
@@ -67,6 +55,66 @@ internal static class KekKeyFile
         }
 
         return key;
+    }
+
+    /// <summary>
+    /// Writes the sealed key to a private temp file, flushes it, and moves it into place without overwriting. A failed write (a full
+    /// disk, a killed process) leaves no <c>kek.bin</c> behind, so the next start creates it again instead of choking on a torn file;
+    /// a reader never sees a half-written key. If another start published first, its key wins.
+    /// </summary>
+    private static void Publish(string keyPath, byte[] sealedKey)
+    {
+        var temp = keyPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(sealedKey);
+                stream.Flush(flushToDisk: true);
+            }
+
+            RestrictToOwner(temp);
+            PlaceWithoutOverwrite(temp, keyPath);
+        }
+        catch (IOException) when (File.Exists(keyPath) && new FileInfo(keyPath).Length > 0)
+        {
+            // Lost the race to another start; its key is read below.
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (IOException)
+            {
+                // Best effort: a leftover temp file is harmless.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Puts the finished temp file at the key path only if nothing is there. Off Windows a rename replaces its target, and a
+    /// check before it is not atomic, so two first starts could each publish a key and the second would replace the one the
+    /// first had already read. A hard link fails when the name exists, in one step. Windows refuses a move onto an existing
+    /// file by itself. A file system with no hard links falls back to the move.
+    /// </summary>
+    private static void PlaceWithoutOverwrite(string temp, string keyPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.Move(temp, keyPath, overwrite: false);
+            return;
+        }
+
+        try
+        {
+            File.CreateHardLink(keyPath, temp);
+        }
+        catch (Exception error) when (error is UnauthorizedAccessException or NotSupportedException or PlatformNotSupportedException)
+        {
+            File.Move(temp, keyPath, overwrite: false);
+        }
     }
 
     private static void RestrictToOwner(string keyPath)

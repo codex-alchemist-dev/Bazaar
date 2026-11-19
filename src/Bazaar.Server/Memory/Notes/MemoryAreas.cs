@@ -33,10 +33,10 @@ public static partial class MemoryAreas
     /// <summary>Hive kinds a copy may carry (doc 08, section 6; setting <c>hive.allowed_kinds</c>).</summary>
     public static readonly IReadOnlyList<string> HiveKinds = ["procedure", "failure", "technical-fact"];
 
-    [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,63}$")]
+    [GeneratedRegex(@"^[a-z0-9][a-z0-9-]{0,63}\z")]
     private static partial Regex SlugRegex();
 
-    [GeneratedRegex("^[0-9A-Za-z]{26}$")]
+    [GeneratedRegex(@"^[0-9A-Za-z]{26}\z")]
     private static partial Regex UlidRegex();
 
     /// <summary>The folder under the scope root that holds a kind, or null for hive notes.</summary>

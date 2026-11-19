@@ -29,6 +29,18 @@ public sealed class PostgresOwnerNonceStoreTests
     }
 
     [Fact]
+    public async Task Thirty_two_parallel_spends_of_one_nonce_across_store_instances_let_exactly_one_through()
+    {
+        SkipWithoutDatabase();
+        await using var db = await ApprovalTestDb.CreateAsync(Ct);
+
+        var spends = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ =>
+            Task.Run(() => new PostgresOwnerNonceStore(db.DataSource).TryUseAsync(Nonce(7), _expires, Ct), Ct)));
+
+        Assert.Equal(1, spends.Count(s => s));
+    }
+
+    [Fact]
     public async Task Purge_removes_only_expired_nonces()
     {
         SkipWithoutDatabase();

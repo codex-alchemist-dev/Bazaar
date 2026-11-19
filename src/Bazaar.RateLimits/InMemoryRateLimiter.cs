@@ -60,7 +60,8 @@ public sealed class InMemoryRateLimiter : IRateLimiter
             }
 
             // Full: the oldest admitted event leaves the window at oldest + window. Nothing is recorded for a denial.
-            var retryAfter = bucket.Admitted.Peek() + policy.Window - now;
+            // Written as (oldest - now) + window so a huge window cannot overflow the date arithmetic.
+            var retryAfter = (bucket.Admitted.Peek() - now) + policy.Window;
             if (retryAfter < TimeSpan.Zero)
             {
                 retryAfter = TimeSpan.Zero;
@@ -104,12 +105,33 @@ public sealed class InMemoryRateLimiter : IRateLimiter
         public TimeSpan Window { get; set; }
 
         /// <summary>Admission times, oldest first. Only events inside the window are kept after <see cref="Prune"/>.</summary>
-        public Queue<DateTimeOffset> Admitted { get; } = new();
+        public Queue<DateTimeOffset> Admitted { get; private set; } = new();
+
+        private DateTimeOffset _newest = DateTimeOffset.MinValue;
 
         public int Count => Admitted.Count;
 
         public void Prune(DateTimeOffset now)
         {
+            // A clock that stepped backwards leaves admitted times in the future. Pull them back to now: they still count
+            // (the window does not reopen), but they leave the window one window after the step and the queue stays ordered.
+            if (Admitted.Count > 0 && _newest > now)
+            {
+                var clamped = new Queue<DateTimeOffset>(Admitted.Count);
+                foreach (var admitted in Admitted)
+                {
+                    clamped.Enqueue(admitted > now ? now : admitted);
+                }
+                Admitted = clamped;
+            }
+            _newest = now;
+
+            // A window longer than the span back to the minimum date holds everything; the cutoff would not be representable.
+            if (Window >= now - DateTimeOffset.MinValue)
+            {
+                return;
+            }
+
             var cutoff = now - Window;
             while (Admitted.Count > 0 && Admitted.Peek() <= cutoff)
             {

@@ -5,6 +5,7 @@ using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,9 @@ public static class AuthRefreshEndpoints
 {
     private const string _logCategory = "Bazaar.Server.Http.AuthRefresh";
 
+    /// <summary>Largest request body: a refresh secret and a device class are a few hundred bytes. The route takes no credential, so the body is capped before it is buffered.</summary>
+    private const int _maxBodyBytes = 16 * 1024;
+
     /// <summary>Maps the refresh route. The token service is looked up per request, so the route answers 503 until one is registered.</summary>
     public static IEndpointRouteBuilder MapBazaarAuthRefreshRoutes(this IEndpointRouteBuilder routes)
     {
@@ -31,7 +35,20 @@ public static class AuthRefreshEndpoints
     private static async Task<IResult> RefreshAsync(HttpContext http)
     {
         if (TransportRefusal(http) is { } refusal) return refusal;
-        var body = await ReadAsync(http, AuthRefreshWireContext.Default.RefreshBody);
+        if (http.Request.ContentLength > _maxBodyBytes) return HttpSurfaceEndpoints.Error(StatusCodes.Status413PayloadTooLarge, "too_large");
+        if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit) limit.MaxRequestBodySize = _maxBodyBytes;
+
+        RefreshBody? body;
+        try
+        {
+            body = await ReadAsync(http, AuthRefreshWireContext.Default.RefreshBody);
+        }
+        catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            // No declared length, and the body ran past the cap while it was read.
+            return HttpSurfaceEndpoints.Error(StatusCodes.Status413PayloadTooLarge, "too_large");
+        }
+
         if (body is null
             || string.IsNullOrWhiteSpace(body.RefreshToken)
             || string.IsNullOrWhiteSpace(body.DeviceClass))
@@ -79,6 +96,11 @@ public static class AuthRefreshEndpoints
         }
         catch (JsonException)
         {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            // A missing or non-JSON content type: treat it as a malformed request (400), not a server fault (500).
             return null;
         }
     }

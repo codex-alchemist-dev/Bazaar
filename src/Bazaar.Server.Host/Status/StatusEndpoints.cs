@@ -15,14 +15,14 @@ public static class StatusEndpoints
     {
         routes.MapGet("/health/live", () => Results.Text("live"));
 
-        routes.MapGet("/health/ready", async (HostState state, IEnumerable<IReadinessCheck> checks, CancellationToken ct) =>
+        routes.MapGet("/health/ready", async (HostState state, IEnumerable<IReadinessCheck> checks, IOptions<BazaarReadinessOptions> readiness, CancellationToken ct) =>
         {
             var results = new List<ReadinessResult> { new("startup", state.Started, state.Started ? null : "starting") };
             if (state.Started)
             {
                 foreach (var check in checks)
                 {
-                    results.Add(await check.CheckAsync(ct));
+                    results.Add(await RunCheckAsync(check, readiness.Value.CheckTimeout, ct));
                 }
             }
 
@@ -41,6 +41,24 @@ public static class StatusEndpoints
         }));
 
         return routes;
+    }
+
+    /// <summary>
+    /// Runs one check with a deadline. A frozen database (chaos: SIGSTOP on Postgres) used to hang the probe until the caller gave up,
+    /// so an orchestrator saw a timeout instead of a clean 503. A check that overruns is reported not ready.
+    /// </summary>
+    private static async Task<ReadinessResult> RunCheckAsync(IReadinessCheck check, TimeSpan timeout, CancellationToken ct)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        try
+        {
+            return await check.CheckAsync(cts.Token).WaitAsync(timeout, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is TimeoutException or OperationCanceledException)
+        {
+            return new ReadinessResult(check.Name, false, "timeout");
+        }
     }
 
     /// <summary>The authenticated API routes that also take writes: blob uploads and the Constellation tile endpoint.</summary>

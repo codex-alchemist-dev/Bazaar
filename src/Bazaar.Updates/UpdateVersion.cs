@@ -53,8 +53,14 @@ public readonly record struct UpdateVersion : IComparable<UpdateVersion>
             }
         }
 
+        if (preRelease.Length > 0 && !IsValidPreRelease(preRelease))
+        {
+            return false;
+        }
+
         var parts = value.Split('.');
         if (parts.Length != 3
+            || parts.Any(part => part.Length > 1 && part[0] == '0')
             || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var major)
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var minor)
             || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var patch))
@@ -106,7 +112,50 @@ public readonly record struct UpdateVersion : IComparable<UpdateVersion>
             return -1;
         }
 
-        return Math.Sign(string.CompareOrdinal(PreRelease, other.PreRelease));
+        // SemVer 2.0 section 11: compare dot-separated identifiers left to right. Numeric identifiers compare as numbers
+        // (so rc.2 is older than rc.10) and rank below alphanumeric ones; a longer list with an equal prefix is newer.
+        var left = PreRelease.Split('.');
+        var right = other.PreRelease.Split('.');
+        for (var i = 0; i < Math.Min(left.Length, right.Length); i++)
+        {
+            var result = ComparePreReleaseIdentifier(left[i], right[i]);
+            if (result != 0)
+            {
+                return result;
+            }
+        }
+
+        return left.Length.CompareTo(right.Length);
+    }
+
+    private static bool IsValidPreRelease(string preRelease) =>
+        preRelease.Split('.').All(id =>
+            id.Length > 0
+            && id.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')
+            && !(id.Length > 1 && id[0] == '0' && id.All(char.IsAsciiDigit)));
+
+    private static int ComparePreReleaseIdentifier(string left, string right)
+    {
+        var leftNumeric = left.All(char.IsAsciiDigit);
+        var rightNumeric = right.All(char.IsAsciiDigit);
+        if (leftNumeric && rightNumeric)
+        {
+            // By length, then lexically, so a huge number never overflows.
+            var byLength = left.Length.CompareTo(right.Length);
+            return byLength != 0 ? Math.Sign(byLength) : Math.Sign(string.CompareOrdinal(left, right));
+        }
+
+        if (leftNumeric)
+        {
+            return -1;
+        }
+
+        if (rightNumeric)
+        {
+            return 1;
+        }
+
+        return Math.Sign(string.CompareOrdinal(left, right));
     }
 
     public override string ToString() =>

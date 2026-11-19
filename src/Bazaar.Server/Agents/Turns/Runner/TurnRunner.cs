@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gateway;
@@ -190,7 +191,7 @@ public sealed class TurnRunner : ITurnRunner
             }
 
             messages.Add(new ModelMessage(ModelRole.Assistant, response.Text, ToolCalls: response.ToolCalls));
-            if (run.Tokens >= _options.TokenCeiling)
+            if (CeilingReached(run.Tokens, _options.TokenCeiling))
                 return TurnEndReason.TokenCeiling;
 
             foreach (var call in response.ToolCalls)
@@ -415,8 +416,13 @@ public sealed class TurnRunner : ITurnRunner
     private static TurnStepStatus UnfinishedStatus(TurnStepKind kind, bool idempotent) =>
         kind == TurnStepKind.Model || (kind == TurnStepKind.Tool && idempotent) ? TurnStepStatus.Abandoned : TurnStepStatus.Unknown;
 
-    private static long TotalTokens(GatewayTokenUsage usage) =>
+    // Thinking is inside Output (doc 05), but this run counts it again, as before; the sum is exact and cannot wrap.
+    private static TokenAmount TotalTokens(GatewayTokenUsage usage) =>
         usage.Input + usage.CacheWrite5m + usage.CacheWrite1h + usage.CacheRead + usage.Output + usage.Thinking;
+
+    /// <summary>True when the run's tokens reach the ceiling. A negative ceiling is reached by any count.</summary>
+    private static bool CeilingReached(TokenAmount tokens, long ceiling) =>
+        ceiling < 0 || tokens >= TokenAmount.FromInt64(ceiling);
 
     private static string ToolContent(ToolDispatchOutcome outcome, string? resultJson, string? reason) => outcome switch
     {
@@ -443,7 +449,7 @@ public sealed class TurnRunner : ITurnRunner
         public Guid TurnId { get; set; }
         public int StepCount { get; set; }
         public int ModelResponses { get; set; }
-        public long Tokens { get; set; }
+        public TokenAmount Tokens { get; set; }
         public string? Summary { get; set; }
         public TurnEndReason? Reason { get; set; }
         public bool PostDone { get; set; }
@@ -477,9 +483,15 @@ public sealed class TurnRunner : ITurnRunner
             switch (ev)
             {
                 case ModelEvent.TextDelta text:
+                    // The step response is stored as jsonb, which cannot hold NUL: a response carrying one is a bad upstream
+                    // response, not a server fault.
+                    if (HasNul(text.Text))
+                        return FailBadText();
                     _text.Append(text.Text);
                     return false;
                 case ModelEvent.ToolCallStart start:
+                    if (HasNul(start.CallId) || HasNul(start.Name) || HasNul(start.ProviderData))
+                        return FailBadText();
                     _calls.Add(new PendingCall(start.CallId, start.Name, start.ProviderData));
                     return false;
                 case ModelEvent.ToolCallArgsDelta args:
@@ -490,6 +502,8 @@ public sealed class TurnRunner : ITurnRunner
                         return true;
                     }
 
+                    if (HasNul(args.ArgumentsFragment))
+                        return FailBadText();
                     call.Arguments.Append(args.ArgumentsFragment);
                     return false;
                 case ModelEvent.UsageReported usage:
@@ -499,6 +513,8 @@ public sealed class TurnRunner : ITurnRunner
                     _failed = true;
                     return true;
                 case ModelEvent.Done done:
+                    if (HasNul(done.ServedModel))
+                        return FailBadText();
                     _done = true;
                     _stop = done.StopReason;
                     _servedModel = done.ServedModel;
@@ -510,6 +526,14 @@ public sealed class TurnRunner : ITurnRunner
         }
 
         public void Fail() => _failed = true;
+
+        private static bool HasNul(string? value) => value is not null && value.Contains('\0');
+
+        private bool FailBadText()
+        {
+            _failed = true;
+            return true;
+        }
 
         public ModelStepPayload ToPayload() => new(
             _text.ToString(),

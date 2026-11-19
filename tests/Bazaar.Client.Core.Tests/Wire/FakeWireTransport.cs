@@ -18,12 +18,24 @@ internal sealed class FakeWireTransport : IWireTransportFactory
 
     public bool WelcomeUpgradeRequired { get; set; }
 
+    /// <summary>When true, <c>hello</c> is never answered (a server that accepts the socket and says nothing).</summary>
+    public bool SuppressWelcome { get; set; }
+
+    /// <summary>When set, the next connect attempt throws this exception (once).</summary>
+    public Exception? NextConnectThrows { get; set; }
+
     public ValueTask<IWireConnection> ConnectAsync(CancellationToken cancellationToken)
     {
         if (FailNextConnects > 0)
         {
             FailNextConnects--;
             throw new InvalidOperationException("server unreachable");
+        }
+
+        if (NextConnectThrows is { } failure)
+        {
+            NextConnectThrows = null;
+            throw failure;
         }
 
         var conn = new FakeConnection(this);
@@ -52,11 +64,15 @@ internal sealed class FakeConnection(FakeWireTransport owner) : IWireConnection
         get { lock (_sent) return [.. _sent]; }
     }
 
+    /// <summary>When true, every send waits until cancelled (a peer that stopped reading; the TCP window is full).</summary>
+    public bool BlockSends { get; set; }
+
     public ValueTask SendAsync(ReadOnlyMemory<byte> frame, CancellationToken cancellationToken)
     {
+        if (BlockSends) return new ValueTask(Task.Delay(Timeout.Infinite, cancellationToken));
         var env = owner.Codec.Decode(frame.Span);
         lock (_sent) _sent.Add(env);
-        if (env.T == WireTypes.Hello)
+        if (env.T == WireTypes.Hello && !owner.SuppressWelcome)
         {
             Push(new Envelope(1, WireTypes.Welcome, EnvelopeKind.Response, null, env.Id, null, null, DateTimeOffset.UnixEpoch,
                 owner.Codec.EncodePayload(new Welcome(1, 0, "json", Guid.Empty, DateTimeOffset.UnixEpoch, 20, 60,

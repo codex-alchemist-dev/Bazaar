@@ -84,6 +84,12 @@ public class ModelManifestReaderTests
     }
 
     [Theory]
+    [InlineData("model.onnx\n")]
+    [InlineData("model.onnx\r")]
+    public void A_trailing_line_break_is_not_part_of_a_plain_name(string name) =>
+        Assert.False(ModelManifestReader.IsSafeName(name));
+
+    [Theory]
     [InlineData("../escape")]
     [InlineData("nested/file.bin")]
     [InlineData("..")]

@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Usage;
 
 namespace Bazaar.Server.Tests.Gateway.Usage;
@@ -147,4 +148,35 @@ public class UsageTotalsBuilderTests
             RetryAfterSeconds: null,
             Estimated: estimated,
             PriceVersion: null);
+
+    [Fact]
+    public void Totals_past_the_long_range_stay_exact_and_cost_is_unknown_not_wrong()
+    {
+        var huge = new GatewayTokenUsage(long.MaxValue, 0, 0, 0, long.MaxValue, 0);
+        var records = new[]
+        {
+            Record() with { Tokens = huge },
+            Record() with { Tokens = huge },
+        };
+
+        var (total, _) = UsageTotalsBuilder.Build(records, _prices);
+
+        Assert.Equal(TokenAmount.Parse("18446744073709551614"), total.Tokens.Input);
+        Assert.Equal(TokenAmount.Parse("18446744073709551614"), total.Tokens.Output);
+        Assert.Equal(2, total.LongPromptCalls);
+        Assert.True(total.IsCostKnown);
+    }
+
+    [Fact]
+    public void A_count_too_large_for_decimal_arithmetic_makes_the_cost_unknown()
+    {
+        var absurd = new GatewayTokenUsage(TokenAmount.Parse(new string('9', 60)), TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.One, TokenAmount.Zero);
+
+        var (total, _) = UsageTotalsBuilder.Build([Record() with { Tokens = absurd }], _prices);
+
+        Assert.Equal(1, total.UnpricedCalls);
+        Assert.False(total.IsCostKnown);
+        Assert.Equal(0m, total.CostUsd);
+        Assert.Equal(TokenAmount.Parse(new string('9', 60)), total.Tokens.Input);
+    }
 }

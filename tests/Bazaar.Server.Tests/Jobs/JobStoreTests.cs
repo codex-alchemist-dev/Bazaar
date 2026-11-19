@@ -158,6 +158,28 @@ public sealed class JobStoreTests(JobDb db) : IClassFixture<JobDb>
         Assert.Equal(2, failed.Attempts);
     }
 
+    // Chaos round 3: the stored error is cut to 2000 characters and Postgres text cannot hold NUL. A cut through a surrogate pair
+    // or a NUL in an exception message used to make the failure report itself throw, leaving the job leased.
+    [Theory]
+    [InlineData(1999, "\ud83d\ude00")]
+    [InlineData(10, "\0")]
+    [InlineData(3, "\ud800")]
+    public async Task A_hostile_error_text_is_recorded_without_breaking_the_failure_report(int prefix, string tail)
+    {
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var id = (await Store.EnqueueAsync("hostile-error", "{}", ct: Ct))!.Value;
+        await Store.ClaimDueAsync("holder", TimeSpan.FromMinutes(1), 10, Ct);
+        var error = new string('a', prefix) + tail + new string('b', 50);
+
+        Assert.True(await Store.FailAsync(id, "holder", 3, TimeSpan.FromMinutes(10), error, Ct));
+
+        var job = await Store.GetAsync(id, Ct);
+        Assert.Equal("queued", job!.State);
+        Assert.False(string.IsNullOrEmpty(job.LastError));
+        Assert.StartsWith(new string('a', Math.Min(prefix, 10)), job.LastError, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_lease_that_expired_on_its_final_attempt_is_failed_not_retried()
     {
@@ -181,5 +203,25 @@ public sealed class JobStoreTests(JobDb db) : IClassFixture<JobDb>
 
         var ex = await Assert.ThrowsAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync(Ct));
         Assert.Equal("23514", ex.SqlState);
+    }
+
+    [Fact]
+    public async Task Release_unstarted_requeues_only_jobs_the_owner_still_holds_and_refunds_the_attempt()
+    {
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var mine = (await Store.EnqueueAsync("release", "{}", ct: Ct))!.Value;
+        var theirs = (await Store.EnqueueAsync("release", "{}", ct: Ct))!.Value;
+        Assert.Equal(2, (await Store.ClaimDueAsync("owner-a", TimeSpan.FromMinutes(1), 10, Ct)).Count);
+
+        // owner-b stole nothing: only owner-a's own claim on `mine` is released; a foreign id list changes nothing.
+        Assert.Equal(0, await Store.ReleaseUnstartedAsync("owner-b", [mine, theirs], Ct));
+        Assert.Equal(1, await Store.ReleaseUnstartedAsync("owner-a", [mine], Ct));
+        Assert.Equal(0, await Store.ReleaseUnstartedAsync("owner-a", [mine], Ct));
+
+        var released = (await Store.GetAsync(mine, Ct))!;
+        Assert.Equal(("queued", 0), (released.State, released.Attempts));
+        Assert.Equal("running", (await Store.GetAsync(theirs, Ct))!.State);
+        Assert.Equal(mine, Assert.Single(await Store.ClaimDueAsync("owner-c", TimeSpan.FromMinutes(1), 10, Ct)).Id);
     }
 }

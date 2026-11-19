@@ -288,6 +288,29 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
         Assert.Equal(1, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
     }
 
+    // Chaos round 3: jsonb cannot hold NUL, so a model response carrying one used to fail at the step write and throw out of the
+    // run. It is a bad upstream response like any other: the turn ends as gateway_failed and the step is abandoned.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_model_response_with_a_nul_character_ends_the_turn_as_gateway_failed(bool inToolArguments)
+    {
+        SkipWithoutDatabase();
+        var h = new Harness();
+        var agent = await NewAgentAsync();
+        var item = await EnqueueMentionAsync(agent);
+        if (inToolArguments)
+            h.Provider.EnqueueCall([.. CallTool("c1", "lookup", "{\"q\":\"a\0b\"}"), Finish(StopReason.ToolUse)]);
+        else
+            h.Provider.EnqueueCall(Text("a\0b"), Finish(StopReason.EndTurn));
+
+        var outcome = await h.Create(db, Options()).RunAsync(Request(agent, [item]), Ct);
+
+        Assert.Equal(TurnEndReason.GatewayFailed, outcome.Reason);
+        Assert.Equal(TurnStepStatus.Abandoned, (await Steps.ListAsync(outcome.TurnId, Ct)).Single().Status);
+        Assert.Empty(h.Posts.Posts);
+    }
+
     [Fact]
     public async Task A_gateway_that_throws_ends_the_turn_as_gateway_failed()
     {

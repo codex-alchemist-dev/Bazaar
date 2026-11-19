@@ -69,6 +69,8 @@ public sealed class WireClient(
             conn = _connection;
         }
 
+        if (Stopped is not null) pending.Completion.TrySetException(new InvalidOperationException("The wire client has stopped."));
+
         using var reg = cancellationToken.Register(() => pending.Completion.TrySetCanceled(cancellationToken));
         try
         {
@@ -101,13 +103,10 @@ public sealed class WireClient(
                         terminal = await RunConnectionAsync(conn, () => attempt = 0, cancellationToken).ConfigureAwait(false);
                     }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException && ex is not WireFormatException)
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
                 {
-                    // Unreachable server or a broken socket: back off and retry.
-                }
-                catch (WireFormatException)
-                {
-                    // A bad frame closes the socket (4400); reconnect like any other drop.
+                    // Unreachable server, a broken socket, a bad frame (4400) or a connect the transport itself timed out
+                    // (which surfaces as a cancellation that is not ours): back off and reconnect like any other drop.
                 }
                 finally
                 {
@@ -117,19 +116,28 @@ public sealed class WireClient(
                 if (Terminal(terminal) is { } reason)
                 {
                     Stopped = reason;
-                    return;
+                    break;
                 }
 
                 await Task.Delay(BackoffDelay(attempt++), time, cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception) when (cancellationToken.IsCancellationRequested)
         {
         }
 
         Stopped ??= WireClientStopReason.Cancelled;
         _messages.Writer.TryComplete();
         _resyncs.Writer.TryComplete();
+        FailPending();
+    }
+
+    /// <summary>Ends every waiting request: a stopped client never answers, so waiting would hang the caller forever.</summary>
+    private void FailPending()
+    {
+        Pending[] waiting;
+        lock (_gate) waiting = [.. _pending.Values];
+        foreach (var p in waiting) p.Completion.TrySetException(new InvalidOperationException("The wire client has stopped."));
     }
 
     private static WireClientStopReason? Terminal(int? closeCode) => closeCode switch
@@ -151,15 +159,28 @@ public sealed class WireClient(
     /// <returns>The close code when the server ended the socket, or null when it dropped without one.</returns>
     private async Task<int?> RunConnectionAsync(IWireConnection conn, Action connected, CancellationToken ct)
     {
-        await SendAsync(conn, new Envelope(options.ProtocolMajor, WireTypes.Hello, EnvelopeKind.Request, null, null, null, null, null,
-            codec.EncodePayload(new Hello(options.ProtocolMajor, options.ProtocolMajor, options.ProtocolMinor, [codec.Name],
-                options.DeviceId, options.DeviceClass, options.ClientBuild, options.Credential, null))), ct).ConfigureAwait(false);
+        Welcome welcome;
+        using (var handshakeLimit = new CancellationTokenSource(options.HandshakeTimeout, time))
+        using (var handshake = CancellationTokenSource.CreateLinkedTokenSource(ct, handshakeLimit.Token))
+        {
+            try
+            {
+                await SendAsync(conn, new Envelope(options.ProtocolMajor, WireTypes.Hello, EnvelopeKind.Request, null, null, null, null, null,
+                    codec.EncodePayload(new Hello(options.ProtocolMajor, options.ProtocolMajor, options.ProtocolMinor, [codec.Name],
+                        options.DeviceId, options.DeviceClass, options.ClientBuild, options.Credential, null))), handshake.Token).ConfigureAwait(false);
 
-        var first = await conn.ReceiveAsync(ct).ConfigureAwait(false);
-        if (first.IsClosed) return first.CloseCode;
-        var welcomeEnv = codec.Decode(first.Frame.Span);
-        if (welcomeEnv.T != WireTypes.Welcome) throw new WireFormatException("Expected welcome.");
-        var welcome = codec.DecodePayload<Welcome>(welcomeEnv);
+                var first = await conn.ReceiveAsync(handshake.Token).ConfigureAwait(false);
+                if (first.IsClosed) return first.CloseCode;
+                var welcomeEnv = codec.Decode(first.Frame.Span);
+                if (welcomeEnv.T != WireTypes.Welcome) throw new WireFormatException("Expected welcome.");
+                welcome = codec.DecodePayload<Welcome>(welcomeEnv);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                return null; // no welcome in time (or the hello never left): a silent server is a dropped one
+            }
+        }
+
         if (welcome.UpgradeRequired == true) return WireCloseCodes.UpgradeRequired;
         connected();
 
@@ -172,19 +193,20 @@ public sealed class WireClient(
             resend = [.. _pending.Values];
         }
 
-        if (streams.Length > 0) await SendSubscribeAsync(conn, streams, ct).ConfigureAwait(false);
-        foreach (var p in resend) await conn.SendAsync(p.Frame, ct).ConfigureAwait(false);
-
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var heartbeat = HeartbeatAsync(conn, welcome, linked);
         try
         {
+            // Everything after the welcome runs on the linked token, so a peer that stops reading is cut by the heartbeat.
+            if (streams.Length > 0) await SendSubscribeAsync(conn, streams, linked.Token).ConfigureAwait(false);
+            foreach (var p in resend) await conn.SendAsync(p.Frame, linked.Token).ConfigureAwait(false);
+
             while (true)
             {
                 var received = await conn.ReceiveAsync(linked.Token).ConfigureAwait(false);
                 if (received.IsClosed) return received.CloseCode == 0 ? null : received.CloseCode;
                 _lastFrame = time.GetUtcNow();
-                await HandleAsync(codec.Decode(received.Frame.Span), conn, ct).ConfigureAwait(false);
+                await HandleAsync(codec.Decode(received.Frame.Span), conn, linked.Token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -213,8 +235,19 @@ public sealed class WireClient(
                 return;
             }
 
-            await TrySendAsync(conn, Frame(new Envelope(options.ProtocolMajor, WireTypes.Ping, EnvelopeKind.Request, null, null, null, null, null,
-                codec.EncodePayload(new Ping(null)))), linked.Token).ConfigureAwait(false);
+            // A ping that cannot leave within the silence limit means the peer stopped reading: cut the connection.
+            using var sendLimit = new CancellationTokenSource(timeout, time);
+            using var send = CancellationTokenSource.CreateLinkedTokenSource(linked.Token, sendLimit.Token);
+            try
+            {
+                await TrySendAsync(conn, Frame(new Envelope(options.ProtocolMajor, WireTypes.Ping, EnvelopeKind.Request, null, null, null, null, null,
+                    codec.EncodePayload(new Ping(null)))), send.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!linked.IsCancellationRequested)
+            {
+                await linked.CancelAsync().ConfigureAwait(false);
+                return;
+            }
         }
     }
 
@@ -232,10 +265,12 @@ public sealed class WireClient(
                 break;
             case (EnvelopeKind.Event, WireTypes.Lagged):
                 // Live delivery stopped for this stream; resubscribe from the cursor so nothing is lost.
-                await SendSubscribeAsync(conn, [codec.DecodePayload<Lagged>(env).S], ct).ConfigureAwait(false);
+                var lagged = codec.DecodePayload<Lagged>(env).S;
+                if (IsSubscribed(lagged)) await SendSubscribeAsync(conn, [lagged], ct).ConfigureAwait(false);
                 break;
             case (EnvelopeKind.Event, WireTypes.Resync):
                 var resync = codec.DecodePayload<Resync>(env);
+                if (!IsSubscribed(resync.S)) break;
                 foreach (var m in resync.Tail) Apply(m);
                 var cur = cursors.Load(resync.S);
                 cursors.Save(new StreamCursor(resync.S, Math.Max(cur.After, resync.LatestN), Math.Max(cur.EditAfter, resync.LatestEv)));
@@ -253,10 +288,16 @@ public sealed class WireClient(
     private void Apply(WireGcMessage m)
     {
         string stream = WireStreams.Gc(m.GcId);
+        if (!IsSubscribed(stream)) return; // never asked for, or access was revoked: not delivered, and no cursor grows for it
         var cur = cursors.Load(stream);
         if (m.N <= cur.After && m.Ev <= cur.EditAfter) return;
         cursors.Save(new StreamCursor(stream, Math.Max(cur.After, m.N), Math.Max(cur.EditAfter, m.Ev)));
         _messages.Writer.TryWrite(m);
+    }
+
+    private bool IsSubscribed(string stream)
+    {
+        lock (_gate) return _streams.Contains(stream);
     }
 
     private ValueTask SendSubscribeAsync(IWireConnection conn, IEnumerable<string> streams, CancellationToken ct)

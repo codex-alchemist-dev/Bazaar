@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Adapters.Common;
 
 namespace Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -17,12 +18,13 @@ internal sealed class AnthropicStreamParser
     private StopReason _stopReason = StopReason.Other;
     private string? _servedModel;
     private bool _sawUsage;
-    private long? _input;
-    private long? _cacheRead;
-    private long? _output;
-    private long? _cacheWriteFlat;
-    private long? _cacheWrite5m;
-    private long? _cacheWrite1h;
+    private bool _usageInvalid;
+    private TokenAmount? _input;
+    private TokenAmount? _cacheRead;
+    private TokenAmount? _output;
+    private TokenAmount? _cacheWriteFlat;
+    private TokenAmount? _cacheWrite5m;
+    private TokenAmount? _cacheWrite1h;
 
     public AnthropicStreamParser(string requestedModel) => _requestedModel = requestedModel;
 
@@ -267,7 +269,9 @@ internal sealed class AnthropicStreamParser
 
     private void EmitUsage(List<ModelEvent> events)
     {
-        if (_sawUsage)
+        // A count that is negative or outside the numeric bounds makes the whole report untrustworthy. It is not emitted, so the
+        // usage row estimates from the text it saw and is marked estimated (doc 05, doc 48 DECIDED 11.3).
+        if (_sawUsage && !_usageInvalid)
         {
             events.Add(new ModelEvent.UsageReported(Usage()));
         }
@@ -280,15 +284,15 @@ internal sealed class AnthropicStreamParser
     private void MergeUsage(JsonElement usage)
     {
         _sawUsage = true;
-        _input = LongProp(usage, "input_tokens") ?? _input;
-        _cacheRead = LongProp(usage, "cache_read_input_tokens") ?? _cacheRead;
-        _output = LongProp(usage, "output_tokens") ?? _output;
-        _cacheWriteFlat = LongProp(usage, "cache_creation_input_tokens") ?? _cacheWriteFlat;
+        _input = AmountProp(usage, "input_tokens") ?? _input;
+        _cacheRead = AmountProp(usage, "cache_read_input_tokens") ?? _cacheRead;
+        _output = AmountProp(usage, "output_tokens") ?? _output;
+        _cacheWriteFlat = AmountProp(usage, "cache_creation_input_tokens") ?? _cacheWriteFlat;
 
         if (usage.TryGetProperty("cache_creation", out var breakdown) && breakdown.ValueKind == JsonValueKind.Object)
         {
-            _cacheWrite5m = LongProp(breakdown, "ephemeral_5m_input_tokens") ?? _cacheWrite5m;
-            _cacheWrite1h = LongProp(breakdown, "ephemeral_1h_input_tokens") ?? _cacheWrite1h;
+            _cacheWrite5m = AmountProp(breakdown, "ephemeral_5m_input_tokens") ?? _cacheWrite5m;
+            _cacheWrite1h = AmountProp(breakdown, "ephemeral_1h_input_tokens") ?? _cacheWrite1h;
         }
     }
 
@@ -300,9 +304,9 @@ internal sealed class AnthropicStreamParser
     private GatewayTokenUsage Usage()
     {
         var hasBreakdown = _cacheWrite5m is not null || _cacheWrite1h is not null;
-        var write5m = hasBreakdown ? (_cacheWrite5m ?? 0) : (_cacheWriteFlat ?? 0);
-        var write1h = hasBreakdown ? (_cacheWrite1h ?? 0) : 0;
-        return new GatewayTokenUsage(_input ?? 0, write5m, write1h, _cacheRead ?? 0, _output ?? 0, 0);
+        var write5m = hasBreakdown ? (_cacheWrite5m ?? TokenAmount.Zero) : (_cacheWriteFlat ?? TokenAmount.Zero);
+        var write1h = hasBreakdown ? (_cacheWrite1h ?? TokenAmount.Zero) : TokenAmount.Zero;
+        return new GatewayTokenUsage(_input ?? TokenAmount.Zero, write5m, write1h, _cacheRead ?? TokenAmount.Zero, _output ?? TokenAmount.Zero, TokenAmount.Zero);
     }
 
     private static StopReason MapStopReason(string reason) => reason switch
@@ -322,6 +326,29 @@ internal sealed class AnthropicStreamParser
         && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    /// <summary>
+    /// A token count from a JSON number, read exactly (never through a 64-bit or floating-point type). Absent or not a number is
+    /// null, as before. A number that is not a valid amount (negative, or beyond the numeric digit bounds) marks the whole report
+    /// invalid and is null.
+    /// </summary>
+    private TokenAmount? AmountProp(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty(name, out var value)
+            || value.ValueKind != JsonValueKind.Number)
+        {
+            return null;
+        }
+
+        if (TokenAmount.TryParse(value.GetRawText(), out var amount))
+        {
+            return amount;
+        }
+
+        _usageInvalid = true;
+        return null;
+    }
 
     private static long? LongProp(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object

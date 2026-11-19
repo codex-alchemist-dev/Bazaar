@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 
 namespace Bazaar.Server.Gateway.Usage;
 
@@ -16,7 +17,7 @@ public sealed class UsageAccumulator
     private readonly string _modelId;
     private readonly GatewayIdentity _identity;
     private readonly TimeProvider _time;
-    private readonly long _estimatedInputTokens;
+    private readonly TokenAmount _estimatedInputTokens;
     private readonly DateTimeOffset _startedAt;
     private readonly long _startTimestamp;
 
@@ -45,14 +46,13 @@ public sealed class UsageAccumulator
         string modelId,
         GatewayIdentity identity,
         TimeProvider time,
-        long estimatedInputTokens = 0)
+        TokenAmount estimatedInputTokens = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(keyRef);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         ArgumentNullException.ThrowIfNull(time);
-        ArgumentOutOfRangeException.ThrowIfNegative(estimatedInputTokens);
 
         _agentId = agentId;
         _turnId = turnId;
@@ -66,7 +66,7 @@ public sealed class UsageAccumulator
         _startTimestamp = time.GetTimestamp();
     }
 
-    /// <summary>Counts one event. Text is measured and dropped; a later usage report replaces an earlier one.</summary>
+    /// <summary>Counts one event. Text is measured and dropped; a later usage report replaces an earlier one, and an impossible one is ignored.</summary>
     public void Observe(ModelEvent modelEvent)
     {
         ArgumentNullException.ThrowIfNull(modelEvent);
@@ -84,8 +84,14 @@ public sealed class UsageAccumulator
                 _argumentChars += args.ArgumentsFragment.Length;
                 break;
 
-            case ModelEvent.UsageReported usage:
+            case ModelEvent.UsageReported usage when IsPossible(usage.Usage):
                 _usage = usage.Usage;
+                break;
+
+            case ModelEvent.UsageReported:
+                // More thinking than output cannot be true (a negative or unreadable count never reaches here: the type has no
+                // such value, and the adapters drop the report). It is ignored, so the row falls back to the estimate (marked
+                // estimated) instead of failing the gw_usage CHECK constraint.
                 break;
 
             case ModelEvent.Failure failure:
@@ -139,6 +145,20 @@ public sealed class UsageAccumulator
             PriceVersion: priced ? prices!.Version : null);
     }
 
+    /// <summary>
+    /// True when thinking does not exceed output, as gw_usage requires. Every count is a <see cref="TokenAmount"/>, which is
+    /// never negative, so that is the only impossible shape left; counts outside the numeric bounds are refused where they
+    /// are read (adapters) and where they are stored (the repository).
+    /// </summary>
+    internal static bool IsPossible(GatewayTokenUsage usage) =>
+        usage.Thinking <= usage.Output
+        && usage.Input.Fits(TokenAmountBounds.PostgresNumeric)
+        && usage.CacheWrite5m.Fits(TokenAmountBounds.PostgresNumeric)
+        && usage.CacheWrite1h.Fits(TokenAmountBounds.PostgresNumeric)
+        && usage.CacheRead.Fits(TokenAmountBounds.PostgresNumeric)
+        && usage.Output.Fits(TokenAmountBounds.PostgresNumeric)
+        && usage.Thinking.Fits(TokenAmountBounds.PostgresNumeric);
+
     /// <summary>Claims the right to record this accumulator. Returns false if it was already claimed.</summary>
     internal bool TryClaimRecording() => Interlocked.CompareExchange(ref _recorded, 1, 0) == 0;
 
@@ -147,12 +167,12 @@ public sealed class UsageAccumulator
 
     private GatewayTokenUsage EstimateTokens() => new(
         _estimatedInputTokens,
-        0,
-        0,
-        0,
+        TokenAmount.Zero,
+        TokenAmount.Zero,
+        TokenAmount.Zero,
         CeilQuarter(_textChars + _thinkingChars + _argumentChars),
         CeilQuarter(_thinkingChars));
 
     /// <summary>Roughly four characters per token, rounded up.</summary>
-    private static long CeilQuarter(long chars) => (chars + 3) / 4;
+    private static TokenAmount CeilQuarter(long chars) => TokenAmount.FromInt64((chars + 3) / 4);
 }

@@ -23,7 +23,7 @@ public sealed record VaultBlockRow(
 public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
 {
     // Access, shared by every query. $1 is the caller's IsOwner and $2 the caller's agent owner (or null).
-    private const string _accessClause = "($1::boolean OR d.owner IS NULL OR d.owner = $2::text)";
+    internal const string AccessClause = "($1::boolean OR d.owner IS NULL OR d.owner = $2::text)";
 
     private const string _filterClause = """
         AND ($3::text IS NULL OR d.project = $3::text)
@@ -40,7 +40,7 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
             FROM vault_blocks b
             JOIN vault_docs d ON d.doc_id = b.doc_id
             CROSS JOIN websearch_to_tsquery('english', $5::text) AS q(query)
-            WHERE d.vault_id = $6 AND b.tsv @@ q.query AND {_accessClause} {_filterClause}
+            WHERE d.vault_id = $6 AND b.tsv @@ q.query AND {AccessClause} {_filterClause}
             ORDER BY score DESC, b.doc_id, b.ordinal
             LIMIT $7
             """);
@@ -62,7 +62,7 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
             FROM vault_block_embedding e
             JOIN vault_blocks b ON b.doc_id = e.doc_id AND b.ordinal = e.ordinal
             JOIN vault_docs d ON d.doc_id = b.doc_id
-            WHERE e.profile_id = $6 AND d.vault_id = $7 AND {_accessClause} {_filterClause}
+            WHERE e.profile_id = $6 AND d.vault_id = $7 AND {AccessClause} {_filterClause}
             ORDER BY e.embedding <=> $5::text::halfvec, b.doc_id, b.ordinal
             LIMIT $8
             """);
@@ -102,7 +102,7 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
                 SELECT b.doc_id, b.ordinal, b.heading_path, b.body FROM vault_blocks b
                 WHERE b.doc_id = d.doc_id ORDER BY b.ordinal LIMIT 1
             ) first_block
-            WHERE d.vault_id = $3 AND NOT (d.doc_id = ANY($4::uuid[])) AND {_accessClause}
+            WHERE d.vault_id = $3 AND NOT (d.doc_id = ANY($4::uuid[])) AND {AccessClause}
             ORDER BY d.path
             LIMIT $5
             """);
@@ -118,7 +118,7 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
     {
         await using var cmd = dataSource.CreateCommand($"""
             SELECT b.body FROM vault_blocks b JOIN vault_docs d ON d.doc_id = b.doc_id
-            WHERE d.vault_id = $3 AND b.doc_id = $4 AND b.ordinal = $5 AND {_accessClause}
+            WHERE d.vault_id = $3 AND b.doc_id = $4 AND b.ordinal = $5 AND {AccessClause}
             """);
         AddAccessParameters(cmd, caller);
         cmd.Parameters.AddWithValue(vaultId);

@@ -68,15 +68,58 @@ public sealed class AesGcmManagedPasswordStore(string path, IManagedStoreKeyProv
         tag.CopyTo(blob, _nonceSize);
         cipher.CopyTo(blob, _nonceSize + _tagSize);
 
-        // Write beside the target and move into place, so a crash never leaves a half-written store.
-        var temp = path + ".tmp";
-        await File.WriteAllBytesAsync(temp, blob, cancellationToken);
-        if (!OperatingSystem.IsWindows())
+        // Write to a private temp name beside the target, flush it to disk, then move it into place. A unique name keeps two
+        // saves from sharing one temp file, the flush keeps a power cut from leaving a torn store behind a finished rename,
+        // and the owner-only mode is set at creation so the file is never readable by others, even briefly.
+        var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
         {
-            File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        }
+            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous };
+            if (!OperatingSystem.IsWindows())
+            {
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            }
 
-        File.Move(temp, path, overwrite: true);
+            await using (var stream = new FileStream(temp, options))
+            {
+                await stream.WriteAsync(blob, cancellationToken);
+                stream.Flush(flushToDisk: true);
+            }
+
+            await MoveIntoPlaceAsync(temp, path, cancellationToken);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (IOException)
+            {
+                // Best effort: a leftover temp name is unique and never read.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Moves the finished temp file over the store. On Windows a replace is refused while another save is replacing the same
+    /// file or a reader has it open, so the move is tried again for up to a second; elsewhere a rename over the target is atomic.
+    /// </summary>
+    private static async Task MoveIntoPlaceAsync(string temp, string target, CancellationToken cancellationToken)
+    {
+        const int attempts = 50;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temp, target, overwrite: true);
+                return;
+            }
+            catch (Exception error) when (OperatingSystem.IsWindows() && attempt < attempts && error is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
+            }
+        }
     }
 
     private async Task<byte[]> LoadKeyAsync(CancellationToken cancellationToken)

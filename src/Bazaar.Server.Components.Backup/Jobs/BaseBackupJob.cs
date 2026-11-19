@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bazaar.Contracts.Backup;
 using Bazaar.Server.Components.Backup.Engines;
 using Bazaar.Server.Components.Backup.Processes;
+using Bazaar.Server.Components.Backup.Restore;
 using Bazaar.Server.Components.Backup.Retention;
 
 namespace Bazaar.Server.Components.Backup.Jobs;
@@ -35,7 +36,8 @@ public sealed class BaseBackupJob(
             Directory.CreateDirectory(setsRoot);
             var destination = Path.Combine(setsRoot, "set-" + runId.ToString("N"));
             var set = await engine.TakeBaseBackupAsync(destination, ct).ConfigureAwait(false);
-            await File.WriteAllTextAsync(Path.Combine(set.Path, SidecarName), JsonSerializer.Serialize(new SidecarV1(set.SetId, set.TakenAt, set.Bytes, set.StartWal)), ct).ConfigureAwait(false);
+            // Atomic: a sidecar cut short by a crash or a full disk would hide a finished set.
+            DurableFile.WriteAtomically(Path.Combine(set.Path, SidecarName), JsonSerializer.SerializeToUtf8Bytes(new SidecarV1(set.SetId, set.TakenAt, set.Bytes, set.StartWal)));
 
             var existing = DiscoverSets(setsRoot).ToList();
             var plan = RetentionPlanner.Plan(existing, baseSetsKept);
@@ -64,10 +66,24 @@ public sealed class BaseBackupJob(
             var sidecar = Path.Combine(dir, SidecarName);
             if (!File.Exists(sidecar))
                 continue;
-            var v = JsonSerializer.Deserialize<SidecarV1>(File.ReadAllText(sidecar));
+            var v = TryReadSidecar(sidecar);
             if (v is null)
                 continue;
             yield return new BackupSet(v.SetId, dir, v.TakenAt, v.Bytes, v.StartWal);
+        }
+    }
+
+    private static SidecarV1? TryReadSidecar(string path)
+    {
+        try
+        {
+            var v = JsonSerializer.Deserialize<SidecarV1>(File.ReadAllText(path));
+            return v is { SetId: not null, StartWal: not null } ? v : null;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // Torn or unreadable: the set is ignored, like one with no sidecar, and never deleted.
+            return null;
         }
     }
 

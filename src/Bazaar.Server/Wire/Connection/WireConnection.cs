@@ -20,6 +20,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private const int _serverMajor = 1;
     private const int _heartbeatCloseCode = 1001;
     private const int _serverFaultCloseCode = 1011;
+    private const int _backlogCloseCode = 1013; // Try Again Later: the peer is not reading what it asked for.
+    private const long _maxPendingReplyBytes = 32L * 1024 * 1024;
+    private const long _maxPendingEventBytes = 8L * 1024 * 1024;
 
     private readonly WebSocket _socket;
     private readonly string? _headerCredential;
@@ -49,6 +52,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private (int Code, string Reason)? _closeRequest;
     private volatile bool _closing;
     private int _pendingEvents;
+    private long _pendingEventBytes;
+    private int _pendingReplies;
+    private long _pendingReplyBytes;
     private int _inflight;
     private long _lastActivityTicks;
     private DateTimeOffset? _expiresAt;
@@ -111,8 +117,21 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             return false;
         }
 
-        if (!_outbound.Writer.TryWrite(new Outbound(EncodeFrame(envelope), IsEvent: true)))
+        // The event bound counts frames, and a frame can be 100 KB or more: 1000 queued events behind a stalled reader were
+        // 100 MB or more, per connection (chaos run: 200 stalled replays of a 30 KB-message GC took the host to 3 GB). The byte
+        // bound refuses the same way (live delivery turns into `lagged`, a replay waits), except that an empty queue takes any frame.
+        var data = EncodeFrame(envelope);
+        var bytes = Interlocked.Add(ref _pendingEventBytes, data.Length);
+        if (bytes > _maxPendingEventBytes && bytes != data.Length)
         {
+            Interlocked.Add(ref _pendingEventBytes, -data.Length);
+            Interlocked.Decrement(ref _pendingEvents);
+            return false;
+        }
+
+        if (!_outbound.Writer.TryWrite(new Outbound(data, IsEvent: true)))
+        {
+            Interlocked.Add(ref _pendingEventBytes, -data.Length);
             Interlocked.Decrement(ref _pendingEvents);
             return false;
         }
@@ -230,6 +249,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
             if (hello.T != WireTypes.Hello || hello.K != EnvelopeKind.Request) throw new WireFormatException("First frame must be hello.");
             body = _codec.DecodePayload<Hello>(hello);
             if (string.IsNullOrWhiteSpace(body.DeviceId) || body.DeviceId.Length > 128) throw new WireFormatException("Bad device id.");
+            // A null or empty codec list is a malformed hello, not a version mismatch: fail it as a bad frame rather than
+            // dereferencing null during codec negotiation below.
+            if (body.Codecs is null || body.Codecs.Count == 0) throw new WireFormatException("Hello lists no codecs.");
         }
         catch (WireFormatException)
         {
@@ -375,7 +397,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         {
             try
             {
-                var reply = await _idempotency.ExecuteAsync(DeviceId, request.Id, token => RunHandlerAsync(request, token), _cts.Token).ConfigureAwait(false);
+                // The device id can come from the client's hello, so the table's scope also carries the principal: another principal
+                // that claims this device id must not be handed this one's cached replies.
+                var reply = await _idempotency.ExecuteAsync(Principal.Id.ToString("N") + "/" + DeviceId, request.Id, token => RunHandlerAsync(request, token), _cts.Token).ConfigureAwait(false);
                 Reply(request, reply);
                 if (reply.IsOk && reply.AfterReply is { } afterReply)
                 {
@@ -519,8 +543,35 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private Envelope Frame(string type, EnvelopeKind kind, string? re, string? stream, DateTimeOffset? ts, ReadOnlyMemory<byte> payload) =>
         new(_version, type, kind, null, re, stream, null, ts, payload);
 
-    private bool Enqueue(Envelope envelope) =>
-        !_closing && _outbound.Writer.TryWrite(new Outbound(EncodeFrame(envelope), IsEvent: false));
+    // Replies, pings and control notices are not events, so the event bound does not cover them: a peer that keeps sending
+    // requests but never reads would otherwise grow this queue without limit (its requests also keep the heartbeat quiet).
+    // Past the bound the peer is not reading, so the socket closes (doc 02, Backpressure: the outbound queue is bounded).
+    private bool Enqueue(Envelope envelope)
+    {
+        if (_closing) return false;
+        var data = EncodeFrame(envelope);
+        var bytes = Interlocked.Add(ref _pendingReplyBytes, data.Length);
+        if (Interlocked.Increment(ref _pendingReplies) > _options.OutboundQueueMax || bytes > _maxPendingReplyBytes)
+        {
+            ReleaseReply(data.Length);
+            _ = CloseAsync(_backlogCloseCode, "outbound backlog").AsTask();
+            return false;
+        }
+
+        if (_outbound.Writer.TryWrite(new Outbound(data, IsEvent: false)))
+        {
+            return true;
+        }
+
+        ReleaseReply(data.Length);
+        return false;
+    }
+
+    private void ReleaseReply(int length)
+    {
+        Interlocked.Add(ref _pendingReplyBytes, -length);
+        Interlocked.Decrement(ref _pendingReplies);
+    }
 
     private byte[] EncodeFrame(in Envelope envelope)
     {
@@ -535,7 +586,12 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         {
             await foreach (var item in _outbound.Reader.ReadAllAsync().ConfigureAwait(false))
             {
-                if (item.IsEvent) Interlocked.Decrement(ref _pendingEvents);
+                if (item.IsEvent)
+                {
+                    Interlocked.Decrement(ref _pendingEvents);
+                    Interlocked.Add(ref _pendingEventBytes, -item.Data.Length);
+                }
+                else ReleaseReply(item.Data.Length);
                 await _socket.SendAsync(
                     item.Data,
                     _codec.IsBinary ? WebSocketMessageType.Binary : WebSocketMessageType.Text,

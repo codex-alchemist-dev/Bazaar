@@ -54,10 +54,10 @@ public static partial class PresetLoader
         "vmdisk", "vmdisks", "token", "tokens",
     };
 
-    [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,63}$")]
+    [GeneratedRegex(@"^[a-z0-9][a-z0-9-]{0,63}\z")]
     private static partial Regex IdPattern();
 
-    [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,47}$")]
+    [GeneratedRegex(@"^[a-z0-9][a-z0-9-]{0,47}\z")]
     private static partial Regex SpecialtyPattern();
 
     [GeneratedRegex(@"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")]

@@ -175,6 +175,15 @@ public class HttpConstellationTileSourceTests
     }
 
     [Fact]
+    public async Task A_refused_endpoint_returns_null_instead_of_throwing_into_the_view()
+    {
+        // An https address with no key-hash pin is refused before any connection; the pane's view calls this from async void.
+        var source = HttpConstellationTileSource.Create(new ServerEndpoint(new Uri("https://tiles.invalid/"), "token"));
+
+        Assert.Null(await source.GetFrameAsync(_request, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Create_sends_to_the_endpoint_base_address_and_credential()
     {
         var handler = new FakeHandler(_ => Binary(TileBody("constellation", 7, ["a"], [1f, 2f, 0f])));

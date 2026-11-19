@@ -134,6 +134,27 @@ public class SubscriptionEngineTests
     }
 
     [Fact]
+    public async Task A_gc_stream_spelled_in_another_case_is_denied_and_never_a_second_subscription()
+    {
+        using var h = new SyncHarness();
+        Fill(h, 3);
+        using var c = h.Connect();
+        var canonical = WireStreams.Gc(SyncHarness.Gc);
+        // The same GC id with upper-case hex digits parses as that GC but is another stream name: every spelling would
+        // otherwise be its own subscription with its own replay, so one request could open thousands for one GC.
+        var shouting = "gc:" + SyncHarness.Gc.ToString("D").ToUpperInvariant();
+        Assert.NotEqual(canonical, shouting);
+
+        var outcome = await c.Session.SubscribeAsync(
+            new Subscribe([new StreamCursor(canonical, 0, 0), new StreamCursor(shouting, 0, 0)]), CancellationToken.None);
+        await outcome.StartAsync();
+
+        Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single(r => r.S == canonical).Status);
+        Assert.Equal(SubscribeStatuses.Denied, outcome.Result.Results.Single(r => r.S == shouting).Status);
+        Assert.Equal([canonical], c.Session.Streams);
+    }
+
+    [Fact]
     public async Task A_slow_consumer_gets_lagged_and_loses_nothing_after_resubscribing_from_its_cursor()
     {
         using var h = new SyncHarness(new SyncOptions { ReplayPageSize = 10, OutboundQueueMax = 5 });
@@ -266,6 +287,35 @@ public class SubscriptionEngineTests
         Assert.Empty(c.Session.Streams);
         await c.SubscribeAsync();
         Assert.Equal(5, c.Messages.Count);
+    }
+
+    private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<SubscriptionEngine>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, Exception? Error)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, exception));
+    }
+
+    /// <summary>Chaos finding F5: a corrupt heap page made every subscribe answer `lagged` with nothing in the server log.</summary>
+    [Fact]
+    public async Task A_log_read_failure_during_replay_is_logged()
+    {
+        var logger = new CapturingLogger();
+        using var h = new SyncHarness(logger: logger);
+        Fill(h, 5);
+        h.Log.FailNextReads(1);
+        using var c = h.Connect();
+
+        await c.SubscribeAsync();
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, entry.Level);
+        Assert.NotNull(entry.Error);
     }
 
     [Fact]

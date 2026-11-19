@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Adapters.Common;
 
 namespace Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -30,8 +31,17 @@ public sealed class OpenAiChatAdapter : IModelAdapter
         ModelRequest request,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        // HttpClient.Timeout stops at the response headers when the body is streamed (ResponseHeadersRead), so an upstream
+        // that sends one chunk and then stalls would hold the call, and the caller's per-GC gate, forever. The client's
+        // timeout is applied to the whole call here instead; it fires as a "timeout" failure, never as the caller's cancel.
+        using var deadline = _http.Timeout == Timeout.InfiniteTimeSpan ? null : new CancellationTokenSource(_http.Timeout, _time);
+        using var call = deadline is null
+            ? CancellationTokenSource.CreateLinkedTokenSource(ct)
+            : CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);
+        var callToken = call.Token;
+
         using var httpRequest = BuildHttpRequest(endpoint, request);
-        var sent = await SendAsync(httpRequest, ct);
+        var sent = await SendAsync(httpRequest, callToken, ct);
         using var response = sent.Response!;
         if (sent.Error is { } sendError)
         {
@@ -46,7 +56,7 @@ public sealed class OpenAiChatAdapter : IModelAdapter
             yield break;
         }
 
-        await using var events = ReadEventsAsync(response, endpoint.ModelId, ct).GetAsyncEnumerator(ct);
+        await using var events = ReadEventsAsync(response, endpoint.ModelId, callToken).GetAsyncEnumerator(callToken);
         while (true)
         {
             // The body read is the only place a timeout or a dropped connection shows up, so it is wrapped here.
@@ -110,11 +120,13 @@ public sealed class OpenAiChatAdapter : IModelAdapter
         return message;
     }
 
-    private async Task<(HttpResponseMessage? Response, ModelEvent? Error)> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    /// <param name="callToken">The call's token: the caller's token plus the call deadline.</param>
+    /// <param name="ct">The caller's own token. Only its cancellation propagates; any other cancellation is a timeout.</param>
+    private async Task<(HttpResponseMessage? Response, ModelEvent? Error)> SendAsync(HttpRequestMessage request, CancellationToken callToken, CancellationToken ct)
     {
         try
         {
-            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, callToken);
             return (response, null);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -221,7 +233,12 @@ public sealed class OpenAiChatAdapter : IModelAdapter
 
             if (chunk.Usage is { } usage)
             {
-                yield return new ModelEvent.UsageReported(MapUsage(usage));
+                // A count that is negative, malformed or beyond the numeric bounds makes the report untrustworthy: it is not
+                // emitted, so the usage row estimates and is marked estimated.
+                if (MapUsage(usage) is { } mapped)
+                {
+                    yield return new ModelEvent.UsageReported(mapped);
+                }
             }
 
             var choice = chunk.Choices is { Count: > 0 } choices ? choices[0] : null;
@@ -390,17 +407,46 @@ public sealed class OpenAiChatAdapter : IModelAdapter
         }
     }
 
-    private static GatewayTokenUsage MapUsage(OpenAiChunkUsage usage)
+    /// <summary>The usage as exact counts, or null when any count is not a valid amount (negative, malformed or too large to store).</summary>
+    private static GatewayTokenUsage? MapUsage(OpenAiChunkUsage usage)
     {
-        var prompt = usage.PromptTokens ?? 0;
-        var cached = usage.PromptTokensDetails?.CachedTokens ?? 0;
+        if (!TryCount(usage.PromptTokens, out var prompt)
+            || !TryCount(usage.PromptTokensDetails?.CachedTokens, out var cached)
+            || !TryCount(usage.CompletionTokens, out var output)
+            || !TryCount(usage.CompletionTokensDetails?.ReasoningTokens, out var reasoning))
+        {
+            return null;
+        }
+
+        // Uncached input is the prompt minus the cached part; a cached count above the prompt cannot be true and leaves none.
+        var input = TokenAmount.TrySubtract(prompt, cached, out var uncached) ? uncached : TokenAmount.Zero;
         return new GatewayTokenUsage(
-            Input: Math.Max(0, prompt - cached),
-            CacheWrite5m: 0,
-            CacheWrite1h: 0,
+            Input: input,
+            CacheWrite5m: TokenAmount.Zero,
+            CacheWrite1h: TokenAmount.Zero,
             CacheRead: cached,
-            Output: usage.CompletionTokens ?? 0,
-            Thinking: usage.CompletionTokensDetails?.ReasoningTokens ?? 0);
+            Output: output,
+            Thinking: reasoning);
+    }
+
+    /// <summary>
+    /// One count read exactly from its JSON number (or numeric string). Absent or null is zero. False for anything that is not a
+    /// valid amount, so a hostile value is refused here and never wraps or reaches storage.
+    /// </summary>
+    private static bool TryCount(JsonElement? element, out TokenAmount amount)
+    {
+        amount = TokenAmount.Zero;
+        if (element is not { } value || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return true;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number => TokenAmount.TryParse(value.GetRawText(), out amount),
+            JsonValueKind.String => TokenAmount.TryParse(value.GetString(), out amount),
+            _ => false,
+        };
     }
 
     private static StopReason MapFinishReason(string reason) => reason switch

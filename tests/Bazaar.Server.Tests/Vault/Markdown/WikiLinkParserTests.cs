@@ -88,4 +88,15 @@ public class WikiLinkParserTests
         Assert.Equal("Auth", link.Target);
         Assert.Equal("Token#flow", link.Anchor);
     }
+
+    [Theory]
+    [InlineData(">", 5000)]
+    [InlineData("[a", 100000)]
+    [InlineData("![[a", 100000)]
+    public void Pathologically_nested_input_is_a_format_error_not_a_raw_parser_exception(string unit, int count)
+    {
+        var source = string.Concat(Enumerable.Repeat(unit, count)) + " x";
+
+        Assert.Throws<VaultFormatException>(() => VaultMarkdown.Parse(source));
+    }
 }

@@ -84,6 +84,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 |---|---|---|
 | `POST /blobs` | Chunked, resumable upload; returns content hash; size limit per doc 01 | 01 |
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
+| `POST /blobs/token-amounts` | Digit-stream intake of a token amount too long for a frame; owner only; returns a reference id | 48 §11.4 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
@@ -150,7 +151,7 @@ Needs counsel: none. No row changes legal exposure; the status page never carrie
 - Restore [PROPOSED, doc 33]: counters move above any value a surviving client may hold, and one `system` recovery entry is written. This is a recorded exception to gap-free sequencing (docs 01 and 04 list it).
 - Sends: the response carries the assigned `n`; the echo arrives on the stream and is de-duplicated by `id`.
 - Edits: clients render the current version with an "edited" marker; history is `gc.history`.
-- Limits are the settings above: 5 sockets per device identity (newest wins), 1,000 queued events, request ids kept 24 h. Shared rate buckets come from doc 15.
+- Limits are the settings above: 5 sockets per device identity (newest wins), 1,000 queued events, request ids kept 24 h. Replies, pings and notices count toward the queue bound, and queued bytes are bounded too (32 MiB of replies, 8 MiB of events per connection); a peer over the bound is closed with 1013. A stored reply over 16 KiB is forgotten once delivered: only reads are that large, and a retried read runs again; mutations keep their original reply for the full 24 h. Shared rate buckets come from doc 15.
 - Security: reject plaintext credentials unless loopback, or an overlay the operator allowed (`wire.allow_plaintext_overlay`); never log payloads; `err` leaks no membership (denied and missing look the same).
 - Clients never use local time for ordering.
 

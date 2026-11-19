@@ -77,6 +77,11 @@ public sealed record GuestAgentOptions
                     break;
                 case "--heartbeat-seconds":
                     heartbeatSeconds = ParsePositive(name, value);
+                    if (heartbeatSeconds > _maxHeartbeatSeconds)
+                    {
+                        throw new ArgumentException($"{name} must be at most {_maxHeartbeatSeconds}, the longest gap a timer can run.");
+                    }
+
                     break;
                 default:
                     throw new ArgumentException($"Unknown option '{name}'.");
@@ -116,6 +121,9 @@ public sealed record GuestAgentOptions
             HeartbeatInterval = TimeSpan.FromSeconds(heartbeatSeconds),
         };
     }
+
+    /// <summary>A periodic timer runs at most 4294967294 ms (about 49 days); a longer gap would fail at the first tick.</summary>
+    private const int _maxHeartbeatSeconds = 4_294_967;
 
     private static int ParsePositive(string name, string value) =>
         int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number > 0

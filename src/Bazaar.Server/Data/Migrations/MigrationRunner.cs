@@ -15,7 +15,15 @@ public sealed record MigrationResult(IReadOnlyList<AppliedMigration> Applied, in
 /// a different value on a later run is refused (doc 04).
 /// </summary>
 /// <param name="PartitionCount">Hash partitions for the GC log tables (<c>gc.partition_count</c>, default 16 from spike S3).</param>
-public sealed record MigrationOptions(int PartitionCount = 16);
+/// <param name="LockTimeout">
+/// How long a run waits for the migration lock or for any table lock before it refuses with a clear message instead of waiting
+/// forever behind another session (<c>lock_timeout</c>). Zero disables the bound.
+/// </param>
+public sealed record MigrationOptions(int PartitionCount = 16, TimeSpan? LockTimeout = null)
+{
+    /// <summary>The wait bound, 30 seconds unless set.</summary>
+    public TimeSpan EffectiveLockTimeout => LockTimeout ?? TimeSpan.FromSeconds(30);
+}
 
 /// <summary>Where a database stands relative to the migration files in the binary.</summary>
 public enum SchemaState
@@ -52,13 +60,36 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
     {
         var plan = Plan(source, provider, _components);
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
-        await ExecAsync(conn, null, $"SELECT pg_advisory_lock({_lockKey})", ct).ConfigureAwait(false);
+        var lockTimeoutMs = (long)_options.EffectiveLockTimeout.TotalMilliseconds;
         try
         {
-            await ExecAsync(conn, null, _createHistorySql, ct).ConfigureAwait(false);
-            await ExecAsync(conn, null, _historyUpgradeSql, ct).ConfigureAwait(false);
-            var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
-            var pending = Diff(plan, history, throwIfAhead: true);
+            await SetSessionOptionAsync(conn, "lock_timeout", lockTimeoutMs.ToString(CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
+            await ExecAsync(conn, null, $"SELECT pg_advisory_lock({_lockKey})", ct).ConfigureAwait(false);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.LockNotAvailable)
+        {
+            throw LockTimedOut(ex);
+        }
+
+        try
+        {
+            List<MigrationFile> pending;
+            try
+            {
+                await ExecAsync(conn, null, _createHistorySql, ct).ConfigureAwait(false);
+                await ExecAsync(conn, null, _historyUpgradeSql, ct).ConfigureAwait(false);
+                var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
+                pending = Diff(plan, history, throwIfAhead: true);
+            }
+            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.LockNotAvailable)
+            {
+                throw LockTimedOut(ex);
+            }
+            catch (PostgresException ex) when (IsHistoryShapeError(ex.SqlState))
+            {
+                throw HistoryUnusable(ex);
+            }
+
             await CheckFixedSettingsAsync(conn, ct).ConfigureAwait(false);
             await SetSessionOptionAsync(conn, "bazaar.partition_count", _options.PartitionCount.ToString(CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
 
@@ -73,10 +104,31 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
         }
         finally
         {
-            await SetSessionOptionAsync(conn, "bazaar.partition_count", "", CancellationToken.None).ConfigureAwait(false);
-            await ExecAsync(conn, null, $"SELECT pg_advisory_unlock({_lockKey})", CancellationToken.None).ConfigureAwait(false);
+            // Cleanup must never replace the real failure (a killed backend makes every call here throw).
+            try
+            {
+                await SetSessionOptionAsync(conn, "bazaar.partition_count", "", CancellationToken.None).ConfigureAwait(false);
+                await SetSessionOptionAsync(conn, "lock_timeout", "0", CancellationToken.None).ConfigureAwait(false);
+                await ExecAsync(conn, null, $"SELECT pg_advisory_unlock({_lockKey})", CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is NpgsqlException or InvalidOperationException or IOException)
+            {
+                // The session is gone, so the advisory lock went with it.
+            }
         }
     }
+
+    private MigrationException LockTimedOut(PostgresException ex) => new(
+        $"Gave up after {_options.EffectiveLockTimeout.TotalSeconds:0}s waiting for a database lock; another session holds the migration lock or locks schema_migrations. Stop it and run migrate again.",
+        ex);
+
+    /// <summary>SQLSTATEs a history table with the wrong columns, types or constraints produces.</summary>
+    private static bool IsHistoryShapeError(string? sqlState) =>
+        sqlState is PostgresErrorCodes.UndefinedColumn or PostgresErrorCodes.InvalidTextRepresentation or PostgresErrorCodes.DatatypeMismatch
+            or PostgresErrorCodes.UndefinedObject or PostgresErrorCodes.DuplicateObject or PostgresErrorCodes.CannotCoerce;
+
+    private static SchemaVersionException HistoryUnusable(PostgresException ex) => new(
+        $"The migration history table schema_migrations is not in the expected shape ({ex.SqlState}); restore it from a backup or fix it by hand. Nothing was changed.");
 
     /// <summary>Read-only comparison of the database with the binary's files. Takes no lock and changes nothing.</summary>
     public async Task<SchemaState> GetStateAsync(IMigrationSource source, string provider, CancellationToken ct = default)
@@ -88,9 +140,25 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
         // A history table from before namespaces is upgraded by MigrateAsync, never here (this method changes nothing).
         if (!await HistoryHasNamespaceAsync(conn, ct).ConfigureAwait(false))
             return SchemaState.Behind;
-        var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
+        Dictionary<(string Namespace, int Version), string> history;
+        try
+        {
+            history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
+        }
+        catch (PostgresException ex) when (IsHistoryShapeError(ex.SqlState))
+        {
+            throw HistoryUnusable(ex);
+        }
+
         if (history.Keys.Any(k => !plan.Any(f => f.Namespace == k.Namespace && f.Version == k.Version)))
             return SchemaState.Ahead;
+        // An edited file is refused here as it is by migrate: a schema built from different SQL is not "this build's schema".
+        foreach (var file in plan)
+        {
+            if (history.TryGetValue((file.Namespace, file.Version), out var recorded) && recorded != file.Checksum)
+                throw ChecksumMismatch(file, recorded);
+        }
+
         return plan.Any(f => !history.ContainsKey((f.Namespace, f.Version))) ? SchemaState.Behind : SchemaState.Current;
     }
 
@@ -177,13 +245,17 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
             }
 
             if (file.Checksum != checksum)
-                throw new MigrationChecksumException(
-                    $"Applied migration {file.Namespace}/{file.Version:D4}_{file.Name} was edited after it ran (recorded {checksum[..12]}, now {file.Checksum[..12]}). Add a new file instead.");
+                throw ChecksumMismatch(file, checksum);
         }
 
         // Branches merge in any order, so a not-yet-applied file below the highest applied number still runs, in plan order.
         return plan.Where(f => !history.ContainsKey((f.Namespace, f.Version))).ToList();
     }
+
+    private static MigrationChecksumException ChecksumMismatch(MigrationFile file, string recorded) => new(
+        $"Applied migration {file.Namespace}/{file.Version:D4}_{file.Name} was edited after it ran (recorded {Short(recorded)}, now {Short(file.Checksum)}). Add a new file instead.");
+
+    private static string Short(string checksum) => checksum.Length <= 12 ? checksum : checksum[..12];
 
     /// <summary>Refuses a run whose options differ from what the first migration recorded in <c>schema_setting</c>.</summary>
     private async Task CheckFixedSettingsAsync(NpgsqlConnection conn, CancellationToken ct)
@@ -233,7 +305,17 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
         catch (Exception ex)
         {
             if (tx is not null)
-                await tx.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+            {
+                try
+                {
+                    await tx.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception rollbackFailure) when (rollbackFailure is NpgsqlException or InvalidOperationException or IOException)
+                {
+                    // The session died (killed backend); the server already rolled the transaction back.
+                }
+            }
+
             throw new MigrationException(
                 $"Migration {file.Namespace}/{file.Version:D4}_{file.Name} failed; the database stays at the last good version: {ex.Message}", ex);
         }

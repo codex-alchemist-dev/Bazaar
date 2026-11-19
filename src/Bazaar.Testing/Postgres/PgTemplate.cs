@@ -66,12 +66,37 @@ public sealed class PgTemplate
         }
 
         NpgsqlConnection.ClearAllPools();
-        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-        {
-            try { ExecAdminAsync(source, $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)").GetAwaiter().GetResult(); }
-            catch (Exception) { /* server may already be gone */ }
-        };
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => DropAtExit(source, name);
         return template;
+    }
+
+    /// <summary>How long process exit may spend dropping the template. The test runner kills a process that is still alive 10 seconds after its run.</summary>
+    private static readonly TimeSpan _exitDropBudget = TimeSpan.FromSeconds(4);
+
+    /// <summary>
+    /// Drops the template when the test process exits, within a fixed budget. On a busy server the drop can wait a long time
+    /// (it needs a connection slot and a checkpoint), and an exit handler that waits for it keeps a finished test process alive
+    /// until the runner force-closes it and reports a failed run with every test passed. A template that is not dropped in time
+    /// is left behind; its name is unique to the run, so it cannot collide with a later one.
+    /// </summary>
+    private static void DropAtExit(PgSource source, string name)
+    {
+        try
+        {
+            using var cancel = new CancellationTokenSource(_exitDropBudget);
+            var token = cancel.Token;
+            var connectionString = new NpgsqlConnectionStringBuilder(source.AdminConnectionString)
+            {
+                Timeout = (int)_exitDropBudget.TotalSeconds,
+                CommandTimeout = (int)_exitDropBudget.TotalSeconds,
+            }.ConnectionString;
+            var drop = Task.Run(() => ExecAsync(connectionString, $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)", token), token);
+            drop.Wait(_exitDropBudget);
+        }
+        catch (Exception)
+        {
+            // The server may already be gone, or the budget ran out.
+        }
     }
 
     /// <summary>Creates a fresh database cloned from the template and returns its name.</summary>
@@ -116,11 +141,13 @@ public sealed class PgTemplate
         return new string(chars);
     }
 
-    private static async Task ExecAdminAsync(PgSource source, string sql)
+    private static Task ExecAdminAsync(PgSource source, string sql) => ExecAsync(source.AdminConnectionString, sql, CancellationToken.None);
+
+    private static async Task ExecAsync(string connectionString, string sql, CancellationToken cancellationToken)
     {
-        await using var conn = new NpgsqlConnection(source.AdminConnectionString);
-        await conn.OpenAsync().ConfigureAwait(false);
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var cmd = new NpgsqlCommand(sql, conn);
-        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 }

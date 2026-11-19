@@ -119,6 +119,55 @@ public sealed class FreeLlmApiSidecarTests : IDisposable
     }
 
     [Fact]
+    public void A_zero_byte_encryption_key_file_is_replaced_not_used_as_an_empty_key()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(Path.Combine(_root, FreeLlmApiSidecarState.EncryptionKeyFile), string.Empty);
+
+        var key = FreeLlmApiSidecarState.EnsureEncryptionKey(_root);
+
+        Assert.Matches("^[0-9a-f]{64}$", key);
+        Assert.Equal(key, FreeLlmApiSidecarState.EnsureEncryptionKey(_root));
+    }
+
+    [Fact]
+    public void A_truncated_encryption_key_file_is_refused_without_echoing_it()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(Path.Combine(_root, FreeLlmApiSidecarState.EncryptionKeyFile), "abcdef0123");
+
+        var error = Assert.Throws<InvalidDataException>(() => FreeLlmApiSidecarState.EnsureEncryptionKey(_root));
+        Assert.DoesNotContain("abcdef0123", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_zero_byte_admin_password_file_is_replaced()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(Path.Combine(_root, FreeLlmApiSidecarState.AdminPasswordFile), string.Empty);
+
+        Assert.False(string.IsNullOrWhiteSpace(FreeLlmApiSidecarState.EnsureAdminPassword(_root)));
+    }
+
+    [Fact]
+    public void A_torn_provider_keys_file_is_refused_as_invalid_data()
+    {
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "provider-keys.json");
+        File.WriteAllText(path, "[{\"platform\":\"groq\",\"ke");
+
+        Assert.Throws<InvalidDataException>(() => FreeLlmApiSidecarState.ReadProviderKeys(path));
+    }
+
+    [Fact]
+    public void Writing_a_secret_leaves_no_temporary_file_behind()
+    {
+        FreeLlmApiSidecarState.EnsureEncryptionKey(_root);
+
+        Assert.Empty(Directory.EnumerateFiles(_root, "*.tmp"));
+    }
+
+    [Fact]
     public void The_admin_email_is_one_the_sidecar_accepts()
     {
         // FreeLLMAPI validates emails with zod, which rejects reserved names such as ".localhost".

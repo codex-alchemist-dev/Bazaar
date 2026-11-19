@@ -23,7 +23,8 @@ namespace Bazaar.Server.Http;
 /// <item><c>HEAD|PATCH /blobs/uploads/{id}</c> reports the offset or appends a chunk at <c>Upload-Offset</c>.</item>
 /// <item><c>GET /blobs/{hash}</c> serves a blob with range support; a non-viewer gets 404.</item>
 /// <item><c>GET /search?gc=&amp;q=</c> searches one GC, answering only what the caller can read.</item>
-/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19).</item>
+/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19). The projection is per
+/// viewer, by the Vault access rule that search uses: only nodes the caller may read, and only edges whose both ends they may read.</item>
 /// </list>
 /// </summary>
 public static class HttpSurfaceEndpoints
@@ -45,7 +46,11 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// Runs <paramref name="run"/> for an authenticated caller: the transport rule (401/403), the bearer credential (401) and
+    /// the HTTP rate bucket (429) come first. Module routes on this surface use it, so they share one access rule.
+    /// </summary>
+    public static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
@@ -105,7 +110,7 @@ public static class HttpSurfaceEndpoints
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
 
-        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, http.RequestAborted);
+        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, GraphViewerFor(principal), http.RequestAborted);
         http.Response.StatusCode = response.StatusCode;
         http.Response.ContentType = response.ContentType;
         await http.Response.Body.WriteAsync(response.Body, http.RequestAborted);
@@ -127,10 +132,26 @@ public static class HttpSurfaceEndpoints
             declared = normalized;
         }
 
-        var session = await http.RequestServices.GetRequiredService<IBlobStore>()
-            .CreateUploadAsync(principal.Id, length, declared, http.RequestAborted);
+        UploadSession? session;
+        try
+        {
+            session = await http.RequestServices.GetRequiredService<IBlobStore>()
+                .CreateUploadAsync(principal.Id, length, declared, http.RequestAborted);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return StorageUnavailable(http);
+        }
+
         if (session is null) return Error(StatusCodes.Status429TooManyRequests, "too_many_uploads");
         return Results.Json(new { upload_id = session.Id, offset = 0L, length }, statusCode: StatusCodes.Status201Created);
+    }
+
+    /// <summary>507 with a stable code and a retry hint: the blob volume is full, read-only or missing. Nothing else about the host is affected.</summary>
+    private static IResult StorageUnavailable(HttpContext http)
+    {
+        http.Response.Headers.RetryAfter = "30";
+        return Error(StatusCodes.Status507InsufficientStorage, "storage_unavailable");
     }
 
     private static async Task<IResult> UploadStatusAsync(HttpContext http, PrincipalRef principal, string id)
@@ -165,6 +186,7 @@ public static class HttpSurfaceEndpoints
             AppendStatus.OffsetMismatch => Error(StatusCodes.Status409Conflict, "offset_mismatch"),
             AppendStatus.HashMismatch => Error(StatusCodes.Status422UnprocessableEntity, "hash_mismatch"),
             AppendStatus.BadChunk => Error(StatusCodes.Status400BadRequest, "bad_chunk"),
+            AppendStatus.StorageUnavailable => StorageUnavailable(http),
             _ => Error(StatusCodes.Status404NotFound, "not_found"),
         };
     }
@@ -188,7 +210,8 @@ public static class HttpSurfaceEndpoints
         var services = http.RequestServices;
         var options = services.GetRequiredService<HttpSurfaceOptions>();
         var query = http.Request.Query["q"].ToString();
-        if (!Guid.TryParse(http.Request.Query["gc"].ToString(), out var gcId) || query.Length is 0 or > _maxQueryLength)
+        // NUL is not valid in Postgres text; it would fail in the database as a 500.
+        if (!Guid.TryParse(http.Request.Query["gc"].ToString(), out var gcId) || query.Length is 0 or > _maxQueryLength || query.Contains('\0'))
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         var limit = int.TryParse(http.Request.Query["limit"].ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var asked)
             ? Math.Clamp(asked, 1, options.SearchMaxResults)
@@ -230,7 +253,8 @@ public static class HttpSurfaceEndpoints
         var text = q["q"].ToString();
         var project = q["project"].ToString();
         var type = q["type"].ToString();
-        if (text.Length is 0 or > _maxQueryLength || project.Length > _maxQueryLength || type.Length > _maxQueryLength)
+        if (text.Length is 0 or > _maxQueryLength || project.Length > _maxQueryLength || type.Length > _maxQueryLength
+            || text.Contains('\0') || project.Contains('\0') || type.Contains('\0'))
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         var limit = int.TryParse(q["limit"].ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var asked)
             ? Math.Clamp(asked, 1, options.SearchMaxResults)
@@ -294,6 +318,13 @@ public static class HttpSurfaceEndpoints
         "agent" => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: "agent:" + principal.Id.ToString("D")),
         _ => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: null),
     };
+
+    /// <summary>The Constellation viewer for a principal: the same reader as <see cref="VaultCallerFor"/>, so the graph and search agree.</summary>
+    private static GraphViewer GraphViewerFor(PrincipalRef principal)
+    {
+        var caller = VaultCallerFor(principal);
+        return new GraphViewer(caller.IsOwner, caller.AgentOwner);
+    }
 
     /// <summary>The search scope under which a GC's documents are indexed.</summary>
     public static string GcSearchScope(Guid gcId) => "gc:" + gcId.ToString("D");

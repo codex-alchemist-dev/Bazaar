@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.Host.Tests;
 
@@ -89,6 +90,35 @@ public sealed class StatusEndpointsTests
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
             Assert.Contains("down", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
         }
+    }
+
+    private sealed class HangingCheck : IReadinessCheck
+    {
+        public string Name => "hang";
+
+        public Task<ReadinessResult> CheckAsync(CancellationToken ct) => new TaskCompletionSource<ReadinessResult>().Task;
+    }
+
+    /// <summary>Chaos finding F3: with Postgres frozen (SIGSTOP) /health/ready never answered.</summary>
+    [Fact]
+    public async Task Ready_is_503_when_a_check_hangs()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        var state = new HostState(TimeProvider.System);
+        state.MarkStarted();
+        builder.Services.AddSingleton(state);
+        builder.Services.AddSingleton(new ProviderCapabilityReport([]));
+        builder.Services.Configure<BazaarReadinessOptions>(o => o.CheckTimeout = TimeSpan.FromMilliseconds(200));
+        builder.Services.AddSingleton<IReadinessCheck, HangingCheck>();
+        await using var app = builder.Build();
+        app.MapBazaarStatus();
+        await app.StartAsync(TestContext.Current.CancellationToken);
+
+        var response = await app.GetTestClient().GetAsync("/health/ready", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains("timeout", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Adapters.Common;
 
 namespace Bazaar.Server.Gateway.Adapters.Gemini;
@@ -300,10 +301,11 @@ public sealed class GeminiGenerateContentAdapter : IModelAdapter
     /// </summary>
     private sealed class StreamState
     {
-        private long? _prompt;
-        private long? _cached;
-        private long? _candidates;
-        private long? _thoughts;
+        private TokenAmount? _prompt;
+        private TokenAmount? _cached;
+        private TokenAmount? _candidates;
+        private TokenAmount? _thoughts;
+        private bool _usageInvalid;
         private int _toolCalls;
 
         public string? FinishReason { get; private set; }
@@ -322,21 +324,47 @@ public sealed class GeminiGenerateContentAdapter : IModelAdapter
         {
             get
             {
-                if (_prompt is null && _cached is null && _candidates is null && _thoughts is null)
+                // A count that is negative or beyond the numeric bounds makes the whole report untrustworthy: none is emitted,
+                // so the usage row estimates and is marked estimated (doc 05).
+                if (_usageInvalid || (_prompt is null && _cached is null && _candidates is null && _thoughts is null))
                 {
                     return null;
                 }
 
-                var cached = _cached ?? 0;
-                var thoughts = _thoughts ?? 0;
+                var cached = _cached ?? TokenAmount.Zero;
+                var thoughts = _thoughts ?? TokenAmount.Zero;
+
+                // Uncached input is the prompt minus the cached part; a cached count above the prompt cannot be true and leaves none.
+                var input = TokenAmount.TrySubtract(_prompt ?? TokenAmount.Zero, cached, out var uncached) ? uncached : TokenAmount.Zero;
                 return new GatewayTokenUsage(
-                    Input: Math.Max(0, (_prompt ?? 0) - cached),
-                    CacheWrite5m: 0,
-                    CacheWrite1h: 0,
+                    Input: input,
+                    CacheWrite5m: TokenAmount.Zero,
+                    CacheWrite1h: TokenAmount.Zero,
                     CacheRead: cached,
-                    Output: (_candidates ?? 0) + thoughts,
+                    Output: (_candidates ?? TokenAmount.Zero) + thoughts,
                     Thinking: thoughts);
             }
+        }
+
+        /// <summary>
+        /// A token count read exactly, from a JSON number or a numeric string (int64 fields are strings in protobuf JSON). Absent
+        /// is null. A value that is not a valid amount (negative, malformed or beyond the numeric bounds) marks the report invalid.
+        /// </summary>
+        private TokenAmount? Amount(JsonObject? obj, string name)
+        {
+            if (obj?[name] is not JsonValue value)
+            {
+                return null;
+            }
+
+            var text = value.TryGetValue<string>(out var asString) ? asString : value.ToJsonString();
+            if (TokenAmount.TryParse(text, out var amount))
+            {
+                return amount;
+            }
+
+            _usageInvalid = true;
+            return null;
         }
 
         public StopReason ResolveStopReason()
@@ -372,10 +400,10 @@ public sealed class GeminiGenerateContentAdapter : IModelAdapter
 
             if (chunk["usageMetadata"] is JsonObject usage)
             {
-                _prompt = Int64(usage, "promptTokenCount") ?? _prompt;
-                _cached = Int64(usage, "cachedContentTokenCount") ?? _cached;
-                _candidates = Int64(usage, "candidatesTokenCount") ?? _candidates;
-                _thoughts = Int64(usage, "thoughtsTokenCount") ?? _thoughts;
+                _prompt = Amount(usage, "promptTokenCount") ?? _prompt;
+                _cached = Amount(usage, "cachedContentTokenCount") ?? _cached;
+                _candidates = Amount(usage, "candidatesTokenCount") ?? _candidates;
+                _thoughts = Amount(usage, "thoughtsTokenCount") ?? _thoughts;
             }
 
             var hasCandidates = chunk["candidates"] is JsonArray { Count: > 0 };

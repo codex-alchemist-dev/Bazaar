@@ -1,10 +1,12 @@
+using Bazaar.Contracts.Numerics;
+using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.Security.Budgets;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Time.Testing;
 using Npgsql;
+using static Bazaar.Server.AgentSafety.Tests.Budgets.BudgetTestAmounts;
 
-namespace Bazaar.Server.Tests.Security.Budgets.Postgres;
+namespace Bazaar.Server.AgentSafety.Tests.Budgets;
 
 /// <summary>PostgresTokenBudgetStore against a real PostgreSQL: append, ordered reads, pruning, isolation and recovery (doc 15).</summary>
 public sealed class PostgresTokenBudgetStoreTests
@@ -15,9 +17,6 @@ public sealed class PostgresTokenBudgetStoreTests
     private static readonly DateTimeOffset _t0 = new(2026, 11, 15, 9, 0, 0, TimeSpan.Zero);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
-    private static TokenBudgetOptions Limits(long hour, long day, long week) =>
-        new() { HourlyTokens = hour, DailyTokens = day, WeeklyTokens = week };
 
     [Fact]
     public async Task Append_then_load_since_returns_the_spend()
@@ -31,7 +30,7 @@ public sealed class PostgresTokenBudgetStoreTests
 
         var spend = Assert.Single(spends);
         Assert.Equal(_t0.AddMinutes(10), spend.At);
-        Assert.Equal(120, spend.Tokens);
+        Assert.Equal(T(120), spend.Tokens);
     }
 
     [Fact]
@@ -47,7 +46,7 @@ public sealed class PostgresTokenBudgetStoreTests
         var spends = await store.LoadSince("agent-a", _t0, Ct);
 
         var spend = Assert.Single(spends);
-        Assert.Equal(20, spend.Tokens);
+        Assert.Equal(T(20), spend.Tokens);
     }
 
     [Fact]
@@ -63,7 +62,7 @@ public sealed class PostgresTokenBudgetStoreTests
 
         var spends = await store.LoadSince("agent-a", _t0, Ct);
 
-        Assert.Equal([1L, 2L, 3L], spends.Select(spend => spend.Tokens).ToArray());
+        Assert.Equal([T(1), T(2), T(3)], spends.Select(spend => spend.Tokens).ToArray());
     }
 
     [Fact]
@@ -80,7 +79,7 @@ public sealed class PostgresTokenBudgetStoreTests
         await store.PruneOlderThan(_t0, Ct);
 
         var spends = await store.LoadSince("agent-a", _t0.AddDays(-1), Ct);
-        Assert.Equal([3L], spends.Select(spend => spend.Tokens).ToArray());
+        Assert.Equal([T(3)], spends.Select(spend => spend.Tokens).ToArray());
     }
 
     [Fact]
@@ -97,7 +96,7 @@ public sealed class PostgresTokenBudgetStoreTests
 
         Assert.Empty(await store.LoadSince("agent-a", _t0.AddDays(-1), Ct));
         var remaining = Assert.Single(await store.LoadSince("agent-b", _t0.AddDays(-1), Ct));
-        Assert.Equal(7, remaining.Tokens);
+        Assert.Equal(T(7), remaining.Tokens);
     }
 
     [Fact]
@@ -134,6 +133,34 @@ public sealed class PostgresTokenBudgetStoreTests
 
         var fits = await second.TryConsume("agent-a", 10, Ct);
         Assert.True(fits.Allowed);
+    }
+
+    [Fact]
+    public async Task Migration_0005_makes_tokens_unconstrained_numeric_and_keeps_the_positive_check()
+    {
+        SkipWithoutDatabase();
+        await using var db = await BudgetTestDb.CreateAsync(Ct);
+
+        await using (var typeCmd = db.DataSource.CreateCommand(
+            "SELECT data_type, numeric_precision, numeric_scale FROM information_schema.columns " +
+            "WHERE table_name = 'agent_token_spend' AND column_name = 'tokens'"))
+        {
+            await using var reader = await typeCmd.ExecuteReaderAsync(Ct);
+            Assert.True(await reader.ReadAsync(Ct));
+            Assert.Equal("numeric", reader.GetString(0));
+            Assert.True(reader.IsDBNull(1), "tokens must have no precision limit.");
+            Assert.True(reader.IsDBNull(2), "tokens must have no scale limit.");
+        }
+
+        foreach (var bad in new[] { "0", "-1", "0.000" })
+        {
+            await using var insert = db.DataSource.CreateCommand($"INSERT INTO agent_token_spend (agent_id, at, tokens) VALUES ('agent-a', now(), {bad})");
+            var error = await Assert.ThrowsAsync<PostgresException>(() => insert.ExecuteNonQueryAsync(Ct));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
+        }
+
+        await using var fraction = db.DataSource.CreateCommand("INSERT INTO agent_token_spend (agent_id, at, tokens) VALUES ('agent-a', now(), 0.25)");
+        Assert.Equal(1, await fraction.ExecuteNonQueryAsync(Ct));
     }
 
     [Fact]

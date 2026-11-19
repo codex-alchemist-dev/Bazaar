@@ -29,6 +29,24 @@ public sealed class IdempotencyTests
     }
 
     [Fact]
+    public async Task A_reply_too_big_to_keep_is_forgotten_so_the_table_cannot_pin_large_pages_for_a_day()
+    {
+        var executor = Executor(new FakeClock());
+        var runs = 0;
+        ValueTask<WireReply> Big(CancellationToken _)
+        {
+            Interlocked.Increment(ref runs);
+            return ValueTask.FromResult(WireReply.Ok(new byte[IdempotentRequestExecutor.MaxRememberedPayloadBytes + 1]));
+        }
+
+        await executor.ExecuteAsync("d", "page", Big, default);
+        await executor.ExecuteAsync("d", "page", Big, default);
+
+        Assert.Equal(2, runs);
+        Assert.Equal(0, executor.Count);
+    }
+
+    [Fact]
     public async Task Ids_are_scoped_to_the_device()
     {
         var executor = Executor(new FakeClock());
@@ -158,5 +176,36 @@ public sealed class IdempotencyTests
         Assert.Equal("n1", original.Nonce);
         Assert.Equal(original, retried);
         Assert.Equal(1, posted);
+    }
+
+    // Chaos round 3 (access): the device id comes from the client's hello, so a second principal can claim the first one's device id.
+    // The request-id table must not hand it the first principal's cached reply.
+    [Fact]
+    public async Task Another_principal_on_the_same_device_id_and_request_id_does_not_get_the_first_principals_reply()
+    {
+        var posted = 0;
+        var send = new DelegateHandler(WireTypes.GcSend, (c, _) =>
+            ValueTask.FromResult(WireReply.Ok(c.Connection.Codec, new Pong($"{c.Connection.Principal.Id:N}-{Interlocked.Increment(ref posted)}"))));
+        var auth = new FakeAuthenticator()
+            .Allow("alice", new PrincipalRef(Guid.NewGuid(), "human"))
+            .Allow("bob", new PrincipalRef(Guid.NewGuid(), "human"));
+        await using var server = await WireTestServer.StartAsync(o => o.MaxSocketsPerDevice = 1, auth, [send]);
+
+        await using var alice = await WireTestClient.ConnectedAsync(server, "shared-device", "alice");
+        var request = alice.RequestOf(WireTypes.GcSend, new Ping(null), id: "same-id");
+        await alice.SendAsync(request);
+        var aliceReply = alice.Codec.DecodePayload<Pong>(await alice.ReceiveAsync());
+
+        await using var bob = await WireTestClient.ConnectedAsync(server, "shared-device", "bob");
+        await bob.SendAsync(request);
+        var bobReply = bob.Codec.DecodePayload<Pong>(await bob.ReceiveAsync());
+
+        Assert.NotEqual(aliceReply, bobReply);
+        Assert.Equal(2, posted);
+
+        // Claiming the device id must not push the first principal's socket off either.
+        await alice.SendAsync(alice.RequestOf(WireTypes.GcSend, new Ping(null), id: "next-id"));
+        var third = alice.Codec.DecodePayload<Pong>(await alice.ReceiveAsync());
+        Assert.StartsWith(aliceReply.Nonce![..32], third.Nonce);
     }
 }
