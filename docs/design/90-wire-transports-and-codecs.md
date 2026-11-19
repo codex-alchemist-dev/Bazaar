@@ -1,6 +1,6 @@
 # Wire Transports and Codecs
 
-Status: DECIDED (owner, 2026-11-19: modular transports and codecs; JSON over WebSocket stays) · PROPOSED (everything below the decided list) · Owner questions: 4 (3 answered)
+Status: DECIDED (owner, 2026-11-19: modular transports and codecs; JSON over WebSocket stays) · PROPOSED (everything below the decided list) · Owner questions: 4 (all answered)
 Depends on: 02-wire-protocol-and-sync.md, 39-conduit-remote-connectivity.md, 40-core-feature-modules-audit.md, 42-deps-as-modules.md, 15-security-taint-and-approvals.md, 32-remote-access-auth-and-privacy.md, 03-server-host-and-providers.md · Used by: 02, 27, 29, 39, Bazaar.Sdk · Spike: `docs/spikes/S-WTX.md` (to be written; plan in section 10)
 
 ## Purpose
@@ -164,4 +164,4 @@ Conformance suite per codec and per transport (envelope round trip for every `[W
 1. ANSWERED (owner card, 2026-11-19): Android has no MsQuic in .NET, so `grpc` over HTTP/2 is the Android upgrade path and QUIC is desktop only. [DECIDED]
 2. ANSWERED (owner card, 2026-11-19): the benchmark winner becomes the default codec for .NET to .NET connections after the spike, with JSON staying the floor and the owner approving the final default. [DECIDED]
 3. ANSWERED (owner card, 2026-11-19): `webtransport` and `grpc-web` are built now and ship off by default; an operator turns them on. [DECIDED]
-4. Which extra candidates (FlatBuffers, Avro, Bebop, Cap'n Proto, Arrow IPC) should the spike evaluate, if not all? (Recommended: all five; cost is a day each.)
+4. ANSWERED (owner card, 2026-11-19): the spike evaluates all five (FlatBuffers, Avro, Bebop, Cap'n Proto, Arrow IPC); each joins the build only if it passes the conformance suite and stays AOT-clean. [DECIDED]
