@@ -18,6 +18,9 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly run so the full-history secret scan also runs when no push happens (Mondays 03:17 UTC).
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
@@ -289,7 +292,7 @@ jobs:
       # issued through a sign-up form and the action itself is under a
       # custom licence, not an OSI open-source one. The gitleaks CLI is MIT
       # licensed and needs no key, so we download the pinned release, verify its
-      # SHA-256 and run it directly. Scans all refs and full history.
+      # SHA-256 and run it directly. See the scan step for what each trigger scans.
       - name: Install gitleaks CLI (checksum verified)
         run: |
           set -euo pipefail
@@ -301,11 +304,22 @@ jobs:
           "$RUNNER_TEMP/gitleaks" version
 
       - name: Scan git history for secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # --log-opts=--all scans every ref in the fetched history, not just HEAD.
-          # --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
-          "$RUNNER_TEMP/gitleaks" git --log-opts=--all --redact --exit-code 1 --verbose .
+          # A pull request scans only its own commits (base..head), so another branch's fake token cannot turn this
+          # PR red. Pushes, the weekly schedule and manual runs scan every ref in the fetched history, so nothing
+          # stays unscanned. --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          else
+            range="--all"
+          fi
+          echo "gitleaks scope: $range"
+          "$RUNNER_TEMP/gitleaks" git --log-opts="$range" --redact --exit-code 1 --verbose .
 
 # CodeQL analysis trigger (no functional change).
 
