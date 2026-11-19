@@ -158,3 +158,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 82 | [82-pipeline-runs-and-job-classes.md](82-pipeline-runs-and-job-classes.md) | Pipeline runs and job classes (PROPOSED, Resibo exchange) | 8 | 84 |
 | 83 | [83-client-patterns-from-resibo.md](83-client-patterns-from-resibo.md) | Client patterns from Resibo (PROPOSED, Resibo exchange) | 8 | 84 |
 | 84 | [84-resibo-exchange-ledger.md](84-resibo-exchange-ledger.md) | Resibo exchange ledger (274 rows, conventions, conflicts, build plan) (PROPOSED, Resibo exchange) | 8 | 84 |
+| 85 | [85-resibo-retail-wing-needs.md](85-resibo-retail-wing-needs.md) | What the Resibo Retail wing (modular POS) needs from the shared libraries and Bazaar modules; 97 rows, 20 work packages; BIR-ready exports and database-only storage recorded (PROPOSED) | 8 | 84, 76, 49 |
