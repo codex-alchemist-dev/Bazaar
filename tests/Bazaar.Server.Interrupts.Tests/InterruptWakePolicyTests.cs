@@ -1,6 +1,6 @@
 using Bazaar.Server.Interrupts;
 
-namespace Bazaar.Server.Tests.Interrupts;
+namespace Bazaar.Server.Interrupts.Tests;
 
 public class InterruptWakePolicyTests
 {
