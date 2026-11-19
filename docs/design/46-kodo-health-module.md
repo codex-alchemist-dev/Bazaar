@@ -893,6 +893,7 @@ Every value below is a setting in the registry (doc 03), with the default shown.
 | `kodo.incident.auto_enter` | list | the four triggers in 16.3 | install | operator | Yes; cannot be removed below the floor |
 | `kodo.failover.enabled` | bool | false | install | operator | Yes; owner |
 | `kodo.failover.auto_failback` | bool | false | install | operator | Yes; owner |
+| `kodo.recover.unattended` | list | empty | install | operator | Yes; owner. Only `host_restart` and `slot_switch` are accepted; any other value is refused. Each unattended run is still audited, bounded by the retry cap and verified by the runbook's verify step, and a failed verify stops with needs-human |
 | `kodo.explain.mode` | enum `off`, `ask`, `auto` | `off` | install | operator | Yes; counsel for `auto` |
 | `kodo.explain.allow_auto` | bool | false | install | operator | Yes; owner |
 | `kodo.chaos.allowed` | bool | false | install | owner | Yes; owner |
