@@ -531,7 +531,7 @@ Every client honours the same accessibility rules: keyboard reachable views, a s
 ### 14.5 Roles and controls
 
 - Permissions are custom-role grants (brief). Kodo's permissions: `kodo.view.status`, `kodo.view.logs`, `kodo.view.traces`, `kodo.view.fleet`, `kodo.view.audit`, `kodo.control.restart`, `kodo.control.isolate`, `kodo.control.rollback`, `kodo.runbook.run`, `kodo.runbook.approve`, `kodo.incident.enter`, `kodo.incident.exit`, `kodo.failover.approve`, `kodo.chaos.enable`, `kodo.webhook.manage`, `kodo.export`, `kodo.settings.kodo`.
-- Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default.
+- Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default. Owner decision (2026-11-19): approval stays the default, and a per-server admin setting, `kodo.recover.unattended` (section 20), may allow only the unattended host restart and slot switch. Isolate and rollback always need step-up; the setting cannot list them.
 - Viewing logs and traces is separately granted because logs can contain personal data. Defaults grant the owner all of these and grant no other role any of them.
 
 ## 15. API
@@ -627,10 +627,10 @@ Exit: the incident is closed when all probes that opened it are green for the st
 
 | Trigger | Runbook | Approval | Verify |
 |---|---|---|---|
-| Host not ready, service stopped | Restart host through the sentinel | Auto, step-up not required | `host.ready` green within 2 minutes |
+| Host not ready, service stopped | Restart host through the sentinel | Approval by default (14.5); unattended only when `kodo.recover.unattended` lists `host_restart` | `host.ready` green within 2 minutes |
 | Disk near full on data volume | Rotate logs, prune spill past its window, offer Vault archive | Approval | Free space above threshold |
 | Replication broken (7.6) | Re-seed standby from the latest base backup | Approval, step-up | Replication status green |
-| Slot signature failure | Switch to the other verified slot | Auto | `kodo.self.signature_verify` green on the new slot |
+| Slot signature failure | Switch to the other verified slot | Approval by default (14.5); unattended only when `kodo.recover.unattended` lists `slot_switch` | `kodo.self.signature_verify` green on the new slot |
 | New module fails health contract | Disable module, keep data, open an incident if it was in use | Approval | Module state and dependents |
 | Certificate within 7 days of expiry | Renew through the configured method | Approval | `certs.server` green |
 | Backup stale | Run backup now | Auto if the window is set to auto | `db.backup_freshness` green |
@@ -798,6 +798,7 @@ Every value below is a setting in the registry (doc 03), with the default shown.
 | `kodo.slo.<name>.target` | decimal | per 12.3 | install | operator | No (floor: no lower than 95 percent for server availability) |
 | `kodo.alert.escalation_min.critical` | int | 15 | install | operator | No |
 | `kodo.incident.auto_enter` | list | the four triggers in 16.3 | install | operator | Yes; cannot be removed below the floor |
+| `kodo.recover.unattended` | list | empty | install | operator | Yes; owner. Only `host_restart` and `slot_switch` are accepted; any other value is refused. Each unattended run is still audited, bounded by the retry cap and verified by the runbook's verify step, and a failed verify stops with needs-human |
 | `kodo.failover.enabled` | bool | false | install | operator | Yes; owner |
 | `kodo.failover.auto_failback` | bool | false | install | operator | Yes; owner |
 | `kodo.explain.mode` | enum `off`, `ask`, `auto` | `off` | install | operator | Yes; counsel for `auto` |
