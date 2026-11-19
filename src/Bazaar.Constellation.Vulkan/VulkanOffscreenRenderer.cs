@@ -56,6 +56,17 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
         _height = height;
     }
 
+    /// <summary>Device objects for GPU tests in the same assembly family (Hi-Z pass test). Not part of the public surface.</summary>
+    internal VkInstanceApi InstanceApi => _instanceApi;
+
+    internal VkDeviceApi DeviceApi => _deviceApi;
+
+    internal VkPhysicalDevice PhysicalDevice => _physicalDevice;
+
+    internal VkQueue Queue => _queue;
+
+    internal VkCommandPool CommandPool => _commandPool;
+
     /// <summary>True when the Khronos validation layer was enabled on this renderer's instance.</summary>
     public bool ValidationLayerEnabled { get; private set; }
 
