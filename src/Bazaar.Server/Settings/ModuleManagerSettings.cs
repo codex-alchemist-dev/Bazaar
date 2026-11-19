@@ -1,3 +1,4 @@
+using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;
 
 namespace Bazaar.Server.Settings;
@@ -12,7 +13,7 @@ namespace Bazaar.Server.Settings;
 public static class ModuleManagerSettings
 {
     public static readonly SettingKey<int> DeferWarnDays = new(
-        DeferAging.DeferWarnDaysSettingKey, DeferAging.DefaultDeferWarnDays, SettingScope.Install, SettingRole.Operator,
+        ModuleManagerSettingNames.DeferWarnDaysSettingKey, ModuleManagerSettingNames.DefaultDeferWarnDays, SettingScope.Install, SettingRole.Operator,
         "Days a deferred update may wait before the module manager and Kodo show it as aging.",
         validate: Between(7, 365, "deps.update.deferWarnDays"));
 
@@ -50,6 +51,26 @@ public static class ModuleManagerSettings
         "Days since the last restore drill before a line move's preflight refuses to start.",
         validate: AtLeast(1, "lineMove.drillMaxAgeDays"));
 
+    public static readonly SettingKey<int> LineMoveRetryMaxAttempts = new(
+        "lineMove.retry.maxAttempts", LineMoveRetryPolicy.DefaultMaxAttempts, SettingScope.Install, SettingRole.Operator,
+        "Attempts a rolled-back line move gets, including the first. When every attempt rolls back, the move halts for the owner.",
+        validate: Between(1, 10, "lineMove.retry.maxAttempts"));
+
+    public static readonly SettingKey<int> LineMoveRetryInitialBackoffMinutes = new(
+        "lineMove.retry.initialBackoffMinutes", (int)LineMoveRetryPolicy.Default.InitialBackoff.TotalMinutes, SettingScope.Install, SettingRole.Operator,
+        "Minutes to wait before the second attempt. Later waits grow by the multiplier.",
+        validate: Between(1, 1440, "lineMove.retry.initialBackoffMinutes"));
+
+    public static readonly SettingKey<double> LineMoveRetryMultiplier = new(
+        "lineMove.retry.multiplier", LineMoveRetryPolicy.Default.Multiplier, SettingScope.Install, SettingRole.Operator,
+        "Growth of the wait between attempts. Each wait is the previous one times this value.",
+        validate: CheckMultiplier);
+
+    public static readonly SettingKey<int> LineMoveRetryMaxBackoffMinutes = new(
+        "lineMove.retry.maxBackoffMinutes", (int)LineMoveRetryPolicy.Default.MaxBackoff.TotalMinutes, SettingScope.Install, SettingRole.Operator,
+        "Upper bound on any single wait between attempts, in minutes. Must not be below the initial wait (see RetryOrderError).",
+        validate: Between(1, 10080, "lineMove.retry.maxBackoffMinutes"));
+
     /// <summary>Every module manager key, in the order the design lists them.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
@@ -61,6 +82,10 @@ public static class ModuleManagerSettings
         GateMinimumSamples,
         GateMaxErrorRate,
         LineMoveDrillMaxAgeDays,
+        LineMoveRetryMaxAttempts,
+        LineMoveRetryInitialBackoffMinutes,
+        LineMoveRetryMultiplier,
+        LineMoveRetryMaxBackoffMinutes,
     ];
 
     /// <summary>
@@ -75,6 +100,35 @@ public static class ModuleManagerSettings
             return $"releases.ring.earlyPercent ({earlyPercent}) must not exceed releases.ring.broadPercent ({broadPercent}).";
         return null;
     }
+
+    /// <summary>
+    /// The cross-setting rule for the retry waits: the maximum wait must not be shorter than the initial wait. Returns null when it holds.
+    /// </summary>
+    public static string? RetryOrderError(int initialBackoffMinutes, int maxBackoffMinutes) =>
+        maxBackoffMinutes < initialBackoffMinutes
+            ? $"lineMove.retry.maxBackoffMinutes ({maxBackoffMinutes}) must not be below lineMove.retry.initialBackoffMinutes ({initialBackoffMinutes})."
+            : null;
+
+    /// <summary>
+    /// Builds the retry policy from the four stored values. Throws <see cref="ArgumentException"/> when the cross-setting order fails,
+    /// and the policy's own range check throws for any other bad value, so a broken setting never reaches a running move.
+    /// </summary>
+    public static LineMoveRetryPolicy RetryPolicyFrom(int maxAttempts, int initialBackoffMinutes, double multiplier, int maxBackoffMinutes)
+    {
+        if (RetryOrderError(initialBackoffMinutes, maxBackoffMinutes) is { } error)
+            throw new ArgumentException(error, nameof(maxBackoffMinutes));
+
+        return new LineMoveRetryPolicy(
+            maxAttempts,
+            TimeSpan.FromMinutes(initialBackoffMinutes),
+            multiplier,
+            TimeSpan.FromMinutes(maxBackoffMinutes)).Validated();
+    }
+
+    private static string? CheckMultiplier(double multiplier) =>
+        double.IsFinite(multiplier) && multiplier is >= 1 and <= 10
+            ? null
+            : $"'lineMove.retry.multiplier' must be from 1 to 10; got {multiplier}.";
 
     private static Func<int, string?> AtLeast(int min, string name) =>
         value => value >= min ? null : $"'{name}' must be at least {min}; got {value}.";

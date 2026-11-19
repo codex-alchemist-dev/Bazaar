@@ -1,7 +1,6 @@
 using Bazaar.Secrets;
 using Bazaar.Secrets.Keyring;
-using Bazaar.Server.Secrets;
-using Bazaar.Server.Secrets.Db;
+using Bazaar.Server.Secrets.Postgres;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

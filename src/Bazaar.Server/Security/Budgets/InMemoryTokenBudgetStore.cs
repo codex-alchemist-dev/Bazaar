@@ -67,4 +67,32 @@ public sealed class InMemoryTokenBudgetStore : ITokenBudgetStore
         }
         return Task.CompletedTask;
     }
+
+    public Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, long tokens, TokenBudgetOptions limits, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentOutOfRangeException.ThrowIfNegative(tokens);
+        ArgumentNullException.ThrowIfNull(limits);
+        ct.ThrowIfCancellationRequested();
+
+        lock (_gate)
+        {
+            _spendsByAgent.TryGetValue(agentId, out var spends);
+
+            // Sorted so the retry-after walk sees spends leave oldest first, even if the clock stepped backwards.
+            var ordered = spends is null ? [] : spends.OrderBy(spend => spend.At).ToArray();
+            var decision = TokenBudgetEvaluator.Evaluate(ordered, at, tokens, limits);
+
+            if (decision.Allowed && tokens > 0)
+            {
+                if (spends is null)
+                {
+                    spends = [];
+                    _spendsByAgent.Add(agentId, spends);
+                }
+                spends.Add(new TokenBudgetSpend(at, tokens));
+            }
+            return Task.FromResult(decision);
+        }
+    }
 }

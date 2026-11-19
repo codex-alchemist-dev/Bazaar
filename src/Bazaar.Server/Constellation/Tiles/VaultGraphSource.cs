@@ -25,7 +25,8 @@ public sealed class VaultGraphSource(VaultIndexRepository index, Guid vaultId) :
 }
 
 /// <summary>
-/// The pure part of the Vault graph: node and edge order and the graph version. No I/O, so it is tested without Postgres.
+/// The pure part of the Vault graph: node and edge order and the graph version. Nodes carry <see cref="GraphNodeKind.Vault"/> and
+/// edges carry <see cref="GraphEdgeKind.WikiLink"/>. No I/O, so it is tested without Postgres.
 /// The layout indexes nodes by their position in the snapshot, so the order must be deterministic.
 /// </summary>
 public static class VaultGraphProjection
@@ -49,10 +50,10 @@ public static class VaultGraphProjection
             .Distinct()
             .OrderBy(edge => edge.From, StringComparer.Ordinal)
             .ThenBy(edge => edge.To, StringComparer.Ordinal)
-            .Select(edge => new GraphEdge(edge.From, edge.To))
+            .Select(edge => new GraphEdge(edge.From, edge.To, GraphEdgeKind.WikiLink))
             .ToArray();
 
-        var nodes = nodeIds.Select(id => new GraphNode(id)).ToArray();
+        var nodes = nodeIds.Select(id => new GraphNode(id, GraphNodeKind.Vault)).ToArray();
         return new GraphSnapshot(VersionOf(nodeIds, edges), nodes, edges);
     }
 

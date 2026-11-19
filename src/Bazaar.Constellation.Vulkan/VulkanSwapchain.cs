@@ -34,6 +34,10 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     private VkImage[] _images = [];
     private VkCommandBuffer[] _commandBuffers = [];
     private VkSemaphore[] _renderFinished = [];
+    private VkImageView[] _imageViews = [];
+    private VkFramebuffer[] _framebuffers = [];
+    private NodePipeline? _pipeline;
+    private VkFormat _pipelineFormat;
     private bool _disposed;
 
     private VulkanSwapchain(RenderSurface surface)
@@ -86,10 +90,18 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     /// Acquires the next image, clears it to <paramref name="clear"/> and presents it.
     /// Returns false when the swapchain had to be rebuilt instead, so the caller can retry on the next tick.
     /// </summary>
-    public bool ClearAndPresent((float R, float G, float B, float A) color)
+    public bool ClearAndPresent((float R, float G, float B, float A) color) =>
+        Present(color, ReadOnlySpan<byte>.Empty, 0, NodeView.Identity);
+
+    /// <summary>
+    /// Acquires the next image, clears it, draws <paramref name="instanceCount"/> node instances from
+    /// <paramref name="instanceBytes"/> (packed as <see cref="Rendering.Core.NodeInstanceBuffer"/>), and presents it.
+    /// Returns false when the swapchain had to be rebuilt instead, so the caller can retry on the next tick.
+    /// </summary>
+    public bool Present((float R, float G, float B, float A) color, ReadOnlySpan<byte> instanceBytes, int instanceCount, NodeView view)
     {
         ThrowIfDisposed();
-        if (_swapchain.Handle == 0)
+        if (_swapchain.Handle == 0 || _pipeline is null)
         {
             return false;
         }
@@ -109,12 +121,13 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         }
 
         _deviceApi.vkResetFences(1, &fence);
-        RecordClear(imageIndex, color);
+        _pipeline.Upload(instanceBytes);
+        RecordFrame(imageIndex, color, instanceCount, view);
 
         VkSemaphore waitSemaphore = _imageAvailable;
         VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
         VkSemaphore signal = _renderFinished[imageIndex];
-        var waitStage = VkPipelineStageFlags.Transfer;
+        var waitStage = VkPipelineStageFlags.ColorAttachmentOutput;
         var submit = new VkSubmitInfo
         {
             sType = VkStructureType.SubmitInfo,
@@ -160,6 +173,8 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         {
             _deviceApi.vkDeviceWaitIdle();
             DestroySwapchainObjects();
+            _pipeline?.Dispose();
+            _pipeline = null;
             if (_frameFence.Handle != 0)
             {
                 _deviceApi.vkDestroyFence(_frameFence, null);
@@ -226,6 +241,10 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             _ => _headlessExtension,
         };
         string[] extensions = ["VK_KHR_surface", platformExtension];
+        if (headless && !VulkanProbe.InstanceExtensionNames().Contains(_headlessExtension))
+        {
+            return $"Headless surface needs {_headlessExtension}, which this Vulkan loader does not offer.";
+        }
 
         using var names = new NativeStrings(extensions);
         var appInfo = new VkApplicationInfo
@@ -472,6 +491,13 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         }
 
         _format = ChooseFormat();
+        if (_pipeline is null || _pipelineFormat != _format)
+        {
+            _pipeline?.Dispose();
+            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR);
+            _pipelineFormat = _format;
+        }
+
         uint imageCount = Math.Max(capabilities.minImageCount + 1, 2u);
         if (capabilities.maxImageCount != 0)
         {
@@ -487,7 +513,7 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             imageColorSpace = VkColorSpaceKHR.SrgbNonLinear,
             imageExtent = _extent,
             imageArrayLayers = 1,
-            imageUsage = VkImageUsageFlags.TransferDst,
+            imageUsage = VkImageUsageFlags.ColorAttachment,
             imageSharingMode = VkSharingMode.Exclusive,
             preTransform = capabilities.currentTransform,
             compositeAlpha = VkCompositeAlphaFlagsKHR.Opaque,
@@ -526,6 +552,7 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         _deviceApi.vkGetSwapchainImagesKHR(_swapchain, out uint count);
         _images = new VkImage[count];
         _deviceApi.vkGetSwapchainImagesKHR(_swapchain, _images);
+        CreateViewsAndFramebuffers();
 
         var allocate = new VkCommandBufferAllocateInfo
         {
@@ -548,8 +575,47 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         }
     }
 
-    /// <summary>Records transition to transfer-destination, clear, transition to present. One buffer per image.</summary>
-    private void RecordClear(uint imageIndex, (float R, float G, float B, float A) color)
+    /// <summary>One colour view and one framebuffer per swapchain image, for the node render pass.</summary>
+    private void CreateViewsAndFramebuffers()
+    {
+        _imageViews = new VkImageView[_images.Length];
+        _framebuffers = new VkFramebuffer[_images.Length];
+        for (int index = 0; index < _images.Length; index++)
+        {
+            var viewInfo = new VkImageViewCreateInfo
+            {
+                sType = VkStructureType.ImageViewCreateInfo,
+                image = _images[index],
+                viewType = VkImageViewType.Image2D,
+                format = _format,
+                subresourceRange = new VkImageSubresourceRange
+                {
+                    aspectMask = VkImageAspectFlags.Color,
+                    baseMipLevel = 0,
+                    levelCount = 1,
+                    baseArrayLayer = 0,
+                    layerCount = 1,
+                },
+            };
+            _deviceApi.vkCreateImageView(&viewInfo, null, out _imageViews[index]);
+
+            VkImageView attachment = _imageViews[index];
+            var framebufferInfo = new VkFramebufferCreateInfo
+            {
+                sType = VkStructureType.FramebufferCreateInfo,
+                renderPass = _pipeline!.RenderPass,
+                attachmentCount = 1,
+                pAttachments = &attachment,
+                width = _extent.width,
+                height = _extent.height,
+                layers = 1,
+            };
+            _deviceApi.vkCreateFramebuffer(&framebufferInfo, null, out _framebuffers[index]);
+        }
+    }
+
+    /// <summary>Records one render pass per image: clear, then the node instances when there are any.</summary>
+    private void RecordFrame(uint imageIndex, (float R, float G, float B, float A) color, int instanceCount, NodeView view)
     {
         VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
         _deviceApi.vkResetCommandBuffer(commandBuffer, VkCommandBufferResetFlags.None);
@@ -560,43 +626,9 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             flags = VkCommandBufferUsageFlags.OneTimeSubmit,
         };
         _deviceApi.vkBeginCommandBuffer(commandBuffer, &begin);
-
-        VkImage image = _images[imageIndex];
-        var range = new VkImageSubresourceRange
-        {
-            aspectMask = VkImageAspectFlags.Color,
-            baseMipLevel = 0,
-            levelCount = 1,
-            baseArrayLayer = 0,
-            layerCount = 1,
-        };
-        VkImageMemoryBarrier toClear = Barrier(image, range, VkImageLayout.Undefined, VkImageLayout.TransferDstOptimal, default, VkAccessFlags.TransferWrite);
-        _deviceApi.vkCmdPipelineBarrier(commandBuffer, VkPipelineStageFlags.TopOfPipe, VkPipelineStageFlags.Transfer, default, 0, null, 0, null, 1, &toClear);
-        var clear = new VkClearColorValue();
-        clear.float32[0] = color.R;
-        clear.float32[1] = color.G;
-        clear.float32[2] = color.B;
-        clear.float32[3] = color.A;
-        _deviceApi.vkCmdClearColorImage(commandBuffer, image, VkImageLayout.TransferDstOptimal, &clear, 1, &range);
-        VkImageMemoryBarrier toPresent = Barrier(image, range, VkImageLayout.TransferDstOptimal, VkImageLayout.PresentSrcKHR, VkAccessFlags.TransferWrite, default);
-        _deviceApi.vkCmdPipelineBarrier(commandBuffer, VkPipelineStageFlags.Transfer, VkPipelineStageFlags.BottomOfPipe, default, 0, null, 0, null, 1, &toPresent);
-
+        _pipeline!.Record(commandBuffer, _framebuffers[imageIndex], _extent, color, instanceCount, view);
         _deviceApi.vkEndCommandBuffer(commandBuffer);
     }
-
-    private static VkImageMemoryBarrier Barrier(VkImage image, VkImageSubresourceRange range, VkImageLayout from, VkImageLayout to, VkAccessFlags sourceAccess, VkAccessFlags destinationAccess) =>
-        new()
-        {
-            sType = VkStructureType.ImageMemoryBarrier,
-            srcAccessMask = sourceAccess,
-            dstAccessMask = destinationAccess,
-            oldLayout = from,
-            newLayout = to,
-            srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            image = image,
-            subresourceRange = range,
-        };
 
     private void DestroySwapchainObjects()
     {
@@ -618,6 +650,24 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         }
 
         _commandBuffers = [];
+        foreach (VkFramebuffer framebuffer in _framebuffers)
+        {
+            if (framebuffer.Handle != 0)
+            {
+                _deviceApi.vkDestroyFramebuffer(framebuffer, null);
+            }
+        }
+
+        foreach (VkImageView view in _imageViews)
+        {
+            if (view.Handle != 0)
+            {
+                _deviceApi.vkDestroyImageView(view, null);
+            }
+        }
+
+        _framebuffers = [];
+        _imageViews = [];
         _images = [];
         if (_swapchain.Handle != 0)
         {

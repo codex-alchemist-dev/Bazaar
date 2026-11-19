@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Bazaar.Approvals;
 
 namespace Bazaar.Server.Security.Approvals;
 
@@ -16,6 +17,12 @@ public static partial class ApprovalSignature
 {
     /// <summary>Prefix that versions the message format. Changing the layout means a new prefix.</summary>
     public const string Domain = "bazaar.approval.v1";
+
+    /// <summary>Prefix of the containment release message. A separate domain, so an approval signature can never serve as a release signature.</summary>
+    public const string ReleaseDomain = "bazaar.release.v1";
+
+    /// <summary>Length of the single-use release nonce in bytes (128 bits).</summary>
+    public const int ReleaseNonceLength = 16;
 
     /// <summary>Length of an IEEE P1363 P-256 signature.</summary>
     public const int SignatureLength = 64;
@@ -51,34 +58,40 @@ public static partial class ApprovalSignature
         return Encoding.UTF8.GetBytes(text);
     }
 
+    /// <summary>The exact bytes the device signs to release one agent's containment.</summary>
+    /// <remarks>
+    /// Same scheme as <see cref="Message"/> (versioned, line-separated UTF-8 text, verified by <see cref="Verify"/>). The
+    /// agent id is hex-encoded so it cannot contain a line break, and the nonce is hex-encoded too.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The agent id is blank, the device id has a disallowed shape, or the nonce is not 16 bytes.</exception>
+    public static byte[] ReleaseMessage(string agentId, string deviceId, byte[] nonce, DateTimeOffset expiresAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(deviceId);
+        ArgumentNullException.ThrowIfNull(nonce);
+        if (!IsValidDeviceId(deviceId))
+        {
+            throw new ArgumentException("Device id has a disallowed shape.", nameof(deviceId));
+        }
+
+        if (nonce.Length != ReleaseNonceLength)
+        {
+            throw new ArgumentException("Release nonce must be 16 bytes.", nameof(nonce));
+        }
+
+        var text = string.Join(
+            '\n',
+            ReleaseDomain,
+            Convert.ToHexStringLower(Encoding.UTF8.GetBytes(agentId)),
+            deviceId,
+            Convert.ToHexStringLower(nonce),
+            expiresAt.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return Encoding.UTF8.GetBytes(text);
+    }
+
     /// <summary>
     /// Verifies a signature against a device's public key. Returns false, never throws, for any malformed key or signature.
     /// </summary>
-    public static bool Verify(byte[] publicKeySpki, byte[] message, byte[] signature)
-    {
-        ArgumentNullException.ThrowIfNull(publicKeySpki);
-        ArgumentNullException.ThrowIfNull(message);
-        ArgumentNullException.ThrowIfNull(signature);
-
-        if (signature.Length != SignatureLength)
-        {
-            return false;
-        }
-
-        try
-        {
-            using var key = ECDsa.Create();
-            key.ImportSubjectPublicKeyInfo(publicKeySpki, out _);
-            if (key.KeySize != 256)
-            {
-                return false;
-            }
-
-            return key.VerifyData(message, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        }
-        catch (CryptographicException)
-        {
-            return false;
-        }
-    }
+    public static bool Verify(byte[] publicKeySpki, byte[] message, byte[] signature) =>
+        OwnerSignatureCrypto.Verify(publicKeySpki, message, signature);
 }

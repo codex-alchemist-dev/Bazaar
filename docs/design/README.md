@@ -42,7 +42,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 15 | [15-security-taint-and-approvals.md](15-security-taint-and-approvals.md) | Trust tags, session taint, approval tiers and flow, egress, audit, quarantine, rate limits | 14 | 01, 06, 14, 16, 17 |
 | 21 | [21-github-integration.md](21-github-integration.md) | One GitHub App per agent, webhooks, PR GCs, PR lifecycle, rate limits | 13 | 14, 15, 18, 12, 11, 17 |
 | 22 | [22-email-subsystem.md](22-email-subsystem.md) | External-only mail: four back ends, inbound screening, quarantine, outbound tiers, optional bait protocol | 16 | 01, 14, 15, 05 |
-| 32 | [32-remote-access-auth-and-privacy.md](32-remote-access-auth-and-privacy.md) | Remote access options, device pairing, tokens, sign-in page, roles, privacy settings | 12 | 01, 02, 14, 15, 04 |
+| 32 | [32-remote-access-auth-and-privacy.md](32-remote-access-auth-and-privacy.md) | Remote access options, sign-in and device credentials (no device pairing), tokens, sign-in page, roles, privacy settings | 12 | 01, 02, 14, 15, 04 |
 | 36 | [36-community-and-external-platforms.md](36-community-and-external-platforms.md) | Disclosed bot participation in outside communities: policy matrix, tiers, quotas, kill switch | 13 | 14, 15, 21, 22 |
 
 ### Environments and engines
@@ -137,8 +137,9 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 42 | [42-deps-as-modules.md](42-deps-as-modules.md) | Dependencies as modules: PostgreSQL, pgvector and runtimes as Deps modules, dual-version PG 18 and 19, zero external installs, supervised child process | - | 03, 04, 37, 46, 47, 49 |
 | 43 | [43-telemetry-and-crash-reporting.md](43-telemetry-and-crash-reporting.md) | Client telemetry and crash reporting: deterministic capture, on-device redaction, per-company off, ask or auto, server-side issue filing and labelled diagnosis | 4 | 15, 23, 37, 46, 48 |
 | 44 | [44-data-portability.md](44-data-portability.md) | Data portability: export bundles by data class, the separate memory export (4.x), import pipeline, importer and exporter modules | 6 | 04, 07, 08, 11, 14, 15, 18, 33, 48 |
-| 45 | [45-onboarding.md](45-onboarding.md) | Onboarding: headless-first server setup with one audit trail, client first run with automatic pairing and a keyboard-first tour | 6 | 03, 32, 41, 44, 46 |
+| 45 | [45-onboarding.md](45-onboarding.md) | Onboarding: headless-first server setup with one audit trail, client first run with automatic connection (no pairing) and a keyboard-first tour | 6 | 03, 32, 41, 44, 46 |
 | 46 | [46-kodo-health-module.md](46-kodo-health-module.md) | Kodo (Bazaar.KODO), the health module: immutable runtime with A/B rollback, monitor pane, module health contract, incident mode | 6 | 03, 23, 33, 37, 42, 48, 49 |
 | 47 | [47-licensing-and-trademarks.md](47-licensing-and-trademarks.md) | Licensing, contributions and trademarks: AGPL-3.0 everywhere, module exception, DCO and CLA, marks and marketplace licence rules | 13 (M1 to M13) | 37, 42, 48, 49 |
 | 48 | [48-gap-decisions-security-identity.md](48-gap-decisions-security-identity.md) | Gap decisions for security, identity, recovery, privacy, retention, updates and AI agent safety | 6 | 14, 15, 33, 32, 37, 46 |
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
+| 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |

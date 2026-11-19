@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wiz="using:Bazaar.Client.Portability.Avalonia"
+             x:Class="Bazaar.Client.Portability.Avalonia.ChooseSourceStepView"
+             x:DataType="wiz:WizardViewModel">
+  <StackPanel Margin="16" Spacing="12">
+    <TextBlock Text="Choose a source" FontSize="18" FontWeight="Bold" />
+    <TextBlock Text="Pick an export file to import. Nothing is written until the dry-run has been checked and you commit." TextWrapping="Wrap" />
+    <Button Content="Choose file..." AutomationProperties.Name="Choose a source file" Command="{Binding PickSourceCommand}" />
+  </StackPanel>
+</UserControl>

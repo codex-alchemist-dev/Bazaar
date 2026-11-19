@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using Bazaar.Secrets;
-using Bazaar.Server.Secrets;
-using Bazaar.Server.Secrets.Db;
+using Bazaar.Server.Secrets.Postgres;
 using Bazaar.Server.Security.Audit.Db;
 using Npgsql;
 

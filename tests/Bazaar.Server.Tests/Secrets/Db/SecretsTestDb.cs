@@ -1,5 +1,5 @@
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.Secrets.Db;
+using Bazaar.Server.Secrets.Postgres;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
