@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
@@ -145,6 +146,7 @@ internal static class RyuseiFudaPaneViews
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Tag = row.Id,
             };
+            AutomationProperties.SetName(button, $"{(paused ? "Resume" : "Pause")} {row.KindLabel}");
             button.Click += (_, _) =>
             {
                 var change = paused ? schedule.ResumeAsync(row.Id) : schedule.PauseAsync(row.Id);

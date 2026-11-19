@@ -24,6 +24,7 @@ internal sealed unsafe class NodePipeline : IDisposable
     private readonly VkDeviceApi _deviceApi;
     private readonly VkPhysicalDevice _physicalDevice;
     private readonly VkFormat _format;
+    private readonly VkImageLayout _finalLayout;
     private VkRenderPass _renderPass;
     private VkPipelineLayout _layout;
     private VkPipeline _pipeline;
@@ -35,12 +36,14 @@ internal sealed unsafe class NodePipeline : IDisposable
     private void* _instanceMapped;
     private bool _disposed;
 
-    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format)
+    /// <param name="finalLayout">Layout the colour target is left in after the pass: present for a swapchain, transfer-source for an offscreen copy.</param>
+    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format, VkImageLayout finalLayout)
     {
         _instanceApi = instanceApi;
         _deviceApi = deviceApi;
         _physicalDevice = physicalDevice;
         _format = format;
+        _finalLayout = finalLayout;
         CreateRenderPass();
         CreatePipeline();
         CreateCornerBuffer();
@@ -158,7 +161,7 @@ internal sealed unsafe class NodePipeline : IDisposable
             stencilLoadOp = VkAttachmentLoadOp.DontCare,
             stencilStoreOp = VkAttachmentStoreOp.DontCare,
             initialLayout = VkImageLayout.Undefined,
-            finalLayout = VkImageLayout.PresentSrcKHR,
+            finalLayout = _finalLayout,
         };
         var colorRef = new VkAttachmentReference { attachment = 0, layout = VkImageLayout.ColorAttachmentOptimal };
         var subpass = new VkSubpassDescription

@@ -15,7 +15,7 @@ namespace Bazaar.GitHub.Adapter;
 /// Rate-limited responses wait when the wait is short and surface as <see cref="GitHubRateLimitedException"/> otherwise.
 /// 5xx and transport failures back off exponentially. Nothing in this class logs or throws the token.
 /// </summary>
-public sealed class GitHubAdapter : IGitHubAdapter
+public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
 {
     private const string _apiVersion = "2022-11-28";
     private const string _userAgent = "Bazaar-Server";
@@ -171,7 +171,19 @@ public sealed class GitHubAdapter : IGitHubAdapter
         await WriteAsync(pr.InstallationId, HttpMethod.Post, token, Endpoint($"{PullPath(pr)}/reviews"), body, cancellationToken);
     }
 
-    public async Task SquashMergeAsync(PrRef pr, MergeRequest merge, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public async Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken)
+    {
+        var token = await AcquireTokenAsync(pr.InstallationId, _readPermissions, cancellationToken);
+        var pull = await GetAsync(pr.InstallationId, token, Endpoint(PullPath(pr)), cancellationToken);
+        using var doc = ParseJson(pull, "pull request");
+        return Shape(() => doc.RootElement.GetProperty("head").GetProperty("sha").GetString() ?? string.Empty);
+    }
+
+    /// <summary>
+    /// The squash merge call. It is not on <see cref="IGitHubAdapter"/>, so it is reachable only through <see cref="OwnerSignedMerge"/>.
+    /// </summary>
+    async Task IGitHubMergeExecutor.SquashMergeAsync(PrRef pr, MergeRequest merge, CancellationToken cancellationToken)
     {
         var token = await AcquireTokenAsync(pr.InstallationId, _mergePermissions, cancellationToken);
 
