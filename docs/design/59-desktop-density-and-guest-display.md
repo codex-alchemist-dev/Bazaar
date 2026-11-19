@@ -87,7 +87,7 @@ Chromium's own sandbox is strong, but it is the only wall in option B, and agent
 **From discovery to an account (owner, 2026-11-19).** The owner wants agents to find sites, triage them and later make their own accounts. The placement above is that path, and the approval rules already exist:
 1. *Discover and triage* happens in an anonymous profile (the pool VM if question 1 is answered that way). No credential is present, so a hostile site gains nothing. Screenshots from triage are untrusted content (section 5).
 2. *Verify terms.* A site with no verified `ServiceTerms` record is Deny for any action (doc 15, doc 36). Triage can propose a record; a platform's rules are checked before the first post (CLAUDE.md).
-3. *Approve.* New account creation is Tier 2: the owner approves each one, and only for services on `identity.signup_whitelist` (doc 14, doc 15). CAPTCHA, phone and ID steps stay with a person; sign-ups that forbid automation are Deny (doc 15, doc 22).
+3. *Approve.* New account creation is Tier 2, only for services on `identity.signup_whitelist` (doc 14). The approval comes from the owner or, since 2026-11-19, from senior peers (doc 15, "Peer approval of account creation"). CAPTCHA, phone and ID steps stay with a person; sign-ups that forbid automation are Deny (doc 15, doc 22).
 4. *Sign up* runs in the agent's own VM, in a new account profile, with the agent's external mailbox for the verification mail (doc 22). The account never exists in the pool VM.
 5. *Use.* The site joins that profile's allowlist and the agent's egress allowlist; the Passport holds the session (doc 14).
 
@@ -97,7 +97,7 @@ Nothing here changes those decisions. The only new piece is step 1's placement a
 - A new motion kind `site_allowlist` on the existing approve/reject vote type. The subject is the site's registrable domain. The motion carries the triage report: what the site is for, the proposed `ServiceTerms` record (doc 36), the scope asked for (read only, or account), and screenshots from the anonymous session as evidence.
 - Triage evidence is untrusted content. Voters read it in reader sessions (doc 15), so a site cannot talk its way onto the list through its own page text. The proposer cannot vote (doc 10 eligibility).
 - Sealed ballots, reveal, one follow-up and escalation work as doc 10 says. The Council emits `council.decision`; the egress and Identity modules apply it. The Council writes no allowlist itself.
-- **Decided (owner card, 2026-11-19):** a unanimous vote allowlists the site for login-free reading only (anonymous profiles), with no owner step. A split or tied vote, and every new account or logged-in use, still goes to the owner as a Tier 2 approval with the vote record attached.
+- **Decided (owner card, 2026-11-19):** a unanimous vote allowlists the site for login-free reading only (anonymous profiles), with no owner step. A split or tied vote goes to the owner. A new account or logged-in use is a separate Tier 2 approval with the vote record attached, given by the owner or by senior peers (doc 15).
 - Limits that no vote can lift: a site with no verified terms record or terms that forbid automation stays Deny; CAPTCHA, phone and ID stay with a person; account creation needs `identity.signup_whitelist`.
 
 ## 8. Density controls
@@ -150,6 +150,9 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 2. **Start the Windows VM only on first use?** *Recommend* yes (`vm.pair.start_policy = on_demand`). This is a default, so it follows the configurability rule and is not blocked on an answer.
 
 3. **What may a passed peer vote on a site do without the owner?** ANSWERED (owner card, 2026-11-19): a unanimous vote opens the site for login-free reading only; anything split, and every account, still comes to the owner with the vote attached.
+
+4. **How many senior peers must approve a new account?** *Recommend* two (`security.account_approval.peer_quorum = 2`), falling back to the owner when two are not available.
+5. **Who accepts a site's legal terms during sign-up?** Today that is Tier 3, a person. *Recommend* keeping it with a person until counsel has looked at agents accepting terms.
 
 ## 13. Conflicts and notes
 - Doc 16 says "headless by default" and has `vm.headed_vm`. This doc does not change either: no viewer is attached and enhanced session stays off. `vm.headed_vm` keeps its meaning (a VM with an attached interactive console on a capable server).
