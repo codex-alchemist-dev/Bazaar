@@ -144,7 +144,7 @@ public sealed class LineMoveRunner
             StepResult result;
             try
             {
-                result = await _executors[step].ExecuteAsync(context, cancellationToken);
+                result = await ExecuteGuardedAsync(_executors[step], context, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -204,7 +204,7 @@ public sealed class LineMoveRunner
 
         LineMoveSequence.EnsureCanRun(LineMoveStep.RolledBack, LineMoveStep.Switch);
         // The rollback is not cancelled by the caller's token: a rollback that stops half way is worse than a late one.
-        var rollback = await _executors[LineMoveStep.RolledBack].ExecuteAsync(context, CancellationToken.None);
+        var rollback = await ExecuteGuardedAsync(_executors[LineMoveStep.RolledBack], context, CancellationToken.None);
         if (rollback.Succeeded)
         {
             await AuditAsync(context, LineMoveStep.RolledBack, LineMoveAuditKind.Succeeded, rollback.Text);
@@ -213,6 +213,26 @@ public sealed class LineMoveRunner
 
         await AuditAsync(context, LineMoveStep.RolledBack, LineMoveAuditKind.ManualRollbackRequired, rollback.Text);
         return new LineMoveOutcome(LineMoveStatus.ManualRollbackRequired, LineMoveStep.RolledBack, context.SnapshotId, true, []);
+    }
+
+    // An executor that crashes (a power cut mid-upgrade, a dropped connection) must end up as a failed step: audited, and
+    // followed by the same recovery as a failure the executor reported itself. Only the caller's own cancellation escapes.
+    // The audit detail names the exception type only, because the message can carry connection strings or paths.
+    private static async Task<StepResult> ExecuteGuardedAsync(ILineMoveStepExecutor executor, LineMoveContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await executor.ExecuteAsync(context, cancellationToken)
+                ?? StepResult.Failure("The step returned no result.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            return StepResult.Failure($"The step threw {error.GetType().Name}.");
+        }
     }
 
     private async Task<LineMoveOutcome> CancelledAsync(LineMoveContext context, LineMoveStep step, bool rollbackRequired)

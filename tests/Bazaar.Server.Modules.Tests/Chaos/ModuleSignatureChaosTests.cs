@@ -13,7 +13,7 @@ namespace Bazaar.Server.Modules.Tests.Chaos;
 /// </summary>
 public sealed class ModuleSignatureChaosTests : IDisposable
 {
-    private const string KeyId = "chaos-key";
+    private const string _keyId = "chaos-key";
     private static readonly DateTimeOffset _now = new(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
     private readonly ECDsa _key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly FakeTimeProvider _time = new(_now);
@@ -22,7 +22,7 @@ public sealed class ModuleSignatureChaosTests : IDisposable
 
     public ModuleSignatureChaosTests()
     {
-        _store.Add(new TrustedModuleKey(KeyId, "publisher", _key, _now.AddYears(-1), _now.AddYears(1)));
+        _store.Add(new TrustedModuleKey(_keyId, "publisher", _key, _now.AddYears(-1), _now.AddYears(1)));
         _verifier = new EcdsaModuleSignatureVerifier(_store, _time);
     }
 
@@ -37,7 +37,7 @@ public sealed class ModuleSignatureChaosTests : IDisposable
             version,
             new HashSet<string>(permissions ?? ["storage:local", "network:host"], StringComparer.Ordinal),
             new string('a', 64),
-            KeyId,
+            _keyId,
             Host(),
             []);
         byte[] signature = _key.SignData(ModuleCanonicalForm.Build(unsigned), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
@@ -135,13 +135,13 @@ public sealed class ModuleSignatureChaosTests : IDisposable
 
         using ECDsa other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         InMemoryTrustedKeyStore store = new();
-        store.Add(new TrustedModuleKey(KeyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
+        store.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
         EcdsaModuleSignatureVerifier revoked = new(store, new FakeTimeProvider(_now));
         Assert.Equal(ModuleSignatureStatus.KeyNotValid, revoked.Verify(good));
 
         // A key that is not valid yet, and a package that names a key id nobody trusts.
         InMemoryTrustedKeyStore future = new();
-        future.Add(new TrustedModuleKey(KeyId, "p", other, _now.AddDays(1), _now.AddYears(1)));
+        future.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddDays(1), _now.AddYears(1)));
         Assert.Equal(ModuleSignatureStatus.KeyNotValid, new EcdsaModuleSignatureVerifier(future, new FakeTimeProvider(_now)).Verify(good));
         Assert.Equal(ModuleSignatureStatus.UnknownKey, _verifier.Verify(good with { SignerKeyId = "nobody" }));
     }
@@ -166,7 +166,7 @@ public sealed class ModuleSignatureChaosTests : IDisposable
         // The same package, later: the key is revoked and the content digest has been swapped on disk.
         using ECDsa other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         InMemoryTrustedKeyStore store = new();
-        store.Add(new TrustedModuleKey(KeyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
+        store.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
         Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good, new EcdsaModuleSignatureVerifier(store, _time), approved));
         Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good with { ContentDigestSha256Hex = new string('c', 64) }, _verifier, approved));
 
