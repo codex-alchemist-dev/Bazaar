@@ -24,6 +24,8 @@ namespace Bazaar.Server.Tests.Http;
 public sealed class HttpSurfaceTests : IAsyncLifetime
 {
     private static readonly Guid _alice = Guid.Parse("00000000-0000-7000-8000-0000000000a1");
+    private static readonly Guid _owner = Guid.Parse("00000000-0000-7000-8000-0000000000f0");
+    private static readonly Guid _agent = Guid.Parse("00000000-0000-7000-8000-0000000000c3");
     private static readonly Guid _bob = Guid.Parse("00000000-0000-7000-8000-0000000000b2");
     private static readonly Guid _readableGc = Guid.Parse("00000000-0000-7000-8000-00000000c001");
     private static readonly Guid _secretGc = Guid.Parse("00000000-0000-7000-8000-00000000c002");
@@ -66,7 +68,8 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         builder.Services.AddBazaarWire(builder.Configuration);
         if (wire is not null) builder.Services.Configure(wire);
         builder.Services.AddSingleton<IConnectionAuthenticator>(new FakeAuthenticator()
-            .Allow("alice", new PrincipalRef(_alice, "human")).Allow("bob", new PrincipalRef(_bob, "human")));
+            .Allow("alice", new PrincipalRef(_alice, "human")).Allow("bob", new PrincipalRef(_bob, "human"))
+            .Allow("owner", new PrincipalRef(_owner, "owner")).Allow("agent", new PrincipalRef(_agent, "agent")));
         builder.Services.AddSingleton<IGcReadAccess, GrantTable>();
         builder.Services.AddSingleton<ISearchProvider, FixedSearch>();
         builder.Services.AddBazaarBlobs(builder.Configuration);
@@ -92,13 +95,27 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         }
     }
 
+    [Theory]
+    [InlineData("alice")]
+    [InlineData("agent")]
+    public async Task Tile_endpoint_refuses_a_non_owner_principal(string token)
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", token, Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains("forbidden", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task Tile_endpoint_returns_a_binary_frame_for_an_empty_graph()
     {
         var (app, client) = await StartAsync();
         await using (app)
         {
-            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "owner", Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("application/x-bazaar-tile", response.Content.Headers.ContentType?.MediaType);
         }
@@ -110,11 +127,11 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         var (app, client) = await StartAsync();
         await using (app)
         {
-            var bad = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes("{not json")), TestContext.Current.CancellationToken);
+            var bad = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "owner", Encoding.UTF8.GetBytes("{not json")), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
 
             var inverted = _tileBody.Replace("\"min_x\":-1", "\"min_x\":5", StringComparison.Ordinal);
-            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes(inverted)), TestContext.Current.CancellationToken);
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "owner", Encoding.UTF8.GetBytes(inverted)), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }

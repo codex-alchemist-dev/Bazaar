@@ -23,7 +23,8 @@ namespace Bazaar.Server.Http;
 /// <item><c>HEAD|PATCH /blobs/uploads/{id}</c> reports the offset or appends a chunk at <c>Upload-Offset</c>.</item>
 /// <item><c>GET /blobs/{hash}</c> serves a blob with range support; a non-viewer gets 404.</item>
 /// <item><c>GET /search?gc=&amp;q=</c> searches one GC, answering only what the caller can read.</item>
-/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19).</item>
+/// <item><c>POST /constellation/tiles</c> returns the binary Constellation tile for one viewport (doc 19). Owner only until the
+/// per-viewer projection exists: the tile source lays out the whole Vault graph, so any other principal gets 403.</item>
 /// </list>
 /// </summary>
 public static class HttpSurfaceEndpoints
@@ -81,6 +82,10 @@ public static class HttpSurfaceEndpoints
 
     private static async Task<IResult> ConstellationTileAsync(HttpContext http, PrincipalRef principal)
     {
+        // The tile source is not per viewer yet (doc 19, "Visibility"): it would hand any caller ids, link topology and positions of
+        // every note, including other agents' private memory. Decided by the authenticated kind, never by the payload.
+        if (principal.Kind != "owner") return Error(StatusCodes.Status403Forbidden, "forbidden");
+
         var length = http.Request.ContentLength;
         if (length is null or < 1) return Error(StatusCodes.Status400BadRequest, "bad_request");
         if (length > _maxTileBodyBytes) return Error(StatusCodes.Status413PayloadTooLarge, "too_large");

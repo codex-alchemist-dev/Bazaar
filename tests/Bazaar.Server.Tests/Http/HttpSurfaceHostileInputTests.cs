@@ -27,6 +27,7 @@ namespace Bazaar.Server.Tests.Http;
 /// </summary>
 public sealed class HttpSurfaceHostileInputTests : IAsyncDisposable
 {
+    private static readonly Guid _owner = Guid.Parse("00000000-0000-7000-8000-0000000000f0");
     private static readonly Guid _alice = Guid.Parse("00000000-0000-7000-8000-0000000000a1");
     private static readonly Guid _gc = Guid.Parse("00000000-0000-7000-8000-00000000c001");
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -80,7 +81,7 @@ public sealed class HttpSurfaceHostileInputTests : IAsyncDisposable
         builder.Configuration.AddInMemoryCollection(values);
         builder.Logging.AddProvider(new ErrorSink(_errors));
         builder.Services.AddBazaarWire(builder.Configuration);
-        builder.Services.AddSingleton<IConnectionAuthenticator>(new FakeAuthenticator().Allow("alice", new PrincipalRef(_alice, "human")));
+        builder.Services.AddSingleton<IConnectionAuthenticator>(new FakeAuthenticator().Allow("alice", new PrincipalRef(_alice, "human")).Allow("owner", new PrincipalRef(_owner, "owner")));
         builder.Services.AddSingleton<IGcReadAccess, Grants>();
         builder.Services.AddSingleton<ISearchProvider, FixedSearch>();
         builder.Services.AddBazaarBlobs(builder.Configuration);
@@ -270,7 +271,7 @@ public sealed class HttpSurfaceHostileInputTests : IAsyncDisposable
         {
             foreach (var type in new[] { "application/json", "text/plain", "application/octet-stream" })
             {
-                var reply = await RawAsync(port, Request("POST", "/constellation/tiles", "alice", $"Content-Type: {type}\r\n", Encoding.UTF8.GetBytes(json)));
+                var reply = await RawAsync(port, Request("POST", "/constellation/tiles", "owner", $"Content-Type: {type}\r\n", Encoding.UTF8.GetBytes(json)));
 
                 AssertDesigned(reply, 400, 200);
             }
@@ -284,20 +285,20 @@ public sealed class HttpSurfaceHostileInputTests : IAsyncDisposable
         await using (app)
         {
             // Invalid UTF-8 inside a string, a UTF-16 byte order mark and NUL bytes.
-            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "alice", "Content-Type: application/json\r\n", [.. Bytes("{\"view_id\":\""), 0xC3, 0x28, 0xFF, 0xFE, .. Bytes("\",\"tier\":\"Far\"}")])), 400, 200);
-            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "alice", "Content-Type: application/json\r\n", [0xFF, 0xFE, .. Encoding.Unicode.GetBytes("{}")])), 400);
-            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "alice", "Content-Type: application/json\r\n", new byte[2000])), 400);
+            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "owner", "Content-Type: application/json\r\n", [.. Bytes("{\"view_id\":\""), 0xC3, 0x28, 0xFF, 0xFE, .. Bytes("\",\"tier\":\"Far\"}")])), 400, 200);
+            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "owner", "Content-Type: application/json\r\n", [0xFF, 0xFE, .. Encoding.Unicode.GetBytes("{}")])), 400);
+            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "owner", "Content-Type: application/json\r\n", new byte[2000])), 400);
 
             // Nesting far past the reader's depth limit (3000 bytes, under the body cap).
-            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "alice", "Content-Type: application/json\r\n", Bytes(new string('[', 2000)))), 400);
-            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "alice", "Content-Type: application/json\r\n", Bytes("{\"a\":" + new string('[', 1500)))), 400);
+            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "owner", "Content-Type: application/json\r\n", Bytes(new string('[', 2000)))), 400);
+            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "owner", "Content-Type: application/json\r\n", Bytes("{\"a\":" + new string('[', 1500)))), 400);
 
             // 10 MB: refused from the declared length, before the body is read.
-            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "alice", "Content-Type: application/json\r\n", new byte[10 * 1024 * 1024])), 0, 413);
+            AssertDesigned(await RawAsync(port, Request("POST", "/constellation/tiles", "owner", "Content-Type: application/json\r\n", new byte[10 * 1024 * 1024])), 0, 413);
 
             // No declared length at all (chunked), and a lying second Content-Length.
-            AssertDesigned(await RawAsync(port, Bytes("POST /constellation/tiles HTTP/1.1\r\nHost: x\r\nConnection: close\r\nAuthorization: Bearer alice\r\nTransfer-Encoding: chunked\r\n\r\n2\r\n{}\r\n0\r\n\r\n")), 400);
-            AssertDesigned(await RawAsync(port, Bytes("POST /constellation/tiles HTTP/1.1\r\nHost: x\r\nConnection: close\r\nAuthorization: Bearer alice\r\nContent-Length: 2\r\nContent-Length: 99999999\r\n\r\n{}")), 0, 400);
+            AssertDesigned(await RawAsync(port, Bytes("POST /constellation/tiles HTTP/1.1\r\nHost: x\r\nConnection: close\r\nAuthorization: Bearer owner\r\nTransfer-Encoding: chunked\r\n\r\n2\r\n{}\r\n0\r\n\r\n")), 400);
+            AssertDesigned(await RawAsync(port, Bytes("POST /constellation/tiles HTTP/1.1\r\nHost: x\r\nConnection: close\r\nAuthorization: Bearer owner\r\nContent-Length: 2\r\nContent-Length: 99999999\r\n\r\n{}")), 0, 400);
         }
     }
 

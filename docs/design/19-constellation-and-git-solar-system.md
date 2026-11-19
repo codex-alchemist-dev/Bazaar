@@ -98,6 +98,9 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 - **Stale data.** When disconnected, the last snapshot is shown and marked stale.
 - **Concurrency.** One layout engine per view. Concurrent layouts are capped.
 
+## Built status: tile endpoint visibility (2026-11-19)
+`POST /constellation/tiles` serves the whole Vault graph from `VaultGraphSource` and `LayoutTileSource`, which are not per viewer yet. Until the per-viewer projection lands, the route is **owner only**: any other principal, human or agent, gets `403 forbidden` (the same denial as `POST /blobs/token-amounts`). The pane of a non-owner client shows no data. This is a stop-gap for the "Visibility" rule above, not a design change.
+
 ## Scale and level of detail (owner, 2026-10-30; [PROPOSED] numbers)
 Full design, budgets and benchmark plan: `constellation-scale-and-lod.md`.
 - **Target scale.** Millions of nodes company-wide, with billions as the design ceiling. Only the visible, aggregated set reaches the GPU per frame.
