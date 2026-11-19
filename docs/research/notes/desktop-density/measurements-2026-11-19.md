@@ -1,0 +1,31 @@
+# Desktop density: first measurements (2026-11-19)
+
+Measured in a cloud container (Ubuntu 24.04, 4 vCPU, 16 GB, no GPU, no `/dev/kvm`). These numbers describe the software stack inside a guest, not a hypervisor. VM overhead, boot time and host-side sharing still need the VmBench run on the owner's PC (doc 59 section 10).
+
+## Setup
+- Chromium 153 (Chrome for Testing build 1243), `cage` 0.1.5 (wlroots kiosk compositor), `grim`, `wtype`, QEMU 8.2.2 (TCG, no KVM).
+- Headed browser: `WLR_BACKENDS=headless WLR_RENDERER=pixman cage -- chrome --ozone-platform=wayland --disable-gpu`. No display device, no GPU, no X server.
+- Headless browser: `chromium_headless_shell` driven over the DevTools protocol.
+- Memory is read from `/proc/<pid>/smaps_rollup`, summed over the process tree. "Private" is `Pss_Anon`. "PSS" also counts each process's share of file-backed pages (the browser binary and libraries).
+
+## Results
+
+| What | Result |
+|---|---|
+| Headed Chromium in `cage` with no display device | Works. Real window, tabs and toolbar, 1280 x 720. |
+| Compositor (`cage`) memory | 11 MB PSS |
+| Headed Chromium, one tab, alone | 416 MB PSS, of which 195 MB private (13 processes) |
+| Two headed Chromium instances on one kernel | about 300 MB PSS each, 195 MB private each. About 220 MB of binary and library pages are shared between them. |
+| Headless Chromium, one tab | 168 MB PSS, of which 61 MB private (6 processes) |
+| Screenshot through the compositor (`grim`, PNG, 1280 x 720) | 27 to 36 ms |
+| Screenshot through DevTools (`Page.captureScreenshot`, PNG) | 24 to 38 ms |
+| Typing through the compositor (`wtype`) | Works. The first character of the first call was lost once (keymap race); needs a settle delay or a retry check. |
+| Typing and clicking through DevTools (`Input.insertText`, `Input.dispatchMouseEvent`) | Works in headless. |
+| QEMU with `-display none`: QMP `screendump` to PNG | Works, 7 ms for a 720 x 400 text screen |
+| QEMU with `-display none`: QMP `input-send-event` (absolute pointer, key) | Accepted |
+
+## What this means
+1. A guest needs no display device, no GPU and no viewer window to have a working desktop that can be screenshotted and driven. A software-rendered kiosk compositor adds about 11 MB.
+2. The browser, not the desktop, is the memory cost. About 195 MB per headed browser is private and cannot be shared. About 220 MB is binary and library pages, which one kernel shares between instances but separate VMs do not, unless the hypervisor deduplicates or maps a shared image.
+3. A hypervisor can screenshot and send input to a VM that shows no window anywhere, with nothing running in the guest.
+4. Headless Chromium with DevTools screenshots costs about a third of a headed browser's private memory.
