@@ -32,7 +32,7 @@ public sealed record PostStepPayload(string GcId);
 public partial class TurnRunnerJson : JsonSerializerContext
 {
     /// <summary>Reads a stored step payload. A completed step always has one, so a missing payload is corrupt data.</summary>
-    internal static T Read<T>(string? json, JsonTypeInfo<T> info) =>
+    public static T Read<T>(string? json, JsonTypeInfo<T> info) =>
         JsonSerializer.Deserialize(json ?? throw new InvalidDataException("A completed step has no response."), info)
         ?? throw new InvalidDataException("A stored step response is null.");
 }

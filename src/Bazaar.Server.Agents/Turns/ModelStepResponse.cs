@@ -32,6 +32,6 @@ public sealed record ToolStepResponse(
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false)]
 [JsonSerializable(typeof(ModelStepResponse))]
 [JsonSerializable(typeof(ToolStepResponse))]
-internal sealed partial class TurnJsonContext : JsonSerializerContext
+public sealed partial class TurnJsonContext : JsonSerializerContext
 {
 }

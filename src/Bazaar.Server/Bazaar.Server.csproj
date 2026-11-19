@@ -28,9 +28,10 @@
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Calendar\Bazaar.Server.Calendar.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.Mentions.Abstractions\Bazaar.Server.Mentions.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mentions\Bazaar.Server.Mentions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Org\Bazaar.Server.Org.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />
