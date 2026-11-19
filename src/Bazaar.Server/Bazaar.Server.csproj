@@ -29,6 +29,8 @@
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Knowledge\Bazaar.Server.Knowledge.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />

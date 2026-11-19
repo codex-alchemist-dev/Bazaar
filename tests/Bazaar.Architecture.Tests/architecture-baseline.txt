@@ -482,17 +482,8 @@ src/Bazaar.Server/Knowledge/Archive/ArchiveChapterRenderer.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveChapterValidator.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveModel.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveVaultWriter.cs
-src/Bazaar.Server/Knowledge/CompanyMemory/DecisionChain.cs
 src/Bazaar.Server/Knowledge/CompanyMemory/DecisionRecordReader.cs
-src/Bazaar.Server/Knowledge/Health/HealthRules.cs
-src/Bazaar.Server/Knowledge/Health/ProjectHealthQuery.cs
 src/Bazaar.Server/Knowledge/KnowledgeSettings.cs
-src/Bazaar.Server/Knowledge/Metrics/MetricCollectors.cs
-src/Bazaar.Server/Knowledge/Metrics/MetricRollup.cs
-src/Bazaar.Server/Knowledge/Metrics/MetricStore.cs
-src/Bazaar.Server/Knowledge/Metrics/MetricTypes.cs
-src/Bazaar.Server/Knowledge/Twin/TwinFact.cs
-src/Bazaar.Server/Knowledge/Twin/TwinFactExtractor.cs
 src/Bazaar.Server/Mail/MailComponent.cs
 src/Bazaar.Server/Mail/MailContracts.cs
 src/Bazaar.Server/Mail/Parsing/MailLimits.cs

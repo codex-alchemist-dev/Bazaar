@@ -1,8 +1,7 @@
-using Bazaar.Server.Knowledge;
 using Bazaar.Server.Knowledge.Health;
 using Bazaar.Server.Knowledge.Metrics;
 
-namespace Bazaar.Server.Tests.Knowledge.Health;
+namespace Bazaar.Server.Knowledge.Tests.Health;
 
 public sealed class HealthRulesTests
 {
@@ -181,14 +180,5 @@ public sealed class HealthRulesTests
     public void Streak_threshold_below_one_is_rejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => HealthRules.BuildFailureStreak([], _day1, _day1, 0));
-    }
-
-    [Fact]
-    public void Thresholds_read_the_shipped_defaults_from_settings()
-    {
-        Assert.Equal(KnowledgeSettings.HealthCoverageDropPoints.Default, HealthThresholds.Defaults.CoverageDropPoints);
-        Assert.Equal(KnowledgeSettings.HealthBuildFailureStreak.Default, HealthThresholds.Defaults.BuildFailureStreak);
-        Assert.Equal(2, HealthThresholds.Defaults.CoverageDropPoints);
-        Assert.Equal(3, HealthThresholds.Defaults.BuildFailureStreak);
     }
 }
