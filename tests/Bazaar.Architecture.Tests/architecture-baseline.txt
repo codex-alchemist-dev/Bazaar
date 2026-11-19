@@ -364,10 +364,7 @@ src/Bazaar.Server/Gc/Members/GcPolicySettings.cs
 src/Bazaar.Server/Gc/Members/PgGcMembershipSource.cs
 src/Bazaar.Server/Gc/Members/ThinkingGcRules.cs
 src/Bazaar.Server/Gc/Mentions/BroadcastPolicy.cs
-src/Bazaar.Server/Gc/Mentions/InboxPlanner.cs
 src/Bazaar.Server/Gc/Mentions/InboxRowWriter.cs
-src/Bazaar.Server/Gc/Mentions/MentionRecords.cs
-src/Bazaar.Server/Gc/Mentions/MentionValidator.cs
 src/Bazaar.Server/Gc/Provenance/DefaultGcTrustHook.cs
 src/Bazaar.Server/Gc/Provenance/GcProvenanceServiceCollectionExtensions.cs
 src/Bazaar.Server/Gc/Read/GcCatchUpReader.cs
