@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Graph;
+using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation.Tiles;
-using Bazaar.Server.Http.Blobs;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
@@ -178,7 +178,7 @@ public static class HttpSurfaceEndpoints
     {
         if (!BlobIds.TryNormalizeHash(hash, out var id)) return Error(StatusCodes.Status404NotFound, "not_found");
         var services = http.RequestServices;
-        if (!await services.GetRequiredService<BlobReadAccess>().CanReadAsync(id, ToViewer(principal), http.RequestAborted))
+        if (!await services.GetRequiredService<IBlobReadAccess>().CanReadAsync(id, ToViewer(principal), http.RequestAborted))
             return Error(StatusCodes.Status404NotFound, "not_found");
         var blob = await services.GetRequiredService<IBlobStore>().OpenAsync(id, http.RequestAborted);
         if (blob is null) return Error(StatusCodes.Status404NotFound, "not_found");
