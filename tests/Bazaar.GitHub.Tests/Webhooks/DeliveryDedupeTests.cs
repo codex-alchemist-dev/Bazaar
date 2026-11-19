@@ -1,7 +1,7 @@
 using System;
 using Bazaar.GitHub.Webhooks;
 
-namespace Bazaar.Server.Tests.GitHub.Webhooks;
+namespace Bazaar.GitHub.Tests.Webhooks;
 
 public class DeliveryDedupeTests
 {
