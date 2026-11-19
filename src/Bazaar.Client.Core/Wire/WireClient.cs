@@ -69,6 +69,8 @@ public sealed class WireClient(
             conn = _connection;
         }
 
+        if (Stopped is not null) pending.Completion.TrySetException(new InvalidOperationException("The wire client has stopped."));
+
         using var reg = cancellationToken.Register(() => pending.Completion.TrySetCanceled(cancellationToken));
         try
         {
@@ -101,13 +103,10 @@ public sealed class WireClient(
                         terminal = await RunConnectionAsync(conn, () => attempt = 0, cancellationToken).ConfigureAwait(false);
                     }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException && ex is not WireFormatException)
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
                 {
-                    // Unreachable server or a broken socket: back off and retry.
-                }
-                catch (WireFormatException)
-                {
-                    // A bad frame closes the socket (4400); reconnect like any other drop.
+                    // Unreachable server, a broken socket, a bad frame (4400) or a connect the transport itself timed out
+                    // (which surfaces as a cancellation that is not ours): back off and reconnect like any other drop.
                 }
                 finally
                 {
@@ -117,19 +116,28 @@ public sealed class WireClient(
                 if (Terminal(terminal) is { } reason)
                 {
                     Stopped = reason;
-                    return;
+                    break;
                 }
 
                 await Task.Delay(BackoffDelay(attempt++), time, cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception) when (cancellationToken.IsCancellationRequested)
         {
         }
 
         Stopped ??= WireClientStopReason.Cancelled;
         _messages.Writer.TryComplete();
         _resyncs.Writer.TryComplete();
+        FailPending();
+    }
+
+    /// <summary>Ends every waiting request: a stopped client never answers, so waiting would hang the caller forever.</summary>
+    private void FailPending()
+    {
+        Pending[] waiting;
+        lock (_gate) waiting = [.. _pending.Values];
+        foreach (var p in waiting) p.Completion.TrySetException(new InvalidOperationException("The wire client has stopped."));
     }
 
     private static WireClientStopReason? Terminal(int? closeCode) => closeCode switch
