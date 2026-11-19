@@ -73,6 +73,31 @@ public sealed class RetentionAndJobTests
         Assert.Equal(before, BaseBackupJob.DiscoverSets(dir.Path).Select(s => s.SetId).Order().ToList());
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(25)]
+    public async Task A_torn_set_sidecar_is_skipped_and_does_not_fail_later_runs(int keepBytes)
+    {
+        using var dir = new TempDir();
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 30, 0, 0, 0, TimeSpan.Zero));
+        var log = new InMemoryBackupRunLog();
+        var job = new BaseBackupJob(new FakeEngine(time), dir.Path, baseSetsKept: 2, time, log);
+        Assert.Equal(BackupState.Succeeded, (await job.RunAsync(TestContext.Current.CancellationToken)).State);
+
+        // A crash or a full disk while the sidecar was being written leaves a prefix of it.
+        var sidecar = Directory.EnumerateFiles(dir.Path, BaseBackupJob.SidecarName, SearchOption.AllDirectories).Single();
+        var bytes = await File.ReadAllBytesAsync(sidecar, TestContext.Current.CancellationToken);
+        await File.WriteAllBytesAsync(sidecar, bytes[..keepBytes], TestContext.Current.CancellationToken);
+
+        Assert.Empty(BaseBackupJob.DiscoverSets(dir.Path));
+
+        time.Advance(TimeSpan.FromHours(1));
+        var next = await job.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(BackupState.Succeeded, next.State);
+        Assert.Single(BaseBackupJob.DiscoverSets(dir.Path));
+    }
+
     /// <summary>Writes a directory with a backup_label and PG_VERSION; each call gets the next WAL segment name.</summary>
     private sealed class FakeEngine(TimeProvider time, bool fail = false) : IBackupEngine
     {
