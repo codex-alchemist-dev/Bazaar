@@ -22,6 +22,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 | VM display (`vm-display`, doc 59, PRs #860 and #867) | Projects `Bazaar.Server.VmDisplay` and `.Abstractions` (screenshots and input over the hypervisor, guest or browser source); adapters `Bazaar.Server.VmDisplay.Kvm` and `Bazaar.Server.VmDisplay.HyperV` | none | none hard; soft `vms`, `browser`, `security`, `audit` | Does not reference `Bazaar.Server.csproj`. Everything outside the module is a port. |
 | VM density (`vm-density`, doc 59, PR #857) | Projects `Bazaar.Server.VmDensity` and `.Abstractions` (admission governor in front of VM starts) | none | none hard; soft `vms` | Pure planner plus ports for host memory, the VM directory and VM control. |
 | Browser pool (`browser-pool`, doc 59, PR #868) | Projects `Bazaar.Server.BrowserPool` and `.Abstractions` (sessions of anonymous browsers in the shared browser VM) | none | none hard; soft `vms`, `browser`, `security`, `audit` | Builds argv only; the pool VM host, egress policy and gate are ports with fail-closed defaults. |
+| Account approval (`account-approval`, docs 15 and 59 section 7, PR #889) | Projects `Bazaar.Server.AccountApproval` and `.Abstractions` (peer approval of account creation, site vote outcomes) | none | none hard; soft `council`, `agents`, `audit` | Policy and in-memory state only; the approver directory and the owner hand-off are ports. |
 
 ## 3. Gaps
 
