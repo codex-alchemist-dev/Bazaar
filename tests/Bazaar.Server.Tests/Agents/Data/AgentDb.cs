@@ -15,7 +15,8 @@ public sealed class AgentDb : PgFixture, IAsyncLifetime
         if (PgSource.IsUnsupportedHost)
             return;
         await base.InitializeAsync();
-        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.Agents.AgentState).Assembly).Load(MigrationRunner.Common);
+        // The SQL is embedded in Bazaar.Server, not in the Agents assemblies that hold the agent types.
+        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(MigrationRunner.Common);
         var source = new InMemoryMigrationSource(files.Where(f => f.Version == 10));
         await new MigrationRunner(DataSource).MigrateAsync(source, MigrationRunner.Common);
     }
