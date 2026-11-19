@@ -28,18 +28,18 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 
 **Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` and `.Linux` hold the OS-bound modules; the Windows assembly never loads on Linux.
 
-**Provider roles [PROPOSED].**
+**Provider kinds [PROPOSED].** A role is just the interface a family of provider modules implements; the table lists the first-party modules.
 
-| Role | Cardinality | Windows | Linux | Readiness |
-|---|---|---|---|---|
-| `ServiceHost` | One | Windows Service | systemd | required when run as a service |
-| `Vm` | Many | Hyper-V | QEMU/KVM | per doc 16; optional by default |
-| `Cache` | One | Garnet, only after S2 | Valkey | optional; presence and cache only |
-| `Search` | One | Postgres FTS plus pgvector index | `pg_search` (WP14), Postgres FTS fallback | Postgres FTS always usable |
+| Role | Windows | Linux | Readiness |
+|---|---|---|---|
+| `ServiceHost` | Windows Service | systemd | required when run as a service |
+| `Vm` | Hyper-V | QEMU/KVM | per doc 16; optional by default |
+| `Cache` | Garnet, only after S2 | Valkey | optional; presence and cache only |
+| `Search` | Postgres FTS plus pgvector index | `pg_search` (WP14), Postgres FTS fallback | Postgres FTS always usable |
 
-**Provider selection [PROPOSED].** A provider is a module on Core, so a role is not limited to one provider. Each role declares its own cardinality: `One` (at most one active) or `Many` (any number active at once). The default is `Many`. A role declares `One` only when its owning module needs it, for example `ServiceHost` (a process runs under one service manager) and `Cache` (one presence store). Each `host.provider.<role>` setting is `auto`, `none`, `all`, or a comma-separated list of kinds. For a `One` role, `auto` picks the highest-priority candidate whose `Probe()` is usable; a list or `all` is a configuration error. For a `Many` role, `auto` and `all` activate every candidate whose `Probe()` is usable, and a list activates exactly the named kinds. An explicitly named kind that is unusable fails startup; there is no silent fallback. Callers of a `Many` role receive the active set and choose among them (all, one by kind, or first usable).
+**Provider modules [PROPOSED].** A provider is just another module on Core. Core has no selector, no per-role cardinality and no `auto`/`none`/`all` setting strings. Any number of provider modules can be installed; every installed provider loads and registers, and an operator installs and configures them in the app through the module system. A module that can use providers receives all registered providers of its kind and decides for itself what to do with several: use all of them, pick by kind, take the first usable, and so on. A provider reports its own state through `Probe()`; whether an unusable provider is fatal is the consuming module's decision (for example the service host refuses to start without a usable service-manager provider). This supersedes the earlier "one provider per role, `auto` or an explicit kind" rule.
 
-**Capability reporting [PROPOSED].** Each provider returns a `ProviderStatus`. The host logs one line per role at startup. The admin CLI and the status page draw on the same report; doc 23 decides what the page shows.
+**Capability reporting [PROPOSED].** Each provider returns a `ProviderStatus`. The host logs one line per registered provider at startup. The admin CLI and the status page draw on the same report; doc 23 decides what the page shows.
 
 **Configuration and secrets [PROPOSED].** Later layers win: defaults, `appsettings.json` beside the executable, then `BAZAAR__...` environment variables. The data root is set in config (`%ProgramData%\Bazaar` on Windows, a fixed path on Linux). Options use `ValidateOnStart`. Bootstrap values (KEK reference, database connection) are the only values kept in host config. Bootstrap secrets are references only: `env:NAME` and `file:<path>` in `Bazaar.Server`; `dpapi:<path>` and `systemd-creds:<name>` from the providers. Every other secret goes through `ISecretStore` (doc 14). Values never reach logs, config dumps or the status page.
 
@@ -100,10 +100,6 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
-| `host.provider.service_host` | `auto`, `windows_service`, `systemd` | `auto` | install | operator | no |
-| `host.provider.vm` | `auto`, `hyperv`, `qemu_kvm`, `none` | `auto` | install | operator | no |
-| `host.provider.cache` | `auto`, `garnet`, `valkey` | `auto` (Garnet only after S2) | install | operator | no |
-| `host.provider.search` | `auto`, `postgres_fts`, `pg_search` | `auto` | install | operator | no |
 | `host.readiness.required_roles` | list of roles | `search`, `service_host` | install | operator | no |
 | `host.shutdown_timeout_seconds` | int, 5 to 120 | 20 | install | operator | no |
 | `host.service.restart_delays_minutes` | list of int | 1, 1, 5 | install | operator | no |
@@ -178,4 +174,4 @@ ANSWERED: GC fan-out is Postgres NOTIFY; Valkey or Garnet serve cache and presen
 1. **Windows KEK store.** Default: DPAPI-protected file. Alternative: Windows Credential Manager. This is key custody, so it stays a question. Blocked on doc 33 C1 (recovery on new hardware).
 2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI stays OPEN. This is product scope.
 
-MOVED TO SETTINGS: host.provider.service_host, host.provider.vm, host.provider.cache, host.provider.search, host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)
+MOVED TO SETTINGS: host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)
