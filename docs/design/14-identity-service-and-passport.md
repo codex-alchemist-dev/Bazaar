@@ -63,7 +63,34 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 |---|---|---|
 | Windows DPAPI, machine scope | Default for the first host | Protects from other OS users and a copied disk, not from administrators. [verified, Microsoft Learn] |
 | OpenBao transit | Possible if self-hosted | Windows server support not documented on the fetched page. [unverified] |
-| Linux (TPM-bound or systemd credentials) | Needed for the Linux provider | Not researched. |
+| Linux (TPM-bound or systemd credentials) | Needed for the Linux provider | PROPOSED option; see "Linux TPM-sealed KEK" below. The decided Linux default remains `file`. |
+
+**Linux TPM-sealed KEK** [PROPOSED] (research, 2026-11-19; nothing here is DECIDED, and `identity.kek_provider` stays `dpapi` or `file` as decided 2026-11-16)
+
+Facts (sources are the official tpm2-software docs, the tpm2-tools man pages and the systemd man pages):
+- tpm2-tools can seal a small secret under a TPM primary key: `tpm2_createprimary -C o`, then `tpm2_create -C <primary> -i <secret> -u obj.pub -r obj.priv` (the secret is a sealing object, input from a file or `-` for stdin), `tpm2_load`, and `tpm2_unseal -c <ctx>`; `tpm2_evictcontrol` can persist the object at a handle. The sealed object has a stated maximum size of 128 bytes, so the sealed value is a 32-byte KEK, never bulk data. [tpm2-tools `tpm2_create` man page; tpm2-software "Disk Encryption" article, 2020-04-13]
+- Unsealing can be bound to PCR state: `tpm2_policypcr -l sha256:<pcrs> -L policy`, then seal with `-L policy` and unseal inside a policy session. A raw PCR policy breaks on legitimate firmware, bootloader or kernel changes. The same article describes authorized policies (`tpm2_policyauthorize` with an offline signing key) so intended updates do not need a reseal. [tpm2-software "Disk Encryption" article]
+- Setting a policy on `tpm2_create` clears `userwithauth` unless a password is also set, so an empty password cannot bypass the policy. [`tpm2_create` man page]
+- Authorization is not identity: the TPM cannot tell who presents the authorization, and anyone holding both the disk and the TPM can unseal if the policy is satisfied. Examples that write the secret to disk must be avoided. Losing the TPM or the policy signing key can make the sealed secret unrecoverable. [tpm2-software "Disk Encryption" article]
+- systemd already wraps this: `systemd-creds encrypt --with-key=` accepts `host` (`/var/lib/systemd/credential.secret`, root-only), `tpm2`, or `host+tpm2` (the default when a TPM2 is present). `--tpm2-pcrs=` binds to PCR indexes (empty by default, meaning no PCR binding); `--tpm2-public-key=` binds to a signed PCR policy (default PCR 11, signatures from `systemd-measure`). Encryption is AES256-GCM. Credentials are pinned to the TPM2 SRK from systemd v262. `--with-key=null` gives no confidentiality and must not be used for the KEK. [systemd-creds man page]
+
+PCR policy options (OPEN which one, if any, is the shipped default):
+1. No PCR binding: the KEK is tied to the one TPM chip only. Survives updates; weakest against a booted, compromised OS.
+2. Raw PCR policy (for example secure-boot state): stronger, but breaks on legitimate updates, so a recovery path through the escrowed KEK copy is mandatory.
+3. Signed PCR policy (`tpm2_policyauthorize` or `systemd-creds --tpm2-public-key`): survives updates; adds a policy signing key to custody.
+
+Fallback: a host with no TPM, a container, or a failed unseal uses the decided `file` provider (a protected key file). Any TPM option is a separate provider choice, never a silent downgrade: a TPM-configured host that cannot unseal fails closed and reports to the operator. Key escrow (above) applies unchanged, because a TPM-sealed KEK is not recoverable on other hardware.
+
+VM caveats:
+- A Bazaar.Server running inside a VM sees only a virtual TPM. QEMU provides one through swtpm (`--tpmstate dir=<path>`, TIS or CRB front ends), and its state is a host directory that the hypervisor operator can read. Snapshots and migration need identical swtpm and QEMU command lines, and mismatched swtpm or libtpms versions can make the destination reject the state, so a restored or migrated VM may be unable to unseal. [QEMU TPM device docs]
+- Agent VMs (doc 35) never hold the KEK; this applies only to the host that runs the Identity Service.
+
+Open questions for the owner:
+- **OPEN:** add a `tpm` value to `identity.kek_provider`, or fold TPM sealing into `file` as an optional wrap?
+- **OPEN:** shipped PCR policy (options 1 to 3) and who holds a policy signing key.
+- **OPEN:** direct `tpm2-tss` or `tpm2-tools` use versus the `systemd-creds` wrapper (the wrapper adds a systemd dependency; a direct call needs a .NET binding or process call, behind the KEK provider interface).
+- **OPEN:** whether a virtual TPM counts as acceptable custody for the owner's threat model.
+- **OPEN:** behaviour of `file` and `tpm` providers on a Linux host that is itself a VM (benchmark with the QEMU backend spike).
 
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
