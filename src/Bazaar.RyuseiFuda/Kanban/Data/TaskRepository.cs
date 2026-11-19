@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>
 /// SQL-first access to <c>tasks</c> (doc 12). Writes take the caller's transaction so the task service can lock, check
