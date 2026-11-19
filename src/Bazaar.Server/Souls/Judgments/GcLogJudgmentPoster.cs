@@ -17,6 +17,7 @@ public sealed class GcLogJudgmentPoster(IGcLogWriter writer, IGcBodyCodec bodyCo
     public async Task<JudgmentPostReceipt> PostAsync(JudgmentPost post, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(post);
+        var body = await bodyCodec.SealAsync(post.AgentId, post.Text, cancellationToken).ConfigureAwait(false);
         var request = new AppendRequest(
             post.GcId,
             GcEventKinds.Message,
@@ -25,7 +26,7 @@ public sealed class GcLogJudgmentPoster(IGcLogWriter writer, IGcBodyCodec bodyCo
             SourceTrust.Agent,
             ClientMsgIdPrefix + post.DecisionId.ToString("D"))
         {
-            Message = bodyCodec.Seal(post.Text),
+            Message = body,
         };
         var result = await writer.AppendAsync(request, cancellationToken).ConfigureAwait(false);
         return new JudgmentPostReceipt(result.Seq, result.Duplicate);

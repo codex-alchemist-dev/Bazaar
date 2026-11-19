@@ -13,18 +13,23 @@ public static class ProviderSelector
     /// <summary>Setting value that disables the role.</summary>
     public const string None = "none";
 
-    public static ProviderSelection Select<TProvider>(ProviderRole role, string requested, IReadOnlyList<TProvider> candidates)
+    /// <param name="requiredConcurrency">
+    /// Instances the role needs at once. A candidate that is an <see cref="ICapacityLimitedProvider"/> with a lower limit is
+    /// unusable for this selection, with the reason in its status (fail closed). The default of 1 needs no capacity.
+    /// </param>
+    public static ProviderSelection Select<TProvider>(ProviderRole role, string requested, IReadOnlyList<TProvider> candidates, int requiredConcurrency = 1)
         where TProvider : IProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requested);
         ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentOutOfRangeException.ThrowIfLessThan(requiredConcurrency, 1);
 
         if (requested.Equals(None, StringComparison.OrdinalIgnoreCase))
         {
             return new ProviderSelection(role, None, null, []);
         }
 
-        var statuses = candidates.Select(c => c.Probe()).ToList();
+        var statuses = candidates.Select(c => CheckCapacity(c.Probe(), c, requiredConcurrency)).ToList();
 
         if (requested.Equals(Auto, StringComparison.OrdinalIgnoreCase))
         {
@@ -55,5 +60,16 @@ public static class ProviderSelector
         }
 
         throw new ProviderSelectionException(role, requested, "no provider of that kind is registered for this OS");
+    }
+
+    private static ProviderStatus CheckCapacity(ProviderStatus status, IProvider provider, int requiredConcurrency)
+    {
+        if (!status.Usable || provider is not ICapacityLimitedProvider limited || limited.MaxConcurrentInstances >= requiredConcurrency)
+        {
+            return status;
+        }
+
+        var reason = $"declares {limited.MaxConcurrentInstances} concurrent instance(s) and this role needs {requiredConcurrency}";
+        return status with { Usable = false, Reason = reason };
     }
 }

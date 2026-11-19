@@ -1,6 +1,6 @@
-using Bazaar.Server.Components;
-using Bazaar.Server.Kanban;
-using Bazaar.Server.Kanban.Data;
+using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Vault;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

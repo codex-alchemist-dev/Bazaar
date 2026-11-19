@@ -12,8 +12,7 @@ public static class VaultApiFactory
     public static VaultApi Create(ServerEndpoint endpoint, HttpMessageHandler? handler = null)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
-        var http = handler is null ? new HttpClient() : new HttpClient(handler);
-        http.BaseAddress = endpoint.BaseAddress;
+        var http = handler is null ? endpoint.CreateHttpClient() : new HttpClient(handler) { BaseAddress = endpoint.BaseAddress };
         return new VaultApi(http, () => endpoint.Credential);
     }
 }

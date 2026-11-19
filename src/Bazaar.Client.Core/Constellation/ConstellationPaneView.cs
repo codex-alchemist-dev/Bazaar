@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -7,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Bazaar.Constellation.Rendering;
+using Bazaar.Constellation.Rendering.Core;
 
 namespace Bazaar.Client.Core.Constellation;
 
@@ -57,6 +59,7 @@ public sealed class ConstellationPaneView : Grid
             Margin = new Thickness(8, 0, 0, 0),
             ItemsSource = AccessibleRows(),
         };
+        AutomationProperties.SetName(_list, "Graph nodes");
         _list.SelectionChanged += OnListSelectionChanged;
         Grid.SetColumn(_list, 1);
         Children.Add(_canvas);

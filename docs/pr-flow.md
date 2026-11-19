@@ -33,10 +33,13 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
 - `.github/workflows/pr-automerge.yml` enables squash auto-merge on non-draft PRs into `main`
   (or merges directly when GitHub reports CLEAN and auto-merge is unavailable). It never uses
   `--admin`. Logic: `.github/scripts/pr-automerge.sh`.
-- `.github/workflows/pr-maintenance.yml` runs hourly to merge `main` into behind branches
-  (`update-branch`, then starts `ci.yml` and `pr-sponsor.yml` on the new head, because a
-  GITHUB_TOKEN push starts no workflows). It runs every 30 minutes to re-run a failed
-  Windows job once when the failure is the WebSocket flake.
+- `.github/workflows/pr-maintenance.yml` runs hourly and only reports PRs that are behind
+  `main`; it never pushes to a PR branch. A GITHUB_TOKEN push starts no pull_request workflows,
+  and the CodeQL run on that head ends as action_required, so the Analyze checks never report
+  and the PR stays blocked. Main does not require branches to be up to date
+  (`strict_required_status_checks_policy` is false), so a behind PR can merge without an
+  update. Logic: `.github/scripts/pr-keep-current.sh`. It runs every 30 minutes to re-run a
+  failed Windows job once when the failure is the WebSocket flake.
 - `.github/workflows/pr-stale.yml` runs daily. Idle for 24 hours means no commit, review or
   non-bot comment. It labels the PR `stale` and comments once. A PR with the `duplicate` label
   that is also idle is closed.

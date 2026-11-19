@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -31,7 +32,7 @@ public class RyuseiSchedulePaneTests
     [Fact]
     public void Registry_builds_the_schedule_pane_and_falls_back_on_a_bad_timestamp()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
         Assert.IsType<RyuseiSchedulePaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.RyuseiSchedule, _model)));
 
         var bad = registry.Create(PaneRegistryTests.Descriptor(PaneKinds.RyuseiSchedule,
@@ -44,7 +45,7 @@ public class RyuseiSchedulePaneTests
     {
         var pane = new RyuseiSchedulePaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.RyuseiSchedule, _model));
 
-        var view = PaneViews.Create(pane);
+        var view = TestPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Repeating interval · Active", texts);

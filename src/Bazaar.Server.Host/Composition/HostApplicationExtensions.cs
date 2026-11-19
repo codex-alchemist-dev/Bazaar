@@ -1,11 +1,15 @@
+using Bazaar.Core;
 using Bazaar.Server.Agents.Responder;
-using Bazaar.Server.Components;
+using Bazaar.Server.AgentSafety;
+using Bazaar.Server.Blobs;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
+using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.Wire.Connection;
@@ -32,6 +36,9 @@ public static class HostApplicationExtensions
         services.AddBazaarHostWire(configuration);
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
+        services.AddBazaarPostgresCredentialLeases();
+        services.AddBazaarVms(configuration);
+        services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
@@ -40,9 +47,11 @@ public static class HostApplicationExtensions
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
+        AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
         // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.
         services.AddBazaarRemoteAuth(configuration);
+        services.AddBazaarBlobs(configuration);
         services.AddBazaarHttpSurface(configuration);
         return services;
     }

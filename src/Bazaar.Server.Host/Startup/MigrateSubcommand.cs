@@ -52,7 +52,7 @@ public static class MigrateSubcommand
 
         return await MigrateCommand.RunAsync(
             connectionString,
-            new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
+            HostMigrations.Source(),
             MigrateCommand.CurrentProvider(),
             output,
             components: HostComponents.All.Select(c => c.Manifest),

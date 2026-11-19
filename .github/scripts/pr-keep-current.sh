@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Keep open pull requests into main up to date: merge main into any PR branch that is behind.
+# Report open pull requests that are behind main. It does not change any branch.
 #
-# It uses GitHub's update-branch API, which makes a merge commit (never a force push), and
-# it sends expected_head_sha so a branch that moved in the meantime is not overwritten.
+# Why it does not update branches: a push made with GITHUB_TOKEN (what update-branch makes)
+# starts no pull_request workflows, and on those heads the CodeQL pull_request run ends as
+# action_required. The required Analyze checks then never report, so the PR cannot merge,
+# and the next hourly run moves main again. That loop blocks merges (seen on #374).
 #
-# A push made with GITHUB_TOKEN does not start workflows. So after each update this script
-# starts the required checks itself with workflow_dispatch (ci.yml and pr-sponsor.yml).
-# Without that, the new head commit would never get its required checks.
+# Branch protection on main does not require PRs to be up to date with main
+# (strict_required_status_checks_policy is false), so a behind PR can still merge once its
+# own required checks pass. Nothing needs the update, so this script only reports.
 #
-# Forks and branches that conflict with main are skipped and reported.
+# A PR that does need main merged must be updated by its owning thread, with a commit pushed
+# by a person or an App token, so its pull_request checks run.
 set -uo pipefail
 
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
@@ -33,11 +36,5 @@ for row in "${rows[@]}"; do
     continue
   fi
 
-  if gh api -X PUT "repos/$repo/pulls/$n/update-branch" -f expected_head_sha="$sha" >/dev/null 2>&1; then
-    echo "#$n: merged main into $ref ($behind commits behind)"
-    gh workflow run ci.yml -R "$repo" --ref "$ref" || echo "::warning::#$n: could not start ci.yml"
-    gh workflow run pr-sponsor.yml -R "$repo" --ref "$ref" -f pr_number="$n" || echo "::warning::#$n: could not start pr-sponsor.yml"
-  else
-    echo "::warning::#$n: update-branch refused (conflict or the branch moved); needs its owning thread"
-  fi
+  echo "::notice::#$n: $ref is $behind commits behind main; not updated (see pr-keep-current.sh)"
 done

@@ -11,12 +11,12 @@ internal sealed class FakePostgresCommandRunner : IPostgresCommandRunner
     private readonly List<string[]> _startArguments = [];
     private readonly List<IReadOnlyDictionary<string, string>> _environments = [];
     private readonly List<string?> _workingDirectories = [];
+    private readonly List<string?> _standardInputs = [];
     private readonly HashSet<int> _alivePids = [];
     private int _nextPid = 4000;
     private int _attachCount;
 
-    public Func<string, IReadOnlyList<string>, PostgresCommandResult> OnRun { get; set; } =
-        (_, _) => new PostgresCommandResult(0, string.Empty);
+    public Func<string, IReadOnlyList<string>, PostgresCommandResult> OnRun { get; set; } = SeedInitDb;
 
     public Action<FakePostgresChild>? OnChildStarted { get; set; }
 
@@ -35,9 +35,11 @@ internal sealed class FakePostgresCommandRunner : IPostgresCommandRunner
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken,
         IReadOnlyDictionary<string, string>? environment = null,
-        string? workingDirectory = null)
+        string? workingDirectory = null,
+        string? standardInput = null)
     {
         _runs.Add((fileName, arguments.ToArray()));
+        _standardInputs.Add(standardInput);
         _workingDirectories.Add(workingDirectory);
         _environments.Add(environment is null ? new Dictionary<string, string>() : new Dictionary<string, string>(environment));
         return Task.FromResult(OnRun(fileName, arguments));
@@ -48,6 +50,9 @@ internal sealed class FakePostgresCommandRunner : IPostgresCommandRunner
 
     /// <summary>Working directory passed with each tool run, in run order. Null when a run had none.</summary>
     public IReadOnlyList<string?> WorkingDirectories => _workingDirectories;
+
+    /// <summary>Standard input passed with each tool run, in run order. Null when a run had none.</summary>
+    public IReadOnlyList<string?> StandardInputs => _standardInputs;
 
     public IPostgresChild Start(string fileName, IReadOnlyList<string> arguments)
     {
@@ -64,6 +69,28 @@ internal sealed class FakePostgresCommandRunner : IPostgresCommandRunner
         var child = new FakePostgresChild(processId);
         _children.Add(child);
         return child;
+    }
+
+    /// <summary>
+    /// Default fake behaviour: an initdb run writes the two files the controller reads afterwards (PG_VERSION and an
+    /// initdb-style pg_hba.conf with trust rules), so the bootstrap can run against a fake without a real cluster.
+    /// </summary>
+    internal static PostgresCommandResult SeedInitDb(string fileName, IReadOnlyList<string> arguments)
+    {
+        if (Path.GetFileNameWithoutExtension(fileName) == "initdb")
+        {
+            var dataDirectory = arguments[arguments.ToList().IndexOf("-D") + 1];
+            Directory.CreateDirectory(dataDirectory);
+            File.WriteAllText(Path.Combine(dataDirectory, "PG_VERSION"), "18\n");
+            File.WriteAllText(Path.Combine(dataDirectory, "pg_hba.conf"),
+                "# TYPE  DATABASE  USER  ADDRESS  METHOD\n" +
+                "local   all       all             trust\n" +
+                "host    all       all   127.0.0.1/32  trust\n" +
+                "host    all       all   ::1/128       trust\n" +
+                "local   replication all             trust\n");
+        }
+
+        return new PostgresCommandResult(0, string.Empty);
     }
 
     public bool IsProcessAlive(int processId) => _alivePids.Contains(processId);

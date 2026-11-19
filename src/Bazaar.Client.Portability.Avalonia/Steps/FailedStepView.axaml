@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wiz="using:Bazaar.Client.Portability.Avalonia"
+             x:Class="Bazaar.Client.Portability.Avalonia.FailedStepView"
+             x:DataType="wiz:WizardViewModel">
+  <StackPanel Margin="16" Spacing="12">
+    <TextBlock Text="Import failed" FontSize="18" FontWeight="Bold" Foreground="OrangeRed" />
+    <TextBlock Text="{Binding State.Message}" TextWrapping="Wrap" />
+    <Button Content="Retry" AutomationProperties.Name="Retry import" Command="{Binding RetryCommand}" HorizontalAlignment="Left" />
+  </StackPanel>
+</UserControl>

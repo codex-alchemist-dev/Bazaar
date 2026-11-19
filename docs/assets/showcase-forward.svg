@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" role="img" aria-labelledby="t d">
+  <title id="t">Forward-facing: day-0 support on the newest and the stable release</title>
+  <desc id="d">A timeline shows that Bazaar is built for the newest supported release and the stable release at the same time. PostgreSQL 18 and 19 run from the same code. .NET 11 is the target, and the next release is tracked from day 0. Neither version is dropped.</desc>
+  <rect width="960" height="240" rx="16" fill="#101a10"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="40" y="60" fill="#eefbe9" font-size="28" font-weight="700">Forward-facing, on both versions</text>
+    <text x="40" y="92" fill="#b7dcae" font-size="16">Day-0 support for what is coming. Each release keeps running from the same code.</text>
+    <line x1="80" y1="165" x2="880" y2="165" stroke="#4f8a46" stroke-width="4"/>
+    <circle cx="200" cy="165" r="12" fill="#7fd36b"/><text x="200" y="200" text-anchor="middle" fill="#eefbe9" font-size="15">PostgreSQL 18 (stable)</text>
+    <circle cx="480" cy="165" r="12" fill="#7fd36b"/><text x="480" y="200" text-anchor="middle" fill="#eefbe9" font-size="15">.NET 11 (target)</text>
+    <circle cx="760" cy="165" r="12" fill="#7fd36b"/><text x="760" y="200" text-anchor="middle" fill="#eefbe9" font-size="15">PostgreSQL 19 (newest)</text>
+  </g>
+</svg>

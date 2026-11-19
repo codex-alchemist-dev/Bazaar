@@ -208,4 +208,92 @@ public sealed class InboxRepositoryTests(AgentDb db) : IClassFixture<AgentDb>
         Assert.Equal(peeked.Length, claimed.Count);
         Assert.Equal(2, await Inbox.CountAsync(agent, InboxState.Claimed, Ct));
     }
+
+    private async Task<Guid> NewAgentInStateAsync(string state)
+    {
+        var id = Guid.CreateVersion7();
+        await db.ExecAsync("INSERT INTO agent (agent_id, name, state) VALUES (@id, 'inbox test', @state)", ("id", id), ("state", state));
+        return id;
+    }
+
+    // The fixture database is shared by the tests of this class, so other tests' agents can be due too. These tests look only
+    // at their own agents in the result.
+    private async Task<List<DueAgent>> PeekDueAmongAsync(params Guid[] agents) =>
+        [.. (await Inbox.PeekDueAgentsAsync(10_000, Ct)).Where(d => agents.Contains(d.AgentId))];
+
+    [Fact]
+    public async Task Peek_due_agents_returns_only_active_agents()
+    {
+        SkipWithoutDatabase();
+        var active = await NewAgentAsync();
+        var others = new List<Guid>();
+        foreach (var state in new[] { "created", "onboarding", "resting", "retired" })
+            others.Add(await NewAgentInStateAsync(state));
+        foreach (var agent in others.Append(active))
+            await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, SourceRef: "dm-1"), Ct);
+
+        var due = await PeekDueAmongAsync([.. others, active]);
+
+        Assert.Equal(active, Assert.Single(due).AgentId);
+    }
+
+    [Fact]
+    public async Task Peek_due_agents_orders_by_best_priority_then_oldest_due_time()
+    {
+        SkipWithoutDatabase();
+        var low = await NewAgentAsync();
+        var newer = await NewAgentAsync();
+        var older = await NewAgentAsync();
+        var now = DateTimeOffset.UtcNow;
+        await Inbox.EnqueueAsync(new InboxEnqueue(low, "gc_digest", 7, SourceRef: "digest-1", DueAt: now.AddHours(-3)), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(newer, "mention", 1, SourceRef: "dm-1", DueAt: now.AddMinutes(-1)), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(older, "gc_digest", 7, SourceRef: "digest-2", DueAt: now.AddHours(-2)), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(older, "mention", 1, SourceRef: "dm-2", DueAt: now.AddMinutes(-5)), Ct);
+
+        var due = await PeekDueAmongAsync(low, newer, older);
+
+        Assert.Equal([older, newer, low], due.Select(d => d.AgentId));
+        Assert.Equal([(short)1, (short)1, (short)7], due.Select(d => d.BestPriority));
+        Assert.True(due[0].OldestDueAt < due[1].OldestDueAt);
+    }
+
+    [Fact]
+    public async Task Peek_due_agents_lists_an_agent_once_and_changes_nothing()
+    {
+        SkipWithoutDatabase();
+        var agent = await NewAgentAsync();
+        for (var i = 0; i < 3; i++)
+            await Inbox.EnqueueAsync(new InboxEnqueue(agent, "mention", 1, Guid.CreateVersion7(), i + 1), Ct);
+
+        var due = await PeekDueAmongAsync(agent);
+
+        Assert.Single(due);
+        Assert.Equal(3, await Inbox.CountAsync(agent, InboxState.Pending, Ct));
+        Assert.Equal(0, await Inbox.CountAsync(agent, InboxState.Claimed, Ct));
+    }
+
+    [Fact]
+    public async Task Peek_due_agents_skips_agents_whose_items_are_not_due_or_already_claimed()
+    {
+        SkipWithoutDatabase();
+        var notDue = await NewAgentAsync();
+        var claimed = await NewAgentAsync();
+        var none = await NewAgentAsync();
+        await Inbox.EnqueueAsync(new InboxEnqueue(notDue, "scheduled", 4, DueAt: DateTimeOffset.UtcNow.AddDays(1)), Ct);
+        await Inbox.EnqueueAsync(new InboxEnqueue(claimed, "mention", 1, SourceRef: "dm-1"), Ct);
+        await Inbox.ClaimAsync(claimed, "turn-a", 5, Ct);
+
+        Assert.Empty(await PeekDueAmongAsync(notDue, claimed, none));
+    }
+
+    [Fact]
+    public async Task Peek_due_agents_respects_the_limit()
+    {
+        SkipWithoutDatabase();
+        for (var i = 0; i < 3; i++)
+            await Inbox.EnqueueAsync(new InboxEnqueue(await NewAgentAsync(), "mention", 1, SourceRef: "dm-1"), Ct);
+
+        Assert.Equal(2, (await Inbox.PeekDueAgentsAsync(2, Ct)).Count);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Inbox.PeekDueAgentsAsync(0, Ct));
+    }
 }

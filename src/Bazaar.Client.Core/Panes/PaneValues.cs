@@ -4,7 +4,7 @@ using Bazaar.Client.Core.Panes;
 namespace Bazaar.Client.Core.Panes;
 
 /// <summary>Reads typed values from a pane model, raising <see cref="PaneModelException"/> on a shape mismatch.</summary>
-internal static class PaneValues
+public static class PaneValues
 {
     public static JsonElement Array(JsonElement parent, string name)
     {
