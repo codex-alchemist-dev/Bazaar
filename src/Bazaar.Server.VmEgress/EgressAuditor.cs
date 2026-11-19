@@ -25,7 +25,7 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
     /// <summary>Audit kind for the summary of rows held back by the rate limit.</summary>
     public const string SuppressedKind = "egress.suppressed";
 
-    private const string Actor = "vm-egress";
+    private const string _actor = "vm-egress";
 
     private readonly ConcurrentDictionary<string, Window> _windows = new(StringComparer.Ordinal);
 
@@ -34,7 +34,7 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
         log.AppendAsync(
             new AuditEntry(
                 time.GetUtcNow(),
-                Actor,
+                _actor,
                 RuleChangeKind,
                 Json(w =>
                 {
@@ -81,7 +81,7 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
                 await log.AppendAsync(
                     new AuditEntry(
                         time.GetUtcNow(),
-                        Actor,
+                        _actor,
                         SuppressedKind,
                         Json(w =>
                         {
@@ -110,7 +110,7 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
                 await log.AppendAsync(
                     new AuditEntry(
                         now,
-                        Actor,
+                        _actor,
                         SuppressedKind,
                         Json(w =>
                         {
@@ -126,7 +126,7 @@ public sealed class EgressAuditor(IAuditLog log, VmEgressOptions options, TimePr
                 await log.AppendAsync(
                     new AuditEntry(
                         now,
-                        Actor,
+                        _actor,
                         kind,
                         Json(w =>
                         {

@@ -11,8 +11,8 @@ namespace Bazaar.Server.VmEgress.Matching;
 /// <param name="Address">Set when the host is an IP literal.</param>
 public sealed record HostName(string Name, IPAddress? Address)
 {
-    private const int MaxLabel = 63;
-    private const int MaxName = 253;
+    private const int _maxLabel = 63;
+    private const int _maxName = 253;
 
     private static readonly IdnMapping _idn = new() { UseStd3AsciiRules = true, AllowUnassigned = false };
 
@@ -27,7 +27,7 @@ public sealed record HostName(string Name, IPAddress? Address)
     public static bool TryNormalize(string? host, out HostName result)
     {
         result = null!;
-        if (string.IsNullOrEmpty(host) || host.Length > MaxName + 2)
+        if (string.IsNullOrEmpty(host) || host.Length > _maxName + 2)
         {
             return false;
         }
@@ -81,7 +81,7 @@ public sealed record HostName(string Name, IPAddress? Address)
             }
         }
 
-        if (ascii.Length > MaxName)
+        if (ascii.Length > _maxName)
         {
             return false;
         }
@@ -89,7 +89,7 @@ public sealed record HostName(string Name, IPAddress? Address)
         var labels = ascii.Split('.');
         foreach (var label in labels)
         {
-            if (label.Length is 0 or > MaxLabel || label[0] == '-' || label[^1] == '-')
+            if (label.Length is 0 or > _maxLabel || label[0] == '-' || label[^1] == '-')
             {
                 return false;
             }
