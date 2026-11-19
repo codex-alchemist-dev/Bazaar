@@ -35,5 +35,14 @@ app.UseBazaarWire();
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
 var exitCode = app.Services.GetRequiredService<HostExitCode>();
 
-await app.RunAsync();
+try
+{
+    await app.RunAsync();
+}
+catch (StartupRefusedException)
+{
+    // Logged by StartupSequence; a deliberate refusal exits with code 1 and no crash dump.
+    return 1;
+}
+
 return exitCode.Value;

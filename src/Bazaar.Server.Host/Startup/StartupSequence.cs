@@ -1,3 +1,4 @@
+using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Providers;
 
 namespace Bazaar.Server.Host.Startup;
@@ -18,15 +19,28 @@ public sealed partial class StartupSequence(
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!await instanceLock.TryAcquireAsync(cancellationToken))
+        try
         {
-            LogSecondInstance(logger);
+            if (!await instanceLock.TryAcquireAsync(cancellationToken))
+            {
+                LogSecondInstance(logger);
+                exitCode.Value = 1;
+                lifetime.StopApplication();
+                throw new StartupRefusedException("another Bazaar.Server instance holds the instance lock for this database");
+            }
+
+            await schemaGate.EnsureCurrentAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not StartupRefusedException && (ex is MigrationException || MigrateCommand.TryDescribeDatabaseFailure(ex, out _)))
+        {
+            // A refusal is an expected outcome: one log line and exit code 1, not an unhandled-exception crash. Throwing (not just stopping the
+            // application) keeps the later hosted services, such as the recovery sweep, from running against a database this build must not touch.
+            var reason = ex is MigrationException ? ex.Message : Describe(ex);
+            LogStartRefused(logger, reason);
             exitCode.Value = 1;
             lifetime.StopApplication();
-            return;
+            throw new StartupRefusedException(reason);
         }
-
-        await schemaGate.EnsureCurrentAsync(cancellationToken);
 
         foreach (var line in providers.Lines)
         {
@@ -47,6 +61,11 @@ public sealed partial class StartupSequence(
     [LoggerMessage(Level = LogLevel.Critical, Message = "Another Bazaar.Server instance holds the instance lock for this database; exiting.")]
     private static partial void LogSecondInstance(ILogger logger);
 
+    private static string Describe(Exception ex) => MigrateCommand.TryDescribeDatabaseFailure(ex, out var line) ? line : ex.Message;
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Startup refused: {Reason}")]
+    private static partial void LogStartRefused(ILogger logger, string reason);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "{Line}")]
     private static partial void LogProvider(ILogger logger, string line);
 }
@@ -62,3 +81,6 @@ public sealed class HostExitCode
 {
     public int Value { get; set; }
 }
+
+/// <summary>Startup stopped on purpose (second instance, schema mismatch, database unreachable). The reason is already logged; the process exits with code 1.</summary>
+public sealed class StartupRefusedException(string message) : Exception(message);

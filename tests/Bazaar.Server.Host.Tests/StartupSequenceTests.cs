@@ -1,3 +1,4 @@
+using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers;
 using Microsoft.Extensions.Hosting;
@@ -69,7 +70,7 @@ public sealed class StartupSequenceTests
         var gate = new FakeGate();
         var (sequence, state, exit, lifetime) = Create(new FakeLock(acquire: false), gate);
 
-        await sequence.StartAsync(TestContext.Current.CancellationToken);
+        await Assert.ThrowsAsync<StartupRefusedException>(() => sequence.StartAsync(TestContext.Current.CancellationToken));
 
         Assert.True(lifetime.Stopped);
         Assert.Equal(1, exit.Value);
@@ -98,6 +99,31 @@ public sealed class StartupSequenceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => sequence.StartAsync(TestContext.Current.CancellationToken));
 
+        Assert.False(state.Started);
+    }
+
+    [Fact]
+    public async Task A_migration_refusal_stops_the_host_with_exit_code_1_and_never_marks_ready()
+    {
+        var (sequence, state, exit, lifetime) = Create(new FakeLock(acquire: true), new FakeGate(new SchemaVersionException("newer")));
+
+        var refused = await Assert.ThrowsAsync<StartupRefusedException>(() => sequence.StartAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal("newer", refused.Message);
+        Assert.Equal(1, exit.Value);
+        Assert.True(lifetime.Stopped);
+        Assert.False(state.Started);
+    }
+
+    [Fact]
+    public async Task An_unreachable_database_refuses_with_a_description_instead_of_crashing()
+    {
+        var (sequence, state, exit, _) = Create(new FakeLock(acquire: true), new FakeGate(new Npgsql.NpgsqlException("boom", new IOException("Connection refused"))));
+
+        var refused = await Assert.ThrowsAsync<StartupRefusedException>(() => sequence.StartAsync(TestContext.Current.CancellationToken));
+
+        Assert.Contains("cannot reach the database", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(1, exit.Value);
         Assert.False(state.Started);
     }
 

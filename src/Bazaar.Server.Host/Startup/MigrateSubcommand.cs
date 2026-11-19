@@ -44,9 +44,17 @@ public static class MigrateSubcommand
 
         await using var database = new DatabaseConnection(Microsoft.Extensions.Options.Options.Create(options), new SingleSecretResolver(options.DatabaseConnectionReference, connectionString));
         await using var instanceLock = new PostgresInstanceLock(database);
-        if (!await instanceLock.TryAcquireAsync(ct))
+        try
         {
-            await output.WriteLineAsync("migrate refused: another Bazaar.Server instance holds the instance lock; stop it first.", ct);
+            if (!await instanceLock.TryAcquireAsync(ct))
+            {
+                await output.WriteLineAsync("migrate refused: another Bazaar.Server instance holds the instance lock; stop it first.", ct);
+                return 1;
+            }
+        }
+        catch (Exception ex) when (MigrateCommand.TryDescribeDatabaseFailure(ex, out var line))
+        {
+            await output.WriteLineAsync($"migrate refused: {line}", ct);
             return 1;
         }
 
