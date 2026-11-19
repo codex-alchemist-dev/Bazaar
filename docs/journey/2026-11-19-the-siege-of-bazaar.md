@@ -187,6 +187,24 @@ Honesty section.
 - Three campaigns fixed the two-headed server three different ways. One fix was kept.
 - Docker was not available in the container, so tests ran against real local Postgres clusters instead of Testcontainers.
 
+## The second wave (same evening)
+
+While the first pull request waited in the runner queue, three more campaigns went after what the first eight had not touched: hostile input on the other HTTP endpoints, races outside the GC log, and every file writer the first disk attack skipped. Twelve more real bugs, all fixed with tests.
+
+- **The open door at `/auth/refresh`.** It takes no credential, and it buffered whatever a stranger sent, up to 30 MB per connection. Twenty held bodies added about 530 MB to the host. A body over 16 KiB is now refused with 413 before it is read.
+- **Blobs, again.** Two uploads of the same bytes at the same instant gave the loser a 507 in half the runs. A quota of 3 uploads let 40 racers open 4 or 5. An abort between the last chunk and the commit stranded the upload for 24 hours. A client that hung up mid-chunk was told the disk was full. All four fixed.
+- **The Vault kept what it failed to commit.** When a commit failed (a stale `index.lock`, a full disk), the new decision file or the half-moved document stayed in the checkout, and the next commit swept it in. Failed writes now roll the tree back.
+- **One torn backup sidecar stopped all backup cleanup.** Set discovery threw, every later run was recorded as failed, and retention and WAL cleanup never ran again. The sidecar is written atomically now and a torn one is skipped.
+- **A failed export blocked its own retry** ("directory is not empty"). The partial export is now removed and the manifest is written last.
+- **The FreeLLMAPI sidecar accepted an empty encryption key** from a zero-byte key file, and wrote its secrets in place. Now: temp file, owner-only mode, rename, and a key that is not 64 hex digits is refused without being echoed.
+- **Secrets mounted for agents and the Postgres version file** were written in place. Now atomic.
+- **Four more `$` validators** on names that become paths accepted a trailing newline.
+- **Stopping the host burned job attempts.** A stop in the middle of a claimed batch left the unstarted jobs leased, and each lost an attempt. Five restarts could fail a job whose handler never ran. Unstarted jobs are now given back with the attempt refunded.
+
+What held in the second wave: 12,642 hostile requests against a running host with no 5xx, no hang and no state created by an unauthenticated caller; the new giant-amount intake under 33 kinds of broken body; Council votes with every voter double-casting (one ballot each, one reveal); 56 Kanban edges inserted at once with no cycle; 16 claimers of one card (1 wins, 15 conflicts); 12 parallel refreshes of one credential (exactly one new pair); and the large-amount sweeper racing ten writers with no orphan chunk.
+
+New cracks from the second wave are items 16 to 21 below.
+
 ## Still standing, with cracks (needs the owner or a design doc)
 
 None of these were changed. Each needs a decision first.
@@ -206,6 +224,12 @@ None of these were changed. Each needs a decision first.
 13. **The replay cutoff counts a new message twice**, so `resync` triggers at about 1,000 missed messages, not the documented 2,000. And the `gc.edit` reply carries the edit event's sequence number where doc 02 says the original `n`.
 14. **Memory creep:** 159 MB to about 570 MB over 15 cycles of 400 connects and disconnects, with file descriptors and threads flat. Part of it was the reply table (now fixed); the rest is unattributed.
 15. **File descriptor exhaustion:** the accept loop spins at about 86% of a core and `/health/live` goes dark until sockets free up.
+16. **GC sender membership is checked outside the log lock.** A member removed at sequence N can still land a message at N+1. Found by reading the code, not by a timed race. Doc 01 does not say which ordering is right.
+17. **Council state changes and their GC events are two steps.** A crash between them leaves no event, and only the reveal is replayed.
+18. **A base backup that crashes mid-copy** leaves a `set-*` folder with no sidecar. It is ignored and never deleted. And a restore that fails part-way leaves a non-empty target, so the retry is refused.
+19. **Large-amount intake:** nothing deletes an intake amount that no limit refers to any more, and with the guard set to unlimited the route has no body cap (it is owner-only and rate limited).
+20. **`/auth/refresh` has no per-address limit.** The 16 KiB body cap is this campaign's choice; doc 32 gives no size.
+21. **Is a zero-byte blob valid?** Today an upload of length 0 is refused with 400.
 
 ## How to do it again
 
