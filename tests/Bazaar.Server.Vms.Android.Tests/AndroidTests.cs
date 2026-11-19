@@ -27,8 +27,8 @@ public sealed class FakeAndroidHost : IAndroidHost, IAndroidHostFacts, IAndroidW
 
 public sealed class AndroidBackendTests
 {
-    private static readonly Guid Image = Guid.CreateVersion7();
-    private static readonly VmSpec Spec = new(VmOs.Android, 2, 4096, 16);
+    private static readonly Guid _image = Guid.CreateVersion7();
+    private static readonly VmSpec _spec = new(VmOs.Android, 2, 4096, 16);
 
     private static (AndroidBackend Backend, FakeAndroidHost Host) Make(int max = 2)
     {
@@ -38,7 +38,7 @@ public sealed class AndroidBackendTests
             SdkRoot = OperatingSystem.IsWindows() ? @"V:\TOOL\android-sdk" : "/opt/sdk",
             AvdHome = OperatingSystem.IsWindows() ? @"V:\TOOL\android-user" : "/opt/avd",
             SystemImagePackage = "system-images;android-35;google_apis;x86_64",
-            SystemImageVersion = Image,
+            SystemImageVersion = _image,
             MaxConcurrent = max,
         };
         return (new AndroidBackend(host, host, host, options), host);
@@ -48,15 +48,15 @@ public sealed class AndroidBackendTests
     public async Task Create_rejects_other_os_and_unpinned_image()
     {
         var (b, _) = Make();
-        await Assert.ThrowsAsync<NotSupportedException>(() => b.CreateChildAsync(new(Image), Spec with { Os = VmOs.Linux }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => b.CreateChildAsync(new(Guid.NewGuid()), Spec, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<NotSupportedException>(() => b.CreateChildAsync(new(_image), _spec with { Os = VmOs.Linux }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => b.CreateChildAsync(new(Guid.NewGuid()), _spec, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Create_starts_nothing_until_start()
     {
         var (b, h) = Make();
-        var vm = await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken);
+        var vm = await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken);
         Assert.Empty(h.Running);
         Assert.Equal(VmState.Stopped, await b.GetStateAsync(vm, TestContext.Current.CancellationToken));
         await b.StartAsync(vm, TestContext.Current.CancellationToken);
@@ -69,7 +69,7 @@ public sealed class AndroidBackendTests
     {
         var (b, h) = Make(2);
         var vms = new List<VmHandle>();
-        for (var i = 0; i < 3; i++) vms.Add(await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken));
+        for (var i = 0; i < 3; i++) vms.Add(await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken));
         await b.StartAsync(vms[0], TestContext.Current.CancellationToken);
         await b.StartAsync(vms[1], TestContext.Current.CancellationToken);
         Assert.Equal(2, h.Running.Count);
@@ -80,7 +80,7 @@ public sealed class AndroidBackendTests
     public async Task Save_stops_emulator_and_records_Saved()
     {
         var (b, h) = Make();
-        var vm = await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken);
+        var vm = await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken);
         await b.StartAsync(vm, TestContext.Current.CancellationToken);
         await b.SaveStateAsync(vm, TestContext.Current.CancellationToken);
         Assert.Empty(h.Running);
@@ -92,7 +92,7 @@ public sealed class AndroidBackendTests
     public async Task Checkpoint_needs_stopped_vm_and_leaves_it_stopped()
     {
         var (b, h) = Make();
-        var vm = await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken);
+        var vm = await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken);
         await b.StartAsync(vm, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<InvalidOperationException>(() => b.CheckpointAsync(vm, TestContext.Current.CancellationToken));
         await b.StopAsync(vm, StopMode.Graceful, TestContext.Current.CancellationToken);
@@ -108,7 +108,7 @@ public sealed class AndroidBackendTests
     public async Task External_close_is_recorded_as_stopped()
     {
         var (b, h) = Make();
-        var vm = await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken);
+        var vm = await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken);
         await b.StartAsync(vm, TestContext.Current.CancellationToken);
         h.Running.Clear();
         Assert.Equal(VmState.Stopped, await b.GetStateAsync(vm, TestContext.Current.CancellationToken));
@@ -118,7 +118,7 @@ public sealed class AndroidBackendTests
     public async Task Retire_stops_and_deletes()
     {
         var (b, h) = Make();
-        var vm = await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken);
+        var vm = await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken);
         await b.StartAsync(vm, TestContext.Current.CancellationToken);
         await b.RetireAsync(vm, TestContext.Current.CancellationToken);
         Assert.Empty(h.Running);
@@ -130,7 +130,7 @@ public sealed class AndroidBackendTests
     public async Task Device_calls_need_a_running_guest_and_validate_input()
     {
         var (b, h) = Make();
-        var vm = await b.CreateChildAsync(new(Image), Spec, TestContext.Current.CancellationToken);
+        var vm = await b.CreateChildAsync(new(_image), _spec, TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<InvalidOperationException>(() => b.LaunchAppAsync(vm.VmId, "com.example.app", TestContext.Current.CancellationToken));
         await b.StartAsync(vm, TestContext.Current.CancellationToken);
         await b.InstallAppAsync(vm.VmId, "out/app.apk", TestContext.Current.CancellationToken);
@@ -156,7 +156,7 @@ public sealed class AndroidBackendTests
     [Fact]
     public void Options_refuse_relative_or_empty_paths()
     {
-        var o = new AndroidOptions { SdkRoot = "sdk", AvdHome = "/a", SystemImagePackage = "system-images;android-35;google_apis;x86_64", SystemImageVersion = Image };
+        var o = new AndroidOptions { SdkRoot = "sdk", AvdHome = "/a", SystemImagePackage = "system-images;android-35;google_apis;x86_64", SystemImageVersion = _image };
         Assert.Throws<InvalidOperationException>(o.Validate);
         Assert.Throws<InvalidOperationException>(() => (o with { SdkRoot = "/s", SystemImagePackage = "a b" }).Validate());
     }

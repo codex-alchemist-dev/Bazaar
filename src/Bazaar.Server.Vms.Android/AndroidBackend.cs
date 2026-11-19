@@ -107,7 +107,7 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
             throw new InvalidOperationException($"{vm.BackendRef} is not running.");
         }
 
-        await _host.SaveSnapshotAsync(port, SavedName, ct).ConfigureAwait(false);
+        await _host.SaveSnapshotAsync(port, _savedName, ct).ConfigureAwait(false);
         await _host.StopEmulatorAsync(port, force: false, ct).ConfigureAwait(false);
         Set(instance with { Port = null, State = VmState.Saved });
     }
@@ -121,7 +121,7 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         }
 
         // The emulator saves a snapshot from a running guest, so boot, save and stop. A saved VM resumes from its saved state first.
-        var started = await StartWith(vm, instance, instance.State == VmState.Saved ? SavedName : null, ct).ConfigureAwait(false);
+        var started = await StartWith(vm, instance, instance.State == VmState.Saved ? _savedName : null, ct).ConfigureAwait(false);
         var id = new CheckpointId(Guid.CreateVersion7());
         try
         {
@@ -198,7 +198,7 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
 
     public void Dispose() => _launchGate.Dispose();
 
-    private const string SavedName = "bz_saved";
+    private const string _savedName = "bz_saved";
 
     private static string CheckpointName(CheckpointId id) => $"bz_cp_{id.Value:N}";
 
