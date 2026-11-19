@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Constellation\Bazaar.Server.Constellation.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Constellation.Algorithms\Bazaar.Server.Constellation.Algorithms.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Memory.Abstractions\Bazaar.Server.Memory.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />

@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Constellation.Algorithms\Bazaar.Server.Constellation.Algorithms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory.Abstractions\Bazaar.Server.Memory.Abstractions.csproj" />
   </ItemGroup>
 </Project>

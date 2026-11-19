@@ -72,6 +72,7 @@
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Server.Constellation/Bazaar.Server.Constellation.csproj" />
+    <Project Path="src/Bazaar.Server.Constellation.Algorithms/Bazaar.Server.Constellation.Algorithms.csproj" />
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
     <Project Path="src/Bazaar.Server.Memory.Abstractions/Bazaar.Server.Memory.Abstractions.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
