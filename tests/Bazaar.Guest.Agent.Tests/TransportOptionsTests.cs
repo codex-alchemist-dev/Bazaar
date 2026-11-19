@@ -3,7 +3,7 @@ namespace Bazaar.Guest.Agent.Tests;
 /// <summary>The <c>--transport</c> option and the socket settings that go with it.</summary>
 public class TransportOptionsTests
 {
-    private static readonly string[] _required = ["--vm-id", "vm-1", "--nonce", "n-1", "--root", "/srv/a"];
+    private static readonly string[] _required = ["--vm-id", "vm-1", "--nonce", "n-1", "--root", Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bazaar-guest-root"))];
 
     private static GuestAgentOptions Parse(params string[] extra) => GuestAgentOptions.Parse([.. _required, .. extra]);
 

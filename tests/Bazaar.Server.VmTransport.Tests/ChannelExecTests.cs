@@ -13,6 +13,7 @@ public class ChannelExecTests
     [Fact]
     public async Task Exec_streams_output_in_order_and_reports_the_exit_code()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX /bin/sh; covered on Linux.");
         await using var rig = await AgentRig.StartAsync();
         var chunks = new List<OutputChunk>();
 
@@ -37,6 +38,7 @@ public class ChannelExecTests
     [Fact]
     public async Task Exec_passes_the_guests_own_value_for_an_allowlisted_variable()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX /bin/sh; covered on Linux.");
         Environment.SetEnvironmentVariable("BAZAAR_VMT_TEST_VAR", "from-the-guest");
         try
         {
@@ -62,6 +64,7 @@ public class ChannelExecTests
     [Fact]
     public async Task Exec_that_outlives_its_timeout_is_killed_and_reported_timed_out()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX /bin/sh; covered on Linux.");
         await using var rig = await AgentRig.StartAsync();
 
         var result = await rig.Channel.ExecAsync(Sh(rig, "sleep 30", seconds: 1), _ => Task.CompletedTask, CancellationToken.None).WithinAsync();
@@ -111,6 +114,7 @@ public class ChannelExecTests
     [Fact]
     public async Task Output_beyond_the_cap_is_dropped_and_flagged()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX /bin/sh; covered on Linux.");
         await using var rig = await AgentRig.StartAsync(new GuestChannelOptions { MaxOutputBytes = 100 });
         var total = 0;
 
