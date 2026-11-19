@@ -420,6 +420,32 @@ public class GitLabForgeProviderTests
     }
 
     [Fact]
+    public async Task Deeply_nested_subgroup_list_encodes_every_slash_in_one_segment()
+    {
+        var (provider, http, _, _) = Create();
+        http.Json(_get, "/api/v4/projects/group%2Fsub%2Fsub2%2Fproject/merge_requests", "[]");
+
+        await provider.ListPrsAsync(new RepoRef("gitlab", "group/sub/sub2/project"), new ListPrsQuery(null, 1, 30), CancellationToken.None);
+
+        var request = Assert.Single(http.Requests);
+        Assert.Equal("/api/v4/projects/group%2Fsub%2Fsub2%2Fproject/merge_requests", request.Path);
+        // "/", "api/", "v4/", "projects/", the one encoded project segment, "merge_requests"
+        Assert.Equal(["/", "api/", "v4/", "projects/", "group%2Fsub%2Fsub2%2Fproject/", "merge_requests"], request.Uri.Segments);
+    }
+
+    [Fact]
+    public async Task Reserved_characters_in_a_project_path_are_escaped_not_split()
+    {
+        var (provider, http, _, _) = Create();
+        http.Json(_get, "/api/v4/projects/group%2Fa%20b%3Fx%23y/merge_requests", "[]");
+
+        await provider.ListPrsAsync(new RepoRef("gitlab", "group/a b?x#y"), new ListPrsQuery(null, 1, 30), CancellationToken.None);
+
+        var request = Assert.Single(http.Requests);
+        Assert.Equal("/api/v4/projects/group%2Fa%20b%3Fx%23y/merge_requests", request.Path);
+    }
+
+    [Fact]
     public async Task A_self_managed_base_url_is_used_with_its_own_api_root()
     {
         var (provider, http, _, _) = Create(new GitLabOptions { BaseUrl = new Uri("https://git.example.test/gitlab/") });
