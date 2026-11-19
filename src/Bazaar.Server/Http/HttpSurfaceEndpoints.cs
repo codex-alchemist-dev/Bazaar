@@ -209,7 +209,8 @@ public static class HttpSurfaceEndpoints
         var services = http.RequestServices;
         var options = services.GetRequiredService<HttpSurfaceOptions>();
         var query = http.Request.Query["q"].ToString();
-        if (!Guid.TryParse(http.Request.Query["gc"].ToString(), out var gcId) || query.Length is 0 or > _maxQueryLength)
+        // NUL is not valid in Postgres text; it would fail in the database as a 500.
+        if (!Guid.TryParse(http.Request.Query["gc"].ToString(), out var gcId) || query.Length is 0 or > _maxQueryLength || query.Contains('\0'))
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         var limit = int.TryParse(http.Request.Query["limit"].ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var asked)
             ? Math.Clamp(asked, 1, options.SearchMaxResults)
@@ -251,7 +252,8 @@ public static class HttpSurfaceEndpoints
         var text = q["q"].ToString();
         var project = q["project"].ToString();
         var type = q["type"].ToString();
-        if (text.Length is 0 or > _maxQueryLength || project.Length > _maxQueryLength || type.Length > _maxQueryLength)
+        if (text.Length is 0 or > _maxQueryLength || project.Length > _maxQueryLength || type.Length > _maxQueryLength
+            || text.Contains('\0') || project.Contains('\0') || type.Contains('\0'))
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         var limit = int.TryParse(q["limit"].ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var asked)
             ? Math.Clamp(asked, 1, options.SearchMaxResults)
