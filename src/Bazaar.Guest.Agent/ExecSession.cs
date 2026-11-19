@@ -15,6 +15,7 @@ internal sealed class ExecSession : IDisposable
     private const int _reasonNone = 0;
     private const int _reasonTimedOut = 1;
     private const int _reasonCancelled = 2;
+    private const long _maxTimerMilliseconds = uint.MaxValue - 1;
 
     private readonly Exec _exec;
     private readonly OutboundQueue _outbound;
@@ -65,7 +66,9 @@ internal sealed class ExecSession : IDisposable
         process.StandardInput.Close();
         _process = process;
         _ownsGroup = ownsGroup;
-        _timeout = new CancellationTokenSource(TimeSpan.FromSeconds(_exec.TimeoutSec));
+        // A timer cannot be longer than about 49 days; a longer timeout from the host is clamped, not allowed to throw
+        // after the process has already started.
+        _timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(Math.Min(_exec.TimeoutSec * 1000L, _maxTimerMilliseconds)));
         _ = _timeout.Token.Register(() => Kill(_reasonTimedOut));
         Completion = ReportAsync(process);
         error = null;
