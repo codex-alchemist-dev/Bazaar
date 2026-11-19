@@ -22,7 +22,7 @@ public sealed class HiZOcclusionTests
     [Theory]
     [InlineData(64, 64, 7)]
     [InlineData(100, 37, 7)]
-    [InlineData(1, 1, 1)]
+    [InlineData(1, 1, 2)]
     [InlineData(5, 1, 3)]
     [InlineData(1920, 1080, 11)]
     public void MipChainSizesFollowTheGpuRule(int w, int h, int levels)

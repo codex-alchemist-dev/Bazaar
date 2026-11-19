@@ -25,8 +25,9 @@ public sealed class HiZPyramid
             throw new ArgumentException("Depth image length must equal width * height.", nameof(depth));
         }
 
-        int count = 1;
-        for (int w = width, h = height, step = 1; w > 1 || h > 1; step++)
+        // Always at least level 1, as on the GPU, where even a 1x1 depth image gets a 1x1 pyramid mip.
+        int count = 2;
+        for (int w = NextSize(width, 1), h = NextSize(height, 1), step = 2; w > 1 || h > 1; step++)
         {
             w = NextSize(w, step);
             h = NextSize(h, step);
