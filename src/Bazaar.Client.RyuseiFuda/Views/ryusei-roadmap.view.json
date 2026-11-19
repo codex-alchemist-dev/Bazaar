@@ -1,0 +1,36 @@
+{
+  "dslVersion": 1,
+  "name": "bazaar.ryusei.roadmap",
+  "data": {
+    "cycleText": { "capability": "ryusei.roadmap", "type": "text" },
+    "cycleVisible": { "capability": "ryusei.roadmap", "type": "bool" },
+    "emptyText": { "capability": "ryusei.roadmap", "type": "text" },
+    "emptyVisible": { "capability": "ryusei.roadmap", "type": "bool" },
+    "lines": {
+      "capability": "ryusei.roadmap",
+      "type": "list",
+      "fields": { "id": "text", "text": "text", "heading": "bool" }
+    }
+  },
+  "actions": {},
+  "root": {
+    "widget": "stack",
+    "children": [
+      { "widget": "badge", "props": { "text": { "expr": "cycleText" }, "variant": "system", "visibleWhen": { "expr": "cycleVisible" } } },
+      { "widget": "text", "props": { "text": { "expr": "emptyText" }, "style": "small", "visibleWhen": { "expr": "emptyVisible" } } },
+      {
+        "widget": "list",
+        "props": { "over": "lines", "key": "id" },
+        "children": [
+          {
+            "widget": "stack",
+            "children": [
+              { "widget": "text", "props": { "text": { "expr": "text" }, "visibleWhen": { "expr": "heading" } } },
+              { "widget": "text", "props": { "text": { "expr": "text" }, "style": "small", "visibleWhen": { "expr": "!heading" } } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
