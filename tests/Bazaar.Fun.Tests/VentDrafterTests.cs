@@ -1,5 +1,6 @@
 using Bazaar.Fun.Vent;
 using Bazaar.Server.Sanitization;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Fun.Tests;
 
@@ -8,7 +9,7 @@ public class VentDrafterTests
     private static readonly SensitiveTerms _terms = new(["Dana Ruiz"], ["Charles"], ["bazaar-repo"], [], []);
     private static readonly VentInput _input = new(
         "The CI failed on the push (GC seq 42). Dana Ruiz said the build was fine.",
-        "Run the lint step before pushing; token sk-ant-abcdefghij12 leaked into the log.",
+        "Run the lint step before pushing; token " + FakeSecrets.AnthropicApiKey + " leaked into the log.",
         "Whether the flaky test is in bazaar-repo or upstream.");
 
     private static VentDrafter Drafter() => new(new TextSanitizer());
