@@ -91,6 +91,17 @@ internal static class RojoPathGuard
             throw new RojoException(RojoErrorKind.PathOutsideRoot, "Rojo path contains a control character.");
         }
 
+        // The path as given is checked for trailing dots and spaces as well: on Windows the path normaliser has already
+        // dropped them from the resolved form, so only the given form still shows them. A rooted path keeps its drive colon,
+        // so the colon rule applies to the resolved part below the root only.
+        foreach (string segment in candidate.Split('/', '\\'))
+        {
+            if (segment is not ("" or "." or "..") && (segment.EndsWith('.') || segment.EndsWith(' ')))
+            {
+                throw new RojoException(RojoErrorKind.PathOutsideRoot, $"Rojo path segment '{segment}' is not a safe file name.");
+            }
+        }
+
         foreach (string segment in relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
         {
             if (segment.Contains(':', StringComparison.Ordinal)
