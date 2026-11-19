@@ -110,11 +110,24 @@ public sealed class CouncilDecisionVaultAdapterTests
         }
         finally
         {
-            if (Directory.Exists(root))
-            {
-                Directory.Delete(root, recursive: true);
-            }
+            DeleteTree(root);
         }
+    }
+
+    // Git object files are read-only on Windows; clear the attribute before deleting.
+    private static void DeleteTree(string root)
+    {
+        if (!Directory.Exists(root))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        Directory.Delete(root, recursive: true);
     }
 
     [Fact]
