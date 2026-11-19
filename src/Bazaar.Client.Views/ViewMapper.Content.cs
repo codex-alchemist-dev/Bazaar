@@ -66,8 +66,12 @@ public sealed partial class ViewMapper
             throw new ViewDeclarationException("setSetting needs a value, so it belongs on an input, not a button.");
         }
 
+        ViewArgs? args = node.Props.TryGetValue(ViewArgs.PropName, out object? rawArgs)
+            ? rawArgs as ViewArgs ?? throw new ViewDeclarationException("args must be an object of named values.")
+            : null;
+
         var button = new Button { Content = label };
-        button.Click += (_, _) => RunAction(action, value: null);
+        button.Click += (_, _) => RunAction(action, value: null, args, scope);
         return button;
     }
 
@@ -127,15 +131,34 @@ public sealed partial class ViewMapper
     /// Runs an action for a click or an input change. A failure goes to <see cref="ViewContext.OnActionError"/>, because
     /// the control is already built and cannot show a placeholder.
     /// </summary>
-    private async void RunAction(ViewAction action, string? value)
+    private async void RunAction(ViewAction action, string? value, ViewArgs? args = null, Scope? scope = null)
     {
         try
         {
-            await ViewActionDispatch.RunAsync(_context.Actions, action, value);
+            // Arguments are evaluated now, from the data the view was built with (doc 41c, section 6.1).
+            IReadOnlyDictionary<string, object>? resolved = args is null ? null : ResolveArgs(args, scope!);
+            await ViewActionDispatch.RunAsync(_context.Actions, action, value, resolved);
         }
         catch (Exception ex)
         {
             _context.OnActionError(ex);
         }
+    }
+
+    /// <summary>Evaluates button arguments in the button's scope. Only text, bool and number values reach the head.</summary>
+    private static Dictionary<string, object> ResolveArgs(ViewArgs args, Scope scope)
+    {
+        var resolved = new Dictionary<string, object>(StringComparer.Ordinal);
+        foreach ((string name, object? raw) in args.Values)
+        {
+            object? value = Resolve(raw, scope);
+            resolved[name] = value switch
+            {
+                string or bool or double or decimal or int or long => value,
+                _ => throw new ViewDeclarationException($"argument '{name}' is not a text, number or bool."),
+            };
+        }
+
+        return resolved;
     }
 }

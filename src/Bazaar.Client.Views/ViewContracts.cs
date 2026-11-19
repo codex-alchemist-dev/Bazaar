@@ -12,6 +12,21 @@ public interface IViewActions
     Task OpenPaneAsync(string paneKind);
 
     Task SetSettingAsync(string key, string value);
+
+    /// <summary>
+    /// Navigates with arguments (doc 41c, section 6.1). The values are text, bool or number. A head that does not accept
+    /// arguments keeps this default, which fails the action closed through the error callback.
+    /// </summary>
+    Task NavigateAsync(string target, IReadOnlyDictionary<string, object> args) =>
+        Task.FromException(new NotSupportedException("this head does not accept view action arguments."));
+
+    /// <summary>Runs a command with arguments. The command declares the names and types it accepts; anything else must fail the action.</summary>
+    Task InvokeAsync(string command, IReadOnlyDictionary<string, object> args) =>
+        Task.FromException(new NotSupportedException("this head does not accept view action arguments."));
+
+    /// <summary>Opens a pane with arguments.</summary>
+    Task OpenPaneAsync(string paneKind, IReadOnlyDictionary<string, object> args) =>
+        Task.FromException(new NotSupportedException("this head does not accept view action arguments."));
 }
 
 /// <summary>
