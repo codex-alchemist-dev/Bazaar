@@ -23,7 +23,7 @@ public sealed class ModuleDb : PgFixture, IAsyncLifetime
         // A small pool per class: the CI server allows 100 connections in total and test classes run in parallel.
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
     }
 
     /// <summary>Runs a scalar query on the fixture's pool and returns its value as <typeparamref name="T"/>.</summary>
