@@ -93,6 +93,13 @@ Chromium's own sandbox is strong, but it is the only wall in option B, and agent
 
 Nothing here changes those decisions. The only new piece is step 1's placement and the hand-over from an anonymous session to an account profile, which is a new launch in the agent's VM, never a migration of a running browser.
 
+**Peer triage and vote before a site is allowlisted (PROPOSED, owner idea 2026-11-19).** The Council (doc 10) has no motion for sites today; allowlist growth is an owner approval (doc 15 Tier 2, `vm.egress.allowlist_change_approval`). Proposed addition, reusing the Council as it is:
+- A new motion kind `site_allowlist` on the existing approve/reject vote type. The subject is the site's registrable domain. The motion carries the triage report: what the site is for, the proposed `ServiceTerms` record (doc 36), the scope asked for (read only, or account), and screenshots from the anonymous session as evidence.
+- Triage evidence is untrusted content. Voters read it in reader sessions (doc 15), so a site cannot talk its way onto the list through its own page text. The proposer cannot vote (doc 10 eligibility).
+- Sealed ballots, reveal, one follow-up and escalation work as doc 10 says. The Council emits `council.decision`; the egress and Identity modules apply it. The Council writes no allowlist itself.
+- What a passed vote may do without the owner is question 3 in section 12. Until answered, a passed vote only attaches its record to the owner's Tier 2 approval, which is today's rule.
+- Limits that no vote can lift: a site with no verified terms record or terms that forbid automation stays Deny; CAPTCHA, phone and ID stay with a person; account creation needs `identity.signup_whitelist`.
+
 ## 8. Density controls
 Memory is the limit; these are the levers, most effective first.
 
@@ -141,6 +148,8 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 ## 12. Questions for the owner
 1. **Where do anonymous browsers run?** ANSWERED (owner card, 2026-11-19): a shared browser VM for anonymous profiles; account profiles stay in each agent's own VM (section 7).
 2. **Start the Windows VM only on first use?** *Recommend* yes (`vm.pair.start_policy = on_demand`). This is a default, so it follows the configurability rule and is not blocked on an answer.
+
+3. **What may a passed peer vote on a site do without the owner?** *Recommend* following C32: a unanimous vote allowlists the site for login-free reading only; anything split, and every account, still comes to the owner with the vote attached.
 
 ## 13. Conflicts and notes
 - Doc 16 says "headless by default" and has `vm.headed_vm`. This doc does not change either: no viewer is attached and enhanced session stays off. `vm.headed_vm` keeps its meaning (a VM with an attached interactive console on a capable server).
