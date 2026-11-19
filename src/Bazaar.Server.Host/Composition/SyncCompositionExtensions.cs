@@ -40,6 +40,7 @@ public static class SyncCompositionExtensions
             sp.GetRequiredService<GcDispatcher>(),
             sp.GetRequiredService<IOptions<SyncOptions>>().Value,
             sp.GetService<TimeProvider>()));
+        services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService, GcDispatcherService>();
         return services;
     }
 

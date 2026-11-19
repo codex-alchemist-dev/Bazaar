@@ -3,6 +3,7 @@
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Wire.Abstractions\Bazaar.Server.Wire.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.CompanyIdentity\Bazaar.CompanyIdentity.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />

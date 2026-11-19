@@ -60,5 +60,6 @@ public sealed class WireOptions
     /// <summary><c>wire.allow_plaintext_overlay</c>: accept non-TLS sockets from non-loopback peers. Owner approval needed to set.</summary>
     public bool AllowPlaintextOverlay { get; set; }
 
-    internal int MaxFrameBytes => MaxFrameKib * 1024;
+    /// <summary><see cref="MaxFrameKib"/> in bytes.</summary>
+    public int MaxFrameBytes => MaxFrameKib * 1024;
 }
