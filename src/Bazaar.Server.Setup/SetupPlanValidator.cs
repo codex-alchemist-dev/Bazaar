@@ -1,0 +1,419 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Bazaar.Server.Settings;
+
+namespace Bazaar.Server.Setup;
+
+/// <summary>
+/// The semantic rules of a setup plan (doc 45 sections 1.5 to 1.7). Runs after the typed decode. It adds issues to the list
+/// and normalizes the plan in place: modules are sorted and de-duplicated, and each setting value becomes the canonical JSON
+/// the registry stores. Settings go through the registry, so its types, floors and approval tiers apply here too (doc 03).
+/// The messages name the key and the rule; they never repeat a value.
+/// </summary>
+public static partial class SetupPlanValidator
+{
+    private static readonly string[] _releaseChannels = ["alpha", "beta", "stable", "ltsc", "latest-commit"];
+    private static readonly string[] _updateModes = ["automatic", "manual"];
+    private static readonly string[] _kekProviders = ["env", "file", "dpapi", "systemd-creds"];
+    private static readonly string[] _mergeKinds = ["owner_app", "owner_linked"];
+    private static readonly string[] _privacyProfiles = ["private"];
+
+    private const int _maxNameLength = 100;
+
+    [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,62}$", RegexOptions.CultureInvariant)]
+    private static partial Regex SlugRegex();
+
+    [GeneratedRegex("^[a-z0-9][a-z0-9-]*$", RegexOptions.CultureInvariant)]
+    private static partial Regex TemplateIdRegex();
+
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", RegexOptions.CultureInvariant)]
+    private static partial Regex ImportIdRegex();
+
+    [GeneratedRegex("^Bazaar\\.[A-Za-z][A-Za-z0-9.]*$", RegexOptions.CultureInvariant)]
+    private static partial Regex ModuleNameRegex();
+
+    /// <summary>The semver.org grammar, as a single pattern.</summary>
+    [GeneratedRegex(
+        @"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SemverRegex();
+
+    /// <summary>Validates and normalizes <paramref name="plan"/>, adding every issue found to <paramref name="issues"/>.</summary>
+    public static void Validate(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(issues);
+
+        if (plan.SchemaVersion != SetupConstants.SchemaVersion)
+        {
+            issues.Add(Error("schemaVersion", $"is not supported; this build reads schemaVersion {SetupConstants.SchemaVersion}."));
+        }
+
+        ValidateInstall(plan.Install, issues);
+        ValidateDatabase(plan.Database, issues);
+        ValidateCustody(plan.Custody, issues);
+        ValidateOwner(plan.Owner, issues);
+        if (!_privacyProfiles.Contains(plan.Privacy.Profile, StringComparer.Ordinal))
+        {
+            issues.Add(Error("privacy.profile", "must be private; instances are private by default."));
+        }
+
+        ValidateBackups(plan.Backups, issues);
+        ValidateModels(plan.Models, issues);
+        ValidateCompany(plan.Company, issues);
+        NormalizeModules(plan, issues);
+        ValidateNetwork(plan, registry, issues);
+        ValidateScamMailProtocol(plan, registry, issues);
+        ValidateSettings(plan, registry, issues);
+    }
+
+    private static void ValidateInstall(SetupInstallSection install, List<SetupValidationIssue> issues)
+    {
+        if (IsBlank(install.CompanyName) || install.CompanyName.Length > _maxNameLength)
+        {
+            issues.Add(Error("install.companyName", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (install.CompanySlug is null || !SlugRegex().IsMatch(install.CompanySlug))
+        {
+            issues.Add(Error("install.companySlug", "must be lower-case letters, digits and dashes, starting with a letter or digit, up to 63 characters."));
+        }
+
+        if (IsBlank(install.Locale))
+        {
+            issues.Add(Error("install.locale", "must not be blank."));
+        }
+
+        if (IsBlank(install.Timezone))
+        {
+            issues.Add(Error("install.timezone", "must not be blank."));
+        }
+
+        if (!_releaseChannels.Contains(install.ReleaseChannel, StringComparer.Ordinal))
+        {
+            issues.Add(Error("install.releaseChannel", "must be alpha, beta, stable, ltsc or latest-commit."));
+        }
+
+        if (!_updateModes.Contains(install.UpdatePolicy.Security, StringComparer.Ordinal))
+        {
+            issues.Add(Error("install.updatePolicy.security", "must be automatic or manual."));
+        }
+
+        if (!_updateModes.Contains(install.UpdatePolicy.Other, StringComparer.Ordinal))
+        {
+            issues.Add(Error("install.updatePolicy.other", "must be automatic or manual."));
+        }
+    }
+
+    private static void ValidateDatabase(SetupDatabaseSection database, List<SetupValidationIssue> issues)
+    {
+        if (database.PostgresMajor is < 14 or > 99)
+        {
+            issues.Add(Error("database.postgresMajor", "must be a PostgreSQL major version from 14 to 99."));
+        }
+
+        if (database.DataRoot is not null && (IsBlank(database.DataRoot) || database.DataRoot.Any(char.IsControl)))
+        {
+            issues.Add(Error("database.dataRoot", "must be a path without control characters, or omitted for the platform default."));
+        }
+
+        if (database.GcPartitionCount is < 1 or > 1024)
+        {
+            issues.Add(Error("database.gcPartitionCount", "must be 1 to 1024 (doc 04 default 16)."));
+        }
+    }
+
+    private static void ValidateCustody(SetupCustodySection custody, List<SetupValidationIssue> issues)
+    {
+        if (!_kekProviders.Contains(custody.KekProvider, StringComparer.Ordinal))
+        {
+            issues.Add(Error("custody.kekProvider", "must be env, file, dpapi or systemd-creds."));
+        }
+
+        // The reference is never echoed. The message says which families are allowed.
+        if (!SecretReferences.IsValid(custody.KekRef, SecretReferences.BootstrapFamilies))
+        {
+            issues.Add(Error("custody.kekRef", "must be a well-formed bootstrap reference: env:NAME, file:PATH, dpapi:PATH or systemd-creds:NAME. A literal value is not accepted."));
+        }
+        else if (_kekProviders.Contains(custody.KekProvider, StringComparer.Ordinal)
+                 && SecretReferences.Classify(custody.KekRef) != FamilyOf(custody.KekProvider))
+        {
+            issues.Add(Error("custody.kekRef", "must use the reference family named by custody.kekProvider."));
+        }
+
+        if (custody.AuditAnchorTarget is not null
+            && !(Uri.TryCreate(custody.AuditAnchorTarget, UriKind.Absolute, out var anchor) && anchor.Scheme == Uri.UriSchemeHttps))
+        {
+            issues.Add(Error("custody.auditAnchorTarget", "must be an absolute https URL, or omitted."));
+        }
+
+        ValidateMergeCredential(custody.MergeCredential, issues);
+    }
+
+    private static void ValidateMergeCredential(SetupMergeCredentialSection merge, List<SetupValidationIssue> issues)
+    {
+        if (!_mergeKinds.Contains(merge.Kind, StringComparer.Ordinal))
+        {
+            issues.Add(Error("custody.mergeCredential.kind", "must be owner_app or owner_linked."));
+            return;
+        }
+
+        if (merge.Kind == "owner_app")
+        {
+            if (merge.AppIdRef is null || !SecretReferences.IsValid(merge.AppIdRef, SecretReferences.SecretStoreFamilies))
+            {
+                issues.Add(Error("custody.mergeCredential.appIdRef", "is required for owner_app and must be a secret://bazaar/ reference."));
+            }
+        }
+        else if (merge.AppIdRef is not null)
+        {
+            issues.Add(Error("custody.mergeCredential.appIdRef", "must be omitted when kind is owner_linked."));
+        }
+    }
+
+    private static void ValidateOwner(SetupOwnerSection owner, List<SetupValidationIssue> issues)
+    {
+        if (IsBlank(owner.DisplayName) || owner.DisplayName.Length > _maxNameLength)
+        {
+            issues.Add(Error("owner.displayName", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        for (var i = 0; i < owner.Recovery.BackupOwners.Count; i++)
+        {
+            if (IsBlank(owner.Recovery.BackupOwners[i]))
+            {
+                issues.Add(Error($"owner.recovery.backupOwners[{i}]", "must not be blank."));
+            }
+        }
+    }
+
+    private static void ValidateBackups(SetupBackupsSection backups, List<SetupValidationIssue> issues)
+    {
+        if (backups.Target is null)
+        {
+            if (!backups.AcknowledgeNoTarget)
+            {
+                issues.Add(new SetupValidationIssue(
+                    SetupConstants.MissingBackupTargetSeverity,
+                    "backups.target",
+                    "is required unless backups.acknowledgeNoTarget is true."));
+            }
+        }
+        else if (IsBlank(backups.Target))
+        {
+            issues.Add(Error("backups.target", "must not be blank."));
+        }
+
+        if (backups.DrillIntervalDays is < 1 or > 365)
+        {
+            issues.Add(Error("backups.drillIntervalDays", "must be 1 to 365."));
+        }
+    }
+
+    private static void ValidateModels(SetupModelsSection models, List<SetupValidationIssue> issues)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < models.Sources.Count; i++)
+        {
+            var source = models.Sources[i];
+            var path = $"models.sources[{i}]";
+            if (source.Id is null || !SlugRegex().IsMatch(source.Id))
+            {
+                issues.Add(Error(path + ".id", "must be a lower-case slug."));
+            }
+            else if (!ids.Add(source.Id))
+            {
+                issues.Add(Error(path + ".id", "is already used by another source; source ids are unique."));
+            }
+
+            if (source.KeyRef is not null && !SecretReferences.IsValid(source.KeyRef, SecretReferences.SecretStoreFamilies))
+            {
+                issues.Add(Error(path + ".keyRef", "must be a secret://bazaar/ reference, or omitted. A literal value is not accepted."));
+            }
+        }
+
+        if (IsBlank(models.DefaultPreset))
+        {
+            issues.Add(Error("models.defaultPreset", "must not be blank."));
+        }
+    }
+
+    private static void ValidateCompany(SetupCompanySection company, List<SetupValidationIssue> issues)
+    {
+        var source = company.Source ?? string.Empty;
+        if (source == "blank")
+        {
+            return;
+        }
+
+        if (source.StartsWith("template:", StringComparison.Ordinal))
+        {
+            var rest = source["template:".Length..];
+            var at = rest.IndexOf('@', StringComparison.Ordinal);
+            if (at > 0 && TemplateIdRegex().IsMatch(rest[..at]) && SemverRegex().IsMatch(rest[(at + 1)..]))
+            {
+                return;
+            }
+
+            issues.Add(Error("company.source", "template sources must be template:<id>@<semver>, for example template:starter@1.0.0."));
+            return;
+        }
+
+        if (source.StartsWith("import:", StringComparison.Ordinal) && ImportIdRegex().IsMatch(source["import:".Length..]))
+        {
+            return;
+        }
+
+        issues.Add(Error("company.source", "must be blank, template:<id>@<semver> or import:<id>."));
+    }
+
+    /// <summary>Sorts and de-duplicates the module list (it is a set), and rejects names that are not Bazaar module names.</summary>
+    private static void NormalizeModules(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        for (var i = 0; i < plan.Modules.Count; i++)
+        {
+            if (plan.Modules[i] is null || !ModuleNameRegex().IsMatch(plan.Modules[i]))
+            {
+                issues.Add(Error($"modules[{i}]", "must be a Bazaar module name such as Bazaar.GC."));
+            }
+        }
+
+        var normalized = plan.Modules.Where(name => name is not null).Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal).ToList();
+        plan.Modules.Clear();
+        plan.Modules.AddRange(normalized);
+    }
+
+    /// <summary>
+    /// The network block maps to two registry keys (doc 03). The values go through the registry, so a non-loopback bind is held
+    /// for approval. A value set twice (in the block and in settings) is an error, so there is one answer.
+    /// </summary>
+    private static void ValidateNetwork(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    {
+        if (plan.Network.StatusPort is < 1 or > 65535)
+        {
+            issues.Add(Error("network.statusPort", "must be a port from 1 to 65535."));
+        }
+
+        foreach (var (settingName, path) in new[] { ("host.status.bind", "network.statusBind"), ("host.status.port", "network.statusPort") })
+        {
+            if (plan.Settings.ContainsKey(settingName))
+            {
+                issues.Add(Error("settings." + settingName, $"is already set by {path}; set it in one place."));
+            }
+        }
+
+        if (!registry.TryGet("host.status.bind", out var bind) || bind is null
+            || !registry.TryGet("host.status.port", out var port) || port is null)
+        {
+            issues.Add(Error("network", "the host status settings are not registered in this build."));
+            return;
+        }
+
+        var bindValue = JsonSerializer.SerializeToElement(plan.Network.StatusBind, SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(bind, "network.statusBind", bindValue, issues);
+        var portValue = JsonSerializer.SerializeToElement(plan.Network.StatusPort, SetupPlanJsonContext.Default.Int32);
+        CheckRegistryValue(port, "network.statusPort", portValue, issues);
+    }
+
+    /// <summary>
+    /// The Nigerian Prince Protocol step (docs/design/45 section 1.11). It is offered only when email is on, and enabling it is an
+    /// owner-tier change to <c>security.scam_mail.protocol_enabled</c>, so it is held for approval and never applied silently. Off is
+    /// the default and the safe state, so it needs no check. The plan section is the one place that sets the key.
+    /// </summary>
+    private static void ValidateScamMailProtocol(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    {
+        const string settingName = "security.scam_mail.protocol_enabled";
+        if (plan.Settings.ContainsKey(settingName))
+        {
+            issues.Add(Error("settings." + settingName, "is already set by scamMailProtocol.enabled; set it in one place."));
+        }
+
+        if (!plan.ScamMailProtocol.Enabled)
+        {
+            return;
+        }
+
+        if (!plan.Email.Enabled)
+        {
+            issues.Add(Error("scamMailProtocol.enabled", "needs email to be on; the step is offered only when email is enabled."));
+        }
+
+        if (!registry.TryGet(settingName, out var definition) || definition is null)
+        {
+            issues.Add(Error("scamMailProtocol", "the scam-mail setting is not registered in this build."));
+            return;
+        }
+
+        using var valueDoc = JsonDocument.Parse("true");
+        var value = valueDoc.RootElement.Clone();
+        CheckRegistryValue(definition, "scamMailProtocol.enabled", value, issues);
+    }
+
+    private static void ValidateSettings(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    {
+        var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
+        foreach (var name in plan.Settings.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
+        {
+            var path = "settings." + name;
+            if (!registry.TryGet(name, out var definition) || definition is null)
+            {
+                issues.Add(Error(path, "is not a known setting key in this build."));
+                continue;
+            }
+
+            if (definition.Scope != SettingScope.Install)
+            {
+                issues.Add(Error(path, "is not an install-scope setting; the setup plan sets install values only."));
+                continue;
+            }
+
+            plan.Settings[name] = NormalizeValue(definition, path, actor, plan.Settings[name], issues);
+        }
+    }
+
+    /// <summary>Runs one registry value through the same checks as a write. The stored value becomes the canonical form.</summary>
+    private static void CheckRegistryValue(SettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
+    {
+        var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
+        NormalizeValue(definition, path, actor, value, issues);
+    }
+
+    /// <summary>
+    /// Type check and floor check (a reason is an error, exit 1), then the write rule (a value that needs approval or that
+    /// the actor may not write is held, exit 2). Returns the canonical JSON in every case, so the hash is always defined.
+    /// </summary>
+    private static JsonElement NormalizeValue(SettingDefinition definition, string path, SettingActor actor, JsonElement value, List<SetupValidationIssue> issues)
+    {
+        var reason = definition.CheckValue(value);
+        if (reason is not null)
+        {
+            issues.Add(Error(path, reason));
+            return value.Clone();
+        }
+
+        var evaluation = definition.Evaluate(actor, value);
+        if (evaluation.Outcome != SettingWriteOutcome.Accepted)
+        {
+            issues.Add(new SetupValidationIssue(SetupIssueSeverity.Hold, path, evaluation.Reason ?? "is held for approval."));
+        }
+
+        using var document = JsonDocument.Parse(evaluation.ValueJson);
+        return document.RootElement.Clone();
+    }
+
+    private static SecretReferenceFamily FamilyOf(string provider) => provider switch
+    {
+        "env" => SecretReferenceFamily.Env,
+        "file" => SecretReferenceFamily.File,
+        "dpapi" => SecretReferenceFamily.Dpapi,
+        "systemd-creds" => SecretReferenceFamily.SystemdCreds,
+        _ => SecretReferenceFamily.None,
+    };
+
+    private static bool IsBlank(string? text) => string.IsNullOrWhiteSpace(text);
+
+    private static SetupValidationIssue Error(string path, string message) =>
+        new(SetupIssueSeverity.Error, path, message);
+}
