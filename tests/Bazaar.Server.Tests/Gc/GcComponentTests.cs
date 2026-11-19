@@ -1,10 +1,10 @@
 using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Kanban;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
