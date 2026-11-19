@@ -10,7 +10,7 @@ namespace Bazaar.Server.Tests.Memory.Tools;
 /// A Vault fake: files in a dictionary, one commit per batch, and lexical search by counting distinct query terms
 /// found in a note's title and body. The real VaultWriter and index replace it later.
 /// </summary>
-internal sealed class InMemoryMemoryVault : IMemoryVault
+public sealed class InMemoryMemoryVault : IMemoryVault
 {
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
     private readonly List<MemoryBatch> _commits = [];

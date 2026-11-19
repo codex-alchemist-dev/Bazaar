@@ -5,7 +5,7 @@ using Bazaar.Server.Security.Taint;
 namespace Bazaar.Server.Tests.Memory.Notes;
 
 /// <summary>Shared note and write fixtures for the memory note tests.</summary>
-internal static class NoteFixtures
+public static class NoteFixtures
 {
     public const string NoteId = "01J9ZABCDEFGHJKMNPQRSTVWXY";
 

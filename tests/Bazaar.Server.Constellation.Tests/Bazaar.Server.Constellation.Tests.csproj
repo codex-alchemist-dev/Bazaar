@@ -20,5 +20,11 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Memory.Tests\Bazaar.Server.Memory.Tests.csproj" />
+    <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- TempGitRepository is shared with the Vault tests that stay in tests/Bazaar.Server.Tests; linked, not copied. -->
+    <Compile Include="..\Bazaar.Server.Tests\Vault\Git\TempGitRepository.cs" Link="Vault\Git\TempGitRepository.cs" />
   </ItemGroup>
 </Project>
