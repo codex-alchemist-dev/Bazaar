@@ -21,7 +21,7 @@ public sealed class PostgresMailQuarantineStoreTests
     }
 
     /// <summary>Applies the mail namespace (0021, 0022) read from the module assembly, the same files the host's component source reads.</summary>
-    private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
+    internal static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
     {
         var assembly = typeof(MailComponent).Assembly;
         var files = assembly.GetManifestResourceNames()
@@ -37,7 +37,7 @@ public sealed class PostgresMailQuarantineStoreTests
         return new MigrationRunner(dataSource).MigrateAsync(new InMemoryMigrationSource(files), MigrateCommand.CurrentProvider(), ct);
     }
 
-    private static Task<PgTestDatabase> CreateDbAsync(CancellationToken ct) => PgTestDatabase.CreateAsync("mailq", MigrateAsync, ct);
+    internal static Task<PgTestDatabase> CreateDbAsync(CancellationToken ct) => PgTestDatabase.CreateAsync("mailq", MigrateAsync, ct);
 
     private static async Task<Guid> MailboxAsync(NpgsqlDataSource ds, CancellationToken ct)
     {

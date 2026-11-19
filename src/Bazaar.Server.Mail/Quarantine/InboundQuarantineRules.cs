@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Bazaar.Server.Mail.Parsing;
 
 namespace Bazaar.Server.Mail.Quarantine;
 
@@ -42,28 +43,16 @@ public sealed record InboundHeaders(
     IReadOnlyList<LinkInfo> Links);
 
 /// <summary>
-/// The thresholds for the size and attachment screens. Defaults are the shipped values of doc 22's settings
-/// (<c>mail.max_message_bytes</c> and <c>mail.max_attachments</c>). Operators may tighten them through settings.
+/// The thresholds for the screens. The size, attachment and archive limits live in one place, <see cref="Limits"/>
+/// (<see cref="MailLimits"/>, doc 22 settings rows); nothing here repeats their defaults. Operators may tighten them through settings.
 /// </summary>
 public sealed record InboundQuarantineOptions
 {
-    /// <summary>The largest message that is screened as normal (<c>mail.max_message_bytes</c>, 10 MiB).</summary>
-    public long MaxMessageBytes { get; init; } = 10_485_760L;
-
-    /// <summary>The most attachments a message may carry (<c>mail.max_attachments</c>).</summary>
-    public int MaxAttachments { get; init; } = 5;
+    /// <summary>Message size, attachment count and archive limits. Defaults are <see cref="MailLimits.Defaults"/>.</summary>
+    public MailLimits Limits { get; init; } = MailLimits.Defaults;
 
     /// <summary>Domains a sender must not imitate: the operator's own mail domains plus any extra list. Empty turns the lookalike screen off. Nothing is built in.</summary>
     public IReadOnlyList<string> ProtectedDomains { get; init; } = [];
-
-    /// <summary>Most entries an archive may declare (PROPOSED <c>mail.max_archive_entries</c>).</summary>
-    public int MaxArchiveEntries { get; init; } = 100;
-
-    /// <summary>Most uncompressed bytes an archive may declare (PROPOSED <c>mail.max_archive_uncompressed_bytes</c>).</summary>
-    public long MaxArchiveUncompressedBytes { get; init; } = 100L * 1024 * 1024;
-
-    /// <summary>Highest declared uncompressed-to-compressed ratio (PROPOSED <c>mail.max_archive_ratio</c>).</summary>
-    public int MaxArchiveCompressionRatio { get; init; } = 100;
 }
 
 /// <summary>
@@ -93,12 +82,9 @@ public static class InboundQuarantineRules
     {
         ArgumentNullException.ThrowIfNull(headers);
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxMessageBytes);
-        ArgumentOutOfRangeException.ThrowIfNegative(options.MaxAttachments);
+        ArgumentNullException.ThrowIfNull(options.Limits);
+        options.Limits.Validate();
         ArgumentNullException.ThrowIfNull(options.ProtectedDomains);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxArchiveEntries);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxArchiveUncompressedBytes);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxArchiveCompressionRatio);
         ArgumentOutOfRangeException.ThrowIfNegative(headers.MessageBytes);
         ArgumentNullException.ThrowIfNull(headers.Attachments);
         ArgumentNullException.ThrowIfNull(headers.Links);
@@ -151,12 +137,12 @@ public static class InboundQuarantineRules
             reasons.Add(QuarantineReason.LinkTextMismatch);
         }
 
-        if (headers.MessageBytes > options.MaxMessageBytes)
+        if (headers.MessageBytes > options.Limits.MaxMessageBytes)
         {
             reasons.Add(QuarantineReason.OversizeMessage);
         }
 
-        if (headers.Attachments.Count > options.MaxAttachments)
+        if (headers.Attachments.Count > options.Limits.MaxAttachments)
         {
             reasons.Add(QuarantineReason.TooManyAttachments);
         }
@@ -172,15 +158,15 @@ public static class InboundQuarantineRules
     private static bool IsArchiveSuspect(ArchiveFacts archive, InboundQuarantineOptions options)
     {
         if (archive.ContainsArchive || archive.Malformed
-            || archive.EntryCount > options.MaxArchiveEntries
-            || archive.UncompressedBytes > options.MaxArchiveUncompressedBytes)
+            || archive.EntryCount > options.Limits.MaxArchiveEntries
+            || archive.UncompressedBytes > options.Limits.MaxArchiveUncompressedBytes)
         {
             return true;
         }
 
         // Multiplied, not divided, so a zero compressed size with data declared still trips.
         return archive.UncompressedBytes > 0
-            && (double)archive.UncompressedBytes > (double)archive.CompressedBytes * options.MaxArchiveCompressionRatio;
+            && (double)archive.UncompressedBytes > (double)archive.CompressedBytes * options.Limits.MaxArchiveCompressionRatio;
     }
 
     /// <summary>SPF, DKIM and DMARC report "fail" as a failure. Other results (none, neutral, temperror) are not screened here.</summary>

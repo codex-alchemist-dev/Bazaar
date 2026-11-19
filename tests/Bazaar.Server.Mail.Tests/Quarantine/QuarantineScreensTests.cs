@@ -151,7 +151,7 @@ public class QuarantineScreensTests
     public void Archive_declaring_too_many_bytes_is_held()
     {
         var zip = Zip(("zeros.bin", new byte[1024 * 1024]));
-        var options = new InboundQuarantineOptions { MaxArchiveUncompressedBytes = 1024, MaxArchiveCompressionRatio = int.MaxValue };
+        var options = new InboundQuarantineOptions { Limits = new MailLimits { MaxArchiveUncompressedBytes = 1024, MaxArchiveCompressionRatio = int.MaxValue } };
 
         Assert.Contains(QuarantineReason.NestedArchive, Reasons(Message("a@unrelated.test", Attached(zip)), options));
     }
@@ -168,7 +168,7 @@ public class QuarantineScreensTests
         Assert.Equal(20, facts.EntryCount);
         Assert.Equal(0, facts.UncompressedBytes);
 
-        var options = new InboundQuarantineOptions { MaxArchiveEntries = 10 };
+        var options = new InboundQuarantineOptions { Limits = limits };
         Assert.Contains(QuarantineReason.NestedArchive, Reasons(Message("a@unrelated.test", new AttachmentInfo("x.zip", null, facts)), options));
     }
 
@@ -234,7 +234,7 @@ public class QuarantineScreensTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new MailLimits { MaxArchiveUncompressedBytes = 0 }.Validate());
         Assert.Throws<ArgumentOutOfRangeException>(() => new MailLimits { MaxArchiveCompressionRatio = 0 }.Validate());
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            InboundQuarantineRules.Evaluate(Message("a@x.test"), new InboundQuarantineOptions { MaxArchiveEntries = 0 }));
+            InboundQuarantineRules.Evaluate(Message("a@x.test"), new InboundQuarantineOptions { Limits = new MailLimits { MaxArchiveEntries = 0 } }));
     }
 
     [Fact]

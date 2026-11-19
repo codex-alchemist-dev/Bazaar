@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Bazaar.Server.Mail.Parsing;
 using Bazaar.Server.Mail.Quarantine;
 
 namespace Bazaar.Server.Mail.Tests.Quarantine;
@@ -126,7 +127,7 @@ public class InboundQuarantineRulesTests
     [Fact]
     public void Default_size_threshold_is_10_MiB()
     {
-        Assert.Equal(10_485_760L, _defaults.MaxMessageBytes);
+        Assert.Equal(10_485_760L, _defaults.Limits.MaxMessageBytes);
 
         var atLimit = Clean() with { MessageBytes = 10_485_760L };
         var overLimit = Clean() with { MessageBytes = 10_485_761L };
@@ -140,7 +141,7 @@ public class InboundQuarantineRulesTests
     [Fact]
     public void Default_attachment_threshold_is_five()
     {
-        Assert.Equal(5, _defaults.MaxAttachments);
+        Assert.Equal(5, _defaults.Limits.MaxAttachments);
 
         var five = WithAttachments("a.txt", "b.txt", "c.txt", "d.txt", "e.txt");
         var six = WithAttachments("a.txt", "b.txt", "c.txt", "d.txt", "e.txt", "f.txt");
@@ -154,7 +155,7 @@ public class InboundQuarantineRulesTests
     [Fact]
     public void Custom_thresholds_are_used_instead_of_defaults()
     {
-        var options = new InboundQuarantineOptions { MaxMessageBytes = 100, MaxAttachments = 0 };
+        var options = new InboundQuarantineOptions { Limits = new MailLimits { MaxMessageBytes = 100, MaxAttachments = 0 } };
 
         var decision = InboundQuarantineRules.Evaluate(WithAttachments("a.txt") with { MessageBytes = 101 }, options);
 
@@ -207,6 +208,6 @@ public class InboundQuarantineRulesTests
     public void Non_positive_size_threshold_is_rejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            InboundQuarantineRules.Evaluate(Clean(), new InboundQuarantineOptions { MaxMessageBytes = 0 }));
+            InboundQuarantineRules.Evaluate(Clean(), new InboundQuarantineOptions { Limits = new MailLimits { MaxMessageBytes = 0 } }));
     }
 }
