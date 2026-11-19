@@ -32,6 +32,10 @@
     <Project Path="src/Bazaar.Server.Interrupts/Bazaar.Server.Interrupts.csproj" />
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Reputation/Bazaar.Server.Reputation.csproj" />
+    <Project Path="src/Bazaar.Server.Org.Abstractions/Bazaar.Server.Org.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Org/Bazaar.Server.Org.csproj" />
+    <Project Path="src/Bazaar.Server.Mentions.Abstractions/Bazaar.Server.Mentions.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Mentions/Bazaar.Server.Mentions.csproj" />
     <Project Path="src/Bazaar.Server.Modules.Abstractions/Bazaar.Server.Modules.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Modules/Bazaar.Server.Modules.csproj" />
     <Project Path="src/Bazaar.Diagnostics/Bazaar.Diagnostics.csproj" />
