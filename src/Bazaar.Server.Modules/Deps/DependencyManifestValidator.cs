@@ -15,6 +15,15 @@ public static partial class DependencyManifestValidator
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
+        // A manifest that came off the wire can hold nulls whatever the declared types say. Read them as empty so each
+        // one becomes an issue below (no lines, bad line id, missing tag) and never an exception.
+        manifest = manifest with
+        {
+            Tags = manifest.Tags ?? [],
+            Extensions = manifest.Extensions ?? [],
+            Lines = [.. (manifest.Lines ?? []).Select(l => new DependencyLine(l?.Line ?? string.Empty, l?.Version ?? string.Empty, l?.Role ?? DependencyLineRole.Retired))],
+        };
+
         var issues = new List<DependencyManifestIssue>();
 
         if (!IsSafeSlug(manifest.Id))
@@ -202,12 +211,12 @@ public static partial class DependencyManifestValidator
         DependencyManifestIssueSeverity severity, string message) =>
         issues.Add(new DependencyManifestIssue(code, severity, message));
 
-    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SlugPattern();
 
-    [GeneratedRegex("^[0-9]{1,4}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[0-9]{1,4}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex LinePattern();
 
-    [GeneratedRegex("^[0-9]+\\.[0-9]+\\.[0-9]+$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[0-9]+\\.[0-9]+\\.[0-9]+\\z", RegexOptions.CultureInvariant)]
     private static partial Regex VersionPattern();
 }

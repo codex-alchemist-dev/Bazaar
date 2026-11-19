@@ -36,9 +36,26 @@ public static class BazaarComponentRegistration
         }
 
         var byId = all.ToDictionary(c => c.Manifest.Id, StringComparer.Ordinal);
+
+        // All or nothing: a component that throws part way through its registrations must not leave half of them behind
+        // (or half of its predecessors'), so the collection is put back as it was and the failing component is named.
+        var snapshot = services.ToList();
         foreach (var manifest in ordered.Where(m => enabled.Contains(m.Id)))
         {
-            byId[manifest.Id].AddServices(services, configuration);
+            try
+            {
+                byId[manifest.Id].AddServices(services, configuration);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                services.Clear();
+                foreach (var descriptor in snapshot)
+                {
+                    services.Add(descriptor);
+                }
+
+                throw new InvalidOperationException($"Component '{manifest.Id}' failed to register its services: {error.Message}", error);
+            }
         }
 
         return services;

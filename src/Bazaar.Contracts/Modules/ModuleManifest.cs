@@ -64,13 +64,13 @@ public static partial class ModuleManifestValidator
         "process:spawn",
     };
 
-    [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)+$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)+\\z", RegexOptions.CultureInvariant)]
     private static partial Regex DottedNamePattern();
 
-    [GeneratedRegex("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SemVerPattern();
 
-    [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SettingKeyPattern();
 
     /// <summary>Validates a manifest. Never throws.</summary>
