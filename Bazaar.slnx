@@ -26,6 +26,7 @@
     <Project Path="src/Bazaar.Core/Bazaar.Core.csproj" />
     <Project Path="src/Bazaar.Install.Abstractions/Bazaar.Install.Abstractions.csproj" />
     <Project Path="src/Bazaar.Install/Bazaar.Install.csproj" />
+    <Project Path="src/Bazaar.Wire.Abstractions/Bazaar.Wire.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Modules.Abstractions/Bazaar.Server.Modules.Abstractions.csproj" />
@@ -115,6 +116,7 @@
     <Project Path="tests/Bazaar.Constellation.Vulkan.Bench/Bazaar.Constellation.Vulkan.Bench.csproj" />
     <Project Path="tests/Bazaar.Client.LocalInference.Tests/Bazaar.Client.LocalInference.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Terminal.Tests/Bazaar.Client.Terminal.Tests.csproj" />
+    <Project Path="tests/Bazaar.Wire.Abstractions.Tests/Bazaar.Wire.Abstractions.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
     <Project Path="tests/Bazaar.Engines.Tests/Bazaar.Engines.Tests.csproj" />
