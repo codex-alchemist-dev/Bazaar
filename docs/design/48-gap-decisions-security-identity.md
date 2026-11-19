@@ -281,9 +281,33 @@ DECIDED 11.3 (owner, 2026-11-19, project chat): agent token budget amounts are e
 
 Scope of 11.3 now: agent token budgets only (spends, limits, sums, decisions and the `agent_token_spend` table), stored inline as `numeric`.
 
-PLANNED, not done: a larger tier that stores amounts beyond the `numeric` limits in chunks inside the same Postgres database. It is specified separately and is not designed here. The separate bounds policy is what lets it be added without changing `TokenAmount`.
+The larger tier for amounts beyond the `numeric` limits is specified in 11.4. The separate bounds policy is what lets it be added without changing `TokenAmount`.
 
 PLANNED follow-up, not done: the gateway usage counters (the `gw_usage` token columns, `ModelUsage`, and the usage rollups in `05` and `23`) stay `bigint` in Postgres and `long` in code for now. Until that slice lands, an upstream usage value outside the `long` range keeps today's behaviour: it is ignored and the row uses the estimate.
+
+DECIDED 11.4 (owner, 2026-11-19, project chat and card): the disk is the limit. The owner's words: "why not. Make the disk the limit. Just make sure it still stays secure and encrypted in postgres properly and won't be a seperate database we use." On the card that followed, the owner chose no field encryption for amounts. Built status: PLANNED. The rules:
+
+- No amount is clamped, wrapped or replaced by null because of its size. The only ceilings are storage and the operator's intake guard below.
+- Same database. Large amounts live in the main Postgres database, in the `agent_safety` namespace. There is no second store, no file on the data root and no external service. Backups (`33`) and restores therefore cover them with no extra step.
+- No field encryption (owner card, 2026-11-19). Token amounts are not personal data, so they stay in clear like every other non-personal field (section 5.5). They are protected by the database role grants and by the operator's disk encryption. If an amount ever becomes attributable personal data, section 5.5 applies and this item is reopened.
+- Two tiers, one representation per value. An amount that fits the `numeric` limits is always stored inline (11.3). Only an amount that does not fit is stored in the large tier. A result of arithmetic that fits again is written inline.
+- Large tier layout. `token_amount_large (id, integer_digits bigint, fraction_digits bigint, sha256, state, created_at)` holds the header. `token_amount_large_chunk (amount_id, part, seq, digits bytea)` holds the digits. Digits are packed two per byte (base 100), aligned at the decimal point: the integer part is padded with one leading zero digit when its length is odd, and the fraction with one trailing zero digit. `part` is 0 for the integer part and 1 for the fraction. Integer chunks are numbered from the decimal point outward, and fraction chunks from the decimal point onward. Every chunk holds exactly 1 MiB of bytes (2,097,152 digits) except the outermost one. The chunk size is fixed; it is a layout choice, not a setting.
+- `agent_token_spend` gets `tokens_large` (a reference to the header). Exactly one of `tokens` and `tokens_large` is set, enforced by a CHECK.
+- Streamed arithmetic. Comparison reads the two headers first: the amount with more integer digits is larger, with no chunk read. Otherwise it walks the chunks from the most significant end and stops at the first difference. Addition and subtraction walk from the least significant end with a carry and write a new amount. Memory use is one chunk per operand, so RAM does not bound an amount. A single `bytea` field (1 GB) does not bound it either. The digit counts are `bigint`, which allows about 9.2 x 10^18 digits per amount; no disk holds that.
+- Integrity. `sha256` covers the packed digits in order. It is checked when an amount is read in full, and by the Kodo checksum self-check (`46` section 17.2). A mismatch is a data integrity finding, and the budget denies.
+- Writing. A large amount is staged (`state = writing`) in its own transactions, one per batch of chunks, then sealed. The spend row that refers to it is inserted in the same transaction that seals it. A staged amount that is never sealed is removed by a sweeper job after `agent.budget.large_amount_staging_hours`. A large amount is deleted with the spend row that owns it, by the existing window prune.
+- Budget checks stay bounded by the limit, not by the spend. A spend with more integer digits than the window limit is denied from its digit count alone (11.3 fast path). A denied spend is never stored. So large rows exist only when the operator has set a limit that large, and a hostile amount costs one header comparison.
+- Window sums. Inline rows are summed in SQL as today. Large rows in the window are added by the streamed adder. If any large row is in the window, the comparison with the limit uses the streamed comparer.
+- Intake guard. `agent.budget.amount_intake_max_digits` bounds how many digits an amount may have when it enters the server (wire, HTTP, upstream usage report, configuration). Text longer than the guard is refused before it is scanned, with a clear error. It is never truncated. The default is the inline tier (131,072 digits before the point and 16,383 after). The operator may lower it, or raise it up to "unlimited". Raising it is an audited change.
+- Transport above the frame size. A wire frame holds at most 262,144 bytes (`02`), so an amount with more digits than a frame can carry arrives as a digit stream on the HTTP blob channel and is staged chunk by chunk. PLANNED after the storage tier.
+- Limits as large amounts. A window limit beyond the `numeric` limits is stored as a large amount and the setting holds its reference. PLANNED after the storage tier.
+- In memory, `TokenAmount` keeps serving every amount that fits a process (the runtime caps one big integer at about 646 million decimal digits). Above the operator-set `agent.budget.in_memory_max_digits` (default: the inline tier) the server never materialises an amount and uses the streamed forms only.
+
+| Key | Type | Default | Scope | Who may change | Change needs approval? |
+|---|---|---|---|---|---|
+| `agent.budget.amount_intake_max_digits` | digit counts before and after the point, or `unlimited` | 131072 and 16383 | install | operator | no; audit entry |
+| `agent.budget.in_memory_max_digits` | int | 147455 | install | operator | no; audit entry |
+| `agent.budget.large_amount_staging_hours` | int (hours) | 24 | install | operator | no; audit entry |
 
 ## 12. Privacy law
 
