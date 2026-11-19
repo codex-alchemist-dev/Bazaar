@@ -1,5 +1,6 @@
 using Bazaar.Server.DataVolume;
 using Bazaar.Server.DataVolume.Linux;
+using Bazaar.Server.DataVolume.Windows;
 using Bazaar.Server.Identity.Kek;
 
 namespace Bazaar.Server.Host.Startup;
@@ -21,11 +22,16 @@ public static class VolumeSubcommand
         var operators = new List<IDataVolumeOperator>();
         var providers = new List<IDataVolumeProvider> { new DevPlainDataVolumeProvider() };
 
-        // One place per OS. The Windows module (bitlocker-vhdx) is added here with an IsWindows() branch.
+        // One place per OS.
         if (OperatingSystem.IsLinux())
         {
             operators.Add(new Luks2DataVolumeOperator());
             providers.Add(new Luks2DataVolumeProvider());
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            operators.Add(BitLockerVhdxDataVolumeOperator.CreateDefault());
+            providers.Add(BitLockerVhdxDataVolumeProvider.CreateDefault());
         }
 
         return VolumeCommand.RunAsync(args, configuration, operators, providers, () => KekComponent.OpenExisting(configuration), output, ct);
