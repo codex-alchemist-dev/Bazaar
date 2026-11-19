@@ -16,4 +16,4 @@ public enum WindowsSandboxNetworking
 /// </summary>
 /// <param name="HostBaseImage">The parent image id that <c>CreateChildAsync</c> accepts. Any other parent is refused.</param>
 /// <param name="Networking">Network mode written into every sandbox config. Defaults to <see cref="WindowsSandboxNetworking.Disable"/>.</param>
-public sealed record WindowsSandboxOptions(Guid HostBaseImage, WindowsSandboxNetworking Networking = WindowsSandboxNetworking.Disable);
+public sealed record WindowsSandboxOptions(Guid HostBaseImage, WindowsSandboxNetworking Networking = WindowsSandboxNetworking.Disable, string? AgentFolder = null);
