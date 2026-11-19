@@ -87,7 +87,7 @@ Chromium's own sandbox is strong, but it is the only wall in option B, and agent
 **From discovery to an account (owner, 2026-11-19).** The owner wants agents to find sites, triage them and later make their own accounts. The placement above is that path, and the approval rules already exist:
 1. *Discover and triage* happens in an anonymous profile (the pool VM if question 1 is answered that way). No credential is present, so a hostile site gains nothing. Screenshots from triage are untrusted content (section 5).
 2. *Verify terms.* A site with no verified `ServiceTerms` record is Deny for any action (doc 15, doc 36). Triage can propose a record; a platform's rules are checked before the first post (CLAUDE.md).
-3. *Approve.* New account creation is Tier 2, only for services on `identity.signup_whitelist` (doc 14). The approval comes from the owner or, since 2026-11-19, from senior peers (doc 15, "Peer approval of account creation"). CAPTCHA, phone and ID steps stay with a person; sign-ups that forbid automation are Deny (doc 15, doc 22).
+3. *Approve.* New account creation is Tier 2, only for services on `identity.signup_whitelist` (doc 14). The approval comes from the owner or, since 2026-11-19, from senior peers (doc 15, "Peer approval of account creation"). CAPTCHA, phone and ID steps stay with a person; sign-ups that forbid automation are Deny (doc 15, doc 22). The agent may accept the site's terms itself once two senior peers have approved (doc 15).
 4. *Sign up* runs in the agent's own VM, in a new account profile, with the agent's external mailbox for the verification mail (doc 22). The account never exists in the pool VM.
 5. *Use.* The site joins that profile's allowlist and the agent's egress allowlist; the Passport holds the session (doc 14).
 
@@ -152,7 +152,7 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 3. **What may a passed peer vote on a site do without the owner?** ANSWERED (owner card, 2026-11-19): a unanimous vote opens the site for login-free reading only; anything split, and every account, still comes to the owner with the vote attached.
 
 4. **How many senior peers must approve a new account?** ANSWERED (owner card, 2026-11-19): two, falling back to the owner when two are not available or one refuses.
-5. **Who accepts a site's legal terms during sign-up?** Today that is Tier 3, a person. *Recommend* keeping it with a person until counsel has looked at agents accepting terms.
+5. **Who accepts a site's legal terms during sign-up?** ANSWERED (owner card, 2026-11-19): the agent, after the two-peer approval (doc 15). Counsel reviews before the first public release.
 
 ## 13. Conflicts and notes
 - Doc 16 says "headless by default" and has `vm.headed_vm`. This doc does not change either: no viewer is attached and enhanced session stays off. `vm.headed_vm` keeps its meaning (a VM with an attached interactive console on a capable server).
