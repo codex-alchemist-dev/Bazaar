@@ -137,11 +137,21 @@ public sealed class NetnsRealTests : IDisposable
         return null;
     }
 
+    /// <summary>The environment variable that opts a machine in to the tests that touch its network setup.</summary>
+    internal const string OptInVariable = "BAZAAR_TEST_REAL_NETNS";
+
     internal static string? SkipReason(BrowserPoolOptions options)
     {
         if (!OperatingSystem.IsLinux())
         {
             return "Not Linux.";
+        }
+
+        // These tests create network namespaces, veth pairs and nftables rules on the machine that runs them. That is fine in a
+        // throwaway container and not fine on a shared build machine, so they run only when asked for.
+        if (Environment.GetEnvironmentVariable(OptInVariable) != "1")
+        {
+            return "Set " + OptInVariable + "=1 to run the tests that change the machine's network setup.";
         }
 
         if (!File.ReadAllText("/proc/self/status").Contains("Uid:\t0\t", StringComparison.Ordinal))
