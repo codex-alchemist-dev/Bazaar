@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -5,7 +6,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Avalonia;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Contracts.Graph;
