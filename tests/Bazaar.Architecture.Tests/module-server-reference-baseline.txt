@@ -7,6 +7,7 @@ Bazaar.Server.AgentSafety
 Bazaar.Server.Components.Backup
 Bazaar.Server.Identity.Postgres
 Bazaar.Server.MailBackends
+Bazaar.Server.Memory
 Bazaar.Server.Providers.Windows
 Bazaar.Server.Setup
 Bazaar.Server.Vms.WindowsSandbox
