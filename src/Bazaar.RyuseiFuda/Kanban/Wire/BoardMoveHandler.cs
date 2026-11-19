@@ -3,7 +3,7 @@ using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Server.Wire.Connection;
 
-namespace Bazaar.Server.Kanban.Wire;
+namespace Bazaar.RyuseiFuda.Kanban.Wire;
 
 /// <summary>
 /// <c>board.move</c> (doc 12, Card revision and client move command): the owner moves one card from a client. It is the
