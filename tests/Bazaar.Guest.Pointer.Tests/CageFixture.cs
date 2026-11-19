@@ -178,6 +178,8 @@ public sealed class CageFixture : IAsyncLifetime
     // line: cage with its private runtime directory, and Chromium with its profile directory.
     private static void KillStale()
     {
+        if (!OperatingSystem.IsLinux())
+            return;
         string marker = Path.Combine(Path.GetTempPath(), _dirPrefix);
         foreach (string proc in Directory.EnumerateDirectories("/proc"))
         {
