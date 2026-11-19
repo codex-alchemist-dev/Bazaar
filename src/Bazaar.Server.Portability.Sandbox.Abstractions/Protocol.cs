@@ -68,6 +68,12 @@ public static class ParserErrorKinds
 {
     public const string Limit = "limit";
     public const string Parser = "parser";
+
+    /// <summary>The host ran out of memory (its own structured report).</summary>
+    public const string Memory = "memory";
+
+    /// <summary>The host rejected the request header before running any importer.</summary>
+    public const string BadRequest = "bad_request";
 }
 
 /// <summary>One response frame from the child. Only the fields of its <see cref="Type"/> are set.</summary>
@@ -102,6 +108,22 @@ public static class ParserFrames
     /// <summary>The largest frame a reader accepts for records of <paramref name="maxRecordBytes"/> (JSON escaping can double a body).</summary>
     public static int MaxFrameBytes(int maxRecordBytes) =>
         (int)Math.Min(int.MaxValue, (2L * maxRecordBytes) + (1024 * 1024));
+
+    /// <summary>
+    /// Size of a record as the server counts it against the record limit: UTF-8 bytes of every string field, including
+    /// all attribute keys and values. Null fields count as zero.
+    /// </summary>
+    public static long RecordBytes(SourceRecord record)
+    {
+        long total = Utf8(record.SourceKey) + Utf8(record.Kind) + Utf8(record.Title) + Utf8(record.Body);
+        if (record.Attributes is not null)
+        {
+            foreach (var (key, value) in record.Attributes) total += Utf8(key) + Utf8(value);
+        }
+        return total;
+    }
+
+    private static int Utf8(string? text) => text is null ? 0 : System.Text.Encoding.UTF8.GetByteCount(text);
 
     public static void Write(Stream stream, ParserRequest request) =>
         WriteBytes(stream, JsonSerializer.SerializeToUtf8Bytes(request, ParserJsonContext.Default.ParserRequest));

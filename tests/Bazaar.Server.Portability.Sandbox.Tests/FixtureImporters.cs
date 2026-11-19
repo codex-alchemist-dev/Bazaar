@@ -133,6 +133,27 @@ public sealed class SpawnImporter : IPortabilityImporter
     }
 }
 
+/// <summary>
+/// Starts a grandchild in its own session that is reparented away from the child and keeps the child's stdout and
+/// stderr open, then hangs. The group kill and the tree kill both miss such a process.
+/// </summary>
+public sealed class EscapeImporter : IPortabilityImporter
+{
+    public string Id => "test.escape";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "escape");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source)
+    {
+        var info = new ProcessStartInfo("/bin/sh") { UseShellExecute = false };
+        info.ArgumentList.Add("-c");
+        info.ArgumentList.Add("setsid sleep " + source.Name + " &");
+        Process.Start(info)!.WaitForExit();
+        Thread.Sleep(Timeout.Infinite);
+        return [];
+    }
+}
+
 /// <summary>Tries a loopback connection to the port named in the file content; reports what happened.</summary>
 public sealed class NetworkProbeImporter : IPortabilityImporter
 {
@@ -217,4 +238,30 @@ public sealed class NativeHogImporter : IPortabilityImporter
         for (long i = 0; i < 6L * 1024 * 1024 * 1024; i += 4096) block[i] = 1;
         return [Fixture.Record("native", "allocated")];
     }
+}
+
+/// <summary>Prints out-of-memory text to stderr and then crashes, to show the text is not trusted.</summary>
+public sealed class FakeOomImporter : IPortabilityImporter
+{
+    public string Id => "test.fakeoom";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "fakeoom");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source)
+    {
+        Console.Error.WriteLine("System.OutOfMemoryException: Out of memory");
+        Environment.FailFast("not really out of memory");
+        return [];
+    }
+}
+
+/// <summary>A tiny body with a title over the record limit.</summary>
+public sealed class BigTitleImporter : IPortabilityImporter
+{
+    public string Id => "test.bigtitle";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "bigtitle");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source) =>
+        [new SourceRecord("k", "document", new string('t', 2 * 1024 * 1024), "b", new Dictionary<string, string>())];
 }

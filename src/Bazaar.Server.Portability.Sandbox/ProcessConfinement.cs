@@ -236,6 +236,8 @@ public sealed partial class LinuxParserConfinement : IParserConfinement
     [LibraryImport("libc", EntryPoint = "kill", SetLastError = true)]
     private static partial int SendSignal(int processId, int signal);
 
+    internal static IProcessGuard CreateGuard(Process process, bool ownsGroup) => new LinuxProcessGuard(process, ownsGroup);
+
     private sealed class LinuxProcessGuard : IProcessGuard
     {
         private readonly Process _process;
@@ -251,6 +253,10 @@ public sealed partial class LinuxParserConfinement : IParserConfinement
         {
             try
             {
+                // Once the child has exited it may have been reaped, and its pid could belong to an unrelated process or group
+                // by now. So the group is signalled only while the child is still ours. The cost: descendants that outlive an
+                // already-exited leader are not reached from here.
+                if (_process.HasExited) return;
                 // A negative pid signals the whole process group; ESRCH (group already empty) is harmless.
                 if (_ownsGroup) _ = SendSignal(-_process.Id, _sigkill);
                 if (!_process.HasExited) _process.Kill(entireProcessTree: true);

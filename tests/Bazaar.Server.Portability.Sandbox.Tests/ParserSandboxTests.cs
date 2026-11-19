@@ -152,6 +152,26 @@ public class ParserSandboxTests
     }
 
     [Fact]
+    public async Task A_descendant_that_escapes_the_kill_and_holds_the_pipes_cannot_hang_the_server()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux() && File.Exists("/bin/sh") && (File.Exists("/usr/bin/setsid") || File.Exists("/bin/setsid")), "needs sh and setsid");
+        var marker = "8" + Random.Shared.Next(100000, 999999) + ".5";
+        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(2) });
+        try
+        {
+            var job = Task.Run(() => Assert.Throws<ParserSandboxException>(() => runner.Parse("test.escape", Source(marker))), TestContext.Current.CancellationToken);
+
+            // Without the bounded waits this never completes, and WaitAsync fails the test with a timeout.
+            var error = await job.WaitAsync(TimeSpan.FromSeconds(60), TestContext.Current.CancellationToken);
+            Assert.Equal(ParserFailureKind.JobTimeout, error.Kind);
+        }
+        finally
+        {
+            KillProcessesWithArgument(marker);
+        }
+    }
+
+    [Fact]
     public void An_incomplete_record_frame_is_a_protocol_violation()
     {
         var runner = Runner();
@@ -182,26 +202,176 @@ public class ParserSandboxTests
         Assert.Null(runner.LastRun);
     }
 
+    // Stand-in hosts: /bin/sh runs a script that prints prepared frames and exits with a chosen code.
+    private static string StandInHost(string shellBody, params ParserMessage[] frames)
+    {
+        var dir = Directory.CreateTempSubdirectory("bazaar-standin-").FullName;
+        using (var stream = File.Create(Path.Combine(dir, "frames.bin")))
+        {
+            foreach (var frame in frames) ParserFrames.Write(stream, frame);
+        }
+        var script = Path.Combine(dir, "host.sh");
+        File.WriteAllText(script, shellBody.Replace("{frames}", Path.Combine(dir, "frames.bin"), StringComparison.Ordinal) + "\n");
+        return script;
+    }
+
+    private static ParserSandboxRunner StandInRunner(string script, Func<ParserSandboxOptions, ParserSandboxOptions>? tune = null, IParserSignalSink? sink = null) =>
+        Runner(o => (tune?.Invoke(o) ?? o) with { DotnetPath = "/bin/sh", HostAssemblyPath = script }, sink);
+
     [Fact]
-    public void A_host_that_rejects_the_request_is_a_bad_request_not_a_crash()
+    public void A_structured_bad_request_report_with_no_earlier_frames_is_a_bad_request_not_a_crash()
     {
         Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
-        var script = Path.Combine(Path.GetTempPath(), "bazaar-exit2-" + Guid.NewGuid().ToString("N") + ".sh");
-        File.WriteAllText(script, "exit 2\n");
+        var script = StandInHost(
+            "cat '{frames}'; exit 2",
+            new ParserMessage { Type = ParserMessageTypes.Error, ErrorKind = ParserErrorKinds.BadRequest, Message = "bad request header" });
+        var sink = new RecordingSink();
+        var runner = StandInRunner(script, o => o with { CrashLoopThreshold = 1 }, sink);
+
+        var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.BadRequest, error.Kind);
+        Assert.False(runner.CrashTracker.IsOpen("bazaar.import.txt"));
+        Assert.Empty(sink.Signals);
+    }
+
+    [Fact]
+    public void Exit_code_2_without_a_structured_report_is_a_crash()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
+        var runner = StandInRunner(StandInHost("exit 2"));
+
+        var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.Crash, error.Kind);
+    }
+
+    [Fact]
+    public void A_bad_request_report_after_other_frames_is_a_protocol_violation()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
+        var record = new SourceRecord("k", "document", "t", "b", new Dictionary<string, string>());
+        var script = StandInHost(
+            "cat '{frames}'; exit 2",
+            new ParserMessage { Type = ParserMessageTypes.Record, Record = record },
+            new ParserMessage { Type = ParserMessageTypes.Error, ErrorKind = ParserErrorKinds.BadRequest, Message = "late" });
+
+        var error = Fails(() => StandInRunner(script).Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.ProtocolViolation, error.Kind);
+    }
+
+    [Fact]
+    public void Out_of_memory_text_on_stderr_is_not_trusted_and_the_job_is_a_crash()
+    {
+        var runner = Runner();
+
+        var error = Fails(() => runner.Parse("test.fakeoom", Source()));
+
+        Assert.Equal(ParserFailureKind.Crash, error.Kind);
+    }
+
+    [Fact]
+    public void A_child_killed_by_sigkill_that_the_server_did_not_cause_is_a_limit_failure()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
+        var runner = StandInRunner(StandInHost("kill -9 $$"));
+
+        var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.LimitExceeded, error.Kind);
+    }
+
+    [Fact]
+    public void Control_characters_and_length_in_child_text_are_stripped_from_messages()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
+        var evil = "\u001b[31mred\u0007\nline2" + new string('x', 5000);
+        var errorScript = StandInHost(
+            "cat '{frames}'; exit 0",
+            new ParserMessage { Type = ParserMessageTypes.Error, ErrorKind = ParserErrorKinds.Parser, Message = evil });
+        var stderrScript = StandInHost("printf 'bad\\033[31mtext\\a\\n' >&2; exit 1");
+
+        var fromFrame = Fails(() => StandInRunner(errorScript).Parse("bazaar.import.txt", Source()));
+        var fromStderr = Fails(() => StandInRunner(stderrScript).Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.ParserError, fromFrame.Kind);
+        Assert.DoesNotContain(fromFrame.Message, char.IsControl);
+        Assert.True(fromFrame.Message.Length <= 1024);
+        Assert.Equal(ParserFailureKind.Crash, fromStderr.Kind);
+        Assert.Contains("badtext".Substring(0, 3), fromStderr.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(fromStderr.Message, char.IsControl);
+    }
+
+    [Fact]
+    public void The_server_bounds_a_record_by_every_field_not_just_the_body()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "uses /bin/sh as a stand-in host");
+        var fat = new SourceRecord("k", "document", "t", "b", new Dictionary<string, string> { ["a"] = new string('v', 5000) });
+        var script = StandInHost(
+            "cat '{frames}'; exit 0",
+            new ParserMessage { Type = ParserMessageTypes.Record, Record = fat },
+            new ParserMessage { Type = ParserMessageTypes.Done, Count = 1 });
+        var runner = StandInRunner(script, o => o with { Limits = new ImportLimits(maxRecordBytes: 1024) });
+
+        var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+
+        Assert.Equal(ParserFailureKind.LimitExceeded, error.Kind);
+    }
+
+    [Fact]
+    public void The_child_also_bounds_a_record_by_every_field()
+    {
+        var runner = Runner(o => o with { Limits = new ImportLimits(maxRecordBytes: 1024 * 1024) });
+
+        var error = Fails(() => runner.Parse("test.bigtitle", Source()));
+
+        Assert.Equal(ParserFailureKind.LimitExceeded, error.Kind);
+    }
+
+    [Fact]
+    public void One_source_failing_repeatedly_cannot_open_the_circuit_but_is_refused_after_the_cap()
+    {
+        var sink = new RecordingSink();
+        var runner = Runner(o => o with { CrashLoopThreshold = 2, SourceFailureCap = 3 }, sink);
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.Equal(ParserFailureKind.Crash, Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source("same.txt", "same"))).Kind);
+        }
+
+        Assert.False(runner.CrashTracker.IsOpen("test.crash"));
+        Assert.Empty(sink.Signals);
+        var refused = Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source("same.txt", "same")));
+        Assert.Equal(ParserFailureKind.CrashLoop, refused.Kind);
+        Assert.Contains("this source", refused.Message, StringComparison.Ordinal);
+        // A different source is still tried.
+        Assert.Equal(ParserFailureKind.Crash, Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source("other.txt", "other"))).Kind);
+    }
+
+    [Fact]
+    public void The_linux_guard_does_not_signal_the_group_of_a_child_that_has_exited()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux() && File.Exists("/usr/bin/setsid"), "needs Linux setsid");
+        var marker = "8" + Random.Shared.Next(100000, 999999) + ".5";
+        var info = new ProcessStartInfo("/usr/bin/setsid") { UseShellExecute = false };
+        info.ArgumentList.Add("sh");
+        info.ArgumentList.Add("-c");
+        info.ArgumentList.Add($"sleep {marker} & exit 0");
+        using var leader = Process.Start(info)!;
+        leader.WaitForExit();
         try
         {
-            var sink = new RecordingSink();
-            var runner = Runner(o => o with { DotnetPath = "/bin/sh", HostAssemblyPath = script, CrashLoopThreshold = 1 }, sink);
+            using var guard = LinuxParserConfinement.CreateGuard(leader, ownsGroup: true);
 
-            var error = Fails(() => runner.Parse("bazaar.import.txt", Source()));
+            guard.KillTree();
 
-            Assert.Equal(ParserFailureKind.BadRequest, error.Kind);
-            Assert.False(runner.CrashTracker.IsOpen("bazaar.import.txt"));
-            Assert.Empty(sink.Signals);
+            Assert.True(ProcessWithArgumentExists(marker), "an exited leader's pid may be reused, so its group must not be signalled");
         }
         finally
         {
-            File.Delete(script);
+            using var cleanup = Process.Start(new ProcessStartInfo("pkill", ["-f", marker]) { UseShellExecute = false });
+            cleanup?.WaitForExit();
         }
     }
 
@@ -239,6 +409,27 @@ public class ParserSandboxTests
             {
                 AttachAfterStart = _ => throw new InvalidProgramException("attach failed"),
             };
+    }
+
+    private static void KillProcessesWithArgument(string marker)
+    {
+        foreach (var dir in Directory.EnumerateDirectories("/proc"))
+        {
+            try
+            {
+                if (int.TryParse(Path.GetFileName(dir), System.Globalization.CultureInfo.InvariantCulture, out var pid)
+                    && pid != Environment.ProcessId
+                    && File.ReadAllText(Path.Combine(dir, "cmdline")).Contains(marker, StringComparison.Ordinal))
+                {
+                    using var process = System.Diagnostics.Process.GetProcessById(pid);
+                    process.Kill();
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // Gone already.
+            }
+        }
     }
 
     private static bool ProcessWithArgumentExists(string marker)
@@ -384,15 +575,16 @@ public class ParserSandboxTests
         var sink = new RecordingSink();
         var runner = Runner(o => o with { CrashLoopThreshold = 3 }, sink);
 
-        for (var i = 0; i < 3; i++)
+        // Three failures from two distinct sources (the same source twice stays under its cap of three).
+        foreach (var name in new[] { "one.txt", "two.txt", "one.txt" })
         {
-            Assert.Equal(ParserFailureKind.Crash, Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source())).Kind);
+            Assert.Equal(ParserFailureKind.Crash, Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source(name, name))).Kind);
         }
 
         var signal = Assert.Single(sink.Signals);
         Assert.Equal(ParserSignals.CrashLoop, signal.Name);
         Assert.Equal("test.crash", signal.ImporterId);
-        var refused = Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source()));
+        var refused = Assert.Throws<ParserSandboxException>(() => runner.Parse("test.crash", Source("three.txt", "three")));
         Assert.Equal(ParserFailureKind.CrashLoop, refused.Kind);
         Assert.Single(sink.Signals);
         // Another importer is not affected.

@@ -94,6 +94,27 @@ internal sealed class HostileChild : IParserConfinement
         return true;
     }
 
+    /// <summary>Test clean-up: ends every process whose command line holds <paramref name="marker"/>.</summary>
+    public static void KillProcessesWithArgument(string marker)
+    {
+        foreach (var directory in Directory.EnumerateDirectories("/proc"))
+        {
+            try
+            {
+                if (int.TryParse(Path.GetFileName(directory), out var pid)
+                    && File.ReadAllText(Path.Combine(directory, "cmdline")).Contains(marker, StringComparison.Ordinal))
+                {
+                    using var process = Process.GetProcessById(pid);
+                    process.Kill();
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // Gone already.
+            }
+        }
+    }
+
     private sealed class TreeGuard : IProcessGuard
     {
         private readonly Process _process;

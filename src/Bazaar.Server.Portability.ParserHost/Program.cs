@@ -1,4 +1,3 @@
-using System.Text;
 using Bazaar.Server.Portability;
 using Bazaar.Server.Portability.ParserHost;
 using Bazaar.Server.Portability.Sandbox;
@@ -24,14 +23,12 @@ try
 }
 catch (InvalidDataException ex)
 {
-    Console.Error.WriteLine("bad request: " + ex.Message);
-    return 2;
+    return BadRequest(stdout, "bad request: " + ex.Message);
 }
 
 if (request is null || request.Protocol != ParserRequest.CurrentProtocol || request.ContentLength < 0)
 {
-    Console.Error.WriteLine("bad request header");
-    return 2;
+    return BadRequest(stdout, "bad request header");
 }
 
 ImportLimits limits;
@@ -41,8 +38,7 @@ try
 }
 catch (ArgumentOutOfRangeException ex)
 {
-    Console.Error.WriteLine("bad limits: " + ex.Message);
-    return 2;
+    return BadRequest(stdout, "bad limits: " + ex.Message);
 }
 
 try
@@ -81,8 +77,7 @@ try
     }
     if (read < content.Length)
     {
-        Console.Error.WriteLine("input ended early");
-        return 2;
+        return BadRequest(stdout, "input ended early");
     }
 
     var source = new ImportSource(request.SourceName, content);
@@ -98,10 +93,10 @@ try
             var count = 0;
             foreach (var record in records)
             {
-                var bytes = Encoding.UTF8.GetByteCount(record.Body);
+                var bytes = ParserFrames.RecordBytes(record);
                 if (bytes > limits.MaxRecordBytes)
                 {
-                    Fail(stdout, ParserErrorKinds.Limit, $"record '{record.Title}' is {bytes} bytes, over the limit of {limits.MaxRecordBytes}");
+                    Fail(stdout, ParserErrorKinds.Limit, $"a record is {bytes} bytes, over the limit of {limits.MaxRecordBytes}");
                     return 0;
                 }
                 ParserFrames.Write(stdout, new ParserMessage { Type = ParserMessageTypes.Record, Record = record });
@@ -110,8 +105,7 @@ try
             ParserFrames.Write(stdout, new ParserMessage { Type = ParserMessageTypes.Done, Count = count });
             return 0;
         default:
-            Console.Error.WriteLine("unknown op: " + request.Op);
-            return 2;
+            return BadRequest(stdout, "unknown op: " + request.Op);
     }
 }
 catch (ImportLimitException ex)
@@ -121,13 +115,20 @@ catch (ImportLimitException ex)
 }
 catch (OutOfMemoryException)
 {
-    Fail(stdout, ParserErrorKinds.Limit, "the parser ran out of memory (memory ceiling)");
+    Fail(stdout, ParserErrorKinds.Memory, "the parser ran out of memory (memory ceiling)");
     return 0;
 }
 catch (Exception ex)
 {
     Fail(stdout, ParserErrorKinds.Parser, ex.GetType().Name + ": " + ex.Message);
     return 0;
+}
+
+// A rejected request header is reported as a structured frame, then exit code 2.
+static int BadRequest(Stream stdout, string message)
+{
+    ParserFrames.Write(stdout, new ParserMessage { Type = ParserMessageTypes.Error, ErrorKind = ParserErrorKinds.BadRequest, Message = message });
+    return 2;
 }
 
 static void Fail(Stream stdout, string kind, string message) =>

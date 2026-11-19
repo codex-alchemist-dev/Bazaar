@@ -64,6 +64,10 @@ public sealed class ParserSandboxException : Exception
 
     public ParserFailureKind Kind { get; }
 
+    /// <summary>True when the failure is the source's doing and counts against that source's retry cap.</summary>
+    public bool CountsAgainstSource => Kind is not (ParserFailureKind.ConfinementUnavailable or ParserFailureKind.HostUnavailable
+        or ParserFailureKind.CrashLoop or ParserFailureKind.BadRequest);
+
     /// <summary>True when this ending counts toward the crash-loop circuit: the child itself misbehaved.</summary>
     public bool CountsAsCrash => Kind is ParserFailureKind.Timeout or ParserFailureKind.Crash
         or ParserFailureKind.OutputTooLarge or ParserFailureKind.ProtocolViolation;
