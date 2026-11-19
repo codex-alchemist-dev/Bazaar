@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>Why a transition was allowed or refused. <see cref="NotATransition"/> means the table has no such move at all.</summary>
 public enum TransitionOutcome
