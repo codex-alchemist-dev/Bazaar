@@ -18,6 +18,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Scheduler fakes are shared with the moved Agents tests (tests/Bazaar.Server.Agents.Tests); linked, not copied. -->
+    <Compile Include="..\Bazaar.Server.Agents.Tests\Scheduling\SchedulerFakes.cs" Link="Agents\Scheduling\SchedulerFakes.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <None Update="Gateway\Adapters\OpenAi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Gateway\Adapters\Anthropic\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Gateway\Adapters\Gemini\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
