@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Bazaar.Kodo.Runtime;
 
 namespace Bazaar.Kodo.Sentinel;
@@ -25,8 +26,9 @@ public enum PromotionOutcome
 /// A failed check never passes silently: the status reports a failing or sealed phase with a cause.
 /// </summary>
 /// <remarks>
-/// Start, promotion and the probation run are serialised by one gate. <see cref="RecordKodoExit"/> is not gated, so the
-/// supervisor must not call it while a start or promotion is running (PROPOSED, doc 46 7.8).
+/// Start, promotion and the probation run are serialised by one gate. <see cref="RecordKodoExit"/> does not take that gate, so
+/// exits can be recorded while a probation runs. The restart backoff, the status and the status file write share a second
+/// lock, which is never held across the probation run (PROPOSED, doc 46 7.8).
 /// </remarks>
 public sealed class SlotSwitcher : IDisposable
 {
@@ -40,6 +42,7 @@ public sealed class SlotSwitcher : IDisposable
     private readonly TimeProvider _clock;
     private readonly SlotSwitcherOptions _options;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly object _stateLock = new();
     private SentinelStatus _status = SentinelStatus.Starting;
 
     /// <summary>Creates a switcher over the given seams. Signatures are checked with <paramref name="signatures"/>.</summary>
@@ -72,7 +75,16 @@ public sealed class SlotSwitcher : IDisposable
     }
 
     /// <summary>The status as last written to the status file.</summary>
-    public SentinelStatus Status => _status;
+    public SentinelStatus Status
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                return _status;
+            }
+        }
+    }
 
     /// <summary>Releases the gate. The switcher must not be used afterwards.</summary>
     public void Dispose() => _gate.Dispose();
@@ -88,31 +100,54 @@ public sealed class SlotSwitcher : IDisposable
         {
             RemoveStrayTemp();
 
-            (_, SlotCheck active) = ReadAndCheck(RuntimeLayout.PointerFileName);
+            (byte[]? activeBytes, SlotCheck active) = ReadAndCheck(RuntimeLayout.PointerFileName);
             Remember(active);
-            if (active.IsVerified)
+            bool markerPresent = ReadProbationMarker(active.SlotId, out bool unprobated);
+            if (active.IsVerified && !unprobated)
             {
-                _status = _status with { Phase = SentinelPhases.Running, ActiveSlot = active.SlotId, Cause = null, Detail = null };
-                return Publish();
+                if (markerPresent)
+                {
+                    TryDeleteRoot(SentinelLayout.ProbationMarkerFileName);
+                }
+
+                Commit(s => s with { Phase = SentinelPhases.Running, ActiveSlot = active.SlotId, Cause = null, Detail = null });
+                return Status;
             }
 
             (byte[]? previousBytes, SlotCheck previous) = ReadAndCheck(RuntimeLayout.PreviousPointerFileName);
+            if (active.IsVerified && previousBytes is not null && activeBytes is not null && previousBytes.AsSpan().SequenceEqual(activeBytes))
+            {
+                // A crash between the marker and the swap: the pointer never moved, so there is nothing to undo.
+                TryDeleteRoot(SentinelLayout.ProbationMarkerFileName);
+                Commit(s => s with { Phase = SentinelPhases.Running, ActiveSlot = active.SlotId, Cause = null, Detail = null });
+                return Status;
+            }
+
             if (previousBytes is null || previous.SlotId is not { } previousSlot || !previous.IsVerified)
             {
-                _status = _status with
+                string cause = unprobated && active.IsVerified ? SentinelCauses.ProbationInterrupted : active.Cause ?? SentinelCauses.PointerNotVerified;
+                string activeDetail = unprobated && active.IsVerified ? "the active slot never finished probation" : Describe(active);
+                Commit(s => s with
                 {
                     Phase = SentinelPhases.Sealed,
                     ActiveSlot = null,
-                    Cause = active.Cause,
-                    Detail = $"{Describe(active)}; previous {Describe(previous)}",
-                };
-                return Publish();
+                    Cause = cause,
+                    Detail = $"{activeDetail}; previous {Describe(previous)}",
+                });
+                return Status;
             }
 
-            // Startup fallback (doc 46 6.3): the active pointer failed, so the verified previous pointer takes its place.
-            // The rejected bytes are not kept, and the previous file is left as it was.
-            _ = Flip(active.SlotId, fromVerified: false, active.Cause ?? SentinelCauses.PointerNotVerified, Describe(active), previousBytes, previousSlot, leftBytes: null);
-            return _status;
+            // Startup fallback (doc 46 6.3): the active pointer failed, or never finished probation, so the verified previous
+            // pointer takes its place. The rejected bytes are not kept, and the previous file is left as it was.
+            string flipCause = unprobated && active.IsVerified ? SentinelCauses.ProbationInterrupted : active.Cause ?? SentinelCauses.PointerNotVerified;
+            string flipDetail = unprobated && active.IsVerified ? "the active slot never finished probation" : Describe(active);
+            PromotionOutcome flipped = Flip(active.SlotId, fromVerified: false, flipCause, flipDetail, previousBytes, previousSlot, leftBytes: null);
+            if (flipped == PromotionOutcome.RolledBack && markerPresent)
+            {
+                TryDeleteRoot(SentinelLayout.ProbationMarkerFileName);
+            }
+
+            return Status;
         }
         finally
         {
@@ -139,49 +174,83 @@ public sealed class SlotSwitcher : IDisposable
                 return Reject(SentinelCauses.CandidateRejected, Describe(candidate));
             }
 
-            if (candidate.SlotId == _status.ActiveSlot)
-            {
-                return Reject(SentinelCauses.CandidateIsActive, $"slot {candidate.SlotId} is already active");
-            }
-
-            if (!TryReadRoot(RuntimeLayout.PointerFileName, out byte[]? currentBytes))
+            // The active pointer is read and verified from disk, so a promotion before the start check cannot trust stale state,
+            // and only a pointer of this generation can become the rollback target.
+            (byte[]? currentBytes, SlotCheck current) = ReadAndCheck(RuntimeLayout.PointerFileName);
+            if (current.Cause == SentinelCauses.PointerUnreadable)
             {
                 return Reject(SentinelCauses.PointerUnreadable, "the active pointer could not be read, so it cannot be kept as previous");
             }
 
-            if (currentBytes is not null && !TryReplaceRoot(RuntimeLayout.PreviousPointerFileName, currentBytes))
+            if (currentBytes is null || !current.IsVerified)
+            {
+                return Reject(SentinelCauses.ActivePointerNotVerified, "no verified active pointer to keep as previous: " + Describe(current));
+            }
+
+            if (candidate.SlotId == current.SlotId)
+            {
+                return Reject(SentinelCauses.CandidateIsActive, $"slot {candidate.SlotId} is already active");
+            }
+
+            string candidateSlot = candidate.SlotId!;
+            if (!TryReplaceRoot(RuntimeLayout.PreviousPointerFileName, currentBytes))
             {
                 return Reject(SentinelCauses.PointerWriteFailed, "the previous pointer could not be written");
             }
 
+            // The marker is written before the swap and removed only after probation survives, so a crash in between is
+            // found by the next start check (PROPOSED, doc 46 7.8).
+            if (!TryReplaceRoot(SentinelLayout.ProbationMarkerFileName, Encoding.UTF8.GetBytes(candidateSlot)))
+            {
+                return Reject(SentinelCauses.PointerWriteFailed, "the probation marker could not be written");
+            }
+
             if (!TryReplaceRoot(RuntimeLayout.PointerFileName, candidatePointer))
             {
+                TryDeleteRoot(SentinelLayout.ProbationMarkerFileName);
                 return Reject(SentinelCauses.PointerWriteFailed, "the active pointer could not be swapped");
             }
 
-            _status = _status with { Phase = SentinelPhases.Probation, ActiveSlot = candidate.SlotId, Cause = null, Detail = null };
-            Publish();
+            KodoRunOutcome run;
+            try
+            {
+                CommitStrict(s => s with { Phase = SentinelPhases.Probation, ActiveSlot = candidateSlot, Cause = null, Detail = null });
+                run = await _launcher.RunProbationAsync(candidateSlot, _options.ProbationWindow, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Shutdown during probation: the candidate is unproven, so the previous slot must be active when this ends.
+                _ = RollBackAfterProbation(candidateSlot, candidatePointer, "cancelled during probation");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RollBackAfterProbation(candidateSlot, candidatePointer, $"probation could not run ({ex.GetType().Name})");
+            }
 
-            KodoRunOutcome run = await _launcher.RunProbationAsync(candidate.SlotId!, _options.ProbationWindow, cancellationToken);
             if (run.Kind == KodoRunKind.SurvivedWindow)
             {
                 // The window passed, but the pointer and the slot must still be the ones that were promoted.
                 (byte[]? activeBytes, SlotCheck recheck) = ReadAndCheck(RuntimeLayout.PointerFileName);
                 Remember(recheck);
-                if (recheck.IsVerified && activeBytes is not null && activeBytes.AsSpan().SequenceEqual(candidatePointer.AsSpan()))
+                if (!recheck.IsVerified || activeBytes is null || !activeBytes.AsSpan().SequenceEqual(candidatePointer.AsSpan()))
                 {
-                    _status = _status with { Phase = SentinelPhases.Running, Cause = null, Detail = null };
-                    Publish();
-                    return PromotionOutcome.Promoted;
+                    return RollBackAfterProbation(candidateSlot, candidatePointer, "pointer or slot changed during probation: " + Describe(recheck));
                 }
 
-                return RollBackAfterProbation(candidate.SlotId!, candidatePointer, "pointer or slot changed during probation: " + Describe(recheck));
+                if (!TryDeleteRoot(SentinelLayout.ProbationMarkerFileName))
+                {
+                    return RollBackAfterProbation(candidateSlot, candidatePointer, "the probation marker could not be cleared");
+                }
+
+                Commit(s => s with { Phase = SentinelPhases.Running, Cause = null, Detail = null });
+                return PromotionOutcome.Promoted;
             }
 
             string reason = run.Kind == KodoRunKind.Exited
                 ? $"exited with code {run.ExitCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} during probation"
                 : "failed to start for probation";
-            return RollBackAfterProbation(candidate.SlotId!, candidatePointer, reason);
+            return RollBackAfterProbation(candidateSlot, candidatePointer, reason);
         }
         finally
         {
@@ -190,14 +259,17 @@ public sealed class SlotSwitcher : IDisposable
     }
 
     /// <summary>
-    /// Records one exit of Kodo and publishes the restart count (doc 46 7.1). Returns the delay before the next start. See the
-    /// remarks on the class for the gate.
+    /// Records one exit of Kodo and publishes the restart count (doc 46 7.1). Returns the delay before the next start. Safe to
+    /// call from any thread, also while a probation runs.
     /// </summary>
     public RestartDecision RecordKodoExit(DateTimeOffset startedAt, DateTimeOffset exitedAt)
     {
-        RestartDecision decision = _restarts.RecordExit(startedAt, exitedAt);
-        Publish();
-        return decision;
+        lock (_stateLock)
+        {
+            RestartDecision decision = _restarts.RecordExit(startedAt, exitedAt);
+            PublishLocked(strict: false);
+            return decision;
+        }
     }
 
     /// <summary>
@@ -212,7 +284,14 @@ public sealed class SlotSwitcher : IDisposable
             return Block(candidateSlot, SentinelCauses.ProbationFailed, detail, previous);
         }
 
-        return Flip(candidateSlot, fromVerified: true, SentinelCauses.ProbationFailed, detail, previousBytes, previousSlot, candidatePointer);
+        PromotionOutcome outcome = Flip(candidateSlot, fromVerified: true, SentinelCauses.ProbationFailed, detail, previousBytes, previousSlot, candidatePointer);
+        if (outcome == PromotionOutcome.RolledBack)
+        {
+            // A marker that cannot be deleted is stale, not dangerous: it names a slot that is no longer active.
+            TryDeleteRoot(SentinelLayout.ProbationMarkerFileName);
+        }
+
+        return outcome;
     }
 
     private PromotionOutcome Block(string fromSlot, string cause, string detail, SlotCheck previous)
@@ -221,21 +300,19 @@ public sealed class SlotSwitcher : IDisposable
         string blockedCause = previous.Cause is SentinelCauses.PointerMissing or SentinelCauses.SlotMissing
             ? SentinelCauses.PreviousSlotMissing
             : SentinelCauses.PreviousNotVerified;
-        _status = _status with
+        Commit(s => s with
         {
             Phase = SentinelPhases.Failing,
             ActiveSlot = fromSlot,
             Cause = blockedCause,
             Detail = $"{cause}: {detail}; previous {Describe(previous)}",
-        };
-        Publish();
+        });
         return PromotionOutcome.RollbackBlocked;
     }
 
     private PromotionOutcome Reject(string cause, string detail)
     {
-        _status = _status with { Phase = SentinelPhases.Failing, Cause = cause, Detail = detail };
-        Publish();
+        Commit(s => s with { Phase = SentinelPhases.Failing, Cause = cause, Detail = detail });
         return PromotionOutcome.Rejected;
     }
 
@@ -261,14 +338,13 @@ public sealed class SlotSwitcher : IDisposable
 
         if (!TryReplaceRoot(RuntimeLayout.PointerFileName, targetBytes))
         {
-            _status = _status with
+            Commit(s => s with
             {
                 Phase = SentinelPhases.Failing,
                 ActiveSlot = fromVerified ? fromSlot : null,
                 Cause = SentinelCauses.PointerWriteFailed,
                 Detail = $"{cause}: {detail}; swap to {targetSlot} failed",
-            };
-            Publish();
+            });
             return PromotionOutcome.RollbackBlocked;
         }
 
@@ -277,15 +353,14 @@ public sealed class SlotSwitcher : IDisposable
             detail += "; previous pointer not updated";
         }
 
-        _status = _status with
+        Commit(s => s with
         {
             Phase = SentinelPhases.Failing,
             ActiveSlot = targetSlot,
             Cause = cause,
             Detail = detail,
             LastRollback = new SentinelRollback(now, fromSlot, targetSlot, cause),
-        };
-        Publish();
+        });
         return PromotionOutcome.RolledBack;
     }
 
@@ -352,17 +427,77 @@ public sealed class SlotSwitcher : IDisposable
             : SlotCheck.Failed(pointer.SlotId, SentinelCauses.SlotNotVerified, result.Status.ToString());
     }
 
-    private void Remember(SlotCheck check) =>
-        _status = _status with
+    private void Remember(SlotCheck check)
+    {
+        SentinelVerification verification = new(check.SlotId, check.IsVerified, check.Cause, _clock.GetUtcNow());
+        lock (_stateLock)
         {
-            LastVerification = new SentinelVerification(check.SlotId, check.IsVerified, check.Cause, _clock.GetUtcNow()),
-        };
+            _status = _status with { LastVerification = verification };
+        }
+    }
 
-    private SentinelStatus Publish()
+    /// <summary>Changes the status and writes the status file. A failed write is dropped: the in-memory status stays right.</summary>
+    private void Commit(Func<SentinelStatus, SentinelStatus> change)
+    {
+        lock (_stateLock)
+        {
+            _status = change(_status);
+            PublishLocked(strict: false);
+        }
+    }
+
+    /// <summary>Like <see cref="Commit"/>, but a failed status write throws, because the caller cannot go on without it.</summary>
+    private void CommitStrict(Func<SentinelStatus, SentinelStatus> change)
+    {
+        lock (_stateLock)
+        {
+            _status = change(_status);
+            PublishLocked(strict: true);
+        }
+    }
+
+    /// <summary>Takes the restart count from the backoff and writes the status file. The caller holds <c>_stateLock</c>.</summary>
+    private void PublishLocked(bool strict)
     {
         _status = _status with { RestartCount = _restarts.RestartCount };
-        _statusFile.Replace(SentinelStatusCodec.Encode(_status));
-        return _status;
+        try
+        {
+            _statusFile.Replace(SentinelStatusCodec.Encode(_status));
+        }
+        catch (Exception ex) when (IsFileFailure(ex) && !strict)
+        {
+            // The status file is best effort once a decision is made; the in-memory status carries the truth.
+        }
+    }
+
+    /// <summary>
+    /// Reads the probation marker. Returns whether a marker exists, and whether it makes the active slot unprobated: an unreadable
+    /// or malformed marker does, and so does one that names the active slot. A marker naming another slot is stale and is removed.
+    /// </summary>
+    private bool ReadProbationMarker(string? activeSlot, out bool unprobated)
+    {
+        if (!TryReadRoot(SentinelLayout.ProbationMarkerFileName, out byte[]? marker))
+        {
+            unprobated = true;
+            return true;
+        }
+
+        if (marker is null)
+        {
+            unprobated = false;
+            return false;
+        }
+
+        string named = Encoding.UTF8.GetString(marker).Trim();
+        if (RuntimeLayout.IsSlotId(named) && named != activeSlot)
+        {
+            TryDeleteRoot(SentinelLayout.ProbationMarkerFileName);
+            unprobated = false;
+            return true;
+        }
+
+        unprobated = true;
+        return true;
     }
 
     private void RemoveStrayTemp()
@@ -396,6 +531,19 @@ public sealed class SlotSwitcher : IDisposable
         try
         {
             _files.ReplaceRootFile(name, bytes);
+            return true;
+        }
+        catch (Exception ex) when (IsFileFailure(ex))
+        {
+            return false;
+        }
+    }
+
+    private bool TryDeleteRoot(string name)
+    {
+        try
+        {
+            _files.DeleteRootFile(name);
             return true;
         }
         catch (Exception ex) when (IsFileFailure(ex))

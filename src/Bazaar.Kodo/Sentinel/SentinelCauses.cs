@@ -44,4 +44,10 @@ public static class SentinelCauses
 
     /// <summary>A pointer file could not be replaced, so the swap did not complete.</summary>
     public const string PointerWriteFailed = "pointer_write_failed";
+
+    /// <summary>A promotion found no verified active pointer on disk to keep as the rollback target.</summary>
+    public const string ActivePointerNotVerified = "active_pointer_not_verified";
+
+    /// <summary>A promoted slot was active at start but never finished probation, so it was not trusted.</summary>
+    public const string ProbationInterrupted = "probation_interrupted";
 }

@@ -219,4 +219,97 @@ public sealed class SlotSwitcherStartTests
     /// <summary>The log entries that match the given prefixes or names, in order, so an ordering assertion ignores unrelated calls.</summary>
     private static List<string> ShortLog(IEnumerable<string> log, params string[] keep) =>
         log.Where(entry => keep.Any(k => entry == k || (k.EndsWith(':') && entry.StartsWith(k, StringComparison.Ordinal)))).ToList();
+
+    [Fact]
+    public async Task StatusFileFailureDuringStartDoesNotThrowAndKeepsTheVerifiedSlot()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        rig.Store.Root[RuntimeLayout.PointerFileName] = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        rig.StatusFile.FailOn = _ => true;
+
+        SentinelStatus status = await rig.Switcher.StartAsync(CancellationToken.None);
+
+        Assert.Equal(SentinelPhases.Running, status.Phase);
+        Assert.Equal(SentinelHarness.SlotA, status.ActiveSlot);
+        Assert.Equal(status, rig.Switcher.Status);
+    }
+
+    [Fact]
+    public async Task MarkerForTheActiveSlotRollsBackToThePreviousSlotAtStart()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        byte[] pointerA = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        rig.Store.Root[RuntimeLayout.PointerFileName] = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotB, "b");
+        rig.Store.Root[RuntimeLayout.PreviousPointerFileName] = pointerA;
+        rig.Store.Root[SentinelLayout.ProbationMarkerFileName] = Encoding.UTF8.GetBytes(SentinelHarness.SlotB);
+
+        SentinelStatus status = await rig.Switcher.StartAsync(CancellationToken.None);
+
+        Assert.Equal(SentinelPhases.Failing, status.Phase);
+        Assert.Equal(SentinelHarness.SlotA, status.ActiveSlot);
+        Assert.Equal(SentinelCauses.ProbationInterrupted, status.Cause);
+        Assert.Equal(pointerA, rig.Store.Root[RuntimeLayout.PointerFileName]);
+        Assert.DoesNotContain(SentinelLayout.ProbationMarkerFileName, rig.Store.Root.Keys);
+        Assert.Single(rig.Journal.Events);
+    }
+
+    [Fact]
+    public async Task MarkerWithAnUnverifiedPreviousPointerSeals()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        rig.Store.Root[RuntimeLayout.PointerFileName] = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotB, "b");
+        rig.Store.Root[SentinelLayout.ProbationMarkerFileName] = Encoding.UTF8.GetBytes(SentinelHarness.SlotB);
+
+        SentinelStatus status = await rig.Switcher.StartAsync(CancellationToken.None);
+
+        Assert.Equal(SentinelPhases.Sealed, status.Phase);
+        Assert.Null(status.ActiveSlot);
+        Assert.Equal(SentinelCauses.ProbationInterrupted, status.Cause);
+        Assert.Contains(SentinelLayout.ProbationMarkerFileName, rig.Store.Root.Keys);
+    }
+
+    [Fact]
+    public async Task UnreadableMarkerIsTreatedAsUnprobated()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        byte[] pointerA = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        rig.Store.Root[RuntimeLayout.PointerFileName] = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotB, "b");
+        rig.Store.Root[RuntimeLayout.PreviousPointerFileName] = pointerA;
+        rig.Store.UnreadableRoots.Add(SentinelLayout.ProbationMarkerFileName);
+
+        SentinelStatus status = await rig.Switcher.StartAsync(CancellationToken.None);
+
+        Assert.Equal(SentinelHarness.SlotA, status.ActiveSlot);
+        Assert.Equal(SentinelCauses.ProbationInterrupted, status.Cause);
+    }
+
+    [Fact]
+    public async Task MarkerWrittenBeforeTheSwapNeverHappenedIsCleared()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        byte[] pointerA = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        rig.Store.Root[RuntimeLayout.PointerFileName] = pointerA;
+        rig.Store.Root[RuntimeLayout.PreviousPointerFileName] = pointerA;
+        rig.Store.Root[SentinelLayout.ProbationMarkerFileName] = Encoding.UTF8.GetBytes(SentinelHarness.SlotA);
+
+        SentinelStatus status = await rig.Switcher.StartAsync(CancellationToken.None);
+
+        Assert.Equal(SentinelPhases.Running, status.Phase);
+        Assert.Equal(SentinelHarness.SlotA, status.ActiveSlot);
+        Assert.DoesNotContain(SentinelLayout.ProbationMarkerFileName, rig.Store.Root.Keys);
+        Assert.Empty(rig.Journal.Events);
+    }
+
+    [Fact]
+    public async Task MarkerNamingAnotherSlotIsStaleAndRemoved()
+    {
+        SentinelHarness.Rig rig = SentinelHarness.NewRig();
+        rig.Store.Root[RuntimeLayout.PointerFileName] = SentinelHarness.InstallSlot(rig.Store, SentinelHarness.SlotA, "a");
+        rig.Store.Root[SentinelLayout.ProbationMarkerFileName] = Encoding.UTF8.GetBytes(SentinelHarness.SlotB);
+
+        SentinelStatus status = await rig.Switcher.StartAsync(CancellationToken.None);
+
+        Assert.Equal(SentinelPhases.Running, status.Phase);
+        Assert.DoesNotContain(SentinelLayout.ProbationMarkerFileName, rig.Store.Root.Keys);
+    }
 }
