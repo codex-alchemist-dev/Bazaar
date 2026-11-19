@@ -289,7 +289,9 @@ public sealed unsafe partial class NodeBenchmark
         Vector3 direction = Vector3.Normalize(new Vector3(0.5f, 0.35f, 0.8f));
         Matrix4x4 lookAt = Matrix4x4.CreateLookAt(target + (direction * distance), target, Vector3.UnitY);
         Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(50f * MathF.PI / 180f, aspect, near, 50f);
-        return lookAt * projection;
+        // Reversed-Z as the renderer thread uses (depth 1 at near, 0 at far): z' = w - z. No depth test in this bench.
+        var reverseZ = new Matrix4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1, 1);
+        return lookAt * projection * reverseZ;
     }
 
     private static float PointSizeFor(Viewpoint view) => view switch { Viewpoint.Whole => 1f, Viewpoint.Mid => 2f, _ => 4f };

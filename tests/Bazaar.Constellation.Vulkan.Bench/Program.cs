@@ -73,7 +73,16 @@ if (args.Length > 0 && (args[0] == "topology-draw" || args[0] == "topology-densi
         File.WriteAllLines(csvPath, csv);
         string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{section} N={total} M={instances} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} fps(p50)={1000.0 / s.WallP50:F0} fps(p99)={1000.0 / s.WallP99:F0} frames={s.Frames} [{breakdown}]"));
+            $"{section} N={total} M={instances}{PerMillion(s, instances, edges)} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} fps(p50)={1000.0 / s.WallP50:F0} fps(p99)={1000.0 / s.WallP99:F0} frames={s.Frames} [{breakdown}]"));
+    }
+
+    static string PerMillion(CellStats stats, long instances, int edgeCount)
+    {
+        // ms per million reference instances, per pass, so the frame-budget controller can set its GPU tiers.
+        string pm(string pass, long count) => stats.PassP50Ms.TryGetValue(pass, out double ms) && count > 0
+            ? string.Create(CultureInfo.InvariantCulture, $" {pass}_ms_per_M={ms * 1_000_000.0 / count:F3}")
+            : string.Empty;
+        return pm("points", instances) + pm("edges", edgeCount);
     }
 
     Topology[] topologies = Enum.GetValues<Topology>();

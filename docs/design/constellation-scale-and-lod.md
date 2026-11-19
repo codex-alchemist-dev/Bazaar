@@ -248,6 +248,23 @@ A second 1B re-run gave the same pattern: 0.018 ms in run 1, then 0.048 and 0.06
 
 Per-frame cost at 100M stays far inside the 14 ms PC budget in both states. At 1B the slow state is still about 0.06 ms, so the budget is not at risk from this spike.
 
+### 10.7 Procedural topology benchmark: draw path and density path (2026-11-19)
+Bench modes `topology-draw` and `topology-density`, Release, Intel Arc B580, offscreen 1280x720, 30 warm-up and 200 measured frames per cell (full per-frame splat: 10 frames at 100M, 3 at 1B and 2B, so its p95 and p99 are the maximum). Nodes and edges are generated in the shaders from the node index (`Shaders/topology.glsl`), so nothing is stored. Topologies: uniform random, clustered (64 gaussian blobs), power-law hub and spoke (1024 hubs), grid or lattice, chain or ring, each with one outgoing edge per node. 2D orthographic and 3D perspective (reversed-Z, no depth test), three viewpoints each (whole, mid zoom, close zoom). GPU times are the sum of per-pass timestamps; per-pass medians are in the CSV. Raw CSVs: `tests/Bazaar.Constellation.Vulkan.Bench/results/topo-draw.csv` (150 cells) and `topo-density.csv` (210 cells), one run each.
+
+**Draw path** (M stride-sampled points plus 1 000 000 line segments, no culling). 76 of 150 cells meet GPU p95 <= 2.5 ms and p99 <= 3.3 ms. Cost does not depend on the node count: at M = 1M, N = 100M, 1B and 2B agree within a few percent for the same topology. The edge pass is the larger pass in 52 of the 74 failing cells: uniform random edges cost about 6 ms (2D whole), 6 ms (mid) and 17 ms (2D close); hub and spoke 4 to 7 ms in 2D whole and mid. Points cost about 0.42 ms per million when spread out, but pile up on a thin curve: the ring costs 4.2, 14.5 and 40.1 ms at 0.5M, 1M and 2M points in 2D whole (same-pixel overdraw).
+
+**Density path.** Three variants, all ending in one fullscreen shade of a 1280x720 count grid:
+- Full per-frame splat of every node, generated from its index: 3.1 to 74.7 ms at 100M (median 10.5), 37 to 918 ms at 1B (median 67), 58 to 2 316 ms at 2B (median 90). The worst cases are the grid and the ring in 2D, where many nodes land in one cell and the atomic adds serialise. None of the 30 cells meets the target.
+- Aggregate: the graph is binned once into a voxel grid (2D 2048x2048, 3D 160^3, 16 MiB), then each frame projects the non-empty voxels into the screen grid. Build (one time) takes 4 to 1 438 ms. Clear, reproject and shade together cost at most 1.1 ms in any of the 90 cells (p50) and do not depend on N. 54 of 90 cells meet the target; in every one of the 36 misses the 1M-edge line pass is the larger part.
+- Cached (camera still, grid already built): shade plus the edge pass only; 55 of 90 cells meet the target.
+
+**Limits of what was measured.**
+- The aggregate grid has a fixed resolution; at the close viewpoint one voxel covers many pixels, so a real close view would need a finer tile level. The cost shown for close is that of the coarse grid, not of a close-zoom tile selection.
+- Edges are a fixed stride sample drawn every frame, not culled and not bundled; this is the baseline the culling and bundling work has to beat.
+- The draw cells use no tile selection (`ViewSelector`) and no compute culling or indirect draws yet.
+- Wall-clock p99 shows 5 to 70 ms hitches in many cells whose GPU p99 is under 1 ms (121 of 150 draw cells have wall p99 above 3.3 ms); the cause was not isolated.
+- Single run per cell; run-to-run spread is not measured here (section 10.3 shows the small rows vary by up to a factor of two between runs).
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
