@@ -81,3 +81,33 @@ public interface IRetentionPlanner
     /// <param name="underLegalHold">True when a legal hold covers the record.</param>
     RetentionDisposition Decide(string category, DateTimeOffset createdAt, DateTimeOffset? softDeletedAt, DateTimeOffset now, bool underLegalHold);
 }
+
+/// <summary>
+/// One record a store offers to the retention sweeper. <see cref="PersonId"/> and <see cref="GcId"/> name the person and the GC
+/// the record belongs to, in the same text form as a legal hold's scope value (a lowercase hyphenated GUID for a person). Null
+/// means the record is not tied to one, so a person or GC hold cannot cover it.
+/// </summary>
+public sealed record RetentionRecordRef(string Id, DateTimeOffset CreatedAt, DateTimeOffset? SoftDeletedAt, string? PersonId = null, string? GcId = null);
+
+/// <summary>
+/// A module's side of retention (doc 48 section 9): the store that owns one data category. The store lists candidates and does
+/// the soft delete and the purge; the sweeper decides, checks legal holds and audits. A store never reads holds itself and never
+/// crypto-erases (that is the erasure coordinator's job and needs a signed proof).
+/// </summary>
+public interface IRetentionStore
+{
+    /// <summary>The retention category this store serves, the same id as its row in the retention table.</summary>
+    string Category { get; }
+
+    /// <summary>Records created before <paramref name="createdBefore"/> that are not soft-deleted yet, oldest first, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<RetentionRecordRef>> ListSoftDeleteCandidatesAsync(DateTimeOffset createdBefore, int limit, CancellationToken ct);
+
+    /// <summary>Records soft-deleted before <paramref name="softDeletedBefore"/>, oldest first, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<RetentionRecordRef>> ListPurgeCandidatesAsync(DateTimeOffset softDeletedBefore, int limit, CancellationToken ct);
+
+    /// <summary>Marks the records with a tombstone and hides them. Idempotent.</summary>
+    Task SoftDeleteAsync(IReadOnlyList<string> ids, DateTimeOffset at, CancellationToken ct);
+
+    /// <summary>Removes the records for good. Idempotent: an id that is already gone is not an error.</summary>
+    Task PurgeAsync(IReadOnlyList<string> ids, CancellationToken ct);
+}
