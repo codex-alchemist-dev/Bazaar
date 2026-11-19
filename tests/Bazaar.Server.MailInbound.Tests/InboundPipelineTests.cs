@@ -9,21 +9,21 @@ namespace Bazaar.Server.MailInbound.Tests;
 /// <summary>The inbound pipeline against fakes (doc 22 inbound flow, steps 1 to 7). Names and addresses are synthetic.</summary>
 public sealed class InboundPipelineTests
 {
-    private const string _secretBody = "TOPSECRET-BODY-9141";
-    private const string _secretSubject = "TOPSECRET-SUBJECT-7733";
+    private const string _privateBody = "PRIVATE-BODY-9141";
+    private const string _privateSubject = "PRIVATE-SUBJECT-7733";
     private const string _senderAddress = "pat.private@sender.example.test";
 
     private static string Clean(string id = "one@sender.example.test", string subject = "Hello", string body = "Welcome aboard.") =>
         Mime.Plain($"Pat <{_senderAddress}>", subject, body, id, "spf=pass; dkim=pass; dmarc=pass");
 
     private static string Failing(string id = "bad@sender.example.test") =>
-        Mime.Plain($"Pat <{_senderAddress}>", _secretSubject, _secretBody, id, "spf=fail; dkim=pass");
+        Mime.Plain($"Pat <{_senderAddress}>", _privateSubject, _privateBody, id, "spf=fail; dkim=pass");
 
     [Fact]
     public async Task Clean_message_is_announced_without_content_then_read_by_a_hard_tainted_reader()
     {
         var h = new Harness();
-        h.Add("b1", Clean(subject: _secretSubject, body: _secretBody));
+        h.Add("b1", Clean(subject: _privateSubject, body: _privateBody));
 
         var result = await h.PassAsync();
 
@@ -37,8 +37,8 @@ public sealed class InboundPipelineTests
         Assert.Empty(entry.ScreenCodes);
         // The announcement and the hand-over carry no sender address, subject or body.
         var posted = h.Gc.Everything();
-        Assert.DoesNotContain(_secretBody, posted, StringComparison.Ordinal);
-        Assert.DoesNotContain(_secretSubject, posted, StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateBody, posted, StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateSubject, posted, StringComparison.Ordinal);
         Assert.DoesNotContain(_senderAddress, posted, StringComparison.Ordinal);
         Assert.Contains(h.Gc.Handovers, x => x.Verdict == MailTriageVerdict.Routine);
         Assert.True((await h.Quarantine.ListAsync(null, TestContext.Current.CancellationToken)).Count == 0);
@@ -49,14 +49,14 @@ public sealed class InboundPipelineTests
     public async Task Clean_message_sets_hard_taint_on_its_reader_session_before_the_reader_reads()
     {
         var h = new Harness();
-        h.Add("b1", Clean(body: _secretBody));
+        h.Add("b1", Clean(body: _privateBody));
 
         await h.PassAsync();
 
         Assert.Single(h.Reader.Started);
         Assert.Single(h.Reader.TaintedSessions);
         Assert.True(h.Reader.TaintWasHardBeforeRead);
-        Assert.Equal(_secretBody, Assert.Single(h.Reader.Inputs).TextBody!.Trim());
+        Assert.Equal(_privateBody, Assert.Single(h.Reader.Inputs).TextBody!.Trim());
         Assert.Single(h.Reader.Ended);
     }
 
@@ -76,8 +76,8 @@ public sealed class InboundPipelineTests
         Assert.Equal(1, notice.HeldCount);
         Assert.Equal(["AuthenticationFailed"], notice.ReasonCodes);
         var posted = h.Gc.Everything();
-        Assert.DoesNotContain(_secretBody, posted, StringComparison.Ordinal);
-        Assert.DoesNotContain(_secretSubject, posted, StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateBody, posted, StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateSubject, posted, StringComparison.Ordinal);
         Assert.DoesNotContain(_senderAddress, posted, StringComparison.Ordinal);
         Assert.DoesNotContain("sender.example.test", posted, StringComparison.Ordinal);
         var held = Assert.Single(await h.Quarantine.ListAsync(QuarantineState.Held, TestContext.Current.CancellationToken));
@@ -105,12 +105,12 @@ public sealed class InboundPipelineTests
     public async Task The_stored_body_is_sealed_never_the_clear_message()
     {
         var h = new Harness();
-        h.Add("b1", Clean(body: _secretBody));
+        h.Add("b1", Clean(body: _privateBody));
         await h.PassAsync();
 
         var stored = Assert.Single(h.Messages.Snapshot()).Message.Body;
 
-        Assert.DoesNotContain(_secretBody, Encoding.UTF8.GetString(stored.Ciphertext), StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateBody, Encoding.UTF8.GetString(stored.Ciphertext), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -239,7 +239,7 @@ public sealed class InboundPipelineTests
     {
         // IMAP marks mail seen when it is pulled: after a crash the back end returns nothing, and the stored row is all that is left.
         var h = new Harness();
-        h.Add("b1", Clean(body: _secretBody));
+        h.Add("b1", Clean(body: _privateBody));
         h.Reader.FailWith = new TimeoutException();
         await h.PassAsync();
         h.Backend.Queue.Clear();
@@ -249,7 +249,7 @@ public sealed class InboundPipelineTests
 
         Assert.Equal((0, 1, 0), (resumed.Pulled, resumed.Delivered, resumed.Deferred));
         Assert.Single(h.Gc.External);
-        Assert.Equal(_secretBody, h.Reader.Inputs[^1].TextBody!.Trim());
+        Assert.Equal(_privateBody, h.Reader.Inputs[^1].TextBody!.Trim());
     }
 
     [Fact]
@@ -420,7 +420,7 @@ public sealed class InboundPipelineTests
     public async Task Events_and_results_carry_ids_and_codes_only()
     {
         var h = new Harness();
-        h.Add("b1", Clean(subject: _secretSubject, body: _secretBody));
+        h.Add("b1", Clean(subject: _privateSubject, body: _privateBody));
         h.Add("b2", Failing("bad2@sender.example.test"), 1);
 
         var result = await h.PassAsync();
@@ -429,8 +429,8 @@ public sealed class InboundPipelineTests
         Assert.Contains(h.Events.Events, e => e.Kind == "delivered");
         Assert.Contains(h.Events.Events, e => e.Kind == "quarantined");
         Assert.DoesNotContain(_senderAddress, everything, StringComparison.Ordinal);
-        Assert.DoesNotContain(_secretBody, everything, StringComparison.Ordinal);
-        Assert.DoesNotContain(_secretSubject, everything, StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateBody, everything, StringComparison.Ordinal);
+        Assert.DoesNotContain(_privateSubject, everything, StringComparison.Ordinal);
     }
 
     [Fact]
