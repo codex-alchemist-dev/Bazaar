@@ -24,25 +24,37 @@ public sealed class GcMessageEditor(
     public async Task<GcMessageEditOutcome> EditAsync(GcMessageEdit request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var plan = await PlanAsync([request], ct).ConfigureAwait(false);
-        if (plan is GcMessageEditPlanRefused refused)
-            return refused.Outcome;
+        for (var attempt = 1; ; attempt++)
+        {
+            var plan = await PlanAsync([request], ct).ConfigureAwait(false);
+            if (plan is GcMessageEditPlanRefused refused)
+                return refused.Outcome;
 
-        var rows = ((GcMessageEditPlanned)plan).Rows;
-        try
-        {
-            var results = await writer.AppendManyAsync(rows, ct).ConfigureAwait(false);
-            return new GcMessageEditAccepted(((GcMessageEditPlanned)plan).Versions[0], results[0].Seq);
-        }
-        catch (GcNotFoundException)
-        {
-            return new GcMessageEditNotFound();
-        }
-        catch (GcArchivedException)
-        {
-            return new GcMessageEditRefused("The GC is archived.");
+            var rows = ((GcMessageEditPlanned)plan).Rows;
+            try
+            {
+                var results = await writer.AppendManyAsync(rows, ct).ConfigureAwait(false);
+                return new GcMessageEditAccepted(((GcMessageEditPlanned)plan).Versions[0], results[0].Seq);
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == Npgsql.PostgresErrorCodes.UniqueViolation
+                && ex.ConstraintName?.StartsWith("gc_message_version", StringComparison.Ordinal) == true && attempt < _maxPlanAttempts)
+            {
+                // Another edit of the same message committed between this plan's read and its write, so the planned version
+                // number is taken (the transaction rolled back, nothing was written). Plan again against the new current version.
+            }
+            catch (GcNotFoundException)
+            {
+                return new GcMessageEditNotFound();
+            }
+            catch (GcArchivedException)
+            {
+                return new GcMessageEditRefused("The GC is archived.");
+            }
         }
     }
+
+    // Concurrent edits of one message are rare; three plans cover a burst without looping forever.
+    private const int _maxPlanAttempts = 3;
 
     /// <inheritdoc />
     public async Task<GcMessageEditPlanResult> PlanAsync(IReadOnlyList<GcMessageEdit> edits, CancellationToken ct)

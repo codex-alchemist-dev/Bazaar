@@ -314,6 +314,25 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         Assert.Equal(later.N, await head.ExecuteScalarAsync(ct));
     }
 
+    // Chaos finding (crash-only campaign): two edits of one message planned against the same current version both chose the next
+    // version number; the second write hit the version key and the client got "internal" with an error-level stack in the log.
+    [Fact]
+    public async Task Concurrent_edits_of_one_message_all_land_with_contiguous_versions()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var author = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(author);
+        var connection = new FakeWireConnection(db.DataSource, author);
+        var sent = Decode<GcSendResult>(await SendAsync(connection, gc, "draft 0", "send-c1", ct: ct));
+        var messageId = await MessageIdAtSeqAsync(gc, sent.N);
+
+        var replies = await Task.WhenAll(Enumerable.Range(1, 3).Select(i => Task.Run(() => EditAsync(connection, gc, messageId, $"draft {i}", $"edit-c{i}"), ct)));
+
+        Assert.All(replies, r => Assert.True(r.IsOk));
+        Assert.Equal([2L, 3L, 4L], replies.Select(r => Decode<GcSendResult>(r).Ev).Order().ToArray());
+    }
+
     [Fact]
     public async Task Someone_who_is_not_the_author_cannot_edit_the_message()
     {
