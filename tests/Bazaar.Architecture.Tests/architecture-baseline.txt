@@ -1,12 +1,4 @@
 src/Bazaar.Client.Core/App.axaml.cs
-src/Bazaar.Client.Core/Chat/ChatConnection.cs
-src/Bazaar.Client.Core/Chat/ChatConnectionSettings.cs
-src/Bazaar.Client.Core/Chat/ChatLine.cs
-src/Bazaar.Client.Core/Chat/ChatMember.cs
-src/Bazaar.Client.Core/Chat/ChatTimeline.cs
-src/Bazaar.Client.Core/Chat/ChatView.axaml.cs
-src/Bazaar.Client.Core/Chat/ChatViewModel.cs
-src/Bazaar.Client.Core/Chat/GcChatSession.cs
 src/Bazaar.Client.Core/Commands/Command.cs
 src/Bazaar.Client.Core/Commands/CommandMatcher.cs
 src/Bazaar.Client.Core/Commands/CommandRecency.cs
@@ -21,8 +13,6 @@ src/Bazaar.Client.Core/Constellation/ConstellationPaneViewModel.cs
 src/Bazaar.Client.Core/Constellation/HttpConstellationTileSource.cs
 src/Bazaar.Client.Core/Constellation/IConstellationTileSource.cs
 src/Bazaar.Client.Core/Constellation/TileFrameDecoder.cs
-src/Bazaar.Client.Core/Gc/GcEntryBuilder.cs
-src/Bazaar.Client.Core/Gc/GcEntryViewModel.cs
 src/Bazaar.Client.Core/Input/KeyRouter.cs
 src/Bazaar.Client.Core/Input/KeyStroke.cs
 src/Bazaar.Client.Core/Input/Mnemonic.cs
@@ -48,8 +38,6 @@ src/Bazaar.Client.Core/Panes/DashboardPaneViewModel.cs
 src/Bazaar.Client.Core/Panes/EnginePaneView.cs
 src/Bazaar.Client.Core/Panes/EnginePaneViewModel.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs
-src/Bazaar.Client.Core/Panes/GcPaneModule.cs
-src/Bazaar.Client.Core/Panes/GcPaneViewModel.cs
 src/Bazaar.Client.Core/Panes/GenericPaneViewModel.cs
 src/Bazaar.Client.Core/Panes/IPaneModule.cs
 src/Bazaar.Client.Core/Panes/IPaneViewModel.cs

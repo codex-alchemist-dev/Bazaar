@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Avalonia.Controls;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Vault;
@@ -18,6 +17,7 @@ public static class FirstPartyPanes
 
     /// <summary>An empty GC model. The GC pane takes its content from the chat, not the descriptor.</summary>
     private static readonly JsonElement _emptyGcModel = JsonElement.Parse("{}");
+
     /// <summary>An empty Constellation model: no graph loaded yet.</summary>
     private static readonly JsonElement _emptyConstellationModel = JsonElement.Parse("{}");
 
@@ -31,21 +31,23 @@ public static class FirstPartyPanes
         new DashboardPaneModule(),
         new ConstellationPaneModule(),
         new VaultSearchPaneModule(),
-        new GcPaneModule(),
     ];
 
     /// <param name="modules">The pane modules the head ships, in pager order.</param>
     /// <param name="report">Called once per kind that falls back to the generic view.</param>
     /// <param name="tiles">The Constellation tile source the heads inject. Null leaves the pane without tile requests.</param>
     /// <param name="vault">The Vault API to use. Null builds one for <see cref="ClientServer.Current"/>.</param>
-    /// <param name="chat">The group chat the GC pane shows. Null when no session is connected; the pane then shows its empty state.</param>
+    /// <param name="configure">Adds the services a feature module reads from <see cref="PaneModuleContext.Get{T}"/>, for example the group chat the GC module shows. Null adds none.</param>
     public static PaneRegistry CreateRegistry(
         IEnumerable<IPaneModule> modules,
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
-        ChatViewModel? chat = null) =>
-        PaneRegistry.Compose(modules, new PaneModuleContext(tiles, vault, chat, report));
+        Func<PaneModuleContext, PaneModuleContext>? configure = null)
+    {
+        var context = new PaneModuleContext(tiles, vault, report);
+        return PaneRegistry.Compose(modules, configure is null ? context : configure(context));
+    }
 
     /// <summary>
     /// The panes the Windows head shows when started with <c>--panes</c>: the Kanban board and the Constellation
@@ -71,10 +73,10 @@ public static class FirstPartyPanes
 
         return kind =>
         {
-            if (kind == GcPaneViewModel.PaneKind)
+            if (kind == PaneKinds.Gc && registry.Contains(kind))
             {
-                // The GC pane has no model of its own: the registry's chat supplies it, or the pane shows its empty state.
-                return registry.CreateView(registry.Create(new PaneDescriptor(kind, GcPaneViewModel.DefaultTitle, string.Empty, _emptyGcModel)));
+                // The GC pane has no model of its own: the GC module's chat supplies it, or the pane shows its empty state.
+                return registry.CreateView(registry.Create(new PaneDescriptor(kind, string.Empty, string.Empty, _emptyGcModel)));
             }
 
             if (kind == PaneKinds.Kanban)

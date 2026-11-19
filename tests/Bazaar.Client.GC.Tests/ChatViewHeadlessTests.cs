@@ -2,13 +2,15 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Core;
 using Bazaar.Client.Core.Tests.Wire;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GC;
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Wire;
 using Bazaar.Testing;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.GC.Tests;
 
 public class ChatViewHeadlessTests
 {
@@ -25,7 +27,7 @@ public class ChatViewHeadlessTests
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://h/ws"), "t", _gc, "me"), timeline);
         var vm = new ChatViewModel(session);
 
-        var window = new MainWindow(vm);
+        var window = new MainWindow(new ChatView { DataContext = vm });
         window.Show();
 
         var lines = window.GetVisualDescendants().OfType<ListBox>().Single();

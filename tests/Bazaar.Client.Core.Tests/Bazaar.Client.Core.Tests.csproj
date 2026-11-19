@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Updates\Bazaar.Updates.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.GC\Bazaar.Client.GC.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Accessibility\Bazaar.Accessibility.csproj" />

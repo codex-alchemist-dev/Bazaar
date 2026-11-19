@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.GC;
 
 /// <summary>The group chat view: lines, a draft box and a send button. Its DataContext is a <see cref="ChatViewModel"/>.</summary>
 public sealed partial class ChatView : UserControl

@@ -1,6 +1,7 @@
-using Bazaar.Client.Core.Chat;
+using Bazaar.Client.GC;
+using Bazaar.Client.GC.Abstractions;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.GC.Tests;
 
 public class ChatConnectionSettingsTests
 {

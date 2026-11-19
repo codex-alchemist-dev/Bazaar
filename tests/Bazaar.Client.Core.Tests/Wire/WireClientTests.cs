@@ -30,7 +30,7 @@ public class WireClientTests : IAsyncLifetime
         await _cts.CancelAsync();
         await _run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         _cts.Dispose();
-        GC.SuppressFinalize(this);
+        System.GC.SuppressFinalize(this);
     }
 
     private static WireGcMessage Msg(long n, long ev, string text = "x") =>

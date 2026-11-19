@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.GC;
 
 /// <summary>What a chat head connects to and shows. Built from the environment; no I/O.</summary>
 /// <param name="Server">WebSocket endpoint, ws:// or wss://.</param>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <PackageReference Include="Avalonia.Skia" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The scripted wire transport is shared source with Client.Core.Tests, not a copy. -->
+    <Compile Include="..\Bazaar.Client.Core.Tests\Wire\FakeWireTransport.cs" Link="Shared\FakeWireTransport.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.GC\Bazaar.Client.GC.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.GC.Abstractions\Bazaar.Client.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+  </ItemGroup>
+</Project>

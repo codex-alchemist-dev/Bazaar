@@ -1,6 +1,7 @@
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Gc;
 
-namespace Bazaar.Client.Core.Gc;
+namespace Bazaar.Client.GC;
 
 /// <summary>
 /// Turns one GC's log rows into timeline entries for one viewer. Edits fold into their message, rows

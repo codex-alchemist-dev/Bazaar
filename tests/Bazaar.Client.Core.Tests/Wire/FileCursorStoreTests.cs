@@ -20,7 +20,7 @@ public sealed class FileCursorStoreTests : IDisposable
             Directory.Delete(_dir, recursive: true);
         }
 
-        GC.SuppressFinalize(this);
+        System.GC.SuppressFinalize(this);
     }
 
     [Fact]

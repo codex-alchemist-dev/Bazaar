@@ -1,4 +1,5 @@
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.GC;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 

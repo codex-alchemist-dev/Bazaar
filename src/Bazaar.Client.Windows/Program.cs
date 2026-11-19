@@ -5,12 +5,12 @@ using Avalonia.Threading;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GC;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Windows;
@@ -61,9 +61,9 @@ internal static class Program
         using var chatStop = new CancellationTokenSource();
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
-        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
+        // The RyuseiFuda board comes first, then the Client.Core panes, the GC pane, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, GcPanes.Module, .. RyuseiFudaPanes.Modules];
         var registry = FirstPartyPanes.CreateRegistry(
             modules,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
@@ -84,7 +84,7 @@ internal static class Program
                     TaskContinuationOptions.OnlyOnFaulted);
             }
 
-            var window = chatView is null ? new MainWindow() : new MainWindow(chatView);
+            var window = chatView is null ? new MainWindow() : new MainWindow(new ChatView { DataContext = chatView });
             if (preloadStart)
             {
                 // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).

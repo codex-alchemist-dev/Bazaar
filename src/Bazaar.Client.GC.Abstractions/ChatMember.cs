@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.GC.Abstractions;
 
 /// <summary>A display name for a principal the client knows about.</summary>
 /// <param name="Name">Display name.</param>

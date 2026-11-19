@@ -1,7 +1,7 @@
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Vault;
+using Bazaar.Client.GC;
 using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -10,12 +10,12 @@ namespace Bazaar.Client.Core.Tests.Panes;
 internal static class TestPanes
 {
     public static IReadOnlyList<IPaneModule> Modules { get; } =
-        [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, GcPanes.Module, .. RyuseiFudaPanes.Modules];
 
     public static PaneRegistry CreateRegistry(
         Action<string>? report = null,
         IConstellationTileSource? tiles = null,
         VaultApi? vault = null,
         ChatViewModel? chat = null) =>
-        FirstPartyPanes.CreateRegistry(Modules, report, tiles, vault, chat);
+        FirstPartyPanes.CreateRegistry(Modules, report, tiles, vault, context => context.WithChat(chat));
 }

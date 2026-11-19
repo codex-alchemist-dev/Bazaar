@@ -1,11 +1,12 @@
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Tests.Wire;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GC;
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Testing;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.GC.Tests;
 
 public class GcChatSessionTests : IAsyncLifetime
 {
@@ -31,7 +32,7 @@ public class GcChatSessionTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         await _session.DisposeAsync();
-        GC.SuppressFinalize(this);
+        System.GC.SuppressFinalize(this);
     }
 
     private static WireGcMessage Msg(long n, long ev, string text) =>

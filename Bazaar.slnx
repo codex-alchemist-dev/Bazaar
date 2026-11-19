@@ -15,6 +15,8 @@
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Michi/Bazaar.Michi.csproj" />
     <Project Path="src/Bazaar.Client.LocalInference/Bazaar.Client.LocalInference.csproj" />
+    <Project Path="src/Bazaar.Client.GC/Bazaar.Client.GC.csproj" />
+    <Project Path="src/Bazaar.Client.GC.Abstractions/Bazaar.Client.GC.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.RyuseiFuda/Bazaar.Client.RyuseiFuda.csproj" />
     <Project Path="src/Bazaar.Client.Views/Bazaar.Client.Views.csproj" />
     <Project Path="src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj" />
@@ -134,6 +136,7 @@
     <Project Path="tests/Bazaar.Server.Remote.Tests/Bazaar.Server.Remote.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.GC.Tests/Bazaar.Client.GC.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />

@@ -1,7 +1,7 @@
-using Bazaar.Client.Core.Gc;
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Gc;
 
-namespace Bazaar.Client.Core.Tests.Gc;
+namespace Bazaar.Client.GC.Tests;
 
 public class GcEntryBuilderTests
 {

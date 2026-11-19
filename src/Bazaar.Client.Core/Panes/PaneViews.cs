@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Constellation;
 
 namespace Bazaar.Client.Core.Panes;
@@ -29,17 +28,6 @@ public static class PaneViews
             body,
         },
     };
-
-    internal static Control GcPane(GcPaneViewModel gc)
-    {
-        if (gc.Chat is null)
-        {
-            return new TextBlock { Text = "No group chat is connected.", Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
-        }
-
-        // A fixed height gives the chat's message list a bounded area inside the stacked pane.
-        return new Border { Height = 480, Child = new ChatView { DataContext = gc.Chat } };
-    }
 
     internal static StackPanel Dashboard(DashboardPaneViewModel dashboard)
     {

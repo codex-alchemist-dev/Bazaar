@@ -1,7 +1,7 @@
-using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Contracts.Panes;
 
-namespace Bazaar.Client.Core.Panes;
+namespace Bazaar.Client.GC;
 
 /// <summary>
 /// The GC pane (pane id <c>bazaar.gc</c>). Wraps the existing group chat view. The chat comes from a live session when
@@ -9,8 +9,8 @@ namespace Bazaar.Client.Core.Panes;
 /// </summary>
 public sealed class GcPaneViewModel : IPaneViewModel
 {
-    /// <summary>Pane id of the GC pane. Kept here until <c>PaneKinds</c> in Bazaar.Contracts takes it.</summary>
-    public const string PaneKind = "bazaar.gc";
+    /// <summary>Pane id of the GC pane (<see cref="Bazaar.Contracts.Panes.PaneKinds.Gc"/>).</summary>
+    public const string PaneKind = Bazaar.Contracts.Panes.PaneKinds.Gc;
 
     /// <summary>Heading used when the descriptor carries no title.</summary>
     public const string DefaultTitle = "GCs";

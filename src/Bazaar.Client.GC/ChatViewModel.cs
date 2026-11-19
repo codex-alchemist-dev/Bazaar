@@ -2,8 +2,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GC.Abstractions;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.GC;
 
 /// <summary>
 /// State behind the chat view: the lines, the draft and the status. Pure apart from the injected dispatcher, so

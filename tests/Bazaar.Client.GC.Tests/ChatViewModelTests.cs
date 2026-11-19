@@ -1,11 +1,12 @@
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Tests.Wire;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GC;
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Testing;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.GC.Tests;
 
 public class ChatViewModelTests
 {

@@ -1,7 +1,8 @@
-using Bazaar.Client.Core.Chat;
+using Bazaar.Client.GC;
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Wire;
 
-namespace Bazaar.Client.Core.Tests.Chat;
+namespace Bazaar.Client.GC.Tests;
 
 public class ChatTimelineTests
 {

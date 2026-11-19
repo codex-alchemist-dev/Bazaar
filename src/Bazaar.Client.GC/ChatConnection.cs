@@ -1,7 +1,8 @@
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.GC.Abstractions;
 using Bazaar.Contracts.Wire.Codec;
 
-namespace Bazaar.Client.Core.Chat;
+namespace Bazaar.Client.GC;
 
 /// <summary>Builds the chat session every desktop head uses: JSON over WebSocket, with the head's cursor store.</summary>
 public static class ChatConnection

@@ -18,6 +18,9 @@ public static class PaneKinds
     /// <summary>Kanban dependency board (doc 12).</summary>
     public const string Kanban = "bazaar.kanban";
 
+    /// <summary>Group chat pane (doc 27).</summary>
+    public const string Gc = "bazaar.gc";
+
     /// <summary>Start-screen dashboard of what changed while away (CLAUDE.md, client start screen).</summary>
     public const string Dashboard = "bazaar.dashboard";
 
