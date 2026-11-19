@@ -7,5 +7,6 @@
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmTransport\Bazaar.Server.VmTransport.csproj" />
   </ItemGroup>
 </Project>

@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Guest.Agent\Bazaar.Guest.Agent.csproj" />
   </ItemGroup>
 </Project>
