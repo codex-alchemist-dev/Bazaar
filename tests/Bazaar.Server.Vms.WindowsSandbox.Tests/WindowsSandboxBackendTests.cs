@@ -225,6 +225,18 @@ public sealed class WindowsSandboxBackendTests : IDisposable
     }
 
     [Fact]
+    public void The_agent_folder_is_the_only_mapped_folder_and_is_read_only()
+    {
+        var xml = WindowsSandboxConfig.Build(WindowsSpec(), WindowsSandboxNetworking.Disable, @"D:\bazaar\agent");
+
+        var folder = Assert.Single(System.Xml.Linq.XElement.Parse(xml).Element("MappedFolders")!.Elements("MappedFolder"));
+        Assert.Equal(@"D:\bazaar\agent", folder.Element("HostFolder")!.Value);
+        Assert.Equal(WindowsSandboxConfig.GuestAgentFolder, folder.Element("SandboxFolder")!.Value);
+        Assert.Equal("true", folder.Element("ReadOnly")!.Value);
+        Assert.Null(System.Xml.Linq.XElement.Parse(xml).Element("LogonCommand"));
+    }
+
+    [Fact]
     public void Config_builder_rejects_a_non_positive_memory_size()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => WindowsSandboxConfig.Build(WindowsSpec(memoryMb: 0), WindowsSandboxNetworking.Disable));
