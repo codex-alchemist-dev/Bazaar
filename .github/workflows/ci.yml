@@ -1,4 +1,7 @@
-# CI for Bazaar. Runs on GitHub-hosted runners only (public repo: never self-hosted).
+# CI for Bazaar. Runs on GitHub-hosted runners, except that required jobs go to the owner's self-hosted
+# runners (labels bazaar-win, bazaar-linux, bazaar-linux-pg) when the run was started by the owner account
+# (github.actor and triggering_actor are Cookiesmuch) and, for pull requests, the head branch is in this
+# repository. Fork PRs and every other actor stay on hosted runners and never reach the owner's machine.
 #
 # Every third-party action is pinned to a full commit SHA; the version tag is
 # kept in a trailing comment. Dependabot (github-actions ecosystem) proposes
@@ -31,7 +34,7 @@ jobs:
   # Do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
     name: Build and test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(matrix.os == 'windows-latest' && '["self-hosted","bazaar-win"]' || '["self-hosted","bazaar-linux-pg"]') || matrix.os }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -69,6 +72,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
+          docker rm -f bazaar-pg >/dev/null 2>&1 || true
           docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             pgvector/pgvector:pg18
@@ -225,7 +229,7 @@ jobs:
 
   secret-scan:
     name: Secret scan (full history)
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -270,7 +274,7 @@ jobs:
   # Not required until PostgreSQL 19 is GA; then drop continue-on-error and add it to branch protection.
   build-test-pg19:
     name: Build and test (Linux, PostgreSQL 19 RC)
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     continue-on-error: true
     permissions:
@@ -303,6 +307,7 @@ jobs:
       - name: Build and start PostgreSQL 19 RC with pgvector
         run: |
           set -euo pipefail
+          docker rm -f bazaar-pg >/dev/null 2>&1 || true
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
           docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
