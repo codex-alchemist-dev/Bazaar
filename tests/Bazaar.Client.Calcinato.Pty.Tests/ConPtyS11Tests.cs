@@ -31,6 +31,14 @@ public sealed class ConPtyS11Tests
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Any(dir => File.Exists(Path.Combine(dir, exe)));
 
+    // A slow runner can still be starting the shell when the first input arrives, and input typed before the
+    // shell has drawn its prompt is lost. Wait for the banner, then give the shell a moment to draw its prompt.
+    private static async Task WaitUntilReadyAsync(PtyTranscript transcript, string shell)
+    {
+        Assert.True(await transcript.WaitForAsync(shell == "cmd.exe" ? "Microsoft Windows" : "PowerShell", _wait), transcript.Text);
+        await Task.Delay(2000, TestContext.Current.CancellationToken);
+    }
+
     private static byte[] Line(string text) => System.Text.Encoding.UTF8.GetBytes(text + "\r");
 
     // Each marker is typed in a form that does not contain the text it prints, so the echo of the input never matches.
@@ -53,6 +61,8 @@ public sealed class ConPtyS11Tests
         await using var session = new ConPtyBackend().Open(new TerminalSpec(shell, 100, 30));
         await using var transcript = new PtyTranscript(session);
 
+        await WaitUntilReadyAsync(transcript, shell);
+
         await session.WriteAsync(Line(ColourCommand(shell)), TestContext.Current.CancellationToken);
 
         // ConPTY re-renders attributes, so accept the SGR forms it emits: basic, 256-colour or true colour red.
@@ -70,10 +80,7 @@ public sealed class ConPtyS11Tests
         await using var session = new ConPtyBackend().Open(new TerminalSpec(shell, 80, 25));
         await using var transcript = new PtyTranscript(session);
 
-        // A slow runner can still be starting pwsh when the resize and command arrive, and that input is lost.
-        // Wait for the shell's banner, then give it a moment to draw its prompt.
-        Assert.True(await transcript.WaitForAsync(shell == "cmd.exe" ? "Microsoft Windows" : "PowerShell", _wait), transcript.Text);
-        await Task.Delay(2000, TestContext.Current.CancellationToken);
+        await WaitUntilReadyAsync(transcript, shell);
 
         session.Resize(100, 30);
         await session.WriteAsync(Line(SizeCommand(shell)), TestContext.Current.CancellationToken);
@@ -94,6 +101,8 @@ public sealed class ConPtyS11Tests
         RequireConPty(shell);
         await using var session = new ConPtyBackend().Open(new TerminalSpec(shell, 100, 30));
         await using var transcript = new PtyTranscript(session);
+
+        await WaitUntilReadyAsync(transcript, shell);
 
         await session.WriteAsync(Line("ping -t 127.0.0.1"), TestContext.Current.CancellationToken);
         Assert.True(await transcript.WaitForAsync("Reply from", _wait), transcript.Text);
@@ -120,6 +129,7 @@ public sealed class ConPtyS11Tests
         var session = new ConPtyBackend().Open(new TerminalSpec(shell, 100, 30));
         await using (var transcript = new PtyTranscript(session))
         {
+            await WaitUntilReadyAsync(transcript, shell);
             await session.WriteAsync(Line("ping -t 127.0.0.1"), TestContext.Current.CancellationToken);
             Assert.True(await transcript.WaitForAsync("Reply from", _wait), transcript.Text);
 
