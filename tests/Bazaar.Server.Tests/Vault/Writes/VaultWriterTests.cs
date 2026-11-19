@@ -174,6 +174,40 @@ public sealed class VaultWriterTests : IDisposable
         Assert.Equal(second.NewCommit, TempGitRepository.HeadOf(_repo.Checkout));
     }
 
+    [Fact]
+    public async Task A_failed_decision_commit_leaves_no_file_behind_and_the_number_is_reused()
+    {
+        // A stale index.lock (a crashed writer) makes the commit fail after the file was written.
+        string metaDir;
+        using (var repo = new Repository(_repo.Checkout))
+        {
+            metaDir = repo.Info.Path;
+        }
+
+        var lockPath = Path.Combine(metaDir, "index.lock");
+        await File.WriteAllTextAsync(lockPath, string.Empty, TestContext.Current.CancellationToken);
+        try
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() => _writer.CreateDecisionAsync(
+                new DecisionDraft(Guid.NewGuid(), "use-postgres", "Use PostgreSQL", "We keep Postgres.", "agent-ana"),
+                CancellationToken.None));
+        }
+        finally
+        {
+            File.Delete(lockPath);
+        }
+
+        Assert.Equal(0, TempGitRepository.DirtyEntryCount(_repo.Checkout));
+
+        var retry = await _writer.CreateDecisionAsync(
+            new DecisionDraft(Guid.NewGuid(), "vault-in-git", "Vault in git", "Markdown in git.", "agent-ana"),
+            CancellationToken.None);
+
+        Assert.Equal(1, retry.DecisionNumber);
+        Assert.Single(Directory.EnumerateFiles(Path.Combine(_repo.Checkout, "decisions")));
+        Assert.Equal(0, TempGitRepository.DirtyEntryCount(_repo.Checkout));
+    }
+
     [Theory]
     [InlineData("Bad_Slug")]
     [InlineData("double--hyphen")]
