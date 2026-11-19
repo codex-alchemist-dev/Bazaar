@@ -36,6 +36,9 @@ public sealed record LinuxUpdaterSettings
     /// <summary>True on the owner's install. <see cref="ReleaseChannels.LatestCommit"/> is refused everywhere else (doc 30 section 5).</summary>
     public bool IsOwnerInstall { get; init; }
 
+    /// <summary>Setting <c>update.skip_versions</c>: SemVer versions that are never offered or installed. Default empty.</summary>
+    public IReadOnlyList<string> SkipVersions { get; init; } = [];
+
     /// <summary>Setting <c>update.gpg_path</c>: the <c>gpg</c> executable. Default <c>gpg</c> on the PATH.</summary>
     public string GpgPath { get; init; } = "gpg";
 

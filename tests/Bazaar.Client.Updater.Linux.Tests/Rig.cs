@@ -81,6 +81,17 @@ internal sealed class FakeGpg : IProcessRunner
     }
 }
 
+internal sealed class FakeCompat : IClientCompatibility
+{
+    public string RunningProtocol { get; set; } = "1.0";
+
+    public string ServerProtocol { get; set; } = "1.0";
+
+    public bool ServerAcceptsPreviousMajor { get; set; } = true;
+
+    public string ServerSchemaVersion { get; set; } = "1";
+}
+
 /// <summary>An updater wired to in-memory fakes, with helpers to publish releases.</summary>
 internal sealed class Rig
 {
@@ -110,9 +121,11 @@ internal sealed class Rig
 
     public FakeGpg Gpg { get; }
 
+    public FakeCompat Compat { get; } = new();
+
     public LinuxUpdaterSettings Settings { get; set; }
 
-    public LinuxUpdater Updater => new(Settings, Source, Fs, Gpg, new FixedClock());
+    public LinuxUpdater Updater => new(Settings, Source, Fs, Gpg, new FixedClock(), Compat);
 
     public static string Hex(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
@@ -128,7 +141,10 @@ internal sealed class Rig
         byte[]? servedTarball = null,
         byte[]? signature = null,
         string architecture = ReleaseArtifact.ArchLinuxX64,
-        string format = ReleaseArtifact.FormatTarGz)
+        string format = ReleaseArtifact.FormatTarGz,
+        string minProtocol = "1.0",
+        string maxProtocol = "1.0",
+        string schema = "1")
     {
         tarball ??= TarBuilder.Release(version);
         string baseUrl = $"https://company.example/updates/Bazaar-{version}-{architecture}";
@@ -139,7 +155,7 @@ internal sealed class Rig
         Source.Files[artifact.Url] = servedTarball ?? tarball;
         Source.Files[artifact.Sha256Url] = Encoding.ASCII.GetBytes(shaFileText ?? $"{hash}  Bazaar-{version}.tar.gz\n");
         Source.Files[artifact.SignatureUrl] = signature ?? Encoding.ASCII.GetBytes("-----BEGIN PGP SIGNATURE-----");
-        var manifest = new ReleaseManifest(channel, version, "1.0", "1.0", "1", fingerprint ?? Fingerprint, [artifact]);
+        var manifest = new ReleaseManifest(channel, version, minProtocol, maxProtocol, schema, fingerprint ?? Fingerprint, [artifact]);
         Source.Manifest = manifest;
         return manifest;
     }

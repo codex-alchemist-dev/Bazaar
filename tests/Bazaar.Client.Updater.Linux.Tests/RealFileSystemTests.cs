@@ -20,7 +20,7 @@ public sealed class RealFileSystemTests : IDisposable
         var rig = new Rig(installed);
         rig.Settings = rig.Settings with { InstallRoot = Path.Combine(_root, "install") };
         Directory.CreateDirectory(rig.Settings.InstallRoot);
-        return (new LinuxUpdater(rig.Settings, rig.Source, new PhysicalUpdateFileSystem(), rig.Gpg, new FixedClock()), rig);
+        return (new LinuxUpdater(rig.Settings, rig.Source, new PhysicalUpdateFileSystem(), rig.Gpg, new FixedClock(), rig.Compat), rig);
     }
 
     private string Install => Path.Combine(_root, "install");
@@ -49,7 +49,7 @@ public sealed class RealFileSystemTests : IDisposable
         var (_, rig) = Wire("0.1.0");
         var fs = new PhysicalUpdateFileSystem();
         rig.Publish("0.2.0");
-        Assert.Equal(UpdateStatus.Installed, (await new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock()).ApplyAsync(TestContext.Current.CancellationToken)).Status);
+        Assert.Equal(UpdateStatus.Installed, (await new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock(), rig.Compat).ApplyAsync(TestContext.Current.CancellationToken)).Status);
 
         string exe = Path.Combine(Install, "current", "Bazaar");
         int misses = 0;
@@ -80,7 +80,7 @@ public sealed class RealFileSystemTests : IDisposable
             string version = "0." + i + ".0";
             rig.Settings = rig.Settings with { InstalledVersion = installed };
             rig.Publish(version);
-            var updater = new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock());
+            var updater = new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock(), rig.Compat);
             Assert.Equal(UpdateStatus.Installed, (await updater.ApplyAsync(TestContext.Current.CancellationToken)).Status);
             Assert.Equal(UpdateStatus.RolledBack, updater.Rollback().Status);
             Assert.Equal(UpdateStatus.RolledBack, updater.Rollback().Status);
@@ -121,6 +121,31 @@ public sealed class RealFileSystemTests : IDisposable
 
         Assert.Equal(UpdateStatus.ExtractionRejected, result.Status);
         Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+    }
+
+    [LinuxFact]
+    public async Task The_rollback_record_is_persisted_on_disk_and_blocks_the_version_after_a_restart()
+    {
+        var (_, rig) = Wire("0.1.0");
+        var fs = new PhysicalUpdateFileSystem();
+        foreach (string v in new[] { "0.2.0", "0.3.0" })
+        {
+            rig.Publish(v);
+            var updater = new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock(), rig.Compat);
+            Assert.Equal(UpdateStatus.Installed, (await updater.ApplyAsync(TestContext.Current.CancellationToken)).Status);
+            rig.Settings = rig.Settings with { InstalledVersion = v };
+        }
+
+        Assert.Equal(UpdateStatus.RolledBack, new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock(), rig.Compat).Rollback().Status);
+        rig.Settings = rig.Settings with { InstalledVersion = "0.2.0" };
+
+        string record = Path.Combine(Install, "rolled-back.json");
+        Assert.Equal("{\"version\":\"0.3.0\"}", File.ReadAllText(record));
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(record));
+        Assert.DoesNotContain(Directory.EnumerateFileSystemEntries(Install), p => p.Contains(".tmp-", StringComparison.Ordinal));
+        rig.Publish("0.3.0");
+        var restarted = new LinuxUpdater(rig.Settings, rig.Source, fs, rig.Gpg, new FixedClock(), rig.Compat);
+        Assert.Equal(UpdateStatus.VersionSkipped, (await restarted.CheckAsync(TestContext.Current.CancellationToken)).Status);
     }
 
     [LinuxFact]
@@ -212,7 +237,7 @@ public sealed class RealGpgTests : IDisposable
         var rig = new Rig();
         rig.Settings = rig.Settings with { InstallRoot = install, PinnedKeyFingerprint = fingerprint, PinnedKeyPath = keyFile };
         rig.Publish("0.2.0", tarball: tarball, fingerprint: manifestFingerprint, signature: signature);
-        return (new LinuxUpdater(rig.Settings, rig.Source, new PhysicalUpdateFileSystem(), new SystemProcessRunner(), new FixedClock()), install);
+        return (new LinuxUpdater(rig.Settings, rig.Source, new PhysicalUpdateFileSystem(), new SystemProcessRunner(), new FixedClock(), rig.Compat), install);
     }
 
     [LinuxFact]

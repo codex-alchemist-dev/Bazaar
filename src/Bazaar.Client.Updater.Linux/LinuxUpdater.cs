@@ -25,22 +25,27 @@ public sealed class LinuxUpdater : ILinuxUpdater
     private readonly IUpdateFileSystem _fs;
     private readonly IProcessRunner _runner;
     private readonly TimeProvider _clock;
+    private readonly IClientCompatibility _compat;
+    private readonly RollbackRecord _record;
 
     /// <summary>Creates the updater.</summary>
     /// <exception cref="ArgumentException">A setting is missing or malformed.</exception>
-    public LinuxUpdater(LinuxUpdaterSettings settings, IReleaseSource source, IUpdateFileSystem fs, IProcessRunner runner, TimeProvider clock)
+    public LinuxUpdater(LinuxUpdaterSettings settings, IReleaseSource source, IUpdateFileSystem fs, IProcessRunner runner, TimeProvider clock, IClientCompatibility compat)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(fs);
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(compat);
         Validate(settings);
         _settings = settings;
         _source = source;
         _fs = fs;
         _runner = runner;
         _clock = clock;
+        _compat = compat;
+        _record = new RollbackRecord(fs, settings.InstallRoot);
     }
 
     private string Root => _settings.InstallRoot;
@@ -146,6 +151,11 @@ public sealed class LinuxUpdater : ILinuxUpdater
                 return Result(UpdateStatus.NothingToRollBack, null, "There is no previous release.");
             }
 
+            if (current is not null && TryVersionOf(current, out string? from))
+            {
+                _record.Write(from); // First: a crash after this leaves current alone and only blocks re-offers.
+            }
+
             PointLink(CurrentLink, previous);
             if (current is not null)
             {
@@ -176,6 +186,16 @@ public sealed class LinuxUpdater : ILinuxUpdater
         if (_settings.Channel == ReleaseChannels.LatestCommit && !_settings.IsOwnerInstall)
         {
             return new Plan(Result(UpdateStatus.ChannelRefused, null, "Latest-Commit is owner-only."));
+        }
+
+        string? rolledBackFrom;
+        try
+        {
+            rolledBackFrom = _record.Read();
+        }
+        catch (RollbackRecordException e)
+        {
+            return new Plan(Result(UpdateStatus.SkipRecordInvalid, null, e.Message));
         }
 
         ReleaseManifest? manifest;
@@ -210,6 +230,16 @@ public sealed class LinuxUpdater : ILinuxUpdater
             return new Plan(Result(UpdateStatus.UpToDate, version, "Already on this version."));
         }
 
+        if (IsSkipped(version, rolledBackFrom))
+        {
+            return new Plan(Result(UpdateStatus.VersionSkipped, version, $"{version} is skipped by update.skip_versions or was rolled back from; a newer release is needed."));
+        }
+
+        if (CheckCompatibility(manifest) is { } incompatible)
+        {
+            return new Plan(Result(incompatible.Status, version, incompatible.Detail));
+        }
+
         var artifact = manifest.Find(_settings.Architecture, ReleaseArtifact.FormatTarGz);
         if (artifact is null)
         {
@@ -227,6 +257,62 @@ public sealed class LinuxUpdater : ILinuxUpdater
         }
 
         return new Plan(Result(UpdateStatus.Available, version, "An update is available."), manifest, artifact);
+    }
+
+    private bool IsSkipped(string version, string? rolledBackFrom) =>
+        _settings.SkipVersions.Any(v => SemVerPrecedence.Compare(v, version) == 0)
+        || (rolledBackFrom is not null && SemVerPrecedence.Compare(version, rolledBackFrom) <= 0);
+
+    /// <summary>
+    /// Doc 02: versions are major.minor, minors only add, the server accepts its current major and, when
+    /// <c>wire.previous_major_supported</c>, the previous one. The build speaks every protocol from its min to its max.
+    /// Doc 04: the server runs only on its own schema, so the build must need exactly that schema.
+    /// </summary>
+    private UpdateFailure? CheckCompatibility(ReleaseManifest manifest)
+    {
+        if (!TryProtocol(_compat.RunningProtocol, out var running) || !TryProtocol(_compat.ServerProtocol, out var server)
+            || string.IsNullOrWhiteSpace(_compat.ServerSchemaVersion))
+        {
+            return new UpdateFailure(UpdateStatus.CompatibilityUnknown, "The client's protocol or the server's protocol or schema is not known.");
+        }
+
+        var min = Version.Parse(manifest.MinProtocol); // Validated by the manifest contract.
+        var max = Version.Parse(manifest.MaxProtocol);
+
+        if (max < running)
+        {
+            return new UpdateFailure(UpdateStatus.ProtocolDowngradeRefused, $"The build speaks up to protocol {manifest.MaxProtocol}, below the running {_compat.RunningProtocol}.");
+        }
+
+        int lowestAccepted = _compat.ServerAcceptsPreviousMajor && server.Major > 0 ? server.Major - 1 : server.Major;
+        if (max.Major < lowestAccepted)
+        {
+            return new UpdateFailure(UpdateStatus.ProtocolBuildTooOld, $"The server (protocol {_compat.ServerProtocol}) would refuse this build with upgrade_required (4426).");
+        }
+
+        if (min.Major > server.Major)
+        {
+            return new UpdateFailure(UpdateStatus.ProtocolBuildTooNew, $"The build needs protocol {manifest.MinProtocol} or later; upgrade the server (protocol {_compat.ServerProtocol}) first.");
+        }
+
+        return manifest.SchemaVersion == _compat.ServerSchemaVersion
+            ? null
+            : new UpdateFailure(UpdateStatus.SchemaMismatch, $"The build needs schema {manifest.SchemaVersion}; the server is at {_compat.ServerSchemaVersion}.");
+    }
+
+    private static bool TryProtocol(string? text, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Version? version)
+    {
+        version = null;
+        string[] parts = (text ?? string.Empty).Split('.');
+        if (parts.Length != 2
+            || !int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int major)
+            || !int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int minor))
+        {
+            return false;
+        }
+
+        version = new Version(major, minor);
+        return true;
     }
 
     /// <summary>Downloads one file into the staging area, never more than <paramref name="maxBytes"/>.</summary>
@@ -370,6 +456,11 @@ public sealed class LinuxUpdater : ILinuxUpdater
         if (string.IsNullOrWhiteSpace(s.PinnedKeyPath) || string.IsNullOrWhiteSpace(s.GpgPath))
         {
             throw new ArgumentException("PinnedKeyPath and GpgPath are required.", nameof(s));
+        }
+
+        if (s.SkipVersions is null || s.SkipVersions.Any(v => !SemVerPrecedence.TryParse(v, out _, out _)))
+        {
+            throw new ArgumentException("SkipVersions must hold SemVer versions.", nameof(s));
         }
 
         if (s.MaxPackageBytes < 1 || s.MaxExtractedBytes < 1 || s.MaxArchiveEntries < 1 || s.GpgTimeout <= TimeSpan.Zero)

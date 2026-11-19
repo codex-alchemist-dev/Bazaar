@@ -528,7 +528,7 @@ public class LinuxUpdaterTests
     }
 
     [Fact]
-    public async Task Reinstalling_a_version_that_was_rolled_back_from_works()
+    public async Task A_fixed_build_with_a_newer_version_installs_after_a_rollback()
     {
         var rig = new Rig();
         foreach (string v in new[] { "0.2.0", "0.3.0" })
@@ -540,12 +540,13 @@ public class LinuxUpdaterTests
 
         rig.Updater.Rollback();
         rig.Settings = rig.Settings with { InstalledVersion = "0.2.0" };
-        rig.Publish("0.3.0", tarball: TarBuilder.Release("fixed"));
+        rig.Publish("0.3.1", tarball: TarBuilder.Release("fixed"));
 
         Assert.Equal(UpdateStatus.Installed, (await rig.Updater.ApplyAsync(_ct)).Status);
-        Assert.Equal("releases/0.3.0", rig.Current);
+        Assert.Equal("releases/0.3.1", rig.Current);
         Assert.Equal("releases/0.2.0", rig.Previous);
-        Assert.Equal("dll-fixed", Encoding.UTF8.GetString(rig.Fs.Content(Rig.Root + "/releases/0.3.0/lib/core.dll")!));
+        Assert.Equal("dll-fixed", Encoding.UTF8.GetString(rig.Fs.Content(Rig.Root + "/releases/0.3.1/lib/core.dll")!));
+        Assert.False(rig.Fs.Exists(Rig.Root + "/releases/0.3.0"));
     }
 
     // ---- settings ----
@@ -566,7 +567,7 @@ public class LinuxUpdaterTests
             PinnedKeyFingerprint = new string('a', fingerprintLength),
         };
 
-        Assert.Throws<ArgumentException>(() => new LinuxUpdater(settings, rig.Source, rig.Fs, rig.Gpg, new FixedClock()));
+        Assert.Throws<ArgumentException>(() => new LinuxUpdater(settings, rig.Source, rig.Fs, rig.Gpg, new FixedClock(), rig.Compat));
     }
 
     [Fact]
@@ -575,7 +576,7 @@ public class LinuxUpdaterTests
         var rig = new Rig();
         var settings = rig.Settings with { PinnedKeyFingerprint = new string('A', 40) };
 
-        Assert.Throws<ArgumentException>(() => new LinuxUpdater(settings, rig.Source, rig.Fs, rig.Gpg, new FixedClock()));
+        Assert.Throws<ArgumentException>(() => new LinuxUpdater(settings, rig.Source, rig.Fs, rig.Gpg, new FixedClock(), rig.Compat));
     }
 
     [Fact]

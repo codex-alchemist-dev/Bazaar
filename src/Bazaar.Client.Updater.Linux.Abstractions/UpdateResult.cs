@@ -30,6 +30,27 @@ public enum UpdateStatus
     /// <summary>The offered version is older than the installed one.</summary>
     DowngradeRefused,
 
+    /// <summary>The version is in <c>update.skip_versions</c>, or is not newer than the version the install was last rolled back from.</summary>
+    VersionSkipped,
+
+    /// <summary>The persisted rollback record is unreadable. Every check and install is refused until it is fixed.</summary>
+    SkipRecordInvalid,
+
+    /// <summary>The caller's compatibility values are missing or malformed. Fails closed.</summary>
+    CompatibilityUnknown,
+
+    /// <summary>The build's highest protocol is below the one the running build speaks.</summary>
+    ProtocolDowngradeRefused,
+
+    /// <summary>The build's protocol majors are all below what the server accepts; the server would answer <c>upgrade_required</c> (4426).</summary>
+    ProtocolBuildTooOld,
+
+    /// <summary>The build's lowest protocol major is above the server's; the server must be upgraded first.</summary>
+    ProtocolBuildTooNew,
+
+    /// <summary>The build needs a database schema other than the one the server is at.</summary>
+    SchemaMismatch,
+
     /// <summary>The release has no <c>tar.gz</c> for this architecture.</summary>
     NoArtifact,
 
