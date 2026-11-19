@@ -27,7 +27,7 @@ public sealed class HostApplicationTests
             var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
+                ["Bazaar:Host:DataRoot"] = Path.Combine(Path.GetTempPath(), "bazaar-host-test-" + Guid.NewGuid().ToString("N")),
                 ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + dbEnv,
                 ["Bazaar:DevAuth:Enabled"] = "true",
                 ["Bazaar:DevAuth:TokenSecret"] = "env:" + tokenEnv,
