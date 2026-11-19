@@ -49,6 +49,22 @@ signal to file a follow-up, not a blocked merge. It also writes a report of
 outdated and prerelease NuGet packages to the job summary. See
 `docs/FORWARD-FACING.md` for what it covers and what is still to be added.
 
+## Branch cleanup
+
+`branch-cleanup.yml` runs daily and on demand. It lists branches and pull requests
+(`gh api` REST) and deletes the heads of merged PRs, plus branches with no PR or a
+closed-unmerged PR whose last commit is older than `stale_days` (default 14). It always
+keeps the default branch, `release/*`, protected branches, `claude/project-thread-2xmtpj`,
+heads and bases of open PRs, and anything matching the repo variable `EXCLUDE_BRANCH_REGEX`.
+A merged-PR head with commits newer than the merge is treated as stale-by-age instead.
+
+Manual runs default to `dry_run: true`. Scheduled runs delete only when the repo variable
+`BRANCH_CLEANUP_ENABLED` is `true`; otherwise they dry-run. Every run writes the plan,
+with each branch's tip SHA, to the job summary and the `branch-cleanup-report` artifact.
+Restore a branch with `git push origin <sha>:refs/heads/<name>`. Deletions are capped by
+`max_deletes` (default 500) per run. The workflow also tries to turn on "Automatically
+delete head branches"; if the token lacks admin, toggle it in Settings > General.
+
 ## Local checks
 
 Before pushing, run `./build.sh` (Linux) or `./build.ps1` (Windows), and
