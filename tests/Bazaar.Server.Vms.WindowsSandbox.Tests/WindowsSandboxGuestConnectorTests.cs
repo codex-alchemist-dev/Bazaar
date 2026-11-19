@@ -126,3 +126,54 @@ public sealed class WindowsSandboxGuestConnectorTests : IAsyncDisposable
         public Task<Guid> FindRunningAsync(CancellationToken ct) => throw new WindowsSandboxVmIdException("none");
     }
 }
+
+/// <summary>The real thing, opt-in on the owner's PC (spike S-WSB step 9). Needs an elevated process and a published agent.</summary>
+public sealed class WindowsSandboxLiveChannelTests
+{
+    [Fact]
+    public async Task Live_guest_channel_round_trip_runs_only_when_explicitly_enabled()
+    {
+        var agentDirectory = Environment.GetEnvironmentVariable("BAZAAR_WSB_LIVE_AGENT_DIR");
+        var serviceId = Guid.Empty;
+        var service = Environment.GetEnvironmentVariable("BAZAAR_WSB_LIVE_SERVICE_ID");
+        if (Environment.GetEnvironmentVariable("BAZAAR_WSB_LIVE") != "1" || string.IsNullOrEmpty(agentDirectory) || !Guid.TryParse(service, out serviceId))
+        {
+            Assert.Skip("Set BAZAAR_WSB_LIVE=1, BAZAAR_WSB_LIVE_AGENT_DIR (a published agent) and BAZAAR_WSB_LIVE_SERVICE_ID (a registered service GUID), and run elevated.");
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), "bazaar-wsb-live-" + Guid.NewGuid().ToString("N"));
+        var host = new Bazaar.Server.Vms.WindowsSandbox.WsbCli.WsbCliSandboxHost(new Bazaar.Server.Vms.WindowsSandbox.WsbCli.ProcessWsbCommandRunner(), directory);
+        var spec = new Bazaar.Server.Vms.Lifecycle.VmSpec(Bazaar.Server.Vms.Environments.VmOs.Windows, 2, 4096, 60);
+        var path = await host.WriteConfigAsync("live-channel", WindowsSandboxConfig.Build(spec, WindowsSandboxNetworking.Disable, agentDirectory), ct);
+        var id = await host.LaunchAsync(path, ct);
+        try
+        {
+            var connector = new WindowsSandboxGuestConnector(
+                host,
+                new HcsDiagVmIdSource(new ProcessHcsDiagRunner()),
+                new GuestChannelFactory(new GuestChannelOptions(), TimeProvider.System),
+                new WindowsSandboxGuestOptions(serviceId, [@"C:\Windows\Temp"]));
+
+            await using var channel = await connector.ConnectAsync(id, "live-vm", ct);
+
+            var output = new System.Text.StringBuilder();
+            var result = await channel.ExecAsync(
+                new ExecRequest([@"C:\Windows\System32\cmd.exe", "/c", "echo", "bazaar-live"], @"C:\Windows\Temp", [], TimeSpan.FromSeconds(30)),
+                chunk =>
+                {
+                    output.Append(chunk.Text);
+                    return Task.CompletedTask;
+                },
+                ct);
+
+            Assert.True(result.Succeeded);
+            Assert.Contains("bazaar-live", output.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            await host.ShutdownAsync(id, force: true, CancellationToken.None);
+            await host.DeleteConfigAsync(path, CancellationToken.None);
+        }
+    }
+}
