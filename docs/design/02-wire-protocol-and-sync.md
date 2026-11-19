@@ -4,12 +4,12 @@ Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner
 Depends on: 01-gc-data-model.md, 03-server-host-and-providers.md, 04-postgres-schema-and-migrations.md, 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 32-remote-access-auth-and-privacy.md · Used by: 12-kanban-and-dependencies.md, 18-vault.md, 19-constellation-and-git-solar-system.md, 20-engine-integration-api.md, 21-github-integration.md, 22-email-subsystem.md, 23-observatory-and-usage.md, 26-fun-systems.md, 27-client-architecture.md, 28-windows-client.md, 29-android-client.md, 30-linux-client-and-packaging.md, 33-backup-dr-and-export.md, Bazaar.Sdk
 
 ## Purpose
-Defines how clients talk to Bazaar.Server: one raw WebSocket per device, plus an authenticated HTTP surface for blobs, search, pairing and status. The server decides layout, unread state and what is shown; clients render.
+Defines how clients talk to Bazaar.Server: one raw WebSocket per device, plus an authenticated HTTP surface for blobs, search and status. The server decides layout, unread state and what is shown; clients render.
 
 ## Decided inputs
 - Raw WebSocket; Socket.io dropped (Bazaar.Server.md §3).
 - Wire format [DECIDED 2026-10-25, owner, spike S6, DECISIONS-LOG round 15]: JSON via shared C# contracts with source-generated System.Text.Json. A non-.NET client is a fallback only (Rust). No Protobuf tooling.
-- WebSocket for realtime; authenticated HTTP for blobs, search and pairing (round 6, C15).
+- WebSocket for realtime; authenticated HTTP for blobs and search (round 6, C15). No pairing routes (owner, 2026-11-16).
 - GC log: `gc_event`, `gc_message`, `gc_message_version` (full copy per version). Append-only, never purged, edits keep every version (round 1, C09).
 - Per-GC gap-free sequence; hash partitions by `gc_id` from day 1 (round 1, C10). Append and `NOTIFY` in one transaction (doc 04).
 - GC fan-out uses Postgres NOTIFY; presence deltas may come from the cache provider (Valkey on Linux, Garnet on Windows) (round 1, C07).
@@ -17,7 +17,7 @@ Defines how clients talk to Bazaar.Server: one raw WebSocket per device, plus an
 - Push is a bare wake; content is fetched over the authenticated connection (round 5, C41).
 - This doc owns the wire and status format and the protocol version scheme; doc 03 owns live/ready probes; doc 23 owns status contents (round 12, C40).
 - Shared rate and quota defaults come from doc 15's table (round 10, C36). No inbound mail or webhook connections by default (round 8, C30).
-- No web client; the narrow sign-in page is doc 32's (round 11, C42). Auth design belongs to docs 14 and 32.
+- The narrow sign-in page is doc 32's (round 11, C42). Auth design belongs to docs 14 and 32.
 
 ## Design
 
@@ -85,7 +85,6 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `POST /blobs` | Chunked, resumable upload; returns content hash; size limit per doc 01 | 01 |
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
-| `POST /pair/offers`, `POST /pair/token` | Pairing | 32 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |
@@ -177,7 +176,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 7. Idempotent request layer (WP4).
 8. Client transport in `Bazaar.Client.Core`: reconnect, `(n, ev)` cursor store, de-dup, ping (WP1, WP2).
 9. `ui.get`, `ui.changed`, `prefs.set` with posture variants; placeholders and fallback shell with doc 27 (WP4).
-10. HTTP surface: chunked blobs, search and pairing routes, separate rate bucket (WP4; semantics in docs 01, 18, 32).
+10. HTTP surface: chunked blobs, search and sign-in routes, separate rate bucket (WP4; semantics in docs 01, 18, 32).
 11. Status endpoint format and version reporting (independent).
 12. `IPushNotifier`, wake coalescing, `device.registerPush` (WP4; doc 29).
 13. Protobuf codec, spike branch only (WP2).

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-labelledby="t d">
+  <title id="t">Fourteen technical milestones with status</title>
+  <desc id="d">Fourteen technical milestones T1 to T14 in two columns, each with a status. T1, the managed PostgreSQL inside the app, is highlighted.</desc>
+  <rect width="960" height="420" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Technical milestones: fourteen tracks under the features</text>
+  <rect x="40" y="70" width="430" height="36" rx="8" fill="#23402a" stroke="#7fd36b" stroke-width="2"/>
+  <text x="54" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T1</text>
+  <text x="100" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Managed PostgreSQL</text>
+  <text x="460" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#b9e06a" text-anchor="end">Mostly done</text>
+  <rect x="490" y="70" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T2</text>
+  <text x="550" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">PostgreSQL 18 and 19</text>
+  <text x="910" y="93" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="40" y="114" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="137" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T3</text>
+  <text x="100" y="137" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Schema, migrations, GC log</text>
+  <text x="460" y="137" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#b9e06a" text-anchor="end">Mostly done</text>
+  <rect x="490" y="114" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="137" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T4</text>
+  <text x="550" y="137" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Wire and transport</text>
+  <text x="910" y="137" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#b9e06a" text-anchor="end">Mostly done</text>
+  <rect x="40" y="158" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T5</text>
+  <text x="100" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Modular core</text>
+  <text x="460" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="490" y="158" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T6</text>
+  <text x="550" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Performance</text>
+  <text x="910" y="181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="40" y="202" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="225" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T7</text>
+  <text x="100" y="225" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Packaging and release</text>
+  <text x="460" y="225" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="490" y="202" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="225" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T8</text>
+  <text x="550" y="225" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Security and identity</text>
+  <text x="910" y="225" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="40" y="246" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="269" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T9</text>
+  <text x="100" y="269" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Model gateway and agents</text>
+  <text x="460" y="269" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="490" y="246" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="269" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T10</text>
+  <text x="550" y="269" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Testing and CI</text>
+  <text x="910" y="269" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="40" y="290" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="313" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T11</text>
+  <text x="100" y="313" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Clients and the GUI</text>
+  <text x="460" y="313" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="490" y="290" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="313" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T12</text>
+  <text x="550" y="313" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Operations and status</text>
+  <text x="910" y="313" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="40" y="334" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T13</text>
+  <text x="100" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">VMs and environments</text>
+  <text x="460" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <rect x="490" y="334" width="430" height="36" rx="8" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="504" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#e8eefc" text-anchor="start">T14</text>
+  <text x="550" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#e8eefc" text-anchor="start">Backup, restore, export</text>
+  <text x="910" y="357" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#f5c451" text-anchor="end">In progress</text>
+  <circle cx="40" cy="392" r="8" fill="#7fd36b"/>  <text x="54" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Done</text>
+  <circle cx="190" cy="392" r="8" fill="#b9e06a"/>  <text x="204" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Mostly done</text>
+  <circle cx="340" cy="392" r="8" fill="#f5c451"/>  <text x="354" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">In progress</text>
+  <circle cx="490" cy="392" r="8" fill="#7fb0ff"/>  <text x="504" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Planned</text>
+  <circle cx="640" cy="392" r="8" fill="#e07a5f"/>  <text x="654" y="397" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Blocked</text>
+</svg>

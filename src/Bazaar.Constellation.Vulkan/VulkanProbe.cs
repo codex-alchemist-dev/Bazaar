@@ -68,6 +68,42 @@ public static unsafe class VulkanProbe
         }
     }
 
+    /// <summary>Instance extension names the loader offers, with no layers. Empty when the loader is not usable.</summary>
+    public static IReadOnlyList<string> InstanceExtensionNames()
+    {
+        try
+        {
+            if (vkInitialize(null) != VkResult.Success)
+            {
+                return [];
+            }
+
+            uint count = 0;
+            if (vkEnumerateInstanceExtensionProperties(null, &count, null) != VkResult.Success || count == 0)
+            {
+                return [];
+            }
+
+            var extensions = new VkExtensionProperties[count];
+            fixed (VkExtensionProperties* pointer = extensions)
+            {
+                vkEnumerateInstanceExtensionProperties(null, &count, pointer);
+                var names = new List<string>((int)count);
+                for (int index = 0; index < count; index++)
+                {
+                    // extensionName is the first member, so the struct address is the name address.
+                    names.Add(Marshal.PtrToStringUTF8((nint)(pointer + index)) ?? string.Empty);
+                }
+
+                return names;
+            }
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or NotSupportedException or SEHException)
+        {
+            return [];
+        }
+    }
+
     private static List<VulkanDeviceInfo> EnumerateDevices(VkInstanceApi api)
     {
         if (api.vkEnumeratePhysicalDevices(out uint count) != VkResult.Success || count == 0)

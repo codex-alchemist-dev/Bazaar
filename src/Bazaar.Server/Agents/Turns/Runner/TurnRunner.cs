@@ -80,7 +80,8 @@ public sealed class TurnRunner : ITurnRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Holder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Route);
+        // A blank route is valid: the gateway then resolves the agent's own policy default route (doc 05, per-agent routing).
+        ArgumentNullException.ThrowIfNull(request.Route);
         if (ct.IsCancellationRequested)
             return NotStarted(TurnEndReason.Interrupted);
 

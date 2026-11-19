@@ -1,5 +1,5 @@
-using Bazaar.Client.Core.Ryusei;
 using Bazaar.Client.Core.Wire;
+using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Contracts.Ryusei;
 using Bazaar.Contracts.Wire;
 

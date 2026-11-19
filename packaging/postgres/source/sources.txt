@@ -1,0 +1,27 @@
+# Pinned source inputs for the PostgreSQL source-compile pipeline (doc 42 section 14.1, Q1 path (a)).
+# Read by build-from-source.sh (Linux) and build-from-source-windows.ps1 (Windows), and by the CI job
+# postgres-source-build.yml. Every value here is checked before use: a download whose SHA-256 differs is deleted
+# and the build stops. Bump deliberately, with the new value taken from the upstream .sha256 file.
+#
+# Upstream publishes a .sha256 next to each tarball at https://ftp.postgresql.org/pub/source/v<version>/. The
+# values below equal those published files (checked 2026-11-16).
+#
+# Line 18 is the default line. Line 19 is a release-candidate pin until GA; it is built and tested as a candidate
+# only (doc 42 Q12). The pgvector build against a 19 candidate is the gate for shipping a 19 bundle.
+
+PG18_VERSION=18.7
+PG18_TARBALL=postgresql-18.7.tar.gz
+PG18_URL=https://ftp.postgresql.org/pub/source/v18.7/postgresql-18.7.tar.gz
+PG18_SHA256=19c2dc7d8520e10532d082b43c36c4d2dcc6cd9e40506c6f598e7338f84bbde7
+
+PG19_VERSION=19rc2
+PG19_TARBALL=postgresql-19rc2.tar.gz
+PG19_URL=https://ftp.postgresql.org/pub/source/v19rc2/postgresql-19rc2.tar.gz
+PG19_SHA256=ea5b4ebcbc0b0e8c804a647af546ffa05727c55087b0458c818c1f8058c229b7
+
+# pgvector: the same pin as versions.txt (computed on a Linux and a Windows GitHub runner from the v0.8.7 GitHub archive,
+# 2026-11-15; both agreed, run 43711548274). Keep this equal to versions.txt when either moves.
+PGVECTOR_VERSION=0.8.7
+PGVECTOR_TARBALL=pgvector-0.8.7.tar.gz
+PGVECTOR_URL=https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.7.tar.gz
+PGVECTOR_SHA256=CAC0B10C360F05B2D521200105BA3697E773D4CD3731F5A915A7E37EBE0BEA85

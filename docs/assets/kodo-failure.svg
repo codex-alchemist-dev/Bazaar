@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Kodo: supervised restart, bulkheads, circuit breakers and warm standby</title>
+  <desc id="d">A failing component is restarted under supervision, isolated by a bulkhead, and stopped by a circuit breaker. If the primary node fails, a warm standby takes over automatically.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc">When something breaks: contain it, restart it, fail over</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="40" y="76" width="150" height="70" rx="10" fill="#2a1820" stroke="#ff7b72" stroke-width="2"/>
+    <text x="115" y="104" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Module fails</text>
+    <text x="115" y="126" font-size="12" fill="#ffb4ae" text-anchor="middle">crash or hang</text>
+    <path d="M 190 111 L 226 111" stroke="#9fb3d9" stroke-width="2"/>
+    <rect x="226" y="76" width="170" height="70" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="311" y="104" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Supervised restart</text>
+    <text x="311" y="126" font-size="12" fill="#9fb3d9" text-anchor="middle">crash-only, backoff</text>
+    <path d="M 396 111 L 432 111" stroke="#9fb3d9" stroke-width="2"/>
+    <rect x="432" y="76" width="170" height="70" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+    <text x="517" y="104" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Bulkhead</text>
+    <text x="517" y="126" font-size="12" fill="#9fb3d9" text-anchor="middle">the rest keeps running</text>
+    <path d="M 602 111 L 638 111" stroke="#9fb3d9" stroke-width="2"/>
+    <rect x="638" y="76" width="282" height="70" rx="10" fill="#151d30" stroke="#f2b84b" stroke-width="2"/>
+    <text x="779" y="104" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Circuit breaker opens</text>
+    <text x="779" y="126" font-size="12" fill="#f2b84b" text-anchor="middle">incident raised, calls stop</text>
+    <rect x="40" y="184" width="380" height="70" rx="10" fill="#14291f" stroke="#9be38f" stroke-width="2"/>
+    <text x="230" y="212" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Primary node</text>
+    <text x="230" y="234" font-size="12" fill="#9fb3d9" text-anchor="middle">degraded, then isolated</text>
+    <path d="M 420 219 L 540 219" stroke="#7cc4ff" stroke-width="2" stroke-dasharray="6 4" fill="none"/>
+    <text x="480" y="208" font-size="12" fill="#7cc4ff" text-anchor="middle">automatic</text>
+    <text x="480" y="236" font-size="12" fill="#7cc4ff" text-anchor="middle">failover</text>
+    <rect x="540" y="184" width="380" height="70" rx="10" fill="#151d30" stroke="#7cc4ff" stroke-width="2"/>
+    <text x="730" y="212" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="middle">Warm standby · optional</text>
+    <text x="730" y="234" font-size="12" fill="#9fb3d9" text-anchor="middle">kept ready, takes over automatically</text>
+  </g>
+  <text x="480" y="276" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#f2b84b" text-anchor="middle">Planned. Kodo is designed (doc 46) and not yet built.</text>
+</svg>

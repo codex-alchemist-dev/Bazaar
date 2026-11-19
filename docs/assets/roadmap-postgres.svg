@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" role="img" aria-labelledby="t d">
+  <title id="t">Managed PostgreSQL inside the app</title>
+  <desc id="d">The Bazaar server starts and manages PostgreSQL 18.7 with pgvector 0.8.2, stores its password in the managed store, and runs backups and upgrades. The owner does not run the database.</desc>
+  <rect width="960" height="290" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Managed PostgreSQL: the database lives inside the app</text>
+  <rect x="40" y="70" width="260" height="150" rx="12" fill="#23402a" stroke="#7fd36b" stroke-width="2"/>
+  <text x="170" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#eefbe9" text-anchor="middle">Bazaar server</text>
+  <text x="170" y="134" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#b7dcae" text-anchor="middle">starts it, stores its password,</text>
+  <text x="170" y="154" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#b7dcae" text-anchor="middle">runs migrations, schedules backups</text>
+  <text x="170" y="174" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#b7dcae" text-anchor="middle">the owner never runs it</text>
+  <line x1="300" y1="145" x2="360" y2="145" stroke="#7fd36b" stroke-width="3"/>
+  <rect x="360" y="70" width="560" height="46" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="380" y="98" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="start">PostgreSQL 18.7 with pgvector 0.8.2: packaged, hash-pinned</text>
+  <rect x="360" y="126" width="560" height="46" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="380" y="154" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="start">Password in the managed store: DPAPI on Windows, AES-GCM on Linux</text>
+  <rect x="360" y="182" width="560" height="40" rx="10" fill="#1d2a44" stroke="#4d6fb3" stroke-width="2"/>
+  <text x="380" y="207" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" fill="#e8eefc" text-anchor="start">Backups: scheduled base and pg_dump, restore runner, upgrade runner</text>
+  <text x="40" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Status: done on Linux and in code on Windows. The Windows smoke run on the owner's PC is still in progress (P8).</text>
+</svg>

@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
@@ -34,7 +35,7 @@ public class RoadmapPaneTests
     [Fact]
     public void Registry_builds_the_roadmap_and_falls_back_on_an_unknown_status()
     {
-        var registry = FirstPartyPanes.CreateRegistry();
+        var registry = TestPanes.CreateRegistry();
         Assert.IsType<RoadmapPaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Roadmap, _model)));
 
         var bad = registry.Create(PaneRegistryTests.Descriptor(PaneKinds.Roadmap,
@@ -48,7 +49,7 @@ public class RoadmapPaneTests
         var pane = new RoadmapPaneViewModel(PaneRegistryTests.Descriptor(PaneKinds.Roadmap,
             """{"phases":[],"unphasedObjectives":[{"title":"Loose","status":"planned","linkedTasks":0,"doneTasks":0,"dependsOn":["x"]}],"dependencyCycle":["a","b","a"]}"""));
 
-        var view = FirstPartyPanes.CreateRegistry().CreateView(pane);
+        var view = TestPanes.CreateRegistry().CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("Dependency cycle: a → b → a", texts);

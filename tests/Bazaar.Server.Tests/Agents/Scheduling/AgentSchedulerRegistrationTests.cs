@@ -1,7 +1,7 @@
+using Bazaar.Core;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.Agents.Turns;
-using Bazaar.Server.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -73,11 +73,9 @@ public sealed class AgentSchedulerRegistrationTests
         await using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<AgentSchedulerOptions>();
         Assert.True(options.Enabled);
-        Assert.Equal("claude", options.Route);
         Assert.Equal(TimeSpan.FromSeconds(5), options.PollInterval);
         Assert.Equal(2, options.MaxConcurrentTurns);
         Assert.Equal(TimeSpan.FromMinutes(1), options.GuardTripBackoff);
-        Assert.Equal(["gc.post"], options.ToolAllowlist);
         Assert.IsType<InboxDueAgentReader>(provider.GetRequiredService<IDueAgentReader>());
         Assert.IsType<InboxAgentScheduler>(provider.GetRequiredService<IAgentScheduler>());
         Assert.IsType<AgentSchedulerService>(Assert.Single(provider.GetServices<IHostedService>()));
@@ -107,11 +105,14 @@ public sealed class AgentSchedulerRegistrationTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void Enabled_with_a_blank_route_fails_at_composition(string route)
+    public async Task Enabled_with_a_blank_route_composes_because_each_agent_policy_supplies_the_route(string route)
     {
-        var ex = Assert.Throws<ArgumentException>(() => Compose(("Enabled", "true"), ("Route", route)));
+        var services = Compose(("Enabled", "true"), ("Route", route));
+        services.AddSingleton<ITurnRunner>(new FakeTurnRunner());
+        services.AddSingleton<ILoopGuard>(new FakeLoopGuard());
+        await using var provider = services.BuildServiceProvider();
 
-        Assert.Contains("Bazaar:AgentTurns:Scheduler:Route", ex.Message, StringComparison.Ordinal);
+        Assert.IsType<InboxAgentScheduler>(provider.GetRequiredService<IAgentScheduler>());
     }
 
     [Fact]

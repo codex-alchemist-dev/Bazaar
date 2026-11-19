@@ -1,0 +1,44 @@
+{
+  "dslVersion": 1,
+  "name": "bazaar.gc.feed",
+  "data": {
+    "unreadGcs": { "capability": "gc.feed", "type": "number" },
+    "mentions": { "capability": "gc.feed", "type": "number" },
+    "gcs": {
+      "capability": "gc.feed",
+      "type": "list",
+      "fields": { "id": "text", "name": "text", "unread": "number", "mentioned": "bool" }
+    }
+  },
+  "actions": {
+    "openGc": { "kind": "navigate", "target": "gc" }
+  },
+  "root": {
+    "widget": "stack",
+    "children": [
+      {
+        "widget": "row",
+        "children": [
+          { "widget": "text", "props": { "label": "gc.feed.heading" } },
+          { "widget": "text", "props": { "value": { "expr": "unreadGcs" } } },
+          { "widget": "badge", "props": { "label": "gc.feed.mentions", "value": { "expr": "mentions" }, "visibleWhen": { "expr": "mentions > 0" } } }
+        ]
+      },
+      {
+        "widget": "list",
+        "props": { "over": "gcs", "key": "id" },
+        "children": [
+          {
+            "widget": "row",
+            "children": [
+              { "widget": "text", "props": { "value": { "expr": "name" } } },
+              { "widget": "badge", "props": { "label": "gc.feed.unread", "value": { "expr": "unread" }, "visibleWhen": { "expr": "unread > 0" } } },
+              { "widget": "icon", "props": { "label": "gc.feed.mention", "visibleWhen": { "expr": "mentioned" } } },
+              { "widget": "button", "props": { "label": "gc.feed.open", "action": "openGc" } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
