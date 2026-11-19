@@ -84,6 +84,12 @@ internal static class SeccompProgram
         "clock_gettime", "clock_getres", "clock_nanosleep", "gettimeofday", "time", "nanosleep", "getitimer", "setitimer",
         "futex", "restart_syscall", "eventfd", "eventfd2", "epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait", "epoll_pwait",
         "poll", "ppoll", "select", "pselect6", "getrandom",
+
+        // read-only or harmless calls that current glibc, Rust and coreutils builds use (extended attributes are read-only here, ownership and
+        // mounts stay denied by Landlock and the Denied list)
+        "splice", "tee", "vmsplice", "sync_file_range", "sync", "syncfs", "getresuid", "getresgid", "getxattr", "lgetxattr", "fgetxattr",
+        "listxattr", "llistxattr", "flistxattr", "sched_getattr", "fchmodat2",
+        "cachestat", "ioprio_get", "mlock2",
     ];
 
     /// <summary>Syscalls a policy may add to the allow list by name. Anything else, and anything on <see cref="Denied"/>, is refused.</summary>

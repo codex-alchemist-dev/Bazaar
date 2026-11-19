@@ -103,7 +103,52 @@ internal static class HelperHost
             throw;
         }
 
-        return new Result(process.ExitCode, await stdout, await stderr);
+        var err = await stderr;
+        if (process.ExitCode == 128 + 31)
+        {
+            err += await KernelSeccompLogAsync();
+        }
+
+        return new Result(process.ExitCode, await stdout, err);
+    }
+
+    /// <summary>
+    /// Best-effort diagnostics for a SIGSYS kill: the kernel audit record names the syscall (<c>syscall=N</c>). Tried with and without sudo; empty when
+    /// the host hides the kernel log. It only adds text to the failure message and never changes a result.
+    /// </summary>
+    private static async Task<string> KernelSeccompLogAsync()
+    {
+        foreach (var (file, args) in new[] { ("/usr/bin/sudo", "-n dmesg"), ("/usr/bin/dmesg", string.Empty) })
+        {
+            try
+            {
+                if (!File.Exists(file))
+                {
+                    continue;
+                }
+
+                var psi = new ProcessStartInfo(file, args) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+                using var p = Process.Start(psi);
+                if (p is null)
+                {
+                    continue;
+                }
+
+                var text = await p.StandardOutput.ReadToEndAsync();
+                await p.WaitForExitAsync();
+                var lines = text.Split('\n').Where(l => l.Contains("type=1326", StringComparison.Ordinal) || l.Contains("seccomp", StringComparison.OrdinalIgnoreCase)).TakeLast(6);
+                var joined = string.Join('\n', lines);
+                if (joined.Length > 0)
+                {
+                    return "\n[kernel seccomp log]\n" + joined;
+                }
+            }
+            catch (Exception e) when (e is System.ComponentModel.Win32Exception or IOException or InvalidOperationException)
+            {
+            }
+        }
+
+        return string.Empty;
     }
 
     /// <summary>A temp directory pair: a work directory (read and write) and an unrelated directory the policy never allows.</summary>
