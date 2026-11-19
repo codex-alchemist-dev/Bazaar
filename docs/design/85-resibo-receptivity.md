@@ -63,7 +63,7 @@ Out of scope, and not decided here: how Resibo-Consumer works (doc 84); any Reta
 | Ref | Extension point or contract | Owner | Change now |
 |---|---|---|---|
 | R-19 | Declarative views that target more than a screen | `Cdax.Rubedo` (doc 41c) | Add a `surface` field on a view (`screen`, `print`, `customer-display`). Pure data, no new dependency. |
-| R-20 | Device and degraded states in health | `Cdax.Kodo`; doc 46, doc 75 | Allow a probe to report degraded (for example a consumable running out) distinct from failed. Add an aggregate score per scope sub-path for status pages (doc 77). |
+| R-20 | Device and degraded states in health | `Cdax.Kodo`; doc 46, doc 75 | Allow a probe to report degraded (for example a resource running low) distinct from failed. Add an aggregate score per scope sub-path for status pages (doc 77). |
 | R-21 | Staged, health-gated updates that avoid busy periods | `Cdax.Ouroboros` (rings, release dirs); doc 46, doc 49 section 3 | Take an `IMaintenanceWindow` contract that any module may answer; default always open. |
 | R-22 | A client that stays offline for days then meets a new release | `Cdax.Ouroboros`; doc 49 | State a version-skew policy: the server accepts a client at most N releases behind and says which contract versions it still speaks. |
 | R-23 | Updates leave a record | doc 81; Tabula | Every update writes an audit entry with old and new version. |
@@ -88,16 +88,16 @@ Out of scope, and not decided here: how Resibo-Consumer works (doc 84); any Reta
 | R-32 | Replay-safe inbound callbacks | doc 82 idempotency; doc 15 taint | A generic `Bazaar.Server.Webhooks` module: signature verified before parse, event id stored for replay rejection, bodies treated as untrusted. Bazaar needs it for GitHub callbacks anyway. |
 | R-33 | Audit with several actors and chains | doc 81 vocabulary; doc 48 | Vocabulary carries `onBehalfOf` (R-02) and `ChainId` (R-14). |
 | R-34 | Money type | doc 48 section 11; PR #872 | See section 11. |
-| R-35 | Auth methods beyond passkeys, as modules | `Bazaar.Server.Identity`; doc 14, doc 32 | Make an `AuthMethod` contract so a local short credential (PIN, badge) can be a module that unlocks an already-authenticated session on one device only. It never grants server sign-in; the authentication floor is unchanged. |
+| R-35 | Auth methods beyond passkeys, as modules | `Bazaar.Server.Identity`; doc 14, doc 32 | Make an `AuthMethod` contract so a local short credential (a short local credential) can be a module that unlocks an already-authenticated session on one device only. It never grants server sign-in; the authentication floor is unchanged. |
 | R-36 | Roles as data with permission lists, scoped by `Scope` | `Bazaar.Server.Identity`; doc 72 Groups | Role assignments carry a `Scope` (R-03): the same person may hold a role in one sub-unit and not another. |
 | R-37 | Second-person approval recorded in the entry | doc 15 approval tiers | Allow the approval card to record the approver's `Principal` in the same audit entry. |
 | R-38 | Reason-tagged operator access to tenant data | doc 72 access grants; Tabula event type | None; reuse. Hosted operators read through grants and the tenant owner is notified. |
-| R-39 | Devices as a source in the hardware probe, with leases | doc 74 (`DeviceKey`, resource ledger) | Add a `device-relay` probe source and reuse the ledger's TTL-and-heartbeat lease for shared devices. The relay itself is not designed here. |
+| R-39 | Devices as a source in the hardware probe, with leases | doc 74 (`DeviceKey`, resource ledger) | Reserve an external-device probe source and reuse the ledger's TTL-and-heartbeat lease for shared devices. No device or relay is designed here. |
 | R-40 | LAN-only operation with the internet down | doc 03; doc 39 (Conduit) | Keep Conduit optional and add a `Bazaar.Conduit.Lan` module for LAN discovery. Useful to any home-server install. |
 | R-41 | Installer takes any payload | doc 37; doc 42; doc 45 | `InstallPayload` is a data file (module ids, versions, settings), no code. `Bazaar.Installer` reads it, checks signatures, stages modules, runs the wizard; output formats are modules (`Bazaar.Installer.<Format>`). |
 | R-42 | Notifications as a channel registry | doc 22; convergence section 4 (candidate library) | Keep `Bazaar.Notifications` a channel-registry candidate. A link to a blob is a signed, expiring URL. |
 | R-43 | Per-tenant lifecycle hooks (create, suspend, export, delete) | doc 03, doc 32, doc 49 | Reserve lifecycle events in the module contract so modules can react. Delete follows crypto-erase (R-11). |
-| R-44 | Onboarding step that shows what a chosen pack does and does not cover | doc 45; DECISIONS-LOG round 13 | Allow a wizard step to read a module's `coverage` and `notCovered` metadata and record an audited acknowledgment. |
+| R-44 | Onboarding step that shows what a chosen module set does and does not cover | doc 45; DECISIONS-LOG round 13 | Allow a wizard step to read a module's `coverage` and `notCovered` metadata and record an audited acknowledgment. |
 | R-45 | One-way import from legacy files | doc 76 reimport; doc 44 | None; importer modules (`Bazaar.Server.Import.<Format>`) already fit. A spreadsheet is imported into the database, never written back. |
 | R-46 | Content from outside is untrusted | doc 15 taint; doc 73 screening | None; webhook bodies and scanned or imported data enter as untrusted. |
 
@@ -133,7 +133,7 @@ The arbitrary-precision decision exists (PR #872, doc 48 section 11, DECISIONS-L
 | Ref | Point | Resolution |
 |---|---|---|
 | C-01 | "Do not add Protobuf tooling" versus gRPC modules | Resolved in doc 90: lifted for the gRPC and Protobuf codec modules only. Nothing further here. |
-| C-02 | "Server does all compute" versus local hardware attached to a client | Not decided here. Any future device relay is a client-side exception that needs its own owner decision at the time a device contract is designed; this document only reserves the probe source (R-39). |
+| C-02 | "Server does all compute" versus local hardware attached to a client | Not decided here. Any future local-device access is a client-side exception that needs its own owner decision at the time a device contract is designed; this document only reserves the probe source (R-39). |
 | C-03 | Passwordless authentication versus a short local credential | A local credential only unlocks a session already authenticated by a passkey or device credential (R-35). Authentication floor unchanged. |
 
 ## 13. Work packages
