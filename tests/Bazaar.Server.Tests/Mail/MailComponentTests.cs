@@ -1,4 +1,4 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Mail;
 
 namespace Bazaar.Server.Tests.Mail;

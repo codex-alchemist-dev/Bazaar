@@ -15,6 +15,9 @@ internal sealed class ControllableKillSwitchStateStore(IKillSwitchStateStore inn
     /// <summary>When set, the next <see cref="LoadAsync"/> throws once.</summary>
     public bool FailNextLoad { get; set; }
 
+    /// <summary>When set, every <see cref="LoadAsync"/> throws until it is cleared.</summary>
+    public bool FailLoads { get; set; }
+
     /// <summary>When set, <see cref="LoadAsync"/> waits for this task before it reads.</summary>
     public Task? LoadGate { get; set; }
 
@@ -24,7 +27,7 @@ internal sealed class ControllableKillSwitchStateStore(IKillSwitchStateStore inn
         {
             await gate.ConfigureAwait(false);
         }
-        if (FailNextLoad)
+        if (FailLoads || FailNextLoad)
         {
             FailNextLoad = false;
             throw new InvalidOperationException("load failed");

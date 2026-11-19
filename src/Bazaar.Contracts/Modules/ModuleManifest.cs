@@ -24,7 +24,8 @@ public sealed record ModuleManifest(
     IReadOnlyList<string> Commands,
     IReadOnlyList<string> SettingKeys,
     IReadOnlyList<string> Capabilities,
-    ModuleIsolation Isolation);
+    ModuleIsolation Isolation,
+    HostRequirements Host);
 
 /// <summary>One manifest problem. Path is a JSON pointer; Code is stable for tests.</summary>
 public sealed record ModuleManifestIssue(string Path, string Code, string Message);
@@ -56,6 +57,11 @@ public static partial class ModuleManifestValidator
         "wire:constellation.read",
         "storage:local",
         "device:notify",
+        "network:host",
+        "secret:name",
+        "ui:pane",
+        "background:job",
+        "process:spawn",
     };
 
     [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)+$", RegexOptions.CultureInvariant)]
@@ -126,6 +132,11 @@ public static partial class ModuleManifestValidator
         if (!Enum.IsDefined(manifest.Isolation))
         {
             issues.Add(new ModuleManifestIssue("/isolation", "bad-isolation", "isolation must be InProcessCompiled or OutOfProcess."));
+        }
+
+        foreach (var hostIssue in HostCompatibility.ValidateRequirements(manifest.Host))
+        {
+            issues.Add(new ModuleManifestIssue($"/host/{hostIssue.Code}", hostIssue.Code, hostIssue.Message));
         }
 
         return issues.Count == 0 ? new ModuleManifestResult(manifest, []) : new ModuleManifestResult(null, issues);

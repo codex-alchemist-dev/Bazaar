@@ -12,7 +12,8 @@ public class ModuleManifestTests
         Commands: ["bazaar.gc.open"],
         SettingKeys: ["gc.density"],
         Capabilities: ["wire:gc.history", "storage:local"],
-        Isolation: ModuleIsolation.InProcessCompiled);
+        Isolation: ModuleIsolation.InProcessCompiled,
+        Host: new HostRequirements(1, ["windows", "linux"], ["x64"], []));
 
     [Fact]
     public void Valid_manifest_passes()
@@ -66,6 +67,21 @@ public class ModuleManifestTests
 
         Assert.Equal("unknown-capability", Assert.Single(unknown.Issues).Code);
         Assert.Equal("duplicate", Assert.Single(duplicate.Issues).Code);
+    }
+
+    [Fact]
+    public void Client_vocabulary_covers_all_ten_doc_48_permission_classes()
+    {
+        // Owner, 2026-11-16: the client manifest carries every doc 48 section 1 class. Each class has one identifier.
+        string[] classes =
+        [
+            "wire:gc.history", "wire:kanban.write", "wire:gc.post", "network:host", "storage:local",
+            "secret:name", "ui:pane", "background:job", "process:spawn", "device:notify",
+        ];
+
+        ModuleManifestResult result = ModuleManifestValidator.Validate(Valid() with { Capabilities = classes });
+
+        Assert.True(result.IsValid, string.Join(", ", result.Issues.Select(i => i.Code)));
     }
 
     [Fact]

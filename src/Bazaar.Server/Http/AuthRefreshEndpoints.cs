@@ -93,6 +93,13 @@ public sealed record RefreshBody(
     [property: JsonPropertyName("device_class")] string? DeviceClass,
     [property: JsonPropertyName("client_build")] string? ClientBuild);
 
+/// <summary>The token pair the refresh route returns (doc 32 section 5).</summary>
+public sealed record TokenBodyResponse(
+    [property: JsonPropertyName("access_token")] string AccessToken,
+    [property: JsonPropertyName("token_type")] string TokenType,
+    [property: JsonPropertyName("expires_in")] int ExpiresIn,
+    [property: JsonPropertyName("refresh_token")] string RefreshToken);
+
 /// <summary>Source-generated JSON for the refresh route (CLAUDE.md: System.Text.Json source generation).</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.Unspecified)]
 [JsonSerializable(typeof(RefreshBody))]

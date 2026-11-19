@@ -6,6 +6,7 @@ using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
+using Bazaar.Server.Hosting;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
@@ -102,10 +103,14 @@ public static class HostCompositionExtensions
             var valkey = sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
             IReadOnlyList<ICacheProvider> caches = LinuxProviders.CacheCandidates(valkey, sp.GetService<ISecretResolver>());
+            // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
+            IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
+                ? []
+                : WindowsProviders.VmCandidates(sp.GetRequiredService<IOptions<BazaarHostOptions>>().Value.DataRoot);
             return new ProviderCapabilityReport(
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
-                ProviderSelector.Select(ProviderRole.Vm, options.Vm, Array.Empty<IVmProvider>()),
+                ProviderSelector.Select(ProviderRole.Vm, options.Vm, vms, ProviderRequirements.AgentPairConcurrency),
                 ProviderSelector.Select(ProviderRole.Cache, options.Cache, caches),
                 ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
             ]);

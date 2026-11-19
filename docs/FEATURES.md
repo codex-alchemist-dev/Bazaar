@@ -91,10 +91,10 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Level of detail (LOD) | Graph level-of-detail for large Constellation scenes. | Shipped (graph LOD served from the shared source, #312) | `docs/design/constellation-scale-and-lod.md` |
 | Git Solar System | A visual Git interface. Branches orbit like planets, commits are bodies and merges are comets. | Planned (naming decided) | `Bazaar.Constellation.md` §2, `docs/design/19` |
 | RyuseiFuda (流星札) | The company planner, formerly Kanban. Three layers: Workday (company board), Orrery (per-agent scheduling) and Roadmap (tied to Constellation). Also called the "shooting star ticket". | Partial (triggers, scheduler, event bridge, audit, agent tools, board pane; see layer rows) | `docs/design/38` |
-| RyuseiFuda: Workday (company board) | The macro board and schedule, previously Kanban. | Partial (Kanban tables, transitions, blocker graph shipped) | `docs/design/12`, `src/Bazaar.Server.Components.Kanban` |
+| RyuseiFuda: Workday (company board) | The macro board and schedule, previously Kanban. | Partial (Kanban tables, transitions, blocker graph shipped) | `docs/design/12`, `src/Bazaar.RyuseiFuda/Kanban`, `src/Bazaar.Client.RyuseiFuda/Workday` |
 | RyuseiFuda: Orrery (per-agent scheduling) | Per-agent timers, intervals, watchers and events that re-invoke an agent. Earlier wording called it "Micro". | Partial (trigger repository, scheduler tick, fire recording, per-agent wake cap, audit, chain depth carried into tool calls and fire-woken turns, #359, #370) | `docs/design/38` |
 | RyuseiFuda: Roadmap | Objectives and phases in the Vault, shown in the Constellation. Earlier wording called it "Objective". | Partial (layer 3 views and front-matter contract, pure objective roadmap read model #364, `src/Bazaar.RyuseiFuda/Roadmap`) | `docs/design/38` WP-R12 |
-| Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Being renamed RyuseiFuda. | Shipped (columns, transitions, blocker graph; rename in progress) | `docs/design/12` |
+| Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Folded into RyuseiFuda (Workday layer) by owner decision 2026-11-16; the `kanban` component id stays. | Shipped (columns, transitions, blocker graph) | `docs/design/12` |
 | Macro and Micro (old names) | Earlier names for RyuseiFuda's Workday and Orrery layers. | Superseded. Do not use in new code or docs. | project memory, `docs/design/38` |
 | GC metadata | Typed GCs with structured metadata. Types live in a registry table. | Planned (types decided; concept proposed) | `docs/design/01` |
 | Bazaar Archive | An auto-generated project history book. | Planned (v1 scope). No design doc found; Unclear. | `Bazaar.md` §4 |
@@ -132,7 +132,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Launcher and Chat components | Client component libraries. | Partial (`Bazaar.Client.Components.Launcher`, `.Chat`) | `src/` |
 | Local Co-Worker (NPU) | On-device inference on the client. A named client-side exception to "server does the compute". | Partial (`src/Bazaar.Client.LocalInference`; NPU probe blocked on hardware S21) | `docs/design/31` |
 | Monaco editor | Editor component hosted in the Windows head. Gated by spike S12. | Planned (gate open) | `docs/design/27`, `docs/design/28` |
-| Git diff and PR panes | Diff and PR UI in the Windows head. | Planned (blocked on S12) | `docs/design/28` |
+| Git diff and PR panes | Diff and PR UI in Bazaar.Client.GitGui, shared by the heads. | Planned (Monaco part blocked on S12) | `docs/design/41` section 4.14, `28`, `29` |
 | ConPTY terminal pane | Windows terminal pane. | Planned (blocked on spike S11 and widget choice) | `docs/design/28` |
 | Pane registry (client) | Client panes registered per head and rendered by a generic renderer. Pane modules register their own views (#455). | Partial (`src/Bazaar.Client.Core/Panes`) | `docs/design/27`, `docs/design/20` |
 | Bazaar.Guest.Agent | Guest-side agent baked into VM images. | Partial (project exists) | `src/Bazaar.Guest.Agent` |
@@ -173,6 +173,8 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
+| Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21` |
+| GitLab integration | GitLab as a second git provider on the GitHub contract. | Planned (v1 scope, owner 2026-11-16) | `docs/design/21`, `41` section 4.14 |
 
 ## 10. Storage, backup and platform packaging
 
@@ -206,7 +208,7 @@ Owner-set naming, 2026-11-09, recorded in project memory. The code now uses most
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Bazaar.Core | The core module every other module slots into. | Planned (target name; `Bazaar.Server/Components` is today's kernel) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
+| Bazaar.Core | The core module every other module slots into. | Planned (target name; the kernel still lives in `Bazaar.Server/Components`, see doc 40 section 4) | `docs/design/MODULARITY-AUDIT.md`, `BAZAAR-COMPONENTS.md` |
 | Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda | Server modules that slot into Bazaar.Core. | Partial (`Bazaar.GC.Abstractions`, `Bazaar.Constellation.*`, `Bazaar.RyuseiFuda`; the full code split is wave 3) | `BAZAAR-COMPONENTS.md` §10 |
 | Bazaar.Client.<Feature> | Client modules, one per feature area. | Partial (`Bazaar.Client.Layout`, `.Kodo`, `.RyuseiFuda`, `.Components.Chat`, `.Components.Launcher`, `.LocalInference`, `.Terminal`, plus the platform heads) | `BAZAAR-COMPONENTS.md` §10 |
 | Parts: `<Module>.<Part>` | Parts of a module, such as RyuseiFuda.Workday. | Planned | project memory |
@@ -221,17 +223,17 @@ These merged after the 2026-11-09 baseline. Each row names the PRs that landed i
 | Layout (Client) | Foldable, per-device layout documents with a validator, a resolver, scope merging, company locks for nodes and settings, and fail-closed fallbacks. | Partial (#512, #520, #576, #579, #580 merged; the Avalonia mapping is in review) | `docs/design/41`, `src/Bazaar.Client.Layout` |
 | Ex (mnemonic navigation) | Client-wide mnemonic navigation and the palette filter over mnemonic rows. | Partial (#511, #553) | `src/Bazaar.Ex` |
 | Michi (first-run tour) | The skippable first-run tour, moved out of the client into its own module. | Partial (#542) | `src/Bazaar.Michi` |
-| Kodo (client) | The client-side health header and status feed for the Kodo runtime health module. | Partial (#515, #525, #531, #533). The server ring health gate (`Modules/Releases`) reads Kodo health; the wider Kodo runtime is Planned (doc 46). | `docs/design/46`, `src/Bazaar.Client.Kodo` |
+| Kodo (client) | The client-side health header and status feed for the Kodo runtime health module. | Partial (#515, #525, #531, #533). The server ring health gate (`Bazaar.Server.Modules/Releases`) reads Kodo health; the wider Kodo runtime is Planned (doc 46). | `docs/design/46`, `src/Bazaar.Client.Kodo` |
 | Accessibility | Accessible names for controls, a CI gate for them, spoken mnemonic names and command announcements. | Partial (#560, #564, #572, #574, #585, #587) | `src/Bazaar.Accessibility`, `src/Bazaar.Accessibility.Avalonia` |
 | Localisation | Localisation and accessible-name modules. | Partial (#543) | `src/Bazaar.Localisation` |
 | Secrets | A per-agent secret store with scopes and audit-first gating (#546), a per-purpose policy table that denies by default (#568), a Secret Service key-encryption provider on Linux (#569) and a Windows key-encryption provider on CNG, using TPM where available (#570). | Partial (store, policy and both key providers merged; the agent credential issuer is still a fail-closed default) | `src/Bazaar.Secrets`, `src/Bazaar.Secrets.Windows`, `docs/design/14` |
 | Audit | Audit rows with a hash chain, signed checkpoints persisted in Postgres (#554), Merkle checkpoints (#532), an inclusion-proof file with an offline verifier (#582) and external anchoring of checkpoints (#573). | Partial (checkpoints and proofs shipped; anchoring slice 2 merged) | `docs/design/48` §10, `src/Bazaar.Server/Security` |
 | Recovery | A sealed recovery bundle with file export and import (#583), a backup-owner quorum policy and a recovery case state machine (#571), and a FIDO2 hardware-key assertion verifier (#584). | Partial (bundle, quorum and verifier merged; applying a restore is out of scope for now) | `docs/design/48`, `docs/design/49` |
-| Module manager | Update policy, channels, dependencies, trust and line moves (#526, #549); auto-restore after a failed line-move switch and bounded retries (#558); operator-configurable retry policy (#567); owner policy document. | Partial (foundations, rollback, dry-run steps and release rings with a health gate are in code; full canary rollout and dry-run migrations still open) | `src/Bazaar.Server/Modules`, `docs/design/42`, `docs/design/41b` |
+| Module manager | Update policy, channels, dependencies, trust and line moves (#526, #549); auto-restore after a failed line-move switch and bounded retries (#558); operator-configurable retry policy (#567); owner policy document. | Partial (foundations, rollback, dry-run steps and release rings with a health gate are in code; full canary rollout and dry-run migrations still open) | `src/Bazaar.Server.Modules` (implementation) and `src/Bazaar.Server.Modules.Abstractions` (health contract, retry policy, setting names); `ModuleManagerSettings` and `src/Bazaar.Server/Data/Sql/modules` stay in `src/Bazaar.Server`; `docs/design/42`, `docs/design/41b` |
 | Setup plan | Headless setup plan, canonical hash and `bazaar-setup.json` validation (#548). | Partial (plan and validation merged; the wizard is open) | `src/Bazaar.Server/Setup`, `docs/design/45` |
 | Client self-update | A platform-neutral self-update core (#552). | Partial (core merged; per-platform install open) | `src/Bazaar.Client.Core`, `docs/design/37` |
 | Telemetry and crash reporting | Wave 1 (error codes, redaction, fingerprints, #519) and wave 2 (crash DTOs, capture core, consent model, #550). | Partial (waves 1 and 2 merged as contracts and capture core; server-side GitHub filing and LLM diagnosis are Planned, not in code) | `docs/design/43` |
-| Portability | Importer and exporter module core (#540). | Partial (core merged; the Milanote, Miro, Trello and Obsidian importers are Planned) | `src/Bazaar.Portability`, `docs/design/44` |
+| Portability | Importer and exporter module core (#540). | Partial (core merged; the Milanote, Miro, Trello and Obsidian importers are Planned) | `src/Bazaar.Server.Portability`, `src/Bazaar.Client.Portability`, `src/Bazaar.Client.Portability.Avalonia`, `docs/design/44` |
 | Diagnostics | Diagnostics module and tests. | Partial | `src/Bazaar.Diagnostics` |
 | Token budgets and kill switch | See sections 3 and 9 for the safety rows (#545, #566). | Partial | `src/Bazaar.Server/Security` |
 | Linux and Windows heads | Linux display backend chosen from the session environment (#534), headless smoke tests (#541), and a single-instance forwarder for the warm process (#458). | Partial | `src/Bazaar.Client.Linux`, `src/Bazaar.Client.Windows` |
