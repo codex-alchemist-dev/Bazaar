@@ -19,7 +19,7 @@ Measured in a cloud container (Ubuntu 24.04, 4 vCPU, 16 GB, no GPU, no `/dev/kvm
 | Headless Chromium, one tab | 168 MB PSS, of which 61 MB private (6 processes) |
 | Screenshot through the compositor (`grim`, PNG, 1280 x 720) | 27 to 36 ms |
 | Screenshot through DevTools (`Page.captureScreenshot`, PNG) | 24 to 38 ms |
-| Typing through the compositor (`wtype`) | Works with a guard. The first key of every `wtype` call is dropped by Chromium (reproduced 5 of 5; a delay does not help). A leading modifier tap fixes it: `wtype -M shift -m shift -- "text"` typed every character (3 of 3). Key chords such as Ctrl+A and Shift+Tab work as is. |
+| Typing through the compositor (`wtype`) | Works with a guard. Chromium drops the text of the first key of a `wtype` call when that key is "-" or a space (the keydown arrives, the character does not); strings starting with a letter or digit arrived whole. Of five test strings, a plain call and a `-M shift -m shift` prefix each lost 2; a leading `-k Shift_L` or `-P Shift_L -p Shift_L` lost none. Key chords such as Ctrl+A and Shift+Tab work as is. |
 | Pointer through the compositor (`wlrctl pointer move`, `click`) | Not usable. `wlrctl` only moves relatively; a corner push followed by a move did not land on the requested point (one click hit a link about 1100 px away, another registered nothing). Needs a helper that speaks absolute motion on the virtual-pointer protocol. Until then the guest source refuses pointer input, and the browser (DevTools) and hypervisor sources carry it. |
 | Typing and clicking through DevTools (`Input.insertText`, `Input.dispatchMouseEvent`) | Works in headless. |
 | QEMU with `-display none`: QMP `screendump` to PNG | Works, 7 ms for a 720 x 400 text screen |
