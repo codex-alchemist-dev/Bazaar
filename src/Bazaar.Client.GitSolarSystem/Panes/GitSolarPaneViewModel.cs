@@ -4,6 +4,7 @@ using System.Text.Json;
 using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
@@ -46,7 +47,7 @@ public sealed class GitSolarPaneViewModel : IPaneViewModel, INotifyPropertyChang
     private bool _disposed;
 
     public GitSolarPaneViewModel(PaneDescriptor descriptor, IGitSolarSource? source)
-        : this(descriptor, source, new SimpleGitSolarModel())
+        : this(descriptor, source, new GitSolarStateModel())
     {
     }
 
@@ -111,6 +112,30 @@ public sealed class GitSolarPaneViewModel : IPaneViewModel, INotifyPropertyChang
             lock (_gate)
             {
                 return _model.SelectedSha;
+            }
+        }
+    }
+
+    /// <summary>The renderer-ready scene of the latest accepted snapshot, or null before the first one.</summary>
+    public GitSolarScene? Scene
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _model.Scene;
+            }
+        }
+    }
+
+    /// <summary>The latest accepted layout frame for <see cref="Scene"/>, or null when none applies.</summary>
+    public RenderFrame? LatestFrame
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _model.LatestFrame;
             }
         }
     }

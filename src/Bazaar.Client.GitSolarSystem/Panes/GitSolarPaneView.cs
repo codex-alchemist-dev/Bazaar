@@ -9,13 +9,14 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.GitSolarSystem.Abstractions;
 
 namespace Bazaar.Client.GitSolarSystem.Panes;
 
 /// <summary>
 /// The Git Solar System pane body. The accessible list mirror is the working surface: Up and Down step through it, Home and
 /// End jump to its ends and Enter opens the selected commit. The mnemonic keys n and p resolve through
-/// <see cref="ConstellationKeymap"/>. No key here is a Ctrl chord. The solar canvas goes into <c>PART_Canvas</c> later.
+/// <see cref="ConstellationKeymap"/>. No key here is a Ctrl chord. The drawn solar system (<see cref="GitSolarCanvas"/>) sits in <c>PART_Canvas</c>; a click on a commit there selects it, and the list follows.
 /// </summary>
 public sealed class GitSolarPaneView : UserControl
 {
@@ -26,6 +27,7 @@ public sealed class GitSolarPaneView : UserControl
     private readonly TextBlock _status;
     private readonly TextBlock _empty;
     private readonly ListBox _list;
+    private readonly GitSolarCanvas _canvas;
     private IReadOnlyList<GitSolarListItem>? _rendered;
     private bool _rendering;
 
@@ -44,7 +46,9 @@ public sealed class GitSolarPaneView : UserControl
         AutomationProperties.SetName(_list, "Commits, newest first");
         _list.SelectionChanged += OnSelectionChanged;
 
-        var canvasHost = new ContentControl { Name = "PART_Canvas" };
+        _canvas = new GitSolarCanvas { Height = 360 };
+        _canvas.NodeClicked += sha => _pane.Handle(GitSolarCommands.FocusCommit, sha);
+        var canvasHost = new ContentControl { Name = "PART_Canvas", Content = _canvas };
         Content = new StackPanel
         {
             Spacing = 8,
@@ -97,6 +101,7 @@ public sealed class GitSolarPaneView : UserControl
             _empty.IsVisible = items.Count == 0;
             _list.IsVisible = items.Count > 0;
             _list.SelectedIndex = _pane.SelectedIndex;
+            _canvas.Load(_pane.Scene, _pane.LatestFrame, _pane.SelectedSha, _pane.IsStale);
         }
         finally
         {
