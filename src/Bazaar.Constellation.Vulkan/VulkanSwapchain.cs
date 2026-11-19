@@ -38,6 +38,7 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     private VkFramebuffer[] _framebuffers = [];
     private NodePipeline? _pipeline;
     private VkFormat _pipelineFormat;
+    private byte[] _styleBytes = [];
     private bool _disposed;
 
     private VulkanSwapchain(RenderSurface surface)
@@ -84,6 +85,17 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         ThrowIfDisposed();
         Surface = Surface with { WidthPixels = widthPixels, HeightPixels = heightPixels };
         return RebuildSwapchain();
+    }
+
+    /// <summary>
+    /// Replaces the style table with packed bytes from <see cref="NodeStylePacking.Pack"/>. The bytes are kept, so a
+    /// rebuilt pipeline gets them again. Waits for the device to go idle when it uploads.
+    /// </summary>
+    public void SetStyles(ReadOnlySpan<byte> styleBytes)
+    {
+        ThrowIfDisposed();
+        _styleBytes = styleBytes.ToArray();
+        _pipeline?.UploadStyles(_styleBytes);
     }
 
     /// <summary>
@@ -494,8 +506,9 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         if (_pipeline is null || _pipelineFormat != _format)
         {
             _pipeline?.Dispose();
-            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format);
+            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR);
             _pipelineFormat = _format;
+            _pipeline.UploadStyles(_styleBytes);
         }
 
         uint imageCount = Math.Max(capabilities.minImageCount + 1, 2u);

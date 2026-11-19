@@ -11,10 +11,11 @@ public readonly record struct NodeView(float OffsetX, float OffsetY, float Scale
 }
 
 /// <summary>
-/// Graphics pipeline and buffers for drawing node instances as instanced discs.
-/// The render pass, pipeline and corner buffer are built once per swapchain format. The instance buffer grows
-/// on demand and is host-visible, so it is written with a plain copy. Callers must not overwrite it while a frame
-/// that reads it is still in flight; <see cref="VulkanSwapchain"/> waits on its frame fence before uploading.
+/// Graphics pipeline and buffers for drawing node instances as styled discs or rings.
+/// The render pass, pipeline, descriptor set and corner buffer are built once per swapchain format. The instance
+/// buffer and the style buffer grow on demand and are host-visible, so they are written with a plain copy.
+/// Callers must not overwrite the instance buffer while a frame that reads it is still in flight;
+/// <see cref="VulkanSwapchain"/> waits on its frame fence before uploading. Style uploads wait for the device to go idle.
 /// </summary>
 internal sealed unsafe class NodePipeline : IDisposable
 {
@@ -24,7 +25,11 @@ internal sealed unsafe class NodePipeline : IDisposable
     private readonly VkDeviceApi _deviceApi;
     private readonly VkPhysicalDevice _physicalDevice;
     private readonly VkFormat _format;
+    private readonly VkImageLayout _finalLayout;
     private VkRenderPass _renderPass;
+    private VkDescriptorSetLayout _setLayout;
+    private VkDescriptorPool _descriptorPool;
+    private VkDescriptorSet _descriptorSet;
     private VkPipelineLayout _layout;
     private VkPipeline _pipeline;
     private VkBuffer _cornerBuffer;
@@ -33,20 +38,32 @@ internal sealed unsafe class NodePipeline : IDisposable
     private VkDeviceMemory _instanceMemory;
     private ulong _instanceCapacity;
     private void* _instanceMapped;
+    private VkBuffer _styleBuffer;
+    private VkDeviceMemory _styleMemory;
+    private ulong _styleCapacity;
+    private void* _styleMapped;
+    private int _styleCount;
     private bool _disposed;
 
-    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format)
+    /// <param name="finalLayout">Layout the colour target is left in after the pass: present for a swapchain, transfer-source for an offscreen copy.</param>
+    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format, VkImageLayout finalLayout)
     {
         _instanceApi = instanceApi;
         _deviceApi = deviceApi;
         _physicalDevice = physicalDevice;
         _format = format;
+        _finalLayout = finalLayout;
         CreateRenderPass();
+        CreateDescriptors();
         CreatePipeline();
         CreateCornerBuffer();
+        ResizeStyleBuffer(NodeStylePacking.StyleStride);
     }
 
     public VkRenderPass RenderPass => _renderPass;
+
+    /// <summary>Number of styles uploaded by the last <see cref="UploadStyles"/>. Nodes are drawn only when this is above zero.</summary>
+    public int StyleCount => _styleCount;
 
     /// <summary>Copies packed instance bytes into the instance buffer, growing it when needed.</summary>
     public void Upload(ReadOnlySpan<byte> instanceBytes)
@@ -65,7 +82,35 @@ internal sealed unsafe class NodePipeline : IDisposable
         instanceBytes.CopyTo(new Span<byte>(_instanceMapped, instanceBytes.Length));
     }
 
-    /// <summary>Records one render pass: clear, then draw the instances when there are any.</summary>
+    /// <summary>
+    /// Replaces the style table with packed bytes from <see cref="NodeStylePacking"/>. Waits for the device to go idle,
+    /// so it is safe between frames. Empty bytes clear the table, and nodes are then not drawn.
+    /// </summary>
+    public void UploadStyles(ReadOnlySpan<byte> styleBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (styleBytes.Length % NodeStylePacking.StyleStride != 0)
+        {
+            throw new ArgumentException($"Style bytes must be a multiple of {NodeStylePacking.StyleStride}.", nameof(styleBytes));
+        }
+
+        if (styleBytes.IsEmpty)
+        {
+            _styleCount = 0;
+            return;
+        }
+
+        _deviceApi.vkDeviceWaitIdle();
+        if ((ulong)styleBytes.Length > _styleCapacity)
+        {
+            ResizeStyleBuffer((ulong)styleBytes.Length);
+        }
+
+        styleBytes.CopyTo(new Span<byte>(_styleMapped, styleBytes.Length));
+        _styleCount = styleBytes.Length / NodeStylePacking.StyleStride;
+    }
+
+    /// <summary>Records one render pass: clear, then draw the instances when there are any and styles are uploaded.</summary>
     public void Record(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkExtent2D extent,
         (float R, float G, float B, float A) clear, int instanceCount, NodeView view)
     {
@@ -87,7 +132,7 @@ internal sealed unsafe class NodePipeline : IDisposable
         };
         _deviceApi.vkCmdBeginRenderPass(commandBuffer, &begin, VkSubpassContents.Inline);
 
-        if (instanceCount > 0)
+        if (instanceCount > 0 && _styleCount > 0)
         {
             var viewport = new VkViewport
             {
@@ -102,6 +147,9 @@ internal sealed unsafe class NodePipeline : IDisposable
             _deviceApi.vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
             _deviceApi.vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
             _deviceApi.vkCmdBindPipeline(commandBuffer, VkPipelineBindPoint.Graphics, _pipeline);
+
+            VkDescriptorSet descriptorSet = _descriptorSet;
+            _deviceApi.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _layout, 0, 1, &descriptorSet, 0, null);
 
             VkBuffer* buffers = stackalloc VkBuffer[2] { _cornerBuffer, _instanceBuffer };
             ulong* offsets = stackalloc ulong[2] { 0, 0 };
@@ -129,6 +177,13 @@ internal sealed unsafe class NodePipeline : IDisposable
             _instanceMapped = null;
         }
 
+        if (_styleMapped is not null)
+        {
+            _deviceApi.vkUnmapMemory(_styleMemory);
+            _styleMapped = null;
+        }
+
+        DestroyBuffer(ref _styleBuffer, ref _styleMemory);
         DestroyBuffer(ref _instanceBuffer, ref _instanceMemory);
         DestroyBuffer(ref _cornerBuffer, ref _cornerMemory);
         if (_pipeline.Handle != 0)
@@ -139,6 +194,16 @@ internal sealed unsafe class NodePipeline : IDisposable
         if (_layout.Handle != 0)
         {
             _deviceApi.vkDestroyPipelineLayout(_layout, null);
+        }
+
+        if (_descriptorPool.Handle != 0)
+        {
+            _deviceApi.vkDestroyDescriptorPool(_descriptorPool, null);
+        }
+
+        if (_setLayout.Handle != 0)
+        {
+            _deviceApi.vkDestroyDescriptorSetLayout(_setLayout, null);
         }
 
         if (_renderPass.Handle != 0)
@@ -158,7 +223,7 @@ internal sealed unsafe class NodePipeline : IDisposable
             stencilLoadOp = VkAttachmentLoadOp.DontCare,
             stencilStoreOp = VkAttachmentStoreOp.DontCare,
             initialLayout = VkImageLayout.Undefined,
-            finalLayout = VkImageLayout.PresentSrcKHR,
+            finalLayout = _finalLayout,
         };
         var colorRef = new VkAttachmentReference { attachment = 0, layout = VkImageLayout.ColorAttachmentOptimal };
         var subpass = new VkSubpassDescription
@@ -193,16 +258,75 @@ internal sealed unsafe class NodePipeline : IDisposable
         }
     }
 
+    /// <summary>One storage buffer at set 0, binding 0, read by both shader stages; the pool holds one set for it.</summary>
+    private void CreateDescriptors()
+    {
+        var binding = new VkDescriptorSetLayoutBinding
+        {
+            binding = 0,
+            descriptorType = VkDescriptorType.StorageBuffer,
+            descriptorCount = 1,
+            stageFlags = VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment,
+        };
+        var layoutInfo = new VkDescriptorSetLayoutCreateInfo
+        {
+            sType = VkStructureType.DescriptorSetLayoutCreateInfo,
+            bindingCount = 1,
+            pBindings = &binding,
+        };
+        VkResult layoutCreated = _deviceApi.vkCreateDescriptorSetLayout(&layoutInfo, null, out _setLayout);
+        if (layoutCreated != VkResult.Success)
+        {
+            throw new InvalidOperationException($"Vulkan style descriptor layout could not be created ({layoutCreated}).");
+        }
+
+        var poolSize = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 1 };
+        var poolInfo = new VkDescriptorPoolCreateInfo
+        {
+            sType = VkStructureType.DescriptorPoolCreateInfo,
+            maxSets = 1,
+            poolSizeCount = 1,
+            pPoolSizes = &poolSize,
+        };
+        VkResult poolCreated = _deviceApi.vkCreateDescriptorPool(&poolInfo, null, out _descriptorPool);
+        if (poolCreated != VkResult.Success)
+        {
+            throw new InvalidOperationException($"Vulkan descriptor pool could not be created ({poolCreated}).");
+        }
+
+        VkDescriptorSetLayout setLayout = _setLayout;
+        var allocate = new VkDescriptorSetAllocateInfo
+        {
+            sType = VkStructureType.DescriptorSetAllocateInfo,
+            descriptorPool = _descriptorPool,
+            descriptorSetCount = 1,
+            pSetLayouts = &setLayout,
+        };
+        VkResult allocated;
+        fixed (VkDescriptorSet* sets = &_descriptorSet)
+        {
+            allocated = _deviceApi.vkAllocateDescriptorSets(&allocate, sets);
+        }
+
+        if (allocated != VkResult.Success)
+        {
+            throw new InvalidOperationException($"Vulkan descriptor set could not be allocated ({allocated}).");
+        }
+    }
+
     private void CreatePipeline()
     {
         VkShaderModule vert = CreateShaderModule("node.vert.spv");
         VkShaderModule frag = CreateShaderModule("node.frag.spv");
         try
         {
+            VkDescriptorSetLayout setLayout = _setLayout;
             var pushRange = new VkPushConstantRange { stageFlags = VkShaderStageFlags.Vertex, offset = 0, size = _pushConstantBytes };
             var layoutInfo = new VkPipelineLayoutCreateInfo
             {
                 sType = VkStructureType.PipelineLayoutCreateInfo,
+                setLayoutCount = 1,
+                pSetLayouts = &setLayout,
                 pushConstantRangeCount = 1,
                 pPushConstantRanges = &pushRange,
             };
@@ -342,7 +466,7 @@ internal sealed unsafe class NodePipeline : IDisposable
     {
         ReadOnlySpan<float> corners = NodeInstanceVertexLayout.QuadCorners;
         ulong bytes = (ulong)(corners.Length * sizeof(float));
-        (_cornerBuffer, _cornerMemory) = CreateHostBuffer(bytes);
+        (_cornerBuffer, _cornerMemory) = CreateHostBuffer(bytes, VkBufferUsageFlags.VertexBuffer);
         void* mapped = Map(_cornerMemory, bytes);
         corners.CopyTo(new Span<float>(mapped, corners.Length));
         _deviceApi.vkUnmapMemory(_cornerMemory);
@@ -358,9 +482,46 @@ internal sealed unsafe class NodePipeline : IDisposable
         }
 
         DestroyBuffer(ref _instanceBuffer, ref _instanceMemory);
-        (_instanceBuffer, _instanceMemory) = CreateHostBuffer(capacity);
+        (_instanceBuffer, _instanceMemory) = CreateHostBuffer(capacity, VkBufferUsageFlags.VertexBuffer);
         _instanceMapped = Map(_instanceMemory, capacity);
         _instanceCapacity = capacity;
+    }
+
+    /// <summary>Grows the style buffer and points the descriptor set at it. Called only when the device is idle.</summary>
+    private void ResizeStyleBuffer(ulong bytes)
+    {
+        ulong capacity = Math.Max(bytes, Math.Max(_styleCapacity * 2, (ulong)NodeStylePacking.StyleStride));
+        if (_styleMapped is not null)
+        {
+            _deviceApi.vkUnmapMemory(_styleMemory);
+            _styleMapped = null;
+        }
+
+        DestroyBuffer(ref _styleBuffer, ref _styleMemory);
+        (_styleBuffer, _styleMemory) = CreateHostBuffer(capacity, VkBufferUsageFlags.StorageBuffer);
+        _styleMapped = Map(_styleMemory, capacity);
+        _styleCapacity = capacity;
+        WriteStyleDescriptor();
+    }
+
+    private void WriteStyleDescriptor()
+    {
+        var bufferInfo = new VkDescriptorBufferInfo
+        {
+            buffer = _styleBuffer,
+            offset = 0,
+            range = _styleCapacity,
+        };
+        var write = new VkWriteDescriptorSet
+        {
+            sType = VkStructureType.WriteDescriptorSet,
+            dstSet = _descriptorSet,
+            dstBinding = 0,
+            descriptorCount = 1,
+            descriptorType = VkDescriptorType.StorageBuffer,
+            pBufferInfo = &bufferInfo,
+        };
+        _deviceApi.vkUpdateDescriptorSets(1, &write, 0, null);
     }
 
     private void* Map(VkDeviceMemory memory, ulong size)
@@ -375,13 +536,13 @@ internal sealed unsafe class NodePipeline : IDisposable
         return data;
     }
 
-    private (VkBuffer Buffer, VkDeviceMemory Memory) CreateHostBuffer(ulong size)
+    private (VkBuffer Buffer, VkDeviceMemory Memory) CreateHostBuffer(ulong size, VkBufferUsageFlags usage)
     {
         var info = new VkBufferCreateInfo
         {
             sType = VkStructureType.BufferCreateInfo,
             size = size,
-            usage = VkBufferUsageFlags.VertexBuffer,
+            usage = usage,
             sharingMode = VkSharingMode.Exclusive,
         };
         _deviceApi.vkCreateBuffer(&info, null, out VkBuffer buffer);
