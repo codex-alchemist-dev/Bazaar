@@ -46,6 +46,9 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     }
 
     /// <inheritdoc />
+    public IReadOnlyCollection<string> CoveredSections => InstallSettingsStep.CoveredSections;
+
+    /// <inheritdoc />
     public bool DurableAuditStoreAvailable => _dataSource is not null;
 
     /// <summary>A gate that is always closed, for when no database is configured or reachable.</summary>

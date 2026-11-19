@@ -27,6 +27,9 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
     /// <summary>Step 15 of doc 45 section 1.3 (status and network) is the last configuration step, so this runs after the ones before it.</summary>
     public const int StepOrder = 1500;
 
+    /// <summary>The plan sections this step applies: the four settings-backed parts of the plan (doc 45 steps 1, 12 and 15, plus the settings map).</summary>
+    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "scamMailProtocol", "network", "settings"];
+
     private const string _selectSql = "SELECT value::text, updated_by FROM setting WHERE key = @key AND scope = 'install' AND scope_id = ''";
 
     private const string _upsertSql = """
@@ -52,6 +55,9 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
 
     /// <inheritdoc />
     public int Order => StepOrder;
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> Covers => CoveredSections;
 
     /// <inheritdoc />
     public async Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken)

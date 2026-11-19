@@ -5,9 +5,10 @@ namespace Bazaar.Server.Setup;
 
 /// <summary>
 /// Applies a setup plan under the instance lock (doc 45 sections 1.2, 1.3 and 1.7). The order is fixed: check the plan hash,
-/// validate (errors refuse with 1, holds with 2), take the lock (held is 2), run the steps in order, and write the audit rows.
-/// A failing step rolls back the steps already applied, in reverse order, and the apply returns 3. A refused or held apply writes
-/// no audit row, because nothing changed.
+/// validate (errors refuse with 1, holds with 2), check that registered steps cover every requested plan section (not covered is held, 2, nothing applied), take the lock (held is 2), run the steps in order, and write the audit rows.
+/// A failing step rolls back the steps already applied, in reverse order, and the apply returns 3. A refused apply, or one held by the
+/// lock or a floor, writes no audit row, because nothing changed. An apply held for unapplied sections writes one row with the
+/// section ids, so the refusal is on record.
 /// </summary>
 /// <remarks>
 /// Audit: one <c>setup.plan.applied</c> row through <see cref="IAuditLog"/>, then one <c>setting.changed</c> row per changed
@@ -59,6 +60,13 @@ public sealed class SetupApplier
         _registry = registry;
     }
 
+    /// <summary>The plan section ids the registered steps cover (<see cref="ISetupStep.Covers"/>), distinct and sorted.</summary>
+    public IReadOnlyList<string> CoveredSections => [.. _steps.SelectMany(step => step.Covers).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+
+    /// <summary>The sections <paramref name="plan"/> asks for that no registered step covers. A dry run shows the same list.</summary>
+    public IReadOnlyList<SetupPlanSection> UnappliedSectionsOf(SetupPlan plan, SetupStateSnapshot? current = null) =>
+        SetupPlanSections.Unapplied(plan, CoveredSections, current);
+
     /// <summary>Applies <paramref name="request"/>. Never throws for a refused, held or failed apply; only for a broken caller or an audit write that fails.</summary>
     public async Task<SetupApplyResult> ApplyAsync(SetupApplyRequest request, CancellationToken cancellationToken = default)
     {
@@ -87,6 +95,13 @@ public sealed class SetupApplier
             return new SetupApplyResult(validation, hash, [], issues);
         }
 
+        // b2. A plan that asks for a part no registered step applies is held before anything runs, so no partial apply can happen.
+        var unapplied = UnappliedSectionsOf(request.Plan, request.CurrentState);
+        if (unapplied.Count > 0)
+        {
+            return await HoldUnappliedAsync(request, hash, unapplied, cancellationToken);
+        }
+
         var state = request.CurrentState ?? SetupStateSnapshot.Empty;
         var changes = SetupChangePlanner.Compute(request.Plan, state).Changes;
 
@@ -109,6 +124,27 @@ public sealed class SetupApplier
         {
             return await ApplyUnderLockAsync(request, hash, state, changes, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Holds the apply (exit 2, reason <c>unapplied_sections</c>) and records it. Nothing was changed. The audit row names section
+    /// ids only. The message names the sections and their doc 45 step numbers, never a value.
+    /// </summary>
+    private async Task<SetupApplyResult> HoldUnappliedAsync(
+        SetupApplyRequest request,
+        string hash,
+        IReadOnlyList<SetupPlanSection> unapplied,
+        CancellationToken cancellationToken)
+    {
+        var ids = unapplied.Select(section => section.Id).ToList();
+        var issue = new SetupValidationIssue(
+            SetupIssueSeverity.Hold,
+            SetupPlanSections.HoldReason,
+            "no registered step applies these parts of the plan, so nothing was applied: "
+            + SetupPlanSections.Describe(unapplied)
+            + ". Remove them from the plan or leave them at their defaults, or apply once a step for them is registered.");
+        await AppendAppliedRowAsync(request, hash, "held_unapplied_sections", [], [], null, null, [], ids, cancellationToken);
+        return new SetupApplyResult(SetupExitCode.Held, hash, [], [issue], ids);
     }
 
     private async Task<SetupApplyResult> ApplyUnderLockAsync(
@@ -179,7 +215,7 @@ public sealed class SetupApplier
         var appliedIds = applied.Select(step => step.Id).ToList();
         var projected = SetupSettingProjection.Project(request.Plan).ToDictionary(setting => setting.Key, StringComparer.Ordinal);
         var changedKeys = ChangedSettingKeys(request.Plan, changes, projected);
-        await AppendAppliedRowAsync(request, hash, "applied", changedKeys, appliedIds, null, null, [], cancellationToken);
+        await AppendAppliedRowAsync(request, hash, "applied", changedKeys, appliedIds, null, null, [], [], cancellationToken);
 
         foreach (var key in changedKeys)
         {
@@ -226,7 +262,7 @@ public sealed class SetupApplier
         }
 
         var outcome = rollbackFailures.Count == 0 ? "rolled_back" : "rollback_failed";
-        await AppendAppliedRowAsync(request, hash, outcome, [], [], failedStepId, failureKind, rollbackFailures, CancellationToken.None);
+        await AppendAppliedRowAsync(request, hash, outcome, [], [], failedStepId, failureKind, rollbackFailures, [], CancellationToken.None);
         return new SetupApplyResult(SetupExitCode.ApplyFailedRolledBack, hash, [], issues);
     }
 
@@ -274,6 +310,7 @@ public sealed class SetupApplier
         string? failedStepId,
         string? failureKind,
         IReadOnlyList<string> rollbackFailures,
+        IReadOnlyList<string> unappliedSections,
         CancellationToken cancellationToken)
     {
         var payload = new JsonObject
@@ -292,6 +329,7 @@ public sealed class SetupApplier
             ["failedStep"] = failedStepId,
             ["failureKind"] = failureKind,
             ["rollbackFailures"] = StringArray(rollbackFailures),
+            ["unappliedSections"] = StringArray(unappliedSections),
             ["secretReferences"] = SecretReferenceArray(request.Plan),
         };
 

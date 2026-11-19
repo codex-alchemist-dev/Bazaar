@@ -66,7 +66,7 @@ public sealed class InstallSettingsApplyTests
         var audit = new PostgresAuditLog(dataSource);
         return new SetupApplier(
             new PostgresSetupInstanceLock(dataSource),
-            [new InstallSettingsStep(dataSource, RegistrySetupSettingCatalog.Known), .. extra],
+            [new CoverTheRestStep(), new InstallSettingsStep(dataSource, RegistrySetupSettingCatalog.Known), .. extra],
             audit,
             new SettingAuditSinkSetupAudit(new PostgresSettingAuditSink(audit)),
             TimeProvider.System,
@@ -92,11 +92,47 @@ public sealed class InstallSettingsApplyTests
         var result = await Applier(db.DataSource).ApplyAsync(Request(Plan()), ct);
 
         Assert.Equal(SetupExitCode.Ok, result.ExitCode);
-        Assert.Equal(["install.settings"], result.AppliedStepIds);
+        Assert.Equal(["test.cover_the_rest", "install.settings"], result.AppliedStepIds);
         Assert.Equal(4, await CountAsync(db.DataSource, "SELECT count(*) FROM setting", ct));
         Assert.Equal(1, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setup.plan.applied'", ct));
         Assert.Equal(4, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setting.changed'", ct));
         Assert.Equal(0, await CountAsync(db.DataSource, $"SELECT count(*) FROM audit_log WHERE payload::text LIKE '%{_canary}%'", ct));
+    }
+
+    [Fact]
+    public void The_step_covers_only_registered_sections()
+    {
+        Assert.All(InstallSettingsStep.CoveredSections, id => Assert.True(SetupPlanSections.IsKnown(id), id));
+        Assert.Equal(InstallSettingsStep.CoveredSections.Order(StringComparer.Ordinal), new InstallSettingsStep(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none"), RegistrySetupSettingCatalog.Known).Covers.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_real_step_alone_holds_a_full_plan_and_writes_no_setting()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await SetupDatabase.CreateAsync(ct);
+        var audit = new PostgresAuditLog(db.DataSource);
+        var applier = new SetupApplier(
+            new PostgresSetupInstanceLock(db.DataSource),
+            [new InstallSettingsStep(db.DataSource, RegistrySetupSettingCatalog.Known)],
+            audit,
+            new SettingAuditSinkSetupAudit(new PostgresSettingAuditSink(audit)),
+            TimeProvider.System,
+            RegistrySetupSettingCatalog.Known);
+
+        var result = await applier.ApplyAsync(Request(Plan()), ct);
+
+        Assert.Equal(SetupExitCode.Held, result.ExitCode);
+        Assert.Empty(result.AppliedStepIds);
+        Assert.Contains("owner", result.UnappliedSections);
+        Assert.DoesNotContain("settings", result.UnappliedSections);
+        Assert.Equal(0, await CountAsync(db.DataSource, "SELECT count(*) FROM setting", ct));
+        Assert.Equal(0, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setting.changed'", ct));
+        Assert.Equal(0, await CountAsync(db.DataSource, $"SELECT count(*) FROM audit_log WHERE payload::text LIKE '%{_canary}%'", ct));
+        await using var command = db.DataSource.CreateCommand("SELECT payload::text FROM audit_log WHERE kind = 'setup.plan.applied'");
+        var payload = (JsonObject)JsonNode.Parse((string)(await command.ExecuteScalarAsync(ct))!)!;
+        Assert.Equal("held_unapplied_sections", payload["outcome"]!.GetValue<string>());
     }
 
     [Fact]
@@ -132,6 +168,23 @@ public sealed class InstallSettingsApplyTests
         Assert.Equal("rolled_back", payload["outcome"]!.GetValue<string>());
         Assert.Equal("later.step", payload["failedStep"]!.GetValue<string>());
         Assert.DoesNotContain(_canary, payload.ToJsonString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Stands in for the steps that are not built yet: it applies nothing and declares every section the real step does not cover,
+    /// so the full test plan passes the applier's unapplied-sections check.
+    /// </summary>
+    private sealed class CoverTheRestStep : ISetupStep
+    {
+        public string Id => "test.cover_the_rest";
+
+        public int Order => 1;
+
+        public IReadOnlyCollection<string> Covers =>
+            [.. SetupPlanSections.All.Select(section => section.Id).Except(InstallSettingsStep.CoveredSections)];
+
+        public Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(SetupStepResult.Ok);
     }
 
     /// <summary>Runs after the settings step (order 1600) and fails with a canary in the exception text.</summary>

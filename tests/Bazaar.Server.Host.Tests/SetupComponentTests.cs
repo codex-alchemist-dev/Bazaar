@@ -222,6 +222,8 @@ public sealed class SetupComponentTests
     {
         public string Id => "test.step";
 
+        public IReadOnlyCollection<string> Covers => [.. SetupPlanSections.All.Select(section => section.Id)];
+
         public int Order => 1;
 
         public Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken) =>
