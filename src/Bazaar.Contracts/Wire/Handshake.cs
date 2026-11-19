@@ -16,6 +16,7 @@ public sealed record StreamCursor(string S, long After, long EditAfter);
 /// <param name="ClientBuild">Client build string for diagnostics and upgrade checks.</param>
 /// <param name="Credential">Credential, when it did not ride in the upgrade header.</param>
 /// <param name="Cursors">Cursors for streams to resume, or null.</param>
+[WirePayload(WireTypes.Hello)]
 public sealed record Hello(
     int VersionMin,
     int VersionMax,
@@ -46,6 +47,7 @@ public sealed record WireLimits(int MaxFrameBytes, int InflightRequestsMax, int 
 /// <param name="UiRevision">Current revision of the device's UI profile.</param>
 /// <param name="UpgradeRequired">Set when no version overlaps; the socket then closes with 4426.</param>
 /// <param name="MinimumBuild">With <paramref name="UpgradeRequired"/>: the lowest acceptable client build.</param>
+[WirePayload(WireTypes.Welcome)]
 public sealed record Welcome(
     int Version,
     int Minor,
