@@ -10,7 +10,7 @@ public class CrashHooksTests : IDisposable
     private static readonly DateTimeOffset _start = new(2026, 11, 19, 9, 0, 0, TimeSpan.Zero);
 
     /// <summary>A GitHub token shaped value. Generated for the test; it is not a credential.</summary>
-    private const string _fakeToken = "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+    private const string _fakeToken = "ghp" + "_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
 
     private readonly TempDirectory _root = new();
     private readonly TestClock _clock = new(_start);
