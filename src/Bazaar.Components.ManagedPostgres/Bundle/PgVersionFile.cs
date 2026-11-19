@@ -37,6 +37,11 @@ public static class PgVersionFile
         ArgumentException.ThrowIfNullOrWhiteSpace(clusterRoot);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(major);
         Directory.CreateDirectory(clusterRoot);
-        File.WriteAllText(Path.Combine(clusterRoot, FileName), major.ToString(CultureInfo.InvariantCulture) + Environment.NewLine);
+
+        // Through a temp file and a rename: a crash must not leave a prefix such as "1" for "17", which would read as major 1.
+        var path = Path.Combine(clusterRoot, FileName);
+        var temp = path + ".tmp";
+        File.WriteAllText(temp, major.ToString(CultureInfo.InvariantCulture) + Environment.NewLine);
+        File.Move(temp, path, overwrite: true);
     }
 }

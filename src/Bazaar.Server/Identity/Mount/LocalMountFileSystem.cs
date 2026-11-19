@@ -62,11 +62,31 @@ public sealed class LocalMountFileSystem : IMountFileSystem
             Directory.CreateDirectory(directory);
         }
 
-        File.WriteAllBytes(full, content.ToArray());
-
-        if (!OperatingSystem.IsWindows())
+        // Write beside the target, restrict it, then move into place: a reader never sees a torn secret, and the file is never
+        // readable by others, not even briefly.
+        var temp = Path.Combine(directory ?? _root, "." + Path.GetFileName(full) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+        try
         {
-            File.SetUnixFileMode(full, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            File.WriteAllBytes(temp, content.ToArray());
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+
+            File.Move(temp, full, overwrite: true);
+        }
+        catch
+        {
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Best effort: the original failure is the one to report.
+            }
+
+            throw;
         }
     }
 
