@@ -123,4 +123,80 @@ public sealed class WhatIfEngineTests
         await Assert.ThrowsAsync<ArgumentException>(() => rig.Engine.RunAsync(
             Request() with { Branches = [new WhatIfBranch("a/../b", ["t"]), new WhatIfBranch("c", ["t"])] }, ct));
     }
+
+    private static WhatIfRequest ThreeBranches() => new(
+        "council-vote-8", _gc, 42, MetricSpec.Default,
+        [new WhatIfBranch("keep", ["a"]), new WhatIfBranch("change", ["b"]), new WhatIfBranch("drop", ["c"])]);
+
+    [Fact]
+    public async Task A_quota_refusal_aborts_only_that_branch_and_the_others_are_scored()
+    {
+        var rig = Make();
+        rig.Runner.QuotaRefusals["change"] = SandboxQuotaRefusal.QuotaExhausted;
+
+        var result = await rig.Engine.RunAsync(ThreeBranches(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(WhatIfRunState.Completed, result.State);
+        Assert.Equal(["drop", "keep"], result.Ranking.Select(r => r.Branch).Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(result.Ranking, r => r.Branch == "change");
+        Assert.Equal(3, rig.Runner.Requests.Count);
+        var stored = await rig.Store.GetAsync(result.RunId, TestContext.Current.CancellationToken);
+        var refused = stored!.Branches.Single(b => b.Name == "change");
+        Assert.Equal(WhatIfRunState.Aborted, refused.State);
+        Assert.Contains("QuotaExhausted", refused.AbortReason);
+        Assert.Null(refused.Result);
+        Assert.All(stored.Branches.Where(b => b.Name != "change"), b => Assert.Equal(WhatIfRunState.Completed, b.State));
+        Assert.Contains("- change: Aborted", result.Report);
+        Assert.Single(rig.Sink.Entries);
+    }
+
+    [Fact]
+    public async Task A_window_refusal_is_a_branch_abort_too_and_all_refused_leaves_an_aborted_run_with_no_ranking()
+    {
+        var rig = Make();
+        rig.Runner.QuotaRefusals["keep"] = SandboxQuotaRefusal.OutsideWindow;
+        rig.Runner.QuotaRefusals["change"] = SandboxQuotaRefusal.OutsideWindow;
+
+        var result = await rig.Engine.RunAsync(Request(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(WhatIfRunState.Aborted, result.State);
+        Assert.Empty(result.Ranking);
+        Assert.Contains("- keep: Aborted", result.Report);
+        Assert.Contains("OutsideWindow", result.Report);
+    }
+
+    private sealed class RejectingRunner(string rejectBranch) : ISandboxRunner
+    {
+        public Task<SandboxOutcome> RunAsync(SandboxRequest request, CancellationToken ct = default) =>
+            request.Branch == rejectBranch
+                ? Task.FromException<SandboxOutcome>(new SandboxRequestRejectedException(["egress must be default-deny"]))
+                : new FakeSandboxRunner().RunAsync(request, ct);
+    }
+
+    [Fact]
+    public async Task A_guard_violation_still_aborts_the_whole_run_including_scored_branches()
+    {
+        var store = new InMemoryWhatIfRunStore();
+        var sink = new InMemoryWhatIfReportSink();
+        var engine = new WhatIfEngine(new RejectingRunner("change"), store, new FakeWhatIfForkSource(), sink, new WhatIfSettings(0));
+
+        var result = await engine.RunAsync(ThreeBranches(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(WhatIfRunState.Aborted, result.State);
+        Assert.Empty(result.Ranking);
+        Assert.Empty(sink.Entries);
+        var stored = await store.GetAsync(result.RunId, TestContext.Current.CancellationToken);
+        Assert.All(stored!.Branches, b =>
+        {
+            Assert.Equal(WhatIfRunState.Aborted, b.State);
+            Assert.Null(b.Result);
+        });
+    }
+
+    [Fact]
+    public void A_quota_refusal_is_not_a_guard_violation_type()
+    {
+        Assert.False(typeof(SandboxQuotaRefusedException).IsAssignableTo(typeof(SandboxRequestRejectedException)));
+        Assert.False(typeof(SandboxRequestRejectedException).IsAssignableTo(typeof(SandboxQuotaRefusedException)));
+    }
 }

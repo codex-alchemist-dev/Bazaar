@@ -7,18 +7,26 @@ public enum WhatIfRunState
     Running,
     Completed,
 
-    /// <summary>Stopped before or during execution by a guard: a metric spec mismatch or a rejected sandbox request.</summary>
+    /// <summary>Stopped before or during execution: by a guard (metric spec mismatch, rejected sandbox request) for the whole run, or by a quota or window refusal for one branch.</summary>
     Aborted,
 
     /// <summary>The runner threw or could not finish.</summary>
     Failed,
 }
 
-/// <summary>A reviewer's verdict band. Doc 26 names "review band" as a metric but not its levels; these three are a placeholder (see doc gaps).</summary>
+/// <summary>
+/// The reviewer's verdict concern level (PROPOSED, doc 26 gap decisions): <see cref="Low"/> is approve, <see cref="Medium"/> is
+/// approve with comments, <see cref="High"/> is changes requested. These are not the approval tiers or reputation bands of other docs.
+/// </summary>
 public enum ReviewBand
 {
+    /// <summary>Approve.</summary>
     Low = 0,
+
+    /// <summary>Approve with comments.</summary>
     Medium = 1,
+
+    /// <summary>Changes requested.</summary>
     High = 2,
 }
 
@@ -40,8 +48,9 @@ public sealed record WhatIfBranchRun(
     string? AbortReason = null);
 
 /// <summary>
-/// A run as stored. <see cref="State"/> is derived from the branches so the two cannot disagree: any aborted branch makes the
-/// run Aborted, then any failed branch Failed, then any running branch Running, all completed Completed, otherwise Pending.
+/// A run as stored. <see cref="State"/> is derived from the branches so the two cannot disagree: all branches aborted makes the
+/// run Aborted (a whole-run abort aborts every branch), then any failed branch Failed, then any running branch Running, then
+/// every branch completed or aborted (a quota-refused branch) with at least one completed Completed, otherwise Pending.
 /// </summary>
 public sealed record WhatIfRun(
     Guid Id,
@@ -53,10 +62,10 @@ public sealed record WhatIfRun(
     DateTimeOffset CreatedAt)
 {
     public WhatIfRunState State =>
-        Branches.Any(b => b.State == WhatIfRunState.Aborted) ? WhatIfRunState.Aborted
+        Branches.Count > 0 && Branches.All(b => b.State == WhatIfRunState.Aborted) ? WhatIfRunState.Aborted
         : Branches.Any(b => b.State == WhatIfRunState.Failed) ? WhatIfRunState.Failed
         : Branches.Any(b => b.State == WhatIfRunState.Running) ? WhatIfRunState.Running
-        : Branches.Count > 0 && Branches.All(b => b.State == WhatIfRunState.Completed) ? WhatIfRunState.Completed
+        : Branches.Any(b => b.State == WhatIfRunState.Completed) && Branches.All(b => b.State is WhatIfRunState.Completed or WhatIfRunState.Aborted) ? WhatIfRunState.Completed
         : WhatIfRunState.Pending;
 
     public string? AbortReason => Branches.Select(b => b.AbortReason).FirstOrDefault(r => r is not null);

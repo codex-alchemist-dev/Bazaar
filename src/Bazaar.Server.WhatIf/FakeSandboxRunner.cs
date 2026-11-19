@@ -18,6 +18,9 @@ public sealed class FakeSandboxRunner : ISandboxRunner
     /// <summary>When set, the runner throws this for every request, to simulate a failed run.</summary>
     public Exception? FailWith { get; set; }
 
+    /// <summary>Branch names the runner refuses as the quota or window would, to simulate a per-branch refusal.</summary>
+    public IDictionary<string, SandboxQuotaRefusal> QuotaRefusals { get; } = new Dictionary<string, SandboxQuotaRefusal>(StringComparer.Ordinal);
+
     public IReadOnlyList<SandboxRequest> Requests
     {
         get
@@ -33,6 +36,8 @@ public sealed class FakeSandboxRunner : ISandboxRunner
         ct.ThrowIfCancellationRequested();
         lock (_requests)
             _requests.Add(request);
+        if (QuotaRefusals.TryGetValue(request.Branch, out var refusal))
+            return Task.FromException<SandboxOutcome>(new SandboxQuotaRefusedException(refusal));
         if (FailWith is not null)
             return Task.FromException<SandboxOutcome>(FailWith);
 

@@ -137,7 +137,9 @@ public sealed class FakeSandboxPushGate : ISandboxPushGate
 public sealed class FakeSandboxQuota : ISandboxQuota
 {
     private readonly List<SandboxQuotaRequest> _requests = [];
+    private readonly Dictionary<Guid, bool> _grants = [];
     private int _remaining = int.MaxValue;
+    private int _refunds;
 
     public int Remaining
     {
@@ -167,7 +169,42 @@ public sealed class FakeSandboxQuota : ISandboxQuota
             if (_remaining <= 0)
                 return Task.FromResult(SandboxQuotaDecision.Refuse(SandboxQuotaRefusal.QuotaExhausted));
             _remaining--;
-            return Task.FromResult(SandboxQuotaDecision.Allow);
+            var grantId = Guid.CreateVersion7();
+            _grants[grantId] = false;
+            return Task.FromResult(SandboxQuotaDecision.Grant(grantId));
+        }
+    }
+
+    public Task<bool> RefundAsync(Guid grantId, CancellationToken ct = default)
+    {
+        lock (_requests)
+        {
+            if (!_grants.TryGetValue(grantId, out var refunded) || refunded)
+                return Task.FromResult(false);
+            _grants[grantId] = true;
+            _remaining++;
+            _refunds++;
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <summary>How many grants were refunded (each at most once).</summary>
+    public int Refunds
+    {
+        get
+        {
+            lock (_requests)
+                return _refunds;
+        }
+    }
+
+    /// <summary>The ids of every grant handed out, in order.</summary>
+    public IReadOnlyList<Guid> GrantIds
+    {
+        get
+        {
+            lock (_requests)
+                return [.. _grants.Keys];
         }
     }
 }

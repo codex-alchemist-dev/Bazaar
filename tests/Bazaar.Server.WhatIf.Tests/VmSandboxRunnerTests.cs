@@ -181,8 +181,9 @@ public sealed class VmSandboxRunnerTests
         var rig = Make();
         rig.Quota.Remaining = 0;
 
-        var ex = await Assert.ThrowsAsync<SandboxRequestRejectedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+        var ex = await Assert.ThrowsAsync<SandboxQuotaRefusedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
 
+        Assert.Equal(SandboxQuotaRefusal.QuotaExhausted, ex.Refusal);
         Assert.Contains("QuotaExhausted", ex.Message);
         Assert.Empty(rig.Host.Specs);
     }
@@ -194,7 +195,7 @@ public sealed class VmSandboxRunnerTests
         rig.Quota.AllowedWindows = new HashSet<WorkLifeWindow> { WorkLifeWindow.Off };
         rig.Quota.Remaining = 1;
 
-        var ex = await Assert.ThrowsAsync<SandboxRequestRejectedException>(() =>
+        var ex = await Assert.ThrowsAsync<SandboxQuotaRefusedException>(() =>
             rig.Runner.RunAsync(Request(window: WorkLifeWindow.Break), TestContext.Current.CancellationToken));
         Assert.Contains("OutsideWindow", ex.Message);
         Assert.Empty(rig.Host.Specs);
@@ -287,6 +288,112 @@ public sealed class VmSandboxRunnerTests
         {
             var session = (FakeSandboxSession)await inner.ProvisionAsync(spec, ct);
             session.TeardownFailure = new InvalidOperationException("boom");
+            return session;
+        }
+    }
+
+    [Fact]
+    public async Task A_good_run_keeps_its_quota_even_when_ci_failed()
+    {
+        var rig = Make();
+        rig.Host.Measurement = new BranchMeasurement(CiPassed: false, 10, ReviewBand.High, 100);
+
+        await rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, rig.Quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_provision_failure_refunds_the_grant()
+    {
+        var rig = Make();
+        rig.Host.ProvisionFailure = new InvalidOperationException("boom");
+
+        await Assert.ThrowsAsync<SandboxRunFailedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, rig.Quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_collect_failure_refunds_the_grant()
+    {
+        var rig = Make();
+        var runner = new VmSandboxRunner(new CollectFailingHost(rig.Host), rig.Gate, rig.Quota);
+
+        var ex = await Assert.ThrowsAsync<SandboxRunFailedException>(() => runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+
+        Assert.Equal("collect", ex.Stage);
+        Assert.Equal(1, rig.Quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_push_failure_refunds_the_grant()
+    {
+        var rig = Make();
+        rig.Gate.FailWith = new InvalidOperationException("remote down");
+
+        var ex = await Assert.ThrowsAsync<SandboxRunFailedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+
+        Assert.Equal("push", ex.Stage);
+        Assert.Equal(1, rig.Quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_teardown_failure_on_an_otherwise_good_run_refunds_the_grant()
+    {
+        var rig = Make();
+        var runner = new VmSandboxRunner(new TeardownFailingHost(rig.Host), rig.Gate, rig.Quota);
+
+        var ex = await Assert.ThrowsAsync<SandboxRunFailedException>(() => runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+
+        Assert.Equal("teardown", ex.Stage);
+        Assert.Equal(1, rig.Quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_task_that_failed_on_its_merits_does_not_refund()
+    {
+        var rig = Make();
+        rig.Host.TaskBehaviour = _ => new SandboxTaskResult(false, "tool_denied");
+        await Assert.ThrowsAsync<SandboxRunFailedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+
+        rig.Host.TaskBehaviour = _ => throw new InvalidOperationException("harness");
+        await Assert.ThrowsAsync<SandboxRunFailedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, rig.Quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_refund_is_idempotent_per_grant_and_a_failing_refund_does_not_mask_the_failure()
+    {
+        var rig = Make();
+        rig.Host.ProvisionFailure = new InvalidOperationException("boom");
+        await Assert.ThrowsAsync<SandboxRunFailedException>(() => rig.Runner.RunAsync(Request(), TestContext.Current.CancellationToken));
+        var grant = Assert.Single(rig.Quota.GrantIds);
+
+        Assert.False(await rig.Quota.RefundAsync(grant, TestContext.Current.CancellationToken));
+        Assert.False(await rig.Quota.RefundAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
+        Assert.Equal(1, rig.Quota.Refunds);
+
+        var throwing = new VmSandboxRunner(rig.Host, rig.Gate, new RefundThrowingQuota());
+        var ex = await Assert.ThrowsAsync<SandboxRunFailedException>(() => throwing.RunAsync(Request(), TestContext.Current.CancellationToken));
+        Assert.Equal("provision", ex.Stage);
+    }
+
+    private sealed class RefundThrowingQuota : ISandboxQuota
+    {
+        public Task<SandboxQuotaDecision> TryConsumeAsync(SandboxQuotaRequest request, CancellationToken ct = default) =>
+            Task.FromResult(SandboxQuotaDecision.Grant(Guid.NewGuid()));
+
+        public Task<bool> RefundAsync(Guid grantId, CancellationToken ct = default) => throw new InvalidOperationException("ledger down");
+    }
+
+    private sealed class CollectFailingHost(FakeSandboxVmHost inner) : ISandboxVmHost
+    {
+        public async Task<ISandboxSession> ProvisionAsync(SandboxVmSpec spec, CancellationToken ct = default)
+        {
+            var session = (FakeSandboxSession)await inner.ProvisionAsync(spec, ct);
+            session.CollectFailure = new InvalidOperationException("disk");
             return session;
         }
     }

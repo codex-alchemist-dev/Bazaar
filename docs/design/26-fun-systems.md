@@ -179,6 +179,9 @@ Time Machine, Playtest and What If are separate module pairs (`Bazaar.Server.Tim
 - **Playtest Tier A scenarios** are declared data (engine, build ref, scenario id, assertions); results are state dumps with a content hash. Personas never see pixels. The project hash is recorded before and after a run, and a change fails the run.
 - **Replay view modes.** `current` opens live with no banner, and a read-only banner appears once the viewer scrubs back; `history` keeps the banner on at every seq, the head included. The per-viewer override is a client preference. The client pane model is `{gcId, headSeq, defaultView}`. The replay and fork wire messages need doc 02 before a real client transport exists.
 - **What If** ships contracts and a deterministic fake runner now. The metric spec is canonical JSON hashed with SHA-256 before any branch starts; a mismatch aborts the run.
+- **What If quota refund (PROPOSED).** A branch that fails because of infrastructure (provision, collect, push or teardown stage) refunds its quota grant; a branch that fails on its own merits (a task fails or reports `Completed=false`) does not. A CI failure is a measurement, never a failure. `ISandboxQuota.RefundAsync` is idempotent per grant.
+- **What If refusals abort one branch (PROPOSED).** A quota or Work-Life window refusal aborts only that branch: the other branches still run and are scored, the ranking excludes it, and the report lists it as Aborted with the reason. A guard violation (token, egress, non-sandbox ref) still aborts the whole run.
+- **What If review band (PROPOSED).** The review band is the reviewer's verdict concern level: Low = approve, Medium = approve with comments, High = changes requested. It is not an approval tier (Tiers 0 to 3) or a reputation band (Unproven to Strong).
 
 ## Questions for the owner
 1. Fork: copy messages or link read-only? Default: link, plus a Vault branch. Copying changes the fork data shape, so it stays a question.

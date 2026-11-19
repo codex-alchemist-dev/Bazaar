@@ -6,7 +6,8 @@ namespace Bazaar.Server.WhatIf;
 /// <summary>
 /// The What If state machine (doc 26 section 3). The metric spec is hashed first and a mismatch aborts; each branch then runs its
 /// own task list in a sandbox, scored on that fixed spec. A run that finishes leaves one <c>system</c> entry in the main GC, and the
-/// report always states its counterfactual limit.
+/// report always states its counterfactual limit. A quota or work-life-window refusal aborts only its branch (listed as Aborted in the
+/// report); a guard violation aborts the whole run (PROPOSED, doc 26 gap decisions).
 /// </summary>
 /// <remarks>
 /// Branches run one after another: the Work-Life BREAK and OFF windows count against quota, so no parallel burst. Reputation is
@@ -60,8 +61,16 @@ public sealed class WhatIfEngine(
             {
                 outcome = await runner.RunAsync(sandbox, ct).ConfigureAwait(false);
             }
+            catch (SandboxQuotaRefusedException ex)
+            {
+                // A quota or window refusal aborts this branch only; the others still run and are scored.
+                run = WithBranch(run, i, run.Branches[i] with { State = WhatIfRunState.Aborted, AbortReason = ex.Message });
+                await store.SaveAsync(run, ct).ConfigureAwait(false);
+                continue;
+            }
             catch (SandboxRequestRejectedException ex)
             {
+                // A guard violation (token, egress, non-sandbox ref) aborts the whole run.
                 return await AbortAsync(run, ex.Message, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -94,7 +103,7 @@ public sealed class WhatIfEngine(
             .ToArray();
         run = run with { Branches = branches };
         await store.SaveAsync(run, ct).ConfigureAwait(false);
-        var report = BuildReport(run, [], reason);
+        var report = BuildReport(run, [], reason, listAborted: false);
         // An abort is reported in the run record and the result only; the main GC gets one entry per finished run.
         return new WhatIfResult(run.Id, run.State, run.MetricsSpecHash, [], WhatIfLimits.Counterfactual, report, settings.ReputationWeight, reason);
     }
@@ -107,7 +116,7 @@ public sealed class WhatIfEngine(
         return new WhatIfResult(run.Id, run.State, run.MetricsSpecHash, ranking, WhatIfLimits.Counterfactual, report, settings.ReputationWeight, failure);
     }
 
-    private string BuildReport(WhatIfRun run, IReadOnlyList<WhatIfRankedBranch> ranking, string? note)
+    private string BuildReport(WhatIfRun run, IReadOnlyList<WhatIfRankedBranch> ranking, string? note, bool listAborted = true)
     {
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture, $"What If {run.DecisionRef}: {run.State}. Metric spec {run.MetricsSpecHash[..12]}.").AppendLine();
@@ -118,6 +127,12 @@ public sealed class WhatIfEngine(
             sb.Append(CultureInfo.InvariantCulture,
                 $"- {r.Branch}: score {MetricSpec.Format(r.Score)}, CI {(r.Measurement.CiPassed ? "pass" : "fail")}, diff {r.Measurement.DiffLines} lines, review {r.Measurement.Review}, {r.Measurement.Tokens} tokens.")
                 .AppendLine();
+        }
+
+        if (listAborted)
+        {
+            foreach (var b in run.Branches.Where(b => b.State == WhatIfRunState.Aborted))
+                sb.Append(CultureInfo.InvariantCulture, $"- {b.Name}: Aborted ({b.AbortReason}).").AppendLine();
         }
 
         sb.Append(CultureInfo.InvariantCulture, $"Reputation weight {MetricSpec.Format(settings.ReputationWeight)}.").AppendLine();

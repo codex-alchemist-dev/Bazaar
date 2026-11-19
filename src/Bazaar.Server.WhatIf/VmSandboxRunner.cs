@@ -8,7 +8,8 @@ namespace Bazaar.Server.WhatIf;
 /// Runs one What If branch for real (doc 26 section 3, WP4) through small ports that mirror docs 16 and 17: quota and window, VM host,
 /// push gate. Order: request guard, quota, provision, tasks in order, collect, push (sandbox refs only, only on success), teardown in a
 /// <c>finally</c>-style step that also runs on cancellation and failure. Failures surface as <see cref="SandboxRunFailedException"/>
-/// (stage only) or <see cref="SandboxRequestRejectedException"/>, so no host or guest text reaches the run record.
+/// (stage only), <see cref="SandboxRequestRejectedException"/> or <see cref="SandboxQuotaRefusedException"/>, so no host or guest text
+/// reaches the run record. Infrastructure failures (provision, collect, push, teardown) refund the quota grant; a failed task does not.
 /// </summary>
 public sealed class VmSandboxRunner(ISandboxVmHost host, ISandboxPushGate pushGate, ISandboxQuota quota) : ISandboxRunner
 {
@@ -21,7 +22,8 @@ public sealed class VmSandboxRunner(ISandboxVmHost host, ISandboxPushGate pushGa
 
         var decision = await quota.TryConsumeAsync(new SandboxQuotaRequest(request.RunId, request.Branch, request.Window), ct).ConfigureAwait(false);
         if (!decision.Granted)
-            throw new SandboxRequestRejectedException([$"the sandbox may not start now ({decision.Refusal})"]);
+            throw new SandboxQuotaRefusedException(decision.Refusal);
+        var grantId = decision.GrantId;
 
         var spec = new SandboxVmSpec(request.RunId, request.Branch, request.SandboxGcId, SandboxEgress.Denied);
         ISandboxSession session;
@@ -31,6 +33,7 @@ public sealed class VmSandboxRunner(ISandboxVmHost host, ISandboxPushGate pushGa
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            await RefundAsync(grantId).ConfigureAwait(false);
             throw new SandboxRunFailedException("provision");
         }
 
@@ -57,17 +60,35 @@ public sealed class VmSandboxRunner(ISandboxVmHost host, ISandboxPushGate pushGa
         }
         catch (Exception)
         {
+            await RefundAsync(grantId).ConfigureAwait(false);
             throw new SandboxRunFailedException("teardown");
         }
 
         if (failure is not null)
         {
+            // Infrastructure stages refund; a task that failed on its merits keeps its quota, and a CI failure is a measurement.
+            if (failure is SandboxRunFailedException { Stage: "collect" or "push" })
+                await RefundAsync(grantId).ConfigureAwait(false);
             if (failure is OperationCanceledException or SandboxRunFailedException)
                 ExceptionDispatchInfo.Capture(failure).Throw();
             throw new SandboxRunFailedException("run");
         }
 
         return outcome!;
+    }
+
+    // A refund failure must never mask the run's own outcome, and it runs even when the caller cancelled.
+    private async Task RefundAsync(Guid grantId)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(_teardownTimeout);
+            await quota.RefundAsync(grantId, cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The quota ledger is host-side; its error text stays out of the run record.
+        }
     }
 
     private async Task<SandboxOutcome> ExecuteAsync(ISandboxSession session, SandboxRequest request, CancellationToken ct)

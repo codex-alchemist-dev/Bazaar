@@ -39,10 +39,13 @@ public enum SandboxQuotaRefusal
     QuotaExhausted,
 }
 
-/// <summary>The quota port's answer. A refusal carries a secret-free reason.</summary>
-public sealed record SandboxQuotaDecision(bool Granted, SandboxQuotaRefusal Refusal = SandboxQuotaRefusal.None)
+/// <summary>
+/// The quota port's answer. A refusal carries a secret-free reason; a grant carries the id the refund names, so a refund is
+/// idempotent per grant.
+/// </summary>
+public sealed record SandboxQuotaDecision(bool Granted, SandboxQuotaRefusal Refusal = SandboxQuotaRefusal.None, Guid GrantId = default)
 {
-    public static SandboxQuotaDecision Allow { get; } = new(true);
+    public static SandboxQuotaDecision Grant(Guid grantId) => new(true, SandboxQuotaRefusal.None, grantId);
 
     public static SandboxQuotaDecision Refuse(SandboxQuotaRefusal refusal) => new(false, refusal);
 }
@@ -57,6 +60,13 @@ public sealed record SandboxQuotaRequest(Guid RunId, string Branch, WorkLifeWind
 public interface ISandboxQuota
 {
     Task<SandboxQuotaDecision> TryConsumeAsync(SandboxQuotaRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the quota a grant consumed. Idempotent per grant: true when this call refunded it, false when it was already refunded
+    /// or is unknown. The runner calls it when infrastructure fails (provision, collect, push, teardown), never when the task failed
+    /// on its merits (PROPOSED, doc 26 gap decisions).
+    /// </summary>
+    Task<bool> RefundAsync(Guid grantId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -100,6 +110,16 @@ public interface ISandboxVmHost
 public interface ISandboxPushGate
 {
     Task<string> PushAsync(SandboxPushRequest request, CancellationToken ct = default);
+}
+
+/// <summary>
+/// The quota or Work-Life window refused to start a branch. It is not a <see cref="SandboxRequestRejectedException"/>: a guard
+/// violation aborts the whole What If run, this aborts only the branch (PROPOSED, doc 26 gap decisions).
+/// </summary>
+public sealed class SandboxQuotaRefusedException(SandboxQuotaRefusal refusal)
+    : InvalidOperationException($"the sandbox may not start now ({refusal})")
+{
+    public SandboxQuotaRefusal Refusal { get; } = refusal;
 }
 
 /// <summary>The sandbox run could not finish. The message names a stage only; it never carries host or guest error text.</summary>
