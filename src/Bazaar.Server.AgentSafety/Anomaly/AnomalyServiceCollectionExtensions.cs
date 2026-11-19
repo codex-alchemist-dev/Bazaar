@@ -20,15 +20,16 @@ public static class AnomalyServiceCollectionExtensions
         services.TryAddSingleton<IAnomalyAlertSource>(sp => sp.GetRequiredService<ChannelAnomalyAlertSource>());
         services.TryAddSingleton<IAnomalyAlertSink>(sp => sp.GetRequiredService<ChannelAnomalyAlertSource>());
 
-        services.AddSingleton<IAnomalyRule>(sp => new ReadBurstRule(sp.GetRequiredService<AnomalyRuleOptions>().ReadBurst));
+        services.AddSingleton<IAnomalyRule>(sp => new ReadBurstRule(sp.GetRequiredService<AnomalyRuleOptions>().ReadBurst, sp.GetService<TimeProvider>()));
         services.AddSingleton<IAnomalyRule>(sp => new OutOfScopeReadRule(sp.GetRequiredService<AnomalyRuleOptions>().OutOfScopeRead));
         services.AddSingleton<IAnomalyRule>(sp => new CanaryHitRule(sp.GetRequiredService<AnomalyRuleOptions>().CanaryHit));
-        services.AddSingleton<IAnomalyRule>(sp => new ApprovalFloodRule(sp.GetRequiredService<AnomalyRuleOptions>().ApprovalFlood));
+        services.AddSingleton<IAnomalyRule>(sp => new ApprovalFloodRule(sp.GetRequiredService<AnomalyRuleOptions>().ApprovalFlood, sp.GetService<TimeProvider>()));
 
         services.TryAddSingleton(sp => new AnomalyEngine(
             sp.GetRequiredService<IEnumerable<IAnomalyRule>>(),
             sp.GetRequiredService<IAnomalyAlertSink>(),
-            sp.GetRequiredService<ILogger<AnomalyEngine>>()));
+            sp.GetRequiredService<ILogger<AnomalyEngine>>(),
+            time: sp.GetService<TimeProvider>()));
 
         return services;
     }

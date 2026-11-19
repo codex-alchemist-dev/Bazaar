@@ -31,6 +31,9 @@ public sealed partial class ContainmentEnforcer : BackgroundService
     /// <summary>How long to wait between sweeps once every contained agent is contained.</summary>
     public static readonly TimeSpan DefaultSweepInterval = TimeSpan.FromSeconds(60);
 
+    /// <summary>The longest one revoke or one pause may take for one agent. A step that runs longer counts as failed and is retried.</summary>
+    public static readonly TimeSpan DefaultStepTimeout = TimeSpan.FromMinutes(2);
+
     private readonly IContainmentStateStore _store;
     private readonly IAgentTokenRevoker _revoker;
     private readonly IVmPauser _pauser;
@@ -39,6 +42,7 @@ public sealed partial class ContainmentEnforcer : BackgroundService
     private readonly TimeSpan _retryInterval;
     private readonly TimeSpan _sweepInterval;
     private readonly ContainmentReleaseGuard _guard;
+    private readonly TimeSpan _stepTimeout;
 
     public ContainmentEnforcer(
         IContainmentStateStore store,
@@ -48,7 +52,8 @@ public sealed partial class ContainmentEnforcer : BackgroundService
         TimeProvider? time = null,
         TimeSpan? retryInterval = null,
         TimeSpan? sweepInterval = null,
-        ContainmentReleaseGuard? releaseGuard = null)
+        ContainmentReleaseGuard? releaseGuard = null,
+        TimeSpan? stepTimeout = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _revoker = revoker ?? throw new ArgumentNullException(nameof(revoker));
@@ -65,6 +70,12 @@ public sealed partial class ContainmentEnforcer : BackgroundService
         if (_sweepInterval <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(sweepInterval), "The sweep interval must be positive.");
+        }
+
+        _stepTimeout = stepTimeout ?? DefaultStepTimeout;
+        if (_stepTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stepTimeout), "The step timeout must be positive.");
         }
 
         _guard = releaseGuard ?? new ContainmentReleaseGuard();
@@ -87,25 +98,55 @@ public sealed partial class ContainmentEnforcer : BackgroundService
             return null;
         }
 
+        // Two phases. Every token cut is attempted before any VM pause starts, so a slow or hung VM save for one agent never delays the
+        // revoke of another. The guard leases are held across both phases, so a release cannot slip in between the re-read and the pause.
+        var leases = new List<IDisposable>();
+        var targets = new List<string>();
         var failed = new List<string>();
-        foreach (var agent in contained)
+        try
         {
-            // A release in flight (or an earlier pass still working on the agent) holds the guard: skip, the next pass looks again.
-            using var lease = _guard.TryAcquire(agent.AgentId);
-            if (lease is null)
+            foreach (var agent in contained)
             {
-                continue;
+                // A release in flight (or an earlier pass still working on the agent) holds the guard: skip, the next pass looks again.
+                var lease = _guard.TryAcquire(agent.AgentId);
+                if (lease is null)
+                {
+                    continue;
+                }
+
+                leases.Add(lease);
+
+                // Re-read under the guard: a release that finished after the set was loaded has removed the agent, and must stay released.
+                if (await StillContainedAsync(agent.AgentId, ct).ConfigureAwait(false))
+                {
+                    targets.Add(agent.AgentId);
+                }
             }
 
-            // Re-read under the guard: a release that finished after the set was loaded has removed the agent, and must stay released.
-            if (!await StillContainedAsync(agent.AgentId, ct).ConfigureAwait(false))
+            var bad = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var id in targets)
             {
-                continue;
+                if (!await RevokeStepAsync(id, ct).ConfigureAwait(false))
+                {
+                    bad.Add(id);
+                }
             }
 
-            if (!await EnforceAsync(agent.AgentId, ct).ConfigureAwait(false))
+            foreach (var id in targets)
             {
-                failed.Add(agent.AgentId);
+                if (!await PauseStepAsync(id, ct).ConfigureAwait(false))
+                {
+                    bad.Add(id);
+                }
+            }
+
+            failed.AddRange(targets.Where(bad.Contains));
+        }
+        finally
+        {
+            foreach (var lease in leases)
+            {
+                lease.Dispose();
             }
         }
 
@@ -147,31 +188,44 @@ public sealed partial class ContainmentEnforcer : BackgroundService
         }
     }
 
-    /// <summary>Revokes and pauses one agent. Tries both even when the first fails, so one broken adapter does not hide the other.</summary>
-    private async Task<bool> EnforceAsync(string agentId, CancellationToken ct)
+    private async Task<bool> RevokeStepAsync(string agentId, CancellationToken ct)
     {
-        var ok = true;
         try
         {
-            await _revoker.RevokeAsync(agentId, ct).ConfigureAwait(false);
+            await RunBoundedAsync(token => _revoker.RevokeAsync(agentId, token), ct).ConfigureAwait(false);
+            return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            ok = false;
             LogRevokeFailed(ex, agentId);
+            return false;
         }
+    }
 
+    private async Task<bool> PauseStepAsync(string agentId, CancellationToken ct)
+    {
         try
         {
-            await _pauser.PauseAsync(agentId, ct).ConfigureAwait(false);
+            await RunBoundedAsync(token => _pauser.PauseAsync(agentId, token), ct).ConfigureAwait(false);
+            return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            ok = false;
             LogPauseFailed(ex, agentId);
+            return false;
         }
+    }
 
-        return ok;
+    /// <summary>
+    /// Runs one adapter call under the step timeout. The call gets a token that fires at the timeout, and the wait stops at the timeout
+    /// even if the adapter ignores the token, so a hung adapter cannot hold up the other agents. A timeout, and an
+    /// <see cref="OperationCanceledException"/> the adapter throws on its own, are failures like any other, never an abort of the pass.
+    /// </summary>
+    private async Task RunBoundedAsync(Func<CancellationToken, Task> call, CancellationToken ct)
+    {
+        using var timeout = new CancellationTokenSource(_stepTimeout, _time);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        await call(linked.Token).WaitAsync(_stepTimeout, _time, ct).ConfigureAwait(false);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The containment store could not be read; contained agents are not re-checked yet.")]

@@ -75,6 +75,7 @@ public sealed partial class AutoContainmentUndo : IAutoContainmentUndo
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentNullException.ThrowIfNull(request);
+        agentId = AgentIds.Canonical(agentId);
 
         var record = await _records.GetLatestAsync(agentId, ct).ConfigureAwait(false);
         if (record is null || record.State != ContainmentRecordState.InForce)

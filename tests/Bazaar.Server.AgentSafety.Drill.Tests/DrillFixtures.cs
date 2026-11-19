@@ -89,7 +89,10 @@ internal sealed class FakeDrillTarget : IDrillTarget
 
     private int _checks;
 
-    public bool IsDrillAgent(string agentId) => agentId == AgentId && (RejectAfterChecks is not { } n || ++_checks <= n);
+    /// <summary>Makes the target accept every agent, as a buggy or too lenient target would.</summary>
+    public bool Loose { get; set; }
+
+    public bool IsDrillAgent(string agentId) => Loose || agentId == AgentId && (RejectAfterChecks is not { } n || ++_checks <= n);
 
     public Task<ContainmentReleaseRequest?> SignReleaseAsync(string agentId, string deviceId, ReleaseChallenge challenge, CancellationToken ct = default)
     {

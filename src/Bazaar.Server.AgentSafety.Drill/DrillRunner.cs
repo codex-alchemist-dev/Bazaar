@@ -15,7 +15,7 @@ namespace Bazaar.Server.AgentSafety.Drill;
 /// the sequence and is reported; a cancellation is rethrown after the cleanup and produces no result.
 /// <para>
 /// The drill device key can sign a release for any agent, so the runner confines it: nothing is challenged or signed for an agent
-/// that <see cref="IDrillTarget.IsDrillAgent"/> rejects, and a stop is released only when it was engaged by the drill (the stored
+/// that is not exactly <see cref="IDrillTarget.DrillAgentId"/> (and accepted by <see cref="IDrillTarget.IsDrillAgent"/>), and a stop is released only when it was engaged by the drill (the stored
 /// stop carries <see cref="DrillActorId"/>, whether from this run or one that was cut short). A stop that was already there, or that an owner or the
 /// breach path placed on the drill agent, is never released by the drill or its cleanup.
 /// </para>
@@ -42,7 +42,10 @@ public sealed class DrillRunner(
     public async Task<DrillResult> RunAsync(string agentId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        if (!target.IsDrillAgent(agentId))
+
+        // The id must be exactly the target's drill agent, whatever IsDrillAgent says: a target that is too lenient (a prefix, a case
+        // fold, a wildcard) must not let the drill stop or sign for a real agent.
+        if (!IsExactDrillAgent(agentId))
         {
             throw new ArgumentException("Only a drill agent can be stopped by the drill.", nameof(agentId));
         }
@@ -186,7 +189,7 @@ public sealed class DrillRunner(
     private async Task<string?> ReleaseAsync(string agentId, CancellationToken ct)
     {
         // Checked again here, next to the signer, so no caller path can reach the drill key for another agent.
-        if (!target.IsDrillAgent(agentId))
+        if (!IsExactDrillAgent(agentId))
         {
             return "The drill device does not sign for an agent that is not a drill agent.";
         }
@@ -246,6 +249,9 @@ public sealed class DrillRunner(
             return new DrillStepResult(_cleanupStep, false, $"The cleanup threw {ex.GetType().Name}; the drill agent may still be stopped.");
         }
     }
+
+    private bool IsExactDrillAgent(string agentId) =>
+        string.Equals(agentId, target.DrillAgentId, StringComparison.Ordinal) && target.IsDrillAgent(agentId);
 
     private bool IsStoppedByDrill(string agentId) =>
         engine.GetStatus().AgentStops.Any(s => s.AgentId == agentId && s.ActorId == DrillActorId);

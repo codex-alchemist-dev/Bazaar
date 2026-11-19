@@ -1,3 +1,4 @@
+using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.AgentSafety.Anomaly;
@@ -15,24 +16,31 @@ public sealed partial class AnomalyEngine
     private readonly IAnomalyAlertSink _sink;
     private readonly ILogger<AnomalyEngine> _logger;
     private readonly Action<string, Exception>? _onRuleError;
+    private readonly TimeProvider _time;
+
+    /// <summary>How far ahead of the engine's clock an event's time may be. Further ahead counts as the engine's own now.</summary>
+    public static readonly TimeSpan MaxFutureSkew = TimeSpan.FromMinutes(1);
 
     public AnomalyEngine(
         IEnumerable<IAnomalyRule> rules,
         IAnomalyAlertSink sink,
         ILogger<AnomalyEngine> logger,
-        Action<string, Exception>? onRuleError = null)
+        Action<string, Exception>? onRuleError = null,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(rules);
         _rules = [.. rules];
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _onRuleError = onRuleError;
+        _time = time ?? TimeProvider.System;
     }
 
     /// <summary>Feeds one event to every rule in turn and publishes each alert that comes out.</summary>
     public async ValueTask HandleAsync(AnomalyEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);
+        e = Normalize(e);
         foreach (var rule in _rules)
         {
             IReadOnlyList<AnomalyAlert> alerts;
@@ -51,6 +59,15 @@ public sealed partial class AnomalyEngine
                 await PublishAsync(rule.Id, alert, ct).ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>One spelling per agent, and no time far in the future, so every rule counts and reports on the same terms.</summary>
+    private AnomalyEvent Normalize(AnomalyEvent e)
+    {
+        var now = _time.GetUtcNow();
+        var at = e.At > now + MaxFutureSkew ? now : e.At;
+        var agent = AgentIds.Canonical(e.AgentId ?? string.Empty);
+        return agent == e.AgentId && at == e.At ? e : e with { AgentId = agent, At = at };
     }
 
     private async ValueTask PublishAsync(string ruleId, AnomalyAlert alert, CancellationToken ct)

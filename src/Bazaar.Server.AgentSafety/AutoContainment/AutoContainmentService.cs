@@ -120,6 +120,8 @@ public sealed partial class AutoContainmentService : BackgroundService
             return;
         }
 
+        // One spelling per agent, so the containment, its record and its undo all name the same agent however the id arrived.
+        alert = alert with { AgentId = AgentIds.Canonical(alert.AgentId) };
         if (alert.Severity < _options.Threshold)
         {
             LogBelowThreshold(alert.RuleId, alert.Severity);
@@ -132,7 +134,7 @@ public sealed partial class AutoContainmentService : BackgroundService
         try
         {
             latest = await _records.GetLatestAsync(alert.AgentId, ct).ConfigureAwait(false);
-            contained = (await _containedStore.LoadAsync(ct).ConfigureAwait(false)).Any(a => a.AgentId == alert.AgentId);
+            contained = (await _containedStore.LoadAsync(ct).ConfigureAwait(false)).Any(a => AgentIds.Canonical(a.AgentId) == alert.AgentId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

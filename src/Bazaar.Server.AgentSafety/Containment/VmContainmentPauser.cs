@@ -110,6 +110,9 @@ public sealed class VmContainmentPauser(IAgentVmDirectory vms, VmLifecycleServic
         }
 
         var all = await vms.ListAsync(agent, ct).ConfigureAwait(false);
-        return all.Where(vm => vm.State != VmState.Retired).ToList();
+
+        // The directory is asked for this agent's VMs, and the answer is checked: a directory that returns another agent's VM
+        // (a bad query, a stale cache) must never get that VM paused or resumed by this agent's containment.
+        return all.Where(vm => vm.AgentId == agent && vm.State != VmState.Retired).ToList();
     }
 }

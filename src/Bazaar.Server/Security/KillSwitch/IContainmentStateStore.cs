@@ -28,6 +28,22 @@ public interface IContainmentStateStore
 }
 
 /// <summary>
+/// One spelling per agent. The same agent can arrive as <c>{ABC...}</c>, an upper-case GUID, a GUID without hyphens or with padding;
+/// stores and counters compare ids as plain strings, so each spelling would otherwise be a different agent, and a stop, a counter or a
+/// revocation written under one spelling would miss the others. A GUID is written as lower-case <c>D</c> (what the Identity lease store
+/// reads back); any other id is only trimmed, since it has no other form to fold to.
+/// </summary>
+public static class AgentIds
+{
+    /// <summary>The canonical spelling of <paramref name="agentId"/>.</summary>
+    public static string Canonical(string agentId)
+    {
+        ArgumentNullException.ThrowIfNull(agentId);
+        return Guid.TryParse(agentId, out var guid) ? guid.ToString("D") : agentId.Trim();
+    }
+}
+
+/// <summary>
 /// Per-agent mutual exclusion between a containment release and the periodic re-containment sweep. A release resumes the VMs before
 /// it removes the agent from the <see cref="IContainmentStateStore"/>; without this guard a sweep running in between would see a
 /// still-stored agent and pause the VMs the release has just resumed. The release waits for the guard; the sweep never waits, it skips
@@ -40,7 +56,7 @@ public sealed class ContainmentReleaseGuard
     /// <summary>Waits for the agent's guard and holds it until the returned lease is disposed.</summary>
     public async Task<IDisposable> AcquireAsync(string agentId, CancellationToken ct)
     {
-        var gate = _locks.GetOrAdd(agentId, static _ => new SemaphoreSlim(1, 1));
+        var gate = _locks.GetOrAdd(AgentIds.Canonical(agentId), static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct).ConfigureAwait(false);
         return new Lease(gate);
     }
@@ -48,7 +64,7 @@ public sealed class ContainmentReleaseGuard
     /// <summary>Takes the agent's guard when it is free. Returns <c>null</c> when a release or another sweep holds it.</summary>
     public IDisposable? TryAcquire(string agentId)
     {
-        var gate = _locks.GetOrAdd(agentId, static _ => new SemaphoreSlim(1, 1));
+        var gate = _locks.GetOrAdd(AgentIds.Canonical(agentId), static _ => new SemaphoreSlim(1, 1));
         return gate.Wait(0) ? new Lease(gate) : null;
     }
 

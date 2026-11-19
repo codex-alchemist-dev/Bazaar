@@ -1,3 +1,5 @@
+using Bazaar.Server.Security.KillSwitch;
+
 namespace Bazaar.Server.AgentSafety.Anomaly;
 
 /// <summary>Fires when one agent reads at least the threshold of objects of one class within the window (rule id <c>read_burst</c>).</summary>
@@ -9,12 +11,12 @@ public sealed class ReadBurstRule : IAnomalyRule
     private readonly WindowedRuleOptions _options;
     private readonly SlidingWindowCounter<(string AgentId, string ObjectClass)> _counter;
 
-    public ReadBurstRule(WindowedRuleOptions options)
+    public ReadBurstRule(WindowedRuleOptions options, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate(nameof(ReadBurstRule));
         _options = options;
-        _counter = new(options.Threshold, options.Window, SlidingWindowCounter<(string, string)>.DefaultMaxKeys);
+        _counter = new(options.Threshold, options.Window, SlidingWindowCounter<(string, string)>.DefaultMaxKeys, key => key.Item1, time);
     }
 
     public string Id => RuleId;
@@ -28,13 +30,14 @@ public sealed class ReadBurstRule : IAnomalyRule
         }
 
         var objectClass = e.ObjectClass ?? string.Empty;
-        if (!_counter.Observe((e.AgentId, objectClass), e.At))
+        var agent = AgentIds.Canonical(e.AgentId ?? string.Empty);
+        if (!_counter.Observe((agent, objectClass), e.At))
         {
             return [];
         }
 
         var detail = $"{_options.Threshold} reads of '{e.ObjectClass ?? "unclassified"}' objects within {_options.Window}.";
-        return [new AnomalyAlert(RuleId, e.AgentId, e.SessionId, _options.Severity, e.At, detail)];
+        return [new AnomalyAlert(RuleId, agent, e.SessionId, _options.Severity, e.At, detail)];
     }
 }
 
@@ -57,7 +60,7 @@ public sealed class OutOfScopeReadRule(SeverityRuleOptions options) : IAnomalyRu
         }
 
         var detail = $"Read outside the agent's scope ({e.ObjectClass ?? "unclassified"}).";
-        return [new AnomalyAlert(RuleId, e.AgentId, e.SessionId, _options.Severity, e.At, detail)];
+        return [new AnomalyAlert(RuleId, AgentIds.Canonical(e.AgentId ?? string.Empty), e.SessionId, _options.Severity, e.At, detail)];
     }
 
     private static SeverityRuleOptions Validated(SeverityRuleOptions options)
@@ -87,7 +90,7 @@ public sealed class CanaryHitRule(SeverityRuleOptions options) : IAnomalyRule
         }
 
         var detail = $"A canary was touched ({e.ObjectClass ?? "unclassified"}).";
-        return [new AnomalyAlert(RuleId, e.AgentId, e.SessionId, _options.Severity, e.At, detail)];
+        return [new AnomalyAlert(RuleId, AgentIds.Canonical(e.AgentId ?? string.Empty), e.SessionId, _options.Severity, e.At, detail)];
     }
 
     private static SeverityRuleOptions Validated(SeverityRuleOptions options)
@@ -107,12 +110,12 @@ public sealed class ApprovalFloodRule : IAnomalyRule
     private readonly WindowedRuleOptions _options;
     private readonly SlidingWindowCounter<string> _counter;
 
-    public ApprovalFloodRule(WindowedRuleOptions options)
+    public ApprovalFloodRule(WindowedRuleOptions options, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate(nameof(ApprovalFloodRule));
         _options = options;
-        _counter = new(options.Threshold, options.Window, SlidingWindowCounter<string>.DefaultMaxKeys);
+        _counter = new(options.Threshold, options.Window, SlidingWindowCounter<string>.DefaultMaxKeys, agent => agent, time);
     }
 
     public string Id => RuleId;
@@ -120,12 +123,18 @@ public sealed class ApprovalFloodRule : IAnomalyRule
     public IReadOnlyList<AnomalyAlert> Evaluate(AnomalyEvent e)
     {
         ArgumentNullException.ThrowIfNull(e);
-        if (e.Kind != AnomalyEventKind.ApprovalRequested || !_counter.Observe(e.AgentId, e.At))
+        if (e.Kind != AnomalyEventKind.ApprovalRequested)
+        {
+            return [];
+        }
+
+        var agent = AgentIds.Canonical(e.AgentId ?? string.Empty);
+        if (!_counter.Observe(agent, e.At))
         {
             return [];
         }
 
         var detail = $"{_options.Threshold} approval requests within {_options.Window}.";
-        return [new AnomalyAlert(RuleId, e.AgentId, e.SessionId, _options.Severity, e.At, detail)];
+        return [new AnomalyAlert(RuleId, agent, e.SessionId, _options.Severity, e.At, detail)];
     }
 }

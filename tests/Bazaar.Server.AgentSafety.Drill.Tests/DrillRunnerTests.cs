@@ -184,4 +184,22 @@ public sealed class DrillRunnerTests
         Assert.Contains(result.Steps, s => s.Name == "release" && !s.Passed);
         Assert.Single(h.Engine.GetStatus().AgentStops);
     }
+
+    [Theory]
+    [InlineData("real-agent")]
+    [InlineData("DRILL-AGENT")]
+    [InlineData(" drill-agent")]
+    [InlineData("drill-agent ")]
+    public async Task A_lenient_target_cannot_make_the_drill_stop_an_agent_that_is_not_exactly_the_drill_agent(string agentId)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var h = new DrillHarness();
+        h.Target.Loose = true;
+
+        await Assert.ThrowsAsync<ArgumentException>(() => h.Runner.RunAsync(agentId, ct));
+
+        Assert.Empty(h.Engine.GetStatus().AgentStops);
+        Assert.Empty(h.Containment.ContainedAgents);
+        Assert.Equal(0, h.Target.SignCalls);
+    }
 }

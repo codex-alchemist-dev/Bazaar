@@ -217,4 +217,22 @@ public sealed class VmContainmentPauserTests
 
         await Assert.ThrowsAsync<ArgumentException>(() => pauser.PauseAsync("agent-a", TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task A_directory_that_returns_another_agents_vm_does_not_get_it_paused_or_resumed()
+    {
+        var agent = Guid.NewGuid();
+        var own = Vm(agent, VmState.Running);
+        var foreign = Vm(Guid.NewGuid(), VmState.Running);
+        var foreignSaved = Vm(Guid.NewGuid(), VmState.Saved);
+        var (pauser, store, backend) = Build(supportsSaveState: true, [own, foreign, foreignSaved]);
+
+        await pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken);
+        await pauser.ResumeAsync(agent.ToString(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(VmState.Running, store.Vms[foreign.Id].State);
+        Assert.Equal(VmState.Saved, store.Vms[foreignSaved.Id].State);
+        Assert.DoesNotContain(backend.Calls, c => c.EndsWith(foreign.Id.ToString(), StringComparison.Ordinal));
+        Assert.DoesNotContain(backend.Calls, c => c.EndsWith(foreignSaved.Id.ToString(), StringComparison.Ordinal));
+    }
 }
