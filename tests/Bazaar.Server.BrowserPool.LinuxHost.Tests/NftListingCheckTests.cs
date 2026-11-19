@@ -44,4 +44,38 @@ public sealed class NftListingCheckTests
         var onlyAccept = _full.Replace("\t\tmeta skuid >= 10000 meta skuid <= 59999 drop\n", string.Empty, StringComparison.Ordinal);
         Assert.Contains(NftListingCheck.Problems(onlyAccept, "bazaar_pool", []), p => p.Contains("drop", StringComparison.Ordinal));
     }
+
+    private const string _vethChains =
+        "\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t\tiifname \"bzv*\" drop\n\t}\n"
+        + "\tchain forward {\n\t\ttype filter hook forward priority filter; policy accept;\n\t\tiifname \"bzv*\" drop\n\t}\n";
+
+    private static string WithChains(string chains) => _full[..^2] + chains + "}\n";
+
+    [Fact]
+    public void The_slot_interface_drop_is_required_in_both_chains_when_a_prefix_is_given()
+    {
+        Assert.Empty(NftListingCheck.Problems(WithChains(_vethChains), "bazaar_pool", [], "bzv"));
+        Assert.Contains(NftListingCheck.Problems(_full, "bazaar_pool", [], "bzv"), p => p.Contains("slot-interface", StringComparison.Ordinal));
+
+        var onlyInput = WithChains(_vethChains[.._vethChains.IndexOf("\tchain forward", StringComparison.Ordinal)]);
+        Assert.Contains(NftListingCheck.Problems(onlyInput, "bazaar_pool", [], "bzv"), p => p.Contains("slot-interface", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_drop_for_another_prefix_or_with_a_condition_does_not_count()
+    {
+        var other = WithChains(_vethChains.Replace("bzv*", "eth*", StringComparison.Ordinal));
+        Assert.NotEmpty(NftListingCheck.Problems(other, "bazaar_pool", [], "bzv"));
+
+        var conditional = WithChains(_vethChains.Replace("iifname \"bzv*\" drop", "iifname \"bzv*\" tcp dport 1 drop", StringComparison.Ordinal));
+        Assert.NotEmpty(NftListingCheck.Problems(conditional, "bazaar_pool", [], "bzv"));
+    }
+
+    [Fact]
+    public void The_prefix_option_defaults_to_the_pool_veth_prefix_and_is_validated()
+    {
+        Assert.Equal("bzv", new LinuxPoolHostOptions().SlotInterfacePrefix);
+        Assert.Empty(new LinuxPoolHostOptions { SlotInterfacePrefix = null }.Validate());
+        Assert.NotEmpty(new LinuxPoolHostOptions { SlotInterfacePrefix = "b*\"; drop" }.Validate());
+    }
 }

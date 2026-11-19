@@ -200,7 +200,7 @@ public sealed class LinuxPoolVmHost : IPoolVmHost
             throw new PoolFirewallException("The firewall table could not be read (" + stage + ", exit " + result.ExitCode.ToString(CultureInfo.InvariantCulture) + "): " + result.StdErr.Trim());
         }
 
-        var problems = NftListingCheck.Problems(result.StdOut, _options.TableName, expected);
+        var problems = NftListingCheck.Problems(result.StdOut, _options.TableName, expected, _options.SlotInterfacePrefix);
         if (problems.Count != 0)
         {
             throw new PoolFirewallException("The firewall is not in the expected state (" + stage + "): " + string.Join("; ", problems) + ".");

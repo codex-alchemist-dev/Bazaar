@@ -14,7 +14,8 @@ internal static class NftListingCheck
     /// <param name="listing">The stdout of <c>nft list table inet NAME</c>.</param>
     /// <param name="tableName">The table the listing is for.</param>
     /// <param name="expected">Rules whose accept line must be present, or empty to check only the table and the drop.</param>
-    public static IReadOnlyList<string> Problems(string listing, string tableName, IEnumerable<PoolFirewallRule> expected)
+    /// <param name="slotInterfacePrefix">The slot veth prefix whose drop must be in the input and forward chains, or null to skip that check.</param>
+    public static IReadOnlyList<string> Problems(string listing, string tableName, IEnumerable<PoolFirewallRule> expected, string? slotInterfacePrefix = null)
     {
         var problems = new List<string>();
         var lines = listing.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
@@ -33,6 +34,16 @@ internal static class NftListingCheck
         if (!lines.Any(l => l.Contains("skuid", StringComparison.Ordinal) && l.EndsWith("drop", StringComparison.Ordinal) && !l.Contains("accept", StringComparison.Ordinal)))
         {
             problems.Add("the slot-uid drop rule is not present");
+        }
+
+        if (slotInterfacePrefix is not null)
+        {
+            // The renderer puts one such drop at the end of the input chain and one at the end of the forward chain.
+            var vethDrop = "iifname \"" + slotInterfacePrefix + "*\" drop";
+            if (lines.Count(l => string.Equals(l, vethDrop, StringComparison.Ordinal)) < 2)
+            {
+                problems.Add("the slot-interface drop rules (input and forward) are not present");
+            }
         }
 
         foreach (var rule in expected)

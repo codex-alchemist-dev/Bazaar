@@ -8,6 +8,13 @@ public sealed partial class LinuxPoolHostOptions
     /// <summary>The nftables <c>inet</c> table the rendered ruleset declares. Must match the renderer's table name.</summary>
     public string TableName { get; set; } = "bazaar_pool";
 
+    /// <summary>
+    /// The name prefix of the slot veth interfaces on the VM side when the pool uses one network namespace per slot (its default).
+    /// The health check then also requires the drop of everything else arriving from those interfaces, in both the input and the
+    /// forward chain. Set it to <c>null</c> only for a pool that runs in the shared-namespace mode, where no such rule is rendered.
+    /// </summary>
+    public string? SlotInterfacePrefix { get; set; } = "bzv";
+
     /// <summary>The <c>nft</c> program (an absolute path in production, so the search path cannot redirect it).</summary>
     public string NftPath { get; set; } = "nft";
 
@@ -32,6 +39,11 @@ public sealed partial class LinuxPoolHostOptions
             errors.Add("TableName must be an nftables identifier (letters, digits, underscore; at most 64).");
         }
 
+        if (SlotInterfacePrefix is not null && !InterfacePrefixPattern().IsMatch(SlotInterfacePrefix))
+        {
+            errors.Add("SlotInterfacePrefix must be 1 to 8 letters or digits, or null.");
+        }
+
         if (string.IsNullOrWhiteSpace(NftPath))
         {
             errors.Add("NftPath is required.");
@@ -52,4 +64,7 @@ public sealed partial class LinuxPoolHostOptions
 
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]{0,63}$")]
     private static partial Regex TableNamePattern();
+
+    [GeneratedRegex("^[A-Za-z0-9]{1,8}$")]
+    private static partial Regex InterfacePrefixPattern();
 }

@@ -53,7 +53,9 @@ public sealed class RealLinuxTests : IDisposable
         var accepts = string.Concat(rules.Select(r => $"    meta skuid {r.Uid} ip daddr {r.ProxyHost} tcp dport {r.ProxyPort} accept\n"));
         return $"table inet {_table}\ndelete table inet {_table}\ntable inet {_table} {{\n  chain output {{\n    type filter hook output priority 0; policy accept;\n"
             + accepts
-            + $"    meta skuid >= {_first} meta skuid <= {_last} drop\n  }}\n}}\n";
+            + $"    meta skuid >= {_first} meta skuid <= {_last} drop\n  }}\n"
+            + "  chain input {\n    type filter hook input priority 0; policy accept;\n    iifname \"bzv*\" drop\n  }\n"
+            + "  chain forward {\n    type filter hook forward priority 0; policy accept;\n    iifname \"bzv*\" drop\n  }\n}\n";
     }
 
     private static LinuxPoolVmHost RealHost() =>

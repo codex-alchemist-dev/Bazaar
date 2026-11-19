@@ -14,7 +14,9 @@ public sealed class LinuxPoolVmHostTests
         var accepts = string.Concat(rules.Select(r => $"\t\tmeta skuid {r.Uid} ip daddr {r.ProxyHost} tcp dport {r.ProxyPort} accept\n"));
         return "table inet bazaar_pool {\n\tchain output {\n\t\ttype filter hook output priority filter; policy accept;\n"
             + accepts
-            + "\t\tmeta skuid >= 10000 meta skuid <= 59999 drop\n\t}\n}\n";
+            + "\t\tmeta skuid >= 10000 meta skuid <= 59999 drop\n\t}\n"
+            + "\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t\tiifname \"bzv*\" drop\n\t}\n"
+            + "\tchain forward {\n\t\ttype filter hook forward priority filter; policy accept;\n\t\tiifname \"bzv*\" drop\n\t}\n}\n";
     }
 
     private static bool IsList(ProcessRequest r) => r.Argv.Count > 1 && r.Argv[1] == "list";
