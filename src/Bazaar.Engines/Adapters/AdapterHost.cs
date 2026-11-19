@@ -240,7 +240,14 @@ public sealed class AdapterHost : IAsyncDisposable
         }
         KillProcess();
         await WaitForExitAsync().ConfigureAwait(false);
-        await Task.WhenAll(_stdoutLoop, _stderrLoop).WaitAsync(_drainWait).ConfigureAwait(false);
+        try
+        {
+            await Task.WhenAll(_stdoutLoop, _stderrLoop).WaitAsync(_drainWait).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // The pipes can stay open briefly after the kill on a loaded machine. The child is gone; dispose anyway.
+        }
         _process.StandardInput.Dispose();
         _process.Dispose();
         _writeGate.Dispose();
