@@ -61,15 +61,6 @@ Writes use raw Npgsql through the shared `NpgsqlDataSource` (CLAUDE.md data-acce
 
 `MemoryGraphSink : IMemoryBatchSink` wraps the real sink. On a successful commit it parses each `MemoryWriteItem.Content` with `NoteDocument.Parse`, projects the note, and calls `StoreRevisionAsync`. A projection failure is logged and does not fail the commit: the Vault is the source of truth and the graph can be rebuilt from it. Rebuild from the Vault is a later slice.
 
-## Audit
-
-Doc 19 ("Agent memory governance", DECIDED) requires that each memory item's source and author are written to the audit log (doc 48). `AuditingMemoryGraphStore` decorates `IMemoryGraphStore` and appends one `AuditEntry` after each change that succeeds:
-
-- `memory.revision.stored` after `StoreRevisionAsync`. Actor `agent:<scope agent id>`. Payload: `note_id`, `version`, `scope_agent_id`, `memory_kind`, `trust`, and the provenance edges as `written_by`, `from_gc` and `from_messages` (ids only). Never the title, the body or the vault path.
-- `memory.revision.activated` after `ActivateRevisionAsync` returns true (a rollback). Actor `system:memory`, because the store interface carries no acting principal; the endpoint slice adds one. Payload: `note_id`, `version` and the same provenance as the activated revision.
-
-The payload goes through the shared payload guard, so no secret-like key can enter. The audit append happens after the store call and its exceptions propagate: a revision that could not be audited is reported, not hidden. Failing the audit never rolls the stored revision back (revisions are append-only). The memory component registers the decorator as its own service (`AuditingMemoryGraphStore`) and uses it for the write-path sink when an `IAuditLog` is registered; without one the graph store is used as is. The Constellation registration of `IMemoryGraphStore` is left alone, because component start order is not guaranteed. Callers that roll a note back (the endpoint slice) take the decorator so the rollback is audited too.
-
 ## Tests
 
 - Projector: link resolution, dangling links dropped, provenance edges, deterministic ordering, empty body.

@@ -50,7 +50,7 @@ public sealed record VaultPath
     /// Checks a single identifier (an agent or member id) that is used as one path segment.
     /// Identifiers must be valid segments and must not contain a slash.
     /// </summary>
-    public static bool IsValidIdentifier(string identifier) =>
+    internal static bool IsValidIdentifier(string identifier) =>
         identifier is not null && !identifier.Contains('/', StringComparison.Ordinal) && Validate(identifier) is null;
 
     /// <summary>Returns the reason a path is not valid, or null when it is valid.</summary>
