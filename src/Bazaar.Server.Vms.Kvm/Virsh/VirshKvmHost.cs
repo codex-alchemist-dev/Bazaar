@@ -55,12 +55,20 @@ public sealed class VirshKvmHost : IKvmHost
     {
         RequireDomain(domainName);
         ValidatePath(parentDiskPath, nameof(parentDiskPath));
+
+        // A parent inside the VM directory would be another agent's child disk (or its domain file): children are only based on golden images.
+        if (IsInside(_options.VmDirectory, parentDiskPath))
+        {
+            throw new ArgumentException("The parent disk must not be inside the VM directory.", nameof(parentDiskPath));
+        }
+
         if (!_files.FileExists(parentDiskPath))
         {
             throw new FileNotFoundException($"The parent disk '{parentDiskPath}' does not exist.", parentDiskPath);
         }
 
         var directory = DomainDirectory(domainName);
+        RequireNotLink(directory);
         var child = Path.Combine(directory, _diskFileName);
         _files.CreateDirectory(directory);
         var result = await _runner.RunAsync("qemu-img", ["create", "-f", "qcow2", "-b", parentDiskPath, "-F", "qcow2", "--", child], null, ct);
@@ -75,8 +83,16 @@ public sealed class VirshKvmHost : IKvmHost
         RequireDomain(domain.Name);
         ValidatePath(domain.DiskPath, nameof(domain));
 
-        var xml = _buildXml(domain);
+        // The domain may boot only from the disk this adapter created for it, so a caller cannot attach another VM's disk or any host file.
         var directory = DomainDirectory(domain.Name);
+        var expected = Path.GetFullPath(Path.Combine(directory, _diskFileName));
+        if (!string.Equals(Path.GetFullPath(domain.DiskPath), expected, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The disk must be the domain's own disk.qcow2 under the VM directory.", nameof(domain));
+        }
+
+        RequireNotLink(directory);
+        var xml = _buildXml(domain);
         var file = Path.Combine(directory, _domainFileName);
         _files.CreateDirectory(directory);
         await _files.WriteAllTextAsync(file, xml, ct);
@@ -160,7 +176,15 @@ public sealed class VirshKvmHost : IKvmHost
 
         if (deleteDisk)
         {
-            _files.DeleteDirectory(DomainDirectory(domainName));
+            var directory = DomainDirectory(domainName);
+            if (_files.IsSymbolicLink(directory))
+            {
+                // Never follow a link out of the VM directory: remove the link and leave what it points to alone.
+                _files.DeleteLink(directory);
+                return;
+            }
+
+            _files.DeleteDirectory(directory);
         }
     }
 
@@ -245,6 +269,20 @@ public sealed class VirshKvmHost : IKvmHost
         if (string.IsNullOrEmpty(uri) || uri[0] == '-' || uri.Any(char.IsControl) || uri.Any(char.IsWhiteSpace))
         {
             throw new ArgumentException("Not a usable libvirt connection URI.", nameof(uri));
+        }
+    }
+
+    private static bool IsInside(string directory, string path)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)) + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(root, StringComparison.Ordinal);
+    }
+
+    private void RequireNotLink(string directory)
+    {
+        if (_files.IsSymbolicLink(directory))
+        {
+            throw new InvalidOperationException($"The domain directory '{directory}' is a symbolic link; refusing to use it.");
         }
     }
 

@@ -8,7 +8,7 @@ namespace Bazaar.Server.Vms.Kvm;
 /// <summary>
 /// Builds the libvirt domain XML for a new headless, static-memory VM. Every value goes through <see cref="XmlWriter"/>, which
 /// escapes it, so a disk path cannot add elements or attributes. The document has no network interface, no graphics and no sound
-/// (egress is default deny); the only host-facing channel is the virtio vsock device.
+/// (egress is default deny), no serial console and no USB; the only host-facing channel is the virtio vsock device.
 /// </summary>
 public static class KvmDomainXml
 {
@@ -42,6 +42,12 @@ public static class KvmDomainXml
             WriteElement(xml, "name", domain.Name);
             WriteMemory(xml, "memory", domain.MemoryMb);
             WriteMemory(xml, "currentMemory", domain.MemoryMb);
+
+            // No KSM page sharing between guests: merged pages are a cross-VM timing side channel between agent VMs.
+            xml.WriteStartElement("memoryBacking");
+            WriteEmpty(xml, "nosharepages");
+            xml.WriteEndElement();
+
             xml.WriteStartElement("vcpu");
             xml.WriteAttributeString("placement", "static");
             xml.WriteString(Int(domain.Vcpu));
@@ -82,7 +88,19 @@ public static class KvmDomainXml
             WriteEmpty(xml, "cid", ("auto", "yes"));
             xml.WriteEndElement();
 
-            WriteEmpty(xml, "serial", ("type", "pty"));
+            // No USB controller at all: the guest gets no USB bus to enumerate or to attach a device to.
+            WriteEmpty(xml, "controller", ("type", "usb"), ("model", "none"));
+
+            // Entropy from the host so the guest does not boot with a starved pool. This is the only device that carries data host-to-guest.
+            xml.WriteStartElement("rng");
+            xml.WriteAttributeString("model", "virtio");
+            xml.WriteStartElement("backend");
+            xml.WriteAttributeString("model", "random");
+            xml.WriteString("/dev/urandom");
+            xml.WriteEndElement();
+            xml.WriteEndElement();
+
+            // No serial or console device on purpose: a guest-written host pty is a terminal-escape injection surface for whoever attaches to it.
             WriteEmpty(xml, "memballoon", ("model", "none"));
 
             xml.WriteEndElement(); // devices

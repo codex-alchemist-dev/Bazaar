@@ -11,9 +11,9 @@ public sealed class KvmDomainXmlTests
 
     private const string _diskPath = "/var/lib/bazaar/disks/child.qcow2";
 
-    private static readonly string[] _headedDevices = ["graphics", "video", "sound", "usb", "input"];
+    private static readonly string[] _headedDevices = ["graphics", "video", "sound", "usb", "input", "serial", "console"];
 
-    private static readonly string[] _allowedDevices = ["disk", "vsock", "serial", "memballoon"];
+    private static readonly string[] _allowedDevices = ["disk", "vsock", "controller", "rng", "memballoon"];
 
     private static KvmDomainDefinition Definition(string? diskPath = null, int vcpu = 2, int memoryMb = 2048) =>
         new(KvmNames.Domain(_domainId), VmOs.Linux, vcpu, memoryMb, diskPath ?? _diskPath);

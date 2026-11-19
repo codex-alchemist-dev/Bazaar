@@ -9,6 +9,7 @@ public sealed class VirshKvmHostTests
     private static readonly string _vm = KvmNames.Domain(Guid.Parse("11111111-2222-3333-4444-555555555555"));
     private static readonly string _cp = KvmNames.Checkpoint(Guid.Parse("66666666-7777-8888-9999-aaaaaaaaaaaa"));
     private static readonly string _root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bazaar-kvm-vms"));
+    private static readonly string _images = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bazaar-kvm-images"));
     private static readonly string[] _virsh = ["virsh", "--connect", "qemu:///system"];
 
     private readonly FakeRunner _runner = new();
@@ -91,7 +92,7 @@ public sealed class VirshKvmHostTests
     [Fact]
     public async Task Create_backed_disk_runs_qemu_img_and_returns_the_child_path()
     {
-        var parent = Path.Combine(_root, "golden.qcow2");
+        var parent = Path.Combine(_images, "golden.qcow2");
         _files.Existing.Add(parent);
 
         var child = await _host.CreateBackedDiskAsync(_vm, parent, Ct);
@@ -105,7 +106,7 @@ public sealed class VirshKvmHostTests
     [Fact]
     public async Task Create_backed_disk_refuses_a_missing_parent()
     {
-        await Assert.ThrowsAsync<FileNotFoundException>(() => _host.CreateBackedDiskAsync(_vm, Path.Combine(_root, "none.qcow2"), Ct));
+        await Assert.ThrowsAsync<FileNotFoundException>(() => _host.CreateBackedDiskAsync(_vm, Path.Combine(_images, "none.qcow2"), Ct));
 
         Assert.Empty(_runner.Calls);
     }
@@ -277,7 +278,7 @@ public sealed class VirshKvmHostTests
     [Fact]
     public async Task A_parent_path_with_a_control_character_is_refused()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _host.CreateBackedDiskAsync(_vm, Path.Combine(_root, "a\nb.qcow2"), Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => _host.CreateBackedDiskAsync(_vm, Path.Combine(_images, "a\nb.qcow2"), Ct));
 
         Assert.Empty(_runner.Calls);
     }
@@ -329,6 +330,14 @@ public sealed class VirshKvmHostTests
         }
 
         public void DeleteDirectory(string path) => Deleted.Add(path);
+
+        public HashSet<string> Links { get; } = [];
+
+        public List<string> DeletedLinks { get; } = [];
+
+        public bool IsSymbolicLink(string path) => Links.Contains(path);
+
+        public void DeleteLink(string path) => DeletedLinks.Add(path);
     }
 
     private sealed class FakeRunner : IKvmCommandRunner
