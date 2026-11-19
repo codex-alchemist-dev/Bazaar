@@ -30,14 +30,14 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 
 **Provider roles [PROPOSED].**
 
-| Role | Windows | Linux | Readiness |
-|---|---|---|---|
-| `ServiceHost` | Windows Service | systemd | required when run as a service |
-| `Vm` | Hyper-V | QEMU/KVM | per doc 16; optional by default |
-| `Cache` | Garnet, only after S2 | Valkey | optional; presence and cache only |
-| `Search` | Postgres FTS plus pgvector index | `pg_search` (WP14), Postgres FTS fallback | Postgres FTS always usable |
+| Role | Cardinality | Windows | Linux | Readiness |
+|---|---|---|---|---|
+| `ServiceHost` | One | Windows Service | systemd | required when run as a service |
+| `Vm` | Many | Hyper-V | QEMU/KVM | per doc 16; optional by default |
+| `Cache` | One | Garnet, only after S2 | Valkey | optional; presence and cache only |
+| `Search` | One | Postgres FTS plus pgvector index | `pg_search` (WP14), Postgres FTS fallback | Postgres FTS always usable |
 
-**Provider selection [PROPOSED].** Each `host.provider.<role>` setting is `auto` or an explicit kind. `auto` is a capability probe: it picks the highest-priority candidate whose `Probe()` is usable, so FTS works on both OSes and the Vm and Cache roles differ per OS. An explicit kind that is unusable fails startup; there is no silent fallback.
+**Provider selection [PROPOSED].** A provider is a module on Core, so a role is not limited to one provider. Each role declares its own cardinality: `One` (at most one active) or `Many` (any number active at once). The default is `Many`. A role declares `One` only when its owning module needs it, for example `ServiceHost` (a process runs under one service manager) and `Cache` (one presence store). Each `host.provider.<role>` setting is `auto`, `none`, `all`, or a comma-separated list of kinds. For a `One` role, `auto` picks the highest-priority candidate whose `Probe()` is usable; a list or `all` is a configuration error. For a `Many` role, `auto` and `all` activate every candidate whose `Probe()` is usable, and a list activates exactly the named kinds. An explicitly named kind that is unusable fails startup; there is no silent fallback. Callers of a `Many` role receive the active set and choose among them (all, one by kind, or first usable).
 
 **Capability reporting [PROPOSED].** Each provider returns a `ProviderStatus`. The host logs one line per role at startup. The admin CLI and the status page draw on the same report; doc 23 decides what the page shows.
 
