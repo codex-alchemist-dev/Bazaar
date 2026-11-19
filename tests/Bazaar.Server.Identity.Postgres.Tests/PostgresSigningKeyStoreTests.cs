@@ -18,7 +18,7 @@ public sealed class PostgresSigningKeyStoreTests
 
     private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource).MigrateAsync(
-            new EmbeddedMigrationSource(typeof(PostgresTokenBudgetStore).Assembly), MigrateCommand.CurrentProvider(), ct);
+            new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), MigrateCommand.CurrentProvider(), ct);
 
     private static NewSigningKey Key(DateTimeOffset createdAt) =>
         new(Guid.NewGuid(), _scope, RandomNumberGenerator.GetBytes(60), "kek-1", createdAt);
