@@ -102,16 +102,6 @@ src/Bazaar.Server/Agents/Turns/Tools/ToolDispatcher.cs
 src/Bazaar.Server/Agents/Turns/TurnRunAdapter.cs
 src/Bazaar.Server/Agents/Turns/TurnRunner.cs
 src/Bazaar.Server/AssemblyMarker.cs
-src/Bazaar.Server/Backup/Manifest/BackupManifest.cs
-src/Bazaar.Server/Backup/Manifest/BackupManifestEntry.cs
-src/Bazaar.Server/Backup/Manifest/BundleHash.cs
-src/Bazaar.Server/Backup/Manifest/BundleLayoutValidator.cs
-src/Bazaar.Server/Backup/Manifest/BundlePath.cs
-src/Bazaar.Server/Backup/Manifest/ManifestCodec.cs
-src/Bazaar.Server/Backup/Manifest/ManifestFinding.cs
-src/Bazaar.Server/Backup/Manifest/ManifestJson.cs
-src/Bazaar.Server/Backup/Manifest/ManifestVerifier.cs
-src/Bazaar.Server/Backup/Manifest/ManifestWriter.cs
 src/Bazaar.Server/Calendar/CalendarRepository.cs
 src/Bazaar.Server/Calendar/CalendarRules.cs
 src/Bazaar.Server/Calendar/CalendarService.cs
