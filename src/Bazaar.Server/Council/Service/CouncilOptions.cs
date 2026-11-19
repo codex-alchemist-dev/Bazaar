@@ -63,9 +63,6 @@ public sealed record CouncilOptions
     /// <summary>council.followup_enabled: when off, a non-decisive independent tally escalates without a follow-up round.</summary>
     public bool FollowupEnabled { get; init; } = true;
 
-    /// <summary>council.followup_dissent_share: dissent share on a high-impact ordinary motion that sends it to follow-up, from 0 to 1.</summary>
-    public decimal FollowupDissentShare { get; init; } = Tally.DefaultFollowupDissentShare;
-
     /// <summary>council.reason_min_sentences: minimum sentence-ending marks (. ! ?) in a ballot's reasoning.</summary>
     public int ReasonMinSentences { get; init; } = 2;
 
@@ -103,11 +100,6 @@ public sealed record CouncilOptions
         if (ReopenCooldownHours < 0)
         {
             problems.Add("council.reopen_cooldown_hours must not be negative.");
-        }
-
-        if (FollowupDissentShare is < 0m or > 1m)
-        {
-            problems.Add("council.followup_dissent_share must be from 0 to 1.");
         }
 
         if (ReasonMinSentences < 0)

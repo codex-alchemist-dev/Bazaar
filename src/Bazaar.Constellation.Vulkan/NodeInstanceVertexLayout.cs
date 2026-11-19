@@ -5,9 +5,8 @@ namespace Bazaar.Constellation.Vulkan;
 
 /// <summary>
 /// Vertex input description for the node instanced-quad pipeline. Binding 0 is the per-vertex unit-square corner
-/// (vec2); binding 1 is the per-instance block that <see cref="NodeInstanceBuffer"/> packs (x, y, style index).
-/// The shaders in Shaders/ read these locations: 0 corner, 1 centre, 2 style index. The style itself comes from the
-/// style table in a storage buffer, see <see cref="NodeStylePacking"/>.
+/// (vec2); binding 1 is the per-instance block that <see cref="NodeInstanceBuffer"/> packs (x, y, radius, r, g, b, a).
+/// The shaders in Shaders/ read these locations: 0 corner, 1 centre, 2 radius, 3 colour.
 /// This type builds no device objects, so the layout can be checked without a GPU.
 /// </summary>
 public static class NodeInstanceVertexLayout
@@ -32,5 +31,6 @@ public static class NodeInstanceVertexLayout
         new VkVertexInputAttributeDescription { location = 0, binding = 0, format = VkFormat.R32G32Sfloat, offset = 0 },
         new VkVertexInputAttributeDescription { location = 1, binding = 1, format = VkFormat.R32G32Sfloat, offset = 0 },
         new VkVertexInputAttributeDescription { location = 2, binding = 1, format = VkFormat.R32Sfloat, offset = 2 * sizeof(float) },
+        new VkVertexInputAttributeDescription { location = 3, binding = 1, format = VkFormat.R32G32B32A32Sfloat, offset = 3 * sizeof(float) },
     ];
 }

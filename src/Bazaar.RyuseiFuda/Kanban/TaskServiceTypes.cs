@@ -1,4 +1,4 @@
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>Who is making a change. <see cref="Id"/> is the agent or principal id, or <see cref="Guid.Empty"/> for the system.</summary>
 public enum TaskActorKind

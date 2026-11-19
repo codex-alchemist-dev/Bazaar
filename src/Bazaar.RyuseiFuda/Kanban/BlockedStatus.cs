@@ -1,4 +1,4 @@
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>Result of <see cref="BlockedStatus.CheckStart"/>: a refusal names the unfinished blockers.</summary>
 public sealed record StartCheck(bool Allowed, IReadOnlyList<Guid> UnfinishedBlockers);

@@ -19,7 +19,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
 
     private static IConfiguration Config() => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
     {
-        ["Bazaar:Host:DataRoot"] = Path.Combine(Path.GetTempPath(), "bazaar-host-test-" + Guid.NewGuid().ToString("N")),
+        ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
         ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + _envName,
     }).Build();
 

@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>
 /// Shape checks for task link references (doc 12, Links), run before anything is written. They are pure: no I/O and no

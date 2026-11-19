@@ -1,6 +1,6 @@
 using Bazaar.Server.Wire.Connection;
 
-namespace Bazaar.RyuseiFuda.Kanban.Wire;
+namespace Bazaar.Server.Kanban.Wire;
 
 /// <summary>
 /// Decides who may read a project's Kanban board over the wire (doc 12, board view). The board is a project-wide view, so

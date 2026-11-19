@@ -1,9 +1,9 @@
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
-using Bazaar.RyuseiFuda.Kanban;
-using Bazaar.RyuseiFuda.Kanban.Data;
-using Bazaar.RyuseiFuda.Kanban.Wire;
+using Bazaar.Server.Kanban;
+using Bazaar.Server.Kanban.Data;
+using Bazaar.Server.Kanban.Wire;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;
 

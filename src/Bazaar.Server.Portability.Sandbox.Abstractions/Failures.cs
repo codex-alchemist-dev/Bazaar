@@ -81,9 +81,6 @@ public static class ParserSignals
 {
     /// <summary>An importer's child ended abnormally repeatedly within the window.</summary>
     public const string CrashLoop = "parser_crash_loop";
-
-    /// <summary>A job was refused because the confinement provider could not apply a required item (for example no-network).</summary>
-    public const string ConfinementMissing = "parser_confinement_missing";
 }
 
 /// <summary>Receives parser signals. The server host maps them to the alert path of doc 46.</summary>

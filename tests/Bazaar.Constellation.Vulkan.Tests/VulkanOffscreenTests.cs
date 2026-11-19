@@ -34,18 +34,8 @@ public class VulkanOffscreenTests
         }
     }
 
-    /// <summary>Uploads the palette of <paramref name="styles"/> to the renderer and packs the instances for <paramref name="positions"/>.</summary>
-    private static NodeInstanceBuffer Prepare(VulkanOffscreenRenderer renderer, float[] positions, NodeStyleTable styles)
-    {
-        NodeStylePalette palette = NodeStylePalette.Build(styles);
-        renderer.SetStyles(NodeStylePacking.Pack(palette));
-        var instances = new NodeInstanceBuffer();
-        instances.Fill(positions, 2, palette);
-        return instances;
-    }
-
     /// <summary>Byte offset of pixel (x, y) in B, G, R, A order, with row 0 at the top.</summary>
-    private static int Offset(int x, int y) => (y * (int)_size + x) * 4;
+    private static int Offset(ReadOnlySpan<byte> pixels, int x, int y) => (y * (int)_size + x) * 4;
 
     /// <summary>NDC point to pixel: NDC y runs top (-1) to bottom (+1), like the framebuffer rows.</summary>
     private static (int X, int Y) ToPixel(float x, float y) =>
@@ -61,13 +51,6 @@ public class VulkanOffscreenTests
         && Math.Abs(pixels[offset + 1] - g) <= _tolerance
         && Math.Abs(pixels[offset + 2] - r) <= _tolerance;
 
-    /// <summary>The pixel at an NDC point, as a byte offset into the readback.</summary>
-    private static int OffsetAt(float x, float y)
-    {
-        (int px, int py) = ToPixel(x, y);
-        return Offset(px, py);
-    }
-
     [Fact]
     public void Readback_pixels_inside_each_node_disc_are_not_background()
     {
@@ -79,7 +62,8 @@ public class VulkanOffscreenTests
         styles.Set(0, NodeStyle.Create(1f, 0f, 0f, 1f, 0.2f));
         styles.Set(1, NodeStyle.Create(0f, 1f, 0f, 1f, 0.15f));
         styles.Set(2, NodeStyle.Create(0f, 0f, 1f, 1f, 0.3f));
-        NodeInstanceBuffer instances = Prepare(renderer, centres, styles);
+        var instances = new NodeInstanceBuffer();
+        instances.Fill(centres, 2, styles);
 
         renderer.Render((0.05f, 0.06f, 0.08f, 1f), instances.Bytes, instances.InstanceCount, NodeView.Identity);
         ReadOnlySpan<byte> pixels = renderer.ReadPixels();
@@ -92,7 +76,7 @@ public class VulkanOffscreenTests
             float cx = centres[node * 2];
             float cy = centres[node * 2 + 1];
             (int X, int Y) centre = ToPixel(cx, cy);
-            int centreOffset = Offset(centre.X, centre.Y);
+            int centreOffset = Offset(pixels, centre.X, centre.Y);
             Assert.True(
                 Near(pixels, centreOffset, expected[node].B, expected[node].G, expected[node].R),
                 $"node {node} centre pixel ({centre.X},{centre.Y}) is B{pixels[centreOffset]} G{pixels[centreOffset + 1]} R{pixels[centreOffset + 2]}, expected B{expected[node].B} G{expected[node].G} R{expected[node].R}");
@@ -105,49 +89,14 @@ public class VulkanOffscreenTests
                 float py = cy + (float)(Math.Sin(angle) * radii[node] * 0.7);
                 (int X, int Y) pixel = ToPixel(px, py);
                 Assert.False(
-                    NearBackground(pixels, Offset(pixel.X, pixel.Y)),
+                    NearBackground(pixels, Offset(pixels, pixel.X, pixel.Y)),
                     $"node {node} ring point {step} at pixel ({pixel.X},{pixel.Y}) is background");
             }
         }
 
         // A point outside every disc (more than 1.4 from each centre) must be background.
         (int X, int Y) outside = ToPixel(-0.9f, 0.9f);
-        Assert.True(NearBackground(pixels, Offset(outside.X, outside.Y)), "a point outside the discs is not background");
-    }
-
-    [Fact]
-    public void Two_nodes_with_different_styles_render_in_their_own_colours_and_radii()
-    {
-        using VulkanOffscreenRenderer renderer = CreateOrSkip(_size);
-
-        // Node 0: a filled red disc, radius 0.2, on the left. Node 1: a green ring, radius 0.3, ring width 0.5, on the right.
-        // The discs do not overlap: node 0 spans x in [-0.65, -0.25], node 1 spans x in [0.15, 0.75].
-        float[] centres = [-0.45f, 0f, 0.45f, 0f];
-        var styles = new NodeStyleTable(2, NodeStyle.Create(0f, 0f, 0f, 1f, 0f));
-        styles.Set(0, NodeStyle.Create(1f, 0f, 0f, 1f, 0.2f));
-        styles.Set(1, NodeStyle.Create(0f, 1f, 0f, 1f, 0.3f, ringWidth: 0.5f));
-        NodeInstanceBuffer instances = Prepare(renderer, centres, styles);
-        Assert.Equal(2, NodeStylePalette.Build(styles).StyleCount);
-
-        renderer.Render((0.05f, 0.06f, 0.08f, 1f), instances.Bytes, instances.InstanceCount, NodeView.Identity);
-        ReadOnlySpan<byte> pixels = renderer.ReadPixels();
-
-        // Node 0 is a filled red disc: its centre and a point at 90% of its radius are red, and a point at 120% is background.
-        int redCentre = OffsetAt(-0.45f, 0f);
-        Assert.True(Near(pixels, redCentre, 0, 0, 255), "the filled node's centre is not red");
-        Assert.True(Near(pixels, OffsetAt(-0.45f + 0.9f * 0.2f, 0f), 0, 0, 255), "the filled node is not drawn at 90% of its radius");
-        Assert.True(NearBackground(pixels, OffsetAt(-0.45f + 1.2f * 0.2f, 0f)), "the filled node is drawn beyond its radius");
-
-        // Node 1 is a ring: its centre is the cut-out hole (background); a point at 75% of the radius is in the band
-        // (green); a point at 40% of the radius is inside the hole; a point at 120% of the radius is outside the ring.
-        Assert.True(NearBackground(pixels, OffsetAt(0.45f, 0f)), "the ring's centre is not cut out");
-        Assert.True(Near(pixels, OffsetAt(0.45f + 0.75f * 0.3f, 0f), 0, 255, 0), "the ring band is not green at 75% of its radius");
-        Assert.True(NearBackground(pixels, OffsetAt(0.45f + 0.4f * 0.3f, 0f)), "the ring's hole is filled");
-        Assert.True(NearBackground(pixels, OffsetAt(0.45f + 1.2f * 0.3f, 0f)), "the ring is drawn beyond its radius");
-
-        // The two nodes use their own radii: node 0 at 0.25 (beyond its 0.2 radius) is background, node 1 at 0.25 in
-        // the band is green. This separates the radius of each style from the other's.
-        Assert.True(NearBackground(pixels, OffsetAt(-0.45f + 0.25f, 0f)), "the filled node's radius leaked past 0.2");
+        Assert.True(NearBackground(pixels, Offset(pixels, outside.X, outside.Y)), "a point outside the discs is not background");
     }
 
     [Fact]
@@ -157,7 +106,8 @@ public class VulkanOffscreenTests
         VulkanOffscreenRenderer.DrainValidationMessages();
 
         var styles = new NodeStyleTable(2, NodeStyle.Create(0.8f, 0.86f, 0.95f, 1f, 0.2f));
-        NodeInstanceBuffer instances = Prepare(renderer, new float[] { -0.3f, 0f, 0.3f, 0f }, styles);
+        var instances = new NodeInstanceBuffer();
+        instances.Fill(new float[] { -0.3f, 0f, 0.3f, 0f }, 2, styles);
         renderer.Render((0.05f, 0.06f, 0.08f, 1f), instances.Bytes, instances.InstanceCount, NodeView.Identity);
 
         IReadOnlyList<VulkanValidationMessage> messages = VulkanOffscreenRenderer.DrainValidationMessages();
@@ -208,7 +158,8 @@ public class VulkanOffscreenTests
         }
 
         var styles = new NodeStyleTable(nodeCount, NodeStyle.Create(0.8f, 0.86f, 0.95f, 1f, 0.006f));
-        NodeInstanceBuffer instances = Prepare(renderer, positions, styles);
+        var instances = new NodeInstanceBuffer();
+        instances.Fill(positions, 2, styles);
 
         for (int frame = 0; frame < warmupFrames; frame++)
         {

@@ -2,7 +2,7 @@ using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Wire;
 using Bazaar.Server.Wire.Connection;
 
-namespace Bazaar.RyuseiFuda.Kanban.Wire;
+namespace Bazaar.Server.Kanban.Wire;
 
 /// <summary>
 /// <c>board.snapshot</c>: answers with the project's whole board (doc 12). A denied read and a missing project get the same

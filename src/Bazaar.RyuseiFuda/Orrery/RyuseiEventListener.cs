@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Threading.Channels;
-using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Gc.Read;
+using Bazaar.Server.Kanban.Data;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;

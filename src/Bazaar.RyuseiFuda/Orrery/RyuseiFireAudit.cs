@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.RyuseiFuda.Kanban;
+using Bazaar.Server.Kanban;
 using Bazaar.Server.Security.Audit;
 
 namespace Bazaar.RyuseiFuda.Orrery;

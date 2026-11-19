@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.RyuseiFuda.Kanban.Data;
+namespace Bazaar.Server.Kanban.Data;
 
 /// <summary>SQL-first access to <c>task_edges</c> (doc 12). Cycle and duplicate checks are the graph service's job, not this repository's.</summary>
 public sealed class TaskEdgeRepository(NpgsqlDataSource dataSource)

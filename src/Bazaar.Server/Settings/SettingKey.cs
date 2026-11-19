@@ -117,7 +117,6 @@ public sealed class SettingKey<T> : SettingDefinition
     {
         var t when t == typeof(bool) => "true or false",
         var t when t == typeof(int) => "whole number",
-        var t when t == typeof(decimal) => "number",
         var t when t == typeof(string) => "text",
         var t when t.IsEnum => "one of the listed names",
         _ => "list",

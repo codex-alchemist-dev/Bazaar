@@ -1,4 +1,4 @@
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>Why a candidate blocked-by edge was accepted or refused.</summary>
 public enum EdgeCheckOutcome

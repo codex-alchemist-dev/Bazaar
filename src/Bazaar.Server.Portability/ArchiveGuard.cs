@@ -13,9 +13,6 @@ internal static class ArchiveGuard
     // Below this expanded size the ratio is not checked: tiny parts compress oddly, and the absolute cap still holds.
     private const long _ratioCheckThresholdBytes = 1024 * 1024;
 
-    private const int _maxEntryNameChars = 1024;
-    private static readonly string[] _reservedThree = ["CON", "PRN", "AUX", "NUL"];
-
     // Unix file type bits (the high 16 bits of a zip entry's external attributes, when made on Unix).
     private const int _fileTypeMask = 0xF000;
     private const int _fileTypeFifo = 0x1000;
@@ -33,31 +30,11 @@ internal static class ArchiveGuard
         if (zip.Entries.Count > limits.MaxArchiveEntries)
             throw new ImportLimitException($"archive has {zip.Entries.Count} entries, over the limit of {limits.MaxArchiveEntries}");
 
-        // Zip readers disagree on which of two same-named entries wins, and a case-insensitive file system merges names
-        // that differ only in case, so any such pair is refused outright.
-        var exact = new HashSet<string>(StringComparer.Ordinal);
-        var folded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in zip.Entries)
         {
             CheckEntryName(entry.FullName);
             CheckEntryType(entry);
-            if (!exact.Add(entry.FullName))
-                throw new ImportLimitException($"archive has two entries named '{entry.FullName}'");
-            if (!folded.Add(entry.FullName))
-                throw new ImportLimitException($"archive has entries whose names differ only in case: '{entry.FullName}'");
         }
-    }
-
-    /// <summary>
-    /// Reads one entry fully into memory. Fails when the declared or actual expanded size passes
-    /// <paramref name="byteBudget"/>, or when the expansion ratio passes the limit.
-    /// </summary>
-    public static byte[] ReadEntry(ZipArchiveEntry entry, ImportLimits limits, ArchiveBudget budget)
-    {
-        ArgumentNullException.ThrowIfNull(budget);
-        var bytes = ReadEntry(entry, limits, budget.Remaining);
-        budget.Spend(bytes.LongLength);
-        return bytes;
     }
 
     /// <summary>
@@ -77,10 +54,7 @@ internal static class ArchiveGuard
         long allowed = byteBudget;
         if (entry.CompressedLength > 0)
         {
-            // A forged compressed length must not overflow: saturate, and the byte budget still bounds the read.
-            var ratioBound = entry.CompressedLength > long.MaxValue / limits.MaxExpansionRatio
-                ? long.MaxValue
-                : entry.CompressedLength * limits.MaxExpansionRatio;
+            var ratioBound = checked(entry.CompressedLength * limits.MaxExpansionRatio);
             allowed = Math.Min(allowed, Math.Max(ratioBound, _ratioCheckThresholdBytes));
         }
         else if (declared > 0)
@@ -123,17 +97,10 @@ internal static class ArchiveGuard
         }
     }
 
-    internal static void CheckEntryName(string name)
+    private static void CheckEntryName(string name)
     {
-        if (name.Length == 0 || name.Length > _maxEntryNameChars)
-            throw new ImportLimitException("archive entry has an empty or over-long name");
-        foreach (var c in name)
-        {
-            if (char.IsControl(c))
-                throw new ImportLimitException("archive entry name contains a control character");
-        }
-        if (name.Contains(':', StringComparison.Ordinal))
-            throw new ImportLimitException($"archive entry '{name}' has a ':' (drive or alternate data stream)");
+        if (name.Length == 0 || name.Contains('\0', StringComparison.Ordinal))
+            throw new ImportLimitException("archive entry has an empty or invalid name");
         if (name[0] is '/' or '\\')
             throw new ImportLimitException($"archive entry '{name}' has an absolute path");
         if (name.Length >= 2 && name[1] == ':' && char.IsAsciiLetter(name[0]))
@@ -142,22 +109,7 @@ internal static class ArchiveGuard
         {
             if (segment == "..")
                 throw new ImportLimitException($"archive entry '{name}' contains a '..' segment");
-            if (segment.Length > 0 && (segment[^1] is '.' or ' '))
-                throw new ImportLimitException($"archive entry '{name}' has a segment ending in a dot or space");
-            if (IsReservedDeviceName(segment))
-                throw new ImportLimitException($"archive entry '{name}' uses a reserved Windows device name");
         }
-    }
-
-    private static bool IsReservedDeviceName(string segment)
-    {
-        // Windows ignores the extension and trailing spaces: "NUL.txt" and "con .x" are the devices.
-        var dot = segment.IndexOf('.', StringComparison.Ordinal);
-        var stem = (dot < 0 ? segment : segment[..dot]).TrimEnd(' ');
-        if (stem.Length is 3 && _reservedThree.Contains(stem, StringComparer.OrdinalIgnoreCase)) return true;
-        return stem.Length is 4
-            && (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase) || stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase))
-            && (stem[3] is >= '0' and <= '9' or '\u00B9' or '\u00B2' or '\u00B3');
     }
 
     private static void CheckEntryType(ZipArchiveEntry entry)
@@ -167,26 +119,5 @@ internal static class ArchiveGuard
             throw new ImportLimitException($"archive entry '{entry.FullName}' is a symbolic link");
         if (type is _fileTypeFifo or _fileTypeCharDevice or _fileTypeBlockDevice or _fileTypeSocket)
             throw new ImportLimitException($"archive entry '{entry.FullName}' is a special file");
-    }
-}
-
-/// <summary>
-/// A running total of expanded bytes for one archive, so many small entries cannot add up past
-/// <see cref="ImportLimits.MaxExpandedBytes"/>. Pass one budget to every <see cref="ArchiveGuard.ReadEntry(ZipArchiveEntry, ImportLimits, ArchiveBudget)"/> call for the archive.
-/// </summary>
-internal sealed class ArchiveBudget
-{
-    public ArchiveBudget(long totalBytes)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(totalBytes, 0);
-        Remaining = totalBytes;
-    }
-
-    public long Remaining { get; private set; }
-
-    public void Spend(long bytes)
-    {
-        if (bytes > Remaining) throw new ImportLimitException("archive expands past the total byte budget");
-        Remaining -= bytes;
     }
 }

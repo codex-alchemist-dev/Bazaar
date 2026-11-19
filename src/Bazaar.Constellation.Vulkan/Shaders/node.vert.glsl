@@ -1,25 +1,13 @@
 #version 450
 // Instanced quad for one Constellation node. Per-vertex: a unit-square corner.
-// Per-instance: x, y, style index (NodeInstanceBuffer layout; z is not stored).
-// The style index selects an entry of the style table in set 0, binding 0.
+// Per-instance: x, y, radius, r, g, b, a (layout of NodeInstanceBuffer; z is not stored).
 layout(location = 0) in vec2 inCorner;
 layout(location = 1) in vec2 inCenter;
-layout(location = 2) in float inStyle;
+layout(location = 2) in float inRadius;
+layout(location = 3) in vec4 inColor;
 
 layout(location = 0) out vec2 outCorner;
-layout(location = 1) out flat uint outStyle;
-
-// One style as NodeStylePacking writes it: colour, radius, ring width, and two floats of std430 padding.
-struct NodeStyleGpu {
-    vec4 colour;
-    float radius;
-    float ringWidth;
-    vec2 padding;
-};
-
-layout(std430, set = 0, binding = 0) readonly buffer NodeStyles {
-    NodeStyleGpu styles[];
-};
+layout(location = 1) out vec4 outColor;
 
 // Maps world space to clip space: clip = (world - offset) * scale.
 layout(push_constant) uniform View {
@@ -28,10 +16,8 @@ layout(push_constant) uniform View {
 } view;
 
 void main() {
-    uint index = uint(inStyle + 0.5);
-    NodeStyleGpu style = styles[index];
-    vec2 world = inCenter + inCorner * style.radius;
+    vec2 world = inCenter + inCorner * inRadius;
     gl_Position = vec4((world - view.offset) * view.scale, 0.0, 1.0);
     outCorner = inCorner;
-    outStyle = index;
+    outColor = inColor;
 }

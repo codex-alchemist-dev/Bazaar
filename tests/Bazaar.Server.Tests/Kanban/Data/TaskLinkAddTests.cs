@@ -1,5 +1,5 @@
-using Bazaar.RyuseiFuda.Kanban;
-using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.Server.Kanban;
+using Bazaar.Server.Kanban.Data;
 using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Kanban.Data;

@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.RyuseiFuda.Kanban.Data;
+namespace Bazaar.Server.Kanban.Data;
 
 /// <summary>SQL-first access to <c>task_links</c> (doc 12). Existence checks against PRs, commits, GCs and Vault documents belong to the link service (KB-later).</summary>
 public sealed class TaskLinkRepository(NpgsqlDataSource dataSource)

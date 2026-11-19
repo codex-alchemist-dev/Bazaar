@@ -1,6 +1,6 @@
-using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.Server.Kanban.Data;
 
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>One blocker chip on a schedule item: a task that blocks the item, and whether it is Done.</summary>
 public sealed record TeamScheduleBlocker(Guid TaskId, string Title, TaskState State, bool IsDone);

@@ -20,14 +20,11 @@ public sealed class ParserSandboxRunner
     /// <summary>Longest source name, in UTF-8 bytes, that is sent to the child.</summary>
     public const int MaxSourceNameBytes = 1024;
     private static readonly TimeSpan _exitGrace = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan _orphanGrace = TimeSpan.FromSeconds(2);
-    // The child gets no PATH: the launch command and every tool in front of it are absolute paths. The temp variables
-    // are not inherited either; they point at the child's empty scratch directory.
-    private static readonly string[] _inheritedEnvironment = ["DOTNET_ROOT", "SystemRoot", "windir"];
+    private static readonly string[] _inheritedEnvironment =
+        ["PATH", "DOTNET_ROOT", "SystemRoot", "windir", "TEMP", "TMP", "TMPDIR"];
 
     private readonly ParserSandboxOptions _options;
     private readonly IParserConfinement _confinement;
-    private readonly IParserSignalSink? _signals;
     private volatile ParserRunInfo? _lastRun;
 
     public ParserSandboxRunner(
@@ -40,7 +37,6 @@ public sealed class ParserSandboxRunner
         options.Validate();
         _options = options;
         _confinement = confinement ?? ParserConfinements.CreateDefault();
-        _signals = signals;
         CrashTracker = new ParserCrashTracker(options.CrashLoopThreshold, options.CrashLoopWindow, signals, time, options.SourceFailureCap);
     }
 
@@ -128,14 +124,6 @@ public sealed class ParserSandboxRunner
         var plan = _confinement.Prepare(limits, BuildCommand());
         var applied = new List<string>(plan.Applied) { "wall-clock-timeout", "managed-heap-limit", "output-cap", "scrubbed-environment", "empty-working-directory" };
         _lastRun = new ParserRunInfo(_confinement.Name, applied, plan.NotApplied);
-        var missing = _options.RequiredConfinement.Where(item => !applied.Contains(item, StringComparer.Ordinal)).ToList();
-        if (missing.Count > 0)
-        {
-            // Fail closed: an untrusted file is never parsed with a required protection missing (for example network access).
-            var detail = $"confinement provider '{_confinement.Name}' did not apply required item(s): {string.Join(", ", missing)}";
-            _signals?.Raise(new ParserSignal(ParserSignals.ConfinementMissing, request.ImporterId, detail));
-            throw new ParserSandboxException(ParserFailureKind.ConfinementUnavailable, detail);
-        }
         if (_options.RequireFullConfinement && plan.NotApplied.Count > 0)
         {
             throw new ParserSandboxException(
@@ -158,11 +146,7 @@ public sealed class ParserSandboxRunner
                 WorkingDirectory = scratch.FullName,
             };
             foreach (var arg in plan.Command.Arguments) info.ArgumentList.Add(arg);
-            info.Environment.Clear();
-            foreach (var (name, value) in BuildChildEnvironment(_options, scratch.FullName, Environment.GetEnvironmentVariable))
-            {
-                info.Environment[name] = value;
-            }
+            ScrubEnvironment(info);
 
             try
             {
@@ -254,28 +238,9 @@ public sealed class ParserSandboxRunner
 
         var writeTask = Task.Run(() => WriteInput(process, request, content), CancellationToken.None);
 
-        // A grandchild can inherit the stdout pipe and keep it open after the child exits, which would leave the read
-        // below waiting. Once the child has exited, the rest of the tree gets a short grace period, then is killed.
-        using var watchCts = new CancellationTokenSource();
-        var exitWatch = Task.Run(async () =>
-        {
-            try
-            {
-                await process.WaitForExitAsync(watchCts.Token).ConfigureAwait(false);
-                await Task.Delay(_orphanGrace, watchCts.Token).ConfigureAwait(false);
-                // Kill, not only KillTree: if the descendant left the group the read is still abandoned after the grace.
-                Kill(0);
-            }
-            catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
-            {
-                // The job ended first.
-            }
-        }, CancellationToken.None);
-
         var messages = new List<ParserMessage>();
         var maxFrame = ParserFrames.MaxFrameBytes(_options.Limits.MaxRecordBytes);
         long outputBytes = 0;
-        var recordCount = 0;
         ParserMessage? terminal = null;
         Exception? readFailure = null;
         int? naturalExitCode = null;
@@ -318,8 +283,6 @@ public sealed class ParserSandboxRunner
                 ParserMessage message;
                 try
                 {
-                    // Cheap token scan first: a hostile frame of ten million tiny items must not be materialized.
-                    ParserFrames.CheckShape(body);
                     message = System.Text.Json.JsonSerializer.Deserialize(body, ParserJsonContext.Default.ParserMessage)
                         ?? throw new System.Text.Json.JsonException("empty message");
                     ValidateMessage(request.Op, message);
@@ -349,12 +312,6 @@ public sealed class ParserSandboxRunner
                     throw new ParserSandboxException(ParserFailureKind.LimitExceeded, $"a record is over the limit of {_options.Limits.MaxRecordBytes} bytes (all fields counted)");
                 }
 
-                if (message.Type == ParserMessageTypes.Record && ++recordCount > _options.MaxRecords)
-                {
-                    guard.KillTree();
-                    throw new ParserSandboxException(ParserFailureKind.LimitExceeded, $"the parser sent more than {_options.MaxRecords} records");
-                }
-
                 messages.Add(message);
             }
         }
@@ -382,9 +339,8 @@ public sealed class ParserSandboxRunner
             await WaitBoundedAsync(process.WaitForExitAsync(CancellationToken.None)).ConfigureAwait(false);
         }
 
-        await watchCts.CancelAsync().ConfigureAwait(false);
         // Bounded for the same reason as the frame read: an escaped descendant may hold stdin or stderr open.
-        await WaitBoundedAsync(Task.WhenAll(writeTask, stderrTask, exitWatch)).ConfigureAwait(false);
+        await WaitBoundedAsync(Task.WhenAll(writeTask, stderrTask)).ConfigureAwait(false);
 
         // A finished job (done or error frame) stands even if a timer fired while the child was exiting.
         if (terminal is null)
@@ -590,27 +546,19 @@ public sealed class ParserSandboxRunner
         return configured;
     }
 
-    /// <summary>
-    /// The complete environment of the child: empty, plus a short allowlist. Nothing else of the server's environment
-    /// (API keys, connection strings) is passed on. The temp variables point at the child's empty scratch directory.
-    /// </summary>
-    internal static Dictionary<string, string> BuildChildEnvironment(ParserSandboxOptions options, string scratchPath, Func<string, string?> lookup)
+    /// <summary>Starts from an empty environment so no secret reaches the child, then adds the few variables it needs.</summary>
+    private void ScrubEnvironment(ProcessStartInfo info)
     {
-        var env = new Dictionary<string, string>(StringComparer.Ordinal);
+        info.Environment.Clear();
         foreach (var name in _inheritedEnvironment)
         {
-            if (lookup(name) is { } value) env[name] = value;
+            if (Environment.GetEnvironmentVariable(name) is { } value) info.Environment[name] = value;
         }
-        env["TMPDIR"] = scratchPath;
-        env["TMP"] = scratchPath;
-        env["TEMP"] = scratchPath;
         // The managed heap ceiling is the memory limit that works the same on every OS. Value is hexadecimal.
-        env["DOTNET_GCHeapHardLimit"] = options.MaxMemoryBytes.ToString("x", CultureInfo.InvariantCulture);
-        env["DOTNET_EnableDiagnostics"] = "0";
-        env["DOTNET_gcServer"] = "0";
-        env["DOTNET_TieredPGO"] = "0";
-        env["DOTNET_NOLOGO"] = "1";
-        env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
-        return env;
+        info.Environment["DOTNET_GCHeapHardLimit"] = _options.MaxMemoryBytes.ToString("x", CultureInfo.InvariantCulture);
+        info.Environment["DOTNET_EnableDiagnostics"] = "0";
+        info.Environment["DOTNET_gcServer"] = "0";
+        info.Environment["DOTNET_NOLOGO"] = "1";
+        info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
     }
 }

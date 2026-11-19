@@ -54,7 +54,6 @@ public sealed class AdapterHost : IAsyncDisposable
 
     // Guarded by _gate.
     private AdapterHostState _state = AdapterHostState.Running;
-    private bool _closeRequested;
     private EngineAdapterException? _failure;
 
     private AdapterHost(Process process, AdapterProcessOptions options)
@@ -186,12 +185,6 @@ public sealed class AdapterHost : IAsyncDisposable
     public async Task<JsonElement?> CloseAsync(string projectId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectId);
-        lock (_gate)
-        {
-            // A child that exits cleanly right after answering close must not be read as a crash: the exit observers can
-            // run before this method records the Closed state.
-            _closeRequested = true;
-        }
         var result = await BoundedRequestAsync(EngineMethods.Close, Serialize(new AdapterProjectParams(projectId)), $"Close of project '{projectId}'", ct).ConfigureAwait(false);
         lock (_gate)
         {
@@ -240,14 +233,7 @@ public sealed class AdapterHost : IAsyncDisposable
         }
         KillProcess();
         await WaitForExitAsync().ConfigureAwait(false);
-        try
-        {
-            await Task.WhenAll(_stdoutLoop, _stderrLoop).WaitAsync(_drainWait).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            // The pipes can stay open briefly after the kill on a loaded machine. The child is gone; dispose anyway.
-        }
+        await Task.WhenAll(_stdoutLoop, _stderrLoop).WaitAsync(_drainWait).ConfigureAwait(false);
         _process.StandardInput.Dispose();
         _process.Dispose();
         _writeGate.Dispose();
@@ -355,10 +341,6 @@ public sealed class AdapterHost : IAsyncDisposable
             if (_state == AdapterHostState.Failed && _failure is not null)
             {
                 return _failure;
-            }
-            if (_state == AdapterHostState.Running && _closeRequested && _process.HasExited && _process.ExitCode == 0)
-            {
-                _state = AdapterHostState.Closed;
             }
             if (_state == AdapterHostState.Closed)
             {

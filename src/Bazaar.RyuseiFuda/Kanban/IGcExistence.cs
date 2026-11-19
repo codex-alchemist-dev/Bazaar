@@ -1,4 +1,4 @@
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>Checks that a GC exists, for GC links on a task (doc 12, Links). Tests replace the SQL default with a fake.</summary>
 public interface IGcExistence

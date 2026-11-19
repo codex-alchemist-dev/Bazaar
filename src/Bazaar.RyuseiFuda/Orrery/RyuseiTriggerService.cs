@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.Server.Kanban.Data;
 using Bazaar.Server.Security.Audit;
 using Npgsql;
 

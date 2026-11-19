@@ -98,16 +98,6 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
     }
 
     /// <summary>
-    /// Replaces the style table with packed bytes from <see cref="NodeStylePacking.Pack"/>. Call before rendering
-    /// instances that refer to styles; without a style table, instances are not drawn.
-    /// </summary>
-    public void SetStyles(ReadOnlySpan<byte> styleBytes)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.UploadStyles(styleBytes);
-    }
-
-    /// <summary>
     /// Clears to <paramref name="clear"/>, draws the instances, and copies the image to host memory.
     /// Read the result with <see cref="ReadPixels"/> after the call returns.
     /// </summary>

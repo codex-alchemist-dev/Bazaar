@@ -1,4 +1,4 @@
-namespace Bazaar.RyuseiFuda.Kanban;
+namespace Bazaar.Server.Kanban;
 
 /// <summary>
 /// Settings for the deadline scanner (doc 12, WP11), bound from <c>Bazaar:Kanban:Deadline</c>.

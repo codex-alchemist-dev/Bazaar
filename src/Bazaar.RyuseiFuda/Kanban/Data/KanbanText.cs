@@ -1,4 +1,4 @@
-namespace Bazaar.RyuseiFuda.Kanban.Data;
+namespace Bazaar.Server.Kanban.Data;
 
 /// <summary>Maps Kanban enums to the text values the 0012 CHECK constraints accept. Unknown text is an error, never a default.</summary>
 internal static class KanbanText

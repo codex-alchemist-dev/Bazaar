@@ -16,7 +16,7 @@ public class ParserSandboxTests
         IParserSignalSink? sink = null,
         IParserConfinement? confinement = null)
     {
-        var options = new ParserSandboxOptions { ImporterAssemblies = [_fixtures], RequiredConfinement = [] };
+        var options = new ParserSandboxOptions { ImporterAssemblies = [_fixtures] };
         if (tune is not null) options = tune(options);
         return new ParserSandboxRunner(options, confinement, sink);
     }
@@ -588,7 +588,7 @@ public class ParserSandboxTests
         Assert.Equal(ParserFailureKind.CrashLoop, refused.Kind);
         Assert.Single(sink.Signals);
         // Another importer is not affected.
-        Assert.Equal("ok", Assert.Single(runner.Parse("test.chatty", Source(text: "another file"))).Body);
+        Assert.Equal("ok", Assert.Single(runner.Parse("test.chatty", Source())).Body);
     }
 
     [Fact]
