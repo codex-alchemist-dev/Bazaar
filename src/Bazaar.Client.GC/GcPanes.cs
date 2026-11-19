@@ -1,4 +1,5 @@
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.GC.Abstractions;
 
 namespace Bazaar.Client.GC;
 
@@ -7,6 +8,21 @@ public static class GcPanes
 {
     /// <summary>The group chat pane. Heads list it after the Client.Core panes, which keeps the phone pager order (doc 29).</summary>
     public static IPaneModule Module { get; } = new GcPaneModule();
+
+    /// <summary>
+    /// The registry modules add presence chip adornments to. A head puts it in the pane context with
+    /// <see cref="WithPresenceAdornments"/> so feature modules reach it as <see cref="IPresenceAdornmentRegistry"/>.
+    /// </summary>
+    public static PresenceAdornmentRegistry CreatePresenceAdornments() => new();
+
+    /// <summary>Returns a copy of <paramref name="context"/> that carries <paramref name="registry"/> as <see cref="IPresenceAdornmentRegistry"/>.</summary>
+    public static PaneModuleContext WithPresenceAdornments(this PaneModuleContext context, IPresenceAdornmentRegistry registry)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(registry);
+
+        return context.With(registry);
+    }
 
     /// <summary>
     /// Returns a copy of <paramref name="context"/> that carries <paramref name="chat"/> for the GC pane. A null chat
