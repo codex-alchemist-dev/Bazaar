@@ -436,7 +436,6 @@ src/Bazaar.Server/Gc/Edit/MessageEditPlanner.cs
 src/Bazaar.Server/Gc/Edit/MessageHistoryReader.cs
 src/Bazaar.Server/Gc/Edit/PgGcEditSource.cs
 src/Bazaar.Server/Gc/GcComponent.cs
-src/Bazaar.Server/Gc/GcEnumText.cs
 src/Bazaar.Server/Gc/GcLogServiceCollectionExtensions.cs
 src/Bazaar.Server/Gc/GcNotifyChannel.cs
 src/Bazaar.Server/Gc/GcSettings.cs
@@ -452,7 +451,6 @@ src/Bazaar.Server/Gc/Mentions/InboxPlanner.cs
 src/Bazaar.Server/Gc/Mentions/InboxRowWriter.cs
 src/Bazaar.Server/Gc/Mentions/MentionRecords.cs
 src/Bazaar.Server/Gc/Mentions/MentionValidator.cs
-src/Bazaar.Server/Gc/Model/GcModel.cs
 src/Bazaar.Server/Gc/Provenance/DefaultGcTrustHook.cs
 src/Bazaar.Server/Gc/Provenance/GcProvenanceServiceCollectionExtensions.cs
 src/Bazaar.Server/Gc/Read/GcCatchUpReader.cs
