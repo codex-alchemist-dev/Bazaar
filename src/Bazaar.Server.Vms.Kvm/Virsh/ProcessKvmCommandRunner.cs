@@ -16,8 +16,11 @@ public sealed class ProcessKvmCommandRunner(TimeSpan? timeout = null) : IKvmComm
 
     private readonly TimeSpan _timeout = timeout ?? DefaultTimeout;
 
-    /// <inheritdoc />
-    public async Task<KvmCommandResult> RunAsync(string program, IReadOnlyList<string> arguments, string? standardInput, CancellationToken ct)
+    /// <summary>
+    /// The start info for one allowed call: no shell, arguments passed as a list, and the C locale so the output the
+    /// callers parse is never translated.
+    /// </summary>
+    public static ProcessStartInfo CreateStartInfo(string program, IReadOnlyList<string> arguments, bool redirectInput)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         if (Array.IndexOf(_allowedPrograms, program) < 0)
@@ -31,12 +34,35 @@ public sealed class ProcessKvmCommandRunner(TimeSpan? timeout = null) : IKvmComm
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = standardInput is not null,
+            RedirectStandardInput = redirectInput,
         };
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
         }
+
+        // The callers parse state names and "not found" messages, which virsh translates. Pin the untranslated text.
+        startInfo.Environment["LC_ALL"] = "C";
+        startInfo.Environment.Remove("LANGUAGE");
+        return startInfo;
+    }
+
+    private static Process StartProcess(string program, ProcessStartInfo startInfo)
+    {
+        try
+        {
+            return Process.Start(startInfo) ?? throw new KvmCommandException($"Could not start '{program}'.");
+        }
+        catch (Win32Exception ex)
+        {
+            throw new KvmCommandException($"Could not start '{program}': {ex.Message}", ex);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<KvmCommandResult> RunAsync(string program, IReadOnlyList<string> arguments, string? standardInput, CancellationToken ct)
+    {
+        var startInfo = CreateStartInfo(program, arguments, redirectInput: standardInput is not null);
 
         using var process = StartProcess(program, startInfo);
         var stdout = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
@@ -66,18 +92,6 @@ public sealed class ProcessKvmCommandRunner(TimeSpan? timeout = null) : IKvmComm
         }
 
         return new KvmCommandResult(process.ExitCode, await stdout, await stderr);
-    }
-
-    private static Process StartProcess(string program, ProcessStartInfo startInfo)
-    {
-        try
-        {
-            return Process.Start(startInfo) ?? throw new KvmCommandException($"Could not start '{program}'.");
-        }
-        catch (Win32Exception ex)
-        {
-            throw new KvmCommandException($"Could not start '{program}': {ex.Message}", ex);
-        }
     }
 
     private static void KillTree(Process process)

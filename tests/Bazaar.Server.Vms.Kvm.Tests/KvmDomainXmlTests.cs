@@ -59,6 +59,10 @@ public sealed class KvmDomainXmlTests
         Assert.Equal("restart", domain.Element("on_reboot")!.Value);
         Assert.Equal("destroy", domain.Element("on_crash")!.Value);
 
+        // The guest must not be able to suspend itself out of reach of stop and save.
+        Assert.Equal("no", (string?)domain.Element("pm")!.Element("suspend-to-mem")!.Attribute("enabled"));
+        Assert.Equal("no", (string?)domain.Element("pm")!.Element("suspend-to-disk")!.Attribute("enabled"));
+
         var balloon = domain.Element("devices")!.Element("memballoon")!;
         Assert.Equal("none", (string?)balloon.Attribute("model"));
     }

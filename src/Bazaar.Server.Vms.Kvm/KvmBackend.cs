@@ -91,7 +91,17 @@ public sealed class KvmBackend : IVmBackend, IVmProvider
     /// <inheritdoc />
     public async Task StopAsync(VmHandle vm, StopMode mode, CancellationToken ct)
     {
-        await RequireAsync(vm, ct, KvmDomainState.Running, KvmDomainState.Paused).ConfigureAwait(false);
+        // A force stop must also work on a guest that is mid-shutdown, crashed or suspended by its own power management:
+        // those still hold memory, and a suspended guest can wake itself. Containment relies on the force stop.
+        if (mode == StopMode.Force)
+        {
+            await RequireAsync(vm, ct, KvmDomainState.Running, KvmDomainState.Paused, KvmDomainState.Transitioning).ConfigureAwait(false);
+        }
+        else
+        {
+            await RequireAsync(vm, ct, KvmDomainState.Running, KvmDomainState.Paused).ConfigureAwait(false);
+        }
+
         await _host.StopAsync(vm.BackendRef, mode == StopMode.Force, ct).ConfigureAwait(false);
     }
 
@@ -125,7 +135,7 @@ public sealed class KvmBackend : IVmBackend, IVmProvider
 
         // A running domain is turned off first. Removing it while it runs would leave the guest process alive without a manager.
         var state = await _host.GetStateAsync(vm.BackendRef, ct).ConfigureAwait(false);
-        if (state is KvmDomainState.Running or KvmDomainState.Paused)
+        if (state is KvmDomainState.Running or KvmDomainState.Paused or KvmDomainState.Transitioning)
         {
             await _host.StopAsync(vm.BackendRef, force: true, ct).ConfigureAwait(false);
         }
