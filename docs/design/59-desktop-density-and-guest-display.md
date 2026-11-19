@@ -62,6 +62,11 @@ These are invariants, not settings.
 5. **One agent, one target.** A capture or input call names an agent and a VM, and the VM must belong to that agent. Cross-agent viewing is an owner feature of the clients (Observatory), not of this contract.
 6. Every capture and input batch writes an audit row, rate-limited per agent.
 
+**Tool tiers (PROPOSED 2026-11-19; agreed with the Security area as fitting the tier model of doc 15).** The invariants above are the floor. Within them, the tier of each tool is an operator setting, and the shipped default is the strictest:
+- `screen.capture` is a read-class capability. Its result always hard-taints the session (rule 1); that part is not a setting.
+- `screen.input` is an action. By default it is refused once the session is hard-tainted when the target is an account browser session (rule 3), and allowed for the agent's own VMs and for anonymous pool browsers. An operator may tighten this (for example refuse all input under hard taint, or require approval), never loosen it below rule 3.
+- The gate reads the kill switch, the session taint and the leased-credential matcher through `Bazaar.Server.Security.Abstractions` (PR #743 and its follow-ups). Until those contracts exist the gate stays unconfigured and refuses everything.
+
 ## 6. Desktop profile for guests
 A profile in doc 16's sense: a preset over the same golden image, not a third VM.
 
