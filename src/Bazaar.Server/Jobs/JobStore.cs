@@ -55,6 +55,13 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         WHERE id = @id AND state = 'running' AND lease_owner = @owner
         """;
 
+    /// <summary>The database clock. Recurring-job buckets use it, so a host clock that is ahead, behind or stepped cannot postpone or replay them.</summary>
+    public async Task<DateTimeOffset> DatabaseNowAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT now()");
+        return new DateTimeOffset((DateTime)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!, TimeSpan.Zero);
+    }
+
     /// <summary>Adds a job. Returns its id, or null when <paramref name="dedupeKey"/> was used before (the earlier job wins).</summary>
     public async Task<long?> EnqueueAsync(
         string kind, string payloadJson, DateTimeOffset? runAt = null, string? dedupeKey = null, CancellationToken ct = default)

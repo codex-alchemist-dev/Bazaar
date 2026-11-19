@@ -45,7 +45,7 @@ public sealed class JobPoller
     public async Task<int> PollOnceAsync(CancellationToken ct = default)
     {
         if (_recurring is not null)
-            await _recurring.EnqueueDueAsync(_time.GetUtcNow(), ct).ConfigureAwait(false);
+            await _recurring.EnqueueDueAsync(await _store.DatabaseNowAsync(ct).ConfigureAwait(false), ct).ConfigureAwait(false);
 
         await _store.FailExhaustedAsync(Options.MaxAttempts, ct).ConfigureAwait(false);
         var claimed = await _store.ClaimDueAsync(Owner, Options.LeaseDuration, Options.BatchSize, ct).ConfigureAwait(false);
