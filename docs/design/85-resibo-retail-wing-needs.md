@@ -1,7 +1,7 @@
 # 85. Resibo-Retail wing: what it needs from the shared CDAX libraries and from Bazaar's modules
 
-Status: PROPOSED. Design intent only; no code, migration or module in this document exists yet. The owner information of 2026-11-19 (Resibo is `Resibo.Core` plus two very large wings built as modules on it, one of them Resibo-Retail, a modular point-of-sale system) is DECIDED as direction. Every need, module name, contract and rule below is Bazaar's own PROPOSED design unless a row cites a Resibo document. Resibo-Retail has no Resibo design docs in the inventories, so nothing here describes Retail behaviour as fact. Owner questions: 8 (section 21.3).
-Depends on: BAZAAR-COMPONENTS.md (module model, section 4.2 `Principal`), 40-core-feature-modules-audit.md (module table), 42-deps-as-modules.md, 02-wire-protocol-and-sync.md (wire, `IWireCodec`), 49-gap-decisions-operations.md (offline merge rules, signing), 48-gap-decisions-security-identity.md (audit chain, KEK), 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 46-kodo-health-module.md, 39-conduit-remote-connectivity.md, 81-program-logs-audit-vocabulary-and-retention.md, 84-resibo-exchange-ledger.md, DECISIONS-LOG.md (rounds 13, 25, 26), `/mnt/project-files/convergence/CONVERGENCE.md` (sections 4, 4a, 7 and the decisions log).
+Status: PROPOSED. Design intent only; no code, migration or module in this document exists yet. The owner information of 2026-11-19 (Resibo is `Resibo.Core` plus two very large wings built as modules on it, one of them Resibo-Retail, a modular point-of-sale system) is DECIDED as direction. Every need, module name, contract and rule below is Bazaar's own PROPOSED design unless a row cites a Resibo document. Resibo-Retail has no Resibo design docs in the inventories, so nothing here describes Retail behaviour as fact. Owner questions: 5 (section 21.3).
+Depends on: BAZAAR-COMPONENTS.md (module model, section 4.2 `Principal`), 40-core-feature-modules-audit.md (module table), 42-deps-as-modules.md, 02-wire-protocol-and-sync.md (wire, `IWireCodec`), 90-wire-transports-and-codecs.md (transport and codec modules; PR #927), 49-gap-decisions-operations.md (offline merge rules, signing), 48-gap-decisions-security-identity.md (audit chain, KEK), 14-identity-service-and-passport.md, 15-security-taint-and-approvals.md, 46-kodo-health-module.md, 39-conduit-remote-connectivity.md, 81-program-logs-audit-vocabulary-and-retention.md, 84-resibo-exchange-ledger.md, DECISIONS-LOG.md (rounds 13, 25, 26), `/mnt/project-files/convergence/CONVERGENCE.md` (sections 4, 4a, 7 and the decisions log).
 Used by: 84 (it routes Resibo-Consumer features; this doc is its Retail counterpart), the future extraction of Aludel, Kodo, Ouroboros, Tabula, Annales, Rubedo, the settings registry, the testing kit and Constellation.Renderer, and any later doc that adds a Retail-facing contract.
 
 ## 1. Purpose
@@ -18,13 +18,15 @@ For each need the document gives: a reference (R-001 and so on, so other docs ca
 - Owner, 2026-11-19: Bazaar is made receptive to Resibo; Resibo is not built now. Shared repos hold contracts and pure logic only, with no third-party dependencies (convergence section 4a). Providers stay in Bazaar and are plain modules; there is no selector and no role setting (owner, PR #919).
 - Owner, 2026-11-19 (cards): generic `Principal` (agent, user, service, system) and `Scope` (install, tenant, user) in `Cdax.Core`; Aludel has one `IKekProvider` contract and is multi-database; Tabula's contract carries retention window, operation vocabulary and a reason-tagged access-grant event type; the settings registry is in wave 1; Identity stays a Bazaar module for now.
 - Owner, 2026-11-19 (timeline): "modules are a thing", keep the current, add HTTP/3 over QUIC, add gRPC, add everything; an installer ("Bazaar installer") can use any payload, "just have the modules".
-- CLAUDE.md: .NET 11 everywhere; JSON via `IWireCodec`, "do not add Protobuf tooling" (conflict C-01, section 20); AGPL root with a module exception; configurability rule (DECISIONS-LOG round 13); server does all compute, with narrow listed client exceptions.
+- CLAUDE.md: .NET 11 everywhere; JSON via `IWireCodec`, "do not add Protobuf tooling" (conflict C-01, section 21.1; narrowed by doc 90); AGPL root with a module exception; configurability rule (DECISIONS-LOG round 13); server does all compute, with narrow listed client exceptions.
 - DECISIONS-LOG: Resource Economy (money budgets) is REJECTED. This concerns agent budgets only; it says nothing about money arithmetic in a commerce module (row R-049 states that explicitly).
+- Owner, 2026-11-19 (DECIDED; PR #872, `docs/design/48-gap-decisions-security-identity.md` section 11 and DECISIONS-LOG round 28; gateway counters in `docs/design/05-model-gateway.md`): amounts are exact and of arbitrary precision, "make the disk the limit". `numeric` when the value fits, chunked rows in the same Postgres beyond that, no field encryption, and a length guard at intake against denial of service. Section 11 applies it to commerce money.
+- Owner, 2026-11-19 (DECIDED; PR #927, `docs/design/90-wire-transports-and-codecs.md`): JSON over WebSocket stays; every other transport (HTTP/3 over QUIC, WebTransport, gRPC and gRPC-Web) and codec (MemoryPack, CBOR, MessagePack, Protobuf) is an optional module. Section 12 reuses those modules and decides nothing about the wire.
 - Owner, 2026-11-19 (DECIDED direction): every Resibo export will eventually be in a BIR-compliant, BIR-ready format (BIR is the Philippine tax authority), not generic sheets. The format details are OPEN until the actual BIR specifications are in hand (section 17.3).
 - Owner, 2026-11-19 (DECIDED direction): unlike Resibo V2, everything is stored in a proper database, never in Excel workbooks. Spreadsheet files are export outputs only, never a store (section 17.4).
 - Doc 49 section 4 (DECIDED): offline editing with merge, with a rule per data class. Doc 48 section 5: audit hash chain, signed checkpoints, anchoring.
 
-Money decision note: the briefing for this document mentions "Bazaar's arbitrary-precision money decision". I could not find that decision in `docs/` or in the convergence files on 2026-11-19. Section 11 therefore states the contract as PROPOSED and asks the main session to point to the source or accept it as new (question Q1).
+Money decision note: the arbitrary-precision decision exists. It is the owner's amounts decision of 2026-11-19 in PR #872 (section 2, last decided inputs). Section 11 rebases `Cdax.Money` on it and states only what Retail adds.
 
 ## 3. What this document does not decide
 
@@ -87,7 +89,7 @@ A register is a set of devices around a till: cash drawer, receipt printer, barc
 
 | Ref | Need | Covered by | Receptive change | Module name | Status |
 |---|---|---|---|---|---|
-| R-017 | Devices attached to the till must be driven from the till | CLAUDE.md client-side exceptions (NPU, terminal, Studio bridge relay, branch sync) | Add one named exception to the list: "point-of-sale peripherals, driven by a device-side relay". Owner decision (Q2). The relay is a small headless process, the same pattern as the Studio bridge relay (doc 20). | `Resibo.Retail.DeviceRelay` | Gap |
+| R-017 | Devices attached to the till must be driven from the till | CLAUDE.md client-side exceptions (NPU, terminal, Studio bridge relay, branch sync) | Add one named exception to the list: "point-of-sale peripherals, driven by a device-side relay". Owner decision (Q1). The relay is a small headless process, the same pattern as the Studio bridge relay (doc 20). | `Resibo.Retail.DeviceRelay` | Gap |
 | R-018 | One device contract family: `IDevice` (id, kind, state, capabilities) and per-kind contracts | Doc 74 `DeviceKey` naming is the nearest device identity | Reuse doc 74's `DeviceKey` shape for device ids so the hardware probe and device relay agree. | `Resibo.Retail.Devices.Abstractions` | Covered with change |
 | R-019 | Receipt printer: ESC/POS-style text and graphics, cut, status, paper-out | None | Contract `IReceiptPrinter` taking a neutral `PrintDocument` (lines, styles, image, barcode, QR, cut). Dialects are modules, not branches in one class. | `Resibo.Retail.Printers.Abstractions`; `.EscPos`, `.Star`, `.SystemSpooler`, `.Pdf` | Gap |
 | R-020 | Receipt layout is data, not code | Rubedo view declarations (doc 41c) | Rubedo's declarative views must be able to target a print surface as well as a screen: a "surface" field on the view with `screen`, `print`, `customer-display`. Pure data, so no third-party dependency. | `Cdax.Rubedo` | Covered with change |
@@ -112,7 +114,7 @@ A till must keep selling when the network or the server is down. Doc 49 section 
 | R-032 | The tills disagree about price or stock when they reconnect | None | A reconnecting till uploads sales with the price-list version it used. The server accepts them at that price, and flags a sale whose version is older than the operator's limit for review. The default is accept and flag, never reprice a closed sale. | `Resibo.Retail.Sales` | Gap |
 | R-033 | Offline authorization of a card payment | None | A terminal that can approve offline does so under its own rules. Retail records the offline-approved flag and limit. Bazaar stores no card data (section 17.1). Whether to accept offline card approvals at all is an operator setting, default off. | `Resibo.Retail.Terminals.Abstractions` | Gap |
 | R-034 | Clock trust: a till's clock may be wrong | HLC in doc 49; FakeClock in testing kit | Records carry the device time, the HLC and, on arrival, the server time. Reports use server arrival time for ordering and device time for display. A till whose clock drifts beyond a limit raises a Kodo attention (doc 81 `Attention`). | `Cdax.Core` clock contract | Covered with change |
-| R-035 | Sync transport options: WebSocket JSON today, HTTP/3 over QUIC, gRPC | Doc 02 (WebSocket plus `IWireCodec`); doc 39 (p2p over QUIC carrying the same pinned wire) | Transport and codec become separate modules behind `IWireTransport` and `IWireCodec`: `Wire.WebSocket` (current, kept), `Wire.Http3` (QUIC), `Wire.Grpc`. See section 12 and conflict C-01. | `Bazaar.Wire.*` | Gap |
+| R-035 | Sync transport options: WebSocket JSON today, HTTP/3 over QUIC, gRPC | Doc 02 (WebSocket plus `IWireCodec`); doc 39 (p2p over QUIC carrying the same pinned wire) | Transports and codecs are the optional modules of doc 90 section 2 (`Bazaar.Server.Transport.*` and `Bazaar.Client.Transport.*`, `Bazaar.Wire.Codec.*`). Retail adds none. See section 12. | doc 90 modules | Gap |
 
 ## 10. Tenancy, branches and deployment
 
@@ -124,15 +126,15 @@ A till must keep selling when the network or the server is down. Doc 49 section 
 | R-039 | Cross-tenant operator view (hosted provider seeing counts, health, not data) | Doc 72 access grants and break-glass | Operator support reads go through reason-tagged access grants (doc 72, Tabula event type), tenant owner notified. Resibo Auth break-glass is the model [R] (resibo-10-19 inventory: time-boxed, reason-tagged, dual notification). | `Bazaar.Server.AccessGrants` (reuse) | Covered |
 | R-040 | Home-server deployment: one machine, residential network, intermittent internet | Doc 03 (headless host), doc 39 (Conduit: cloudflared, p2p), doc 33 (backup) | Retail needs the LAN to work with the internet down: tills discover the server by LAN name or mDNS-style discovery module, and the Conduit is optional. | `Bazaar.Conduit.Lan` | Gap |
 | R-041 | Rented or hosted deployment: many tenants, operator-run | Doc 03, doc 32, doc 49 | Same binaries; settings differ. Hosted adds per-tenant quotas, per-tenant backup and a tenant lifecycle (create, suspend, export, delete). Delete follows crypto-erase (per-tenant keys, R-052). | `Resibo.Retail.TenantLifecycle` | Gap |
-| R-042 | Tills on any device: Windows, Android, Linux, iOS or browser | Doc 27, 28, 29, 30; CLAUDE.md: Avalonia, no web client "ever" except status and narrow sign-in pages | Retail "any device" collides with "no web client" and has no iOS head (C-02, Q3). Avalonia covers Windows, Android, Linux; macOS and iOS are Avalonia targets that Bazaar has not listed. | `Resibo.Retail.Client.<Head>` | Gap |
+| R-042 | Tills on any device: Windows, Android, Linux, iOS or browser | Doc 27, 28, 29, 30; CLAUDE.md: Avalonia, no web client "ever" except status and narrow sign-in pages | Retail "any device" collides with "no web client" and has no iOS head (C-02, Q2). Avalonia covers Windows, Android, Linux; macOS and iOS are Avalonia targets that Bazaar has not listed. | `Resibo.Retail.Client.<Head>` | Gap |
 
 ## 11. Money and tax arithmetic
 
-Retail is an exact-arithmetic domain. Floating point is never used for money, quantity or tax. This section is the contract that other rows refer to as `Cdax.Money`.
+Retail is an exact-arithmetic domain. Floating point is never used for money, quantity or tax. This section is the contract that other rows refer to as `Cdax.Money`. Its precision and storage rules are not new: they are the owner's amounts decision (PR #872, doc 48 section 11, DECISIONS-LOG round 28), applied to commerce money. Retail adds currency, rounding, allocation and conversion on top.
 
 | Ref | Need | Covered by | Receptive change | Module name | Status |
 |---|---|---|---|---|---|
-| R-043 | Arbitrary-precision money type | The briefing refers to a Bazaar decision; not found in docs (section 2 note) | PROPOSED: `Cdax.Money` holds `Amount` (a scaled `System.Numerics.BigInteger` plus scale, so only the base library is used), `Currency` (ISO 4217 code as a string with a registry of minor-unit exponents), and `Money = Amount + Currency`. No implicit conversion to `double` or `decimal`. | `Cdax.Money` | Gap |
+| R-043 | Arbitrary-precision money amount, stored exactly | DECIDED (owner, 2026-11-19; PR #872, doc 48 section 11; DECISIONS-LOG round 28): one exact amount type with no maximum of its own (`TokenAmount` in `Bazaar.Contracts` for agent budgets), a separate bounds policy (`TokenAmountBounds`), amounts as JSON strings and never through `double`, `numeric` storage when the value fits (131,072 digits before the point, 16,383 after), chunked rows in the same Postgres beyond that (`token_amount_large` and `token_amount_large_chunk`, base-100 packing, SHA-256 integrity, streamed arithmetic), no field encryption, intake length guard `agent.budget.amount_intake_max_digits` | `Cdax.Money` holds `Amount` (exact integer with a decimal scale, same representation rules as `TokenAmount`), `Currency` (ISO 4217 code with a registry of minor-unit exponents) and `Money = Amount + Currency`. No implicit conversion to `double` or `decimal`. Storage follows the two tiers: inline `numeric` when it fits, chunked rows in the same Postgres when it does not, never a second store, never clamped or replaced by null. Amounts are not personal data and are not field-encrypted (doc 48 section 5.5); they sit behind role grants and the operator's disk encryption. Every entry point (wire, HTTP, import, provider webhook, configuration) refuses text longer than a per-tenant intake guard before scanning it, with the same audited operator setting shape as the budget guard. Retail sets its own guard default per money field class; line prices and tenders are small in practice, so the shipped default is the inline tier. The code of the chunk tier is in PR #872 (`Bazaar.Contracts/Numerics`); whether `Cdax.Money` shares that numeric core or copies its rules is a module-boundary matter for doc 40, and the rules above hold either way | `Cdax.Money` | Covered with change |
 | R-044 | Rounding is explicit, named and recorded | Resibo Reconciliation `vat_math` check: 12 percent, tolerance 0.02 [R] (Consumer-side, for checking a printed receipt) | Rounding modes are an enum (`HalfUp`, `HalfEven`, `Down`, `Up`, `Cash` for coin-less currencies). A calculation returns the result and the rounding events, and rounding is applied at stated points only (line, subtotal or total, set by the tax profile), so two engines give identical totals. | `Cdax.Money` | Gap |
 | R-045 | Allocation without losing a cent: split a total across lines, tenders or people | None | `Allocate(Money, ratios)` returns parts that sum exactly to the input; the remainder rule is a parameter, default first-part. | `Cdax.Money` | Gap |
 | R-046 | Currency conversion with recorded rate | None | `ExchangeRate` is a value with source, time and precision. Conversion is a function of an explicit rate, never of "now". Rate feeds are provider modules. | `Cdax.Money`; `Resibo.Retail.Rates.<Source>` | Gap |
@@ -142,23 +144,18 @@ Retail is an exact-arithmetic domain. Floating point is never used for money, qu
 
 ## 12. Wire transports and codecs as modules
 
-Owner direction: keep the current, add HTTP/3 over QUIC, add gRPC, add everything.
+Owner direction: keep the current, add HTTP/3 over QUIC, add gRPC, add everything. This is now designed in **doc 90** (PR #927, DECIDED owner input 2026-11-19). Retail does not design any of it again; it reuses doc 90's modules and adds only the Retail needs below.
 
-- `IWireTransport` (connection, framing, reconnect) and `IWireCodec` (serialisation) are two contracts. Today one transport (WebSocket with TLS) and one codec (source-generated JSON) exist. Both become modules.
-- PROPOSED modules: `Bazaar.Wire.WebSocket` (the current one, kept as the default and the fallback), `Bazaar.Wire.Http3` (HTTP/3 over QUIC using the .NET base library's QUIC support), `Bazaar.Wire.Grpc` (gRPC over HTTP/2 or HTTP/3), `Bazaar.Wire.Codec.Json` (current), `Bazaar.Wire.Codec.Protobuf` (needed by gRPC).
-- Several transports may be enabled at once; the client tries them in a documented order and the server accepts any enabled one. Authentication, pinning and replay (doc 02, 32) apply identically to all.
-- Conflict C-01: CLAUDE.md says "do not add Protobuf tooling". Retail needs gRPC for third-party and device vendors that speak it. Resolution proposed in section 21: a Protobuf codec is allowed only as its own module that no core or feature module references, and an architecture test proves that.
+- Doc 90 section 2 catalogue, reused as is: `Bazaar.Wire.Abstractions`, `Bazaar.Wire.Generators`, `Bazaar.Wire.Conformance`; transports `Bazaar.Server.Transport.WebSocket` and `Bazaar.Client.Transport.WebSocket` (the current one, the floor with JSON), `Bazaar.Server.Transport.Http3`, `Bazaar.Server.Transport.QuicNative` and `Bazaar.Client.Transport.QuicNative`, `Bazaar.Server.Transport.WebTransport`, `Bazaar.Server.Transport.Grpc` and `Bazaar.Client.Transport.Grpc` (with gRPC-Web), `Bazaar.Client.Transport.AndroidHttp3`; codecs `Bazaar.Wire.Codec.MemoryPack`, `.Cbor`, `.MessagePack`, `.Protobuf` (JSON stays in `Bazaar.Contracts` as `JsonWireCodec`); discovery `Bazaar.Server.Wire.Discovery`.
+- Negotiation, limits, schema publication, settings (`wire.*`) and the S-WTX benchmark are doc 90 sections 4 to 10. Authentication, pinning and replay (docs 02, 32, 39) apply identically to every transport, as doc 90 states.
+- What Retail needs from it (not a wire design): a till, a device relay and a third-party or device vendor are ordinary wire clients. A vendor that speaks gRPC or needs a foreign-language codec uses doc 90's published schema (`wire.proto`, JSON Schema, CDDL, golden vectors, section 5). Retail tills on poor networks use the same transport ladder and negative cache as any client (doc 90 section 4.1). Offline queues replay through the existing idempotent request layer, which every transport keeps (doc 90, decided inputs).
+- Conflict C-01 is narrowed by doc 90 (Protobuf tooling lifted for the gRPC and Protobuf codec modules only); see section 21.1.
 
 | Ref | Need | Covered by | Receptive change | Module name | Status |
 |---|---|---|---|---|---|
-| R-050 | Transport as module | Doc 02, doc 39 | Extract `IWireTransport`; keep WebSocket as module | `Bazaar.Wire.WebSocket` | Covered with change |
-| R-051 | HTTP/3 over QUIC | Doc 39 row 55 (p2p over QUIC) | Add a client-server QUIC transport module; share the TLS pinning with doc 39 | `Bazaar.Wire.Http3` | Gap |
-| R-052 | gRPC | CLAUDE.md forbids Protobuf tooling | See C-01 | `Bazaar.Wire.Grpc`, `Bazaar.Wire.Codec.Protobuf` | Gap |
-
-## 13. Audit, end of day and tamper evidence
-
-Fiscal records must be unalterable and ordered. Tabula already designs the mechanism (doc 48 section 5; doc 81).
-
+| R-050 | Transport as module | Doc 90 section 2 (transport modules; `ws` moved out of Server.Wire and Client.Core), doc 02, doc 39 | None for Retail | `Bazaar.Server.Transport.WebSocket`, `Bazaar.Client.Transport.WebSocket` | Covered |
+| R-051 | HTTP/3 over QUIC | Doc 90 sections 2 and 9 (`Http3` listener feature, `QuicNative`, `AndroidHttp3`); doc 39 (pinning) | None for Retail | `Bazaar.Server.Transport.Http3`, `Bazaar.Server.Transport.QuicNative`, `Bazaar.Client.Transport.QuicNative`, `Bazaar.Client.Transport.AndroidHttp3` | Covered |
+| R-052 | gRPC and Protobuf for vendors | Doc 90 section 2 (`Grpc`, `Codec.Protobuf`) and its lifted Protobuf rule; published schema in section 5 | None for Retail beyond using the published schema | `Bazaar.Server.Transport.Grpc`, `Bazaar.Client.Transport.Grpc`, `Bazaar.Wire.Codec.Protobuf` | Covered |
 | Ref | Need | Covered by | Receptive change | Module name | Status |
 |---|---|---|---|---|---|
 | R-053 | Tamper-evident fiscal journal: hash chain, signed checkpoints, offline verifier | Doc 48 section 5.2 to 5.4 (chain, checkpoints, anchoring, verifier); doc 81 | Retail needs several chains, one per till and one per branch, each independently verifiable. Tabula's contract must allow named chains (`ChainId`), not one global chain. | `Cdax.Tabula` | Covered with change |
@@ -262,7 +259,7 @@ The design provides the slot now, not the content:
 Owner, 2026-11-19: unlike Resibo V2, all Resibo data lives in a proper database. Spreadsheet workbooks are export outputs only, never a store.
 
 - This is a floor, not a setting. No module may persist state in an Excel workbook, CSV or other flat spreadsheet file. A spreadsheet may be imported one way, into the database (docs 44 and 76).
-- The database is whatever Aludel's multi-database contract provides (Postgres first, SQLite per tenant possible; Q7). All access goes through that contract, so the rule holds for either engine.
+- The database is whatever Aludel's multi-database contract provides (Postgres first, SQLite per tenant possible; Q5). All access goes through that contract, so the rule holds for either engine.
 - Sealed fiscal days (R-056) and the journal (R-053) are database rows plus the chain, not files. A spreadsheet of a sealed day is a rendering of it and carries a hash of its sealed source so it can be checked.
 - The testing kit gets an architecture rule: no spreadsheet library is referenced from a storage path, and no migration or repository writes a spreadsheet. Spreadsheet-writing code lives only in `Export.<Format>` modules and importer modules.
 
@@ -298,16 +295,16 @@ Counts are of rows R-001 to R-097 (97 rows). Each row's status in sections 5 to 
 
 | Coverage | Count | Rows |
 |---|---|---|
-| Covered | 10 | R-004, R-015, R-039, R-049, R-060, R-062, R-069, R-085, R-086, R-096 |
-| Covered with change | 38 | R-001, R-002, R-005, R-006, R-007, R-009, R-016, R-018, R-020, R-025, R-026, R-028, R-029, R-031, R-034, R-036, R-038, R-050, R-053, R-054, R-055, R-061, R-070, R-073, R-075, R-076, R-077, R-078, R-079, R-080, R-081, R-083, R-084, R-089, R-090, R-091, R-095, R-097 |
-| Gap | 49 | R-003, R-008, R-010, R-011, R-012, R-013, R-014, R-017, R-019, R-021, R-022, R-023, R-024, R-027, R-030, R-032, R-033, R-035, R-037, R-040, R-041, R-042, R-043, R-044, R-045, R-046, R-047, R-048, R-051, R-052, R-056, R-057, R-058, R-059, R-063, R-064, R-065, R-066, R-067, R-068, R-071, R-072, R-074, R-082, R-087, R-088, R-092, R-093, R-094 |
+| Covered | 13 | R-004, R-015, R-039, R-049, R-050, R-051, R-052, R-060, R-062, R-069, R-085, R-086, R-096 |
+| Covered with change | 38 | R-001, R-002, R-005, R-006, R-007, R-009, R-016, R-018, R-020, R-025, R-026, R-028, R-029, R-031, R-034, R-036, R-038, R-043, R-053, R-054, R-055, R-061, R-070, R-073, R-075, R-076, R-077, R-078, R-079, R-080, R-081, R-083, R-084, R-089, R-090, R-091, R-095, R-097 |
+| Gap | 46 | R-003, R-008, R-010, R-011, R-012, R-013, R-014, R-017, R-019, R-021, R-022, R-023, R-024, R-027, R-030, R-032, R-033, R-035, R-037, R-040, R-041, R-042, R-044, R-045, R-046, R-047, R-048, R-056, R-057, R-058, R-059, R-063, R-064, R-065, R-066, R-067, R-068, R-071, R-072, R-074, R-082, R-087, R-088, R-092, R-093, R-094 |
 
 Reading the reconciliation:
 
 - **BIR-ready output and database-only storage (owner, 2026-11-19) add a format slot and a floor rule, not new foundations.** The BIR format content stays OPEN until the specifications are obtained.
 - **Most of the foundation is covered with a small change.** Principal, Scope, audit chain, KEK, settings, update model and offline merge already exist or are designed; the changes are fields and optional contracts.
 - **Gaps cluster in three places:** devices and terminals (section 8), Retail domain modules (sales, numbering, inventory, shifts), and wire transports (section 12). None of them touch Bazaar's feature code.
-- **No row asks Bazaar.Server or Bazaar.Client.Core to gain feature code.** Where a Bazaar module is proposed (`Bazaar.Wire.*`, `Bazaar.Server.Webhooks`, `Bazaar.Client.OfflineSync`, `Bazaar.Installer`, `Bazaar.Conduit.Lan`) it is its own module, and each is useful to Bazaar itself.
+- **No row asks Bazaar.Server or Bazaar.Client.Core to gain feature code.** Where a Bazaar module is proposed (`Bazaar.Server.Webhooks`, `Bazaar.Client.OfflineSync`, `Bazaar.Installer`, `Bazaar.Conduit.Lan`) it is its own module, and each is useful to Bazaar itself.
 
 ## 20. Modules proposed in this document
 
@@ -315,7 +312,7 @@ Reading the reconciliation:
 
 | Module | Rows | Why Bazaar benefits |
 |---|---|---|
-| `Bazaar.Wire.WebSocket`, `.Http3`, `.Grpc`, `.Codec.Json`, `.Codec.Protobuf` | R-035, R-050 to R-052 | Transport choice for clients on bad networks; QUIC suits mobile |
+| Doc 90 transport and codec modules (not new here) | R-035, R-050 to R-052 | Transport choice for clients on bad networks; QUIC suits mobile |
 | `Bazaar.Server.Webhooks` | R-012 | GitHub and Stripe-like callbacks need the same replay-safe receiver |
 | `Bazaar.Client.OfflineSync` | R-028, R-031 | Already needed by doc 49; extracting it makes it reusable |
 | `Bazaar.Conduit.Lan` | R-040 | A Conduit for LAN-only installs |
@@ -336,34 +333,31 @@ Reading the reconciliation:
 
 | Ref | Conflict | Proposed resolution (PROPOSED) |
 |---|---|---|
-| C-01 | CLAUDE.md "do not add Protobuf tooling" and "JSON via `IWireCodec`" versus owner direction to add gRPC and everything | A Protobuf codec exists only as `Bazaar.Wire.Codec.Protobuf`, referenced only by `Bazaar.Wire.Grpc`. Architecture test: no other module may reference it. JSON stays the default and the only codec of core, features and clients. CLAUDE.md line gets an exception clause by the main session (Q1) |
+| C-01 | CLAUDE.md "do not add Protobuf tooling" and "JSON via `IWireCodec`" versus owner direction to add gRPC and everything | Resolved by doc 90 (PR #927): the rule is lifted for the gRPC module and the Protobuf codec module only (`Bazaar.Server.Transport.Grpc`, `Bazaar.Client.Transport.Grpc`, `Bazaar.Wire.Codec.Protobuf`); Core, Contracts and the JSON path stay free of Protobuf; the gRPC module hard-depends on the Protobuf codec and nothing else does (architecture test, doc 90 section 2). JSON over WebSocket stays the floor. The CLAUDE.md edit belongs to doc 90's docs PR. Nothing further here |
 | C-02 | "No web client, ever" versus Retail "runs on any device" | Retail heads are Avalonia heads (Windows, Android, Linux, and macOS or iOS if Avalonia ships them). A browser till is not offered. Owner decides (Q3) |
 | C-03 | Resibo Auth is passwordless only versus a till PIN | A PIN is a local device credential only, never a sign-in to the server; it unlocks a till session that is already authenticated by a passkey or a device credential. Authentication floor unchanged |
 | C-04 | "Server does all compute" versus peripheral relays on the till | Add peripherals to the client-side exceptions list (R-017) |
 | C-05 | Resibo Consumer has audit retention default 3650 days for its domain; Retail operators in other places | Retention is a per-tenant setting with a jurisdiction pack floor; no default is hard-coded in the shared library |
-| C-06 | Bazaar's Resource Economy REJECTED versus a money type in shared libs | No conflict: agent budgets versus commerce arithmetic (R-049) |
+| C-06 | Bazaar's Resource Economy REJECTED versus a money type in shared libs; and the owner's exact-amounts decision (PR #872) versus a commerce money type | No conflict with the rejection: agent budgets versus commerce arithmetic (R-049). No conflict with the amounts decision: `Cdax.Money` follows it (R-043); the only open point is where the shared numeric core lives (doc 40) |
 
 ### 21.2 Decisions taken in this document (PROPOSED, not questions)
 
 Following the owner's rule "over-engineer; each option its own module":
 
 - Every device, payment, terminal, tax-jurisdiction, export and anchor option is its own module under a contract; no option is dropped for being uncommon.
-- Wire transports and codecs are modules, and all of WebSocket, HTTP/3 over QUIC and gRPC are built (C-01 qualifies the codec).
+- Wire transports and codecs are modules, designed in doc 90; Retail reuses them and adds none.
 - Every Retail fiscal fact is append-only and journalled; corrections are new records.
-- `Cdax.Money` is exact (arbitrary precision), with named rounding.
+- `Cdax.Money` is exact (arbitrary precision, disk is the limit, per the PR #872 decision), with named rounding.
 - Stock is a movement ledger; balances are derived.
 - All provider modules have a deterministic fake in the testing kit.
 
 ### 21.3 Owner questions
 
-1. **Where is the arbitrary-precision money decision?** I cannot find it in `docs/`. Recommended: treat section 11 as the first statement of it, as `Cdax.Money` using `BigInteger` and a scale, and confirm. The alternative (`System.Decimal` only) is simpler but has 28 digits and no named rounding.
-2. **May peripherals be driven from the till (R-017)?** This adds an item to the client-side exceptions list in CLAUDE.md. Recommended: yes, as a device relay process. The alternative, a server-side driver reaching devices over the network, fails for USB and serial devices.
-3. **What counts as "any device" for Retail?** Recommended: Avalonia heads only (Windows, Android, Linux first; macOS and iOS if Avalonia supports them under the OSI-only rule). A browser till breaks the no-web-client rule.
-4. **May the Protobuf codec exist as an isolated module for gRPC (C-01)?** Recommended: yes, isolated as described, with an architecture test. The alternative is a gRPC transport that carries JSON, which interoperates only with our own clients.
-5. **Offline number block behaviour when a till runs out (R-030): stop, or continue with a provisional prefix?** Recommended: stop by default, provisional as an operator setting, because gapless numbering is a legal question in many places.
-6. **Offline card approval (R-033): off by default?** Recommended: off, operator-enabled, with a limit; the risk of chargebacks sits with the operator.
-7. **Where does the Retail repo's data layer live: the same Postgres model as Bazaar, or per-tenant SQLite on small installs?** Aludel is multi-database already. Recommended: Postgres first, with the tenant store contract (R-036) written so a SQLite provider can follow.
-8. **Doc numbering.** The briefing asked me to report overlaps with docs 70 to 84 and doc 90. No doc 90 exists in `docs/design/` on 2026-11-19, so overlaps with it could not be checked. Recommended: if doc 90 is planned, tell me its subject so the next pass can reconcile.
+1. **May peripherals be driven from the till (R-017)?** This adds an item to the client-side exceptions list in CLAUDE.md. Recommended: yes, as a device relay process. The alternative, a server-side driver reaching devices over the network, fails for USB and serial devices.
+2. **What counts as "any device" for Retail?** Recommended: Avalonia heads only (Windows, Android, Linux first; macOS and iOS if Avalonia supports them under the OSI-only rule). A browser till breaks the no-web-client rule.
+3. **Offline number block behaviour when a till runs out (R-030): stop, or continue with a provisional prefix?** Recommended: stop by default, provisional as an operator setting, because gapless numbering is a legal question in many places.
+4. **Offline card approval (R-033): off by default?** Recommended: off, operator-enabled, with a limit; the risk of chargebacks sits with the operator.
+5. **Where does the Retail repo's data layer live: the same Postgres model as Bazaar, or per-tenant SQLite on small installs?** Aludel is multi-database already. Recommended: Postgres first, with the tenant store contract (R-036) written so a SQLite provider can follow.
 
 ## 22. Work packages
 
@@ -374,16 +368,14 @@ Dependency order. None of them is built now. Each package is its own PR with its
 | WP1 | Docs PR: this document; README index row | all | none |
 | WP2 | `Principal.onBehalfOf` and `Scope` sub-path contracts with serialisation tests | R-005, R-006 | none |
 | WP3 | Manifest fields `family`, `dataAuthority`; architecture rule R-002 | R-001, R-002, R-038 | WP2 |
-| WP4 | `Cdax.Money` contracts and pure logic, property tests for allocation and rounding | R-043 to R-046 | none |
+| WP4 | `Cdax.Money` contracts and pure logic, property tests for allocation and rounding; storage tiers per R-043 | R-043 to R-046 | PR #872 numerics (or doc 40 decision on the shared core) |
 | WP5 | Tabula named chains and retention per class | R-053, R-055 | WP2 |
 | WP6 | Aludel key purposes and non-exporting signer | R-076, R-078 | WP2 |
 | WP7 | Rubedo view `surface` | R-020 | none |
 | WP8 | Ouroboros maintenance window and skew policy | R-079, R-080 | none |
 | WP9 | Multi-active provider set in Core | R-009 | WP3 |
 | WP10 | Mandatory card-pattern redaction and forbidden-field scan | R-084 | none |
-| WP11 | `Bazaar.Wire` split into transport and codec modules; WebSocket and JSON as modules | R-050 | none |
-| WP12 | `Bazaar.Wire.Http3` | R-051 | WP11 |
-| WP13 | `Bazaar.Wire.Grpc` and isolated Protobuf codec; isolation test | R-052 | WP11, Q4 |
+| WP11 | Wire transport and codec modules | R-050 to R-052 | Owned by doc 90's work packages (build order in doc 90); no Retail package |
 | WP14 | `Bazaar.Client.OfflineSync` extraction | R-028, R-031 | WP2 |
 | WP15 | `Bazaar.Server.Webhooks` | R-012 | none |
 | WP16 | `Bazaar.Installer` and `InstallPayload` | R-003, R-082 | WP3 |
@@ -407,5 +399,5 @@ Retail-side packages (R-008 to R-027, R-091 to R-094, R-030 to R-033, R-047 to R
 - **Doc 79** (account guardian): R-075 and R-090.
 - **Doc 81** (audit vocabulary and retention): R-053 and R-055 add named chains and per-class retention; the vocabulary gains Retail kinds when written.
 - **Docs 71, 77, 80, 82, 83** are used by reference only (dependency watcher, status, MCP, job classes, client patterns).
-- **Doc 90**: not present. No overlap could be checked (Q8).
-- **Doc 02, 39 and the CLAUDE.md wire line**: R-035 and R-050 to R-052 propose a change; C-01 and Q4 route it to the owner.
+- **Doc 90** (wire transports and codecs, PR #927): section 12 and R-035, R-050 to R-052 point to it and add no design.
+- **Doc 02, 39 and the CLAUDE.md wire line**: R-035 and R-050 to R-052 reuse doc 90, which carries the change; C-01 is resolved there.
