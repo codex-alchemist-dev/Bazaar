@@ -41,6 +41,8 @@ Does not protect against: an attacker running as the Bazaar service account on t
 
 **API (Abstractions).** `ISealedStore` (`OpenScopeAsync`), `ISealedScope` (`ReadAsync`, `WriteAsync` with expected generation, `DeleteAsync`, `ListAsync`, `ShredAsync`), `SealTamperedException`, `ISealAnchor`, `ISealAuditSink`. Writes carry the expected generation; a stale write is rejected, like `soul_versions` (doc 07). Reads return bytes or a stream; plaintext is held in pinned, zeroed buffers where the runtime allows.
 
+**Known limits (from the 2026-11-19 security review).** The local counter-file anchor is not itself authenticated: deleting a scope's folder and its anchor file together looks like a scope that never existed. Detecting that needs an authenticated, monotonic index of scopes held in the audit-log anchor (WP6); until then the audit-log anchor is the recommended default when Postgres is up. A manifest with writes but no anchor, or a manifest missing next to other files, is already tamper. KEK rotation fails closed (a scope wrapped under another KEK id does not open); the rewrap path is WP9. A crash during shred can leave a scope that reports tamper until it is shredded again. Writers are serialised by a per-scope OS lock file and flushed to disk before each rename.
+
 **Failure behaviour.** Missing KEK, wrong KEK, bad tag, bad magic, unknown format, manifest mismatch and anchor mismatch all throw and audit; none returns partial data. An unsealed (plaintext) file found where a sealed file is expected is tamper, not a legacy path. First-time migration of existing plain data is a separate, owner-started, audited import that seals and then securely removes the plaintext.
 
 **Consumers.** Souls (`Bazaar.Server.Souls`, doc 07), Memory (`Bazaar.Server.Memory`), Identity/Passport and Host bootstrap call `ISealedStore` through their own modules. Adoption is one work package per consumer; each is its own PR and PROPOSED until merged. Nothing here puts feature code in Bazaar.Core, Bazaar.Server or Bazaar.Client.Core.
@@ -51,7 +53,7 @@ Does not protect against: an attacker running as the Bazaar service account on t
 
 ## Work packages (PLANNED)
 1. Module with scopes, file format, manifest and `SealTamperedException`; anchor and audit sink interfaces; tests (this change).
-2. Souls adoption. 3. Memory working copy adoption. 4. Passport/cookie profile adoption (doc 14). 5. Host bootstrap values (doc 03). 6. Audit-log anchor implementation. 7. Plaintext import tool. 8. Kodo health event wiring.
+2. Souls adoption. 3. Memory working copy adoption. 4. Passport/cookie profile adoption (doc 14). 5. Host bootstrap values (doc 03). 6. Audit-log anchor implementation. 7. Plaintext import tool. 8. Kodo health event wiring. 9. KEK rotation rewrap and an authenticated scope index.
 
 ## Testing
 Round trip; flipped bit anywhere; truncated file; file moved to another path and another scope; older generation restored; file deleted; unknown file added (reported, never read); manifest rolled back with anchor; wrong KEK; concurrent writers with stale generation; crash between file and manifest rename; no plaintext in any file under the root (byte search for a canary string); shred leaves nothing readable.

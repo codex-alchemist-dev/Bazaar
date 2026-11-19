@@ -13,28 +13,100 @@ internal static class SealFormat
     internal const int KeyBytes = 32;
     internal const int HeaderBytes = 4 + 1 + 8;
     internal const long MaxFileBytes = 256L * 1024 * 1024;
+    internal const long MaxStoredBytes = MaxFileBytes + HeaderBytes + NonceBytes + TagBytes;
+    internal const long MaxManifestBytes = 64L * 1024 * 1024;
+
+    /// <summary>Writes a file and flushes it to the device before returning, so a later rename never exposes a short file after a power loss.</summary>
+    internal static async ValueTask WriteDurableAsync(string path, byte[] bytes, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough);
+        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        stream.Flush(flushToDisk: true);
+    }
+
+    /// <summary>Reads a whole file after checking its size, so a planted huge file cannot exhaust memory before authentication.</summary>
+    internal static async ValueTask<byte[]?> ReadBoundedAsync(string path, long maxBytes, CancellationToken cancellationToken)
+    {
+        var info = new FileInfo(path);
+        if (!info.Exists || info.Length > maxBytes)
+        {
+            return null;
+        }
+
+        return await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+    }
 
     private static readonly byte[] _fileMagic = "BZSL"u8.ToArray();
     private static readonly byte[] _manifestMagic = "BZSM"u8.ToArray();
     private static readonly byte[] _keyMagic = "BZSK"u8.ToArray();
 
-    internal static byte[] DekAad(string scope, string kekId) => Encoding.UTF8.GetBytes($"bazaar.sealed.dek.v1|{scope}|{kekId}");
+    internal static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    internal static byte[] FileAad(string scope, string path, long generation) =>
-        Encoding.UTF8.GetBytes($"bazaar.sealed.file.v1|{scope}|{path}|{generation}|{Version}");
+    internal static byte[] DekAad(string scope, string kekId) => Aad("dek", Version, 0, scope, kekId);
 
-    internal static byte[] ManifestAad(string scope, long generation) =>
-        Encoding.UTF8.GetBytes($"bazaar.sealed.manifest.v1|{scope}|{generation}|{Version}");
+    internal static byte[] FileAad(string scope, string path, long generation) => Aad("file", Version, generation, scope, path);
 
-    internal static byte[] Derive(ReadOnlySpan<byte> dek, string purpose) =>
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, dek.ToArray(), KeyBytes, salt: [], info: Encoding.UTF8.GetBytes($"bazaar.sealed.{purpose}.v1"));
+    internal static byte[] ManifestAad(string scope, long generation) => Aad("manifest", Version, generation, scope);
+
+    /// <summary>Length-prefixed fields, so no choice of scope, path or key id can be re-split into another tuple.</summary>
+    private static byte[] Aad(string purpose, byte version, long generation, params string[] fields)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, StrictUtf8, leaveOpen: true);
+        writer.Write("bazaar.sealed.aad.v1"u8);
+        writer.Write(version);
+        writer.Write(generation);
+        foreach (var field in new[] { purpose }.Concat(fields))
+        {
+            var bytes = StrictUtf8.GetBytes(field);
+            writer.Write(bytes.Length);
+            writer.Write(bytes);
+        }
+
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    internal static byte[] Derive(ReadOnlySpan<byte> dek, string purpose)
+    {
+        var output = new byte[KeyBytes];
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, dek, output, salt: [], info: Encoding.UTF8.GetBytes($"bazaar.sealed.{purpose}.v1"));
+        return output;
+    }
+
+    /// <summary>Rejects scope names that are empty, contain control characters or invalid UTF-16, and returns the NFC form.</summary>
+    internal static string NormaliseScope(string scope)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+        return Clean(scope, nameof(scope));
+    }
+
+    private static string Clean(string value, string parameter)
+    {
+        try
+        {
+            StrictUtf8.GetByteCount(value);
+        }
+        catch (EncoderFallbackException)
+        {
+            throw new ArgumentException("Value contains invalid UTF-16 (a lone surrogate).", parameter);
+        }
+
+        if (value.Any(char.IsControl))
+        {
+            throw new ArgumentException("Value must not contain control characters.", parameter);
+        }
+
+        return value.Normalize(NormalizationForm.FormC);
+    }
 
     /// <summary>Normalises a logical path: forward slashes, no empty, dot or dot-dot segments, no drive or leading slash. Throws <see cref="ArgumentException"/>.</summary>
     internal static string NormalisePath(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        var unified = path.Replace('\\', '/');
-        if (unified.Length == 0 || unified.Length > 1024 || unified.StartsWith('/') || unified.Contains(':') || unified.Contains('\0'))
+        var unified = Clean(path, nameof(path)).Replace('\\', '/');
+        if (unified.Length == 0 || unified.Length > 1024 || unified.StartsWith('/') || unified.Contains(':'))
         {
             throw new ArgumentException("Sealed path must be relative, non-empty, at most 1024 characters, and contain no drive or NUL.", nameof(path));
         }

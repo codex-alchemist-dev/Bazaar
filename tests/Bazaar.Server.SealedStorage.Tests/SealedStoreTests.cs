@@ -286,6 +286,112 @@ public sealed class SealedStoreTests : IDisposable
         await Assert.ThrowsAsync<SealTamperedException>(async () => await Store(anchor: new FileSealAnchor(anchorDir)).OpenScopeAsync("soul:1"));
     }
 
+    [Fact]
+    public async Task Deleting_the_anchor_after_writes_is_tamper_not_a_silent_reanchor()
+    {
+        var anchorDir = Path.Combine(_dir, "anchors");
+        using (var scope = await Store(anchor: new FileSealAnchor(anchorDir)).OpenScopeAsync("soul:1"))
+        {
+            await scope.WriteAsync("a.md", Bytes("one"));
+        }
+
+        foreach (var f in Directory.GetFiles(anchorDir))
+        {
+            File.Delete(f);
+        }
+
+        await Assert.ThrowsAsync<SealTamperedException>(async () => await Store(anchor: new FileSealAnchor(anchorDir)).OpenScopeAsync("soul:1"));
+    }
+
+    [Fact]
+    public async Task Deleting_the_manifest_while_files_remain_is_tamper()
+    {
+        using (var scope = await Store().OpenScopeAsync("soul:1"))
+        {
+            await scope.WriteAsync("a.md", Bytes("one"));
+        }
+
+        File.Delete(Path.Combine(ScopeDir(), "manifest.bzm"));
+        await Assert.ThrowsAsync<SealTamperedException>(async () => await Store(anchor: new InMemorySealAnchor()).OpenScopeAsync("soul:1"));
+    }
+
+    [Fact]
+    public async Task A_file_moved_to_another_scope_fails()
+    {
+        var store = Store();
+        using var one = await store.OpenScopeAsync("soul:1");
+        using var two = await store.OpenScopeAsync("soul:2");
+        await one.WriteAsync("a.md", Bytes("secret"));
+        await two.WriteAsync("a.md", Bytes("other"));
+        var dirs = Directory.GetDirectories(Path.Combine(_dir, "root"));
+        var f1 = Directory.GetFiles(dirs[0], "*.bzs").Single();
+        var f2 = Directory.GetFiles(dirs[1], "*.bzs").Single();
+        File.Copy(f1, f2, overwrite: true);
+        await Assert.ThrowsAsync<SealTamperedException>(async () => await VerifyBoth(one, two));
+    }
+
+    private static async Task VerifyBoth(ISealedScope a, ISealedScope b)
+    {
+        await a.VerifyAsync();
+        await b.VerifyAsync();
+    }
+
+    [Fact]
+    public async Task A_leftover_file_from_a_crash_before_the_manifest_commit_does_not_block_the_next_write()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        await scope.WriteAsync("a.md", Bytes("one"));
+        var existing = Directory.GetFiles(ScopeDir(), "*.bzs").Single();
+        // Simulate the crash: a file for the next generation exists but the manifest never committed it.
+        var next = existing[..existing.LastIndexOf('.', existing.LastIndexOf('.') - 1)] + ".2.bzs";
+        File.WriteAllText(next, "leftover");
+        var g = await scope.WriteAsync("a.md", Bytes("two"));
+        Assert.Equal("two", Encoding.UTF8.GetString((await scope.ReadAsync("a.md"))!.Content));
+        Assert.True(g >= 2);
+    }
+
+    [Fact]
+    public async Task Lone_surrogates_in_paths_and_scopes_are_rejected()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        await Assert.ThrowsAsync<ArgumentException>(async () => await scope.WriteAsync("notes\uD800", Bytes("x")));
+        await Assert.ThrowsAsync<ArgumentException>(async () => await Store().OpenScopeAsync("soul:x\uD800"));
+        await Assert.ThrowsAsync<ArgumentException>(async () => await scope.WriteAsync("a\nb", Bytes("x")));
+    }
+
+    [Fact]
+    public async Task A_planted_oversize_file_is_tamper_without_reading_it()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        await scope.WriteAsync("a.md", Bytes("one"));
+        var file = Directory.GetFiles(ScopeDir(), "*.bzs").Single();
+        await using (var stream = new FileStream(file, FileMode.Open))
+        {
+            stream.SetLength(300L * 1024 * 1024);
+        }
+
+        await Assert.ThrowsAsync<SealTamperedException>(async () => await scope.ReadAsync("a.md"));
+    }
+
+    [Fact]
+    public async Task A_second_store_instance_serialises_with_the_first_through_the_scope_lock()
+    {
+        using var a = await Store().OpenScopeAsync("soul:1");
+        using var b = await Store().OpenScopeAsync("soul:1");
+        await Task.WhenAll(Enumerable.Range(0, 10).Select(i => (i % 2 == 0 ? a : b).WriteAsync($"f{i}.md", Bytes("x")).AsTask()));
+        Assert.Equal(10, (await a.ListAsync()).Count);
+        await b.VerifyAsync();
+    }
+
+    [Fact]
+    public async Task Dispose_waits_for_in_flight_work_and_later_use_throws()
+    {
+        var scope = await Store().OpenScopeAsync("soul:1");
+        await scope.WriteAsync("a.md", Bytes("one"));
+        scope.Dispose();
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await scope.ReadAsync("a.md"));
+    }
+
     private static void CopyDirectory(string from, string to)
     {
         Directory.CreateDirectory(to);

@@ -30,8 +30,8 @@ public sealed class SealedStore : ISealedStore
 
     public async ValueTask<ISealedScope> OpenScopeAsync(string scope, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(scope);
-        var directory = Path.Combine(_root, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope)))[..32]);
+        scope = SealFormat.NormaliseScope(scope);
+        var directory = Path.Combine(_root, Convert.ToHexString(SHA256.HashData(SealFormat.StrictUtf8.GetBytes(scope)))[..32]);
         var gate = GateFor(scope);
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -44,7 +44,16 @@ public sealed class SealedStore : ISealedStore
             }
             else
             {
-                if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any())
+                if (Directory.Exists(directory))
+                {
+                    // Leftovers of a crashed creation (temp files, the lock file) are not data.
+                    foreach (var leftover in Directory.EnumerateFiles(directory, "*.tmp"))
+                    {
+                        TryDeleteQuietly(leftover);
+                    }
+                }
+
+                if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(e => Path.GetFileName(e) != "scope.lock"))
                 {
                     throw await FailAsync(scope, null, "Scope key header is missing but the scope folder is not empty.", cancellationToken).ConfigureAwait(false);
                 }
@@ -64,7 +73,7 @@ public sealed class SealedStore : ISealedStore
             }
             catch
             {
-                opened.Dispose();
+                opened.ZeroKeys();
                 throw;
             }
 
@@ -82,7 +91,8 @@ public sealed class SealedStore : ISealedStore
     {
         try
         {
-            await _audit.RecordAsync(new SealAuditEvent(_time.GetUtcNow(), "seal.tamper", scope, path, detail), cancellationToken).ConfigureAwait(false);
+            // Never the caller's token: a cancelled caller must still leave a tamper record.
+            await _audit.RecordAsync(new SealAuditEvent(_time.GetUtcNow(), "seal.tamper", scope, path, detail), CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -95,6 +105,18 @@ public sealed class SealedStore : ISealedStore
     internal async ValueTask RecordAsync(string kind, string scope, string? path, string detail, CancellationToken cancellationToken)
     {
         await _audit.RecordAsync(new SealAuditEvent(_time.GetUtcNow(), kind, scope, path, detail), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void TryDeleteQuietly(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort.
+        }
     }
 
     private SemaphoreSlim GateFor(string scope)
@@ -118,6 +140,11 @@ public sealed class SealedStore : ISealedStore
         try
         {
             var kekId = _kek.KekId;
+            if (Encoding.UTF8.GetByteCount(kekId) is 0 or > 255)
+            {
+                throw new InvalidOperationException("The KEK id must be 1 to 255 UTF-8 bytes.");
+            }
+
             var wrapped = await _kek.WrapAsync(dek, SealFormat.DekAad(scope, kekId), cancellationToken).ConfigureAwait(false);
             var idBytes = Encoding.UTF8.GetBytes(kekId);
             using var stream = new MemoryStream();
@@ -126,9 +153,20 @@ public sealed class SealedStore : ISealedStore
             stream.WriteByte((byte)idBytes.Length);
             stream.Write(idBytes);
             stream.Write(wrapped);
-            var temp = keyPath + ".tmp";
-            File.WriteAllBytes(temp, stream.ToArray());
-            File.Move(temp, keyPath, overwrite: false);
+            var temp = $"{keyPath}.{Guid.NewGuid():N}.tmp";
+            await SealFormat.WriteDurableAsync(temp, stream.ToArray(), cancellationToken).ConfigureAwait(false);
+            try
+            {
+                File.Move(temp, keyPath, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(keyPath))
+            {
+                // Another instance created the scope first: use its key, never ours.
+                TryDeleteQuietly(temp);
+                CryptographicOperations.ZeroMemory(dek);
+                return await UnwrapAsync(scope, keyPath, cancellationToken).ConfigureAwait(false);
+            }
+
             return dek;
         }
         catch
@@ -140,8 +178,17 @@ public sealed class SealedStore : ISealedStore
 
     private async ValueTask<byte[]> UnwrapAsync(string scope, string keyPath, CancellationToken cancellationToken)
     {
-        var bytes = await File.ReadAllBytesAsync(keyPath, cancellationToken).ConfigureAwait(false);
-        if (bytes.Length < 6 || !bytes.AsSpan(0, 4).SequenceEqual(SealFormat.KeyMagic) || bytes[4] != SealFormat.Version || bytes.Length < 6 + bytes[5])
+        byte[]? bytes;
+        try
+        {
+            bytes = await SealFormat.ReadBoundedAsync(keyPath, 4096, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            bytes = null;
+        }
+
+        if (bytes is null || bytes.Length < 6 || !bytes.AsSpan(0, 4).SequenceEqual(SealFormat.KeyMagic) || bytes[4] != SealFormat.Version || bytes.Length < 6 + bytes[5])
         {
             throw await FailAsync(scope, null, "Scope key header is malformed.", cancellationToken).ConfigureAwait(false);
         }

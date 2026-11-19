@@ -82,7 +82,7 @@ public sealed class FileSealAnchor : ISealAnchor
     }
 
     private string PathFor(string scope) =>
-        Path.Combine(_directory, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope))) + ".anchor");
+        Path.Combine(_directory, Convert.ToHexString(SHA256.HashData(SealFormat.StrictUtf8.GetBytes(scope))) + ".anchor");
 
     private static SealAnchorPoint? Read(string path)
     {
