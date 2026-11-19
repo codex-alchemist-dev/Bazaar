@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Platform-neutral: the module reaches the Android SDK only through IAndroidHost (doc 62). It never references Bazaar.Server.csproj's features beyond the provider roles. -->
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices.Abstractions\Bazaar.Server.Vms.Devices.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

@@ -142,7 +142,7 @@ A Windows or Linux primary server cannot run section 5.2 or 5.3. A **Mac node** 
 
 ## 7. Install, selection and "off until used"
 - **Modules are installed, not bundled.** None of the three providers, the abstractions project nor the client module ships enabled. The setup wizard (doc 45) has an optional step "Mobile and Apple guests" with the Apple hardware sentence (section 3). The same choice is available later in the in-app admin panel and the web admin module (doc 51). Installing and removing follow doc 41 and doc 42 (removing keeps data and disables the module).
-- **Host check.** A module refuses an unusable host with the reason (doc 50 section 5). Android declares `windows`, `linux`, `macos` with feature `android-emulator`; iOS declares `macos` with `xcode-simulator`; macOS declares `macos`, `arm64` with `virtualization-framework`. This adds `macos` to the operating-system list and these features to the known list in `HostRequirements`, which is a `Bazaar.Contracts` change (schema stays at version 1; the lists are additive).
+- **Host check.** A module refuses an unusable host with the reason (doc 50 section 5). Android declares `windows` and `linux` (x64) with feature `android-emulator` (the macOS host waits for the parked Apple work); iOS declares `macos` with `xcode-simulator`; macOS declares `macos`, `arm64` with `virtualization-framework`. This adds the `android-emulator` feature now, and `macos` with the Apple features later, to the known lists in `HostRequirements`, which is a `Bazaar.Contracts` change (schema stays at version 1; the lists are additive).
 - **Not running until used.** Enabling a provider starts no emulator, simulator or VM and holds no port. A device guest starts when an environment requests it, stops after an idle timeout, and the provider's probe is a cheap file and feature check. The density governor (doc 59) counts device guests in its admission decision.
 - **Selection.** `host.provider.vm` stays the pair provider. Device providers are listed in `vms.devices.enabled` (list of kinds, default empty), and a request for a guest OS whose provider is not enabled fails with a plain reason; there is no fallback to another provider.
 
@@ -214,3 +214,6 @@ Each is its own module project with tests. The abstractions and node client come
 - Doc 16 and `CLAUDE.md` say "the server does all compute". Section 6 adds a node role for hardware the primary server cannot be. Owner question 1 covers it.
 - Doc 50 fixes the known host-requirement lists. Section 7 adds to them.
 - Doc 59 lists three display sources. Work package 10 adds a fourth, `device`; doc 59 itself stays unedited here because its PR is open (#851).
+
+## 14. Build status
+Built (2026-11-19, PR #870): `Bazaar.Server.Vms.Devices.Abstractions`, `Bazaar.Server.Vms.Android` (backend, argv builders, host seam, fake-host tests), `VmOs.Android` with the vms migration `0002_device_guest_os.sql`, and the `android-emulator` host feature. Not built yet: the real SDK adapter (WP4), the microVM module, the client pane, the setup step.

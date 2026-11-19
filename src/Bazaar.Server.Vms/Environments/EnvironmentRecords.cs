@@ -5,6 +5,9 @@ public enum VmOs
 {
     Windows,
     Linux,
+
+    /// <summary>An Android emulator guest (doc 62). Only the optional Android provider creates one.</summary>
+    Android,
 }
 
 /// <summary>Lifecycle of a golden image (<c>golden_image.state</c>).</summary>
