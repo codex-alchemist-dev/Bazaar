@@ -381,3 +381,11 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Clients | Clients stay native, as already built. Native clients may embed web components such as Monaco (Bazaar.Server.md §1). | 27, 35 |
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
+
+## Round 27 (2026-11-19): crash install binding
+
+Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so crash reports map to a person?", answered "Approve doc 32 change" by the owner in the project thread on 2026-11-19 at 03:20 UTC (card message id `cmsg_01MC1BkUhiVHzqr38uyxWzeHVPEQ17n7Dx43o6uWME2qzn`).
+
+| Item | Decision | Docs |
+|---|---|---|
+| Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
