@@ -113,8 +113,8 @@ public sealed class ModuleManagerSettingsTests
     [Fact]
     public void Defer_warn_default_equals_the_defer_aging_default()
     {
-        Assert.Equal(DeferAging.DefaultDeferWarnDays, ModuleManagerSettings.DeferWarnDays.Default);
-        Assert.Equal(DeferAging.DeferWarnDaysSettingKey, ModuleManagerSettings.DeferWarnDays.Name);
+        Assert.Equal(ModuleManagerSettingNames.DefaultDeferWarnDays, ModuleManagerSettings.DeferWarnDays.Default);
+        Assert.Equal(ModuleManagerSettingNames.DeferWarnDaysSettingKey, ModuleManagerSettings.DeferWarnDays.Name);
     }
 
     [Fact]
