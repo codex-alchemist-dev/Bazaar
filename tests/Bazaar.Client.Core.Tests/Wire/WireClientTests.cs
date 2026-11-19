@@ -352,4 +352,29 @@ public class WireClientTests : IAsyncLifetime
         Assert.Null(_client.Stopped);
         Assert.False(_run.IsCompleted);
     }
+
+    [Fact]
+    public async Task A_server_that_never_sends_welcome_is_dropped_and_retried()
+    {
+        _transport.SuppressWelcome = true;
+        Start();
+        await Until(() => _transport.Count == 1);
+
+        await AdvanceUntil(() => _transport.Count == 2);
+
+        Assert.Null(_client.Stopped);
+    }
+
+    [Fact]
+    public async Task A_server_that_stops_reading_is_dropped_by_the_heartbeat()
+    {
+        Start();
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Hello).Any());
+        await Settle();
+        _transport.Latest.BlockSends = true;
+
+        await AdvanceUntil(() => _transport.Count == 2);
+
+        Assert.Null(_client.Stopped);
+    }
 }

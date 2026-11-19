@@ -159,15 +159,28 @@ public sealed class WireClient(
     /// <returns>The close code when the server ended the socket, or null when it dropped without one.</returns>
     private async Task<int?> RunConnectionAsync(IWireConnection conn, Action connected, CancellationToken ct)
     {
-        await SendAsync(conn, new Envelope(options.ProtocolMajor, WireTypes.Hello, EnvelopeKind.Request, null, null, null, null, null,
-            codec.EncodePayload(new Hello(options.ProtocolMajor, options.ProtocolMajor, options.ProtocolMinor, [codec.Name],
-                options.DeviceId, options.DeviceClass, options.ClientBuild, options.Credential, null))), ct).ConfigureAwait(false);
+        Welcome welcome;
+        using (var handshakeLimit = new CancellationTokenSource(options.HandshakeTimeout, time))
+        using (var handshake = CancellationTokenSource.CreateLinkedTokenSource(ct, handshakeLimit.Token))
+        {
+            try
+            {
+                await SendAsync(conn, new Envelope(options.ProtocolMajor, WireTypes.Hello, EnvelopeKind.Request, null, null, null, null, null,
+                    codec.EncodePayload(new Hello(options.ProtocolMajor, options.ProtocolMajor, options.ProtocolMinor, [codec.Name],
+                        options.DeviceId, options.DeviceClass, options.ClientBuild, options.Credential, null))), handshake.Token).ConfigureAwait(false);
 
-        var first = await conn.ReceiveAsync(ct).ConfigureAwait(false);
-        if (first.IsClosed) return first.CloseCode;
-        var welcomeEnv = codec.Decode(first.Frame.Span);
-        if (welcomeEnv.T != WireTypes.Welcome) throw new WireFormatException("Expected welcome.");
-        var welcome = codec.DecodePayload<Welcome>(welcomeEnv);
+                var first = await conn.ReceiveAsync(handshake.Token).ConfigureAwait(false);
+                if (first.IsClosed) return first.CloseCode;
+                var welcomeEnv = codec.Decode(first.Frame.Span);
+                if (welcomeEnv.T != WireTypes.Welcome) throw new WireFormatException("Expected welcome.");
+                welcome = codec.DecodePayload<Welcome>(welcomeEnv);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                return null; // no welcome in time (or the hello never left): a silent server is a dropped one
+            }
+        }
+
         if (welcome.UpgradeRequired == true) return WireCloseCodes.UpgradeRequired;
         connected();
 
@@ -180,19 +193,20 @@ public sealed class WireClient(
             resend = [.. _pending.Values];
         }
 
-        if (streams.Length > 0) await SendSubscribeAsync(conn, streams, ct).ConfigureAwait(false);
-        foreach (var p in resend) await conn.SendAsync(p.Frame, ct).ConfigureAwait(false);
-
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var heartbeat = HeartbeatAsync(conn, welcome, linked);
         try
         {
+            // Everything after the welcome runs on the linked token, so a peer that stops reading is cut by the heartbeat.
+            if (streams.Length > 0) await SendSubscribeAsync(conn, streams, linked.Token).ConfigureAwait(false);
+            foreach (var p in resend) await conn.SendAsync(p.Frame, linked.Token).ConfigureAwait(false);
+
             while (true)
             {
                 var received = await conn.ReceiveAsync(linked.Token).ConfigureAwait(false);
                 if (received.IsClosed) return received.CloseCode == 0 ? null : received.CloseCode;
                 _lastFrame = time.GetUtcNow();
-                await HandleAsync(codec.Decode(received.Frame.Span), conn, ct).ConfigureAwait(false);
+                await HandleAsync(codec.Decode(received.Frame.Span), conn, linked.Token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -221,8 +235,19 @@ public sealed class WireClient(
                 return;
             }
 
-            await TrySendAsync(conn, Frame(new Envelope(options.ProtocolMajor, WireTypes.Ping, EnvelopeKind.Request, null, null, null, null, null,
-                codec.EncodePayload(new Ping(null)))), linked.Token).ConfigureAwait(false);
+            // A ping that cannot leave within the silence limit means the peer stopped reading: cut the connection.
+            using var sendLimit = new CancellationTokenSource(timeout, time);
+            using var send = CancellationTokenSource.CreateLinkedTokenSource(linked.Token, sendLimit.Token);
+            try
+            {
+                await TrySendAsync(conn, Frame(new Envelope(options.ProtocolMajor, WireTypes.Ping, EnvelopeKind.Request, null, null, null, null, null,
+                    codec.EncodePayload(new Ping(null)))), send.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!linked.IsCancellationRequested)
+            {
+                await linked.CancelAsync().ConfigureAwait(false);
+                return;
+            }
         }
     }
 
