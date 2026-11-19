@@ -61,7 +61,22 @@ Every message carries a `type`, a monotonically increasing `seq` and the `docume
 
 ## 6. Server side (PROPOSED, not built in the first series)
 
-`Bazaar.Server.Athanor` would expose open and save for files that live in a workspace the server controls: the Vault repo, agent worktrees, project repos. It needs a wire message pair and an approval class for writes (doc 15, doc 48 §1 classes), so those must be added to doc 02 and doc 48 by a docs PR before code. Until then `IEditorFileSource` has a read-only in-memory implementation for tests and a no-op "server unavailable" implementation for offline (doc 28: offline shows cached state only, no write queue).
+`Bazaar.Server.Athanor` exposes open and save for files in a workspace the server controls: the Vault repo, agent worktrees and project repos. It adds no file store of its own. It resolves a workspace id through the existing Vault (doc 18) and git (doc 21) providers and never reads outside the workspace root.
+
+**Wire pair (PROPOSED, for doc 02 after review).** Two request and response types on the existing envelope (`k` is `req` and `res`, or `err`). Payloads are JSON records in `Bazaar.Contracts`, namespaced `Athanor`.
+
+| Type | Request payload | Response payload |
+|---|---|---|
+| `editor.open` | `workspaceId`, `path` | `content`, `revision`, `languageHint?`, `readOnly`, `sizeBytes` |
+| `editor.save` | `workspaceId`, `path`, `baseRevision`, `content` | `newRevision` |
+
+Revisions are opaque server strings (for a git workspace, the blob id of the file at the head being edited). Error codes on `err`: `editor.not_found`, `editor.conflict` (carries `serverRevision` and `serverContent`), `editor.forbidden`, `editor.too_large`, `editor.binary`, `editor.read_only_workspace`, `editor.unavailable`. `editor.conflict` maps to `SaveOutcome.Conflict`, and `editor.unavailable` and transport failures map to `SaveOutcome.Unavailable`.
+
+**Authority.** The caller is the signed-in human; the save is the human's own edit, so it needs no approval gate, but it requires the `vault.write` or `git.worktree.write` scope on the workspace (doc 48 §1 vocabulary, doc 15). A save never merges or pushes: it writes the working tree or Vault file, and the normal PR and approval path (doc 21, owner signed approval) governs anything outward. Agents never call these messages. Every accepted save writes an audit row (user, workspace, path, base and new revision, byte count).
+
+**Limits (settings, safe defaults).** `athanor.max_open_bytes` 5 MiB, `athanor.max_save_bytes` 5 MiB, `athanor.save_rate_per_min` 60 per user. Path rules are the client's (§5) enforced again on the server, plus symlink resolution that must stay inside the root.
+
+Until the server module exists, `IEditorFileSource` has a read-only in-memory implementation for tests and a no-op "server unavailable" implementation for offline (doc 28: offline shows cached state only, no write queue). A server-backed `IEditorFileSource` over this pair lands as `Bazaar.Client.Athanor.Wire` after the contracts are accepted.
 
 ## 7. Key model (PROPOSED details)
 
@@ -78,7 +93,7 @@ Unit: bridge codec round trips and rejection cases; seq ordering; save coordinat
 ## 10. Open questions
 
 1. Whether external language servers are in v1 (default: no).
-2. The wire pair and approval class for server-backed saves (§6).
+2. Acceptance of the §6 wire pair and the exact write scope names (doc 15, doc 48).
 3. Linux editor surface after S12 (doc 27 Q9).
 4. Clearance of the name Athanor.
 
