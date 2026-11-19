@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 335" role="img" aria-labelledby="t d">
+  <title id="t">Client milestones: heads, built-ins and per-company builds</title>
+  <desc id="d">Six client milestones: Windows, Linux and Android heads are done. Calcinato, Athanor and per-company client builds are planned.</desc>
+  <rect width="960" height="335" rx="16" fill="#0f1420"/>
+  <text x="40" y="44" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#e8eefc" text-anchor="start">Clients: what ships, and what is next</text>
+  <rect x="40" y="78" width="280" height="92" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#e8eefc" text-anchor="start">Windows head</text>
+  <text x="54" y="130" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#7fd36b" text-anchor="start">Done</text>
+  <text x="54" y="152" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="start">Panes, Constellation, RyuseiFuda panes</text>
+  <rect x="340" y="78" width="280" height="92" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="354" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#e8eefc" text-anchor="start">Linux head</text>
+  <text x="354" y="130" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#7fd36b" text-anchor="start">Done</text>
+  <text x="354" y="152" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="start">Single-instance forwarding</text>
+  <rect x="640" y="78" width="280" height="92" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="654" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#e8eefc" text-anchor="start">Android head</text>
+  <text x="654" y="130" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#7fd36b" text-anchor="start">Done</text>
+  <text x="654" y="152" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="start">Pairing, GC pane, API 37</text>
+  <rect x="40" y="188" width="280" height="92" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="54" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#e8eefc" text-anchor="start">Calcinato</text>
+  <text x="54" y="240" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#7fb0ff" text-anchor="start">Planned</text>
+  <text x="54" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="start">Terminal and CLI, standalone too</text>
+  <rect x="340" y="188" width="280" height="92" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="354" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#e8eefc" text-anchor="start">Athanor</text>
+  <text x="354" y="240" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#7fb0ff" text-anchor="start">Planned</text>
+  <text x="354" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="start">IDE and editor, standalone too</text>
+  <rect x="640" y="188" width="280" height="92" rx="10" fill="#151d30" stroke="#2c3a66" stroke-width="2"/>
+  <text x="654" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#e8eefc" text-anchor="start">Per-company builds</text>
+  <text x="654" y="240" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#7fb0ff" text-anchor="start">Planned</text>
+  <text x="654" y="262" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#9fb3d9" text-anchor="start">CDAX.msix, CDAX.apk, own modules</text>
+  <circle cx="40" cy="312" r="8" fill="#7fd36b"/>  <text x="54" y="317" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Done</text>
+  <circle cx="190" cy="312" r="8" fill="#b9e06a"/>  <text x="204" y="317" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Mostly done</text>
+  <circle cx="340" cy="312" r="8" fill="#f5c451"/>  <text x="354" y="317" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">In progress</text>
+  <circle cx="490" cy="312" r="8" fill="#7fb0ff"/>  <text x="504" y="317" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Planned</text>
+  <circle cx="640" cy="312" r="8" fill="#e07a5f"/>  <text x="654" y="317" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" fill="#9fb3d9" text-anchor="start">Blocked</text>
+</svg>

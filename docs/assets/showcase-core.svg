@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-labelledby="t d">
+  <title id="t">Bazaar.Core: a small kernel with everything else as modules</title>
+  <desc id="d">A central Core ring is surrounded by module tiles: GC, Constellation, RyuseiFuda, Vault, Model gateway, Backup, Mail, GitHub, Conduit, and the base GUI. Each tile connects to Core through its contract. The base GUI is one of the modules, the same level as third-party modules.</desc>
+  <rect width="960" height="420" rx="16" fill="#0f1420"/>
+  <g stroke="#3b4a6b" stroke-width="2" fill="none">
+    <line x1="480" y1="210" x2="170" y2="110"/><line x1="480" y1="210" x2="330" y2="60"/>
+    <line x1="480" y1="210" x2="630" y2="60"/><line x1="480" y1="210" x2="790" y2="110"/>
+    <line x1="480" y1="210" x2="170" y2="310"/><line x1="480" y1="210" x2="330" y2="360"/>
+    <line x1="480" y1="210" x2="630" y2="360"/><line x1="480" y1="210" x2="790" y2="310"/>
+  </g>
+  <circle cx="480" cy="210" r="78" fill="#1d2a44" stroke="#7aa2ff" stroke-width="3"/>
+  <text x="480" y="204" text-anchor="middle" fill="#e8eefc" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Bazaar.Core</text>
+  <text x="480" y="228" text-anchor="middle" fill="#9fb3d9" font-family="Segoe UI, Arial, sans-serif" font-size="13">kernel: load, order, migrate</text>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="16" text-anchor="middle">
+    <rect x="90" y="84" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="170" y="116" fill="#e8eefc">Bazaar.GC</text>
+    <rect x="250" y="34" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="330" y="66" fill="#e8eefc">Bazaar.Constellation</text>
+    <rect x="550" y="34" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="630" y="66" fill="#e8eefc">RyuseiFuda</text>
+    <rect x="710" y="84" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="790" y="116" fill="#e8eefc">Base GUI</text>
+    <rect x="90" y="284" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="170" y="316" fill="#e8eefc">Vault</text>
+    <rect x="250" y="334" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="330" y="366" fill="#e8eefc">Model gateway</text>
+    <rect x="550" y="334" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="630" y="366" fill="#e8eefc">Conduit</text>
+    <rect x="710" y="284" width="160" height="52" rx="10" fill="#21304f" stroke="#4d6fb3"/><text x="790" y="316" fill="#e8eefc">Mail, GitHub, Backup</text>
+  </g>
+  <text x="480" y="30" text-anchor="middle" fill="#9fb3d9" font-family="Segoe UI, Arial, sans-serif" font-size="14">Every tile is a module with a manifest and a contract. Third-party modules sit at the same level.</text>
+</svg>

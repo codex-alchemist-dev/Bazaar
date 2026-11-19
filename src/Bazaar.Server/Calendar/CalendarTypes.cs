@@ -120,7 +120,7 @@ public sealed record CalendarDraft
     public Guid? SourceGcId { get; init; }
 }
 
-/// <summary>One stored calendar event. The title stays sealed; read it with <see cref="CalendarService.OpenTitle"/>.</summary>
+/// <summary>One stored calendar event. The title stays sealed; read it with <see cref="CalendarService.OpenTitleAsync"/>.</summary>
 public sealed record CalendarEventRecord
 {
     public required Guid Id { get; init; }

@@ -1,6 +1,7 @@
-using Bazaar.Server.Components;
+using Bazaar.Core;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Security.Audit;
+using Bazaar.Server.Security.Audit.Anchors;
 using Bazaar.Server.Security.Audit.Db;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,9 @@ public sealed class AuditComponent : IBazaarComponent
         services.TryAddSingleton<PostgresAuditLog>();
         services.TryAddSingleton<IAuditLog>(sp => sp.GetRequiredService<PostgresAuditLog>());
         services.TryAddSingleton<ITransactionalAuditLog>(sp => sp.GetRequiredService<PostgresAuditLog>());
+        // Anchoring is off by default: this registers nothing unless the AuditAnchor section enables it, and throws at startup when it
+        // is enabled without a valid target.
+        services.AddAuditAnchoring(configuration);
     }
 
     /// <summary>

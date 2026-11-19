@@ -34,8 +34,8 @@ namespace Bazaar.Server.Agents.Turns.Posting;
 /// Not applied here: nested mention depth (<c>GcMessage</c> has no parent field, so the depth is always 0 and the
 /// <c>runtime.guard.mention_depth</c> guard never sees a chain); @here and @all (the parser reports them and they are ignored, so
 /// agents do not broadcast); the system notice, <c>guard_event</c> and Psych Ward admission on a trip (the caller only sees the
-/// exception). No <see cref="IGcMentionDirectory"/> is registered in production yet because the schema has no principal handle
-/// column, so today agent posts still carry no mentions.
+/// exception). <c>AddGcAgentPostSink</c> registers <see cref="SqlGcMentionDirectory"/>, which reads handles from
+/// <c>principal_handle</c>; a member without a handle cannot be mentioned.
 /// </remarks>
 public sealed class GcAgentPostSink : IAgentPostSink
 {
@@ -93,6 +93,8 @@ public sealed class GcAgentPostSink : IAgentPostSink
 
         var mentions = await ResolveMentionsAsync(agentId, gcGuid, text, cancellationToken).ConfigureAwait(false);
 
+        // Seal before the append, under the agent's own key (docs/design/04 Question 2).
+        var body = await _bodyCodec.SealAsync(agentId, text, cancellationToken).ConfigureAwait(false);
         var request = new AppendRequest(
             gcGuid,
             GcEventKinds.Message,
@@ -101,7 +103,7 @@ public sealed class GcAgentPostSink : IAgentPostSink
             SourceTrust.Agent,
             ClientMsgId(turnId, text))
         {
-            Message = _bodyCodec.Seal(text),
+            Message = body,
             Mentions = mentions.Targets,
         };
         var result = await _writer.AppendAsync(request, cancellationToken).ConfigureAwait(false);

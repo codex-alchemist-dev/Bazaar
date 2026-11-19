@@ -10,26 +10,21 @@ namespace Bazaar.Server.Agents.Turns;
 /// definitions in the catalogue named by the request's allowlist are offered to an actor turn; a reader turn offers none.
 /// </para>
 /// <para>
-/// Not yet covered, and left out rather than approximated: tool dispatch (a tool call still fails the turn, so offering
-/// tools only helps when the model answers without calling one), and recording the parent turn and depth. Those follow in
-/// the next consolidation PRs.
+/// A tool call the model makes is dispatched by the runner through <see cref="IToolDispatcher"/>, and its result goes back to the
+/// model on the next step. Not yet covered, and left out rather than approximated: recording the parent turn and depth. Those
+/// follow in the next consolidation PRs.
 /// </para>
 /// </summary>
 /// <param name="runner">The consolidated runner that runs the loop.</param>
 /// <param name="assembler">Builds the context once the turn row exists.</param>
-/// <param name="route">The model route every turn uses.</param>
 /// <param name="toolCatalogue">The tool definitions a turn may be offered. Empty by default, so no tools are offered.</param>
 public sealed class TurnRunAdapter(
     TurnRunner runner,
     ITurnContextAssembler assembler,
-    string route,
     IReadOnlyList<ModelToolDefinition>? toolCatalogue = null) : ITurnRunner
 {
     private readonly TurnRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
     private readonly ITurnContextAssembler _assembler = assembler ?? throw new ArgumentNullException(nameof(assembler));
-    private readonly string _route = !string.IsNullOrWhiteSpace(route)
-        ? route
-        : throw new ArgumentException("A route is required.", nameof(route));
     private readonly IReadOnlyList<ModelToolDefinition> _toolCatalogue = toolCatalogue ?? [];
 
     /// <inheritdoc />
@@ -42,14 +37,16 @@ public sealed class TurnRunAdapter(
                 request.AgentId,
                 request.SessionId,
                 request.WakeReason,
-                _route,
+                // Per-agent routing: the gateway resolves each agent's own policy default route (doc 05).
+                string.Empty,
                 Messages: [],
                 Tools: TurnToolOffer.Select(request.Role, _toolCatalogue, request.ToolAllowlist),
                 InboxClaimLimit: 0,
                 MessageBuilder: (turnId, ct) => BuildMessagesAsync(request, turnId, ct),
                 Role: request.Role,
                 StepCapOverride: request.StepCapOverride,
-                InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null),
+                InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null,
+                ChainDepth: request.ChainDepth),
             cancellationToken).ConfigureAwait(false);
 
         return new TurnRunOutcome(

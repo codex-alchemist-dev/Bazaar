@@ -1,13 +1,16 @@
 using Bazaar.Components.ManagedPostgres;
+using Bazaar.Components.ManagedPostgres.Secrets;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Recovery;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
+using Bazaar.Server.Hosting;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
+using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Wire.Connection;
@@ -29,6 +32,14 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<HostState>();
         services.TryAddSingleton<HostExitCode>();
         // Managed PostgreSQL (packaging.md P5). External mode is the default and leaves the configured secret reference in charge.
+        // Windows keeps the managed superuser password under DPAPI. The component's file store refuses to run there.
+        if (OperatingSystem.IsWindows())
+        {
+            var passwordPath = (configuration.GetSection(ManagedPostgresOptions.SectionName).Get<ManagedPostgresOptions>() ?? new ManagedPostgresOptions())
+                .ResolvedPasswordStorePath;
+            services.TryAddSingleton<IManagedPasswordStore>(new DpapiManagedPasswordStore(passwordPath));
+        }
+
         services.AddBazaarManagedPostgres(configuration);
         services.TryAddSingleton<DatabaseConnection>();
         // Module repositories take the shared data source; resolving it blocks once on the bootstrap secret read.
@@ -92,10 +103,14 @@ public static class HostCompositionExtensions
             var valkey = sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
             IReadOnlyList<ICacheProvider> caches = LinuxProviders.CacheCandidates(valkey, sp.GetService<ISecretResolver>());
+            // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
+            IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
+                ? []
+                : WindowsProviders.VmCandidates(sp.GetRequiredService<IOptions<BazaarHostOptions>>().Value.DataRoot);
             return new ProviderCapabilityReport(
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
-                ProviderSelector.Select(ProviderRole.Vm, options.Vm, Array.Empty<IVmProvider>()),
+                ProviderSelector.Select(ProviderRole.Vm, options.Vm, vms, ProviderRequirements.AgentPairConcurrency),
                 ProviderSelector.Select(ProviderRole.Cache, options.Cache, caches),
                 ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
             ]);

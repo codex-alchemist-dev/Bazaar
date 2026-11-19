@@ -2,6 +2,12 @@
 
 <!-- What does this change do, and why? One to three sentences. -->
 
+## Docs section this implements
+
+<!-- Doc path and section, e.g. docs/design/40-core-feature-modules-audit.md section 3. Write "none (no design change)" only for pure tooling or docs. -->
+
+- Docs section this implements:
+
 ## Linked design doc
 
 <!-- Path under docs/deep-dives/ that this change relies on, e.g. docs/deep-dives/Bazaar.Server.md, and the decisions it depends on. Only DECIDED items may be built on; if you rely on anything else, say so and ask. -->

@@ -6,6 +6,9 @@ Depends on: 01-gc-data-model.md, 02-wire-protocol-and-sync.md, 03-server-host-an
 ## Purpose
 Lets agents work on GitHub as disclosed bots: one App per agent, webhooks or polling in, branches, PRs and issues out. Every PR is mirrored into a PR GC, so GitHub records Bazaar's work without becoming a coordination system.
 
+## Git provider scope (owner, 2026-11-16)
+Bazaar works on any GitHub or GitLab repository reachable over the internet. It has no git server of its own and no native forge. GitHub and GitLab are supported extensively through provider modules: repository settings, PRs, reviews, checks and merges. One Bazaar endpoint and the client GitGui modules (doc 41 section 4.14) control both. This doc describes the GitHub provider. The GitLab provider follows the same contract, with its own identity and credentials held by the Identity Service (doc 14). GitLab is in v1 scope.
+
 ## Decided inputs
 - Machine accounts are barred by GitHub's terms. Agents use one GitHub App each, owned by org `codex-alchemist-dev`. Agents never create accounts; a human does (CLAUDE.md; Bazaar.Server.md §2; 14).
 - Secrets: the Identity Service holds GitHub App keys and tokens are minted there. One server-side `ISecretStore` (owned by 14). Git pushes run host-side, so tokens never enter a VM (DECISIONS-LOG round 2, C05).

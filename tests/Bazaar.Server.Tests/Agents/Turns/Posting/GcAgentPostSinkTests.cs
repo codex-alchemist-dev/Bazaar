@@ -52,7 +52,7 @@ public sealed class GcAgentPostSinkTests
         var body = Assert.Single(log.Requests).Message;
         Assert.NotNull(body);
         Assert.Equal(PlaintextGcBodyCodec.PlaintextKeyId, body.KeyId);
-        Assert.Equal("Sealed text.", codec.Open(body.BodyCiphertext, body.KeyId, body.Nonce));
+        Assert.Equal("Sealed text.", await codec.OpenAsync(body.BodyCiphertext, body.KeyId, body.Nonce, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -241,6 +241,8 @@ public sealed class GcAgentPostSinkTests
         services.AddSingleton<IGcLogWriter>(new RecordingGcLogWriter());
         services.AddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
         services.AddSingleton<ILoopGuard>(new LoopGuardFacade(TimeProvider.System));
+        // The default mention directory and inbox writer take the shared data source. Nothing connects here.
+        services.AddSingleton(NpgsqlDataSource.Create("Host=localhost"));
         services.AddGcAgentPostSink();
         services.AddGcAgentPostSink();
 
