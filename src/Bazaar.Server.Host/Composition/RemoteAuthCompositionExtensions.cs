@@ -1,4 +1,4 @@
-using Bazaar.Server.Components.PrivacyAudit;
+using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Host.Auth;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.Host.Composition;
 
 /// <summary>
-/// Pairing (doc 32 section 3) and refresh (section 5) for the host. The access-token issuer is the dev issuer only when
+/// Sign-in tokens and refresh (doc 32 section 5) for the host. Device pairing is removed (owner, 2026-11-16). The access-token issuer is the dev issuer only when
 /// <c>Bazaar:Remote:DevIssuer:Enabled</c> is true AND the host environment is Development. Otherwise it is
 /// <see cref="UnavailableAccessTokenIssuer"/>, so the routes answer 503 instead of minting tokens. Register after <c>AddBazaarComponents</c>,
 /// which provides the audit log and the shared <c>NpgsqlDataSource</c> these services need.
@@ -23,7 +23,6 @@ public static class RemoteAuthCompositionExtensions
 
         services.AddBazaarPrivacyAudit();
         services.AddBazaarRemoteTokens();
-        services.AddBazaarPairing();
         services.TryAddSingleton<IAccessTokenIssuer>(sp =>
         {
             var environment = sp.GetService<IHostEnvironment>();
