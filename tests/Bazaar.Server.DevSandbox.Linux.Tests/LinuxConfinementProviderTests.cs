@@ -145,6 +145,7 @@ public sealed class LinuxConfinementProviderTests
     {
         var runner = new FakeRunner(() => new LinuxProbeOutput(1, "", "unshare: unshare failed: Operation not permitted"));
         var p = new LinuxConfinementProvider(new LinuxConfinementOptions(), new ScriptPlan("true"), runner);
+        RequireToolsPresent();
 
         Assert.False(p.Tested);
         Assert.Contains("(a)", p.UntestedReason);
@@ -198,6 +199,7 @@ public sealed class LinuxConfinementProviderTests
     {
         var runner = new FakeRunner(() => throw new InvalidOperationException("boom"));
         var p = new LinuxConfinementProvider(new LinuxConfinementOptions(), new ScriptPlan("true"), runner);
+        RequireToolsPresent();
         Assert.False(p.Tested);
         Assert.Contains("boom", p.UntestedReason);
     }
