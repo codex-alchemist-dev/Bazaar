@@ -167,16 +167,37 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
         Assert.Null(poller.LastPollError);
     }
 
-    private static readonly TimeSpan _shortLease = TimeSpan.FromSeconds(1);
 
-    /// <summary>Waits about <paramref name="real"/> of wall time, moving the fake clock so the poller's renewal timer ticks.</summary>
-    private static async Task WorkAsync(FakeClock clock, TimeSpan real)
+    // The lease is long, so real elapsed time never matters: the tests move the fake clock to fire the renewal timer and
+    // move lease times in the database directly, and wait on conditions (with a generous timeout) instead of sleeping.
+    private static readonly TimeSpan _lease = TimeSpan.FromHours(1);
+
+    private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(60);
+
+    private async Task SqlAsync(string sql, long id)
     {
-        var end = DateTime.UtcNow + real;
-        while (DateTime.UtcNow < end)
+        await using var cmd = db.DataSource.CreateCommand(sql);
+        cmd.Parameters.AddWithValue("id", id);
+        await cmd.ExecuteNonQueryAsync(Ct);
+    }
+
+    private async Task<bool> LeaseIsLiveAsync(long id)
+    {
+        await using var cmd = db.DataSource.CreateCommand("SELECT lease_until > now() FROM job WHERE id = @id");
+        cmd.Parameters.AddWithValue("id", id);
+        return (bool)(await cmd.ExecuteScalarAsync(Ct))!;
+    }
+
+    /// <summary>Fires the poller's renewal timer by advancing the fake clock until the condition holds.</summary>
+    private static async Task TickUntilAsync(FakeClock clock, Func<Task<bool>> condition)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(_timeout);
+        while (!await condition())
         {
-            await Task.Delay(100, Ct);
-            clock.Advance(_shortLease / 2);
+            timeout.Token.ThrowIfCancellationRequested();
+            clock.Advance(_lease / 3);
+            await Task.Delay(20, timeout.Token);
         }
     }
 
@@ -185,26 +206,21 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
     {
         SkipWithoutDatabase();
         await DrainAsync();
-        var clock = new FakeClock();
         var secondId = 0L;
-        string? secondStateWhileFirstRuns = null;
-        var first = new Handler("first", async (_, _) =>
-        {
-            // Longer than the lease: a lease taken at claim time would already be expired when the second job starts.
-            await WorkAsync(clock, TimeSpan.FromSeconds(2));
-            secondStateWhileFirstRuns = (await Store.GetAsync(secondId, Ct))!.State;
-        });
+        JobState? secondWhileFirstRuns = null;
+        var first = new Handler("first", async (_, _) => secondWhileFirstRuns = await Store.GetAsync(secondId, Ct));
         var second = new Handler("second", (_, _) => Task.CompletedTask);
-        var poller = new JobPoller(Store, [first, second], clock, new JobPollerOptions { LeaseDuration = _shortLease, BatchSize = 2 });
+        var poller = new JobPoller(Store, [first, second], new FakeClock(), new JobPollerOptions { LeaseDuration = _lease, BatchSize = 2 });
         await Store.EnqueueAsync("first", "{}", ct: Ct);
         secondId = (await Store.EnqueueAsync("second", "{}", ct: Ct))!.Value;
 
         var claimed = await poller.PollOnceAsync(Ct);
 
+        // While the first job ran, the second was still unclaimed (so its lease had not started).
+        Assert.Equal("queued", secondWhileFirstRuns!.State);
+        Assert.Null(secondWhileFirstRuns.LeaseOwner);
         Assert.Equal(2, claimed);
-        Assert.Equal("queued", secondStateWhileFirstRuns);
-        var job = Assert.Single(second.Seen);
-        Assert.Equal(1, job.Attempts);
+        Assert.Equal(1, Assert.Single(second.Seen).Attempts);
         Assert.Equal("succeeded", (await Store.GetAsync(secondId, Ct))!.State);
     }
 
@@ -215,13 +231,17 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
         await DrainAsync();
         var clock = new FakeClock();
         IReadOnlyList<JobRecord>? stolen = null;
+        var id = 0L;
         var handler = new Handler("long", async (_, _) =>
         {
-            await WorkAsync(clock, TimeSpan.FromSeconds(2.5));
-            stolen = await Store.ClaimDueAsync("other-host", _shortLease, 10, Ct);
+            // The lease runs out on the database clock (moved into the past rather than waited for)...
+            await SqlAsync("UPDATE job SET lease_until = now() - interval '1 second' WHERE id = @id", id);
+            // ...and only the poller's renewal can bring it back.
+            await TickUntilAsync(clock, () => LeaseIsLiveAsync(id));
+            stolen = await Store.ClaimDueAsync("other-host", _lease, 10, Ct);
         });
-        var poller = new JobPoller(Store, [handler], clock, new JobPollerOptions { LeaseDuration = _shortLease });
-        var id = (await Store.EnqueueAsync("long", "{}", ct: Ct))!.Value;
+        var poller = new JobPoller(Store, [handler], clock, new JobPollerOptions { LeaseDuration = _lease });
+        id = (await Store.EnqueueAsync("long", "{}", ct: Ct))!.Value;
 
         await poller.PollOnceAsync(Ct);
 
@@ -241,25 +261,15 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
         var cancelled = false;
         var handler = new Handler("lost", async (job, ct) =>
         {
-            await using (var cmd = db.DataSource.CreateCommand("UPDATE job SET lease_owner = 'thief' WHERE id = @id"))
-            {
-                cmd.Parameters.AddWithValue("id", job.Id);
-                await cmd.ExecuteNonQueryAsync(Ct);
-            }
-
-            // Ends early once the renewal notices the lease is gone and cancels the handler's token.
-            for (var i = 0; i < 100 && !ct.IsCancellationRequested; i++)
-            {
-                await Task.Delay(100, Ct);
-                clock.Advance(_shortLease / 2);
-            }
-
+            await SqlAsync("UPDATE job SET lease_owner = 'thief' WHERE id = @id", job.Id);
+            // The next renewal finds the lease gone and cancels the handler's token.
+            await TickUntilAsync(clock, () => Task.FromResult(ct.IsCancellationRequested));
             cancelled = ct.IsCancellationRequested;
         });
-        var poller = new JobPoller(Store, [handler], clock, new JobPollerOptions { LeaseDuration = _shortLease });
+        var poller = new JobPoller(Store, [handler], clock, new JobPollerOptions { LeaseDuration = _lease });
         var id = (await Store.EnqueueAsync("lost", "{}", ct: Ct))!.Value;
 
-        await poller.PollOnceAsync(Ct).WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        await poller.PollOnceAsync(Ct);
 
         Assert.True(cancelled);
         Assert.Equal("running", (await Store.GetAsync(id, Ct))!.State);
