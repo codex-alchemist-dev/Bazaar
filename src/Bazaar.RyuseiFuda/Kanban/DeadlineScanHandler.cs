@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Jobs;
-using Bazaar.Server.Kanban.Data;
 using Npgsql;
 
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>
 /// Runs the <c>kanban.deadline_scan</c> job (doc 12, WP11). Each run appends <c>task.due_passed</c> once for every (task, due_at)
