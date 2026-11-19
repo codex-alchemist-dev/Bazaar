@@ -39,7 +39,7 @@ public sealed class CompositionTests
         {
             await using var sp = Build(new()
             {
-                ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
+                ["Bazaar:Host:DataRoot"] = Path.Combine(Path.GetTempPath(), "bazaar-host-test-" + Guid.NewGuid().ToString("N")),
                 ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + envName,
             });
             Assert.IsType<JsonWireCodec>(sp.GetRequiredService<IWireCodec>());
