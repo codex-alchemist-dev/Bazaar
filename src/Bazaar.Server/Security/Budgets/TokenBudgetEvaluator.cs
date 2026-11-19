@@ -36,16 +36,20 @@ internal static class TokenBudgetEvaluator
                 TokenBudgetWindow.Day => dayUsed,
                 _ => weekUsed,
             };
-            tightest = Math.Min(tightest, Math.Max(0, limit - used));
+            // Written as "tokens <= limit - used", never "used + tokens <= limit": a reported count near long.MaxValue
+            // would wrap the sum negative and pass the check. Both operands of the subtraction are non-negative.
+            var room = limit - used;
+            tightest = Math.Min(tightest, Math.Max(0, room));
 
-            if (blocked is not null || used + tokens <= limit)
+            if (blocked is not null || tokens <= room)
             {
                 continue;
             }
 
             blocked = window;
-            needed = used + tokens - limit;
             neverFits = tokens > limit;
+            // used - (limit - tokens) is used + tokens - limit without the overflow. A call that never fits needs no count.
+            needed = neverFits ? 0 : used - (limit - tokens);
         }
 
         return blocked is null
@@ -62,7 +66,8 @@ internal static class TokenBudgetEvaluator
         {
             if (spend.At > cutoff)
             {
-                total += spend.Tokens;
+                // Saturates instead of wrapping, so spends written around TryConsume (Append) can only over-count.
+                total = spend.Tokens > long.MaxValue - total ? long.MaxValue : total + spend.Tokens;
             }
         }
         return total;
