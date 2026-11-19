@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Microsoft.Extensions.AI;
 
 namespace Bazaar.Server.Gateway.Ai;
@@ -78,17 +79,35 @@ internal static class GatewayChatMapping
         var input = usage.Input + usage.CacheWrite5m + usage.CacheWrite1h + usage.CacheRead;
         var details = new UsageDetails
         {
-            InputTokenCount = input,
-            OutputTokenCount = usage.Output,
-            TotalTokenCount = input + usage.Output,
-            CachedInputTokenCount = usage.CacheRead,
-            ReasoningTokenCount = usage.Thinking,
+            InputTokenCount = ToInt64OrNull(input),
+            OutputTokenCount = ToInt64OrNull(usage.Output),
+            TotalTokenCount = ToInt64OrNull(input + usage.Output),
+            CachedInputTokenCount = ToInt64OrNull(usage.CacheRead),
+            ReasoningTokenCount = ToInt64OrNull(usage.Thinking),
         };
         details.AdditionalCounts ??= [];
-        details.AdditionalCounts["cache_write_5m"] = usage.CacheWrite5m;
-        details.AdditionalCounts["cache_write_1h"] = usage.CacheWrite1h;
+        if (ToInt64OrNull(usage.CacheWrite5m) is { } write5m)
+        {
+            details.AdditionalCounts["cache_write_5m"] = write5m;
+        }
+
+        if (ToInt64OrNull(usage.CacheWrite1h) is { } write1h)
+        {
+            details.AdditionalCounts["cache_write_1h"] = write1h;
+        }
+
         return details;
     }
+
+    /// <summary>
+    /// A count as the 64-bit number Microsoft.Extensions.AI carries, or null (unknown to that caller) when it is not an exact
+    /// 64-bit integer. The count is never clamped or wrapped; the exact value stays on the <c>gw_usage</c> row.
+    /// </summary>
+    private static long? ToInt64OrNull(TokenAmount amount) =>
+        amount.FractionDigitCount == 0 && amount.IntegerDigitCount <= 19
+        && long.TryParse(amount.ToString(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
 
     private static void AddMessages(List<ModelMessage> output, ChatMessage message)
     {

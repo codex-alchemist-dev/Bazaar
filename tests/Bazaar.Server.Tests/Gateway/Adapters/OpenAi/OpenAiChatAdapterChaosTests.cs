@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using static Bazaar.Server.Tests.Gateway.Adapters.OpenAi.OpenAiChatTestRig;
 
 namespace Bazaar.Server.Tests.Gateway.Adapters.OpenAi;
@@ -94,5 +95,65 @@ public class OpenAiChatAdapterChaosTests
         public override void SetLength(long value) => throw new NotSupportedException();
 
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+}
+
+public class OpenAiChatAdapterUsageNumbersTests
+{
+    private static string Stream(string usageJson) =>
+        "data: {\"model\":\"m\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"finish_reason\":\"stop\"}]}\n\n"
+        + "data: {\"model\":\"m\",\"choices\":[],\"usage\":" + usageJson + "}\n\n"
+        + "data: [DONE]\n\n";
+
+    private static async Task<List<ModelEvent>> Events(string usageJson)
+    {
+        var handler = new StubHandler();
+        handler.Reply(Replies.Sse(Stream(usageJson)));
+        return await Run(handler);
+    }
+
+    [Fact]
+    public async Task A_count_past_the_long_range_is_read_exactly()
+    {
+        var events = await Events("""{"prompt_tokens":92233720368547758070,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":70}}""");
+
+        var usage = Assert.Single(events.OfType<ModelEvent.UsageReported>()).Usage;
+        Assert.Equal(TokenAmount.Parse("92233720368547758000"), usage.Input);
+        Assert.Equal(TokenAmount.FromInt64(70), usage.CacheRead);
+        Assert.Equal(TokenAmount.FromInt64(3), usage.Output);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
+    }
+
+    [Fact]
+    public async Task A_numeric_string_count_is_read_and_a_decimal_is_exact()
+    {
+        var usage = Assert.Single((await Events("""{"prompt_tokens":"40","completion_tokens":2.5e0}""")).OfType<ModelEvent.UsageReported>()).Usage;
+
+        Assert.Equal(TokenAmount.FromInt64(40), usage.Input);
+        Assert.Equal(TokenAmount.Parse("2.5"), usage.Output);
+    }
+
+    [Theory]
+    [InlineData("""{"prompt_tokens":-5,"completion_tokens":3}""")]
+    [InlineData("""{"prompt_tokens":5,"completion_tokens":-9223372036854775809}""")]
+    [InlineData("""{"prompt_tokens":5,"completion_tokens":"lots"}""")]
+    [InlineData("""{"prompt_tokens":5,"completion_tokens":true}""")]
+    [InlineData("""{"prompt_tokens":1e999999999,"completion_tokens":3}""")]
+    public async Task A_negative_or_malformed_count_drops_the_report_and_the_call_still_completes(string usageJson)
+    {
+        var events = await Events(usageJson);
+
+        Assert.DoesNotContain(events, e => e is ModelEvent.UsageReported);
+        Assert.DoesNotContain(events, e => e is ModelEvent.Failure);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
+    }
+
+    [Fact]
+    public async Task Cached_above_prompt_leaves_no_uncached_input()
+    {
+        var usage = Assert.Single((await Events("""{"prompt_tokens":5,"completion_tokens":1,"prompt_tokens_details":{"cached_tokens":9}}""")).OfType<ModelEvent.UsageReported>()).Usage;
+
+        Assert.Equal(TokenAmount.Zero, usage.Input);
+        Assert.Equal(TokenAmount.FromInt64(9), usage.CacheRead);
     }
 }

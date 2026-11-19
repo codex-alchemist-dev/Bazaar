@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 
 namespace Bazaar.Server.Gateway.Usage;
 
@@ -16,7 +17,7 @@ public sealed record UsageTotals(
     int UnpricedCalls)
 {
     /// <summary>An empty set of totals.</summary>
-    public static UsageTotals Empty { get; } = new(0, new GatewayTokenUsage(0, 0, 0, 0, 0, 0), 0, 0, 0, 0m, 0);
+    public static UsageTotals Empty { get; } = new(0, GatewayTokenUsage.Zero, 0, 0, 0, 0m, 0);
 
     /// <summary>True only when every call has a price, so <see cref="CostUsd"/> is the full cost.</summary>
     public bool IsCostKnown => UnpricedCalls == 0;
@@ -66,7 +67,7 @@ public static class UsageTotalsBuilder
         private int _longPrompts;
         private int _unpriced;
         private decimal _cost;
-        private GatewayTokenUsage _tokens = new(0, 0, 0, 0, 0, 0);
+        private GatewayTokenUsage _tokens = GatewayTokenUsage.Zero;
 
         public void Add(GatewayUsageRecord record, PriceTable? prices, long longPromptTokens)
         {
@@ -82,20 +83,32 @@ public static class UsageTotalsBuilder
                 _estimated++;
             }
 
-            if (TokenSums.PromptTokens(record.Tokens) > longPromptTokens)
+            if (TokenSums.PromptTokens(record.Tokens) > TokenAmount.FromInt64(longPromptTokens))
             {
                 _longPrompts++;
             }
 
             var entry = prices?.Lookup(record.ProviderId, record.ModelId, record.Timestamp);
             var cost = UsageCostCalculator.Compute(record.Tokens, entry);
-            if (cost is { } value)
+            if (cost is { } value && TryAddCost(value))
             {
-                _cost += value;
+                return;
             }
-            else
+
+            // No price, or a count too large for decimal arithmetic: the cost is unknown, never a wrong figure.
+            _unpriced++;
+        }
+
+        private bool TryAddCost(decimal value)
+        {
+            try
             {
-                _unpriced++;
+                _cost = checked(_cost + value);
+                return true;
+            }
+            catch (OverflowException)
+            {
+                return false;
             }
         }
 

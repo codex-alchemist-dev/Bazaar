@@ -1,11 +1,11 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Testing.Postgres;
 using Npgsql;
-
 namespace Bazaar.Server.Tests.Gateway.Data;
 
 public sealed class GatewayDb : PgFixture, IAsyncLifetime
@@ -233,13 +233,15 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
         var row = Usage("agent-c", GatewayIdentity.Native, _t0, "p-usage2") with { Tokens = new GatewayTokenUsage(10, 0, 0, 5000, 20, 5) };
         await repo.AppendAsync(row, Ct);
         var read = Assert.Single(await repo.ListAsync("agent-c", _t0, _t0.AddHours(1), Ct));
-        Assert.Equal(10, read.Tokens.Input);
-        Assert.Equal(5000, read.Tokens.CacheRead);
+        Assert.Equal(TokenAmount.FromInt64(10), read.Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(5000), read.Tokens.CacheRead);
 
         var tooMuchThinking = row with { Id = Guid.NewGuid(), Tokens = new GatewayTokenUsage(1, 0, 0, 0, 2, 3) };
         Assert.Equal(PostgresErrorCodes.CheckViolation, (await Assert.ThrowsAsync<PostgresException>(() => repo.AppendAsync(tooMuchThinking, Ct).AsTask())).SqlState);
-        var negative = row with { Id = Guid.NewGuid(), Tokens = new GatewayTokenUsage(-1, 0, 0, 0, 0, 0) };
-        await Assert.ThrowsAsync<PostgresException>(() => repo.AppendAsync(negative, Ct).AsTask());
+
+        // A negative count cannot be built as a TokenAmount; the column CHECK still refuses one written around the repository.
+        await using var negative = db.DataSource.CreateCommand("UPDATE gw_usage SET input = -1 WHERE agent_id = 'agent-c'");
+        Assert.Equal(PostgresErrorCodes.CheckViolation, (await Assert.ThrowsAsync<PostgresException>(() => negative.ExecuteNonQueryAsync(Ct))).SqlState);
     }
 
     [Fact]

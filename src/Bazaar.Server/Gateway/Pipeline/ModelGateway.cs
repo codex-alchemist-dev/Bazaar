@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Health;
@@ -402,7 +403,7 @@ public sealed class ModelGateway : IModelGateway
     private static bool IsContent(ModelEvent e) =>
         e is ModelEvent.TextDelta or ModelEvent.ThinkingDelta or ModelEvent.ToolCallStart or ModelEvent.ToolCallArgsDelta or ModelEvent.ToolCallEnd;
 
-    private static long EstimateInputTokens(ModelRequest request)
+    private static TokenAmount EstimateInputTokens(ModelRequest request)
     {
         long chars = 0;
         foreach (var message in request.Messages)
@@ -410,7 +411,7 @@ public sealed class ModelGateway : IModelGateway
             chars += message.Text.Length;
         }
 
-        return (chars + 3) / 4;
+        return TokenAmount.FromInt64((chars + 3) / 4);
     }
 
     private static bool TryParseHeaders(string json, out IReadOnlyDictionary<string, string>? headers)

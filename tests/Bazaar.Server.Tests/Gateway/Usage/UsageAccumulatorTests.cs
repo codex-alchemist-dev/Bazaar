@@ -1,9 +1,9 @@
 using System.Reflection;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Fakes;
 using Bazaar.Server.Gateway.Usage;
 using Microsoft.Extensions.Time.Testing;
-
 namespace Bazaar.Server.Tests.Gateway.Usage;
 
 public class UsageAccumulatorTests
@@ -18,7 +18,7 @@ public class UsageAccumulatorTests
         GatewayIdentity identity = GatewayIdentity.Native,
         long estimatedInputTokens = 0) =>
         new("agent-1", "turn-1", "anthropic-direct", "keyref-anthropic-1", "claude-haiku-5-5",
-            identity, time ?? new FakeTimeProvider(_start), estimatedInputTokens);
+            identity, time ?? new FakeTimeProvider(_start), TokenAmount.FromInt64(estimatedInputTokens));
 
     private static async Task Feed(UsageAccumulator accumulator, IAsyncEnumerable<ModelEvent> stream)
     {
@@ -115,7 +115,7 @@ public class UsageAccumulatorTests
         Assert.True(record.Estimated);
         Assert.Null(record.ErrorCode);
         // Seven characters round up to two tokens.
-        Assert.Equal(2, record.Tokens.Output);
+        Assert.Equal(TokenAmount.FromInt64(2), record.Tokens.Output);
     }
 
     [Fact]
@@ -161,8 +161,8 @@ public class UsageAccumulatorTests
         accumulator.Observe(new ModelEvent.Done(StopReason.EndTurn, "m"));
         var record = accumulator.Build(null);
 
-        Assert.Equal(1, record.Tokens.Output);
-        Assert.Equal(0, record.Tokens.Thinking);
+        Assert.Equal(TokenAmount.FromInt64(1), record.Tokens.Output);
+        Assert.Equal(TokenAmount.FromInt64(0), record.Tokens.Thinking);
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public class UsageAccumulatorTests
         var record = accumulator.Build(null);
 
         Assert.Equal(reported, record.Tokens);
-        Assert.Equal(100, record.Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(100), record.Tokens.Input);
         Assert.False(record.Estimated);
     }
 
@@ -191,8 +191,8 @@ public class UsageAccumulatorTests
         accumulator.Observe(new ModelEvent.Done(StopReason.EndTurn, "m"));
         var record = accumulator.Build(null);
 
-        Assert.Equal(99, record.Tokens.Input);
-        Assert.Equal(7, record.Tokens.Output);
+        Assert.Equal(TokenAmount.FromInt64(99), record.Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(7), record.Tokens.Output);
         Assert.False(record.Estimated);
     }
 

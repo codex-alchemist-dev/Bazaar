@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Usage;
-
 namespace Bazaar.Server.Tests.Gateway.Usage;
 
 public class UsageRollupTests
@@ -21,8 +21,8 @@ public class UsageRollupTests
         var row = Assert.Single(rows);
         Assert.Equal(_hour, row.Hour);
         Assert.Equal(2, row.Calls);
-        Assert.Equal(150, row.Tokens.Input);
-        Assert.Equal(15, row.Tokens.Output);
+        Assert.Equal(TokenAmount.FromInt64(150), row.Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(15), row.Tokens.Output);
     }
 
     [Fact]
@@ -49,8 +49,8 @@ public class UsageRollupTests
         var rows = UsageRollup.Build(records, _hour, _hour.AddHours(1));
 
         Assert.Equal(2, rows.Count);
-        Assert.Equal(10, rows.Single(r => r.Identity == GatewayIdentity.Native).Tokens.Input);
-        Assert.Equal(20, rows.Single(r => r.Identity == GatewayIdentity.Pooled).Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(10), rows.Single(r => r.Identity == GatewayIdentity.Native).Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(20), rows.Single(r => r.Identity == GatewayIdentity.Pooled).Tokens.Input);
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public class UsageRollupTests
         records.Add(Record(at: _hour.AddMinutes(20), status: UsageStatus.Aborted, estimated: true, input: 40));
         var rebuilt = UsageRollup.Build(records, UsageRollup.WindowStart(now), now);
 
-        Assert.Equal(100, first.Single().Tokens.Input);
-        Assert.Equal(140, rebuilt.Single().Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(100), first.Single().Tokens.Input);
+        Assert.Equal(TokenAmount.FromInt64(140), rebuilt.Single().Tokens.Input);
         Assert.Equal(1, rebuilt.Single().EstimatedCalls);
     }
 
@@ -142,4 +142,42 @@ public class UsageRollupTests
             RetryAfterSeconds: null,
             Estimated: estimated,
             PriceVersion: null);
+
+    [Fact]
+    public void Sums_past_the_long_range_stay_exact()
+    {
+        var huge = new GatewayTokenUsage(long.MaxValue, 0, 0, long.MaxValue, long.MaxValue, 0);
+        var records = new[]
+        {
+            Record(at: _hour.AddMinutes(1)) with { Tokens = huge },
+            Record(at: _hour.AddMinutes(2)) with { Tokens = huge },
+            Record(at: _hour.AddMinutes(3)) with { Tokens = huge },
+        };
+
+        var row = Assert.Single(UsageRollup.Build(records, _hour, _hour.AddHours(1)));
+
+        // 3 * 9223372036854775807 = 27670116110564327421: past long.MaxValue, with no wrap and no clamp.
+        Assert.Equal(TokenAmount.Parse("27670116110564327421"), row.Tokens.Input);
+        Assert.Equal(TokenAmount.Parse("27670116110564327421"), row.Tokens.CacheRead);
+        Assert.Equal(TokenAmount.Parse("27670116110564327421"), row.Tokens.Output);
+        Assert.True(row.Tokens.Input > TokenAmount.FromInt64(long.MaxValue));
+    }
+
+    [Fact]
+    public void Fractional_counts_add_exactly()
+    {
+        var half = new GatewayTokenUsage(TokenAmount.Parse("0.1"), TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Parse("0.2"), TokenAmount.Zero);
+        var records = new[]
+        {
+            Record(at: _hour.AddMinutes(1)) with { Tokens = half },
+            Record(at: _hour.AddMinutes(2)) with { Tokens = half },
+            Record(at: _hour.AddMinutes(3)) with { Tokens = half },
+        };
+
+        var row = Assert.Single(UsageRollup.Build(records, _hour, _hour.AddHours(1)));
+
+        // No binary floating point: 0.1 + 0.1 + 0.1 is 0.3, not 0.30000000000000004.
+        Assert.Equal(TokenAmount.Parse("0.3"), row.Tokens.Input);
+        Assert.Equal(TokenAmount.Parse("0.6"), row.Tokens.Output);
+    }
 }

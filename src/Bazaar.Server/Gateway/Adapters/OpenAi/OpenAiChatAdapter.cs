@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Adapters.Common;
 
 namespace Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -232,7 +233,12 @@ public sealed class OpenAiChatAdapter : IModelAdapter
 
             if (chunk.Usage is { } usage)
             {
-                yield return new ModelEvent.UsageReported(MapUsage(usage));
+                // A count that is negative, malformed or beyond the numeric bounds makes the report untrustworthy: it is not
+                // emitted, so the usage row estimates and is marked estimated.
+                if (MapUsage(usage) is { } mapped)
+                {
+                    yield return new ModelEvent.UsageReported(mapped);
+                }
             }
 
             var choice = chunk.Choices is { Count: > 0 } choices ? choices[0] : null;
@@ -401,17 +407,46 @@ public sealed class OpenAiChatAdapter : IModelAdapter
         }
     }
 
-    private static GatewayTokenUsage MapUsage(OpenAiChunkUsage usage)
+    /// <summary>The usage as exact counts, or null when any count is not a valid amount (negative, malformed or too large to store).</summary>
+    private static GatewayTokenUsage? MapUsage(OpenAiChunkUsage usage)
     {
-        var prompt = usage.PromptTokens ?? 0;
-        var cached = usage.PromptTokensDetails?.CachedTokens ?? 0;
+        if (!TryCount(usage.PromptTokens, out var prompt)
+            || !TryCount(usage.PromptTokensDetails?.CachedTokens, out var cached)
+            || !TryCount(usage.CompletionTokens, out var output)
+            || !TryCount(usage.CompletionTokensDetails?.ReasoningTokens, out var reasoning))
+        {
+            return null;
+        }
+
+        // Uncached input is the prompt minus the cached part; a cached count above the prompt cannot be true and leaves none.
+        var input = TokenAmount.TrySubtract(prompt, cached, out var uncached) ? uncached : TokenAmount.Zero;
         return new GatewayTokenUsage(
-            Input: Math.Max(0, prompt - cached),
-            CacheWrite5m: 0,
-            CacheWrite1h: 0,
+            Input: input,
+            CacheWrite5m: TokenAmount.Zero,
+            CacheWrite1h: TokenAmount.Zero,
             CacheRead: cached,
-            Output: usage.CompletionTokens ?? 0,
-            Thinking: usage.CompletionTokensDetails?.ReasoningTokens ?? 0);
+            Output: output,
+            Thinking: reasoning);
+    }
+
+    /// <summary>
+    /// One count read exactly from its JSON number (or numeric string). Absent or null is zero. False for anything that is not a
+    /// valid amount, so a hostile value is refused here and never wraps or reaches storage.
+    /// </summary>
+    private static bool TryCount(JsonElement? element, out TokenAmount amount)
+    {
+        amount = TokenAmount.Zero;
+        if (element is not { } value || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return true;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number => TokenAmount.TryParse(value.GetRawText(), out amount),
+            JsonValueKind.String => TokenAmount.TryParse(value.GetString(), out amount),
+            _ => false,
+        };
     }
 
     private static StopReason MapFinishReason(string reason) => reason switch

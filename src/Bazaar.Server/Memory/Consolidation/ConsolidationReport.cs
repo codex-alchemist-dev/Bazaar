@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Numerics;
 namespace Bazaar.Server.Memory.Consolidation;
 
 /// <summary>How a consolidation run ended.</summary>
@@ -52,6 +53,6 @@ public sealed record ConsolidationReport(
     string MaintenanceReport,
     string? CommitSha,
     string? CommitMessage,
-    long TokensUsed,
+    TokenAmount TokensUsed,
     bool TokensEstimated,
     string? Detail);
