@@ -1,4 +1,3 @@
-using System.Net.Sockets;
 using Bazaar.Components.ManagedPostgres.Maintenance;
 
 namespace Bazaar.Components.ManagedPostgres.Tests;
@@ -6,28 +5,15 @@ namespace Bazaar.Components.ManagedPostgres.Tests;
 public sealed class PgScratchClusterTests : IDisposable
 {
     private readonly string _root = MaintenanceFixture.NewTempRoot();
-    private readonly List<TcpListener> _listeners = [];
 
     public void Dispose()
     {
-        foreach (var listener in _listeners)
-        {
-            listener.Stop();
-        }
-
         Directory.Delete(_root, recursive: true);
     }
 
-    private FakePostgresCommandRunner NewRunner()
+    private static FakePostgresCommandRunner NewRunner()
     {
         var runner = new FakePostgresCommandRunner();
-        runner.OnChildStarted = child =>
-        {
-            var port = int.Parse(runner.StartArguments[^1].SkipWhile(a => a != "-p").Skip(1).FirstOrDefault() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-            var listener = ProcessTestSupport.ListenOn(port);
-            _listeners.Add(listener);
-            child.OnExited = listener.Stop;
-        };
         runner.OnRun = (file, args) =>
         {
             if (args.Contains("fast"))
@@ -43,6 +29,9 @@ public sealed class PgScratchClusterTests : IDisposable
         return runner;
     }
 
+    private static Task<PgScratchCluster> CreateAsync(FakePostgresCommandRunner runner, Bazaar.Components.ManagedPostgres.Bundle.BundleLayout layout, string scratchRoot, string name) =>
+        PgScratchCluster.CreateAsync(runner, layout, 19, scratchRoot, name, TestContext.Current.CancellationToken, new FakePortProbe(runner));
+
     private string ScratchRoot => Path.Combine(_root, "scratch");
 
     [Fact]
@@ -51,7 +40,7 @@ public sealed class PgScratchClusterTests : IDisposable
         var layout = MaintenanceFixture.Layout(_root);
         var runner = NewRunner();
 
-        var cluster = await PgScratchCluster.CreateAsync(runner, layout, 19, ScratchRoot, "dryrun-1", TestContext.Current.CancellationToken);
+        var cluster = await CreateAsync(runner, layout, ScratchRoot, "dryrun-1");
 
         Assert.True(Directory.Exists(cluster.DataDirectory));
         Assert.StartsWith(Path.GetFullPath(ScratchRoot), cluster.DataDirectory, StringComparison.Ordinal);
@@ -76,7 +65,7 @@ public sealed class PgScratchClusterTests : IDisposable
         File.WriteAllText(Path.Combine(existing, "keep.txt"), "x");
 
         await Assert.ThrowsAsync<PgMaintenanceException>(() =>
-            PgScratchCluster.CreateAsync(NewRunner(), layout, 19, ScratchRoot, "taken", TestContext.Current.CancellationToken));
+            CreateAsync(NewRunner(), layout, ScratchRoot, "taken"));
 
         Assert.True(File.Exists(Path.Combine(existing, "keep.txt")));
     }
@@ -88,9 +77,9 @@ public sealed class PgScratchClusterTests : IDisposable
         var production = layout.Resolve(18).DataDirectory;
 
         await Assert.ThrowsAsync<PgMaintenanceException>(() =>
-            PgScratchCluster.CreateAsync(NewRunner(), layout, 19, production, "inside", TestContext.Current.CancellationToken));
+            CreateAsync(NewRunner(), layout, production, "inside"));
         await Assert.ThrowsAsync<PgMaintenanceException>(() =>
-            PgScratchCluster.CreateAsync(NewRunner(), layout, 19, Path.GetDirectoryName(production)!, "data", TestContext.Current.CancellationToken));
+            CreateAsync(NewRunner(), layout, Path.GetDirectoryName(production)!, "data"));
     }
 
     [Theory]
@@ -103,7 +92,7 @@ public sealed class PgScratchClusterTests : IDisposable
         var layout = MaintenanceFixture.Layout(_root);
 
         await Assert.ThrowsAnyAsync<ArgumentException>(() =>
-            PgScratchCluster.CreateAsync(NewRunner(), layout, 19, ScratchRoot, name, TestContext.Current.CancellationToken));
+            CreateAsync(NewRunner(), layout, ScratchRoot, name));
     }
 
     [Fact]
@@ -118,7 +107,7 @@ public sealed class PgScratchClusterTests : IDisposable
         };
 
         await Assert.ThrowsAnyAsync<Exception>(() =>
-            PgScratchCluster.CreateAsync(runner, layout, 19, ScratchRoot, "failing", TestContext.Current.CancellationToken));
+            CreateAsync(runner, layout, ScratchRoot, "failing"));
 
         Assert.False(Directory.Exists(Path.Combine(ScratchRoot, "failing")));
         Assert.False(File.Exists(Path.Combine(ScratchRoot, "failing") + ".bootstrap-pending"));
@@ -129,7 +118,7 @@ public sealed class PgScratchClusterTests : IDisposable
     {
         var layout = MaintenanceFixture.Layout(_root);
         var runner = NewRunner();
-        await using var cluster = await PgScratchCluster.CreateAsync(runner, layout, 19, ScratchRoot, "restore", TestContext.Current.CancellationToken);
+        await using var cluster = await CreateAsync(runner, layout, ScratchRoot, "restore");
         var dump = Path.Combine(_root, "prod.dump");
         File.WriteAllText(dump, "PGDMP-fake");
         var before = runner.Runs.Count;
@@ -146,7 +135,7 @@ public sealed class PgScratchClusterTests : IDisposable
     public async Task Restore_after_dispose_throws()
     {
         var layout = MaintenanceFixture.Layout(_root);
-        var cluster = await PgScratchCluster.CreateAsync(NewRunner(), layout, 19, ScratchRoot, "late", TestContext.Current.CancellationToken);
+        var cluster = await CreateAsync(NewRunner(), layout, ScratchRoot, "late");
         await cluster.DisposeAsync();
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => cluster.RestoreAsync("x", TestContext.Current.CancellationToken));

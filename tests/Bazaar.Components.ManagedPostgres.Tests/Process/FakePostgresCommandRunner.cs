@@ -180,3 +180,18 @@ internal static class ProcessTestSupport
         return listener;
     }
 }
+
+/// <summary>
+/// Stands in for the TCP port: it accepts while a fake child runs, or always when a test sets <see cref="Held"/> (a
+/// foreign listener or an adopted cluster). No socket is opened, so no other test or process can collide with it.
+/// </summary>
+internal sealed class FakePortProbe(FakePostgresCommandRunner runner) : IPostgresPortProbe
+{
+    public bool Held { get; set; }
+
+    /// <summary>When false, a running child never opens the port (a postgres that hangs during startup).</summary>
+    public bool ChildListens { get; set; } = true;
+
+    public Task<bool> IsAcceptingAsync(string host, int port, CancellationToken cancellationToken) =>
+        Task.FromResult(Held || (ChildListens && runner.Children.Any(child => !child.HasExited)));
+}

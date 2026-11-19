@@ -42,6 +42,7 @@ public sealed partial class PgScratchCluster : IAsyncDisposable
     public PgConnection Connection { get; }
 
     /// <summary>Creates, initialises and starts a scratch cluster of the given major.</summary>
+    /// <param name="portProbe">Readiness probe; defaults to a real TCP connect. Tests pass a fake.</param>
     /// <param name="name">Letters, digits, dash and underscore; becomes the folder name under <paramref name="scratchRoot"/>.</param>
     public static async Task<PgScratchCluster> CreateAsync(
         IPostgresCommandRunner runner,
@@ -49,7 +50,8 @@ public sealed partial class PgScratchCluster : IAsyncDisposable
         int major,
         string scratchRoot,
         string name,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IPostgresPortProbe? portProbe = null)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(layout);
@@ -91,7 +93,7 @@ public sealed partial class PgScratchCluster : IAsyncDisposable
             DataDirectory = dataDirectory,
             Port = port,
         };
-        var controller = new PostgresProcessController(options, runner);
+        var controller = new PostgresProcessController(options, runner, portProbe ?? new TcpPostgresPortProbe());
         string? password = null;
         try
         {

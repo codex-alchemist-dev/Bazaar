@@ -1,13 +1,15 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
 using Bazaar.Client.Core.Wire;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Core.Tests.Wire;
 
-/// <summary>Real sockets against an in-test loopback WebSocket server (HttpListener).</summary>
+/// <summary>Real sockets against an in-test loopback WebSocket server (TcpListener with a hand-written upgrade).</summary>
 public sealed class WebSocketWireTransportTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -262,63 +264,121 @@ public sealed class WebSocketWireTransportTests
     }
 
     /// <summary>A client connection and the server end of the same socket.</summary>
-    private sealed class Pair(IWireConnection client, WebSocket server, HttpListenerRequest request) : IAsyncDisposable
+    private sealed class Pair(IWireConnection client, WebSocket server, AcceptedRequest request) : IAsyncDisposable
     {
         public IWireConnection Client { get; } = client;
 
         public WebSocket Server { get; } = server;
 
-        public HttpListenerRequest Request { get; } = request;
+        public AcceptedRequest Request { get; } = request;
 
         public async ValueTask DisposeAsync()
         {
+            // The client's close waits for the server's closing frame. Answer it concurrently, so teardown takes
+            // milliseconds instead of running into the client's close timeout.
+            Task answered = AnswerCloseAsync();
             await Client.DisposeAsync();
+            await answered.WaitAsync(TimeSpan.FromSeconds(10));
             Server.Dispose();
+        }
+
+        private async Task AnswerCloseAsync()
+        {
+            try
+            {
+                byte[] buffer = new byte[4096];
+                while (Server.State == WebSocketState.Open)
+                {
+                    WebSocketReceiveResult result = await Server.ReceiveAsync(buffer, CancellationToken.None);
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        break;
+                    }
+                }
+
+                if (Server.State is WebSocketState.CloseReceived)
+                {
+                    await Server.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                }
+            }
+            catch (Exception ex) when (ex is WebSocketException or ObjectDisposedException or IOException or InvalidOperationException)
+            {
+                // The connection is already gone or the test closed the server end itself; nothing is left to answer.
+            }
         }
     }
 
-    private sealed record AcceptedSocket(HttpListenerRequest Request, WebSocket Socket);
+    private sealed record AcceptedRequest(IReadOnlyDictionary<string, string> Headers);
 
-    /// <summary>A one-shot loopback WebSocket server built on <see cref="HttpListener"/>.</summary>
+    private sealed record AcceptedSocket(AcceptedRequest Request, WebSocket Socket);
+
+    /// <summary>
+    /// A one-shot loopback WebSocket server on a plain <see cref="TcpListener"/> bound to port 0, so the operating system
+    /// hands out the port with no find-then-bind race and no http.sys URL registration shared with other processes.
+    /// It performs the RFC 6455 upgrade by hand and then wraps the stream as the server end of a WebSocket.
+    /// </summary>
     private sealed class LoopbackWebSocketServer : IDisposable
     {
-        private readonly HttpListener _listener;
+        private const string _handshakeGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        private readonly TcpListener _listener;
 
         public LoopbackWebSocketServer()
         {
-            // FreePort releases the port before the listener binds it, so another test can take it in between.
-            // Retry with a fresh port rather than failing on that race.
-            for (int attempt = 1; ; attempt++)
-            {
-                int port = FreePort();
-                var listener = new HttpListener();
-                listener.Prefixes.Add($"http://127.0.0.1:{port}/ws/");
-                try
-                {
-                    listener.Start();
-                }
-                catch (HttpListenerException) when (attempt < 5)
-                {
-                    listener.Close();
-                    continue;
-                }
-
-                _listener = listener;
-                Endpoint = new Uri($"ws://127.0.0.1:{port}/ws/");
-                return;
-            }
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            Endpoint = new Uri($"ws://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}/ws/");
         }
 
         public Uri Endpoint { get; }
 
         /// <summary>Waits for the next upgrade request and completes the WebSocket handshake.</summary>
+        [SuppressMessage("Security", "CA5350:Do not use weak cryptographic algorithms", Justification = "RFC 6455 section 4.2.2 requires SHA-1 for Sec-WebSocket-Accept; it is not a security control.")]
         public async Task<AcceptedSocket> AcceptAsync(CancellationToken cancellationToken)
         {
-            HttpListenerContext context = await _listener.GetContextAsync().WaitAsync(cancellationToken);
-            HttpListenerWebSocketContext ws = await context.AcceptWebSocketAsync(null).WaitAsync(cancellationToken);
-            return new AcceptedSocket(context.Request, ws.WebSocket);
+            TcpClient client = await _listener.AcceptTcpClientAsync(cancellationToken);
+            NetworkStream stream = client.GetStream();
+
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string line in (await ReadHeadAsync(stream, cancellationToken)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries).Skip(1))
+            {
+                int colon = line.IndexOf(':', StringComparison.Ordinal);
+                if (colon > 0)
+                {
+                    headers[line[..colon].Trim()] = line[(colon + 1)..].Trim();
+                }
+            }
+
+            string accept = Convert.ToBase64String(SHA1.HashData(System.Text.Encoding.ASCII.GetBytes(headers["Sec-WebSocket-Key"] + _handshakeGuid)));
+            byte[] response = System.Text.Encoding.ASCII.GetBytes(
+                "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+                $"Sec-WebSocket-Accept: {accept}\r\n\r\n");
+            await stream.WriteAsync(response, cancellationToken);
+
+            WebSocket socket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions { IsServer = true });
+            return new AcceptedSocket(new AcceptedRequest(headers), socket);
         }
 
-        public void Dispose() => _listener.Close();
+        public void Dispose() => _listener.Stop();
+
+        private static async Task<string> ReadHeadAsync(NetworkStream stream, CancellationToken cancellationToken)
+        {
+            // Read byte by byte up to the blank line so nothing past the HTTP head is consumed from the WebSocket stream.
+            var head = new List<byte>();
+            byte[] one = new byte[1];
+            while (true)
+            {
+                if (await stream.ReadAsync(one, cancellationToken) == 0)
+                {
+                    throw new IOException("The client closed the connection during the handshake.");
+                }
+
+                head.Add(one[0]);
+                int n = head.Count;
+                if (n >= 4 && head[n - 4] == '\r' && head[n - 3] == '\n' && head[n - 2] == '\r' && head[n - 1] == '\n')
+                {
+                    return System.Text.Encoding.ASCII.GetString(head.ToArray());
+                }
+            }
+        }
     }
 }

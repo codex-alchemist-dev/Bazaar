@@ -1,22 +1,14 @@
 using System.Collections.Concurrent;
-using System.Net;
-using System.Net.Sockets;
 
 namespace Bazaar.Components.ManagedPostgres.Tests;
 
 public sealed class PostgresProcessControllerTests : IDisposable
 {
     private readonly string _dataDirectory = ProcessTestSupport.NewTempDirectory();
-    private readonly List<TcpListener> _listeners = [];
     private static readonly int[] _expectedRestartSeconds = [1, 2, 4, 8, 16, 30, 30, 30];
 
     public void Dispose()
     {
-        foreach (var listener in _listeners)
-        {
-            listener.Stop();
-        }
-
         Directory.Delete(_dataDirectory, recursive: true);
     }
 
@@ -24,7 +16,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
     public async Task InitDb_sets_the_password_over_stdin_and_leaves_no_trust_rule()
     {
         var runner = new FakePostgresCommandRunner();
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner, new FakePortProbe(runner));
         string? persisted = null;
 
         await controller.InitDbAsync((password, _) => { persisted = password; return ValueTask.CompletedTask; }, TestContext.Current.CancellationToken);
@@ -56,7 +48,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
     {
         var runner = new FakePostgresCommandRunner();
         string? persisted = null;
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner, new FakePortProbe(runner));
         // Only the password statement (psql -f -) fails. The readiness probe (psql -c) succeeds.
         runner.OnRun = (fileName, arguments) =>
             Path.GetFileNameWithoutExtension(fileName) == "psql" && arguments.Contains("-f")
@@ -79,7 +71,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         try
         {
             var runner = new FakePostgresCommandRunner();
-            var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, ProcessTestSupport.FreePort()), runner);
+            var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner, new FakePortProbe(runner));
 
             var ex = await Assert.ThrowsAsync<PostgresProcessException>(() => controller.StartAsync(TestContext.Current.CancellationToken));
 
@@ -97,7 +89,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
     {
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var runner = new FakePostgresCommandRunner();
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, 54999), runner, new FakePortProbe(runner));
 
         await Assert.ThrowsAsync<PostgresProcessException>(() =>
             controller.InitDbAsync((_, _) => ValueTask.CompletedTask, TestContext.Current.CancellationToken));
@@ -113,7 +105,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         var runner = new FakePostgresCommandRunner();
         var options = ProcessTestSupport.OptionsFor(_dataDirectory, port);
         options.StartupTimeout = TimeSpan.FromMilliseconds(300);
-        var controller = new PostgresProcessController(options, runner);
+        var controller = new PostgresProcessController(options, runner, new FakePortProbe(runner) { ChildListens = false });
 
         var ex = await Assert.ThrowsAsync<PostgresProcessException>(() => controller.StartAsync(TestContext.Current.CancellationToken));
 
@@ -128,9 +120,9 @@ public sealed class PostgresProcessControllerTests : IDisposable
     {
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var port = ProcessTestSupport.FreePort();
-        _listeners.Add(ProcessTestSupport.ListenOn(port));
         var runner = new FakePostgresCommandRunner();
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var probe = new FakePortProbe(runner) { Held = true };
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, probe);
 
         var ex = await Assert.ThrowsAsync<PostgresProcessException>(() => controller.StartAsync(TestContext.Current.CancellationToken));
 
@@ -144,10 +136,10 @@ public sealed class PostgresProcessControllerTests : IDisposable
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var port = ProcessTestSupport.FreePort();
         ProcessTestSupport.WritePostmasterPid(_dataDirectory, Environment.ProcessId, port);
-        _listeners.Add(ProcessTestSupport.ListenOn(port));
         var runner = new FakePostgresCommandRunner();
+        var probe = new FakePortProbe(runner) { Held = true };
         runner.AlivePids.Add(Environment.ProcessId);
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, probe);
         var events = new ConcurrentQueue<PostgresProcessEvent>();
         controller.ProcessEvent += events.Enqueue;
 
@@ -186,7 +178,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         ProcessTestSupport.WritePostmasterPid(_dataDirectory, Environment.ProcessId, port + 1);
         var runner = new FakePostgresCommandRunner();
         runner.AlivePids.Add(Environment.ProcessId);
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, new FakePortProbe(runner));
 
         var ex = await Assert.ThrowsAsync<PostgresProcessException>(() => controller.StartAsync(TestContext.Current.CancellationToken));
 
@@ -202,8 +194,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         var port = ProcessTestSupport.FreePort();
         ProcessTestSupport.WritePostmasterPid(_dataDirectory, 999_999, port);
         var runner = new FakePostgresCommandRunner();
-        runner.OnChildStarted = child => _listeners.Add(ListenAndTieTo(child, port));
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, new FakePortProbe(runner));
 
         await controller.StartAsync(TestContext.Current.CancellationToken);
 
@@ -218,7 +209,6 @@ public sealed class PostgresProcessControllerTests : IDisposable
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var port = ProcessTestSupport.FreePort();
         var runner = new FakePostgresCommandRunner();
-        runner.OnChildStarted = child => _listeners.Add(ListenAndTieTo(child, port));
         runner.OnRun = (_, arguments) =>
         {
             if (arguments.Contains("fast"))
@@ -231,7 +221,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
 
             return new PostgresCommandResult(0, string.Empty);
         };
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, new FakePortProbe(runner));
         var events = new ConcurrentQueue<PostgresProcessEvent>();
         controller.ProcessEvent += events.Enqueue;
         await controller.StartAsync(TestContext.Current.CancellationToken);
@@ -250,8 +240,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var port = ProcessTestSupport.FreePort();
         var runner = new FakePostgresCommandRunner();
-        runner.OnChildStarted = child => _listeners.Add(ListenAndTieTo(child, port));
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, new FakePortProbe(runner));
         var events = new ConcurrentQueue<PostgresProcessEvent>();
         controller.ProcessEvent += events.Enqueue;
         await controller.StartAsync(TestContext.Current.CancellationToken);
@@ -271,8 +260,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var port = ProcessTestSupport.FreePort();
         var runner = new FakePostgresCommandRunner();
-        runner.OnChildStarted = child => _listeners.Add(ListenAndTieTo(child, port));
-        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner);
+        var controller = new PostgresProcessController(ProcessTestSupport.OptionsFor(_dataDirectory, port), runner, new FakePortProbe(runner));
 
         await controller.StartAsync(TestContext.Current.CancellationToken);
 
@@ -289,10 +277,9 @@ public sealed class PostgresProcessControllerTests : IDisposable
         ProcessTestSupport.MarkAsCluster(_dataDirectory);
         var port = ProcessTestSupport.FreePort();
         var runner = new FakePostgresCommandRunner();
-        runner.OnChildStarted = child => _listeners.Add(ListenAndTieTo(child, port));
         var options = ProcessTestSupport.OptionsFor(_dataDirectory, port);
         options.MaxRestartAttempts = 2;
-        var controller = new PostgresProcessController(options, runner);
+        var controller = new PostgresProcessController(options, runner, new FakePortProbe(runner));
         var events = new ConcurrentQueue<PostgresProcessEvent>();
         var exhausted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         controller.ProcessEvent += e =>
@@ -365,12 +352,4 @@ public sealed class PostgresProcessControllerTests : IDisposable
     }
 
     private static string Argument(string[] arguments, string flag) => arguments[IndexOf(arguments, flag) + 1];
-
-    /// <summary>Stands in for postgres: listens on the port while the child runs, and closes the listener when it exits.</summary>
-    private static TcpListener ListenAndTieTo(FakePostgresChild child, int port)
-    {
-        var listener = ProcessTestSupport.ListenOn(port);
-        child.OnExited = listener.Stop;
-        return listener;
-    }
 }
