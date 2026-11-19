@@ -12,8 +12,8 @@ namespace Bazaar.Server.Gc.Read;
 /// Only message events reach the stream. Every other event is skipped.
 /// </summary>
 /// <remarks>
-/// Access is not checked here: the caller has passed <see cref="IGcAccessPolicy"/>. The current-version join looks at every
-/// message in the GC, so a page costs O(messages). A current-version index is the follow-up if the S3 numbers show it.
+/// Access is not checked here: the caller has passed <see cref="IGcAccessPolicy"/>. The current-version join looks only at the
+/// messages a replay page may return (new ones and edited ones), not at every message in the GC.
 /// </remarks>
 public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec bodies) : IGcStreamSource
 {
@@ -33,8 +33,17 @@ public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec b
         JOIN gc_event e ON e.gc_id = m.gc_id AND e.seq = m.first_seq
         """;
 
+    // Candidates only: messages newer than the client's n, and messages with an event past its ev (an edit is an event, and the
+    // current version is the newest, so any version past ev makes the current one newer too). Without this the current-version
+    // lookup ran for every message in the GC on each page, which the dispatcher repeats after each commit.
     private static readonly string _readSql = Wrap(
-        "(SELECT * FROM gc_message WHERE gc_id = $1) m",
+        """
+        (SELECT g.* FROM gc_message g WHERE g.gc_id = $1 AND g.first_seq > $2
+         UNION
+         SELECT g.* FROM gc_message g
+         WHERE g.gc_id = $1
+           AND g.message_id IN (SELECT e.message_id FROM gc_event e WHERE e.gc_id = $1 AND e.seq > $3 AND e.message_id IS NOT NULL)) m
+        """,
         "WHERE (cur.first_seq > $2 OR cur.ev > $3) AND cur.ev > $4 ORDER BY cur.ev LIMIT $5");
 
     private static readonly string _tailSql = Wrap(
