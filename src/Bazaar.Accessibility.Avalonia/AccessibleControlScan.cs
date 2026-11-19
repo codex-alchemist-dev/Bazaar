@@ -1,6 +1,7 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility;
 
@@ -13,8 +14,8 @@ namespace Bazaar.Accessibility.Avalonia;
 public sealed record AccessibleControlProblem(string ControlType, string? Name, string Problem);
 
 /// <summary>
-/// Checks the explicit <see cref="AutomationProperties.NameProperty"/> of every interactive control under a root (doc
-/// 49 section 2: a CI check fails when a control has no accessible name). It reads the explicit property on purpose:
+/// Checks every interactive control under a root (doc 49 section 2): the explicit <see cref="AutomationProperties.NameProperty"/>
+/// (a CI check fails when a control has no accessible name), and that a shown, enabled control is a keyboard tab stop. It reads the explicit property on purpose:
 /// the automation peer falls back to visible text, so an unnamed button would otherwise pass (spike, PR #560).
 /// </summary>
 public static class AccessibleControlScan
@@ -31,6 +32,28 @@ public static class AccessibleControlScan
         typeof(Slider),
         typeof(ListBox),
     ];
+
+    /// <summary>The problem text for a control that a keyboard user cannot reach.</summary>
+    public const string KeyboardProblem = "The control cannot receive keyboard focus.";
+
+    // Doc 49 section 2: every feature is reachable from the keyboard. A control that is shown and enabled must be focusable
+    // and a tab stop. Hidden and disabled controls are skipped, because they are not offered to anyone.
+    // A ListBox is a composite: it is not a tab stop itself, its items take the focus, so an empty list has nothing to
+    // reach and a populated one is reachable when an item can take focus.
+    private static bool IsKeyboardReachable(Control control)
+    {
+        if (!control.IsEffectivelyVisible || !control.IsEffectivelyEnabled)
+        {
+            return true;
+        }
+
+        if (control is ListBox list)
+        {
+            return list.GetLogicalDescendants().OfType<ListBoxItem>().Where(i => i.IsEffectivelyEnabled).All(i => i.Focusable);
+        }
+
+        return control.Focusable && KeyboardNavigation.GetIsTabStop(control);
+    }
 
     /// <summary>Returns every interactive control under <paramref name="root"/> (inclusive) that fails the name check.</summary>
     public static IReadOnlyList<AccessibleControlProblem> Find(Control root)
@@ -50,6 +73,11 @@ public static class AccessibleControlScan
             if (problem is not null)
             {
                 problems.Add(new AccessibleControlProblem(control.GetType().Name, control.Name, problem));
+            }
+
+            if (!IsKeyboardReachable(control))
+            {
+                problems.Add(new AccessibleControlProblem(control.GetType().Name, control.Name, KeyboardProblem));
             }
         }
 
