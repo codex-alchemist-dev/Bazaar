@@ -10,7 +10,17 @@ public sealed record AdapterProcessOptions(
     IReadOnlyList<string> Arguments,
     TimeSpan CommandTimeout,
     string? WorkingDirectory = null,
-    int OutputTailLines = 20);
+    int OutputTailLines = 20)
+{
+    /// <summary>The longest single stdout message, in chars. A longer line fails the session. Default 8 MiB.</summary>
+    public int MaxMessageChars { get; init; } = 8 * 1024 * 1024;
+
+    /// <summary>
+    /// Environment variables the server sets on purpose. The child otherwise gets only an allowlisted subset of the
+    /// server's environment (see <c>ChildProcessEnvironment</c>), never the whole of it.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Environment { get; init; }
+}
 
 /// <summary>The lifecycle state of an <see cref="AdapterHost"/>.</summary>
 public enum AdapterHostState
