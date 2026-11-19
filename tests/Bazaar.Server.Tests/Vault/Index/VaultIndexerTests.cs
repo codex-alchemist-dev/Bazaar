@@ -112,6 +112,23 @@ public sealed class VaultIndexerTests(VaultDb db) : IClassFixture<VaultDb>
         Assert.NotNull(await Store().GetDocumentByPathAsync(vault, "one.md", Ct));
     }
 
+    [Fact]
+    public async Task A_file_nested_too_deeply_for_the_parser_is_reported_invalid_and_does_not_block_the_index()
+    {
+        SkipWithoutDatabase();
+        using var repo = new TempGitRepository(
+            ("good.md", Doc(_alphaId, "Good", "Text.\n")),
+            ("poison.md", Doc(_betaId, "Poison", new string('>', 5000) + " x\n")));
+        var vault = Guid.NewGuid();
+        using var indexer = Indexer();
+
+        var result = await indexer.CatchUpAsync(vault, repo.Checkout, "main", Ct);
+
+        Assert.Equal(["poison.md"], result.InvalidPaths);
+        Assert.NotNull(await Store().GetDocumentByPathAsync(vault, "good.md", Ct));
+        Assert.Null(await Store().GetDocumentByPathAsync(vault, "poison.md", Ct));
+    }
+
     private async Task<List<string>> SnapshotAsync(Guid vaultId)
     {
         var rows = new List<string>();
