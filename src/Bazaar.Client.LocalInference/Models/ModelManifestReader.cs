@@ -107,9 +107,9 @@ public static partial class ModelManifestReader
     /// <summary>True when the name is safe to use as one path component.</summary>
     public static bool IsSafeName(string? name) => name is not null && SafeNameRegex().IsMatch(name);
 
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")]
+    [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\z")]
     private static partial Regex SafeNameRegex();
 
-    [GeneratedRegex("^[0-9a-fA-F]{64}$")]
+    [GeneratedRegex(@"^[0-9a-fA-F]{64}\z")]
     private static partial Regex Sha256Regex();
 }

@@ -52,6 +52,13 @@ public class MemoryAreasTests
         Assert.True(check.IsValid, check.Reason);
     }
 
+    [Theory]
+    [InlineData(MemoryKind.Failure, "agents/alpha/memory/failures/timeouts\n.md")]
+    [InlineData(MemoryKind.Failure, "agents/alpha\n/memory/failures/timeouts.md")]
+    [InlineData(MemoryKind.Episodic, "agents/alpha/memory/episodes/2026-10-30/" + _ulid + "\n.md")]
+    public void A_trailing_line_break_in_a_name_is_not_a_valid_name(MemoryKind kind, string path) =>
+        Assert.False(MemoryAreas.CheckPath(path, kind).IsValid);
+
     [Fact]
     public void Scope_owner_and_hive_kind_are_reported()
     {
