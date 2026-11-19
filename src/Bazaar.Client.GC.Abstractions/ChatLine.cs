@@ -1,6 +1,6 @@
 namespace Bazaar.Client.GC.Abstractions;
 
-/// <summary>One message as a chat view shows it. Immutable; built by <see cref="ChatTimeline"/>.</summary>
+/// <summary>One message as a chat view shows it. Immutable; built by <c>ChatTimeline</c> in Bazaar.Client.GC.</summary>
 /// <param name="N">The message's log sequence number.</param>
 /// <param name="AuthorId">Principal who wrote the message.</param>
 /// <param name="Author">Display label, with the agent marker when it applies.</param>

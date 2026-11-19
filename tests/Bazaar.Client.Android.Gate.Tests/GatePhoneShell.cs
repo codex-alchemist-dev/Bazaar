@@ -8,6 +8,7 @@ using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Server;
 using Bazaar.Client.Core.Vault;
+using Bazaar.Client.GC;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
@@ -28,7 +29,7 @@ internal static class GatePhoneShell
     {
         var tiles = new EmptyTileSource();
         var vault = VaultApiFactory.Create(PairedEndpoint, new EmptyResponseHandler());
-        var modules = FirstPartyPanes.Modules;
+        IReadOnlyList<IPaneModule> modules = [.. FirstPartyPanes.Modules, GcPanes.Module];
         var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles, vault: vault);
         Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(registry);
 
