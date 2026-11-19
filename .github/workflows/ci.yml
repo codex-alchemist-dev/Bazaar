@@ -73,9 +73,11 @@ jobs:
         run: |
           set -euo pipefail
           PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
+          # Throwaway test database: data on tmpfs and no fsync, so a loaded runner does not time out on disk I/O.
           docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
+            --tmpfs /var/lib/postgresql:rw,size=4g \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            pgvector/pgvector:pg18 -c max_locks_per_transaction=512
+            pgvector/pgvector:pg18 -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
@@ -317,7 +319,7 @@ jobs:
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
           docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            bazaar-pg19:ci -c max_locks_per_transaction=512
+            bazaar-pg19:ci -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
