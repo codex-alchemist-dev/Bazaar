@@ -265,10 +265,12 @@ public sealed class WireClient(
                 break;
             case (EnvelopeKind.Event, WireTypes.Lagged):
                 // Live delivery stopped for this stream; resubscribe from the cursor so nothing is lost.
-                await SendSubscribeAsync(conn, [codec.DecodePayload<Lagged>(env).S], ct).ConfigureAwait(false);
+                var lagged = codec.DecodePayload<Lagged>(env).S;
+                if (IsSubscribed(lagged)) await SendSubscribeAsync(conn, [lagged], ct).ConfigureAwait(false);
                 break;
             case (EnvelopeKind.Event, WireTypes.Resync):
                 var resync = codec.DecodePayload<Resync>(env);
+                if (!IsSubscribed(resync.S)) break;
                 foreach (var m in resync.Tail) Apply(m);
                 var cur = cursors.Load(resync.S);
                 cursors.Save(new StreamCursor(resync.S, Math.Max(cur.After, resync.LatestN), Math.Max(cur.EditAfter, resync.LatestEv)));
@@ -286,10 +288,16 @@ public sealed class WireClient(
     private void Apply(WireGcMessage m)
     {
         string stream = WireStreams.Gc(m.GcId);
+        if (!IsSubscribed(stream)) return; // never asked for, or access was revoked: not delivered, and no cursor grows for it
         var cur = cursors.Load(stream);
         if (m.N <= cur.After && m.Ev <= cur.EditAfter) return;
         cursors.Save(new StreamCursor(stream, Math.Max(cur.After, m.N), Math.Max(cur.EditAfter, m.Ev)));
         _messages.Writer.TryWrite(m);
+    }
+
+    private bool IsSubscribed(string stream)
+    {
+        lock (_gate) return _streams.Contains(stream);
     }
 
     private ValueTask SendSubscribeAsync(IWireConnection conn, IEnumerable<string> streams, CancellationToken ct)
