@@ -87,6 +87,11 @@ public sealed class JsonWireCodec : IWireCodec
         {
             throw new WireFormatException("Payload does not match the message type.", ex);
         }
+        catch (ArgumentException ex)
+        {
+            // A payload record validates in its constructor (ReleaseManifest, for one); a bad value is a bad frame.
+            throw new WireFormatException("Payload breaks the message type's rules.", ex);
+        }
     }
 
     private static Envelope DecodeCore(ReadOnlySpan<byte> frame)
