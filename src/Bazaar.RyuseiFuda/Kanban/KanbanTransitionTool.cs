@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Turns.Tools;
 
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>
 /// The <c>kanban.transition</c> agent tool (doc 12, Interception at tool dispatch). It is the only agent path that moves a
