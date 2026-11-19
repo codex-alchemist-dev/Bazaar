@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Vms.Kvm.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The module is platform-neutral: it reaches libvirt and qemu-img only through IKvmHost (doc 16), so cloud CI never needs KVM. -->
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+  </ItemGroup>
+</Project>
