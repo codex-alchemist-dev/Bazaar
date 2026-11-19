@@ -187,6 +187,32 @@ public sealed class KekProviderTests : IDisposable
     }
 
     [Fact]
+    public void OpenOrCreate_creates_the_boot_root_key_once_and_reuses_it()
+    {
+        var bootRoot = Path.Combine(_root, "boot");
+        var configuration = new FakeConfiguration(new Dictionary<string, string?>
+        {
+            [KekComponent.KekProviderKey] = "file",
+            [KekComponent.BootRootKey] = bootRoot,
+        });
+
+        using var created = KekComponent.OpenOrCreate(configuration) as IDisposable;
+        Assert.True(File.Exists(Path.Combine(bootRoot, "keys", "kek.bin")));
+
+        var first = ((IKekProvider)created!).KekId;
+        using var reopened = KekComponent.OpenOrCreate(configuration) as IDisposable;
+        Assert.Equal(first, ((IKekProvider)reopened!).KekId);
+    }
+
+    [Fact]
+    public void OpenOrCreate_needs_a_boot_root()
+    {
+        var configuration = new FakeConfiguration(new Dictionary<string, string?> { [KekComponent.DataRootKey] = _root });
+
+        Assert.Throws<InvalidOperationException>(() => KekComponent.OpenOrCreate(configuration));
+    }
+
+    [Fact]
     public void Factory_defaults_to_the_platform_choice()
     {
         var expected = OperatingSystem.IsWindows() ? "dpapi" : "file";

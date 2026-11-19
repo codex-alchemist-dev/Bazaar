@@ -20,6 +20,11 @@ if (args.Length > 0 && args[0].Equals("volume", StringComparison.OrdinalIgnoreCa
     return await VolumeSubcommand.RunAsync(args[1..], Console.Out);
 }
 
+if (args.Length > 0 && args[0].Equals("storage", StringComparison.OrdinalIgnoreCase))
+{
+    return await StorageSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddBazaarHostApplication(builder.Configuration);

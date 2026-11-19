@@ -46,6 +46,20 @@ public sealed class KekComponent : IBazaarComponent
         return KekProviderFactory.Create(configuration[KekProviderKey], bootRoot, KekOpenMode.OpenExisting);
     }
 
+    /// <summary>
+    /// Opens the KEK under <c>Bazaar:Host:BootRoot</c> and creates it when absent. Only setup (<c>storage init</c>) and the
+    /// restore wizard call this; the host and the volume unit use <see cref="OpenExisting"/>.
+    /// </summary>
+    public static IKekProvider OpenOrCreate(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        var bootRoot = configuration[BootRootKey];
+        if (string.IsNullOrWhiteSpace(bootRoot))
+            throw new InvalidOperationException($"{BootRootKey} is required to create the KEK.");
+
+        return KekProviderFactory.Create(configuration[KekProviderKey], bootRoot, KekOpenMode.CreateIfMissing);
+    }
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IKekProvider>(_ =>
