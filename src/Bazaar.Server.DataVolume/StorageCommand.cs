@@ -216,10 +216,10 @@ public static class StorageCommand
     private static InitPlan BuildPlan(InitArguments args, DataVolumeOptions options, List<IDataVolumeOperator> operators, List<IDataVolumeProvider> providers)
     {
         if (File.Exists(options.DescriptorPath))
-            throw new DataVolumeRefusedException(DataVolumeRefusal.IdentityMismatch, $"A volume descriptor already exists at '{options.DescriptorPath}'. storage init never overwrites or re-keys an install.");
+            throw new DataVolumeRefusedException(DataVolumeRefusal.AlreadyInitialised, $"A volume descriptor already exists at '{options.DescriptorPath}'. storage init never overwrites or re-keys an install.");
 
         if (Directory.Exists(options.DataRoot) && Directory.EnumerateFileSystemEntries(options.DataRoot).Any())
-            throw new DataVolumeRefusedException(DataVolumeRefusal.IdentityMismatch, $"The data root '{options.DataRoot}' is not empty. A new volume mounts on an empty folder; use storage migrate for existing data.");
+            throw new DataVolumeRefusedException(DataVolumeRefusal.AlreadyInitialised, $"The data root '{options.DataRoot}' is not empty. A new volume mounts on an empty folder; use storage migrate for existing data.");
 
         var kind = args.Provider!;
         var installIdGenerated = string.IsNullOrWhiteSpace(options.InstallId);
@@ -258,7 +258,7 @@ public static class StorageCommand
             if (IsInside(options.DataRoot, containerPath))
                 throw new DataVolumeRefusedException(DataVolumeRefusal.NotInitialised, "The container file must not be inside the data root it encrypts.");
             if (File.Exists(containerPath) || Directory.Exists(containerPath))
-                throw new DataVolumeRefusedException(DataVolumeRefusal.IdentityMismatch, $"The container '{containerPath}' already exists. storage init never reuses or replaces a container.");
+                throw new DataVolumeRefusedException(DataVolumeRefusal.AlreadyInitialised, $"The container '{containerPath}' already exists. storage init never reuses or replaces a container.");
         }
 
         var maxBytes = args.ContainerKind == "file" ? args.MaxGb!.Value * _bytesPerGb : 0;

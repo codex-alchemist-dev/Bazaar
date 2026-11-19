@@ -20,6 +20,9 @@ public enum DataVolumeRefusal
 
     /// <summary>A PostgreSQL directory (data, WAL, tablespace) resolves outside the verified data root.</summary>
     PostgresFilesOutsideVolume,
+
+    /// <summary>Setup only: a descriptor, a container or data already exists where <c>storage init</c> would create one. Nothing is overwritten.</summary>
+    AlreadyInitialised,
 }
 
 /// <summary>Thrown when a data volume check fails. The host logs one line and exits with <see cref="ExitCode"/>.</summary>
@@ -45,6 +48,7 @@ public sealed class DataVolumeRefusedException : Exception
         DataVolumeRefusal.IdentityMismatch => "data_volume_identity_mismatch",
         DataVolumeRefusal.MarkerInvalid => "data_volume_marker_invalid",
         DataVolumeRefusal.PostgresFilesOutsideVolume => "postgres_files_outside_volume",
+        DataVolumeRefusal.AlreadyInitialised => "data_volume_already_initialised",
         _ => "data_volume_refused",
     };
 }
