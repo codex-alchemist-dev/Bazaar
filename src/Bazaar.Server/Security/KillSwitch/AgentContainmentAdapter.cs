@@ -104,6 +104,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         // Store and mark first: a contain that fails half way still needs a release afterwards. A failed store write
@@ -146,6 +147,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         var key = ApprovalSignature.IsValidDeviceId(deviceId) ? await _owners.FindAsync(deviceId, ct).ConfigureAwait(false) : null;
@@ -170,10 +172,11 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentNullException.ThrowIfNull(request);
         var claimed = request.DeviceId ?? string.Empty;
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-        // The agent id in the request is what was signed, so it must be the agent being released.
-        if (!string.Equals(request.AgentId, agentId, StringComparison.Ordinal))
+        // The agent id in the request is what was signed, so it must be the agent being released (the same agent, in any spelling).
+        if (!AgentIds.Same(request.AgentId, agentId))
         {
             return await DenyAsync(claimed, agentId, "Request is for a different agent.", ct).ConfigureAwait(false);
         }
@@ -189,7 +192,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             return await DenyAsync(claimed, agentId, "Request is malformed.", ct).ConfigureAwait(false);
         }
 
-        var message = ApprovalSignature.ReleaseMessage(agentId, claimed, request.Nonce, request.ExpiresAt);
+        var message = ApprovalSignature.ReleaseMessage(request.AgentId, claimed, request.Nonce, request.ExpiresAt);
         if (!ApprovalSignature.Verify(key.PublicKeySpki, message, request.Signature))
         {
             // Not consumed: a request nobody holding the key signed must not be able to burn the owner's nonce.
@@ -203,7 +206,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             return await DenyAsync(claimed, agentId, "Nonce was not issued or was already used.", ct).ConfigureAwait(false);
         }
 
-        if (!string.Equals(pending.AgentId, agentId, StringComparison.Ordinal) || !string.Equals(pending.DeviceId, claimed, StringComparison.Ordinal))
+        if (!AgentIds.Same(pending.AgentId, agentId) || !string.Equals(pending.DeviceId, claimed, StringComparison.Ordinal))
         {
             return await DenyAsync(claimed, agentId, "Nonce was issued for a different agent or device.", ct).ConfigureAwait(false);
         }
@@ -268,7 +271,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             _contained.Clear();
             foreach (var agent in agents)
             {
-                _contained[agent.AgentId] = 0;
+                _contained[AgentIds.Canonical(agent.AgentId)] = 0;
             }
             _loaded = true;
         }

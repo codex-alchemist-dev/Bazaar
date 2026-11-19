@@ -137,6 +137,7 @@ public sealed class KillSwitchEngine
     {
         ValidateActorAndReason(actorId, reason);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         var now = _time.GetUtcNow();
@@ -167,6 +168,7 @@ public sealed class KillSwitchEngine
         var actorId = request.DeviceId;
         ValidateActorAndReason(actorId, reason);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         KillSwitchStop? previous;
@@ -226,6 +228,7 @@ public sealed class KillSwitchEngine
             throw new ArgumentOutOfRangeException(nameof(effect), effect, "Unknown tool effect.");
         }
 
+        agentId = AgentIds.Canonical(agentId);
         lock (_gate)
         {
             if (!_loaded)
@@ -297,7 +300,12 @@ public sealed class KillSwitchEngine
                 _agentStops.Clear();
                 foreach (var stop in status.AgentStops)
                 {
-                    _agentStops[stop.AgentId!] = stop;
+                    // Rows written before ids were canonicalised may carry another spelling; two spellings of one agent keep the earlier stop.
+                    var key = AgentIds.Canonical(stop.AgentId!);
+                    if (!_agentStops.TryGetValue(key, out var kept) || stop.Since < kept.Since)
+                    {
+                        _agentStops[key] = stop with { AgentId = key };
+                    }
                 }
                 _loaded = true;
                 _loadFailure = null;

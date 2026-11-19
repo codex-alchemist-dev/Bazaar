@@ -13,7 +13,9 @@ public sealed record ContainedAgent(string AgentId, DateTimeOffset ContainedAt, 
 /// </summary>
 /// <remarks>
 /// <see cref="AddAsync"/> keeps the first record for an agent that is already contained. A write that throws must leave the
-/// stored set as it was.
+/// stored set as it was. Ids are compared by <see cref="AgentIds.Canonical"/>: an add stores the canonical spelling, a remove drops
+/// every stored spelling of the agent, and a load returns canonical ids, one record per agent (the earliest), so rows written
+/// before ids were canonicalised still match.
 /// </remarks>
 public interface IContainmentStateStore
 {
@@ -41,6 +43,10 @@ public static class AgentIds
         ArgumentNullException.ThrowIfNull(agentId);
         return Guid.TryParse(agentId, out var guid) ? guid.ToString("D") : agentId.Trim();
     }
+
+    /// <summary>Whether the two ids name the same agent, whatever their spelling.</summary>
+    public static bool Same(string? left, string? right) =>
+        left is not null && right is not null && string.Equals(Canonical(left), Canonical(right), StringComparison.Ordinal);
 }
 
 /// <summary>
