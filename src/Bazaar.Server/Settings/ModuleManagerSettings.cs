@@ -13,7 +13,7 @@ namespace Bazaar.Server.Settings;
 public static class ModuleManagerSettings
 {
     public static readonly SettingKey<int> DeferWarnDays = new(
-        DeferAging.DeferWarnDaysSettingKey, DeferAging.DefaultDeferWarnDays, SettingScope.Install, SettingRole.Operator,
+        ModuleManagerSettingNames.DeferWarnDaysSettingKey, ModuleManagerSettingNames.DefaultDeferWarnDays, SettingScope.Install, SettingRole.Operator,
         "Days a deferred update may wait before the module manager and Kodo show it as aging.",
         validate: Between(7, 365, "deps.update.deferWarnDays"));
 

@@ -64,6 +64,16 @@ Enabled types are set by `council.vote_types_enabled` (approve/reject and option
 - **Deadline:** `council.vote_deadline_working_days` (1) on each voter's own schedule, capped by `council.vote_deadline_cap_hours` (72) wall clock; `council.vote_extensions_max` (1) extension, then Escalated.
 - **Follow-up trigger:** no decisive result, or at least `council.followup_dissent_share` (0.33) dissent on a high-impact motion. `council.followup_enabled` is on in the pilot. The one-round cap is fixed (DECIDED).
 
+### Follow-up on dissent [PROPOSED]
+
+This rule adds a follow-up trigger for ordinary motions only. A bigger change keeps the unanimity rule above unchanged: any split still goes to follow-up, and a split after follow-up escalates.
+
+- **High-impact flag:** a motion carries a boolean `high_impact`, set by the proposer when the motion opens. The default is false, so an ordinary motion without the flag is decided exactly as before. The flag is not yet stored on `council_vote`; until it is, the Council opens every vote with it false. Adding the column is a schema change for doc 04 and needs its own item.
+- **Dissent share:** the number of non-abstaining ballots cast against the choice that would otherwise be decided, divided by the number of non-abstaining ballots cast in that round. For approve/reject, a Yes result counts each No as dissent; for option choice, each ballot for another option counts. Abstentions are in neither count. The denominator is ballots cast, not the eligible electorate, so quorum and the vote-type majority are unchanged.
+- **Trigger:** in the independent round only, a high-impact ordinary motion that would otherwise be decided goes to follow-up when at least one ballot dissents and the dissent share is at least `council.followup_dissent_share` (default 0.33). A share exactly equal to the setting triggers.
+- **After follow-up:** the one-round cap is fixed (DECIDED), so the follow-up tally decides as the vote-type rules say. Dissent after follow-up does not escalate on its own. [PROPOSED]
+- **Setting:** `council.followup_dissent_share` is a decimal from 0 to 1 inclusive. At 0 any dissent triggers; at 1 the trigger cannot fire, because a decided choice has more than half of the non-abstaining ballots.
+
 ### Weighting
 
 Equal weight per voter by default: `council.reputation_weight` = 1.0 (no weighting), matching doc 11. The setting may be raised to at most 1.5, a bounded factor from hard outcomes (CI, reverts, owner accept or reject), domain-matched [PROPOSED]. Peer-review weighting is not proposed.
