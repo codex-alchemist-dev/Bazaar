@@ -24,6 +24,46 @@ public class TokenAmountTests
         Assert.Equal(16_383, _pg.MaxFractionDigits);
     }
 
+    [Theory]
+    [InlineData("131072,16383", 131_072, 16_383)]
+    [InlineData(" 5 , 0 ", 5, 0)]
+    [InlineData("0,0", 0, 0)]
+    public void Bounds_text_form_round_trips(string text, int before, int after)
+    {
+        var bounds = TokenAmountBounds.Parse(text);
+
+        Assert.Equal(new TokenAmountBounds(before, after), bounds);
+        Assert.Equal(bounds, TokenAmountBounds.Parse(bounds.ToString()));
+        Assert.Equal("131072,16383", _pg.ToString());
+    }
+
+    [Theory]
+    [InlineData("unlimited")]
+    [InlineData("UNLIMITED")]
+    public void Unlimited_bounds_parse_and_print_as_unlimited(string text)
+    {
+        var bounds = TokenAmountBounds.Parse(text);
+
+        Assert.True(bounds.IsUnlimited);
+        Assert.Equal("unlimited", bounds.ToString());
+        Assert.Equal(new TokenAmountBounds(10, 3), TokenAmountBounds.Intersect(bounds, new TokenAmountBounds(10, 3)));
+        Assert.False(_pg.IsUnlimited);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("131072")]
+    [InlineData("-1,0")]
+    [InlineData("1,-1")]
+    [InlineData("1.5,2")]
+    [InlineData("a,b")]
+    [InlineData("unlimited,1")]
+    public void Bounds_text_form_refuses_anything_else(string text)
+    {
+        Assert.False(TokenAmountBounds.TryParse(text, out _));
+        Assert.Throws<FormatException>(() => TokenAmountBounds.Parse(text));
+    }
+
     [Fact]
     public void Bounds_refuse_negative_digit_counts()
     {

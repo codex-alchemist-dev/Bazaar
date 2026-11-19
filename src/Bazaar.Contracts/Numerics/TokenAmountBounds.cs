@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Bazaar.Contracts.Numerics;
 
 /// <summary>
@@ -13,6 +15,60 @@ public readonly record struct TokenAmountBounds
     /// an unconstrained <c>numeric</c> column. The default bound everywhere a bound is not given.
     /// </summary>
     public static TokenAmountBounds PostgresNumeric { get; } = new(131_072, 16_383);
+
+    /// <summary>
+    /// No digit limit of its own: the most digits an in-memory amount can index on each side. Text form <c>unlimited</c>. A
+    /// parse into <see cref="TokenAmount"/> is still bounded by the process, so callers that parse untrusted text intersect
+    /// this with an in-memory maximum (doc 48, DECIDED 11.4, "Intake guard").
+    /// </summary>
+    public static TokenAmountBounds Unlimited { get; } = new(int.MaxValue, int.MaxValue);
+
+    /// <summary>The text form of <see cref="Unlimited"/>.</summary>
+    public const string UnlimitedText = "unlimited";
+
+    /// <summary>True for <see cref="Unlimited"/>.</summary>
+    public bool IsUnlimited => this == Unlimited;
+
+    /// <summary>The tighter of two bounds on each side.</summary>
+    public static TokenAmountBounds Intersect(TokenAmountBounds left, TokenAmountBounds right) =>
+        new(Math.Min(left.MaxIntegerDigits, right.MaxIntegerDigits), Math.Min(left.MaxFractionDigits, right.MaxFractionDigits));
+
+    /// <summary>
+    /// The text form: <c>unlimited</c>, or the integer and fraction digit counts separated by a comma, such as
+    /// <c>131072,16383</c>.
+    /// </summary>
+    public override string ToString() =>
+        IsUnlimited ? UnlimitedText : string.Create(CultureInfo.InvariantCulture, $"{MaxIntegerDigits},{MaxFractionDigits}");
+
+    /// <summary>Parses the text form of <see cref="ToString"/>: <c>unlimited</c> (any case) or two non-negative counts.</summary>
+    public static bool TryParse(ReadOnlySpan<char> text, out TokenAmountBounds bounds)
+    {
+        bounds = default;
+        text = text.Trim();
+        if (text.Equals(UnlimitedText, StringComparison.OrdinalIgnoreCase))
+        {
+            bounds = Unlimited;
+            return true;
+        }
+
+        var comma = text.IndexOf(',');
+        if (comma < 0
+            || !int.TryParse(text[..comma].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var integer)
+            || !int.TryParse(text[(comma + 1)..].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var fraction))
+        {
+            return false;
+        }
+
+        bounds = new TokenAmountBounds(integer, fraction);
+        return true;
+    }
+
+    /// <summary>Parses the text form of <see cref="ToString"/>.</summary>
+    /// <exception cref="FormatException">The text is not <c>unlimited</c> or two non-negative counts.</exception>
+    public static TokenAmountBounds Parse(ReadOnlySpan<char> text) =>
+        TryParse(text, out var bounds)
+            ? bounds
+            : throw new FormatException("Not digit bounds: expected 'unlimited' or '<integer digits>,<fraction digits>'.");
 
     /// <param name="maxIntegerDigits">Most digits allowed before the decimal point. Zero or more.</param>
     /// <param name="maxFractionDigits">Most digits allowed after the decimal point. Zero or more.</param>

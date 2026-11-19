@@ -152,4 +152,105 @@ public class TokenBudgetOptionsTests
     {
         Assert.Equal("Bazaar:Safety:Budgets", TokenBudgetServiceCollectionExtensions.ConfigurationSection);
     }
+
+    [Fact]
+    public void Large_amount_settings_default_to_the_doc_48_table()
+    {
+        // Doc 48, DECIDED 11.4: intake guard and in-memory maximum default to the inline tier; staging age 24 hours.
+        var options = new TokenBudgetOptions();
+
+        Assert.Equal(TokenAmountBounds.PostgresNumeric, options.AmountIntakeMaxDigits);
+        Assert.Equal(147_455, options.InMemoryMaxDigits);
+        Assert.Equal(24, options.LargeAmountStagingHours);
+        Assert.Equal(TimeSpan.FromHours(24), options.LargeAmountStagingAge);
+        Assert.Equal(TokenAmountBounds.PostgresNumeric, options.AmountParseBounds);
+    }
+
+    [Theory]
+    [InlineData(0, 24, nameof(TokenBudgetOptions.InMemoryMaxDigits))]
+    [InlineData(-1, 24, nameof(TokenBudgetOptions.InMemoryMaxDigits))]
+    [InlineData(10, 0, nameof(TokenBudgetOptions.LargeAmountStagingHours))]
+    public void Validate_rejects_large_amount_settings_below_one(int inMemoryMaxDigits, int stagingHours, string paramName)
+    {
+        var options = new TokenBudgetOptions { InMemoryMaxDigits = inMemoryMaxDigits, LargeAmountStagingHours = stagingHours };
+
+        Assert.Equal(paramName, Assert.Throws<ArgumentOutOfRangeException>(() => options.Validate()).ParamName);
+    }
+
+    [Fact]
+    public void Validate_rejects_a_limit_with_more_digits_than_the_in_memory_maximum()
+    {
+        // Limits stored as large amounts are PLANNED; until then a limit must be materialisable.
+        var tooLong = TokenAmount.Parse("1e147455", new TokenAmountBounds(150_000, 0));
+        var options = new TokenBudgetOptions { WeeklyTokens = tooLong };
+
+        Assert.Equal(nameof(TokenBudgetOptions.WeeklyTokens), Assert.Throws<ArgumentOutOfRangeException>(() => options.Validate()).ParamName);
+
+        options.InMemoryMaxDigits = 147_456;
+        options.Validate();
+    }
+
+    [Fact]
+    public void A_raised_intake_guard_binds_a_limit_beyond_the_numeric_bounds()
+    {
+        var options = Bind(new()
+        {
+            ["AmountIntakeMaxDigits"] = "unlimited",
+            ["InMemoryMaxDigits"] = "200001",
+            ["LargeAmountStagingHours"] = "6",
+            ["HourlyTokens"] = "1e200000",
+        });
+
+        Assert.True(options.AmountIntakeMaxDigits.IsUnlimited);
+        Assert.Equal(200_001, options.InMemoryMaxDigits);
+        Assert.Equal(6, options.LargeAmountStagingHours);
+        Assert.Equal(200_001, options.HourlyTokens.IntegerDigitCount);
+    }
+
+    [Fact]
+    public void The_default_intake_guard_refuses_a_limit_beyond_the_inline_tier()
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => Bind(new() { ["HourlyTokens"] = "1e131072" }));
+
+        Assert.Contains("HourlyTokens", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_unlimited_intake_guard_is_still_bounded_by_the_in_memory_maximum()
+    {
+        // An exponent is short text for a huge value; the parse bound keeps it from being built in memory.
+        Assert.Throws<InvalidOperationException>(() => Bind(new() { ["AmountIntakeMaxDigits"] = "unlimited", ["DailyTokens"] = "1e147455" }));
+    }
+
+    [Fact]
+    public void Text_longer_than_a_lowered_guard_is_refused_before_it_is_read()
+    {
+        var error = Assert.Throws<InvalidOperationException>(
+            () => Bind(new() { ["AmountIntakeMaxDigits"] = "5,0", ["WeeklyTokens"] = new string('0', 40) + "1" }));
+
+        Assert.Contains("not read", error.Message, StringComparison.Ordinal);
+        Assert.Throws<InvalidOperationException>(() => Bind(new() { ["AmountIntakeMaxDigits"] = "5,0", ["WeeklyTokens"] = "999999" }));
+        Assert.Equal(TokenAmount.FromInt64(99_999), Bind(new() { ["AmountIntakeMaxDigits"] = "5,0", ["WeeklyTokens"] = "99999" }).WeeklyTokens);
+    }
+
+    [Theory]
+    [InlineData("AmountIntakeMaxDigits", "lots")]
+    [InlineData("AmountIntakeMaxDigits", "-1,0")]
+    [InlineData("InMemoryMaxDigits", "many")]
+    [InlineData("LargeAmountStagingHours", "1.5")]
+    public void Malformed_large_amount_settings_are_refused(string key, string value)
+    {
+        Assert.Throws<InvalidOperationException>(() => Bind(new() { [key] = value }));
+    }
+
+    private static TokenBudgetOptions Bind(Dictionary<string, string?> values)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values.ToDictionary(pair => $"Bazaar:Safety:Budgets:{pair.Key}", pair => pair.Value))
+            .Build();
+        var services = new ServiceCollection();
+        services.AddAgentTokenBudgets(configuration);
+        using var provider = services.BuildServiceProvider();
+        return provider.GetRequiredService<TokenBudgetOptions>();
+    }
 }
