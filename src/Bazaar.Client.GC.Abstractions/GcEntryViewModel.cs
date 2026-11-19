@@ -3,7 +3,7 @@ using Bazaar.Contracts.Gc;
 namespace Bazaar.Client.GC.Abstractions;
 
 /// <summary>
-/// Header fields shared by every timeline entry. Built by <see cref="GcEntryBuilder"/>.
+/// Header fields shared by every timeline entry. Built by <c>GcEntryBuilder</c> in Bazaar.Client.GC.
 /// </summary>
 /// <param name="GcId">The group chat the entry belongs to.</param>
 /// <param name="Seq">Sequence number of the entry's first event. The row key is (GcId, Seq).</param>
