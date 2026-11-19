@@ -47,7 +47,8 @@ public sealed class CrashSubmitHandlerTests
 
     private CrashSubmitHandler Handler() => new(
         new CrashIntakeFactory(_store, new FakeSealer(), new RecordingAudit(), new ResolvedSymbols(), TimeProvider.System, new CrashFilingOptions { IssueRepo = "o/r" }),
-        _registry);
+        _registry,
+        new InMemoryPendingAttachmentStore(new PendingAttachmentOptions(), TimeProvider.System));
 
     private static WireRequestContext Request(Guid device, byte[] payload) =>
         new(new FakeConnection(device.ToString("D"), new JsonWireCodec()), new Envelope(1, CrashWireTypes.Submit, EnvelopeKind.Request, "1", null, null, null, null, payload));

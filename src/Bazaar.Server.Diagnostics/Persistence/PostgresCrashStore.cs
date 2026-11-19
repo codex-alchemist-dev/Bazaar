@@ -106,6 +106,40 @@ public sealed class PostgresCrashStore(NpgsqlDataSource dataSource) : ICrashInta
     }
 
     /// <inheritdoc />
+    public async Task<bool> AttachLateAsync(StoredCrashAttachment attachment, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(attachment);
+
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        // Lock the report row, so two late uploads for one report cannot both pass the check below.
+        await using (var lockCmd = new NpgsqlCommand("SELECT 1 FROM crash_report WHERE report_id = $1 FOR UPDATE", conn, tx))
+        {
+            lockCmd.Parameters.AddWithValue(attachment.ReportId);
+            if (await lockCmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is null)
+            {
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return false;
+            }
+        }
+
+        await using (var existsCmd = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM crash_attachment WHERE report_id = $1)", conn, tx))
+        {
+            existsCmd.Parameters.AddWithValue(attachment.ReportId);
+            if (await existsCmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is true)
+            {
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return false;
+            }
+        }
+
+        await InsertAttachmentAsync(conn, tx, attachment, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<PendingCrashAction>> GetDueAsync(DateTimeOffset now, int max, CancellationToken ct = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(max);

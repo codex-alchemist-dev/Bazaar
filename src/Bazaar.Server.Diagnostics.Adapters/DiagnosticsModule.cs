@@ -116,7 +116,20 @@ public static class DiagnosticsModule
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<CrashDiagnosisOptions>()));
         services.AddSingleton<IErasureParticipant, CrashErasureParticipant>();
+        services.TryAddSingleton(new AttachmentUploadOptions
+        {
+            SessionLifetime = TimeSpan.FromMinutes(section.GetValue("AttachmentSessionMinutes", 10)),
+        });
+        services.TryAddSingleton(new PendingAttachmentOptions
+        {
+            Lifetime = TimeSpan.FromMinutes(section.GetValue("PendingAttachmentMinutes", 10)),
+        });
+        services.TryAddSingleton<AttachmentUploadAssembler>();
+        services.TryAddSingleton<IPendingAttachmentStore, InMemoryPendingAttachmentStore>();
         services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashSubmitHandler>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentBeginHandler>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentChunkHandler>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentEndHandler>();
         services.AddHostedService<CrashMaintenanceService>();
         return services;
     }

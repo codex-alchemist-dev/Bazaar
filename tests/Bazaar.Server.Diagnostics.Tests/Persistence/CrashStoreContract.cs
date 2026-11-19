@@ -222,6 +222,26 @@ public abstract class CrashStoreContract
 
         Assert.Equal(CrashCommitStatus.Committed, status);
     }
+
+    [Fact]
+    public async Task A_late_screenshot_attaches_once_to_a_stored_report_and_never_to_an_unknown_one()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (store, _, handle) = await CreateAsync(ct);
+        await using var _h = handle;
+        var report = Report();
+        await store.CommitAsync(new CrashCommit(report, null, NewGroup(), null, []), ct);
+        var attachment = new StoredCrashAttachment(
+            Guid.NewGuid(), report.ReportId, "image/png", new string('b', 64), new SealedPayload("key-1", [1, 2, 3], [4, 5, 6], [7, 8]));
+
+        var first = await store.AttachLateAsync(attachment, ct);
+        var second = await store.AttachLateAsync(attachment with { AttachmentId = Guid.NewGuid() }, ct);
+        var unknown = await store.AttachLateAsync(attachment with { AttachmentId = Guid.NewGuid(), ReportId = Guid.NewGuid() }, ct);
+
+        Assert.True(first);
+        Assert.False(second);
+        Assert.False(unknown);
+    }
 }
 
 public sealed class InMemoryCrashStoreContractTests : CrashStoreContract
