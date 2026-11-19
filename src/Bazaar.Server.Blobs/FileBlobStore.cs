@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 
-namespace Bazaar.Server.Http.Blobs;
+namespace Bazaar.Server.Blobs;
 
 /// <summary>
 /// Filesystem <see cref="IBlobStore"/> under one operator-set root: <c>blobs/ab/&lt;hash&gt;</c> for committed bytes (with an
@@ -14,12 +14,12 @@ public sealed class FileBlobStore : IBlobStore
 
     private readonly string _blobs;
     private readonly string _uploads;
-    private readonly HttpSurfaceOptions _options;
+    private readonly BlobStoreOptions _options;
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim[] _locks = [.. Enumerable.Range(0, _stripes).Select(_ => new SemaphoreSlim(1, 1))];
 
     /// <summary>Creates the store and its directories.</summary>
-    public FileBlobStore(HttpSurfaceOptions options, TimeProvider time)
+    public FileBlobStore(BlobStoreOptions options, TimeProvider time)
     {
         _options = options;
         _time = time;
