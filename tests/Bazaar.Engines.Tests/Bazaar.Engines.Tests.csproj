@@ -15,6 +15,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Engines\Bazaar.Engines.csproj" />
     <ProjectReference Include="FakeAdapter\FakeAdapter.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />

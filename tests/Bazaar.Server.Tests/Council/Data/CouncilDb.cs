@@ -21,8 +21,8 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
             return;
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
-        var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common);
-        var council = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load("council");
+        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(MigrationRunner.Common);
+        var council = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load("council");
         var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat(council));
         await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, "council", CancellationToken.None);
     }

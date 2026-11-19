@@ -11,7 +11,7 @@ namespace Bazaar.Server.Modules.Tests.Persistence;
 /// </summary>
 public sealed partial class ModuleManagerMigrationTests
 {
-    private static readonly EmbeddedMigrationSource _source = new(typeof(MigrationRunner).Assembly);
+    private static readonly EmbeddedMigrationSource _source = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
     private static string ModuleSql =>
         Assert.Single(_source.Load("modules"), f => f.Version == 1 && f.Name == "module_manager").Sql;

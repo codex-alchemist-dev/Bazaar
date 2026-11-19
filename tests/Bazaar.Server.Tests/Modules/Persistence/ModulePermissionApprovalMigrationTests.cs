@@ -6,7 +6,7 @@ namespace Bazaar.Server.Tests.Modules.Persistence;
 /// <summary>The text of <c>modules/0002</c>: the table's guards and grants. The behaviour is checked against Postgres in <c>Bazaar.Server.Modules.Tests.Install.ModuleApprovalPersistenceTests</c>.</summary>
 public sealed class ModulePermissionApprovalMigrationTests
 {
-    private static readonly EmbeddedMigrationSource _source = new(typeof(MigrationRunner).Assembly);
+    private static readonly EmbeddedMigrationSource _source = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
     private static string Sql => Assert.Single(_source.Load("modules"), f => f.Version == 2 && f.Name == "permission_approval").Sql;
 
