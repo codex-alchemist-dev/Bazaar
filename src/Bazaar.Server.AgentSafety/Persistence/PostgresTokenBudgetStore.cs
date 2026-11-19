@@ -1,8 +1,9 @@
 using Bazaar.Contracts.Numerics;
+using Bazaar.Server.Security.Budgets;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace Bazaar.Server.Security.Budgets.Postgres;
+namespace Bazaar.Server.AgentSafety.Persistence;
 
 /// <summary>
 /// Postgres <see cref="ITokenBudgetStore"/> over the <c>agent_token_spend</c> table (agent_safety migrations 0001 and 0005).

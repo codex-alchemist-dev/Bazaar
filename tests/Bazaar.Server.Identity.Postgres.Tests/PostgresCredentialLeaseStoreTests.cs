@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Identity;
 using Bazaar.Server.Identity.Postgres;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
@@ -12,7 +11,7 @@ public sealed class PostgresCredentialLeaseStoreTests
 {
     private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource).MigrateAsync(
-            new EmbeddedMigrationSource(typeof(PostgresTokenBudgetStore).Assembly), MigrateCommand.CurrentProvider(), ct);
+            new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), MigrateCommand.CurrentProvider(), ct);
 
     /// <summary>A credential row, which every lease points at. Its data key row comes first, as the schema requires.</summary>
     private static async Task<CredentialId> InsertCredentialAsync(NpgsqlDataSource dataSource, CancellationToken ct)

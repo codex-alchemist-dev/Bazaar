@@ -1,5 +1,4 @@
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Npgsql;
 
 namespace Bazaar.Server.AgentSafety.Tests;
@@ -9,5 +8,5 @@ internal static class ServerMigrations
 {
     public static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource).MigrateAsync(
-            new EmbeddedMigrationSource(typeof(PostgresTokenBudgetStore).Assembly), MigrateCommand.CurrentProvider(), ct);
+            new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), MigrateCommand.CurrentProvider(), ct);
 }

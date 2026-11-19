@@ -10,7 +10,7 @@ namespace Bazaar.Server.Security.Budgets;
 /// Amounts are exact <see cref="TokenAmount"/> values, so no sum or difference can wrap (doc 48, DECIDED 11.3). A window
 /// sum given as null is one the store could not represent; it counts as over every limit, so the call is denied.
 /// </remarks>
-internal static class TokenBudgetEvaluator
+public static class TokenBudgetEvaluator
 {
     private static readonly TokenBudgetWindow[] _checkOrder = [TokenBudgetWindow.Hour, TokenBudgetWindow.Day, TokenBudgetWindow.Week];
 

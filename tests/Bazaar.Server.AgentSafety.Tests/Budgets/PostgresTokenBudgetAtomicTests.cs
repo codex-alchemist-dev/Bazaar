@@ -1,11 +1,11 @@
 using Bazaar.Contracts.Numerics;
+using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.Security.Budgets;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Testing.Postgres;
 using Npgsql;
-using static Bazaar.Server.Tests.Security.Budgets.BudgetTestAmounts;
+using static Bazaar.Server.AgentSafety.Tests.Budgets.BudgetTestAmounts;
 
-namespace Bazaar.Server.Tests.Security.Budgets.Postgres;
+namespace Bazaar.Server.AgentSafety.Tests.Budgets;
 
 /// <summary>
 /// PostgresTokenBudgetStore.TryConsume against a real PostgreSQL: the advisory-locked check-and-insert must never admit
