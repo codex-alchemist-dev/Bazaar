@@ -9,6 +9,9 @@ public static class Tally
     /// <summary>Default council.quorum_min.</summary>
     public const int DefaultQuorumMin = 3;
 
+    /// <summary>Default council.followup_dissent_share (docs/design/10-council-and-voting.md, Follow-up on dissent).</summary>
+    public const decimal DefaultFollowupDissentShare = 0.33m;
+
     /// <summary>Option choice ballots need between these many options (inclusive).</summary>
     public const int MinOptions = 2;
 
@@ -21,6 +24,11 @@ public static class Tally
     {
         ArgumentNullException.ThrowIfNull(request);
         Validate(request);
+
+        if (request.FollowupDissentShare is < 0m or > 1m)
+        {
+            throw new ArgumentException("The follow-up dissent share must be from 0 to 1.", nameof(request));
+        }
 
         var finalChoices = ResolveFinalChoices(request);
         var counts = CountChoices(request, finalChoices);
@@ -77,6 +85,14 @@ public static class Tally
         var leader = total > 0 ? nonAbstaining.FirstOrDefault(pair => pair.Value * 2 > total) : default;
         if (leader.Key is not null)
         {
+            // High-impact dissent (doc 10, Follow-up on dissent): only in the independent round, since the one follow-up
+            // round is the last step. Dissent is every non-abstaining ballot not for the decided choice.
+            var dissent = total - leader.Value;
+            if (request.HighImpact && request.Round == TallyRound.Independent && IsDissentAboveShare(dissent, total, request.FollowupDissentShare))
+            {
+                return new TallyDecision(TallyDecisionKind.FollowUpRequired, null, null, counts);
+            }
+
             return new TallyDecision(TallyDecisionKind.Decided, leader.Key, null, counts);
         }
 
@@ -92,6 +108,13 @@ public static class Tally
         var reason = topShared ? EscalationReason.Tie : EscalationReason.NoDecisiveResult;
         return new TallyDecision(TallyDecisionKind.Escalated, null, reason, counts);
     }
+
+    /// <summary>
+    /// True when at least one ballot dissents and the dissent share is at or above the threshold. Abstentions are not
+    /// in <paramref name="total"/>. Decimal division keeps a share exactly equal to the threshold exact.
+    /// </summary>
+    private static bool IsDissentAboveShare(int dissent, int total, decimal threshold) =>
+        dissent > 0 && total > 0 && (decimal)dissent / total >= threshold;
 
     /// <summary>
     /// Each voter's final choice: in the follow-up round, their follow-up ballot if cast, otherwise their
