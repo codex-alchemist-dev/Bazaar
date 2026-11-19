@@ -1,3 +1,4 @@
+using Bazaar.Constellation.Rendering.Core;
 using Xunit;
 
 namespace Bazaar.Constellation.Rendering.Tests;
