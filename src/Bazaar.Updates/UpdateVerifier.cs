@@ -36,7 +36,7 @@ public static class UpdateVerifier
     private static bool TryDecodeHash(string hex, out byte[] bytes)
     {
         bytes = [];
-        if (hex.Length != SHA256.HashSizeInBytes * 2)
+        if (hex is null || hex.Length != SHA256.HashSizeInBytes * 2)
         {
             return false;
         }

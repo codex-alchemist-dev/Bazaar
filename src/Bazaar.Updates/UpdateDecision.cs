@@ -43,6 +43,6 @@ public readonly record struct UpdateDecision(bool Apply, UpdateRefusal? Refusal,
     }
 
     /// <summary>HTTPS everywhere, plus plain HTTP only on loopback (for local testing).</summary>
-    public static bool IsSecureTransport(Uri url) =>
-        url.Scheme == Uri.UriSchemeHttps || (url.Scheme == Uri.UriSchemeHttp && url.IsLoopback);
+    public static bool IsSecureTransport(Uri? url) =>
+        url is { IsAbsoluteUri: true } && (url.Scheme == Uri.UriSchemeHttps || (url.Scheme == Uri.UriSchemeHttp && url.IsLoopback));
 }
