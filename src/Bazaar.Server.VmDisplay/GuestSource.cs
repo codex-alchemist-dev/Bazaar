@@ -32,9 +32,9 @@ internal static class GuestSource
     }
 
     /// <summary>Runs the fixed input commands for <paramref name="actions"/>, stopping at the first failure.</summary>
-    public static async Task SendInputAsync(IDisplayGuestExec exec, DisplayTarget target, IReadOnlyList<InputAction> actions, TimeSpan timeout, CancellationToken ct)
+    public static async Task SendInputAsync(IDisplayGuestExec exec, DisplayTarget target, IReadOnlyList<InputAction> actions, (int Width, int Height)? extent, TimeSpan timeout, CancellationToken ct)
     {
-        foreach (IReadOnlyList<string> argv in LinuxInputArgv.Build(actions))
+        foreach (IReadOnlyList<string> argv in LinuxInputArgv.Build(actions, extent))
         {
             int exit = await exec.ExecAsync(target.VmId, argv, timeout, ct).ConfigureAwait(false);
             if (exit != 0)
