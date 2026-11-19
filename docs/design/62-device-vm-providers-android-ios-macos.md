@@ -1,4 +1,4 @@
-# Device VM providers: Android, iOS and macOS
+# Optional VM providers: microVM, Android, iOS and macOS
 
 Status: PROPOSED (owner request, 2026-11-19). Nothing here is DECIDED until the owner answers the questions in section 12. Platform facts carry a tag: SOURCED (vendor documentation), MEASURED (this repo's notes) or UNVERIFIED (needs the spike in section 11). Apple licensing statements are a reading of public terms, not legal advice; counsel reviews them before any public release.
 Depends on: `16-agent-vms-and-environments.md` (VM contract, lifecycle, settings), `50-windows-sandbox-provider.md` (provider capability report, host-compatibility metadata), `03-server-host-and-providers.md` (provider selection), `59-desktop-density-and-guest-display.md` (display sources, admission governor), `15-security-taint-and-approvals.md`, `42-deps-as-modules.md` (toolchains as Deps), `45-onboarding.md` (setup wizard) · Used by: `17-coding-agent-harness.md`, `26-fun-systems.md` (Playtest), `20-engine-integration-api.md`
@@ -13,7 +13,7 @@ The owner asked three things on 2026-11-19: are VMs modules, do the providers (H
 | Hyper-V | Hyper-V backend module | Windows | PR #688, not merged |
 | KVM/QEMU | `Bazaar.Server.Vms.Kvm` | Linux | PR #840, not merged |
 | Windows Sandbox | `Bazaar.Server.Vms.WindowsSandbox` (doc 50) | Windows | merged; not registered in any host composition |
-| microVM (Firecracker, Cloud Hypervisor) | none | Linux | not designed; doc 16 left it a question. This doc does not decide it. |
+| microVM (Firecracker, Cloud Hypervisor) | `Bazaar.Server.Vms.MicroVm` (this doc) | Linux with KVM | PROPOSED |
 | Android emulator | `Bazaar.Server.Vms.Android` (this doc) | Windows, Linux, macOS | PROPOSED |
 | iOS Simulator | `Bazaar.Server.Vms.Ios` (this doc) | macOS only | PROPOSED |
 | macOS VM | `Bazaar.Server.Vms.MacOs` (this doc) | Apple silicon Mac only | PROPOSED |
@@ -21,7 +21,7 @@ The owner asked three things on 2026-11-19: are VMs modules, do the providers (H
 **Other VM modules around them** (not providers): `Bazaar.Server.VmDisplay` (screenshots and input, doc 59), `Bazaar.Server.VmDensity` (admission governor, doc 59), mounts, egress and guest transport (doc 16 WP7 to WP9).
 
 ## 2. Scope
-- Three new optional provider modules and one shared abstractions project, plus one client module. None is on by default.
+- Four new optional provider modules (microVM, Android, iOS, macOS), one shared abstractions project for the device three, and one client module. None is on by default.
 - Doc 16's topology is unchanged: every agent still gets one Windows VM and one Linux VM. A device guest is an **extra** guest an environment requests on demand, for example "run this APK" or "run this app on iOS".
 - This doc does not change `host.provider.vm`. That setting picks the provider for the Windows and Linux pair. Device providers are enabled by their own setting (section 7).
 - This doc does not make Bazaar run macOS or iOS on anything but Apple hardware, and does not ship, document or support any workaround for that.
@@ -68,6 +68,21 @@ public interface IDeviceControl            // what a provider offers beyond IVmB
 - The capability report is what the status page, the lifecycle service and the density governor read. Every value is backed by tested behaviour (doc 50 section 2).
 
 ## 5. The three providers
+
+### 5.0 microVM (`Bazaar.Server.Vms.MicroVm`)
+A Linux guest provider for many small, fast, disposable VMs, on a **Linux host with KVM**. It is a pair-style provider, not a device: it implements `IVmBackend` for `VmOs.Linux` only and does not use `IDeviceControl`. It is the optional "dense Linux" alternative to the KVM/QEMU module (#840).
+
+| Item | Design |
+|---|---|
+| Monitors | Firecracker or Cloud Hypervisor, chosen by `vms.microvm.monitor` (default `firecracker`). One module, one `IMicroVmMonitor` seam with two adapters. Both are driven through their REST API over a per-VM Unix socket, never a shell string. |
+| Host | Linux x64 or arm64 with `/dev/kvm`; host requirement feature `kvm` plus `microvm`. Not Windows, not macOS. |
+| Parent | A kernel image and a root filesystem built from the doc 16 golden recipe, sealed and hash-pinned. A child is a copy-on-write file (reflink where the host file system has it, otherwise a sparse copy). `ParentContentPinned = true`. |
+| Guest agent | Yes. `Bazaar.Guest.Agent` over `AF_VSOCK`, as doc 16 uses for Linux guests. |
+| Save, checkpoint, restore | Snapshot and restore are supported by both monitors; `Save`, `Checkpoint` and `Restore` are true once the spike confirms them. UNVERIFIED. |
+| Display | No graphics device, so no framebuffer. The doc 59 `guest` and `browser` sources work; the `hypervisor` source does not. `Headless = true`. |
+| Isolation | Hardware-virtualised, with the monitor itself confined by its jailer or seccomp profile and run as an unprivileged user. |
+| Egress | Per-VM tap device in its own network namespace, so `EgressEnforced` can be true on Linux; the egress module (#796) supplies the proxy. UNVERIFIED until the spike. |
+| Limits | Linux guests only; no Windows guest, no GPU, no desktop session. |
 
 ### 5.1 Android (`Bazaar.Server.Vms.Android`)
 Runs the Android Emulator from the Android SDK on the **primary server**. No Mac and no node.
@@ -135,7 +150,9 @@ Settings (all `vms.devices.*` entries follow the doc 16 and DECISIONS-LOG round 
 
 | Key | Type | Default | Applies | Who | Note |
 |---|---|---|---|---|---|
-| `vms.devices.enabled` | list | `[]` | install | operator | `android`, `ios`, `macos` |
+| `vms.devices.enabled` | list | `[]` | install | operator | `microvm`, `android`, `ios`, `macos` |
+| `vms.microvm.monitor` | enum | `firecracker` | install | operator | or `cloud_hypervisor` |
+| `vms.microvm.max_concurrent` | int | 8 | live | operator | |
 | `vms.devices.idle_stop_minutes` | int | 10 | live | operator | stop an unused guest |
 | `vms.devices.max_concurrent` | int | 2 | live | operator | all device guests together; the governor may lower it |
 | `vms.android.sdk_root`, `vms.android.avd_home` | path | unset | install | operator | required; no profile default |
@@ -174,10 +191,12 @@ Each is its own module project with tests. The abstractions and node client come
 | 9 | `Bazaar.Client.Devices` pane | 1 |
 | 10 | Display source `device` in `Bazaar.Server.VmDisplay` | doc 59, 1 |
 | 11 | Setup wizard step and admin-panel toggles | doc 45, doc 51 |
+| 11a | `Bazaar.Server.Vms.MicroVm`: backend, `IMicroVmMonitor` with Firecracker and Cloud Hypervisor adapters, fake monitor, capability report | 1, 2 |
 | 12 | Doc updates: README index, doc 16 and doc 59 cross-references, `BAZAAR-COMPONENTS.md` | this doc |
 
 ## 11. Spikes (the owner's machines measure)
 - **S-AND (owner's PC, Windows):** the emulator under the Windows Hypervisor Platform with Hyper-V enabled, with the SDK at `V:\TOOL\android-sdk` and AVDs at `V:\TOOL\android-user`, nothing on the system drive. Measure boot time, memory per instance, snapshot save and restore, headless screenshot and input, and whether a network namespace or firewall rule can make egress mandatory.
+- **S-MVM (Linux, KVM):** Firecracker and Cloud Hypervisor boot time, memory per VM, snapshot restore, vsock, a tap in a network namespace with mandatory egress.
 - **S-AND-LNX (Linux, KVM):** the same on a KVM host, plus the egress enforcement test.
 - **S-SIM (a Mac):** `simctl` lifecycle, headless screenshot, a clone, the unprivileged-user setup.
 - **S-MAC (an Apple silicon Mac):** restore image install, an APFS-clone child, boot, the virtio socket and a `Bazaar.Guest.Agent` for `osx-arm64`, saved state, signing and entitlement requirements, the two-VM cap, Setup Assistant automation.
@@ -188,7 +207,7 @@ Each is its own module project with tests. The abstractions and node client come
 2. **Do you have a Mac, and which?** The spikes S-SIM, S-MAC and S-NODE need Apple hardware. Apple silicon is assumed for macOS guests.
 3. **Device guests with no network until egress is proven** (section 8, rule 2). *Recommend* yes. Agents can still build, install, run and screenshot an app that talks to a service on the host.
 4. **SDK licence acceptance** (section 5.1): a human accepts the Android SDK licences once and the audit log records it. *Recommend* yes.
-5. **microVM providers** (Firecracker, Cloud Hypervisor) are not covered here. Do you want a separate doc?
+5. **microVM monitor default.** *Recommend* Firecracker first, Cloud Hypervisor second.
 
 ## 13. Conflicts
 - Doc 16 names `IVmBackend` as the only backend interface and `VmOs` as Windows or Linux. This doc extends both additively; it does not replace either.
