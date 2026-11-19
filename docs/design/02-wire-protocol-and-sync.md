@@ -84,6 +84,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 |---|---|---|
 | `POST /blobs` | Chunked, resumable upload; returns content hash; size limit per doc 01 | 01 |
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
+| `POST /blobs/token-amounts` | Digit-stream intake of a token amount too long for a frame; owner only; returns a reference id | 48 §11.4 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
