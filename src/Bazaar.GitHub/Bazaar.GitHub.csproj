@@ -11,7 +11,7 @@
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Component migrations: components/<name>/NNNN_name.sql, never in Data/Sql/common (see Data/Sql/README.md). -->
-    <EmbeddedResource Include="components\github\**\*.sql" />
+    <!-- Component migrations: Sql/components/<name>/NNNN_name.sql, read by the host ComponentMigrationSource (never in Data/Sql/common, see Data/Sql/README.md). -->
+    <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>
