@@ -11,6 +11,9 @@ namespace Bazaar.Server.Wire.Connection;
 /// </summary>
 public sealed class IdempotentRequestExecutor
 {
+    /// <summary>Largest reply payload the table keeps for a retry; bigger replies are forgotten once delivered.</summary>
+    public const int MaxRememberedPayloadBytes = 16 * 1024;
+
     private static readonly TimeSpan _sweepEvery = TimeSpan.FromMinutes(1);
 
     private readonly ConcurrentDictionary<(string Device, string Id), Entry> _entries = new();
@@ -58,8 +61,11 @@ public sealed class IdempotentRequestExecutor
             try
             {
                 var reply = await execute(cancellationToken).ConfigureAwait(false);
-                if (reply.IsRetryable)
+                if (reply.IsRetryable || reply.Payload.Length > MaxRememberedPayloadBytes)
                 {
+                    // A server fault may be retried, and so may a reply too big to keep for 24 hours: the table holds every reply
+                    // for the whole retention, and 5,000 gc.history pages (570 MB of replies) pinned 840 MB of host memory. Such
+                    // replies are reads (a mutation answers with a few bytes), so running the request again is safe.
                     Forget(key, entry);
                     entry.Reply.TrySetResult(reply);
                 }
