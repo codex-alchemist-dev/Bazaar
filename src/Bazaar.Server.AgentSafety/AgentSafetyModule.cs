@@ -1,5 +1,4 @@
 using Bazaar.Approvals;
-using Bazaar.Approvals.Db;
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.AgentSafety.Startup;
@@ -40,7 +39,7 @@ public static class AgentSafetyModule
         services.TryAddSingleton<IContainmentStateStore, PostgresContainmentStateStore>();
         services.TryAddSingleton<INonceStore, PostgresNonceStore>();
         services.TryAddSingleton<ITokenBudgetStore, PostgresTokenBudgetStore>();
-        services.TryAddSingleton<IOwnerKeyRegistry, PostgresOwnerKeyRegistry>();
+        services.AddBazaarApprovals();
         services.TryAddSingleton<IAgentTokenRevoker>(sp => new LeaseTokenRevoker(sp.GetRequiredService<ICredentialLeaseStore>()));
         services.TryAddSingleton<IVmPauser>(sp =>
             sp.GetService<VmLifecycleService>() is { } lifecycle
