@@ -81,7 +81,9 @@ public static class DiagnosticsModule
         services.TryAddSingleton<ISymbolicator, NoSymbolsSymbolicator>();
         services.TryAddSingleton(TimeProvider.System);
 
-        services.TryAddSingleton<ICrashInstallDirectory, UnavailableCrashInstallDirectory>();
+        services.TryAddSingleton<PostgresCrashInstallDirectory>();
+        services.TryAddSingleton<ICrashInstallDirectory>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
+        services.TryAddSingleton<ICrashInstallRegistry>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
         services.TryAddSingleton<PersonKeyStore>();
         services.TryAddSingleton<PostgresCrashStore>();
         services.TryAddSingleton<ICrashIntakeStore>(sp => sp.GetRequiredService<PostgresCrashStore>());
@@ -114,6 +116,7 @@ public static class DiagnosticsModule
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<CrashDiagnosisOptions>()));
         services.AddSingleton<IErasureParticipant, CrashErasureParticipant>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashSubmitHandler>();
         services.AddHostedService<CrashMaintenanceService>();
         return services;
     }
