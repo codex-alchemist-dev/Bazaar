@@ -22,6 +22,6 @@ public interface ISentinelFileStore
     /// </summary>
     void ReplaceRootFile(string name, ReadOnlyMemory<byte> bytes);
 
-    /// <summary>Deletes a root file when it exists. Used only for a stray temp file.</summary>
+    /// <summary>Deletes a root file when it exists. Used for a stray temp file and the probation marker.</summary>
     void DeleteRootFile(string name);
 }

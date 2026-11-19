@@ -10,6 +10,12 @@ public static class SentinelLayout
     /// <summary>The signed manifest envelope stored in each slot. It is not listed in its own manifest.</summary>
     public const string ManifestFileName = "kodo.manifest.json";
 
+    /// <summary>
+    /// A root file written before a pointer swap and removed after the new slot survives probation. It holds the candidate slot id
+    /// (PROPOSED name, doc 46 7.8).
+    /// </summary>
+    public const string ProbationMarkerFileName = "kodo.probation.pending";
+
     /// <summary>The loopback status file the sentinel writes for the status reader (PROPOSED name, doc 46 7.8).</summary>
     public const string StatusFileName = "kodo.sentinel.status.json";
 }
