@@ -1,10 +1,15 @@
+using System.Globalization;
 using Bazaar.Server.BrowserPool.Abstractions;
+using Microsoft.Extensions.Configuration;
 
 namespace Bazaar.Server.BrowserPool.Display;
 
 /// <summary>Settings for <see cref="PoolBrowserPageDriver"/>. The shipped defaults are safe; every limit may be tightened.</summary>
 public sealed class BrowserPageDriverOptions
 {
+    /// <summary>The configuration section name, under the browser pool's own <c>Bazaar:BrowserPool</c> section.</summary>
+    public const string SectionName = "Bazaar:BrowserPool:Display";
+
     /// <summary>Room, in bytes, for the JSON around a screenshot's base64 text.</summary>
     internal const int EnvelopeSlack = 64 * 1024;
 
@@ -50,6 +55,39 @@ public sealed class BrowserPageDriverOptions
         Range(MaxCoordinate, 1, 1_000_000, nameof(MaxCoordinate));
         Range(MaxScrollDelta, 1, 1_000_000, nameof(MaxScrollDelta));
     }
+
+    /// <summary>
+    /// Reads the options from <paramref name="configuration"/> (the <see cref="SectionName"/> section) and validates them. The command
+    /// timeout is written <c>hh:mm:ss</c>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A value cannot be read. The message names the key, never the value.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A value is out of range.</exception>
+    public static BrowserPageDriverOptions Bind(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        IConfigurationSection s = configuration.GetSection(SectionName);
+        var o = new BrowserPageDriverOptions();
+        if (s[nameof(CommandTimeout)] is { } text)
+        {
+            o.CommandTimeout = TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out TimeSpan span)
+                ? span
+                : throw new InvalidOperationException($"{SectionName}:{nameof(CommandTimeout)} is not a time span (hh:mm:ss).");
+        }
+
+        o.MaxPendingRequests = ReadInt(s, nameof(MaxPendingRequests), o.MaxPendingRequests);
+        o.MaxScreenshotBytes = ReadInt(s, nameof(MaxScreenshotBytes), o.MaxScreenshotBytes);
+        o.MaxActionsPerBatch = ReadInt(s, nameof(MaxActionsPerBatch), o.MaxActionsPerBatch);
+        o.MaxTextLength = ReadInt(s, nameof(MaxTextLength), o.MaxTextLength);
+        o.MaxCoordinate = ReadInt(s, nameof(MaxCoordinate), o.MaxCoordinate);
+        o.MaxScrollDelta = ReadInt(s, nameof(MaxScrollDelta), o.MaxScrollDelta);
+        o.Validate();
+        return o;
+    }
+
+    private static int ReadInt(IConfigurationSection section, string key, int fallback) =>
+        section[key] is not { } text ? fallback
+        : int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v
+        : throw new InvalidOperationException($"{SectionName}:{key} is not a whole number.");
 
     /// <summary>The length of the base64 text of <paramref name="decoded"/> bytes.</summary>
     internal static long Base64Length(long decoded) => (decoded + 2) / 3 * 4;

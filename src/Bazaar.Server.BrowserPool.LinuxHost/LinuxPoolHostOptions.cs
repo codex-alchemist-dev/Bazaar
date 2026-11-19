@@ -1,11 +1,16 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Bazaar.Server.BrowserPool.Abstractions;
+using Microsoft.Extensions.Configuration;
 
 namespace Bazaar.Server.BrowserPool.LinuxHost;
 
 /// <summary>Settings for <see cref="LinuxPoolVmHost"/>. The defaults suit a pool VM whose Bazaar process runs as root.</summary>
 public sealed partial class LinuxPoolHostOptions
 {
+    /// <summary>The configuration section name, under the browser pool's own <c>Bazaar:BrowserPool</c> section.</summary>
+    public const string SectionName = "Bazaar:BrowserPool:LinuxHost";
+
     /// <summary>The nftables <c>inet</c> table the rendered ruleset declares. Must match the renderer's table name.</summary>
     public string TableName { get; set; } = "bazaar_pool";
 
@@ -93,6 +98,52 @@ public sealed partial class LinuxPoolHostOptions
 
         return errors;
     }
+
+    /// <summary>
+    /// Reads the options from <paramref name="configuration"/> (the <see cref="SectionName"/> section) and validates them. Time spans
+    /// are written <c>hh:mm:ss</c>. An empty <see cref="SlotInterfacePrefix"/> or <see cref="PoolSpawnHelperPath"/> means null.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A value cannot be read or is out of range. The message names the key, never the value.</exception>
+    public static LinuxPoolHostOptions Bind(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        IConfigurationSection s = configuration.GetSection(SectionName);
+        var o = new LinuxPoolHostOptions();
+        o.TableName = s[nameof(TableName)] ?? o.TableName;
+        if (s[nameof(SlotInterfacePrefix)] is { } prefix)
+        {
+            o.SlotInterfacePrefix = prefix.Length == 0 ? null : prefix;
+        }
+
+        o.NftPath = s[nameof(NftPath)] ?? o.NftPath;
+        o.CommandTimeout = ReadSpan(s, nameof(CommandTimeout), o.CommandTimeout);
+        o.FirewallTimeout = ReadSpan(s, nameof(FirewallTimeout), o.FirewallTimeout);
+        o.StopTimeout = ReadSpan(s, nameof(StopTimeout), o.StopTimeout);
+        o.MaxCapturedChars = ReadInt(s, nameof(MaxCapturedChars), o.MaxCapturedChars);
+        if (s[nameof(PoolSpawnHelperPath)] is { } helper)
+        {
+            o.PoolSpawnHelperPath = helper.Length == 0 ? null : helper;
+        }
+
+        o.PipeDirectory = s[nameof(PipeDirectory)] ?? o.PipeDirectory;
+        IReadOnlyList<string> errors = o.Validate();
+        if (errors.Count != 0)
+        {
+            throw new InvalidOperationException($"Invalid {SectionName} configuration: " + string.Join(' ', errors));
+        }
+
+        return o;
+    }
+
+    private static int ReadInt(IConfigurationSection section, string key, int fallback) =>
+        section[key] is not { } text ? fallback
+        : int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v
+        : throw new InvalidOperationException($"{SectionName}:{key} is not a whole number.");
+
+    private static TimeSpan ReadSpan(IConfigurationSection section, string key, TimeSpan fallback) =>
+        section[key] is not { } text ? fallback
+        : TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out TimeSpan v) ? v
+        : throw new InvalidOperationException($"{SectionName}:{key} is not a time span (hh:mm:ss).");
 
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]{0,63}$")]
     private static partial Regex TableNamePattern();

@@ -77,8 +77,8 @@ public sealed class AllowListTests
     {
         var publicTypes = typeof(PoolBrowserPageDriver).Assembly.GetExportedTypes().Select(t => t.Name).Order(StringComparer.Ordinal).ToArray();
 
-        // Only the driver, its options and its error types are public; the session, the method list and the translator are internal.
-        Assert.Equal(["BrowserPageDriverOptions", "PageDriverException", "PageDriverFailure", "PoolBrowserPageDriver"], publicTypes);
+        // Only the driver, its options, its component and its error types are public; the session, the method list and the translator are internal.
+        Assert.Equal(["BrowserPageDriverOptions", "BrowserPoolDisplayComponent", "PageDriverException", "PageDriverFailure", "PoolBrowserPageDriver"], publicTypes);
 
         var driverMembers = typeof(PoolBrowserPageDriver).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
             .Select(m => m.Name)
@@ -88,10 +88,10 @@ public sealed class AllowListTests
     }
 
     [Fact]
-    public void The_module_references_only_the_two_port_projects()
+    public void The_module_references_only_the_two_port_projects_and_core()
     {
         var refs = typeof(PoolBrowserPageDriver).Assembly.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("Bazaar.", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToArray();
 
-        Assert.Equal(["Bazaar.Server.BrowserPool.Abstractions", "Bazaar.Server.VmDisplay.Abstractions"], refs);
+        Assert.Equal(["Bazaar.Core", "Bazaar.Server.BrowserPool.Abstractions", "Bazaar.Server.VmDisplay.Abstractions"], refs);
     }
 }
