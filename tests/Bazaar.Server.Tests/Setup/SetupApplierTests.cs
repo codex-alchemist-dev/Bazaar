@@ -178,10 +178,14 @@ public sealed class SetupApplierTests
         Assert.Equal("1.0.0", payload["templateVersion"]!.GetValue<string>());
         Assert.Null(payload["kodoResult"]);
         Assert.Equal("applied", payload["outcome"]!.GetValue<string>());
-        Assert.Equal(new List<string> { "host.shutdown_timeout_seconds" }, payload["changedSettingKeys"]!.AsArray().Select(node => node!.GetValue<string>()));
+        // The settings map plus the plan fields that map to one registry key each (network block, release channel).
+        Assert.Equal(
+            new List<string> { "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel" },
+            payload["changedSettingKeys"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.Equal(4, harness.SettingAudit.Entries.Count);
+        Assert.Equal(["\"loopback\"", "8443", "\"beta\""], harness.SettingAudit.Entries.Where(e => e.Key != "host.shutdown_timeout_seconds").Select(e => e.NewValueJson));
 
-        var setting = Assert.Single(harness.SettingAudit.Entries);
-        Assert.Equal("host.shutdown_timeout_seconds", setting.Key);
+        var setting = Assert.Single(harness.SettingAudit.Entries, e => e.Key == "host.shutdown_timeout_seconds");
         Assert.Equal(SettingWriteOutcome.Accepted, setting.Outcome);
         Assert.Equal(_operator, setting.ActorId);
         Assert.Null(setting.OldValueJson);
@@ -201,8 +205,7 @@ public sealed class SetupApplierTests
         var result = await Applier(harness, Step("database.schema", 10, [])).ApplyAsync(Request(plan, state: state), TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.Ok, result.ExitCode);
-        var setting = Assert.Single(harness.SettingAudit.Entries);
-        Assert.Equal("host.shutdown_timeout_seconds", setting.Key);
+        var setting = Assert.Single(harness.SettingAudit.Entries, e => e.Key == "host.shutdown_timeout_seconds");
         Assert.Equal("20", setting.OldValueJson);
         Assert.Equal("null", setting.NewValueJson);
     }

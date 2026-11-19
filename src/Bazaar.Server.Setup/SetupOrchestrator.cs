@@ -120,7 +120,7 @@ public static class SetupOrchestrator
         var services = new ServiceCollection();
         services.AddSingleton(settings);
         gate.RegisterApplyServices(services);
-        services.AddSetupApply([]);
+        services.AddSetupApply();
 
         using var provider = services.BuildServiceProvider();
         var applier = provider.GetRequiredService<SetupApplier>();

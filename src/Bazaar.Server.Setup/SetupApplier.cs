@@ -177,14 +177,16 @@ public sealed class SetupApplier
 
         // e. Success: one setup.plan.applied row, then one setting.changed row per changed settings key.
         var appliedIds = applied.Select(step => step.Id).ToList();
-        var changedKeys = ChangedSettingKeys(request.Plan, changes);
+        var projected = SetupSettingProjection.Project(request.Plan).ToDictionary(setting => setting.Key, StringComparer.Ordinal);
+        var changedKeys = ChangedSettingKeys(request.Plan, changes, projected);
         await AppendAppliedRowAsync(request, hash, "applied", changedKeys, appliedIds, null, null, [], cancellationToken);
 
         foreach (var key in changedKeys)
         {
-            var oldValue = state.LeafValues.TryGetValue(_settingsPrefix + key, out var current) ? current : null;
-            var newValue = request.Plan.Settings.TryGetValue(key, out var element)
-                ? SetupPlanCanonicalizer.Text(JsonNode.Parse(element.GetRawText()))
+            projected.TryGetValue(key, out var setting);
+            var oldValue = state.LeafValues.TryGetValue(setting?.PlanPath ?? _settingsPrefix + key, out var current) ? current : null;
+            var newValue = setting is not null
+                ? SetupPlanCanonicalizer.Text(JsonNode.Parse(setting.Value.GetRawText()))
                 : "null";
             await _settingAudit.AppendInstallChangeAsync(key, request.OperatorIdentity, oldValue, newValue, cancellationToken);
         }
@@ -229,11 +231,22 @@ public sealed class SetupApplier
     }
 
     /// <summary>The settings keys the change list touches, sorted. A key is the plan's settings key, or a registered key for a removal.</summary>
-    private IReadOnlyList<string> ChangedSettingKeys(SetupPlan plan, IReadOnlyList<SetupChange> changes)
+    private IReadOnlyList<string> ChangedSettingKeys(SetupPlan plan, IReadOnlyList<SetupChange> changes, Dictionary<string, SetupProjectedSetting> projected)
     {
         var keys = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var change in changes)
         {
+            if (SetupSettingProjection.DerivedKeyForPath(change.Path) is { } derivedKey)
+            {
+                // A mapped plan field that writes no key (the scam-mail protocol when off) is not a setting change.
+                if (projected.ContainsKey(derivedKey))
+                {
+                    keys.Add(derivedKey);
+                }
+
+                continue;
+            }
+
             if (!change.Path.StartsWith(_settingsPrefix, StringComparison.Ordinal))
             {
                 continue;

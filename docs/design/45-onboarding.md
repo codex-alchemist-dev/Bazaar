@@ -94,6 +94,13 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 17 | Kodo verification | Read-only checks and a green, amber or red report with a 0 to 100 score. Section 1.12. | 46 (not in tree) |
 | 18 | Client packages | Builds the per-company packages (.msix, .apk, .exe) on the server. Signing keys stay on the server. | 37 |
 
+**Apply step status (2026-11-19).** The step table above is the order. Which steps `setup apply` and `POST /setup/plans/{hash}/apply` run today:
+
+| Step | Status | Notes |
+|---|---|---|
+| 1 Install identity (release channel), 12 Scam-mail protocol, 15 Status and network (bind and port), plus the plan's `settings` map | **BUILT** as `install.settings` (`InstallSettingsStep`, order 1500, in `Bazaar.Server.Setup.Postgres`) | Writes the install-scope rows of the `setting` table: the `settings` map, `network.statusBind` and `network.statusPort` (`host.status.bind`, `host.status.port`), `install.releaseChannel` (`update.channel`, snake_case wire form) and `scamMailProtocol.enabled` (`security.scam_mail.protocol_enabled`, written only when on, which is held for owner approval). Every value goes through the registry first. One transaction, same per-key locks as the settings store. A key already holding the planned value is left alone (idempotent). Rollback restores the previous value and writer, or removes the row, and leaves a value someone changed after the run. The applier writes the `setting.changed` rows. |
+| 0 Preflight, 2 Update policy, 3 Data root and PostgreSQL, 4 Schema, 5 Custody, 6 Owner, 7 Privacy and retention, 8 Backups, 9 Model sources, 10 Git and GitHub, 11 Email, 13 Company source, 14 Modules, 16 to 18 | PLANNED, no step registered | Each needs a store or service that is not in the tree yet. The rest of the install identity (company name, slug, locale, timezone, install id) has no table; the update policy has no setting key; the backup target has no setting key; the audit anchor target is not `security.audit.export_target` (an enum); the owner needs a passkey ceremony; the module set has no enabled-modules store. `migrate` stays its own explicit command (doc 04), and an apply needs the migrated `audit_log`. Until they land, an apply exit 0 means the built steps ran (the audit row lists them in `appliedSteps`); the parts of the plan that belong to unbuilt steps are not applied. OPEN: whether apply should refuse, or list those parts, until every step exists. |
+
 ## 1.4 What the wizard asks, and what it defaults to [PLANNED]
 
 "Asks" means the wizard shows the question. Every other path takes the same key in the plan. "Required" means no default exists, so the plan is invalid until a value is given.
