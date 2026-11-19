@@ -1,6 +1,6 @@
-using Bazaar.Server.Email.Quarantine;
+using Bazaar.Server.Mail.Quarantine;
 
-namespace Bazaar.Server.Tests.Email.Quarantine;
+namespace Bazaar.Server.Mail.Tests.Quarantine;
 
 public class EmailAddressParserTests
 {

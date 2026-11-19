@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using Bazaar.Server.Mail.Parsing;
 
-namespace Bazaar.Server.Tests.Mail;
+namespace Bazaar.Server.Mail.Tests;
 
 public sealed class MimeMailParserTests
 {

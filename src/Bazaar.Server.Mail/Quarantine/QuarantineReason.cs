@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Email.Quarantine;
+namespace Bazaar.Server.Mail.Quarantine;
 
 /// <summary>
 /// Why an inbound message was held. Values are in the order decisions report them, so reasons sort the same way every time.

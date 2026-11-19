@@ -2,7 +2,7 @@ using System.Text.Json;
 using Bazaar.Contracts.Coding;
 using Bazaar.Server.Security.Policy;
 
-namespace Bazaar.Server.Tests.Coding;
+namespace Bazaar.Server.Coding.Tests;
 
 public class CodingContractsTests
 {

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace Bazaar.Server.Email.Quarantine;
+namespace Bazaar.Server.Mail.Quarantine;
 
 /// <summary>
 /// An address split into its local part and domain. The domain is stored lowercased; the local part is kept as sent.
