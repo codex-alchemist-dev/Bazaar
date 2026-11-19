@@ -84,6 +84,15 @@ Chromium's own sandbox is strong, but it is the only wall in option B, and agent
 
 *Recommended:* anonymous profiles (no credentials, the bulk of browsing) run in the pool VM, each in its own OS user, namespace sandbox and profile directory, with egress through the per-agent proxy as today. Account profiles (Passport cookies) stay in the agent's own VM as C22 decided, so a pool escape never reaches a logged-in session. Setting `browser.placement.anonymous` = `agent_vm` | `pool_vm`; `browser.placement.account` is fixed to `agent_vm`. Host placement (B) is not offered as a setting unless the owner asks for it.
 
+**From discovery to an account (owner, 2026-11-19).** The owner wants agents to find sites, triage them and later make their own accounts. The placement above is that path, and the approval rules already exist:
+1. *Discover and triage* happens in an anonymous profile (the pool VM if question 1 is answered that way). No credential is present, so a hostile site gains nothing. Screenshots from triage are untrusted content (section 5).
+2. *Verify terms.* A site with no verified `ServiceTerms` record is Deny for any action (doc 15, doc 36). Triage can propose a record; a platform's rules are checked before the first post (CLAUDE.md).
+3. *Approve.* New account creation is Tier 2: the owner approves each one, and only for services on `identity.signup_whitelist` (doc 14, doc 15). CAPTCHA, phone and ID steps stay with a person; sign-ups that forbid automation are Deny (doc 15, doc 22).
+4. *Sign up* runs in the agent's own VM, in a new account profile, with the agent's external mailbox for the verification mail (doc 22). The account never exists in the pool VM.
+5. *Use.* The site joins that profile's allowlist and the agent's egress allowlist; the Passport holds the session (doc 14).
+
+Nothing here changes those decisions. The only new piece is step 1's placement and the hand-over from an anonymous session to an account profile, which is a new launch in the agent's VM, never a migration of a running browser.
+
 ## 8. Density controls
 Memory is the limit; these are the levers, most effective first.
 
