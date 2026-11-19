@@ -109,6 +109,22 @@ public class AgentResponderKillSwitchTests
         Assert.Equal(1, AgentPosts(gc));
     }
 
+    [Fact]
+    public async Task A_giant_reply_is_not_posted_to_the_append_only_log()
+    {
+        var gc = GroupGc();
+        var provider = new FakeProvider();
+        provider.EnqueueCall(
+            new ScriptStep.Emit(new ModelEvent.TextDelta(new string('G', 8 * 1024 * 1024))),
+            new ScriptStep.Emit(new ModelEvent.Done(StopReason.EndTurn, "served")));
+        var seq = gc.Post(AuthorKind.Owner, ResponderTestIds.Owner, "@Charles write me a novel", ResponderTestIds.Charles);
+
+        await Responder(gc, new ScriptedGateway(provider), await EngineAsync()).ProcessAsync(ResponderTestIds.Gc, seq, Ct);
+
+        Assert.Single(provider.Calls);
+        Assert.Equal(0, AgentPosts(gc));
+    }
+
     /// <summary>A model that engages the kill switch half way through its answer, as a breach rule would.</summary>
     private sealed class EngagingGateway(Func<Task> engage) : IModelGateway
     {

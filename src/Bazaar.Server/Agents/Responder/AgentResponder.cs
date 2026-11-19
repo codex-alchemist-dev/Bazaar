@@ -5,6 +5,7 @@ using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Ai;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.AI;
@@ -27,6 +28,9 @@ namespace Bazaar.Server.Agents.Responder;
 /// Kill switch (doc 15, doc 48 section 11): when a <see cref="KillSwitchEngine"/> is registered, a stopped agent makes no model
 /// call (egress) and posts nothing (write). Both are checked, the post again after the model call, so a stop engaged while the
 /// call was in flight still keeps the reply out of the GC. A refused trigger is skipped, not queued.
+/// </para>
+/// <para>
+/// A reply longer than <see cref="GcSendHandler.MaxTextLength"/>, the limit on a person's send, is not posted.
 /// </para>
 /// </remarks>
 public sealed partial class AgentResponder(
@@ -143,6 +147,14 @@ public sealed partial class AgentResponder(
         if (text is null)
             return;
 
+        // The same cap as a person's send (and the agent post sink): the GC log is append-only and never purged, so a model
+        // that answers with megabytes must not land there.
+        if (text.Length > GcSendHandler.MaxTextLength)
+        {
+            LogReplyTooLong(gcId, persona.AgentId, text.Length, GcSendHandler.MaxTextLength);
+            return;
+        }
+
         // Checked again: a stop engaged during the model call must keep this reply out of the GC.
         if (IsStopped(gcId, persona.AgentId, ToolEffect.Write))
             return;
@@ -226,6 +238,9 @@ public sealed partial class AgentResponder(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: the kill switch ({Scope}) denies {Effect} for agent {AgentId} in GC {GcId}. No reply was posted.")]
     private partial void LogKillSwitchRefused(Guid gcId, Guid agentId, ToolEffect effect, KillSwitchScope? scope);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: reply by agent {AgentId} in GC {GcId} is {Length} characters, over the {Limit} limit. No reply was posted.")]
+    private partial void LogReplyTooLong(Guid gcId, Guid agentId, int length, int limit);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: GC {GcId} does not exist.")]
     private partial void LogUnknownGc(Guid gcId);
