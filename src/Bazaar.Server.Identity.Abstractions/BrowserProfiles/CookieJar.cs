@@ -44,12 +44,12 @@ public sealed class CookieJar
         return new(_cookies.Where(c => list.Any(a => CookieDomain.IsWithin(c.Domain, a))));
     }
 
-    /// <summary>Serialises the jar to UTF-8 JSON for encryption. Internal: only the store writes it.</summary>
-    internal byte[] Serialize() =>
+    /// <summary>Serialises the jar to UTF-8 JSON for encryption. Used by the store to encrypt the jar.</summary>
+    public byte[] Serialize() =>
         JsonSerializer.SerializeToUtf8Bytes(_cookies, CookieJsonContext.Default.BrowserCookieArray);
 
     /// <summary>Reads a jar produced by <see cref="Serialize"/>.</summary>
-    internal static CookieJar Deserialize(byte[] json)
+    public static CookieJar Deserialize(byte[] json)
     {
         var cookies = JsonSerializer.Deserialize(json, CookieJsonContext.Default.BrowserCookieArray)
             ?? throw new InvalidDataException("Cookie profile payload is empty.");
