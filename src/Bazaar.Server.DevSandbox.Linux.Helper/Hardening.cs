@@ -149,9 +149,11 @@ internal static unsafe class Hardening
         return result < 0 ? new(HelperExit.LandlockFailed, $"landlock_restrict_self failed (errno {errno})") : null;
     }
 
-    /// <summary>Marks every fd above stderr close-on-exec, so nothing opened by the helper's runtime reaches the target.</summary>
-    internal static void MarkDescriptorsCloseOnExec() =>
-        _ = Native.Syscall(_sysCloseRange, 3, uint.MaxValue, Native.CloseRangeCloexec);
+    /// <summary>Marks every fd above stderr close-on-exec, so nothing opened by the helper's runtime reaches the target. A failure stops the launch.</summary>
+    internal static HardeningFailure? MarkDescriptorsCloseOnExec() =>
+        Native.Syscall(_sysCloseRange, 3, uint.MaxValue, Native.CloseRangeCloexec) < 0
+            ? new(HelperExit.InitFailed, $"close_range(CLOEXEC) failed (errno {Native.Errno}); refusing to leak descriptors into the target")
+            : null;
 
     /// <summary>Allocates the BPF program in unmanaged memory in <c>struct sock_fprog</c> form (length, padding, pointer).</summary>
     internal static byte* PrepareFilter(BpfInstruction[] program)

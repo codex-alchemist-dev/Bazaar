@@ -49,23 +49,53 @@ internal sealed class HelperArguments
             switch (a)
             {
                 case "--policy":
-                    if (++i >= args.Count)
+                    if (PolicyPath is not null)
+                    {
+                        return "--policy given twice";
+                    }
+
+                    if (++i >= args.Count || args[i].StartsWith("--", StringComparison.Ordinal))
                     {
                         return "--policy needs a file";
+                    }
+
+                    if (!HelperPolicyParser.IsCleanAbsolutePath(args[i]))
+                    {
+                        return "--policy needs an absolute path without '.' or '..' segments";
                     }
 
                     PolicyPath = args[i];
                     break;
                 case "--delete-policy-after-read":
+                    if (DeletePolicyAfterRead)
+                    {
+                        return "--delete-policy-after-read given twice";
+                    }
+
                     DeletePolicyAfterRead = true;
                     break;
                 case "--simulate-landlock-unavailable":
+                    if (SimulateNoLandlock)
+                    {
+                        return "--simulate-landlock-unavailable given twice";
+                    }
+
                     SimulateNoLandlock = true;
                     break;
                 case "--info":
+                    if (Info)
+                    {
+                        return "--info given twice";
+                    }
+
                     Info = true;
                     break;
                 case "--self-test":
+                    if (SelfTest is not null)
+                    {
+                        return "--self-test given twice";
+                    }
+
                     if (++i >= args.Count || args[i] != "socket")
                     {
                         return "--self-test supports only: socket";
@@ -105,9 +135,9 @@ internal sealed class HelperArguments
             return "a target after -- is required";
         }
 
-        if (Target is not null && (Target.Length == 0 || Target[0] != '/' || Target.Contains('\0', StringComparison.Ordinal)))
+        if (Target is not null && !HelperPolicyParser.IsCleanAbsolutePath(Target))
         {
-            return "the target must be an absolute path";
+            return "the target must be an absolute path without '.' or '..' segments";
         }
 
         return null;

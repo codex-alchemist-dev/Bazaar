@@ -48,6 +48,9 @@ public sealed class LinuxConfinementOptions
     /// <summary>Open-file limit (<c>RLIMIT_NOFILE</c>).</summary>
     public int MaxOpenFiles { get; init; } = 256;
 
+    /// <summary>Largest file the module may create or grow (<c>RLIMIT_FSIZE</c>, in bytes). Default 64 MiB. Must be positive.</summary>
+    public long MaxFileSizeBytes { get; init; } = 64L * 1024 * 1024;
+
     /// <summary>Directory under which per-run working directories are created. Null means the system temp directory.</summary>
     public string? WorkRoot { get; init; }
 

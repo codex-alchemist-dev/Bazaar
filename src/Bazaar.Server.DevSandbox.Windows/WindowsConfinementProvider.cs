@@ -92,6 +92,6 @@ public sealed partial class WindowsConfinementProvider : ISandboxConfinementProv
         return Task.FromResult<ISandboxProcess>(process);
     }
 
-    [GeneratedRegex("^[a-z0-9-]+$")]
+    [GeneratedRegex("^[a-z0-9-]+\\z")]
     private static partial Regex RunIdPattern();
 }

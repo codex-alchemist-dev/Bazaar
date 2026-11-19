@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Bazaar.Server.DevSandbox;
 
 /// <summary>
@@ -68,7 +70,17 @@ public sealed class SandboxRunner : ISandboxRunner
     }
 
     /// <inheritdoc />
-    public SandboxRunResult Replay(SandboxRunSpec spec, IReadOnlyList<SandboxAuditEvent> recorded)
+    public SandboxRunResult Replay(SandboxRunSpec spec, IReadOnlyList<SandboxAuditEvent> recorded) => Replay(spec, recorded, null);
+
+    /// <summary>
+    /// Replays a recorded stream. When <paramref name="expectedHeadHash"/> (the head hash stored with the run result) is given, a
+    /// stream whose head differs (a truncated, extended or replaced chain) is an <see cref="SandboxVerdict.Error"/>.
+    /// </summary>
+    /// <param name="spec">The run spec.</param>
+    /// <param name="recorded">The recorded events.</param>
+    /// <param name="expectedHeadHash">The head hash stored with the original result, or null to skip the check.</param>
+    /// <returns>The replay verdict.</returns>
+    public static SandboxRunResult Replay(SandboxRunSpec spec, IReadOnlyList<SandboxAuditEvent> recorded, string? expectedHeadHash)
     {
         ArgumentNullException.ThrowIfNull(spec);
         ArgumentNullException.ThrowIfNull(recorded);
@@ -80,7 +92,7 @@ public sealed class SandboxRunner : ISandboxRunner
         }
 
         var head = recorded.Count == 0 ? _zeroHash : recorded[^1].Hash;
-        if (!HashChainedAuditTrail.VerifyEvents(recorded))
+        if (!HashChainedAuditTrail.VerifyEvents(recorded, expectedHeadHash))
         {
             return Make(runId, SandboxVerdict.Error, "audit chain broken", [], recorded.Count, head);
         }
@@ -141,9 +153,13 @@ public sealed class SandboxRunner : ISandboxRunner
         }
     }
 
+    /// <summary>
+    /// A db target is recognised for every action kind, case-insensitively and after trimming, so <c>DB:public.x</c>, a padded target or a
+    /// secret read cannot dodge the schema check.
+    /// </summary>
     private static bool IsDbAction(SandboxAction a) =>
-        (a.Kind == SandboxActionKind.FileAccess || a.Kind == SandboxActionKind.HostCall)
-        && (a.Target ?? string.Empty).StartsWith(_dbPrefix, StringComparison.Ordinal);
+        a.Kind != SandboxActionKind.NetworkAttempt
+        && (a.Target ?? string.Empty).AsSpan().Trim().StartsWith(_dbPrefix, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Replay has no company: a db target is acceptable only when it names some sandbox schema.</summary>
     private static bool IsForeignDbTarget(SandboxAction a) =>
@@ -151,7 +167,7 @@ public sealed class SandboxRunner : ISandboxRunner
 
     private static string SchemaOf(string target)
     {
-        var rest = target[_dbPrefix.Length..];
+        var rest = target.Trim()[_dbPrefix.Length..];
         var dot = rest.IndexOf('.', StringComparison.Ordinal);
         return dot < 0 ? rest : rest[..dot];
     }
@@ -224,10 +240,20 @@ public sealed class SandboxRunner : ISandboxRunner
             {
                 process = await provider.StartAsync(spec, cts.Token).ConfigureAwait(false);
                 var afterViolation = 0;
-                await foreach (var action in engine.RunAsync(spec, process, company, cts.Token).ConfigureAwait(false))
+                var tail = string.Empty;
+                var tailLength = Math.Max(0, company.Canaries.Select(c => c?.Length ?? 0).DefaultIfEmpty(0).Max() - 1);
+                await foreach (var action in EnumerateAsync(engine.RunAsync(spec, process, company, cts.Token), cts.Token).ConfigureAwait(false))
                 {
-                    var canary = CanaryDetector.Find(action.Payload ?? string.Empty, company.Canaries)
-                        ?? CanaryDetector.Find(action.Target ?? string.Empty, company.Canaries);
+                    var payload = action.Payload ?? string.Empty;
+                    var canary = CanaryDetector.Find(payload, company.Canaries)
+                        ?? CanaryDetector.Find(action.Target ?? string.Empty, company.Canaries)
+                        ?? (tail.Length > 0 ? CanaryDetector.Find(tail + payload, company.Canaries) : null);
+                    if (tailLength > 0 && payload.Length > 0)
+                    {
+                        var joined = tail + payload;
+                        tail = joined.Length > tailLength ? joined[^tailLength..] : joined;
+                    }
+
                     SandboxDecision decision;
                     string why;
                     if (canary is not null)
@@ -322,6 +348,55 @@ public sealed class SandboxRunner : ISandboxRunner
         }
 
         return Make(runId, verdict, reason, violations, trail.Events.Count, trail.HeadHash);
+    }
+
+    /// <summary>
+    /// Enumerates the engine's actions so that the run's own timeout and cancellation hold even when the engine ignores its token:
+    /// it checks the token between actions, and races each wait for the next action against the token. An abandoned engine task is
+    /// observed and disposed in the background; the process is killed by the caller either way.
+    /// </summary>
+    private static async IAsyncEnumerable<SandboxAction> EnumerateAsync(
+        IAsyncEnumerable<SandboxAction> source, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var enumerator = source.GetAsyncEnumerator(ct);
+        var abandoned = false;
+        try
+        {
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                var next = enumerator.MoveNextAsync().AsTask();
+                var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                await using (ct.Register(static state => ((TaskCompletionSource)state!).TrySetResult(), cancelled).ConfigureAwait(false))
+                {
+                    if (await Task.WhenAny(next, cancelled.Task).ConfigureAwait(false) != next)
+                    {
+                        abandoned = true;
+                        _ = next.ContinueWith(
+                            _ => enumerator.DisposeAsync().AsTask(),
+                            CancellationToken.None,
+                            TaskContinuationOptions.ExecuteSynchronously,
+                            TaskScheduler.Default).Unwrap().ContinueWith(
+                                static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                        throw new OperationCanceledException(ct);
+                    }
+                }
+
+                if (!await next.ConfigureAwait(false))
+                {
+                    yield break;
+                }
+
+                yield return enumerator.Current;
+            }
+        }
+        finally
+        {
+            if (!abandoned)
+            {
+                await enumerator.DisposeAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     private static async Task KillQuietlyAsync(ISandboxProcess process)

@@ -71,6 +71,25 @@ internal static class HelperPolicyParser
         return error is null ? policy : null;
     }
 
+    /// <summary>True for an absolute path with no NUL and no <c>.</c> or <c>..</c> segment (checked lexically).</summary>
+    internal static bool IsCleanAbsolutePath(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || path[0] != '/' || path.Contains('\0', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var segment in path.Split('/'))
+        {
+            if (segment is "." or "..")
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal static string? Validate(HelperPolicy policy)
     {
         if (policy.Version != 1)
@@ -85,10 +104,15 @@ internal static class HelperPolicyParser
 
         foreach (var p in policy.ReadPaths.Concat(policy.WritePaths))
         {
-            if (string.IsNullOrEmpty(p) || p[0] != '/' || p.Contains('\0', StringComparison.Ordinal))
+            if (!IsCleanAbsolutePath(p))
             {
-                return $"path '{p}' must be absolute and contain no NUL";
+                return $"path '{p}' must be absolute, contain no NUL and have no '.' or '..' segment";
             }
+        }
+
+        if (policy.ReadPaths.Any(p => p.TrimEnd('/').Length == 0))
+        {
+            return "readPaths must not contain / (that would confine nothing)";
         }
 
         if (policy.WritePaths.Any(p => p == "/"))

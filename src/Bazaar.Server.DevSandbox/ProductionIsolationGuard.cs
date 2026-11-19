@@ -23,6 +23,8 @@ public static class ProductionIsolationGuard
 
     private static readonly Regex _runIdCharacters = new("^[a-z0-9-]+\\z", RegexOptions.CultureInvariant);
 
+    private static readonly Regex _moduleIdPattern = new("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\z", RegexOptions.CultureInvariant);
+
     private static readonly Regex _sandboxTargetName = new("^sandbox[-_][a-z0-9_-]+\\z", RegexOptions.CultureInvariant);
 
     // The _semVer 2.0.0 reference expression (https://semver.org), anchored to the whole string.
@@ -53,6 +55,12 @@ public static class ProductionIsolationGuard
             return "module id is empty";
         }
 
+        // The id is used to look the module up in a store; it must never be able to name a path.
+        if (!_moduleIdPattern.IsMatch(spec.ModuleId) || spec.ModuleId.Contains("..", StringComparison.Ordinal))
+        {
+            return "module id may contain only letters, digits, dot, underscore and hyphen (at most 128, no '..')";
+        }
+
         if (spec.ModuleVersion is null || !_semVer.IsMatch(spec.ModuleVersion))
         {
             return "module version is not _semVer 2.0";
@@ -74,6 +82,11 @@ public static class ProductionIsolationGuard
             {
                 return "a grant has an empty permission class";
             }
+
+            if (grant.Target is null)
+            {
+                return "a grant has no target";
+            }
         }
 
         if (spec.TimeoutSeconds is < _minTimeoutSeconds or > _maxTimeoutSeconds)
@@ -89,6 +102,11 @@ public static class ProductionIsolationGuard
         if (spec.TargetCompanyId is not null && !spec.TargetCompanyId.StartsWith(_sandboxCompanyPrefix, StringComparison.Ordinal))
         {
             return "target company is not a sandbox company; production targets are refused";
+        }
+
+        if (spec.TargetCompanyId is not null && (spec.TargetCompanyId.Length > _maxIdentifierLength || ValidateTarget(spec.TargetCompanyId) is not null))
+        {
+            return "target company id is not a clean sandbox company id; production targets are refused";
         }
 
         if (spec.EgressAllowlist is null)
@@ -185,6 +203,11 @@ public static class ProductionIsolationGuard
         if (host.Contains('*'))
         {
             return "egress allowlist must not contain wildcards";
+        }
+
+        if (!string.Equals(SandboxTargetRules.NormalizeHost(host), host, StringComparison.Ordinal))
+        {
+            return "egress allowlist entries must be plain lower-case DNS names (no control characters, trailing dot, non-ASCII or look-alike characters)";
         }
 
         if (string.Equals(host, "localhost", StringComparison.Ordinal))

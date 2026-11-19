@@ -141,9 +141,17 @@ internal static partial class WindowsLauncher
             throw new InvalidOperationException("The launch plan's executable path must not contain '..'.");
         }
 
+        // Windows drops trailing dots and spaces from a name ("cmd.exe." is cmd.exe), reads "name:stream" as an alternate data stream, and
+        // expands 8.3 short names ("CMD~1.EXE"). None of these may be used to get past the checks below.
+        var fileName = executable[(executable.LastIndexOf('\\') + 1)..];
+        if (fileName.Length == 0 || fileName[^1] is '.' or ' ' || executable.IndexOf(':', 3) >= 0 || ShortNamePart().IsMatch(fileName))
+        {
+            throw new InvalidOperationException("The launch plan's executable path must not end in a dot or space, name a stream, or use a short (8.3) name.");
+        }
+
         if (!allowShell)
         {
-            var name = executable[(executable.LastIndexOf('\\') + 1)..];
+            var name = fileName;
             if (name.EndsWith(".bat", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase)
                 || name.Equals("cmd.exe", StringComparison.OrdinalIgnoreCase) || name.Equals("cmd", StringComparison.OrdinalIgnoreCase))
             {
@@ -157,8 +165,11 @@ internal static partial class WindowsLauncher
         }
     }
 
-    [GeneratedRegex(@"^[A-Za-z]:\\[^\0""<>|*?]+$")]
+    [GeneratedRegex(@"^[A-Za-z]:\\[^\0""<>|*?\r\n]+\z")]
     private static partial Regex DriveLetterPath();
+
+    [GeneratedRegex(@"~[0-9]")]
+    private static partial Regex ShortNamePart();
 
     /// <summary>The job limits for a run spec: memory from <c>MemoryLimitMb</c> (per process and per job), CPU time from <c>TimeoutSeconds</c>.</summary>
     internal static WindowsJobSpec JobSpecFor(SandboxRunSpec spec, WindowsConfinementOptions options)

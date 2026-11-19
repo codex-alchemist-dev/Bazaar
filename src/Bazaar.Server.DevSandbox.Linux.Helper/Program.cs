@@ -85,7 +85,12 @@ internal static class Program
             return Fail(HelperExit.RlimitFailed, $"setrlimit(RLIMIT_CORE) failed (errno {Native.Errno})");
         }
 
-        Hardening.MarkDescriptorsCloseOnExec();
+        failure = Hardening.MarkDescriptorsCloseOnExec();
+        if (failure is not null)
+        {
+            return Fail(failure);
+        }
+
         failure = Hardening.RestrictSelf(rulesetFd);
         if (failure is not null)
         {

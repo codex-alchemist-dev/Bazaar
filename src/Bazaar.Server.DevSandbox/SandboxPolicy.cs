@@ -15,12 +15,21 @@ namespace Bazaar.Server.DevSandbox;
 /// matches every target. A grant target ending in <c>/*</c> matches any target that starts with the text before the <c>*</c>.
 /// Any other grant target must equal the action target (ordinal). No match is denied as <c>no-grant</c>.</item>
 /// <item>An action with an empty class that is not a syscall is denied as <c>no-grant</c>.</item>
+/// <item>Targets are canonicalised lexically before any match (no file-system access). A target that is empty, holds a control,
+/// format or separator character (NUL, newline, bidi override), a backslash, an empty segment (<c>//</c>), or a segment made only of
+/// dots and spaces (<c>.</c>, <c>..</c>, <c>...</c>) is denied as <c>invalid-target</c>. One leading and one trailing <c>/</c> are
+/// allowed. A prefix grant <c>a/b/*</c> matches by whole <c>/</c>-separated segments, so <c>a/bc</c> does not match it. Matching stays
+/// ordinal and case-sensitive. Class comparison is exact and ordinal.</item>
+/// <item>A network target must be a plain DNS name (ASCII letters, digits and hyphens in labels, lower-case after folding ASCII case,
+/// no trailing dot, port, userinfo, brackets, whitespace or non-ASCII; punycode labels are accepted, Unicode labels are not) or a
+/// canonical IP literal (the text equals the address's own canonical form). Anything else is denied as <c>invalid-target</c>.</item>
+/// <item>A grant target of <c>*</c> is honoured for every class (doc 48 section 1: <c>*</c> means every target of the class), but never
+/// for a target that fails the checks above.</item>
 /// </list>
 /// </remarks>
 public sealed class SandboxPolicy
 {
-    private const string _prefixSuffix = "/*";
-    private const string _wildcard = "*";
+    private const string _invalidTarget = "invalid-target";
 
     private readonly SandboxRunSpec _spec;
 
@@ -42,7 +51,8 @@ public sealed class SandboxPolicy
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        if (action.Kind == SandboxActionKind.Syscall && action.Class.Length == 0)
+        var actionClass = action.Class ?? string.Empty;
+        if (action.Kind == SandboxActionKind.Syscall && actionClass.Length == 0)
         {
             reason = "no-permission-needed";
             return SandboxDecision.Allowed;
@@ -53,16 +63,25 @@ public sealed class SandboxPolicy
             return DecideNetwork(action, out reason);
         }
 
-        if (action.Class.Length == 0)
+        if (!SandboxTargetRules.IsValidTarget(action.Target))
+        {
+            reason = _invalidTarget;
+            return SandboxDecision.Denied;
+        }
+
+        if (actionClass.Length == 0)
         {
             reason = "no-grant";
             return SandboxDecision.Denied;
         }
 
-        if (HasGrant(action, prefixStyle: true))
+        foreach (var grant in _spec.Grants)
         {
-            reason = "granted";
-            return SandboxDecision.Allowed;
+            if (string.Equals(grant.Class, actionClass, StringComparison.Ordinal) && SandboxTargetRules.GrantTargetMatches(grant.Target, action.Target))
+            {
+                reason = "granted";
+                return SandboxDecision.Allowed;
+            }
         }
 
         reason = "no-grant";
@@ -71,27 +90,44 @@ public sealed class SandboxPolicy
 
     private SandboxDecision DecideNetwork(SandboxAction action, out string reason)
     {
-        if (!IsOnAllowlist(action.Target))
+        var host = SandboxTargetRules.NormalizeHost(action.Target);
+        if (host is null)
+        {
+            reason = _invalidTarget;
+            return SandboxDecision.Denied;
+        }
+
+        if (!IsOnAllowlist(host))
         {
             reason = "egress-not-allowed";
             return SandboxDecision.Denied;
         }
 
-        if (action.Class.Length == 0 || !HasGrant(action, prefixStyle: false))
+        var actionClass = action.Class ?? string.Empty;
+        if (actionClass.Length == 0)
         {
             reason = "no-grant";
             return SandboxDecision.Denied;
         }
 
-        reason = "granted";
-        return SandboxDecision.Allowed;
+        foreach (var grant in _spec.Grants)
+        {
+            if (string.Equals(grant.Class, actionClass, StringComparison.Ordinal) && SandboxTargetRules.GrantHostMatches(grant.Target, host))
+            {
+                reason = "granted";
+                return SandboxDecision.Allowed;
+            }
+        }
+
+        reason = "no-grant";
+        return SandboxDecision.Denied;
     }
 
     private bool IsOnAllowlist(string host)
     {
         foreach (var allowed in _spec.EgressAllowlist)
         {
-            if (string.Equals(allowed, host, StringComparison.OrdinalIgnoreCase))
+            if (SandboxTargetRules.NormalizeHost(allowed) is { } normalized && string.Equals(normalized, host, StringComparison.Ordinal))
             {
                 return true;
             }
@@ -99,41 +135,4 @@ public sealed class SandboxPolicy
 
         return false;
     }
-
-    private bool HasGrant(SandboxAction action, bool prefixStyle)
-    {
-        foreach (var grant in _spec.Grants)
-        {
-            if (!string.Equals(grant.Class, action.Class, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (prefixStyle ? TargetMatches(grant.Target, action.Target) : HostMatches(grant.Target, action.Target))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool TargetMatches(string grantTarget, string actionTarget)
-    {
-        if (grantTarget == _wildcard)
-        {
-            return true;
-        }
-
-        if (grantTarget.EndsWith(_prefixSuffix, StringComparison.Ordinal))
-        {
-            var prefix = grantTarget[..^1];
-            return actionTarget.StartsWith(prefix, StringComparison.Ordinal);
-        }
-
-        return string.Equals(grantTarget, actionTarget, StringComparison.Ordinal);
-    }
-
-    private static bool HostMatches(string grantTarget, string actionTarget) =>
-        grantTarget == _wildcard || string.Equals(grantTarget, actionTarget, StringComparison.OrdinalIgnoreCase);
 }

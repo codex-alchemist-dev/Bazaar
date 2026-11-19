@@ -39,6 +39,8 @@ internal static class LinuxCommandLine
         args.Add("--cpu=" + cpuSeconds.ToString(CultureInfo.InvariantCulture));
         args.Add("--nproc=" + options.MaxProcesses.ToString(CultureInfo.InvariantCulture));
         args.Add("--nofile=" + options.MaxOpenFiles.ToString(CultureInfo.InvariantCulture));
+        args.Add("--fsize=" + options.MaxFileSizeBytes.ToString(CultureInfo.InvariantCulture));
+        args.Add("--core=0");
         args.Add("--");
         args.Add(unsharePath);
         args.AddRange(UnshareFlags);

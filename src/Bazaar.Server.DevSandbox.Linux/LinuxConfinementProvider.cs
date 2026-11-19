@@ -79,6 +79,11 @@ public sealed partial class LinuxConfinementProvider : ISandboxConfinementProvid
             throw new ArgumentException("MemoryLimitMb and TimeoutSeconds must be positive.", nameof(spec));
         }
 
+        if (_options.MaxFileSizeBytes <= 0)
+        {
+            throw new InvalidOperationException("MaxFileSizeBytes must be positive.");
+        }
+
         var unshare = _options.ResolveUnshare() ?? throw new InvalidOperationException("unshare not found");
         var prlimit = _options.ResolvePrlimit() ?? throw new InvalidOperationException("prlimit not found");
 
@@ -126,6 +131,6 @@ public sealed partial class LinuxConfinementProvider : ISandboxConfinementProvid
         }
     }
 
-    [GeneratedRegex("^[a-z0-9-]+$")]
+    [GeneratedRegex("^[a-z0-9-]+\\z")]
     private static partial Regex RunIdPattern();
 }

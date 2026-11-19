@@ -167,25 +167,19 @@ public sealed class WasmSandboxEngine : ISandboxEngine
             return false;
         }
 
-        if (action.Kind == SandboxActionKind.NetworkAttempt
-            && !spec.EgressAllowlist.Any(h => string.Equals(h, action.Target, StringComparison.OrdinalIgnoreCase)))
+        // The same lexical rules as the runner's policy (shared in SandboxTargetRules), so this pre-check can never be looser than it.
+        if (action.Kind == SandboxActionKind.NetworkAttempt)
         {
-            return false;
+            var host = SandboxTargetRules.NormalizeHost(action.Target);
+            if (host is null || !spec.EgressAllowlist.Any(h => string.Equals(SandboxTargetRules.NormalizeHost(h), host, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return spec.Grants.Any(g => string.Equals(g.Class, action.Class, StringComparison.Ordinal) && SandboxTargetRules.GrantHostMatches(g.Target, host));
         }
 
-        return spec.Grants.Any(g => string.Equals(g.Class, action.Class, StringComparison.Ordinal) && TargetMatches(g.Target, action.Target));
-    }
-
-    private static bool TargetMatches(string grant, string target)
-    {
-        if (grant == "*")
-        {
-            return true;
-        }
-
-        return grant.EndsWith("/*", StringComparison.Ordinal)
-            ? target.StartsWith(grant[..^1], StringComparison.Ordinal)
-            : string.Equals(grant, target, StringComparison.Ordinal);
+        return spec.Grants.Any(g => string.Equals(g.Class, action.Class, StringComparison.Ordinal) && SandboxTargetRules.GrantTargetMatches(g.Target, action.Target));
     }
 
     private sealed class PendingCall(SandboxAction action, WasmImportInfo info)
@@ -197,6 +191,8 @@ public sealed class WasmSandboxEngine : ISandboxEngine
         public TaskCompletionSource<string> Result { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
+    private const int _maxArgumentChars = 1024 * 1024;
+
     private sealed class Bridge(IReadOnlyDictionary<string, WasmImportInfo> linked, ChannelWriter<PendingCall> writer, int maxCalls) : IWasmHostImports
     {
         private readonly List<PendingCall> _parked = [];
@@ -207,6 +203,11 @@ public sealed class WasmSandboxEngine : ISandboxEngine
         {
             ArgumentNullException.ThrowIfNull(importName);
             argument ??= string.Empty;
+            if (argument.Length > _maxArgumentChars)
+            {
+                throw new InvalidOperationException("host call argument too large");
+            }
+
             if (!linked.TryGetValue(importName, out var info))
             {
                 throw new InvalidOperationException("import is not linked");

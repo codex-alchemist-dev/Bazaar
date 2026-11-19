@@ -86,7 +86,17 @@ public sealed class HashChainedAuditTrail : ISandboxAuditTrail
     /// </summary>
     /// <param name="events">The events in stored order.</param>
     /// <returns>True when the whole chain verifies.</returns>
-    public static bool VerifyEvents(IReadOnlyList<SandboxAuditEvent> events)
+    public static bool VerifyEvents(IReadOnlyList<SandboxAuditEvent> events) => VerifyEvents(events, null);
+
+    /// <summary>
+    /// Like <see cref="VerifyEvents(IReadOnlyList{SandboxAuditEvent})"/>, and when <paramref name="expectedHeadHash"/> is given (the
+    /// head hash stored outside the stream, for example in the run result) the last event's hash must equal it. A chain alone cannot
+    /// show that events were cut off its end or that a whole shorter valid chain was swapped in; only the stored head can.
+    /// </summary>
+    /// <param name="events">The events in stored order.</param>
+    /// <param name="expectedHeadHash">The head hash stored with the run result (64 zeros for an empty stream), or null to skip the check.</param>
+    /// <returns>True when the chain verifies and, when given, ends at the expected head.</returns>
+    public static bool VerifyEvents(IReadOnlyList<SandboxAuditEvent> events, string? expectedHeadHash)
     {
         ArgumentNullException.ThrowIfNull(events);
 
@@ -118,7 +128,7 @@ public sealed class HashChainedAuditTrail : ISandboxAuditTrail
             expectedPrevious = e.Hash;
         }
 
-        return true;
+        return expectedHeadHash is null || FixedTimeEquals(expectedPrevious, expectedHeadHash);
     }
 
     /// <summary>

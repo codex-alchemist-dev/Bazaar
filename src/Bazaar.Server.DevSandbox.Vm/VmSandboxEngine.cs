@@ -122,10 +122,12 @@ public sealed class VmSandboxEngine : ISandboxEngine
         var hosts = new List<string>(allowlist.Count);
         foreach (var raw in allowlist)
         {
-            var host = raw?.Trim() ?? string.Empty;
+            // No trimming: a padded entry is refused, never silently corrected into a different host than the spec names.
+            var host = raw ?? string.Empty;
             if (host.Length <= _options.TestHostSuffix.Length
                 || !host.EndsWith(_options.TestHostSuffix, StringComparison.OrdinalIgnoreCase)
-                || host.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-')))
+                || host.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-'))
+                || host.Split('.').Any(label => label.Length is 0 or > 63 || label[0] == '-' || label[^1] == '-'))
             {
                 throw new InvalidOperationException("egress host is not a plain test host");
             }
