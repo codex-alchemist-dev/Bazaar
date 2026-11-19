@@ -205,6 +205,25 @@ What held in the second wave: 12,642 hostile requests against a running host wit
 
 New cracks from the second wave are items 16 to 21 below.
 
+## The third wave (that night)
+
+Three more campaigns, each on ground the first two had not walked: who may see and do what, what a legitimate member can make the server spend, and what strange data does once it is stored. Fourteen more real bugs, all fixed with tests.
+
+- **The Constellation showed everyone everything.** `POST /constellation/tiles` took no principal and laid out the whole Vault graph, so any signed-in member got the ids, links and positions of every note, including other agents' private memory. Doc 19 already said the projection is per viewer; nothing did it. The endpoint was first shut to everyone but the owner, then given the real fix: the graph is now built from the notes the caller may read, by the same SQL access clause Vault search uses, and an edge survives only when both ends are readable. The layout runs over the visible notes only, so a hidden note cannot even nudge a visible one. A graph source that knows nothing about viewers gives non-owners an empty graph.
+- **Removed members kept their open streams.** `gc.member.add` and `gc.member.remove` did not re-check live subscriptions, so a removed member went on receiving the GC until they reconnected. Membership changes now re-check and revoke.
+- **One principal could answer for another.** The retry table was keyed by device id alone, and device ids are free text, so a member who guessed another's device id and request id could be handed their stored reply. The table and the per-device socket count are now scoped to the principal.
+- **Reading a busy GC cost the whole GC.** A replay page scanned every message to find the edited ones. With 300,000 messages a single page took seconds. It now costs only the new and edited messages.
+- **Stream names had more than one spelling.** `GC:` in capitals, padded ids and braces all reached the access check as different names for one stream. Anything but the canonical spelling is refused.
+- **`gc.send` skipped the byte cap that `gc.edit` enforces.** A message could be sent at four times the size it could be edited to. Both now stop at 32 KiB.
+- **The NUL byte.** Postgres text cannot hold one. In a search query it came back as a 500. In a model's reply or tool arguments it escaped the turn runner and left the step pending for ever. In a job's error text it made the failure report itself fail, so the job stayed leased. In a GC title, a trigger purpose or a Kanban reason it threw out of the tool. Each is now a clean refusal or a clean failure.
+- **A schedule too far away.** `every=P3650000D` pushed the next occurrence past the end of time and threw out of trigger creation and the tick. It now clamps to "never".
+- **Digits that are not digits.** `\d` accepts Arabic-Indic and other Unicode digits. A stray decision file named with them made the number parser throw and blocked every later decision write. About fifteen validators now say `[0-9]` and end with `\z`, which also closes item 11's regex sweep for the ones found.
+- **Cutting text through a character.** Job errors and GC titles were cut at a fixed length that could split a surrogate pair, which Postgres refuses. Pairs are kept whole.
+
+What held in the third wave: every GC operation by a non-member answers the same as for a GC that does not exist; nobody can edit another author's message or reuse another author's retry key; owner-only handlers decide by the authenticated kind, never the payload; another principal's upload id looks unknown; Vault search and document fetch apply the access rule in SQL on every query; mention handles are ASCII, so no look-alike @mention; no SQL is built from a value anywhere in `src`; the append-only triggers cover every partition for the app role; and daylight-saving sweeps over seven awkward zones never fired a trigger twice or skipped one.
+
+New cracks from the third wave are items 22 to 36 below.
+
 ## Still standing, with cracks (needs the owner or a design doc)
 
 None of these were changed. Each needs a decision first.
@@ -230,6 +249,21 @@ None of these were changed. Each needs a decision first.
 19. **Large-amount intake:** nothing deletes an intake amount that no limit refers to any more, and with the guard set to unlimited the route has no body cap (it is owner-only and rate limited).
 20. **`/auth/refresh` has no per-address limit.** The 16 KiB body cap is this campaign's choice; doc 32 gives no size.
 21. **Is a zero-byte blob valid?** Today an upload of length 0 is refused with 400.
+22. **Small replies are kept for 24 hours with no total bound.** A connection that asks for history pages just under 16 KiB at the rate limit pins about 2.9 GB an hour. It needs a per-device budget or a count cap, and the number is a design call.
+23. **No cap on streams per `subscribe`**, no member cap on an ordinary GC, and **no write quota per principal** (the rate limit is per connection, and connections are free). The GC log is never purged, so a member can grow it at will. Doc 15's shared buckets are not built for the wire.
+24. **Agent posts may still be 64,000 characters** while members stop at 32 KiB.
+25. **May the owner post into a DM they are not in?** Today yes. Doc 01 calls the owner a reader.
+26. **The stream access check treats every principal as a human**, so the owner cannot subscribe to a GC they are not a member of and an agent cannot subscribe to its own Thinking GC. It fails closed, but it contradicts "the owner reads all" until identity supplies kinds.
+27. **An observer cannot leave a GC**, and **any member can re-add someone the owner removed.** Doc 01 is silent on both.
+28. **`gc.member.add` does not check that the added id is a real principal** or that its stated kind is true. Waiting on the identity service.
+29. **Revoking a device is not wired:** nothing calls it, it does not check who asks, and it does not close open sockets. Doc 32 sections 5 and 5a are still PROPOSED.
+30. **When attachments land,** the writer must check that the sender may read the blob it links, or any member gains every blob whose hash they can name.
+31. **The Constellation level-of-detail feed** is unregistered and still reads the whole graph. It must take the viewer before it is switched on. And coordinates now differ between viewers; a layout shared by all viewers would leak hidden structure, so that is a design choice.
+32. **`reply_to` is not checked.** A reply to message -5, or to one beyond the head, is stored.
+33. **The table owner can `TRUNCATE` a single partition** of the GC log: the guard is on the parent only. The app role cannot. The fix is a new migration, and `common/` is frozen, so where it goes needs deciding.
+34. **About eight more places cut text by UTF-16 unit.** None write to Postgres text today. A shared "cut without splitting a character" helper would end the class; where it lives needs deciding.
+35. **Agent-made daily schedules step in UTC**, not the agent's time zone: the tool passes no zone.
+36. **Smaller:** the wire decoder accepts duplicate fields and trailing bytes; two regexes (path globs, the Constitution heading) are slow on crafted input and only one has a timeout; a former member is refused history but served search up to the point they left.
 
 ## How to do it again
 
