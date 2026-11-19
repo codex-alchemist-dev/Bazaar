@@ -15,8 +15,10 @@ public sealed class ClientModuleLoadResult
         IReadOnlyList<ModuleManifest> loaded,
         IReadOnlyList<ClientModuleSkip> skipped,
         IReadOnlyDictionary<string, string> paneKindOwners,
-        IReadOnlyDictionary<string, string> commandOwners)
+        IReadOnlyDictionary<string, string> commandOwners,
+        IReadOnlyList<ClientCommandContribution> commands)
     {
+        Commands = commands;
         Loaded = loaded;
         Skipped = skipped;
         PaneKindOwners = paneKindOwners;
@@ -44,6 +46,9 @@ public sealed class ClientModuleLoadResult
     /// <summary>Pane kind to the id of the module that registered it.</summary>
     public IReadOnlyDictionary<string, string> PaneKindOwners { get; }
 
+    /// <summary>Every command the loaded modules contributed with its default mnemonics, in load order.</summary>
+    public IReadOnlyList<ClientCommandContribution> Commands { get; }
+
     /// <summary>Command id to the id of the module that registered it.</summary>
     public IReadOnlyDictionary<string, string> CommandOwners { get; }
 }
@@ -70,6 +75,7 @@ public static class ClientModuleHost
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var paneKinds = new Dictionary<string, string>(StringComparer.Ordinal);
         var commands = new Dictionary<string, string>(StringComparer.Ordinal);
+        var contributions = new List<ClientCommandContribution>();
 
         void Skip(string id, string code, string message)
         {
@@ -120,9 +126,12 @@ public static class ClientModuleHost
                 continue;
             }
 
+            IReadOnlyList<ClientCommandContribution> registered;
             try
             {
-                module!.Register(new ClientModuleBuilder(manifest));
+                var builder = new ClientModuleBuilder(manifest);
+                module!.Register(builder);
+                registered = builder.Contributions;
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
@@ -131,6 +140,7 @@ public static class ClientModuleHost
             }
 
             ids.Add(manifest.Id);
+            contributions.AddRange(registered);
             foreach (var kind in manifest.PaneKinds)
             {
                 paneKinds[kind] = manifest.Id;
@@ -144,6 +154,6 @@ public static class ClientModuleHost
             loaded.Add(manifest);
         }
 
-        return new ClientModuleLoadResult(loaded, skipped, paneKinds, commands);
+        return new ClientModuleLoadResult(loaded, skipped, paneKinds, commands, contributions);
     }
 }

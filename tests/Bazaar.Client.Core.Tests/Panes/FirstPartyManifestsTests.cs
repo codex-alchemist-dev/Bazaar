@@ -72,4 +72,39 @@ public class FirstPartyManifestsTests
             Assert.Equal(["android", "linux", "windows"], module.Manifest.Host.OperatingSystems);
         }
     }
+
+    [Fact]
+    public void Modules_contribute_the_navigation_commands_with_their_default_mnemonics()
+    {
+        var result = ClientModuleHost.Load(FirstParty(), _host);
+
+        Assert.Equal(
+            ["nav.constellation", "nav.gc.first", "nav.gc.top", "nav.ryusei.board", "nav.ryusei.roadmap"],
+            result.Commands.Select(c => c.Id).Order(StringComparer.Ordinal));
+        Assert.All(result.Commands, c => Assert.Contains(c.Id, result.CommandOwners.Keys));
+    }
+
+    [Fact]
+    public void Module_contributions_match_the_module_owned_defaults_of_the_mnemonic_engine()
+    {
+        var contributed = Bazaar.Ex.MnemonicAssignment.FromContributions(ClientModuleHost.Load(FirstParty(), _host).Commands);
+        var shellIds = new[] { Bazaar.Ex.NavigationDefaults.UnreadCommandId, Bazaar.Ex.NavigationDefaults.SettingsCommandId };
+        var moduleOwned = Bazaar.Ex.NavigationDefaults.Assignments.Where(a => !shellIds.Contains(a.CommandId));
+
+        Assert.Equal(
+            moduleOwned.OrderBy(a => a.Mnemonic, StringComparer.Ordinal),
+            contributed.OrderBy(a => a.Mnemonic, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void A_command_outside_the_manifest_or_with_a_bad_mnemonic_is_refused()
+    {
+        var manifest = new GcPaneModule().Manifest;
+        var builder = new ClientModuleBuilder(manifest);
+
+        Assert.Throws<InvalidOperationException>(() => builder.AddCommand(new ClientCommandContribution("nav.other", "Other", "other")));
+        Assert.Throws<InvalidOperationException>(() => builder.AddCommand(new ClientCommandContribution("nav.gc.first", "First", "Bad Mnemonic")));
+        builder.AddCommand(new ClientCommandContribution("nav.gc.first", "First", "ngc1"));
+        Assert.Throws<InvalidOperationException>(() => builder.AddCommand(new ClientCommandContribution("nav.gc.first", "First", "ngc1")));
+    }
 }

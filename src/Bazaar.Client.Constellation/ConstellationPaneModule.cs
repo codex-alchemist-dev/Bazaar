@@ -13,8 +13,17 @@ public sealed class ConstellationPaneModule : IPaneModule, IClientModule
     /// <summary>The Constellation pane with an empty model: no graph loaded yet. The pane fetches its tiles itself.</summary>
     public static PaneDescriptor WindowPane { get; } = new(PaneKinds.Constellation, "Constellation", string.Empty, JsonElement.Parse("{}"));
 
+    /// <summary>Command id that opens the Constellation.</summary>
+    public const string OpenCommandId = "nav.constellation";
+
+    /// <summary>The commands this module contributes, with their default mnemonics.</summary>
+    public static IReadOnlyList<ClientCommandContribution> Commands { get; } =
+    [
+        new(OpenCommandId, "Constellation", "constellation"),
+    ];
+
     /// <summary>The manifest the host checks at load (doc 41 section 8).</summary>
-    public ModuleManifest Manifest { get; } = FirstPartyManifest.Create(typeof(ConstellationPaneModule), PaneKinds.Constellation, [PaneKinds.Constellation], ["ui:pane", "wire:constellation.read"]);
+    public ModuleManifest Manifest { get; } = FirstPartyManifest.Create(typeof(ConstellationPaneModule), PaneKinds.Constellation, [PaneKinds.Constellation], ["ui:pane", "wire:constellation.read"], Commands.Select(c => c.Id).ToArray());
 
     /// <summary>Records the pane kinds this module registers, as its manifest declares them.</summary>
     public void Register(ClientModuleBuilder builder)
@@ -23,6 +32,11 @@ public sealed class ConstellationPaneModule : IPaneModule, IClientModule
         foreach (var kind in builder.Manifest.PaneKinds)
         {
             builder.AddPaneKind(kind);
+        }
+
+        foreach (var command in Commands)
+        {
+            builder.AddCommand(command);
         }
     }
 
