@@ -17,5 +17,6 @@
     <ProjectReference Include="..\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
   </ItemGroup>
 </Project>

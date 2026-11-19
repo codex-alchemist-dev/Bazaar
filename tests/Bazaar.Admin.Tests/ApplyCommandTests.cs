@@ -4,6 +4,7 @@ using Bazaar.Admin.Composition;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Admin.Tests;

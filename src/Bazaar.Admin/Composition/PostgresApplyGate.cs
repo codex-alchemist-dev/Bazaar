@@ -4,6 +4,7 @@ using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Setup.Postgres;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;

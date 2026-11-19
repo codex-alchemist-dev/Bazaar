@@ -21,6 +21,7 @@ using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
+using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -35,6 +36,7 @@ public static class HostComponents
     [
         new AuditComponent(),
         new SettingsComponent(),
+        new SetupComponent(),
         new KekComponent(),
         new GcComponent(),
         new CompanyComponent(),

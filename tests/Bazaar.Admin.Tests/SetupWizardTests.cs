@@ -1,6 +1,7 @@
 using Bazaar.Admin;
 using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Admin.Tests;
 

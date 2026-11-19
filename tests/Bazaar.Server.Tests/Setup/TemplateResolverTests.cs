@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bazaar.Admin.Composition;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup;
 
