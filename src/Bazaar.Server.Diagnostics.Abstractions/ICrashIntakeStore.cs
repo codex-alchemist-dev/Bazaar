@@ -117,13 +117,3 @@ public interface ICrashErasure
     /// <summary>Deletes every report, with its screenshots, that the installs sent. Safe to run twice.</summary>
     Task<CrashEraseResult> EraseInstallsAsync(IReadOnlyCollection<Guid> installIds, CancellationToken ct = default);
 }
-
-/// <summary>Binds an install id to the authenticated device on first sight (doc 32 "Crash install binding", PROPOSED).</summary>
-public interface ICrashInstallRegistry
-{
-    /// <summary>
-    /// Binds <paramref name="installId"/> to <paramref name="deviceId"/> when it is new, and returns true. Returns true when it is
-    /// already bound to the same device, and false when it is bound to another one. <paramref name="isShared"/> only applies to a new binding.
-    /// </summary>
-    Task<bool> TryBindAsync(Guid installId, Guid deviceId, bool isShared, CancellationToken ct = default);
-}

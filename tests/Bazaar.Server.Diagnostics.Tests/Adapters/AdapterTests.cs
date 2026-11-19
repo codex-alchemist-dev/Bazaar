@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using Bazaar.Server.Components.Erasure;
 using Bazaar.Server.Diagnostics.Adapters;
 using Bazaar.Server.Gc.Body;
-using Bazaar.Server.Identity.Keys;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

@@ -122,48 +122,4 @@ public sealed class PostgresCrashStoreTests : CrashStoreContract
 
         Assert.Null(await diagnoses.GetLatestAsync(fp, ct));
     }
-
-    [Fact]
-    public async Task Installs_bind_to_the_first_device_map_to_its_person_and_shared_ones_have_no_owner()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var ct = TestContext.Current.CancellationToken;
-        var (_, _, handle) = await CreateAsync(ct);
-        await using var _h = handle;
-        var db = (PgTestDatabase)handle;
-        await using (var ddl = db.DataSource.CreateCommand("CREATE TABLE device (id uuid PRIMARY KEY, human_id uuid NOT NULL, revoked_at timestamptz)"))
-        {
-            await ddl.ExecuteNonQueryAsync(ct);
-        }
-
-        var person = Guid.NewGuid();
-        var laptop = Guid.NewGuid();
-        var oldPhone = Guid.NewGuid();
-        var kiosk = Guid.NewGuid();
-        foreach (var (device, human, revoked) in new[] { (laptop, person, false), (oldPhone, person, true), (kiosk, Guid.NewGuid(), false) })
-        {
-            await using var ins = db.DataSource.CreateCommand("INSERT INTO device (id, human_id, revoked_at) VALUES ($1, $2, $3)");
-            ins.Parameters.AddWithValue(device);
-            ins.Parameters.AddWithValue(human);
-            ins.Parameters.Add(new Npgsql.NpgsqlParameter { NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.TimestampTz, Value = revoked ? DateTimeOffset.UtcNow : DBNull.Value });
-            await ins.ExecuteNonQueryAsync(ct);
-        }
-
-        var directory = new PostgresCrashInstallDirectory(db.DataSource, TimeProvider.System);
-        var a = Guid.NewGuid();
-        var b = Guid.NewGuid();
-        var shared = Guid.NewGuid();
-
-        Assert.True(await directory.TryBindAsync(a, laptop, false, ct));
-        Assert.True(await directory.TryBindAsync(a, laptop, false, ct));
-        Assert.False(await directory.TryBindAsync(a, oldPhone, false, ct));
-        Assert.True(await directory.TryBindAsync(b, oldPhone, false, ct));
-        Assert.True(await directory.TryBindAsync(shared, kiosk, true, ct));
-
-        Assert.Equal(person, await directory.GetOwnerAsync(a, ct));
-        Assert.Null(await directory.GetOwnerAsync(shared, ct));
-        Assert.Equal(new[] { a, b }.Order(), (await directory.GetInstallsAsync(person, ct)).Order());
-        Assert.Empty(await directory.GetInstallsAsync(Guid.NewGuid(), ct));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => directory.GetOwnerAsync(Guid.NewGuid(), ct));
-    }
 }
