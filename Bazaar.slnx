@@ -68,6 +68,10 @@
     <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
+    <Project Path="src/Bazaar.Server.CodingBench.Abstractions/Bazaar.Server.CodingBench.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingBench/Bazaar.Server.CodingBench.csproj" />
+    <Project Path="src/Bazaar.Server.VmBench.Abstractions/Bazaar.Server.VmBench.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.VmBench/Bazaar.Server.VmBench.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
@@ -136,6 +140,8 @@
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingBench.Tests/Bazaar.Server.CodingBench.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmBench.Tests/Bazaar.Server.VmBench.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
   </Folder>
 </Solution>
