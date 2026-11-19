@@ -7,6 +7,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <!-- AF_HYPERV and AF_VSOCK plumbing shared with Bazaar.Server.VmTransport (src/Shared/VmSockets). Neither project references the other. -->
+    <Compile Include="..\Shared\VmSockets\HvSocketAddress.cs" Link="Shared\HvSocketAddress.cs" />
+    <Compile Include="..\Shared\VmSockets\LinuxVsock.cs" Link="Shared\LinuxVsock.cs" />
+    <Compile Include="..\Shared\VmSockets\VsockStream.cs" Link="Shared\VsockStream.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
 </Project>
