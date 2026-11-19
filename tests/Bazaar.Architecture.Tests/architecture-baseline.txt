@@ -84,13 +84,9 @@ src/Bazaar.Client.Core/Wire/IWireTransport.cs
 src/Bazaar.Client.Core/Wire/WebSocketWireTransport.cs
 src/Bazaar.Client.Core/Wire/WireClient.cs
 src/Bazaar.Client.Core/Wire/WireClientOptions.cs
-src/Bazaar.Server/Agents/Responder/AgentResponder.cs
-src/Bazaar.Server/Agents/Responder/AgentResponderService.cs
 src/Bazaar.Server/Agents/Responder/AgentResponderServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Responder/PgResponderGcStore.cs
 src/Bazaar.Server/Agents/Turns/AgentTurnsComponent.cs
-src/Bazaar.Server/Agents/Turns/Context/GcContextSource.cs
-src/Bazaar.Server/Agents/Turns/Posting/AgentMentionParser.cs
 src/Bazaar.Server/Agents/Turns/Posting/AgentPostServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Turns/Posting/GcAgentPostSink.cs
 src/Bazaar.Server/AssemblyMarker.cs
@@ -269,7 +265,6 @@ src/Bazaar.Server/Gc/Mentions/BroadcastPolicy.cs
 src/Bazaar.Server/Gc/Mentions/InboxPlanner.cs
 src/Bazaar.Server/Gc/Mentions/InboxRowWriter.cs
 src/Bazaar.Server/Gc/Mentions/MentionRecords.cs
-src/Bazaar.Server/Gc/Mentions/MentionSpan.cs
 src/Bazaar.Server/Gc/Mentions/MentionValidator.cs
 src/Bazaar.Server/Gc/Model/GcModel.cs
 src/Bazaar.Server/Gc/Provenance/DefaultGcTrustHook.cs
@@ -293,7 +288,6 @@ src/Bazaar.Server/Gc/Wire/GcWireServiceCollectionExtensions.cs
 src/Bazaar.Server/Gc/Write/CoalescingGcNotifier.cs
 src/Bazaar.Server/Gc/Write/GcLogWriter.cs
 src/Bazaar.Server/Gc/Write/GcStaleHeadException.cs
-src/Bazaar.Server/Gc/Write/IGcLogWriter.cs
 src/Bazaar.Server/GitHub/Webhooks/DeliveryDedupe.cs
 src/Bazaar.Server/GitHub/Webhooks/WebhookSignature.cs
 src/Bazaar.Server/Hosting/BazaarHostOptions.cs

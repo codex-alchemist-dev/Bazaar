@@ -166,6 +166,20 @@ Still in `Bazaar.Server/Agents` (9 files), with the reason each one stays (the r
 - `Turns/Posting/GcAgentPostSink.cs`: `Gc.Body`, `Gc.Mentions`, `Gc.Model`, `Gc.Wire` and `Gc.Write`. Moves with the GC abstractions.
 - `Turns/Posting/AgentPostServiceCollectionExtensions.cs`: registers the post sink above, so it stays with it.
 
+### Agents module, wave 2b
+
+Docs section this implements: this section (wave 2b of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
+
+Wave 2b runs after the GC abstractions, Mentions and Wire abstraction merges. Four files moved from `Bazaar.Server/Agents` into the implementation project `Bazaar.Server.Agents`, namespaces unchanged: `Responder/AgentResponder.cs`, `Responder/AgentResponderService.cs`, `Turns/Context/GcContextSource.cs` and `Turns/Posting/AgentMentionParser.cs`. Two GC types moved into `Bazaar.GC.Abstractions`, namespaces unchanged, so the Agents project reaches GC only through that project: `IGcLogWriter` (`Bazaar.Server.Gc.Write`, from `Gc/Write/IGcLogWriter.cs`) and `MentionSpan` (`Bazaar.Server.Gc.Mentions`, from `Gc/Mentions/MentionSpan.cs`). `Bazaar.Server.Agents` now references `Bazaar.Server.Wire.Abstractions` (`IGcStreamSource`, `IGcNotificationSource`). It still does not reference `Bazaar.Server`, and it references no module implementation project. The architecture baseline lost the six entries for the moved files.
+
+Still in `Bazaar.Server/Agents` (5 files), with the blocker for each:
+
+- `Responder/PgResponderGcStore.cs`: the internal `GcEnumText` (`Bazaar.Server.Gc`, `Gc/GcEnumText.cs`), which six other Server files also use. Its `ParseMemberRole` needs `GcMemberRole` (`Gc/Model/GcModel.cs`). The natural owner is `Bazaar.GC.Abstractions` (same namespace), but the class would have to become public and `GcMemberRole` would have to move too. Not done: that is a public-surface decision for the owner.
+- `Responder/AgentResponderServiceCollectionExtensions.cs`: registers `PgResponderGcStore`, so it stays with it.
+- `Turns/AgentTurnsComponent.cs`: `ToolPolicyEngine` (`Bazaar.Server.Security.Policy`, in the `Bazaar.Server.Security` implementation project, not its Abstractions) and `PrincipalHandleRepository` (`Bazaar.Server.Mentions`, implementation project). It also binds options with `ConfigurationBinder.Bind`, which the project's `IsAotCompatible` setting reports as IL2026 and IL3050. Owner needed for: whether Agents may reference the Security and Mentions implementations, or whether those registrations move to the host.
+- `Turns/Posting/AgentPostServiceCollectionExtensions.cs`: registers the post sink and `InboxRowWriter`, so it stays with them.
+- `Turns/Posting/GcAgentPostSink.cs`: `GcSendHandler.MaxTextLength` (`Bazaar.Server.Gc.Wire`, `Gc/Wire/GcWireHandlers.cs`), `MentionValidator` and `AcceptedMention` (`Bazaar.Server.Gc.Mentions`), `InboxPlanner` (`Bazaar.Server.Gc.Mentions`), `IInboxRowWriter` (its signature needs `NpgsqlTransaction` and the `InboxRow` record in `Gc/Mentions/MentionRecords.cs`, and neither has an abstractions home), and `GcRecord` (`Gc/Model/GcModel.cs`). `ILoopTripHandler` lives in `Bazaar.LoopGuard.Abstractions` and is not a blocker; that reference is the one the file would still need.
+
 ## Gateway module (doc 05)
 
 The model gateway leaves `Bazaar.Server` in two steps. Step 1 (this change): `Bazaar.Server.Gateway.Abstractions` holds the contracts that Server-side consumers (Agents, Memory, Souls) bind to: `IModelGateway`, `GatewayChatClient` and its mapping, `GatewayModelException`, and `ModelRef`/`RouteNames`. Namespaces stay `Bazaar.Server.Gateway`, `.Ai` and `.Policy`. It references `Bazaar.Contracts` only. It is not marked AOT-compatible yet because the chat mapping uses reflection-based JSON. Step 2: `Bazaar.Server.Gateway` takes the rest of the folder (adapters, pipeline, health, usage, policy, providers, fakes, FreeLlmApi, AnthropicDirect), and `GatewaySettings` registers through the module instead of `SettingRegistry`.
