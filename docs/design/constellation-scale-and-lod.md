@@ -165,7 +165,7 @@ The 300k-instance cap is the phone-tier figure from section 6. Above it, the emu
 4. **Quality first (owner, 2026-11-19 08:19 UTC).** Headroom is spent on detail before anything else: when the rolling p95 sits under 80% of the target for a calm stretch, detail rises (more instances, finer refine threshold, denser edges), up to twice the tier's starting caps. Detail only drops to hold the target. `FrameBudgetController` and `RenderTiers` in Rendering Core implement the loop.
 5. Phones keep the section 6 phone tier as their starting tier and the same controller. 60 fps stays their floor.
 
-The numbers in the old fixed table (2 000 000 instances, 1 000 000 edges, 2.5 / 3.3 ms) are now the B580 starting tier and the benchmark bar, not constants. Graph size is not an input: frame cost depends on the caps and the view, never on node count.
+The numbers in the old fixed table (2 000 000 instances, 100 000 edges, 2.5 / 3.3 ms) are now the B580 starting tier and the benchmark bar, not constants. Graph size is not an input: frame cost depends on the caps and the view, never on node count.
 
 **Method.** Out-of-core and bounded per frame; none of this touches data the view cannot show.
 1. **Selection.** Each frame the client picks a bounded set of tiles by walking the tile tree from the root, splitting the largest on-screen tile first, stopping at the instance cap, the tile cap, or the pixel threshold (below 96 px a tile is drawn from its sample). The CPU reference is `ViewSelector` in `Bazaar.Constellation.Rendering.Core`; the GPU compute pass must produce the same set and is tested against it.
@@ -186,3 +186,11 @@ The numbers in the old fixed table (2 000 000 instances, 1 000 000 edges, 2.5 / 
 **Benchmark (extends section 7).** A synthetic generator (`ImplicitTileTree` for tile structure, so nothing is stored) at 100 million, 1 billion and 2 billion nodes. Topologies: uniform, clustered (Louvain-like blobs), power-law hubs, grid, chain/ring. Modes: 2D orthographic and 3D perspective, each with a fixed pan/zoom/orbit script. Report GPU p50, p95 and p99 per frame, instances and tiles per frame, and tile bytes streamed. Pass on the B580: p95 ≤ 3.3 ms (≤ 2.5 ms for the 400 fps goal) at every size, with the controller on, and the detail level it settles at reported alongside. The owner's PC runs it (benchmark thread).
 
 **Honest limit.** "No matter what" is met by bounding work per frame and adapting to measured cost, so detail drops under extreme views rather than fps. Whether the B580 reaches 400 rather than 300 is not known until item 6 is measured.
+
+### 11.1 B580 draw baselines and what they change (measured 2026-11-19, benchmark thread)
+150 cells (5 topologies, 2D and 3D, whole, mid and close views), offscreen 1280x720, one point draw plus one line list of 1M edges generated in the shader, no culling, no depth test, no tile selection:
+- Node count barely matters (100M, 1B and 2B within a few percent at 1M points). Points cost about 0.42 ms per million, except thin-curve overdraw (a 2D ring seen whole: 4.2, 14.5 and 40 ms at 0.5M, 1M and 2M points).
+- **Edges are the problem, not nodes.** A flat 1M-edge line list costs about 6 ms in the whole and mid views and 16 to 17 ms close (uniform topology), 4 to 7 ms for hub-and-spoke, and the cost does not follow the point count. 76 of 150 cells meet p95 ≤ 2.5 ms and p99 ≤ 3.3 ms; edges cause 52 of the 74 misses.
+- **Decision from this (implementation default, a tier setting):** the edge cap drops from 1 000 000 to 100 000 on the B580 tier (30 000 phone, 200 000 high), edges draw only for near tiles, and everything farther uses cluster bundles. Edge density is also the first thing the frame controller sheds.
+- Host-side wall-clock p99 hitches (121 of 150 cells above 3.3 ms while GPU p99 was under 1 ms) look like a per-frame fence wait; to be isolated before a wall-clock fps claim is made.
+

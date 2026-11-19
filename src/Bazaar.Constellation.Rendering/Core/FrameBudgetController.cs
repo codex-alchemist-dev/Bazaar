@@ -9,9 +9,9 @@ public sealed record RenderTier(string Name, long MaxInstances, int MaxEdges, in
 /// </summary>
 public static class RenderTiers
 {
-    public static readonly RenderTier Phone = new("phone", 300_000, 150_000, 1024, 128f);
-    public static readonly RenderTier Mid = new("mid", 2_000_000, 1_000_000, 8192, 96f);
-    public static readonly RenderTier High = new("high", 4_000_000, 2_000_000, 16384, 64f);
+    public static readonly RenderTier Phone = new("phone", 300_000, 30_000, 1024, 128f);
+    public static readonly RenderTier Mid = new("mid", 2_000_000, 100_000, 8192, 96f);
+    public static readonly RenderTier High = new("high", 4_000_000, 200_000, 16384, 64f);
 
     /// <summary>Under 0.4 ms per million reference instances is high, under 2 ms is mid, otherwise phone. A failed benchmark gives the lowest tier.</summary>
     public static RenderTier Pick(double msPerMillionInstances) => msPerMillionInstances switch
