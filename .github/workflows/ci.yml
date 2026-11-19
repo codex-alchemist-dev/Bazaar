@@ -283,6 +283,9 @@ jobs:
     runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     continue-on-error: true
+    # Not required, so it runs only on main and by hand, not on every PR or branch push. This frees the
+    # three bazaar-linux-pg runners for the required checks. PostgreSQL 18 still runs on every PR.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
     env:
