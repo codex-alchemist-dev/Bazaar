@@ -1,8 +1,8 @@
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;
 
-namespace Bazaar.Client.Core.Tests.Constellation;
+namespace Bazaar.Client.Constellation.Tests;
 
 public class ConstellationRenderLoopTests
 {

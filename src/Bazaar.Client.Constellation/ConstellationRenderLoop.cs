@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;
 
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>
 /// Drives an <see cref="IConstellationRenderer"/> from a UI host: attaches it to a native window,

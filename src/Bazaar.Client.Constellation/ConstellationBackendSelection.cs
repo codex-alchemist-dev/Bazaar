@@ -1,4 +1,4 @@
-namespace Bazaar.Client.Core.Constellation;
+namespace Bazaar.Client.Constellation;
 
 /// <summary>Which drawing path the Constellation pane uses.</summary>
 public enum ConstellationBackend
