@@ -133,6 +133,27 @@ public sealed class SpawnImporter : IPortabilityImporter
     }
 }
 
+/// <summary>
+/// Starts a grandchild in its own session that is reparented away from the child and keeps the child's stdout and
+/// stderr open, then hangs. The group kill and the tree kill both miss such a process.
+/// </summary>
+public sealed class EscapeImporter : IPortabilityImporter
+{
+    public string Id => "test.escape";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "escape");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source)
+    {
+        var info = new ProcessStartInfo("/bin/sh") { UseShellExecute = false };
+        info.ArgumentList.Add("-c");
+        info.ArgumentList.Add("setsid sleep " + source.Name + " &");
+        Process.Start(info)!.WaitForExit();
+        Thread.Sleep(Timeout.Infinite);
+        return [];
+    }
+}
+
 /// <summary>Tries a loopback connection to the port named in the file content; reports what happened.</summary>
 public sealed class NetworkProbeImporter : IPortabilityImporter
 {

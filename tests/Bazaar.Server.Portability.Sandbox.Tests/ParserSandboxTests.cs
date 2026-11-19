@@ -152,6 +152,26 @@ public class ParserSandboxTests
     }
 
     [Fact]
+    public async Task A_descendant_that_escapes_the_kill_and_holds_the_pipes_cannot_hang_the_server()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux() && File.Exists("/bin/sh") && (File.Exists("/usr/bin/setsid") || File.Exists("/bin/setsid")), "needs sh and setsid");
+        var marker = "8" + Random.Shared.Next(100000, 999999) + ".5";
+        var runner = Runner(o => o with { JobTimeout = TimeSpan.FromSeconds(2) });
+        try
+        {
+            var job = Task.Run(() => Assert.Throws<ParserSandboxException>(() => runner.Parse("test.escape", Source(marker))), TestContext.Current.CancellationToken);
+
+            // Without the bounded waits this never completes, and WaitAsync fails the test with a timeout.
+            var error = await job.WaitAsync(TimeSpan.FromSeconds(60), TestContext.Current.CancellationToken);
+            Assert.Equal(ParserFailureKind.JobTimeout, error.Kind);
+        }
+        finally
+        {
+            KillProcessesWithArgument(marker);
+        }
+    }
+
+    [Fact]
     public void An_incomplete_record_frame_is_a_protocol_violation()
     {
         var runner = Runner();
@@ -239,6 +259,27 @@ public class ParserSandboxTests
             {
                 AttachAfterStart = _ => throw new InvalidProgramException("attach failed"),
             };
+    }
+
+    private static void KillProcessesWithArgument(string marker)
+    {
+        foreach (var dir in Directory.EnumerateDirectories("/proc"))
+        {
+            try
+            {
+                if (int.TryParse(Path.GetFileName(dir), System.Globalization.CultureInfo.InvariantCulture, out var pid)
+                    && pid != Environment.ProcessId
+                    && File.ReadAllText(Path.Combine(dir, "cmdline")).Contains(marker, StringComparison.Ordinal))
+                {
+                    using var process = System.Diagnostics.Process.GetProcessById(pid);
+                    process.Kill();
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // Gone already.
+            }
+        }
     }
 
     private static bool ProcessWithArgumentExists(string marker)

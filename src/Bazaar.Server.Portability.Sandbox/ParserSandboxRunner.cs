@@ -179,10 +179,22 @@ public sealed class ParserSandboxRunner
     private async Task<List<ParserMessage>> Supervise(Process process, IProcessGuard guard, ParserRequest request, byte[] content, CancellationToken ct)
     {
         var timeoutReason = 0; // 0 none, 1 record, 2 job, 3 cancelled
+        // A descendant that left the child's process group or job can outlive the kill and keep the pipes open, so no
+        // wait below may depend on the pipes closing. Once a kill is sent, the reads get a short grace and are then
+        // abandoned; disposing the process closes the server's ends.
+        using var abandonCts = new CancellationTokenSource();
         void Kill(int reason)
         {
             Interlocked.CompareExchange(ref timeoutReason, reason, 0);
             guard.KillTree();
+            try
+            {
+                abandonCts.CancelAfter(_exitGrace);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The job already ended.
+            }
         }
 
         using var jobCts = new CancellationTokenSource(_options.JobTimeout);
@@ -231,9 +243,10 @@ public sealed class ParserSandboxRunner
                 byte[]? body;
                 try
                 {
-                    body = await ParserFrames.ReadFrameAsync(stdout, maxFrame, CancellationToken.None).ConfigureAwait(false);
+                    // WaitAsync as well as the token: not every pipe stream honours cancellation of a pending read.
+                    body = await ParserFrames.ReadFrameAsync(stdout, maxFrame, abandonCts.Token).WaitAsync(abandonCts.Token).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is InvalidDataException or FrameTooLargeException or IOException or ObjectDisposedException)
+                catch (Exception ex) when (ex is InvalidDataException or FrameTooLargeException or IOException or ObjectDisposedException or OperationCanceledException)
                 {
                     readFailure = ex;
                     break;
@@ -285,7 +298,7 @@ public sealed class ParserSandboxRunner
         finally
         {
             // Whatever ended the loop, stop the child before the checks below, so the writer and the pipes unblock.
-            if (terminal is null) guard.KillTree();
+            if (terminal is null) Kill(0);
         }
 
         if (terminal is not null)
@@ -298,15 +311,16 @@ public sealed class ParserSandboxRunner
             }
             catch (OperationCanceledException)
             {
-                guard.KillTree();
+                Kill(0);
             }
         }
         else
         {
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            await WaitBoundedAsync(process.WaitForExitAsync(CancellationToken.None)).ConfigureAwait(false);
         }
 
-        await Task.WhenAll(writeTask, stderrTask).ConfigureAwait(false);
+        // Bounded for the same reason as the frame read: an escaped descendant may hold stdin or stderr open.
+        await WaitBoundedAsync(Task.WhenAll(writeTask, stderrTask)).ConfigureAwait(false);
 
         // A finished job (done or error frame) stands even if a timer fired while the child was exiting.
         if (terminal is null)
@@ -363,6 +377,19 @@ public sealed class ParserSandboxRunner
         }
 
         return messages;
+    }
+
+    /// <summary>Waits for clean-up work that normally ends with the child, but never longer than the exit grace.</summary>
+    private static async Task WaitBoundedAsync(Task task)
+    {
+        try
+        {
+            await task.WaitAsync(_exitGrace).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // Abandoned: the caller disposes the process, which closes the pipes under the leftover work.
+        }
     }
 
     private static void CheckSourceName(string name)
