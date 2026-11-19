@@ -68,7 +68,7 @@ public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, ICapacityLi
 
         var id = Guid.CreateVersion7();
         var backendRef = $"wsb-{id:N}";
-        var configPath = await _host.WriteConfigAsync(backendRef, WindowsSandboxConfig.Build(spec, _options.Networking), ct).ConfigureAwait(false);
+        var configPath = await _host.WriteConfigAsync(backendRef, WindowsSandboxConfig.Build(spec, _options.Networking, _options.AgentFolder), ct).ConfigureAwait(false);
 
         lock (_gate)
         {
