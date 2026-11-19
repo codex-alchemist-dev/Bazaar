@@ -56,6 +56,8 @@ public sealed unsafe partial class NodeBenchmark
     private VkPipelineLayout _topoLayout;
     private VkPipeline _pointsPipeline;
     private VkPipeline _edgesPipeline;
+    private VkPipeline _edgesLodPipeline;
+    private VkPipeline _edgeBinPipeline;
     private VkPipeline _shadePipeline;
     private VkPipeline _splatPipeline;
     private VkPipeline _binPipeline;
@@ -159,6 +161,8 @@ public sealed unsafe partial class NodeBenchmark
         _pointsPipeline = CreateTopoGraphics(Module("points.vert"), Module("flat.frag"), VkPrimitiveTopology.PointList, false);
         _edgesPipeline = CreateTopoGraphics(Module("edges.vert"), Module("flat.frag"), VkPrimitiveTopology.LineList, true);
         _shadePipeline = CreateTopoGraphics(Module("shade.vert"), Module("shade.frag"), VkPrimitiveTopology.TriangleList, false);
+        _edgesLodPipeline = CreateTopoGraphics(Module("edges_lod.vert"), Module("flat.frag"), VkPrimitiveTopology.LineList, true);
+        _edgeBinPipeline = CreateTopoCompute(Module("edgebin.comp"));
         _splatPipeline = CreateTopoCompute(Module("splat.comp"));
         _binPipeline = CreateTopoCompute(Module("bin.comp"));
         _reprojectPipeline = CreateTopoCompute(Module("reproject.comp"));
@@ -390,7 +394,7 @@ public sealed unsafe partial class NodeBenchmark
     // ---- frames ----
 
     /// <summary>Points at <paramref name="instances"/> sampled nodes plus <paramref name="edges"/> line segments, both generated from the node index.</summary>
-    public CellStats MeasureDraw(Topology topology, int dim, long n, Viewpoint view, int instances, int edges, int warmup, int measured) =>
+    public CellStats MeasureDraw(Topology topology, int dim, long n, Viewpoint view, int instances, int edges, int warmup, int measured, float lodMinPixels = 0f, float lodMaxPixels = 0f) =>
         Measure(warmup, measured, ["points", "edges"], () =>
         {
             TopoPush push = MakeTopoPush(topology, dim, n, view);
@@ -404,8 +408,15 @@ public sealed unsafe partial class NodeBenchmark
                 _deviceApi.vkCmdDraw(cb, 1, (uint)instances, 0, 0);
                 stamp();
                 push.Stride = (uint)Math.Max(1, n / edges);
+                bool lod = lodMaxPixels > 0f;
+                if (lod)
+                {
+                    push.A = BitConverter.SingleToUInt32Bits(lodMinPixels);
+                    push.B = BitConverter.SingleToUInt32Bits(lodMaxPixels);
+                }
+
                 Push(cb, push);
-                _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Graphics, _edgesPipeline);
+                _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Graphics, lod ? _edgesLodPipeline : _edgesPipeline);
                 _deviceApi.vkCmdDraw(cb, (uint)edges * 2, 1, 0, 0);
                 stamp();
                 _deviceApi.vkCmdEndRendering(cb);
@@ -413,7 +424,7 @@ public sealed unsafe partial class NodeBenchmark
         });
 
     /// <summary>Builds the voxel aggregate once: every node binned from its index. Returns the wall milliseconds.</summary>
-    public double BuildAggregate(Topology topology, int dim, long n)
+    public double BuildAggregate(Topology topology, int dim, long n, int bakedEdges = 0)
     {
         var stopwatch = Stopwatch.StartNew();
         RunSegment((cb, stamp) =>
@@ -436,6 +447,24 @@ public sealed unsafe partial class NodeBenchmark
                 _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Compute, _binPipeline);
                 Push(cb, push);
                 Dispatch(cb, count);
+                stamp();
+            });
+        }
+
+        if (bakedEdges > 0)
+        {
+            // Build-time edge bundling: sampled edges are added to the same voxel grid as density along their length.
+            TopoPush edgePush = MakeTopoPush(topology, dim, n, Viewpoint.Whole);
+            edgePush.C = (uint)AggregateGrid(dim);
+            edgePush.Stride = (uint)Math.Max(1, n / bakedEdges);
+            edgePush.A = 0;
+            edgePush.B = (uint)bakedEdges;
+            RunSegment((cb, stamp) =>
+            {
+                BindTopoSet(cb, VkPipelineBindPoint.Compute);
+                _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Compute, _edgeBinPipeline);
+                Push(cb, edgePush);
+                Dispatch(cb, bakedEdges);
                 stamp();
             });
         }
@@ -494,7 +523,7 @@ public sealed unsafe partial class NodeBenchmark
         _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Graphics, _shadePipeline);
         _deviceApi.vkCmdDraw(cb, 3, 1, 0, 0);
         stamp();
-        push.Stride = (uint)Math.Max(1, n / edges);
+        push.Stride = (uint)Math.Max(1, edges > 0 ? n / edges : 1);
         Push(cb, push);
         _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Graphics, _edgesPipeline);
         _deviceApi.vkCmdDraw(cb, (uint)edges * 2, 1, 0, 0);

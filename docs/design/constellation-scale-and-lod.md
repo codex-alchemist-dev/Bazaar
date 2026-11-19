@@ -265,6 +265,22 @@ Bench modes `topology-draw` and `topology-density`, Release, Intel Arc B580, off
 - Wall-clock p99 shows 5 to 70 ms hitches in many cells whose GPU p99 is under 1 ms (121 of 150 draw cells have wall p99 above 3.3 ms); the cause was not isolated.
 - Single run per cell; run-to-run spread is not measured here (section 10.3 shows the small rows vary by up to a factor of two between runs).
 
+### 10.8 Edge pass options (2026-11-19)
+Bench mode `topology-edges`, same machine and method as 10.7, N = 1B, M = 1M points drawn every frame, 5 topologies x 2D and 3D x 3 viewpoints (30 cells per option; one run each). Section 11.1 asks for a default cap of 100k edges and no far-zoom line drawing. Results (GPU p95 <= 2.5 ms and p99 <= 3.3 ms counts as meeting the target):
+
+| Option | Cells meeting | Edge pass p50, median / max (ms) | Total GPU p50, median / max (ms) |
+|---|---|---|---|
+| a. 100k edges, plain line list | 24 of 30 | 0.05 / 3.13 | 0.85 / 14.5 |
+| b. 100k edges, screen-length LOD (drop below 2 px or above 400 px, or behind the camera) | 24 of 30 | 0.03 / 0.98 | 0.80 / 14.5 |
+| b'. 1M edges with the same LOD | 19 of 30 | 0.36 / 5.71 | 1.51 / 14.5 |
+| c. edges baked into the aggregate grid at build (4M sampled edges, 32 points each), no lines per frame (no points drawn either) | 30 of 30 | 0 | 0.14 / 0.65 |
+
+- The 100k cap alone fixes most of the 1M-edge cost found in 10.7 (uniform 2D whole went from 6.0 ms to 0.6 ms). The remaining edge-pass cost is 3.1 ms for uniform 2D mid and close, because the edges are long.
+- The screen-length LOD removes those long edges: uniform 2D close 3.1 ms to 0.02 ms, uniform 3D close 1.6 ms to 0.01 ms. It does not fix uniform 2D mid (still 3.07 ms p95 over the target), and it moves clustered and hub and spoke 2D whole slightly higher (edge pass 0.33 to 0.69 ms and 0.75 to 0.98 ms) because the vertex shader now projects both endpoints.
+- With LOD, 1M edges still miss in 11 cells (hub and spoke 2D whole 10.5 ms, uniform 2D whole 9.4 ms): the LOD range keeps many mid-length edges.
+- Option c has no per-frame edge cost. Its cost moves to build time (46 to 777 ms for the baked edges, on top of the node build in 10.7) and its image is edge density in the grid, not lines. It is also a different frame: it draws no points.
+- The remaining misses in a and b are not edges. The ring topology piles its points on a thin curve (14.5 ms 2D whole, 8.6 ms 3D whole, 2.9 ms 3D mid), which is point overdraw, not edge cost.
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.

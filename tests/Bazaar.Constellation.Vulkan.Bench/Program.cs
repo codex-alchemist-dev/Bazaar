@@ -56,6 +56,43 @@ if (args.Length > 0 && args[0] == "density")
     return 0;
 }
 
+if (args.Length > 0 && args[0] == "topology-edges")
+{
+    // Edge pass options at N = 1B, M = 1M points. a: fixed 100k edge cap. b: 100k cap plus screen-length LOD (drop below 2 px or
+    // above 400 px). b1m: the same LOD with 1M edges. c: edges baked into the aggregate grid at build (no lines drawn per frame).
+    bench.InitializeTopology(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-edges.csv");
+    const long total = 1_000_000_000L;
+    const int points = 1_000_000;
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    void Emit(string section, int edges, double buildMs, CellStats s)
+    {
+        csv.Add(NodeBenchmark.CsvLine(section, total, points, buildMs, NodeBenchmark.TopologyGpuBytes, edges, s));
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} edges={edges} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} [{breakdown}]"));
+    }
+
+    foreach (int dim in new[] { 2, 3 })
+    {
+        foreach (Topology topology in Enum.GetValues<Topology>())
+        {
+            double buildMs = bench.BuildAggregate(topology, dim, total, 4_000_000);
+            foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+            {
+                string tag = $"{topology}_{dim}d_{view}".ToLowerInvariant();
+                Emit($"edgea_{tag}", 100_000, 0, bench.MeasureDraw(topology, dim, total, view, points, 100_000, WarmupFrames, MeasuredFrames));
+                Emit($"edgeb_{tag}", 100_000, 0, bench.MeasureDraw(topology, dim, total, view, points, 100_000, WarmupFrames, MeasuredFrames, 2f, 400f));
+                Emit($"edgeb1m_{tag}", 1_000_000, 0, bench.MeasureDraw(topology, dim, total, view, points, 1_000_000, WarmupFrames, MeasuredFrames, 2f, 400f));
+                Emit($"edgec_{tag}", 0, buildMs, bench.MeasureAggregate(topology, dim, total, view, 0, WarmupFrames, MeasuredFrames));
+            }
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length > 0 && (args[0] == "topology-draw" || args[0] == "topology-density"))
 {
     // Procedural billion-node benchmark: topologies, 2D and 3D, three viewpoints. Usage: topology-draw|topology-density [csv] [quick]
