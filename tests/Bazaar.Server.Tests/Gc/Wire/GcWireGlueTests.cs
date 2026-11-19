@@ -105,6 +105,27 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
     }
 
     [Fact]
+    public async Task A_message_over_the_body_cap_in_bytes_is_refused_before_anything_is_stored()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(member);
+        var connection = new FakeWireConnection(db.DataSource, member);
+
+        // doc 01: gc.message_max_bytes is 32768 bytes. 20,000 three-byte characters are under the character limit and over
+        // the byte cap; an edit of the same text is already refused, so a send must be too.
+        var text = new string('\u20ac', 20_000);
+        var refused = await SendAsync(connection, gc, text, "big-1", ct: ct);
+        var atCap = await SendAsync(connection, gc, new string('a', 32768), "cap-1", ct: ct);
+
+        Assert.False(refused.IsOk);
+        Assert.Equal(WireErrorCodes.BadRequest, refused.Error!.Code);
+        Assert.True(atCap.IsOk);
+        Assert.Equal(1, (await Source.GetHeadAsync(gc, ct))!.Value.LatestN);
+    }
+
+    [Fact]
     public async Task Repeating_the_request_id_returns_the_original_sequence()
     {
         GcTestSkip.WithoutDatabase();
@@ -148,6 +169,44 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
 
         Assert.Equal(WireErrorCodes.BadRequest, reply.Error!.Code);
         Assert.Empty(await Source.ReadAsync(gc, 0, 0, 0, 10, ct));
+    }
+
+    [Fact]
+    public async Task A_replay_page_for_a_cursor_near_the_head_does_not_cost_the_whole_gc()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(member);
+        const int total = 400_000;
+        // Raw rows for a long-lived GC, with one edit near the head. The page below is what the dispatcher reads after each
+        // commit and what a subscribe with a near-head cursor reads: it must cost the new entries, not every message ever sent.
+        await using (var seed = db.DataSource.CreateCommand("""
+            INSERT INTO gc_event (gc_id, seq, kind, author_kind, author_id, source_trust, message_id, version)
+              SELECT @gc, s, 'message', 'human', @author, 'member-human', md5(@gc::text || s)::uuid, 1 FROM generate_series(1, @total) s;
+            INSERT INTO gc_message (gc_id, message_id, first_seq, author_id)
+              SELECT @gc, md5(@gc::text || s)::uuid, s, @author FROM generate_series(1, @total) s;
+            INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, editor_id)
+              SELECT @gc, md5(@gc::text || s)::uuid, 1, s, '\x78'::bytea, '\x6e'::bytea, @author FROM generate_series(1, @total) s;
+            UPDATE gc SET head_seq = @total WHERE gc_id = @gc;
+            ANALYZE gc_event;
+            ANALYZE gc_message;
+            ANALYZE gc_message_version;
+            """))
+        {
+            seed.Parameters.AddWithValue("gc", gc);
+            seed.Parameters.AddWithValue("author", member.Id);
+            seed.Parameters.AddWithValue("total", total);
+            await seed.ExecuteNonQueryAsync(ct);
+        }
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var page = await Source.ReadAsync(gc, total - 5, total - 5, total - 5, 200, ct);
+        watch.Stop();
+
+        Assert.Equal(Enumerable.Range(total - 4, 5).Select(i => (long)i), page.Select(m => m.N));
+        // Before the fix this took about 4 s per 200,000 messages (a current-version lookup for every message in the GC).
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1.0), $"A near-head replay page took {watch.Elapsed}.");
     }
 
     [Fact]
