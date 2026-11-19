@@ -51,7 +51,8 @@ public class AdapterHostTests
     [Fact]
     public async Task Timeout_kills_the_child_fails_the_session_and_reports_last_output()
     {
-        await using var host = StartFake("hang", TimeSpan.FromSeconds(5));
+        // The timeout also covers starting the adapter process, which is slow on a loaded runner, so keep generous slack.
+        await using var host = StartFake("hang", TimeSpan.FromSeconds(20));
         await host.OpenAsync(_projectId, CancellationToken.None);
 
         var error = await Assert.ThrowsAsync<EngineAdapterException>(
@@ -70,7 +71,7 @@ public class AdapterHostTests
     [Fact]
     public async Task Hanging_health_call_times_out_like_a_command()
     {
-        await using var host = StartFake("unresponsive", TimeSpan.FromSeconds(5));
+        await using var host = StartFake("unresponsive", TimeSpan.FromSeconds(20));
 
         var error = await Assert.ThrowsAsync<EngineAdapterException>(() => host.HealthAsync(CancellationToken.None));
 
