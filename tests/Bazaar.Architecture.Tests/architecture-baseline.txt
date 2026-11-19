@@ -140,15 +140,6 @@ src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
 src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
 src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
-src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/ITokenService.cs
-src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/PostgresRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/RefreshCredentialSecret.cs
-src/Bazaar.Server/Components/Remote/RemoteComponent.cs
-src/Bazaar.Server/Components/Remote/RemoteTokenOptions.cs
-src/Bazaar.Server/Components/Remote/RemoteTokensServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Remote/TokenService.cs
 src/Bazaar.Server/Constellation/Clustering/LouvainClustering.cs
 src/Bazaar.Server/Constellation/Clustering/WeightedEdge.cs
 src/Bazaar.Server/Constellation/ConstellationComponent.cs
