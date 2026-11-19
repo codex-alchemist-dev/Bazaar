@@ -128,22 +128,35 @@ The brief's requirement is: signed and verified on every start, read-only runtim
 ### 6.1 Signed manifest
 
 - Every file in a Kodo slot (binaries, managed assemblies, runbook files, probe catalogue, default settings file, the sentinel's verifier) is listed in `kodo.manifest.json` with its SHA-256 and size.
-- The manifest is signed with the Bazaar release signing key (kept on the server build machine, doc 37). The signature is a detached signature over the canonical JSON of the manifest (RFC 8785 canonicalisation). The manifest also carries the Kodo version, the protocol version of the health contract (section 10), the build commit and the SBOM digest (doc 37).
+- The manifest is signed with the Bazaar release signing key (kept on the server build machine, doc 37). The signature is a detached signature over the canonical JSON of the manifest (RFC 8785 canonicalisation). The algorithm is RSASSA-PKCS1-v1_5 with SHA-256, the one doc 37 names for signed release manifests, behind a verifier interface. The canonical form is the Bazaar profile in `src/Bazaar.Kodo/Runtime` (fixed property order, no whitespace, file list sorted by path). It is not RFC 8785 yet, so matching RFC 8785 is an open item. This paragraph is PROPOSED. The manifest also carries the Kodo version, the protocol version of the health contract (section 10), the build commit and the SBOM digest (doc 37).
 - The install trust root is a set of public keys pinned at install time in the sentinel's configuration, with key ids and a validity window. A manifest signed by an unknown key is rejected. Rotation adds a new key under an old-key signature, and a revoked key list is itself signed.
 - Verification runs at four points: every start (before any Kodo code loads), on a timer (default every 5 minutes), before every control action from the Responder, and before any slot switch.
 
 ### 6.2 Read-only runtime, writable data
 
-- The runtime slot is made read-only by the OS provider. Windows: a dedicated directory whose ACL grants read and execute to the Kodo service account and to Administrators, and denies write to everyone except the installer's signed update path. Linux: the slot is read-only at the mount or bind level, and the update path remounts it for the swap. Both are behind `IImmutableRuntimeProvider`, probed at start (a provider that cannot enforce read-only downgrades the module state to degraded and says so in the status, it does not silently run writable).
-- Data and evidence directories are the only places Kodo writes. Kodo never writes into its slot, and the verifier treats any file in the slot that is not in the manifest as tampering.
+Status: PROPOSED (2026-11-18). Replaces the first draft's Windows junction design; see the revision note under 6.3.
+
+- **Layout.** The runtime root is one directory, `kodo-runtime`, on both OSes. It holds `slot-a` and `slot-b` (each a full runtime tree with its manifest) and three pointer files: `kodo.pointer.json` (the active pointer), `kodo.pointer.previous.json` (the pointer that was active before the last swap) and `kodo.pointer.json.tmp` (transient, written before a swap). The two pointer files are the only mutable items in the runtime root. The pointer has one location on Windows and Linux.
+- **Windows.** The runtime root and each slot have a protected DACL, so no parent ACE reaches them. Slots grant read and execute to the Kodo service identity and to Administrators. The signed update principal can write only the inactive slot while it is being staged, and the pointer files. No ACE grants write to Users, Authenticated Users or Everyone. These ACLs stop the service account and ordinary users. They do not stop a full administrator (6.6). The ACE design is checked on the owner's PC before any of this is DECIDED (spike K1, sections 4.1 and 6).
+- **Linux.** Each slot is bind-mounted read-only at `kodo-runtime/slot-a` or `kodo-runtime/slot-b`. A read-only bind is per mount point and leaves the original path writable, so the backing directory is kept out of any path the Kodo service account can write through (spike K2, finding F1). The update path remounts the inactive slot read-write only while it is staged, then remounts it read-only before verification. The pointer files sit in `kodo-runtime` itself, which is never a slot mount, so a pointer swap never needs a remount.
+- **Provider probe.** `IImmutableRuntimeProvider` checks at start that read-only is enforced. A provider that cannot enforce it downgrades the module state to degraded and says so in the status. It does not run writable silently.
+- **Data and evidence.** Data and evidence directories are the only other places Kodo writes. Kodo never writes into a slot. The verifier treats any file in a slot that is not in the manifest as tampering (6.1, 6.4).
 - Config is not in the slot. Operator values are in the settings registry (doc 03) and in `kodo-data`, so changing a value never requires writing the runtime.
 
-### 6.3 Atomic A/B slots and instant rollback
+### 6.3 Atomic pointer swap and instant rollback
 
-- Two slots, `slot-a` and `slot-b`. One pointer file, `current`, names the active slot. The pointer is written by write-to-temp then atomic rename (on Windows, a directory junction swap with the same rule; on Linux, a symlink swap by rename). The pointer is the only mutable item in the runtime area.
-- An update writes the new version into the inactive slot, verifies its manifest (6.1), runs preflight (doc 49), starts the new Kodo in shadow mode for a probation window (default 10 minutes, a setting) where it observes but does not act, and only then flips the pointer. The old slot is kept.
-- Instant rollback is the same pointer flip to the previous slot, after that slot's manifest is re-verified. It needs no network and no database, so it works when the server is down. The sentinel performs rollback on its own when the new slot fails its probation or fails the signature check at start.
-- A rollback writes an audit event and a Kodo journal event before the flip is announced to clients. Rollback never deletes the slot it leaves.
+Status: PROPOSED (2026-11-18). Replaces the first draft's junction swap. The Windows and Linux mechanics are researched (spikes K1 and K2) and have not been run on hardware, so they stay PROPOSED until the host runs in those spikes pass.
+
+Revision note. The first draft swapped a directory junction on Windows "with the same rule" as the file pointer, and put the pointer where 6.2 said the runtime was read-only. Spike K1 (`docs/spikes/K1-windows-readonly-slot.md`, section 3.8) found that `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING` reports an error when the destination names an existing directory, and no primary source documents an atomic replacement of a directory link. Spike K2 (`docs/spikes/K2-linux-bind-mount-swap.md`, finding F3 and open risk 1) found that the pointer must live outside both read-only slot mounts. The most robust option is therefore a small signed pointer file, replaced by an atomic file rename on both OSes, in one location (6.2). Junctions and symlinks are not used for the pointer.
+
+- **Pointer.** `kodo.pointer.json` is a signed record with the slot id (`slot-a` or `slot-b`), the SHA-256 of that slot's signed manifest envelope, the key id and the signature. It uses the same signature scheme and trust root as the manifest (6.1). A pointer that fails verification is never followed.
+- **Swap.** Write the new pointer bytes to `kodo.pointer.json.tmp` in the same directory, flush them to disk, then replace `kodo.pointer.json` atomically: `ReplaceFile` on Windows, `rename(2)` on Linux. The temp file and the target are in the same directory on the same volume and mount, so the replace cannot fail with a cross-device error.
+- **Update.** The new version is written into the inactive slot. Its manifest and files are verified (6.1 and 6.4), preflight runs (doc 49), and the new Kodo runs in shadow mode for the probation window (default 10 minutes, a setting) without acting. Only then is the pointer swapped. Before the swap, the current pointer bytes are copied to `kodo.pointer.previous.json` with the same temp-then-replace rule, so the previous slot always has a signed pointer.
+- **Rollback.** Rollback swaps the pointer back: `kodo.pointer.json` is replaced with the bytes of `kodo.pointer.previous.json`, and the pointer that was left takes the previous slot's place, so a second rollback goes forward again. Rollback needs no network, no database and no signing key, because both pointers were signed when they were made and are checked against the install trust root. The target slot's manifest and files are re-verified before the flip. A crash between the two writes leaves both pointers naming the older slot, which is a safe state. Rollback never deletes the slot it leaves. It writes an audit event and a Kodo journal event before the flip is announced to clients.
+- **Start-up recovery.** Start removes a stray `kodo.pointer.json.tmp`. If `kodo.pointer.json` fails verification, the sentinel tries `kodo.pointer.previous.json`. If neither pointer verifies, Kodo runs in sealed mode (6.4).
+- **Durability.** Linux is intended to flush the containing directory after the rename, and Windows flushes the temp file before the replace. Whether a power loss between the two writes leaves a usable state is checked in the host run (spike K2, item 9), not assumed.
+- **Downgrade.** A validly signed pointer to an older slot still verifies. An anti-rollback floor (the sentinel refuses any slot version below the highest it has accepted) is OPEN and needs an owner decision. This section does not decide it.
+- The sentinel performs rollback on its own when the new slot fails its probation or fails the signature check at start. Rollback is the same swap as above and works when the server is down.
 
 ### 6.4 Runtime tamper detection
 
@@ -531,7 +544,7 @@ Every client honours the same accessibility rules: keyboard reachable views, a s
 ### 14.5 Roles and controls
 
 - Permissions are custom-role grants (brief). Kodo's permissions: `kodo.view.status`, `kodo.view.logs`, `kodo.view.traces`, `kodo.view.fleet`, `kodo.view.audit`, `kodo.control.restart`, `kodo.control.isolate`, `kodo.control.rollback`, `kodo.runbook.run`, `kodo.runbook.approve`, `kodo.incident.enter`, `kodo.incident.exit`, `kodo.failover.approve`, `kodo.chaos.enable`, `kodo.webhook.manage`, `kodo.export`, `kodo.settings.kodo`.
-- Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default.
+- Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default. Owner decision (2026-11-19): approval stays the default, and a per-server admin setting, `kodo.recover.unattended` (section 20), may allow only the unattended host restart and slot switch. Isolate and rollback always need step-up; the setting cannot list them.
 - Viewing logs and traces is separately granted because logs can contain personal data. Defaults grant the owner all of these and grant no other role any of them.
 
 ## 15. API
@@ -627,10 +640,10 @@ Exit: the incident is closed when all probes that opened it are green for the st
 
 | Trigger | Runbook | Approval | Verify |
 |---|---|---|---|
-| Host not ready, service stopped | Restart host through the sentinel | Auto, step-up not required | `host.ready` green within 2 minutes |
+| Host not ready, service stopped | Restart host through the sentinel | Approval by default (14.5); unattended only when `kodo.recover.unattended` lists `host_restart` | `host.ready` green within 2 minutes |
 | Disk near full on data volume | Rotate logs, prune spill past its window, offer Vault archive | Approval | Free space above threshold |
 | Replication broken (7.6) | Re-seed standby from the latest base backup | Approval, step-up | Replication status green |
-| Slot signature failure | Switch to the other verified slot | Auto | `kodo.self.signature_verify` green on the new slot |
+| Slot signature failure | Switch to the other verified slot | Approval by default (14.5); unattended only when `kodo.recover.unattended` lists `slot_switch` | `kodo.self.signature_verify` green on the new slot |
 | New module fails health contract | Disable module, keep data, open an incident if it was in use | Approval | Module state and dependents |
 | Certificate within 7 days of expiry | Renew through the configured method | Approval | `certs.server` green |
 | Backup stale | Run backup now | Auto if the window is set to auto | `db.backup_freshness` green |
@@ -798,6 +811,7 @@ Every value below is a setting in the registry (doc 03), with the default shown.
 | `kodo.slo.<name>.target` | decimal | per 12.3 | install | operator | No (floor: no lower than 95 percent for server availability) |
 | `kodo.alert.escalation_min.critical` | int | 15 | install | operator | No |
 | `kodo.incident.auto_enter` | list | the four triggers in 16.3 | install | operator | Yes; cannot be removed below the floor |
+| `kodo.recover.unattended` | list | empty | install | operator | Yes; owner. Only `host_restart` and `slot_switch` are accepted; any other value is refused. Each unattended run is still audited, bounded by the retry cap and verified by the runbook's verify step, and a failed verify stops with needs-human |
 | `kodo.failover.enabled` | bool | false | install | operator | Yes; owner |
 | `kodo.failover.auto_failback` | bool | false | install | operator | Yes; owner |
 | `kodo.explain.mode` | enum `off`, `ask`, `auto` | `off` | install | operator | Yes; counsel for `auto` |
@@ -834,7 +848,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Part | Status | Notes |
 |---|---|---|
 | Module identity, naming and projects | PLANNED | No project exists |
-| Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Needs spike K1 (Windows read-only slot and junction swap) and spike K2 (Linux bind-mount swap). Proposed for doc 35; not numbered there yet |
+| Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Pure parts built in `src/Bazaar.Kodo/Runtime` (manifest, signature check, slot pointer, verifier; package 7). No sentinel or swap code yet. The design uses a signed pointer file (6.3), not a junction. Needs spike K1 (Windows read-only slot and pointer replace) and spike K2 (Linux bind-mount slots and pointer rename) run on hardware. Proposed for doc 35; not numbered there yet |
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
 | Sentinel process | PLANNED | No code |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |
