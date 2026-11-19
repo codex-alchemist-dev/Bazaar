@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 using Bazaar.Kodo.Evaluator;
 
@@ -13,109 +14,93 @@ public sealed class KodoUnobservedTests
     private static readonly KodoUnobservedBudgets _budgets = KodoUnobservedBudgets.Defaults;
 
     [Fact]
-    public void DefaultsAreTheThirtySecondHeartbeatAndTheProposedSixtySecondFreshness()
+    public void DefaultIsTheThirtySecondHeartbeat()
     {
         Assert.Equal(TimeSpan.FromSeconds(30), KodoUnobservedBudgets.Defaults.Heartbeat);
-        Assert.Equal(TimeSpan.FromSeconds(60), KodoUnobservedBudgets.Defaults.Freshness);
     }
 
     [Fact]
     public void FreshStreamShowsTheLastKnownStateNotUnobserved()
     {
-        KodoDisplayState display = KodoUnobserved.Derive(KodoState.Degraded, _now, _now, _now, _budgets);
-
-        Assert.Equal(KodoDisplayState.Degraded, display);
+        Assert.Equal(KodoDisplayState.Degraded, KodoUnobserved.Derive(KodoDisplayState.Degraded, _now, _now, _budgets));
     }
 
     [Fact]
-    public void SilenceExactlyAtTheHeartbeatBudgetIsStillObserved()
+    public void SilenceExactlyAtTheBudgetIsStillObserved()
     {
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now.AddSeconds(-30), _now, _budgets);
-
-        Assert.Equal(KodoDisplayState.Healthy, display);
+        Assert.Equal(
+            KodoDisplayState.Healthy,
+            KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, _now.AddSeconds(-30), _budgets));
     }
 
     [Fact]
-    public void SilenceOneTickPastTheHeartbeatBudgetIsUnobserved()
+    public void SilenceOneTickPastTheBudgetIsUnobserved()
     {
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now.AddSeconds(-30).AddTicks(-1), _now, _budgets);
-
-        Assert.Equal(KodoDisplayState.Unobserved, display);
+        Assert.Equal(
+            KodoDisplayState.Unobserved,
+            KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, _now.AddSeconds(-30).AddTicks(-1), _budgets));
     }
 
     [Fact]
-    public void SnapshotExactlyAtTheFreshnessBudgetIsStillObserved()
+    public void ContinuousHeartbeatsKeepAnOldSnapshotObserved()
     {
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now, _now.AddSeconds(-60), _budgets);
+        // The snapshot arrived at connect, ten minutes ago. Heartbeats every 10 seconds since then each refresh freshness,
+        // so a healthy connected client never goes unobserved just because the snapshot is old (section 8.3).
+        DateTimeOffset snapshotAt = _now.AddMinutes(-10);
+        DateTimeOffset lastEventAt = snapshotAt;
+        for (DateTimeOffset at = snapshotAt.AddSeconds(10); at <= _now; at = at.AddSeconds(10))
+        {
+            Assert.Equal(KodoDisplayState.Healthy, KodoUnobserved.Derive(KodoDisplayState.Healthy, at, lastEventAt, _budgets));
+            lastEventAt = at;
+        }
 
-        Assert.Equal(KodoDisplayState.Healthy, display);
+        Assert.Equal(KodoDisplayState.Healthy, KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, lastEventAt, _budgets));
     }
 
     [Fact]
-    public void SnapshotOneTickPastTheFreshnessBudgetIsUnobserved()
+    public void SilenceBeyondTheWindowAfterTheLastHeartbeatBecomesUnobserved()
     {
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now, _now.AddSeconds(-60).AddTicks(-1), _budgets);
+        DateTimeOffset lastHeartbeat = _now.AddMinutes(-1);
 
-        Assert.Equal(KodoDisplayState.Unobserved, display);
-    }
-
-    [Fact]
-    public void StaleSnapshotIsUnobservedEvenWhenEventsKeepArriving()
-    {
-        // Heartbeats prove the stream is alive, but a snapshot older than its budget is still not fresh (section 8.3).
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now, _now.AddMinutes(-5), _budgets);
-
-        Assert.Equal(KodoDisplayState.Unobserved, display);
-    }
-
-    [Fact]
-    public void SilentStreamIsUnobservedEvenWhenTheSnapshotIsFresh()
-    {
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now.AddMinutes(-1), _now, _budgets);
-
-        Assert.Equal(KodoDisplayState.Unobserved, display);
+        Assert.Equal(
+            KodoDisplayState.Unobserved,
+            KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, lastHeartbeat, _budgets));
+        Assert.Equal(
+            KodoDisplayState.Healthy,
+            KodoUnobserved.Derive(KodoDisplayState.Healthy, lastHeartbeat.AddSeconds(30), lastHeartbeat, _budgets));
     }
 
     [Fact]
     public void NoEventEverReceivedIsUnobserved()
     {
-        Assert.Equal(KodoDisplayState.Unobserved, KodoUnobserved.Derive(KodoState.Healthy, _now, null, _now, _budgets));
-    }
-
-    [Fact]
-    public void NoSnapshotEverReceivedIsUnobserved()
-    {
-        Assert.Equal(KodoDisplayState.Unobserved, KodoUnobserved.Derive(KodoState.Healthy, _now, _now, null, _budgets));
+        Assert.Equal(KodoDisplayState.Unobserved, KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, null, _budgets));
     }
 
     [Fact]
     public void NoStateEverReceivedIsUnobserved()
     {
-        Assert.Equal(KodoDisplayState.Unobserved, KodoUnobserved.Derive(null, _now, _now, _now, _budgets));
+        Assert.Equal(KodoDisplayState.Unobserved, KodoUnobserved.Derive(null, _now, _now, _budgets));
     }
 
     [Fact]
     public void ReceiveTimeInTheFutureCountsAsAgeZero()
     {
-        // The client clock stepped back after the receive. The age is clamped to zero, so the display is not flipped by it.
-        KodoDisplayState display = KodoUnobserved.Derive(
-            KodoState.Healthy, _now, _now.AddSeconds(5), _now.AddSeconds(5), _budgets);
-
-        Assert.Equal(KodoDisplayState.Healthy, display);
+        Assert.Equal(
+            KodoDisplayState.Healthy,
+            KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, _now.AddSeconds(5), _budgets));
     }
 
     [Fact]
     public void FrozenStaysFrozenWhileObserved()
     {
-        KodoDisplayState display = KodoUnobserved.Derive(KodoState.Frozen, _now, _now, _now, _budgets);
+        Assert.Equal(KodoDisplayState.Frozen, KodoUnobserved.Derive(KodoDisplayState.Frozen, _now, _now, _budgets));
+    }
 
-        Assert.Equal(KodoDisplayState.Frozen, display);
+    [Fact]
+    public void UnobservedIsNotAKnownServerState()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            KodoUnobserved.Derive(KodoDisplayState.Unobserved, _now, _now, _budgets));
     }
 
     [Theory]
@@ -124,43 +109,50 @@ public sealed class KodoUnobservedTests
     [InlineData(KodoState.Failing, KodoDisplayState.Failing)]
     [InlineData(KodoState.Recovering, KodoDisplayState.Recovering)]
     [InlineData(KodoState.Frozen, KodoDisplayState.Frozen)]
-    public void EveryServerStateMapsToItsOwnDisplayValue(KodoState state, KodoDisplayState expected)
+    public void EveryServerStateMapsToItsOwnDisplayValueByEnumAndByWireString(KodoState state, KodoDisplayState expected)
     {
-        Assert.Equal(expected, KodoUnobserved.DisplayOf(state));
+        Assert.Equal(expected, KodoWireNames.DisplayOf(state));
+        Assert.True(KodoUnobserved.TryDisplayOf(KodoWireNames.State(state), out KodoDisplayState parsed));
+        Assert.Equal(expected, parsed);
+    }
+
+    [Theory]
+    [InlineData("unobserved")]
+    [InlineData("Healthy")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void UnknownWireStatesDoNotParse(string? wire)
+    {
+        Assert.False(KodoUnobserved.TryDisplayOf(wire, out _));
     }
 
     [Fact]
     public void UnobservedIsNeverAServerState()
     {
-        // The server enum has no unobserved member, so a server can never report it (section 8.3).
         Assert.DoesNotContain("Unobserved", Enum.GetNames<KodoState>());
     }
 
     [Fact]
-    public void ShorterBudgetsMoveTheEdge()
+    public void ShorterBudgetMovesTheEdge()
     {
-        KodoUnobservedBudgets tight = KodoUnobservedBudgets.Create(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
+        KodoUnobservedBudgets tight = KodoUnobservedBudgets.Create(TimeSpan.FromSeconds(5));
 
         Assert.Equal(
             KodoDisplayState.Unobserved,
-            KodoUnobserved.Derive(KodoState.Healthy, _now, _now.AddSeconds(-6), _now, tight));
+            KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, _now.AddSeconds(-6), tight));
     }
 
     [Fact]
     public void DeriveRejectsNullBudgets()
     {
-        Assert.Throws<ArgumentNullException>(() =>
-            KodoUnobserved.Derive(KodoState.Healthy, _now, _now, _now, null!));
+        Assert.Throws<ArgumentNullException>(() => KodoUnobserved.Derive(KodoDisplayState.Healthy, _now, _now, null!));
     }
 
     [Theory]
-    [InlineData(0, 60)]
-    [InlineData(30, 0)]
-    [InlineData(-1, 60)]
-    [InlineData(30, -1)]
-    public void BudgetsMustBePositive(int heartbeatSeconds, int freshnessSeconds)
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void BudgetMustBePositive(int heartbeatSeconds)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            KodoUnobservedBudgets.Create(TimeSpan.FromSeconds(heartbeatSeconds), TimeSpan.FromSeconds(freshnessSeconds)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => KodoUnobservedBudgets.Create(TimeSpan.FromSeconds(heartbeatSeconds)));
     }
 }

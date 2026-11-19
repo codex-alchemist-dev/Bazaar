@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 using Bazaar.Kodo.Evaluator;
 using Bazaar.Kodo.Probes;
@@ -38,9 +39,10 @@ internal static class KodoApiTestData
     public const string JournalHeadHex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
 
     /// <summary>A small snapshot at the given revision, for stream tests.</summary>
-    public static KodoStatusSnapshot Snapshot(long revision, DateTimeOffset? generatedAt = null) =>
+    public static KodoStatusSnapshotDto Snapshot(long revision, DateTimeOffset? generatedAt = null) =>
         KodoStatusSnapshotBuilder.Build(
             Evaluation(KodoState.Healthy),
+            new KodoObservation(),
             score: 100,
             components: [],
             revision: revision,
