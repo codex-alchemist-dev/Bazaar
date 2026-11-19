@@ -165,8 +165,39 @@ public static class InboundQuarantineRules
     private static bool LinkMismatches(LinkInfo link)
     {
         var shown = HostOf(link.VisibleText, requireDot: true);
-        var target = HostOf(link.Target, requireDot: false);
+        var target = HostOf(NormaliseTarget(link.Target), requireDot: false);
         return shown is not null && target is not null && !string.Equals(shown, target, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Active schemes that name no host. A link whose visible text names a host but runs script or inline data is a mismatch.
+    private static readonly string[] _hostlessActiveSchemes = ["javascript:", "data:", "vbscript:"];
+
+    /// <summary>
+    /// Rewrites a link target the way a browser reads it, so forms such as <c>//host/x</c>, <c>https:host/x</c> and
+    /// <c>https:\\host\x</c> yield their real host. An active scheme with no host becomes a host no visible text can match.
+    /// </summary>
+    private static string NormaliseTarget(string target)
+    {
+        var text = target.Trim().Replace('\\', '/');
+        if (_hostlessActiveSchemes.Any(scheme => text.StartsWith(scheme, StringComparison.OrdinalIgnoreCase)))
+        {
+            return "http://active-content.invalid";
+        }
+
+        if (text.StartsWith("//", StringComparison.Ordinal))
+        {
+            return "http://" + text.TrimStart('/');
+        }
+
+        foreach (var scheme in new[] { "http:", "https:" })
+        {
+            if (text.StartsWith(scheme, StringComparison.OrdinalIgnoreCase) && !text.StartsWith(scheme + "//", StringComparison.OrdinalIgnoreCase))
+            {
+                return scheme + "//" + text[scheme.Length..].TrimStart('/');
+            }
+        }
+
+        return text;
     }
 
     private static string? HostOf(string text, bool requireDot)
