@@ -219,6 +219,24 @@ public sealed class OrgRelationConstraintTests(OrgDb db) : IClassFixture<OrgDb>
     }
 
     [Fact]
+    public async Task A_ring_of_eight_reports_to_edges_written_at_once_never_closes()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        SkipWithoutDatabase();
+        for (var round = 0; round < 3; round++)
+        {
+            var agents = Enumerable.Range(0, 8).Select(_ => Guid.CreateVersion7()).ToArray();
+            var project = Guid.CreateVersion7();
+            var outcomes = await Task.WhenAll(Enumerable.Range(0, agents.Length).Select(i =>
+                Task.Run(() => TrySqlStateAsync(Relation(OrgRelationKind.ReportsTo, agents[i], agents[(i + 1) % agents.Length], project)), Ct)));
+
+            // Eight edges around a ring close a cycle on the last one admitted; at least one must be refused, none may fail otherwise.
+            Assert.All(outcomes, o => Assert.True(o is null or "23514", $"unexpected SQLSTATE {o}"));
+            Assert.True(outcomes.Any(o => o == "23514"), "the whole ring was admitted");
+        }
+    }
+
+    [Fact]
     public async Task Ended_row_is_read_only()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");

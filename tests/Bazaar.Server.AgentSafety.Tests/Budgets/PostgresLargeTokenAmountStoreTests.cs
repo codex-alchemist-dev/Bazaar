@@ -122,6 +122,57 @@ public sealed class PostgresLargeTokenAmountStoreTests
     }
 
     [Fact]
+    public async Task A_sweeper_running_flat_out_beside_staged_writers_never_leaves_orphans_or_half_sealed_amounts()
+    {
+        SkipWithoutDatabase();
+        await using var db = await BudgetTestDb.CreateAsync(Ct);
+        var time = new FakeTimeProvider(_t0);
+        var store = new PostgresLargeTokenAmountStore(db.DataSource, time, chunksPerTransaction: 2);
+        const int chunks = 24;
+        var writersDone = false;
+
+        // The sweep cutoff is far ahead, so every header still staged when the sweep reaches it is removed.
+        var sweeper = Task.Run(async () =>
+        {
+            while (!Volatile.Read(ref writersDone))
+                await store.SweepStagedAsync(_t0.AddDays(30), Ct);
+        }, Ct);
+
+        var writers = Enumerable.Range(0, 10).Select(_ => Task.Run(async () =>
+        {
+            await using var staged = await store.BeginStagingAsync(Ct);
+            try
+            {
+                for (var seq = 0; seq < chunks; seq++)
+                    await staged.WriteChunkAsync(TokenAmountPart.IntegerPart, seq, new byte[] { 12 }, Ct);
+                await staged.CompleteAsync(new TokenAmountDigitCounts(chunks * 2, 0), new byte[32], Ct);
+                await store.SealAsync(staged.Id, Ct);
+                staged.Keep();
+                return (Guid?)staged.Id;
+            }
+            catch (InvalidOperationException)
+            {
+                // Swept under the writer: the documented outcome.
+                return null;
+            }
+        }, Ct)).ToArray();
+
+        var sealedIds = (await Task.WhenAll(writers)).Where(id => id is not null).Select(id => id!.Value).ToList();
+        Volatile.Write(ref writersDone, true);
+        await sweeper;
+
+        await using var orphans = db.DataSource.CreateCommand(
+            "SELECT count(*) FROM token_amount_large_chunk c WHERE NOT EXISTS (SELECT 1 FROM token_amount_large h WHERE h.id = c.amount_id)");
+        Assert.Equal(0L, (long)(await orphans.ExecuteScalarAsync(Ct))!);
+        foreach (var id in sealedIds)
+        {
+            await using var count = db.DataSource.CreateCommand("SELECT count(*) FROM token_amount_large_chunk WHERE amount_id = $1");
+            count.Parameters.AddWithValue(id);
+            Assert.Equal((long)chunks, (long)(await count.ExecuteScalarAsync(Ct))!);
+        }
+    }
+
+    [Fact]
     public async Task A_tampered_chunk_fails_the_integrity_check()
     {
         SkipWithoutDatabase();
