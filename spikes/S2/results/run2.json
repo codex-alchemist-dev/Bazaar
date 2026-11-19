@@ -1,0 +1,186 @@
+{
+  "run": 2,
+  "persistence": "aof",
+  "flagsRedacted": "--bind 127.0.0.1 --port 16379 --auth Password --password <redacted> -c V:\\TOOL\\garnet\\scratch\\run2\\ckpt --aof --aof-commit-wait -r",
+  "startedUtc": "2026-11-19T08:09:18.8592687Z",
+  "garnetExeSha256": "170C2C30800BDF1263BF7DA0BBAF25B63AE9CC35558CA499FBF18A7EA9BA180D",
+  "step3": {
+    "pid": 84928,
+    "connect": {
+      "mode": "connect",
+      "restartToConnectMs": 1451,
+      "serverVersion": "7.4.3"
+    }
+  },
+  "write": {
+    "mode": "write",
+    "utc": "2026-11-19T08:09:20.7545598Z",
+    "step4_connect": {
+      "ok": true,
+      "ms": 212,
+      "endpoints": [
+        "127.0.0.1:16379"
+      ]
+    },
+    "serverVersion": "7.4.3",
+    "step5_battery": [
+      {
+        "command": "SET key value EX 60 (StringSetAsync with expiry)",
+        "keyPattern": "s2:pre:set:{i}",
+        "pass": true,
+        "detail": "200 ops",
+        "medianMs": 0.506,
+        "minMs": 0.192,
+        "maxMs": 768.254
+      },
+      {
+        "command": "GET key (StringGetAsync)",
+        "keyPattern": "s2:pre:set:{i}",
+        "pass": true,
+        "detail": "200 ops, values equal",
+        "medianMs": 0.108,
+        "minMs": 0.043,
+        "maxMs": 5.097
+      },
+      {
+        "command": "GET missing key returns null",
+        "keyPattern": "s2:pre:missing:{i}",
+        "pass": true,
+        "detail": "200 ops, all IsNull",
+        "medianMs": 0.095,
+        "minMs": 0.054,
+        "maxMs": 0.801
+      },
+      {
+        "command": "SET+GET 64 KiB snapshot value (projection path)",
+        "keyPattern": "s2:pre:snap:{i}",
+        "pass": true,
+        "detail": "50 round trips, bytes equal",
+        "medianMs": 0.879,
+        "minMs": 0.573,
+        "maxMs": 19.554
+      },
+      {
+        "command": "expiry: SET EX 5, GET after 6 s is null",
+        "keyPattern": "s2:pre:exp",
+        "pass": true,
+        "detail": "presentBefore=True afterIsNull=True",
+        "medianMs": 0,
+        "minMs": 0,
+        "maxMs": 0
+      }
+    ],
+    "step5d_pubsub_separate_finding": {
+      "command": "SUBSCRIBE/PUBLISH (+PSUBSCRIBE)",
+      "received": 10,
+      "of": 10,
+      "allReceived": true,
+      "inOrder": true,
+      "publishReturnSumReceivers": 10,
+      "patternDelivered": 1,
+      "publishMedianMs": 1.768,
+      "pass": true
+    },
+    "step6": {
+      "N": 1000,
+      "ttlSeconds": 3600,
+      "keyNames": "s2:surv:0000..s2:surv:0999",
+      "checksumSha256": "A9AF3BFEE82B2E7E2049CDDEBED03240DBE2A909AF91374DEEA6D08F1242386D",
+      "dbsize": "1270"
+    }
+  },
+  "step7": {
+    "pid": 84928,
+    "killedUtc": "2026-11-19T08:09:31.6770898Z",
+    "method": "taskkill /F /PID",
+    "stillRunning": false
+  },
+  "dataFiles": [
+    "\\garnet.err.txt 0",
+    "\\garnet.out.txt 253",
+    "\\ckpt\\AOF\\aof.log.0 3486208",
+    "\\ckpt\\AOF\\log-commits\\commit.1001.0 512"
+  ],
+  "step8": {
+    "pid": 71776,
+    "connect": {
+      "mode": "connect",
+      "restartToConnectMs": 1418,
+      "serverVersion": "7.4.3"
+    }
+  },
+  "verify": {
+    "mode": "verify",
+    "utc": "2026-11-19T08:09:34.4542097Z",
+    "step9": {
+      "N": 1000,
+      "match": 1000,
+      "missing": 0,
+      "differ": 0,
+      "checksumOfMatching": "A9AF3BFEE82B2E7E2049CDDEBED03240DBE2A909AF91374DEEA6D08F1242386D",
+      "ttlRemainingMinSec": 3570,
+      "ttlRemainingMaxSec": 3595,
+      "shortTtlKeysStillPresent": 0,
+      "dbsize": "1250"
+    },
+    "step10_battery": [
+      {
+        "command": "SET key value EX 60 (StringSetAsync with expiry)",
+        "keyPattern": "s2:post:set:{i}",
+        "pass": true,
+        "detail": "200 ops",
+        "medianMs": 39.057,
+        "minMs": 15.12,
+        "maxMs": 216.557
+      },
+      {
+        "command": "GET key (StringGetAsync)",
+        "keyPattern": "s2:post:set:{i}",
+        "pass": true,
+        "detail": "200 ops, values equal",
+        "medianMs": 8.365,
+        "minMs": 2.425,
+        "maxMs": 25.194
+      },
+      {
+        "command": "GET missing key returns null",
+        "keyPattern": "s2:post:missing:{i}",
+        "pass": true,
+        "detail": "200 ops, all IsNull",
+        "medianMs": 10.558,
+        "minMs": 0.326,
+        "maxMs": 22.874
+      },
+      {
+        "command": "SET+GET 64 KiB snapshot value (projection path)",
+        "keyPattern": "s2:post:snap:{i}",
+        "pass": true,
+        "detail": "50 round trips, bytes equal",
+        "medianMs": 18.731,
+        "minMs": 4.219,
+        "maxMs": 50.531
+      },
+      {
+        "command": "expiry: SET EX 5, GET after 6 s is null",
+        "keyPattern": "s2:post:exp",
+        "pass": true,
+        "detail": "presentBefore=True afterIsNull=True",
+        "medianMs": 0,
+        "minMs": 0,
+        "maxMs": 0
+      }
+    ],
+    "step10_pubsub_separate_finding": {
+      "command": "SUBSCRIBE/PUBLISH (+PSUBSCRIBE)",
+      "received": 10,
+      "of": 10,
+      "allReceived": true,
+      "inOrder": true,
+      "publishReturnSumReceivers": 10,
+      "patternDelivered": 1,
+      "publishMedianMs": 9.101,
+      "pass": true
+    }
+  },
+  "endedUtc": "2026-11-19T08:10:21.0489546Z"
+}
