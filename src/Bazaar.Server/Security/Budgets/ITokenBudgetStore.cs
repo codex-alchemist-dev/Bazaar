@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Numerics;
+
 namespace Bazaar.Server.Security.Budgets;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace Bazaar.Server.Security.Budgets;
 /// </summary>
 /// <param name="At">When the spend was recorded, as a UTC instant.</param>
 /// <param name="Tokens">Tokens spent. Positive; a zero-token call is never recorded.</param>
-public sealed record TokenBudgetSpend(DateTimeOffset At, long Tokens);
+public sealed record TokenBudgetSpend(DateTimeOffset At, TokenAmount Tokens);
 
 /// <summary>
 /// Durable (or in-memory) log of consumed token spends, the storage behind <see cref="ITokenBudgetService"/>. Counters
@@ -25,8 +27,8 @@ public interface ITokenBudgetStore
 {
     /// <summary>Records one spend of <paramref name="tokens"/> for <paramref name="agentId"/> at <paramref name="at"/>.</summary>
     /// <exception cref="ArgumentException"><paramref name="agentId"/> is null, empty or whitespace.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tokens"/> is negative.</exception>
-    Task Append(string agentId, DateTimeOffset at, long tokens, CancellationToken ct = default);
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tokens"/> cannot be stored by this store.</exception>
+    Task Append(string agentId, DateTimeOffset at, TokenAmount tokens, CancellationToken ct = default);
 
     /// <summary>Returns the agent's spends strictly after <paramref name="since"/>, oldest first.</summary>
     /// <exception cref="ArgumentException"><paramref name="agentId"/> is null, empty or whitespace.</exception>
@@ -42,7 +44,6 @@ public interface ITokenBudgetStore
     /// A zero-token call is checked but never recorded.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="agentId"/> is null, empty or whitespace.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tokens"/> is negative.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="limits"/> is null.</exception>
-    Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, long tokens, TokenBudgetOptions limits, CancellationToken ct = default);
+    Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, TokenAmount tokens, TokenBudgetOptions limits, CancellationToken ct = default);
 }

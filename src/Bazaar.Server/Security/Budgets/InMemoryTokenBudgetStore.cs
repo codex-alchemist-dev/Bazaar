@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Numerics;
+
 namespace Bazaar.Server.Security.Budgets;
 
 /// <summary>
@@ -12,10 +14,9 @@ public sealed class InMemoryTokenBudgetStore : ITokenBudgetStore
     private readonly Lock _gate = new();
     private readonly Dictionary<string, List<TokenBudgetSpend>> _spendsByAgent = new(StringComparer.Ordinal);
 
-    public Task Append(string agentId, DateTimeOffset at, long tokens, CancellationToken ct = default)
+    public Task Append(string agentId, DateTimeOffset at, TokenAmount tokens, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        ArgumentOutOfRangeException.ThrowIfNegative(tokens);
         ct.ThrowIfCancellationRequested();
 
         lock (_gate)
@@ -68,10 +69,9 @@ public sealed class InMemoryTokenBudgetStore : ITokenBudgetStore
         return Task.CompletedTask;
     }
 
-    public Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, long tokens, TokenBudgetOptions limits, CancellationToken ct = default)
+    public Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, TokenAmount tokens, TokenBudgetOptions limits, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        ArgumentOutOfRangeException.ThrowIfNegative(tokens);
         ArgumentNullException.ThrowIfNull(limits);
         ct.ThrowIfCancellationRequested();
 
@@ -83,7 +83,7 @@ public sealed class InMemoryTokenBudgetStore : ITokenBudgetStore
             var ordered = spends is null ? [] : spends.OrderBy(spend => spend.At).ToArray();
             var decision = TokenBudgetEvaluator.Evaluate(ordered, at, tokens, limits);
 
-            if (decision.Allowed && tokens > 0)
+            if (decision.Allowed && !tokens.IsZero)
             {
                 if (spends is null)
                 {

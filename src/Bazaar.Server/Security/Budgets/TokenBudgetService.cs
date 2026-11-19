@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Numerics;
+
 namespace Bazaar.Server.Security.Budgets;
 
 /// <summary>
@@ -18,7 +20,7 @@ public sealed class TokenBudgetService : ITokenBudgetService, IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <exception cref="ArgumentNullException"><paramref name="options"/>, <paramref name="store"/> or <paramref name="time"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="options"/> has a window limit below 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="options"/> has a window limit of zero.</exception>
     public TokenBudgetService(TokenBudgetOptions options, ITokenBudgetStore store, TimeProvider time)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -28,10 +30,9 @@ public sealed class TokenBudgetService : ITokenBudgetService, IDisposable
         _time = time ?? throw new ArgumentNullException(nameof(time));
     }
 
-    public async Task<TokenBudgetDecision> TryConsume(string agentId, long tokens, CancellationToken ct = default)
+    public async Task<TokenBudgetDecision> TryConsume(string agentId, TokenAmount tokens, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        ArgumentOutOfRangeException.ThrowIfNegative(tokens);
         ct.ThrowIfCancellationRequested();
 
         await _gate.WaitAsync(ct).ConfigureAwait(false);

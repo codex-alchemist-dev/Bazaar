@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Security.Budgets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,19 +13,18 @@ public class TokenBudgetOptionsTests
         var options = new TokenBudgetOptions();
 
         options.Validate();
-        Assert.Equal(200_000, options.LimitFor(TokenBudgetWindow.Hour));
-        Assert.Equal(2_000_000, options.LimitFor(TokenBudgetWindow.Day));
-        Assert.Equal(10_000_000, options.LimitFor(TokenBudgetWindow.Week));
+        Assert.Equal(TokenAmount.FromInt64(200_000), options.LimitFor(TokenBudgetWindow.Hour));
+        Assert.Equal(TokenAmount.FromInt64(2_000_000), options.LimitFor(TokenBudgetWindow.Day));
+        Assert.Equal(TokenAmount.FromInt64(10_000_000), options.LimitFor(TokenBudgetWindow.Week));
     }
 
     [Theory]
-    [InlineData(0, 1, 1, nameof(TokenBudgetOptions.HourlyTokens))]
-    [InlineData(1, 0, 1, nameof(TokenBudgetOptions.DailyTokens))]
-    [InlineData(1, 1, 0, nameof(TokenBudgetOptions.WeeklyTokens))]
-    [InlineData(-5, 1, 1, nameof(TokenBudgetOptions.HourlyTokens))]
-    public void Validate_rejects_a_window_limit_below_one(long hour, long day, long week, string paramName)
+    [InlineData("0", "1", "1", nameof(TokenBudgetOptions.HourlyTokens))]
+    [InlineData("1", "0", "1", nameof(TokenBudgetOptions.DailyTokens))]
+    [InlineData("1", "1", "0.000", nameof(TokenBudgetOptions.WeeklyTokens))]
+    public void Validate_rejects_a_window_limit_of_zero(string hour, string day, string week, string paramName)
     {
-        var options = new TokenBudgetOptions { HourlyTokens = hour, DailyTokens = day, WeeklyTokens = week };
+        var options = new TokenBudgetOptions { HourlyTokens = TokenAmount.Parse(hour), DailyTokens = TokenAmount.Parse(day), WeeklyTokens = TokenAmount.Parse(week) };
 
         var error = Assert.Throws<ArgumentOutOfRangeException>(() => options.Validate());
 
@@ -32,9 +32,9 @@ public class TokenBudgetOptionsTests
     }
 
     [Fact]
-    public void Validate_accepts_the_minimum_limit_of_one()
+    public void Validate_accepts_small_and_fractional_limits()
     {
-        var options = new TokenBudgetOptions { HourlyTokens = 1, DailyTokens = 1, WeeklyTokens = 1 };
+        var options = new TokenBudgetOptions { HourlyTokens = TokenAmount.Parse("1e-16383"), DailyTokens = TokenAmount.Parse("0.5"), WeeklyTokens = TokenAmount.One };
 
         options.Validate();
     }
@@ -56,14 +56,50 @@ public class TokenBudgetOptionsTests
         using var provider = services.BuildServiceProvider();
 
         var options = provider.GetRequiredService<TokenBudgetOptions>();
-        Assert.Equal(500, options.HourlyTokens);
-        Assert.Equal(5000, options.DailyTokens);
-        Assert.Equal(50000, options.WeeklyTokens);
+        Assert.Equal(TokenAmount.FromInt64(500), options.HourlyTokens);
+        Assert.Equal(TokenAmount.FromInt64(5000), options.DailyTokens);
+        Assert.Equal(TokenAmount.FromInt64(50000), options.WeeklyTokens);
         Assert.IsType<TokenBudgetService>(provider.GetRequiredService<ITokenBudgetService>());
     }
 
     [Fact]
-    public void AddAgentTokenBudgets_rejects_a_configured_limit_below_one()
+    public void AddAgentTokenBudgets_binds_exponent_fraction_and_beyond_long_limits()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Bazaar:Safety:Budgets:HourlyTokens"] = "2.5e6",
+                ["Bazaar:Safety:Budgets:DailyTokens"] = "0.75",
+                ["Bazaar:Safety:Budgets:WeeklyTokens"] = "123456789012345678901234567890",
+            })
+            .Build();
+        var services = new ServiceCollection();
+
+        services.AddAgentTokenBudgets(configuration);
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider.GetRequiredService<TokenBudgetOptions>();
+        Assert.Equal("2500000", options.HourlyTokens.ToString());
+        Assert.Equal("0.75", options.DailyTokens.ToString());
+        Assert.Equal("123456789012345678901234567890", options.WeeklyTokens.ToString());
+    }
+
+    [Theory]
+    [InlineData("-5")]
+    [InlineData("1_000")]
+    [InlineData("NaN")]
+    [InlineData("1e999999999")]
+    public void AddAgentTokenBudgets_rejects_a_configured_limit_that_is_not_an_amount(string value)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Safety:Budgets:HourlyTokens"] = value })
+            .Build();
+
+        Assert.Throws<InvalidOperationException>(() => new ServiceCollection().AddAgentTokenBudgets(configuration));
+    }
+
+    [Fact]
+    public void AddAgentTokenBudgets_rejects_a_configured_limit_of_zero()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Safety:Budgets:HourlyTokens"] = "0" })
@@ -89,8 +125,8 @@ public class TokenBudgetOptionsTests
         using var provider = services.BuildServiceProvider();
 
         var options = provider.GetRequiredService<TokenBudgetOptions>();
-        Assert.Equal(200_000, options.HourlyTokens);
-        Assert.Equal(2_000_000, options.DailyTokens);
+        Assert.Equal(TokenAmount.FromInt64(200_000), options.HourlyTokens);
+        Assert.Equal(TokenAmount.FromInt64(2_000_000), options.DailyTokens);
     }
 
     [Fact]
@@ -108,7 +144,7 @@ public class TokenBudgetOptionsTests
         services.AddAgentTokenBudgets(configuration);
         using var provider = services.BuildServiceProvider();
 
-        Assert.Equal(42, provider.GetRequiredService<TokenBudgetOptions>().WeeklyTokens);
+        Assert.Equal(TokenAmount.FromInt64(42), provider.GetRequiredService<TokenBudgetOptions>().WeeklyTokens);
     }
 
     [Fact]

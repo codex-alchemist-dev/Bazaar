@@ -17,7 +17,8 @@ public static class TokenBudgetServiceCollectionExtensions
     /// registered one. Uses <see cref="InMemoryTokenBudgetStore"/> unless the host registered an <see cref="ITokenBudgetStore"/>
     /// first; register a durable store before calling this so the counters survive a restart.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">A bound window limit is below 1.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound window limit is zero.</exception>
+    /// <exception cref="InvalidOperationException">A configured limit is not a token amount (for example negative or malformed).</exception>
     // TODO(component): call from host composition when the component model (PR #125) merges. Not called yet, like AddBazaarRateLimits.
     public static IServiceCollection AddAgentTokenBudgets(this IServiceCollection services, IConfiguration configuration)
     {

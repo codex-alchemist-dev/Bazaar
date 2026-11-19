@@ -1,5 +1,7 @@
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Security.Budgets;
 using Microsoft.Extensions.Time.Testing;
+using static Bazaar.Server.Tests.Security.Budgets.BudgetTestAmounts;
 
 namespace Bazaar.Server.Tests.Security.Budgets;
 
@@ -7,8 +9,6 @@ public class TokenBudgetServiceTests
 {
     private static readonly DateTimeOffset _start = new(2026, 11, 15, 0, 0, 0, TimeSpan.Zero);
 
-    private static TokenBudgetOptions Limits(long hour, long day, long week) =>
-        new() { HourlyTokens = hour, DailyTokens = day, WeeklyTokens = week };
 
     private static Task<TokenBudgetDecision> Consume(TokenBudgetService service, string agentId, long tokens) =>
         service.TryConsume(agentId, tokens, TestContext.Current.CancellationToken);
@@ -26,7 +26,7 @@ public class TokenBudgetServiceTests
 
         Assert.True(decision.Allowed);
         Assert.Null(decision.Window);
-        Assert.Equal(80, decision.Remaining);
+        Assert.Equal(T(80), decision.Remaining);
         Assert.Equal(TimeSpan.Zero, decision.RetryAfter);
     }
 
@@ -38,7 +38,7 @@ public class TokenBudgetServiceTests
         var decision = await Consume(service, "agent-a", 100);
 
         Assert.True(decision.Allowed);
-        Assert.Equal(0, decision.Remaining);
+        Assert.Equal(T(0), decision.Remaining);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class TokenBudgetServiceTests
 
         Assert.False(decision.Allowed);
         Assert.Equal(TokenBudgetWindow.Hour, decision.Window);
-        Assert.Equal(10, decision.Remaining);
+        Assert.Equal(T(10), decision.Remaining);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class TokenBudgetServiceTests
 
         Assert.False(denied.Allowed);
         Assert.True(followUp.Allowed, "The denied 20 tokens must not have been counted.");
-        Assert.Equal(0, followUp.Remaining);
+        Assert.Equal(T(0), followUp.Remaining);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class TokenBudgetServiceTests
         var decision = await Consume(service, "agent-a", 0);
 
         Assert.True(decision.Allowed);
-        Assert.Equal(100, decision.Remaining);
+        Assert.Equal(T(100), decision.Remaining);
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public class TokenBudgetServiceTests
 
         Assert.False(decision.Allowed);
         Assert.Equal(TokenBudgetWindow.Hour, decision.Window);
-        Assert.Equal(10, decision.Remaining);
+        Assert.Equal(T(10), decision.Remaining);
     }
 
     [Fact]
@@ -291,7 +291,7 @@ public class TokenBudgetServiceTests
         Assert.False(denied.Allowed);
         Assert.Equal(0, store.AppendCount);
         var entries = await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
-        Assert.Equal(90, Assert.Single(entries).Tokens);
+        Assert.Equal(T(90), Assert.Single(entries).Tokens);
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public class TokenBudgetServiceTests
 
         var kept = await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
         var spend = Assert.Single(kept);
-        Assert.Equal(10, spend.Tokens);
+        Assert.Equal(T(10), spend.Tokens);
         Assert.Equal(_start + TimeSpan.FromDays(8), spend.At);
     }
 
@@ -358,14 +358,14 @@ public class TokenBudgetServiceTests
 
         public int LoadSinceCount { get; private set; }
 
-        public Task Append(string agentId, DateTimeOffset at, long tokens, CancellationToken ct = default)
+        public Task Append(string agentId, DateTimeOffset at, TokenAmount tokens, CancellationToken ct = default)
         {
             AgentIds.Add(agentId);
             AppendCount++;
             return inner.Append(agentId, at, tokens, ct);
         }
 
-        public Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, long tokens, TokenBudgetOptions limits, CancellationToken ct = default)
+        public Task<TokenBudgetDecision> TryConsume(string agentId, DateTimeOffset at, TokenAmount tokens, TokenBudgetOptions limits, CancellationToken ct = default)
         {
             AgentIds.Add(agentId);
             ConsumeInstants.Add(at);
