@@ -50,9 +50,10 @@ public sealed class InMemoryKillSwitchStateStore : IKillSwitchStateStore
         ArgumentNullException.ThrowIfNull(engaged);
         ArgumentException.ThrowIfNullOrWhiteSpace(engaged.AgentId);
         ct.ThrowIfCancellationRequested();
+        var canonical = AgentIds.Canonical(engaged.AgentId);
         lock (_gate)
         {
-            _agentStops[engaged.AgentId] = engaged;
+            _agentStops[canonical] = engaged with { AgentId = canonical };
         }
         return Task.CompletedTask;
     }
@@ -64,7 +65,7 @@ public sealed class InMemoryKillSwitchStateStore : IKillSwitchStateStore
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            _agentStops.Remove(agentId);
+            _agentStops.Remove(AgentIds.Canonical(agentId));
         }
         return Task.CompletedTask;
     }

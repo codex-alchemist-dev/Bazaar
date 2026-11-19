@@ -46,4 +46,28 @@ public sealed class PostgresContainmentStateStoreTests
 
         Assert.Equal(["agent-b"], (await store.LoadAsync(Ct)).Select(a => a.AgentId));
     }
+
+    [Fact]
+    public async Task Every_spelling_of_an_agent_id_is_one_agent_including_rows_stored_under_another_spelling()
+    {
+        SkipWithoutDatabase();
+        await using var db = await BudgetTestDb.CreateAsync(Ct);
+        var store = new PostgresContainmentStateStore(db.DataSource);
+        var agent = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e");
+        await using (var seed = db.DataSource.CreateCommand("INSERT INTO agent_containment (agent_id, contained_at, actor_id) VALUES ($1, $2, 'legacy')"))
+        {
+            seed.Parameters.AddWithValue("{" + agent.ToString("D").ToUpperInvariant() + "}");
+            seed.Parameters.AddWithValue(_t0);
+            await seed.ExecuteNonQueryAsync(Ct);
+        }
+
+        await store.AddAsync(new ContainedAgent(agent.ToString("N"), _t0.AddMinutes(1), "later"), Ct);
+
+        var loaded = Assert.Single(await store.LoadAsync(Ct));
+        Assert.Equal(agent.ToString("D"), loaded.AgentId);
+        Assert.Equal("legacy", loaded.ActorId);
+
+        await store.RemoveAsync(agent.ToString("B"), Ct);
+        Assert.Empty(await store.LoadAsync(Ct));
+    }
 }
