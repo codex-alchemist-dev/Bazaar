@@ -67,7 +67,7 @@ public sealed class MailScreeningService(IProtectedMailDomains protectedDomains,
 
         var domains = await protectedDomains.GetAsync([.. _options.ExtraProtectedDomains], ct);
         var headers = new InboundHeaders(
-            From: mail.FromAddress,
+            From: MailTextCleaner.ComposeFromHeader(mail.FromDisplayName, mail.FromAddress),
             SpfResult: auth.Spf,
             DkimResult: auth.Dkim,
             DmarcResult: auth.Dmarc,

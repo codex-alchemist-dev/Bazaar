@@ -67,7 +67,8 @@ public sealed class MimeMailParser(MailLimits limits)
             AutoSubmitted: IsAutoSubmitted(message),
             PartCount: counter.Parts,
             MaxDepthSeen: counter.MaxDepth,
-            AuthenticationResults: auth);
+            AuthenticationResults: auth,
+            FromDisplayName: MailTextCleaner.CleanDisplayName(message.From.Mailboxes.FirstOrDefault()?.Name));
     }
 
     private static bool IsAutoSubmitted(MimeMessage message)
