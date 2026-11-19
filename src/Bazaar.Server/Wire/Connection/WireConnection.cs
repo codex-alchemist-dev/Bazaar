@@ -397,7 +397,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         {
             try
             {
-                var reply = await _idempotency.ExecuteAsync(DeviceId, request.Id, token => RunHandlerAsync(request, token), _cts.Token).ConfigureAwait(false);
+                // The device id can come from the client's hello, so the table's scope also carries the principal: another principal
+                // that claims this device id must not be handed this one's cached replies.
+                var reply = await _idempotency.ExecuteAsync(Principal.Id.ToString("N") + "/" + DeviceId, request.Id, token => RunHandlerAsync(request, token), _cts.Token).ConfigureAwait(false);
                 Reply(request, reply);
                 if (reply.IsOk && reply.AfterReply is { } afterReply)
                 {

@@ -15,12 +15,16 @@ public sealed class WireConnectionRegistry
     public IReadOnlyList<IWireConnection> ForDevice(string deviceId) =>
         _connections.Values.Where(v => v.Connection.DeviceId == deviceId).OrderBy(v => v.Seq).Select(v => v.Connection).ToArray();
 
-    /// <summary>Adds a connection and returns the older sockets of its device that exceed <paramref name="maxPerDevice"/>; the newest wins.</summary>
+    /// <summary>
+    /// Adds a connection and returns the older sockets of its device that exceed <paramref name="maxPerDevice"/>; the newest wins.
+    /// Only sockets of the same principal count: a device id can come from the client's hello, so another principal that claims
+    /// it must not push this one off.
+    /// </summary>
     internal IReadOnlyList<IWireConnection> Add(IWireConnection connection, int maxPerDevice)
     {
         _connections[connection.ConnectionId] = (Interlocked.Increment(ref _seq), connection);
-        var mine = ForDevice(connection.DeviceId);
-        return mine.Count <= maxPerDevice ? [] : mine.Take(mine.Count - maxPerDevice).ToArray();
+        var mine = ForDevice(connection.DeviceId).Where(c => c.Principal.Id == connection.Principal.Id).ToArray();
+        return mine.Length <= maxPerDevice ? [] : mine.Take(mine.Length - maxPerDevice).ToArray();
     }
 
     internal void Remove(IWireConnection connection) => _connections.TryRemove(connection.ConnectionId, out _);
