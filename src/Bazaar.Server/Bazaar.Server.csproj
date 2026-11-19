@@ -17,6 +17,7 @@
     <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Blobs.Abstractions\Bazaar.Server.Blobs.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Install.Abstractions\Bazaar.Install.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Modules.Abstractions\Bazaar.Server.Modules.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
@@ -25,6 +26,8 @@
     <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.PrivacyAudit\Bazaar.PrivacyAudit.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Remote\Bazaar.Server.Remote.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Remote.Abstractions\Bazaar.Server.Remote.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />

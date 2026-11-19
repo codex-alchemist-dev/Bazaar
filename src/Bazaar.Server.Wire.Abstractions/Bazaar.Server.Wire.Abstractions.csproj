@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Remote.Abstractions\Bazaar.Server.Remote.Abstractions.csproj" />
   </ItemGroup>
 </Project>
