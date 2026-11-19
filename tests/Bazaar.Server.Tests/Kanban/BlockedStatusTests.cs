@@ -1,4 +1,4 @@
-using Bazaar.Server.Kanban;
+using Bazaar.RyuseiFuda.Kanban;
 
 namespace Bazaar.Server.Tests.Kanban;
 
