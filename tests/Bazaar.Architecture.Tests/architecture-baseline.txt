@@ -142,12 +142,6 @@ src/Bazaar.Server/Company/Org/LoanRules.cs
 src/Bazaar.Server/Company/Org/OrgLoanService.cs
 src/Bazaar.Server/Company/Org/OrgRouting.cs
 src/Bazaar.Server/Company/Org/OrgSettings.cs
-src/Bazaar.Server/Components/Erasure/ErasureCoordinator.cs
-src/Bazaar.Server/Components/Erasure/ErasureReport.cs
-src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
-src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
-src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
 src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
 src/Bazaar.Server/Components/Remote/ITokenService.cs
 src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
