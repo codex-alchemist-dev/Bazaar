@@ -54,7 +54,7 @@ Purpose: sign a human in from a new device with a passkey, then hand off to a na
 - Handoff: success redirects to `bazaar://signin?code=...`, a 60 s single-use handoff code. The native client redeems it at `/auth/handoff` (an API route on the 02 surface, not a page) for a normal device credential. There is no separate "done" page.
 - Shown: server display name, the sign-in control, generic error text.
 - Never shown: GC or agent names, member or device lists, counts, version beyond a build id, logs, links to data, any response distinguishing valid from invalid usernames.
-- No session cookie beyond the ceremony. No Bazaar content is ever rendered in a browser.
+- No session cookie beyond the ceremony, with one exception: `audience=admin` (doc 51 section 5, PROPOSED) redirects to `/admin/session/redeem`, which sets the admin panel's own short-lived cookie. The panel is the only place a browser renders Bazaar content, and only for accounts holding an admin capability.
 - Off by default; operator enables it and sets the bind address.
 
 ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped to authentication scenarios", "isn't intended as a general-purpose WebAuthn library", needs a WebAuthn browser. So passkeys serve only this page, not native clients. Set the RP ID explicitly (`IdentityPasskeyOptions.ServerDomain`) rather than inferring it from the Host header; passkeys work only on the registered domain, so a hostname change breaks them (recovery codes cover it). Attestation state is unsigned JSON, so keep it server-side. Exact .NET 10 API names are unverified; confirm in a spike.
