@@ -141,7 +141,7 @@ public class BundleVerifierTests
         var manifest = File.ReadAllText(path);
         var entry = "\"path\":\"config/settings.json\"";
         Assert.Contains(entry, manifest);
-        File.WriteAllText(path, manifest.Replace(entry, "\"path\":\"config/settings.jsoN\"", StringComparison.Ordinal));
+        File.WriteAllText(path, manifest.Replace(entry, "\"path\":\"config/settings-renamed.json\"", StringComparison.Ordinal));
 
         var report = f.Run();
 
