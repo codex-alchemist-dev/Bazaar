@@ -22,6 +22,9 @@ public sealed class WindowChrome
         Region = region;
     }
 
+    /// <summary>The window's named focus scopes; the head registers them in reading order.</summary>
+    public FocusScopes Scopes { get; } = new();
+
     /// <summary>The live region; modules announce through <see cref="GatedLiveRegion.Announce"/>.</summary>
     public GatedLiveRegion Region { get; }
 
