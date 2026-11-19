@@ -200,12 +200,28 @@ public class TlsClientHelloTests
     [InlineData(new byte[] { 0x80, 0x2e, 0x01, 0x03, 0x01 })]      // SSLv2-style hello: not a TLS record here, relayed unchanged
     [InlineData(new byte[] { 0x16, 2, 0 })]                        // major version 2
     [InlineData(new byte[] { 0x16, 4, 0 })]
-    [InlineData(new byte[] { 0x17, 3, 3, 0, 1, 0 })]               // application data
+    [InlineData(new byte[] { 0x15, 2, 0 })]                        // alert-typed byte, not TLS major 3
     [InlineData(new byte[] { (byte)'G', (byte)'E', (byte)'T' })]
     [InlineData(new byte[] { (byte)'S', (byte)'S', (byte)'H', (byte)'-' })]
     public void Non_tls_first_bytes_are_not_tls(byte[] bytes)
     {
         Assert.Equal(TlsHelloStatus.NotTls, Parse(bytes).Status);
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0x14, 3, 3, 0, 1, 1 })]               // change_cipher_spec
+    [InlineData(new byte[] { 0x15, 3, 3, 0, 2, 1, 0x5a })]         // warning alert, which some servers skip before the hello
+    [InlineData(new byte[] { 0x17, 3, 3, 0, 1, 0 })]               // application data
+    [InlineData(new byte[] { 0x18, 3, 3, 0, 1, 0 })]               // heartbeat
+    public void Another_tls_record_ahead_of_the_hello_is_refused(byte[] bytes)
+    {
+        Assert.Equal(TlsHelloStatus.Malformed, Parse(bytes).Status);
+    }
+
+    [Fact]
+    public void A_lone_tls_record_type_byte_needs_more()
+    {
+        Assert.Equal(TlsHelloStatus.NeedMore, Parse([0x15]).Status);
     }
 
     [Fact]

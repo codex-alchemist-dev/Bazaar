@@ -68,7 +68,10 @@ internal static class TlsClientHello
             return new(TlsHelloStatus.NeedMore);
         }
 
-        if (data[0] != _handshakeRecord)
+        // Another TLS record type (change_cipher_spec, alert, application_data, heartbeat) ahead of the ClientHello is refused:
+        // some TLS stacks skip a warning alert before the hello, which would carry an unchecked hello past this check.
+        var otherTlsRecord = data[0] is >= 0x14 and <= 0x18 and not _handshakeRecord;
+        if (data[0] != _handshakeRecord && !otherTlsRecord)
         {
             return new(TlsHelloStatus.NotTls);
         }
@@ -76,6 +79,11 @@ internal static class TlsClientHello
         if (data.Length < 2)
         {
             return new(TlsHelloStatus.NeedMore);
+        }
+
+        if (otherTlsRecord)
+        {
+            return new(data[1] == 3 ? TlsHelloStatus.Malformed : TlsHelloStatus.NotTls);
         }
 
         if (data[1] != 3)
