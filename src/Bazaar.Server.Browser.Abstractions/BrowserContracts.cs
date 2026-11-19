@@ -107,6 +107,9 @@ public interface IBrowserLauncher
 
     /// <summary>The live sessions of one agent.</summary>
     IReadOnlyList<BrowserSession> ActiveSessions(string agentId);
+
+    /// <summary>Every live session, for lifetime sweeps and the admin view.</summary>
+    IReadOnlyList<BrowserSession> AllActiveSessions();
 }
 
 /// <summary>Port: looks up profiles. The host adapts the Identity profile store to it.</summary>
