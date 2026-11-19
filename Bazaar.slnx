@@ -45,6 +45,8 @@
     <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
     <Project Path="src/Bazaar.Server.Setup/Bazaar.Server.Setup.csproj" />
+    <Project Path="src/Bazaar.Server.Souls.Abstractions/Bazaar.Server.Souls.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Souls/Bazaar.Server.Souls.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Abstractions/Bazaar.Server.Setup.Abstractions.csproj" />
     <Project Path="src/Bazaar.Fun/Bazaar.Fun.csproj" />
     <Project Path="tests/Bazaar.Fun.Tests/Bazaar.Fun.Tests.csproj" />
@@ -125,6 +127,7 @@
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Souls.Tests/Bazaar.Server.Souls.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />

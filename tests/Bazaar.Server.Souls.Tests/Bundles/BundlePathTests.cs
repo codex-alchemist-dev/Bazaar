@@ -1,6 +1,6 @@
 using Bazaar.Server.Souls.Bundles;
 
-namespace Bazaar.Server.Tests.Souls.Bundles;
+namespace Bazaar.Server.Souls.Tests.Bundles;
 
 public sealed class BundlePathTests
 {

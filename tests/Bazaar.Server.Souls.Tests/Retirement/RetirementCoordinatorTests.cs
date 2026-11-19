@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Retirement;
 
-namespace Bazaar.Server.Tests.Souls.Retirement;
+namespace Bazaar.Server.Souls.Tests.Retirement;
 
 /// <summary>Retirement ordering, idempotency, partial failure and disk rules (docs/design/07-soul-system.md, WP6).</summary>
 public sealed class RetirementCoordinatorTests

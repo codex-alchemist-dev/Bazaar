@@ -1,6 +1,6 @@
 using Bazaar.Server.Souls;
 
-namespace Bazaar.Server.Tests.Souls;
+namespace Bazaar.Server.Souls.Tests;
 
 public sealed class SoulCanonicalJsonTests
 {

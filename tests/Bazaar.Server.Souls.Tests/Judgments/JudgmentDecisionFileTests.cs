@@ -2,7 +2,7 @@ using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Judgments;
 
-namespace Bazaar.Server.Tests.Souls.Judgments;
+namespace Bazaar.Server.Souls.Tests.Judgments;
 
 /// <summary>The Markdown decision file and its slug (docs/design/07-soul-system.md, "Auditable judgments").</summary>
 public sealed class JudgmentDecisionFileTests

@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
+using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Soul;
@@ -73,12 +73,7 @@ public static partial class JudgmentDecisionFile
     /// A YAML double-quoted scalar. JSON string syntax is a valid YAML double-quoted scalar; the relaxed encoder keeps quotes
     /// readable as <c>\"</c> instead of <c>"</c>.
     /// </summary>
-    private static string Quote(string value) => JsonSerializer.Serialize(value, _quoteOptions);
-
-    private static readonly JsonSerializerOptions _quoteOptions = new()
-    {
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
+    private static string Quote(string value) => "\"" + JavaScriptEncoder.UnsafeRelaxedJsonEscaping.Encode(value) + "\"";
 
     private static string KindName(JudgmentKind kind) => kind switch
     {
