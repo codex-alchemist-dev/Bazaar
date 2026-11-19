@@ -113,4 +113,16 @@ public static class OcclusionCuller
         box = new ScreenBox(minX, minY, maxX, maxY, nearest);
         return true;
     }
+
+    /// <summary>
+    /// Wraps a pyramid and a view-projection matrix as the tile occlusion test <see cref="ViewSelector"/> takes.
+    /// A box that cannot be projected (it touches the eye plane) counts as visible.
+    /// </summary>
+    public static Func<TileBounds, bool> AsTest(HiZPyramid pyramid, float[] viewProjection, bool matrixIsReversedZ)
+    {
+        ArgumentNullException.ThrowIfNull(pyramid);
+        ArgumentNullException.ThrowIfNull(viewProjection);
+        return bounds => TryProject(bounds, viewProjection, pyramid.Width, pyramid.Height, matrixIsReversedZ, out ScreenBox box)
+            && IsOccluded(pyramid, box);
+    }
 }
