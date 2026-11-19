@@ -483,6 +483,57 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         Assert.Equal(left.N, await row.ExecuteScalarAsync(ct));
     }
 
+    // Chaos round 3 (access): the stream re-check existed but nothing called it, so a removed member kept receiving a GC's live events
+    // on a socket that was open when they left (doc 02: access is rechecked on subscribe and on membership change).
+    [Fact]
+    public async Task A_member_who_leaves_loses_their_open_stream_and_gets_no_later_message()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var leaver = Human(Guid.CreateVersion7());
+        var stayer = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(leaver);
+        await AddMemberAsync(gc, stayer.Id);
+        var notifications = new ChannelGcNotifications();
+        var writer = new GcLogWriter(db.DataSource, notifications);
+        var source = Source;
+        var dispatcher = new GcDispatcher(source, new SyncOptions());
+        var streamAccess = new GcStreamAccessPolicy(Access);
+        var engine = new SubscriptionEngine(source, streamAccess, dispatcher, new SyncOptions());
+        using var running = new CancellationTokenSource();
+        var dispatching = dispatcher.RunAsync(notifications, null, running.Token);
+        var outbound = new BoundedOutbound(1000);
+        using var session = engine.CreateSession(leaver.Id, _codec, outbound);
+        var outcome = await session.SubscribeAsync(new Subscribe([new StreamCursor(WireStreams.Gc(gc), 0, 0)]), ct);
+        Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single().Status);
+        _ = outcome.StartAsync();
+
+        var leave = new GcMemberRemoveHandler(
+            writer, new GcReadAccess(db.DataSource), new Bazaar.Server.Gc.Members.PgGcMembershipSource(db.DataSource), dispatcher, streamAccess);
+        var reply = await leave.HandleAsync(
+            Context(new FakeWireConnection(db.DataSource, leaver), WireTypes.GcMemberRemove, "leave-live", new GcMemberRemove(gc, leaver.Id)), ct);
+        Assert.True(reply.IsOk);
+        await writer.AppendAsync(TextAppend(gc, stayer, "said after the leave", "after-leave"), ct);
+
+        var seen = new List<string>();
+        var texts = new List<string>();
+        using var window = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        window.CancelAfter(TimeSpan.FromSeconds(10));
+        await foreach (var envelope in outbound.ReadAllAsync(window.Token))
+        {
+            seen.Add(envelope.T);
+            if (envelope.T == WireTypes.GcMessage)
+                texts.Add(_codec.DecodePayload<WireGcMessage>(envelope).Text);
+            if (envelope.T == WireTypes.StreamRevoked)
+                break;
+        }
+
+        Assert.Contains(WireTypes.StreamRevoked, seen);
+        Assert.DoesNotContain("said after the leave", texts);
+        running.Cancel();
+        await Task.WhenAny(dispatching, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None));
+    }
+
     private static AppendRequest TextAppend(Guid gc, PrincipalRef author, string text, string clientMsgId) =>
         new(gc, GcEventKinds.Message, AuthorKind.Human, author.Id, SourceTrust.MemberHuman, clientMsgId)
         {
