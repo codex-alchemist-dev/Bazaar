@@ -66,7 +66,7 @@ public sealed class UsageAccumulator
         _startTimestamp = time.GetTimestamp();
     }
 
-    /// <summary>Counts one event. Text is measured and dropped; a later usage report replaces an earlier one.</summary>
+    /// <summary>Counts one event. Text is measured and dropped; a later usage report replaces an earlier one, and an impossible one is ignored.</summary>
     public void Observe(ModelEvent modelEvent)
     {
         ArgumentNullException.ThrowIfNull(modelEvent);
@@ -84,8 +84,13 @@ public sealed class UsageAccumulator
                 _argumentChars += args.ArgumentsFragment.Length;
                 break;
 
-            case ModelEvent.UsageReported usage:
+            case ModelEvent.UsageReported usage when IsPossible(usage.Usage):
                 _usage = usage.Usage;
+                break;
+
+            case ModelEvent.UsageReported:
+                // A negative count, or more thinking than output, cannot be true. It is ignored, so the row falls back to the
+                // estimate (marked estimated) instead of lowering the agent's totals or failing the gw_usage CHECK constraints.
                 break;
 
             case ModelEvent.Failure failure:
@@ -138,6 +143,11 @@ public sealed class UsageAccumulator
             Estimated: estimated,
             PriceVersion: priced ? prices!.Version : null);
     }
+
+    /// <summary>True when every count is non-negative and thinking does not exceed output, as gw_usage requires.</summary>
+    internal static bool IsPossible(GatewayTokenUsage usage) =>
+        usage is { Input: >= 0, CacheWrite5m: >= 0, CacheWrite1h: >= 0, CacheRead: >= 0, Output: >= 0, Thinking: >= 0 }
+        && usage.Thinking <= usage.Output;
 
     /// <summary>Claims the right to record this accumulator. Returns false if it was already claimed.</summary>
     internal bool TryClaimRecording() => Interlocked.CompareExchange(ref _recorded, 1, 0) == 0;

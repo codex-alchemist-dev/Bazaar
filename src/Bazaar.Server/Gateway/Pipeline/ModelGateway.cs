@@ -154,7 +154,8 @@ public sealed class ModelGateway : IModelGateway
 
                     if (e is ModelEvent.UsageReported usage)
                     {
-                        heldUsage = usage;
+                        // An impossible report (negative counts) is not passed on; the usage row estimates instead.
+                        heldUsage = UsageAccumulator.IsPossible(usage.Usage) ? usage : heldUsage;
                         continue;
                     }
 
