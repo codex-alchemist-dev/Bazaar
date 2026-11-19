@@ -1,6 +1,6 @@
-# 41c. Window chrome host (direction, live regions, focus order)
+# 41c. Window chrome host and client shell module (direction, live regions, focus order)
 
-Status: PROPOSED. Nothing here is built. It needs an owner card before code. Author: the accessibility and i18n thread, 2026-11-19. Shaped with the Core thread (`MainWindow` stays an adapter in Client.Core) and the GC and Views thread (no shell design existed).
+Status: DECIDED (owner, 2026-11-19: "build it all"; both the helper and the shell module). Section 2 is built in the PRs that follow. Author: the accessibility and i18n thread, 2026-11-19. Shaped with the Core thread (`MainWindow` stays an adapter in Client.Core) and the GC and Views thread (no shell design existed).
 Depends on: 49-gap-decisions-operations.md section 2 (DECIDED), 41-client-gui-customization-and-dsl.md, 41b-client-module-boundaries.md.
 
 ## 1. Problem
@@ -23,6 +23,13 @@ No new module. The Core thread pointed out that `Bazaar.Accessibility.Avalonia` 
 
 `ILocaleSource` is a one-method abstraction in `Bazaar.Localisation`. The edits are the head composition files only; Client.Core is untouched. The Linux and Terminal heads compose no panes yet, so they attach once they do.
 
+### 2a. The shell module (owner: build both)
+
+The owner's standing answer is to build everything the docs name, so the helper is not the only piece. `Bazaar.Client.Shell` and `Bazaar.Client.Shell.Abstractions` also exist:
+
+- `Bazaar.Client.Shell.Abstractions` holds `IShellAnnouncer` (announce a category and text) so feature modules announce without referencing Avalonia or the accessibility module.
+- `Bazaar.Client.Shell` implements it over `WindowChrome` and adds `ShellHost.Attach(window, content, ...)`, the single call a head makes: it attaches the chrome, wraps the content and returns the announcer. It carries no logic of its own beyond composition, so the helper remains the one place that sets direction and mounts the region (no duplicate behaviour).
+
 ## 3. Boundaries
 
 - `Bazaar.Accessibility.Avalonia` gains a reference to `Bazaar.Localisation`. No dependency on Client.Core internals, chat types or the Layout module.
@@ -35,6 +42,5 @@ Avalonia.Headless tests: direction flips for `ar` and not for `en`, and again on
 
 ## 5. Open questions
 
-- OPEN: a standalone `Bazaar.Client.Shell` module instead of this helper would need an owner call; no doc plans one.
 - OPEN: where the focus-scope names come from when a layout (doc 41) places panes. Proposed: the layout slot name.
 - OPEN: mirror-sensitive icon marking. Proposed: an attached property `WindowChrome.MirrorsInRtl` on icons, read by a style set in `Bazaar.Accessibility.Avalonia`.
