@@ -138,7 +138,7 @@ public sealed class WindowsSandboxLiveChannelTests
         var service = Environment.GetEnvironmentVariable("BAZAAR_WSB_LIVE_SERVICE_ID");
         if (Environment.GetEnvironmentVariable("BAZAAR_WSB_LIVE") != "1" || string.IsNullOrEmpty(agentDirectory) || !Guid.TryParse(service, out serviceId))
         {
-            Assert.Skip("Set BAZAAR_WSB_LIVE=1, BAZAAR_WSB_LIVE_AGENT_DIR (a published agent) and BAZAAR_WSB_LIVE_SERVICE_ID (a registered service GUID), and run elevated.");
+            Assert.Skip("Set BAZAAR_WSB_LIVE=1, BAZAAR_WSB_LIVE_AGENT_DIR (a published agent) and BAZAAR_WSB_LIVE_SERVICE_ID (a registered service GUID), and run non-elevated (wsb start fails when elevated); set BAZAAR_WSB_LIVE_ELEVATE=sudo.exe so only the hcsdiag call is elevated.");
         }
 
         var ct = TestContext.Current.CancellationToken;
@@ -151,7 +151,7 @@ public sealed class WindowsSandboxLiveChannelTests
         {
             var connector = new WindowsSandboxGuestConnector(
                 host,
-                new HcsDiagVmIdSource(new ProcessHcsDiagRunner()),
+                new HcsDiagVmIdSource(Environment.GetEnvironmentVariable("BAZAAR_WSB_LIVE_ELEVATE") is { Length: > 0 } elevate ? new ProcessHcsDiagRunner(elevate, ["hcsdiag.exe"]) : new ProcessHcsDiagRunner()),
                 new GuestChannelFactory(new GuestChannelOptions(), TimeProvider.System),
                 new WindowsSandboxGuestOptions(serviceId, [@"C:\Windows\Temp"]));
 
