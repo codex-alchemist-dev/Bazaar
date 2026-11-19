@@ -8,6 +8,8 @@ namespace Bazaar.Server.Council;
 /// <param name="Ballots">Sealed ballots from this vote so far.</param>
 /// <param name="Options">Option ids for <see cref="VoteKind.OptionChoice"/> (2 to 6, distinct). Must be empty for <see cref="VoteKind.ApproveReject"/>.</param>
 /// <param name="QuorumMin">Minimum ballots cast for quorum (council.quorum_min). At least 1.</param>
+/// <param name="HighImpact">The motion's high-impact flag (doc 10, Follow-up on dissent). Only ordinary motions use it. False by default.</param>
+/// <param name="FollowupDissentShare">council.followup_dissent_share, from 0 to 1. Used only when <paramref name="HighImpact"/> is set.</param>
 public sealed record TallyRequest(
     VoteKind Kind,
     MotionClass MotionClass,
@@ -15,4 +17,6 @@ public sealed record TallyRequest(
     IReadOnlySet<string> EligibleVoterIds,
     IReadOnlyList<Ballot> Ballots,
     IReadOnlyList<string> Options,
-    int QuorumMin = Tally.DefaultQuorumMin);
+    int QuorumMin = Tally.DefaultQuorumMin,
+    bool HighImpact = false,
+    decimal FollowupDissentShare = Tally.DefaultFollowupDissentShare);

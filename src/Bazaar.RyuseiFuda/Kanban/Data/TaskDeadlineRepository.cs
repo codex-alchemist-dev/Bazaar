@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>
 /// Reads for the deadline scanner (doc 12, WP11). A task is due-passed for one due time once its <c>due_at</c> is at or before
