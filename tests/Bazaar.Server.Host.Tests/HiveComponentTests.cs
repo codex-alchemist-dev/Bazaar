@@ -46,15 +46,14 @@ public sealed class HiveComponentTests
     }
 
     [Fact]
-    public void Host_ships_the_hive_component_and_the_graph_accepts_its_absent_memory_soft_dependency()
+    public void Host_ships_the_hive_component_and_the_graph_accepts_its_soft_dependencies()
     {
         Assert.Contains(HostComponents.All, c => c.Manifest.Id == "hive");
 
         var order = ComponentGraph.Order(HostComponents.All.Select(c => c.Manifest)).Select(m => m.Id).ToList();
 
-        // Soft edges never reorder or fail the graph (BAZAAR-COMPONENTS.md section 4.1); "memory" is not shipped by this host yet.
+        // Soft edges never fail the graph (BAZAAR-COMPONENTS.md section 4.1), whether or not "memory" is shipped.
         Assert.Contains("hive", order);
-        Assert.DoesNotContain("memory", order);
     }
 
     [Fact]
