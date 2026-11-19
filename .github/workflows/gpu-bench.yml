@@ -5,7 +5,7 @@
 # It never triggers on pull requests, so no untrusted fork code ever reaches that machine.
 # Not a required check. Read-only token; no secrets.
 #
-# The baseline is tests/Bazaar.Constellation.Vulkan.BenchGate/baselines/<gpu-label>.csv, taken
+# The baseline is tests/Bazaar.Constellation.Vulkan.BenchGate/baselines/<gpu-label>-<n>.csv (several clean runs, the gate uses the slowest per row), taken
 # on the same GPU. With no baseline the job records the run as an artifact and passes; commit
 # the artifact as the baseline to arm the gate.
 
@@ -52,12 +52,14 @@ jobs:
       - name: Compare with the baseline
         shell: pwsh
         run: |
-          $baseline = "tests/Bazaar.Constellation.Vulkan.BenchGate/baselines/$env:GPU_LABEL.csv"
-          if (Test-Path $baseline) {
+          $dir = "tests/Bazaar.Constellation.Vulkan.BenchGate/baselines"
+          $files = @(Get-ChildItem -Path $dir -Filter "$env:GPU_LABEL-*.csv" | Sort-Object Name | ForEach-Object { $_.FullName })
+          if ($files.Count -gt 0) {
+            $baseline = $files -join ','
             dotnet run -c Release --project tests/Bazaar.Constellation.Vulkan.BenchGate -- $baseline "$env:RUNNER_TEMP/bench.csv"
             exit $LASTEXITCODE
           }
-          "No baseline at $baseline; recording only." | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          "No baseline $dir/$env:GPU_LABEL-*.csv; recording only." | Out-File -Append $env:GITHUB_STEP_SUMMARY
 
       - name: Upload the run
         if: always()
