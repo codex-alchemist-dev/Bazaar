@@ -26,12 +26,13 @@ internal static class WaylandSession
     /// <summary>The socket path for the two environment values, or throws when they cannot name a socket.</summary>
     public static string SocketPath(string? runtimeDir, string? display)
     {
-        if (string.IsNullOrEmpty(runtimeDir) || !Path.IsPathRooted(runtimeDir))
+        // The tool runs in a Linux guest, so the path is built with '/' whatever host the code is compiled or tested on.
+        if (string.IsNullOrEmpty(runtimeDir) || runtimeDir[0] != '/')
             throw new PointerToolException("XDG_RUNTIME_DIR is not set to an absolute path");
         string name = string.IsNullOrEmpty(display) ? "wayland-0" : display;
         if (name.Contains('/', StringComparison.Ordinal) || name is "." or "..")
             throw new PointerToolException("WAYLAND_DISPLAY must be a socket name");
-        return Path.Combine(runtimeDir, name);
+        return runtimeDir.TrimEnd('/') + "/" + name;
     }
 
     /// <summary>Connects to <paramref name="socketPath"/> and runs <paramref name="command"/>.</summary>
