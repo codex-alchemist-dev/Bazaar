@@ -126,7 +126,7 @@ public sealed class NetworkAndMountContainmentTests
         return (sut, log, inner, revoker, egress, mounts, audit);
     }
 
-    private static readonly string[] FullOrder = ["tokens.revoke", "egress.block", "mounts.detach", "inner.contain"];
+    private static readonly string[] _fullOrder = ["tokens.revoke", "egress.block", "mounts.detach", "inner.contain"];
 
     [Fact]
     public async Task Contain_revokes_tokens_first_then_blocks_egress_detaches_mounts_and_runs_the_inner_containment()
@@ -136,7 +136,7 @@ public sealed class NetworkAndMountContainmentTests
 
         await sut.ContainAsync(agent.ToString(), "owner", TestContext.Current.CancellationToken);
 
-        Assert.Equal(FullOrder, log.Calls);
+        Assert.Equal(_fullOrder, log.Calls);
         Assert.Equal([(agent, DetachReason.KillSwitch)], mounts.Detached);
         Assert.Equal(4, audit.Entries.Count);
     }
@@ -153,7 +153,7 @@ public sealed class NetworkAndMountContainmentTests
         var ex = await Assert.ThrowsAsync<AggregateException>(() =>
             sut.ContainAsync(Guid.NewGuid().ToString(), "owner", TestContext.Current.CancellationToken));
 
-        Assert.Equal(FullOrder, log.Calls);
+        Assert.Equal(_fullOrder, log.Calls);
         Assert.Equal(4, ex.InnerExceptions.Count);
         Assert.Contains(audit.Entries, e => e.Contains("tokens_revoked_failed"));
         Assert.Contains(audit.Entries, e => e.Contains("egress_blocked_failed"));
@@ -170,7 +170,7 @@ public sealed class NetworkAndMountContainmentTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.ContainAsync(Guid.NewGuid().ToString(), "owner", TestContext.Current.CancellationToken));
 
-        Assert.Equal(FullOrder, log.Calls);
+        Assert.Equal(_fullOrder, log.Calls);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public sealed class NetworkAndMountContainmentTests
         await sut.ContainAsync(agent, "owner", TestContext.Current.CancellationToken);
         await sut.ContainAsync(agent, "owner", TestContext.Current.CancellationToken);
 
-        Assert.Equal([.. FullOrder, .. FullOrder], log.Calls);
+        Assert.Equal([.. _fullOrder, .. _fullOrder], log.Calls);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public sealed class NetworkAndMountContainmentTests
         var ex = await Assert.ThrowsAsync<AggregateException>(() =>
             sut.ContainAsync(Guid.NewGuid().ToString(), "owner", TestContext.Current.CancellationToken));
 
-        Assert.Equal(FullOrder, log.Calls);
+        Assert.Equal(_fullOrder, log.Calls);
         Assert.Equal(4, ex.InnerExceptions.Count);
         Assert.All(ex.InnerExceptions, e => Assert.Equal("audit down", e.Message));
     }
@@ -231,7 +231,7 @@ public sealed class NetworkAndMountContainmentTests
 
         await sut.ContainAsync(Guid.NewGuid().ToString(), "owner", cts.Token);
 
-        Assert.Equal(FullOrder, log.Calls);
+        Assert.Equal(_fullOrder, log.Calls);
         Assert.All(log.Tokens, t => Assert.False(t.IsCancellationRequested));
         Assert.All(log.Tokens, t => Assert.NotEqual(cts.Token, t));
     }
