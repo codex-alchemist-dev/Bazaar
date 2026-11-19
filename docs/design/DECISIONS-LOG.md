@@ -382,10 +382,21 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
 
-## Round 27 (2026-11-19): crash install binding
+## Round 27 (2026-11-18): Web admin panel mechanics
+
+| Decision | Status | Docs |
+|---|---|---|
+| Names `Bazaar.Server.WebAdmin` and `Bazaar.Server.WebAdmin.Abstractions`, component id `web-admin` | PROPOSED (follows the module sides rule, 2026-11-17) | 51, 40 |
+| Panel session: `/signin?audience=admin` hands off to `/admin/session/redeem`, which sets one HttpOnly, SameSite=Strict cookie; 15 min sliding, 8 h absolute; revocation ends it at once | PROPOSED | 51 section 5, 32 section 4 |
+| Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
+| Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
+| Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+
+## Round 28 (2026-11-19): crash install binding
 
 Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so crash reports map to a person?", answered "Approve doc 32 change" by the owner in the project thread on 2026-11-19 at 03:20 UTC (card message id `cmsg_01MC1BkUhiVHzqr38uyxWzeHVPEQ17n7Dx43o6uWME2qzn`).
 
 | Item | Decision | Docs |
 |---|---|---|
 | Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
+

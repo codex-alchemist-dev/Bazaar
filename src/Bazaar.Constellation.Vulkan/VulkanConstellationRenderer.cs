@@ -6,8 +6,9 @@ namespace Bazaar.Constellation.Vulkan;
 /// <summary>
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
-/// Draw clears the background and draws the latest interpolated frame as instanced node discs.
-/// Node styles are one fallback style for now, so per-node colours and radii are not yet mapped from the adapter.
+/// Draw clears the background and draws the latest interpolated frame as instanced nodes. Each node takes its colour,
+/// radius and ring width from its style: SetScene gives every node the fallback style, and SetNodeStyles replaces
+/// that with per-node styles. The adapter does not map its own styles yet.
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
@@ -24,6 +25,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     private readonly FrameInterpolator _interpolator;
     private readonly NodeInstanceBuffer _instances = new();
     private NodeStyleTable? _styles;
+    private NodeStylePalette? _palette;
     private int _dimensions;
     private float[] _positions = [];
     private VulkanSwapchain? _swapchain;
@@ -76,6 +78,11 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         }
 
         _swapchain = swapchain;
+        if (_palette is not null)
+        {
+            swapchain.SetStyles(NodeStylePacking.Pack(_palette));
+        }
+
         _widthPixels = surface.WidthPixels;
         _heightPixels = surface.HeightPixels;
         return new RenderAttachResult(true, string.Empty);
@@ -87,10 +94,46 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         ArgumentNullException.ThrowIfNull(scene);
         _scene = scene;
         _styles = new NodeStyleTable(scene.NodeCount, _nodeStyle);
+        RebuildPalette();
         _instances.Clear();
         _dimensions = 0;
         _sequencer.Reset();
         _interpolator.Reset();
+    }
+
+    /// <summary>
+    /// Sets the style of every node of the current scene. The table is read when this is called; later changes to it
+    /// need another call. Throws when no scene is set or the table does not match the scene's node count.
+    /// </summary>
+    public void SetNodeStyles(NodeStyleTable styles)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(styles);
+        if (_scene is null)
+        {
+            throw new InvalidOperationException("Set the scene before its node styles.");
+        }
+
+        if (styles.NodeCount != _scene.NodeCount)
+        {
+            throw new ArgumentException("The style table must have one entry per node of the scene.", nameof(styles));
+        }
+
+        _styles = styles;
+        RebuildPalette();
+    }
+
+    /// <summary>Rebuilds the palette from the current table and sends its packed styles to the swapchain, when one is attached.</summary>
+    private void RebuildPalette()
+    {
+        if (_styles is null)
+        {
+            _palette = null;
+            return;
+        }
+
+        _palette = NodeStylePalette.Build(_styles);
+        _swapchain?.SetStyles(NodeStylePacking.Pack(_palette));
     }
 
     public bool SubmitFrame(RenderFrame frame, double nowSeconds)
@@ -138,13 +181,13 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         }
 
         ReadOnlySpan<float> positions = SamplePositions(nowSeconds);
-        if (positions.IsEmpty || _styles is null)
+        if (positions.IsEmpty || _palette is null)
         {
             _ = _swapchain.Present(_background, ReadOnlySpan<byte>.Empty, 0, NodeView.Identity);
             return;
         }
 
-        _instances.Fill(positions, _dimensions, _styles);
+        _instances.Fill(positions, _dimensions, _palette);
         NodeView view = FitView(positions, _dimensions);
         _ = _swapchain.Present(_background, _instances.Bytes, _instances.InstanceCount, view);
     }
