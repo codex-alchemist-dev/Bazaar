@@ -58,11 +58,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
@@ -216,11 +226,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
@@ -300,11 +320,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
