@@ -1,7 +1,7 @@
 using System.Globalization;
 using Bazaar.Server.WorkLife;
 
-namespace Bazaar.Server.Tests.WorkLife;
+namespace Bazaar.Server.WorkLife.Tests;
 
 public class AvailabilityMachineTests
 {
