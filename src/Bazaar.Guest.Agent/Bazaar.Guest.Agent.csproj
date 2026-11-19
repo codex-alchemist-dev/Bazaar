@@ -13,6 +13,9 @@
     <Compile Include="..\Shared\VmSockets\VsockStream.cs" Link="Shared\VsockStream.cs" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Guest.Agent.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
 </Project>

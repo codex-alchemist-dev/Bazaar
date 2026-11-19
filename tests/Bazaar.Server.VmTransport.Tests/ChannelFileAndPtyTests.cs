@@ -98,7 +98,7 @@ public class ChannelFileAndPtyTests
     }
 
     [Fact]
-    public async Task A_file_over_the_size_limit_is_drained_and_refused_without_desyncing_the_stream()
+    public async Task A_file_over_the_size_limit_ends_the_channel_at_the_header_without_reading_the_content()
     {
         var (rig, channel) = await ManualRig.OpenAsync(new GuestChannelOptions { MaxFileBytes = 4 });
         await using (rig)
@@ -107,13 +107,11 @@ public class ChannelFileAndPtyTests
             var get = channel.GetFileAsync("/g/f", new MemoryStream(), CancellationToken.None);
             await rig.ReceiveAsync<GetFile>();
             await rig.SendAsync(new PutFile("/g/f", 10, Sha256(new byte[10])));
-            await rig.SendRawAsync(new byte[10]);
 
-            await Assert.ThrowsAsync<GuestFileException>(() => get.WithinAsync());
-            var next = channel.GetFileAsync("/g/f2", new MemoryStream(), CancellationToken.None);
-            await rig.ReceiveAsync<GetFile>();
-            await rig.SendAsync(new GetFileError("/g/f2", "gone"));
-            await Assert.ThrowsAsync<GuestFileException>(() => next.WithinAsync());
+            var failure = await Assert.ThrowsAsync<GuestFileException>(() => get.WithinAsync());
+            Assert.Contains("4-byte limit", failure.Message);
+            await channel.Completion.WithinAsync();
+            Assert.Equal(GuestChannelState.Faulted, channel.State);
         }
     }
 

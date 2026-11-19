@@ -683,8 +683,21 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             return false;
         }
 
+        if (header.Size > _options.MaxFileBytes)
+        {
+            // The size is the guest's claim. Reading "to stay in step" would let a hostile guest pin the reader for as long as it likes, so the
+            // channel ends instead; the pending read fails with the limit, not with the generic channel error.
+            End(
+                GuestChannelState.Faulted,
+                $"the guest announced {header.Size} bytes, over the {_options.MaxFileBytes}-byte file limit.",
+                new GuestFileException($"The file is {header.Size} bytes, over the {_options.MaxFileBytes}-byte limit."));
+            return false;
+        }
+
         pending.Receiving = true;
-        var oversize = header.Size > _options.MaxFileBytes;
+        // The whole transfer has one deadline, so a guest that trickles bytes, each resetting the heartbeat watchdog, cannot hold the file gate.
+        using var timeout = new CancellationTokenSource(_options.FileTransferTimeout, _time);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token, timeout.Token);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[_copyBytes];
         var remaining = header.Size;
@@ -694,11 +707,13 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             var count = (int)Math.Min(buffer.Length, remaining);
             try
             {
-                await _stream.ReadExactlyAsync(buffer.AsMemory(0, count), _stop.Token);
+                await _stream.ReadExactlyAsync(buffer.AsMemory(0, count), linked.Token);
             }
             catch (Exception ex) when (ex is EndOfStreamException or IOException or OperationCanceledException or ObjectDisposedException or SocketException)
             {
-                End(GuestChannelState.Faulted, "the channel ended inside file content.");
+                End(GuestChannelState.Faulted, timeout.IsCancellationRequested
+                    ? $"a file transfer from the guest took longer than {_options.FileTransferTimeout}"
+                    : "the channel ended inside file content.");
                 return false;
             }
 
@@ -706,12 +721,12 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
             remaining -= count;
             hash.AppendData(buffer, 0, count);
 
-            // Keep reading after a sink failure, an oversize file or an abandoned call, so the stream stays in step.
-            if (sinkError is null && !oversize && !pending.Abandoned)
+            // Keep reading after a sink failure or an abandoned call, so the stream stays in step. The size is within the limit here.
+            if (sinkError is null && !pending.Abandoned)
             {
                 try
                 {
-                    await pending.Sink!.WriteAsync(buffer.AsMemory(0, count), _stop.Token);
+                    await pending.Sink!.WriteAsync(buffer.AsMemory(0, count), linked.Token);
                 }
 #pragma warning disable CA1031 // The sink is the caller's code. Whatever it throws must fail that call, not the reader, so the stream stays in step.
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -719,15 +734,16 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
                 {
                     sinkError = ex.Message;
                 }
+                catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+                {
+                    End(GuestChannelState.Faulted, $"a file transfer from the guest took longer than {_options.FileTransferTimeout}");
+                    return false;
+                }
             }
         }
 
         var actual = Convert.ToHexStringLower(hash.GetHashAndReset());
-        if (oversize)
-        {
-            pending.Done.TrySetException(new GuestFileException($"The file is {header.Size} bytes, over the {_options.MaxFileBytes}-byte limit."));
-        }
-        else if (!string.Equals(actual, header.Sha256, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(actual, header.Sha256, StringComparison.OrdinalIgnoreCase))
         {
             pending.Done.TrySetException(new GuestFileException("The received content does not match the guest's SHA-256. Discard what the sink received."));
         }
@@ -804,8 +820,8 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
         }
     }
 
-    /// <summary>Ends the channel once. The first caller's state and reason stand. Fails everything in flight.</summary>
-    private void End(GuestChannelState state, string reason)
+    /// <summary>Ends the channel once. The first caller's state and reason stand. Fails everything in flight; a pending file call fails with <paramref name="fileFailure"/> when given.</summary>
+    private void End(GuestChannelState state, string reason, Exception? fileFailure = null)
     {
         ExecState[] execs;
         PtyState[] ptys;
@@ -839,7 +855,7 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
 
         if (file is not null)
         {
-            file.Done.TrySetException(failure);
+            file.Done.TrySetException(fileFailure ?? failure);
             FinishFile(file);
         }
 
