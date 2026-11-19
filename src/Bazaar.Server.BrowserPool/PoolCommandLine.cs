@@ -16,9 +16,33 @@ namespace Bazaar.Server.BrowserPool;
 //    bwrap fails and the open fails closed (LaunchFailed). The fix is never --no-sandbox.
 //  - The real-process checks are in tests/Bazaar.Server.BrowserPool.Tests/RealSandboxTests.cs.
 //
-// Network: the sandbox shares the VM's network namespace on purpose (the browser must reach its proxy; bwrap shares the net
-// namespace unless --unshare-net is given, so no flag is needed). Confinement to the proxy is enforced outside this process by the
-// per-uid nftables rule that NftablesRules renders and the host applies (IPoolVmHost.ApplyFirewallAsync) before the launch.
+// Network, default NetworkIsolation.PerSlotNamespace: each slot gets its own network namespace (bzpool-N) joined to the VM by a
+// veth pair (bzvN in the VM at the first address of a /30, bzpN in the namespace at the second, no default route). The launch
+// enters it with nsenter BEFORE the privilege drop (entering needs CAP_SYS_ADMIN, which the drop removes); bwrap still does not
+// unshare the net namespace, so it inherits the slot's. NftablesRules DNATs "veth address : egress port" to the real endpoint
+// and drops everything else that arrives from any bzv* veth, in input and forward; the host applies that document
+// (IPoolVmHost.ApplyFirewallAsync) after the namespace exists and before the launch. The per-uid output rule is kept as a second
+// layer, but nft tables are per namespace, so it only sees a slot-uid process in the VM's own namespace, not the slot's traffic.
+// Verified for real on this container (Ubuntu 24.04, kernel 6.18, root, iproute2 6.1, nftables, nsenter, bubblewrap 0.9.0,
+// Chromium 153), date 2026-11-19, in tests/Bazaar.Server.BrowserPool.Tests/NetnsRealTests.cs and RealSandboxTests.cs:
+//  - from inside the sandbox of a slot, TCP to the veth address and the proxy port reaches a stand-in on the VM's loopback
+//    (route_localnet scoped to that veth) and on another namespace acting as a remote host (forwarding scoped to that veth and to
+//    the named egress interface, plus masquerade; the remote saw the VM's address, not the slot's);
+//  - another port on the veth address, a non-loopback address of the VM, 127.0.0.1 and the proxy's own address are all unreachable,
+//    and the control (the same listener before the rules) was reachable, so the probe tells the two apart;
+//  - an abstract UNIX socket listening in the VM's namespace is connectable in SharedWithUidRule mode and NOT from a slot's namespace;
+//  - two slots cannot reach each other (each reaches its own proxy; a listener inside one slot is unreachable from the other);
+//  - after the cleanup commands the namespace file, the veth and the slot's rules are gone, cleanup is idempotent, and a
+//    half-made or stale namespace is removed or replaced;
+//  - real Chromium runs in per-slot mode, its browser process is in the slot's namespace and no slot process is in the VM's, and the
+//    proxy stand-in receives the request for example.invalid through the veth and the DNAT.
+// Not verified: a host with a kernel that lacks nf_tables, veth or user namespaces (the tests skip with the reason there); a
+// real Hyper-V or QEMU pool VM and its own NIC (only a second namespace stood in for a remote proxy host); IPv6 (the inet drop
+// covers it, but no IPv6 probe was run); a netns-creating escape from inside Chromium's sandbox (out of scope of this check).
+//
+// Network, NetworkIsolation.SharedWithUidRule: the sandbox shares the VM's network namespace (bwrap does too unless given
+// --unshare-net). Confinement to the proxy is enforced only by the per-uid nftables rule. Abstract UNIX sockets, netlink state and
+// loopback are shared with every other process in the VM; kept for hosts that cannot give the pool CAP_NET_ADMIN.
 
 /// <summary>
 /// Builds every argv list the pool runs in the pool VM. It is pure: same input, same output, no I/O. Nothing here goes through a
@@ -81,11 +105,32 @@ public static class PoolCommandLine
         var uid = SlotUid(options, slot);
         var dir = SlotDirectory(options, slot);
         var headed = request.Display == PoolDisplayMode.Headed;
+        var perSlot = options.NetworkIsolation == NetworkIsolation.PerSlotNamespace;
+
+        // In a per-slot namespace the browser's proxy is the VM-side veth address; the firewall DNATs it to the real endpoint.
+        var browserEgress = egress;
+        var prepare = new List<PoolCommand>(PrepareCommands(uid, dir));
+        if (perSlot)
+        {
+            if (PoolNetwork.IsInsideRange(options, egress.Host))
+            {
+                throw new ArgumentException("The egress proxy may not sit inside the slot network range.", nameof(egress));
+            }
+
+            browserEgress = new PoolEgressEndpoint(PoolNetwork.HostAddress(options, slot), egress.Port);
+            prepare.AddRange(PoolNetwork.SetupCommands(options, slot, egress));
+        }
 
         var launch = new List<string>();
         if (options.UseSystemdRun)
         {
             launch.AddRange(SystemdRunPrefix(options));
+        }
+
+        if (perSlot)
+        {
+            // Enter the namespace while still root; the privilege drop that follows would remove the right to.
+            launch.AddRange(PoolNetwork.EnterPrefix(options, slot));
         }
 
         launch.AddRange(SandboxPrefix(options, slot, headed));
@@ -95,16 +140,16 @@ public static class PoolCommandLine
             launch.Add("--");
         }
 
-        launch.AddRange(ChromiumArgs(options, request, egress, startUrl, headed));
+        launch.AddRange(ChromiumArgs(options, request, browserEgress, startUrl, headed));
 
         return new PoolLaunchSpec(
             sessionId,
             request.AgentId,
             slot,
             uid,
-            PrepareCommands(uid, dir),
+            prepare,
             launch,
-            CleanupCommands(uid, dir),
+            CleanupCommands(options, slot),
             new PoolFirewallRule(uid, egress.Host, egress.Port));
     }
 
@@ -128,6 +173,25 @@ public static class PoolCommandLine
         new PoolCommand(["pkill", "-KILL", "-U", PoolRequestValidator.Invariant(uid)], [0, 1]),
         new PoolCommand(["rm", "-rf", "--one-file-system", slotDir]),
     ];
+
+    /// <summary>
+    /// The cleanup for a slot under the configured isolation: kill the slot user's processes, remove the slot's namespace and veth
+    /// (per-slot mode, after the kill so nothing is left to use them), then wipe the directory. It is the same list for a session
+    /// that failed half-way, so a namespace made by a failed open is removed too.
+    /// </summary>
+    public static IReadOnlyList<PoolCommand> CleanupCommands(BrowserPoolOptions options, int slot)
+    {
+        var uid = SlotUid(options, slot);
+        var dir = SlotDirectory(options, slot);
+        var baseline = CleanupCommands(uid, dir);
+        if (options.NetworkIsolation != NetworkIsolation.PerSlotNamespace)
+        {
+            return baseline;
+        }
+
+        // baseline is [pkill, rm]: the network goes between them.
+        return [baseline[0], .. PoolNetwork.CleanupCommands(options, slot), baseline[1]];
+    }
 
     /// <summary>The <c>systemd-run</c> scope prefix. Only the memory properties depend on <see cref="BrowserPoolOptions.MemoryMaxMb"/>.</summary>
     public static IReadOnlyList<string> SystemdRunPrefix(BrowserPoolOptions options)

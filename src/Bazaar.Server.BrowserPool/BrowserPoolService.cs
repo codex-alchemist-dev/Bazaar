@@ -273,14 +273,13 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
             {
                 if (_slots[slot] is null && !_quarantined.ContainsKey(slot))
                 {
-                    var uid = PoolCommandLine.SlotUid(_options, slot);
                     var state = new SessionState(
                         Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture),
                         request.AgentId,
                         slot,
                         request.Display,
                         _time.GetUtcNow(),
-                        PoolCommandLine.CleanupCommands(uid, PoolCommandLine.SlotDirectory(_options, slot)));
+                        PoolCommandLine.CleanupCommands(_options, slot));
                     _slots[slot] = state;
                     _sessions[state.SessionId] = state;
                     return state;

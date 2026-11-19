@@ -19,19 +19,19 @@ public sealed class UnconfiguredPoolEgressPolicy : IPoolEgressPolicy
 /// <summary>The default host: every call fails, so nothing runs until the host registers a real pool VM adapter. Fails closed.</summary>
 public sealed class UnconfiguredPoolVmHost : IPoolVmHost
 {
-    private const string Message = "No pool VM host is registered.";
+    private const string _message = "No pool VM host is registered.";
 
     /// <inheritdoc />
-    public Task RunAsync(PoolCommand command, CancellationToken ct) => throw new InvalidOperationException(Message);
+    public Task RunAsync(PoolCommand command, CancellationToken ct) => throw new InvalidOperationException(_message);
 
     /// <inheritdoc />
-    public Task ApplyFirewallAsync(IReadOnlyList<PoolFirewallRule> rules, CancellationToken ct) => throw new InvalidOperationException(Message);
+    public Task ApplyFirewallAsync(IReadOnlyList<PoolFirewallRule> rules, CancellationToken ct) => throw new InvalidOperationException(_message);
 
     /// <inheritdoc />
-    public Task<PoolProcess> StartAsync(PoolLaunchSpec spec, CancellationToken ct) => throw new InvalidOperationException(Message);
+    public Task<PoolProcess> StartAsync(PoolLaunchSpec spec, CancellationToken ct) => throw new InvalidOperationException(_message);
 
     /// <inheritdoc />
-    public Task StopAsync(PoolProcess process, CancellationToken ct) => throw new InvalidOperationException(Message);
+    public Task StopAsync(PoolProcess process, CancellationToken ct) => throw new InvalidOperationException(_message);
 }
 
 /// <summary>The default audit sink: writes nothing.</summary>

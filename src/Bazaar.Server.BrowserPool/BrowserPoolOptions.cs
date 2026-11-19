@@ -3,6 +3,22 @@ using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.BrowserPool;
 
+/// <summary>How a slot's browser is cut off from the pool VM's network. The choice is the operator's; the default is the stronger one.</summary>
+public enum NetworkIsolation
+{
+    /// <summary>
+    /// Every slot runs in its own network namespace joined to the pool VM by a veth pair, and the VM drops everything from that
+    /// veth except TCP to the agent's egress proxy (reached through a DNAT). Needs CAP_NET_ADMIN, <c>ip</c>, <c>nsenter</c> and <c>sysctl</c> in the pool VM.
+    /// </summary>
+    PerSlotNamespace = 0,
+
+    /// <summary>
+    /// Every slot shares the pool VM's network namespace and a per-uid nftables rule limits it to its proxy. Needs fewer host
+    /// privileges, but abstract UNIX sockets, netlink state and loopback are shared with every other process in the VM.
+    /// </summary>
+    SharedWithUidRule = 1,
+}
+
 /// <summary>
 /// Operator settings for the browser pool (config section <c>Bazaar:BrowserPool</c>). Every path and number ends up in an argv
 /// list that runs as root in the pool VM, so <see cref="BrowserPoolOptionsValidator"/> accepts only a narrow character set and
@@ -39,6 +55,34 @@ public sealed class BrowserPoolOptions
 
     /// <summary>The <c>cage</c> kiosk compositor binary, used for headed sessions.</summary>
     public string CagePath { get; set; } = "/usr/bin/cage";
+
+    /// <summary>Per-slot network namespace (default) or the shared namespace with a per-uid rule.</summary>
+    public NetworkIsolation NetworkIsolation { get; set; } = NetworkIsolation.PerSlotNamespace;
+
+    /// <summary>
+    /// First address of the range that holds one /30 per slot (slot N gets <c>base + 4N</c>: host end +1, slot end +2). Used with
+    /// <see cref="NetworkIsolation.PerSlotNamespace"/>. An IPv4 literal inside 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 or
+    /// 169.254.0.0/16, a multiple of 4, with room for <see cref="MaxSessions"/> blocks inside the same private block. An egress proxy
+    /// may never sit inside this range.
+    /// </summary>
+    public string NetnsBaseAddress { get; set; } = "10.222.0.0";
+
+    /// <summary>
+    /// The pool VM's network interface that reaches the egress proxy, when the proxy is not an address of the VM itself (a proxy on
+    /// the VM's loopback or on one of its own addresses needs none). Linux only forwards a packet that arrives on an interface with
+    /// forwarding on, and the proxy's reply arrives on this one, so the pool turns forwarding on for this interface only, never
+    /// <c>all</c> or <c>default</c>. Empty means the proxy is local. A letter, then letters, digits and <c>. _ -</c>, at most 15 characters.
+    /// </summary>
+    public string NetnsEgressInterface { get; set; } = string.Empty;
+
+    /// <summary>The <c>ip</c> (iproute2) binary in the pool VM, used for namespaces, veth pairs and addresses.</summary>
+    public string IpPath { get; set; } = "/usr/sbin/ip";
+
+    /// <summary>The <c>nsenter</c> binary (util-linux) that puts the launch into the slot's namespace.</summary>
+    public string NsenterPath { get; set; } = "/usr/bin/nsenter";
+
+    /// <summary>The <c>sysctl</c> binary (procps), used to scope <c>route_localnet</c> or <c>forwarding</c> to one slot's veth.</summary>
+    public string SysctlPath { get; set; } = "/usr/sbin/sysctl";
 
     /// <summary>Hard lifetime of a session.</summary>
     public TimeSpan SessionLifetime { get; set; } = TimeSpan.FromHours(2);
@@ -128,6 +172,28 @@ public sealed partial class BrowserPoolOptionsValidator : IValidateOptions<Brows
         CheckPath(errors, nameof(options.BwrapPath), options.BwrapPath);
         CheckPath(errors, nameof(options.SetprivPath), options.SetprivPath);
         CheckPath(errors, nameof(options.CagePath), options.CagePath);
+
+        if (!Enum.IsDefined(options.NetworkIsolation))
+        {
+            errors.Add("NetworkIsolation is not a known value.");
+        }
+        else if (options.NetworkIsolation == NetworkIsolation.PerSlotNamespace)
+        {
+            CheckPath(errors, nameof(options.IpPath), options.IpPath);
+            CheckPath(errors, nameof(options.NsenterPath), options.NsenterPath);
+            CheckPath(errors, nameof(options.SysctlPath), options.SysctlPath);
+            var netError = PoolNetwork.CheckBase(options);
+            if (netError is not null)
+            {
+                errors.Add(netError);
+            }
+
+            var interfaceError = PoolNetwork.CheckEgressInterface(options);
+            if (interfaceError is not null)
+            {
+                errors.Add(interfaceError);
+            }
+        }
 
         if (IsSafeAbsolutePath(options.SlotRoot))
         {

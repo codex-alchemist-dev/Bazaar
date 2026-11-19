@@ -6,8 +6,11 @@ public class PoolCommandLineTests
 {
     private static readonly PoolEgressEndpoint _egress = new("10.0.0.1", 3128);
 
+    /// <summary>Options for the tests written for the shared namespace (the pre-netns shape of every list).</summary>
+    private static BrowserPoolOptions Shared() => new() { NetworkIsolation = NetworkIsolation.SharedWithUidRule };
+
     private static PoolLaunchSpec Build(BrowserPoolOptions? o = null, int slot = 3, PoolSessionRequest? r = null, PoolEgressEndpoint? e = null) =>
-        PoolCommandLine.Build(o ?? new BrowserPoolOptions(), "sess1", slot, r ?? new PoolSessionRequest("agent-1"), e ?? _egress);
+        PoolCommandLine.Build(o ?? Shared(), "sess1", slot, r ?? new PoolSessionRequest("agent-1"), e ?? _egress);
 
     private static readonly string[] _sandbox =
     [
@@ -52,7 +55,7 @@ public class PoolCommandLineTests
     [Fact]
     public void Headless_launch_without_systemd_run_starts_at_setpriv()
     {
-        var o = new BrowserPoolOptions { UseSystemdRun = false };
+        var o = new BrowserPoolOptions { UseSystemdRun = false, NetworkIsolation = NetworkIsolation.SharedWithUidRule };
         string[] expected = [.. _sandbox, .. _mounts, .. _chromiumCommon, "--headless=new", "--disable-gpu", "--", "about:blank"];
 
         Assert.Equal(expected, Build(o).Launch);
@@ -79,7 +82,7 @@ public class PoolCommandLineTests
     [Fact]
     public void Headed_launch_adds_cage_wayland_env_and_drops_headless()
     {
-        var o = new BrowserPoolOptions { UseSystemdRun = false };
+        var o = new BrowserPoolOptions { UseSystemdRun = false, NetworkIsolation = NetworkIsolation.SharedWithUidRule };
         var launch = Build(o, r: new PoolSessionRequest("agent-1", PoolDisplayMode.Headed)).Launch;
 
         Assert.Contains("--ozone-platform=wayland", launch);

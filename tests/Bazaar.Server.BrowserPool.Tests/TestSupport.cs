@@ -27,6 +27,9 @@ internal sealed class FakeHost : IPoolVmHost
 
     public Predicate<PoolCommand>? FailRun { get; set; }
 
+    /// <summary>When true, <see cref="ApplyFirewallAsync"/> throws.</summary>
+    public bool FailFirewall { get; set; }
+
     public Task RunAsync(PoolCommand command, CancellationToken ct)
     {
         int n;
@@ -51,6 +54,11 @@ internal sealed class FakeHost : IPoolVmHost
         {
             Firewalls.Add(rules.ToList());
             Log.Add("fw");
+        }
+
+        if (FailFirewall)
+        {
+            throw new InvalidOperationException("scripted firewall failure");
         }
 
         return Task.CompletedTask;
@@ -155,7 +163,8 @@ internal sealed class Rig : IDisposable
 {
     public Rig(Action<BrowserPoolOptions>? configure = null)
     {
-        Options = new BrowserPoolOptions();
+        // The legacy tests were written for the shared namespace; per-slot behaviour is covered by the Netns tests.
+        Options = new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule };
         configure?.Invoke(Options);
         Pool = new BrowserPoolService(Microsoft.Extensions.Options.Options.Create(Options), Host, Egress, Gate, Audit, Time);
     }

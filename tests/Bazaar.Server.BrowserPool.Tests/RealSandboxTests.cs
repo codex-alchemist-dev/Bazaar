@@ -13,14 +13,19 @@ namespace Bazaar.Server.BrowserPool.Tests;
 /// root. Skipped, with the reason, when a tool or the Chromium path is missing, when not root, or when the kernel or its security
 /// policy refuses unprivileged user namespaces for the dropped uid. It never falls back to a weaker sandbox.
 /// </summary>
+[Collection("netns-real")] // the per-slot test below creates a namespace and an nft table, so it must not overlap NetnsRealTests
 public sealed partial class RealSandboxTests : IDisposable
 {
-    private const string Chrome = "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome";
-    private const int Slot = 0;
+    private const string _chrome = "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome";
+    private const int _slot = 0;
+    private const int _netnsSlot = 3;
+    private const string _netnsTable = "bazaar_pool_chtest";
 
     private readonly string _temp;
     private readonly BrowserPoolOptions _options;
+    private readonly BrowserPoolOptions _perSlot;
     private readonly List<Process> _processes = [];
+    private bool _touchedNetwork;
 
     public RealSandboxTests()
     {
@@ -28,12 +33,25 @@ public sealed partial class RealSandboxTests : IDisposable
         _options = new BrowserPoolOptions
         {
             SlotRoot = _temp + "/pool",
-            ChromiumPath = Chrome,
+            ChromiumPath = _chrome,
             UseSystemdRun = false,
             MemoryMaxMb = 0,
             MaxSessions = 4,
             MaxSessionsPerAgent = 2,
             ExtraReadOnlyBinds = ["/opt/pw-browsers"],
+            NetworkIsolation = NetworkIsolation.SharedWithUidRule,
+        };
+        _perSlot = new BrowserPoolOptions
+        {
+            SlotRoot = _temp + "/pool",
+            ChromiumPath = _chrome,
+            UseSystemdRun = false,
+            MemoryMaxMb = 0,
+            MaxSessions = 4,
+            MaxSessionsPerAgent = 2,
+            ExtraReadOnlyBinds = ["/opt/pw-browsers"],
+            NetworkIsolation = NetworkIsolation.PerSlotNamespace,
+            NetnsBaseAddress = "10.231.128.0",
         };
     }
 
@@ -53,6 +71,15 @@ public sealed partial class RealSandboxTests : IDisposable
             }
 
             p.Dispose();
+        }
+
+        if (OperatingSystem.IsLinux() && _touchedNetwork)
+        {
+            RunBlocking(["nft", "delete", "table", "inet", _netnsTable]);
+            foreach (var c in PoolCommandLine.CleanupCommands(_perSlot, _netnsSlot))
+            {
+                RunBlocking(c.Argv);
+            }
         }
 
         if (OperatingSystem.IsLinux() && Directory.Exists(_temp))
@@ -90,7 +117,7 @@ public sealed partial class RealSandboxTests : IDisposable
             }
         }
 
-        return File.Exists(Chrome) ? null : Chrome + " is not present.";
+        return File.Exists(_chrome) ? null : _chrome + " is not present.";
     }
 
     private static (int Exit, string Out, string Err) RunBlocking(IReadOnlyList<string> argv, int timeoutMs = 30000)
@@ -132,7 +159,7 @@ public sealed partial class RealSandboxTests : IDisposable
         Assert.SkipWhen(reason is not null, reason ?? string.Empty);
         Prepare(0);
         Prepare(1);
-        var prefix = PoolCommandLine.SandboxPrefix(_options, Slot, headed: false);
+        var prefix = PoolCommandLine.SandboxPrefix(_options, _slot, headed: false);
 
         var id = RunBlocking([.. prefix, "/usr/bin/id", "-u"]);
         Assert.SkipWhen(id.Exit != 0 && UserNamespaceDenied(id.Err), "Unprivileged user namespaces are refused here: " + id.Err.Trim());
@@ -162,12 +189,25 @@ public sealed partial class RealSandboxTests : IDisposable
     }
 
     [Fact]
-    public async Task Real_chromium_runs_sandboxed_as_the_slot_uid_and_reaches_only_the_proxy()
+    public Task Real_chromium_runs_sandboxed_as_the_slot_uid_and_reaches_only_the_proxy() => RunChromiumAsync(perSlot: false);
+
+    [Fact]
+    public Task Real_chromium_in_a_per_slot_namespace_runs_sandboxed_and_reaches_the_proxy_through_the_veth() => RunChromiumAsync(perSlot: true);
+
+    private async Task RunChromiumAsync(bool perSlot)
     {
+        var options = perSlot ? _perSlot : _options;
+        var slot = perSlot ? _netnsSlot : _slot;
+        var uid = PoolCommandLine.SlotUid(options, slot);
         var reason = SkipReason();
+        if (perSlot)
+        {
+            reason ??= NetnsRealTests.SkipReason(options);
+        }
+
         Assert.SkipWhen(reason is not null, reason ?? string.Empty);
-        Prepare(0);
-        var probe = RunBlocking([.. PoolCommandLine.SandboxPrefix(_options, Slot, false), "/usr/bin/id", "-u"]);
+        Prepare(slot);
+        var probe = RunBlocking([.. PoolCommandLine.SandboxPrefix(_options, slot, false), "/usr/bin/id", "-u"]);
         Assert.SkipWhen(probe.Exit != 0 && UserNamespaceDenied(probe.Err), "Unprivileged user namespaces are refused here: " + probe.Err.Trim());
 
         using var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -205,12 +245,29 @@ public sealed partial class RealSandboxTests : IDisposable
             }
         }, TestContext.Current.CancellationToken);
 
+        // The proxy stand-in sits on the VM's loopback. In per-slot mode the browser is told the veth address instead, the real
+        // prepare list builds the namespace, and the real rendered rules (under a test-only table name) DNAT it to the stand-in.
         var spec = PoolCommandLine.Build(
-            _options,
+            options,
             "realtest",
-            Slot,
+            slot,
             new PoolSessionRequest("real-agent"),
             new PoolEgressEndpoint("127.0.0.1", port));
+        if (perSlot)
+        {
+            _touchedNetwork = true;
+            foreach (var c in spec.Prepare)
+            {
+                var r = RunBlocking(c.Argv);
+                Assert.True((c.AllowedExitCodes ?? [0]).Contains(r.Exit), "prepare failed: " + string.Join(' ', c.Argv) + " " + r.Err);
+            }
+
+            var rules = NftablesRules.Render([spec.Firewall], options).Replace(NftablesRules.TableName, _netnsTable, StringComparison.Ordinal);
+            File.WriteAllText(_temp + "/rules.nft", rules);
+            var applied = RunBlocking(["nft", "-f", _temp + "/rules.nft"]);
+            Assert.True(applied.Exit == 0, "nft -f failed: " + applied.Err);
+            Assert.Contains("--proxy-server=http://" + PoolNetwork.HostAddress(options, slot) + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture), spec.Launch);
+        }
 
         // Test-only shim: wire Chromium's --remote-debugging-pipe fds (3 reads commands, 4 writes replies) to stdin and stdout.
         var psi = new ProcessStartInfo("/bin/sh")
@@ -252,12 +309,23 @@ public sealed partial class RealSandboxTests : IDisposable
         Assert.Contains(lines, l => l.Contains("example.invalid", StringComparison.Ordinal));
 
         // (2) Every process of the slot uid: no --no-sandbox anywhere, privileges dropped, renderers under seccomp.
-        var found = SlotProcesses(20000);
+        var found = SlotProcesses(uid);
         Assert.NotEmpty(found);
         Assert.DoesNotContain(found, p => p.Cmdline.Contains("--no-sandbox", StringComparison.Ordinal));
         Assert.All(found, p => Assert.Equal("1", p.NoNewPrivs));
         var main = found.First(p => p.Cmdline.Contains("--remote-debugging-pipe", StringComparison.Ordinal) && !p.Cmdline.Contains("--type=", StringComparison.Ordinal) && !p.Cmdline.Contains("bwrap", StringComparison.Ordinal));
-        Assert.Equal("20000", main.Uid);
+        Assert.Equal(uid.ToString(System.Globalization.CultureInfo.InvariantCulture), main.Uid);
+        if (perSlot)
+        {
+            // The browser process is in the slot's namespace. No process of the slot is in the VM's: Chromium's own sandbox puts its
+            // zygote and renderers in a further, empty network namespace, which is stricter and is allowed.
+            var slotNs = RunBlocking(["stat", "-L", "-c", "%i", "/run/netns/" + PoolNetwork.NamespaceName(slot)]).Out.Trim();
+            var vmNs = RunBlocking(["stat", "-L", "-c", "%i", "/proc/self/ns/net"]).Out.Trim();
+            Assert.NotEqual(vmNs, slotNs);
+            string NsOf(int pid) => RunBlocking(["stat", "-L", "-c", "%i", "/proc/" + pid.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/ns/net"]).Out.Trim();
+            Assert.Equal(slotNs, NsOf(main.Pid));
+            Assert.All(found, p => Assert.NotEqual(vmNs, NsOf(p.Pid)));
+        }
         var renderers = found.Where(p => p.Cmdline.Contains("--type=renderer", StringComparison.Ordinal)).ToList();
         Assert.NotEmpty(renderers);
         Assert.All(renderers, r => Assert.Equal("2", r.Seccomp));
@@ -269,9 +337,15 @@ public sealed partial class RealSandboxTests : IDisposable
             RunBlocking(c.Argv);
         }
 
-        Assert.False(Directory.Exists(PoolCommandLine.SlotDirectory(_options, Slot)));
+        Assert.False(Directory.Exists(PoolCommandLine.SlotDirectory(options, slot)));
+        if (perSlot)
+        {
+            Assert.False(File.Exists("/run/netns/" + PoolNetwork.NamespaceName(slot)));
+            Assert.False(Directory.Exists("/sys/class/net/" + PoolNetwork.HostInterface(slot)));
+        }
+
         Assert.True(proc.WaitForExit(15000), "The launch process did not end after cleanup.");
-        Assert.DoesNotContain(SlotProcesses(20000), p => p.Cmdline.Length > 0); // zombies awaiting their parent have an empty command line
+        Assert.DoesNotContain(SlotProcesses(uid), p => p.Cmdline.Length > 0); // zombies awaiting their parent have an empty command line
         listener.Stop();
     }
 
