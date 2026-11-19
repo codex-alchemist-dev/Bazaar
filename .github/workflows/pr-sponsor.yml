@@ -58,7 +58,7 @@ jobs:
     # above) runs the check again with draft == false. Keep the job name stable:
     # the required check is matched by name.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Check for Signed-off-by line
