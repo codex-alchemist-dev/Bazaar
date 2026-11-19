@@ -84,6 +84,49 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         Assert.Equal(1, await db.ScalarAsync<long>("SELECT count(*) FROM inbox_item WHERE agent_id = $1 AND gc_id = $2", agentId, gc));
     }
 
+    private static WireRequestContext RawContext(FakeWireConnection connection, string type, string requestId, string json) =>
+        new(connection, new Envelope(1, type, EnvelopeKind.Request, requestId, null, null, null, null,
+            System.Text.Encoding.UTF8.GetBytes(json)));
+
+    // Chaos round 3: a message is stored and returned exactly, or refused with a designed error; never an internal fault and
+    // never a silently changed text. NUL cannot reach Postgres text, and a lone surrogate cannot be UTF-8.
+    [Theory]
+    [InlineData("a\\u0000b")]
+    [InlineData("\\ud800")]
+    [InlineData("x\\udc00y")]
+    [InlineData("hi \\ud83d")]
+    [InlineData("\\u202eevil\\u200b")]
+    public async Task Hostile_text_is_stored_exactly_or_refused_with_bad_request(string escaped)
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var member = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(member);
+        var connection = new FakeWireConnection(db.DataSource, member);
+        var handler = new GcSendHandler(
+            new GcLogWriter(connection.Data, new RecordingNotifier()), new PlaintextGcBodyCodec(), new GcReadAccess(connection.Data),
+            new Bazaar.Server.Gc.Mentions.InboxRowWriter(connection.Data));
+
+        WireReply reply;
+        try
+        {
+            reply = await handler.HandleAsync(RawContext(connection, WireTypes.GcSend, "hostile", $"{{\"gcId\":\"{gc}\",\"text\":\"{escaped}\"}}"), ct);
+        }
+        catch (WireFormatException)
+        {
+            return; // The connection answers a malformed payload with bad_request.
+        }
+
+        if (!reply.IsOk)
+        {
+            Assert.Equal(WireErrorCodes.BadRequest, reply.Error!.Code);
+            return;
+        }
+        var expected = System.Text.Json.JsonSerializer.Deserialize<string>($"\"{escaped}\"");
+        var item = Assert.Single(await Source.ReadAsync(gc, 0, 0, 0, 10, ct));
+        Assert.Equal(expected, item.Text);
+    }
+
     [Fact]
     public async Task Send_appends_the_message_and_the_stream_reads_it_back()
     {
