@@ -42,7 +42,7 @@ Neither module is a receipt feature. Resibo's receipt stages, OCR, Matching and 
 | `JobStore` claim, complete, fail and `FailExhaustedAsync` | `src/Bazaar.Server/Jobs/JobStore.cs` | All claiming, leasing and attempt counting. |
 | `JobPoller`, `JobPollerOptions` (lease, batch, `MaxAttempts`, exponential retry delay) | `src/Bazaar.Server/Jobs` | The single poll loop. No second poller. |
 | `IJobHandler`, `JobRecord` | same | A module's job is still an `IJobHandler`. JobClasses decorates handlers; it does not introduce a competing handler type. |
-| `RecurringJob`, `RecurringJobPlan`, `RecurringJobScheduler` (bucket dedupe key; a missed poll costs one job, not a burst) | same | All timer-based cadence. The bucket-per-interval, no-burst behaviour already matches Resibo's "missed runs never catch up". |
+| `RecurringJob`, `RecurringJobPlan`, `RecurringJobScheduler` (bucket dedupe key; a missed poll costs one job, not a burst) | same | All timer-based cadence. The bucket-per-interval, no-burst behaviour already matches Resibo's "missed runs never catch up" (`core/task_scheduler/CLAUDE.md`). |
 | Doc 38 tick job `ryusei.trigger_tick` | `src/Bazaar.RyuseiFuda` | Becomes the first registered job of class `Io` and the first entry in the consolidated registry. Unchanged otherwise. |
 | `AgentLeaseRecoveryHandler` | `src/Bazaar.Server/Agents/Recovery` | Registered as an `Io` job. Unchanged. |
 | `BaseBackupJob` handler | `src/Bazaar.Server.Components.Backup/Jobs` | Registered as a `Native` or `CpuProcess` job per its real behaviour. Unchanged. |
@@ -86,7 +86,7 @@ Manifest edges: `pipeline-runs` hard-depends on `job-classes` (it registers `pip
 - **Item**: one unit moving through stages (a PR head commit, a Vault document, a build). It has an optional `content_hash`.
 - **Stage checkpoint**: the recorded result reference of one finished stage for one item. Large outputs live in blobs or the Vault; the checkpoint stores a reference, never the content (audit and privacy rule: ids, not content).
 
-### 6.2 Run state machine (taken from Resibo `state_machine.py`, changed)
+### 6.2 Run state machine (taken from Resibo `v3-deepdive-10` section 3, changed)
 
 States are data, not `if` chains, so a test can enumerate and a reviewer can read them:
 
@@ -110,8 +110,8 @@ public static class RunTransitions
 
 Changes from Resibo, with reasons:
 
-- Resibo keeps a `RUNNING` member that nothing can reach, as an enum-compat relic. Bazaar has no old callers, so the member is simply absent. "Is it processing" is `state is Open or Closing`.
-- Resibo's final state `SHUTTING_DOWN` doubles as "cancelled", and Resibo records that it has no `COMPLETED` state and cannot render run history without it. Bazaar adds `Completed` (all items terminal, finalizer ran) and renames the cancel terminal `Cancelled`. Bazaar owns this taxonomy, so there is no reason to leave the gap.
+- Resibo's deep-dive 10 keeps a `RUNNING` member that is documented as an unused legacy-compat alias. Bazaar has no old callers, so the member is simply absent. "Is it processing" is `state is Open or Closing`.
+- Resibo's final state `SHUTTING_DOWN` doubles as "cancelled", and Resibo's `services/execution_core/CLAUDE.md` records that it has no distinct `COMPLETED` state and that this is worth resolving before run history is rendered. Bazaar adds `Completed` (all items terminal, finalizer ran) and renames the cancel terminal `Cancelled`. Bazaar owns this taxonomy, so there is no reason to leave the gap.
 - Transitions return a result object (`Applied`, `Error`), not an exception, so a "pause a cancelled run" request is an ordinary answer for the client.
 
 ### 6.3 Open and closing phases
@@ -120,7 +120,7 @@ Changes from Resibo, with reasons:
 - **Closing**: intake is closed (a late trigger starts a new run; it never joins a closing one, so no item is added to a run whose finalizer already started). Remaining items drain, then the pipeline's `IRunFinalizer` runs (batch writes, the completion GC line, notifications), then `Completed`.
 - `closing_started_at` is stamped on entry to Closing, never reconstructed from logs.
 
-### 6.4 Debounce with max wait (taken from `scheduler.py` `RunCoalescer`)
+### 6.4 Debounce with max wait (taken from Resibo `v3-deepdive-10` section 5.2)
 
 Each trigger pushes `window_expires_at` out by the window, never past `ceiling_at`. The ceiling is measured from `opened_at`, never from the latest trigger, and is a real boundary: a trigger at or after it closes that run and opens a new one. A sweep (`DueForClosing`) closes a run when either the window elapsed (quiet case) or the ceiling was reached (trickle case). The coalescer is synchronous arithmetic over timestamps and takes an injected `TimeProvider`, so the ceiling test is exact and instant. Defaults: window PT10S, ceiling PT2M (Resibo's 10 s and 120 s; section 10 makes both settings).
 
@@ -130,7 +130,7 @@ Coalescing state is persisted (`pipeline_run`), not held in memory as Resibo doe
 
 Two independent limits, both must have capacity for a run to start: per-scope (default 1, doubles as rate limiting) and global (protects shared resources such as the build VMs and model quota). Acquisition order is always global first, then per-scope; release is in `finally`; a cancelled or failing run never strands a slot. Implemented as an `IJobAdmission` that defers the claimed `pipeline.run` job when no slot is free (`DeferAsync`, no attempt consumed). Single-node in-process gates are the default. A database-counted variant for several nodes is OPEN (question 7).
 
-### 6.6 Per-stage checkpoints and resume (Resibo `checkpointing.py`)
+### 6.6 Per-stage checkpoints and resume (Resibo `v3-deepdive-10` section 6)
 
 ```csharp
 public interface ICheckpointStore
@@ -256,7 +256,7 @@ The class is **declared by the registering module, never inferred**: the router 
 
 Change from Resibo: Resibo has three classes plus an `idle_only` flag. Bazaar makes `IdleTime` a fourth class (it matches how operators think about it) and requires an `IdleTime` registration to also declare its `Substrate` (`Io`, `Native` or `CpuProcess`) for how it runs once admitted. `JobKindRegistration.Class` is therefore a four-valued field and `Substrate` is mandatory for `IdleTime` only.
 
-The class router is an `IJobHandler` decorator applied by JobClasses to every registered handler (resolved from DI; modules register their handler as today). `Native` jobs go to the thread pool and the poll loop does not wait inline; `CpuProcess` jobs go to the provider. The poller currently runs claimed jobs one after another inside one poll while each lease clock is already running (finding F1), so concurrent class-based dispatch with lease extension is part of the work, not an optimization. Resibo's fallback (run inline if no pool or process provider is wired) is **kept for `Native` only**, and `CpuProcess` without a provider fails closed to "not run, health Warn", because silently running a CPU job in the host defeats the isolation its class promises. This differs from Resibo, which falls back inline for both, and the reason is that Bazaar's host also serves interactive clients.
+The class router is an `IJobHandler` decorator applied by JobClasses to every registered handler (resolved from DI; modules register their handler as today). `Native` jobs go to the thread pool and the poll loop does not wait inline; `CpuProcess` jobs go to the provider. The poller currently runs claimed jobs one after another inside one poll while each lease clock is already running (finding F1), so concurrent class-based dispatch with lease extension is part of the work, not an optimization. The inline fallback (run inline if no pool or process provider is wired) is **kept for `Native` only** (PROPOSED), and `CpuProcess` without a provider fails closed to "not run, health Warn", because silently running a CPU job in the host defeats the isolation its class promises. The `CpuProcess` rule is Bazaar's own, PROPOSED (Bazaar's design, not from Resibo), because Bazaar's host also serves interactive clients.
 
 ### 7.2 Idle detection
 
@@ -306,7 +306,7 @@ The existing cap is per job row: `MaxAttempts` (5) fails one row. It does not st
 - At `jobs.max_consecutive_failures` (default 5) the kind **auto-disables**. The tripping outcome carries `TrippedFailureGuard = true`, and exactly one escalation is raised through the latch (one audit event, one Kodo state change, one GC line to the owner, not five).
 - `Admission` returns `Skip("disabled")` for a disabled kind (and `RecurringJobScheduler` is not asked to enqueue it again once the kind is known disabled, avoiding a growing pile of skipped rows).
 - **Re-enabling is an explicit action by a named `Principal`** with the right role (`user:...`), never automatic and never on a timer. The counter resets only on re-enable. A `force` run does not clear it; otherwise force becomes a way to keep a broken job limping without anyone looking at why.
-- Change from Resibo: Resibo makes the cap (five) non-configurable ("a job that argued for a higher ceiling should be fixed"). Bazaar's configurability rule says open values are operator settings. Resolution: the cap is a setting with range 1 to 20 and default 5, and the **guard itself** (that a cap exists and re-enable is explicit) is not a setting. Owner may prefer Resibo's fixed value; see question 3.
+- Change from Resibo: Resibo's deep-dive 12 fixes the cap at five (`MAX_CONSECUTIVE_FAILURES`, `core/background_workers/CLAUDE.md`) and documents no setting for it. Bazaar's configurability rule says open values are operator settings. Resolution: the cap is a setting with range 1 to 20 and default 5, and the **guard itself** (that a cap exists and re-enable is explicit) is not a setting. Owner may prefer a fixed value; see question 3.
 
 ### 7.5 Run history
 
@@ -331,7 +331,7 @@ Other modules add their rows when they register jobs (log retention, session cle
 
 ### 7.7 Allowlisted user-schedulable actions
 
-Taken from Resibo `core/task_scheduler`. A person (or an agent acting for a person; see Principal below) may schedule a recurring run of a **registered action** and nothing else.
+Taken from Resibo (`core/task_scheduler/CLAUDE.md`, deep-dive 39). A person (or an agent acting for a person; see Principal below) may schedule a recurring run of a **registered action** and nothing else.
 
 ```csharp
 public sealed record SchedulableAction(
@@ -598,17 +598,17 @@ Per-stage and per-item events are not audited (volume). They are queryable from 
 
 | Resibo source | Taken | Changed for Bazaar and why |
 |---|---|---|
-| `services/execution_core/state_machine.py`; `v3-deepdive-10` section 3 | Transitions as data, terminal cancel state, errors as data | No unreachable `RUNNING`; add `Completed`; rename cancel terminal. Bazaar has no legacy callers and needs run history. |
-| `scheduler.py` `RunScheduler`; deep-dive 10 section 5.1 | Global and per-scope limits, fixed acquisition order, release in `finally` | Scope is a generic key, not a user. Enforcement is an admission over the job table so a restart does not lose it. |
-| `scheduler.py` `RunCoalescer`; deep-dive 10 section 5.2 | Debounce with a ceiling measured from `opened_at`, new run after ceiling | Persisted in `pipeline_run`; injected `TimeProvider`. |
-| `checkpointing.py`; deep-dive 10 section 6 | Per-stage checkpoints, resume at first miss, asymmetries, content-hash idempotency | Reference output, not content. Stored in Postgres, not in memory (Resibo records "checkpoints in memory only" as a known gap). |
-| `retry_policy.py`; deep-dive 10 section 7 | Bounded retry, latched single escalation, outcome as data, count on failure | Escalation goes to an `IEscalationSink`, not a hard-coded flag type. |
-| `pipeline.py`; deep-dive 10 section 8 | Cancel at the top of every item | Also at every stage boundary; token passed into stages; no setting. |
-| `watchdog_hooks.py`; deep-dive 10 section 9 | Kicks inside the loop, failure-tolerant; staged and active config with a reload counter | Kick also renews the job lease; no watchdog service exists, so a Kodo probe reads `last_kick_at`. |
-| `core/background_workers/contracts.py`, `scheduler.py`; deep-dive 12 sections 3 and 4 | Declared job class and routing; idle-only gating; "unavailable means not idle"; per-scope idle; failure never propagates out of the scheduler | `IdleTime` is a fourth class with a substrate; `CpuProcess` has no inline fallback. |
-| `registry.py` `KNOWN_JOBS`; deep-dive 12 sections 6 and 9 | One consolidated registry; completeness test both ways; duplicate registration throws | Table lives in this doc and is checked by an architecture test. |
+| `v3-deepdive-10` section 3 | Transitions as data, terminal cancel state, errors as data | No unreachable `RUNNING`; add `Completed`; rename cancel terminal. Bazaar has no legacy callers and needs run history. |
+| Deep-dive 10 section 5.1 | Global and per-scope limits, fixed acquisition order, release in `finally` | Scope is a generic key, not a user. Enforcement is an admission over the job table so a restart does not lose it. |
+| Deep-dive 10 section 5.2 | Debounce with a ceiling measured from `opened_at`, new run after ceiling | Persisted in `pipeline_run`; injected `TimeProvider`. |
+| Deep-dive 10 section 6 | Per-stage checkpoints, resume at first miss, asymmetries, content-hash idempotency | Reference output, not content. Stored in Postgres, not in memory (Resibo's `services/execution_core/CLAUDE.md` records its in-memory checkpoint store as a known gap). |
+| Deep-dive 10 section 7 | Bounded retry, latched single escalation, outcome as data, count on failure | Escalation goes to an `IEscalationSink`, not a hard-coded flag type. |
+| Deep-dive 10 section 8 | Cancel at the top of every item | Also at every stage boundary; token passed into stages; no setting. |
+| Deep-dive 10 section 9 | Kicks inside the loop, failure-tolerant; staged and active config with a reload counter | Kick also renews the job lease; no watchdog service exists, so a Kodo probe reads `last_kick_at`. |
+| `core/background_workers/CLAUDE.md`; deep-dive 12 sections 3 and 4 | Declared job class and routing; idle-only gating | `IdleTime` is a fourth class with a substrate; `CpuProcess` has no inline fallback. ("Unavailable means not idle", per-scope idle and scheduler-isolated failure are Bazaar's own rules, PROPOSED.) |
+| `KNOWN_JOBS` (`core/background_workers/CLAUDE.md`); deep-dive 12 sections 6 and 9 | One consolidated registry; completeness test both ways | Table lives in this doc and is checked by an architecture test. |
 | `MAX_CONSECUTIVE_FAILURES`; deep-dive 12 section 10 | Per-kind auto-disable; one escalation; skip is not failure; explicit re-enable; force does not clear | Cap is a setting (range 1 to 20, default 5), per the configurability rule. |
-| `core/task_scheduler` (`registry.py`, `cron.py`, `firing.py`, `triggers/`); deep-dive 39 | Allowlist, empty by default, rejection at creation, own cron parser, no catch-up, wake-provider registry, fail-safe when no waker | Allowlist is the schedulable subset of the job-kind registry; owner and creator are separate `Principal`s. |
+| `core/task_scheduler/CLAUDE.md`; deep-dive 39 | Allowlist, empty by default, rejection at creation, own cron parser, no catch-up, wake-provider registry, fail-safe when no waker | Allowlist is the schedulable subset of the job-kind registry; owner and creator are separate `Principal`s. |
 | `v3-deepdive-17` Reconciliation (correction propagation, check inventory) | Only the pattern: one function with live and retroactive orchestrators; sweeps are idle-time jobs | None of the 12 receipt checks. `rules_version` marks stale items. |
 | `v3-deepdive-25` Review/Flagging | Lifecycle, dismissed distinct from resolved, shared queue, severity split | Recorded as a pattern and as `IEscalationSink`; no flag taxonomy and no receipt audit screen. |
 | `v3-deepdive-15` and `-16` Matching and Geo | Parallel provider set, two concurrent axes, per-provider rate gates, caller-side corroboration, corroboration policy enum | Not matching or geocoding; only the runner and policy enum. |

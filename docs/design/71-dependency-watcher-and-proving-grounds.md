@@ -90,23 +90,23 @@ Nothing here duplicates the update policy, the dry-run, the ring gate or the iss
 
 ### 6.2 Fact kinds and what they mean
 
-The six kinds come from Resibo (`core/telemetrees/contracts.py` `TrackedFactKind`; the deep-dive lists three, the code has six). Three are added for Bazaar.
+Three kinds come from Resibo's deep-dive 28 section 3 (`release_version`, `free_threading_support`, `upstream_issue_status`). Its section 3.1 inventory also names three further shapes of fact (model and preset currency, security-dataset freshness such as virus definitions, and regulatory-value currency); Bazaar adopts them as fact kinds, and their names here are Bazaar's, PROPOSED (Bazaar's design, not from Resibo). Three more are added for Bazaar.
 
 | Kind | Meaning | Source examples | From |
 |---|---|---|---|
-| `release_version` | Newest stable and pre-release versions of a subject. Pre-releases are watched on purpose (day-0 rule, doc 42 section 5.4) | NuGet, GitHub releases, PyPI, OS package index | Resibo |
-| `free_threading_support` | Whether a Python package declares or is observed to support free-threaded Python: `supported`, `unsupported`, `unknown`. Absence of a declaration is `unknown`, never `unsupported` | PyPI trove classifier, community tracker | Resibo |
-| `upstream_issue_status` | Open or closed state of one named issue that blocks or enables something for us. A release poller never sees this | GitHub issues | Resibo |
-| `model_currency` | Whether a bundled or recommended model or preset is behind the upstream's newer generation | Model catalogue sources behind the gateway (doc 05), local NPU models (doc 31) | Resibo; pollers OPEN |
-| `dataset_freshness` | Age or version of a bundled dataset: time zone database, SPDX licence list, public-suffix list, scanner definitions where a scanner exists | Dataset publishers | Resibo; filed as `Security` category in the changelog because a stale scanner database is a security fact |
-| `regulatory_value` | A tracked threshold or rule set outside software releases (for example a privacy-law value a compliance setting depends on) | Operator-declared URLs and values | Resibo; no default inventory, operator-supplied only |
+| `release_version` | Newest stable and pre-release versions of a subject. Pre-releases are watched on purpose (day-0 rule, doc 42 section 5.4) | NuGet, GitHub releases, PyPI, OS package index | Resibo (deep-dive 28 section 3) |
+| `free_threading_support` | Whether a Python package declares or is observed to support free-threaded Python: `supported`, `unsupported`, `unknown`. Absence of a declaration is `unknown`, never `unsupported` | PyPI trove classifier, community tracker | Resibo (deep-dive 37 section 3) |
+| `upstream_issue_status` | Open or closed state of one named issue that blocks or enables something for us. A release poller never sees this | GitHub issues | Resibo (deep-dive 28 section 3.2) |
+| `model_currency` | Whether a bundled or recommended model or preset is behind the upstream's newer generation | Model catalogue sources behind the gateway (doc 05), local NPU models (doc 31) | Shape from Resibo (deep-dive 28 section 3.1); name and pollers are Bazaar's, PROPOSED, pollers OPEN |
+| `dataset_freshness` | Age or version of a bundled dataset: time zone database, SPDX licence list, public-suffix list, scanner definitions where a scanner exists | Dataset publishers | Shape from Resibo (deep-dive 28 section 3.1, virus-definition freshness is "a silent security gap"); name is Bazaar's, PROPOSED; filed as `Security` category in the changelog because a stale scanner database is a security fact |
+| `regulatory_value` | A tracked threshold or rule set outside software releases (for example a privacy-law value a compliance setting depends on) | Operator-declared URLs and values | Shape from Resibo (deep-dive 28 section 3.1, a government-set threshold); name is Bazaar's, PROPOSED; no default inventory, operator-supplied only |
 | `security_advisory` | A published advisory affecting a tracked subject and version range. The only source of `IsSecurity = true` | OSV-style advisory feeds, GitHub advisories | New for Bazaar |
 | `end_of_life` | An upstream line reaches or announces end of support. Drives the `retired` role of a line (doc 42 section 5.3) | Upstream lifecycle data, OS package metadata | New for Bazaar |
 | `licence_change` | A subject's declared licence changed between versions. Input to doc 47's check; the watcher never gives the verdict | Package metadata, repository licence file | New for Bazaar |
 
 ### 6.3 Where the tracked inventory comes from
 
-Resibo hard-codes a 14-entry `INVENTORY` seeded in `registry.py`. Bazaar derives the inventory from facts it already holds, and lets an operator add to it:
+Resibo's `core/telemetrees/CLAUDE.md` describes a fixed `INVENTORY` of 14 tracked dependencies. Bazaar derives the inventory from facts it already holds, and lets an operator add to it:
 
 1. **Installed modules and deps.** Every dependency module's manifest `upstream` block (`project`, `version`, `homepage`) and its `lines` (doc 42 section 8). This covers PostgreSQL, pgvector, Valkey, Garnet and runtimes. Source: Modules.Abstractions.
 2. **SBOM.** The signed release SBOM (doc 49 section 3, doc 37) lists the compile-time packages. This is the read-only compile-time summary of doc 42 section 4, now live.
@@ -153,7 +153,7 @@ public sealed record FactChange(ObservedFact Fact, string? Previous, bool IsFirs
 { public bool Changed => !IsFirstObservation && Previous != Fact.Value || IsNewerThanInstalled; }
 ```
 
-Poller coverage rules, from Resibo's `PollerRegistry`: a second poller for the same `(ecosystem, kind)` is a startup error unless both declare `Corroborating` (Resibo's Provider Registry registers once per kind because "which poller answers would otherwise depend on import order"; Bazaar allows deliberate corroboration, following Resibo's PRINCIPLES section 1.2 "more than one provider can run at once where corroboration adds real value"). `CoverageReport` lists declared `(subject, kind)` pairs with no poller (Resibo `missing_for`), shown in the pane and raised as a Kodo amber. There is no fallback to release-only when a declared kind has no poller.
+Poller coverage rules. From Resibo's docs (deep-dive 37 section 8, "multi-poller coverage test"): every declared `(subject, kind)` pair must have a poller, with no silent fallback to release-only. Bazaar's own rules, PROPOSED (Bazaar's design, not from Resibo): a second poller for the same `(ecosystem, kind)` is a startup error unless both declare `Corroborating`, so which poller answers never depends on registration order (this follows Resibo's PRINCIPLES section 1.2 "more than one provider can run at once where corroboration adds real value"). `CoverageReport` lists declared `(subject, kind)` pairs with no poller, shown in the pane and raised as a Kodo amber. There is no fallback to release-only when a declared kind has no poller.
 
 ### 6.5 The polling pass and its guarantees
 
@@ -165,17 +165,17 @@ Taken from `core/telemetrees/dependencies_warden/poller.py` and kept:
 
 Changed for Bazaar:
 
-- **Baseline is the installed version.** For `release_version`, the first observation is compared against the module's installed version (known from the manifest). A newer release that already exists on day one is a real finding (`IsNewerThanInstalled`). Resibo had no installed baseline in the poller.
-- **Freshness is tracked.** Each `(subject, kind)` stores `lastSuccessAt`. A fact older than `deps.watcher.staleAfterHours` is shown as stale and never counted as "no change". Resibo recorded only the last pass's `unreachable` map; a source that fails for a week must be visible.
+- **Baseline is the installed version.** For `release_version`, the first observation is compared against the module's installed version (known from the manifest). A newer release that already exists on day one is a real finding (`IsNewerThanInstalled`). PROPOSED (Bazaar's design, not from Resibo).
+- **Freshness is tracked.** Each `(subject, kind)` stores `lastSuccessAt`. A fact older than `deps.watcher.staleAfterHours` is shown as stale and never counted as "no change". A source that fails for a week must be visible. PROPOSED (Bazaar's design, not from Resibo).
 - **Per-source backoff and budget.** Each provider has a circuit breaker (doc 46 section 7.4 pattern) and a request budget. Rate limits are read from response headers and respected.
-- **Idempotent persistence.** A fact change is written once, keyed by `(subject, kind, value)`, so a retried pass cannot duplicate (Resibo's changelog idempotency per line, `changelog_surface.py`).
+- **Idempotent persistence.** A fact change is written once, keyed by `(subject, kind, value)`, so a retried pass cannot duplicate. PROPOSED (Bazaar's design, not from Resibo).
 - **Egress is policy.** All pollers use `IUpstreamHttp` (a thin port in Abstractions over `HttpClient`) so the operator's egress allowlist, proxy and offline mode apply. In offline mode the watcher runs against a mirrored snapshot file or does nothing and says so.
 
 ### 6.6 Change classification
 
-Resibo maps a fact kind to a Keep a Changelog heading (`surfacing.py`: release Changed, free-threading Added, issue Fixed, model Changed, dataset Security, regulatory Changed) and has no further classification, because a human decides. Bazaar needs a machine-readable class for the policy, so classification has two outputs that both come from deterministic rules:
+Resibo's docs leave classification to a human ("whether a surfaced change is program-important is a human call", `core/telemetrees/dependencies_warden/CLAUDE.md`) and state no per-kind changelog mapping. Bazaar's mapping below (release Changed, free-threading Added, issue Fixed, model Changed, dataset Security, regulatory Changed) is its own, PROPOSED (Bazaar's design, not from Resibo). Bazaar needs a machine-readable class for the policy, so classification has two outputs that both come from deterministic rules:
 
-1. **Changelog heading** (Resibo's mapping, kept verbatim; new kinds: `security_advisory` Security, `end_of_life` Removed, `licence_change` Changed).
+1. **Changelog heading** (Bazaar's mapping above; new kinds: `security_advisory` Security, `end_of_life` Removed, `licence_change` Changed).
 2. **Update category and version type** for `UpdateCandidate`: category from doc 49 section 7 (Security, critical fix, bug fix, feature, breaking, dependency, platform) and version type from the SemVer or numeric difference between installed and observed (major, minor, patch, pre-release, with `VersionType` GA, RC, Beta).
 
 Rules, in order, first match wins:
@@ -193,7 +193,7 @@ Rules, in order, first match wins:
 
 ### 6.7 Changelog output
 
-Resibo's lesson, kept: tracking that nobody reads is pointless, so the output goes where the reader already is. In Resibo that is a checked-in `docs/CHANGELOG.md` read by Claude Code sessions (`changelog_surface.py`, sole writer, single write path, `[Unreleased]` heading, idempotent per line). In Bazaar the readers are the owner, agents in GCs, and the Vault. Output is an interface with surface modules (section 4):
+Resibo's lesson, kept: tracking that nobody reads is pointless, so the output goes where the reader already is. In Resibo that is a checked-in summary file read by Claude Code sessions, regenerated on every fact change with `ChangelogWriter` as the single writer (deep-dive 37 section 4, `core/telemetrees/CLAUDE.md`). In Bazaar the readers are the owner, agents in GCs, and the Vault. Output is an interface with surface modules (section 4):
 
 ```csharp
 public sealed record ChangelogEntry(string Heading, string Text, FactKind Kind, string SubjectKey, DateTimeOffset RecordedAt, string? FindingId);
@@ -206,11 +206,11 @@ public interface IChangelogSurface
 public sealed record SurfaceResult(IReadOnlyList<ChangelogEntry> Written, string? Error); // never throws for I/O
 ```
 
-- One write path: the same change event updates tracking and appends the entry, in one transaction for the database record. The surface write follows from an outbox row, so a failed surface never loses the observation (Resibo `ChangelogUnwritable` returned, not raised).
-- Entries are phrased per kind (Resibo `describe()`): "opencv-python: tracked upstream issue X is now closed (was open)" style, not a raw diff.
+- One write path: the same change event updates tracking and appends the entry, in one transaction for the database record. The surface write follows from an outbox row, so a failed surface never loses the observation (errors as data, PRINCIPLES P4.1).
+- Entries are phrased per kind (PROPOSED, Bazaar's design, not from Resibo): "opencv-python: tracked upstream issue X is now closed (was open)" style, not a raw diff.
 - The Vault surface writes `vault/ops/dependency-changelog.md` in Keep a Changelog form under `[Unreleased]`, grouped by heading, deduplicated per line. The Vault is the source of truth for Markdown (CLAUDE.md), Postgres only indexes.
 - The GC surface posts one digest per cycle (not one message per entry), authored as `service:depwatch`, to a GC the operator names. GCs stay the coordination system; this only informs.
-- The database also holds the structured history (table `depwatch_change`), which Resibo deliberately did not (it kept the file as the only store). Bazaar needs queryable history for the pane and for evidence.
+- The database also holds the structured history (table `depwatch_change`), while Resibo's docs keep the file as the single source of truth (`core/telemetrees/CLAUDE.md`). Bazaar needs queryable history for the pane and for evidence.
 
 ### 6.8 Settings registry rows
 
@@ -219,7 +219,7 @@ Rows follow the doc 03 format. Keys use the `deps.` prefix already used by `deps
 | Key | Type and values | Default | Scope | Who may change | Approval |
 |---|---|---|---|---|---|
 | `deps.watcher.enabled` | bool | `true` | install | operator | No |
-| `deps.watcher.pollIntervalHours` | int 1 to 168 | 24 (Resibo's `poll_interval_hours`) | install | operator | No |
+| `deps.watcher.pollIntervalHours` | int 1 to 168 | 24 (Resibo's `poll_interval_hours: 24`, deep-dive 37) | install | operator | No |
 | `deps.watcher.advisoryPollIntervalHours` | int 1 to 168 | 6 | install | operator | No |
 | `deps.watcher.staleAfterHours` | int 2 to 720 | 72 | install | operator | No |
 | `deps.watcher.trackPrereleases` | bool | `true` (day-0 rule) | install | operator | No |
@@ -337,12 +337,12 @@ Self-test `Quick`: classify a fixed fixture of version pairs and advisory ranges
 All providers implement `IFactPoller` only and reference `Bazaar.Server.DependencyWatcher.Abstractions`. No provider calls another.
 
 - **`depwatch-nuget`**: `release_version` from the NuGet flat container and registration index. Stable and pre-release both; ordering by NuGet SemVer rules (doc 42 uses NuGet range syntax for the same reason). Also reports `licence_change` from package metadata when `licenceExpression` differs between versions.
-- **`depwatch-github`**: `release_version` from releases and tags (for projects not on a registry, such as Valkey or PostgreSQL tooling), `upstream_issue_status` for one issue ref (Resibo `GitHubIssuePoller`; issue state plus an optional linked-PR hint like Resibo's status client), repository archived or renamed as an `end_of_life` hint. Authentication per `deps.watcher.github.auth`.
+- **`depwatch-github`**: `release_version` from releases and tags (for projects not on a registry, such as Valkey or PostgreSQL tooling), `upstream_issue_status` for one issue ref (Resibo deep-dive 37 section 3, issue open/closed state; plus an optional linked-PR hint like Resibo's status client), repository archived or renamed as an `end_of_life` hint. Authentication per `deps.watcher.github.auth`.
 - **`depwatch-ospkg`**: `release_version` and `end_of_life` for OS packages and for runtimes baked into VM golden images (doc 16, doc 42 category `runtime`). Flavours are parts, each a small reader with its own tests: Debian-family and RPM-family package indexes, and Windows package manifests. Which distributions and Windows source is first is OPEN (section 14).
-- **`depwatch-pypi`**: `release_version` (stable and pre-release), `free_threading_support` and Python line currency, for Python engine runtimes (doc 20). Free-threading follows Resibo `free_threading_poller.py`: the PyPI trove classifier "Programming Language :: Python :: Free Threading" is authoritative when present; a community tracker is a secondary signal only when the classifier is absent; no signal is `unknown`, never `unsupported`; the event records which source spoke. The community tracker URL (Resibo uses `py-free-threading.github.io`) is configuration, not hard-coded.
+- **`depwatch-pypi`**: `release_version` (stable and pre-release), `free_threading_support` and Python line currency, for Python engine runtimes (doc 20). Resibo's deep-dive 37 reads the PyPI trove classifier "Programming Language :: Python :: Free Threading", release notes and a community tracker as a cross-check, with no single source assumed authoritative. Bazaar's precedence is its own, PROPOSED (Bazaar's design, not from Resibo): the classifier is authoritative when present; a community tracker is a secondary signal only when the classifier is absent; no signal is `unknown`, never `unsupported`; the event records which source spoke. The community tracker URL (Resibo uses `py-free-threading.github.io`) is configuration, not hard-coded.
 - **`depwatch-osv`**: `security_advisory` for any ecosystem the other providers cover, matching installed version ranges. This is the only source for `IsSecurity`. Its host is on the egress allowlist like the others.
 
-`model_currency`, `dataset_freshness` and `regulatory_value` have no shipped poller in this proposal. The contract and changelog mapping exist so a module can supply one (for example the gateway module for `model_currency`). That is the honest state; Resibo's own bench registry also starts empty rather than fabricating results.
+`model_currency`, `dataset_freshness` and `regulatory_value` have no shipped poller in this proposal. The contract and changelog mapping exist so a module can supply one (for example the gateway module for `model_currency`). That is the honest state; Resibo's own bench registry also starts empty rather than fabricating results (`services/update/proving_grounds/CLAUDE.md`).
 
 ## 8. Proving Grounds design
 
@@ -350,7 +350,7 @@ All providers implement `IFactPoller` only and reference `Bazaar.Server.Dependen
 
 A candidate is "this exact version of this dependency or module, as an installable package". Proving Grounds takes a candidate to a scratch environment that cannot touch the running install, runs a defined suite of probes, and records evidence. The result is the source of `MatrixPassed` for the policy and an attachment on the update decision record. It does not decide to adopt.
 
-Resibo rules kept (`v3-deepdive-36-proving-grounds.md`, `promotion.py`, `test_runner.py`): the test runs against the real workload of the affected code, not a generic smoke test; isolation is mandatory and never silently downgraded; the gate is `ok and passed` with no looser bar for dependencies than for code releases; a test that could not run (`ok = false`) is distinct from one that ran and failed (`passed = false`) and neither promotes; one mechanism serves both dependency bumps and release candidates; a dispatcher's own exception becomes data.
+Resibo rules kept (`v3-deepdive-36-proving-grounds.md`, `services/update/proving_grounds/CLAUDE.md`): the test runs against the real workload of the affected code, not a generic smoke test; isolation is mandatory and never silently downgraded; the gate is `ok and passed` with no looser bar for dependencies than for code releases; a test that could not run (`ok = false`) is distinct from one that ran and failed (`passed = false`) and neither promotes; one mechanism serves both dependency bumps and release candidates; a dispatcher's own exception becomes data.
 
 ### 8.2 Contracts
 
@@ -370,18 +370,18 @@ public sealed record ProvingResult(Guid ResultId, Guid CandidateId, ProvingOutco
     IReadOnlyList<ProbeResult> Probes, string EnvironmentId, string SuiteVersion,
     DateTimeOffset StartedAt, DateTimeOffset FinishedAt, string EvidenceHash)
 {
-    public bool Ok => Outcome != ProvingOutcome.CouldNotRun;           // Resibo TestResult.ok
-    public bool Passed => Outcome == ProvingOutcome.Passed;            // Resibo TestResult.passed
+    public bool Ok => Outcome != ProvingOutcome.CouldNotRun;           // Resibo's `ok` (documented in proving_grounds/CLAUDE.md)
+    public bool Passed => Outcome == ProvingOutcome.Passed;            // Resibo's `passed`
 }
 public enum ProvingOutcome { Passed, Failed, CouldNotRun }
 
-/// Resibo gate_promotion(): total and deliberately simple. Requires Ok and Passed and a complete suite.
+/// Resibo's documented `gate_promotion()`: total and deliberately simple. Requires Ok and Passed and a complete suite.
 public static class ProvingGate
 {
     public static bool Allows(ProvingResult r, SuiteRequirement required) => r.Ok && r.Passed && required.IsSatisfiedBy(r);
 }
 
-/// A module (or Proving Grounds itself) contributes probes. Resibo BenchDispatcher, keyed per affected thing.
+/// A module (or Proving Grounds itself) contributes probes. Resibo's documented `BenchDispatcher`, keyed per affected thing.
 public interface IProvingProbe
 {
     string ProbeId { get; }
@@ -389,7 +389,7 @@ public interface IProvingProbe
     ValueTask<ProbeResult> RunAsync(ProvingCandidate candidate, IProvingEnvironment env, CancellationToken ct);
 }
 
-/// Isolation seam. A candidate never runs without it. Resibo ContainerRunner.is_available().
+/// Isolation seam. A candidate never runs without it (Resibo documents an availability check before a candidate runs).
 public interface IProvingEnvironmentProvider
 {
     string ProviderId { get; }
@@ -435,13 +435,13 @@ Resibo ran the affected API's bench suite and nothing generic. Bazaar's equivale
 |---|---|---|
 | `provinggrounds-scratch` | A scratch directory and process tree with OS limits applied through the server's OS provider (Job Object on Windows, cgroup or parent-death on Linux, as for hidden deps in doc 42 section 6.2), no network by default, loopback only for the candidate's own ports | The default and the only one that needs nothing installed. Isolation level reported as `process`. Enough for a database, a cache, a package, a runtime. Not enough for an untrusted third-party executable |
 | `provinggrounds-vm` | A child VM from a golden image through `IVmBackend` (doc 16), restored from checkpoint where the backend supports it, clean boot where it does not (Windows Sandbox, doc 50). Network off by default | Isolation level `vm`. Required for third-party executables, runtimes inside guest images, and anything marked `requiresVm` in the candidate manifest. Uses the server's VM capacity: Proving Grounds takes a lease through the VM lifecycle service, so it cannot starve agents (a priority and a cap setting) |
-| `provinggrounds-docker` | Docker container, via the plain CLI | Resibo's choice (`test_runner.py` `DockerContainerRunner`, its deep-dive section 8 "resolved"). Kept as a separate optional module because Bazaar forbids requiring a user-installed tool (doc 42 D5, D7). For developer machines and CI only. Off by default |
+| `provinggrounds-docker` | Docker container, via the plain CLI | Resibo's choice (deep-dive 36 "containerization (Docker)" resolved; `services/update/proving_grounds/CLAUDE.md`: plain CLI, not the SDK). Kept as a separate optional module because Bazaar forbids requiring a user-installed tool (doc 42 D5, D7). For developer machines and CI only. Off by default |
 
-Rules: `is_available()` is checked before the candidate is touched (Resibo). If no provider meets the candidate's required isolation level, the result is `CouldNotRun` with `ENVIRONMENT_UNAVAILABLE`, never a downgrade to running on the host. The provider with the highest isolation that satisfies the requirement is chosen by a plain rule over reported capabilities, not a selector module: required level from the candidate, then the operator's preference setting, then registration order is not used.
+Rules: `is_available()` is checked before the candidate is touched (Resibo's docs: a host with no Docker binary reports the runner unavailable rather than running unisolated). If no provider meets the candidate's required isolation level, the result is `CouldNotRun` with `ENVIRONMENT_UNAVAILABLE`, never a downgrade to running on the host. The provider with the highest isolation that satisfies the requirement is chosen by a plain rule over reported capabilities, not a selector module: required level from the candidate, then the operator's preference setting, then registration order is not used.
 
 Process execution inside providers goes through a narrow `IProvingProcessPort` in Abstractions with a bounded-time, bounded-output contract. It is not `Bazaar.Server.Components.Backup.IProcessRunner`, which is Backup-internal.
 
-Artifact acquisition: `IArtifactFetcher` in Abstractions. The default implementation lives in `provinggrounds` core and calls the existing verifier; Resibo's shared multithreaded downloader with gated-model token support has no Bazaar counterpart yet and is not needed until a model-currency candidate exists (OPEN, section 14). Secrets (tokens for gated downloads) are injected from the Identity Service, never stored in the candidate row.
+Artifact acquisition: `IArtifactFetcher` in Abstractions. The default implementation lives in `provinggrounds` core and calls the existing verifier; Resibo's shared download machinery with gated-model token support (deep-dive 36 section 3) has no Bazaar counterpart yet and is not needed until a model-currency candidate exists (OPEN, section 14). Secrets (tokens for gated downloads) are injected from the Identity Service, never stored in the candidate row.
 
 ### 8.5 Triggering: who decides what to test
 
@@ -525,8 +525,8 @@ CREATE TABLE pg_gate_decision (                -- every promotion decision, so a
 3. A passing result is bound to `(module, line, to_version, artifact_sha256, suite_version)`. A different artifact hash, a suite version change that adds a required probe, or a result older than `deps.proving.resultMaxAgeDays` makes it `Stale`, which is not a pass.
 4. Every promotion decision, for any channel or ring, is recorded in `pg_gate_decision`. A test (the Resibo "promotion-gate bypass test") asserts there is no code path that moves a dependency-changing build to a ring without a row with `allowed = true`.
 5. The gate is `ok and passed and suite satisfied`. A failed required probe fails the candidate regardless of how many others passed. There is no weighted score.
-6. A probe that throws is `Failed` with an error code (Resibo converts a dispatcher's exception to data, `BENCH_DISPATCH_RAISED`), never an escape and never a pass.
-7. Environment teardown always runs. A leaked environment is a Kodo amber and is reaped by a sweeper (Resibo's `finally rmtree` generalised). Failure to tear down does not change the verdict but does raise the probe in 8.9.
+6. A probe that throws is `Failed` with an error code (Resibo's docs convert a dispatcher's exception to data), never an escape and never a pass.
+7. Environment teardown always runs. A leaked environment is a Kodo amber and is reaped by a sweeper (a Bazaar rule, PROPOSED, not from Resibo). Failure to tear down does not change the verdict but does raise the probe in 8.9.
 8. A candidate run never has the host's secrets, the install's database credentials or its production data directory mounted. Dry runs use a restored snapshot copy only.
 9. Any internal error in Proving Grounds itself results in `CouldNotRun` and a Kodo alert. It can never produce `Passed`.
 10. An unreachable artifact source, a signature failure or a hash mismatch is `Failed` at `pg.artifact.verify` with an audit security event, not a retry loop.
@@ -544,7 +544,7 @@ CREATE TABLE pg_gate_decision (                -- every promotion decision, so a
 | `deps.proving.vm.priority` | `below_agents`, `equal` | `below_agents` | install | operator | No |
 | `deps.proving.resultMaxAgeDays` | int 1 to 90 | 14 | install | operator | No |
 | `deps.proving.evidenceRetentionDays` | int 30 to 3650 | 365 | install | operator | No |
-| `deps.proving.selfUpdateSoakDays` | int 0 to 90 | 14 (Resibo's `proving_grounds_soak_days=14`, `v3-deepdive-38`; PROPOSED value) | install | owner | Owner tier to lower; floor 1 for Kodo, Sentinel and the updater |
+| `deps.proving.selfUpdateSoakDays` | int 0 to 90 | 14 (Resibo's `proving_grounds_soak_days: 14`, `v3-deepdive-38`; PROPOSED value) | install | owner | Owner tier to lower; floor 1 for Kodo, Sentinel and the updater |
 | `deps.proving.requireForPolicyAuto` | bool | `true` | install | owner | Owner tier to turn off; floor: cannot be off for the stable channel's broad ring |
 
 Floors, not settings: a candidate never runs without an isolation provider; a failed or untested required probe never produces a pass; the host's secrets and production data are never exposed to a candidate; the audit event is written before a result is announced.
@@ -586,7 +586,7 @@ Proving Grounds is before the snapshot and before any ring. It answers "may this
 
 ### 9.3 Self-update candidates
 
-Resibo holds Supervisor self-update candidates to a higher bar (`supervisor.self_update.proving_grounds_soak_days=14`, deep-dive 38). Bazaar's equivalent set is Kodo, the Sentinel and the updater. For candidates of these modules the suite adds `pg.soak` with `deps.proving.selfUpdateSoakDays`, and a ring canary run on the owner's own instance before early. Rollback uses the existing A/B slot flip (doc 46 section 6.3), never a reverse migration.
+Resibo holds Supervisor self-update candidates to a higher bar (`proving_grounds_soak_days: 14`, deep-dive 38). Bazaar's equivalent set is Kodo, the Sentinel and the updater. For candidates of these modules the suite adds `pg.soak` with `deps.proving.selfUpdateSoakDays`, and a ring canary run on the owner's own instance before early. Rollback uses the existing A/B slot flip (doc 46 section 6.3), never a reverse migration.
 
 ### 9.4 Data line moves
 
@@ -596,7 +596,7 @@ For a database line move (18 to 19), the doc 42 section 10.3 procedure is unchan
 
 ### 10.1 Human decides what to test
 
-Resibo: the watcher never triggers a test, and the changelog reader never builds a candidate (`changelog_watcher.py` docstring). Bazaar: the update policy auto-adopts security patches. Handled by `deps.proving.trigger` (section 8.5), with Resibo's behaviour as `manual`. Not a separate module; the setting is enough because both behaviours use the same code.
+Resibo: the watcher never triggers a test, and the changelog reader never builds a candidate (`services/update/proving_grounds/CLAUDE.md`). Bazaar: the update policy auto-adopts security patches. Handled by `deps.proving.trigger` (section 8.5), with Resibo's behaviour as `manual`. Not a separate module; the setting is enough because both behaviours use the same code.
 
 ### 10.2 Docker as the isolation mechanism
 
@@ -666,7 +666,7 @@ All written through `IAuditLog.AppendAsync` with `Actor` as `Principal` text.
 - Candidate artifacts are untrusted code until verified. They run only inside a provider environment with no network, no host secrets and no production data. A candidate that attempts to escape (writes outside the scratch root, opens a non-loopback port) fails the run and writes a security audit event. The VM provider is the answer for third-party executables.
 - Probe output is scrubbed with the doc 23 server scrubber before it is stored as evidence, and row content from restored snapshots never leaves the scratch environment (section 8.6).
 - GitHub authentication uses the GitHub App, not a personal token (CLAUDE.md; Resibo does the same: `telemetrees/CLAUDE.md`). The key stays in the Identity Service.
-- Diagnostic data leaving the install is redacted deterministically before it reaches the issue filer. Resibo's CLAUDE.md states this rule but its code has no redaction component (`resibo-20-29.md` DD-28 note); Bazaar does not copy that gap. Doc 70 owns the redaction implementation; this doc supplies only the public fields.
+- Diagnostic data leaving the install is redacted deterministically before it reaches the issue filer. Resibo's CLAUDE.md states this rule but its docs describe no redaction mechanism; Bazaar does not copy that gap. Doc 70 owns the redaction implementation; this doc supplies only the public fields.
 - Role permissions: `deps.view`, `deps.watcher.manage`, `deps.proving.run`, `deps.proving.approve_override`, `deps.proving.settings`. Defaults grant the owner all and others none. There is no override that turns a failed result into a pass; `approve_override` only lets the owner adopt anyway with a recorded reason, shown as "adopted without a passing proof" in the decision record (the module manager decides whether to allow it; OPEN).
 
 ## 13. Testing and work packages
@@ -674,7 +674,7 @@ All written through `IAuditLog.AppendAsync` with `Actor` as `Principal` text.
 ### 13.1 Test plan (xUnit v3)
 
 - **Classification**: table-driven tests over version pairs per ecosystem, prerelease markers, advisory ranges, unparseable versions. Property test: `IsSecurity` is true only when an advisory fact is present.
-- **Poll pass**: fake pollers; assert a pass survives one unreachable source, that an unreachable result is never stored as a value, first observation is not a change, a newer-than-installed first observation is a finding, and a retried pass writes once (mirrors Resibo's tests listed in `resibo-30-39.md` section 37: multi-poller coverage, no silent release-only fallback, classifier detection).
+- **Poll pass**: fake pollers; assert a pass survives one unreachable source, that an unreachable result is never stored as a value, first observation is not a change, a newer-than-installed first observation is a finding, and a retried pass writes once (mirrors the tests in Resibo's deep-dive 37 section 8: multi-poller coverage, no silent release-only fallback, classifier detection).
 - **Coverage**: duplicate poller for one key fails startup unless both `Corroborating`; declared kind without poller appears in the coverage report.
 - **Free threading**: classifier present wins; tracker only when classifier absent; nothing is `unknown`, not `unsupported`.
 - **Surfaces**: idempotent per line, heading placement, failed delivery retried from the outbox and never loses the observation.

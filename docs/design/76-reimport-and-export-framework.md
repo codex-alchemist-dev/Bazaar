@@ -77,7 +77,7 @@ Overlaps found:
 | `Bazaar.Server.ExportFramework` | Registry, run orchestration, scope check, outbound archive-bomb check, run records, audit. Component id `export-framework`, settings section `Bazaar:ExportFramework`. Hard `dependsOn`: `audit`. Soft: `portability`, `reimport`, `narrative`, `kodo`. |
 | `Bazaar.Server.Export.<Format>` | One provider module per format, each with its own manifest (`kind: provider`, `provides: export:<format-id>`). Providers may carry third-party dependencies (a spreadsheet writer, for example). |
 
-There is no selector. Every enabled provider module is in the registry, and the caller names the provider id, as Resibo's registry does (`exports/registry.py`: `register`, `get`, `names`, `generate`). Adding a format never touches registry code.
+There is no selector. Every enabled provider module is in the registry, and the caller names the provider id, as Resibo's export registry does (deep-dive 31 section 2: a registry of which providers are registered, running whichever one was asked for). Adding a format never touches registry code.
 
 ### 5.2 Provider set
 
@@ -128,7 +128,7 @@ public interface IExportRegistry
 }
 ```
 
-Rules, from Resibo (`exports/contracts.py`, `registry.py`) and adapted:
+Rules, from Resibo (deep-dive 31 section 2, `ExportProvider` protocol and error types) and adapted:
 
 - A provider never keeps its own copy of data and never decides when it runs. A caller does (a user, a schedule, a data-subject tool).
 - An unknown or failing provider is an `ExportResult` with an error code, never an exception across the module boundary. A provider that throws cannot break the caller.
@@ -191,7 +191,7 @@ Liveness: registry loaded. Readiness: at least one provider registered, blob sto
 
 ### 6.2 The three sides and the algorithm
 
-Terms for Bazaar, mapped from Resibo's (`reimport/three_way_diff.py`, `contracts.py`):
+Terms for Bazaar, mapped from Resibo's (`v3-deepdive-30-reimport.md`):
 
 - Base: the snapshot recorded when the object was last exported or imported (Resibo's `original`).
 - Theirs: the incoming record from the new source (Resibo's `reimported`).
@@ -206,7 +206,7 @@ The pure function, per field, over the fields present in theirs only (a field th
 | Changed | Changed, same value as theirs | Ours stands. No conflict, because there is nothing for a human to decide. |
 | Changed | Changed, different value | Conflict. Ours stays in place and the conflict is recorded. Never resolved automatically. |
 
-None of these four rules may be softened by a setting. There is no last-write-wins, and no rejection of a whole re-import over one conflicting field (Resibo `PRINCIPLES.md` section 4.3, as cited in its code).
+None of these four rules may be softened by a setting. There is no last-write-wins, and no rejection of a whole re-import over one conflicting field (Resibo `PRINCIPLES.md` section 4.3, "never silently override, always surface a genuine conflict to a human").
 
 ```csharp
 namespace Bazaar.Server.Reimport;
@@ -241,7 +241,7 @@ public interface IReimportService
 public enum ConflictChoice { TakeTheirs, KeepOurs, ManualValue }
 ```
 
-Field values are normalised through a per-target projection before comparison, because an export is a lossier view than the stored object. This is Resibo's `field_mapping.py` lesson: without projecting both base and ours into the export's own representation, a pure round trip with no edit reported dates as user-changed. A theirs value that cannot be read as the field's type goes to `rejected_fields`, reported and never written as is or silently dropped.
+Field values are normalised through a per-target projection before comparison, because an export is a lossier view than the stored object. This is Resibo's field-mapping lesson (`core/persistence/reimport/CLAUDE.md`): without projecting both base and ours into the export's own representation, a pure round trip with no edit reported dates as user-changed. A theirs value that cannot be read as the field's type goes to `rejected_fields`, reported and never written as is or silently dropped.
 
 ### 6.3 Snapshot base and round-trip token
 
@@ -250,7 +250,7 @@ Resibo embeds a hidden cell (Historian event id plus time) in the workbook and u
 1. The token is only a reference. The base values live in `reimport_snapshot` on the server, so a hand-edited file cannot forge its own base.
 2. The token is signed with the instance export key held by the Identity Service (doc 44 6.3), so it cannot be swapped or invented. Verification failure rejects the re-import with an actionable message.
 
-Each round-trip provider embeds the token in the way its format allows: a hidden cell in `xlsx.table`, a sidecar `.bazaar-token` file next to a CSV, a `bazaar_snapshot` front-matter key in Markdown, and a manifest field in JSON. A source with a missing, expired or unverifiable token is rejected with an error asking for a fresh export. It is never treated as "overwrite everything with ours" (Resibo test: stripped-reference test; kept).
+Each round-trip provider embeds the token in the way its format allows: a hidden cell in `xlsx.table`, a sidecar `.bazaar-token` file next to a CSV, a `bazaar_snapshot` front-matter key in Markdown, and a manifest field in JSON. A source with a missing, expired or unverifiable token is rejected with an error asking for a fresh export. It is never treated as "overwrite everything with ours" (Resibo deep-dive 30, missing snapshot-reference test; kept).
 
 Sources that never had an export (a first Trello import, a fresh Obsidian vault) have no base. For those, the first import creates the snapshot, and later imports of the same source have a base. A re-import from a source with no snapshot at all runs as a two-way compare with every difference shown as a conflict if ours has changed since the object was created. This is OPEN for owner confirmation (section 13).
 
@@ -311,7 +311,7 @@ CREATE TABLE reimport_conflict (
 );
 ```
 
-A session persists server side, so a closed pane or client loses nothing (Resibo `v3-deepdive-49` section 4). `expires_at` is bounded by `reimport.session_ttl_days`.
+A session persists server side, so a closed pane or client loses nothing (Resibo `v3-deepdive-49`). `expires_at` is bounded by `reimport.session_ttl_days`.
 
 Stale conflicts: if ours changes again between diff time and a decision, the stored `ours_value` no longer matches. The conflict becomes `stale`, the pane shows the new ours, and the human decides again. A decision is never applied against an ours the human did not see. (This is added for Bazaar. Resibo's single-user receipts make the race unlikely, but Bazaar objects are edited by many agents.)
 
@@ -405,7 +405,7 @@ Wire: the pane talks to the server through the wire types in `Bazaar.Contracts` 
 
 ### 8.1 What Resibo does
 
-Resibo's Historian keeps two append-only tracks in the same database: a data-change track (every write, with before and after, in the same transaction) and a quantized, human-readable narrative of a receipt's life (stages such as ingested, matched, flagged, written; `NarrativeEvent` with summary and detail). Narrative is emitted from one chokepoint, the pipeline's `run_stage()` wrapper, through one summarizer per stage, so no pipeline API knows the Historian exists. Narrative atomicity is looser than the data track (atomic with the checkpoint, not with the final write). The two are kept apart on purpose: the raw log is complete, the narrative is for display. (Resibo `v3-deepdive-29`, via inventory `resibo-20-29.md`; the full doc was not re-read for this design.)
+Resibo's Historian keeps two append-only tracks in the same database: a data-change track (every write, with before and after, in the same transaction) and a quantized, human-readable narrative of a receipt's life (stages such as ingested, matched, flagged, written; `NarrativeEvent` with summary and detail). Narrative is emitted from one chokepoint, the pipeline's `run_stage()` wrapper, through one summarizer per stage, so no pipeline API knows the Historian exists. Narrative atomicity is looser than the data track (atomic with the checkpoint, not with the final write). The two are kept apart on purpose: the raw log is complete, the narrative is for display. (Resibo `v3-deepdive-29-historian.md`, sections 3 to 5.)
 
 ### 8.2 Why Bazaar wants it, and why it is a separate module
 
@@ -478,7 +478,7 @@ Kodo health: liveness is the sink queue not growing past `narrative.queue_max`; 
 
 ### 9.1 What Resibo has, and the relationship to Bazaar's backup
 
-Resibo's Archive Sync (`archive_sync/sync.py`) is a one-way convenience mirror of archived receipts to an external drive. It is idle-time, has a per-target cursor advanced only after a confirmed upload, adds date plus a short hash to external names to avoid collisions, and on a missing or revoked target notifies and pauses, never silently continuing and never recreating the folder. Retention parity is off by default: a purged internal blob is not removed externally. It never becomes a second source of truth. Separately, Resibo's blob store fans writes out to parallel backup targets (B2 and Storj, `blob_store/backup/`), and its disaster recovery restores one-of-N from any reachable target. The convergence note (CONVERGENCE.md row 18) merges Bazaar's backup as the base with Resibo's parallel multi-target and three-way-diff sync "as options".
+Resibo's Archive Sync (`v3-deepdive-32-archive-sync.md`) is a one-way convenience mirror of archived receipts to an external drive. It is idle-time, has a per-target cursor advanced only after a confirmed upload, adds date plus a short hash to external names to avoid collisions, and on a missing or revoked target notifies and pauses, never silently continuing and never recreating the folder. Retention parity is off by default: a purged internal blob is not removed externally. It never becomes a second source of truth. Separately, Resibo's blob store fans writes out to parallel backup targets (B2 and Storj, `blob_store/backup/`), and its disaster recovery restores one-of-N from any reachable target. The convergence note (CONVERGENCE.md row 18) merges Bazaar's backup as the base with Resibo's parallel multi-target and three-way-diff sync "as options".
 
 Bazaar's backup (doc 33, `Bazaar.Server.Components.Backup`) ships one `IBackupTarget` at a time: restic to S3 or B2, or a custom target. That is Resibo's single-target shape. This module is the option for operators who want several offsite copies.
 
@@ -505,7 +505,7 @@ The composite implements the existing `IBackupTarget`, so the backup component s
 4. Three-way sync reconciliation. When a child's contents differ from the expected (someone changed the external copy, or an interrupted run left partial data), the planner computes base (last confirmed manifest for that child, stored locally), ours (the local source of truth) and theirs (the child's listing). Differences resolve as: missing remotely, upload; present remotely and unchanged against base, nothing; changed remotely (drift), flagged and not overwritten without an operator decision; extra remotely, left alone and reported. A drifted object is a conflict that goes to a human, using the same decision store as Reimport (`reimport_conflict` rows with `target_kind = 'archive_object'`), so the review pane covers it.
 5. One-way and non-authoritative, as Resibo says. Local backup state remains the source of truth. A restore never trusts a child over the verified manifest.
 6. No retention parity by default. A pruned local snapshot is not deleted from every child unless the operator sets `archive_sync.mirror_deletions`, which is capped by the erasure window (doc 33 Conflict 8: offsite retention must stay inside `erasure.backup_window_days`). Unlike Resibo, Bazaar has an erasure window, so this setting cannot be loosened past it. Note the tension: "never delete externally" would break erasure, so mirror-deletion is subject to the window floor, not the Resibo default. This difference is deliberate.
-7. External names use date plus a short content hash suffix (Resibo `external_name`).
+7. External names use date plus a short content hash suffix (Resibo `v3-deepdive-32`: date plus a short hash suffix).
 8. Idle-time scheduling through the jobs seam, no filesystem watch.
 
 ### 9.4 Data
@@ -556,7 +556,7 @@ Audit events: `archive_sync.target.added`, `.paused`, `.resumed`, `.drift.flagge
 
 ### 10.1 What Resibo contributes
 
-Resibo's `disaster_recovery/restore.py` and `verify.py` give Bazaar three things:
+Resibo's disaster-recovery design (`v3-deepdive-33-disaster-recovery.md`) gives Bazaar three things:
 
 1. Restore ordering that makes verification meaningful. Restore content-addressed objects first, then the database, then verify. The reverse order reports false orphans, because "every referenced object exists" would fail against an empty object store whatever the backups hold. Bazaar's analogue: blobs and the Vault repository first, then the database restore with point-in-time recovery, then verification. Doc 33 does not state this order, so adding it to the restore wizard is a PROPOSED change to doc 33 and needs the doc 33 owner (section 13).
 2. A verification report with separate lists, because each implies a different repair: references with no mapping (orphaned logical ids), files with no reference or missing files (orphaned physical files), and files whose recomputed hash differs from their address (hash mismatches). `clean` is true only when all lists are empty. Resibo's lesson on what to hash: verify the hash of what is stored now, not the hash of the original upload. In Bazaar terms, verify blobs against the content hash of the stored object, and keep the original-upload hash as separate metadata.
@@ -566,7 +566,7 @@ Also kept: one-of-N restore (a corrupt copy at one target is skipped for the nex
 
 ### 10.2 The numbers Resibo does not have
 
-Resibo's deep-dive states restore time and bandwidth estimates are an open pre-launch bench task and gives no numbers (`v3-deepdive-33-disaster-recovery.md`, open item, confirmed in `resibo-30-39.md`). So there is nothing to copy. What Bazaar adopts is the shape: restore time is planned from measured inputs, not guessed, and the drill records the inputs. The doc 33 target (RTO about 1 day for a full owner's PC rebuild) is PROPOSED and unmeasured.
+Resibo's deep-dive states restore time and bandwidth estimates are an open pre-launch bench task and gives no numbers (`v3-deepdive-33-disaster-recovery.md`, open item). So there is nothing to copy. What Bazaar adopts is the shape: restore time is planned from measured inputs, not guessed, and the drill records the inputs. The doc 33 target (RTO about 1 day for a full owner's PC rebuild) is PROPOSED and unmeasured.
 
 Kodo's restore-drill planner takes these inputs. All are measured by the drill, stored per drill, and compared with the previous drill. None is a fixed number in this doc.
 
@@ -605,20 +605,20 @@ The rule (doc 01, owner 2026-10-24): GCs are append-only, never purged, edits ke
 
 | Resibo item (path) | Taken | Changed for Bazaar, and why |
 |---|---|---|
-| Three-way resolution rules (`core/persistence/reimport/three_way_diff.py`, `v3-deepdive-30-reimport.md`) | All four outcomes, the "fields in theirs only" rule, never auto-resolve | Terms renamed (base, theirs, ours). Added the "both changed to the same value is not a conflict" row explicitly (it is in the Resibo code, not in the three headline rules). |
-| Snapshot reference cell (`contracts.py` `SnapshotBaseline`, `v3-deepdive-30`) | Idea of an embedded base reference; reject on missing | Reference is signed and the base lives server side. Resibo trusts the hidden cell. In Bazaar a forged token would let a file pick its own base, and many principals can submit. |
-| Field projection (`reimport/field_mapping.py`) | Project both sides into the export representation; report uncoercible cells | Per-target projection, because Bazaar has several target kinds. |
-| `ReimportResult` fields (`contracts.py`) | Applied count, conflicts, rejected fields, errors as data | Session persisted with ids, because Bazaar review is multi-person and long. |
+| Three-way resolution rules (`v3-deepdive-30-reimport.md`) | All four outcomes, the "fields in theirs only" rule, never auto-resolve | Terms renamed (base, theirs, ours). Added the "both changed to the same value is not a conflict" row explicitly (Resibo's deep-dive 30 states it in a code comment, not among its three headline rules). |
+| Snapshot reference cell (`v3-deepdive-30`) | Idea of an embedded base reference; reject on missing | Reference is signed and the base lives server side. Resibo's design embeds a hidden reference cell and uses it as the base. In Bazaar a forged token would let a file pick its own base, and many principals can submit. |
+| Field projection (`core/persistence/reimport/CLAUDE.md`) | Project both sides into the export representation; report uncoercible cells | Per-target projection, because Bazaar has several target kinds. |
+| `ReimportResult` fields (`v3-deepdive-30`) | Applied count, conflicts, rejected fields, errors as data | Session persisted with ids, because Bazaar review is multi-person and long. |
 | Review pane (`v3-deepdive-49-reimport-diff-ui.md` sections 2 to 7) | Three-column only for conflicts, per-field actions, "12 of 47" progress, resume, grouped bulk with explicit group confirmation, on-behalf-of attribution | Avalonia, headless-tested, keyboard first. Staleness re-presentation added. Group manager becomes owner or a granted role, with `Principal` attribution. |
-| Export registry (`exports/registry.py`, `contracts.py`, `v3-deepdive-31`) | Provider protocol, register, get, names, errors as data, unknown provider as a code | Providers are separate modules with no selector. Output is streamed files, because Bazaar exports are bundles. Resibo's registry runs one export at a time; Bazaar allows several runs, each independent. |
-| Excel provider techniques (`exports/providers/excel_general.py`) | Formula-driven summary sheet over a raw sheet, rebuilt only on structure change, hidden token cell | Moved into `Bazaar.Server.Export.Xlsx`, which carries the spreadsheet dependency so the shared modules stay dependency free. |
+| Export registry (`v3-deepdive-31`) | Provider protocol, register, get, names, errors as data, unknown provider as a code | Providers are separate modules with no selector. Output is streamed files, because Bazaar exports are bundles. Bazaar allows several runs at once, each independent (PROPOSED, Bazaar's design). |
+| Excel provider techniques (`v3-deepdive-31` section 3) | Formula-driven summary sheet over a raw sheet, rebuilt only on structure change, hidden token cell | Moved into `Bazaar.Server.Export.Xlsx`, which carries the spreadsheet dependency so the shared modules stay dependency free. |
 | `group_export` | Scoped export with contributor display name, never a raw id, permission checked by the owning component | `Bazaar.Server.Export.ScopedSet`. Scope check is in the registry, not the provider. |
 | `audit_package`, `data_portability` | Zip with filtered history and summary; full-account scope | Folded into doc 44's bundle and audit export, as providers. Outbound bomb check adopted. |
 | `slsp_summary`, `quickbooks_export`, `xero_export` | Not taken | Receipt, BIR and accounting formats. Not part of Bazaar. OPEN question 4. |
-| Archive sync (`archive_sync/sync.py`, `contracts.py`, `v3-deepdive-32`) | Cursor after confirmed upload, notify then pause, never auto-recreate, collision-safe names, idle scheduling, non-authoritative mirror | Composite over many children, with three-way drift reconciliation, which Resibo's one-way mirror does not have (CONVERGENCE.md row 18 names this as an option). Retention parity: Resibo default is off with no limit. Bazaar caps it by the erasure window. |
-| Parallel backup targets (`blob_store/backup/`, `b2_target.py`, `storj_target.py`) | Fan-out and one-of-N restore | Realised as the composite `IBackupTarget`, so doc 33's backup needs no change. |
-| Restore and verify (`disaster_recovery/restore.py`, `verify.py`, `v3-deepdive-33`) | Order, separate report lists, hash-of-stored-object lesson, one-of-N, sample verify, proportional response | Bazaar adds Postgres PITR and the Vault. The Resibo SQLite snapshot copy is not used (doc 33 uses base backup plus WAL). Numbers: none exist in Resibo, so Bazaar adopts the planning inputs, not values. |
-| Historian narrative (`historian/narrative/summarizers.py`, `v3-deepdive-29-historian.md`) | Separate display track, one summarizer per stage, single emission chokepoint idea, looser atomicity | Optional module. Reader respects source access. Not evidence. Resibo emits from a pipeline stage wrapper that Bazaar lacks, so emitters call `INarrativeSink`. Resibo's data-change track is not copied: Bazaar's GC log, audit log, versions and Vault commits already serve that role. |
+| Archive sync (`v3-deepdive-32`) | Cursor after confirmed upload, notify then pause, never auto-recreate, collision-safe names, idle scheduling, non-authoritative mirror | Composite over many children, with three-way drift reconciliation, which Resibo's one-way mirror does not have (CONVERGENCE.md row 18 names this as an option). Retention parity: Resibo default is off with no limit. Bazaar caps it by the erasure window. |
+| Parallel backup targets (`v3-deepdive-33`, `v3-deepdive-13`) | Fan-out and one-of-N restore | Realised as the composite `IBackupTarget`, so doc 33's backup needs no change. |
+| Restore and verify (`v3-deepdive-33`) | Order, separate report lists, hash-of-stored-object lesson, one-of-N, sample verify, proportional response | Bazaar adds Postgres PITR and the Vault. The Resibo SQLite snapshot copy is not used (doc 33 uses base backup plus WAL). Numbers: none exist in Resibo, so Bazaar adopts the planning inputs, not values. |
+| Historian narrative (`v3-deepdive-29-historian.md`) | Separate display track, one summarizer per stage, single emission chokepoint idea, looser atomicity | Optional module. Reader respects source access. Not evidence. Resibo emits from a pipeline stage wrapper that Bazaar lacks, so emitters call `INarrativeSink`. Resibo's data-change track is not copied: Bazaar's GC log, audit log, versions and Vault commits already serve that role. |
 
 ## 13. Security and privacy
 

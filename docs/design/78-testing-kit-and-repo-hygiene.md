@@ -449,7 +449,7 @@ The verification gate checks an agent's work product in a clean clone (build, te
 
 ### 11.3 Per-category PR templates with a parsed checklist
 
-Taken from Resibo `docs/templates/*.md`, `.github/PULL_REQUEST_TEMPLATE/`, `.github/workflows/pr_checklist_enforcement.yml`, `.github/scripts/check_pr_checklist.py` and `docs/MAINTENANCE.md` section 7.
+Taken from Resibo `docs/templates/*.md`, `.github/PULL_REQUEST_TEMPLATE/`, `docs/PHASE_1_COMPLETE.md` (checklist enforcement) and `docs/MAINTENANCE.md` section 7.
 
 Template files live under `.github/PULL_REQUEST_TEMPLATE/<category>.md` and each starts with the common block of today's `.github/pull_request_template.md` (summary, docs section, linked design doc, tests, docs updated, DCO, sponsor). The existing file stays as the default and as the `general` category. Because agents open PRs through the API, the category is a marker line in the body: `<!-- bazaar-pr-category: new-provider -->`. The checker uses the marker to find the template.
 
@@ -469,9 +469,9 @@ Categories (PROPOSED; Resibo's eight mapped to Bazaar's structure):
 Parser rules (`check_pr_checklist`, rewritten in C# in the Hygiene lib):
 
 1. Every checklist item `- [ ]` must be `- [x]`. An unchecked box fails, and an item that does not apply is ticked with a reason (Resibo: "check it and say why").
-2. **Substance floor.** Items tagged `[why]` in the template (Forward-compatibility, Security or taint effect, Backward effects, Not-applicable ticks, Docs-first, and "Pins a non-finding") need author-written text after the template's own wording. The floor is `25` alphanumeric characters, taken from Resibo's `MIN_SUBSTANCE_CHARS = 25` ("enough to rule out `n/a` or a bare restatement, not enough to be a real burden"). PROPOSED, with the number as a constant in `docs/hygiene-limits.json`. The template wording is discounted by reading the live templates, as Resibo's script does after it hit the bug where a template's own long prompt satisfied the length check.
+2. **Substance floor.** Items tagged `[why]` in the template (Forward-compatibility, Security or taint effect, Backward effects, Not-applicable ticks, Docs-first, and "Pins a non-finding") need author-written text after the template's own wording. The floor is `25` alphanumeric characters, taken from Resibo's 25-character floor (`docs/PHASE_1_COMPLETE.md`). PROPOSED, with the number as a constant in `docs/hygiene-limits.json`. The template wording is discounted by reading the live templates, as Resibo's checker does after the bug recorded in `docs/PHASE_1_COMPLETE.md` where a template's own long prompt satisfied the length check.
 3. Two further substance checks Resibo lacks: the same justification text appearing in three or more items fails (`copy-paste`), and a justification that is the item's own prompt reworded by a known filler list (`n/a`, `not applicable`, `none`, `ok`, `done`, `see above`) fails whatever its length.
-4. **Missing checklist fails.** Resibo's script returns success when it finds no checklist ("not a templated PR"). Bazaar's checker fails a PR with no checklist, except one labelled `docs-only` or `tooling` whose diff supports it. A bypass-by-omission is the exact hole the rule exists to close.
+4. **Missing checklist fails.** Bazaar's checker fails a PR with no checklist, except one labelled `docs-only` or `tooling` whose diff supports it. A bypass-by-omission is the exact hole the rule exists to close. PROPOSED (Bazaar's design, not from Resibo).
 5. Runs on `opened`, `edited`, `synchronize`, `reopened` and `ready_for_review`. On a draft it reports annotations and passes (same pattern as the sign-off check in `docs/pr-flow.md`: drafts are not merged, so they are not blocked); on a ready PR it fails. The job runs with no secrets and reads only the PR body, the templates and the base-branch tree.
 
 ### 11.4 The docs-section rule and the checklist, as one check
@@ -525,7 +525,7 @@ Taken from Resibo `docs/REVIEW_COMMENT_FORMAT.md`: reviews of design docs are wr
 
 ## 12. Forward-compatibility: Resibo's pattern merged with `docs/FORWARD-FACING.md`
 
-Resibo's pattern (`docs/PRINCIPLES.md` section 3.3, `docs/MAINTENANCE.md` section 8, `noxfile.py`): (1) conditional dependency install by environment marker, (2) feature detection over version checks, (3) one centralized shim per capability, (4) graceful degradation to the existing safe behavior, (5) lazy imports for optional heavy dependencies; plus a `forward_compat` test marker run against two interpreters by a `nox` session that fails loudly when an interpreter is missing, and a manual interpreter override.
+Resibo's pattern (`docs/PRINCIPLES.md` section 3.3, `docs/MAINTENANCE.md` section 8, including `nox -s forward_compat` in section 8.1): (1) conditional dependency install by environment marker, (2) feature detection over version checks, (3) one centralized shim per capability, (4) graceful degradation to the existing safe behavior, (5) lazy imports for optional heavy dependencies; plus a `forward_compat` test marker run against two interpreters by a `nox` session that fails loudly when an interpreter is missing, and a manual interpreter override.
 
 `docs/FORWARD-FACING.md` already carries the Bazaar equivalent at the dependency level (day-0 and dual-version rule, canary, Dependabot, Renovate, a dated audit table, an adoption rule). It has no code-level pattern. The merge:
 

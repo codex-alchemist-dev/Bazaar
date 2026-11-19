@@ -175,7 +175,7 @@ If the server is down, no new snapshot is published, and the sink keeps the last
 - `validUntil` defaults to four times the publish interval (`statusincidents.snapshot.valid_for_seconds`, default 1200). `freshness.js` shows a banner past it, and the no-script text says the same ("Generated at X. If this time is old, the service may be down or unreachable"). This matches Kodo's rule that a client never shows stale green (doc 46 sections 8.3 and 14.1).
 - The server publishes a heartbeat snapshot every interval (default 300 s, minimum 60 s) even when nothing changed. A missing heartbeat is therefore itself the signal.
 
-Resibo used a poller plus a local SQLite cache so the page still rendered "last-known state plus any manual incident". Bazaar gets the same property from the sink holding the last good snapshot, plus a local cache (7.4).
+Resibo's design uses a poller plus its own small cache so the page still rendered "last-known state plus any manual incident". Bazaar gets the same property from the sink holding the last good snapshot, plus a local cache (7.4).
 
 ### 7.3 Sinks
 
@@ -400,7 +400,7 @@ The guided tour mechanism already exists as `Bazaar.Michi` (`TourDefinition`, `T
 
 | Resibo | Source | Bazaar |
 |---|---|---|
-| Public unauthenticated status page, separate from the product | `v3-deepdive-51` sections 1 and 3, `services/status_page/` (stubs; only the design exists) | Static snapshot to sink providers instead of a separate web app, because Bazaar forbids interactive public pages and a static host is the simplest independent path |
+| Public unauthenticated status page, separate from the product | `v3-deepdive-51` sections 1 and 3, `services/status_page/CLAUDE.md` | Static snapshot to sink providers instead of a separate web app, because Bazaar forbids interactive public pages and a static host is the simplest independent path |
 | Staff-authored incidents, never automatic | same, section 4 | Kept. Added: drafts from Kodo, optional policy publish, agent drafts off by default |
 | Coarse components, worst-of mapping | same, section 5, `component_mapping` config | Kept; mapping source is Kodo categories, operator-defined components |
 | Cache independent of core database | same, section 3 (own SQLite) | Local hash-chained file cache plus the sinks' copy |
@@ -408,16 +408,16 @@ The guided tour mechanism already exists as `Bazaar.Michi` (`TourDefinition`, `T
 | Email subscribers | same, section 10 | Separate optional module, operator-managed list, no public form (browser rule and personal data) |
 | RSS as lower priority | same, section 10 | Atom feed in the snapshot from the start (no personal data) |
 | Hosted-only (self-hosted installs skip it) | same, section 1 | Optional on every install, off by default |
-| Ticket lifecycle, assignment, auto-close, `TKT-` ids, break-glass resolution | `core/support_ticketing/*`, `v3-deepdive-52` | Kept as above, with the `Principal` type instead of `user_id` strings |
-| `related_receipt_id` | contracts | Generalised to typed links |
+| Ticket lifecycle, assignment, auto-close, `TKT-` ids, break-glass resolution | `core/support_ticketing/CLAUDE.md`, `v3-deepdive-52` | Kept as above, with the `Principal` type instead of `user_id` strings |
+| `related_receipt_id` | `v3-deepdive-52` | Generalised to typed links |
 | No priority or SLA | `v3-deepdive-52` section 4 | Separate optional module `support-sla` |
-| Staff and user author as `"user"` or `"staff:<id>"` | contracts, `AuthorKind` | `Principal` plus visibility |
+| Staff and user author as `"user"` or `"staff:<id>"` | `v3-deepdive-52` | `Principal` plus visibility |
 | Notifications via inbox | `v3-deepdive-09` | Event sink port; stream, push, optional GC mirror |
 | Tunnel provider registry, `public_facing` floor | `v3-deepdive-43` | Conduit is the registry; derived `ExposureLevel`; floors in doc 32 |
 | Guided tour mechanism, no-nag, reduced motion, mute, server-side progress | `v3-deepdive-53` | Michi; points handed to Michi (11.3) |
-| Webapp assistant for tickets | inventory resibo-50-56, DD54 | Optional, off, labelled unverified |
+| Webapp assistant for tickets | `v3-deepdive-54` | Optional, off, labelled unverified |
 
-Resibo's gRPC, FastAPI, SQLite and React pieces are not carried over (different stack, and Resibo's code for status page, tunnel and tour is empty scaffolding in the checkout, so only designs were available there; support ticketing code was read).
+Resibo's gRPC, FastAPI, SQLite and React pieces are not carried over (different stack). Only Resibo's docs are a source here.
 
 ## 14. Security and privacy
 

@@ -41,7 +41,7 @@ Neither module contains the OS-specific reads. Those are provider modules.
 - The Constellation budgets. `constellation-scale-and-lod.md` owns them. This doc supplies the tier that selects among them.
 - The local inference chain per OS. Doc 31 owns it. This doc supplies facts and the lease, and adds only the rule that a failed lease or a drifted placement moves the session down the chain.
 - The issue filer. A sibling adoption doc owns it; this doc only emits events it can consume (section 9). Its module id is OPEN.
-- Tier coefficients. Resibo's own scorer says its coefficients are an interim heuristic that must be calibrated by bench data (`scoring.py`, `reasoned=False`). Bazaar keeps that honesty (section 5.3): shipped tables are labelled uncalibrated until a benchmark run sets them.
+- Tier coefficients. Resibo's deep-dive 11 section 5.4 says its scoring coefficients should come from real bench measurements, not be invented. Bazaar keeps that honesty (section 5.3): shipped tables are labelled uncalibrated until a benchmark run sets them.
 - Doc 59 (GUI VM density). It is not in this checkout (it is presumably in an open PR). Section 12 states what this doc assumes about it.
 
 ## 4. Modules and ids
@@ -67,7 +67,7 @@ Client modules hold no server code. The wire types (`HardwareProfileDto`, `TierR
 
 ### 5.1 Facets, not one detector per OS
 
-Resibo selects one `HardwareDetector` per OS at registry init (`detect.py`, `default_detector`). The owner direction here is "providers are plain modules, no selector". So Bazaar models the probe as **facet providers**. Every enabled provider module registers an `IHardwareFacetProvider`; the module runs all of them and merges the claims. A provider that does not apply to the running OS reports `NotApplicable` and contributes nothing, which is not an error and not a selection.
+Resibo's deep-dive 11 section 5.1 dispatches detection per platform (Windows WMI, Linux `/proc` and `lspci`). The owner direction here is "providers are plain modules, no selector". So Bazaar models the probe as **facet providers**. Every enabled provider module registers an `IHardwareFacetProvider`; the module runs all of them and merges the claims. A provider that does not apply to the running OS reports `NotApplicable` and contributes nothing, which is not an error and not a selection.
 
 ```csharp
 // Bazaar.Server.HardwareProbe.Abstractions
@@ -95,7 +95,7 @@ public sealed record FacetResult(IReadOnlyList<FacetClaim> Claims, IReadOnlyList
 public sealed record ProbeNote(string Code, string Detail);   // e.g. "lspci.missing", "wmi.timeout"
 ```
 
-Merge rule (carried from Resibo, generalised): for each `(DeviceKey, Attribute)` the claim with the highest `Confidence` wins outright; claims are never averaged and a lower-confidence claim is never used as a tiebreak. This is exactly Resibo's lesson that `AdapterRAM` is a capped 32-bit value while the registry's `HardwareInformation.qwMemorySize` is correct (a real 12 GB card reported about 2 GB; `detect.py` `_resolve_vram_gb`). The Windows provider reports the registry value as `Authoritative` and `AdapterRAM` as `Heuristic`; Vulkan's device-local heap is `Reported`. Disagreement between two claims at different confidences is not an error but is recorded as a `ProbeNote` (`claim.conflict`) so Kodo and the admin view can show it. A `None` is never guessed: an attribute with no claim stays absent, and consumers treat absent as unknown (Resibo: "never guess a number").
+Merge rule (carried from Resibo, generalised): for each `(DeviceKey, Attribute)` the claim with the highest `Confidence` wins outright; claims are never averaged and a lower-confidence claim is never used as a tiebreak. This is exactly Resibo's lesson that `AdapterRAM` is a capped 32-bit value while the registry's `HardwareInformation.qwMemorySize` is correct (a real 12 GB card reported about 2 GB; deep-dive 11 section 5.2). The Windows provider reports the registry value as `Authoritative` and `AdapterRAM` as `Heuristic`; Vulkan's device-local heap is `Reported`. Disagreement between two claims at different confidences is not an error but is recorded as a `ProbeNote` (`claim.conflict`) so Kodo and the admin view can show it. A `None` is never guessed: an attribute with no claim stays absent, and consumers treat absent as unknown (Resibo: "never guess a number").
 
 Device identity: Resibo identifies GPUs by name string. Bazaar uses a stable `DeviceKey` (PCI vendor and device ids where available, otherwise a hash of the name plus index) so that drift detection can tell "driver update renamed the adapter" from "adapter removed". Names are display only.
 
@@ -103,20 +103,20 @@ Device identity: Resibo identifies GPUs by name string. Bazaar uses a stable `De
 
 | Facet | Facts | Windows provider | Linux provider |
 |---|---|---|---|
-| Cpu | model, physical cores, logical threads, base clock, ISA flags that matter (AVX2, AVX-512, AMX), hypervisor present | WMI `Win32_Processor`; flags via .NET `System.Runtime.Intrinsics` | `/proc/cpuinfo` unique `physical id` and `core id` pairs, falling back to thread count when absent (Resibo `_read_proc_cpuinfo`) |
+| Cpu | model, physical cores, logical threads, base clock, ISA flags that matter (AVX2, AVX-512, AMX), hypervisor present | WMI `Win32_Processor`; flags via .NET `System.Runtime.Intrinsics` | `/proc/cpuinfo` unique `physical id` and `core id` pairs, falling back to thread count when absent (Bazaar's own parsing rule, PROPOSED) |
 | Memory | total, available, speed, swap or pagefile | WMI `Win32_ComputerSystem` | `/proc/meminfo` |
 | Gpu | vendor, discrete or integrated, VRAM, compute API family, driver version | WMI plus registry VRAM plus DXGI | `lspci` class lines, `/sys/class/drm/*/device/mem_info_vram_total`, vendor tools when installed |
-| Npu | present, vendor, driver version, driver on the doc 31 refused list | Windows ML and OpenVINO device enumeration; WMI has no standard NPU class (Resibo left `npus=()` for this reason) | sysfs accel nodes (`/sys/class/accel`) |
+| Npu | present, vendor, driver version, driver on the doc 31 refused list | Windows ML and OpenVINO device enumeration; WMI has no standard NPU class (Resibo's `HardwareProfile` has an `npus` field, deep-dive 11 section 3) | sysfs accel nodes (`/sys/class/accel`) |
 | Disk | volumes, free and total, medium (NVMe, SSD, HDD), SMART health | `Get-PhysicalDisk` | `/sys/block`, `smartctl` when present |
 | Network | adapters, link speed | CIM | `/sys/class/net` |
 | Virtualization | CPU virtualization extensions on, hypervisor role or `/dev/kvm` usable, nested virtualization, Windows Sandbox feature | Hyper-V feature state, `HypervisorPresent` | `/dev/kvm`, `/proc/cpuinfo` flags |
 | Power and Thermal | on battery, UPS present, thermal throttling | WMI battery, thermal zone | `/sys/class/power_supply`, thermal zones |
 
-Resibo's discrete versus integrated rule is kept (`_classify_discrete`): "Arc" in an Intel adapter name means discrete, a bare "Intel(R) Graphics" is integrated, because Arrow Lake integrated GPUs report that generic name. This is the kind of fact that needs a regression test with the real string (section 14).
+Resibo's discrete versus integrated rule is kept (deep-dive 11 section 5.2): an Intel Arc adapter is discrete, a bare "Intel(R) Graphics" is integrated, because Arrow Lake integrated GPUs report that generic name. This is the kind of fact that needs a regression test with the real string (section 14).
 
 The Resibo PowerShell gotcha is also kept as a provider-internal test: `ConvertTo-Json` unwraps a one-element array into a bare object, so the WMI parser normalizes dictionary-or-list for every collection. In Bazaar the Windows provider should prefer CIM calls from .NET over a PowerShell subprocess where a managed API exists, and use the subprocess only as a fallback; doc 16 already calls a PowerShell runspace for Hyper-V control. Which is used is a provider internal and OPEN (question 5).
 
-Subprocess rule (security): provider subprocess calls use fixed argument vectors, a timeout (Resibo uses 30 s for PowerShell and 10 s for `lspci`), no shell string building, and a missing tool degrades to "no facts" plus a `ProbeNote`, never a failed probe (Resibo: "degrade to zero detected GPUs rather than failing the whole profile").
+Subprocess rule (security): provider subprocess calls use fixed argument vectors, a timeout (30 s for PowerShell and 10 s for `lspci`, PROPOSED, Bazaar's design, not from Resibo), no shell string building, and a missing tool degrades to "no facts" plus a `ProbeNote`, never a failed probe.
 
 ### 5.3 Tiers and vocabulary
 
@@ -126,15 +126,15 @@ Resibo's three labels (`lightweight`, `balanced`, `maximum_accuracy`) exist to n
 - **Axes**: a profile is tiered per axis, because "good CPU, no GPU" is the normal case: `Compute` (CPU), `Memory`, `Graphics` (GPU for rendering), `Accelerator` (GPU and NPU for inference), `Storage`, `Virtualization` (VM capacity). Each consumer reads the axis it needs. A single `Overall` tier is the minimum of the axes the consumer lists, never a hidden average.
 - **Device class** (not a tier): `Server`, `Desktop`, `Phone`, `Tablet`. The Constellation budget table's "PC tier" and "phone tier" are the pair (class, Graphics tier); the mapping is in section 12.2.
 
-The tier table is **data**: a versioned JSON document `tier-table.json` shipped in the module and validated at start (thresholds per axis per tier, with a `calibration` field of `uncalibrated` or `bench:<report id>`). Resibo's scorer is a seam (`HardwareScorer`, `RecommendedTier.reasoned`) with the honest flag that its heuristic is not bench-calibrated; Bazaar keeps both: `IHardwareTierSource` is the seam and `TierReport.Calibrated` is false for the shipped table. The first shipped table is a reasoned heuristic in the same spirit as Resibo's three rules (a thread-and-RAM floor, then a RAM-plus-VRAM ceiling), with numbers marked uncalibrated. Calibration is a benchmark task (section 15), and calibrating a table is a new table version, not a code change.
+The tier table is **data**: a versioned JSON document `tier-table.json` shipped in the module and validated at start (thresholds per axis per tier, with a `calibration` field of `uncalibrated` or `bench:<report id>`). Resibo's deep-dive 11 section 5.4 describes the scorer as a function whose coefficients must come from bench data; Bazaar keeps that discipline: `IHardwareTierSource` is the seam and `TierReport.Calibrated` is false for the shipped table. The first shipped table is a reasoned heuristic (a thread-and-RAM floor, then a RAM-plus-VRAM ceiling; PROPOSED, Bazaar's design), with numbers marked uncalibrated. Calibration is a benchmark task (section 15), and calibrating a table is a new table version, not a code change.
 
 **Overrides.** An operator may pin an axis tier per device (`hardware.tier.override.<axis>`) because the heuristic can be wrong. An override changes defaults and advice only. It never raises a ledger capacity (section 7.2); it can lower one. Every override change is an audit event with a `Principal`.
 
 ### 5.4 Reports for accuracy (Resibo section 5.3)
 
-Resibo reads a CPU-Z or HWiNFO text report from `Documents` to correct GPU shader counts that WMI misreports, with consent asked in the wizard (`report_import.py`). Bazaar adopts this as the separate provider module `hardware-probe-report-import` with these changes:
+Resibo reads a CPU-Z or HWiNFO text report from `Documents` to correct GPU shader counts that WMI misreports, with consent asked in the wizard (deep-dive 11 section 5.3). Bazaar adopts this as the separate provider module `hardware-probe-report-import` with these changes:
 
-- It is off by default and enabled only through the setup plan or an audited setting, never silently. Resibo's developer-mode silent scan is not adopted; Bazaar has one consent path (privacy default, configurability rule).
+- It is off by default and enabled only through the setup plan or an audited setting, never silently. Bazaar has one consent path (privacy default, configurability rule).
 - It reads only the directories the operator lists (`hardware.report_import.paths`), not `Documents` by default.
 - Its claims have `Imported` confidence, the lowest, and set `Source = os_probe+external_report` style provenance in the profile so a profile always says how it was derived.
 - The parser is best-effort and never throws; an unparseable report changes nothing.
@@ -208,25 +208,25 @@ Kinds map to Bazaar's scarce things: `VramMb` for GPU inference and any server-s
 
 ### 6.2 Semantics carried from Resibo
 
-- **A rejection is a normal answer** (Resibo `reserve()` returns an outcome, nothing raises on the rejection path). The caller falls back (CPU, smaller VM, queue) rather than failing. `LeaseRejected` has no error code.
-- **Unknown pool means reject, fail closed.** Resibo's `NoHardwareProfile` reader publishes nothing, so every reservation is `UNKNOWN_DEVICE`; granting against an unknown ceiling is the unsafe answer and outranks degrade-gracefully. Bazaar keeps this: with no probe profile, every `Reserve` is `UnknownPool`. The VM lifecycle must treat that as "cannot start" unless the operator pinned capacities (`ledger.static_capacity`, the analogue of Resibo's `StaticHardwareProfile`, which is a real deployment shape: an operator pinning ceilings).
-- **TTL with heartbeat.** A lease expires unless its holder refreshes. Default TTL `ledger.lease_ttl_seconds` 120 (Resibo's starting value, which its own bench checklist still marks as unmeasured). Holders refresh at one third of the TTL.
-- **A lapsed lease is never revived.** `Refresh` on an expired lease throws `LeaseLapsedException`; the holder discovers it lost the claim and aborts or re-reserves. Silently extending would hand the same memory to two holders (Resibo section 11).
-- **Release is idempotent.** Releasing a released lease returns the stored record, so a retry after a dropped response cannot fail a cleanup path.
-- **Sweep before decide.** Every reserve sweeps expired leases first inside the same transaction, so a crashed holder's stale claim never refuses a live one. A periodic sweeper also runs for quiet systems (Resibo hands this to its background workers; Bazaar runs it as a hosted service in the module).
+- **A rejection is a normal answer** (Resibo's `core/health/CLAUDE.md`: a rejected reservation is not an error). The caller falls back (CPU, smaller VM, queue) rather than failing. `LeaseRejected` has no error code.
+- **Unknown pool means reject, fail closed.** Resibo's default hardware-profile reader publishes nothing, so every reservation is `UNKNOWN_DEVICE` (`core/health/CLAUDE.md`); granting against an unknown ceiling is the unsafe answer and outranks degrade-gracefully. Bazaar keeps this: with no probe profile, every `Reserve` is `UnknownPool`. The VM lifecycle must treat that as "cannot start" unless the operator pinned capacities (`ledger.static_capacity`, an operator pinning ceilings; PROPOSED, Bazaar's design).
+- **TTL with heartbeat.** A lease expires unless its holder refreshes. Default TTL `ledger.lease_ttl_seconds` 120 (PROPOSED, Bazaar's design; Resibo's deep-dive 20 locks its TTL as a reasoned placeholder and its bench checklist marks it unmeasured). Holders refresh at one third of the TTL.
+- **A lapsed lease is never revived.** `Refresh` on an expired lease throws `LeaseLapsedException`; the holder discovers it lost the claim and aborts or re-reserves. Silently extending would hand the same memory to two holders (Resibo deep-dive 20 section 11).
+- **Release is idempotent.** Releasing a released lease returns the stored record, so a retry after a dropped response cannot fail a cleanup path. PROPOSED (Bazaar's design, not from Resibo).
+- **Sweep before decide** (PROPOSED, Bazaar's design, not from Resibo). Every reserve sweeps expired leases first inside the same transaction, so a crashed holder's stale claim never refuses a live one. A periodic sweeper also runs for quiet systems (Bazaar runs it as a hosted service in the module).
 
 ### 6.3 Crash safety (what Resibo's in-memory ledger does not give)
 
-Resibo's ledger is an in-memory dictionary behind a lock in the Health process. If that process restarts, every lease is forgotten while the VRAM it described is still in use. Bazaar's server restarts too (updates, crashes; doc 46 designs for crash-only operation), and a VM that is still running after the server restarted is a real hazard. So the Bazaar ledger is **durable**:
+A ledger held only in process memory would forget every lease when the process restarts while the VRAM it described is still in use. Bazaar's server restarts too (updates, crashes; doc 46 designs for crash-only operation), and a VM that is still running after the server restarted is a real hazard. So the Bazaar ledger is **durable** (PROPOSED, Bazaar's design, not from Resibo):
 
 1. **Postgres is the source of truth.** Leases live in `resource_lease` (section 6.5). `Reserve` is one transaction: lock the pool row (`SELECT ... FOR UPDATE`), sweep expired leases for that pool, compute held units, insert the lease or return the rejection. The idempotency key has a unique index, so a retried call returns the same lease.
 2. **Fencing token.** Each pool has a monotonic `fence` counter, incremented on every grant. A lease carries its fence. Consumers that perform the guarded action present the fence (for example, the VM lifecycle passes it to the backend start call and records it in `environment_vm`), and a stale holder can be recognised after the fact. This follows the fencing pattern of doc 46 section 7.6.
 3. **Restart reconcile.** On server start, all `Active` leases become `Unconfirmed` and hold their capacity (so nothing new is over-granted) for `ledger.reconcile_grace_seconds` (default equal to the TTL). Each holder module re-confirms its leases through `IResourceReconciler` (the VM lifecycle compares against actual backend state, as doc 16's "host restart: reconcile database state against backend state" already requires). A lease that is re-confirmed returns to `Active` with a fresh TTL. A lease that is not confirmed in time is `Expired`, and if the holder is a VM that is in fact still running, the VM lifecycle quarantines it (doc 16: "a VM with no record is quarantined, never auto-deleted") instead of the ledger deleting anything. The ledger never kills a holder; it only stops counting its claim, and reports an `orphan.suspected` finding to Kodo so a human sees it.
 4. **Clock safety.** TTLs are computed from the database clock (`now()`), not from caller clocks, and tests inject a clock. A forward clock jump would expire leases early; the sweeper therefore refuses to expire more than `ledger.max_expire_burst` leases in one pass without raising a finding (a mass expiry is a clock fault until proven otherwise, and Kodo has a clock drift probe already).
-5. **Holder death while the server is fine.** The common case: a local inference session or a guest process dies. Its heartbeat stops and the TTL lapses, exactly Resibo's design. The VM lifecycle in particular does not rely on a heartbeat alone: it releases the lease in the same transition that moves the VM to `Stopped`, `Saved` or `Retired` (doc 16 lifecycle), and the TTL is the backstop.
-6. **Ledger unavailable.** If Postgres is down, `Reserve` returns `LedgerUnavailable`, which callers treat as a rejection (fail closed). Leases are not cached in memory as a substitute; a degraded in-memory mode was considered and rejected because it reproduces Resibo's restart hole.
+5. **Holder death while the server is fine.** The common case: a local inference session or a guest process dies. Its heartbeat stops and the TTL lapses, exactly the TTL design of Resibo's deep-dive 20 section 5.2. The VM lifecycle in particular does not rely on a heartbeat alone: it releases the lease in the same transition that moves the VM to `Stopped`, `Saved` or `Retired` (doc 16 lifecycle), and the TTL is the backstop.
+6. **Ledger unavailable.** If Postgres is down, `Reserve` returns `LedgerUnavailable`, which callers treat as a rejection (fail closed). Leases are not cached in memory as a substitute; a degraded in-memory mode was considered and rejected because it would lose leases on restart.
 
-Queueing (`LeaseMode.Queue`) is an addition Resibo does not have (Resibo callers fall back to CPU or queue on their own). It is useful for VM start storms: waiters are ordered by priority then arrival, each has a deadline, and a grant wakes the next waiter through Postgres NOTIFY (the channel `ledger_pool`, in line with doc 04 and CLAUDE.md's NOTIFY-for-fan-out rule). It is off by default (`ledger.queue_enabled` false) because a queue needs fairness policy that nobody has decided (question 4).
+Queueing (`LeaseMode.Queue`) is a Bazaar addition (Resibo's docs have callers fall back to CPU or queue on their own). It is useful for VM start storms: waiters are ordered by priority then arrival, each has a deadline, and a grant wakes the next waiter through Postgres NOTIFY (the channel `ledger_pool`, in line with doc 04 and CLAUDE.md's NOTIFY-for-fan-out rule). It is off by default (`ledger.queue_enabled` false) because a queue needs fairness policy that nobody has decided (question 4).
 
 ### 6.4 Capacity, headroom and overcommit
 
@@ -306,7 +306,7 @@ Keys follow doc 03 conventions, written to the audit log on change (doc 15). "Ti
 
 | Key | Type | Default | Scope | Notes |
 |---|---|---|---|---|
-| `ledger.lease_ttl_seconds` | int | 120 | install | Resibo's starting value; unmeasured |
+| `ledger.lease_ttl_seconds` | int | 120 | install | PROPOSED; Resibo's own TTL placeholder is unmeasured |
 | `ledger.reconcile_grace_seconds` | int | 120 | install | section 6.3 |
 | `ledger.max_expire_burst` | int | 5 | install | mass-expiry guard |
 | `ledger.queue_enabled` | bool | false | install | section 6.3 |
@@ -318,24 +318,24 @@ Keys follow doc 03 conventions, written to the audit log on change (doc 15). "Ti
 | `hardware.report_import.enabled` | bool | false | install | consent; section 5.4 |
 | `hardware.report_import.paths` | string list | empty | install | |
 | `hardware.drift.notify_severity` | enum | warn | install | lowest severity sent to channels |
-| `diag.window_size` | int | 64 | install | Resibo `DEFAULT_WINDOW_SIZE` |
+| `diag.window_size` | int | 64 | install | PROPOSED, Bazaar's design |
 | `diag.min_samples` | int | 5 | install | below this the class is `Indeterminate` |
-| `diag.cpu_bound_ratio` | decimal | 0.75 | install | Resibo `CPU_BOUND_RATIO` |
-| `diag.waiting_ratio` | decimal | 0.35 | install | Resibo `WAITING_RATIO` |
-| `diag.network_latency_ms` | int | 250 | install | Resibo `NETWORK_LATENCY_MS` |
-| `diag.memory_bound_rss_mb` | int | 256 | install | Resibo `MEMORY_BOUND_RSS_MB` |
-| `capability.check_interval_hours` | int | 6 | install | Resibo `periodic_check_interval_hours` |
+| `diag.cpu_bound_ratio` | decimal | 0.75 | install | PROPOSED, Bazaar's design |
+| `diag.waiting_ratio` | decimal | 0.35 | install | PROPOSED, Bazaar's design |
+| `diag.network_latency_ms` | int | 250 | install | PROPOSED, Bazaar's design |
+| `diag.memory_bound_rss_mb` | int | 256 | install | PROPOSED, Bazaar's design |
+| `capability.check_interval_hours` | int | 6 | install | Resibo `periodic_check_interval_hours: 6` (deep-dive 20 section 7) |
 | `capability.check_on_start` | bool | true | install | not loosenable (always on at start; the setting only controls the periodic job) |
 
 ## 7. Live diagnostic
 
-Resibo's `LiveDiagnostic` runs the bench suite's wall-time, CPU-time and RSS classification against real traffic to catch **soft degradation**: an engine that is normally CPU-bound behaving as if network-bound (a fallback to a slower path, a throttling GPU) passes every up or down check (`live_diagnostic.py`; deep-dive section 3).
+Resibo's `LiveDiagnostic` runs the bench suite's wall-time, CPU-time and RSS classification against real traffic to catch **soft degradation**: an engine that is normally CPU-bound behaving as if network-bound (a fallback to a slower path, a throttling GPU) passes every up or down check (deep-dive 20 section 3).
 
 ### 7.1 Adopted as is
 
 - Classes: `CpuBound`, `IoBound`, `NetworkBound`, `MemoryBound`, `Negligible`, `Indeterminate`.
 - Median over a bounded window (default 64), not a mean, so one cold start cannot reclassify an operation. Fewer than 5 samples is `Indeterminate`, never a guess.
-- Baselines are **declared**, not learned. If the detector learned its own baseline, a slow degradation would become the new normal, which is the exact failure it exists to catch (Resibo docstring).
+- Baselines are **declared**, not learned. If the detector learned its own baseline, a slow degradation would become the new normal, which is the exact failure it exists to catch (PROPOSED, Bazaar's design, not from Resibo).
 - A clean finding is returned too (`degraded=false`), so an operator can tell "checked and fine" from "the detector stopped running".
 - `Record` never throws and never blocks on more than its own lock. It is called from hot paths of other modules.
 - Classification order: negligible wall time, then memory-bound by RSS delta, then CPU ratio against the two thresholds, with wall time separating IO from network. Thresholds are the settings in 6.6.
@@ -344,8 +344,8 @@ Resibo's `LiveDiagnostic` runs the bench suite's wall-time, CPU-time and RSS cla
 
 - **Samples are an in-memory ring per operation, findings are persisted.** Raw samples are high volume and carry no need for durability; rolled-up findings go to `diagnostic_finding` and to Kodo.
 - **Measuring CPU time per operation in .NET is not free.** Resibo measures a Python function. In .NET an `async` operation hops threads, so process-wide CPU deltas over-attribute and `Thread` CPU time under-attributes. Bazaar therefore defines the sample source per caller: in-process callers measure with `Stopwatch` and `GC.GetAllocatedBytesForCurrentThread` as a proxy for RSS delta, and mark the sample `Approximate`; out-of-process holders (the guest agent measuring an exec's process tree, a sidecar) report exact CPU and RSS. The classifier treats an approximate sample set as lower confidence in its finding detail. Whether the approximation is good enough is OPEN (question 7); the benchmark harness decides.
-- **Baselines can come from two places and the two never mix.** `declared` baselines are Resibo's behaviour and the default. Kodo's learned per-install baselines and drift (doc 46 section 13.3) track numeric series (latency, queue depth). They answer a different question and this module does not duplicate them. A finding from this module is a categorical flag (class changed) and goes into Kodo as an observation; Kodo's predictor handles trends. There is no overlap to remove, but the doc states it so nobody adds a learned baseline here.
-- **What gets recorded** (initial operation set, each registered by its owning module in its manifest): VM exec (`vms.exec`), VM start and save timings (`vms.start`), local inference tasks per `LocalTaskKind` (`local.chip_summary` and so on), gateway calls (`gateway.call`, expected network-bound), Constellation tile build (`constellation.tile_build`), Postgres hot queries on request. Each module declares its baseline in its manifest `diagnostics` block; the module with the work owns the number, matching Resibo's rule that the expensive part belongs to whichever API does the work, not to Health.
+- **Baselines can come from two places and the two never mix.** `declared` baselines are the default (PROPOSED, Bazaar's design). Kodo's learned per-install baselines and drift (doc 46 section 13.3) track numeric series (latency, queue depth). They answer a different question and this module does not duplicate them. A finding from this module is a categorical flag (class changed) and goes into Kodo as an observation; Kodo's predictor handles trends. There is no overlap to remove, but the doc states it so nobody adds a learned baseline here.
+- **What gets recorded** (initial operation set, each registered by its owning module in its manifest): VM exec (`vms.exec`), VM start and save timings (`vms.start`), local inference tasks per `LocalTaskKind` (`local.chip_summary` and so on), gateway calls (`gateway.call`, expected network-bound), Constellation tile build (`constellation.tile_build`), Postgres hot queries on request. Each module declares its baseline in its manifest `diagnostics` block; the module with the work owns the number, matching Resibo's deep-dive 20 split in which Health reports and the API doing the work owns its own numbers.
 - **No content, ever.** A sample carries service, operation, three numbers, a timestamp and an optional `Principal` for the agent whose work it was (so a slow agent VM can be found). No arguments, output or paths.
 
 ```csharp
@@ -384,7 +384,7 @@ public interface ICapabilityCheck
 }
 ```
 
-Resibo returns nothing for an unrunnable probe. Bazaar changes that to an explicit `NotRun` finding that is stored and shown, because Kodo's rule is that `unknown` is never green and an operator should see which checks are not running. `null` is reserved for "this check does not apply here" (for example a Windows-only check on Linux).
+Resibo's deep-dive 20 section 4 states that a check which could not run reports nothing. Bazaar changes that to an explicit `NotRun` finding that is stored and shown, because Kodo's rule is that `unknown` is never green and an operator should see which checks are not running. `null` is reserved for "this check does not apply here" (for example a Windows-only check on Linux).
 
 Bazaar's initial checks (all PROPOSED), each an example of a graceful fallback that can stay degraded forever:
 
@@ -400,7 +400,7 @@ Bazaar's initial checks (all PROPOSED), each an example of a graceful fallback t
 
 CLAUDE.md's forward-compatibility rule says never to add code paths for older runtimes; the `runtime.*` checks therefore detect an install that is running on an older runtime, not shims in code. A shim registration is accepted only where a platform genuinely forces a fallback (an NPU path, a Vulkan path, a driver band).
 
-**Hardware drift** (new; Resibo has no equivalent because its hardware profile is written once). On each probe the new profile is diffed against the stored one by `DeviceKey`:
+**Hardware drift** (new; Resibo's docs describe the profile as produced once or on explicit re-detection, deep-dive 11 section 6). On each probe the new profile is diffed against the stored one by `DeviceKey`:
 
 | Drift kind | Example | Default severity |
 |---|---|---|
@@ -552,23 +552,23 @@ Doc 31 fixes the chain per OS (Windows: OpenVINO NPU, then OpenVINO GPU, then OR
 
 | Resibo item | Where | Taken | Changed for Bazaar and why |
 |---|---|---|---|
-| Static `HardwareProfile` and `GpuInfo`, platform-dispatch detection | `services/setup/hardware/detect.py`, deep-dive 11 section 5.1 | CPU/RAM/GPU/NPU facets, parse-separate-from-I/O, graceful degradation per tool | Per-OS selection replaced by facet provider modules (no selector, owner direction); stable device keys instead of names; added disks, virtualization, power, thermal |
-| VRAM gotcha: registry beats `AdapterRAM` | `detect.py` `_resolve_vram_gb`, deep-dive 11 section 5.2 | the rule, as `ClaimConfidence` ordering | generalised to all attributes, conflicts recorded as notes |
-| Discrete versus integrated classification, compute API mapping | `detect.py` `_classify_*` | Arc versus generic "Intel(R) Graphics" rule, vendor mapping | `compute_api` becomes a facet with Windows ML and Vulkan values; DirectML is not an NPU path (doc 31) |
-| Single-object-or-list normalisation | `detect.py` `_normalize_to_list` | taken as a provider-internal test case | prefer managed CIM over PowerShell where available |
-| External report import (CPU-Z, HWiNFO) | `report_import.py`, deep-dive 11 section 5.3 | best-effort parse, merge across files, provenance in `source` | separate provider module, off by default, one consent path, operator-listed paths only |
-| Tier recommendation | `scoring.py`, deep-dive 11 section 5.4 | seam plus honest `reasoned` flag, calibrate from bench data | per-axis tiers and a data table instead of one three-label function; Bazaar-specific vocabulary |
-| Live VRAM ledger with TTL | `core/health/resource_ledger.py`, deep-dive 20 section 5 | outcome-not-error rejection, fail closed on unknown device, TTL with heartbeat, no revival of a lapsed lease, idempotent release, sweep before decide, injected clock | durable in Postgres, fencing token, restart reconcile, `Principal` holders, more resource kinds, optional queue, headroom and overcommit; because Bazaar restarts and runs VMs that outlive a process |
-| Live diagnostic | `core/health/live_diagnostic.py`, deep-dive 20 section 3 | classes, medians, declared baselines, indeterminate under 5 samples, never-throw `record`, clean findings reported | in-memory sample rings, persisted findings, approximate-sample flag for .NET async, no content in samples |
-| Capability drift check | `core/health/capability_drift.py`, deep-dive 20 section 4 | registry of checks, a clean result is reported, "register your check in the PR that adds a shim" | explicit `NotRun`, Bazaar checks (EP, renderer, runtime, driver), plus hardware drift diff which Resibo lacks |
+| Static `HardwareProfile` and `GpuInfo`, platform-dispatch detection | deep-dive 11 section 5.1 | CPU/RAM/GPU/NPU facets, parse-separate-from-I/O, graceful degradation per tool | Per-OS selection replaced by facet provider modules (no selector, owner direction); stable device keys instead of names; added disks, virtualization, power, thermal |
+| VRAM gotcha: registry beats `AdapterRAM` | deep-dive 11 section 5.2 | the rule, as `ClaimConfidence` ordering | generalised to all attributes, conflicts recorded as notes |
+| Discrete versus integrated classification, compute API mapping | deep-dive 11 section 5.2 | Arc versus generic "Intel(R) Graphics" rule, vendor mapping | `compute_api` becomes a facet with Windows ML and Vulkan values; DirectML is not an NPU path (doc 31) |
+| Single-object-or-list normalisation | deep-dive 11 section 5.1 | taken as a provider-internal test case | prefer managed CIM over PowerShell where available |
+| External report import (CPU-Z, HWiNFO) | deep-dive 11 section 5.3 | best-effort parse, merge across files, provenance in `source` | separate provider module, off by default, one consent path, operator-listed paths only |
+| Tier recommendation | deep-dive 11 section 5.4 | calibrate from bench data, never invent coefficients | per-axis tiers and a data table instead of one three-label function; Bazaar-specific vocabulary |
+| Live VRAM ledger with TTL | `core/health/CLAUDE.md`, deep-dive 20 section 5 | outcome-not-error rejection, fail closed on unknown device, TTL with heartbeat, no revival of a lapsed lease | durable in Postgres, fencing token, restart reconcile, `Principal` holders, more resource kinds, optional queue, headroom and overcommit; because Bazaar restarts and runs VMs that outlive a process |
+| Live diagnostic | deep-dive 20 section 3 | wall-time, CPU-time and RSS classification of real traffic, clean findings reported | Bazaar's own details (declared baselines, an indeterminate class under 5 samples, never-throw `record`; PROPOSED), in-memory sample rings, persisted findings, approximate-sample flag for .NET async, no content in samples |
+| Capability drift check | deep-dive 20 section 4; `core/health/CLAUDE.md` | registry of checks, a clean result is reported, "register your check in the PR that adds a shim" | explicit `NotRun`, Bazaar checks (EP, renderer, runtime, driver), plus hardware drift diff which Resibo lacks |
 | Pre-stable bench validation | `docs/PRE_STABLE_BENCH_VALIDATION.md` | the discipline: provisional defaults are listed, labelled, and closed by measurement before a Stable tag; Part 2 items (TTL default, scoring coefficients) apply here | Bazaar's lanes are hardware-only; there are no receipt scans. The "never fabricate input" rule is restated as: never invent benchmark numbers; the owner's PC and an Android device supply them (section 15 package 10) |
 
-Not taken: Resibo's per-service venv provisioning (Python-specific), the TUI wizard (Bazaar's setup is doc 45), and its in-memory-only ledger.
+Not taken: Resibo's per-service venv provisioning (Python-specific), the TUI wizard (Bazaar's setup is doc 45).
 
 ## 14. Testing (xUnit v3; Avalonia.Headless for UI)
 
 - **Facet merge**: conflict resolution by confidence, no averaging, absent stays absent, the Resibo 12 GB card case (registry 12.78 GB beats AdapterRAM 2.0 GB), claim conflict note emitted.
-- **Parsers**: synthetic WMI JSON including the single-GPU bare-object case and the zero-GPU case; `/proc/cpuinfo` with and without `physical id`; `lspci` fixture; the Arrow Lake "Intel(R) Graphics" integrated string and an "Intel Arc" discrete string; report import fixtures including a block where name and count appear in either order (Resibo found this was a real bug).
+- **Parsers**: synthetic WMI JSON including the single-GPU bare-object case and the zero-GPU case; `/proc/cpuinfo` with and without `physical id`; `lspci` fixture; the Arrow Lake "Intel(R) Graphics" integrated string and an "Intel Arc" discrete string; report import fixtures including a block where name and count appear in either order.
 - **Providers**: each provider module runs against a fake command runner; real hardware lanes (Windows NUC, Arc B580 desktop, one Android device) are manual or nightly, recorded not gated, like doc 31's.
 - **Tiering**: table validation, boundary values, `Floor` for missing facts, override audit, tier never above what the ledger can grant.
 - **Ledger** (real Postgres lane plus an in-memory fake with the same contract tests): capacity arithmetic, rejection as a value, unknown pool rejection, idempotent reserve under a concurrent retry, concurrent reserves never oversubscribe (parallel stress with N holders), TTL expiry with an injected clock, refresh of a lapsed lease throws, release is idempotent, sweep-before-decide, restart reconcile (leases `Unconfirmed` hold capacity, confirm and expire paths), mass-expiry guard, fence monotonic, `LedgerUnavailable` is a rejection, holder mismatch on refresh refused, force release needs the permission.

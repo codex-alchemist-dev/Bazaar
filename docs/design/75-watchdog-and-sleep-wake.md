@@ -57,7 +57,7 @@ Core additions (section 5.1) land in `Bazaar.Core` as kernel lifecycle code, not
 
 ### 5.1 Core lifecycle hooks: ordered launch, readiness gating, single instance, boot report
 
-Resibo's supervisor launches services in dependency order, waits for each service's first health check, fails closed, and reports progress to a boot screen (`supervisor/boot_sequence.py`: `topological_order`, `launch_one`, `boot_many` with `on_result`). Bazaar already has half of this: `ComponentGraph` validates hard edges and orders start (`src/Bazaar.Core`), and BAZAAR-COMPONENTS section 4.1 says readiness gates follow hard edges. What is missing is the gate itself, and a record of what happened. These are Core hooks, not a new module.
+Resibo's supervisor launches services in dependency order, waits for each service's first health check, fails closed, and reports progress to a boot screen (`supervisor/CLAUDE.md`, deep-dive 38 section 5). Bazaar already has half of this: `ComponentGraph` validates hard edges and orders start (`src/Bazaar.Core`), and BAZAAR-COMPONENTS section 4.1 says readiness gates follow hard edges. What is missing is the gate itself, and a record of what happened. These are Core hooks, not a new module.
 
 PROPOSED additions to `Bazaar.Core` (additive; existing `IBazaarComponent` is unchanged):
 
@@ -96,18 +96,18 @@ public interface IInstanceLock
 
 Rules:
 
-1. **Order and parallelism.** Start order is the existing topological order over hard edges. Components in the same topological level start concurrently, bounded by `core.boot.max_parallel` (default 4). Resibo launches strictly one at a time; Bazaar can overlap independent branches because components share one process and the cost is only startup latency. Ties still break by id so the report is stable.
-2. **Readiness gate.** After a component's `StartAsync`, the kernel polls its `IComponentReadiness` until ready or `core.boot.ready_timeout_seconds` (default 30, Resibo's `DEFAULT_HEALTH_TIMEOUT_SECONDS`). Dependents that hard-depend on it start only after it is ready.
+1. **Order and parallelism.** Start order is the existing topological order over hard edges. Components in the same topological level start concurrently, bounded by `core.boot.max_parallel` (default 4). Bazaar can overlap independent branches (PROPOSED, Bazaar's design, not from Resibo) because components share one process and the cost is only startup latency. Ties still break by id so the report is stable.
+2. **Readiness gate.** After a component's `StartAsync`, the kernel polls its `IComponentReadiness` until ready or `core.boot.ready_timeout_seconds` (default 30, PROPOSED, Bazaar's design, not from Resibo). Dependents that hard-depend on it start only after it is ready.
 3. **Failure.** A component that does not become ready is `Failed`. Every component that hard-depends on it, directly or not, is `Blocked` and never started. Components on other branches continue. A soft dependency that fails never blocks (the dependent reports amber, per BAZAAR-COMPONENTS 4.1). If the failed component is one doc 03 step 5 treats as required (a required readiness role), the host refuses to start, as doc 03 already says. Resibo stops at the first failure of any kind; Bazaar narrows that to the failed branch because a broken optional module should not take down GCs. Fail closed still holds for hard edges and required roles.
 4. **Reporting.** Every step change calls each registered `IBootObserver` and updates `IBootReportSource`. The report is read-only data: Kodo reads it for `host.ready` context, the Watchdog module exposes it on its read API (5.2), and the server admin panel (doc 51) can show a boot progress view. A boot screen in a client is a presentation of this report, never its own logic.
 5. **Stop.** Reverse order, each component's `StopAsync` bounded by doc 03's `host.shutdown_timeout_seconds`. Crash-only holds: nothing may rely on `StopAsync` having run (doc 46 section 7.2).
 6. **Single instance.** `IInstanceLock` generalises doc 03's lock into named scopes. `host` is doc 03's existing Postgres advisory lock and stays authoritative for the server. A module that launches an out-of-process service takes scope `module:<id>` (or `module:<id>:<version>` for multi-instance, section 5.9) before spawning; a second attempt fails with a clear reason instead of starting a duplicate. Managed Postgres (doc 42 section 6.2) is the obvious first user: the host owns one handle and the lock makes a duplicate start impossible even from a second host process.
 
-Where Resibo's `single_instance.py` restart-on-version applies, see 5.8.
+Where Resibo's single-instance restart-on-version (deep-dive 38 section 5.4) applies, see 5.8.
 
 ### 5.2 Watchdog module
 
-Resibo model (doc `v3-deepdive-34-watchdog.md`, code `core/health/watchdog/`): inversion of control (services call in, the watchdog never reaches into a service), `Heartbeat(service, instance_id, version_commit, kicked_at)`, `check_for_silence()` on its own interval, a global timeout with per-service overrides, `UNSEEN` distinct from `SILENT`, version tracking riding the heartbeat only, and **no restart anywhere in the package**: the detector is deliberately not the code that acts.
+Resibo model (doc `v3-deepdive-34-watchdog.md`, `core/health/watchdog/CLAUDE.md`): inversion of control (services call in, the watchdog never reaches into a service), `Heartbeat(service, instance_id, version_commit, kicked_at)`, `check_for_silence()`, a global timeout with per-service overrides, and **no restart anywhere in the package**: the detector is deliberately not the code that acts.
 
 #### Contracts (`Bazaar.Server.Watchdog.Abstractions`)
 
@@ -174,19 +174,19 @@ Event kinds: `silent`, `recovered`, `unseen_expired` (a registered service never
 
 #### Behaviour
 
-- **Kick path.** In-process services call `IWatchdogClient.Kick` directly from their own loop (turn runner, job poller, GC NOTIFY listener, scheduler). The registry is a concurrent map keyed by `(serviceId, instanceId)`; instance id is part of the key so a healthy new instance cannot vouch for a hung old one during an A/B or multi-version overlap (Resibo `KickRegistry`). The map is in memory only. A kick does no database or file I/O.
+- **Kick path.** In-process services call `IWatchdogClient.Kick` directly from their own loop (turn runner, job poller, GC NOTIFY listener, scheduler). The registry is a concurrent map keyed by `(serviceId, instanceId)`; instance id is part of the key so a healthy new instance cannot vouch for a hung old one during an A/B or multi-version overlap (PROPOSED, Bazaar's design; Resibo's `KickRegistry` is an internal mutable map). The map is in memory only. A kick does no database or file I/O.
 - **Out-of-process kicks.** Dependencies and sidecars (managed Postgres supervisor, FreeLLMAPI sidecar, engine bridges, the VM guest agent of doc 16) kick over an authenticated loopback endpoint of the wire surface (doc 02). Each launched service receives a per-instance kick token from Identity (doc 14) through the same channel doc 42 uses for database credentials (never a command-line argument). Transport (HTTP or named pipe) is OPEN (Q3). A service that cannot call in cannot be hang-detected; it remains covered by Kodo's pull probes and the host's process supervision.
-- **Detector.** One hosted service runs `Check()` every `watchdog.check_interval_seconds` (default 5). An instance silent longer than its timeout becomes `Silent` and publishes one `silent` event per transition (not per tick). `Unseen` is never `Silent`: a service that has not started is not one that stopped, and restarting a never-started service acts on a fiction (Resibo `state_for`). `Unseen` becomes an `unseen_expired` event only after the startup grace.
-- **Starting and Suspended.** Bazaar adds two states Resibo lacks, needed once services can sleep and start late. `Starting` covers a new or just-woken instance until its first kick or the startup grace ends. `Suspended` is set through `IWatchdogSuspension` by SleepWake (or a host shutdown) and is never reported silent.
-- **Timeouts.** Default kick interval 15 seconds and timeout 60 seconds, as in Resibo. Per-service override map (Resibo's resolution of its open question: model load needs a longer cycle than a light heartbeat). Floor: timeout is never below twice the kick interval (PROPOSED).
-- **Version tracking.** The heartbeat carries the version; no other message does (Resibo section 5). `FleetVersions()` returns more than one version per service during a hot swap; that is information, not a conflict. Version strings are Bazaar's `0.MM.PP+commit` form.
+- **Detector.** One hosted service runs `Check()` every `watchdog.check_interval_seconds` (default 5). An instance silent longer than its timeout becomes `Silent` and publishes one `silent` event per transition (not per tick). `Unseen` is never `Silent`: a service that has not started is not one that stopped, and restarting a never-started service acts on a fiction (PROPOSED, Bazaar's design, not from Resibo). `Unseen` becomes an `unseen_expired` event only after the startup grace.
+- **Starting and Suspended.** Bazaar adds states beyond Resibo's documented ones (silent and alive), needed once services can sleep and start late. `Starting` covers a new or just-woken instance until its first kick or the startup grace ends. `Suspended` is set through `IWatchdogSuspension` by SleepWake (or a host shutdown) and is never reported silent.
+- **Timeouts.** Default kick interval 15 seconds and timeout 60 seconds, as in Resibo's deep-dive 34 section 8. Per-service override map (Resibo's resolution of its open question: model load needs a longer cycle than a light heartbeat). Floor: timeout is never below twice the kick interval (PROPOSED).
+- **Version tracking.** The heartbeat carries the version; no other message does (Resibo deep-dive 34 section 3). `FleetVersions()` returns more than one version per service during a hot swap; that is information, not a conflict. Version strings are Bazaar's `0.MM.PP+commit` form.
 - **No actor.** `Bazaar.Server.Watchdog` has no restart, kill or start method, and an architecture test asserts it references no process API and no service-host provider (section 9). Detector and actor stay separate so the code deciding "restart this" is never the code that may itself be hung. The actors are: Kodo's Responder through approval-gated runbooks (doc 46 section 16.2), the host's supervision of its own children (doc 42 section 6.2) and the sentinel (doc 46 section 7.1).
 - **The detector watches itself.** Its loop stamps `LastCheckAt`; `LivenessAsync` fails if that is older than three check intervals, and a `detector_stalled` event is raised by the next successful pass. Kodo's pull probe on the Watchdog module therefore catches a stalled detector.
 - **Read API.** Under the authenticated surface, `GET /api/watchdog/v1/state`, `/silence`, `/versions`, `/boot`. Read-only; nothing here mutates.
 
 ### 5.3 SleepWake module
 
-Resibo model (`v3-deepdive-38-supervisor.md` section 6, `supervisor/sleep_wake/`): a `SleepPolicy` of `NEVER`, `IDLE_TIMEOUT` or `SCHEDULED_ONLY`; a static classification table that defaults every unclassified service to `NEVER` (fail closed); in-memory live state; a schedule table for timed wakes; `ForceWake` audited; Linux wake by systemd socket activation, Windows wake by a custom activation proxy.
+Resibo model (`v3-deepdive-38-supervisor.md` section 6, `supervisor/sleep_wake/`): a `SleepPolicy` of `NEVER`, `IDLE_TIMEOUT` or `SCHEDULED_ONLY`; a static classification table of sleep candidates, with Auth, Gateway, Health, Persistence, Logs and Watchdog never sleeping; a schedule for timed wakes; `ForceWake` audited; Linux wake by systemd socket activation, Windows wake by a custom activation proxy.
 
 #### Contracts (`Bazaar.Server.SleepWake.Abstractions`)
 
@@ -201,7 +201,7 @@ public sealed record SleepProfile(
     string ModuleId,
     IReadOnlySet<SleepPolicy> Allowed,       // empty = never sleepable
     SleepPolicy DefaultPolicy,               // shipped default; Never unless the module says otherwise
-    TimeSpan DefaultIdleTimeout,             // 30 minutes, Resibo idle_timeout_minutes
+    TimeSpan DefaultIdleTimeout,             // 30 minutes, Resibo `idle_timeout_minutes: 30` (deep-dive 38)
     TimeSpan DrainTimeout,
     IReadOnlyList<ActivationMode> Activation);
 
@@ -260,17 +260,17 @@ public sealed record ActivationSpec(string ServiceId, string ListenAddress, stri
 
 #### State machine
 
-`Running` to `Draining` when the idle timer expires (or a schedule says stop, or `SleepNowAsync`) and no `ISleepGuard` vetoes. `Draining` stops new work, waits for in-flight work up to `DrainTimeout`, then `StopAsync`, then `Sleeping`. A wake trigger moves `Sleeping` to `Waking`, which runs `StartAsync` then polls `IsReadyAsync` up to `sleepwake.wake_timeout_seconds` (default 30, Resibo `DEFAULT_WAKE_TIMEOUT_SECONDS`), then `Running`. A failed wake becomes `Failed`, publishes an event and an audit entry, and the service is not retried automatically more than `sleepwake.wake_retry_max` times (PROPOSED, default 2). `NeverSleeps` is a fixed state for anything the profile does not allow.
+`Running` to `Draining` when the idle timer expires (or a schedule says stop, or `SleepNowAsync`) and no `ISleepGuard` vetoes. `Draining` stops new work, waits for in-flight work up to `DrainTimeout`, then `StopAsync`, then `Sleeping`. A wake trigger moves `Sleeping` to `Waking`, which runs `StartAsync` then polls `IsReadyAsync` up to `sleepwake.wake_timeout_seconds` (default 30, PROPOSED, Bazaar's design, not from Resibo), then `Running`. A failed wake becomes `Failed`, publishes an event and an audit entry, and the service is not retried automatically more than `sleepwake.wake_retry_max` times (PROPOSED, default 2). `NeverSleeps` is a fixed state for anything the profile does not allow.
 
 #### Policy rules
 
-- **Fail closed.** A service with no registered profile, or whose profile allows nothing, is `NeverSleeps` (Resibo classification default). An operator setting can move a service to a policy the module allows; it can never enable sleep on a module that did not declare it.
-- **Floor, not a setting.** These never sleep: `watchdog`, `sleep-wake`, `kodo` and its sentinel, `identity`, `audit`, the GC log writer, the managed database and the cache/presence provider. Resibo's list is Auth, Gateway, Health, Persistence, Logs and Watchdog (`sleep_wake/classification.py`); the Bazaar equivalents are the hot-path and monitoring components. Sleeping managed Postgres on a fully idle install was considered and is REJECTED for v1: every GC append, NOTIFY listener, agent lease and Kodo journal write needs it, and agents have schedules (work-life simulation), so it is never truly idle.
-- **Guards.** Resibo sleeps on a last-activity timestamp alone. Bazaar also consults guards, so a service holding an agent lease (doc 06 `agent_lease`), a job lease (doc 03 `job`) or an in-flight request cannot be slept mid-work. Activity is reported by the module, by the activation endpoint's connection count, and by lease holders.
+- **Fail closed.** A service with no registered profile, or whose profile allows nothing, is `NeverSleeps` (fail closed; PROPOSED, Bazaar's design). An operator setting can move a service to a policy the module allows; it can never enable sleep on a module that did not declare it.
+- **Floor, not a setting.** These never sleep: `watchdog`, `sleep-wake`, `kodo` and its sentinel, `identity`, `audit`, the GC log writer, the managed database and the cache/presence provider. Resibo's list is Auth, Gateway, Health, Persistence, Logs and Watchdog (deep-dive 38 section 6.2); the Bazaar equivalents are the hot-path and monitoring components. Sleeping managed Postgres on a fully idle install was considered and is REJECTED for v1: every GC append, NOTIFY listener, agent lease and Kodo journal write needs it, and agents have schedules (work-life simulation), so it is never truly idle.
+- **Guards.** Bazaar consults guards (PROPOSED, Bazaar's design, not from Resibo), so a service holding an agent lease (doc 06 `agent_lease`), a job lease (doc 03 `job`) or an in-flight request cannot be slept mid-work. Activity is reported by the module, by the activation endpoint's connection count, and by lease holders.
 - **Wake storms.** A service that wakes more than `sleepwake.max_wakes_per_hour` (default 12) is pinned awake and an event is raised, so a flapping client cannot start-stop a heavy process in a loop (the same idea as doc 06's `runtime.guard.wakes_per_hour`). Pinning awake is reported, never silent.
 - **Dependency wake.** Waking a service first wakes any of its sleeping hard dependencies, in the Core graph's order (5.1). A hard dependency that fails to wake leaves the dependent `Failed` with the cause named.
-- **Schedules.** Resibo's schedule table (service to next wake, checked on a short interval) is kept: `sleep_schedule` rows with `daily_at`, `interval` and `once` kinds, checked every `sleepwake.schedule_tick_seconds` (default 30). Missed wakes do not catch up in a burst (Resibo task-scheduler rule: a missed run waits for the next occurrence). An optional daily maintenance time staggers log rotation and then scheduled wakes a few minutes apart (Resibo `daily_maintenance_time`). Cron expressions are not in v1 because a cron parser would be a new dependency; a later module can supply them (Q5).
-- **Coalescing.** Concurrent `EnsureAwakeAsync` calls for one service share one start and one wait (Resibo `ActivationProxy._waking_lock`).
+- **Schedules.** Resibo's schedule table (service to next wake, checked on a short interval) is kept: `sleep_schedule` rows with `daily_at`, `interval` and `once` kinds, checked every `sleepwake.schedule_tick_seconds` (default 30). Missed wakes do not catch up in a burst (Resibo task-scheduler rule, `core/task_scheduler/CLAUDE.md`: a missed run waits for the next occurrence). An optional daily maintenance time staggers log rotation and then scheduled wakes a few minutes apart (Resibo `daily_maintenance_time`, deep-dive 38 section 6.5). Cron expressions are not in v1 because a cron parser would be a new dependency; a later module can supply them (Q5).
+- **Coalescing.** Concurrent `EnsureAwakeAsync` calls for one service share one start and one wait (PROPOSED, Bazaar's design, not from Resibo).
 
 #### What can sleep (candidates, PROPOSED)
 
@@ -288,11 +288,11 @@ public sealed record ActivationSpec(string ServiceId, string ListenAddress, stri
 
 ### 5.4 Activation providers (separate modules)
 
-Resibo needs a wake trigger that works while the service is not running: on Linux, systemd socket activation; on Windows, a hand-built always-resident relay, because "no OS primitive exists" (`supervisor/sleep_wake/`). Resibo's own notes say the Linux runtime socket passing is unverified and the Windows relay is live-confirmed. Bazaar's rules (one OS-agnostic build; OS-specific code behind providers; host owns child processes, doc 42 section 6.2) make both providers rather than core code.
+Resibo needs a wake trigger that works while the service is not running: on Linux, systemd socket activation; on Windows, a hand-built always-resident relay, because "no OS primitive exists" (deep-dive 38 section 6.3). Resibo's `supervisor/CLAUDE.md` says the Linux runtime socket passing is unverified and the Windows relay is live-confirmed. Bazaar's rules (one OS-agnostic build; OS-specific code behind providers; host owns child processes, doc 42 section 6.2) make both providers rather than core code.
 
 **`Bazaar.Server.SleepWake.ActivationProxy`** (`ActivationMode.Relay`). A managed `System.Net.Sockets` loopback listener on the service's public address. On the first connection while the target is not reachable it calls `ISleepCoordinator.EnsureAwakeAsync(..., WakeReason.Request, Principal service:activation-proxy)`, then relays bytes both ways to the target address; later connections relay immediately. The relay holds the connection while `Waking`, bounded by `wake_timeout_seconds`, and closes it with a clear error on timeout. It has no OS API, no third-party dependency, and runs on every OS; it is first tested on Windows because that is the first supported host (CLAUDE.md). It counts connections as `ActivityKind.Request`. Bind is loopback only, never wider, a floor not a setting.
 
-**`Bazaar.Server.SleepWake.Systemd`** (`ActivationMode.SocketUnit`). Generates a `.socket` and a paired unit for the `systemd-socket-proxyd` shape (the fallback Resibo names), not runtime socket passing to the service, because Resibo's socket-passing path is unverified (Resibo `supervisor/CLAUDE.md`) and because the host must remain the owner of the real process handle (doc 42 section 6.2). The proxy unit's pre-start step runs the host's local `wake <serviceId>` command, which calls the coordinator; systemd then forwards traffic to the already-started child. Unit text generation is pure and unit-tested; installing units needs the same privilege step as doc 03's systemd unit and is OPEN for unprivileged installs (Q6). `ProbeAsync` reports unavailable on a host without a responsive `systemctl`, as Resibo's `is_systemd_available()` does.
+**`Bazaar.Server.SleepWake.Systemd`** (`ActivationMode.SocketUnit`). Generates a `.socket` and a paired unit for the `systemd-socket-proxyd` shape (the fallback Resibo names), not runtime socket passing to the service, because Resibo's socket-passing path is unverified (Resibo `supervisor/CLAUDE.md`) and because the host must remain the owner of the real process handle (doc 42 section 6.2). The proxy unit's pre-start step runs the host's local `wake <serviceId>` command, which calls the coordinator; systemd then forwards traffic to the already-started child. Unit text generation is pure and unit-tested; installing units needs the same privilege step as doc 03's systemd unit and is OPEN for unprivileged installs (Q6). `ProbeAsync` reports unavailable on a host without a responsive `systemctl`, as Resibo's `supervisor/CLAUDE.md` describes for its own systemd probe.
 
 Both providers register as plain modules. SleepWake receives all registered providers; each `SleepProfile` lists the modes it can use in preference order, and SleepWake picks the first mode that has a usable provider. A service whose only mode has no usable provider is `NeverSleeps` and says so in its status, so a missing provider degrades sleeping, never availability.
 
@@ -322,7 +322,7 @@ The same stub idea fixes an existing gap: doc 46's `agents.vm.<vm>.reachable` pr
 
 ### 5.7 Self-update and re-exec: mapped to Kodo's slot model
 
-Resibo's supervisor cannot update itself the way it updates everything else, so it uses a two-phase re-exec: stage the new build where the running supervisor does not touch; launch it with `--smoke-test` (read config, locate releases, report healthy, touch no live state); hand off only on a pass; otherwise the old one keeps running untouched; owner confirmation is mandatory and never configurable off; the candidate soaks 14 days (`supervisor/self_update/reexec.py`). Bazaar already has this shape, so nothing is duplicated:
+Resibo's supervisor cannot update itself the way it updates everything else, so it uses a two-phase re-exec: stage the new build where the running supervisor does not touch; launch it with `--smoke-test` (read config, locate releases, report healthy, touch no live state); hand off only on a pass; otherwise the old one keeps running untouched; owner confirmation is mandatory and never configurable off; the candidate soaks 14 days (deep-dive 38 sections 4.2 and 10). Bazaar already has this shape, so nothing is duplicated:
 
 | Resibo | Bazaar (already decided, doc 46) |
 |---|---|
@@ -441,7 +441,7 @@ CREATE TABLE sleep_transition (
 CREATE INDEX sleep_transition_service_at ON sleep_transition (service_id, at DESC);
 ```
 
-Live sleep state is in memory, as in Resibo: which children are asleep is a fact about this host process and its own children, which are all gone after a crash (Job Object kill-on-close, doc 42 section 6.2), so nothing meaningful is reloaded. Only transitions are persisted, for history and time-travel. Retention for both event tables follows Kodo's raw-series retention settings (doc 46 section 20) unless the operator sets their own.
+Live sleep state is in memory (PROPOSED, Bazaar's design): which children are asleep is a fact about this host process and its own children, which are all gone after a crash (Job Object kill-on-close, doc 42 section 6.2), so nothing meaningful is reloaded. Only transitions are persisted, for history and time-travel. Retention for both event tables follows Kodo's raw-series retention settings (doc 46 section 20) unless the operator sets their own.
 
 ### 5.11 Settings registry rows (safe defaults)
 
@@ -487,7 +487,7 @@ Written to the audit log (`IAuditLog.AppendAsync` shape `AuditEntry(Ts, Actor, K
 | `sleepwake.slept` | `service:sleep-wake` or the manual actor | `Sleeping` reached; trigger recorded |
 | `sleepwake.woke` | the requester (`service:gateway`, `agent:<id>`, `user:<id>`) | `Running` reached after `Waking` |
 | `sleepwake.wake_failed` | `service:sleep-wake` | Wake timeout or start failure |
-| `sleepwake.force_wake` | the user | `ForceWakeAsync` (Resibo audits it) |
+| `sleepwake.force_wake` | the user | `ForceWakeAsync` (Resibo audits it, deep-dive 38) |
 | `sleepwake.pinned_awake` | `service:sleep-wake` | Wake storm limit |
 | `sleepwake.policy.changed` | the changer | Policy or schedule change |
 
@@ -505,24 +505,24 @@ Each module implements `IModuleHealthContract` (doc 46 section 10) and inherits 
 
 | Resibo item (path) | Taken | Changed for Bazaar, and why |
 |---|---|---|
-| Watchdog kicks and inversion (`docs/apis/v3-deepdive-34-watchdog.md`, `core/health/watchdog/kicks.py`) | Kick contract, key by `(service, instance_id)`, in-memory hot path | Instance id kept; in-process direct call added; out-of-process via authenticated loopback and a per-instance token (Bazaar secrets rule) |
-| Silence detector (`timeout_detector.py`, `contracts.py`) | `ALIVE/SILENT/UNSEEN`, global timeout plus per-service overrides, detector never restarts | Added `Starting` and `Suspended` for sleep and late start; timeout floor; detector self-liveness; architecture test for "no restart" |
-| Version tracking (`version_tracking.py`) | Version rides the heartbeat only; multiple versions per service is normal | Bazaar version format; persisted version history |
-| Kick client loop (`common/watchdog_client.py`) | One reusable loop every service starts | Becomes a helper in the Abstractions project plus a mandatory contract test, so "no service calls Kick" (Resibo's recorded gap) cannot recur |
-| Boot sequence (`supervisor/boot_sequence.py`) | Topological order, readiness gate, fail closed, progress callback | Becomes Core hooks; parallel by level; failure blocks only the dependent branch; readiness comes from the health contract, not a reachability probe |
-| Sleep policy table (`supervisor/sleep_wake/classification.py`) | Three policies, fail-closed `NEVER` default, 30 minute idle default | Profiles declared by modules, not a central table; floor list of never-sleep components; guards and leases added |
-| Live state (`sleep_wake/state.py`) | In-memory live state | Same; transitions persisted for history |
-| Linux wake (`socket_activation_linux.py`) | Socket-unit idea and unit text generation | Separate provider; proxyd shape rather than unverified socket passing; host keeps the process handle |
-| Windows wake (`activation_proxy_windows.py`) | Wake-on-first-connection bidirectional relay, wake lock | Managed, loopback-only, OS-agnostic provider in .NET |
+| Watchdog kicks and inversion (`docs/apis/v3-deepdive-34-watchdog.md`, `core/health/watchdog/CLAUDE.md`) | Kick contract, key by `(service, instance_id)`, in-memory hot path | Instance id kept; in-process direct call added; out-of-process via authenticated loopback and a per-instance token (Bazaar secrets rule) |
+| Silence detector (`docs/apis/v3-deepdive-34-watchdog.md` section 4) | silent detection, global timeout plus per-service overrides, detector never restarts | Added `Starting` and `Suspended` for sleep and late start; timeout floor; detector self-liveness; architecture test for "no restart" |
+| Version tracking (`docs/apis/v3-deepdive-34-watchdog.md`) | Version rides the heartbeat only; multiple versions per service is normal | Bazaar version format; persisted version history |
+| Kick client loop (`core/health/watchdog/CLAUDE.md`) | One reusable loop every service starts | Becomes a helper in the Abstractions project plus a mandatory contract test, so "no service calls Kick" (Resibo's recorded gap, `supervisor/CLAUDE.md`) cannot recur |
+| Boot sequence (`supervisor/CLAUDE.md`, deep-dive 38) | Dependency-ordered launch, readiness gate, fail closed | Becomes Core hooks; parallel by level; failure blocks only the dependent branch; readiness comes from the health contract, not a reachability probe |
+| Sleep policy table (deep-dive 38 section 6.2) | Three policies, a never-sleep list, 30 minute idle default | Profiles declared by modules, not a central table; floor list of never-sleep components; guards and leases added |
+| Live state (`supervisor/CLAUDE.md`) | Live tracking of sleep state | In memory; transitions persisted for history (PROPOSED, Bazaar's design) |
+| Linux wake (deep-dive 38 section 6.3; `supervisor/CLAUDE.md`) | Socket-unit idea and unit text generation | Separate provider; proxyd shape rather than unverified socket passing; host keeps the process handle |
+| Windows wake (deep-dive 38 section 6.3; `supervisor/CLAUDE.md`) | Wake-on-first-connection bidirectional relay | Managed, loopback-only, OS-agnostic provider in .NET |
 | Scheduled wake and Task Scheduler wake trigger (`v3-deepdive-39-task-scheduler.md`) | Schedule table; no catch-up flood | No cron in v1 (dependency rule); no user-scheduled-task UI here |
-| Self-update re-exec (`self_update/reexec.py`) | Two-phase stage, smoke test, hand off on pass, owner confirmation, long soak | Mapped to Kodo slots and the sentinel (5.7); no code duplicated |
-| Single-instance restart (`single_instance.py`) | Confirm-before-stop order | Reuses the module manager's line-move preflight and dry run (5.8) |
-| Version pins and dynamic start (`version_pins.py`, `dynamic_start.py`, `available_versions.py`, `instance_registry.py`) | Pin semantics, on-demand multi-version instances, closed single-instance list | Pins stay doc 49's; dynamic start is a versioned wake; single-by-default |
-| Rollback and arbitration (`rollback.py`, `arbitration.py`) | Idea of reverting the active release | Not taken as code: Kodo's slot pointer and doc 49 rings are the Bazaar mechanism |
-| Fleet and instance registry (`fleet.py`, `instance_registry.py`) | Fleet view of instances and versions | Presented through `IWatchdogReader.FleetVersions` and the Monitor sub-view |
+| Self-update re-exec (deep-dive 38 section 4.2) | Two-phase stage, smoke test, hand off on pass, owner confirmation, long soak | Mapped to Kodo slots and the sentinel (5.7); no code duplicated |
+| Single-instance restart (deep-dive 38 section 5.4) | Confirm-before-stop order | Reuses the module manager's line-move preflight and dry run (5.8) |
+| Version pins and dynamic start (deep-dive 38 sections 5.2 and 5.3) | Pin semantics, on-demand multi-version instances, closed single-instance list | Pins stay doc 49's; dynamic start is a versioned wake; single-by-default |
+| Rollback and arbitration (deep-dive 38 section 4) | Idea of reverting the active release | Not taken as code: Kodo's slot pointer and doc 49 rings are the Bazaar mechanism |
+| Fleet and instance registry (deep-dive 38) | Fleet view of instances and versions | Presented through `IWatchdogReader.FleetVersions` and the Monitor sub-view |
 | Background Workers dispatch (`v3-deepdive-12-background-workers-api.md`) | Only the point that a sleeping dispatcher cannot poll its own rows | Wake schedules live in the always-awake SleepWake, not in the sleeping service; Bazaar's job poller (doc 03) is unchanged |
 
-Resibo facts not carried over: gRPC transport and Python process model, the venv-per-service launch, `ActiveRelease` JSON files, Keymaster licence gating, and Resibo-specific service names (OCR, Preprocessing, Inference, Ingestion). Resibo is a separate codebase; this is a design adoption, not a port of its source.
+Resibo facts not carried over: gRPC transport and Python process model, the venv-per-service launch, `ActiveRelease` JSON files, Keymaster licence gating, and Resibo-specific service names (OCR, Preprocessing, Inference, Ingestion). Resibo is a separate codebase; this is a design adoption from Resibo's docs, not a port of its source.
 
 ## 7. Interaction with existing modules
 

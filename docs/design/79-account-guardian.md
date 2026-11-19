@@ -3,7 +3,7 @@
 Status: PROPOSED. The owner's direction of 2026-11-19 (relayed by the coordinating session) to adopt Resibo's Account Guardian as Bazaar module `account-guardian` is DECIDED. Every detail below it is PROPOSED or OPEN. The optional Notifications module (section 12) and the optional Billing module (section 13) are PROPOSED only. Nothing here is built: no code, migration, route or pane exists yet. Legal text and legal sufficiency are counsel-gated and marked OPEN throughout.
 Depends on: 03-server-host-and-providers.md (settings registry, provider seam), 04-postgres-schema-and-migrations.md (migrations, NOTIFY), 14-identity-service-and-passport.md (keys, per-person key custody), 15-security-taint-and-approvals.md (audit log, approvals, step-up), 32-remote-access-auth-and-privacy.md (devices, tokens, recovery codes, privacy model), 40-core-feature-modules-audit.md and BAZAAR-COMPONENTS.md (module shape, `Principal`, per-component migrations), 44-data-portability.md (export bundles, erasure interaction), 46-kodo-health-module.md (health contract), 48-gap-decisions-security-identity.md (roles, biometrics, retention, privacy law).
 Used by: 28, 29, 30 (client heads that host the pane), 45 (onboarding consent step), 51 (web admin section, read-only), 33 (backup window for erasure).
-Source: Resibo (sister program) `core/account_guardian`, `docs/apis/v3-deepdive-06-account-guardian-api.md`, `v3-deepdive-09-notifications-inbox-api.md`, `v3-deepdive-22-billing-subscription-api.md`; inventories `resibo-01-09.md`, `resibo-20-29.md` and CONVERGENCE.md rows 21 and 30.
+Source: Resibo (sister program) `core/account_guardian/CLAUDE.md`, `docs/apis/v3-deepdive-06-account-guardian-api.md`, `v3-deepdive-09-notifications-inbox-api.md`, `v3-deepdive-22-billing-subscription-api.md`; inventories `resibo-01-09.md`, `resibo-20-29.md` and CONVERGENCE.md rows 21 and 30.
 
 ## 1. Purpose
 
@@ -73,7 +73,7 @@ Resibo had cookie-style sessions in its Auth `SessionStore`. Bazaar has devices 
 | Connected now | the connection directory of the wire layer (`DeviceInfo` and `PrincipalRef`, doc 02) |
 | Is this device | the caller's own device id from the token |
 
-OPEN: a listing method on the Remote abstractions (`ListDevicesForHumanAsync`) does not exist yet; `IRefreshCredentialStore` only finds one device. Resibo hit the same gap (its Auth had no list RPC, `gateways.py` gap 1) and flagged it instead of working around it. Guardian does the same: the first work package adds the method to `Bazaar.Server.Remote.Abstractions`, owned by that module, and Guardian never queries `device` directly.
+OPEN: a listing method on the Remote abstractions (`ListDevicesForHumanAsync`) does not exist yet; `IRefreshCredentialStore` only finds one device. Resibo's design keeps Guardian a thin view over the owning module's session store (deep-dive 06 section 4) and never works around a missing capability. Guardian does the same: the first work package adds the method to `Bazaar.Server.Remote.Abstractions`, owned by that module, and Guardian never queries `device` directly.
 
 ### 5.2 Contract
 
@@ -124,7 +124,7 @@ The owner's own recovery is doc 48 section 7 and is not routed through this case
 
 ### 6.3 Provider seam for sign-in methods
 
-Resibo supported SSO, passkeys, email codes and SMS codes, plus linking a second SSO provider. Bazaar today has passkeys and recovery codes (doc 32). To account for Resibo's `sso_linking.py` without choosing, Guardian lists methods through a seam:
+Resibo supported SSO, passkeys, email codes and SMS codes, plus linking a second SSO provider. Bazaar today has passkeys and recovery codes (doc 32). To account for Resibo's second-SSO linking (deep-dive 06) without choosing, Guardian lists methods through a seam:
 
 ```csharp
 public interface ISignInMethodProvider
@@ -158,13 +158,13 @@ All four kinds share one case table and one append-only event table (section 10)
 | `complete` | proof stored | no |
 | `cancelled` | withdrawn by the subject or refused by the owner under a floor | terminal |
 
-Resibo's `BILLING_HOLD` generalises to `on_hold` with a list of hold kinds, so billing is one hold among several. A request that has no holds goes `requested` -> `grace_period` directly. At most one non-terminal deletion case per person is enforced by a partial unique index, as in Resibo.
+Resibo's `BILLING_HOLD` generalises to `on_hold` with a list of hold kinds, so billing is one hold among several. A request that has no holds goes `requested` -> `grace_period` directly. At most one non-terminal deletion case per person is enforced by a partial unique index (PROPOSED, Bazaar's design, not from Resibo).
 
 **Correction (rectification):** Resibo had no rectification flow. Bazaar needs one because doc 48 section 12 names data-subject tools and doc 04 stores personal fields. `requested` -> `in_review` -> `applied`, `partially_applied` or `declined` (with a reason code). Self-editable fields (display name, notification contact) are applied immediately by the owning module through `IDataCorrectionParticipant` and the case is a record of it. Fields that the platform cannot change (for example what others wrote about the person in GC messages: GC is append-only, edits keep every version) cannot be rectified in place. A `declined` or `partially_applied` outcome states that, and where possible a correction note can be attached to the person's profile. Legal sufficiency of that answer is OPEN (counsel).
 
 ### 7.2 Deletion processing and the append-only GC
 
-This is the one place the Resibo design and Bazaar's design genuinely differ. Resibo's `persistence.erase_account` deleted rows through its Historian write path. Bazaar's GC log is append-only and never purged. Guardian therefore does not delete anything. At `processing` it calls one port:
+This is the one place the Resibo design and Bazaar's design genuinely differ. Resibo's deep-dive 06 routes deletion through Persistence's normal, Historian-logged write path. Bazaar's GC log is append-only and never purged. Guardian therefore does not delete anything. At `processing` it calls one port:
 
 ```csharp
 // Bazaar.Erasure.Abstractions (new, small; the coordinator stays in Server until its extraction, doc 40)
@@ -178,7 +178,7 @@ The implementation is the existing `ErasureCoordinator` (`Bazaar.Server.Componen
 
 What this means for the subject, which the pane must state in plain words before the request is confirmed: the structure of conversations stays; your name and your words in encrypted fields become unreadable; a pseudonymous id remains as author; copies you exported in plaintext are outside erasure (doc 44 section 10 item 2); backups keep the key until the backup window ends (`erasure.backup_window_days`, placeholder 35, doc 44 section 10); Vault page text and git history are not covered until the doc 48 section 9 OPEN is decided; third-party names inside agent text are not attributable. Whether key destruction counts as erasure in each jurisdiction is OPEN, counsel-gated (C01 (c)). The confirmation text comes from the active legal pack, so counsel owns the wording.
 
-The outcome maps onto the case: `HeldQueued` returns the case to `on_hold` with hold kind `legal_hold` (queued, not refused, doc 48 section 9). A participant `Failed` keeps the case in `processing` and the sweep retries (Resibo: "a failed erasure attempt is not downgraded back to a cancellable stage"). On success Guardian stores the signed erasure proof reference (subject as a salted hash, key ids destroyed, scopes, the backup expiry date, time, signing key, and the export manifest ids that held this person's ciphertext, doc 44 section 10 item 3) and writes `erasure.completed`.
+The outcome maps onto the case: `HeldQueued` returns the case to `on_hold` with hold kind `legal_hold` (queued, not refused, doc 48 section 9). A participant `Failed` keeps the case in `processing` and the sweep retries (a failed erasure attempt is not downgraded back to a cancellable stage; consistent with Resibo's rule that cancellation ends when processing starts, deep-dive 06 section 6.2). On success Guardian stores the signed erasure proof reference (subject as a salted hash, key ids destroyed, scopes, the backup expiry date, time, signing key, and the export manifest ids that held this person's ciphertext, doc 44 section 10 item 3) and writes `erasure.completed`.
 
 Floors (not settings): the last owner cannot self-delete (doc 48 section 4.1; the case ends `cancelled` with code `last_owner`); an agent cannot request or advance a deletion; deletion of a person who is under a legal hold is never executed.
 
@@ -193,7 +193,7 @@ public interface IDeletionHold
 public sealed record DeletionHoldVerdict(bool Clear, string? ReasonCode, string? UserVisibleDetail);
 ```
 
-Any module may register a hold (the module's manifest must declare it, doc 42). First-party holds: `legal_hold` (wraps `ILegalHoldReader`), `ownership` (the person is the last owner, or owns something that has no other owner such as a company-wide integration; the owner may transfer it), and `billing` when the Billing module is enabled (section 13). With no hold provider registered the answer is clear, as in Resibo's `NoBillingConfiguredGateway`: a business-process gate with no backend has nothing to resolve. A hold provider that throws or times out is treated as not clear (fail closed, which is stricter than Resibo's billing default and is chosen because Bazaar's `legal_hold` is a legal gate).
+Any module may register a hold (the module's manifest must declare it, doc 42). First-party holds: `legal_hold` (wraps `ILegalHoldReader`), `ownership` (the person is the last owner, or owns something that has no other owner such as a company-wide integration; the owner may transfer it), and `billing` when the Billing module is enabled (section 13). With no hold provider registered the answer is clear: a business-process gate with no backend has nothing to resolve (PROPOSED, Bazaar's design). A hold provider that throws or times out is treated as not clear (fail closed, which is stricter than Resibo's billing default and is chosen because Bazaar's `legal_hold` is a legal gate).
 
 The sweep that advances cases is a registered job on the `jobs` module (`IJobHandler`), as Resibo registered its sweep in Background Workers. A case in `grace_period` with nothing checking it would sit there forever, which is the gap Resibo's deep-dive itself recorded. The sweep is idempotent: calling it on a case that is not due, or already resolved, is a no-op.
 
@@ -463,7 +463,7 @@ Guardian writes with the canonical `kind:id` actor. Existing kinds are reused wh
 | `guardian.legal_pack.changed` | `user:<owner>` | pack ids |
 | `guardian.hold.registered_unclear` | `system:guardian` | hold kind, reason code |
 
-Resibo's own deep-dive noted its audit vocabulary was closed and its proposed operation names were rejected by Audit; Bazaar's audit takes arbitrary kinds through `AuditEntry`, so this gap does not recur, but each new kind still needs a test (section 17).
+Resibo's audit vocabulary is a closed list (`supervisor/CLAUDE.md`); Bazaar's audit takes arbitrary kinds through `AuditEntry`, so that gap does not recur, but each new kind still needs a test (section 17).
 
 ## 15. Security and privacy
 
@@ -546,12 +546,12 @@ Each is its own project or file with tests. Order is by dependency.
 
 | Resibo source | Taken | Changed for Bazaar, and why |
 |---|---|---|
-| `devices.py`, deep-dive 06 section 4 | Thin user-facing view over the owner of sessions; ownership check; parsed summary; revoke errors are visible | Session is a device with a refresh chain (doc 32); revocation via `ITokenService`; last-owner floor |
-| `account_recovery.py`, section 5 and its checklist | Recovery is staff-mediated, not automated; verification checklist with no single sufficient check; vouching by a second human | Staff is the owner; no unauthenticated intake; time lock and cancel by the member's other devices; separate from doc 48 owner recovery |
-| `sso_linking.py` | Linking a second sign-in method | Generalised to `ISignInMethodProvider`; no SSO module proposed since Bazaar has none |
-| `privacy/export_request.py`, `privacy/deletion_request.py`, section 6; `store.py` | Export as just another exporter; grace period; cancellable until processing; one active deletion per person by partial index; idempotent sweep as a registered job; 30-day default | Doc 44 pipeline; generalised hold hook (`on_hold` replaces `BILLING_HOLD`); crypto-shred and tombstone instead of row deletion; legal hold queues the request; proof recorded; correction kind added |
-| `consent.py`, section 7 | Version-tied consent; owner-set `requires_reconsent`; one current version; text is operator content; enforcement gate | Append-only with withdrawal; text hash pin; no IP by default; floors on the gate |
-| `gateways.py` | One small adapter per external dependency; capability gaps named at their site, never guessed | Ports in Abstractions; gaps in section 5.1 and G0 |
+| Deep-dive 06 section 4 | Thin user-facing view over the owner of sessions; ownership check; parsed summary; revoke errors are visible | Session is a device with a refresh chain (doc 32); revocation via `ITokenService`; last-owner floor |
+| Deep-dive 06 section 5 and its checklist | Recovery is staff-mediated, not automated; verification checklist with no single sufficient check; vouching by a second human | Staff is the owner; no unauthenticated intake; time lock and cancel by the member's other devices; separate from doc 48 owner recovery |
+| Deep-dive 06 (second SSO provider linking) | Linking a second sign-in method | Generalised to `ISignInMethodProvider`; no SSO module proposed since Bazaar has none |
+| Deep-dive 06 section 6 | Export as just another exporter; grace period; cancellable until processing; sweep as a registered job (Bazaar's one-active-deletion partial index is PROPOSED, not from Resibo); 30-day default | Doc 44 pipeline; generalised hold hook (`on_hold` replaces `BILLING_HOLD`); crypto-shred and tombstone instead of row deletion; legal hold queues the request; proof recorded; correction kind added |
+| Deep-dive 06 section 7 | Version-tied consent; owner-set `requires_reconsent`; one current version; text is operator content; enforcement gate | Append-only with withdrawal; text hash pin; no IP by default; floors on the gate |
+| `docs/PRINCIPLES.md` section 1.3 | One small adapter per external dependency; capability gaps named at their site, never guessed | Ports in Abstractions; gaps in section 5.1 and G0 |
 | Deep-dive 09 | In-app always created; reference not copy; channel providers; opt-in; bounded retry; SMS providers off by default | Content-free external channels; per-category prefs; per-person encrypted columns; push and email reuse; security floor |
 | Deep-dive 22 | Off by default; PSP interface with two providers; proration policies; deletion hold status; webhook verification | Operator-side module; never gates agents (Resource Economy REJECTED); secrets in the Identity Service |
 | RA 10173 material in deep-dive 06 section 6.1 | Research input | Moved into the Philippines legal pack as an unreviewed draft, not code |

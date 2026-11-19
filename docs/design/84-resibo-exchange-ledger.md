@@ -8,7 +8,7 @@ Referenced here: 70 to 83 (the sibling docs this ledger routes to). Used by: eve
 
 Resibo (Receipt System V3, a sister program) has features Bazaar can use. The owner asked, on 2026-11-19, to incorporate everything from Resibo that can benefit Bazaar, to over-engineer rather than trim, to account for everything, and, where a Resibo feature conflicts with a Bazaar design, to make it a separate module instead of choosing. This document is the ledger that proves that: one row per named Resibo feature, system, API, principle and convention, each with exactly one disposition.
 
-Inputs: the Resibo inventories under `/mnt/project-files/convergence/inventory/` (`resibo-plan-and-top.md`, `resibo-01-09.md` to `resibo-50-56.md`, `resibo-code.md`) and `CONVERGENCE.md` sections 2, 3, 7 and 8. Resibo's repo is read-only reference material.
+Inputs: the Resibo inventories under `/mnt/project-files/convergence/inventory/` (`resibo-plan-and-top.md`, `resibo-01-09.md` to `resibo-50-56.md`; `resibo-code.md` is not a source) and `CONVERGENCE.md` sections 2, 3, 7 and 8. Only Resibo's docs are a source; its code is not (owner, 2026-11-19).
 
 ### 1.1 Owner direction and standing rules (DECIDED)
 
@@ -54,7 +54,7 @@ Disposition codes (one per row):
 - **ROD** RESIBO-ONLY-DOMAIN: stays out of Bazaar; the extracted pattern, if any, is named.
 - **REJ** REJECTED, with a reason.
 
-Source paths are relative to the Resibo repo. `DDnn` means `docs/apis/v3-deepdive-nn-*.md`. `PR` means `docs/PRINCIPLES.md`. Row ids are stable; other docs may cite them (for example "R042").
+Source paths are relative to the Resibo repo; where a source is a `.py` file name, it only labels the module that a Resibo doc (per-package `CLAUDE.md` or `docs/`) describes, and the row rests on that doc, not on the code. `DDnn` means `docs/apis/v3-deepdive-nn-*.md`. `PR` means `docs/PRINCIPLES.md`. Row ids are stable; other docs may cite them (for example "R042").
 
 ### 2.1 Principles P0 to P5 and repo-level rules
 
@@ -109,7 +109,7 @@ Source paths are relative to the Resibo repo. `DDnn` means `docs/apis/v3-deepdiv
 | R042 | Per-service version pins per channel, audit-logged | `version_pins.py` | AIE | Doc 49 and Kodo Fleet pane: pin a module to a release on a channel; pin changes are `Principal`-attributed audit events. |
 | R043 | Single-instance services (closed justified list) and staged restart | `single_instance.py` | AIE | 75: heavy shared modules (local inference, doc 31) declare single-instance; restart is confirm target, stop, start, health-gate. |
 | R044 | Dynamic start of versions on demand, available-versions store | `dynamic_start.py` | AIE | Doc 49 multi-channel serving; only relevant to multi-channel hosts. |
-| R045 | Instance registry, fleet view | `fleet.py` | AIB | Kodo Monitor and fleet panes. |
+| R045 | Instance registry, fleet view | Resibo README (fleet screen) | AIB | Kodo Monitor and fleet panes. |
 | R046 | Worker child process per loaded model (crash containment) | DD02 `PresetWorker` | AIE | Doc 31 local co-worker: one worker process per loaded model, crash contained, single lazy-load lock. |
 | R047 | Per-service venv, PYTHONPATH, no editable installs | `VENV_AND_IMPORTS.md` | REJ | Python mechanism; .NET has assemblies and the module graph. |
 | R048 | Install paths resolver (walk to `releases` ancestor) | `common/install_paths.py` | AIB | Doc 49 and 03 install layout; no change. |
@@ -152,7 +152,7 @@ Source paths are relative to the Resibo repo. `DDnn` means `docs/apis/v3-deepdiv
 | R075 | GitHub App filing (JWT then installation token), never raises | `github_app_auth.py` | AIB | `Bazaar.GitHub` Apps (org `codex-alchemist-dev`); 70 sink uses it. |
 | R076 | Live issue status client, never cached | `GitHubIssueStatusClient` | AAM | 70 status read with `checked_at`. |
 | R077 | Opt-in flag, default off, unconfigured installs make no calls | DD28 | AIB | Doc 43 consent off, ask, auto; keep "unconfigured means zero network". |
-| R078 | Redaction stated as rule but no code | `telemetrees` | AIE | Doc 43: pluggable redaction rule set (CONVERGENCE A6); Resibo's miss is the lesson, so redaction gets a test that fails the build if a sink is reachable without it. |
+| R078 | Redaction stated as rule, no mechanism described | `telemetrees` docs | AIE | Doc 43: pluggable redaction rule set (CONVERGENCE A6); Resibo's docs give the rule but no mechanism, so redaction gets a test that fails the build if a sink is reachable without it. |
 | R079 | Filed-issues screen | `filed_issues_screen.py` | AIE | 83 pane over 70 ledger. |
 | R080 | Timer to invoke detection (never wired) | `DetectAndFileIssues` | AAM | 70 runs on a Ryusei trigger (R126); never manual-only. |
 | R081 | Watchdog as the one wired signal | `detector.py` | AAM | 70 first signal: silent module from 75. |
@@ -366,9 +366,9 @@ Source paths are relative to the Resibo repo. `DDnn` means `docs/apis/v3-deepdiv
 | R249 | `LocalConfigStore` (small JSON per API) | `common/` | AIB | Settings registry. |
 | R250 | `local_config_store` hot reload | decisions | AIE | R138. |
 | R251 | `frozen_dict.py` | `common/` | AIB | .NET `FrozenDictionary` (R011). |
-| R252 | `grpc_limits.py` | `common/` | REJ | gRPC only; Bazaar has message limits in doc 02. |
-| R253 | `watchdog_client.py` | `common/` | AAM | 75 client helper in `Bazaar.Watchdog.Abstractions`. |
-| R254 | `blob_client.py` | `common/` | AIB | `IBlobStore`. |
+| R252 | gRPC message limits | no Resibo doc source | REJ | Not sourced from Resibo docs. Bazaar has message limits in doc 02 (Bazaar's own design, PROPOSED as a gRPC module slot). |
+| R253 | Watchdog client helper | `supervisor/CLAUDE.md` (Kick RPC) | AAM | 75 client helper in `Bazaar.Watchdog.Abstractions`; the helper itself is Bazaar's design, PROPOSED. |
+| R254 | Blob client | ingestion and interface `CLAUDE.md` | AIB | `IBlobStore` (Bazaar's own design, PROPOSED). |
 | R255 | `version.py`, `xMM.mm.pp`, mineral codenames | `common/` | ROD | Scheme is Resibo's. Bazaar keeps SemVer (section 6.1). |
 | R256 | API version `aMM.mm.pp` with target and current fields | PHASE_2_STATE | AIE | BAZAAR-COMPONENTS manifests: keep module SemVer; add `ContractVersion` for wire contracts (question 6). |
 | R257 | Licence proprietary | LICENSE | ROD | Section 6.2. |

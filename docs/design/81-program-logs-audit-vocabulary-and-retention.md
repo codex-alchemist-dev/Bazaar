@@ -93,7 +93,7 @@ Entries are written to one or more scopes. A scope is a directory under the log 
   .gitignore                           contains "*" (6.4)
 ```
 
-The day boundary is UTC. A file is append-only; nothing is rewritten, and rotation is a new file name, as in Resibo (`v3-deepdive-18` section 3.1, `core/logs/paths.py`). The `.trace.jsonl` sibling is taken from Resibo `core/logs/paths.py`: Trace and content-bearing entries live in their own file so the shorter retention is a plain file delete, never an in-place rewrite. Module and principal ids become directory names only after a strict slug filter (`[A-Za-z0-9_.-]`, leading dots stripped), as `_safe_service` does in Resibo, so an id can never write outside the root.
+The day boundary is UTC. A file is append-only; nothing is rewritten, and rotation is a new file name, as in Resibo (`v3-deepdive-18` section 3.1). The `.trace.jsonl` sibling is taken from Resibo (`core/logs/CLAUDE.md`): Trace and content-bearing entries live in their own file so the shorter retention is a plain file delete, never an in-place rewrite. Module and principal ids become directory names only after a strict slug filter (`[A-Za-z0-9_.-]`, leading dots stripped; PROPOSED, Bazaar's design, not from Resibo), so an id can never write outside the root.
 
 ### 6.3 Contracts
 
@@ -142,11 +142,11 @@ public static class ProgramLogLevelExtensions
 }
 ```
 
-`Attention` is taken from Resibo (`v3-deepdive-18` section 3.4): "this process is running below its own achievable baseline", distinct from an operation that failed. In Bazaar its first writers are Kodo (capability drift, a probe fleet degraded, a hash-chain anchor gap) and the hygiene self-checks (6.10). It is exposed through `LogAttention(this ILogger, ...)`, an extension that logs at `Error` to plain providers with an `attention=true` property, so OpenTelemetry and the console still carry it. `StyleHint` is Resibo's `LEVEL_STYLE_HINT`: one semantic token per level (`dim`, `subdued`, `default`, `caution`, `critical`, `critical_persistent`), so the client maps it onto the theme (doc 41) and no client keeps its own severity opinion. The `Critical` level is added because .NET has it and Resibo does not.
+`Attention` is taken from Resibo (`v3-deepdive-18` section 3.4): "this process is running below its own achievable baseline", distinct from an operation that failed. In Bazaar its first writers are Kodo (capability drift, a probe fleet degraded, a hash-chain anchor gap) and the hygiene self-checks (6.10). It is exposed through `LogAttention(this ILogger, ...)`, an extension that logs at `Error` to plain providers with an `attention=true` property, so OpenTelemetry and the console still carry it. `StyleHint` is Resibo's `LEVEL_STYLE_HINT` (`v3-deepdive-18` section 3.1): one semantic token per level (`dim`, `subdued`, `default`, `caution`, `critical`, `critical_persistent`), so the client maps it onto the theme (doc 41) and no client keeps its own severity opinion. The `Critical` level is added because .NET has it and Resibo does not.
 
 ### 6.4 Never committed: the guarantee
 
-Resibo's rule is that the log root is never inside a repository or release clone (`core/logs/paths.py`, `docs/PRINCIPLES.md` 1.6), because V2 committed data by defaulting paths inside the program directory. Bazaar needs it more: the Vault is a git repository, agent workspaces are git worktrees, and the platform repo is public. The guarantee has four layers, each independently testable:
+Resibo's rule is that the log root is never inside a repository or release clone (`docs/PRINCIPLES.md` 1.6), because V2 committed data by defaulting paths inside the program directory. Bazaar needs it more: the Vault is a git repository, agent workspaces are git worktrees, and the platform repo is public. The guarantee has four layers, each independently testable:
 
 1. **Default root** is under the install data directory, never the working directory or a repository path.
 2. **Start-up guard.** The file sink walks the parents of the root; if it finds a `.git` directory or file, or the path is inside the Vault root or any registered workspace root, the sink refuses to write there, falls back to `<data>/logs`, raises an `Attention` entry and writes the audit operation `logs.root.unsafe_location`. It does not silently continue.
@@ -155,16 +155,16 @@ Resibo's rule is that the log root is never inside a repository or release clone
 
 ### 6.5 Write path: never fail the thing being logged
 
-The write path follows Resibo's rule "logging must never be able to fail the thing being logged" (`core/logs/writer.py`, `sinks.py`).
+The write path follows Resibo's rule "logging must never be able to fail the thing being logged" (`core/logs/CLAUDE.md`).
 
-- `ILogger` calls enqueue to a bounded channel and return. A background writer drains it and fans each entry to every enabled `IProgramLogSink`. All enabled sinks receive every accepted entry (Resibo's Provider Registry property, `core/logs/sinks.py`); a failing sink is degraded on its own behind a Kodo-style breaker and never stops the others.
+- `ILogger` calls enqueue to a bounded channel and return. A background writer drains it and fans each entry to every enabled `IProgramLogSink`. All enabled sinks receive every accepted entry (Resibo's Provider Registry property, `v3-deepdive-18`); a failing sink is degraded on its own behind a Kodo-style breaker and never stops the others.
 - Under queue pressure, Information and below are dropped first and counted (`RingBuffer<T>.DroppedCount` semantics). Entries at Warning and above, and every entry with an exception, use a reserved portion of the queue (`logs.queue.reserved_for_errors`). If that is also full, the entry is written synchronously to `_emergency/` and to standard error. An exception is never dropped for volume.
 - A failure inside the logger itself is written to standard error and a counter only. It never throws into the caller and never calls `ILogger` recursively. This is the one place a broad catch is allowed without logging, and it carries the explicit marker described in section 10.3.
-- Flushing: the file sink flushes each Warning-and-above entry immediately (the entries just before a crash matter most, Resibo `JsonlFileSink`), and others on a short timer.
+- Flushing: the file sink flushes each Warning-and-above entry immediately (the entries just before a crash matter most; PROPOSED, Bazaar's design, not from Resibo), and others on a short timer.
 
 ### 6.6 Full tracebacks, always, locally
 
-Resibo's hard requirement is that a failure's full traceback is captured unconditionally and verbosity tiers control only routine volume (`v3-deepdive-18` section 3.3; `core/logs/writer.py` `should_write`, where the traceback branch runs before the tier check). Resibo got this wrong in V2 (`str(e)`) and fixed it. The Bazaar rendering is:
+Resibo's hard requirement is that a failure's full traceback is captured unconditionally and verbosity tiers control only routine volume (`v3-deepdive-18` section 3.3; `core/logs/CLAUDE.md`, where the traceback branch runs before the tier check). Resibo got this wrong in V2 (`str(e)`) and fixed it. The Bazaar rendering is:
 
 - Any entry with a non-null `Exception` is written at every tier, to the module scope and the global scope. `ProgramLogException.FullText` is `Exception.ToString()` of the whole chain (inner exceptions, aggregate children, async stack frames), never only `Message`.
 - The extension `LogFailure(this ILogger, Exception, string template, ...)` is the documented way to log a caught exception. The silent-catch rule (10.2) accepts it.
@@ -209,9 +209,9 @@ Rules: each subscriber has a bounded channel; when it is slow the oldest frames 
 
 ### 6.10 Retention of logs
 
-Taken from Resibo (`v3-deepdive-18` section 5 and 10; `core/logs/retention.py`), adjusted:
+Taken from Resibo (`v3-deepdive-18` section 5 and 10; `core/logs/CLAUDE.md`), adjusted:
 
-- Two windows: `logs.retention.days` (default 90) for ordinary files and `logs.retention.trace_days` (default 7) for `.trace.jsonl`, both whole-file deletes. The planner is a pure function (`IProgramLogRetentionPlanner.Expired(now)`), so "what would this sweep remove" can be inspected without trusting a dry-run flag, as in Resibo.
+- Two windows: `logs.retention.days` (default 90) for ordinary files and `logs.retention.trace_days` (default 7) for `.trace.jsonl`, both whole-file deletes. The planner is a pure function (`IProgramLogRetentionPlanner.Expired(now)`), so "what would this sweep remove" can be inspected without trusting a dry-run flag (PROPOSED, Bazaar's design).
 - The sweep never touches today's or the open day's file. It runs on the Bazaar scheduler, not in the write path.
 - A file that cannot be deleted is reported and skipped, never retried in a loop.
 - **The audit chain is unaffected.** Logs are not audit rows and are not hash-chained. Purging logs writes one summary audit row per sweep only when files were removed: `logs.purge.executed` (counts and horizon only). No log content ever enters audit.
@@ -246,7 +246,7 @@ Each row carries a `docs_ref` string naming this doc and, for retention, the leg
 
 ### 7.1 What is taken, what is not
 
-Taken from Resibo (`core/audit/retention.py`, `v3-deepdive-08` section 5): a retention policy with a fixed or indefinite mode; a rule that retention is never silently shortened (a shortening needs an explicit override with a stated reason that is itself audited); purge records are exempt from purging; the cutoff is a pure function of policy and time (`horizon`); a purge takes a policy and an actor, never a row id; and retention is the single deletion path, isolated from the append writer.
+Taken from Resibo (`core/audit/CLAUDE.md`, `v3-deepdive-08` section 5): a retention policy with a fixed or indefinite mode; a rule that retention is never silently shortened (a shortening needs an explicit override with a stated reason that is itself audited); purge records are exempt from purging; the cutoff is a pure function of policy and time (`horizon`); a purge takes a policy and an actor, never a row id; and retention is the single deletion path, isolated from the append writer.
 
 Not taken: the 10-year default (BIR RR 17-2013 is a Philippine accounting rule and is DOMAIN in `CONVERGENCE.md`; Bazaar has no such obligation, so the default is `indefinite`); the `DELETE` statement (the Bazaar audit table refuses UPDATE, DELETE and TRUNCATE for every role and by trigger, `common/0004_audit_log.sql`, and rows are hash-chained); the SQLite authorizer (Postgres roles and triggers already provide it).
 
@@ -279,7 +279,7 @@ Defaults and floors (PROPOSED):
 
 - `Security` and `Admin` (sign-in, role, grant, approval, approval key, module install, setting change, erasure proof, legal hold, recovery, retention and vocabulary events themselves) are never pruned. This is a floor, not a setting.
 - `DataRead` and `DataWrite` (the per-object read and write records of doc 48 section 5.1) are the only prunable classes. Default `Indefinite` for both. When an operator picks `Fixed`, floors of 365 days (`DataRead`) and 1825 days (`DataWrite`) apply. These numbers are PROPOSED drafts for the spike, not owner decisions.
-- Purge run records (`audit.retention.executed`) are exempt (taken from Resibo `EXEMPT_ACTIONS`).
+- Purge run records (`audit.retention.executed`) are exempt (Bazaar's rule, PROPOSED; Resibo's `core/audit/CLAUDE.md` describes its purge as the one deletion path).
 - A retention change, and especially a shortening, is a high-risk action: owner approval with the signed approval flow and the biometric check when it ships (doc 48 sections 8 and 9). A shortening carries a `reason_label` (a slug, as `PrivacyAuditRecorder` requires) and writes `audit.retention.shortened`.
 
 ### 7.3 Constraints on the mechanism (the sweeper is another thread's)
@@ -287,10 +287,10 @@ Defaults and floors (PROPOSED):
 The retention sweeper (#814) owns the physical step. Whatever it does must meet these constraints, which follow from doc 48 and the existing code:
 
 1. The chain must still verify from the nearest remaining signed checkpoint (doc 48 section 5.2: a verifier "recomputes the chain from any starting checkpoint").
-2. `audit_log` privileges and triggers are not weakened for the runtime role. A separate, narrow retention path (its own role, as Resibo isolates `connect(profile="purge")`) is acceptable; a new `UPDATE` or `DELETE` grant to `bazaar_app` is not.
+2. `audit_log` privileges and triggers are not weakened for the runtime role. A separate, narrow retention path (its own role, as Resibo isolates its purge behind its own authorizer profile, `core/audit/CLAUDE.md`) is acceptable; a new `UPDATE` or `DELETE` grant to `bazaar_app` is not.
 3. A held scope is never touched.
 4. Two mechanisms satisfy 1 to 3 and the choice is OPEN (question 1): **(A) crypto-shred.** Payloads of `DataRead` and `DataWrite` rows are written encrypted under a per-epoch key (doc 48 section 5.5: the row hash covers fields after encryption, so destroying a key does not break the chain). Retention destroys the epoch key and writes a signed proof, as erasure does (section 9 there). No row is deleted. **(B) Segment prune.** Whole checkpoint segments that are anchored, older than the horizon and entirely made of prunable classes are detached; the last remaining checkpoint becomes the verifier's start. Mixed segments cannot be pruned under B, which is why A is preferred.
-5. Every run appends one `audit.retention.executed` row after the effect, and a failure to write it is surfaced, not swallowed (Resibo order: record after the delete so a record never claims a purge that did not happen).
+5. Every run appends one `audit.retention.executed` row after the effect, and a failure to write it is surfaced, not swallowed (record after the delete so a record never claims a purge that did not happen; PROPOSED, Bazaar's design, not from Resibo).
 
 ### 7.4 Retention data
 
@@ -428,7 +428,7 @@ Operations registered by this module itself: `audit.vocabulary.snapshot` (System
 
 ## 9. Tabula side: `Bazaar.Server.AccessGrantAudit` (reason-tagged access-grant event)
 
-Resibo's break-glass grant is the model: a time-boxed grant (default 60, maximum 480 minutes), a required reason, expiry enforced at check time, audited, and both the owner and the affected party notified (`v3-deepdive-05` section 6.3 and 7, `resibo-01-09` inventory; `core/audit/contracts.py` `BREAK_GLASS_*`). Doc 72 owns the Bazaar mechanism. This module owns only the audit shape, so the grant event is the same no matter which feature issues a grant.
+Resibo's break-glass grant is the model: a time-boxed grant (default 60, maximum 480 minutes), a required reason, expiry enforced at check time, audited, and both the owner and the affected party notified (`v3-deepdive-05` section 6.3 and 7, `resibo-01-09` inventory; `core/audit/CLAUDE.md`). Doc 72 owns the Bazaar mechanism. This module owns only the audit shape, so the grant event is the same no matter which feature issues a grant.
 
 ```csharp
 // Bazaar.Server.AccessGrantAudit.Abstractions
@@ -462,7 +462,7 @@ Rules: the free-text reason never enters audit. It is a doc 72 grant row field (
 
 ## 10. The hygiene rules (CI)
 
-Resibo's `check_no_silent_except.py` exists because `core/logs` had a writer with zero callers outside its own package, so every broad `except Exception: pass` wrote to nothing (`core/logs/CLAUDE.md`, `.github/scripts/check_no_silent_except.py`; 102 pre-existing violations were baselined). Bazaar's equivalent is a set of architecture tests, in `tests/Bazaar.Architecture.Tests`, in the same style as the existing rules and with a seeded-violation test for each (the pattern in `SeededViolationTests`). They are tests, so they run on every build and need no separate workflow.
+Resibo's `check_no_silent_except.py` exists because `core/logs` had a writer with zero callers outside its own package, so every broad `except Exception: pass` wrote to nothing (`core/logs/CLAUDE.md`; 102 pre-existing violations were baselined). Bazaar's equivalent is a set of architecture tests, in `tests/Bazaar.Architecture.Tests`, in the same style as the existing rules and with a seeded-violation test for each (the pattern in `SeededViolationTests`). They are tests, so they run on every build and need no separate workflow.
 
 ### 10.1 Scanning method
 
@@ -470,15 +470,15 @@ Source scan over `src/**/*.cs`, excluding `obj`, `bin`, generated code and `*.Te
 
 ### 10.2 Rule R1: every broad catch logs or rethrows
 
-A catch clause is **broad** when it has no type, or names `Exception`, `System.Exception` or `SystemException`. Narrow, named exception types converted into a clean result are not flagged; they are Bazaar's normal pattern, and flagging them would be noise (Resibo draws the same line). A broad clause passes when its body, searched recursively, contains any of:
+A catch clause is **broad** when it has no type, or names `Exception`, `System.Exception` or `SystemException`. Narrow, named exception types converted into a clean result are not flagged; they are Bazaar's normal pattern, and flagging them would be noise (Resibo's `core/logs/CLAUDE.md` draws the same line). A broad clause passes when its body, searched recursively, contains any of:
 
 - a `throw` statement;
 - a call whose method name contains `Log` (case-insensitive), including `LogFailure`, `LogAttention`, `ILogger.LogError`, or a call on an `ILogger`-typed receiver;
 - the explicit marker in 10.3.
 
-Everything else is a violation. A new violation fails the build. Pre-existing violations are listed in `tests/Bazaar.Architecture.Tests/Baselines/silent-catch.txt`; the baseline may only shrink (the test fails if an entry no longer reproduces, naming it, so the list is updated in the fixing PR, as Resibo's `--update-baseline` does).
+Everything else is a violation. A new violation fails the build. Pre-existing violations are listed in `tests/Bazaar.Architecture.Tests/Baselines/silent-catch.txt`; the baseline may only shrink (the test fails if an entry no longer reproduces, naming it, so the list is updated in the fixing PR).
 
-**Change from Resibo:** baseline entries are keyed `relative/path.cs|EnclosingType.Member|ordinal`, not `path:line`. Resibo's line-number keys go stale on any edit above the catch, which makes unrelated PRs report "fixed" entries and, worse, a moved violation look new.
+Baseline entries are keyed `relative/path.cs|EnclosingType.Member|ordinal`, not `path:line` (PROPOSED, Bazaar's design, not from Resibo), because line-number keys go stale on any edit above the catch, which makes unrelated PRs report "fixed" entries and, worse, a moved violation look new.
 
 ### 10.3 The marker
 
@@ -543,33 +543,33 @@ Its purpose is diffing the vocabulary between versions, so removing a registered
 
 As in section 7.4. The retention classes are held in the registry, not in a table.
 
-The file index for logs is a sidecar file per day file (`<day>.jsonl.idx`: one line per minute with the byte offset and, for correlation ids, a short list), rebuilt from the JSONL files alone, never a second source of truth. Resibo uses a SQLite index; Bazaar does not, because logging must keep working when Postgres is down.
+The file index for logs is a sidecar file per day file (`<day>.jsonl.idx`: one line per minute with the byte offset and, for correlation ids, a short list), rebuilt from the JSONL files alone, never a second source of truth. Resibo's design uses a SQLite-free file index (`v3-deepdive-18` section 3.2); Bazaar likewise does not use a database, because logging must keep working when Postgres is down.
 
 ## 12. What is taken from Resibo, what is changed, and why
 
 | Resibo item (source) | Bazaar treatment | Why |
 |---|---|---|
-| Day-rotated JSONL per scope, pure append (`core/logs/paths.py`, `v3-deepdive-18` 3.1) | Taken, three scopes (global, module, Principal) | Same simple, streamable, crash-friendly format. |
-| `.trace.jsonl` sibling for short-retention tier (`core/logs/paths.py`) | Taken; also holds content-bearing entries | Whole-file delete, no rewrite. |
+| Day-rotated JSONL per scope, pure append (`v3-deepdive-18` 3.1) | Taken, three scopes (global, module, Principal) | Same simple, streamable, crash-friendly format. |
+| `.trace.jsonl` sibling for short-retention tier (`core/logs/CLAUDE.md`) | Taken; also holds content-bearing entries | Whole-file delete, no rewrite. |
 | Verbosity tiers and per-service overrides (`v3-deepdive-18` 8) | Taken as per-module runtime settings, plus leases | Bazaar has hot-reload via the settings registry; leases remove the forgotten-Trace failure. |
 | `ATTENTION` level and `LEVEL_STYLE_HINT` (3.1, 3.4) | Taken | Kodo and hygiene checks need a "running below baseline" signal distinct from Error. |
-| Full traceback unconditionally; `guarded_call` (3.3, `writer.py`) | Taken as `LogFailure` and unconditional write of any exception | Direct fix for Resibo V2's `str(e)` bug. |
+| Full traceback unconditionally; `guarded_call` (3.3, `core/logs/CLAUDE.md`) | Taken as `LogFailure` and unconditional write of any exception | Direct fix for Resibo V2's `str(e)` bug. |
 | Live tail via a server-streaming RPC (7) | Taken as the `logs.tail` stream on `/ws`, not gRPC | Wire format is JSON on the Bazaar stream registry (doc 02). Adds gap frames. |
 | SQLite index over JSONL (3.2) | Changed to a sidecar index file | Logging must not depend on Postgres. Still rebuildable and not a source of truth. |
-| Log root outside the repo (`paths.py`, PRINCIPLES 1.6) | Taken and hardened to four layers (6.4) | The Vault is a git repo; the platform repo is public. |
+| Log root outside the repo (PRINCIPLES 1.6) | Taken and hardened to four layers (6.4) | The Vault is a git repo; the platform repo is public. |
 | Cross-user read needs break-glass (4) | Changed to capability `logs.read` with scopes; cross-scope read is an access grant | Bazaar has custom roles (doc 48 section 4). |
 | Retention 90 days, TRACE 7 days (5, 10) | Taken as defaults | Pure operational-cost tradeoff, no compliance reason against. |
-| Sinks as a Provider Registry, all sinks get every entry (`core/logs/sinks.py`) | Taken: each sink a separate provider module, no selector | Matches owner direction on providers. |
-| Audit retention policy shape, shortening needs a reason, purge records exempt (`core/audit/retention.py`) | Taken | Policy generic; mechanism excluded. |
+| Sinks as a Provider Registry, all sinks get every entry (`v3-deepdive-18`) | Taken: each sink a separate provider module, no selector | Matches owner direction on providers. |
+| Audit retention policy shape, shortening needs a reason, purge records exempt (`core/audit/CLAUDE.md`) | Taken | Policy generic; mechanism excluded. |
 | 10-year audit default from BIR RR 17-2013 | Not taken; default `indefinite` | DOMAIN (Philippine tax rule), not generic. |
 | Audit retention by SQL `DELETE` | Not taken; mechanism constraints in 7.3 | Hash chain and append-only triggers. |
-| Closed `ActionType` enum (`core/audit/contracts.py`) | Changed to per-module registered vocabulary | Modular; an enum would couple every module to one project. |
-| `UNKNOWN_ACTION` unrecorded result | Changed to flag-by-default, reject-optional | An audit log should not lose events to a bookkeeping gap. |
+| Closed `ActionType` enum (`core/audit/CLAUDE.md`) | Changed to per-module registered vocabulary | Modular; an enum would couple every module to one project. |
+| `UNKNOWN_ACTION` unrecorded result (`supervisor/CLAUDE.md`) | Changed to flag-by-default, reject-optional | An audit log should not lose events to a bookkeeping gap. |
 | `PRIVILEGED_ACTIONS` coverage test (`v3-deepdive-08` 7) | Taken as `Privileged` flag plus R2 and the conformance base | Structural check, not per-action trust. |
 | Reason-required, time-boxed break-glass event (`BREAK_GLASS_*`) | Taken as the `AccessGrantEvent` contract | Owner card; mechanism is doc 72. |
-| `check_no_silent_except.py` and its shrink-only baseline | Taken as R1 to R4; baseline keyed by member and ordinal, not line | Resibo's line keys go stale. |
-| `set_authorizer` append-only enforcement (`core/audit/db.py`) | Not taken | Postgres role grants plus triggers already exist (`common/0004_audit_log.sql`). |
-| Audit sinks registry for a WORM mirror (`core/audit/sinks.py`) | Not taken | Already designed as multi-sink with anchors and replica (doc 48 section 5.4). |
+| `check_no_silent_except` and its shrink-only baseline (`core/logs/CLAUDE.md`) | Taken as R1 to R4; baseline keyed by member and ordinal, not line (PROPOSED) | Line keys go stale on any edit above the catch. |
+| `set_authorizer` append-only enforcement (`core/audit/CLAUDE.md`) | Not taken | Postgres role grants plus triggers already exist (`common/0004_audit_log.sql`). |
+| Audit sinks registry for a WORM mirror (`v3-deepdive-08`) | Not taken | Already designed as multi-sink with anchors and replica (doc 48 section 5.4). |
 | FrozenDict and Python-specific contract rules | Not applicable | Records and `IReadOnlyDictionary` in C#. |
 | Historian data-change and narrative tracks | Narrative: doc 76. Data-change: existing versioned tables | No new module here. |
 

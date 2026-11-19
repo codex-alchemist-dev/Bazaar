@@ -6,7 +6,7 @@ Used by: 27, 41, 45, 51 (once the main session adopts rules W1 to W6 in section 
 
 ## 1. Purpose
 
-Resibo is a sister program whose user-facing half is a Textual admin console (TUI), a React web app that is mostly scaffold, and a written design system. Its code for those parts is thin (`webapp/src` is 24 files and 147 lines; two TUI custom screens are unbuilt), but its design documents carry patterns Bazaar can use: an admin console driven by data instead of screen classes, a client data layer with a defined reconnect experience, a "route guard is UX only" rule, token-based theming, an onboarding tour that respects reduced motion and mute, a timeline display for change history, and a help assistant that cannot reach user data.
+Resibo is a sister program whose user-facing half is a Textual admin console (TUI), a React web app that is mostly scaffold, and a written design system. Its docs describe those parts as early (`webapp/CLAUDE.md` calls the React app scaffolding; `services/interface/CLAUDE.md` names unbuilt custom screens), but its design documents carry patterns Bazaar can use: an admin console driven by data instead of screen classes, a client data layer with a defined reconnect experience, a "route guard is UX only" rule, token-based theming, an onboarding tour that respects reduced motion and mute, a timeline display for change history, and a help assistant that cannot reach user data.
 
 This document accounts for every one of them. Where a Resibo pattern fits a Bazaar decision, it is mapped onto the existing module. Where it conflicts with a Bazaar decision, it becomes its own optional module rather than a choice between the two (owner direction, 2026-11-19). Nothing is copied as code: Resibo is Python, TypeScript and Textual, and Bazaar is .NET and Avalonia.
 
@@ -276,7 +276,7 @@ Resibo's rule (deepdive-47 and `webapp/CLAUDE.md`): a frontend guard only avoids
 - **W5. Bootstrap by one "who am I" call.** The shell makes exactly one call (`GET /admin/api/session`), as in Resibo's step 6. It makes no other call before it succeeds.
 - **W6. No single-user bypass.** Resibo's single-tenant implicit-owner path is not adopted. Bazaar's panel always requires the passkey session of doc 32 section 4.
 
-Where it differs from Resibo: the cookie stays `SameSite=Strict` and `__Host-` prefixed (Resibo uses Lax for an OIDC redirect; Bazaar's sign-in is a passkey ceremony and does not need Lax). Auth is passkey, not OIDC. The panel stays plain JavaScript: Resibo's React, Zustand and TanStack Query are not adopted, because doc 51 decided plain HTML, CSS and JavaScript with zero external installs. Only the patterns are taken. No new module is created for this: the rules are implemented in `Bazaar.Server.WebAdmin` assets, with tests in its test project, once doc 51 adopts them.
+Where it differs from Resibo: the cookie stays `SameSite=Strict` and `__Host-` prefixed (Resibo's OIDC redirect flow, deep-dive 47, is the reason a looser setting could be needed there; Bazaar's sign-in is a passkey ceremony and does not need it). Auth is passkey, not OIDC. The panel stays plain JavaScript: Resibo's React, Zustand and TanStack Query are not adopted, because doc 51 decided plain HTML, CSS and JavaScript with zero external installs. Only the patterns are taken. No new module is created for this: the rules are implemented in `Bazaar.Server.WebAdmin` assets, with tests in its test project, once doc 51 adopts them.
 
 ## 8. Modules (d), (e), (f), and the supporting client modules
 
@@ -444,7 +444,7 @@ Client modules have no Kodo contract of their own. The data layer's `ConnectionS
 | `v3-deepdive-54-webapp-assistant.md` | Static-corpus-only, zero data access, no tools, single round, fallback, tests | Backend is the client NPU, the model gateway, or an optional Cloudflare provider; suggest only; catalogue-validated output. |
 | Not taken | OCR diff viewer, vendor and branch editor, receipt screens, billing and account screens, Gateway-side build-and-serve of the webapp, shadcn | Domain-specific, or replaced by an existing Bazaar decision. |
 
-Verification label: deepdives 14, 45 and 54 and `webapp/CLAUDE.md` were read directly. Deepdives 44, 46, 47, 48 and 53 were read through the convergence inventory (`/mnt/project-files/convergence/inventory/resibo-40-49.md`, `resibo-50-56.md`), which quotes their decisions and paths. Treat details drawn from those five as unverified against the originals until a worker opens them.
+Verification label: deepdives 14, 45 and 54 and `webapp/CLAUDE.md` were read directly. Deepdives 44, 46, 47, 48 and 53 were read through the doc-derived convergence inventory (`/mnt/project-files/convergence/inventory/resibo-40-49.md`, `resibo-50-56.md`), which quotes their decisions and paths. Treat details drawn from those five as unverified against the originals until a worker opens them.
 
 ## 12. Security and privacy
 

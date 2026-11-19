@@ -53,7 +53,7 @@ Boundary rules this module satisfies (BAZAAR-COMPONENTS section 6): the implemen
 ## 5. Concepts
 
 - **Screening request.** A stream (never a whole-file byte array), the surface it came from, the claimed filename and MIME (recorded, never trusted), the source trust tag, the acting `Principal`, and the blob hash when the content is already in the blob store.
-- **Verdict.** One of three decisions. `Pass`: nothing objected, the bytes may proceed under their existing taint. `Review`: not condemned, not releasable by the system; the owner decides. `Deny`: refused. There is no fourth value. Failures, timeouts, missing providers and unreadable files are `Deny` (section 7). This copies Resibo's rule that the wire format has no way to say "could not check" (`content_security.proto` header comment, `core/content_security/CLAUDE.md` gotchas).
+- **Verdict.** One of three decisions. `Pass`: nothing objected, the bytes may proceed under their existing taint. `Review`: not condemned, not releasable by the system; the owner decides. `Deny`: refused. There is no fourth value. Failures, timeouts, missing providers and unreadable files are `Deny` (section 7). This copies Resibo's rule that the wire format has no way to say "could not check" (`core/content_security/CLAUDE.md` gotchas; deep dive 27 section 4).
 - **Surface.** A named entry point (section 11) with its own policy row.
 - **Pass one and pass two.** Pass one is static and runs without extracting anything: sniff, claimed-type mismatch, polyglot, dangerous-class table, archive preflight. Pass two is each extracted member and the antivirus fan-out. Resibo's "two-pass for containers" (deep dive 27 section 3) is the same idea; here pass two also covers non-archive files (antivirus) so every file gets both.
 - **Derived file.** A new blob produced from another one (for example an archive with a member stripped). It has its own verdict and a lineage link to the original (section 7.6).
@@ -125,7 +125,7 @@ public interface IScreeningReleaseService    // owner-only; see 6.8
 }
 ```
 
-Two properties are tested, not trusted (section 15): no type in the abstractions can return or accept a value that lowers `SourceTrust` or clears a `TaintState`, and `ScreenDecision` has exactly three members. The reflection test mirrors Resibo's field-set assertion against the generated descriptor (`core/content_security/CLAUDE.md`).
+Two properties are tested, not trusted (section 15): no type in the abstractions can return or accept a value that lowers `SourceTrust` or clears a `TaintState`, and `ScreenDecision` has exactly three members. The reflection test mirrors Resibo's documented field-set assertion against the generated descriptor (`core/content_security/CLAUDE.md`).
 
 ### 6.2 Pipeline
 
@@ -141,35 +141,35 @@ For each request, in order. Steps 1 to 6 are free (no provider is asked) and any
 8. **Pass two for containers.** If the preflight cleared, extract members one at a time through the inspector's bounded streams, and run steps 3 to 7 on each member with the `ParentVerdictId` set. Members are never written to disk unless a provider needs a file path, and then to the same restricted scratch directory. The container verdict is the worst member verdict (Deny over Review over Pass).
 9. **Record.** Write the verdict (6.7), write the audit entry (section 9.2), and, for `Review` and `Deny`, call `IScreeningQuarantineSink` (section 8).
 
-The pipeline never lets an exception cross its boundary. Every `try` exists to turn a failure into a `Deny` with a reason code, as in Resibo's `pipeline.py` docstring ("every return statement ... sets safe=True because every enabled available provider agreed, or sets safe=False").
+The pipeline never lets an exception cross its boundary. Every `try` exists to turn a failure into a `Deny` with a reason code, as Resibo's `core/content_security/CLAUDE.md` states (`safe=True` has exactly one origin, reached only when every enabled, available provider returned clean).
 
 ### 6.3 File type sniffing and polyglot detection
 
 - **Sniffing.** A signature table of magic bytes at offset plus structural confirmation for the formats that matter (PE header chain, ELF class, OOXML by `[Content_Types].xml` and the main part name, OLE compound file directory, PDF header and trailer, common images, audio, video, text). It is pure, synchronous and in the module (no third-party library). Unknown binary content is `application/octet-stream` and is treated as the most restricted class the surface offers. Text is detected by a bounded valid-UTF-8 and control-character check, never by extension.
-- **Claim mismatch.** Recorded, never trusted. A caller that acts on `ClaimedMimeType` instead of `DetectedType` has reintroduced the hole (Resibo proto comment on `detected_type`). The module exposes `DetectedType` only as the trusted field.
-- **Polyglot detection.** The detector always looks for a second independent format signature after the primary header, regardless of what matched first (Resibo `scanning/polyglot_detection.py`): a ZIP end-of-central-directory record searched backwards from the end of any non-ZIP file within the 65,535-byte comment window; PDF, PNG, JPEG and GIF signatures searched after the header region of a different primary type. Added for Bazaar: a PE or ELF header found after an image or document header, an OLE header inside an OOXML file, an HTML script block inside an SVG or image comment, and a ZIP local-file header at offset zero of a file that is also a valid PDF (the PDF-prepend case Resibo documents).
-- **Known false-positive guard.** Resibo found that scanning every PDF for embedded JPEG and PNG signatures flagged 20 of 20 real scanned PDFs, because PDF legitimately embeds image streams (`polyglot_detection.py`, comment on `_CONTAINER_TYPES_THAT_LEGITIMATELY_EMBED_RASTER_IMAGES`). The same exclusion is carried over: raster signatures are not searched inside container types that legitimately embed them. The suspicious direction (an image that also parses as a PDF, an executable header after a document header, a ZIP EOCD in a non-ZIP) stays fully checked. Bazaar adds the same guard for OOXML and ODF, which embed images by design, with a test per container type.
-- **Outcome.** A polyglot is `Review` by default (Resibo returns `safe=False` plus `requires_staff_review`; it is neither passed nor condemned). On surfaces where an agent could open the file, it is `Deny` (section 11).
+- **Claim mismatch.** Recorded, never trusted. A caller that acts on `ClaimedMimeType` instead of `DetectedType` has reintroduced the hole (Resibo deep dive 27: never trust an extension or client-supplied MIME type). The module exposes `DetectedType` only as the trusted field.
+- **Polyglot detection.** The detector always looks for a second independent format signature after the primary header, regardless of what matched first (Resibo's docs require polyglot detection that does not stop at the first plausible format, deep dive 27 section 8; the specific signatures and windows below are Bazaar's own, PROPOSED, not from Resibo): a ZIP end-of-central-directory record searched backwards from the end of any non-ZIP file within the 65,535-byte comment window; PDF, PNG, JPEG and GIF signatures searched after the header region of a different primary type. Added for Bazaar: a PE or ELF header found after an image or document header, an OLE header inside an OOXML file, an HTML script block inside an SVG or image comment, and a ZIP local-file header at offset zero of a file that is also a valid PDF. 
+- **Known false-positive guard.** Bazaar's reasoning, PROPOSED (not from Resibo): PDF legitimately embeds image streams, so scanning every PDF for embedded JPEG and PNG signatures would flag ordinary scanned PDFs. Raster signatures are not searched inside container types that legitimately embed them. The suspicious direction (an image that also parses as a PDF, an executable header after a document header, a ZIP EOCD in a non-ZIP) stays fully checked. Bazaar applies the same guard to OOXML and ODF, which embed images by design, with a test per container type.
+- **Outcome.** A polyglot is `Review` by default (Resibo's proto returns `safe=False` plus `requires_staff_review`; it is neither passed nor condemned). On surfaces where an agent could open the file, it is `Deny` (section 11).
 - **Parsers for risky formats.** Sniffing reads headers only. Any module that must parse a hostile format body (7z, rar, legacy OLE) runs it out-of-process under the doc 44 section 8.3 confinement (no network, input read-only, output stream only, wall-clock timeout) and under the out-of-process contract in BAZAAR-COMPONENTS section 7.
 
 ### 6.4 Archive bomb and archive hazard checks (pre-extraction)
 
-Resibo reads zip `infolist()` metadata before any extraction and checks entry count, cumulative uncompressed size, aggregate and per-entry ratio, and nested-archive entries (`scanning/bomb_check.py`: 2,000 entries, 1 GiB, 100:1 aggregate, 300:1 per entry; the source says these are provisional until measured). Bazaar keeps that and adds more, because declared sizes in a central directory can lie.
+Resibo's deep dive 27 section 3 requires a container-level check before any extraction (entry count, size and compression-ratio sanity checks) and states no numeric limits. Bazaar keeps the container-first rule and sets its own limits (2,000 entries, 1 GiB, 100:1 aggregate, 300:1 per entry), PROPOSED (Bazaar's design, not from Resibo) and to be tuned against measured imports and attachments. Bazaar adds more checks, because declared sizes in a central directory can lie.
 
 - **Formats.** Zip (including Zip64), tar (plain and through a bounded gzip stream), gzip single-member, and, through inspector modules, 7z and others. A file detected as an archive format with no installed inspector is `Deny` (`NO_INSPECTOR`). An archive that cannot be pre-checked is never extracted.
 - **Declared-size limits** (before extraction): entry count, total declared size, aggregate ratio, per-entry ratio, maximum declared single-entry size, maximum path length, maximum nesting depth.
 - **Structural hazards** (new): overlapping local file entries (the zip-quine overlap bomb), declared sizes that disagree with the data descriptor, duplicate entry names, entry offsets outside the file, absolute paths, `..` segments, drive letters and UNC paths, symlinks and hard links, device files, names that collide when case-folded, Windows reserved names, trailing dots and spaces, control characters in names, and encrypted entries (a member that cannot be scanned is `Review`, never `Pass`). The path and link rules are the same ones doc 44 section 8.3 lists for import parsers; this module is the single implementation and doc 44 calls it.
 - **Actual-size enforcement** (new): in pass two the inspector hands out a bounded stream that counts real decompressed bytes. It aborts when the running total passes the declared size, the per-entry cap, the remaining cumulative budget, or the ratio cap. A lying header is therefore caught at extraction, not trusted. The budget is cumulative over the whole archive tree.
-- **Nesting.** The default is no nested archives: a member that is itself an archive is held, as doc 22 already says ("nested archives are held"). `screening.archive.max_depth` can raise it up to a hard ceiling of 4, and a member-of-a-member is screened with the same cumulative budget. OOXML and ODF documents are zip containers but are not treated as nested archives (Resibo `NESTED_ARCHIVE_EXTENSIONS` excludes `.docx`, `.xlsx`, `.pptx` for the same reason); they are screened as documents with macro and external-reference checks.
+- **Nesting.** The default is no nested archives: a member that is itself an archive is held, as doc 22 already says ("nested archives are held"). `screening.archive.max_depth` can raise it up to a hard ceiling of 4, and a member-of-a-member is screened with the same cumulative budget. OOXML and ODF documents are zip containers but are not treated as nested archives (Bazaar's own rule, PROPOSED: they embed zip structure by design); they are screened as documents with macro and external-reference checks.
 - **Result.** A failed preflight is `Deny` (`ARCHIVE_BOMB`, `ARCHIVE_HAZARD`). A clean preflight with bad members goes to remediation (6.9) or `Deny`.
-- **Symmetry.** The same checks run on outbound archives the server itself builds (backup bundles, exports, doc 33 and doc 44 export), so a corrupted or tampered export is caught before it is sent. This is Resibo's "outbound archive-bomb symmetry" (`docs/apis` Export Framework note in the inventory, resibo-30-39). It is on by default for outbound mail attachments and exports.
+- **Symmetry.** The same checks run on outbound archives the server itself builds (backup bundles, exports, doc 33 and doc 44 export), so a corrupted or tampered export is caught before it is sent. This is Resibo's "outbound archive-bomb symmetry" (deep dive 31 section 10). It is on by default for outbound mail attachments and exports.
 
 ### 6.5 Malware scanning through provider modules
 
 - **Discovery.** The pipeline resolves `IEnumerable<IScreeningProvider>` from DI. Every installed provider module is asked, in parallel, each in its own bulkhead (a concurrency semaphore and a per-provider timeout). There is no selector and no "active provider" setting; installing or removing a module changes the set. This is Resibo's "more than one provider can run at once" (`CLAUDE.md` Provider Registry rule) expressed as Bazaar's plain-module rule.
 - **Per-provider contract.** `GetStatusAsync` reports availability, engine and definition versions, and definition age. `ScanAsync` returns Clean, Suspicious, Malicious or Error. A timeout, a crash, an over-size file (above that provider's `MaxBytes`), a malformed reply and an unavailable engine are all `Error`. Providers never throw across the seam.
 - **Proposed provider modules** (all PROPOSED; the owner picks what ships):
-  - `Bazaar.Server.ContentScreening.ClamAv`: talks to a running `clamd` over `INSTREAM`. Resibo found `clamscan` reloads its whole signature database on every call (about 11 seconds), and 8 concurrent scans failed closed against a 15-second client timeout; the daemon path was about 1 second warm (`core/content_security/CLAUDE.md`). So `clamd` is the primary transport and `clamscan` a disabled-by-default fallback. This module does not start or configure the daemon.
+  - `Bazaar.Server.ContentScreening.ClamAv`: talks to a running `clamd` over `INSTREAM`. Resibo found `clamscan` reloads its whole signature database on every call (about 11 seconds, per Resibo's `core/content_security/CLAUDE.md`), and 8 concurrent scans failed closed against a 15-second client timeout; the daemon path was about 1 second warm (`core/content_security/CLAUDE.md`). So `clamd` is the primary transport and `clamscan` a disabled-by-default fallback. This module does not start or configure the daemon.
   - `Bazaar.Server.ContentScreening.VirusTotal`: cloud multi-engine. Hash lookup only by default. Uploading file content is a separate setting, off, because it sends the file to a third party (section 9).
   - `Bazaar.Server.ContentScreening.WindowsDefender`: Windows host only, behind the OS provider rule.
   - Other candidates, not designed here: a YARA-rules provider and a local known-bad-hash list provider.
@@ -177,7 +177,7 @@ Resibo reads zip `infolist()` metadata before any extraction and checks entry co
 
 ### 6.6 Verdict policy
 
-The module decides; providers only report. Default policy `consensus`, copied from Resibo's resolved rule (deep dive 27 section 9, `pipeline._resolve`):
+The module decides; providers only report. Default policy `consensus`, copied from Resibo's resolved rule (deep dive 27 section 9; `core/content_security/CLAUDE.md`):
 
 1. No provider available (none installed, or all unavailable or out of date): `Deny` (`NO_PROVIDER`).
 2. Any provider `Error` (including timeout): `Deny` (`PROVIDER_FAILED`), even if another provider said clean. A caller cannot tell a verdict reached despite a failure from one that would have differed had the failed provider run (Resibo's stated reason for being stricter than it looks).
@@ -190,7 +190,7 @@ Bazaar adds a stricter alternative, `screening.verdict_policy = any-malicious-de
 - **Definition freshness.** A provider whose definitions are older than `screening.av.max_definition_age_hours` (default 72) counts as unavailable. A stale ClamAV database is a silent gap distinct from an outdated package (Resibo `CLAUDE.md`, deep dive 27 section 5.1, resolved there as a tracked-fact entry). The Kodo probe in section 12 reports the age.
 - **Re-screening.** When a provider's definitions or engine version change, a background `RescanService` re-screens retained `Pass` verdicts for blobs still in use or in quarantine, oldest first, rate-limited (`screening.rescan.max_per_hour`). A changed verdict is a new verdict row, an audit entry, and a notice to the owner. A `Pass` that flips to `Malicious` for a blob already read by an agent session is a security event with the sessions listed (section 8).
 - **Over-size.** If a file exceeds the smallest `MaxBytes` among the families required by policy, the result is `Deny` (`TOO_LARGE_FOR_ENGINE`), not a partial scan.
-- **Timeouts.** `screening.provider.timeout_seconds` default 30 (Resibo's `DEFAULT_PROVIDER_TIMEOUT_SECONDS`), with a total deadline per request. A timeout is `Error` and therefore `Deny`; the file is not retried inline. A queued retry may produce a new verdict later, which is how a transient outage ends without ever having passed anything in between.
+- **Timeouts.** `screening.provider.timeout_seconds` default 30 (PROPOSED, Bazaar's design, not from Resibo), with a total deadline per request. A timeout is `Error` and therefore `Deny`; the file is not retried inline. A queued retry may produce a new verdict later, which is how a transient outage ends without ever having passed anything in between.
 - **No AV installed.** Because rule 1 denies, an install with no provider module would block all external files. That is intended for the default (section 17, Q1). An operator may set `screening.av.required = false` for chosen surfaces, with owner approval and an audit entry. Such verdicts carry `ReasonCode = AV_NOT_REQUIRED_BY_POLICY` and show as static-only in the pane. Floor: executable-class files, macro files and encrypted archive members are never `Pass` without an AV result.
 
 ### 6.7 Data
@@ -259,14 +259,14 @@ Verdict rows are append-only: a re-screen writes a new row and sets `superseded_
 
 ### 6.9 Remediation (strip a bad member)
 
-Resibo planned to strip one bad archive member and extract the rest, using Python 3.16 `zipfile.remove()` and `repack()` behind a `hasattr` check, falling back to rejecting the whole archive (deep dive 27 section 3.1). Bazaar does not depend on that API. The module can build a new archive without the named members using the BCL, writing it as a derived blob with `ParentVerdictId` set. The original stays quarantined and is never modified. The derived blob is screened from scratch. Default `screening.remediation.mode = reject` (Resibo's own safe default when the capability is absent); `strip` is available per surface and needs an owner decision per file on external surfaces. Floor: a derived file never inherits `Pass` from its parent.
+Resibo planned to strip one bad archive member and extract the rest, using Python 3.16 `zipfile.remove()` and `repack()` behind a `hasattr` check, falling back to rejecting the whole archive (deep dive 27 section 3.1). Bazaar does not depend on that API. The module can build a new archive without the named members using the BCL, writing it as a derived blob with `ParentVerdictId` set. The original stays quarantined and is never modified. The derived blob is screened from scratch. Default `screening.remediation.mode = reject` (Resibo's deep dive 27 section 3.1 also falls back to rejecting the whole archive when the capability is absent); `strip` is available per surface and needs an owner decision per file on external surfaces. Floor: a derived file never inherits `Pass` from its parent.
 
 ## 7. Fail closed, as a contract
 
 The Resibo guarantee is carried over in full: if the scan fails, times out, or the service is down, every caller treats the file as unscanned and therefore unsafe (deep dive 27 section 4, proto header comment). Bazaar enforces it in four places.
 
 1. **Type.** `ScreenDecision` has no value for "could not check". `ScreenAsync` never throws for scan failures; it returns `Deny` with a reason code.
-2. **Single origin of `Pass`.** `Pass` is produced in exactly one method (the policy resolver). A test greps the module for any second construction site (Resibo's "if you find yourself adding a second place that can set it, that is the bug").
+2. **Single origin of `Pass`.** `Pass` is produced in exactly one method (the policy resolver). A test greps the module for any second construction site (Resibo's `core/content_security/CLAUDE.md`: "if you find yourself adding a second place that can set it, that is the bug").
 3. **Callers.** The abstractions expose `IContentScreener` and a helper `ScreenedBlobAccess.OpenAsync(hash, purpose)`; a consumer that gets no verdict row gets a refusal, not the bytes. The module registers a decorator over `IBlobReadAccess` (`Bazaar.Server.Blobs.Abstractions`) that refuses reads of blobs whose newest verdict is `Review` or `Deny`, and blobs that have none when the blob came from an external surface (a blob with no verdict is unscreened, hence unsafe). Blobs needs no change: the decorator lives here.
 4. **Unavailability.** If the module is disabled, consumers that declared it a hard dependency do not start. Consumers that declared it soft treat "module absent" as `Deny` for external-origin files (a consumer-level test per integration, section 15).
 
@@ -290,10 +290,10 @@ The Resibo guarantee is carried over in full: if the scan fails, times out, or t
 | `screening.av.max_definition_age_hours` | int | 72 | install | Hard ceiling 168 | Yes, owner to raise |
 | `screening.provider.timeout_seconds` | int | 30 | install | Ceiling 300; a timeout is always Deny | Yes, owner to raise |
 | `screening.max_file_bytes` | int | 256 MiB | surface | Not above host storage and not above `portability.import.max_upload_bytes` on imports | Yes, owner to raise |
-| `screening.archive.max_entries` | int | 2,000 | surface | Resibo default; ceiling 20,000 | Yes, owner to raise |
-| `screening.archive.max_total_uncompressed_bytes` | int | 1 GiB | surface | Resibo default; ceiling 16 GiB | Yes, owner to raise |
-| `screening.archive.max_ratio` | int | 100 | surface | Resibo default. Effective value is the minimum of this and `portability.import.max_expansion_ratio` (doc 44) | Yes, owner to raise |
-| `screening.archive.max_entry_ratio` | int | 300 | surface | Resibo default | Yes, owner to raise |
+| `screening.archive.max_entries` | int | 2,000 | surface | PROPOSED Bazaar default; ceiling 20,000 | Yes, owner to raise |
+| `screening.archive.max_total_uncompressed_bytes` | int | 1 GiB | surface | PROPOSED Bazaar default; ceiling 16 GiB | Yes, owner to raise |
+| `screening.archive.max_ratio` | int | 100 | surface | PROPOSED Bazaar default. Effective value is the minimum of this and `portability.import.max_expansion_ratio` (doc 44) | Yes, owner to raise |
+| `screening.archive.max_entry_ratio` | int | 300 | surface | PROPOSED Bazaar default | Yes, owner to raise |
 | `screening.archive.max_depth` | int | 1 (no nested) | surface | Hard ceiling 4 | Yes, owner to raise |
 | `screening.archive.allow_encrypted_members` | enum `review`, `deny` | `review` | surface | Never `pass` | Operator |
 | `screening.remediation.mode` | enum `reject`, `strip` | `reject` | surface | `strip` on external surfaces needs per-file owner decision | Yes, owner |
@@ -335,23 +335,22 @@ Payloads carry hashes, reason codes, class names and counts. They never carry fi
 
 | Resibo item (path) | Taken | Changed for Bazaar, and why |
 |---|---|---|
-| Fail-closed contract, no "could not check" value (`content_security.proto`, deep dive 27 section 4) | Fully | `ScreenDecision` has three members; `Pass` has one origin. Enforced by tests, as Resibo does |
-| Real type from magic bytes, never extension or claimed MIME (`scanning/magic_bytes.py`) | Fully | Streams and structural confirmation; the claim is stored, mismatch policy is per surface |
-| Polyglot detection with the PDF raster false-positive guard (`scanning/polyglot_detection.py`) | Fully | Added PE/ELF after document header, OLE in OOXML, script in SVG; the guard extended to OOXML and ODF |
-| Archive bomb preflight: entry count, total size, ratios, nested archives (`scanning/bomb_check.py`) | Defaults 2,000 / 1 GiB / 100:1 / 300:1 | Metadata is not trusted: overlap, descriptor mismatch, path hazards, real-byte counting during extraction; more formats; nested default is "held" to match doc 22 |
+| Fail-closed contract, no "could not check" value (deep dive 27 section 4; `core/content_security/CLAUDE.md`) | Fully | `ScreenDecision` has three members; `Pass` has one origin. Enforced by tests, as Resibo does |
+| Real type from magic bytes, never extension or claimed MIME (deep dive 27 section 1) | Fully | Streams and structural confirmation; the claim is stored, mismatch policy is per surface |
+| Polyglot detection (deep dive 27 sections 1 and 8) | Fully | Added PE/ELF after document header, OLE in OOXML, script in SVG; the raster false-positive guard for PDF, OOXML and ODF is Bazaar's own, PROPOSED |
+| Archive bomb preflight: entry count, total size, ratios, nested archives (deep dive 27 section 3) | Container-first rule; the numeric defaults 2,000 / 1 GiB / 100:1 / 300:1 are Bazaar's, PROPOSED | Metadata is not trusted: overlap, descriptor mismatch, path hazards, real-byte counting during extraction; more formats; nested default is "held" to match doc 22 |
 | Two-pass scanning: container, then every member (deep dive 27 section 3) | Fully | Pass two also runs the AV fan-out on non-archives; cumulative budget over the tree |
-| Provider registry with several providers at once (`providers/base.py`) | Fully | No registry or selector: plain provider modules resolved from DI (task brief); engine families so shared databases count once |
-| Consensus policy: unanimous Malicious denies, split goes to review, provider error denies (`pipeline._resolve`, deep dive 27 section 9) | Fully, as the default | Optional stricter `any-malicious-denies`; floors in 6.6 |
-| ClamAV via `clamd` daemon, `clamscan` fallback (`providers/clamd_provider.py`) | As the proposed `ClamAv` provider module | Separate module with its own project pair; the daemon packaging question is OPEN |
-| VirusTotal as cloud alternative (`providers/virustotal_provider.py`) | As the proposed `VirusTotal` module | Hash lookup by default, content upload off, private sources excluded (privacy) |
+| Provider registry with several providers at once (deep dive 27 section 2) | Fully | No registry or selector: plain provider modules resolved from DI (task brief); engine families so shared databases count once |
+| Consensus policy: unanimous Malicious denies, split goes to review, provider error denies (deep dive 27 section 9; `core/content_security/CLAUDE.md`) | Fully, as the default | Optional stricter `any-malicious-denies`; floors in 6.6 |
+| ClamAV via `clamd` daemon, `clamscan` fallback (`core/content_security/CLAUDE.md`) | As the proposed `ClamAv` provider module | Separate module with its own project pair; the daemon packaging question is OPEN |
+| VirusTotal as cloud alternative (deep dive 27 section 2) | As the proposed `VirusTotal` module | Hash lookup by default, content upload off, private sources excluded (privacy) |
 | ClamAV definition freshness as a tracked fact (deep dive 27 section 5.1 and 9) | Fully | A stale provider counts as unavailable; a Kodo probe reports definition age |
 | Remediation by stripping a member (`zipfile.remove()`/`repack()`, deep dive 27 section 3.1) | Concept | No Python-version dependency; builds a derived blob in the BCL; default is reject |
-| Outbound archive symmetry (inventory resibo-30-39) | Concept | `screening.outbound.enabled` for exports and outbound mail |
+| Outbound archive symmetry (deep dive 31 section 10) | Concept | `screening.outbound.enabled` for exports and outbound mail |
 | Verdict returns pass/fail plus detail, owner of downstream workflow is elsewhere (deep dive 27 section 1) | Boundary | In Bazaar the module links quarantine and owner release itself (6.8), because Bazaar has no separate Review/Flagging module |
 | Staff review for disagreements | Concept | Owner-only, owner-signed release, no release of confirmed malicious |
 | gRPC `ScanFile` and `ScanContainer`, protobuf (`content_security.proto`) | Not taken | Wire is JSON (spike S6); in-process interfaces; out-of-process parsers use the protocol of BAZAAR-COMPONENTS section 7 |
 | `FrozenDict` and Python forward-compat patterns | Not taken | Python-specific. .NET equivalents are immutable records and the newest-.NET rule in CLAUDE.md |
-| Resibo metrics (`metrics.py`) | Concept | Counters go to Observatory (doc 23) and Kodo, not a private collector |
 
 ## 11. Integration points
 
@@ -467,7 +466,7 @@ Small and independent, each its own file or project with tests. Order shows depe
 4. **Browser and VM download hook.** Inline in the per-agent proxy, in the Chromium download handler, at the guest boundary, or all three. Needs a spike with doc 16 and doc 15.
 5. **Who implements the quarantine seam.** Doc 15 work item 9 plans a quarantine service; today it is code inside `Bazaar.Server/Security/Quarantine`. Should the sink adapter wait for a quarantine module?
 6. **Cloud content upload.** Whether to offer it at all, and the counsel review of sending files that may hold personal data to a third party.
-7. **Archive limit defaults.** Resibo's numbers are marked provisional by its own source. Needs benchmark data from Bazaar imports and attachments before they are called final.
+7. **Archive limit defaults.** The numbers are Bazaar's proposal, not Resibo's. Needs benchmark data from Bazaar imports and attachments before they are called final.
 8. **Doc 46 naming.** Doc 46 names the interface `IModuleHealth`; the code has `IModuleHealthContract`. This doc follows the code; the owner or doc 46's owner should confirm.
 9. **Surface registry.** Whether other modules may register their own surface ids (`IScreeningSurfaceRegistry`) in v1, or only the fixed list.
 10. **Erasure and held bytes.** Same open point as doc 22 Q3: counsel decides whether quarantined bytes are exempt from erasure.

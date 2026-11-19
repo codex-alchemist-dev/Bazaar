@@ -356,11 +356,11 @@ create table mcp_access.token_rate (
 );
 ```
 
-The CHECK constraints are the second enforcement of the ceiling; the code that builds the scope set is the first (Resibo enforces the ceiling "twice on purpose", `core/agent_control/token_lifecycle.py`).
+The CHECK constraints are the second enforcement of the ceiling; the code that builds the scope set is the first (the double enforcement is Bazaar's own design, PROPOSED, not from Resibo).
 
 ### 7.2 Rate limits (tighter than a human's)
 
-Two independent buckets per token, defaults from Resibo (`v3-deepdive-55` section 7): 30 calls per minute and 20 mutating calls per hour. The mutating cap triggers independently of the general cap. A third bound caps pending staged changes per token. On a breach the call is refused with `RateLimited`, audited, and a repeat within the window freezes the session and notifies the owner. These are quotas, not money budgets (Resource Economy stays REJECTED). They sit beside doc 15's per-agent approval request cap (10 per hour), which still applies to the apply requests a token's staged changes create.
+Two independent buckets per token, defaults from Resibo (`v3-deepdive-55` section 7, `max_actions_per_minute` 30 and `max_mutating_actions_per_hour` 20): 30 calls per minute and 20 mutating calls per hour. The mutating cap triggers independently of the general cap. A third bound caps pending staged changes per token. On a breach the call is refused with `RateLimited`, audited, and a repeat within the window freezes the session and notifies the owner. These are quotas, not money budgets (Resource Economy stays REJECTED). They sit beside doc 15's per-agent approval request cap (10 per hour), which still applies to the apply requests a token's staged changes create.
 
 ### 7.3 Settings registry rows
 
@@ -386,7 +386,7 @@ Two independent buckets per token, defaults from Resibo (`v3-deepdive-55` sectio
 
 ### 7.5 DevSeed: the conflicting variant as a separate module
 
-Resibo has a path for an unattended, fully AI-developed install where no human exists to click "issue" (`core/agent_control/dev_token_gateway.py`): a seed step issues a `staff`-capped token with `issued_by="setup-dev-bootstrap"`, scoped to read, staged and dev-observability but never test-execution, and writes the plaintext to a file in the install config directory. That conflicts with Bazaar's rule that a token is always human-issued, so it is a separate module (`mcp-dev-seed`), not a mode of the core.
+Resibo has a path for an unattended, fully AI-developed install where no human exists to click "issue" (`docs/MAINTENANCE.md` section on the dev agent token, `core/agent_control/CLAUDE.md`): a seed step issues a `staff`-capped token with `issued_by="setup-dev-bootstrap"`, scoped to read, staged and dev-observability but never test-execution, and writes the plaintext to a file in the install config directory. That conflicts with Bazaar's rule that a token is always human-issued, so it is a separate module (`mcp-dev-seed`), not a mode of the core.
 
 - It loads only when `mcp.dev_seed.enabled` is true **and** the install is a development or sandbox install. How an install is marked as such is OPEN (section 15); until it is settled the module refuses to start.
 - It issues at most one token, as `system:setup-dev` (a `Principal` of kind `system`). The core's `issued_by like 'user:%'` CHECK would reject that, so the module writes to its own table `mcp_access_devseed.seed_token` and the core accepts it only through a narrow `IDevSeedTokenSource` that the core consults when the module is present. The seed token still obeys every ceiling, the taint rule and the rate limits. It is never `agent` kind.
@@ -399,7 +399,7 @@ Module id `mcp-access`. Readiness: at least one transport running, token store r
 
 ## 8. Test orchestration sub-API (DEV tools, off in production)
 
-Resibo's Test Orchestration (`core/agent_control/test_orchestration/`, `v3-deepdive-56`, read only through its `CLAUDE.md` and `contracts.py`) makes complex tests callable by an agent and returns a structured result: runners for crash isolation, environment reset, pipeline integration and a bench suite, with a result status that separates `FAILED` from `UNAVAILABLE` ("this environment cannot run the test" is not the finding "the system misbehaved"). It does not replace ordinary unit tests.
+Resibo's Test Orchestration (`core/agent_control/test_orchestration/CLAUDE.md`, `v3-deepdive-56`) makes complex tests callable by an agent and returns a structured result: runners for crash isolation, environment reset, pipeline integration and a bench suite, with a result status that separates `FAILED` from `UNAVAILABLE` ("this environment cannot run the test" is not the finding "the system misbehaved"). It does not replace ordinary unit tests.
 
 In Bazaar this is `Bazaar.Server.TestOrchestration` with its own Abstractions, so the runner contract can be implemented by any module. It **wraps** existing capability and implements none of it again:
 
