@@ -156,6 +156,9 @@ public sealed class VirshKvmHost : IKvmHost
     {
         RequireDomain(domainName);
         RequireCheckpoint(checkpointName);
+
+        // A managed save image holds memory from before the revert. Drop it first so the next start boots the reverted disk, never old memory on it.
+        await VirshAsync(["managedsave-remove", domainName], ct);
         await VirshAsync(["snapshot-revert", domainName, checkpointName], ct);
     }
 

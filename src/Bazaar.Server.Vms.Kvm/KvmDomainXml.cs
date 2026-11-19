@@ -69,6 +69,13 @@ public static class KvmDomainXml
 
             WriteEmpty(xml, "cpu", ("mode", "host-passthrough"));
 
+            // The guest cannot suspend itself. A suspended domain is neither running nor off, so stop and save would not
+            // apply to it, and a wake timer set inside the guest could bring it back later.
+            xml.WriteStartElement("pm");
+            WriteEmpty(xml, "suspend-to-mem", ("enabled", "no"));
+            WriteEmpty(xml, "suspend-to-disk", ("enabled", "no"));
+            xml.WriteEndElement();
+
             WriteElement(xml, "on_poweroff", "destroy");
             WriteElement(xml, "on_reboot", "restart");
             WriteElement(xml, "on_crash", "destroy");

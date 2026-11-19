@@ -117,6 +117,18 @@ public sealed class KvmBackendTests
     }
 
     [Fact]
+    public async Task A_force_stop_works_on_a_suspended_or_hung_vm_but_a_graceful_stop_does_not()
+    {
+        var stuck = await NewVmAsync(KvmDomainState.Transitioning);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _backend.StopAsync(stuck, StopMode.Graceful, Ct));
+        await _backend.StopAsync(stuck, StopMode.Force, Ct);
+
+        Assert.Contains($"stop-force:{stuck.BackendRef}", _host.Calls);
+        Assert.Equal(VmState.Stopped, await _backend.GetStateAsync(stuck, Ct));
+    }
+
+    [Fact]
     public async Task Save_stops_a_running_vm_into_saved_state()
     {
         var running = await NewVmAsync(KvmDomainState.Running);

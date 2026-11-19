@@ -35,16 +35,43 @@ public sealed class ProcessKvmCommandRunner : IKvmCommandRunner
         _maxOutputChars = maxOutputChars;
     }
 
+    /// <summary>
+    /// The start info for one allowed call: no shell, arguments passed as a list, and the C locale so the output the
+    /// callers parse is never translated.
+    /// </summary>
+    public static ProcessStartInfo CreateStartInfo(string program, IReadOnlyList<string> arguments, bool redirectInput)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+        RequireAllowed(_allowedPrograms, program);
+        return BuildStartInfo(program, arguments, redirectInput);
+    }
+
+    private static void RequireAllowed(IReadOnlyCollection<string> allowed, string program)
+    {
+        if (!allowed.Contains(program))
+        {
+            throw new ArgumentException($"Program '{program}' is not allowed; only virsh and qemu-img run.", nameof(program));
+        }
+    }
+
+    private static Process StartProcess(string program, ProcessStartInfo startInfo)
+    {
+        try
+        {
+            return Process.Start(startInfo) ?? throw new KvmCommandException($"Could not start '{program}'.");
+        }
+        catch (Win32Exception ex)
+        {
+            throw new KvmCommandException($"Could not start '{program}': {ex.Message}", ex);
+        }
+    }
+
     /// <inheritdoc />
     public async Task<KvmCommandResult> RunAsync(string program, IReadOnlyList<string> arguments, string? standardInput, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(arguments);
-        if (!_programs.Contains(program))
-        {
-            throw new ArgumentException($"Program '{program}' is not allowed; only virsh and qemu-img run.", nameof(program));
-        }
-
-        var startInfo = CreateStartInfo(program, arguments, standardInput is not null);
+        RequireAllowed(_programs, program);
+        var startInfo = BuildStartInfo(program, arguments, redirectInput: standardInput is not null);
 
         using var process = StartProcess(program, startInfo);
         var exceeded = 0;
@@ -94,7 +121,7 @@ public sealed class ProcessKvmCommandRunner : IKvmCommandRunner
     /// Builds the process start info: the arguments go through <see cref="ProcessStartInfo.ArgumentList"/> one by one, and the environment
     /// is the service's own plus <c>LC_ALL=C</c> (and no <c>LANGUAGE</c>, which would override the locale for gettext).
     /// </summary>
-    internal static ProcessStartInfo CreateStartInfo(string program, IReadOnlyList<string> arguments, bool redirectInput)
+    private static ProcessStartInfo BuildStartInfo(string program, IReadOnlyList<string> arguments, bool redirectInput)
     {
         var startInfo = new ProcessStartInfo(program)
         {
@@ -109,6 +136,7 @@ public sealed class ProcessKvmCommandRunner : IKvmCommandRunner
             startInfo.ArgumentList.Add(argument);
         }
 
+        // The callers parse state names and "not found" messages, which virsh translates. Pin the untranslated text.
         startInfo.Environment["LC_ALL"] = "C";
         startInfo.Environment.Remove("LANGUAGE");
         return startInfo;
@@ -143,18 +171,6 @@ public sealed class ProcessKvmCommandRunner : IKvmCommandRunner
                 over = true;
                 onExceeded();
             }
-        }
-    }
-
-    private static Process StartProcess(string program, ProcessStartInfo startInfo)
-    {
-        try
-        {
-            return Process.Start(startInfo) ?? throw new KvmCommandException($"Could not start '{program}'.");
-        }
-        catch (Win32Exception ex)
-        {
-            throw new KvmCommandException($"Could not start '{program}': {ex.Message}", ex);
         }
     }
 

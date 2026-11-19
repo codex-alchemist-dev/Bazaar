@@ -52,7 +52,7 @@ public sealed class VirshKvmHostTests
         await _host.RestoreAsync(_vm, _cp, Ct);
 
         Assert.Equal(
-            [Virsh("managedsave", _vm), Virsh("snapshot-create-as", _vm, _cp, "--atomic"), Virsh("snapshot-revert", _vm, _cp)],
+            [Virsh("managedsave", _vm), Virsh("snapshot-create-as", _vm, _cp, "--atomic"), Virsh("managedsave-remove", _vm), Virsh("snapshot-revert", _vm, _cp)],
             _runner.Calls);
     }
 
@@ -296,6 +296,17 @@ public sealed class VirshKvmHostTests
         var runner = new ProcessKvmCommandRunner();
 
         await Assert.ThrowsAsync<ArgumentException>(() => runner.RunAsync("sh", ["-c", "true"], null, Ct));
+    }
+
+    [Fact]
+    public void The_process_runner_pins_the_C_locale_so_parsed_output_is_never_translated()
+    {
+        var info = ProcessKvmCommandRunner.CreateStartInfo("virsh", ["domstate", "bazaar-x"], redirectInput: false);
+
+        Assert.Equal("C", info.Environment["LC_ALL"]);
+        Assert.False(info.Environment.ContainsKey("LANGUAGE"));
+        Assert.False(info.UseShellExecute);
+        Assert.Equal<string>(["domstate", "bazaar-x"], info.ArgumentList);
     }
 
     private VirshKvmHost Create(VirshKvmOptions options) => new(
