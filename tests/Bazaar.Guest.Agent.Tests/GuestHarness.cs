@@ -122,6 +122,18 @@ internal sealed class GuestHarness : IAsyncDisposable
         return ids.ToDictionary(id => id, id => new ExecResult(outputs[id], exits[id]), StringComparer.Ordinal);
     }
 
+    /// <summary>Reads frames until the exec's Exit arrives.</summary>
+    public async Task ReceiveExitAsync(string id)
+    {
+        while (true)
+        {
+            if (await ReceiveAsync() is Exit exit && exit.Id == id)
+            {
+                return;
+            }
+        }
+    }
+
     /// <summary>Reads frames until the first output chunk of the exec arrives.</summary>
     public async Task<Output> ReceiveFirstOutputAsync(string id)
     {
