@@ -128,7 +128,7 @@ Registry rules per doc 03 (DECISIONS-LOG round 13). Every change is written to t
 11. Screenshot annotation over the HTTP blob channel. Depends on the doc 02 HTTP surface.
 12. Device spike checklist run; results recorded in doc 35.
 13. Play closed-test track and signing setup. Blocked on the owner's tester list.
-14. PR review and merge pane (summary, full diff, request changes, merge request after signed approval). Depends on 8, doc 21 and doc 12.
+14. PR review and merge pane (summary, full diff, request changes, merge request after signed approval). Depends on 8, doc 21 (Client PR wire [PROPOSED]) and doc 12. Merge signs the shared owner payload, not a doc 15 card decision.
 
 ## Conflicts
 1. Hold-anywhere vs platform gestures: long-press selects text in the composer, TalkBack uses long-press, and Android 16 edge gestures can clash at screen edges. The radial must ignore edge bands.
