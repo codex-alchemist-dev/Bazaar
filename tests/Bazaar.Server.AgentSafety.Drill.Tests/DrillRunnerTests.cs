@@ -152,4 +152,36 @@ public sealed class DrillRunnerTests
         Assert.False(release.Passed);
         Assert.Equal("No release challenge was issued to the drill device.", release.Reason);
     }
+
+    [Fact]
+    public async Task A_stop_the_drill_did_not_engage_is_neither_signed_for_nor_released_by_the_cleanup()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var h = new DrillHarness();
+        await h.Engine.EngageAgentAsync("owner-1", FakeDrillTarget.AgentId, "a real stop", ct);
+
+        var result = await h.Runner.RunAsync(FakeDrillTarget.AgentId, ct);
+
+        Assert.False(result.Passed);
+        Assert.DoesNotContain(result.Steps, s => s.Name == "cleanup");
+        Assert.Equal(0, h.Target.SignCalls);
+        var stop = Assert.Single(h.Engine.GetStatus().AgentStops);
+        Assert.Equal("owner-1", stop.ActorId);
+        Assert.DoesNotContain(h.Audit.Entries, e => e.Action == KillSwitchAction.Resumed);
+    }
+
+    [Fact]
+    public async Task The_drill_key_does_not_sign_once_the_agent_is_no_longer_a_drill_agent()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var h = new DrillHarness();
+        h.Target.RejectAfterChecks = 1; // accepted at the start of the run, rejected at every later check
+
+        var result = await h.Runner.RunAsync(FakeDrillTarget.AgentId, ct);
+
+        Assert.False(result.Passed);
+        Assert.Equal(0, h.Target.SignCalls);
+        Assert.Contains(result.Steps, s => s.Name == "release" && !s.Passed);
+        Assert.Single(h.Engine.GetStatus().AgentStops);
+    }
 }

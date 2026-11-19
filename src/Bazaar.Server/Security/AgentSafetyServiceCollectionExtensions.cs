@@ -35,6 +35,7 @@ public static class AgentSafetyServiceCollectionExtensions
         services.TryAddSingleton<IContainmentStateStore, InMemoryContainmentStateStore>();
         services.TryAddSingleton<IKillSwitchAuditSink, KillSwitchAuditAdapter>();
         services.TryAddSingleton<INonceStore, InMemoryNonceStore>();
+        services.TryAddSingleton<ContainmentReleaseGuard>();
         services.TryAddSingleton<IAgentContainment, AgentContainmentAdapter>();
         services.TryAddSingleton<KillSwitchEngine>();
         return services;

@@ -26,3 +26,42 @@ public interface IContainmentStateStore
     /// <summary>Removes a contained agent. Does nothing when it is not stored.</summary>
     Task RemoveAsync(string agentId, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Per-agent mutual exclusion between a containment release and the periodic re-containment sweep. A release resumes the VMs before
+/// it removes the agent from the <see cref="IContainmentStateStore"/>; without this guard a sweep running in between would see a
+/// still-stored agent and pause the VMs the release has just resumed. The release waits for the guard; the sweep never waits, it skips
+/// an agent whose guard is held (a release in flight, or an earlier sweep still pausing it).
+/// </summary>
+public sealed class ContainmentReleaseGuard
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
+
+    /// <summary>Waits for the agent's guard and holds it until the returned lease is disposed.</summary>
+    public async Task<IDisposable> AcquireAsync(string agentId, CancellationToken ct)
+    {
+        var gate = _locks.GetOrAdd(agentId, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        return new Lease(gate);
+    }
+
+    /// <summary>Takes the agent's guard when it is free. Returns <c>null</c> when a release or another sweep holds it.</summary>
+    public IDisposable? TryAcquire(string agentId)
+    {
+        var gate = _locks.GetOrAdd(agentId, static _ => new SemaphoreSlim(1, 1));
+        return gate.Wait(0) ? new Lease(gate) : null;
+    }
+
+    private sealed class Lease(SemaphoreSlim gate) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                gate.Release();
+            }
+        }
+    }
+}

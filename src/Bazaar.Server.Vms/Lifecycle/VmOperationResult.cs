@@ -13,6 +13,19 @@ public enum VmRefusalReason
 
     /// <summary>The recorded state changed underneath the operation, so the compare-and-set failed.</summary>
     StateChanged,
+
+    /// <summary>The VM's agent is contained (kill switch), so the VM may not start. The backend was not called.</summary>
+    AgentContained,
+}
+
+/// <summary>
+/// Port the lifecycle service asks before it starts a VM. The agent safety module implements it over the containment store, so
+/// the Vms module needs no reference to Security. An implementation must fail closed: when it cannot tell, it throws.
+/// </summary>
+public interface IAgentContainmentCheck
+{
+    /// <summary>True when the agent is contained and its VMs must stay paused or stopped.</summary>
+    Task<bool> IsContainedAsync(Guid agentId, CancellationToken ct);
 }
 
 /// <summary>A refused operation: the reason, the state that was recorded, and the state the operation asked for.</summary>

@@ -13,6 +13,12 @@ namespace Bazaar.Server.AgentSafety.Drill;
 /// engaged, since a drill then proves nothing and could hide a real incident. The cleanup runs in a finally block: if the drill
 /// agent is still stopped when the run ends, for any reason, the cleanup releases it with a fresh challenge. A failing step ends
 /// the sequence and is reported; a cancellation is rethrown after the cleanup and produces no result.
+/// <para>
+/// The drill device key can sign a release for any agent, so the runner confines it: nothing is challenged or signed for an agent
+/// that <see cref="IDrillTarget.IsDrillAgent"/> rejects, and a stop is released only when it was engaged by the drill (the stored
+/// stop carries <see cref="DrillActorId"/>, whether from this run or one that was cut short). A stop that was already there, or that an owner or the
+/// breach path placed on the drill agent, is never released by the drill or its cleanup.
+/// </para>
 /// </remarks>
 public sealed class DrillRunner(
     KillSwitchEngine engine,
@@ -179,6 +185,17 @@ public sealed class DrillRunner(
     /// <returns>Null on success, or the failure reason.</returns>
     private async Task<string?> ReleaseAsync(string agentId, CancellationToken ct)
     {
+        // Checked again here, next to the signer, so no caller path can reach the drill key for another agent.
+        if (!target.IsDrillAgent(agentId))
+        {
+            return "The drill device does not sign for an agent that is not a drill agent.";
+        }
+
+        if (!IsStoppedByDrill(agentId))
+        {
+            return "The drill releases only a stop that the drill engaged.";
+        }
+
         var challenge = await containment.IssueReleaseChallengeAsync(agentId, target.DrillDeviceId, ct).ConfigureAwait(false);
         if (challenge is null)
         {
@@ -206,7 +223,8 @@ public sealed class DrillRunner(
     /// </summary>
     private async Task<DrillStepResult?> CleanupAsync(string agentId)
     {
-        if (!IsStopped(agentId))
+        // Nothing to do when the agent is not stopped. A stop the drill did not engage is left for its owner.
+        if (!IsStopped(agentId) || !IsStoppedByDrill(agentId))
         {
             return null;
         }
@@ -228,6 +246,9 @@ public sealed class DrillRunner(
             return new DrillStepResult(_cleanupStep, false, $"The cleanup threw {ex.GetType().Name}; the drill agent may still be stopped.");
         }
     }
+
+    private bool IsStoppedByDrill(string agentId) =>
+        engine.GetStatus().AgentStops.Any(s => s.AgentId == agentId && s.ActorId == DrillActorId);
 
     private bool IsStopped(string agentId) => engine.GetStatus().AgentStops.Any(s => s.AgentId == agentId);
 }

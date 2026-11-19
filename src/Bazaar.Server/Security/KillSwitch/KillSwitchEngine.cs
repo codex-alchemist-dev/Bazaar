@@ -175,28 +175,29 @@ public sealed class KillSwitchEngine
             _agentStops.TryGetValue(agentId, out previous);
         }
 
+        // The release verifies the owner signature. The stored stop is cleared only after it succeeds, so a forged or failed
+        // request leaves the stop in the store and the cache.
+        var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
+        if (release.Outcome == ContainmentReleaseOutcome.Denied)
+        {
+            // The agent stays denied: only the owner may lift containment.
+            throw new UnauthorizedAccessException("Only the owner may resume a contained agent.");
+        }
+
         await _lane.RunAsync(() => _store.ClearAgentStopAsync(agentId, ct), ct).ConfigureAwait(false);
+        lock (_gate)
+        {
+            _agentStops.Remove(agentId);
+        }
 
         try
         {
-            var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
-            if (release.Outcome == ContainmentReleaseOutcome.Denied)
-            {
-                // The agent stays denied: only the owner may lift containment.
-                throw new UnauthorizedAccessException("Only the owner may resume a contained agent.");
-            }
-
-            lock (_gate)
-            {
-                _agentStops.Remove(agentId);
-            }
-
             await _audit.RecordAsync(new KillSwitchAuditEntry(_time.GetUtcNow(), actorId, KillSwitchAction.Resumed, KillSwitchScope.Agent, agentId, reason), ct)
                 .ConfigureAwait(false);
         }
         catch
         {
-            // The release or the record did not complete, so the stop goes back in place.
+            // The record did not complete, so the stop goes back in place.
             await RestoreAsync(previous, agentId, CancellationToken.None).ConfigureAwait(false);
             throw;
         }

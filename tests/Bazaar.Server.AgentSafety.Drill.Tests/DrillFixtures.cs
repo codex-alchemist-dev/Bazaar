@@ -81,10 +81,19 @@ internal sealed class FakeDrillTarget : IDrillTarget
     /// <summary>Makes the drill device unable to sign.</summary>
     public bool CanSign { get; set; } = true;
 
-    public bool IsDrillAgent(string agentId) => agentId == AgentId;
+    /// <summary>How many times the drill key was asked to sign.</summary>
+    public int SignCalls { get; private set; }
+
+    /// <summary>When set, <see cref="IsDrillAgent"/> answers false once this many calls have been made.</summary>
+    public int? RejectAfterChecks { get; set; }
+
+    private int _checks;
+
+    public bool IsDrillAgent(string agentId) => agentId == AgentId && (RejectAfterChecks is not { } n || ++_checks <= n);
 
     public Task<ContainmentReleaseRequest?> SignReleaseAsync(string agentId, string deviceId, ReleaseChallenge challenge, CancellationToken ct = default)
     {
+        SignCalls++;
         ContainmentReleaseRequest? request = CanSign
             ? new ContainmentReleaseRequest(agentId, deviceId, challenge.Nonce, challenge.ExpiresAt, new byte[64])
             : null;

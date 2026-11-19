@@ -93,7 +93,7 @@ public sealed class VmContainmentPauser(IAgentVmDirectory vms, VmLifecycleServic
                 continue;
             }
 
-            var result = await lifecycle.StartAsync(vm.Id, ct).ConfigureAwait(false);
+            var result = await lifecycle.StartForReleaseAsync(vm.Id, ct).ConfigureAwait(false);
             if (result is VmOperationResult.Refused refused)
             {
                 throw new InvalidOperationException($"VM {vm.Id} could not be resumed: {refused.Refusal.Reason}.");

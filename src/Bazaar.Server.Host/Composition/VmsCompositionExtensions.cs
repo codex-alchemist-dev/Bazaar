@@ -44,7 +44,8 @@ public static class VmsCompositionExtensions
                 sp.GetRequiredService<IEnvironmentVmStore>(),
                 sp.GetRequiredService<IVmBackend>(),
                 sp.GetRequiredService<VmOperationLocks>(),
-                sp.GetRequiredService<TimeProvider>()));
+                sp.GetRequiredService<TimeProvider>(),
+                sp.GetService<IAgentContainmentCheck>()));
         }
 
         return services;

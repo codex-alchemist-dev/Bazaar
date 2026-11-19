@@ -42,6 +42,7 @@ public static class AgentSafetyModule
         services.TryAddSingleton<INonceStore, PostgresNonceStore>();
         services.TryAddSingleton<ITokenBudgetStore, PostgresTokenBudgetStore>();
         services.AddBazaarApprovals();
+        services.TryAddSingleton<IAgentContainmentCheck, StoreAgentContainmentCheck>();
         services.TryAddSingleton<IAgentTokenRevoker>(sp => new LeaseTokenRevoker(sp.GetRequiredService<ICredentialLeaseStore>()));
         services.TryAddSingleton<IVmPauser>(sp =>
             sp.GetService<VmLifecycleService>() is { } lifecycle
@@ -59,7 +60,8 @@ public static class AgentSafetyModule
             sp.GetRequiredService<IAgentTokenRevoker>(),
             sp.GetRequiredService<IVmPauser>(),
             sp.GetRequiredService<ILogger<ContainmentEnforcer>>(),
-            sp.GetService<TimeProvider>()));
+            sp.GetService<TimeProvider>(),
+            releaseGuard: sp.GetService<ContainmentReleaseGuard>()));
         services.AddBazaarAnomalyDetection();
         services.TryAddSingleton<IContainmentRecordStore, PostgresContainmentRecordStore>();
         services.AddBazaarAutoContainment();

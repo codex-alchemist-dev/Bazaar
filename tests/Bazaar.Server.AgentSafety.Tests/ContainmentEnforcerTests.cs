@@ -12,11 +12,12 @@ public sealed class ContainmentEnforcerTests
     private readonly FakeStore _store = new();
     private readonly FakeRevoker _revoker = new();
     private readonly FakePauser _pauser = new();
+    private readonly ContainmentReleaseGuard _guard = new();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private ContainmentEnforcer Create() =>
-        new(_store, _revoker, _pauser, NullLogger<ContainmentEnforcer>.Instance, TimeProvider.System, _fast);
+        new(_store, _revoker, _pauser, NullLogger<ContainmentEnforcer>.Instance, TimeProvider.System, _fast, _fast, _guard);
 
     [Fact]
     public async Task Every_contained_agent_is_revoked_and_paused_again()
@@ -85,7 +86,6 @@ public sealed class ContainmentEnforcerTests
         await WaitForAsync(() => _pauser.Attempts >= 3);
         _pauser.FailFor.Clear();
         await WaitForAsync(() => _pauser.Paused.Contains("a1"));
-        await enforcer.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(10), Ct);
         await enforcer.StopAsync(Ct);
 
         Assert.Contains("a1", _pauser.Paused);
@@ -102,9 +102,58 @@ public sealed class ContainmentEnforcerTests
         await WaitForAsync(() => _store.LoadAttempts >= 3);
         _store.Contained = [];
         _store.Unreadable = false;
-        await enforcer.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        var loads = _store.LoadAttempts;
+        await WaitForAsync(() => _store.LoadAttempts >= loads + 2);
         await enforcer.StopAsync(Ct);
 
+        Assert.Empty(_pauser.Paused);
+    }
+
+    [Fact]
+    public async Task The_service_keeps_sweeping_after_every_agent_is_contained()
+    {
+        _store.Contained = ["a1"];
+        var enforcer = Create();
+
+        await enforcer.StartAsync(Ct);
+        await WaitForAsync(() => _pauser.Attempts >= 1);
+        var first = _pauser.Attempts;
+
+        // A VM of the contained agent started later is paused by a later sweep.
+        await WaitForAsync(() => _pauser.Attempts >= first + 2);
+        await enforcer.StopAsync(Ct);
+
+        Assert.True(_pauser.Attempts >= first + 2);
+    }
+
+    [Fact]
+    public async Task A_sweep_skips_an_agent_whose_release_is_in_flight_and_pauses_it_again_if_the_release_fails()
+    {
+        _store.Contained = ["a1", "a2"];
+        var release = await _guard.AcquireAsync("a1", Ct);
+
+        var failed = await Create().EnforceOnceAsync(Ct);
+
+        Assert.Empty(failed!);
+        Assert.Equal<string>(["a2"], _pauser.Paused);
+        Assert.Equal<string>(["a2"], _revoker.Revoked);
+
+        // The release did not finish (the agent is still stored): the next sweep contains it again.
+        release.Dispose();
+        await Create().EnforceOnceAsync(Ct);
+        Assert.Contains("a1", _pauser.Paused);
+    }
+
+    [Fact]
+    public async Task A_sweep_does_not_pause_an_agent_that_was_released_after_the_set_was_read()
+    {
+        _store.Contained = ["a1"];
+        // The first read is the sweep's list; the release then finishes and removes the agent before the guarded re-read.
+        _store.OnLoad = n => _store.Contained = n == 1 ? [] : _store.Contained;
+
+        var failed = await Create().EnforceOnceAsync(Ct);
+
+        Assert.Empty(failed!);
         Assert.Empty(_pauser.Paused);
     }
 
@@ -145,17 +194,21 @@ public sealed class ContainmentEnforcerTests
 
         public bool Unreadable { get; set; }
 
+        public Action<int>? OnLoad { get; set; }
+
         public int LoadAttempts => Volatile.Read(ref _loads);
 
         public Task<IReadOnlyList<ContainedAgent>> LoadAsync(CancellationToken ct = default)
         {
-            Interlocked.Increment(ref _loads);
+            var n = Interlocked.Increment(ref _loads);
             if (Unreadable)
             {
                 throw new InvalidOperationException("store down");
             }
 
-            return Task.FromResult<IReadOnlyList<ContainedAgent>>(Contained.Select(id => new ContainedAgent(id, DateTimeOffset.UnixEpoch, "owner")).ToList());
+            var snapshot = Contained.Select(id => new ContainedAgent(id, DateTimeOffset.UnixEpoch, "owner")).ToList();
+            OnLoad?.Invoke(n);
+            return Task.FromResult<IReadOnlyList<ContainedAgent>>(snapshot);
         }
 
         public Task AddAsync(ContainedAgent agent, CancellationToken ct = default) => throw new NotSupportedException();

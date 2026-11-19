@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Bazaar.Server.AgentSafety.Containment;
 
 /// <summary>
-/// Re-applies containment after a start. The containment store is durable, but the work it records (revoke the leases, pause the
+/// Re-applies containment after a start and keeps sweeping. The containment store is durable, but the work it records (revoke the leases, pause the
 /// VMs) is not atomic with it: a host that stopped between the store write and the pause, or whose backend lost a VM's state, can
 /// restart with a contained agent whose VMs still run. For every contained agent this revokes the tokens and pauses the VMs again.
 /// Both calls are idempotent by contract, so an agent that is already contained is left as it is.
@@ -16,11 +16,20 @@ namespace Bazaar.Server.AgentSafety.Containment;
 /// by the kill switch engine and this is the second line. Each failed agent is logged and retried on a fixed interval until it
 /// succeeds, and the contained set is read again on every pass, so an agent that was released meanwhile drops out. An unreadable
 /// store is treated the same way.
+/// <para>
+/// After the first clean pass it keeps sweeping on <see cref="DefaultSweepInterval"/>, so a VM started later for a contained agent, or
+/// a contain whose runtime step failed, is paused again. A sweep must not undo a release, which resumes the VMs before it removes the
+/// agent from the store: it takes the agent's <see cref="ContainmentReleaseGuard"/> without waiting, skips an agent whose release is
+/// in flight, and re-reads the store under the guard so an agent released since the pass began is left alone.
+/// </para>
 /// </remarks>
 public sealed partial class ContainmentEnforcer : BackgroundService
 {
     /// <summary>How long to wait before trying the agents that failed again.</summary>
     public static readonly TimeSpan DefaultRetryInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long to wait between sweeps once every contained agent is contained.</summary>
+    public static readonly TimeSpan DefaultSweepInterval = TimeSpan.FromSeconds(60);
 
     private readonly IContainmentStateStore _store;
     private readonly IAgentTokenRevoker _revoker;
@@ -28,6 +37,8 @@ public sealed partial class ContainmentEnforcer : BackgroundService
     private readonly ILogger<ContainmentEnforcer> _logger;
     private readonly TimeProvider _time;
     private readonly TimeSpan _retryInterval;
+    private readonly TimeSpan _sweepInterval;
+    private readonly ContainmentReleaseGuard _guard;
 
     public ContainmentEnforcer(
         IContainmentStateStore store,
@@ -35,7 +46,9 @@ public sealed partial class ContainmentEnforcer : BackgroundService
         IVmPauser pauser,
         ILogger<ContainmentEnforcer> logger,
         TimeProvider? time = null,
-        TimeSpan? retryInterval = null)
+        TimeSpan? retryInterval = null,
+        TimeSpan? sweepInterval = null,
+        ContainmentReleaseGuard? releaseGuard = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _revoker = revoker ?? throw new ArgumentNullException(nameof(revoker));
@@ -47,6 +60,14 @@ public sealed partial class ContainmentEnforcer : BackgroundService
         {
             throw new ArgumentOutOfRangeException(nameof(retryInterval), "The retry interval must be positive.");
         }
+
+        _sweepInterval = sweepInterval ?? DefaultSweepInterval;
+        if (_sweepInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sweepInterval), "The sweep interval must be positive.");
+        }
+
+        _guard = releaseGuard ?? new ContainmentReleaseGuard();
     }
 
     /// <summary>
@@ -69,6 +90,19 @@ public sealed partial class ContainmentEnforcer : BackgroundService
         var failed = new List<string>();
         foreach (var agent in contained)
         {
+            // A release in flight (or an earlier pass still working on the agent) holds the guard: skip, the next pass looks again.
+            using var lease = _guard.TryAcquire(agent.AgentId);
+            if (lease is null)
+            {
+                continue;
+            }
+
+            // Re-read under the guard: a release that finished after the set was loaded has removed the agent, and must stay released.
+            if (!await StillContainedAsync(agent.AgentId, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
             if (!await EnforceAsync(agent.AgentId, ct).ConfigureAwait(false))
             {
                 failed.Add(agent.AgentId);
@@ -86,17 +120,30 @@ public sealed partial class ContainmentEnforcer : BackgroundService
             while (true)
             {
                 var failed = await EnforceOnceAsync(stoppingToken).ConfigureAwait(false);
-                if (failed is { Count: 0 })
-                {
-                    return;
-                }
 
-                await Task.Delay(_retryInterval, _time, stoppingToken).ConfigureAwait(false);
+                // Failed agents are retried quickly; once all are contained the sweep continues at the slower interval.
+                var delay = failed is { Count: 0 } ? _sweepInterval : _retryInterval;
+                await Task.Delay(delay, _time, stoppingToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // The host is stopping.
+        }
+    }
+
+    private async Task<bool> StillContainedAsync(string agentId, CancellationToken ct)
+    {
+        try
+        {
+            var now = await _store.LoadAsync(ct).ConfigureAwait(false);
+            return now.Any(a => string.Equals(a.AgentId, agentId, StringComparison.Ordinal));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Unreadable: stay on the safe side and enforce.
+            LogStoreUnreadable(ex);
+            return true;
         }
     }
 

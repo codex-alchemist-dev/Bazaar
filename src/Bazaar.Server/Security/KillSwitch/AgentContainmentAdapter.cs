@@ -44,6 +44,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     private readonly INonceStore _nonces;
     private readonly IContainmentStateStore _store;
     private readonly TimeProvider _time;
+    private readonly ContainmentReleaseGuard _guard;
     private readonly ConcurrentDictionary<string, byte> _contained = new(StringComparer.Ordinal);
     private readonly SerialLane _lane = new();
     private readonly Lock _gate = new();
@@ -76,6 +77,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     /// <param name="nonces">Holds the single-use release nonces.</param>
     /// <param name="store">Durable contained-agent set. Every contain and release is written here first.</param>
     /// <param name="timeProvider">Clock for audit and containment instants. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <param name="releaseGuard">Shared with the re-containment sweep so it skips an agent mid-release. Defaults to a private guard.</param>
     public AgentContainmentAdapter(
         IVmPauser pauser,
         IAgentTokenRevoker revoker,
@@ -83,7 +85,8 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         IAuditLog audit,
         INonceStore nonces,
         IContainmentStateStore store,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ContainmentReleaseGuard? releaseGuard = null)
     {
         _pauser = pauser ?? throw new ArgumentNullException(nameof(pauser));
         _revoker = revoker ?? throw new ArgumentNullException(nameof(revoker));
@@ -92,6 +95,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         _nonces = nonces ?? throw new ArgumentNullException(nameof(nonces));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _time = timeProvider ?? TimeProvider.System;
+        _guard = releaseGuard ?? new ContainmentReleaseGuard();
         _loadTask = LoadStateAsync(CancellationToken.None);
     }
 
@@ -208,6 +212,9 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         {
             return await DenyAsync(claimed, agentId, "Nonce has expired or the signed expiry does not match.", ct).ConfigureAwait(false);
         }
+
+        // Held from the first resume to the store removal, so the re-containment sweep never pauses VMs this release has resumed.
+        using var releaseLease = await _guard.AcquireAsync(agentId, ct).ConfigureAwait(false);
 
         var actor = key.OwnerId;
         if (!_contained.ContainsKey(agentId))
