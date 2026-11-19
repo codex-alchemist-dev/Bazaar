@@ -21,18 +21,21 @@ public sealed class HiZOcclusionTests
 
     [Theory]
     [InlineData(64, 64, 7)]
-    [InlineData(100, 37, 8)]
+    [InlineData(100, 37, 7)]
     [InlineData(1, 1, 1)]
-    [InlineData(5, 1, 4)]
-    [InlineData(1920, 1080, 12)]
-    public void MipChainSizesHalveRoundingUp(int w, int h, int levels)
+    [InlineData(5, 1, 3)]
+    [InlineData(1920, 1080, 11)]
+    public void MipChainSizesFollowTheGpuRule(int w, int h, int levels)
     {
         var p = new HiZPyramid(new float[w * h], w, h);
         Assert.Equal(levels, p.LevelCount);
+        // Level 1 rounds up; later levels round down (never below 1), as hiz_downsample does on the GPU.
         for (int l = 1; l < p.LevelCount; l++)
         {
-            Assert.Equal((p.LevelWidth(l - 1) + 1) / 2, p.LevelWidth(l));
-            Assert.Equal((p.LevelHeight(l - 1) + 1) / 2, p.LevelHeight(l));
+            int dw = l == 1 ? (p.LevelWidth(0) + 1) / 2 : Math.Max(1, p.LevelWidth(l - 1) / 2);
+            int dh = l == 1 ? (p.LevelHeight(0) + 1) / 2 : Math.Max(1, p.LevelHeight(l - 1) / 2);
+            Assert.Equal(dw, p.LevelWidth(l));
+            Assert.Equal(dh, p.LevelHeight(l));
         }
 
         Assert.Equal(1, p.LevelWidth(levels - 1));

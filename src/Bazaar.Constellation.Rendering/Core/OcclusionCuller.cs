@@ -33,9 +33,11 @@ public static class OcclusionCuller
         int w = pyramid.LevelWidth(level);
         int h = pyramid.LevelHeight(level);
         float farthest = float.MaxValue;
-        for (int y = y0 >> level; y <= Math.Min(y1 >> level, h - 1); y++)
+        // Texel i covers pixels [i << level, (i + 1) << level); the last texel of an axis also covers the widened remainder,
+        // so a pixel past the last texel's start maps to the last texel.
+        for (int y = Math.Min(y0 >> level, h - 1); y <= Math.Min(y1 >> level, h - 1); y++)
         {
-            for (int x = x0 >> level; x <= Math.Min(x1 >> level, w - 1); x++)
+            for (int x = Math.Min(x0 >> level, w - 1); x <= Math.Min(x1 >> level, w - 1); x++)
             {
                 farthest = Math.Min(farthest, pyramid.Get(level, x, y));
             }

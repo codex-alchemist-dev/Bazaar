@@ -4,8 +4,11 @@ namespace Bazaar.Constellation.Rendering.Core;
 /// CPU reference for the Hi-Z occlusion pyramid (design: constellation-scale-and-lod.md section 11). Depth is reversed-Z:
 /// 1 is nearest, 0 is farthest (0 also means "nothing drawn here"). Each coarser texel keeps the MIN of its 2x2 block,
 /// the farthest depth in that area, so a texel value is a conservative bound: every covered pixel is at least that near.
-/// Level 0 is the source depth image; level n+1 has ceil(size / 2) texels per axis, down to 1x1. Texels on an odd edge
-/// combine the 1 or 2 source texels that exist.
+/// Level 0 is the source depth image. This is the same rule the GPU pass uses (hiz_downsample.comp.glsl, owner-thread
+/// validation on the Arc B580, 2026-11-19), so the two agree texel for texel: level 1 has ceil(size / 2) texels per axis
+/// and takes the 2x2 block; every later level has max(1, floor(size / 2)) texels and, when its source size is odd, the
+/// last texel of that axis also covers the one extra source texel (a 3-wide footprint). No source texel is dropped,
+/// so every level keeps the global minimum.
 /// </summary>
 public sealed class HiZPyramid
 {
@@ -23,8 +26,10 @@ public sealed class HiZPyramid
         }
 
         int count = 1;
-        for (int w = width, h = height; w > 1 || h > 1; w = Half(w), h = Half(h))
+        for (int w = width, h = height, step = 1; w > 1 || h > 1; step++)
         {
+            w = NextSize(w, step);
+            h = NextSize(h, step);
             count++;
         }
 
@@ -38,21 +43,30 @@ public sealed class HiZPyramid
         {
             int pw = _widths[l - 1];
             int ph = _heights[l - 1];
-            int w = Half(pw);
-            int h = Half(ph);
+            int w = NextSize(pw, l);
+            int h = NextSize(ph, l);
             float[] src = _levels[l - 1];
             float[] dst = new float[w * h];
             for (int y = 0; y < h; y++)
             {
                 int y0 = y * 2;
-                int y1 = Math.Min(y0 + 1, ph - 1);
+                int y1 = Math.Min(y0 + ((ph & 1) == 1 && y == h - 1 && l > 1 ? 2 : 1), ph - 1);
+                y0 = Math.Min(y0, ph - 1);
                 for (int x = 0; x < w; x++)
                 {
                     int x0 = x * 2;
-                    int x1 = Math.Min(x0 + 1, pw - 1);
-                    dst[(y * w) + x] = Math.Min(
-                        Math.Min(src[(y0 * pw) + x0], src[(y0 * pw) + x1]),
-                        Math.Min(src[(y1 * pw) + x0], src[(y1 * pw) + x1]));
+                    int x1 = Math.Min(x0 + ((pw & 1) == 1 && x == w - 1 && l > 1 ? 2 : 1), pw - 1);
+                    x0 = Math.Min(x0, pw - 1);
+                    float m = float.PositiveInfinity;
+                    for (int yy = y0; yy <= y1; yy++)
+                    {
+                        for (int xx = x0; xx <= x1; xx++)
+                        {
+                            m = Math.Min(m, src[(yy * pw) + xx]);
+                        }
+                    }
+
+                    dst[(y * w) + x] = m;
                 }
             }
 
@@ -75,5 +89,5 @@ public sealed class HiZPyramid
     /// <summary>The stored (farthest-in-block) depth of one texel.</summary>
     public float Get(int level, int x, int y) => _levels[level][(y * _widths[level]) + x];
 
-    private static int Half(int n) => (n + 1) / 2;
+    private static int NextSize(int n, int step) => step == 1 ? Math.Max(1, (n + 1) / 2) : Math.Max(1, n / 2);
 }
