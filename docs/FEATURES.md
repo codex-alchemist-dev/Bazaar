@@ -38,7 +38,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Health System | Per-project tech debt, morale and coverage metrics. | Planned (v1 scope) | `docs/design/25` |
 | Company Analytics | Per-agent metrics, framed as "improve the company". | Planned (v1 scope) | `docs/design/25` |
 | Observatory | Live dashboard of what each agent is doing, plus which model lanes are near a limit. | Partial (`src/Bazaar.Server.Community/Observatory`; usage rollup in flight) | `docs/design/23` |
-| Work-Life Simulation | Shifts, breaks, vacations and curfews, used instead of rate limits. Each agent has its own timezone and schedule. | Partial (`src/Bazaar.Server/WorkLife`; schedule calculator merged) | `docs/design/09` |
+| Work-Life Simulation | Shifts, breaks, vacations and curfews, used instead of rate limits. Each agent has its own timezone and schedule. | Partial (`src/Bazaar.Server.WorkLife`; schedule calculator merged) | `docs/design/09` |
 | Resource Economy | Would have been money budgets and a wallet. | Rejected 2026-10-24. Limits are quotas and the Work-Life Simulation. | `Bazaar.md` §4 |
 | Office Spaces | A fixed floor plan. | Rejected. GCs self-organise. | `Bazaar.md` §4 |
 
