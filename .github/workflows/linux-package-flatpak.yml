@@ -1,0 +1,98 @@
+# Real Flatpak build of the Bazaar Linux client (doc 30 section 3, doc 37; owner card 2026-11-19).
+#
+# Runs ONLY on the owner's self-hosted Linux runner (label bazaar-linux), and only for runs started by
+# the owner account (and, for pull requests, from a branch in this repository). There is no hosted
+# fallback: when the guard is false the job is skipped, never moved to a GitHub-hosted runner.
+#
+# Every third-party action is pinned to a full commit SHA (same pins as ci.yml); the version tag is
+# kept in a trailing comment. The workflow token is read-only and no secret is used.
+
+name: Linux package (Flatpak)
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/linux-flatpak/**'
+      - 'src/Bazaar.Client.Linux/**'
+      - '.github/workflows/linux-package-flatpak.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flatpak:
+    name: Build Flatpak bundle
+    if: github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, bazaar-linux]
+    timeout-minutes: 60
+    env:
+      # Pinned freedesktop runtime branch. Must equal runtime-version in the manifest (checked below).
+      FREEDESKTOP_BRANCH: '25.08'
+      # SDK extension for .NET, same branch as the runtime. Name and availability on Flathub for .NET 11
+      # were unverified when this was written; the install step fails loudly if it does not exist.
+      DOTNET_EXTENSION: org.freedesktop.Sdk.Extension.dotnet11
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate packaging metadata
+        run: bash packaging/linux-flatpak/test-flatpak-metadata.sh
+
+      # The runner's distro is not documented in this repo (other jobs use apt-get, so it is probably
+      # Debian or Ubuntu); detect apt or dnf rather than assume.
+      - name: Install flatpak and flatpak-builder
+        run: |
+          set -euo pipefail
+          if command -v flatpak >/dev/null 2>&1 && command -v flatpak-builder >/dev/null 2>&1; then
+            echo "flatpak and flatpak-builder already installed"
+          elif command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y flatpak flatpak-builder
+          else
+            echo "Neither apt-get nor dnf found on this runner; install flatpak and flatpak-builder by hand." >&2
+            exit 1
+          fi
+          flatpak --version
+          flatpak-builder --version
+
+      - name: Install the pinned runtime, SDK and .NET extension from Flathub
+        run: |
+          set -euo pipefail
+          manifest_branch="$(sed -n "s/^runtime-version:[[:space:]]*'\{0,1\}\([^'[:space:]#]*\)'\{0,1\}.*/\1/p" packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml | head -n1)"
+          if [ "$manifest_branch" != "$FREEDESKTOP_BRANCH" ]; then
+            echo "Manifest runtime-version '$manifest_branch' differs from the workflow pin '$FREEDESKTOP_BRANCH'. Update both together." >&2
+            exit 1
+          fi
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive --assumeyes flathub \
+            "org.freedesktop.Platform//$FREEDESKTOP_BRANCH" \
+            "org.freedesktop.Sdk//$FREEDESKTOP_BRANCH" \
+            "$DOTNET_EXTENSION//$FREEDESKTOP_BRANCH"
+
+      - name: Build the Flatpak bundle
+        run: bash packaging/linux-flatpak/build-flatpak.sh "$RUNNER_TEMP/flatpak-out"
+
+      - name: Verify the checksum
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/flatpak-out"
+          sha256sum --check TheBazaarAuthors.BazaarClient.flatpak.sha256
+
+      - name: Upload the bundle and checksum
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bazaar-client-flatpak
+          path: |
+            ${{ runner.temp }}/flatpak-out/TheBazaarAuthors.BazaarClient.flatpak
+            ${{ runner.temp }}/flatpak-out/TheBazaarAuthors.BazaarClient.flatpak.sha256
+          if-no-files-found: error
+          retention-days: 14

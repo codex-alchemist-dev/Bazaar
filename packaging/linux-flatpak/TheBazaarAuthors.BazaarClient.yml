@@ -17,12 +17,17 @@ sdk-extensions:
 command: bazaar-client
 
 finish-args:
-  # Window system: Wayland first, X11 as fallback (Avalonia supports both; doc 30 section 1).
+  # Every entry below is a sandbox hole and is listed on purpose (doc 30 section 3: "Terminal reach into
+  # the host needs sandbox holes"). test-flatpak-metadata.sh fails on any entry not in this reviewed set.
+  # Hole 1, Wayland display: primary window system (Avalonia supports both; doc 30 section 1).
   - --socket=wayland
+  # Hole 2, X11 display: used only when Wayland is absent (fallback-x11).
   - --socket=fallback-x11
+  # Hole 3, ipc sharing: X11 shared memory, needed by Avalonia on X11.
   - --share=ipc
+  # Hole 4, GPU access (dri): hardware rendering.
   - --device=dri
-  # Network: the client talks to the Bazaar server over the network.
+  # Hole 5, network: the client talks to the Bazaar server over the network.
   - --share=network
   # No filesystem, session bus, or host-process access by default.
   # The local terminal (doc 30 section 2) runs a shell inside the sandbox only.
