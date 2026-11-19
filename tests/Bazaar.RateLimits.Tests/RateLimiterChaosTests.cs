@@ -61,6 +61,42 @@ public sealed class RateLimiterChaosTests
     }
 
     [Fact]
+    public void A_clock_that_steps_far_backwards_never_asks_a_caller_to_wait_longer_than_the_window()
+    {
+        var time = new SteppingClock { Now = _start.AddDays(1) };
+        var limiter = new InMemoryRateLimiter(time);
+        var policy = Policy(limit: 5);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.True(limiter.TryAcquire(policy, "agent:charles").Allowed);
+        }
+
+        time.Now = _start;
+        var afterStep = limiter.TryAcquire(policy, "agent:charles");
+
+        Assert.False(afterStep.Allowed);
+        Assert.True(afterStep.RetryAfter <= policy.Window, $"RetryAfter was {afterStep.RetryAfter}.");
+
+        // One window later on the stepped clock the bucket is open again, not a day later.
+        time.Now = _start.AddMinutes(1).AddSeconds(1);
+        Assert.True(limiter.TryAcquire(policy, "agent:charles").Allowed);
+    }
+
+    [Fact]
+    public void A_window_longer_than_the_clock_range_does_not_throw()
+    {
+        var time = new FakeTimeProvider(_start);
+        var limiter = new InMemoryRateLimiter(time);
+        var policy = Policy(limit: 1, window: TimeSpan.MaxValue);
+
+        Assert.True(limiter.TryAcquire(policy, "agent:charles").Allowed);
+        var second = limiter.TryAcquire(policy, "agent:charles");
+
+        Assert.False(second.Allowed);
+        Assert.True(second.RetryAfter > TimeSpan.Zero);
+    }
+
+    [Fact]
     public void Many_keys_are_swept_once_their_windows_pass()
     {
         var time = new FakeTimeProvider(_start);
