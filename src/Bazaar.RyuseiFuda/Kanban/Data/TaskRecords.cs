@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>Event kinds written to <c>task_events</c>; the list matches the 0012 CHECK constraint (doc 12, Events).</summary>
 public static class TaskEventKinds
