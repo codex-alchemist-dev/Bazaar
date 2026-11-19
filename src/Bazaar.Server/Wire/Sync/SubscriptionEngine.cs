@@ -162,6 +162,12 @@ public sealed partial class SubscriptionSession : IDisposable
     {
         if (WireStreams.TryParseGraph(cursor.S, out var graphId))
         {
+            // Canonical spelling only, as for a GC: every upper-case variant would cost one more snapshot.
+            if (cursor.S != WireStreams.Graph(graphId))
+            {
+                return (SubscribeStatuses.Denied, null);
+            }
+
             return await SubscribeGraphAsync(cursor.S, graphId, ct).ConfigureAwait(false);
         }
 
@@ -170,7 +176,9 @@ public sealed partial class SubscriptionSession : IDisposable
             return (SubscribeStatuses.Denied, null);
         }
 
-        if (!await _access.CanReadAsync(_principalId, gcId, ct).ConfigureAwait(false))
+        // Only the canonical spelling names a stream. Guid parsing accepts upper-case hex, so without this check one GC has
+        // thousands of names, each its own subscription and replay.
+        if (cursor.S != WireStreams.Gc(gcId) || !await _access.CanReadAsync(_principalId, gcId, ct).ConfigureAwait(false))
         {
             return (SubscribeStatuses.Denied, null);
         }
