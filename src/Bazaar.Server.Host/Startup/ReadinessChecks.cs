@@ -63,4 +63,7 @@ public sealed class BazaarReadinessOptions
     public const string SectionName = "Bazaar:Readiness";
 
     public List<ProviderRole> RequiredRoles { get; set; } = [];
+
+    /// <summary>Longest one readiness check may take before <c>/health/ready</c> reports it not ready.</summary>
+    public TimeSpan CheckTimeout { get; set; } = TimeSpan.FromSeconds(3);
 }
