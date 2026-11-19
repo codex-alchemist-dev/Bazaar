@@ -63,6 +63,7 @@ public static partial class SetupPlanValidator
         ValidateCompany(plan.Company, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
+        ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
 
@@ -313,6 +314,40 @@ public static partial class SetupPlanValidator
         CheckRegistryValue(bind, "network.statusBind", bindValue, issues);
         var portValue = JsonSerializer.SerializeToElement(plan.Network.StatusPort, SetupPlanJsonContext.Default.Int32);
         CheckRegistryValue(port, "network.statusPort", portValue, issues);
+    }
+
+    /// <summary>
+    /// The Nigerian Prince Protocol step (docs/design/45 section 1.11). It is offered only when email is on, and enabling it is an
+    /// owner-tier change to <c>security.scam_mail.protocol_enabled</c>, so it is held for approval and never applied silently. Off is
+    /// the default and the safe state, so it needs no check. The plan section is the one place that sets the key.
+    /// </summary>
+    private static void ValidateScamMailProtocol(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        const string settingName = "security.scam_mail.protocol_enabled";
+        if (plan.Settings.ContainsKey(settingName))
+        {
+            issues.Add(Error("settings." + settingName, "is already set by scamMailProtocol.enabled; set it in one place."));
+        }
+
+        if (!plan.ScamMailProtocol.Enabled)
+        {
+            return;
+        }
+
+        if (!plan.Email.Enabled)
+        {
+            issues.Add(Error("scamMailProtocol.enabled", "needs email to be on; the step is offered only when email is enabled."));
+        }
+
+        if (!registry.TryGet(settingName, out var definition) || definition is null)
+        {
+            issues.Add(Error("scamMailProtocol", "the scam-mail setting is not registered in this build."));
+            return;
+        }
+
+        using var valueDoc = JsonDocument.Parse("true");
+        var value = valueDoc.RootElement.Clone();
+        CheckRegistryValue(definition, "scamMailProtocol.enabled", value, issues);
     }
 
     private static void ValidateSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues) =>

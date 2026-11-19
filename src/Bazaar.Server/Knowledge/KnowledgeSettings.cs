@@ -97,6 +97,11 @@ public static class KnowledgeSettings
         "Motion classes that need a unanimous vote or the owner. Council may propose changes; the owner approves them.",
         ApprovalTier.Tier2);
 
+    public static readonly SettingKey<decimal> CouncilFollowupDissentShareKey = new(
+        "council.followup_dissent_share", 0.33m, SettingScope.Install, SettingRole.Operator,
+        "Share of non-abstaining ballots against the decided choice that sends a high-impact ordinary motion to follow-up. From 0 to 1; 1 never triggers.",
+        validate: CheckShare);
+
     public static readonly SettingKey<LessonReviewer> GmtLessonReviewerKey = new(
         "gmt.lesson_reviewer", LessonReviewer.Architect, SettingScope.Install, SettingRole.Operator,
         "Who reviews Genetic Memory Transfer lesson candidates. Tool grants and charter text always go to the owner.",
@@ -118,10 +123,14 @@ public static class KnowledgeSettings
         ArchiveIncludeHumanText,
         ArchiveIncludeCouncilReasons,
         CouncilBiggerChangeClassesKey,
+        CouncilFollowupDissentShareKey,
         GmtLessonReviewerKey,
         MetricsRawRetentionDays,
     ];
 
     private static Func<int, string?> Between(int min, int max) =>
         value => value >= min && value <= max ? null : $"must be from {min} to {max}; got {value}.";
+
+    private static string? CheckShare(decimal value) =>
+        value is >= 0m and <= 1m ? null : $"must be from 0 to 1; got {value}.";
 }
