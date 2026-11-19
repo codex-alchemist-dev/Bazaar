@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Export;
 using Bazaar.Kodo.Probes;
 

@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using System.Security.Cryptography;
 using Bazaar.Kodo.Api;
 using Bazaar.Kodo.Evaluator;
@@ -14,7 +15,7 @@ internal static class KodoExportTestData
     public static readonly DateTimeOffset Now = KodoApiTestData.Now;
 
     /// <summary>A snapshot with the given states, score and components, at revision 1.</summary>
-    public static KodoStatusSnapshot Snapshot(
+    public static KodoStatusSnapshotDto Snapshot(
         KodoState state,
         KodoState? underlying = null,
         int score = 100,
@@ -22,6 +23,7 @@ internal static class KodoExportTestData
     {
         return KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(state, underlying),
+            new KodoObservation(),
             score,
             components,
             revision: 1,

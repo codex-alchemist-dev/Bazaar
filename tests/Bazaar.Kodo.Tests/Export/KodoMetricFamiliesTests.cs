@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 using Bazaar.Kodo.Evaluator;
 using Bazaar.Kodo.Export;
@@ -10,7 +11,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void StateIsOneHotOverTheFiveDisplayedStates()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(KodoState.Degraded, KodoState.Degraded, 80);
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(KodoState.Degraded, KodoState.Degraded, 80);
 
         KodoMetricFamily state = Family(snapshot, KodoMetricNames.State);
 
@@ -22,7 +23,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void FrozenShowsTheUnderlyingStateBesideIt()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(KodoState.Frozen, KodoState.Failing, 40);
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(KodoState.Frozen, KodoState.Failing, 40);
 
         KodoMetricFamily underlying = Family(snapshot, KodoMetricNames.UnderlyingState);
 
@@ -34,7 +35,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void ScoreIsOneUnlabelledPoint()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(KodoState.Healthy, score: 93);
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(KodoState.Healthy, score: 93);
 
         KodoMetricFamily score = Family(snapshot, KodoMetricNames.Score);
 
@@ -50,7 +51,7 @@ public sealed class KodoMetricFamiliesTests
     [InlineData(ProbeStatus.Unknown, 3)]
     public void ProbeStatusSeverityOrdersUnknownAboveRed(ProbeStatus status, double expected)
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(
             KodoState.Healthy,
             components: KodoExportTestData.Component("host.disk.free", status));
 
@@ -62,7 +63,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void ProbePointsCarryOnlyProbeIdAndModuleId()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(
             KodoState.Healthy,
             components:
             [
@@ -80,7 +81,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void EveryLabelNameIsOnTheAllowList()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(
             KodoState.Failing,
             KodoState.Failing,
             20,
@@ -105,7 +106,7 @@ public sealed class KodoMetricFamiliesTests
     [InlineData("host.disk-free")]
     public void RefusesIdsThatAreNotProbeIdsOrThatLookLikeInstanceIds(string id)
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(
             KodoState.Healthy,
             components: KodoExportTestData.Component(id, ProbeStatus.Green));
 
@@ -115,7 +116,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void RefusesAModuleIdThatIsNotAModuleId()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(
             KodoState.Healthy,
             components: KodoExportTestData.Component("host.disk.free", ProbeStatus.Green));
 
@@ -125,7 +126,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void ModuleIdComesFromTheLookup()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(
             KodoState.Healthy,
             components: KodoExportTestData.Component("host.disk.free", ProbeStatus.Green));
 
@@ -143,7 +144,7 @@ public sealed class KodoMetricFamiliesTests
             components[i] = KodoExportTestData.Component($"host.probe{i}", ProbeStatus.Green);
         }
 
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(KodoState.Healthy, components: components);
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(KodoState.Healthy, components: components);
 
         Assert.Throws<InvalidOperationException>(() => { _ = KodoMetricFamilies.From(snapshot); });
     }
@@ -157,7 +158,7 @@ public sealed class KodoMetricFamiliesTests
             components[i] = KodoExportTestData.Component($"host.probe{i}", ProbeStatus.Green);
         }
 
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(KodoState.Healthy, components: components);
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(KodoState.Healthy, components: components);
 
         Assert.Equal(components.Length, Family(snapshot, KodoMetricNames.ProbeStatus).Points.Count);
     }
@@ -165,7 +166,7 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void RefusesAStateWordThatIsNotAState()
     {
-        KodoStatusSnapshot snapshot = new(1, 1, KodoExportTestData.Now, "bogus", "healthy", 100, null, []);
+        KodoStatusSnapshotDto snapshot = new(1, 1, new KodoStatusDto("bogus", null, 100, KodoExportTestData.Now, []), null, []);
 
         Assert.Throws<ArgumentException>(() => { _ = KodoMetricFamilies.From(snapshot); });
     }
@@ -173,12 +174,12 @@ public sealed class KodoMetricFamiliesTests
     [Fact]
     public void FamilyNamesAreTheCataloguedNames()
     {
-        KodoStatusSnapshot snapshot = KodoExportTestData.Snapshot(KodoState.Healthy);
+        KodoStatusSnapshotDto snapshot = KodoExportTestData.Snapshot(KodoState.Healthy);
 
         Assert.Equal(KodoMetricNames.All, KodoMetricFamilies.From(snapshot).Select(family => family.Name));
     }
 
-    private static KodoMetricFamily Family(KodoStatusSnapshot snapshot, string name, Func<string, string>? moduleIdOf = null) =>
+    private static KodoMetricFamily Family(KodoStatusSnapshotDto snapshot, string name, Func<string, string>? moduleIdOf = null) =>
         KodoMetricFamilies.From(snapshot, moduleIdOf).Single(family => family.Name == name);
 
     private static string LabelValue(KodoMetricPoint point) => point.Labels.Single().Value;

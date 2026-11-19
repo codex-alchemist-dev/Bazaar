@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 
 namespace Bazaar.Kodo.Export;
@@ -27,13 +28,13 @@ public sealed record KodoOtlpGauge(string Name, string Description, string Unit,
 /// </summary>
 public static class KodoOtlpMapper
 {
-    /// <summary>Maps one snapshot. Every point of a snapshot shares the snapshot's <see cref="KodoStatusSnapshot.GeneratedAt"/>.</summary>
+    /// <summary>Maps one snapshot. Every point of a snapshot shares the snapshot's <see cref="KodoStatusDto.AsOf"/>.</summary>
     /// <param name="snapshot">The status snapshot.</param>
     /// <param name="moduleIdOf">The module that owns a component id. Defaults to Kodo.</param>
-    public static IReadOnlyList<KodoOtlpGauge> Map(KodoStatusSnapshot snapshot, Func<string, string>? moduleIdOf = null)
+    public static IReadOnlyList<KodoOtlpGauge> Map(KodoStatusSnapshotDto snapshot, Func<string, string>? moduleIdOf = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        long time = UnixNano(snapshot.GeneratedAt);
+        long time = UnixNano(snapshot.Status.AsOf);
 
         List<KodoOtlpGauge> gauges = [];
         foreach (KodoMetricFamily family in KodoMetricFamilies.From(snapshot, moduleIdOf))

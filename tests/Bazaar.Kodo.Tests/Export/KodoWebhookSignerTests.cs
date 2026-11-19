@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Kodo.Export;

@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Export;
 using static Bazaar.Kodo.Tests.Export.KodoExportTestData;
 

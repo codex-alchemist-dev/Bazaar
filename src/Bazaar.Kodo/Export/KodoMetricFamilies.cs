@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 
 namespace Bazaar.Kodo.Export;
@@ -80,19 +81,19 @@ public static class KodoMetricFamilies
     /// <param name="moduleIdOf">The module that owns a component id. Defaults to Kodo for every component.</param>
     /// <exception cref="ArgumentException">An id, a module id, a state or a status is not one the export accepts.</exception>
     /// <exception cref="InvalidOperationException">The snapshot has more components than <see cref="MaxProbeSeries"/>.</exception>
-    public static IReadOnlyList<KodoMetricFamily> From(KodoStatusSnapshot snapshot, Func<string, string>? moduleIdOf = null)
+    public static IReadOnlyList<KodoMetricFamily> From(KodoStatusSnapshotDto snapshot, Func<string, string>? moduleIdOf = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         Func<string, string> moduleOf = moduleIdOf ?? (_ => KodoAssembly.ModuleId);
 
-        if (!_states.Contains(snapshot.State, StringComparer.Ordinal))
+        if (!_states.Contains(snapshot.Status.State, StringComparer.Ordinal))
         {
-            throw new ArgumentException($"'{snapshot.State}' is not a displayed state.", nameof(snapshot));
+            throw new ArgumentException($"'{snapshot.Status.State}' is not a displayed state.", nameof(snapshot));
         }
 
-        if (!_underlyingStates.Contains(snapshot.Underlying, StringComparer.Ordinal))
+        if (!_underlyingStates.Contains((snapshot.Status.UnderlyingState ?? snapshot.Status.State), StringComparer.Ordinal))
         {
-            throw new ArgumentException($"'{snapshot.Underlying}' is not an underlying state.", nameof(snapshot));
+            throw new ArgumentException($"'{(snapshot.Status.UnderlyingState ?? snapshot.Status.State)}' is not an underlying state.", nameof(snapshot));
         }
 
         if (snapshot.Components.Count > MaxProbeSeries)
@@ -104,17 +105,17 @@ public static class KodoMetricFamilies
         List<KodoMetricPoint> state = [];
         foreach (string name in _states)
         {
-            state.Add(new KodoMetricPoint(Flag(name == snapshot.State), [new KodoMetricLabel(KodoMetricLabels.State, name)]));
+            state.Add(new KodoMetricPoint(Flag(name == snapshot.Status.State), [new KodoMetricLabel(KodoMetricLabels.State, name)]));
         }
 
         List<KodoMetricPoint> underlying = [];
         foreach (string name in _underlyingStates)
         {
-            underlying.Add(new KodoMetricPoint(Flag(name == snapshot.Underlying), [new KodoMetricLabel(KodoMetricLabels.State, name)]));
+            underlying.Add(new KodoMetricPoint(Flag(name == (snapshot.Status.UnderlyingState ?? snapshot.Status.State)), [new KodoMetricLabel(KodoMetricLabels.State, name)]));
         }
 
         List<KodoMetricPoint> probes = [];
-        foreach (KodoComponentStatus component in snapshot.Components)
+        foreach (KodoComponentDto component in snapshot.Components)
         {
             string id = ValidateComponentId(component.Id);
             string module = ValidateModuleId(moduleOf(component.Id));
@@ -139,7 +140,7 @@ public static class KodoMetricFamilies
                 KodoMetricNames.Score,
                 "Kodo's health score, from 0 to 100.",
                 "1",
-                [new KodoMetricPoint(snapshot.Score, [])]),
+                [new KodoMetricPoint(snapshot.Status.Score, [])]),
             new KodoMetricFamily(
                 KodoMetricNames.ProbeStatus,
                 "Per-probe status: 0 green, 1 amber, 2 red, 3 unknown. Unknown never reads as green.",

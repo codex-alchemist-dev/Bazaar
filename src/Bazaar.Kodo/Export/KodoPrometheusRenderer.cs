@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using System.Globalization;
 using System.Text;
 using Bazaar.Kodo.Api;
@@ -45,7 +46,7 @@ public static class KodoPrometheusRenderer
     /// <summary>Renders the metric families of one snapshot.</summary>
     /// <param name="snapshot">The status snapshot.</param>
     /// <param name="moduleIdOf">The module that owns a component id. Defaults to Kodo.</param>
-    public static string RenderSnapshot(KodoStatusSnapshot snapshot, Func<string, string>? moduleIdOf = null) =>
+    public static string RenderSnapshot(KodoStatusSnapshotDto snapshot, Func<string, string>? moduleIdOf = null) =>
         Render(KodoMetricFamilies.From(snapshot, moduleIdOf));
 
     /// <summary>Escapes a label value: backslash, double quote and line feed (Prometheus text format).</summary>
