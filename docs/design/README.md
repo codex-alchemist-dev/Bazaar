@@ -158,4 +158,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 82 | [82-pipeline-runs-and-job-classes.md](82-pipeline-runs-and-job-classes.md) | Pipeline runs and job classes (PROPOSED, Resibo exchange) | 8 | 84 |
 | 83 | [83-client-patterns-from-resibo.md](83-client-patterns-from-resibo.md) | Client patterns from Resibo (PROPOSED, Resibo exchange) | 8 | 84 |
 | 84 | [84-resibo-exchange-ledger.md](84-resibo-exchange-ledger.md) | Resibo exchange ledger (274 rows, conventions, conflicts, build plan) (PROPOSED, Resibo exchange) | 8 | 84 |
-| 85 | [85-resibo-receptivity.md](85-resibo-receptivity.md) | What the shared CDAX libraries and Bazaar modules must stay open to so a future Resibo Retail wing can plug in later; 46 rows, 14 work packages; no Retail design (PROPOSED) | 8 | 84, 76, 49 |
+| 85 | [85-extraction-portability.md](85-extraction-portability.md) | Extracted libraries must work in any .NET project: portability rules, readiness checklist, extension points and audit hook; 49 rows, 16 work packages (PROPOSED) | 8 | 84, 76, 49 |
