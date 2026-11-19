@@ -15,6 +15,11 @@ if (args.Length > 0 && args[0].Equals("db", StringComparison.OrdinalIgnoreCase))
     return await DbSubcommand.RunAsync(args[1..], Console.Out);
 }
 
+if (args.Length > 0 && args[0].Equals("volume", StringComparison.OrdinalIgnoreCase))
+{
+    return await VolumeSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddBazaarHostApplication(builder.Configuration);

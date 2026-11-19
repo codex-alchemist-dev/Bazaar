@@ -31,6 +31,21 @@ public sealed class KekComponent : IBazaarComponent
 
     public ComponentManifest Manifest => ManifestDefinition;
 
+    /// <summary>
+    /// Opens the existing KEK under <c>Bazaar:Host:BootRoot</c> and never creates one (doc 63 section 5). For the volume unit,
+    /// which has no legacy data-root fallback.
+    /// </summary>
+    /// <exception cref="KekMissingException">The key file is missing or empty.</exception>
+    public static IKekProvider OpenExisting(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        var bootRoot = configuration[BootRootKey];
+        if (string.IsNullOrWhiteSpace(bootRoot))
+            throw new InvalidOperationException($"{BootRootKey} is required to open the KEK.");
+
+        return KekProviderFactory.Create(configuration[KekProviderKey], bootRoot, KekOpenMode.OpenExisting);
+    }
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IKekProvider>(_ =>
