@@ -96,6 +96,16 @@ public sealed class ProtocolTests
     }
 
     [Fact]
+    public void Parse_refuses_a_heartbeat_gap_longer_than_a_timer_can_run()
+    {
+        var root = Path.Combine(Path.GetPathRoot(Path.GetFullPath("."))!, "srv", "a");
+
+        // The agent would otherwise start and then fail on its first heartbeat tick, at exit, with the exit code lost.
+        Assert.Throws<ArgumentException>(() => GuestAgentOptions.Parse(
+            ["--vm-id", "vm-9", "--nonce", "n-9", "--root", root, "--heartbeat-seconds", int.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)]));
+    }
+
+    [Fact]
     public void Parse_requires_vm_id()
     {
         Assert.Throws<ArgumentException>(() => GuestAgentOptions.Parse(["--nonce", "n", "--root", "/srv/a"]));

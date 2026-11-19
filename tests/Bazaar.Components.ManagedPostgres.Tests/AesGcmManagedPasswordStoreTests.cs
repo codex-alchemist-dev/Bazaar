@@ -29,6 +29,20 @@ public sealed class AesGcmManagedPasswordStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task Concurrent_saves_leave_one_complete_password_and_no_temporary_file()
+    {
+        var path = Path.Combine(_directory, "superuser.enc");
+        var store = new AesGcmManagedPasswordStore(path, new FixedKey(Key(1)));
+        var passwords = Enumerable.Range(0, 24).Select(i => "pw-" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + new string('x', 4096)).ToArray();
+
+        var saves = passwords.Select(password => Task.Run(() => store.SaveAsync(password, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken));
+        await Task.WhenAll(saves);
+
+        Assert.Contains(await store.LoadAsync(TestContext.Current.CancellationToken), passwords);
+        Assert.Equal([path], Directory.GetFiles(_directory));
+    }
+
+    [Fact]
     public async Task The_file_never_contains_the_plaintext_password()
     {
         var path = Path.Combine(_directory, "superuser.enc");

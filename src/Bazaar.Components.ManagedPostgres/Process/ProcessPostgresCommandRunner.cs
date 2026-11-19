@@ -69,7 +69,7 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
     public IPostgresChild Attach(int processId) => new AttachedChild(processId);
 
     /// <inheritdoc />
-    public bool IsProcessAlive(int processId) => IsAlive(processId);
+    public bool IsProcessAlive(int processId) => IsAlive(processId) && IsPostgresName(processId);
 
     private static ProcessStartInfo CreateStartInfo(string fileName, IReadOnlyList<string> arguments)
     {
@@ -108,6 +108,27 @@ public sealed class ProcessPostgresCommandRunner : IPostgresCommandRunner
         catch (InvalidOperationException)
         {
             return;
+        }
+    }
+
+    /// <summary>
+    /// A postmaster.pid left by a crash can name a pid the OS has since reused. Only a process called postgres is a cluster
+    /// to adopt (and later to kill); a name that cannot be read is given the benefit of the doubt.
+    /// </summary>
+    private static bool IsPostgresName(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return process.ProcessName.StartsWith("postgres", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is Win32Exception or NotSupportedException)
+        {
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return false;
         }
     }
 

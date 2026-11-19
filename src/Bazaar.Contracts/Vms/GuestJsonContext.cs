@@ -8,7 +8,9 @@ namespace Bazaar.Contracts.Vms;
 /// </summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
-    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip)]
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
+    RespectNullableAnnotations = true,
+    RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(Hello))]
 [JsonSerializable(typeof(Exec))]
 [JsonSerializable(typeof(Output))]
