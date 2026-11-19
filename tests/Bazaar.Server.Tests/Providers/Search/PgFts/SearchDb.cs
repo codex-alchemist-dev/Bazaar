@@ -14,7 +14,7 @@ public sealed class SearchDb : PgFixture, IAsyncLifetime
         if (PgSource.IsUnsupportedHost)
             return;
         await base.InitializeAsync();
-        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.Providers.Search.PgFts.PgFtsSearchProvider).Assembly)
+        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly)
             .Load(MigrationRunner.Common);
         var source = new InMemoryMigrationSource(files.Where(f => f.Version == 7));
         await new MigrationRunner(DataSource).MigrateAsync(source, MigrationRunner.Common);
