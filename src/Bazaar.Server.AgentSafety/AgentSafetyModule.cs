@@ -1,4 +1,6 @@
 using Bazaar.Approvals;
+using Bazaar.Server.AgentSafety.Anomaly;
+using Bazaar.Server.AgentSafety.AutoContainment;
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.AgentSafety.Startup;
@@ -58,6 +60,9 @@ public static class AgentSafetyModule
             sp.GetRequiredService<IVmPauser>(),
             sp.GetRequiredService<ILogger<ContainmentEnforcer>>(),
             sp.GetService<TimeProvider>()));
+        services.AddBazaarAnomalyDetection();
+        services.TryAddSingleton<IContainmentRecordStore, PostgresContainmentRecordStore>();
+        services.AddBazaarAutoContainment();
         return services;
     }
 }
