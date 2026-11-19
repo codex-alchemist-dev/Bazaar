@@ -16,6 +16,7 @@ public sealed class ModuleManagerSettingsTests
 
     private static readonly string[] _expectedNames =
     [
+        "update.channel",
         "deps.update.deferWarnDays",
         "deps.update.autoSecurityPatches",
         "releases.ring.canaryPercent",
@@ -251,5 +252,57 @@ public sealed class ModuleManagerSettingsTests
         var error = ModuleManagerSettings.RingOrderError(canary, early, broad);
         Assert.NotNull(error);
         Assert.Contains("earlyPercent", error);
+    }
+
+    [Fact]
+    public void Update_channel_is_registered_as_an_install_key_the_operator_changes()
+    {
+        Assert.True(SettingRegistry.Known.TryGet("update.channel", out var definition));
+        Assert.Same(ModuleManagerSettings.Channel, definition);
+        Assert.Equal(SettingScope.Install, ModuleManagerSettings.Channel.Scope);
+        Assert.Equal(SettingRole.Operator, ModuleManagerSettings.Channel.WhoMayChange);
+        Assert.Equal(ApprovalTier.None, ModuleManagerSettings.Channel.ApprovalTier);
+        Assert.Equal(typeof(UpdateChannel), ModuleManagerSettings.Channel.ValueType);
+    }
+
+    [Fact]
+    public void Update_channel_defaults_to_beta_as_the_stored_snake_case_name()
+    {
+        Assert.Equal(UpdateChannel.Beta, ModuleManagerSettings.Channel.Default);
+        Assert.Equal("\"beta\"", ModuleManagerSettings.Channel.DefaultValueJson);
+    }
+
+    [Theory]
+    [InlineData("\"ltsc\"", SettingWriteOutcome.Accepted)]
+    [InlineData("\"stable\"", SettingWriteOutcome.Accepted)]
+    [InlineData("\"beta\"", SettingWriteOutcome.Accepted)]
+    [InlineData("\"alpha\"", SettingWriteOutcome.Accepted)]
+    [InlineData("\"latest_commit\"", SettingWriteOutcome.Accepted)]
+    [InlineData("\"latest-commit\"", SettingWriteOutcome.Rejected)]
+    [InlineData("\"nightly\"", SettingWriteOutcome.Rejected)]
+    [InlineData("\"lts\"", SettingWriteOutcome.Rejected)]
+    [InlineData("\"lt_sc\"", SettingWriteOutcome.Rejected)]
+    [InlineData("1", SettingWriteOutcome.Rejected)]
+    [InlineData("null", SettingWriteOutcome.Rejected)]
+    public void Update_channel_accepts_only_the_documented_names(string json, SettingWriteOutcome expected)
+    {
+        Assert.Equal(expected, Eval("update.channel", json).Outcome);
+    }
+
+    [Fact]
+    public void Update_channel_accepted_value_is_stored_in_canonical_form()
+    {
+        var evaluation = Eval("update.channel", "\"latest_commit\"");
+        Assert.Equal(SettingWriteOutcome.Accepted, evaluation.Outcome);
+        Assert.Equal("\"latest_commit\"", evaluation.ValueJson);
+    }
+
+    [Fact]
+    public void Update_channel_read_back_from_storage_round_trips()
+    {
+        Assert.True(SettingRegistry.Known.TryGet("update.channel", out var definition));
+        using var doc = JsonDocument.Parse("\"ltsc\"");
+        Assert.Null(definition!.CheckValue(doc.RootElement));
+        Assert.Equal(UpdateChannel.Ltsc, ModuleManagerSettings.Channel.Read(doc.RootElement));
     }
 }
