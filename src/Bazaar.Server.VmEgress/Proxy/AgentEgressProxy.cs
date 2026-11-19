@@ -28,6 +28,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
     private readonly IReadOnlyList<IProxyRequestFilter> _filters;
     private readonly IHostResolver _resolver;
     private readonly IUpstreamConnector _connector;
+    private readonly ILocalAddressSource _localAddresses;
     private readonly CancellationTokenSource _stop = new();
     private readonly ConcurrentDictionary<Socket, byte> _open = new();
     private readonly ConcurrentDictionary<Task, byte> _handlers = new();
@@ -48,7 +49,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         VmEgressOptions options,
         EgressAuditor auditor,
         IReadOnlyList<IProxyRequestFilter>? filters = null)
-        : this(agentId, listenAddress, port, allowlist, options, auditor, filters, new SystemHostResolver(), new SocketUpstreamConnector())
+        : this(agentId, listenAddress, port, allowlist, options, auditor, filters, new SystemHostResolver(), new SocketUpstreamConnector(), new SystemLocalAddressSource())
     {
     }
 
@@ -61,7 +62,8 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         EgressAuditor auditor,
         IReadOnlyList<IProxyRequestFilter>? filters,
         IHostResolver resolver,
-        IUpstreamConnector connector)
+        IUpstreamConnector connector,
+        ILocalAddressSource localAddresses)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         options.Validate();
@@ -74,6 +76,7 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         _filters = filters ?? [];
         _resolver = resolver;
         _connector = connector;
+        _localAddresses = localAddresses ?? throw new ArgumentNullException(nameof(localAddresses));
     }
 
     /// <summary>The address the proxy listens on.</summary>
@@ -292,9 +295,16 @@ public sealed class AgentEgressProxy : IAsyncDisposable
 
             await _auditor.AllowAsync(_agentId, host.Name, port).ConfigureAwait(false);
             await SendAllAsync(client, "HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray(), _stop.Token).ConfigureAwait(false);
-            if (!leftover.IsEmpty)
+            if (host.IsIpLiteral)
             {
-                await SendAllAsync(upstream, leftover, _stop.Token).ConfigureAwait(false);
+                if (!leftover.IsEmpty)
+                {
+                    await SendAllAsync(upstream, leftover, _stop.Token).ConfigureAwait(false);
+                }
+            }
+            else if (!await PinSniAsync(client, upstream, host, port, leftover).ConfigureAwait(false))
+            {
+                return;
             }
 
             await RelayAsync(client, upstream, closeAllOnUpstreamEof: false, clientBodyLimit: null, host.Name, port).ConfigureAwait(false);
@@ -302,6 +312,59 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         finally
         {
             Release(upstream);
+        }
+    }
+
+    /// <summary>
+    /// Domain-fronting defence for a CONNECT to a name. Before any client byte goes upstream, reads the first bytes; when they
+    /// begin a TLS handshake the ClientHello must name exactly the host the allowlist approved. Anything else (other
+    /// protocols, which are allowed on an allowlisted host and port) is relayed unchanged. The bytes read are sent upstream
+    /// once, in order. Returns false after a refusal (both sides are closed by the caller). A protocol where the server speaks
+    /// first has to send something within the header timeout or the tunnel is closed.
+    /// </summary>
+    private async Task<bool> PinSniAsync(Socket client, Socket upstream, HostName host, int port, ReadOnlyMemory<byte> leftover)
+    {
+        // The head buffer can be larger than the TLS cap (it is an operator setting), so never drop leftover bytes.
+        var peeked = ArrayPool<byte>.Shared.Rent(Math.Max(TlsClientHello.MaxBytes, leftover.Length));
+        try
+        {
+            var filled = leftover.Length;
+            leftover.Span.CopyTo(peeked);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+            cts.CancelAfter(_options.HeaderTimeout < _options.IdleTimeout ? _options.HeaderTimeout : _options.IdleTimeout);
+            TlsHelloResult result;
+            while ((result = TlsClientHello.Parse(peeked.AsSpan(0, filled))).Status == TlsHelloStatus.NeedMore)
+            {
+                var n = await client.ReceiveAsync(peeked.AsMemory(filled), SocketFlags.None, cts.Token).ConfigureAwait(false);
+                if (n == 0)
+                {
+                    return false;
+                }
+
+                filled += n;
+            }
+
+            var why = result.Status switch
+            {
+                TlsHelloStatus.NotTls => null,
+                TlsHelloStatus.Ok => HostName.TryNormalize(result.ServerName, out var sni) && !sni.IsIpLiteral
+                    && string.Equals(sni.Name, host.Name, StringComparison.Ordinal) ? null : "sni-mismatch",
+                TlsHelloStatus.MissingSni => "sni-missing",
+                TlsHelloStatus.Ech => "ech-not-allowed",
+                _ => "tls-malformed",
+            };
+            if (why is not null)
+            {
+                await _auditor.DenyAsync(_agentId, host.Name, port, why).ConfigureAwait(false);
+                return false;
+            }
+
+            await SendAllAsync(upstream, peeked.AsMemory(0, filled), _stop.Token).ConfigureAwait(false);
+            return true;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(peeked);
         }
     }
 
@@ -453,7 +516,8 @@ public sealed class AgentEgressProxy : IAsyncDisposable
         }
 
         // Any forbidden answer refuses the whole name. A mixed answer is how rebinding and split-horizon tricks start.
-        if (addresses.Any(AddressGuard.IsForbidden))
+        // The host's own addresses are refused too: a public IP of this server would reach host-bound services.
+        if (addresses.Any(a => AddressGuard.IsForbidden(a) || _localAddresses.IsLocal(a)))
         {
             await DenyAsync(client, 403, "Forbidden", host.Name, port, "forbidden-address").ConfigureAwait(false);
             return null;

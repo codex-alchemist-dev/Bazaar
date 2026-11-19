@@ -31,7 +31,7 @@ public class ProxyEndToEndTests
         }
     }
 
-    private static Rig Build(bool echo, string[] allow, Action<ScriptedResolver>? script = null, VmEgressOptions? options = null, IReadOnlyList<IProxyRequestFilter>? filters = null)
+    private static Rig Build(bool echo, string[] allow, Action<ScriptedResolver>? script = null, VmEgressOptions? options = null, IReadOnlyList<IProxyRequestFilter>? filters = null, ILocalAddressSource? localAddresses = null)
     {
         var upstream = new FakeUpstream(echo);
         var resolver = new ScriptedResolver();
@@ -41,7 +41,7 @@ public class ProxyEndToEndTests
         var opts = options ?? new VmEgressOptions();
         var auditor = new EgressAuditor(audit, opts, TimeProvider.System);
         Assert.True(Allowlist.TryCompile(allow, out var list, out _));
-        var proxy = new AgentEgressProxy("agent-1", IPAddress.Loopback, 0, list, opts, auditor, filters, resolver, connector);
+        var proxy = new AgentEgressProxy("agent-1", IPAddress.Loopback, 0, list, opts, auditor, filters, resolver, connector, localAddresses ?? new FixedLocalAddresses());
         proxy.Start();
         return new Rig { Proxy = proxy, Upstream = upstream, Resolver = resolver, Connector = connector, Audit = audit };
     }

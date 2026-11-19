@@ -33,6 +33,7 @@ public static class AddressGuard
             || (a == 172 && b1 is >= 16 and <= 31)       // private
             || (a == 192 && b1 == 0 && b2 == 0)          // IETF protocol assignments
             || (a == 192 && b1 == 0 && b2 == 2)          // documentation
+            || (a == 192 && b1 == 88 && b2 == 99)        // 6to4 relay anycast
             || (a == 192 && b1 == 168)                   // private
             || (a == 198 && b1 is 18 or 19)              // benchmarking
             || (a == 198 && b1 == 51 && b2 == 100)       // documentation
@@ -63,13 +64,27 @@ public static class AddressGuard
             return true;
         }
 
-        // Teredo 2001::/32 and documentation 2001:db8::/32 are refused.
-        if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x00 && b[3] == 0x00)
+        // The whole IETF protocol assignments block 2001::/23 is refused: Teredo 2001::/32, benchmarking 2001:2::/48, ORCHID
+        // 2001:10::/28 and 2001:20::/28 and the rest of it.
+        if (b[0] == 0x20 && b[1] == 0x01 && b[2] <= 0x01)
         {
             return true;
         }
 
+        // Documentation 2001:db8::/32.
         if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x0d && b[3] == 0xb8)
+        {
+            return true;
+        }
+
+        // Documentation 3fff::/20 (RFC 9637).
+        if (b[0] == 0x3f && b[1] == 0xff && (b[2] & 0xF0) == 0)
+        {
+            return true;
+        }
+
+        // AS112 direct delegation 2620:4f:8000::/48.
+        if (b[0] == 0x26 && b[1] == 0x20 && b[2] == 0x00 && b[3] == 0x4f && b[4] == 0x80 && b[5] == 0x00)
         {
             return true;
         }
