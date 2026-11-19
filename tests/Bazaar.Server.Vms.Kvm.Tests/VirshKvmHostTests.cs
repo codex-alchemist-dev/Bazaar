@@ -51,7 +51,7 @@ public sealed class VirshKvmHostTests
         await _host.RestoreAsync(_vm, _cp, Ct);
 
         Assert.Equal(
-            [Virsh("managedsave", _vm), Virsh("snapshot-create-as", _vm, _cp, "--atomic"), Virsh("snapshot-revert", _vm, _cp)],
+            [Virsh("managedsave", _vm), Virsh("snapshot-create-as", _vm, _cp, "--atomic"), Virsh("managedsave-remove", _vm), Virsh("snapshot-revert", _vm, _cp)],
             _runner.Calls);
     }
 
