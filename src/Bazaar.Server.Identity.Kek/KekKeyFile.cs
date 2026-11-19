@@ -74,7 +74,7 @@ internal static class KekKeyFile
             }
 
             RestrictToOwner(temp);
-            File.Move(temp, keyPath, overwrite: false);
+            PlaceWithoutOverwrite(temp, keyPath);
         }
         catch (IOException) when (File.Exists(keyPath) && new FileInfo(keyPath).Length > 0)
         {
@@ -90,6 +90,30 @@ internal static class KekKeyFile
             {
                 // Best effort: a leftover temp file is harmless.
             }
+        }
+    }
+
+    /// <summary>
+    /// Puts the finished temp file at the key path only if nothing is there. Off Windows a rename replaces its target, and a
+    /// check before it is not atomic, so two first starts could each publish a key and the second would replace the one the
+    /// first had already read. A hard link fails when the name exists, in one step. Windows refuses a move onto an existing
+    /// file by itself. A file system with no hard links falls back to the move.
+    /// </summary>
+    private static void PlaceWithoutOverwrite(string temp, string keyPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.Move(temp, keyPath, overwrite: false);
+            return;
+        }
+
+        try
+        {
+            File.CreateHardLink(keyPath, temp);
+        }
+        catch (Exception error) when (error is UnauthorizedAccessException or NotSupportedException or PlatformNotSupportedException)
+        {
+            File.Move(temp, keyPath, overwrite: false);
         }
     }
 
