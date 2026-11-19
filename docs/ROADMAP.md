@@ -33,7 +33,7 @@ Nothing here is scheduled, and none of it starts before v1.0.0. A major ships on
 | Candidate | Source | Likely version |
 |---|---|---|
 | Soul Marketplace (v1 scope OPEN) | doc 07 | v1.x if additive, else v2 |
-| TUI status client (OPEN) | CLAUDE.md | v1.x |
+| Server TUI, install wizard and live ops (DECIDED, doc 58) | CLAUDE.md | v1.x |
 | QEMU/KVM VM backend tested to the Hyper-V level; Linux as a first-class tested host | docs 03, 16 | v1.x |
 | Wire-format change after S6, if Protobuf is adopted later | doc 02 | v2.0.0 "Yliaster" |
 | Multi-owner instances, more human members, privacy-law profiles beyond v1 | doc 32 | v2 |

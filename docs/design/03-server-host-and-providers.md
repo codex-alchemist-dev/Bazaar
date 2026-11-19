@@ -176,6 +176,6 @@ ANSWERED: VM topology is two VMs per agent; S8 is for sizing only (DECISIONS-LOG
 ANSWERED: GC fan-out is Postgres NOTIFY; Valkey or Garnet serve cache and presence only (DECISIONS-LOG round 1, C07).
 
 1. **Windows KEK store.** Default: DPAPI-protected file. Alternative: Windows Credential Manager. This is key custody, so it stays a question. Blocked on doc 33 C1 (recovery on new hardware).
-2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI stays OPEN. This is product scope.
+2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI is DECIDED as a separate client module (doc 58, owner 2026-11-19); `bazaar-admin` stays the plain, scriptable path.
 
 MOVED TO SETTINGS: host.provider.service_host, host.provider.vm, host.provider.cache, host.provider.search, host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)
