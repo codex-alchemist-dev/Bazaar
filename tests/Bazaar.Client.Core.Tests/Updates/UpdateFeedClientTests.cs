@@ -8,18 +8,18 @@ namespace Bazaar.Updates.Tests;
 
 public sealed class UpdateFeedClientTests
 {
-    private static readonly Uri Server = new("https://company.example/");
-    private static readonly string Sha = new('a', 64);
-    private static readonly string Sig = Convert.ToBase64String(new byte[] { 1, 2, 3 });
+    private static readonly Uri _server = new("https://company.example/");
+    private static readonly string _sha = new('a', 64);
+    private static readonly string _sig = Convert.ToBase64String(new byte[] { 1, 2, 3 });
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static HttpClient ClientFor(FakeHandler handler) =>
-        new(handler) { BaseAddress = Server };
+        new(handler) { BaseAddress = _server };
 
     private static string Json(string version = "0.2.0", string url = "https://company.example/Bazaar.msix", string sha = "", string sig = "") =>
-        "{\"version\":\"" + version + "\",\"packageUrl\":\"" + url + "\",\"sha256\":\"" + (sha.Length == 0 ? Sha : sha)
-        + "\",\"signature\":\"" + (sig.Length == 0 ? Sig : sig) + "\"}";
+        "{\"version\":\"" + version + "\",\"packageUrl\":\"" + url + "\",\"sha256\":\"" + (sha.Length == 0 ? _sha : sha)
+        + "\",\"signature\":\"" + (sig.Length == 0 ? _sig : sig) + "\"}";
 
     [Fact]
     public async Task Latest_route_is_read_into_a_manifest()
@@ -32,7 +32,7 @@ public sealed class UpdateFeedClientTests
         Assert.NotNull(manifest);
         Assert.Equal("0.2.0", manifest.Version);
         Assert.Equal("https://company.example/Bazaar.msix", manifest.PackageUrl.ToString());
-        Assert.Equal(Sha, manifest.Sha256Hex);
+        Assert.Equal(_sha, manifest.Sha256Hex);
         Assert.Equal(new byte[] { 1, 2, 3 }, manifest.Signature);
         Assert.Equal("https://company.example/updates/latest", handler.LastRequestUri);
     }
@@ -94,7 +94,7 @@ public sealed class UpdateFeedClientTests
         var package = Encoding.UTF8.GetBytes("package bytes");
         var handler = new FakeHandler(HttpStatusCode.OK, package);
         var client = new UpdateFeedClient(ClientFor(handler));
-        var manifest = new UpdateManifest("0.2.0", new Uri("https://company.example/Bazaar.msix"), Sha, [1]);
+        var manifest = new UpdateManifest("0.2.0", new Uri("https://company.example/Bazaar.msix"), _sha, [1]);
 
         var bytes = await client.DownloadAsync(manifest, Ct);
 
@@ -106,7 +106,7 @@ public sealed class UpdateFeedClientTests
     {
         var handler = new FakeHandler(HttpStatusCode.OK, "x");
         var client = new UpdateFeedClient(ClientFor(handler));
-        var manifest = new UpdateManifest("0.2.0", new Uri("http://company.example/Bazaar.msix"), Sha, [1]);
+        var manifest = new UpdateManifest("0.2.0", new Uri("http://company.example/Bazaar.msix"), _sha, [1]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => client.DownloadAsync(manifest, Ct));
         Assert.Equal(0, handler.Requests);
@@ -117,7 +117,7 @@ public sealed class UpdateFeedClientTests
     {
         var handler = new FakeHandler(HttpStatusCode.OK, new byte[16], declaredLength: UpdateFeedClient.MaxPackageBytes + 1);
         var client = new UpdateFeedClient(ClientFor(handler));
-        var manifest = new UpdateManifest("0.2.0", new Uri("https://company.example/Bazaar.msix"), Sha, [1]);
+        var manifest = new UpdateManifest("0.2.0", new Uri("https://company.example/Bazaar.msix"), _sha, [1]);
 
         await Assert.ThrowsAsync<InvalidDataException>(() => client.DownloadAsync(manifest, Ct));
     }
