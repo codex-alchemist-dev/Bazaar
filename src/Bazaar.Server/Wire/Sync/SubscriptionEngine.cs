@@ -1,5 +1,6 @@
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Wire.Sync;
 
@@ -14,13 +15,14 @@ public sealed class SubscriptionEngine(
     GcDispatcher dispatcher,
     SyncOptions options,
     TimeProvider? time = null,
-    IGraphLodSource? graphLod = null)
+    IGraphLodSource? graphLod = null,
+    ILogger<SubscriptionEngine>? logger = null)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>Creates the per-connection state. Dispose it when the socket closes.</summary>
     public SubscriptionSession CreateSession(Guid principalId, IWireCodec codec, IConnectionOutbound outbound) =>
-        new(principalId, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
+        new(principalId, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod, logger);
 }
 
 /// <summary>What <see cref="SubscriptionSession.SubscribeAsync"/> decided, and the work to start once the response is queued.</summary>
@@ -42,7 +44,7 @@ public sealed class SubscribeOutcome
 }
 
 /// <summary>One connection's subscriptions. Thread-safe: <c>subscribe</c> requests may overlap.</summary>
-public sealed class SubscriptionSession : IDisposable
+public sealed partial class SubscriptionSession : IDisposable
 {
     private readonly Guid _principalId;
     private readonly IGcStreamSource _source;
@@ -52,13 +54,14 @@ public sealed class SubscriptionSession : IDisposable
     private readonly SyncFrames _frames;
     private readonly IConnectionOutbound _outbound;
     private readonly IGraphLodSource? _graphLod;
+    private readonly ILogger? _logger;
     private readonly CancellationTokenSource _cts = new();
     private readonly object _gate = new();
     private readonly Dictionary<string, GcSubscription> _subs = [];
 
     internal SubscriptionSession(
         Guid principalId, IGcStreamSource source, IGcAccessPolicy access, GcDispatcher dispatcher,
-        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod)
+        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod, ILogger? logger = null)
     {
         _principalId = principalId;
         _source = source;
@@ -68,6 +71,7 @@ public sealed class SubscriptionSession : IDisposable
         _frames = frames;
         _outbound = outbound;
         _graphLod = graphLod;
+        _logger = logger;
     }
 
     /// <summary>Streams this connection is subscribed to.</summary>
@@ -230,9 +234,15 @@ public sealed class SubscriptionSession : IDisposable
         {
             // Unsubscribed, replaced, revoked or the connection closed.
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // The log could not be read: tell the client to resubscribe from its cursor.
+            // The log could not be read: tell the client to resubscribe from its cursor. Log it, or a permanent fault (a corrupt page)
+            // looks like a slow client: `lagged` forever and nothing in the server log.
+            if (_logger is not null)
+            {
+                LogReadFailed(_logger, ex, sub.Stream);
+            }
+
             sub.Fail();
         }
     }
@@ -262,4 +272,10 @@ public sealed class SubscriptionSession : IDisposable
 
         sub.Dispose();
     }
+}
+
+public sealed partial class SubscriptionSession
+{
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading the log for {Stream} failed; the client was sent lagged and must resubscribe.")]
+    private static partial void LogReadFailed(ILogger logger, Exception ex, string stream);
 }
