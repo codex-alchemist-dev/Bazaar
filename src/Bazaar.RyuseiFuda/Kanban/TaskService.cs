@@ -1,12 +1,12 @@
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Kanban.Data;
 using Npgsql;
 
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>
 /// The only writer of task state, edges and gates (doc 12). Each change runs in one transaction with its
