@@ -228,4 +228,15 @@ public class InboundQuarantineRulesTests
 
         Assert.Equal(new[] { QuarantineReason.LinkTextMismatch }, decision.Reasons.ToArray());
     }
+
+    [Theory]
+    [InlineData("invoice.exe\0.pdf")]
+    [InlineData("invoice.exe\u0000")]
+    [InlineData("invoice.scr\0\0.txt")]
+    public void A_file_name_cut_short_by_a_null_character_is_screened_as_the_name_the_file_system_sees(string fileName)
+    {
+        var decision = InboundQuarantineRules.Evaluate(WithAttachments(fileName), _defaults);
+
+        Assert.Contains(QuarantineReason.ExecutableAttachment, decision.Reasons);
+    }
 }

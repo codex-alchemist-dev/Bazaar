@@ -229,7 +229,9 @@ public static class InboundQuarantineRules
     /// <summary>The lowercased extension of a file name. Trailing dots and spaces are ignored, so "a.exe." counts as .exe.</summary>
     private static string? ExtensionOf(string fileName)
     {
-        var name = fileName.Trim().TrimEnd('.', ' ');
+        // Win32 file APIs stop at a null character, so "a.exe<NUL>.pdf" is the file "a.exe".
+        var nul = fileName.IndexOf('\0');
+        var name = (nul < 0 ? fileName : fileName[..nul]).Trim().TrimEnd('.', ' ');
         var dot = name.LastIndexOf('.');
         if (dot < 0 || dot == name.Length - 1)
         {
