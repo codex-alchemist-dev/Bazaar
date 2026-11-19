@@ -30,8 +30,17 @@ public sealed class OpenAiChatAdapter : IModelAdapter
         ModelRequest request,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        // HttpClient.Timeout stops at the response headers when the body is streamed (ResponseHeadersRead), so an upstream
+        // that sends one chunk and then stalls would hold the call, and the caller's per-GC gate, forever. The client's
+        // timeout is applied to the whole call here instead; it fires as a "timeout" failure, never as the caller's cancel.
+        using var deadline = _http.Timeout == Timeout.InfiniteTimeSpan ? null : new CancellationTokenSource(_http.Timeout, _time);
+        using var call = deadline is null
+            ? CancellationTokenSource.CreateLinkedTokenSource(ct)
+            : CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);
+        var callToken = call.Token;
+
         using var httpRequest = BuildHttpRequest(endpoint, request);
-        var sent = await SendAsync(httpRequest, ct);
+        var sent = await SendAsync(httpRequest, callToken, ct);
         using var response = sent.Response!;
         if (sent.Error is { } sendError)
         {
@@ -46,7 +55,7 @@ public sealed class OpenAiChatAdapter : IModelAdapter
             yield break;
         }
 
-        await using var events = ReadEventsAsync(response, endpoint.ModelId, ct).GetAsyncEnumerator(ct);
+        await using var events = ReadEventsAsync(response, endpoint.ModelId, callToken).GetAsyncEnumerator(callToken);
         while (true)
         {
             // The body read is the only place a timeout or a dropped connection shows up, so it is wrapped here.
@@ -110,11 +119,13 @@ public sealed class OpenAiChatAdapter : IModelAdapter
         return message;
     }
 
-    private async Task<(HttpResponseMessage? Response, ModelEvent? Error)> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    /// <param name="callToken">The call's token: the caller's token plus the call deadline.</param>
+    /// <param name="ct">The caller's own token. Only its cancellation propagates; any other cancellation is a timeout.</param>
+    private async Task<(HttpResponseMessage? Response, ModelEvent? Error)> SendAsync(HttpRequestMessage request, CancellationToken callToken, CancellationToken ct)
     {
         try
         {
-            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, callToken);
             return (response, null);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
