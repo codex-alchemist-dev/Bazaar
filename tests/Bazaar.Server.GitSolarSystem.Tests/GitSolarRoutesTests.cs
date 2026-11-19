@@ -6,8 +6,8 @@ using Bazaar.Server.GitSolarSystem.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using static Bazaar.Server.GitSolarSystem.Tests.Hist;
 
 namespace Bazaar.Server.GitSolarSystem.Tests;
