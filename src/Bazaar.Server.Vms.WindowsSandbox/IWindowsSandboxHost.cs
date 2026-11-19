@@ -25,4 +25,13 @@ public interface IWindowsSandboxHost
 
     /// <summary>Deletes a config file that is no longer needed.</summary>
     Task DeleteConfigAsync(string configPath, CancellationToken ct);
+
+    /// <summary>
+    /// Runs one command inside a running instance as <c>System</c> (doc 50 section 9). The command is a program path plus arguments,
+    /// never a shell string. The result carries the process exit code and captured output; a non-zero exit is data, not an exception.
+    /// </summary>
+    Task<SandboxExecResult> ExecAsync(string instanceId, IReadOnlyList<string> command, CancellationToken ct);
 }
+
+/// <summary>The exit code and captured output of one command run inside a sandbox.</summary>
+public sealed record SandboxExecResult(int ExitCode, string StandardOutput, string StandardError);
