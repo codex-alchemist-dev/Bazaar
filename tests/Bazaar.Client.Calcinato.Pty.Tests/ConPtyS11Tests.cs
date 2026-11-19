@@ -70,6 +70,11 @@ public sealed class ConPtyS11Tests
         await using var session = new ConPtyBackend().Open(new TerminalSpec(shell, 80, 25));
         await using var transcript = new PtyTranscript(session);
 
+        // A slow runner can still be starting pwsh when the resize and command arrive, and that input is lost.
+        // Wait for the shell's banner, then give it a moment to draw its prompt.
+        Assert.True(await transcript.WaitForAsync(shell == "cmd.exe" ? "Microsoft Windows" : "PowerShell", _wait), transcript.Text);
+        await Task.Delay(2000, TestContext.Current.CancellationToken);
+
         session.Resize(100, 30);
         await session.WriteAsync(Line(SizeCommand(shell)), TestContext.Current.CancellationToken);
 
