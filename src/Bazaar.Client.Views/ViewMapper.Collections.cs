@@ -70,7 +70,7 @@ public sealed partial class ViewMapper
                 throw new ViewDeclarationException($"a child of tabs must be a tab, not '{tab.Widget}'.");
             }
 
-            string title = Text(tab, "title", scope);
+            string title = Label(tab, "title", scope);
             if (title.Length == 0)
             {
                 throw new ViewDeclarationException("a tab needs a non-empty title.");
