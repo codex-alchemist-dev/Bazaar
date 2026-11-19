@@ -151,7 +151,7 @@ Spike S-DSP on the owner's PC (nothing on C:, tools under V:\TOOL, a separate WS
 
 3. **What may a passed peer vote on a site do without the owner?** ANSWERED (owner card, 2026-11-19): a unanimous vote opens the site for login-free reading only; anything split, and every account, still comes to the owner with the vote attached.
 
-4. **How many senior peers must approve a new account?** *Recommend* two (`security.account_approval.peer_quorum = 2`), falling back to the owner when two are not available.
+4. **How many senior peers must approve a new account?** ANSWERED (owner card, 2026-11-19): two, falling back to the owner when two are not available or one refuses.
 5. **Who accepts a site's legal terms during sign-up?** Today that is Tier 3, a person. *Recommend* keeping it with a person until counsel has looked at agents accepting terms.
 
 ## 13. Conflicts and notes
