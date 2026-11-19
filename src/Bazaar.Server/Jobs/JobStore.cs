@@ -151,7 +151,7 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
     public async Task<bool> FailAsync(
         long id, string owner, int maxAttempts, TimeSpan retryDelay, string error, CancellationToken ct = default)
     {
-        var message = error.Length > _maxErrorLength ? error[.._maxErrorLength] : error;
+        var message = StoredError(error);
         await using var cmd = dataSource.CreateCommand(_failSql);
         cmd.Parameters.AddWithValue("id", id);
         cmd.Parameters.AddWithValue("owner", owner);
@@ -159,6 +159,31 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("delay_seconds", retryDelay.TotalSeconds);
         cmd.Parameters.AddWithValue("last_error", message);
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+    }
+
+    /// <summary>
+    /// The error text as stored: cut to the limit without splitting a surrogate pair, with NUL and unpaired surrogates (neither
+    /// fits Postgres text) shown as U+FFFD. It is diagnostic text, so a lossy copy beats a failure report that itself fails.
+    /// </summary>
+    private static string StoredError(string error)
+    {
+        var length = Math.Min(error.Length, _maxErrorLength);
+        var builder = new System.Text.StringBuilder(length);
+        for (var i = 0; i < length; i++)
+        {
+            var c = error[i];
+            if (char.IsHighSurrogate(c) && i + 1 < length && char.IsLowSurrogate(error[i + 1]))
+            {
+                builder.Append(c).Append(error[i + 1]);
+                i++;
+            }
+            else
+            {
+                builder.Append(c == '\0' || char.IsSurrogate(c) ? '\uFFFD' : c);
+            }
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Reads one job. Used by tests and by the status page later.</summary>

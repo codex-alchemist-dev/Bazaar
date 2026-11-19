@@ -158,6 +158,28 @@ public sealed class JobStoreTests(JobDb db) : IClassFixture<JobDb>
         Assert.Equal(2, failed.Attempts);
     }
 
+    // Chaos round 3: the stored error is cut to 2000 characters and Postgres text cannot hold NUL. A cut through a surrogate pair
+    // or a NUL in an exception message used to make the failure report itself throw, leaving the job leased.
+    [Theory]
+    [InlineData(1999, "\ud83d\ude00")]
+    [InlineData(10, "\0")]
+    [InlineData(3, "\ud800")]
+    public async Task A_hostile_error_text_is_recorded_without_breaking_the_failure_report(int prefix, string tail)
+    {
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var id = (await Store.EnqueueAsync("hostile-error", "{}", ct: Ct))!.Value;
+        await Store.ClaimDueAsync("holder", TimeSpan.FromMinutes(1), 10, Ct);
+        var error = new string('a', prefix) + tail + new string('b', 50);
+
+        Assert.True(await Store.FailAsync(id, "holder", 3, TimeSpan.FromMinutes(10), error, Ct));
+
+        var job = await Store.GetAsync(id, Ct);
+        Assert.Equal("queued", job!.State);
+        Assert.False(string.IsNullOrEmpty(job.LastError));
+        Assert.StartsWith(new string('a', Math.Min(prefix, 10)), job.LastError, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_lease_that_expired_on_its_final_attempt_is_failed_not_retried()
     {
