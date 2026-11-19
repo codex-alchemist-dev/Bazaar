@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
-          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
+          docker run -d --name "$PG_NAME" --memory 4g --memory-swap 4g -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             pgvector/pgvector:pg18 -c max_locks_per_transaction=512
           for _ in $(seq 1 60); do
@@ -315,7 +315,7 @@ jobs:
           set -euo pipefail
           PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
-          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
+          docker run -d --name "$PG_NAME" --memory 4g --memory-swap 4g -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             bazaar-pg19:ci -c max_locks_per_transaction=512
           for _ in $(seq 1 60); do
