@@ -40,6 +40,24 @@ public sealed class VmReconciler(
 
             // Read again under the lock: the snapshot may be stale by the time the lock is taken.
             var vm = await repository.GetVmAsync(candidate.Id, ct).ConfigureAwait(false);
+            if (vm is { State: VmState.Provisioning, BackendRef: null })
+            {
+                // The lock is held, so no create is running for this VM: the host stopped after the row was inserted and
+                // before the backend handle was recorded. Nothing else would move the row, and a retire needs a backend ref.
+                // The table sends Provisioning back to Absent, the same as a failed create.
+                var stuck = new JsonObject
+                {
+                    ["recorded"] = EnvironmentText.ToDb(VmState.Provisioning),
+                    ["actual"] = EnvironmentText.ToDb(VmState.Absent),
+                };
+                await AuditAsync(actions, VmAuditActions.StateMismatch, vm.Id, stuck, ct).ConfigureAwait(false);
+                if (await repository.TryUpdateVmStateAsync(vm.Id, VmState.Provisioning, VmState.Absent, clock.GetUtcNow(), ct).ConfigureAwait(false))
+                    corrected++;
+                else
+                    skipped++;
+                continue;
+            }
+
             if (vm is null || vm.State == VmState.Retired || vm.BackendRef is null)
             {
                 skipped++;
