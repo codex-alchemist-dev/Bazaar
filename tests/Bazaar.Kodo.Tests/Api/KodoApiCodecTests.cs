@@ -1,4 +1,5 @@
 using System.Text;
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 using Bazaar.Kodo.Evaluator;
 using Bazaar.Kodo.Probes;
@@ -12,22 +13,23 @@ public sealed class KodoApiCodecTests
     [Fact]
     public void EmptyHealthySnapshotHasAFixedShapeWithEveryFieldWritten()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
-            KodoApiTestData.Evaluation(KodoState.Healthy), 100, [], 0, _now, null);
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 100, [], 0, _now, null);
 
-        string json = Encoding.UTF8.GetString(KodoApiCodec.EncodeSnapshot(snapshot));
+        string json = Encoding.UTF8.GetString(KodoWireCodec.EncodeSnapshot(snapshot));
 
         Assert.Equal(
-            "{\"schemaVersion\":1,\"revision\":0,\"generatedAt\":\"2026-11-18T12:00:00+00:00\","
-            + "\"state\":\"healthy\",\"underlying\":\"healthy\",\"score\":100,\"journalHead\":null,\"components\":[]}",
+            "{\"schemaVersion\":1,\"revision\":0,\"status\":{\"state\":\"healthy\",\"score\":100,"
+            + "\"asOf\":\"2026-11-18T12:00:00+00:00\",\"controls\":[]},\"components\":[]}",
             json);
     }
 
     [Fact]
     public void FrozenSnapshotWithComponentsAndJournalHeadHasAStableEncoding()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Frozen, KodoState.Failing),
+            new KodoObservation(),
             score: 49,
             components:
             [
@@ -38,38 +40,38 @@ public sealed class KodoApiCodecTests
             generatedAt: _now,
             journalHead: KodoApiTestData.JournalHead());
 
-        string json = Encoding.UTF8.GetString(KodoApiCodec.EncodeSnapshot(snapshot));
+        string json = Encoding.UTF8.GetString(KodoWireCodec.EncodeSnapshot(snapshot));
 
         Assert.Equal(
-            "{\"schemaVersion\":1,\"revision\":12,\"generatedAt\":\"2026-11-18T12:00:00+00:00\","
-            + "\"state\":\"frozen\",\"underlying\":\"failing\",\"score\":49,"
+            "{\"schemaVersion\":1,\"revision\":12,\"status\":{\"state\":\"frozen\",\"underlyingState\":\"failing\",\"score\":49,"
+            + "\"asOf\":\"2026-11-18T12:00:00+00:00\",\"controls\":[]},"
             + "\"journalHead\":\"" + KodoApiTestData.JournalHeadHex + "\","
             + "\"components\":["
             + "{\"id\":\"db.backup_freshness\",\"state\":\"red\",\"cause\":\"timeout\",\"since\":\"2026-11-18T11:58:00+00:00\"},"
-            + "{\"id\":\"host.disk.free\",\"state\":\"green\",\"cause\":null,\"since\":\"2026-11-18T12:00:00+00:00\"}]}",
+            + "{\"id\":\"host.disk.free\",\"state\":\"green\",\"since\":\"2026-11-18T12:00:00+00:00\"}]}",
             json);
     }
 
     [Fact]
     public void EncodingIsDeterministicForTheSameSnapshot()
     {
-        KodoStatusSnapshot snapshot = KodoApiTestData.Snapshot(3);
+        KodoStatusSnapshotDto snapshot = KodoApiTestData.Snapshot(3);
 
-        Assert.Equal(KodoApiCodec.EncodeSnapshot(snapshot), KodoApiCodec.EncodeSnapshot(snapshot));
+        Assert.Equal(KodoWireCodec.EncodeSnapshot(snapshot), KodoWireCodec.EncodeSnapshot(snapshot));
     }
 
     [Fact]
     public void StateChangedEventHasAFixedShape()
     {
         KodoStreamWriter writer = new();
-        KodoStreamEvent streamEvent = writer.StateChanged(
+        KodoStreamEventDto streamEvent = writer.StateChanged(
             KodoState.Healthy, KodoApiTestData.Evaluation(KodoState.Degraded), _now);
 
-        string json = Encoding.UTF8.GetString(KodoApiCodec.EncodeEvent(streamEvent));
+        string json = Encoding.UTF8.GetString(KodoWireCodec.EncodeEvent(streamEvent));
 
         Assert.Equal(
             "{\"revision\":1,\"type\":\"state_changed\",\"at\":\"2026-11-18T12:00:00+00:00\","
-            + "\"stateChange\":{\"previous\":\"healthy\",\"state\":\"degraded\",\"underlying\":\"degraded\"},\"snapshot\":null}",
+            + "\"stateChange\":{\"previous\":\"healthy\",\"state\":\"degraded\"}}",
             json);
     }
 
@@ -78,22 +80,45 @@ public sealed class KodoApiCodecTests
     {
         KodoStreamWriter writer = new();
 
-        string json = Encoding.UTF8.GetString(KodoApiCodec.EncodeEvent(writer.Heartbeat(_now)));
+        string json = Encoding.UTF8.GetString(KodoWireCodec.EncodeEvent(writer.Heartbeat(_now)));
 
         Assert.Equal(
-            "{\"revision\":1,\"type\":\"heartbeat\",\"at\":\"2026-11-18T12:00:00+00:00\",\"stateChange\":null,\"snapshot\":null}",
+            "{\"revision\":1,\"type\":\"heartbeat\",\"at\":\"2026-11-18T12:00:00+00:00\"}",
             json);
     }
 
     [Fact]
-    public void SnapshotEventCarriesTheSnapshotAndItsRevision()
+    public void SnapshotEventCarriesTheSnapshotAndTheCurrentRevision()
     {
-        KodoStreamWriter writer = new();
-        KodoStatusSnapshot snapshot = KodoApiTestData.Snapshot(writer.NextRevision);
+        KodoStreamWriter writer = new(lastRevision: 4);
 
-        string json = Encoding.UTF8.GetString(KodoApiCodec.EncodeEvent(writer.Snapshot(snapshot)));
+        string json = Encoding.UTF8.GetString(KodoWireCodec.EncodeEvent(
+            writer.Snapshot(revision => KodoApiTestData.Snapshot(revision), _now)));
 
-        Assert.StartsWith("{\"revision\":1,\"type\":\"snapshot\",\"at\":\"2026-11-18T12:00:00+00:00\",\"stateChange\":null,\"snapshot\":{\"schemaVersion\":1,\"revision\":1,", json);
+        Assert.StartsWith(
+            "{\"revision\":4,\"type\":\"snapshot\",\"at\":\"2026-11-18T12:00:00+00:00\",\"snapshot\":{\"schemaVersion\":1,\"revision\":4,",
+            json);
+    }
+
+    [Fact]
+    public void EncodedSnapshotRoundTrips()
+    {
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Frozen, KodoState.Failing),
+            new KodoObservation(),
+            49,
+            [new KodoComponentInput("db.backup_freshness", ProbeStatus.Red, "timeout", _now)],
+            12,
+            _now,
+            KodoApiTestData.JournalHead());
+
+        KodoStatusSnapshotDto? back = KodoWireCodec.DecodeSnapshot(KodoWireCodec.EncodeSnapshot(snapshot));
+
+        Assert.NotNull(back);
+        Assert.Equal(snapshot.Status, back.Status with { Controls = snapshot.Status.Controls });
+        Assert.Equal(snapshot.Revision, back.Revision);
+        Assert.Equal(snapshot.JournalHead, back.JournalHead);
+        Assert.Equal(snapshot.Components, back.Components);
     }
 
     [Fact]

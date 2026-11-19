@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Api;
 using Bazaar.Kodo.Evaluator;
 using Bazaar.Kodo.Probes;
@@ -11,20 +12,22 @@ public sealed class KodoStatusSnapshotBuilderTests
     [Fact]
     public void BuildCopiesTheEvaluatorStatesAndTheScoreAndRevision()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Frozen, KodoState.Failing),
+            new KodoObservation(),
             score: 42,
             components: [],
             revision: 7,
             generatedAt: _now,
             journalHead: KodoApiTestData.JournalHead());
 
-        Assert.Equal(KodoStatusSnapshot.CurrentSchemaVersion, snapshot.SchemaVersion);
+        Assert.Equal(KodoStatusSnapshotDto.CurrentSchemaVersion, snapshot.SchemaVersion);
         Assert.Equal(7, snapshot.Revision);
-        Assert.Equal(_now, snapshot.GeneratedAt);
-        Assert.Equal("frozen", snapshot.State);
-        Assert.Equal("failing", snapshot.Underlying);
-        Assert.Equal(42, snapshot.Score);
+        Assert.Equal(_now, snapshot.Status.AsOf);
+        Assert.Equal("frozen", snapshot.Status.State);
+        Assert.Equal("failing", snapshot.Status.UnderlyingState);
+        Assert.Equal(42, snapshot.Status.Score);
+        Assert.Empty(snapshot.Status.Controls);
         Assert.Equal(KodoApiTestData.JournalHeadHex, snapshot.JournalHead);
         Assert.Empty(snapshot.Components);
     }
@@ -32,8 +35,8 @@ public sealed class KodoStatusSnapshotBuilderTests
     [Fact]
     public void JournalHeadIsNullWhileTheJournalIsEmpty()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
-            KodoApiTestData.Evaluation(KodoState.Healthy), 100, [], 0, _now, journalHead: null);
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 100, [], 0, _now, journalHead: null);
 
         Assert.Null(snapshot.JournalHead);
     }
@@ -41,8 +44,9 @@ public sealed class KodoStatusSnapshotBuilderTests
     [Fact]
     public void ComponentsAreSortedByIdWithOrdinalOrder()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Healthy),
+            new KodoObservation(),
             100,
             [
                 KodoApiTestData.Green("host.disk.free"),
@@ -59,8 +63,9 @@ public sealed class KodoStatusSnapshotBuilderTests
     [Fact]
     public void ComponentStatusesUseTheWireStrings()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Degraded),
+            new KodoObservation(),
             80,
             [
                 new KodoComponentInput("a.green", ProbeStatus.Green, null, _now),
@@ -82,8 +87,9 @@ public sealed class KodoStatusSnapshotBuilderTests
     [Fact]
     public void GreenComponentDropsAnyCauseSoOneGreenHasOneShape()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Healthy),
+            new KodoObservation(),
             100,
             [new KodoComponentInput("host.clock.drift", ProbeStatus.Green, "clock_drift_warn", _now)],
             1,
@@ -97,8 +103,9 @@ public sealed class KodoStatusSnapshotBuilderTests
     public void ComponentKeepsItsSinceTime()
     {
         DateTimeOffset since = _now.AddMinutes(-5);
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Degraded),
+            new KodoObservation(),
             80,
             [new KodoComponentInput("host.disk.free", ProbeStatus.Amber, "disk_usage_warn", since)],
             1,
@@ -111,8 +118,9 @@ public sealed class KodoStatusSnapshotBuilderTests
     [Fact]
     public void ComponentSinceAtTheGenerationTimeIsAllowed()
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
             KodoApiTestData.Evaluation(KodoState.Healthy),
+            new KodoObservation(),
             100,
             [KodoApiTestData.Green("host.disk.free")],
             1,
@@ -131,20 +139,20 @@ public sealed class KodoStatusSnapshotBuilderTests
             new("a", ProbeStatus.Green, null, _now),
         ];
 
-        KodoStatusSnapshot first = KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Failing), 30, components, 2, _now, null);
-        KodoStatusSnapshot second = KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Failing), 30, components, 2, _now, null);
+        KodoStatusSnapshotDto first = KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Failing), new KodoObservation(), 30, components, 2, _now, null);
+        KodoStatusSnapshotDto second = KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Failing), new KodoObservation(), 30, components, 2, _now, null);
 
         // Records with a collection compare by reference, so the determinism check compares the encoded bytes.
-        Assert.Equal(KodoApiCodec.EncodeSnapshot(first), KodoApiCodec.EncodeSnapshot(second));
+        Assert.Equal(KodoWireCodec.EncodeSnapshot(first), KodoWireCodec.EncodeSnapshot(second));
     }
 
     [Fact]
     public void RejectsAScoreOutsideZeroToHundred()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), -1, [], 0, _now, null));
+            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), -1, [], 0, _now, null));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), 101, [], 0, _now, null));
+            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 101, [], 0, _now, null));
     }
 
     [Theory]
@@ -152,23 +160,23 @@ public sealed class KodoStatusSnapshotBuilderTests
     [InlineData(100)]
     public void AcceptsTheScoreBoundaries(int score)
     {
-        KodoStatusSnapshot snapshot = KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), score, [], 0, _now, null);
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), score, [], 0, _now, null);
 
-        Assert.Equal(score, snapshot.Score);
+        Assert.Equal(score, snapshot.Status.Score);
     }
 
     [Fact]
     public void RejectsANegativeRevision()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), 100, [], -1, _now, null));
+            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 100, [], -1, _now, null));
     }
 
     [Fact]
     public void RejectsAJournalHeadThatIsNotAFullHash()
     {
         Assert.Throws<ArgumentException>(() =>
-            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), 100, [], 0, _now, new byte[31]));
+            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 100, [], 0, _now, new byte[31]));
     }
 
     [Fact]
@@ -177,6 +185,7 @@ public sealed class KodoStatusSnapshotBuilderTests
         Assert.Throws<ArgumentException>(() =>
             KodoStatusSnapshotBuilder.Build(
                 KodoApiTestData.Evaluation(KodoState.Healthy),
+                new KodoObservation(),
                 100,
                 [KodoApiTestData.Green("host.disk.free"), KodoApiTestData.Green("host.disk.free")],
                 0,
@@ -191,7 +200,7 @@ public sealed class KodoStatusSnapshotBuilderTests
     {
         Assert.Throws<ArgumentException>(() =>
             KodoStatusSnapshotBuilder.Build(
-                KodoApiTestData.Evaluation(KodoState.Healthy), 100, [KodoApiTestData.Green(id)], 0, _now, null));
+                KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 100, [KodoApiTestData.Green(id)], 0, _now, null));
     }
 
     [Theory]
@@ -203,6 +212,7 @@ public sealed class KodoStatusSnapshotBuilderTests
         Assert.Throws<ArgumentException>(() =>
             KodoStatusSnapshotBuilder.Build(
                 KodoApiTestData.Evaluation(KodoState.Degraded),
+                new KodoObservation(),
                 80,
                 [new KodoComponentInput("host.disk.free", status, null, _now)],
                 0,
@@ -216,6 +226,7 @@ public sealed class KodoStatusSnapshotBuilderTests
         Assert.Throws<ArgumentException>(() =>
             KodoStatusSnapshotBuilder.Build(
                 KodoApiTestData.Evaluation(KodoState.Healthy),
+                new KodoObservation(),
                 100,
                 [new KodoComponentInput("host.disk.free", ProbeStatus.Green, null, _now.AddSeconds(1))],
                 0,
@@ -227,6 +238,85 @@ public sealed class KodoStatusSnapshotBuilderTests
     public void RejectsANullComponentEntry()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), 100, [null!], 0, _now, null));
+            KodoStatusSnapshotBuilder.Build(KodoApiTestData.Evaluation(KodoState.Healthy), new KodoObservation(), 100, [null!], 0, _now, null));
+    }
+
+    [Fact]
+    public void UnderlyingStateIsOmittedUnlessFrozen()
+    {
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Degraded), new KodoObservation(), 80, [], 0, _now, null);
+
+        Assert.Equal("degraded", snapshot.Status.State);
+        Assert.Null(snapshot.Status.UnderlyingState);
+    }
+
+    [Fact]
+    public void ControlsAreCarriedInTheStatusPayload()
+    {
+        KodoControlDto[] controls = [new KodoControlDto("restart", false, "Incident mode is active")];
+
+        KodoStatusSnapshotDto snapshot = KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Frozen, KodoState.Failing),
+            new KodoObservation(),
+            40,
+            [],
+            0,
+            _now,
+            null,
+            controls);
+
+        Assert.Equal(controls, snapshot.Status.Controls);
+    }
+
+    [Theory]
+    [InlineData(true, false, false, 49)]
+    [InlineData(false, true, false, 10)]
+    [InlineData(false, false, true, 70)]
+    [InlineData(true, true, false, 10)]
+    [InlineData(true, false, true, 49)]
+    [InlineData(true, true, true, 10)]
+    public void ScoreAtTheCapIsAcceptedAndOneAboveIsRejected(bool criticalRed, bool integrity, bool criticalUnknown, int cap)
+    {
+        KodoObservation observation = new()
+        {
+            CriticalRed = criticalRed,
+            IntegrityOrContractFailure = integrity,
+            CriticalUnknown = criticalUnknown,
+        };
+        KodoEvaluation evaluation = KodoApiTestData.Evaluation(KodoState.Degraded);
+
+        KodoStatusSnapshotDto accepted = KodoStatusSnapshotBuilder.Build(evaluation, observation, cap, [], 0, _now, null);
+        Assert.Equal(cap, accepted.Status.Score);
+
+        Assert.Throws<ArgumentException>(() =>
+            KodoStatusSnapshotBuilder.Build(evaluation, observation, cap + 1, [], 0, _now, null));
+    }
+
+    [Fact]
+    public void FailingEvaluationWithAScoreAboveFortyNineIsRejected()
+    {
+        KodoObservation clean = new();
+
+        Assert.Throws<ArgumentException>(() => KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Failing), clean, 50, [], 0, _now, null));
+        Assert.Throws<ArgumentException>(() => KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Frozen, KodoState.Failing), clean, 100, [], 0, _now, null));
+        Assert.Equal(49, KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Failing), clean, 49, [], 0, _now, null).Status.Score);
+    }
+
+    [Fact]
+    public void ScoreCapsMatchTheScoreComputation()
+    {
+        // The builder and KodoScore.Compute share one cap, so a computed score is always accepted.
+        KodoObservation observation = new() { CriticalRed = true };
+        Dictionary<KodoCategory, int> perfect = Enum.GetValues<KodoCategory>().ToDictionary(category => category, _ => 100);
+
+        int score = KodoScore.Compute(perfect, observation);
+
+        Assert.Equal(KodoScore.CapFor(observation), score);
+        Assert.Equal(score, KodoStatusSnapshotBuilder.Build(
+            KodoApiTestData.Evaluation(KodoState.Failing), observation, score, [], 0, _now, null).Status.Score);
     }
 }

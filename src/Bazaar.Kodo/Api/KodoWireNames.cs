@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Evaluator;
 using Bazaar.Kodo.Probes;
 
@@ -17,6 +18,17 @@ public static class KodoWireNames
         KodoState.Failing => "failing",
         KodoState.Recovering => "recovering",
         KodoState.Frozen => "frozen",
+        _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a Kodo health state."),
+    };
+
+    /// <summary>The display value of a server state, with no staleness applied.</summary>
+    public static KodoDisplayState DisplayOf(KodoState state) => state switch
+    {
+        KodoState.Healthy => KodoDisplayState.Healthy,
+        KodoState.Degraded => KodoDisplayState.Degraded,
+        KodoState.Failing => KodoDisplayState.Failing,
+        KodoState.Recovering => KodoDisplayState.Recovering,
+        KodoState.Frozen => KodoDisplayState.Frozen,
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a Kodo health state."),
     };
 

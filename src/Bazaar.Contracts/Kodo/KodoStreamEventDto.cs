@@ -1,29 +1,30 @@
-namespace Bazaar.Kodo.Api;
+namespace Bazaar.Contracts.Kodo;
 
 /// <summary>
 /// The displayed state moved (doc 46 section 15.2, topic <c>status</c>).
 /// </summary>
-/// <param name="Previous">The state before, as a wire string from <see cref="KodoWireNames.State"/>.</param>
-/// <param name="State">The state now, as a wire string.</param>
-/// <param name="Underlying">The underlying health state now, as a wire string. Differs from <paramref name="State"/> only while frozen.</param>
-public sealed record KodoStateChange(string Previous, string State, string Underlying);
+/// <param name="Previous">The state before, in the wire spelling of section 8.1.</param>
+/// <param name="State">The state now, in the wire spelling.</param>
+/// <param name="UnderlyingState">The underlying health state, set only when <paramref name="State"/> is <c>frozen</c>, as in <see cref="KodoStatusDto"/>.</param>
+public sealed record KodoStateChangeDto(string Previous, string State, string? UnderlyingState);
 
 /// <summary>
 /// One event on the <c>kodo</c> stream: a state change, a snapshot, or a heartbeat. The stream is state, not history (doc 02's
-/// stream registry), so every event carries a <see cref="Revision"/>. The revision rises by exactly one per event on the
-/// stream, so a client that sees a gap re-fetches the snapshot (doc 46 section 15.2).
+/// stream registry), so every event carries a <see cref="Revision"/>. Only deltas (state changes and heartbeats) raise the
+/// revision, by exactly one each, so a client that sees a gap re-fetches the snapshot (doc 46 section 15.2). A snapshot carries
+/// the current revision and does not raise it.
 /// </summary>
-/// <param name="Revision">The stream revision. The first event is 1, and each later event is one more.</param>
+/// <param name="Revision">The stream revision. For a snapshot, the last delta's revision; otherwise one more than the one before.</param>
 /// <param name="Type">One of <see cref="StateChangedType"/>, <see cref="SnapshotType"/> or <see cref="HeartbeatType"/>.</param>
 /// <param name="At">When the event was made, in UTC.</param>
 /// <param name="StateChange">The state change, present for <see cref="StateChangedType"/> only, otherwise null.</param>
 /// <param name="Snapshot">The snapshot, present for <see cref="SnapshotType"/> only, otherwise null.</param>
-public sealed record KodoStreamEvent(
+public sealed record KodoStreamEventDto(
     long Revision,
     string Type,
     DateTimeOffset At,
-    KodoStateChange? StateChange,
-    KodoStatusSnapshot? Snapshot)
+    KodoStateChangeDto? StateChange,
+    KodoStatusSnapshotDto? Snapshot)
 {
     /// <summary>A change of the displayed state.</summary>
     public const string StateChangedType = "state_changed";

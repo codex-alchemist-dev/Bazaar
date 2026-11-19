@@ -1,11 +1,13 @@
+using Bazaar.Contracts.Kodo;
 using Bazaar.Kodo.Evaluator;
 
 namespace Bazaar.Kodo.Api;
 
 /// <summary>
-/// Numbers the events of one <c>kodo</c> stream (doc 46 section 15.2). Every event takes the next revision under a lock, so the
-/// numbers are unique and gap-free even when several threads publish. A snapshot must carry the revision it is sent with, so a
-/// client can apply the deltas after it.
+/// Numbers the events of one <c>kodo</c> stream (doc 46 section 15.2). Every delta (a state change or a heartbeat) takes the next
+/// revision under a lock, so the numbers are unique and gap-free even when several threads publish. A snapshot is not a delta:
+/// it is stamped with the current revision under the same lock and does not raise it, so a snapshot sent to one subscriber on
+/// connect leaves no gap for the others.
 /// </summary>
 /// <remarks>
 /// The writer holds the counter only. It is not persisted: a restarted Kodo starts from the revision the caller passes in, and
@@ -16,7 +18,7 @@ public sealed class KodoStreamWriter
     private readonly Lock _gate = new();
     private long _lastRevision;
 
-    /// <summary>Starts a stream whose next event is <paramref name="lastRevision"/> plus one.</summary>
+    /// <summary>Starts a stream whose next delta is <paramref name="lastRevision"/> plus one.</summary>
     /// <param name="lastRevision">The revision already issued on this stream. Zero for a new stream.</param>
     public KodoStreamWriter(long lastRevision = 0)
     {
@@ -28,7 +30,7 @@ public sealed class KodoStreamWriter
         _lastRevision = lastRevision;
     }
 
-    /// <summary>The revision of the last event issued, or the starting value when none was.</summary>
+    /// <summary>The revision of the last delta issued, or the starting value when none was. A snapshot taken now carries it.</summary>
     public long LastRevision
     {
         get
@@ -40,39 +42,31 @@ public sealed class KodoStreamWriter
         }
     }
 
-    /// <summary>The revision the next event will carry. A snapshot built for the next event passes this value to the builder.</summary>
-    public long NextRevision
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return NextRevisionLocked();
-            }
-        }
-    }
-
     /// <summary>
-    /// A snapshot event. Its <see cref="KodoStatusSnapshot.Revision"/> must be the revision the event takes, which is
-    /// <see cref="NextRevision"/> when it is called.
+    /// A snapshot event for one subscriber. The writer calls <paramref name="build"/> under its lock with the current revision, so
+    /// the snapshot reflects exactly that revision however many threads publish at the same moment. It never raises the revision
+    /// and never fails because of a concurrent publish.
     /// </summary>
-    /// <exception cref="ArgumentException">The snapshot's revision is not the next revision.</exception>
-    public KodoStreamEvent Snapshot(KodoStatusSnapshot snapshot)
+    /// <param name="build">Builds the snapshot for the revision it is given, typically with <see cref="KodoStatusSnapshotBuilder"/>.
+    /// It runs under the lock, so it must be quick and must not call this writer.</param>
+    /// <param name="at">When the event was made, in UTC.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="build"/> returned a snapshot with a different revision.</exception>
+    public KodoStreamEventDto Snapshot(Func<long, KodoStatusSnapshotDto> build, DateTimeOffset at)
     {
-        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(build);
 
         lock (_gate)
         {
-            long revision = NextRevisionLocked();
+            long revision = _lastRevision;
+            KodoStatusSnapshotDto snapshot = build(revision)
+                ?? throw new InvalidOperationException("The snapshot builder returned null.");
             if (snapshot.Revision != revision)
             {
-                throw new ArgumentException(
-                    $"The snapshot reflects revision {snapshot.Revision}, but the next event is revision {revision}.",
-                    nameof(snapshot));
+                throw new InvalidOperationException(
+                    $"The snapshot builder returned revision {snapshot.Revision}, but the stream is at revision {revision}.");
             }
 
-            _lastRevision = revision;
-            return new KodoStreamEvent(revision, KodoStreamEvent.SnapshotType, snapshot.GeneratedAt, null, snapshot);
+            return new KodoStreamEventDto(revision, KodoStreamEventDto.SnapshotType, at, null, snapshot);
         }
     }
 
@@ -84,7 +78,7 @@ public sealed class KodoStreamWriter
     /// <param name="evaluation">The evaluator's output after the change.</param>
     /// <param name="at">When the change happened, in UTC.</param>
     /// <exception cref="ArgumentException">The displayed state did not change.</exception>
-    public KodoStreamEvent StateChanged(KodoState previous, KodoEvaluation evaluation, DateTimeOffset at)
+    public KodoStreamEventDto StateChanged(KodoState previous, KodoEvaluation evaluation, DateTimeOffset at)
     {
         ArgumentNullException.ThrowIfNull(evaluation);
 
@@ -93,34 +87,29 @@ public sealed class KodoStreamWriter
             throw new ArgumentException("A state-changed event needs a different displayed state.", nameof(evaluation));
         }
 
-        KodoStateChange change = new(
+        KodoStateChangeDto change = new(
             KodoWireNames.State(previous),
             KodoWireNames.State(evaluation.State),
-            KodoWireNames.State(evaluation.Underlying));
+            evaluation.State == KodoState.Frozen ? KodoWireNames.State(evaluation.Underlying) : null);
 
-        return Next(KodoStreamEvent.StateChangedType, at, change, null);
+        return Next(KodoStreamEventDto.StateChangedType, at, change);
     }
 
     /// <summary>A heartbeat event. It only proves liveness and carries no payload.</summary>
-    public KodoStreamEvent Heartbeat(DateTimeOffset at) => Next(KodoStreamEvent.HeartbeatType, at, null, null);
+    public KodoStreamEventDto Heartbeat(DateTimeOffset at) => Next(KodoStreamEventDto.HeartbeatType, at, null);
 
-    private KodoStreamEvent Next(string type, DateTimeOffset at, KodoStateChange? change, KodoStatusSnapshot? snapshot)
+    private KodoStreamEventDto Next(string type, DateTimeOffset at, KodoStateChangeDto? change)
     {
         lock (_gate)
         {
-            long revision = NextRevisionLocked();
+            if (_lastRevision == long.MaxValue)
+            {
+                throw new InvalidOperationException("The kodo stream has no revisions left. Start a new stream.");
+            }
+
+            long revision = _lastRevision + 1;
             _lastRevision = revision;
-            return new KodoStreamEvent(revision, type, at, change, snapshot);
+            return new KodoStreamEventDto(revision, type, at, change, null);
         }
-    }
-
-    private long NextRevisionLocked()
-    {
-        if (_lastRevision == long.MaxValue)
-        {
-            throw new InvalidOperationException("The kodo stream has no revisions left. Start a new stream.");
-        }
-
-        return _lastRevision + 1;
     }
 }
