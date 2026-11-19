@@ -46,7 +46,9 @@ public sealed class HttpsSenderBackend(
         var message = OutboundMessageBuilder.Build(mail, footer);
         var messageId = OutboundMessageBuilder.MessageIdFor(mail.Key, domain);
         var text = message.Body is MimeKit.TextPart plain ? plain.Text : string.Empty;
-        var body = new ApiSendBody(mail.From.Address, mail.To, mail.Subject, text, messageId);
+        // The API gets the addresses MimeKit parsed, never the raw strings: a display name can carry another address.
+        var recipients = message.To.Mailboxes.Select(box => box.Address).ToList();
+        var body = new ApiSendBody(mail.From.Address, recipients, mail.Subject, text, messageId);
 
         var login = await credentials.GetAsync(mail.From, ct);
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(apiBase, "emails"))
