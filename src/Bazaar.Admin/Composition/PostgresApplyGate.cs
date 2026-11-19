@@ -124,7 +124,9 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
         var audit = new PostgresAuditLog(dataSource);
         services.AddSingleton<ISetupInstanceLock>(new PostgresSetupInstanceLock(dataSource));
         services.AddSingleton<IAuditLog>(audit);
-        services.AddSingleton<ISettingAuditSink>(new PostgresSettingAuditSink(audit));
+        var settingAudit = new PostgresSettingAuditSink(audit);
+        services.AddSingleton<ISettingAuditSink>(settingAudit);
+        services.AddSingleton<ISetupSettingAudit>(new SettingAuditSinkSetupAudit(settingAudit));
     }
 
     /// <summary>Disposes the data source this gate owns. The shared closed gate owns none.</summary>

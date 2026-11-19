@@ -24,9 +24,9 @@ public static class SetupOrchestrator
     private const string _hashMismatchMessage = "does not match the plan; run the dry run again and apply the hash it prints.";
 
     /// <summary>Validates the merged plan. The file path is read and never echoed.</summary>
-    public static SetupReport Validate(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
+    public static SetupReport Validate(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment, ISetupSettingCatalog settings)
     {
-        var merged = Merge("validate", configPath, setArguments, environment);
+        var merged = Merge("validate", configPath, setArguments, environment, settings);
         if (merged.Refusal is not null)
         {
             return merged.Refusal;
@@ -39,9 +39,9 @@ public static class SetupOrchestrator
     /// Validates, then lists each change against an empty snapshot. Writes nothing. Held plans still list their changes, with
     /// exit 2, so the operator sees what a hold is blocking.
     /// </summary>
-    public static SetupReport DryRun(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
+    public static SetupReport DryRun(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment, ISetupSettingCatalog settings)
     {
-        var merged = Merge("dry-run", configPath, setArguments, environment);
+        var merged = Merge("dry-run", configPath, setArguments, environment, settings);
         if (merged.Refusal is not null)
         {
             return merged.Refusal;
@@ -70,12 +70,14 @@ public static class SetupOrchestrator
         IReadOnlyDictionary<string, string?> environment,
         string planHash,
         ICliApplyGate gate,
+        ISetupSettingCatalog settings,
         CancellationToken cancellationToken,
         SetupEntryPath? entryPath = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
+        ArgumentNullException.ThrowIfNull(settings);
 
-        var merged = Merge("apply", configPath, setArguments, environment);
+        var merged = Merge("apply", configPath, setArguments, environment, settings);
         if (merged.Refusal is not null)
         {
             return merged.Refusal;
@@ -116,6 +118,7 @@ public static class SetupOrchestrator
         }
 
         var services = new ServiceCollection();
+        services.AddSingleton(settings);
         gate.RegisterApplyServices(services);
         services.AddSetupApply([]);
 
@@ -151,8 +154,10 @@ public static class SetupOrchestrator
         string command,
         string? configPath,
         IReadOnlyList<string> setArguments,
-        IReadOnlyDictionary<string, string?> environment)
+        IReadOnlyDictionary<string, string?> environment,
+        ISetupSettingCatalog settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         string? text = null;
         if (configPath is not null)
         {
@@ -165,14 +170,14 @@ public static class SetupOrchestrator
             text = read.Text;
         }
 
-        var overlay = SetupDoorOverlay.Merge(text, setArguments, environment);
+        var overlay = SetupDoorOverlay.Merge(text, setArguments, environment, settings);
         if (overlay.HasErrors || overlay.MergedJson is null)
         {
             // A door error stops here: the loader does not run on a partial merge, and no plan hash exists.
             return (null, default, FromIssues(command, overlay.Issues));
         }
 
-        return (SetupPlanLoader.Load(overlay.MergedJson), overlay.EntryPath, null);
+        return (SetupPlanLoader.Load(overlay.MergedJson, settings), overlay.EntryPath, null);
     }
 
     private static SetupReport FromLoad(string command, SetupLoadResult load, string? currentState)

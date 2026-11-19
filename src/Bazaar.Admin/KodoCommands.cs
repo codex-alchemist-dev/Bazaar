@@ -12,7 +12,7 @@ internal static class KodoCommands
     /// Loads the file. Errors exit 1 with no checks. Otherwise the checks run, and the exit code follows
     /// <see cref="KodoVerifyExitCodes.For"/>, with a validator hold counted as amber.
     /// </summary>
-    public static async Task<KodoVerifyReport> VerifyAsync(string configPath, CancellationToken cancellationToken)
+    public static async Task<KodoVerifyReport> VerifyAsync(string configPath, ISetupSettingCatalog settings, CancellationToken cancellationToken)
     {
         var read = SetupOrchestrator.ReadConfig(configPath);
         if (read.Issue is not null)
@@ -20,7 +20,7 @@ internal static class KodoCommands
             return Refused(read.Issue);
         }
 
-        var load = SetupPlanLoader.Load(read.Text!);
+        var load = SetupPlanLoader.Load(read.Text!, settings);
         if (load.Plan is null)
         {
             return Refused(load.Issues.Select(SetupChangeView.ToIssue).ToList());

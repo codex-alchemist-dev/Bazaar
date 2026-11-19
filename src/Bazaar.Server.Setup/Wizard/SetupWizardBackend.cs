@@ -8,21 +8,23 @@ namespace Bazaar.Server.Setup;
 public sealed class SetupWizardBackend(
     IReadOnlyDictionary<string, string?> environment,
     ICliApplyGate applyGate,
-    ISetupReportRenderer renderer) : ISetupWizardBackend
+    ISetupReportRenderer renderer,
+    ISetupSettingCatalog settings) : ISetupWizardBackend
 {
     private readonly IReadOnlyDictionary<string, string?> _environment = environment ?? throw new ArgumentNullException(nameof(environment));
     private readonly ICliApplyGate _applyGate = applyGate ?? throw new ArgumentNullException(nameof(applyGate));
+    private readonly ISetupSettingCatalog _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     private readonly ISetupReportRenderer _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
 
     public SetupWizardReview DryRun(IReadOnlyList<string> setArguments) =>
-        Review(SetupOrchestrator.DryRun(null, setArguments, _environment));
+        Review(SetupOrchestrator.DryRun(null, setArguments, _environment, _settings));
 
     public async Task<SetupWizardReview> ApplyAsync(
         IReadOnlyList<string> setArguments,
         string planHash,
         SetupEntryPath entryPath,
         CancellationToken cancellationToken) =>
-        Review(await SetupOrchestrator.ApplyAsync(null, setArguments, _environment, planHash, _applyGate, cancellationToken, entryPath));
+        Review(await SetupOrchestrator.ApplyAsync(null, setArguments, _environment, planHash, _applyGate, _settings, cancellationToken, entryPath));
 
     private SetupWizardReview Review(SetupReport report) =>
         new(report.ExitCode, report.PlanHash, _renderer.RenderLines(report), report);

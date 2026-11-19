@@ -12,6 +12,7 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />

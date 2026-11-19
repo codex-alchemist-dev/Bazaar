@@ -31,6 +31,7 @@ public static class AdminCommandLine
         ISetupPrompter? prompter = null,
         ISecretValueSource? secretInput = null,
         ISetupSecretWriter? secretWriter = null,
+        ISetupSettingCatalog? settings = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -75,7 +76,7 @@ public static class AdminCommandLine
 
         try
         {
-            return await DispatchAsync(parsed, applyGate, args, json, variables, stdout, stderr, prompter, secretInput, secretWriter, cancellationToken);
+            return await DispatchAsync(parsed, applyGate, args, json, variables, stdout, stderr, prompter, secretInput, secretWriter, settings ?? RegistrySetupSettingCatalog.Known, cancellationToken);
         }
         finally
         {
@@ -97,11 +98,12 @@ public static class AdminCommandLine
         ISetupPrompter? prompter,
         ISecretValueSource? secretInput,
         ISetupSecretWriter? secretWriter,
+        ISetupSettingCatalog settings,
         CancellationToken cancellationToken)
     {
         if (parsed.Action == AdminAction.Wizard)
         {
-            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout, secretInput ?? ConsoleSecretValueSource.Instance), variables, applyGate, secretWriter ?? new UnavailableSetupSecretWriter());
+            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout, secretInput ?? ConsoleSecretValueSource.Instance), variables, applyGate, settings, secretWriter ?? new UnavailableSetupSecretWriter());
             var outcome = await wizard.RunAsync(cancellationToken);
             return outcome.ExitCode;
         }
@@ -119,17 +121,17 @@ public static class AdminCommandLine
 
         if (parsed.Action == AdminAction.Verify)
         {
-            var verify = await KodoCommands.VerifyAsync(parsed.ConfigPath!, cancellationToken);
+            var verify = await KodoCommands.VerifyAsync(parsed.ConfigPath!, settings, cancellationToken);
             EmitVerify(verify, json, stdout);
             return verify.ExitCode;
         }
 
         var report = parsed.Action switch
         {
-            AdminAction.Validate => SetupOrchestrator.Validate(parsed.ConfigPath, parsed.SetArguments, variables),
-            AdminAction.DryRun => SetupOrchestrator.DryRun(parsed.ConfigPath, parsed.SetArguments, variables),
+            AdminAction.Validate => SetupOrchestrator.Validate(parsed.ConfigPath, parsed.SetArguments, variables, settings),
+            AdminAction.DryRun => SetupOrchestrator.DryRun(parsed.ConfigPath, parsed.SetArguments, variables, settings),
             AdminAction.Apply => await SetupOrchestrator.ApplyAsync(
-                parsed.ConfigPath, parsed.SetArguments, variables, parsed.PlanHash!, applyGate, cancellationToken),
+                parsed.ConfigPath, parsed.SetArguments, variables, parsed.PlanHash!, applyGate, settings, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(args), parsed.Action, "Unknown action."),
         };
 

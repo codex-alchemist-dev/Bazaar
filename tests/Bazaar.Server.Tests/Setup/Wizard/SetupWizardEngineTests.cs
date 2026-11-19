@@ -1,3 +1,4 @@
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
 
 namespace Bazaar.Server.Tests.Setup.Wizard;
@@ -227,8 +228,8 @@ public sealed class SetupWizardEngineTests
 
     private static string HashOf(IEnumerable<string> flags)
     {
-        var merged = SetupDoorOverlay.Merge(null, flags.ToList(), _noEnvironment);
-        return SetupPlanLoader.Load(merged.MergedJson!).PlanHash ?? string.Empty;
+        var merged = SetupDoorOverlay.Merge(null, flags.ToList(), _noEnvironment, RegistrySetupSettingCatalog.Known);
+        return SetupPlanLoader.Load(merged.MergedJson!, RegistrySetupSettingCatalog.Known).PlanHash ?? string.Empty;
     }
 
     /// <summary>The overlay, loader and hash of the real doors, with the apply recorded instead of run.</summary>
@@ -246,13 +247,13 @@ public sealed class SetupWizardEngineTests
         {
             DryRuns++;
             _text.AddRange(setArguments.Where(flag => !flag.StartsWith("custody.kekRef=", StringComparison.Ordinal)));
-            var merged = SetupDoorOverlay.Merge(null, setArguments, _noEnvironment);
+            var merged = SetupDoorOverlay.Merge(null, setArguments, _noEnvironment, RegistrySetupSettingCatalog.Known);
             if (merged.MergedJson is null)
             {
                 return new SetupWizardReview((int)SetupExitCode.InvalidInput, null, ["Error"]);
             }
 
-            var load = SetupPlanLoader.Load(merged.MergedJson);
+            var load = SetupPlanLoader.Load(merged.MergedJson, RegistrySetupSettingCatalog.Known);
             var lines = new List<string> { $"Plan hash: {load.PlanHash}" };
             lines.AddRange(load.Issues.Select(issue => $"{issue.Severity} at {issue.Path}"));
             return new SetupWizardReview((int)load.ExitCode, load.Plan is null ? null : load.PlanHash, lines);

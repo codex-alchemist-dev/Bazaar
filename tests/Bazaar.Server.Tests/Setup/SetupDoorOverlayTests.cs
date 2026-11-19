@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
 
 namespace Bazaar.Server.Tests.Setup;
@@ -15,7 +16,7 @@ public sealed class SetupDoorOverlayTests
     private static readonly Dictionary<string, string?> _noEnvironment = [];
 
     private static SetupOverlayResult Merge(string? file, IReadOnlyList<string>? sets = null, IReadOnlyDictionary<string, string?>? environment = null) =>
-        SetupDoorOverlay.Merge(file, sets ?? [], environment ?? _noEnvironment);
+        SetupDoorOverlay.Merge(file, sets ?? [], environment ?? _noEnvironment, RegistrySetupSettingCatalog.Known);
 
     private static Dictionary<string, string?> Env(params (string Name, string? Value)[] variables)
     {
@@ -32,7 +33,7 @@ public sealed class SetupDoorOverlayTests
     private static SetupLoadResult Load(SetupOverlayResult overlay)
     {
         Assert.False(overlay.HasErrors, string.Join("; ", overlay.Issues.Select(issue => issue.Path + " " + issue.Message)));
-        return SetupPlanLoader.Load(overlay.MergedJson!);
+        return SetupPlanLoader.Load(overlay.MergedJson!, RegistrySetupSettingCatalog.Known);
     }
 
     private static bool HasError(SetupOverlayResult overlay, string path) =>
@@ -292,14 +293,14 @@ public sealed class SetupDoorOverlayTests
 
         Assert.False(overlay.HasErrors);
         Assert.Equal(broken, overlay.MergedJson);
-        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load(overlay.MergedJson!).ExitCode);
+        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load(overlay.MergedJson!, RegistrySetupSettingCatalog.Known).ExitCode);
     }
 
     [Fact]
     public void Without_a_file_the_document_starts_empty_and_the_loader_asks_for_the_required_keys()
     {
         var overlay = Merge(null, ["schemaVersion=1"]);
-        var result = SetupPlanLoader.Load(overlay.MergedJson!);
+        var result = SetupPlanLoader.Load(overlay.MergedJson!, RegistrySetupSettingCatalog.Known);
 
         Assert.Equal(SetupExitCode.InvalidInput, result.ExitCode);
         Assert.Contains(result.Issues, issue => issue.Path == "install" && issue.Message == "is required.");
@@ -356,7 +357,7 @@ public sealed class SetupDoorOverlayTests
         var fromEnvironment = Load(Merge(null, environment: environment));
         var fromFlags = Load(Merge(null, flags));
 
-        Assert.Equal(fromFile.PlanHash, SetupPlanLoader.Load(SetupFixtures.Valid).PlanHash);
+        Assert.Equal(fromFile.PlanHash, SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).PlanHash);
         Assert.Equal(fromFile.PlanHash, fromEnvironment.PlanHash);
         Assert.Equal(fromFile.PlanHash, fromFlags.PlanHash);
         Assert.Equal(SetupEntryPath.File, Merge(SetupFixtures.Valid).EntryPath);

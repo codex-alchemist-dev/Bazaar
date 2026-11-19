@@ -109,6 +109,7 @@ public sealed class PostgresApplyGateTests
 
         await provider.GetRequiredService<IAuditLog>().AppendAsync(new AuditEntry(DateTimeOffset.UtcNow, "setup:test", "setup.plan.applied", "{}"), ct);
         Assert.IsAssignableFrom<ISettingAuditSink>(provider.GetRequiredService<ISettingAuditSink>());
+        Assert.IsAssignableFrom<ISetupSettingAudit>(provider.GetRequiredService<ISetupSettingAudit>());
         await using var count = db.DataSource.CreateCommand("SELECT count(*) FROM audit_log WHERE kind = 'setup.plan.applied'");
         Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
     }

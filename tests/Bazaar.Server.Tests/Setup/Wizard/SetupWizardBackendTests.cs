@@ -1,3 +1,4 @@
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,7 +41,7 @@ public sealed class SetupWizardBackendTests
     [Fact]
     public async Task A_scripted_prompter_and_the_backend_give_the_flag_plan_hash_and_show_the_renderers_lines()
     {
-        var backend = new SetupWizardBackend(_noEnvironment, new ClosedGate(), new TestRenderer());
+        var backend = new SetupWizardBackend(_noEnvironment, new ClosedGate(), new TestRenderer(), RegistrySetupSettingCatalog.Known);
         var prompter = new ScriptedWizardPrompter(_answers);
 
         var result = await new SetupWizardEngine(prompter, backend).RunAsync(TestContext.Current.CancellationToken);
@@ -56,7 +57,7 @@ public sealed class SetupWizardBackendTests
     [Fact]
     public async Task A_closed_gate_holds_an_apply_and_never_reaches_the_applier()
     {
-        var backend = new SetupWizardBackend(_noEnvironment, new ClosedGate(), new TestRenderer());
+        var backend = new SetupWizardBackend(_noEnvironment, new ClosedGate(), new TestRenderer(), RegistrySetupSettingCatalog.Known);
         var hash = backend.DryRun(_flags).PlanHash!;
 
         var review = await backend.ApplyAsync(_flags, hash, SetupEntryPath.Wizard, TestContext.Current.CancellationToken);

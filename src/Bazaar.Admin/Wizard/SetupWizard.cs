@@ -11,8 +11,9 @@ internal sealed class SetupWizard(
     ISetupPrompter prompter,
     IReadOnlyDictionary<string, string?> environment,
     ICliApplyGate applyGate,
+    ISetupSettingCatalog settings,
     ISetupSecretWriter? secretWriter = null)
 {
     public Task<SetupWizardResult> RunAsync(CancellationToken cancellationToken) =>
-        new SetupWizardEngine(prompter, new SetupWizardBackend(environment, applyGate, new AdminSetupReportRenderer()), secretWriter).RunAsync(cancellationToken);
+        new SetupWizardEngine(prompter, new SetupWizardBackend(environment, applyGate, new AdminSetupReportRenderer(), settings), secretWriter).RunAsync(cancellationToken);
 }
