@@ -295,6 +295,7 @@ public sealed class RyuseiTriggerServiceRuleTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
+    [InlineData("check\0the build")]
     public void A_blank_purpose_is_refused(string purpose)
     {
         Assert.Equal(RyuseiRefusal.InvalidPurpose, Check(Request(Agent(_self), [Target(_self, _project)], purpose: purpose)));

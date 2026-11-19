@@ -26,6 +26,7 @@ public class TelemetryErrorCodeTests
     [InlineData("XX-GC-0042")]
     [InlineData("BZ-GC-0042\n")]
     [InlineData("BZ-GC-004a")]
+    [InlineData("BZ-GC-\u0660\u0660\u0664\u0662")]
     public void Malformed_codes_are_rejected(string? code) => Assert.False(TelemetryErrorCodes.IsWellFormed(code));
 
     [Fact]

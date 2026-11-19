@@ -15,7 +15,7 @@ public sealed record TelemetryErrorCodeEntry(string Code, string Description);
 public static partial class TelemetryErrorCodes
 {
     /// <summary>The form of a code: <c>BZ-</c>, an area of 2 to 8 capitals, a dash and four digits.</summary>
-    public const string Shape = @"^BZ-(?<area>[A-Z]{2,8})-(?<number>\d{4})\z";
+    public const string Shape = @"^BZ-(?<area>[A-Z]{2,8})-(?<number>[0-9]{4})\z";
 
     private static readonly IReadOnlyList<TelemetryErrorCodeEntry> _registry =
     [

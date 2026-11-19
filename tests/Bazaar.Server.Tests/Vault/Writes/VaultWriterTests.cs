@@ -253,6 +253,33 @@ public sealed class VaultWriterTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_repo.Checkout, "decisions", "0004-next-one.md")));
     }
 
+    // Chaos round 3: a file name that starts with four non-ASCII digits matched the prefix pattern and then could not be parsed,
+    // which failed every later decision write. Only ASCII digits are a decision number.
+    [Fact]
+    public async Task A_decision_file_with_non_ascii_digits_does_not_block_new_decisions()
+    {
+        TempGitRepository.WriteFile(_repo.Checkout, "decisions/\u0660\u0660\u0660\u0669-odd.md", "x");
+        TempGitRepository.WriteFile(_repo.Checkout, "decisions/0002-real.md", "x");
+        TempGitRepository.CommitAll(_repo.Checkout, "odd decision names");
+
+        var result = await _writer.CreateDecisionAsync(
+            new DecisionDraft(Guid.NewGuid(), "after-odd", "After odd", "Body.", "agent-ana"),
+            CancellationToken.None);
+
+        Assert.Equal(3, result.DecisionNumber);
+    }
+
+    // Chaos round 3: "$" also matches before a final newline, so a slug "x\n" passed and went into the file name.
+    [Theory]
+    [InlineData("next-one\n")]
+    [InlineData("next-one\r\n")]
+    public async Task A_decision_slug_with_a_trailing_newline_is_refused(string slug)
+    {
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => _writer.CreateDecisionAsync(
+            new DecisionDraft(Guid.NewGuid(), slug, "Next one", "Body.", "agent-ana"),
+            CancellationToken.None));
+    }
+
     private async Task NewAgentBranchAsync(string task) =>
         await _git.AddWorktreeAsync(_repo.Checkout, "agent/" + task, _repo.WorktreePath(task), CancellationToken.None);
 

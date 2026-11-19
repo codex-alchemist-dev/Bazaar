@@ -512,7 +512,7 @@ public static class UpdatePolicyDocumentLoader
         return day;
     }
 
-    private static readonly Regex _timeRegex = new(@"^([01]\d|2[0-3]):[0-5]\d$", RegexOptions.CultureInvariant);
+    private static readonly Regex _timeRegex = new(@"^([01][0-9]|2[0-3]):[0-5][0-9]\z", RegexOptions.CultureInvariant);
 
     private static TimeOnly? ReadTime(string value, string path, List<UpdatePolicyProblem> problems)
     {

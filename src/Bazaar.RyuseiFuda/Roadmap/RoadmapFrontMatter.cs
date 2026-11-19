@@ -223,9 +223,9 @@ public static partial class RoadmapFrontMatter
         return slugs.ToImmutable();
     }
 
-    [GeneratedRegex("^[a-z0-9-]+$")]
+    [GeneratedRegex("^[a-z0-9-]+\\z")]
     private static partial Regex SlugPattern();
 
-    [GeneratedRegex(@"^\[\[(?<slug>[a-z0-9-]+)\]\]$")]
+    [GeneratedRegex(@"^\[\[(?<slug>[a-z0-9-]+)\]\]\z")]
     private static partial Regex WikiLinkPattern();
 }

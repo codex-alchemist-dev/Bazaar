@@ -462,6 +462,21 @@ public sealed class HttpSurfaceHostileInputTests : IAsyncDisposable
         }
     }
 
+    // Chaos round 3: NUL is not valid in Postgres text, so a query or filter holding one would reach the database and fail as a 500.
+    [Theory]
+    [InlineData("/search?gc=00000000-0000-7000-8000-00000000c001&q=a%00b")]
+    [InlineData("/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=a%00b")]
+    [InlineData("/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=x&project=a%00b")]
+    [InlineData("/vault/search?vault=00000000-0000-7000-8000-00000000d001&q=x&type=a%00b")]
+    public async Task A_nul_in_a_search_query_or_filter_is_a_400(string path)
+    {
+        var (app, port) = await StartAsync();
+        await using (app)
+        {
+            Assert.Equal(400, (await RawAsync(port, Request("GET", path, "alice"))).Status);
+        }
+    }
+
     [Fact]
     public async Task Racing_uploads_of_the_same_bytes_all_complete_and_the_blob_has_one_owner_line_each()
     {

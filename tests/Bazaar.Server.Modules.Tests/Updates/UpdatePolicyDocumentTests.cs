@@ -120,6 +120,8 @@ public sealed class UpdatePolicyDocumentTests
     [Theory]
     [InlineData("\"start\": \"25:00\", \"end\": \"04:00\"")]
     [InlineData("\"start\": \"2:00\", \"end\": \"04:00\"")]
+    [InlineData("\"start\": \"\u0660\u0662:00\", \"end\": \"04:00\"")]
+    [InlineData("\"start\": \"02:00\\n\", \"end\": \"04:00\"")]
     public void Malformed_time_is_refused(string times)
     {
         var json = Document("{ \"action\": \"manual\", \"windows\": [{ \"days\": [\"sunday\"], " + times + ", \"zone\": { \"utcOffset\": \"+00:00\" } }] }");

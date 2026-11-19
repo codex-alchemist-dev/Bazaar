@@ -67,7 +67,7 @@ public static partial class ModuleManifestValidator
     [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)+\\z", RegexOptions.CultureInvariant)]
     private static partial Regex DottedNamePattern();
 
-    [GeneratedRegex("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?\\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SemVerPattern();
 
     [GeneratedRegex("^[a-z][a-z0-9_-]*(\\.[a-z0-9_-]+)*\\z", RegexOptions.CultureInvariant)]

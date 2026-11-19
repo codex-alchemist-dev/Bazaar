@@ -287,10 +287,10 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         return new Lease(gate);
     }
 
-    [GeneratedRegex("^(?<number>\\d{4})-", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(?<number>[0-9]{4})-", RegexOptions.CultureInvariant)]
     private static partial Regex DecisionPrefix();
 
-    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SlugPattern();
 
     private sealed class Lease(SemaphoreSlim gate) : IDisposable

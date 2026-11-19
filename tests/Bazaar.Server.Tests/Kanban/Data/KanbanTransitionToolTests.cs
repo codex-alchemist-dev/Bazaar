@@ -56,6 +56,21 @@ public sealed class KanbanTransitionToolTests(KanbanDb db) : IClassFixture<Kanba
         Assert.Equal(2, reply.GetProperty("version").GetInt64());
     }
 
+    // Chaos round 3: the reason goes into jsonb payloads, which cannot hold NUL. A NUL in it is a refusal the agent can read,
+    // not a database error out of the tool.
+    [Fact]
+    public async Task A_reason_with_a_nul_character_is_refused_and_changes_nothing()
+    {
+        SkipWithoutDatabase();
+        var (project, gc) = await NewBoardAsync();
+        var task = await AddTaskAsync(project, gc, TaskState.Ready);
+        var tool = new KanbanTransitionTool(new TaskService(db.DataSource));
+
+        var reply = await RunAsync(tool, Guid.CreateVersion7(), new { taskId = task, to = "in_progress", expectedVersion = 1, reason = "a\0b" });
+
+        Assert.False(reply.GetProperty("ok").GetBoolean());
+    }
+
     [Fact]
     public async Task A_stale_version_answers_conflict_and_changes_nothing()
     {

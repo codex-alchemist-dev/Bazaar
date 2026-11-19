@@ -93,9 +93,9 @@ public sealed partial class HandoverSchema
         }
     }
 
-    [GeneratedRegex("^[a-z][a-z0-9_.]{0,63}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z][a-z0-9_.]{0,63}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SchemaIdPattern();
 
-    [GeneratedRegex("^[a-z][a-z0-9_]{0,63}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z][a-z0-9_]{0,63}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex FieldNamePattern();
 }

@@ -32,6 +32,15 @@ public sealed class GcCreateServiceTests
             service.EnsureAsync(new GcCreateRequest(_gc, "   ", _creator, [_memberA]), TestContext.Current.CancellationToken));
     }
 
+    // Chaos round 3: NUL cannot be stored in a Postgres text column, so a title with one is a refused request, not a database error.
+    [Fact]
+    public async Task A_title_with_a_nul_character_is_refused()
+    {
+        var service = new GcCreateService(Unused());
+        await Assert.ThrowsAsync<GcCreateRefusedException>(() =>
+            service.EnsureAsync(new GcCreateRequest(_gc, "bad\0title", _creator, [_memberA]), TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task A_request_with_no_members_is_refused()
     {

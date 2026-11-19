@@ -122,9 +122,16 @@ public sealed class GcCreateService
             throw new GcCreateRefusedException("The GC title is blank.");
         }
 
+        if (title.Contains('\0'))
+        {
+            throw new GcCreateRefusedException("The GC title holds a NUL character.");
+        }
+
         if (title.Length > MaxTitleLength)
         {
-            title = title[..MaxTitleLength];
+            // Do not cut between the halves of a surrogate pair: a lone half cannot be stored as UTF-8.
+            var cut = char.IsHighSurrogate(title[MaxTitleLength - 1]) ? MaxTitleLength - 1 : MaxTitleLength;
+            title = title[..cut];
         }
 
         if (request.Members.Count == 0)
