@@ -14,6 +14,8 @@ public sealed class ParserSandboxRunner
 {
     private const string _hostFileName = "Bazaar.Server.Portability.ParserHost.dll";
     private const int _stderrTailChars = 2048;
+    private const int _stderrMessageChars = 512;
+    private const int _sigkillExitCode = 137;
 
     /// <summary>Longest source name, in UTF-8 bytes, that is sent to the child.</summary>
     public const int MaxSourceNameBytes = 1024;
@@ -35,7 +37,7 @@ public sealed class ParserSandboxRunner
         options.Validate();
         _options = options;
         _confinement = confinement ?? ParserConfinements.CreateDefault();
-        CrashTracker = new ParserCrashTracker(options.CrashLoopThreshold, options.CrashLoopWindow, signals, time);
+        CrashTracker = new ParserCrashTracker(options.CrashLoopThreshold, options.CrashLoopWindow, signals, time, options.SourceFailureCap);
     }
 
     /// <summary>The crash-loop circuit. Operators reset it after fixing the cause.</summary>
@@ -49,7 +51,7 @@ public sealed class ParserSandboxRunner
         ArgumentNullException.ThrowIfNull(source);
         CheckSourceName(source.Name);
         var request = ParserRequest.For(ParserOps.Detect, importerId, source.Name, source.Content.LongLength, _options.Limits);
-        var messages = await RunAsync(request, source.Content, importerId, ct).ConfigureAwait(false);
+        var messages = await RunAsync(request, source.Content, importerId, SourceKeyOf(source), ct).ConfigureAwait(false);
         var detect = messages.FirstOrDefault(m => m.Type == ParserMessageTypes.DetectResult)
             ?? throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser host sent no detect result");
         return new DetectResult(detect.Confidence, detect.Reason ?? string.Empty);
@@ -60,7 +62,7 @@ public sealed class ParserSandboxRunner
         ArgumentNullException.ThrowIfNull(source);
         CheckSourceName(source.Name);
         var request = ParserRequest.For(ParserOps.Parse, importerId, source.Name, source.Content.LongLength, _options.Limits);
-        var messages = await RunAsync(request, source.Content, importerId, ct).ConfigureAwait(false);
+        var messages = await RunAsync(request, source.Content, importerId, SourceKeyOf(source), ct).ConfigureAwait(false);
         // ValidateMessage guarantees every record frame carries a complete record.
         return [.. messages.Where(m => m.Type == ParserMessageTypes.Record).Select(m => m.Record ?? throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "record frame without a record"))];
     }
@@ -69,7 +71,8 @@ public sealed class ParserSandboxRunner
     public async Task<IReadOnlyList<ParserImporterInfo>> ListImportersAsync(CancellationToken ct = default)
     {
         var request = ParserRequest.For(ParserOps.List, string.Empty, string.Empty, 0, _options.Limits);
-        var messages = await RunAsync(request, [], "*", ct).ConfigureAwait(false);
+        // A failed list is the host's fault, not a source's, so each call is its own source for the circuit.
+        var messages = await RunAsync(request, [], "*", Guid.NewGuid().ToString("N"), ct).ConfigureAwait(false);
         return messages.FirstOrDefault(m => m.Type == ParserMessageTypes.Importers)?.Importers ?? [];
     }
 
@@ -89,18 +92,28 @@ public sealed class ParserSandboxRunner
     public IReadOnlyList<IPortabilityImporter> CreateImporters() =>
         [.. ListImporters().Select(i => new SandboxedImporter(this, i.Id, i.Version))];
 
-    private async Task<List<ParserMessage>> RunAsync(ParserRequest request, byte[] content, string trackerKey, CancellationToken ct)
+    /// <summary>
+    /// Identifies a source for the crash circuit: a hash of its name and the hash of its content. Computed here, so a
+    /// caller cannot pick a key that spreads or hides failures.
+    /// </summary>
+    private static string SourceKeyOf(ImportSource source)
     {
-        CrashTracker.EnsureClosed(trackerKey);
+        var contentHash = System.Security.Cryptography.SHA256.HashData(source.Content);
+        return SourceKeys.For(source.Name, Convert.ToHexString(contentHash));
+    }
+
+    private async Task<List<ParserMessage>> RunAsync(ParserRequest request, byte[] content, string trackerKey, string sourceKey, CancellationToken ct)
+    {
+        CrashTracker.EnsureClosed(trackerKey, sourceKey);
         try
         {
             var messages = await RunChildAsync(request, content, ct).ConfigureAwait(false);
-            CrashTracker.RecordSuccess(trackerKey);
+            CrashTracker.RecordSuccess(trackerKey, sourceKey);
             return messages;
         }
-        catch (ParserSandboxException ex) when (ex.CountsAsCrash)
+        catch (ParserSandboxException ex) when (ex.CountsAgainstSource)
         {
-            CrashTracker.RecordFailure(trackerKey, $"{ex.Kind}: {ex.Message}");
+            CrashTracker.RecordFailure(trackerKey, sourceKey, $"{ex.Kind}: {ex.Message}", abnormal: ex.CountsAsCrash);
             throw;
         }
     }
@@ -230,6 +243,7 @@ public sealed class ParserSandboxRunner
         long outputBytes = 0;
         ParserMessage? terminal = null;
         Exception? readFailure = null;
+        int? naturalExitCode = null;
         var stdout = process.StandardOutput.BaseStream;
 
         try
@@ -252,7 +266,13 @@ public sealed class ParserSandboxRunner
                     break;
                 }
 
-                if (body is null) break;
+                if (body is null)
+                {
+                    // End of output: note how the child ended on its own, before any kill of ours can change the exit code.
+                    await WaitBoundedAsync(process.WaitForExitAsync(CancellationToken.None)).ConfigureAwait(false);
+                    if (process.HasExited) naturalExitCode = process.ExitCode;
+                    break;
+                }
                 outputBytes += body.Length + 4L;
                 if (outputBytes > _options.MaxOutputBytes)
                 {
@@ -276,7 +296,7 @@ public sealed class ParserSandboxRunner
                 {
                     // Any failure to decode a child frame is a protocol violation, never a server error.
                     guard.KillTree();
-                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent a frame that is not valid: " + ex.Message, ex);
+                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent a frame that is not valid: " + Untrusted(ex.Message, 200), ex);
                 }
 
                 if (message.Type is ParserMessageTypes.Done or ParserMessageTypes.Error)
@@ -286,10 +306,10 @@ public sealed class ParserSandboxRunner
                 }
 
                 if (message.Type == ParserMessageTypes.Record && message.Record is { } record
-                    && Encoding.UTF8.GetByteCount(record.Body) > _options.Limits.MaxRecordBytes)
+                    && ParserFrames.RecordBytes(record) > _options.Limits.MaxRecordBytes)
                 {
                     guard.KillTree();
-                    throw new ParserSandboxException(ParserFailureKind.LimitExceeded, $"record '{record.Title}' is over the limit of {_options.Limits.MaxRecordBytes} bytes");
+                    throw new ParserSandboxException(ParserFailureKind.LimitExceeded, $"a record is over the limit of {_options.Limits.MaxRecordBytes} bytes (all fields counted)");
                 }
 
                 messages.Add(message);
@@ -344,30 +364,35 @@ public sealed class ParserSandboxRunner
 
         if (readFailure is not null || terminal is null)
         {
-            var exit = process.HasExited ? process.ExitCode.ToString(CultureInfo.InvariantCulture) : "unknown";
+            var exit = naturalExitCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown";
             string tail;
             lock (stderrTail)
             {
-                tail = stderrTail.ToString().Trim();
+                tail = Untrusted(stderrTail.ToString(), _stderrMessageChars);
             }
-            var exitCode = process.HasExited ? process.ExitCode : -1;
-            var combined = tail + (readFailure?.Message ?? string.Empty);
-            // Exit code 2 is the host rejecting the request: the caller's input, not a crash.
-            var failure = exitCode == 2 && readFailure is null
-                ? ParserFailureKind.BadRequest
-                : combined.Contains("OutOfMemory", StringComparison.OrdinalIgnoreCase) || combined.Contains("Out of memory", StringComparison.OrdinalIgnoreCase)
-                    ? ParserFailureKind.LimitExceeded
-                    : ParserFailureKind.Crash;
+            // Classification never reads stderr text: the child controls it. Only the way the process ended counts. An exit by
+            // SIGKILL (137) that we did not cause is what the kernel's out-of-memory killer produces; a hostile child can
+            // fake it, which only moves its failure from "crash" to "limit".
+            var failure = naturalExitCode == _sigkillExitCode && readFailure is null
+                ? ParserFailureKind.LimitExceeded
+                : ParserFailureKind.Crash;
             throw new ParserSandboxException(
                 failure,
                 $"the parser process ended without a result (exit code {exit})" + (tail.Length > 0 ? ": " + tail : string.Empty)
-                + (readFailure is null ? string.Empty : "; " + readFailure.Message));
+                + (readFailure is null ? string.Empty : "; " + Untrusted(readFailure.Message, 200)));
         }
 
         if (terminal.Type == ParserMessageTypes.Error)
         {
-            var kind = terminal.ErrorKind == ParserErrorKinds.Limit ? ParserFailureKind.LimitExceeded : ParserFailureKind.ParserError;
-            throw new ParserSandboxException(kind, terminal.Message ?? "parser error");
+            // A bad-request report is believed only when the child sent no frames and the host exited with code 2;
+            // anything else claiming it is a protocol violation and counts as a crash.
+            var kind = terminal.ErrorKind switch
+            {
+                ParserErrorKinds.Limit or ParserErrorKinds.Memory => ParserFailureKind.LimitExceeded,
+                ParserErrorKinds.BadRequest => messages.Count == 0 && naturalExitCode is null or 2 ? ParserFailureKind.BadRequest : ParserFailureKind.ProtocolViolation,
+                _ => ParserFailureKind.ParserError,
+            };
+            throw new ParserSandboxException(kind, Untrusted(terminal.Message ?? "parser error", 1024));
         }
 
         var records = messages.Count(m => m.Type == ParserMessageTypes.Record);
@@ -390,6 +415,18 @@ public sealed class ParserSandboxRunner
         {
             // Abandoned: the caller disposes the process, which closes the pipes under the leftover work.
         }
+    }
+
+    /// <summary>Child-controlled text goes into messages only with control characters removed and its length capped.</summary>
+    private static string Untrusted(string text, int maxChars)
+    {
+        var builder = new StringBuilder(Math.Min(text.Length, maxChars));
+        foreach (var c in text.Trim())
+        {
+            if (builder.Length >= maxChars) break;
+            builder.Append(char.IsControl(c) ? ' ' : c);
+        }
+        return builder.ToString();
     }
 
     private static void CheckSourceName(string name)

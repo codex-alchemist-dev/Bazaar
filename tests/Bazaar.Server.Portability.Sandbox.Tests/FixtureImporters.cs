@@ -223,3 +223,29 @@ public sealed class BadConfidenceImporter : IPortabilityImporter
     public DetectResult Detect(ImportSource source) => new(5, "too sure");
     public IReadOnlyList<SourceRecord> Parse(ImportSource source) => [];
 }
+
+/// <summary>Prints out-of-memory text to stderr and then crashes, to show the text is not trusted.</summary>
+public sealed class FakeOomImporter : IPortabilityImporter
+{
+    public string Id => "test.fakeoom";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "fakeoom");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source)
+    {
+        Console.Error.WriteLine("System.OutOfMemoryException: Out of memory");
+        Environment.FailFast("not really out of memory");
+        return [];
+    }
+}
+
+/// <summary>A tiny body with a title over the record limit.</summary>
+public sealed class BigTitleImporter : IPortabilityImporter
+{
+    public string Id => "test.bigtitle";
+    public string Version => "1.0.0";
+    public DetectResult Detect(ImportSource source) => new(0.5, "bigtitle");
+
+    public IReadOnlyList<SourceRecord> Parse(ImportSource source) =>
+        [new SourceRecord("k", "document", new string('t', 2 * 1024 * 1024), "b", new Dictionary<string, string>())];
+}

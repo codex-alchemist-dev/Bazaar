@@ -19,6 +19,9 @@ public sealed record ParserSandboxOptions
     /// <summary>Default number of abnormal child endings that open the crash-loop circuit.</summary>
     public const int DefaultCrashLoopThreshold = 3;
 
+    /// <summary>Default number of failures of one source, per importer and window, before that source is refused.</summary>
+    public const int DefaultSourceFailureCap = 3;
+
     /// <summary>Default wall-clock allowance between two frames from the child, 30 seconds.</summary>
     public static TimeSpan DefaultFrameGapTimeout => TimeSpan.FromSeconds(30);
 
@@ -69,6 +72,12 @@ public sealed record ParserSandboxOptions
     /// <summary>Abnormal endings of one importer's child within <see cref="CrashLoopWindow"/> that raise <c>parser_crash_loop</c>.</summary>
     public int CrashLoopThreshold { get; init; } = DefaultCrashLoopThreshold;
 
+    /// <summary>
+    /// Failures of one source for one importer within <see cref="CrashLoopWindow"/> after which that source is refused
+    /// (so it is not retried endlessly). The circuit itself opens only when failures come from at least two sources.
+    /// </summary>
+    public int SourceFailureCap { get; init; } = DefaultSourceFailureCap;
+
     /// <summary>Window for <see cref="CrashLoopThreshold"/>. While the circuit is open, jobs for that importer are refused.</summary>
     public TimeSpan CrashLoopWindow { get; init; } = DefaultCrashLoopWindow;
 
@@ -82,6 +91,7 @@ public sealed record ParserSandboxOptions
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxCpuSeconds, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxOutputBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(CrashLoopThreshold, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(SourceFailureCap, 1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(CrashLoopWindow, TimeSpan.Zero);
     }
 }

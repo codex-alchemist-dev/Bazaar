@@ -1,28 +1,42 @@
 namespace Bazaar.Server.Portability.Sandbox;
 
 /// <summary>
-/// Counts abnormal parser child endings per importer. When <see cref="ParserSandboxOptions.CrashLoopThreshold"/> of them
-/// fall inside <see cref="ParserSandboxOptions.CrashLoopWindow"/>, it raises <c>parser_crash_loop</c> once and refuses
-/// further jobs for that importer until the window has passed with no new failure (crash-only design, doc 46 hooks).
-/// A clean job resets the count.
+/// Counts parser child failures per importer and per source. The crash-loop circuit for an importer opens only when
+/// <see cref="ParserSandboxOptions.CrashLoopThreshold"/> abnormal endings fall inside
+/// <see cref="ParserSandboxOptions.CrashLoopWindow"/> and they come from at least <see cref="MinDistinctSources"/>
+/// different sources, so one hostile file cannot shut an importer for every user. It raises <c>parser_crash_loop</c>
+/// once and refuses further jobs for that importer until the window has passed with no new failure. Separately, one
+/// source that has failed <see cref="ParserSandboxOptions.SourceFailureCap"/> times in the window is refused, so the
+/// same file cannot be retried endlessly.
 /// </summary>
 public sealed class ParserCrashTracker
 {
+    /// <summary>An importer's circuit opens only when failures come from at least this many different sources.</summary>
+    public const int MinDistinctSources = 2;
+
     private readonly int _threshold;
+    private readonly int _sourceCap;
     private readonly TimeSpan _window;
     private readonly IParserSignalSink? _sink;
     private readonly TimeProvider _time;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, State> _states = new(StringComparer.Ordinal);
 
-    public ParserCrashTracker(int threshold, TimeSpan window, IParserSignalSink? sink = null, TimeProvider? time = null)
+    public ParserCrashTracker(
+        int threshold,
+        TimeSpan window,
+        IParserSignalSink? sink = null,
+        TimeProvider? time = null,
+        int sourceFailureCap = ParserSandboxOptions.DefaultSourceFailureCap)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(threshold, 1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(window, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(sourceFailureCap, 1);
         _threshold = threshold;
         _window = window;
         _sink = sink;
         _time = time ?? TimeProvider.System;
+        _sourceCap = sourceFailureCap;
     }
 
     /// <summary>How many importers the tracker currently holds state for. Aged-out importers are pruned.</summary>
@@ -46,8 +60,19 @@ public sealed class ParserCrashTracker
         }
     }
 
-    /// <summary>Throws <see cref="ParserFailureKind.CrashLoop"/> while the circuit is open.</summary>
-    public void EnsureClosed(string importerId)
+    /// <summary>True when this source has used up its failures for the window.</summary>
+    public bool IsSourceBlocked(string importerId, string sourceKey)
+    {
+        lock (_gate)
+        {
+            if (!_states.TryGetValue(importerId, out var state)) return false;
+            var now = _time.GetUtcNow();
+            return state.Failures.Count(f => f.SourceKey == sourceKey && now - f.At <= _window) >= _sourceCap;
+        }
+    }
+
+    /// <summary>Throws <see cref="ParserFailureKind.CrashLoop"/> while the circuit is open or the source is used up.</summary>
+    public void EnsureClosed(string importerId, string sourceKey)
     {
         if (IsOpen(importerId))
         {
@@ -55,10 +80,20 @@ public sealed class ParserCrashTracker
                 ParserFailureKind.CrashLoop,
                 $"parser for '{importerId}' is in a crash loop ({ParserSignals.CrashLoop}); jobs are refused until it has been quiet for {_window}");
         }
+
+        if (IsSourceBlocked(importerId, sourceKey))
+        {
+            throw new ParserSandboxException(
+                ParserFailureKind.CrashLoop,
+                $"this source has failed {_sourceCap} times for '{importerId}' within {_window}; it is not retried again until the window passes");
+        }
     }
 
-    /// <summary>Records an abnormal ending. Raises the signal when this one opens the circuit.</summary>
-    public void RecordFailure(string importerId, string detail)
+    /// <summary>
+    /// Records a failed job. It always counts against the source's cap; it counts toward the importer's circuit only when
+    /// <paramref name="abnormal"/> (a crash, not an ordinary limit or parser error). Raises the signal when it opens the circuit.
+    /// </summary>
+    public void RecordFailure(string importerId, string sourceKey, string detail, bool abnormal = true)
     {
         ParserSignal? signal = null;
         lock (_gate)
@@ -77,13 +112,11 @@ public sealed class ParserCrashTracker
                 state.Failures.Clear();
             }
 
-            while (state.Failures.Count > 0 && now - state.Failures.Peek() > _window)
-            {
-                state.Failures.Dequeue();
-            }
+            state.Failures.RemoveAll(f => now - f.At > _window);
+            state.Failures.Add(new Failure(now, sourceKey, abnormal));
 
-            state.Failures.Enqueue(now);
-            if (state.Failures.Count >= _threshold)
+            var abnormalFailures = state.Failures.Where(f => f.Abnormal).ToList();
+            if (abnormalFailures.Count >= _threshold && abnormalFailures.Select(f => f.SourceKey).Distinct().Count() >= MinDistinctSources)
             {
                 var wasOpen = state.OpenUntil is not null;
                 state.OpenUntil = now + _window;
@@ -92,7 +125,7 @@ public sealed class ParserCrashTracker
                     signal = new ParserSignal(
                         ParserSignals.CrashLoop,
                         importerId,
-                        $"{state.Failures.Count} abnormal endings within {_window}; last: {detail}");
+                        $"{abnormalFailures.Count} abnormal endings from {abnormalFailures.Select(f => f.SourceKey).Distinct().Count()} sources within {_window}; last: {detail}");
                 }
             }
         }
@@ -100,14 +133,14 @@ public sealed class ParserCrashTracker
         if (signal is not null) _sink?.Raise(signal);
     }
 
-    /// <summary>A clean job resets the count for that importer.</summary>
-    public void RecordSuccess(string importerId)
+    /// <summary>A clean job clears that source's failures for that importer.</summary>
+    public void RecordSuccess(string importerId, string sourceKey)
     {
         lock (_gate)
         {
-            if (_states.TryGetValue(importerId, out var state) && state.OpenUntil is null)
+            if (_states.TryGetValue(importerId, out var state))
             {
-                state.Failures.Clear();
+                state.Failures.RemoveAll(f => f.SourceKey == sourceKey);
             }
         }
     }
@@ -128,7 +161,7 @@ public sealed class ParserCrashTracker
         foreach (var (id, state) in _states)
         {
             var open = state.OpenUntil is { } until && until > now;
-            var recent = state.Failures.Count > 0 && now - state.Failures.Peek() <= _window;
+            var recent = state.Failures.Any(f => now - f.At <= _window);
             if (!open && !recent) (stale ??= []).Add(id);
         }
         if (stale is not null)
@@ -137,9 +170,11 @@ public sealed class ParserCrashTracker
         }
     }
 
+    private sealed record Failure(DateTimeOffset At, string SourceKey, bool Abnormal);
+
     private sealed class State
     {
-        public Queue<DateTimeOffset> Failures { get; } = new();
+        public List<Failure> Failures { get; } = [];
         public DateTimeOffset? OpenUntil { get; set; }
     }
 }
