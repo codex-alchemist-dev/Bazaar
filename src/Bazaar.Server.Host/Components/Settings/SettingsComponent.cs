@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
-using Cdax.Core;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

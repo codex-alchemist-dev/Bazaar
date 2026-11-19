@@ -1,5 +1,5 @@
-using Cdax.Core;
 using Bazaar.RyuseiFuda.Roadmap;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;

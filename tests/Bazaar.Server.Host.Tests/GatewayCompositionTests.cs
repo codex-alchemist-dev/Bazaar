@@ -1,4 +1,3 @@
-using Cdax.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -11,6 +10,7 @@ using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Hosting;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

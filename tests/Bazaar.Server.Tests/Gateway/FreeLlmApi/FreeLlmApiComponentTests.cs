@@ -1,5 +1,5 @@
-using Cdax.Core;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

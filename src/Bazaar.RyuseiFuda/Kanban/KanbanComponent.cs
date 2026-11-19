@@ -1,10 +1,10 @@
-using Cdax.Core;
 using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
