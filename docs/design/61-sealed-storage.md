@@ -28,7 +28,7 @@ Does not protect against: an attacker running as the Bazaar service account on t
 | KEK key file (`file` provider) | Data root | Protected file | No change here; Windows uses DPAPI. A tamper check on the key file is Q2. |
 | Recovery bundles, backups, Soul exports | Backup target | Already encrypted (doc 48 section 6, doc 44 Argon2id) | No change. Soul export never includes memory (doc 54). |
 | Audit log files | Postgres plus signed exports | Tamper-evident hash chain (doc 48 section 5) | No change; integrity, not secrecy |
-| Postgres data directory | Data root | Plain pages | Out of scope: operator disk encryption (BitLocker, LUKS), documented at setup. Soul rows with secrets are already field-encrypted. |
+| Postgres data directory | Data root | Plain pages | Encrypted volume, doc 63 (owner decision 2026-11-19: Bazaar encrypts the data folder at folder level). Sealed scopes under the data root sit inside that volume. Soul rows with secrets are already field-encrypted. |
 
 ## Design
 **Scope and key.** A scope is a named group of files with one DEK (`soul:<id>`, `memory:<agent-id>`, `passport:<agent-id>`, `host:bootstrap`). The DEK is 32 random bytes, wrapped by `IKekProvider.WrapAsync` with associated data `bazaar.sealed.dek.v1|<scope>|<kekId>`, and stored in the scope's header file. **Crypto-shred:** deleting a scope's header destroys its data (matches doc 14, doc 48 section 9). **Rotation:** rewrap the DEK under a new KEK; files are not re-encrypted.
