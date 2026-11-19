@@ -8,7 +8,7 @@ namespace Bazaar.Server.Council.Hiring.Tests;
 
 public class HireOutcomeSinkTests
 {
-    private const string Template = "talent-analyst-v2";
+    private const string _template = "talent-analyst-v2";
 
     private readonly InMemoryHireDecisionStore _store = new();
     private readonly FakeTimeProvider _time = new(Samples.Now.AddHours(2));
@@ -16,14 +16,14 @@ public class HireOutcomeSinkTests
     private HireOutcomeSink Sink => new(_store, _time);
 
     /// <summary>Stores a pending hire for the template and returns its vote id.</summary>
-    private async Task<Guid> PendingVote(string template = Template)
+    private async Task<Guid> PendingVote(string template = _template)
     {
         var voteId = Guid.NewGuid();
         _store.Seed(new HireVoteState(template, voteId, HireStatus.Pending, null, Samples.Now));
         return voteId;
     }
 
-    private async Task<HireVoteState> Current(string template = Template) =>
+    private async Task<HireVoteState> Current(string template = _template) =>
         (await _store.FindAsync(template, CancellationToken.None))!;
 
     [Theory]
@@ -136,7 +136,7 @@ public class HireOutcomeSinkTests
     {
         var voteId = await PendingVote();
         var counts = new Dictionary<string, int> { [ApprovalChoices.Yes] = 4, [ApprovalChoices.No] = 0, [ApprovalChoices.Abstain] = 0 };
-        var motion = new MembershipMotionMetadata(voteId, MembershipMotionKind.Hire, Template, MotionClass.BiggerChange, Samples.Now);
+        var motion = new MembershipMotionMetadata(voteId, MembershipMotionKind.Hire, _template, MotionClass.BiggerChange, Samples.Now);
         var decision = new TallyDecision(TallyDecisionKind.Decided, ApprovalChoices.Yes, null, counts);
         var outcome = MembershipOutcomeMapper.Map(decision, motion);
 
@@ -150,7 +150,7 @@ public class HireOutcomeSinkTests
     {
         var voteId = await PendingVote();
         var counts = new Dictionary<string, int> { [ApprovalChoices.Yes] = 2, [ApprovalChoices.No] = 1, [ApprovalChoices.Abstain] = 0 };
-        var motion = new MembershipMotionMetadata(voteId, MembershipMotionKind.Hire, Template, MotionClass.BiggerChange, Samples.Now);
+        var motion = new MembershipMotionMetadata(voteId, MembershipMotionKind.Hire, _template, MotionClass.BiggerChange, Samples.Now);
         var escalated = new TallyDecision(TallyDecisionKind.Escalated, null, EscalationReason.NotUnanimous, counts);
 
         var outcome = MembershipOutcomeMapper.Map(escalated, motion);
@@ -199,6 +199,6 @@ public class HireOutcomeSinkTests
         Guid voteId,
         MembershipDecision decision,
         string? choice,
-        string template = Template) =>
+        string template = _template) =>
         new(voteId, template, MembershipMotionKind.Hire, decision, choice, $"council.decision:{voteId:D}", Samples.Now, null);
 }
