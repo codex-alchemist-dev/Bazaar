@@ -8,7 +8,7 @@ namespace Bazaar.Server.VmDisplay.Kvm;
 /// </summary>
 public sealed class VirshQmpTransport : IQmpTransport
 {
-    private const int MaxStdoutChars = 1024 * 1024;
+    private const int _maxStdoutChars = 1024 * 1024;
     private readonly KvmOptions _options;
     private readonly IProcessLauncher _launcher;
 
@@ -33,7 +33,7 @@ public sealed class VirshQmpTransport : IQmpTransport
             throw new DisplayException(DisplayFailure.InvalidInput, "The VM name is not valid.");
         string[] argv = ["-c", _options.LibvirtUri, "qemu-monitor-command", domain, qmpJson];
         ProcessResult r = await _launcher
-            .RunAsync(_options.VirshPath, argv, TimeSpan.FromSeconds(_options.CommandTimeoutSeconds), MaxStdoutChars, ct)
+            .RunAsync(_options.VirshPath, argv, TimeSpan.FromSeconds(_options.CommandTimeoutSeconds), _maxStdoutChars, ct)
             .ConfigureAwait(false);
         if (r.ExitCode != 0)
             throw new DisplayException(DisplayFailure.SourceFailed, $"virsh exited with code {r.ExitCode}: {Trim(r.StdErr)}");

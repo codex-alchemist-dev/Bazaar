@@ -12,7 +12,7 @@ namespace Bazaar.Server.VmDisplay.Kvm;
 /// </summary>
 public sealed class UnixSocketQmpTransport : IQmpTransport
 {
-    private const int MaxLineChars = 1024 * 1024;
+    private const int _maxLineChars = 1024 * 1024;
     private readonly Func<string, string> _socketPath;
     private readonly TimeSpan _timeout;
 
@@ -68,7 +68,7 @@ public sealed class UnixSocketQmpTransport : IQmpTransport
         string? line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
         if (line is null)
             throw new DisplayException(DisplayFailure.SourceFailed, "The QMP socket closed.");
-        if (line.Length > MaxLineChars)
+        if (line.Length > _maxLineChars)
             throw new DisplayException(DisplayFailure.SourceFailed, "A QMP line is larger than the limit.");
         return line;
     }

@@ -18,7 +18,7 @@ internal sealed class FakeRunner : IHyperVScriptRunner
 
 public class HyperVConsoleTests
 {
-    private static readonly DisplayTarget s_target = new("agent-1", Guid.NewGuid(), DisplayGuestOs.Windows, "agent-vm.1");
+    private static readonly DisplayTarget _target = new("agent-1", Guid.NewGuid(), DisplayGuestOs.Windows, "agent-vm.1");
 
     private static (HyperVConsole Console, FakeRunner Runner) Make(HyperVOptions? options = null, bool windows = true)
     {
@@ -26,7 +26,7 @@ public class HyperVConsoleTests
         return (new HyperVConsole(options ?? new HyperVOptions(), runner, () => windows), runner);
     }
 
-    private static DisplayTarget Named(string name) => s_target with { BackendRef = name };
+    private static DisplayTarget Named(string name) => _target with { BackendRef = name };
 
     private static string ThumbnailOutput(int w, int h, int bytes) => $"{w} {h}\n{Convert.ToBase64String(new byte[bytes])}\n";
 
@@ -39,9 +39,9 @@ public class HyperVConsoleTests
     [Fact]
     public void Supports_needs_enabled_a_valid_name_and_windows()
     {
-        Assert.True(Make().Console.Supports(s_target));
-        Assert.False(Make(windows: false).Console.Supports(s_target));
-        Assert.False(Make(new HyperVOptions { Enabled = false }).Console.Supports(s_target));
+        Assert.True(Make().Console.Supports(_target));
+        Assert.False(Make(windows: false).Console.Supports(_target));
+        Assert.False(Make(new HyperVOptions { Enabled = false }).Console.Supports(_target));
         Assert.False(Make().Console.Supports(Named("bad name")));
     }
 
@@ -80,7 +80,7 @@ public class HyperVConsoleTests
         (HyperVConsole console, FakeRunner runner) = Make();
         runner.Output = _ => ThumbnailOutput(1280, 800, 1280 * 800 * 2);
 
-        RawFrame frame = await console.ReadFramebufferAsync(s_target, 1920, 1200, CancellationToken.None);
+        RawFrame frame = await console.ReadFramebufferAsync(_target, 1920, 1200, CancellationToken.None);
 
         Assert.Equal(RawPixelFormat.Rgb565, frame.Format);
         Assert.Equal((1280, 800), (frame.Width, frame.Height));
@@ -98,12 +98,12 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make(new HyperVOptions { ThumbnailWidth = 1000, ThumbnailHeight = 900 });
         runner.Output = _ => ThumbnailOutput(640, 480, 640 * 480 * 2);
-        await console.ReadFramebufferAsync(s_target, 640, 480, CancellationToken.None);
+        await console.ReadFramebufferAsync(_target, 640, 480, CancellationToken.None);
         Assert.Equal("640", runner.Calls[0].Parameters["Width"]);
         Assert.Equal("480", runner.Calls[0].Parameters["Height"]);
 
         runner.Output = _ => ThumbnailOutput(1000, 900, 1000 * 900 * 2);
-        await console.ReadFramebufferAsync(s_target, 5000, 5000, CancellationToken.None);
+        await console.ReadFramebufferAsync(_target, 5000, 5000, CancellationToken.None);
         Assert.Equal("1000", runner.Calls[1].Parameters["Width"]);
         Assert.Equal("900", runner.Calls[1].Parameters["Height"]);
     }
@@ -113,7 +113,7 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make();
         runner.Output = _ => ThumbnailOutput(1280, 800, 1280 * 800 * 2 - 2);
-        DisplayException e = await Assert.ThrowsAsync<DisplayException>(() => console.ReadFramebufferAsync(s_target, 1920, 1200, CancellationToken.None));
+        DisplayException e = await Assert.ThrowsAsync<DisplayException>(() => console.ReadFramebufferAsync(_target, 1920, 1200, CancellationToken.None));
         Assert.Equal(DisplayFailure.FrameMalformed, e.Failure);
     }
 
@@ -127,7 +127,7 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make();
         runner.Output = _ => output;
-        DisplayException e = await Assert.ThrowsAsync<DisplayException>(() => console.ReadFramebufferAsync(s_target, 1920, 1200, CancellationToken.None));
+        DisplayException e = await Assert.ThrowsAsync<DisplayException>(() => console.ReadFramebufferAsync(_target, 1920, 1200, CancellationToken.None));
         Assert.Equal(DisplayFailure.FrameMalformed, e.Failure);
     }
 
@@ -136,7 +136,7 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make();
         const string text = "Name'; Remove-Item $env:TEMP `x \"q\"";
-        await console.SendInputAsync(s_target, [new TypeText(text)], CancellationToken.None);
+        await console.SendInputAsync(_target, [new TypeText(text)], CancellationToken.None);
 
         (string script, IReadOnlyDictionary<string, string> p) = Assert.Single(runner.Calls);
         Assert.Same(HyperVScripts.Keys, script);
@@ -151,7 +151,7 @@ public class HyperVConsoleTests
     public async Task Text_is_chunked_at_512_and_newline_is_a_separate_enter_step()
     {
         (HyperVConsole console, FakeRunner runner) = Make();
-        await console.SendInputAsync(s_target, [new TypeText(new string('a', 1100) + "\nb")], CancellationToken.None);
+        await console.SendInputAsync(_target, [new TypeText(new string('a', 1100) + "\nb")], CancellationToken.None);
 
         JsonElement[] steps = Steps(runner, 0);
         Assert.Equal(["type", "type", "type", "key", "type"], steps.Select(s => s.GetProperty("op").GetString()));
@@ -169,7 +169,7 @@ public class HyperVConsoleTests
     public async Task Non_ascii_and_control_text_is_invalid_input(string text)
     {
         (HyperVConsole console, FakeRunner runner) = Make();
-        DisplayException e = await Assert.ThrowsAsync<DisplayException>(() => console.SendInputAsync(s_target, [new TypeText(text)], CancellationToken.None));
+        DisplayException e = await Assert.ThrowsAsync<DisplayException>(() => console.SendInputAsync(_target, [new TypeText(text)], CancellationToken.None));
         Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
         Assert.Empty(runner.Calls);
     }
@@ -193,7 +193,7 @@ public class HyperVConsoleTests
     public async Task A_key_stroke_presses_modifiers_first_and_releases_them_last()
     {
         (HyperVConsole console, FakeRunner runner) = Make();
-        await console.SendInputAsync(s_target, [new KeyStroke("KeyA", KeyModifiers.Control | KeyModifiers.Meta)], CancellationToken.None);
+        await console.SendInputAsync(_target, [new KeyStroke("KeyA", KeyModifiers.Control | KeyModifiers.Meta)], CancellationToken.None);
 
         JsonElement[] steps = Steps(runner, 0);
         Assert.Equal(["press", "press", "key", "release", "release"], steps.Select(s => s.GetProperty("op").GetString()));
@@ -205,7 +205,7 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make();
         await console.SendInputAsync(
-            s_target,
+            _target,
             [new PointerMove(5, 6), new PointerClick(10, 20, PointerButtonKind.Right, 2), new PointerScroll(1, 2, 0, -3)],
             CancellationToken.None);
 
@@ -226,7 +226,7 @@ public class HyperVConsoleTests
     public async Task Button_indexes_follow_the_wmi_numbering(PointerButtonKind kind, int index)
     {
         (HyperVConsole console, FakeRunner runner) = Make();
-        await console.SendInputAsync(s_target, [new PointerClick(1, 1, kind)], CancellationToken.None);
+        await console.SendInputAsync(_target, [new PointerClick(1, 1, kind)], CancellationToken.None);
         Assert.Equal(index, Steps(runner, 0)[1].GetProperty("button").GetInt32());
     }
 
@@ -235,7 +235,7 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make();
         await console.SendInputAsync(
-            s_target,
+            _target,
             [new KeyStroke("Enter"), new TypeText("x"), new PointerMove(1, 1), new KeyStroke("Tab")],
             CancellationToken.None);
         Assert.Equal([HyperVScripts.Keys, HyperVScripts.Mouse, HyperVScripts.Keys], runner.Calls.Select(c => c.Script));
@@ -246,10 +246,10 @@ public class HyperVConsoleTests
     {
         (HyperVConsole console, FakeRunner runner) = Make();
         DisplayException e = await Assert.ThrowsAsync<DisplayException>(() =>
-            console.SendInputAsync(s_target, [new KeyStroke("Enter"), new PointerButton(PointerButtonKind.Left, true)], CancellationToken.None));
+            console.SendInputAsync(_target, [new KeyStroke("Enter"), new PointerButton(PointerButtonKind.Left, true)], CancellationToken.None));
         Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
         e = await Assert.ThrowsAsync<DisplayException>(() =>
-            console.SendInputAsync(s_target, [new PointerClick(1, 1, PointerButtonKind.Left, 99)], CancellationToken.None));
+            console.SendInputAsync(_target, [new PointerClick(1, 1, PointerButtonKind.Left, 99)], CancellationToken.None));
         Assert.Equal(DisplayFailure.InvalidInput, e.Failure);
         Assert.Empty(runner.Calls);
     }

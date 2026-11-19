@@ -5,13 +5,13 @@ namespace Bazaar.Server.VmDisplay.Kvm.Tests;
 
 public class KvmConsoleTests
 {
-    private static readonly KvmOptions s_options = new() { ScreendumpDirectory = "/dump" };
+    private static readonly KvmOptions _options = new() { ScreendumpDirectory = "/dump" };
 
     private static (KvmConsole Console, FakeTransport Transport, FakeReader Reader) Make(KvmOptions? options = null)
     {
         var transport = new FakeTransport();
         var reader = new FakeReader();
-        return (new KvmConsole(options ?? s_options, transport, reader), transport, reader);
+        return (new KvmConsole(options ?? _options, transport, reader), transport, reader);
     }
 
     private static int EventCount(string json)

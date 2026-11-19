@@ -6,13 +6,13 @@ namespace Bazaar.Server.VmDisplay.Kvm.Tests;
 /// <summary>Drives a real QEMU (TCG, no display) through the unix-socket transport. Skipped when QEMU is not installed.</summary>
 public class RealQemuTests
 {
-    private const string QemuPath = "/usr/bin/qemu-system-x86_64";
+    private const string _qemuPath = "/usr/bin/qemu-system-x86_64";
 
     [Fact]
     public async Task Capture_and_input_work_against_a_real_qemu()
     {
-        if (!OperatingSystem.IsLinux() || !File.Exists(QemuPath))
-            Assert.Skip($"{QemuPath} is not installed, so the real QEMU test cannot run.");
+        if (!OperatingSystem.IsLinux() || !File.Exists(_qemuPath))
+            Assert.Skip($"{_qemuPath} is not installed, so the real QEMU test cannot run.");
 
         string dir = Path.Combine(Path.GetTempPath(), "bzr-qemu-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
@@ -20,7 +20,7 @@ public class RealQemuTests
         string dumps = Path.Combine(dir, "dumps");
         Directory.CreateDirectory(dumps);
 
-        var psi = new ProcessStartInfo(QemuPath) { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
+        var psi = new ProcessStartInfo(_qemuPath) { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
         foreach (string a in new[] { "-accel", "tcg", "-m", "128", "-display", "none", "-vga", "std", "-device", "usb-ehci", "-device", "usb-tablet", "-qmp", $"unix:{socket},server,nowait" })
             psi.ArgumentList.Add(a);
 

@@ -14,8 +14,8 @@ namespace Bazaar.Server.VmDisplay.Kvm;
 /// </remarks>
 public sealed class KvmConsole : IHypervisorConsole
 {
-    private const int MaxClickCount = 10;
-    private const int MaxScrollSteps = 20;
+    private const int _maxClickCount = 10;
+    private const int _maxScrollSteps = 20;
 
     private readonly KvmOptions _options;
     private readonly IQmpTransport _transport;
@@ -175,8 +175,8 @@ public sealed class KvmConsole : IHypervisorConsole
 
     private static void AddClick(List<IReadOnlyList<QmpEvent>> commands, PointerClick click, int width, int height)
     {
-        if (click.Count is < 1 or > MaxClickCount)
-            throw new DisplayException(DisplayFailure.InvalidInput, $"A click count must be between 1 and {MaxClickCount}.");
+        if (click.Count is < 1 or > _maxClickCount)
+            throw new DisplayException(DisplayFailure.InvalidInput, $"A click count must be between 1 and {_maxClickCount}.");
         string button = ButtonName(click.Button);
         for (int i = 0; i < click.Count; i++)
         {
@@ -197,7 +197,7 @@ public sealed class KvmConsole : IHypervisorConsole
     private static void AddWheel(List<QmpEvent> events, int delta, string negative, string positive)
     {
         // A positive DeltaY scrolls down, as in browser wheel events.
-        int steps = Math.Min(Math.Abs(delta), MaxScrollSteps);
+        int steps = Math.Min(Math.Abs(delta), _maxScrollSteps);
         string button = delta < 0 ? negative : positive;
         for (int i = 0; i < steps; i++)
         {

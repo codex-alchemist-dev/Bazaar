@@ -5,13 +5,13 @@ namespace Bazaar.Server.VmDisplay.Kvm;
 /// <summary>Maps the allowlisted W3C key names and printable US-ASCII text to QEMU qcodes (US keyboard layout).</summary>
 internal static class QmpKeyTables
 {
-    private static readonly Dictionary<string, string> s_keys = BuildKeys();
-    private static readonly Dictionary<char, (string QCode, bool Shift)> s_chars = BuildChars();
+    private static readonly Dictionary<string, string> _keys = BuildKeys();
+    private static readonly Dictionary<char, (string QCode, bool Shift)> _chars = BuildChars();
 
     /// <summary>Whether <paramref name="key"/> has a qcode, and which.</summary>
     public static bool TryGetKey(string key, out string qcode)
     {
-        bool found = s_keys.TryGetValue(key, out string? q);
+        bool found = _keys.TryGetValue(key, out string? q);
         qcode = q ?? string.Empty;
         return found;
     }
@@ -19,7 +19,7 @@ internal static class QmpKeyTables
     /// <summary>The qcode and shift state that types <paramref name="c"/> on a US layout. Only printable ASCII, newline and tab map.</summary>
     public static bool TryGetChar(char c, out string qcode, out bool shift)
     {
-        bool found = s_chars.TryGetValue(c, out (string QCode, bool Shift) v);
+        bool found = _chars.TryGetValue(c, out (string QCode, bool Shift) v);
         qcode = v.QCode ?? string.Empty;
         shift = v.Shift;
         return found;

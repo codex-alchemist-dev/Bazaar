@@ -15,8 +15,8 @@ namespace Bazaar.Server.VmDisplay.HyperV;
 /// </remarks>
 public sealed class HyperVConsole : IHypervisorConsole
 {
-    private const int MaxTextPerCall = 512;
-    private const int MaxClickCount = 10;
+    private const int _maxTextPerCall = 512;
+    private const int _maxClickCount = 10;
 
     private readonly HyperVOptions _options;
     private readonly IHyperVScriptRunner _runner;
@@ -165,7 +165,7 @@ public sealed class HyperVConsole : IHypervisorConsole
             else if (c is >= ' ' and <= '~')
             {
                 sb.Append(c);
-                if (sb.Length == MaxTextPerCall)
+                if (sb.Length == _maxTextPerCall)
                     FlushText(steps, sb);
             }
             else
@@ -195,8 +195,8 @@ public sealed class HyperVConsole : IHypervisorConsole
                 steps.Add(MoveStep(m.X, m.Y));
                 break;
             case PointerClick c:
-                if (c.Count is < 1 or > MaxClickCount)
-                    throw new DisplayException(DisplayFailure.InvalidInput, $"A click count must be between 1 and {MaxClickCount}.");
+                if (c.Count is < 1 or > _maxClickCount)
+                    throw new DisplayException(DisplayFailure.InvalidInput, $"A click count must be between 1 and {_maxClickCount}.");
                 steps.Add(MoveStep(c.X, c.Y));
                 for (int i = 0; i < c.Count; i++)
                     steps.Add(MouseStep.Click(ButtonIndex(c.Button)));

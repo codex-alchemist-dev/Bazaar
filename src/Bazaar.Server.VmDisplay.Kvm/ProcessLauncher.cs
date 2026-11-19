@@ -16,7 +16,7 @@ internal interface IProcessLauncher
 /// <summary>Starts processes through <see cref="Process"/> with <see cref="ProcessStartInfo.ArgumentList"/>.</summary>
 internal sealed class SystemProcessLauncher : IProcessLauncher
 {
-    private const int MaxStderrChars = 2048;
+    private const int _maxStderrChars = 2048;
 
     public async Task<ProcessResult> RunAsync(string fileName, IReadOnlyList<string> arguments, TimeSpan timeout, int maxStdoutChars, CancellationToken ct)
     {
@@ -48,7 +48,7 @@ internal sealed class SystemProcessLauncher : IProcessLauncher
         try
         {
             Task<string> stdout = ReadCappedAsync(process.StandardOutput, maxStdoutChars, cts.Token);
-            Task<string> stderr = ReadCappedAsync(process.StandardError, MaxStderrChars, cts.Token);
+            Task<string> stderr = ReadCappedAsync(process.StandardError, _maxStderrChars, cts.Token);
             await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
             return new ProcessResult(process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false));
         }

@@ -9,10 +9,10 @@ internal static class HyperVKeyTable
     public const int VkReturn = 0x0D;
     public const int VkTab = 0x09;
 
-    private static readonly Dictionary<string, int> s_keys = Build();
+    private static readonly Dictionary<string, int> _keys = Build();
 
     /// <summary>Whether <paramref name="key"/> has a virtual-key code, and which.</summary>
-    public static bool TryGetKey(string key, out int code) => s_keys.TryGetValue(key, out code);
+    public static bool TryGetKey(string key, out int code) => _keys.TryGetValue(key, out code);
 
     /// <summary>The codes of the modifier keys to press, in press order.</summary>
     public static IEnumerable<int> ModifierCodes(KeyModifiers modifiers)

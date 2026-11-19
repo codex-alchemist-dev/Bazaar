@@ -23,7 +23,7 @@ public sealed class ProcessHyperVScriptRunner : IHyperVScriptRunner
     /// <summary>The environment variable that carries the parameter JSON.</summary>
     public const string ParametersVariable = "BAZAAR_DISPLAY_PARAMS";
 
-    private const int MaxStdoutChars = 32 * 1024 * 1024;
+    private const int _maxStdoutChars = 32 * 1024 * 1024;
     private readonly HyperVOptions _options;
     private readonly IProcessLauncher _launcher;
 
@@ -52,7 +52,7 @@ public sealed class ProcessHyperVScriptRunner : IHyperVScriptRunner
             new Dictionary<string, string> { [ParametersVariable] = ParametersJson(parameters) },
             script + "\n",
             TimeSpan.FromSeconds(_options.CommandTimeoutSeconds),
-            MaxStdoutChars);
+            _maxStdoutChars);
         ProcessResult r = await _launcher.RunAsync(spec, ct).ConfigureAwait(false);
         if (r.ExitCode != 0)
             throw new DisplayException(DisplayFailure.SourceFailed, $"PowerShell exited with code {r.ExitCode}: {Trim(r.StdErr)}");
