@@ -2,31 +2,27 @@ using Bazaar.Contracts.Gc;
 
 namespace Bazaar.Server.Wire.Connection;
 
-/// <summary>An authenticated principal (a human or an agent).</summary>
-/// <param name="Id">Principal id.</param>
-/// <param name="Kind">Principal kind, such as <c>human</c> or <c>agent</c>.</param>
-public sealed record PrincipalRef(Guid Id, string Kind)
+/// <summary>The GC model's view of a wire principal.</summary>
+public static class PrincipalRefGcExtensions
 {
     /// <summary>The GC model's kind for this principal; the owner reads all, so the kind must reach the read rules.</summary>
     /// <exception cref="InvalidOperationException">The wire kind is not one the GC model knows.</exception>
-    public PrincipalKind GcKind() => Kind switch
+    public static PrincipalKind GcKind(this PrincipalRef principal)
     {
-        "owner" => PrincipalKind.Owner,
-        "human" => PrincipalKind.Human,
-        "agent" => PrincipalKind.Agent,
-        _ => throw new InvalidOperationException($"Unknown principal kind '{Kind}'."),
-    };
+        ArgumentNullException.ThrowIfNull(principal);
+        return principal.Kind switch
+        {
+            "owner" => PrincipalKind.Owner,
+            "human" => PrincipalKind.Human,
+            "agent" => PrincipalKind.Agent,
+            _ => throw new InvalidOperationException($"Unknown principal kind '{principal.Kind}'."),
+        };
+    }
 }
 
 /// <summary>What the client presented. The credential comes from the upgrade header or from <c>hello</c>.</summary>
 /// <param name="Value">Credential text; never logged.</param>
 public sealed record HelloCredential(string Value);
-
-/// <summary>The device a client says it is.</summary>
-/// <param name="DeviceId">Device id from <c>hello</c>.</param>
-/// <param name="DeviceClass">Device class from <c>hello</c>.</param>
-/// <param name="ClientBuild">Client build from <c>hello</c>.</param>
-public sealed record DeviceInfo(string DeviceId, string DeviceClass, string ClientBuild);
 
 /// <summary>Result of <see cref="IConnectionAuthenticator"/>.</summary>
 /// <param name="Ok">True when the credential is valid.</param>
