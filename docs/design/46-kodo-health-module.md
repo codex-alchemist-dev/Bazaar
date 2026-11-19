@@ -578,6 +578,11 @@ Every client honours the same accessibility rules: keyboard reachable views, a s
 - Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default.
 - Viewing logs and traces is separately granted because logs can contain personal data. Defaults grant the owner all of these and grant no other role any of them.
 
+### 14.6 Fleet snapshot and state colours (PROPOSED)
+
+- **Fleet wire shape.** `KodoFleetSnapshotDto` (schema version, revision, `asOf`, one `KodoServerStatusDto` per server: id, display name, state, underlying state, score, `asOf`, version, open alerts, incident flag) in `Bazaar.Contracts/Kodo`, source-generated JSON, camelCase, nulls omitted, unknown members skipped. Each row carries its own `asOf`, so the client marks a single stale server `unobserved` without hiding the rest.
+- **State colours.** One theme token per state, `Bazaar.brush.kodo.state.<state>` for healthy, degraded, failing, recovering, frozen and unobserved, with light and dark defaults (each 4.5:1 or better on the default surface) held in `Bazaar.Client.Kodo` until doc 27's theme schema gains a Kodo group. The pane always shows the state word beside the colour.
+
 ## 15. API
 
 ### 15.1 Read API
