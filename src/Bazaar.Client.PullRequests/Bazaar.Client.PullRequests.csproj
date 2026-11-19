@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Client.PullRequests.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.PullRequests.Abstractions\Bazaar.Client.PullRequests.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Abstractions\Bazaar.Client.Approvals.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals\Bazaar.Client.Approvals.csproj" />
+    <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+  </ItemGroup>
+</Project>
