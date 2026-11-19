@@ -5,9 +5,9 @@ namespace Bazaar.Server.VmDisplay;
 /// <summary>Validates targets and input batches before anything reaches a gate or a source.</summary>
 internal static class InputValidator
 {
-    private const int MaxScrollDelta = 10_000;
-    private const int MaxClickCount = 3;
-    private const KeyModifiers AllModifiers = KeyModifiers.Shift | KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta;
+    private const int _maxScrollDelta = 10_000;
+    private const int _maxClickCount = 3;
+    private const KeyModifiers _allModifiers = KeyModifiers.Shift | KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta;
 
     /// <summary>Throws unless the target names an agent and a VM.</summary>
     public static void ValidateTarget(DisplayTarget target)
@@ -46,18 +46,18 @@ internal static class InputValidator
                 Point(c.X, c.Y);
                 if (!Enum.IsDefined(c.Button))
                     throw Invalid("Unknown pointer button.");
-                if (c.Count < 1 || c.Count > MaxClickCount)
-                    throw Invalid($"A click count must be 1 to {MaxClickCount}.");
+                if (c.Count < 1 || c.Count > _maxClickCount)
+                    throw Invalid($"A click count must be 1 to {_maxClickCount}.");
                 break;
             case PointerScroll s:
                 Point(s.X, s.Y);
-                if (Math.Abs((long)s.DeltaX) > MaxScrollDelta || Math.Abs((long)s.DeltaY) > MaxScrollDelta)
-                    throw Invalid($"A scroll delta must be within {MaxScrollDelta}.");
+                if (Math.Abs((long)s.DeltaX) > _maxScrollDelta || Math.Abs((long)s.DeltaY) > _maxScrollDelta)
+                    throw Invalid($"A scroll delta must be within {_maxScrollDelta}.");
                 break;
             case KeyStroke k:
                 if (!DisplayKeys.IsAllowed(k.Key))
                     throw Invalid("The key is not on the allowlist.");
-                if ((k.Modifiers & ~AllModifiers) != 0)
+                if ((k.Modifiers & ~_allModifiers) != 0)
                     throw Invalid("Unknown key modifier.");
                 break;
             case TypeText t:

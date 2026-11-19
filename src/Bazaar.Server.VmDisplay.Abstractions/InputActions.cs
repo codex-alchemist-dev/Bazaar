@@ -67,13 +67,13 @@ public sealed record InputBatch(DisplayTarget Target, IReadOnlyList<InputAction>
 /// <summary>The fixed allowlist of key names (W3C UI Events <c>code</c> values) a <see cref="KeyStroke"/> may use.</summary>
 public static class DisplayKeys
 {
-    private static readonly HashSet<string> s_allowed = Build();
+    private static readonly HashSet<string> _allowed = Build();
 
     /// <summary>Every allowed key name.</summary>
-    public static IReadOnlyCollection<string> All => s_allowed;
+    public static IReadOnlyCollection<string> All => _allowed;
 
     /// <summary>Whether <paramref name="key"/> is on the allowlist (ordinal, case-sensitive).</summary>
-    public static bool IsAllowed(string? key) => key is not null && s_allowed.Contains(key);
+    public static bool IsAllowed(string? key) => key is not null && _allowed.Contains(key);
 
     private static HashSet<string> Build()
     {

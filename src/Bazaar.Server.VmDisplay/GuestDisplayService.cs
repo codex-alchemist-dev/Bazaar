@@ -186,23 +186,23 @@ public sealed class GuestDisplayService : IGuestDisplay
         switch (source)
         {
             case DisplaySourceKind.Browser:
-            {
-                IBrowserPageDriver driver = _browsers.First(b => b.Supports(target));
-                byte[] png = await driver.CaptureScreenshotPngAsync(target.BrowserSessionId!, ct).ConfigureAwait(false);
-                return FrameNormalizer.FromPng(png, limits);
-            }
+                {
+                    IBrowserPageDriver driver = _browsers.First(b => b.Supports(target));
+                    byte[] png = await driver.CaptureScreenshotPngAsync(target.BrowserSessionId!, ct).ConfigureAwait(false);
+                    return FrameNormalizer.FromPng(png, limits);
+                }
             case DisplaySourceKind.Hypervisor:
-            {
-                IHypervisorConsole console = _hypervisors.First(h => h.Supports(target));
-                RawFrame raw = await console.ReadFramebufferAsync(target, limits.MaxWidth, limits.MaxHeight, ct).ConfigureAwait(false);
-                return FrameNormalizer.FromRaw(raw, limits);
-            }
+                {
+                    IHypervisorConsole console = _hypervisors.First(h => h.Supports(target));
+                    RawFrame raw = await console.ReadFramebufferAsync(target, limits.MaxWidth, limits.MaxHeight, ct).ConfigureAwait(false);
+                    return FrameNormalizer.FromRaw(raw, limits);
+                }
             default:
-            {
-                IDisplayGuestExec exec = _guestExecs.First(e => e.Supports(target));
-                byte[] png = await GuestSource.CaptureAsync(exec, target, TimeSpan.FromSeconds(_options.GuestCaptureTimeoutSeconds), limits.MaxEncodedBytes, ct).ConfigureAwait(false);
-                return FrameNormalizer.FromPng(png, limits);
-            }
+                {
+                    IDisplayGuestExec exec = _guestExecs.First(e => e.Supports(target));
+                    byte[] png = await GuestSource.CaptureAsync(exec, target, TimeSpan.FromSeconds(_options.GuestCaptureTimeoutSeconds), limits.MaxEncodedBytes, ct).ConfigureAwait(false);
+                    return FrameNormalizer.FromPng(png, limits);
+                }
         }
     }
 

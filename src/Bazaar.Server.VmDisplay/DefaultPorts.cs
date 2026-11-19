@@ -5,11 +5,11 @@ namespace Bazaar.Server.VmDisplay;
 /// <summary>The fail-closed gate registered until the host supplies the real one (docs/design/15 taint and kill switch).</summary>
 internal sealed class UnconfiguredDisplayGate : IDisplayGate
 {
-    private static readonly DisplayVerdict s_refused = DisplayVerdict.Deny("no display gate configured");
+    private static readonly DisplayVerdict _refused = DisplayVerdict.Deny("no display gate configured");
 
-    public DisplayVerdict CheckCapture(DisplayTarget target) => s_refused;
+    public DisplayVerdict CheckCapture(DisplayTarget target) => _refused;
 
-    public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) => s_refused;
+    public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) => _refused;
 }
 
 /// <summary>The audit sink registered until the host supplies one: it records nothing.</summary>

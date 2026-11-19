@@ -51,7 +51,7 @@ internal static class Bgra32Converter
 /// <summary>Strict parser for binary PPM (P6, maxval 255) as QEMU writes it.</summary>
 internal static class PpmParser
 {
-    private const int MaxHeaderBytes = 64;
+    private const int _maxHeaderBytes = 64;
 
     /// <summary>Parses <paramref name="data"/>. The size is checked against the data length before any pixel allocation.</summary>
     public static PixelBuffer Parse(ReadOnlySpan<byte> data)
@@ -77,11 +77,11 @@ internal static class PpmParser
     // Skips whitespace, then reads 1 to 5 digits. The header is bounded so a hostile file cannot make the parser scan far.
     private static long ReadNumber(ReadOnlySpan<byte> data, ref int pos)
     {
-        while (pos < data.Length && pos < MaxHeaderBytes && IsWhitespace(data[pos]))
+        while (pos < data.Length && pos < _maxHeaderBytes && IsWhitespace(data[pos]))
             pos++;
         int start = pos;
         long value = 0;
-        while (pos < data.Length && pos < MaxHeaderBytes && data[pos] is >= (byte)'0' and <= (byte)'9')
+        while (pos < data.Length && pos < _maxHeaderBytes && data[pos] is >= (byte)'0' and <= (byte)'9')
         {
             if (pos - start >= 5)
                 throw Malformed("A PPM header number is too long.");

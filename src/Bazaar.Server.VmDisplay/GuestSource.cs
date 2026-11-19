@@ -8,12 +8,12 @@ namespace Bazaar.Server.VmDisplay;
 /// </summary>
 internal static class GuestSource
 {
-    private const string CaptureDirectory = "/run/bazaar/display/";
+    private const string _captureDirectory = "/run/bazaar/display/";
 
     /// <summary>Captures one PNG with <c>grim</c>, fetches it into a capped stream and removes the file.</summary>
     public static async Task<byte[]> CaptureAsync(IDisplayGuestExec exec, DisplayTarget target, TimeSpan timeout, int maxBytes, CancellationToken ct)
     {
-        string path = $"{CaptureDirectory}{Guid.NewGuid():D}.png";
+        string path = $"{_captureDirectory}{Guid.NewGuid():D}.png";
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
