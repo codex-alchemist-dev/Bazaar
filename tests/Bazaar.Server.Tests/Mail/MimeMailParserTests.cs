@@ -77,6 +77,32 @@ public sealed class MimeMailParserTests
         Assert.Equal("application/pdf", parsed.Attachments[0].MediaType);
     }
 
+    [Theory]
+    [InlineData("Content-Type: application/x-msdownload; name=\"setup.exe\"")]
+    [InlineData("Content-Type: application/octet-stream; name=\"setup.exe\"\nContent-Disposition: inline; filename=\"setup.exe\"")]
+    [InlineData("Content-Type: application/octet-stream")]
+    public void Lists_a_part_as_an_attachment_even_when_the_sender_omits_the_attachment_disposition(string headers)
+    {
+        var raw = Bytes($"From: a@example.test\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Type: text/plain\n\nhi\n--b\n{headers}\nContent-Transfer-Encoding: base64\n\nQUJD\n--b--\n");
+
+        var parsed = new MimeMailParser().Parse(raw);
+
+        var attachment = Assert.Single(parsed.Attachments);
+        Assert.Equal(3, attachment.SizeBytes);
+    }
+
+    [Fact]
+    public void Counts_parts_without_an_attachment_disposition_toward_the_attachment_limit()
+    {
+        var parts = string.Concat(Enumerable.Range(0, 3).Select(i =>
+            $"\n--b\nContent-Type: application/octet-stream; name=\"f{i}.bin\"\nContent-Transfer-Encoding: base64\n\nQUJD\n"));
+        var raw = Bytes($"From: a@example.test\nContent-Type: multipart/mixed; boundary=b\n\n--b\nContent-Type: text/plain\n\nhi{parts}\n--b--\n");
+
+        var ex = Assert.Throws<MailLimitException>(() => new MimeMailParser(new MailLimits { MaxAttachments = 2 }).Parse(raw));
+
+        Assert.Equal("attachments", ex.Limit);
+    }
+
     [Fact]
     public void Rejects_nesting_deeper_than_limit()
     {
