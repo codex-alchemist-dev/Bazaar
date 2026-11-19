@@ -15,7 +15,7 @@ namespace Bazaar.Client.Views.Tests;
 /// <summary>The RyuseiFuda schedule pane as a view document (doc 41c): per-row Pause and Resume through button arguments.</summary>
 public class RyuseiScheduleViewTests
 {
-    private const string Model = """
+    private const string _model = """
         { "triggers": [
           { "id": "t-1", "kind": "interval", "state": "active", "nextFire": "2026-11-20T08:00:00Z", "targetNames": ["Charles"], "purpose": "Standup" },
           { "id": "t-2", "kind": "timer", "state": "paused", "nextFire": null, "targetNames": [], "purpose": "Backup" },
@@ -32,7 +32,7 @@ public class RyuseiScheduleViewTests
 
     private static RyuseiSchedulePaneViewModel Pane(bool connected)
     {
-        using JsonDocument json = JsonDocument.Parse(Model);
+        using JsonDocument json = JsonDocument.Parse(_model);
         var descriptor = new PaneDescriptor(PaneKinds.RyuseiSchedule, "Schedule", "ryusei.schedule", json.RootElement.Clone());
         return new RyuseiSchedulePaneViewModel(descriptor, connected ? new NoopTriggerActions() : null);
     }
