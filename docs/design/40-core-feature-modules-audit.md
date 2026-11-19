@@ -140,3 +140,13 @@ Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
 - `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs`, `Turns/Tools/Db/SessionTaintMapping.cs`: use `IToolPolicyEngine`, `SessionRoles`, `SessionTaint`, `TaintState` and `TaintSource` (`Bazaar.Server.Security`). Move with the Security abstractions.
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
+
+## Git Solar System server module (doc 19, WP11 server half)
+
+New module projects on Bazaar.Core, built on the narrow ports in `Bazaar.Server.GitSolarSystem.Abstractions` (`IGitSolarHistorySource`, `IGitSolarLayout`, `IGitSolarSettings`):
+
+- `Bazaar.Server.GitSolarSystem.Abstractions`: the ports and their records. No upstream reference yet.
+- `Bazaar.Server.GitSolarSystem`: `GitSolarSnapshotBuilder` (pure), `GitSolarFeedService`, `GitSolarRoutes` (`GET /git/{provider}/repos/{owner}/{repo}/solar`), `AddBazaarGitSolarSystem`, `GitSolarSystemComponent`.
+- `Bazaar.Server.GitSolarSystem.Tests`: builder, service and route tests on fakes.
+
+Adapters from the ports to the real git index (`src/Bazaar.Server/Constellation/GitDag`) and the constellation orbit layout (`src/Bazaar.Server/Constellation/Layout/SolarOrbitLayout.cs`) are a follow-up. Nothing in `Bazaar.Server` or the host changed.
