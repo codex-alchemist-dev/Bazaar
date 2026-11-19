@@ -68,6 +68,27 @@ public sealed class GcMessageEditor(
 
     private async Task<(GcMessageEditOutcome? Refusal, IReadOnlyList<AppendRequest> Rows, int Version)> PlanOneAsync(GcMessageEdit request, CancellationToken ct)
     {
+        // A retry of an edit that already committed (its answer was lost to a crash or a dropped socket) gets the original result.
+        // Planning it again would see its own text as the current version and refuse it as unchanged. The row below carries the
+        // same idempotency key, so the writer answers it from the stored event and writes nothing.
+        if (await source.FindPriorEditAsync(request.GcId, request.MessageId, request.EditorId, request.ClientMsgId, ct).ConfigureAwait(false) is { } prior)
+        {
+            var repeatBody = await bodies.SealAsync(request.EditorId, request.Text, ct).ConfigureAwait(false);
+            var repeat = new AppendRequest(
+                request.GcId,
+                GcEventKinds.MessageEdit,
+                AuthorKindOf(request.EditorKind),
+                request.EditorId,
+                request.EditorKind == PrincipalKind.Agent ? SourceTrust.Agent : request.EditorKind == PrincipalKind.Owner ? SourceTrust.Owner : SourceTrust.MemberHuman,
+                request.ClientMsgId)
+            {
+                MessageId = request.MessageId,
+                Version = prior.Version,
+                Message = repeatBody,
+            };
+            return (null, [repeat], prior.Version);
+        }
+
         var snapshot = await source.LoadAsync(request.GcId, request.MessageId, ct).ConfigureAwait(false);
         if (snapshot is null)
             return (new GcMessageEditNotFound(), [], 0);

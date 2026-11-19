@@ -284,6 +284,36 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         Assert.Equal(2L, await versions.ExecuteScalarAsync(ct));
     }
 
+    // Chaos finding (crash-only campaign): the host was killed after an edit committed but before its answer reached the client. The
+    // in-memory request-id cache died with the process, so the client's retry with the same request id was planned again, compared with
+    // its own committed text, and refused as "The text is unchanged". The handler is called directly here, as after a restart.
+    [Fact]
+    public async Task Retrying_a_committed_edit_with_the_same_request_id_returns_the_original_result()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var author = Human(Guid.CreateVersion7());
+        var gc = await GcWithMemberAsync(author);
+        var connection = new FakeWireConnection(db.DataSource, author);
+        var sent = Decode<GcSendResult>(await SendAsync(connection, gc, "first draft", "send-r1", ct: ct));
+        var messageId = await MessageIdAtSeqAsync(gc, sent.N);
+
+        var first = Decode<GcSendResult>(await EditAsync(connection, gc, messageId, "second draft", "edit-r1"));
+        var later = Decode<GcSendResult>(await EditAsync(connection, gc, messageId, "third draft", "edit-r2"));
+        var retry = await EditAsync(connection, gc, messageId, "second draft", "edit-r1");
+
+        Assert.True(retry.IsOk);
+        Assert.Equal(first, Decode<GcSendResult>(retry));
+        Assert.Equal(3, later.Ev);
+        await using var versions = db.DataSource.CreateCommand("SELECT COUNT(*) FROM gc_message_version WHERE gc_id = $1 AND message_id = $2");
+        versions.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        versions.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = messageId });
+        Assert.Equal(3L, await versions.ExecuteScalarAsync(ct));
+        await using var head = db.DataSource.CreateCommand("SELECT head_seq FROM gc WHERE gc_id = $1");
+        head.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        Assert.Equal(later.N, await head.ExecuteScalarAsync(ct));
+    }
+
     [Fact]
     public async Task Someone_who_is_not_the_author_cannot_edit_the_message()
     {
