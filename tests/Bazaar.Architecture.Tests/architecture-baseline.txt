@@ -131,15 +131,6 @@ src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
 src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
 src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
 src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
-src/Bazaar.Server/Components/Remote/IRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/ITokenService.cs
-src/Bazaar.Server/Components/Remote/InMemoryRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/PostgresRefreshCredentialStore.cs
-src/Bazaar.Server/Components/Remote/RefreshCredentialSecret.cs
-src/Bazaar.Server/Components/Remote/RemoteComponent.cs
-src/Bazaar.Server/Components/Remote/RemoteTokenOptions.cs
-src/Bazaar.Server/Components/Remote/RemoteTokensServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Remote/TokenService.cs
 src/Bazaar.Server/Constellation/Clustering/LouvainClustering.cs
 src/Bazaar.Server/Constellation/Clustering/WeightedEdge.cs
 src/Bazaar.Server/Constellation/ConstellationComponent.cs
@@ -260,10 +251,7 @@ src/Bazaar.Server/Gc/Members/GcPolicySettings.cs
 src/Bazaar.Server/Gc/Members/PgGcMembershipSource.cs
 src/Bazaar.Server/Gc/Members/ThinkingGcRules.cs
 src/Bazaar.Server/Gc/Mentions/BroadcastPolicy.cs
-src/Bazaar.Server/Gc/Mentions/InboxPlanner.cs
 src/Bazaar.Server/Gc/Mentions/InboxRowWriter.cs
-src/Bazaar.Server/Gc/Mentions/MentionRecords.cs
-src/Bazaar.Server/Gc/Mentions/MentionValidator.cs
 src/Bazaar.Server/Gc/Provenance/DefaultGcTrustHook.cs
 src/Bazaar.Server/Gc/Provenance/GcProvenanceServiceCollectionExtensions.cs
 src/Bazaar.Server/Gc/Read/GcCatchUpReader.cs
