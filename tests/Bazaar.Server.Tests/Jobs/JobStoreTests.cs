@@ -182,4 +182,22 @@ public sealed class JobStoreTests(JobDb db) : IClassFixture<JobDb>
         var ex = await Assert.ThrowsAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync(Ct));
         Assert.Equal("23514", ex.SqlState);
     }
+
+    [Fact]
+    public async Task Only_the_lease_holder_can_extend_a_lease()
+    {
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var id = (await Store.EnqueueAsync("extend", "{}", ct: Ct))!.Value;
+        Assert.Single(await Store.ClaimDueAsync("holder", TimeSpan.FromSeconds(1), 10, Ct));
+
+        Assert.False(await Store.ExtendLeaseAsync(id, "intruder", TimeSpan.FromMinutes(5), Ct));
+        Assert.True(await Store.ExtendLeaseAsync(id, "holder", TimeSpan.FromMinutes(5), Ct));
+
+        // The extended lease outlasts the original one-second lease.
+        await Task.Delay(TimeSpan.FromSeconds(1.5), Ct);
+        Assert.Empty(await Store.ClaimDueAsync("new-host", TimeSpan.FromMinutes(1), 10, Ct));
+        await Store.CompleteAsync(id, "holder", Ct);
+        Assert.False(await Store.ExtendLeaseAsync(id, "holder", TimeSpan.FromMinutes(5), Ct));
+    }
 }
