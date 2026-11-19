@@ -283,7 +283,7 @@ Scope of 11.3 now: agent token budgets only (spends, limits, sums, decisions and
 
 The larger tier for amounts beyond the `numeric` limits is specified in 11.4. The separate bounds policy is what lets it be added without changing `TokenAmount`.
 
-PLANNED follow-up, not done: the gateway usage counters (the `gw_usage` token columns, `ModelUsage`, and the usage rollups in `05` and `23`) stay `bigint` in Postgres and `long` in code for now. Until that slice lands, an upstream usage value outside the `long` range keeps today's behaviour: it is ignored and the row uses the estimate.
+Built status, gateway counters: BUILT (2026-11-19). The `gw_usage` token columns are `numeric` (migration `gateway/0001`), and `GatewayTokenUsage`, the usage accumulator, totals and hourly rollup use `TokenAmount` (docs `05` and `23`). An upstream usage value that is negative, not a number, or outside the `numeric` bounds is not stored: the report is ignored and the row uses the estimate, marked estimated. The large tier of 11.4 does not apply to these counters yet.
 
 DECIDED 11.4 (owner, 2026-11-19, project chat and card): the disk is the limit. The owner's words: "why not. Make the disk the limit. Just make sure it still stays secure and encrypted in postgres properly and won't be a seperate database we use." On the card that followed, the owner chose no field encryption for amounts. Built status: PLANNED. The rules:
 
