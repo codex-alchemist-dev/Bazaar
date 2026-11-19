@@ -107,12 +107,34 @@ Scope: Windows executables, MSI and Velopack packages. Linux: SHA-256 sums plus 
 ## Data and interfaces (sketches)
 
 ```csharp
+// Bazaar.Contracts.Releases. Immutable; validated on construction (ArgumentException); decoded through IWireCodec.
 public sealed record ReleaseManifest(
-    string AppVersion, string MinProtocol, string MaxProtocol,
-    string SchemaVersion, IReadOnlyList<ReleaseArtifact> Artifacts);
+    string Channel, string AppVersion, string MinProtocol, string MaxProtocol,
+    string SchemaVersion, string SigningKeyFingerprint, IReadOnlyList<ReleaseArtifact> Artifacts);
 
-public sealed record ReleaseArtifact(string Os, string Format, string Sha256, string SignatureRef);
+public sealed record ReleaseArtifact(
+    string Os, string Architecture, string Format, string Url, long SizeBytes,
+    string Sha256, string Sha256Url, string SignatureUrl);
 ```
+
+Final field set (the Linux updater, module `Bazaar.Client.Updater.Linux`, builds on it; the Windows Velopack path and `Bazaar.Updates.UpdateManifest` are unchanged):
+
+- `Channel` is one of the exact `update.channel` values (`LTSC`, `Stable`, `Beta`, `Alpha`, `Latest-Commit`); the version's pre-release suffix must match it (Stable and LTSC none, Beta `-beta.N` or `-rc.N`, Alpha `-alpha.N`, Latest-Commit `-dev.N`), so a feed cannot mislabel a build.
+- `AppVersion` is a SemVer string with no leading `v`, optionally with `+commit` build metadata.
+- `MinProtocol` and `MaxProtocol` are doc 02 `major.minor` strings, min not above max.
+- `SchemaVersion` is the database schema the build needs (doc 04), a short token of letters, digits, `.`, `_` and `-`; the updater uses it with the downgrade refusal of section 6.
+- `SigningKeyFingerprint` is the lowercase hex OpenPGP fingerprint (40 or 64 characters) of the key behind every `.asc` in the manifest; the updater accepts a signature only from a key it already trusts with that fingerprint (section 7).
+- `Artifacts` holds 1 to 64 builds, at most one per OS, architecture and format.
+- `Os` is `linux` today (the only built artifact).
+- `Architecture` is the .NET runtime identifier, `linux-x64` or `linux-arm64`, and must belong to `Os`.
+- `Format` is `tar.gz` or `appimage` (section 3); deb and rpm stay deferred.
+- `Url` is where the package downloads from: absolute `https`, or relative to the manifest's own address; no credentials, query or fragment. Plain `http` is refused.
+- `SizeBytes` is the package size (1 byte to 4 GiB); the updater aborts a download that exceeds it.
+- `Sha256` is the lowercase 64-character hex SHA-256 of the package bytes.
+- `Sha256Url` points at the `.sha256` file that `build-tarball.sh` writes; the updater checks it against the inline `Sha256` and refuses on any difference.
+- `SignatureUrl` points at the detached OpenPGP `.asc` over the package bytes. It replaces the earlier `SignatureRef` placeholder.
+
+The records are registered in `WireJsonContext`; a payload that breaks these rules decodes as a bad frame (`WireFormatException`). The manifest is untrusted until both the hash and the signature verify.
 
 Handshake (format per doc 02): `{ "component": "client-linux", "appVersion": "0.0.0", "protocolVersion": "<major.minor per doc 02>" }`.
 
