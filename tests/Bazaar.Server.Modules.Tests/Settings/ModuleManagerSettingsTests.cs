@@ -257,7 +257,7 @@ public sealed class ModuleManagerSettingsTests
     [Fact]
     public void Update_channel_is_registered_as_an_install_key_the_operator_changes()
     {
-        Assert.True(SettingRegistry.Known.TryGet("update.channel", out var definition));
+        Assert.True(_known.TryGet("update.channel", out var definition));
         Assert.Same(ModuleManagerSettings.Channel, definition);
         Assert.Equal(SettingScope.Install, ModuleManagerSettings.Channel.Scope);
         Assert.Equal(SettingRole.Operator, ModuleManagerSettings.Channel.WhoMayChange);
@@ -300,7 +300,7 @@ public sealed class ModuleManagerSettingsTests
     [Fact]
     public void Update_channel_read_back_from_storage_round_trips()
     {
-        Assert.True(SettingRegistry.Known.TryGet("update.channel", out var definition));
+        Assert.True(_known.TryGet("update.channel", out var definition));
         using var doc = JsonDocument.Parse("\"ltsc\"");
         Assert.Null(definition!.CheckValue(doc.RootElement));
         Assert.Equal(UpdateChannel.Ltsc, ModuleManagerSettings.Channel.Read(doc.RootElement));
