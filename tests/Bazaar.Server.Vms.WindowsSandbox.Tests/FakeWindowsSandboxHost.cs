@@ -81,6 +81,15 @@ internal sealed class FakeWindowsSandboxHost : IWindowsSandboxHost
         }
     }
 
+    public Task<SandboxExecResult> ExecAsync(string instanceId, IReadOnlyList<string> command, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            Calls.Add($"exec:{instanceId}:{string.Join(' ', command)}");
+            return Task.FromResult(new SandboxExecResult(0, string.Empty, string.Empty));
+        }
+    }
+
     /// <summary>Simulates a sandbox closing on its own, as a user would close the window.</summary>
     public void CloseFromOutside(string instanceId)
     {

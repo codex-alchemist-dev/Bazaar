@@ -19,8 +19,9 @@ PG19_TARBALL=postgresql-19rc2.tar.gz
 PG19_URL=https://ftp.postgresql.org/pub/source/v19rc2/postgresql-19rc2.tar.gz
 PG19_SHA256=ea5b4ebcbc0b0e8c804a647af546ffa05727c55087b0458c818c1f8058c229b7
 
-# pgvector: the same pin as versions.txt (computed in CI from the v0.8.2 GitHub archive, 2026-11-12).
-PGVECTOR_VERSION=0.8.2
-PGVECTOR_TARBALL=pgvector-0.8.2.tar.gz
-PGVECTOR_URL=https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.2.tar.gz
-PGVECTOR_SHA256=69F4019389AF05DC1C9548DEB8628E62878E6E207C03907F2B8AF2016472CDAA
+# pgvector: the same pin as versions.txt (computed on a Linux and a Windows GitHub runner from the v0.8.7 GitHub archive,
+# 2026-11-15; both agreed, run 43711548274). Keep this equal to versions.txt when either moves.
+PGVECTOR_VERSION=0.8.7
+PGVECTOR_TARBALL=pgvector-0.8.7.tar.gz
+PGVECTOR_URL=https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.7.tar.gz
+PGVECTOR_SHA256=CAC0B10C360F05B2D521200105BA3697E773D4CD3731F5A915A7E37EBE0BEA85
