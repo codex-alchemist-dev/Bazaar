@@ -29,7 +29,7 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             return ModuleSignatureStatus.Malformed;
         }
 
-        if (package.Signature.Length == 0)
+        if (package.Signature is null || package.Signature.Length == 0)
         {
             return ModuleSignatureStatus.MissingSignature;
         }
@@ -78,6 +78,6 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             return false;
         }
 
-        return package.DeclaredPermissions.All(permission => !string.IsNullOrWhiteSpace(permission));
+        return package.DeclaredPermissions is not null && package.DeclaredPermissions.All(permission => !string.IsNullOrWhiteSpace(permission));
     }
 }
