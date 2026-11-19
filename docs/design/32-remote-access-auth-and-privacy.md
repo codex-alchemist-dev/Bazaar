@@ -125,7 +125,7 @@ recovery_code(id, human_id, hash, used_at)
 privacy_settings(instance_id, profile, overlays jsonb, contact, retention jsonb)
 privacy_request(id, subject_ref, kind, status, due_at, completed_at)
 approval_key(id, human_id, device_id, public_key, alg, created_at, revoked_at)
-crash_install(install_id, device_id, shared, registered_at)  -- owned by the diagnostics module (doc 43 section 12.1) [PROPOSED]
+crash_install(install_id, device_id, shared, registered_at)  -- owned by the diagnostics module (doc 43 section 12.1) [DECIDED]
 ```
 ```csharp
 interface ITokenService { Task<TokenPair> RefreshAsync(string refresh, DeviceInfo d); Task RevokeDeviceAsync(Guid deviceId, PrincipalRef by); }
@@ -199,5 +199,5 @@ MOVED TO SETTINGS: auth.access_token_minutes, auth.refresh_sliding_days, auth.re
 ANSWERED: The sign-in page exception is approved with the three-route scope (sign-in, pairing approval, recovery), off by default, showing no content (DECISIONS-LOG round 11, C42).
 ANSWERED: GC-log erasure uses per-person encrypted personal fields from day 1, with key destruction and a tombstone; the legal position goes to counsel (DECISIONS-LOG round 2, C01).
 
-### Crash install binding [PROPOSED, 2026-11-18, reversible]
+### Crash install binding [DECIDED, owner card 2026-11-19]
 A crash report carries a random `install_id` (doc 43), which is not a device id and is not hardware-derived. The server binds it to the authenticated device on the first `crash.submit` that carries it (`crash_install`, owned by the diagnostics module). Later submissions of that install id from another device are refused. A device may hold several install ids over time (reinstalls), so one device maps to many installs. The owner of an install is the `human_id` of its device, and a person's installs are those of all their devices, including revoked ones (erasure reaches them). An install bound with `shared = true` has no owner and its reports are sealed under the company key (doc 43 section 11.3). The Identity thread does not own this table; it only supplies the authenticated device id.
