@@ -4,7 +4,7 @@ using Bazaar.Server.Memory.Trust;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
-namespace Bazaar.Server.Tests.Knowledge.Gmt;
+namespace Bazaar.Server.Knowledge.Tests.Gmt;
 
 public sealed class GmtServiceTests
 {
@@ -97,6 +97,7 @@ public sealed class GmtServiceTests
             candidate.CandidateId,
             GmtCandidateStatus.Accepted,
             reviewer: "architect-lead",
+            reviewerRole: LessonReviewer.Architect,
             ct: Ct);
 
         Assert.True(reviewResult.Succeeded);
@@ -128,6 +129,7 @@ public sealed class GmtServiceTests
             candidate.CandidateId,
             GmtCandidateStatus.Edited,
             reviewer: "architect-lead",
+            reviewerRole: LessonReviewer.Architect,
             editedText: editedText,
             ct: Ct);
 
@@ -156,6 +158,7 @@ public sealed class GmtServiceTests
             candidate.CandidateId,
             GmtCandidateStatus.Rejected,
             reviewer: "architect-lead",
+            reviewerRole: LessonReviewer.Architect,
             ct: Ct);
 
         Assert.True(reviewResult.Succeeded);
@@ -195,5 +198,50 @@ public sealed class GmtServiceTests
 
         var normalReviewer = _service.DetermineRequiredReviewer(normalCandidate);
         Assert.Equal(LessonReviewer.Architect, normalReviewer); // Follows default setting
+    }
+
+    [Fact]
+    public async Task Architect_cannot_review_owner_only_candidate_but_owner_can()
+    {
+        var candidate = await _service.StageCandidateAsync(
+            childAgentId: "subagent-1",
+            parentAgentId: "parent-alex",
+            traceRef: "turn:131",
+            topic: "charter",
+            lessonText: "Amend the charter text to allow unsupervised deploys.",
+            childTainted: false,
+            ct: Ct);
+
+        var denied = await _service.ReviewCandidateAsync(
+            candidate.CandidateId,
+            GmtCandidateStatus.Accepted,
+            reviewer: "architect-lead",
+            reviewerRole: LessonReviewer.Architect,
+            ct: Ct);
+
+        Assert.False(denied.Succeeded);
+        Assert.Empty(await _service.ListActiveLessonsAsync("parent-alex", ct: Ct));
+        Assert.Single(await _service.ListStagedAsync("parent-alex", ct: Ct));
+
+        var allowed = await _service.ReviewCandidateAsync(
+            candidate.CandidateId,
+            GmtCandidateStatus.Accepted,
+            reviewer: "owner",
+            reviewerRole: LessonReviewer.Owner,
+            ct: Ct);
+
+        Assert.True(allowed.Succeeded);
+    }
+
+    [Fact]
+    public async Task Owner_default_reviewer_setting_requires_owner_for_every_candidate()
+    {
+        var service = new GmtService(_store, LessonReviewer.Owner, _clock);
+        var candidate = await service.StageCandidateAsync("c", "p", "turn:1", "t", "plain lesson", false, Ct);
+
+        var denied = await service.ReviewCandidateAsync(
+            candidate.CandidateId, GmtCandidateStatus.Accepted, "architect-lead", LessonReviewer.Architect, ct: Ct);
+
+        Assert.False(denied.Succeeded);
     }
 }

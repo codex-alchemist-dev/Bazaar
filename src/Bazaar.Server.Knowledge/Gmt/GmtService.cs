@@ -96,11 +96,15 @@ public sealed class GmtService
         return _defaultReviewer;
     }
 
-    /// <summary>Reviews a staged lesson candidate in the queue.</summary>
+    /// <summary>
+    /// Reviews a staged lesson candidate in the queue. <paramref name="reviewerRole"/> is the role the reviewer acts in;
+    /// it must satisfy <see cref="DetermineRequiredReviewer"/> (the owner can review anything, the architect only what is not owner-only).
+    /// </summary>
     public async Task<GmtReviewResult> ReviewCandidateAsync(
         Guid candidateId,
         GmtCandidateStatus decision,
         string reviewer,
+        LessonReviewer reviewerRole,
         string? editedText = null,
         CancellationToken ct = default)
     {
@@ -125,6 +129,12 @@ public sealed class GmtService
         if (candidate.Status != GmtCandidateStatus.Staged)
         {
             return new GmtReviewResult(false, $"Candidate '{candidateId}' is already in status '{candidate.Status}'.");
+        }
+
+        var required = DetermineRequiredReviewer(candidate);
+        if (required == LessonReviewer.Owner && reviewerRole != LessonReviewer.Owner)
+        {
+            return new GmtReviewResult(false, "This candidate must be reviewed by the owner (doc 25: tool grants and charter text always go to the owner).");
         }
 
         var now = _timeProvider.GetUtcNow();
