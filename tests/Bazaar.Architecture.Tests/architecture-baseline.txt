@@ -434,6 +434,7 @@ src/Bazaar.Server/Memory/Trust/MemoryRetrieval.cs
 src/Bazaar.Server/Memory/Trust/MemoryTier.cs
 src/Bazaar.Server/Memory/Trust/MemoryTrustRules.cs
 src/Bazaar.Server/Memory/Trust/MemoryWriteInput.cs
+src/Bazaar.Server/Memory/Trust/QuarantineTierMapping.cs
 src/Bazaar.Server/Memory/Write/IMemoryBatchSink.cs
 src/Bazaar.Server/Memory/Write/IMemorySpool.cs
 src/Bazaar.Server/Memory/Write/InMemoryMemorySpool.cs
