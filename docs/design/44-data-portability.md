@@ -284,7 +284,18 @@ Parsing untrusted files is the riskiest step, so it runs in a separate process:
 - Document formats are parsed without macros, without external entity resolution, and without executing embedded content. Embedded objects are listed in the preview and not extracted.
 - A parser crash fails only the job. The host restarts the parser with the job's checkpoint (crash-only design, doc 46 health hooks).
 
-Built status (2026-11-18): the in-process checks exist in `Bazaar.Server.Portability` (`ImportLimits`, `ArchiveGuard`): source size, archive entry count, entry-name path checks (absolute, drive and `..` paths), symlink and special-file rejection, expansion ratio, expanded bytes, XML nesting depth, record size, and DTDs prohibited. The docx importer and the import pipeline enforce them. Not built: the separate parser process, OS confinement, the wall-clock timeout per record, and wiring the limits to the settings registry (doc 03). The four limits without a documented default (`max_archive_entries`, `max_nesting_depth`, `max_record_bytes`, `max_expanded_bytes`) take their defaults from this change, per the configurability rule.
+Built status (2026-11-18): the in-process checks exist in `Bazaar.Server.Portability` (`ImportLimits`, `ArchiveGuard`): source size, archive entry count, entry-name path checks (absolute, drive and `..` paths), symlink and special-file rejection, expansion ratio, expanded bytes, XML nesting depth, record size, and DTDs prohibited. The docx importer and the import pipeline enforce them. The four limits without a documented default (`max_archive_entries`, `max_nesting_depth`, `max_record_bytes`, `max_expanded_bytes`) take their defaults from this change, per the configurability rule.
+
+Built status (2026-11-19, work package 10): the separate parser process exists. `Bazaar.Server.Portability.Sandbox` (runner, `SandboxedImporter`, crash-loop tracker, Linux provider) with `Bazaar.Server.Portability.Sandbox.Abstractions` (provider interface `IParserConfinement`, `ParserSandboxOptions`, failure kinds, the frame protocol) and the child executable `Bazaar.Server.Portability.ParserHost`. `ParserSandboxRunner.CreateImporters()` returns `IPortabilityImporter` wrappers, so `ImportPipeline` runs unchanged and Detect and Parse both run in the child. The child gets the staged input on stdin (a length-prefixed JSON request header, then the raw bytes) and returns `SourceRecord` frames, length-prefixed System.Text.Json source-generated JSON (no Protobuf; server-internal frames, so they do not use the client `Envelope` payload registry of `IWireCodec`). The child enforces `ImportLimits` itself. The server kills the whole process tree on a timeout, an oversize frame or too much output, and a crash, hang or limit failure ends the job as `failed` with no preview and no instance write. Importer modules load into the child only (`ImporterAssemblies`).
+
+Where this doc was silent, these are settings with safe defaults (not yet in the settings registry of doc 03; the settings table below lists the keys): record timeout 30 s (the wait for the next frame, because the importer contract returns a list, so the first frame comes after Parse returns), job timeout 15 min, memory ceiling 2 GiB, CPU ceiling 300 s, output cap 1 GiB, crash-loop threshold 3 abnormal endings in 10 min, `RequireFullConfinement` false. A crash-loop opens a per-importer circuit that refuses jobs until the window passes (or an operator reset), and raises the `parser_crash_loop` signal once.
+
+OS confinement actually applied:
+
+- Linux (`LinuxParserConfinement`, tested here): own session and process group killed as a group (`setsid`), CPU-time and core-dump limits (`prlimit`), a new network namespace (`unshare --net`, with a user namespace fallback) when the host allows it, a managed heap ceiling (`DOTNET_GCHeapHardLimit`, all OSes), an empty scratch working directory, and a scrubbed environment (only `PATH`, `DOTNET_ROOT`, temp and Windows system variables pass).
+- Windows (`WindowsJobObjectConfinement` in `Bazaar.Server.Providers.Windows`, compiled but not run on Windows): job object with per-process memory and CPU limits, an active-process limit of one, kill on close, and `TerminateJobObject` as the tree kill. The child is assigned to the job right after it starts (.NET cannot start a process suspended).
+- Not applied anywhere yet: file-system read scoping ("read access only to its staging input") and write confinement (a zero file-size limit kills the .NET runtime at startup), a child-process cap on Linux, and network isolation on Windows. Each run reports these in `ParserRunInfo.NotApplied`; `RequireFullConfinement` makes a job refuse to run when anything is missing.
+- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and the health-contract self-test over the sandbox.
 
 ### 8.4 Idempotent re-import
 
@@ -413,6 +424,14 @@ Keys are install-scoped. The operator changes them in the setup wizard or advanc
 | `portability.import.max_nesting_depth` | int | 100 | Min 1 | Operator | No |
 | `portability.import.max_record_bytes` | int | 64 MiB | Min 1 | Operator | No |
 | `portability.import.max_expanded_bytes` | int | 512 MiB | Min 1 | Operator | No |
+| `portability.import.parser.record_timeout_seconds` | int | 30 | Min 1 | Operator | No |
+| `portability.import.parser.job_timeout_seconds` | int | 900 | Min 1 | Operator | No |
+| `portability.import.parser.max_memory_bytes` | int | 2 GiB | Min 64 MiB | Operator | No |
+| `portability.import.parser.max_cpu_seconds` | int | 300 | Min 1 | Operator | No |
+| `portability.import.parser.max_output_bytes` | int | 1 GiB | Min 1 | Operator | No |
+| `portability.import.parser.crash_loop_threshold` | int | 3 | Min 1 | Operator | No |
+| `portability.import.parser.crash_loop_window_minutes` | int | 10 | Min 1 | Operator | No |
+| `portability.import.parser.require_full_confinement` | bool | false | Operator may set true | Operator | No |
 | `portability.import.batch_items` | int | 500 | 1 to 5000 | Operator | No |
 | `portability.import.write_rate` | int | 200 items per second | Bounded by chat latency budget | Operator | No |
 | `portability.import.secret_scan` | enum: `quarantine`, `warn`, `off` | `quarantine` | `off` not allowed for text from external sources | Operator | Yes (owner) to set `warn` or `off` |

@@ -1,0 +1,424 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+
+namespace Bazaar.Server.Portability.Sandbox;
+
+/// <summary>
+/// Runs Detect and Parse of an importer in a separate child process (doc 44 section 8.3, work package 10). The server
+/// process never executes importer code. Every failure (hang, crash, oversize output, broken limit) ends as a
+/// <see cref="ParserSandboxException"/> with the child's whole process tree killed and nothing written to the instance.
+/// </summary>
+public sealed class ParserSandboxRunner
+{
+    private const string _hostFileName = "Bazaar.Server.Portability.ParserHost.dll";
+    private const int _stderrTailChars = 2048;
+    private static readonly TimeSpan _exitGrace = TimeSpan.FromSeconds(5);
+    private static readonly string[] _inheritedEnvironment =
+        ["PATH", "DOTNET_ROOT", "SystemRoot", "windir", "TEMP", "TMP", "TMPDIR"];
+
+    private readonly ParserSandboxOptions _options;
+    private readonly IParserConfinement _confinement;
+    private volatile ParserRunInfo? _lastRun;
+
+    public ParserSandboxRunner(
+        ParserSandboxOptions options,
+        IParserConfinement? confinement = null,
+        IParserSignalSink? signals = null,
+        TimeProvider? time = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        options.Validate();
+        _options = options;
+        _confinement = confinement ?? ParserConfinements.CreateDefault();
+        CrashTracker = new ParserCrashTracker(options.CrashLoopThreshold, options.CrashLoopWindow, signals, time);
+    }
+
+    /// <summary>The crash-loop circuit. Operators reset it after fixing the cause.</summary>
+    public ParserCrashTracker CrashTracker { get; }
+
+    /// <summary>What the confinement provider applied to the most recent child, or null before the first job.</summary>
+    public ParserRunInfo? LastRun => _lastRun;
+
+    public async Task<DetectResult> DetectAsync(string importerId, ImportSource source, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var request = ParserRequest.For(ParserOps.Detect, importerId, source.Name, source.Content.LongLength, _options.Limits);
+        var messages = await RunAsync(request, source.Content, importerId, ct).ConfigureAwait(false);
+        var detect = messages.FirstOrDefault(m => m.Type == ParserMessageTypes.DetectResult)
+            ?? throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser host sent no detect result");
+        return new DetectResult(detect.Confidence, detect.Reason ?? string.Empty);
+    }
+
+    public async Task<IReadOnlyList<SourceRecord>> ParseAsync(string importerId, ImportSource source, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var request = ParserRequest.For(ParserOps.Parse, importerId, source.Name, source.Content.LongLength, _options.Limits);
+        var messages = await RunAsync(request, source.Content, importerId, ct).ConfigureAwait(false);
+        return [.. messages.Where(m => m.Type == ParserMessageTypes.Record).Select(m => m.Record!)];
+    }
+
+    /// <summary>Asks the child which importers it can run. Used to build <see cref="SandboxedImporter"/> wrappers.</summary>
+    public async Task<IReadOnlyList<ParserImporterInfo>> ListImportersAsync(CancellationToken ct = default)
+    {
+        var request = ParserRequest.For(ParserOps.List, string.Empty, string.Empty, 0, _options.Limits);
+        var messages = await RunAsync(request, [], "*", ct).ConfigureAwait(false);
+        return messages.FirstOrDefault(m => m.Type == ParserMessageTypes.Importers)?.Importers ?? [];
+    }
+
+    public DetectResult Detect(string importerId, ImportSource source) =>
+        Task.Run(() => DetectAsync(importerId, source)).GetAwaiter().GetResult();
+
+    public IReadOnlyList<SourceRecord> Parse(string importerId, ImportSource source) =>
+        Task.Run(() => ParseAsync(importerId, source)).GetAwaiter().GetResult();
+
+    public IReadOnlyList<ParserImporterInfo> ListImporters() =>
+        Task.Run(() => ListImportersAsync()).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Importer wrappers for every importer the child offers, ready for <c>new ImportPipeline(...)</c>. The pipeline
+    /// then runs unchanged, with Detect and Parse crossing into the sandbox.
+    /// </summary>
+    public IReadOnlyList<IPortabilityImporter> CreateImporters() =>
+        [.. ListImporters().Select(i => new SandboxedImporter(this, i.Id, i.Version))];
+
+    private async Task<List<ParserMessage>> RunAsync(ParserRequest request, byte[] content, string trackerKey, CancellationToken ct)
+    {
+        CrashTracker.EnsureClosed(trackerKey);
+        try
+        {
+            var messages = await RunChildAsync(request, content, ct).ConfigureAwait(false);
+            CrashTracker.RecordSuccess(trackerKey);
+            return messages;
+        }
+        catch (ParserSandboxException ex) when (ex.CountsAsCrash)
+        {
+            CrashTracker.RecordFailure(trackerKey, $"{ex.Kind}: {ex.Message}");
+            throw;
+        }
+    }
+
+    private async Task<List<ParserMessage>> RunChildAsync(ParserRequest request, byte[] content, CancellationToken ct)
+    {
+        var limits = new ConfinementLimits(_options.MaxMemoryBytes, _options.MaxCpuSeconds);
+        var plan = _confinement.Prepare(limits, BuildCommand());
+        var applied = new List<string>(plan.Applied) { "wall-clock-timeout", "managed-heap-limit", "output-cap", "scrubbed-environment", "empty-working-directory" };
+        _lastRun = new ParserRunInfo(_confinement.Name, applied, plan.NotApplied);
+        if (_options.RequireFullConfinement && plan.NotApplied.Count > 0)
+        {
+            throw new ParserSandboxException(
+                ParserFailureKind.ConfinementUnavailable,
+                $"confinement provider '{_confinement.Name}' could not apply: {string.Join(", ", plan.NotApplied)}");
+        }
+
+        var scratch = Directory.CreateTempSubdirectory("bazaar-parser-");
+        Process? process = null;
+        IProcessGuard? guard = null;
+        try
+        {
+            var info = new ProcessStartInfo(plan.Command.FileName)
+            {
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WorkingDirectory = scratch.FullName,
+            };
+            foreach (var arg in plan.Command.Arguments) info.ArgumentList.Add(arg);
+            ScrubEnvironment(info);
+
+            try
+            {
+                process = Process.Start(info) ?? throw new ParserSandboxException(ParserFailureKind.HostUnavailable, "the parser host did not start");
+            }
+            catch (Win32Exception ex)
+            {
+                throw new ParserSandboxException(ParserFailureKind.HostUnavailable, "the parser host could not be started: " + ex.Message, ex);
+            }
+
+            try
+            {
+                guard = plan.AttachAfterStart?.Invoke(process) ?? new ProcessTreeGuard(process);
+            }
+            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+            {
+                new ProcessTreeGuard(process).KillTree();
+                throw new ParserSandboxException(ParserFailureKind.ConfinementUnavailable, "the confinement provider could not attach to the child: " + ex.Message, ex);
+            }
+
+            return await Supervise(process, guard, request, content, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            guard?.KillTree();
+            guard?.Dispose();
+            process?.Dispose();
+            try
+            {
+                scratch.Delete(recursive: true);
+            }
+            catch (IOException)
+            {
+                // A leftover scratch directory is empty and harmless; the next run uses a new one.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Same.
+            }
+        }
+    }
+
+    private async Task<List<ParserMessage>> Supervise(Process process, IProcessGuard guard, ParserRequest request, byte[] content, CancellationToken ct)
+    {
+        var timeoutReason = 0; // 0 none, 1 record, 2 job, 3 cancelled
+        void Kill(int reason)
+        {
+            Interlocked.CompareExchange(ref timeoutReason, reason, 0);
+            guard.KillTree();
+        }
+
+        using var jobCts = new CancellationTokenSource(_options.JobTimeout);
+        using var jobReg = jobCts.Token.Register(() => Kill(2));
+        using var callerReg = ct.Register(() => Kill(3));
+
+        var stderrTail = new StringBuilder();
+        var stderrTask = Task.Run(async () =>
+        {
+            try
+            {
+                var buffer = new char[512];
+                int n;
+                while ((n = await process.StandardError.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+                {
+                    lock (stderrTail)
+                    {
+                        stderrTail.Append(buffer, 0, n);
+                        if (stderrTail.Length > _stderrTailChars) stderrTail.Remove(0, stderrTail.Length - _stderrTailChars);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)
+            {
+                // The pipe closed with the process.
+            }
+        }, CancellationToken.None);
+
+        var writeTask = Task.Run(() => WriteInput(process, request, content), CancellationToken.None);
+
+        var messages = new List<ParserMessage>();
+        var maxFrame = ParserFrames.MaxFrameBytes(_options.Limits.MaxRecordBytes);
+        long outputBytes = 0;
+        ParserMessage? terminal = null;
+        Exception? readFailure = null;
+        var stdout = process.StandardOutput.BaseStream;
+
+        try
+        {
+            while (true)
+            {
+                using var recordCts = new CancellationTokenSource(_options.RecordTimeout);
+                using var recordReg = recordCts.Token.Register(() => Kill(1));
+                byte[]? body;
+                try
+                {
+                    body = await ParserFrames.ReadFrameAsync(stdout, maxFrame, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is InvalidDataException or FrameTooLargeException or IOException or ObjectDisposedException)
+                {
+                    readFailure = ex;
+                    break;
+                }
+
+                if (body is null) break;
+                outputBytes += body.Length + 4L;
+                if (outputBytes > _options.MaxOutputBytes)
+                {
+                    guard.KillTree();
+                    throw new ParserSandboxException(ParserFailureKind.OutputTooLarge, $"the parser wrote more than {_options.MaxOutputBytes} bytes");
+                }
+
+                ParserMessage message;
+                try
+                {
+                    message = System.Text.Json.JsonSerializer.Deserialize(body, ParserJsonContext.Default.ParserMessage)
+                        ?? throw new System.Text.Json.JsonException("empty message");
+                }
+                catch (System.Text.Json.JsonException ex)
+                {
+                    guard.KillTree();
+                    throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, "the parser sent a frame that is not valid JSON", ex);
+                }
+
+                if (message.Type is ParserMessageTypes.Done or ParserMessageTypes.Error)
+                {
+                    terminal = message;
+                    break;
+                }
+
+                if (message.Type == ParserMessageTypes.Record && message.Record is { } record
+                    && Encoding.UTF8.GetByteCount(record.Body) > _options.Limits.MaxRecordBytes)
+                {
+                    guard.KillTree();
+                    throw new ParserSandboxException(ParserFailureKind.LimitExceeded, $"record '{record.Title}' is over the limit of {_options.Limits.MaxRecordBytes} bytes");
+                }
+
+                messages.Add(message);
+            }
+        }
+        finally
+        {
+            // Whatever ended the loop, stop the child before the checks below, so the writer and the pipes unblock.
+            if (terminal is null) guard.KillTree();
+        }
+
+        if (terminal is not null)
+        {
+            // The job is decided. Give the child a moment to exit on its own, then end the tree.
+            using var graceCts = new CancellationTokenSource(_exitGrace);
+            try
+            {
+                await process.WaitForExitAsync(graceCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                guard.KillTree();
+            }
+        }
+        else
+        {
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        await Task.WhenAll(writeTask, stderrTask).ConfigureAwait(false);
+
+        switch (Volatile.Read(ref timeoutReason))
+        {
+            case 1:
+                throw new ParserSandboxException(ParserFailureKind.Timeout, $"the parser did not finish a record within {_options.RecordTimeout}; its process tree was killed");
+            case 2:
+                throw new ParserSandboxException(ParserFailureKind.Timeout, $"the parser job ran longer than {_options.JobTimeout}; its process tree was killed");
+            case 3:
+                throw new OperationCanceledException(ct);
+        }
+
+        if (readFailure is FrameTooLargeException tooLarge)
+        {
+            throw new ParserSandboxException(ParserFailureKind.OutputTooLarge, "the parser sent an oversize frame: " + tooLarge.Message);
+        }
+
+        if (readFailure is not null || terminal is null)
+        {
+            var exit = process.HasExited ? process.ExitCode.ToString(CultureInfo.InvariantCulture) : "unknown";
+            string tail;
+            lock (stderrTail)
+            {
+                tail = stderrTail.ToString().Trim();
+            }
+            throw new ParserSandboxException(
+                ParserFailureKind.Crash,
+                $"the parser process ended without a result (exit code {exit})" + (tail.Length > 0 ? ": " + tail : string.Empty)
+                + (readFailure is null ? string.Empty : "; " + readFailure.Message));
+        }
+
+        if (terminal.Type == ParserMessageTypes.Error)
+        {
+            var kind = terminal.ErrorKind == ParserErrorKinds.Limit ? ParserFailureKind.LimitExceeded : ParserFailureKind.ParserError;
+            throw new ParserSandboxException(kind, terminal.Message ?? "parser error");
+        }
+
+        var records = messages.Count(m => m.Type == ParserMessageTypes.Record);
+        if (request.Op == ParserOps.Parse && terminal.Count != records)
+        {
+            throw new ParserSandboxException(ParserFailureKind.ProtocolViolation, $"the parser announced {terminal.Count} records and sent {records}");
+        }
+
+        return messages;
+    }
+
+    private static void WriteInput(Process process, ParserRequest request, byte[] content)
+    {
+        try
+        {
+            var stdin = process.StandardInput.BaseStream;
+            ParserFrames.Write(stdin, request);
+            const int chunk = 64 * 1024;
+            for (var offset = 0; offset < content.Length; offset += chunk)
+            {
+                stdin.Write(content, offset, Math.Min(chunk, content.Length - offset));
+            }
+            stdin.Flush();
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)
+        {
+            // The child ended before it read everything; the read side reports why.
+        }
+        finally
+        {
+            try
+            {
+                process.StandardInput.Close();
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)
+            {
+                // Already closed.
+            }
+        }
+    }
+
+    private LaunchCommand BuildCommand()
+    {
+        var host = string.IsNullOrEmpty(_options.HostAssemblyPath)
+            ? Path.Combine(AppContext.BaseDirectory, _hostFileName)
+            : _options.HostAssemblyPath;
+        var args = new List<string> { host };
+        foreach (var assembly in _options.ImporterAssemblies)
+        {
+            args.Add("--importer-assembly");
+            args.Add(assembly);
+        }
+        var dotnet = ResolveDotnet(_options.DotnetPath);
+        if (!File.Exists(host))
+        {
+            throw new ParserSandboxException(ParserFailureKind.HostUnavailable, "the parser host assembly was not found: " + host);
+        }
+        if (Path.IsPathRooted(dotnet) && !File.Exists(dotnet))
+        {
+            throw new ParserSandboxException(ParserFailureKind.HostUnavailable, "the dotnet host was not found: " + dotnet);
+        }
+        return new LaunchCommand(dotnet, args);
+    }
+
+    private static string ResolveDotnet(string configured)
+    {
+        if (Path.IsPathRooted(configured)) return configured;
+        var exe = OperatingSystem.IsWindows() ? configured + ".exe" : configured;
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = Path.Combine(dir, exe);
+            if (File.Exists(candidate)) return candidate;
+        }
+        if (Environment.GetEnvironmentVariable("DOTNET_ROOT") is { Length: > 0 } root && File.Exists(Path.Combine(root, exe)))
+        {
+            return Path.Combine(root, exe);
+        }
+        return configured;
+    }
+
+    /// <summary>Starts from an empty environment so no secret reaches the child, then adds the few variables it needs.</summary>
+    private void ScrubEnvironment(ProcessStartInfo info)
+    {
+        info.Environment.Clear();
+        foreach (var name in _inheritedEnvironment)
+        {
+            if (Environment.GetEnvironmentVariable(name) is { } value) info.Environment[name] = value;
+        }
+        // The managed heap ceiling is the memory limit that works the same on every OS. Value is hexadecimal.
+        info.Environment["DOTNET_GCHeapHardLimit"] = _options.MaxMemoryBytes.ToString("x", CultureInfo.InvariantCulture);
+        info.Environment["DOTNET_EnableDiagnostics"] = "0";
+        info.Environment["DOTNET_gcServer"] = "0";
+        info.Environment["DOTNET_NOLOGO"] = "1";
+        info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+    }
+}
