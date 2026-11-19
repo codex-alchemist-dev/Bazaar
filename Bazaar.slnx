@@ -76,6 +76,7 @@
     <Project Path="src/Bazaar.Server.Remote/Bazaar.Server.Remote.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool.Abstractions/Bazaar.Server.BrowserPool.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool/Bazaar.Server.BrowserPool.csproj" />
+    <Project Path="src/Bazaar.Server.BrowserPool.Display/Bazaar.Server.BrowserPool.Display.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool.LinuxHost/Bazaar.Server.BrowserPool.LinuxHost.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
@@ -141,6 +142,7 @@
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Remote.Tests/Bazaar.Server.Remote.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.Tests/Bazaar.Server.BrowserPool.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.BrowserPool.Display.Tests/Bazaar.Server.BrowserPool.Display.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.LinuxHost.Tests/Bazaar.Server.BrowserPool.LinuxHost.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
