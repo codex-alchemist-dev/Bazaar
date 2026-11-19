@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.SealedStorage;
 
 /// <summary>
-/// The sealed storage module (doc 60). It registers <see cref="ISealedStore"/> over the active <see cref="IKekProvider"/>.
+/// The sealed storage module (doc 61). It registers <see cref="ISealedStore"/> over the active <see cref="IKekProvider"/>.
 /// Folders come from <c>Bazaar:Host:DataRoot</c>: scopes in <c>sealed</c>, the local anchor in <c>sealed-anchor</c>. A host that
 /// registers its own <see cref="ISealAnchor"/> (for example the audit-log anchor) wins. <see cref="ISealAuditSink"/> must be registered by the
 /// host: there is no silent default, because a store that cannot audit tamper must not start.

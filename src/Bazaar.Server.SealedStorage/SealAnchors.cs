@@ -27,7 +27,7 @@ public sealed class InMemorySealAnchor : ISealAnchor
 }
 
 /// <summary>
-/// Local counter file anchor (doc 60 fallback): one small file per scope in a folder that should live apart from the sealed root.
+/// Local counter file anchor (doc 61 fallback): one small file per scope in a folder that should live apart from the sealed root.
 /// It detects in-place edits and rollback on the same host, not a restore of both folders together.
 /// </summary>
 public sealed class FileSealAnchor : ISealAnchor

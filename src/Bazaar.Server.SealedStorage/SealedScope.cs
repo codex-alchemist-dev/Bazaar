@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Bazaar.Server.SealedStorage;
 
-/// <summary>One scope of the sealed store (doc 60). All operations on a scope are serialised; the manifest is re-read and re-authenticated on every call so a change made while the server runs is caught too.</summary>
+/// <summary>One scope of the sealed store (doc 61). All operations on a scope are serialised; the manifest is re-read and re-authenticated on every call so a change made while the server runs is caught too.</summary>
 internal sealed class SealedScope : ISealedScope
 {
     private readonly SealedStore _store;

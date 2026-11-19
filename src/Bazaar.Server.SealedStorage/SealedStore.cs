@@ -5,7 +5,7 @@ using Bazaar.Server.Identity.Kek;
 namespace Bazaar.Server.SealedStorage;
 
 /// <summary>
-/// The sealed store (doc 60): one folder per scope under <see cref="SealedStoreOptions.RootPath"/>, holding a KEK-wrapped data key,
+/// The sealed store (doc 61): one folder per scope under <see cref="SealedStoreOptions.RootPath"/>, holding a KEK-wrapped data key,
 /// an authenticated manifest and AES-256-GCM files. Failures to authenticate, missing files and rollbacks are audited and thrown as
 /// <see cref="SealTamperedException"/>; nothing falls back to a plaintext or unverified path.
 /// </summary>

@@ -1,7 +1,7 @@
 namespace Bazaar.Server.SealedStorage;
 
 /// <summary>
-/// Entry point of sealed storage (doc 60). A scope is a named group of files with one data key. Every file in a scope is
+/// Entry point of sealed storage (doc 61). A scope is a named group of files with one data key. Every file in a scope is
 /// authenticated ciphertext on disk, and any change made outside Bazaar is detected on read and fails closed.
 /// </summary>
 public interface ISealedStore
@@ -47,7 +47,7 @@ public sealed record SealedEntry(string Path, long Generation);
 /// <summary>Result of <see cref="ISealedScope.VerifyAsync"/>. Unreferenced files are never read; they are reported so the operator sees them.</summary>
 public sealed record SealVerifyReport(int FilesVerified, IReadOnlyList<string> UnreferencedFiles);
 
-/// <summary>Records where the newest manifest of each scope was, so an old copy of the whole scope is detected (doc 60 anti-rollback).</summary>
+/// <summary>Records where the newest manifest of each scope was, so an old copy of the whole scope is detected (doc 61 anti-rollback).</summary>
 public interface ISealAnchor
 {
     /// <summary>The last published manifest generation and hash for a scope, or <c>null</c> when none.</summary>

@@ -396,8 +396,8 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 
 | Decision | Status | Docs |
 |---|---|---|
-| Soul data, agent memory working copies, cookie and Passport profiles and host bootstrap values are encrypted on disk with authenticated encryption under the KEK, and edits from outside Bazaar are detected on read and fail closed. Owner message `cmsg_01MC1BkUhiVHzqr38uyxWzeHKwHGpbCxbmcQVzZBXGVhhR` (2026-11-19): "soul data should be encrypted in their folders and shouldn't be able to be manually edited from the outside ... as well as any data that needs security like that." | DECIDED (owner) | 60, 07, 14 |
-| Module `Bazaar.Server.SealedStorage` + `.Abstractions` (component id `sealed-storage`), reusing `IKekProvider`; not a new KEK, secret store or Vault. Security floor, not a setting. | DECIDED (follows the requirement) | 60, 40 |
-| Format and manifest mechanics (AES-256-GCM, path and generation in the AAD, sealed manifest, anchor) | PROPOSED | 60 |
-| Company Vault git history sealing; sealing the KEK key file | OPEN | 60 Q1, Q2 |
+| Soul data, agent memory working copies, cookie and Passport profiles and host bootstrap values are encrypted on disk with authenticated encryption under the KEK, and edits from outside Bazaar are detected on read and fail closed. Owner message `cmsg_01MC1BkUhiVHzqr38uyxWzeHKwHGpbCxbmcQVzZBXGVhhR` (2026-11-19): "soul data should be encrypted in their folders and shouldn't be able to be manually edited from the outside ... as well as any data that needs security like that." | DECIDED (owner) | 61, 07, 14 |
+| Module `Bazaar.Server.SealedStorage` + `.Abstractions` (component id `sealed-storage`), reusing `IKekProvider`; not a new KEK, secret store or Vault. Security floor, not a setting. | DECIDED (follows the requirement) | 61, 40 |
+| Format and manifest mechanics (AES-256-GCM, path and generation in the AAD, sealed manifest, anchor) | PROPOSED | 61 |
+| Company Vault git history sealing; sealing the KEK key file | OPEN | 61 Q1, Q2 |
 

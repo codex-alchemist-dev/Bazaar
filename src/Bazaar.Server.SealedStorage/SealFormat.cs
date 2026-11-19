@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Bazaar.Server.SealedStorage;
 
-/// <summary>Byte layout and cryptography of doc 60 format v1. Everything here is AES-256-GCM with a fresh random 96-bit nonce per write.</summary>
+/// <summary>Byte layout and cryptography of doc 61 format v1. Everything here is AES-256-GCM with a fresh random 96-bit nonce per write.</summary>
 internal static class SealFormat
 {
     internal const byte Version = 1;
