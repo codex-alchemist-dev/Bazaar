@@ -1,7 +1,7 @@
 using Npgsql;
 using NpgsqlTypes;
 
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>Append-only access to <c>task_events</c> (doc 12, Events). Rows are written in the same transaction as the change they describe.</summary>
 public sealed class TaskEventRepository(NpgsqlDataSource dataSource)
