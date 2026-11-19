@@ -12,5 +12,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers\Bazaar.Server.Providers.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The search table DDL stays in Bazaar.Server's common migrations (frozen namespace); linked so this project needs no Bazaar.Server reference. -->
+    <EmbeddedResource Include="..\..\src\Bazaar.Server\Data\Sql\common\0007_search_document.sql" LogicalName="0007_search_document.sql" />
   </ItemGroup>
 </Project>

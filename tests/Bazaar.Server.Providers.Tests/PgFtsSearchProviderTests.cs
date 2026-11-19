@@ -2,7 +2,7 @@ using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Search.PgFts;
 using Bazaar.Testing.Postgres;
 
-namespace Bazaar.Server.Tests.Providers.Search.PgFts;
+namespace Bazaar.Server.Providers.Tests;
 
 /// <summary>Contract tests for the Postgres full-text provider, on a real server. Each test uses its own scope.</summary>
 public sealed class PgFtsSearchProviderTests(SearchDb db) : IClassFixture<SearchDb>
