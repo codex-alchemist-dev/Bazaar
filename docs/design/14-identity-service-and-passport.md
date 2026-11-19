@@ -74,7 +74,7 @@ Facts (sources are the official tpm2-software docs, the tpm2-tools man pages and
 - Authorization is not identity: the TPM cannot tell who presents the authorization, and anyone holding both the disk and the TPM can unseal if the policy is satisfied. Examples that write the secret to disk must be avoided. Losing the TPM or the policy signing key can make the sealed secret unrecoverable. [tpm2-software "Disk Encryption" article]
 - systemd already wraps this: `systemd-creds encrypt --with-key=` accepts `host` (`/var/lib/systemd/credential.secret`, root-only), `tpm2`, or `host+tpm2` (the default when a TPM2 is present). `--tpm2-pcrs=` binds to PCR indexes (empty by default, meaning no PCR binding); `--tpm2-public-key=` binds to a signed PCR policy (default PCR 11, signatures from `systemd-measure`). Encryption is AES256-GCM. Credentials are pinned to the TPM2 SRK from systemd v262. `--with-key=null` gives no confidentiality and must not be used for the KEK. [systemd-creds man page]
 
-PCR policy options (OPEN which one, if any, is the shipped default):
+PCR policy options (the shipped default is DECIDED below: option 3):
 1. No PCR binding: the KEK is tied to the one TPM chip only. Survives updates; weakest against a booted, compromised OS.
 2. Raw PCR policy (for example secure-boot state): stronger, but breaks on legitimate updates, so a recovery path through the escrowed KEK copy is mandatory.
 3. Signed PCR policy (`tpm2_policyauthorize` or `systemd-creds --tpm2-public-key`): survives updates; adds a policy signing key to custody.
