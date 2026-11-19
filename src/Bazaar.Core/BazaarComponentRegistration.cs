@@ -54,13 +54,18 @@ public static class BazaarComponentRegistration
                     services.Add(descriptor);
                 }
 
-                // Rethrown as is: callers and composition tests rely on the component's own exception type.
+                // Rethrown as is: callers and composition tests rely on the component's own exception type. The failing
+                // component is named in the exception's data, so the host can say which one refused to register.
+                error.Data[FailedComponentIdKey] = manifest.Id;
                 throw;
             }
         }
 
         return services;
     }
+
+    /// <summary>Key in <see cref="Exception.Data"/> that holds the id of the component whose registration threw.</summary>
+    public const string FailedComponentIdKey = "Bazaar.FailedComponentId";
 
     /// <summary>
     /// Renamed component ids, mapped to the id they had. An operator who set the old key keeps their setting: the old key is read

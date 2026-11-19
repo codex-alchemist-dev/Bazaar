@@ -236,7 +236,7 @@ public sealed class ModuleManifestChaosTests
         // The component that fails is named, and nothing it or its predecessors registered stays behind.
         Exception error = Assert.ThrowsAny<Exception>(() => services.AddBazaarComponents(configuration, [good, bad, later]));
 
-        Assert.Contains("bbb", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal("bbb", error.Data[BazaarComponentRegistration.FailedComponentIdKey]);
         Assert.Equal(before, services.Count);
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IHalf));
     }
