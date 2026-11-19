@@ -18,6 +18,9 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly run so the full-history secret scan also runs when no push happens (Mondays 03:17 UTC).
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
@@ -58,11 +61,34 @@ jobs:
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key (Linux)
+        if: runner.os != 'Windows'
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+      # The Windows self-hosted runners have no bash on PATH, so this leg uses PowerShell 7 (pwsh; Windows PowerShell is blocked by the execution policy).
+      - name: Compute NuGet cache key (Windows)
+        if: runner.os == 'Windows'
+        id: nugetkey-win
+        shell: pwsh
+        run: |
+          $files = git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | Sort-Object
+          $parts = $files | ForEach-Object { "$_ " + (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash }
+          $bytes = [System.Text.Encoding]::UTF8.GetBytes(($parts -join "`n"))
+          $hash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
+          "hash=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash || steps.nugetkey-win.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
@@ -73,9 +99,11 @@ jobs:
         run: |
           set -euo pipefail
           PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
+          # Throwaway test database: data on tmpfs and no fsync, so a loaded runner does not time out on disk I/O.
           docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
+            --tmpfs /var/lib/postgresql:rw,size=4g \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            pgvector/pgvector:pg18 -c max_locks_per_transaction=512
+            pgvector/pgvector:pg18 -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
@@ -216,11 +244,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
@@ -256,7 +294,7 @@ jobs:
       # issued through a sign-up form and the action itself is under a
       # custom licence, not an OSI open-source one. The gitleaks CLI is MIT
       # licensed and needs no key, so we download the pinned release, verify its
-      # SHA-256 and run it directly. Scans all refs and full history.
+      # SHA-256 and run it directly. See the scan step for what each trigger scans.
       - name: Install gitleaks CLI (checksum verified)
         run: |
           set -euo pipefail
@@ -268,11 +306,22 @@ jobs:
           "$RUNNER_TEMP/gitleaks" version
 
       - name: Scan git history for secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # --log-opts=--all scans every ref in the fetched history, not just HEAD.
-          # --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
-          "$RUNNER_TEMP/gitleaks" git --log-opts=--all --redact --exit-code 1 --verbose .
+          # A pull request scans only its own commits (base..head), so another branch's fake token cannot turn this
+          # PR red. Pushes, the weekly schedule and manual runs scan every ref in the fetched history, so nothing
+          # stays unscanned. --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          else
+            range="--all"
+          fi
+          echo "gitleaks scope: $range"
+          "$RUNNER_TEMP/gitleaks" git --log-opts="$range" --redact --exit-code 1 --verbose .
 
 # CodeQL analysis trigger (no functional change).
 
@@ -283,6 +332,9 @@ jobs:
     runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     continue-on-error: true
+    # Not required, so it runs only on main and by hand, not on every PR or branch push. This frees the
+    # three bazaar-linux-pg runners for the required checks. PostgreSQL 18 still runs on every PR.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
     env:
@@ -300,11 +352,21 @@ jobs:
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
@@ -317,7 +379,7 @@ jobs:
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
           docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            bazaar-pg19:ci -c max_locks_per_transaction=512
+            bazaar-pg19:ci -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
