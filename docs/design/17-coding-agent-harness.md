@@ -103,6 +103,8 @@ public interface IWorkspace : IAsyncDisposable
 ```
 Tables owned here: `tool_calls` (append-only, host-written: session, tool, CapabilityClass, source_trust per doc 15's enum, tainted_at_write, exit code, args hash) and `check_runs` (commit, base, build exit, test counts, flags). Approvals use doc 15's `approval`; security events go to doc 15's `audit_log` (C16). This doc adds no approval table.
 
+`check_runs` additions (PROPOSED, 2026-11-18, for engine checks such as Luau, doc 20): `verdict` (server-computed `pass`, `fail` or `error`; `error` means the run could not finish and is never a pass; null on older rows) and `tool_exit_codes` (a JSON object from a short tool name such as `build`, `test`, `luau-analyze`, `selene` to its exit code, null when the tool did not run). Both are written by the server from measured results; an agent report never sets them. Migration `coding/0003`. The table stays insert-only.
+
 ### Settings [PROPOSED]
 Registered in doc 03's settings registry (DECISIONS-LOG round 13). Defaults are safe; every change is audit-logged. Settings may tighten the taint, verification and quota floors, never loosen them.
 
@@ -120,6 +122,22 @@ Registered in doc 03's settings registry (DECISIONS-LOG round 13). Defaults are 
 | `harness.code_intel.tree_sitter` | bool | off until Luau or GDScript work starts | project | operator | no |
 
 Roslyn for C# code intelligence is the default and needs no setting.
+
+## Module layout [PROPOSED]
+The harness is built as module pairs (`Bazaar.Server.<Name>` plus `.Abstractions`), none of which reference `Bazaar.Server.csproj`. Where a module needs something Server owns (the capability policy, taint state, approvals, `IGitProvider`, the doc 21 push path), it declares a small port in its own Abstractions project; a host adapter (a later PR) binds the port. Each module ships an in-memory fake of its ports and tests against the fakes. Module version, manifest and SQL: none of these modules owns tables yet (`tool_calls` and `check_runs` stay WP2).
+
+| Module pair | Work package | Holds | Depends on |
+|---|---|---|---|
+| `Bazaar.Server.CodingPermissions` | WP8 | `ToolCapabilityClass` (mirror of Server's `CapabilityClass`, kept equal by a test), the permission gate (class-to-tier lookup, taint, approvals, rate caps), the `tool_calls` trace port | none (Contracts only) |
+| `Bazaar.Server.CodingEdit` | WP6 | `IWorktreeFiles` port, path jail (rejects `..`, absolute paths, escaping symlinks), whole-file, line-anchored and search/replace edit tools, malformed-edit reporting | `Bazaar.Server.Coding` (`GuestPath`, `IGuestChannel`), CodingPermissions.Abstractions |
+| `Bazaar.Server.RepoMap` | WP7 | search tool (ripgrep through `IWorkspace`), repo map under a token budget, symbol extractor port (Roslyn for C#; tree-sitter stays off, setting `harness.code_intel.tree_sitter`) | `Bazaar.Server.Coding`, CodingPermissions.Abstractions |
+| `Bazaar.Server.CodingGit` | WP10 | worktree and push service: branch rule `agent/<task>`, one writer per worktree by host lock, commit trailers (`Co-Authored-By`, GC and task ids, never `Signed-off-by`), work-share placement rule, host-side push and draft PR through a doc 21 port | CodingPermissions.Abstractions |
+| `Bazaar.Server.CodingReview` | WP11 | review context package (diff, task card, GC thread, check results), reviewer tool set (read-only, no shell), reviewer model-family choice, review-result port (flag on card, never merge authority) | `Bazaar.Server.Coding` (check types), CodingPermissions.Abstractions |
+| `Bazaar.Server.Subagents` | WP12 | subagent spawner: fresh context, tool allowlist that is a subset of the parent's, model from the parent's whitelist, depth and concurrency limits, disjoint-writer rule | CodingPermissions.Abstractions |
+
+Gap decisions (PROPOSED, most robust option, owner may overrule): (1) push to `agent/*` is gated only by hard taint, the recommendation of Question 1, behind the setting `harness.push_always_approve` (default off, may only tighten); (2) repo-level instruction files and repo MCP servers are never loaded, with no setting, per Question 2; (3) the owner's own repo files and command output count as soft taint, per the recommendation of Question 3, and the gate treats any source marked external as hard. These are enforced in code but stay PROPOSED until the owner answers the three questions.
+
+Host-side sources (PROPOSED, 2026-11-18): the harness binds these ports in `Bazaar.Server.Host/Coding/` once the owning module exposes them. `IWorkShareLayout` and `ISubagentWorktreeAllocator` come from the VM mounts module (doc 16). Agent taint comes from `IAgentStateReader` (Identity); session id and role are composed from Agents and Security in an `IPushSessionDirectory` that this doc owns. `ICodingRepoDirectory` comes from the Git/GitHub module. `IAgentGitIdentity` is PROPOSED (coordinator, 2026-11-18): docs 14 and 21 do not say how a commit author is derived from the GitHub App, so the default is author name = the agent's display name, author email = the App's noreply address, and the agent id in the `Bazaar-Agent` trailer. The port stays unregistered (commits and pushes fail closed) until the Identity side implements it. Running-turn lookup for subagents (`IRuntimeSubagentParentDirectory`) is owned by the Agents runtime (doc 06).
 
 ## Behaviour and edge cases
 - Command output is untrusted. Output that echoes external text taints the session hard (Question 3).

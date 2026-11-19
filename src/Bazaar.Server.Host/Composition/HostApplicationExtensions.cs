@@ -7,6 +7,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
@@ -42,6 +43,11 @@ public static class HostApplicationExtensions
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
+
+        // Coding harness (doc 17). Every registration is a lazy factory, so ports the host has no source for yet (git identity,
+        // work-share layout, repo directory, push session directory, parent-turn directory, GitWorkspace) fail only when a
+        // harness service is first resolved, never at startup, and never open a gate.
+        services.AddBazaarCodingHarness();
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
