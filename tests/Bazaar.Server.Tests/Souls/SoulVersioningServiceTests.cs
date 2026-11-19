@@ -216,6 +216,20 @@ public sealed class SoulVersioningServiceTests(SoulDb db) : IClassFixture<SoulDb
         Assert.Equal(0, await service.GetHeadAsync(soulId, TestContext.Current.CancellationToken));
     }
 
+    // Chaos round 3: "$" also matches before a final newline, so a 64-hex hash followed by a newline passed the shape check.
+    [Fact]
+    public async Task A_charter_hash_with_a_trailing_newline_is_refused_before_any_write()
+    {
+        SkipWithoutDatabase();
+        var soulId = Guid.NewGuid();
+        var service = Service();
+        var padded = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData("charter-newline"u8)) + "\n";
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.AppendAsync(Append(soulId, 0, charter: padded), TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, await service.GetHeadAsync(soulId, TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task An_uppercase_charter_hash_is_refused_before_any_write()
     {

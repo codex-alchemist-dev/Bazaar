@@ -6,6 +6,12 @@ namespace Bazaar.Server.Tests.Roadmap;
 /// <summary>The objective roadmap front-matter contract and dependency cycle check (doc 38, Layer 3). Pure: no database.</summary>
 public sealed class RoadmapFrontMatterTests
 {
+    // Chaos round 3: "$" also matches before a final newline, so "phase-one\n" looked like a slug.
+    [Theory]
+    [InlineData("phase-one\n")]
+    [InlineData("\n")]
+    public void A_slug_with_a_trailing_newline_is_not_a_slug(string value) => Assert.False(RoadmapFrontMatter.IsSlug(value));
+
     private static JsonObject Objective(params (string Key, JsonNode? Value)[] fields)
     {
         var node = new JsonObject { ["kind"] = "objective", ["phase"] = "phase-one", ["status"] = "planned" };

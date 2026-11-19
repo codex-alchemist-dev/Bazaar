@@ -160,6 +160,6 @@ public sealed partial class SoulVersioningService(NpgsqlDataSource dataSource)
             throw new ArgumentException("A reason is required.", nameof(append));
     }
 
-    [GeneratedRegex("^[0-9a-f]{64}$")]
+    [GeneratedRegex("^[0-9a-f]{64}\\z")]
     private static partial Regex Sha256Pattern();
 }

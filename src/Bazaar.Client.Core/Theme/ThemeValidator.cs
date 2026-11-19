@@ -104,13 +104,13 @@ public static partial class ThemeValidator
         return 0.2126 * Linearise(r) + 0.7152 * Linearise(g) + 0.0722 * Linearise(b);
     }
 
-    [GeneratedRegex("^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\\z", RegexOptions.CultureInvariant)]
     private static partial Regex ColourPattern();
 
-    [GeneratedRegex("^[A-Za-z][A-Za-z0-9 _-]{0,63}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[A-Za-z][A-Za-z0-9 _-]{0,63}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex FontFamilyPattern();
 
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9 _.()-]{0,63}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9 _.()-]{0,63}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex NamePattern();
 
     private static ThemeLoadResult Reject(List<ThemeIssue> issues) => new(null, issues);
