@@ -35,6 +35,31 @@ public sealed class SyncCompositionTests
     }
 
     [Fact]
+    public async Task Host_without_the_gc_component_starts_and_stops()
+    {
+        await using var sp = NewServices().BuildServiceProvider(validateScopes: true);
+
+        var hosted = sp.GetServices<Microsoft.Extensions.Hosting.IHostedService>().ToList();
+
+        Assert.Single(hosted);
+        Assert.IsNotType<GcDispatcherService>(hosted[0]);
+        await hosted[0].StartAsync(CancellationToken.None);
+        await hosted[0].StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Host_with_the_gc_component_runs_the_dispatcher_service()
+    {
+        var services = NewServices();
+        services.AddSingleton<IGcStreamSource, FakeStreamSource>();
+        services.AddSingleton<IGcAccessPolicy, FakeAccessPolicy>();
+        services.AddSingleton<IGcNotificationSource, FakeNotificationSource>();
+        await using var sp = services.BuildServiceProvider(validateScopes: true);
+
+        Assert.IsType<GcDispatcherService>(Assert.Single(sp.GetServices<Microsoft.Extensions.Hosting.IHostedService>()));
+    }
+
+    [Fact]
     public async Task Missing_sources_fail_at_resolution_not_at_build()
     {
         await using var sp = NewServices().BuildServiceProvider(validateScopes: true);
@@ -102,5 +127,14 @@ public sealed class SyncCompositionTests
     private sealed class FakeAccessPolicy : IGcAccessPolicy
     {
         public ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct) => ValueTask.FromResult(false);
+    }
+}
+
+file sealed class FakeNotificationSource : IGcNotificationSource
+{
+    public async IAsyncEnumerable<GcNotification> ReadAllAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 }

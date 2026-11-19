@@ -40,8 +40,20 @@ public static class SyncCompositionExtensions
             sp.GetRequiredService<GcDispatcher>(),
             sp.GetRequiredService<IOptions<SyncOptions>>().Value,
             sp.GetService<TimeProvider>()));
-        services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService, GcDispatcherService>();
+        // The GC component is optional (modules must load without each other): without its sources there is nothing to dispatch.
+        services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
+            sp.GetService<IGcNotificationSource>() is { } notifications && sp.GetService<IGcStreamSource>() is not null
+                ? new GcDispatcherService(sp.GetRequiredService<GcDispatcher>(), notifications, sp.GetRequiredService<IOptions<SyncOptions>>())
+                : new IdleDispatcherService());
         return services;
+    }
+
+    /// <summary>Stands in for <see cref="GcDispatcherService"/> when no GC component is installed.</summary>
+    private sealed class IdleDispatcherService : Microsoft.Extensions.Hosting.IHostedService
+    {
+        public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private const string _syncSection = "Bazaar:Sync";
