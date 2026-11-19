@@ -8,6 +8,10 @@ public class AdapterHostTests
 {
     private const string _projectId = "project-a";
 
+    /// <summary>Budget for the tests that wait out a hang. One setting covers start-up, open and the hanging call, so it must
+    /// stay well above start-up time on a loaded CI runner or the test fails before reaching the hang.</summary>
+    private static readonly TimeSpan _hangTimeout = TimeSpan.FromSeconds(15);
+
     /// <summary>The fake adapter is built next to this test assembly by the FakeAdapter project reference.</summary>
     private static string FakeAdapterPath => Path.Combine(
         AppContext.BaseDirectory,
@@ -51,7 +55,7 @@ public class AdapterHostTests
     [Fact]
     public async Task Timeout_kills_the_child_fails_the_session_and_reports_last_output()
     {
-        await using var host = StartFake("hang", TimeSpan.FromSeconds(5));
+        await using var host = StartFake("hang", _hangTimeout);
         await host.OpenAsync(_projectId, CancellationToken.None);
 
         var error = await Assert.ThrowsAsync<EngineAdapterException>(
@@ -70,7 +74,7 @@ public class AdapterHostTests
     [Fact]
     public async Task Hanging_health_call_times_out_like_a_command()
     {
-        await using var host = StartFake("unresponsive", TimeSpan.FromSeconds(5));
+        await using var host = StartFake("unresponsive", _hangTimeout);
 
         var error = await Assert.ThrowsAsync<EngineAdapterException>(() => host.HealthAsync(CancellationToken.None));
 
