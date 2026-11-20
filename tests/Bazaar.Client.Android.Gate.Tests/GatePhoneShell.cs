@@ -1,3 +1,4 @@
+using Bazaar.Client.RyuseiFuda;
 using System.Net;
 using System.Text.Json;
 using Avalonia.Controls;
@@ -6,9 +7,10 @@ using Bazaar.Accessibility.Avalonia;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Vault;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Panes.Abstractions;
@@ -40,10 +42,11 @@ internal static class GatePhoneShell
             new ConstellationPaneModule(),
             new GcPaneModule(),
             new VaultSearchPaneModule(),
+            new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles).With(vault);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
-        Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry));
+        Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry));
 
         // The production pager shows a kind-name placeholder for the Vault search pane, so the shell has no interactive
         // control and the scan would pass vacuously. The gate shows that pane's real view (query box and search button) so
