@@ -7,21 +7,6 @@ using Npgsql;
 
 namespace Bazaar.Server.Tests.Vault.Data;
 
-public sealed class VaultDb : PgFixture, IAsyncLifetime
-{
-    public override async ValueTask InitializeAsync()
-    {
-        if (PgSource.IsUnsupportedHost)
-        {
-            return;
-        }
-
-        await base.InitializeAsync();
-        var source = new EmbeddedMigrationSource(typeof(AssemblyMarker).Assembly);
-        await new MigrationRunner(DataSource).MigrateAsync(source, "linux");
-    }
-}
-
 /// <summary>Real-Postgres CRUD and constraints for the Vault index tables (migration common/0009).</summary>
 public sealed class VaultDataTests(VaultDb db) : IClassFixture<VaultDb>
 {
