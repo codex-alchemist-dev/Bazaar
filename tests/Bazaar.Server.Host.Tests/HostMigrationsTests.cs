@@ -3,12 +3,18 @@ using Bazaar.Server.Host.Startup;
 
 namespace Bazaar.Server.Host.Tests;
 
-/// <summary>
-/// The host's migration source must include every module's embedded SQL. A module whose assembly is not read here never
-/// migrates on a real install, so these checks read the source the host runs and need no database.
-/// </summary>
-public class HostMigrationsTests
+public sealed class HostMigrationsTests
 {
+    [Fact]
+    public void Council_namespace_is_read_from_the_council_module_at_version_1()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("council", source.Namespaces());
+        var files = source.Load("council");
+        Assert.Contains(files, f => f.Version == 1 && f.Name == "council");
+    }
+
     [Fact]
     public void Portability_import_job_migration_is_in_the_host_source()
     {
