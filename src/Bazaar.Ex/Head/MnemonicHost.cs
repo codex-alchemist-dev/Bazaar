@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 
 namespace Bazaar.Ex.Head;
 
