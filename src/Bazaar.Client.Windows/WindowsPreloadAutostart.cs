@@ -1,5 +1,5 @@
 using System.Runtime.Versioning;
-using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Preload;
 using Microsoft.Win32;
 
 namespace Bazaar.Client.Windows;
