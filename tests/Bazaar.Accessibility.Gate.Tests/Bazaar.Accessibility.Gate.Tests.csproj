@@ -8,6 +8,7 @@
     <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
@@ -15,7 +16,14 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Accessibility.Avalonia\Bazaar.Accessibility.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Mobile\Bazaar.Client.Mobile.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Souls\Bazaar.Client.Souls.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Portability.Avalonia\Bazaar.Client.Portability.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 using Bazaar.Contracts.Gc;
 using Bazaar.Server.Gc.Provenance;
+using Bazaar.Souls.Abstractions;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -17,7 +18,7 @@ namespace Bazaar.Server.Gc.Write;
 /// A rollback undoes the counter with the rows, so a failed append leaves no gap. If the commit's outcome is unknown (the
 /// connection dropped), the caller retries with the same key and gets the original event or a fresh append.
 /// </summary>
-public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifier, TimeProvider? timeProvider = null, IGcTrustHook? trustHook = null) : IGcLogWriter
+public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifier, TimeProvider? timeProvider = null, IGcTrustHook? trustHook = null, ISoulBindings? soulBindings = null) : IGcLogWriter
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly IGcTrustHook _trust = trustHook ?? new DefaultGcTrustHook();
@@ -37,21 +38,21 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
     private const string _inserteventsql = """
         INSERT INTO gc_event (gc_id, seq, event_id, kind, author_kind, author_id, session_id, source_trust,
                               tainted_at_write, taint_sources, message_id, version, target_seq, reply_to_seq,
-                              payload, client_msg_id, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17)
+                              payload, client_msg_id, created_at, soul_id, soul_version)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19)
         """;
 
     private const string _insertmessagesql = "INSERT INTO gc_message (gc_id, message_id, first_seq, author_id) VALUES ($1, $2, $3, $4)";
 
     private const string _insertversionsql = """
-        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at)
-        VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8)
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version)
+        VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8, $9, $10)
         """;
 
     // An edit adds a version of a message that already exists: no gc_message row, and the version number comes from the request.
     private const string _insertEditVersionSql = """
-        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at)
-        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8)
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version)
+        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11)
         """;
 
     // A join or a leave is a new state row keyed by its own seq (gc_member is append-only; the key includes joined_seq).
@@ -78,6 +79,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             return [];
         requests = ResolveTrust(requests);
         var gcId = Validate(requests);
+        await ValidateSoulStampsAsync(requests, ct).ConfigureAwait(false);
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -131,6 +133,23 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 
     // timestamptz keeps microseconds; returning the same value a later read (or a duplicate answer) will see.
     private static DateTimeOffset TruncateToMicroseconds(DateTimeOffset t) => new(t.UtcTicks - (t.UtcTicks % 10), TimeSpan.Zero);
+
+    // Runs before the transaction opens. The log has no foreign key to Souls, so a stamp is only as good as this check: it must
+    // belong to an agent author and name a real version of a Soul that agent is, or once was, bound to.
+    private async Task ValidateSoulStampsAsync(IReadOnlyList<AppendRequest> requests, CancellationToken ct)
+    {
+        foreach (var r in requests)
+        {
+            if (r.Soul is not { } stamp)
+                continue;
+            if (r.AuthorKind != AuthorKind.Agent)
+                throw new ArgumentException("Only an agent-authored event carries a Soul stamp.", nameof(requests));
+            if (soulBindings is null)
+                throw new InvalidOperationException("A Soul stamp cannot be validated: no ISoulBindings is registered with the GC log writer.");
+            if (!await soulBindings.IsValidStampAsync(r.AuthorId, stamp, ct).ConfigureAwait(false))
+                throw new ArgumentException($"Soul stamp {stamp.SoulId:D} v{stamp.Version} is not a real version bound to author {r.AuthorId:D}.", nameof(requests));
+        }
+    }
 
     private static Guid Validate(IReadOnlyList<AppendRequest> requests)
     {
@@ -214,18 +233,19 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 _inserteventsql,
                 P(gcId), P(seq), P(eventId), P(r.Kind), P(GcEnumText.ToText(r.AuthorKind)), P(r.AuthorId), N(r.SessionId),
                 P(GcEnumText.ToText(r.SourceTrust)), P(r.TaintedAtWrite ?? false), N(r.TaintSourcesJson), N(messageId),
-                N(version), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now)));
+                N(version), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now),
+                N(r.Soul?.SoulId), N(r.Soul?.Version)));
 
             if (r.Message is { } body && messageId is { } mid)
             {
                 if (isEdit)
                 {
-                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value)));
+                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version)));
                 }
                 else
                 {
                     batch.BatchCommands.Add(Cmd(_insertmessagesql, P(gcId), P(mid), P(seq), P(r.AuthorId)));
-                    batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now)));
+                    batch.BatchCommands.Add(Cmd(_insertversionsql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), N(r.Soul?.SoulId), N(r.Soul?.Version)));
                     if (r.Mentions.Count > 0)
                         batch.BatchCommands.Add(Cmd(_insertmentionssql, P(gcId), P(seq), P<Guid[]>([.. r.Mentions.Distinct()])));
                 }
