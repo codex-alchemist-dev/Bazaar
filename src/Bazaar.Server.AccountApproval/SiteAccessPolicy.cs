@@ -3,7 +3,7 @@ using Bazaar.Server.AccountApproval.Abstractions;
 namespace Bazaar.Server.AccountApproval;
 
 /// <summary>
-/// The pure outcome of a finished Council vote on motion <c>site_allowlist</c> (doc 59 section 7, DECISIONS-LOG round 28).
+/// The pure outcome of a finished Council vote on motion <c>site_allowlist</c> (doc 59 section 7, DECISIONS-LOG round 29).
 /// A unanimous vote opens a site for login-free reading only. Anything else, and every account or logged-in request, goes to
 /// the owner with the vote attached. Unverified terms and terms that forbid automation stay Deny whatever the vote says.
 /// </summary>
