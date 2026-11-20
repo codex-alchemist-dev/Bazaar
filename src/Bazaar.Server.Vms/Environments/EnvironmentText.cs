@@ -10,6 +10,7 @@ public static class EnvironmentText
     {
         VmOs.Windows => "windows",
         VmOs.Linux => "linux",
+        VmOs.Android => "android",
         _ => throw new ArgumentOutOfRangeException(nameof(value), value, null),
     };
 
@@ -35,6 +36,7 @@ public static class EnvironmentText
     {
         "windows" => VmOs.Windows,
         "linux" => VmOs.Linux,
+        "android" => VmOs.Android,
         _ => throw Unknown("vm os", text),
     };
 

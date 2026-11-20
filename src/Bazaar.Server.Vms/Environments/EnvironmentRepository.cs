@@ -4,13 +4,13 @@ namespace Bazaar.Server.Vms.Environments;
 
 /// <summary>
 /// SQL-first access to the <c>golden_image</c>, <c>environment_vm</c>, <c>environment_checkpoint</c>, <c>scoped_mount</c>
-/// and <c>exec_log</c> tables (migration components/vms/0001, doc 16). Ids and timestamps come from the caller. The methods that change a
+/// and <c>exec_log</c> tables (migrations components/vms/0001 to 0003, doc 16). Ids and timestamps come from the caller. The methods that change a
 /// row return whether a row matched, so callers see a stale state or a missing row without a second read.
 /// </summary>
 public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)
 {
     private const string _imageColumns = "id, os, version, sha256, guest_agent_version, state, created_at";
-    private const string _vmColumns = "id, agent_id, os, parent_image_id, backend_ref, state, vcpu, memory_mb, disk_cap_gb, created_at, updated_at";
+    private const string _vmColumns = "id, agent_id, os, parent_image_id, backend_ref, state, vcpu, memory_mb, disk_cap_gb, created_at, updated_at, provider_kind";
     private const string _checkpointColumns = "id, vm_id, backend_ref, label, created_at";
     private const string _mountColumns = "id, agent_id, vm_id, kind, host_path, guest_path, mode, detached_at";
     private const string _execColumns = "id, vm_id, started_at, argv_hash, timeout_s, exit_code, bytes_out";
@@ -56,9 +56,9 @@ public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)
     {
         await using var cmd = dataSource.CreateCommand("""
             INSERT INTO environment_vm (id, agent_id, os, parent_image_id, backend_ref, state, vcpu, memory_mb, disk_cap_gb,
-                                        created_at, updated_at)
+                                        created_at, updated_at, provider_kind)
             VALUES (@id, @agent_id, @os, @parent_image_id, @backend_ref, @state, @vcpu, @memory_mb, @disk_cap_gb,
-                    @created_at, @updated_at)
+                    @created_at, @updated_at, @provider_kind)
             """);
         cmd.Parameters.AddWithValue("id", vm.Id);
         cmd.Parameters.AddWithValue("agent_id", vm.AgentId);
@@ -71,6 +71,7 @@ public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("disk_cap_gb", vm.DiskCapGb);
         cmd.Parameters.AddWithValue("created_at", vm.CreatedAt);
         cmd.Parameters.AddWithValue("updated_at", vm.UpdatedAt);
+        cmd.Parameters.AddWithValue("provider_kind", (object?)vm.ProviderKind ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
@@ -283,7 +284,8 @@ public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)
         reader.GetInt32(7),
         reader.GetInt32(8),
         reader.GetFieldValue<DateTimeOffset>(9),
-        reader.GetFieldValue<DateTimeOffset>(10));
+        reader.GetFieldValue<DateTimeOffset>(10),
+        reader.IsDBNull(11) ? null : reader.GetString(11));
 
     private static async Task<IReadOnlyList<EnvironmentVmRecord>> ReadVmsAsync(NpgsqlCommand cmd, CancellationToken ct)
     {

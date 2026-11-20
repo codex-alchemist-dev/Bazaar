@@ -54,6 +54,19 @@ public interface IBrowserPageDriver
     Task DispatchInputAsync(string sessionId, IReadOnlyList<InputAction> actions, CancellationToken ct);
 }
 
+/// <summary>Screenshot and input for a device guest (Android) over the provider's own channel. The host adapts the device module to this port.</summary>
+public interface IDeviceDisplay
+{
+    /// <summary>Whether this adapter serves <paramref name="target"/>.</summary>
+    bool Supports(DisplayTarget target);
+
+    /// <summary>Returns a PNG of the device screen.</summary>
+    Task<byte[]> CaptureScreenshotPngAsync(DisplayTarget target, CancellationToken ct);
+
+    /// <summary>Dispatches the actions as device input. An action the device cannot express is refused with a <c>DisplayException</c>.</summary>
+    Task DispatchInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct);
+}
+
 /// <summary>Taint and kill-switch decisions (docs/design/15). The host supplies the real gate.</summary>
 public interface IDisplayGate
 {

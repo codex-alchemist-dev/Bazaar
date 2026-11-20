@@ -17,6 +17,7 @@ public sealed class GuestDisplayService : IGuestDisplay
     private readonly IReadOnlyList<IHypervisorConsole> _hypervisors;
     private readonly IReadOnlyList<IDisplayGuestExec> _guestExecs;
     private readonly IReadOnlyList<IBrowserPageDriver> _browsers;
+    private readonly IReadOnlyList<IDeviceDisplay> _devices;
     // The native size of the last guest-source frame per VM: the extent the guest pointer tool maps coordinates onto.
     private readonly ConcurrentDictionary<Guid, (int Width, int Height)> _guestSizes = new();
     private readonly SlidingWindowRateLimiter _captureLimiter;
@@ -30,7 +31,8 @@ public sealed class GuestDisplayService : IGuestDisplay
         TimeProvider time,
         IEnumerable<IHypervisorConsole> hypervisors,
         IEnumerable<IDisplayGuestExec> guestExecs,
-        IEnumerable<IBrowserPageDriver> browsers)
+        IEnumerable<IBrowserPageDriver> browsers,
+        IEnumerable<IDeviceDisplay>? devices = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
@@ -41,6 +43,7 @@ public sealed class GuestDisplayService : IGuestDisplay
         _hypervisors = (hypervisors ?? []).ToArray();
         _guestExecs = (guestExecs ?? []).ToArray();
         _browsers = (browsers ?? []).ToArray();
+        _devices = (devices ?? []).ToArray();
         _captureLimiter = new SlidingWindowRateLimiter(time, options.CapturesPerMinute, TimeSpan.FromMinutes(1));
         _inputLimiter = new SlidingWindowRateLimiter(time, options.InputBatchesPerMinute, TimeSpan.FromMinutes(1));
     }
@@ -53,6 +56,14 @@ public sealed class GuestDisplayService : IGuestDisplay
             return [];
 
         var sources = new List<DisplaySourceKind>(3);
+        if (target.Os == DisplayGuestOs.Android)
+        {
+            // A device guest has no hypervisor framebuffer or guest agent here: only its provider's own channel serves it.
+            if (_devices.Any(d => d.Supports(target)))
+                sources.Add(DisplaySourceKind.Device);
+            return sources;
+        }
+
         if (!string.IsNullOrEmpty(target.BrowserSessionId) && _browsers.Any(b => b.Supports(target)))
             sources.Add(DisplaySourceKind.Browser);
 
@@ -165,6 +176,9 @@ public sealed class GuestDisplayService : IGuestDisplay
                 case DisplaySourceKind.Hypervisor:
                     await _hypervisors.First(h => h.Supports(target)).SendInputAsync(target, actions, ct).ConfigureAwait(false);
                     break;
+                case DisplaySourceKind.Device:
+                    await _devices.First(d => d.Supports(target)).DispatchInputAsync(target, actions, ct).ConfigureAwait(false);
+                    break;
                 default:
                     await GuestSource.SendInputAsync(_guestExecs.First(e => e.Supports(target)), target, actions, guestSize, timeout, ct).ConfigureAwait(false);
                     break;
@@ -193,6 +207,12 @@ public sealed class GuestDisplayService : IGuestDisplay
                 {
                     IBrowserPageDriver driver = _browsers.First(b => b.Supports(target));
                     byte[] png = await driver.CaptureScreenshotPngAsync(target.BrowserSessionId!, ct).ConfigureAwait(false);
+                    return FrameNormalizer.FromPng(png, limits);
+                }
+            case DisplaySourceKind.Device:
+                {
+                    IDeviceDisplay device = _devices.First(d => d.Supports(target));
+                    byte[] png = await device.CaptureScreenshotPngAsync(target, ct).ConfigureAwait(false);
                     return FrameNormalizer.FromPng(png, limits);
                 }
             case DisplaySourceKind.Hypervisor:

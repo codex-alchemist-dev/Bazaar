@@ -94,7 +94,7 @@ public sealed class VmContainmentPauserTests
 
         var backend = new FakeBackend(supportsSaveState);
         var lifecycle = new VmLifecycleService(store, backend, new VmOperationLocks(), TimeProvider.System);
-        return (new VmContainmentPauser(new FakeDirectory(vms), lifecycle, backend), store, backend);
+        return (new VmContainmentPauser(new FakeDirectory(vms), lifecycle), store, backend);
     }
 
     [Fact]
@@ -140,6 +140,41 @@ public sealed class VmContainmentPauserTests
         Assert.Equal(VmState.Running, store.Vms[stopped.Id].State);
         Assert.Equal(VmState.Retired, store.Vms[retired.Id].State);
         Assert.Equal(2, backend.Calls.Count(call => call.StartsWith("start:", StringComparison.Ordinal)));
+    }
+
+    private sealed class Source(string kind, VmOs os, IVmBackend backend) : IVmBackendSource
+    {
+        public string Kind => kind;
+        public IReadOnlyList<VmOs> GuestOs { get; } = [os];
+        public VmProviderPlacement Placement => VmProviderPlacement.Pair;
+        public int Preference => VmBackendOrdering.PrimaryHypervisor;
+        public ValueTask<VmBackendLookup> GetCurrentAsync(CancellationToken ct) => ValueTask.FromResult(VmBackendLookup.Ready(backend));
+    }
+
+    [Fact]
+    public async Task Each_vm_is_paused_the_way_its_own_backend_can_and_an_unroutable_vm_fails_the_pause()
+    {
+        var agent = Guid.NewGuid();
+        var windows = Vm(agent, VmState.Running) with { ProviderKind = "hyperv" };
+        var android = Vm(agent, VmState.Running) with { Os = VmOs.Android, ProviderKind = "android" };
+        var store = new FakeVmStore();
+        store.Vms[windows.Id] = windows;
+        store.Vms[android.Id] = android;
+        var saving = new FakeBackend(supportsSaveState: true);
+        var cutting = new FakeBackend(supportsSaveState: false);
+        var router = new VmBackendRouter(
+            [new Source("hyperv", VmOs.Windows, saving), new Source("android", VmOs.Android, cutting)], new VmPairSelection("hyperv"), gate: null);
+        var pauser = new VmContainmentPauser(new FakeDirectory([windows, android]), new VmLifecycleService(store, router, new VmOperationLocks(), TimeProvider.System));
+
+        await pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken);
+
+        Assert.Equal([$"save:{windows.Id}"], saving.Calls);
+        Assert.Equal([$"stop-Force:{android.Id}"], cutting.Calls);
+
+        var orphan = Vm(agent, VmState.Running) with { ProviderKind = "kvm" };
+        store.Vms[orphan.Id] = orphan;
+        var failing = new VmContainmentPauser(new FakeDirectory([orphan]), new VmLifecycleService(store, router, new VmOperationLocks(), TimeProvider.System));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => failing.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken));
     }
 
     [Fact]

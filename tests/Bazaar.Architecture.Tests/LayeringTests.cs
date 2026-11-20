@@ -43,6 +43,7 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Dashboard")]
     [InlineData("Bazaar.Client.Vault")]
     [InlineData("Bazaar.Client.Engines")]
+    [InlineData("Bazaar.Client.Devices")]
     [InlineData("Bazaar.Client.Theme")]
     [InlineData("Bazaar.Client.Commands")]
     [InlineData("Bazaar.Client.Input")]

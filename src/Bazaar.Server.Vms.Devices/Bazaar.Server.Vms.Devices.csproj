@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Bazaar.Server is referenced only for the wire handler and settings store contracts (IWireRequestHandler, ISettingStore), like the other server modules. -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices.Abstractions\Bazaar.Server.Vms.Devices.Abstractions.csproj" />
+    <!-- The VM lifecycle contract: the provider gate and the shared provider entry implement its routing seams (doc 62 section 9.2). -->
+    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices.Setup\Bazaar.Server.Vms.Devices.Setup.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Vms.Devices.Tests" />
+  </ItemGroup>
+</Project>
