@@ -103,3 +103,35 @@ public static partial class DeviceIdentifiers
     [GeneratedRegex(@"^[a-z][a-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex NameRegex();
 }
+
+/// <summary>Result of a provider's cheap host probe: a file and feature check, never a launch (doc 62 sections 4 and 7).</summary>
+/// <param name="Usable">Whether the host can run this provider.</param>
+/// <param name="Reason">Plain reason when not usable; null when usable.</param>
+public sealed record DeviceProbeResult(bool Usable, string? Reason);
+
+/// <summary>One running device guest as a catalog entry reports it. It carries no agent name, port or path.</summary>
+/// <param name="VmId">The guest id the lifecycle knows it by.</param>
+/// <param name="State">Lifecycle state name, for example <c>Running</c>.</param>
+public sealed record DeviceGuestState(Guid VmId, string State);
+
+/// <summary>
+/// How a device provider reports itself to the <c>vms.devices.list</c> request (doc 62 sections 4 and 9.1). Read-only: the
+/// listing module reads these and never starts, stops or changes a guest.
+/// </summary>
+public interface IDeviceProviderCatalogEntry
+{
+    /// <summary>Kind name as listed in <c>vms.devices.enabled</c>, for example <c>android</c>.</summary>
+    string Kind { get; }
+
+    /// <summary>The capability report. Every value is backed by tested behaviour (doc 62 section 4).</summary>
+    DeviceProviderCapabilities Capabilities { get; }
+
+    /// <summary>Runs the provider's cheap host probe. Starts nothing.</summary>
+    DeviceProbeResult ProbeDevice();
+
+    /// <summary>Number of guests running now. Equals the count of <see cref="RunningGuests"/>.</summary>
+    int Running { get; }
+
+    /// <summary>The guests running now.</summary>
+    IReadOnlyList<DeviceGuestState> RunningGuests();
+}

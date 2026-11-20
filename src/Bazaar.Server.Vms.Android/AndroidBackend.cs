@@ -17,7 +17,7 @@ public interface IAndroidWorkspace
 /// any VM, <see cref="IVmProvider"/> for the selector and <see cref="IDeviceControl"/> for typed app calls. Nothing runs until
 /// <see cref="StartAsync"/>; unsupported operations are never faked.
 /// </summary>
-public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IDeviceControl, IDisposable
+public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IDeviceControl, IDeviceProviderCatalogEntry, IDisposable
 {
     private readonly IAndroidHost _host;
     private readonly IAndroidHostFacts _facts;
@@ -42,6 +42,28 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
     public int MaxConcurrentInstances => _options.MaxConcurrent;
 
     public bool SupportsSaveState => true;
+
+    public DeviceProviderCapabilities Capabilities => AndroidModule.Capabilities with { MaxConcurrentInstances = _options.MaxConcurrent };
+
+    public int Running => RunningGuests().Count;
+
+    public DeviceProbeResult ProbeDevice()
+    {
+        var status = Probe();
+        return new DeviceProbeResult(status.Usable, status.Usable ? null : status.Reason);
+    }
+
+    public IReadOnlyList<DeviceGuestState> RunningGuests()
+    {
+        lock (_gate)
+        {
+            return _instances.Values
+                .Where(i => i.State == VmState.Running)
+                .OrderBy(i => i.VmId)
+                .Select(i => new DeviceGuestState(i.VmId, i.State.ToString()))
+                .ToArray();
+        }
+    }
 
     public ProviderStatus Probe()
     {

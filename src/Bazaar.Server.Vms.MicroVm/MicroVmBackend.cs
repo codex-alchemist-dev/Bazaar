@@ -1,5 +1,6 @@
 using Bazaar.Contracts.Modules;
 using Bazaar.Server.Providers;
+using Bazaar.Server.Vms.Devices;
 using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 
@@ -10,12 +11,13 @@ namespace Bazaar.Server.Vms.MicroVm;
 /// <see cref="IVmProvider"/>. Saved state and checkpoints throw <see cref="NotSupportedException"/> until the spike proves them;
 /// nothing is faked. Nothing runs until <see cref="StartAsync"/>.
 /// </summary>
-public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IDisposable
+public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IDeviceProviderCatalogEntry, IDisposable
 {
     private readonly IMicroVmMonitor _monitor;
     private readonly IMicroVmHostFacts _facts;
     private readonly MicroVmOptions _options;
     private readonly Dictionary<string, VmState> _states = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Guid> _ids = new(StringComparer.Ordinal);
     private readonly object _gate = new();
     private readonly SemaphoreSlim _launchGate = new(1, 1);
 
@@ -30,6 +32,41 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
     public string Kind => MicroVmModule.Kind;
 
     public int MaxConcurrentInstances => _options.MaxConcurrent;
+
+    /// <summary>The device capability report (doc 62 section 4), from <see cref="MicroVmModule.Capabilities"/> and the configured cap.</summary>
+    public DeviceProviderCapabilities Capabilities => new(
+        GuestOs: "linux",
+        Isolation: DeviceIsolation.HardwareVirtualised,
+        Save: MicroVmModule.Capabilities.Save,
+        Checkpoint: MicroVmModule.Capabilities.Checkpoint,
+        Restore: MicroVmModule.Capabilities.Restore,
+        Headless: MicroVmModule.Capabilities.Headless,
+        MaxConcurrentInstances: _options.MaxConcurrent,
+        GuestAgent: MicroVmModule.Capabilities.GuestAgent,
+        EgressEnforced: MicroVmModule.Capabilities.EgressEnforced,
+        ParentContentPinned: MicroVmModule.Capabilities.ParentContentPinned,
+        ScreenSource: false,
+        RemoteNode: false);
+
+    public int Running => RunningGuests().Count;
+
+    public DeviceProbeResult ProbeDevice()
+    {
+        var status = Probe();
+        return new DeviceProbeResult(status.Usable, status.Usable ? null : status.Reason);
+    }
+
+    public IReadOnlyList<DeviceGuestState> RunningGuests()
+    {
+        lock (_gate)
+        {
+            return _states
+                .Where(kv => kv.Value == VmState.Running && _ids.ContainsKey(kv.Key))
+                .Select(kv => new DeviceGuestState(_ids[kv.Key], kv.Value.ToString()))
+                .OrderBy(g => g.VmId)
+                .ToArray();
+        }
+    }
 
     public ProviderStatus Probe()
     {
@@ -58,6 +95,7 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         lock (_gate)
         {
             _states[name] = VmState.Stopped;
+            _ids[name] = id;
         }
 
         return new VmHandle(id, name);
