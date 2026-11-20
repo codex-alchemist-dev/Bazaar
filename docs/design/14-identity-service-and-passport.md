@@ -176,7 +176,7 @@ interface IIdentityService {
 - **Windows KEK custody vs recovery on new hardware** (33 C1, open): DPAPI machine scope needs a second master-key copy to recover. The provider and recovery location are settings; the recovery gap itself stays open in 33.
 - **Erasure legal sufficiency** (C01): key destruction is not yet validated by counsel.
 - **GitHub App token lifetime** is unverified until test T4 (21 C3).
-- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; 33 Q15 confirms.
+- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; doc 33, "Cookie profile exclusion [PROPOSED]", confirms.
 - **Canary detection and per-agent share and OS account** (for 15): 15 must define the detection event that canary use raises.
 - **Owner approval signing key** (for 32, flagged by 28): the device-held key class is not yet defined.
 - **Already decided, for other docs:** 16 and 17 drop any blanket Passport-free browser VM (C22). 16 Q2's second share stays an explicit exception (C02). 03 and 05 reduce their resolvers to bootstrap values (C05). 27 renames its client store interface (C05).

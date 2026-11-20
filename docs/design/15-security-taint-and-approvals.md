@@ -81,7 +81,7 @@ Triggers: owner action, anomaly rules (rate, repeated denials, canary hit), impo
 - Secrets live in `ISecretStore` (14). Doc 03 resolves only bootstrap secrets (KEK, database credential).
 - Agents get leases from `ICredentialBroker`: a GitHub App token narrowed to one repository, or a cookie injected at the proxy so it never enters the guest. Token lifetime is unverified (doc 21, test T4).
 - Pushes run host-side. Tokens never enter a VM.
-- The mount is per agent, read-only, on its own share and OS account. It never holds the audit log, other agents' folders or key material. Reader sessions never get it. Canary credentials are planted in it; any use pages the owner and freezes the agent [PROPOSED]. Cookie profiles are excluded from backups and snapshots by default [PROPOSED] (setting `security.backup.include_cookie_profiles`, doc 33 Q15; needs counsel).
+- The mount is per agent, read-only, on its own share and OS account. It never holds the audit log, other agents' folders or key material. Reader sessions never get it. Canary credentials are planted in it; any use pages the owner and freezes the agent [PROPOSED]. Cookie profiles are excluded from backups and snapshots by default [PROPOSED] (setting `security.backup.include_cookie_profiles`, doc 33, "Cookie profile exclusion [PROPOSED]"; needs counsel).
 - Accepted residual risk (owner, round 2): a clean-session compromise can misuse mounted cookies within the allowlist.
 - Browser: an anonymous profile for readers; account profiles for allowlisted sites via the Passport, detached on hard taint (C22).
 
