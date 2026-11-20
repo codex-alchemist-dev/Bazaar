@@ -1,4 +1,5 @@
 using Bazaar.Testing.LiveEval;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Server.Tests.Testing.LiveEval;
 
@@ -32,9 +33,9 @@ public class CredentialGuardTests
     {
         var samples = new Dictionary<string, string>
         {
-            ["ghp"] = "ghp_" + new string('0', 36),
-            ["xox"] = "xoxb-" + new string('0', 12),
-            ["akia"] = "AKIA" + new string('0', 16),
+            ["ghp"] = FakeSecrets.GitHubPat,
+            ["xox"] = FakeSecrets.SlackBotToken,
+            ["akia"] = FakeSecrets.AwsAccessKeyId,
         };
 
         foreach (var (family, sample) in samples)
