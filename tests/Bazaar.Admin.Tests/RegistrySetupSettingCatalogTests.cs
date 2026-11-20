@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Bazaar.Admin.Composition;
+using Bazaar.Server.BackupPolicy;
+using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Host;
@@ -16,9 +18,24 @@ public sealed class RegistrySetupSettingCatalogTests
     {
         var catalog = RegistrySetupSettingCatalog.Known;
 
-        Assert.Equal(SettingRegistry.Known.Definitions.Count, catalog.Definitions.Count);
+        // The built-in keys plus the module contributions the admin tool composes (module manager, backup policy, mail policy).
+        Assert.Equal(SettingRegistry.Known.Definitions.Count + ModuleManagerSettings.All.Count + BackupPolicySettings.All.Count + MailPolicySettings.All.Count, catalog.Definitions.Count);
         Assert.All(SettingRegistry.Known.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
         Assert.False(catalog.TryGet("no.such.key", out _));
+    }
+
+    [Theory]
+    [InlineData("backup.target")]
+    [InlineData("backup.drill_interval_days")]
+    [InlineData("backup.no_target_acknowledged")]
+    [InlineData("mail.enabled")]
+    [InlineData("mail.backend")]
+    [InlineData("update.channel")]
+    [InlineData("deps.update.autoSecurityPatches")]
+    public void The_keys_a_plan_projects_from_modules_are_known_install_settings(string key)
+    {
+        Assert.True(RegistrySetupSettingCatalog.Known.TryGet(key, out var definition));
+        Assert.True(definition!.IsInstallScope);
     }
 
     [Fact]

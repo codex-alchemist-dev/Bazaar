@@ -163,6 +163,13 @@ public sealed class SetupModelSource
 public sealed class SetupEmailSection
 {
     public bool Enabled { get; init; }
+
+    /// <summary>
+    /// The mail back end (doc 22): <c>bazaar_client</c>, <c>imap_smtp</c>, <c>cloudflare</c> or <c>builtin_server</c>. Required when
+    /// <see cref="Enabled"/> is true, and empty otherwise. Maps to the registry key <c>mail.backend</c>. The operator domain is not a
+    /// plan field: it is a <c>mail_domain</c> row set in the mail panel.
+    /// </summary>
+    public string Backend { get; init; } = "";
 }
 
 public sealed class SetupScamMailSection

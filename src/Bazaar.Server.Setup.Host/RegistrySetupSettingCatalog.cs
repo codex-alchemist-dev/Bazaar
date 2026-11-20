@@ -1,4 +1,7 @@
 using System.Text.Json;
+using Bazaar.Server.BackupPolicy;
+using Bazaar.Server.MailPolicy;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 
@@ -14,8 +17,13 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     private readonly SettingRegistry _registry;
     private readonly Dictionary<string, ISetupSettingDefinition> _byName;
 
-    /// <summary>The catalog of the registry this build ships (<see cref="SettingRegistry.Known"/>).</summary>
-    public static RegistrySetupSettingCatalog Known { get; } = new(SettingRegistry.Known);
+    /// <summary>
+    /// The catalog of the registry this build ships: the built-in keys plus the contributions of the modules whose keys a plan can set
+    /// (the module manager's, the backup policy's and the mail policy's), the same set the host composes. The admin tool has no
+    /// component kernel, so it composes them here.
+    /// </summary>
+    public static RegistrySetupSettingCatalog Known { get; } = new(SettingRegistry.WithContributions(
+        [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution()]));
 
     public RegistrySetupSettingCatalog(SettingRegistry registry)
     {

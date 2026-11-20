@@ -20,14 +20,16 @@ public sealed class SetupComponentStepTests
     }
 
     [Fact]
-    public void The_default_component_registers_the_install_settings_step()
+    public void The_default_component_registers_the_install_settings_and_model_sources_steps()
     {
         using var provider = Build(new SetupComponent());
 
-        var step = Assert.Single(provider.GetServices<ISetupStep>());
+        var steps = provider.GetServices<ISetupStep>().ToList();
 
-        Assert.IsType<InstallSettingsStep>(step);
+        var step = Assert.Single(steps, s => s is InstallSettingsStep);
         Assert.Equal("install.settings", step.Id);
+        Assert.Single(steps, s => s is GatewaySourcesStep);
+        Assert.Equal(2, steps.Count);
     }
 
     [Fact]
@@ -40,14 +42,13 @@ public sealed class SetupComponentStepTests
     }
 
     [Fact]
-    public async Task The_progress_list_reports_the_registered_step_as_pending()
+    public async Task The_progress_list_reports_the_registered_steps_as_pending()
     {
         using var provider = Build(new SetupComponent());
 
         var snapshot = await provider.GetRequiredService<Bazaar.Server.Setup.Http.ISetupProgressSource>().GetAsync(TestContext.Current.CancellationToken);
 
-        var progress = Assert.Single(snapshot.Steps);
-        Assert.Equal("install.settings", progress.Id);
+        Assert.Equal(["install.settings", "models.sources"], snapshot.Steps.Select(p => p.Id).Order(StringComparer.Ordinal));
     }
 
     private sealed class OwnStep : ISetupStep
