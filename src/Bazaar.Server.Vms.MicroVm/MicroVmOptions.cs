@@ -14,6 +14,24 @@ public sealed record MicroVmOptions
     /// <summary><c>vms.microvm.max_concurrent</c>.</summary>
     public int MaxConcurrent { get; init; } = 8;
 
+    /// <summary>Absolute path of the Firecracker or Cloud Hypervisor binary. Required by the real monitor adapters.</summary>
+    public string? MonitorBinaryPath { get; init; }
+
+    /// <summary>Absolute path of the Firecracker jailer. When set, Firecracker runs under it (Cloud Hypervisor ignores it).</summary>
+    public string? JailerPath { get; init; }
+
+    /// <summary>Unprivileged user id the jailer drops to. Required with <see cref="JailerPath"/>.</summary>
+    public int JailerUid { get; init; }
+
+    /// <summary>Unprivileged group id the jailer drops to. Required with <see cref="JailerPath"/>.</summary>
+    public int JailerGid { get; init; }
+
+    /// <summary>Absolute path of the sealed guest kernel image.</summary>
+    public string? KernelPath { get; init; }
+
+    /// <summary>Absolute path of the sealed parent root file system.</summary>
+    public string? RootfsPath { get; init; }
+
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(StateDirectory) || !Path.IsPathRooted(StateDirectory))
@@ -27,5 +45,21 @@ public sealed record MicroVmOptions
         }
 
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxConcurrent, 1);
+        RequireAbsoluteIfSet(MonitorBinaryPath, "monitor binary path");
+        RequireAbsoluteIfSet(JailerPath, "jailer path");
+        RequireAbsoluteIfSet(KernelPath, "kernel path");
+        RequireAbsoluteIfSet(RootfsPath, "rootfs path");
+        if (JailerPath is not null && (JailerUid <= 0 || JailerGid <= 0))
+        {
+            throw new InvalidOperationException("vms.microvm jailer needs an unprivileged uid and gid (not root).");
+        }
+    }
+
+    private static void RequireAbsoluteIfSet(string? path, string what)
+    {
+        if (path is not null && (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path)))
+        {
+            throw new InvalidOperationException($"vms.microvm {what} must be an explicit absolute path.");
+        }
     }
 }

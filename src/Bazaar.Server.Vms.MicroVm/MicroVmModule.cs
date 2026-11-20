@@ -24,7 +24,8 @@ public static class MicroVmModule
 
     /// <summary>
     /// Save, checkpoint and restore are reported false until spike S-MVM confirms monitor snapshots on the target kernel (doc 62 section 11),
-    /// and egress is reported false until a tap in its own network namespace is proven mandatory.
+    /// and egress is reported false until a tap in its own network namespace is proven mandatory. The real monitor adapters
+    /// (<c>Monitors/</c>) implement boot, graceful stop and kill only; they do not use the snapshot APIs, so these stay false.
     /// </summary>
     public static MicroVmCapabilities Capabilities { get; } = new(
         Save: false,
