@@ -407,6 +407,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Module `Bazaar.Server.SealedStorage` + `.Abstractions` (component id `sealed-storage`), reusing `IKekProvider`; not a new KEK, secret store or Vault. Security floor, not a setting. | DECIDED (follows the requirement) | 61, 40 |
 | Format and manifest mechanics (AES-256-GCM, path and generation in the AAD, sealed manifest, anchor) | PROPOSED | 61 |
 | Company Vault git history is sealed too; the KEK key file is sealed with an OS keyring where available (owner standing rules, relayed 2026-11-20) | DECIDED (mechanics PROPOSED) | 61 Q1, Q2 |
+| Vault adoption: the Vault repo is sealed at rest and mounted in plaintext only under an operator mount root (encrypted volume or tmpfs) at the configured repo path; module `Bazaar.Server.SealedVault` + `.Abstractions` (component `sealed-vault`) decorates `IGitProvider` and reseals after every mutating call; git import verifies, then wipes; off by default (`Bazaar:SealedVault:Enabled`) until the import is done | PROPOSED | 61 "Vault adoption", 40 |
 
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 

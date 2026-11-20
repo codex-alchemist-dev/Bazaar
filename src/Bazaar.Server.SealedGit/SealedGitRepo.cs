@@ -56,9 +56,10 @@ public sealed class SealedGitRepoFactory : ISealedGitRepoFactory
 /// A bare git repo kept as sealed files (doc 61 Q1). Only <see cref="WithWorkingTreeAsync{T}"/> and <see cref="ExportAsync"/> ever
 /// put plaintext on disk, in an owner-only temp folder that is zero-wiped afterwards. Sealed paths mirror the git dir layout.
 /// The callback receives only the git dir; everything it leaves there is sealed, except <c>hooks/</c>, links, git lock and temp files,
-/// and a <c>config</c> that has keys outside a small allowlist.
+/// and a <c>config</c> that has keys outside a small allowlist. <see cref="MountAsync"/> (doc 61 "Vault adoption") keeps a checkout under an
+/// operator-chosen mount root instead; see <c>SealedGitRepo.Mount.cs</c>.
 /// </summary>
-public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
+public sealed partial class SealedGitRepo : ISealedGitRepo, IDisposable
 {
     private const long MaxFileBytes = 256L * 1024 * 1024;
 
@@ -98,6 +99,7 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            ThrowIfMounted();
             string? temp = null;
             T result;
             try
@@ -116,7 +118,7 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
                 result = await work(gitDir).ConfigureAwait(false);
 
                 // The work is done: finishing the re-seal is not cancellable, or refs and packs could be left half written.
-                await ResealAsync(scope, gitDir, snapshot, CancellationToken.None).ConfigureAwait(false);
+                await ResealCoreAsync(scope, gitDir, snapshot, Sealable, trustImmutableObjects: false, CancellationToken.None).ConfigureAwait(false);
             }
             catch
             {
@@ -334,7 +336,18 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
         path.StartsWith("objects/", StringComparison.Ordinal) ? 0 :
         path == "HEAD" ? 2 : 1;
 
-    private static async Task ResealAsync(ISealedScope scope, string gitDir, Dictionary<string, (long Generation, byte[] Hash)> snapshot, CancellationToken ct)
+    /// <summary>
+    /// Seals the difference between <paramref name="gitDir"/> and <paramref name="snapshot"/> in one batch and returns the snapshot after it.
+    /// <paramref name="sealable"/> decides which logical paths are sealed (and deleted when gone). With <paramref name="trustImmutableObjects"/>,
+    /// content-addressed objects and packs already in the snapshot are not re-read (their names are their hashes; used by mounts).
+    /// </summary>
+    private static async Task<Dictionary<string, (long Generation, byte[] Hash)>> ResealCoreAsync(
+        ISealedScope scope,
+        string gitDir,
+        Dictionary<string, (long Generation, byte[] Hash)> snapshot,
+        Func<string, bool> sealable,
+        bool trustImmutableObjects,
+        CancellationToken ct)
     {
         var (files, links, _) = SecureTemp.Walk(gitDir);
         if (links.Count > 0)
@@ -348,8 +361,14 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
         foreach (var file in files)
         {
             var logical = Path.GetRelativePath(gitDir, file.FullName).Replace(Path.DirectorySeparatorChar, '/');
-            if (!Sealable(logical))
+            if (!sealable(logical))
             {
+                continue;
+            }
+
+            if (trustImmutableObjects && snapshot.ContainsKey(logical) && IsImmutableObject(logical))
+            {
+                seen.Add(logical);
                 continue;
             }
 
@@ -367,6 +386,7 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
         // packed-refs/refs/config, then HEAD, then deletions) is kept, although the single commit point already makes it all-or-nothing.
         var batch = new List<SealedWrite>();
         var buffers = new List<byte[]>();
+        var newHashes = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         try
         {
             foreach (var (logical, file) in plan.OrderBy(p => Tier(p.Logical)).ThenBy(p => p.Logical, StringComparer.Ordinal))
@@ -378,25 +398,46 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
                     continue;
                 }
 
-                if (snapshot.TryGetValue(logical, out var old) && CryptographicOperations.FixedTimeEquals(SHA256.HashData(bytes), old.Hash))
+                var hash = SHA256.HashData(bytes);
+                if (snapshot.TryGetValue(logical, out var old) && CryptographicOperations.FixedTimeEquals(hash, old.Hash))
                 {
                     CryptographicOperations.ZeroMemory(bytes);
                     continue;
                 }
 
                 buffers.Add(bytes);
+                newHashes[logical] = hash;
                 batch.Add(SealedWrite.Put(logical, bytes, snapshot.TryGetValue(logical, out old) ? old.Generation : 0));
             }
 
-            foreach (var removed in snapshot.Keys.Where(p => !seen.Contains(p) && Sealable(p)).OrderBy(p => p, StringComparer.Ordinal))
+            var removedPaths = snapshot.Keys.Where(p => !seen.Contains(p) && sealable(p)).OrderBy(p => p, StringComparer.Ordinal).ToList();
+            foreach (var removed in removedPaths)
             {
                 batch.Add(SealedWrite.Delete(removed, snapshot[removed].Generation));
             }
 
-            if (batch.Count > 0)
+            if (batch.Count == 0)
             {
-                await scope.WriteBatchAsync(batch, ct).ConfigureAwait(false);
+                return snapshot;
             }
+
+            await scope.WriteBatchAsync(batch, ct).ConfigureAwait(false);
+
+            // The generations the batch gave each file, so the next reseal of a long-lived mount checks against them.
+            var after = new Dictionary<string, (long Generation, byte[] Hash)>(StringComparer.Ordinal);
+            foreach (var entry in await scope.ListAsync(ct).ConfigureAwait(false))
+            {
+                if (newHashes.TryGetValue(entry.Path, out var written))
+                {
+                    after[entry.Path] = (entry.Generation, written);
+                }
+                else if (snapshot.TryGetValue(entry.Path, out var kept))
+                {
+                    after[entry.Path] = (entry.Generation, kept.Hash);
+                }
+            }
+
+            return after;
         }
         finally
         {
