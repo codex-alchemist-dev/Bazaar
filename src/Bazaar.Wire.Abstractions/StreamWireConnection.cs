@@ -37,7 +37,7 @@ public sealed class StreamWireConnection : IWireConnection
     /// <summary>Close code for a missing <c>hello</c> (doc 02).</summary>
     public const int HelloTimeout = 4408;
 
-    private const int ReadChunk = 16 * 1024;
+    private const int _readChunk = 16 * 1024;
 
     private readonly Stream _stream;
     private readonly StreamWireConnectionOptions _options;
@@ -120,8 +120,8 @@ public sealed class StreamWireConnection : IWireConnection
                 }
 
                 Compact();
-                if (_end == _buffer.Length) Array.Resize(ref _buffer, Math.Min(_buffer.Length * 2, max + 8 + ReadChunk));
-                var read = await _stream.ReadAsync(_buffer.AsMemory(_end, Math.Min(_buffer.Length - _end, ReadChunk)), linked.Token).ConfigureAwait(false);
+                if (_end == _buffer.Length) Array.Resize(ref _buffer, Math.Min(_buffer.Length * 2, max + 8 + _readChunk));
+                var read = await _stream.ReadAsync(_buffer.AsMemory(_end, Math.Min(_buffer.Length - _end, _readChunk)), linked.Token).ConfigureAwait(false);
                 if (read == 0) return await CloseWithAsync(0, signalPeer: false).ConfigureAwait(false);
                 _end += read;
             }

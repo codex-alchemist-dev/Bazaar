@@ -39,6 +39,12 @@ public sealed class QuicWireListenerOptions
     /// <see cref="QuicWireListener.StartAsync"/> throw <see cref="NotSupportedException"/> rather than be ignored.
     /// </summary>
     public bool StreamPerSubscription { get; init; }
+
+    /// <summary>
+    /// Optional sink for handshake diagnostics (client SNI, ALPN offered and negotiated, QUIC error codes, exception chain).
+    /// Never throws into the listener; null drops the text.
+    /// </summary>
+    public Action<string>? Diagnostics { get; init; }
 }
 
 /// <summary>
@@ -92,7 +98,7 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
             {
                 ListenEndPoint = _options.ListenEndPoint,
                 ApplicationProtocols = QuicWireSupport.CreateApplicationProtocols(),
-                ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(new QuicServerConnectionOptions
+                ConnectionOptionsCallback = (_, hello, _) => ValueTask.FromResult(Describe(hello, new QuicServerConnectionOptions
                 {
                     DefaultStreamErrorCode = StreamWireConnection.BadFrame,
                     DefaultCloseErrorCode = 0,
@@ -106,12 +112,30 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
                         ServerCertificate = _options.Certificate,
                         ClientCertificateRequired = false,
                     },
-                }),
+                })),
             },
             cancellationToken).ConfigureAwait(false);
         var endpoint = _options.AdvertisedEndpoint ?? FormattableString.Invariant($"{_listener.LocalEndPoint.Address}:{_listener.LocalEndPoint.Port}");
         _offers = [new TransportOffer(WireNames.Quic, endpoint, QuicWireSupport.Alpn, [.. _options.Codecs])];
         _acceptLoop = Task.Run(() => AcceptLoopAsync(_listener, _stop.Token), CancellationToken.None);
+    }
+
+    private QuicServerConnectionOptions Describe(SslClientHelloInfo hello, QuicServerConnectionOptions options)
+    {
+        Report($"{QuicWireSupport.DiagnosticsMarker} operation=accept-hello sni={hello.ServerName ?? "(none)"} tls={hello.SslProtocols} alpn-listening=[{string.Join(", ", QuicWireSupport.CreateApplicationProtocols())}] endpoint={_options.ListenEndPoint}");
+        return options;
+    }
+
+    private void Report(string text)
+    {
+        try
+        {
+            _options.Diagnostics?.Invoke(text);
+        }
+        catch (Exception)
+        {
+            // A diagnostics sink must never break the listener.
+        }
     }
 
     /// <inheritdoc />
@@ -161,6 +185,7 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
         catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or QuicException)
         {
             // Listener stopped.
+            if (ex is QuicException) Report(QuicWireSupport.DescribeFailure("accept-loop-ended", _options.ListenEndPoint.ToString(), QuicWireSupport.CreateApplicationProtocols(), null, ex));
         }
         finally
         {
@@ -197,6 +222,7 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
             }
             catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException or IOException or QuicException)
             {
+                Report(QuicWireSupport.DescribeFailure("accept-preface", ListenerEndpointText(connection), QuicWireSupport.CreateApplicationProtocols(), connection, ex));
                 await connection.CloseAsync(StreamWireConnection.BadFrame, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
@@ -229,6 +255,7 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
         catch (Exception ex) when (ex is OperationCanceledException or ChannelClosedException or ObjectDisposedException or QuicException)
         {
             // Stopping, or the peer left during the handshake.
+            if (ex is not OperationCanceledException) Report(QuicWireSupport.DescribeFailure("accept-handshake", ListenerEndpointText(connection), QuicWireSupport.CreateApplicationProtocols(), connection, ex));
         }
         finally
         {
@@ -237,6 +264,18 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
                 if (stream is not null) await stream.DisposeAsync().ConfigureAwait(false);
                 await connection.DisposeAsync().ConfigureAwait(false);
             }
+        }
+    }
+
+    private string ListenerEndpointText(QuicConnection connection)
+    {
+        try
+        {
+            return $"{_options.ListenEndPoint} (peer {connection.RemoteEndPoint}, sni {connection.TargetHostName})";
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException)
+        {
+            return _options.ListenEndPoint.ToString();
         }
     }
 }

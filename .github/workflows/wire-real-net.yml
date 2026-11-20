@@ -58,6 +58,6 @@ jobs:
           if (-not $projects) { throw 'No wire transport test projects found.' }
           foreach ($p in $projects) {
             Write-Host "== $($p.Name)"
-            dotnet test --project $p.FullName --configuration Release
+            dotnet test --project $p.FullName --configuration Release --output Detailed
             if ($LASTEXITCODE -ne 0) { throw "Tests failed in $($p.Name)" }
           }

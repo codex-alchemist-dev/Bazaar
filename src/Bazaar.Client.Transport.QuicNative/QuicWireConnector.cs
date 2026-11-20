@@ -113,11 +113,15 @@ public sealed class QuicWireConnector : IWireTransportConnector
                     ReleaseAsync = owned.DisposeAsync,
                 });
         }
-        catch
+        catch (Exception ex)
         {
+            // Describe before disposing: the negotiated ALPN is gone once the connection is.
+            var diagnostics = QuicWireSupport.DescribeFailure("connect", offer.Endpoint, auth.ApplicationProtocols ?? [], connection, ex);
             if (stream is not null) await stream.DisposeAsync().ConfigureAwait(false);
             if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false);
-            throw;
+            var enriched = QuicWireSupport.WithDiagnostics(ex, diagnostics);
+            if (ReferenceEquals(enriched, ex)) throw;
+            throw enriched;
         }
     }
 }
