@@ -21,7 +21,9 @@ public static class SetupApplyServiceCollectionExtensions
             stepList,
             provider.GetRequiredService<IAuditLog>(),
             provider.GetRequiredService<ISettingAuditSink>(),
-            provider.GetService<TimeProvider>() ?? TimeProvider.System));
+            provider.GetService<TimeProvider>() ?? TimeProvider.System,
+            // The composed registry carries module contributions (module manager keys); Known alone would reject them.
+            provider.GetService<SettingRegistry>()));
         return services;
     }
 }
