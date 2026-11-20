@@ -1,4 +1,5 @@
 using Bazaar.PrivacyAudit;
+using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -21,6 +22,10 @@ public static class RemoteTokensServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IRefreshCredentialStore, PostgresRefreshCredentialStore>();
         services.TryAddSingleton<ITokenService, TokenService>();
+        // Read ports for the admin panel (doc 51 section 5). A missing NpgsqlDataSource fails at resolve time, as for the stores.
+        services.TryAddSingleton<PostgresAdminDirectory>();
+        services.TryAddSingleton<IAdminUserDirectory>(sp => sp.GetRequiredService<PostgresAdminDirectory>());
+        services.TryAddSingleton<IAdminDeviceDirectory>(sp => sp.GetRequiredService<PostgresAdminDirectory>());
         return services;
     }
 }
