@@ -10,7 +10,7 @@ public static class HostMigrations
 {
     /// <summary>Server, Vms and Council migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
-        new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
+        new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly));
