@@ -15,6 +15,7 @@ using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Souls;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -32,6 +33,7 @@ public static class HostCompositionExtensions
         services.AddSingleton<IValidateOptions<BazaarStatusOptions>, BazaarStatusOptionsValidator>();
         services.AddOptions<BazaarReadinessOptions>().Bind(configuration.GetSection(BazaarReadinessOptions.SectionName));
         services.TryAddSingleton<HostState>();
+        services.TryAddSingleton<IAdminStatusSource, HostAdminStatusSource>();
         services.TryAddSingleton<HostExitCode>();
         // Managed PostgreSQL (packaging.md P5). External mode is the default and leaves the configured secret reference in charge.
         // Windows keeps the managed superuser password under DPAPI. The component's file store refuses to run there.
