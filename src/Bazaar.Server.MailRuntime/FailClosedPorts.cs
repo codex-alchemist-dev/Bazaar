@@ -23,9 +23,9 @@ public sealed class FailClosedMailBodyProtector : IMailBodyProtector, IFailClose
 {
     public string PortName => nameof(IMailBodyProtector);
 
-    public ProtectedBody Protect(string agentId, ReadOnlySpan<byte> plaintext) => throw new MailPortNotConfiguredException(PortName);
+    public ValueTask<ProtectedBody> ProtectAsync(string agentId, ReadOnlyMemory<byte> plaintext, CancellationToken ct) => throw new MailPortNotConfiguredException(PortName);
 
-    public byte[] Unprotect(ProtectedBody body) => throw new MailPortNotConfiguredException(PortName);
+    public ValueTask<byte[]> UnprotectAsync(ProtectedBody body, CancellationToken ct) => throw new MailPortNotConfiguredException(PortName);
 }
 
 /// <summary>Same gap as <see cref="FailClosedMailBodyProtector"/>, for the inbound pipeline: no clear text is ever kept.</summary>
@@ -33,9 +33,9 @@ public sealed class FailClosedMailBodySealer : IMailBodySealer, IFailClosedMailP
 {
     public string PortName => nameof(IMailBodySealer);
 
-    public SealedBody Seal(Guid personId, ReadOnlyMemory<byte> raw) => throw new MailPortNotConfiguredException(PortName);
+    public ValueTask<SealedBody> SealAsync(Guid personId, ReadOnlyMemory<byte> raw, CancellationToken ct) => throw new MailPortNotConfiguredException(PortName);
 
-    public byte[] Open(Guid personId, SealedBody sealedBody) => throw new MailPortNotConfiguredException(PortName);
+    public ValueTask<byte[]> OpenAsync(Guid personId, SealedBody sealedBody, CancellationToken ct) => throw new MailPortNotConfiguredException(PortName);
 }
 
 /// <summary>Reader sessions (doc 15) are not built: no session starts, so no mail text reaches any model.</summary>

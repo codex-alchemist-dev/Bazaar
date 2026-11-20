@@ -134,21 +134,21 @@ public sealed class TestBodyProtector : IMailBodyProtector
 {
     private static readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
 
-    public ProtectedBody Protect(string agentId, ReadOnlySpan<byte> plaintext)
+    public ValueTask<ProtectedBody> ProtectAsync(string agentId, ReadOnlyMemory<byte> plaintext, CancellationToken ct)
     {
         var nonce = RandomNumberGenerator.GetBytes(12);
         var ciphertext = new byte[plaintext.Length + 16];
         using var aes = new AesGcm(_key, 16);
-        aes.Encrypt(nonce, plaintext, ciphertext.AsSpan(0, plaintext.Length), ciphertext.AsSpan(plaintext.Length, 16));
-        return new ProtectedBody(Guid.NewGuid(), ciphertext, nonce);
+        aes.Encrypt(nonce, plaintext.Span, ciphertext.AsSpan(0, plaintext.Length), ciphertext.AsSpan(plaintext.Length, 16));
+        return ValueTask.FromResult(new ProtectedBody(Guid.NewGuid(), ciphertext, nonce));
     }
 
-    public byte[] Unprotect(ProtectedBody body)
+    public ValueTask<byte[]> UnprotectAsync(ProtectedBody body, CancellationToken ct)
     {
         var length = body.Ciphertext.Length - 16;
         var plaintext = new byte[length];
         using var aes = new AesGcm(_key, 16);
         aes.Decrypt(body.Nonce, body.Ciphertext.AsSpan(0, length), body.Ciphertext.AsSpan(length, 16), plaintext);
-        return plaintext;
+        return ValueTask.FromResult(plaintext);
     }
 }
