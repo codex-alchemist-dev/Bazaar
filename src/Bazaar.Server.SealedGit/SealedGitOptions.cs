@@ -8,4 +8,7 @@ public sealed class SealedGitOptions
 
     /// <summary>Absolute path of the git executable for <see cref="GitCommand"/> callers; null resolves <c>git</c> on PATH.</summary>
     public string? GitPath { get; init; }
+
+    /// <summary>How long a git operation waits for the scope lease (the cross-process lock over a whole materialise, work, reseal cycle) before it throws <see cref="TimeoutException"/>. Default 2 minutes.</summary>
+    public TimeSpan LeaseTimeout { get; init; } = TimeSpan.FromMinutes(2);
 }

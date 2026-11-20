@@ -109,6 +109,8 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
 
                 temp = CreateTempDir();
                 using var scope = await _store.OpenScopeAsync(Scope, cancellationToken).ConfigureAwait(false);
+                // The lease makes the whole materialise, work, reseal cycle exclusive against every other store or process working on this repo.
+                using var lease = await scope.AcquireLeaseAsync(_options.LeaseTimeout, cancellationToken).ConfigureAwait(false);
                 var gitDir = Path.Combine(temp, "git");
                 var snapshot = await MaterialiseAsync(scope, gitDir, cancellationToken).ConfigureAwait(false);
                 result = await work(gitDir).ConfigureAwait(false);
@@ -237,26 +239,35 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
     {
         Directory.CreateDirectory(gitDir);
         var snapshot = new Dictionary<string, (long, byte[])>(StringComparer.Ordinal);
-        var entries = await scope.ListAsync(ct).ConfigureAwait(false);
 
-        var folded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in entries)
+        // One consistent, authenticated snapshot: a concurrent writer can never give us new refs with old packs.
+        var sealedFiles = await scope.ReadAllAsync(ct).ConfigureAwait(false);
+        try
         {
-            if (!folded.Add(entry.Path))
+            var folded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in sealedFiles.Files)
             {
-                throw new InvalidOperationException($"Sealed paths collide when case is ignored ('{entry.Path}'); restoring would overwrite a file on a case-insensitive file system.");
+                if (!folded.Add(file.Path))
+                {
+                    throw new InvalidOperationException($"Sealed paths collide when case is ignored ('{file.Path}'); restoring would overwrite a file on a case-insensitive file system.");
+                }
+            }
+
+            foreach (var file in sealedFiles.Files)
+            {
+                var dest = Path.Combine(gitDir, file.Path.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                await File.WriteAllBytesAsync(dest, file.Content, ct).ConfigureAwait(false);
+                snapshot[file.Path] = (file.Generation, SHA256.HashData(file.Content));
+                CryptographicOperations.ZeroMemory(file.Content);
             }
         }
-
-        foreach (var entry in entries)
+        finally
         {
-            var file = await scope.ReadAsync(entry.Path, ct).ConfigureAwait(false)
-                ?? throw new SealTamperedException(scope.Scope, entry.Path, "Listed file vanished while materialising.");
-            var dest = Path.Combine(gitDir, entry.Path.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-            await File.WriteAllBytesAsync(dest, file.Content, ct).ConfigureAwait(false);
-            snapshot[entry.Path] = (file.Generation, SHA256.HashData(file.Content));
-            CryptographicOperations.ZeroMemory(file.Content);
+            foreach (var file in sealedFiles.Files)
+            {
+                CryptographicOperations.ZeroMemory(file.Content);
+            }
         }
 
         // gc and pack-refs can leave no files under these, so they must exist even when nothing was sealed there.
@@ -351,38 +362,48 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
             plan.Add((logical, file));
         }
 
-        // Order: objects and packs, then packed-refs/refs/config, then HEAD, then deletions. A crash part-way leaves refs that still resolve.
-        foreach (var (logical, file) in plan.OrderBy(p => Tier(p.Logical)).ThenBy(p => p.Logical, StringComparer.Ordinal))
+        // One batch with one manifest commit: readers see the old repo or the new one, never a mix. Every write and delete carries the
+        // generation it was materialised at, so a concurrent change fails the whole batch. The order (objects and packs, then
+        // packed-refs/refs/config, then HEAD, then deletions) is kept, although the single commit point already makes it all-or-nothing.
+        var batch = new List<SealedWrite>();
+        var buffers = new List<byte[]>();
+        try
         {
-            var bytes = await File.ReadAllBytesAsync(file.FullName, ct).ConfigureAwait(false);
-            try
+            foreach (var (logical, file) in plan.OrderBy(p => Tier(p.Logical)).ThenBy(p => p.Logical, StringComparer.Ordinal))
             {
+                var bytes = await File.ReadAllBytesAsync(file.FullName, ct).ConfigureAwait(false);
                 if (logical == "config" && !ConfigIsSafe(System.Text.Encoding.UTF8.GetString(bytes)))
                 {
+                    CryptographicOperations.ZeroMemory(bytes);
                     continue;
                 }
 
-                if (snapshot.TryGetValue(logical, out var old))
+                if (snapshot.TryGetValue(logical, out var old) && CryptographicOperations.FixedTimeEquals(SHA256.HashData(bytes), old.Hash))
                 {
-                    if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(bytes), old.Hash))
-                    {
-                        await scope.WriteAsync(logical, bytes, old.Generation, ct).ConfigureAwait(false);
-                    }
+                    CryptographicOperations.ZeroMemory(bytes);
+                    continue;
                 }
-                else
-                {
-                    await scope.WriteAsync(logical, bytes, 0, ct).ConfigureAwait(false);
-                }
+
+                buffers.Add(bytes);
+                batch.Add(SealedWrite.Put(logical, bytes, snapshot.TryGetValue(logical, out old) ? old.Generation : 0));
             }
-            finally
+
+            foreach (var removed in snapshot.Keys.Where(p => !seen.Contains(p) && Sealable(p)).OrderBy(p => p, StringComparer.Ordinal))
+            {
+                batch.Add(SealedWrite.Delete(removed, snapshot[removed].Generation));
+            }
+
+            if (batch.Count > 0)
+            {
+                await scope.WriteBatchAsync(batch, ct).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            foreach (var bytes in buffers)
             {
                 CryptographicOperations.ZeroMemory(bytes);
             }
-        }
-
-        foreach (var removed in snapshot.Keys.Where(p => !seen.Contains(p) && Sealable(p)).OrderBy(p => p, StringComparer.Ordinal))
-        {
-            await scope.DeleteAsync(removed, ct).ConfigureAwait(false);
         }
     }
 }

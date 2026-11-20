@@ -392,12 +392,190 @@ public sealed class SealedStoreTests : IDisposable
         await Assert.ThrowsAsync<ObjectDisposedException>(async () => await scope.ReadAsync("a.md"));
     }
 
+    [Fact]
+    public async Task A_concurrent_writer_never_yields_a_torn_snapshot()
+    {
+        using var writer = await Store().OpenScopeAsync("vault:acme");
+        using var reader = await Store().OpenScopeAsync("vault:acme");
+        await writer.WriteBatchAsync([SealedWrite.Put("refs/heads/main", Bytes("0")), SealedWrite.Put("objects/pack/p.pack", Bytes("0"))]);
+        using var stop = new CancellationTokenSource();
+        var writes = Task.Run(async () =>
+        {
+            for (var i = 1; !stop.IsCancellationRequested; i++)
+            {
+                await writer.WriteBatchAsync([SealedWrite.Put("objects/pack/p.pack", Bytes($"{i}")), SealedWrite.Put("refs/heads/main", Bytes($"{i}"))]);
+                await Task.Delay(1);
+            }
+        });
+
+        var generations = new HashSet<long>();
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        for (var n = 0; (n < 60 || generations.Count < 3) && DateTime.UtcNow < deadline; n++)
+        {
+            var snapshot = await reader.ReadAllAsync();
+            generations.Add(snapshot.ManifestGeneration);
+            Assert.Equal(["objects/pack/p.pack", "refs/heads/main"], snapshot.Files.Select(f => f.Path));
+            Assert.Equal(Encoding.UTF8.GetString(snapshot.Files[0].Content), Encoding.UTF8.GetString(snapshot.Files[1].Content));
+            Assert.All(snapshot.Files, f => Assert.Equal(snapshot.Files[0].Generation, f.Generation));
+        }
+
+        await stop.CancelAsync();
+        await writes;
+        Assert.True(generations.Count > 1, "the writer should have committed while the reader was reading");
+    }
+
+    [Fact]
+    public async Task A_stale_delete_conflicts_and_deletes_nothing()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        var first = await scope.WriteAsync("a.md", Bytes("one"));
+        var second = await scope.WriteAsync("a.md", Bytes("two"), first);
+        var ex = await Assert.ThrowsAsync<SealGenerationConflictException>(async () => await scope.DeleteAsync("a.md", first));
+        Assert.Equal(second, ex.Actual);
+        Assert.Equal("two", Encoding.UTF8.GetString((await scope.ReadAsync("a.md"))!.Content));
+        await Assert.ThrowsAsync<SealGenerationConflictException>(async () => await scope.DeleteAsync("a.md", 0));
+        await Assert.ThrowsAsync<SealGenerationConflictException>(async () => await scope.DeleteAsync("missing.md", 5));
+        Assert.False(await scope.DeleteAsync("missing.md", 0));
+        Assert.True(await scope.DeleteAsync("a.md", second));
+        Assert.Null(await scope.ReadAsync("a.md"));
+        Assert.False(await scope.DeleteAsync("a.md"));
+    }
+
+    [Fact]
+    public async Task A_batch_commits_once_with_deletes_and_checks_every_generation_first()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        var a = await scope.WriteAsync("a.md", Bytes("a1"));
+        var b = await scope.WriteAsync("b.md", Bytes("b1"));
+        var generation = await scope.WriteBatchAsync([SealedWrite.Put("a.md", Bytes("a2"), a), SealedWrite.Put("c.md", Bytes("c1"), 0), SealedWrite.Delete("b.md", b)]);
+        var snapshot = await scope.ReadAllAsync();
+        Assert.Equal(generation, snapshot.ManifestGeneration);
+        Assert.Equal(b + 1, generation);
+        Assert.Equal(["a.md", "c.md"], snapshot.Files.Select(f => f.Path));
+        Assert.Equal("a2", Encoding.UTF8.GetString(snapshot.Files[0].Content));
+
+        // One stale expectation fails the whole batch before anything is written.
+        await Assert.ThrowsAsync<SealGenerationConflictException>(async () => await scope.WriteBatchAsync([SealedWrite.Put("d.md", Bytes("d1"), 0), SealedWrite.Put("a.md", Bytes("a3"), a)]));
+        Assert.Equal(generation, (await scope.ReadAllAsync()).ManifestGeneration);
+        Assert.Null(await scope.ReadAsync("d.md"));
+        Assert.Empty((await scope.VerifyAsync()).UnreferencedFiles);
+        await Assert.ThrowsAsync<ArgumentException>(async () => await scope.WriteBatchAsync([SealedWrite.Put("x.md", Bytes("1")), SealedWrite.Delete("x.md")]));
+        Assert.Equal(generation, await scope.WriteBatchAsync([SealedWrite.Delete("never.md")]));
+    }
+
+    [Fact]
+    public async Task A_batch_that_fails_part_way_leaves_the_old_state_fully_intact()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        await scope.WriteAsync("a.md", Bytes("a1"));
+        await scope.WriteAsync("b.md", Bytes("b1"));
+        var before = await scope.ReadAllAsync();
+        var filesBefore = Directory.GetFiles(ScopeDir()).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray();
+
+        // The third write's content throws when it is sealed: two new files are already on disk at that point.
+        using var failing = new ThrowingMemory(16);
+        await Assert.ThrowsAsync<IOException>(async () => await scope.WriteBatchAsync(
+            [SealedWrite.Put("a.md", Bytes("a2")), SealedWrite.Put("c.md", Bytes("c1")), SealedWrite.Put("d.md", failing.Memory), SealedWrite.Delete("b.md")]));
+
+        var after = await scope.ReadAllAsync();
+        Assert.Equal(before.ManifestGeneration, after.ManifestGeneration);
+        Assert.Equal(before.Files.Select(f => (f.Path, f.Generation, Encoding.UTF8.GetString(f.Content))), after.Files.Select(f => (f.Path, f.Generation, Encoding.UTF8.GetString(f.Content))));
+        Assert.Equal(filesBefore, Directory.GetFiles(ScopeDir()).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray());
+        Assert.Empty((await scope.VerifyAsync()).UnreferencedFiles);
+        using var reopened = await Store().OpenScopeAsync("soul:1");
+        Assert.Equal("b1", Encoding.UTF8.GetString((await reopened.ReadAsync("b.md"))!.Content));
+    }
+
+    [Fact]
+    public async Task A_batch_over_the_bulk_limit_is_refused_before_any_write()
+    {
+        var store = new SealedStore(new SealedStoreOptions { RootPath = Path.Combine(_dir, "root"), MaxBulkBytes = 10 }, FileKekProvider.Open(Path.Combine(_dir, "kek.key")), _anchor, _audit);
+        using var scope = await store.OpenScopeAsync("soul:1");
+        await Assert.ThrowsAsync<ArgumentException>(async () => await scope.WriteBatchAsync([SealedWrite.Put("a.md", new byte[6]), SealedWrite.Put("b.md", new byte[6])]));
+        Assert.Empty(await scope.ListAsync());
+        await scope.WriteAsync("a.md", new byte[8]);
+        await scope.WriteAsync("b.md", new byte[8]);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await scope.ReadAllAsync());
+    }
+
+    [Fact]
+    public async Task A_tampered_file_fails_the_whole_snapshot()
+    {
+        using var scope = await Store().OpenScopeAsync("soul:1");
+        await scope.WriteBatchAsync([SealedWrite.Put("a.md", Bytes("a")), SealedWrite.Put("b.md", Bytes("b"))]);
+        var file = Directory.GetFiles(ScopeDir(), "*.bzs").First();
+        var bytes = File.ReadAllBytes(file);
+        bytes[^1] ^= 0x01;
+        File.WriteAllBytes(file, bytes);
+        await Assert.ThrowsAsync<SealTamperedException>(async () => await scope.ReadAllAsync());
+        Assert.Contains(_audit.Events, e => e.Kind == "seal.tamper");
+    }
+
+    [Fact]
+    public async Task The_lease_excludes_a_second_store_instance_until_released()
+    {
+        using var a = await Store().OpenScopeAsync("vault:acme");
+        using var b = await Store().OpenScopeAsync("vault:acme");
+        var lease = await a.AcquireLeaseAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("vault:acme", lease.Scope);
+        await Assert.ThrowsAsync<TimeoutException>(async () => await b.AcquireLeaseAsync(TimeSpan.FromMilliseconds(200)));
+
+        // Single operations do not need the lease; they stay serialised by the per-operation lock.
+        await b.WriteAsync("a.md", Bytes("x"));
+        var waiting = b.AcquireLeaseAsync(TimeSpan.FromSeconds(10)).AsTask();
+        await Task.Delay(100);
+        Assert.False(waiting.IsCompleted);
+        lease.Dispose();
+        using var second = await waiting;
+        Assert.Empty((await a.VerifyAsync()).UnreferencedFiles);
+    }
+
+    [Fact]
+    public async Task Leftover_temp_files_of_a_crash_are_removed_and_the_scope_opens_clean()
+    {
+        using (var scope = await Store().OpenScopeAsync("soul:1"))
+        {
+            await scope.WriteAsync("a.md", Bytes("one"));
+        }
+
+        var dir = ScopeDir();
+        var blob = Directory.GetFiles(dir, "*.bzs").Single();
+        File.WriteAllText(Path.Combine(dir, $"manifest.bzm.{Guid.NewGuid():N}.tmp"), "half a manifest");
+        File.WriteAllText($"{blob[..blob.LastIndexOf('.', blob.LastIndexOf('.') - 1)]}.9.bzs.{Guid.NewGuid():N}.tmp", "half a blob");
+
+        using var reopened = await Store().OpenScopeAsync("soul:1");
+        Assert.Equal("one", Encoding.UTF8.GetString((await reopened.ReadAsync("a.md"))!.Content));
+        Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
+        Assert.Contains(_audit.Events, e => e.Kind == "seal.cleanup");
+        Assert.Empty((await reopened.VerifyAsync()).UnreferencedFiles);
+        await reopened.WriteAsync("a.md", Bytes("two"));
+        Assert.Equal("two", Encoding.UTF8.GetString((await reopened.ReadAsync("a.md"))!.Content));
+    }
+
     private static void CopyDirectory(string from, string to)
     {
         Directory.CreateDirectory(to);
         foreach (var file in Directory.GetFiles(from))
         {
             File.Copy(file, Path.Combine(to, Path.GetFileName(file)), overwrite: true);
+        }
+    }
+
+    /// <summary>Memory whose span throws when read, to inject a failure in the middle of a batch.</summary>
+    private sealed class ThrowingMemory(int length) : System.Buffers.MemoryManager<byte>
+    {
+        public new Memory<byte> Memory => CreateMemory(length);
+
+        public override Span<byte> GetSpan() => throw new IOException("Injected failure.");
+
+        public override System.Buffers.MemoryHandle Pin(int elementIndex = 0) => throw new IOException("Injected failure.");
+
+        public override void Unpin()
+        {
+        }
+
+        protected override void Dispose(bool disposing)
+        {
         }
     }
 
