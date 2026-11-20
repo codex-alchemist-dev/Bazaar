@@ -89,6 +89,54 @@ LongMemEval (long chat histories, temporal questions), LoCoMo (long multi-sessio
 - **Scale check.** A vault with even a few million notes is small for this. Exact (brute-force) search over a few hundred thousand vectors is fast on a CPU with `pgvector`, and graph hops are index look-ups. GPU search pays off for millions to billions of vectors or for very high query rates. Neither is Bazaar's v1 shape.
 - **Hardware check.** cuVS and FAISS-GPU target NVIDIA CUDA. The owner's PC has an Intel Arc B580 (project memory). CAGRA will not run there. The honest consequence: GPU vector search must be an optional provider module for operators with NVIDIA hardware, never a requirement. The GPU is more usefully spent on the embedding model and the reranker, which are the real compute in the retrieval path. (This conclusion rests on vendor documentation of CUDA support; the Constellation memory thread should confirm the available Arc runtimes.)
 
+## 4b. Making it efficient: cutting the context window by 50 to 80 percent (owner goal, 2026-11-20)
+
+The goal is to shrink the hard context an agent carries on long-horizon work by about 50 to 80 percent, with GraphDRAG filling in what is no longer carried. The first point to be clear about: **there are two different things called "efficiency", and they have different tools.**
+
+- **Fewer tokens in the prompt** (what the model must read each turn). This is what shrinks the context window. Levers: retrieve on demand, clear stale material, compact structured bundles, summaries, prompt compression.
+- **Smaller or faster storage and search** (what the retrieval system holds in memory). This is what TurboQuant, RaBitQ, PQ, binary and int8 quantization and Matryoshka embeddings do. They make the index smaller and search faster. They do **not** remove a single token from the prompt.
+
+TurboQuant also targets the model's KV cache (the memory a model keeps for the text it has already read). That saves GPU memory on the machine running the model. It only helps if Bazaar runs the model itself. For hosted models (the Claude lane, FreeLLMAPI, direct provider keys) the provider controls the KV cache and Bazaar cannot apply it. It would matter only for local models on the server or the NPU.
+
+### Levers that cut prompt tokens
+
+| Lever | Measured effect | Quality cost | Applies to Bazaar |
+|---|---|---|---|
+| **Retrieve on demand instead of preloading** (agent asks the vault for a card or path when it needs it) | Anthropic reports context editing, which clears stale tool results, cut token use by 84 percent in a 100-turn web-search test, and the memory tool plus clearing improved task performance by 39 percent over baseline (self-reported; the 84 percent is for clearing, not for on-demand retrieval itself). No source isolates on-demand versus preload head to head. | Small when notes are written before old results are cleared. Risk: the agent forgets to ask. | Yes, the main lever. GraphDRAG is the "ask" side; the Vault is the store. |
+| **Clear stale tool results and old turns** | Same 84 percent figure above. | Low if findings were saved as notes first. | Yes. Pair with a "save before clear" rule in the agent runtime (doc 06). |
+| **Compact structured bundles** (paths and one-line cards instead of bodies, bodies fetched by id) | Not measured by anyone for vaults; cost is paths plus cards, usually a small fraction of bodies. Measure in section 7. | Low to none if cards are good. | Yes, already the retrieval doc's card format. |
+| **Hierarchical summaries** (hub and cluster summaries, RAPTOR style) | Replaces tens of small notes with one summary for broad questions. | Loses detail; keep links to the notes underneath. | Yes, for broad questions only; per access scope (section 5). |
+| **Prompt compression** (LLMLingua-2 and LongLLMLingua drop low-value tokens) | LLMLingua-2 reports 2x to 5x compression with 1.6x to 2.9x lower end-to-end latency, and about 1.6 points lower on its benchmark average at 3x (44.0 to 42.4; my reading of the table, check before quoting). Microsoft reports LongLLMLingua gaining 17.1 percent at 4x on question-aware RAG (vendor claim). An independent 2025 study found the methods help most at higher compression ratios; results vary by task. | Moderate and task-dependent; can damage exact identifiers, code and numbers. | Use on bulky prose such as old research or pasted logs, never on code, ids, decisions or anything that must be quoted exactly. Run as an optional last step. |
+| **Prompt-cache-aware packing** | Cached prefixes cost less and answer faster, but still occupy the window. So this cuts cost and latency, not window size (background; not measured here). | None. | Yes. Put the stable part first (rules, Soul, constitution, pinned cards) and the changing retrieved bundle after the cache breakpoint, in a stable order, so retrieval changes do not invalidate the cache. |
+
+Reading the numbers honestly: the 50 to 80 percent target is plausible from clearing, on-demand retrieval and compact bundles together, because one vendor reports 84 percent from clearing alone on one test. It is not proven for Bazaar, and none of these numbers are Bazaar measurements. It becomes a number only after the labelled set and a token-per-outcome measurement exist (section 7).
+
+### Levers that shrink and speed the index
+
+| Method | What it is | Reported numbers | Fit |
+|---|---|---|---|
+| **TurboQuant** (Google, ICLR 2026) | Random rotation, then a few bits per value, no training data needed; near the theoretical limit for distortion. | Paper reports quality-neutral KV cache at 3.5 bits per channel and marginal loss at 2.5 bits; secondary sources claim about 6x KV memory saving and up to 8x faster attention logits on H100 (secondary, unverified). Secondary reports say it beats PQ and RaBitQ on recall on GloVe and OpenAI embeddings (unverified). | Good candidate for embedding storage because it needs no training pass and handles streaming inserts (notes arrive all the time). Independent open implementations exist but are community code; no Bazaar-ready library was checked. Treat as a candidate to benchmark, not a decision. |
+| **RaBitQ** (and Elastic's BBQ derived from it) | 1 bit per dimension with correction factors, plus rescoring on original vectors. | About 32x smaller; multi-bit variants reach 4x to 8x without rescoring; Elastic reports 2 to 5x faster queries than PQ at equal accuracy (vendor claim). | Strong, well-documented option for large indexes. Needs rescoring against full vectors. |
+| **Product quantization (PQ)** | Splits vectors into pieces and codes each. | Usually at least 32x compression; recall often below 80 percent unless reranked (verified, from the RaBitQ literature). | Older baseline; use only if a library gives it for free. |
+| **Binary or int8 with rescore** | Keep 1-bit or 8-bit codes, fetch extra candidates, rescore with full vectors. | Hugging Face reports about 96 percent of retrieval quality at 32x smaller and up to 32x faster with rescoring, 92.5 percent without (read from a translated page; check the English original). Naive binary needs 10 to 100 times more candidates reranked (Elastic). | Simple and portable; works on CPU. |
+| **Matryoshka embeddings** | A model trained so its first N dimensions work alone; cut the vector short. | Vendors say loss is small and grows as vectors get shorter; one source says below roughly 256 dimensions quantization noise becomes risky (informal). | Pick an embedding model that supports it; combine with int8 or binary. Choose the model only after the labelled set exists (retrieval doc rule 4). |
+
+What this means for Bazaar's size: the vault index is small next to what these methods are built for. A million notes at 1024 float32 dimensions is about 4 GB, which fits in memory. Quantization is a headroom and speed measure for later and for large operators, not a v1 requirement, and it must never replace rescoring with full vectors. A sensible order: int8 or Matryoshka plus rescore first (supported by pgvector `halfvec` and common models), then benchmark TurboQuant and RaBitQ-style codes on the real vault.
+
+### CPU and GPU fit
+
+- **CPU (multi-core):** binary, int8 and RaBitQ-style codes use fast bit and integer operations; the graph kernel from section 2b runs here as the reference.
+- **GPU:** the embedding model, the reranker, any prompt-compression model and graph scorers. TurboQuant and RaBitQ search kernels exist mostly in NVIDIA-oriented stacks (cuVS); on the owner's Arc B580 they are CPU-side or need a custom provider (section 4).
+- **Model-side KV cache quantization (TurboQuant's other use):** only for locally served models; not available for hosted models.
+
+### Putting the pieces in order
+
+1. Retrieve on demand with compact path-and-card bundles, with notes saved before old context is cleared. (Biggest lever, no new model.)
+2. Cache-aware packing: stable prefix, then the retrieved bundle.
+3. Summaries for broad questions, per access scope.
+4. Optional prompt compression for bulky prose only.
+5. Quantized index (int8 or Matryoshka plus rescore first; TurboQuant and RaBitQ as benchmarked options) when index size or speed becomes a measured problem.
+
 ## 5. The open question: should hops follow any cross-project link?
 
 **Recommendation: no. Follow a link out of a project only when the reader is already allowed to read the target. Cross-project access is only through explicit shares (Hive copies and role grants). A bare link never grants reach.**
@@ -127,6 +175,9 @@ What to do instead, to keep most of the quality:
 | Cross-project hops | Only through grants and Hive copies, checked per hop at read time. | Section 5. |
 | GPU | Embeddings and reranker on the available GPU. Vector search stays in Postgres. cuVS/CAGRA only as an optional module for NVIDIA servers, once corpus size justifies it. | Section 4. |
 | Budget | Keep "expand, then search, then pack" (retrieval doc rule 1). Report the basis and scope of each returned note. | Existing rules. |
+| Context cut (50 to 80 percent target) | Deliver it with retrieve-on-demand, "save before clear" in the runtime, compact path-and-card bundles and cache-aware packing. Summaries for broad questions. Prompt compression optional and never on code, ids or decisions. Report tokens per correct answer against a full-context baseline. | Section 4b. |
+| Index quantization | Not needed for v1 size. First int8 or Matryoshka plus rescore; benchmark TurboQuant and RaBitQ-style codes on the real vault. Always rescore with full vectors. | Section 4b. |
+| Model KV cache quantization | Only for locally served models; out of scope for hosted models. | Section 4b. |
 | Evaluation | Build a labelled set of real vault questions before choosing weights, depth or any model. Track answer quality and tokens per correct answer. Use LongMemEval and LoCoMo only as a sanity check. | Doc 08 and the retrieval doc already require this. |
 
 ## 7. Evaluation plan
@@ -134,7 +185,8 @@ What to do instead, to keep most of the quality:
 1. Collect 100 to 200 real questions agents asked of the vault, plus a few written by the owner, each with the set of notes that should have been returned. Include path questions ("how does A connect to B"), impact questions ("what depends on this") and "current answer" questions.
 2. Run these configurations: similarity only; plus one hop; plus two hops with PageRank; plus path bundle; plus reranker. Record recall at 5 and 10, tokens used, and latency. Run the graph kernel on CPU cores and, where available, GPU, on the real graph and a synthetic 10x graph.
 3. Add temporal questions ("what did we decide before X changed") and isolation checks (an agent must never receive a note or count it cannot read).
-4. Only then decide depth, weights, summary use and whether any language-model-built links are worth their cost.
+4. Measure context directly: tokens carried per turn and tokens per correct answer on long tasks, full-context baseline versus GraphDRAG with each lever switched on in turn, so the 50 to 80 percent claim is a measured number.
+5. Only then decide depth, weights, summary use and whether any language-model-built links are worth their cost.
 
 ## 8. Evidence gaps
 
@@ -152,5 +204,9 @@ What to do instead, to keep most of the quality:
 - RAG vs GraphRAG: a systematic evaluation, <https://arxiv.org/abs/2502.11371>
 - BenchmarkQED (Microsoft), <https://www.microsoft.com/en-us/research/?p=1140429>
 - Accelerating GPU indexes in Faiss with NVIDIA cuVS, <https://engineering.fb.com/2025/05/08/data-infrastructure/accelerating-gpu-indexes-in-faiss-with-nvidia-cuvs/>
+- TurboQuant, <https://arxiv.org/abs/2504.19874>; RaBitQ, <https://arxiv.org/html/2409.09913v1>; Elastic BBQ, <https://www.elastic.co/search-labs/blog/better-binary-quantization-lucene-elasticsearch>
+- Embedding quantization (Hugging Face), <https://huggingface.co/blog/embedding-quantization>; Voyage flexible dimensions, <https://docs.voyageai.com/docs/flexible-dimensions-and-quantization>
+- LLMLingua-2, <https://arxiv.org/abs/2403.12968>; prompt compression empirical study, <https://arxiv.org/pdf/2505.00019>
+- Anthropic context management (context editing, memory tool), <https://www.anthropic.com/news/context-management>
 - Reranker latency and accuracy: <https://dev.to/gabrielanhaia/rerankers-and-the-latency-budget-when-cross-encoders-are-worth-it-3efc>, <https://redis.io/blog/top-reranking-models-rag-accuracy/>
 - In-repo: `docs/design/constellation-memory-graph.md`, `19-constellation-and-git-solar-system.md` ("Agent memory governance"), `08-memory-system.md` (sections 6, 7, 8), `retrieval-and-token-efficiency.md`.
