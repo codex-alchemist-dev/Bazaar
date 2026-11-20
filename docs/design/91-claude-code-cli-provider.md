@@ -74,12 +74,11 @@ Command (arguments go through `ProcessStartInfo.ArgumentList`, never a shell str
 | `--output-format stream-json --verbose --include-partial-messages` | Newline-delimited events with text deltas. |
 | `--no-session-persistence` | The CLI keeps no transcript on disk. |
 | `--model=<id>` | From the route (section 10). The id must match `^[a-z0-9][a-z0-9.\-]*$`; anything else fails the call before a process starts. |
-| `--system-prompt-file <temp file>` | Replaces Claude Code's own prompt with the agent's Soul and instructions. File in a private temp folder, deleted after the call. |
+| `--system-prompt-file <temp file>` | Replaces Claude Code's own prompt entirely (never the append flags) with the agent's system messages, byte for byte. File in a private temp folder, deleted after the call. |
 | `--tools ""` | All built-in tools off (Bash, file tools, web). |
 | `--strict-mcp-config --mcp-config <temp file>` | Only the definition-only bridge (section 7). A private temp file, because the bearer token must not appear in the process list. |
 | `--max-turns 1` | Backstop: one model response per process. Not shown in `claude --help` on the version the reviewer checked (2.1.329), so it is unverified; the kill after the tool-use message is the real stop. |
 | `--permission-mode dontAsk` with `--permission-prompts none` | Nothing can wait for a human. |
-| `--exclude-dynamic-system-prompt-sections` | Keeps the prompt prefix stable for caching. |
 | `--safe-mode` | Defence in depth when the version supports it (checked, section 12). |
 
 Not used: `--bare` (it ignores the subscription login, so it is used only in API key mode, where it is recommended), `--resume` and `--continue` (state is Bazaar's), `--dangerously-skip-permissions`, any Agent SDK package.
@@ -92,7 +91,7 @@ Not used: `--bare` (it ignores the subscription login, so it is used only in API
 
 ## 6. Process lifecycle
 
-- **Start.** A runner acquires a slot from a semaphore (`max_concurrent`) and an hourly token bucket (`max_steps_per_hour`). If either is exhausted the call returns `Failure("rate_limited", retryAfter)` without starting a process, so the gateway's existing quota state and the Work-Life Simulation see it as capacity, not an error.
+- **Start.** A call waits for a free slot (`max_concurrent`) and for the minimum spacing; waiting is not a failure, because reporting it as `rate_limited` would mark the whole lane limited for every agent. The hourly step cap (`max_steps_per_hour`) is a real quota: when it is full the call returns `Failure("rate_limited", retryAfter)` without starting a process, so the gateway's quota state and the Work-Life Simulation see it as capacity.
 - **Kill tree.** Cancel and timeouts use `Process.Kill(entireProcessTree: true)`. For a server crash, Windows adds a Job Object with kill-on-close, created before the child can spawn anything (the child starts suspended or is placed by the job-list attribute, so no early grandchild escapes). Linux marks the child with an environment variable carrying a per-server id and a startup sweep removes only processes of the server's own user that carry it; an unknown command-line marker is not used because the unmodified CLI may reject it. The Job Object and sweep are a work package of their own (section 14).
 - **Time limits.** First-event timeout (default 60 s), idle gap timeout between events (default 90 s), total timeout (default 15 min). Each ends the call with `Failure("timeout")` and kills the tree.
 - **Bounded output.** Standard error is captured up to a small cap and only for diagnostics; it is scrubbed before logging. A single event line over the line cap ends the call with `Failure("provider_error")`.
