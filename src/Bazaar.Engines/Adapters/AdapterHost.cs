@@ -315,7 +315,7 @@ public sealed class AdapterHost : IAsyncDisposable
     /// </summary>
     private async Task<JsonElement?> BoundedRequestAsync(string method, JsonElement? parameters, string description, CancellationToken ct)
     {
-        using var timeout = new CancellationTokenSource(_options.CommandTimeout);
+        using var timeout = new CancellationTokenSource(_options.CommandTimeout, _options.TimeProvider ?? TimeProvider.System);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         try
         {
