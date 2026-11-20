@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.MailOutbound\Bazaar.Server.MailOutbound.csproj" />
+    <!-- The real limiter backs the cap tests, so the policy is checked against the shared contract and not a copy. -->
+    <ProjectReference Include="..\..\src\Bazaar.RateLimits\Bazaar.RateLimits.csproj" />
+    <!-- The real MIME builder checks the footer on the message that would leave the server; the mail module's embedded SQL builds the test database. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.MailBackends\Bazaar.Server.MailBackends.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+  </ItemGroup>
+</Project>

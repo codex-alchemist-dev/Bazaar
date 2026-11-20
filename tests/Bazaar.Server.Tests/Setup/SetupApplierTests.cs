@@ -292,6 +292,99 @@ public sealed class SetupApplierTests
     }
 
     /// <summary>Holds the fakes one test uses. Each test makes its own, so nothing is shared.</summary>
+    [Fact]
+    public async Task Audit_counts_appear_in_the_applied_row_sorted_by_name()
+    {
+        var harness = new Harness();
+        var step = new CountingStep("email.dns", 11, new Dictionary<string, int> { ["warn"] = 2, ["fail"] = 1, ["not-applicable"] = 0, ["pass"] = 4 });
+
+        var result = await Applier(harness, step).ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SetupExitCode.Ok, result.ExitCode);
+        var rows = PayloadOf(Assert.Single(harness.Audit.Entries))["stepCounts"]!.AsArray();
+        Assert.Equal(
+            new List<string> { "email.dns:fail=1", "email.dns:not-applicable=0", "email.dns:pass=4", "email.dns:warn=2" },
+            rows.Select(row => $"{row!["step"]}:{row["name"]}={row["count"]}"));
+    }
+
+    [Fact]
+    public async Task Empty_audit_counts_leave_the_row_without_a_counts_field()
+    {
+        var harness = new Harness();
+
+        await Applier(harness, Step("database.schema", 10, [])).ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);
+
+        Assert.False(PayloadOf(Assert.Single(harness.Audit.Entries)).ContainsKey("stepCounts"));
+    }
+
+    [Fact]
+    public async Task Invalid_audit_counts_are_dropped_and_the_step_still_succeeds()
+    {
+        var harness = new Harness();
+        var counts = new Dictionary<string, int>
+        {
+            ["Pass"] = 1,
+            ["has space"] = 1,
+            ["negative"] = -1,
+            [""] = 1,
+            [new string('a', 65)] = 1,
+            ["ok.name_1-x"] = 7,
+        };
+
+        var result = await Applier(harness, new CountingStep("email.dns", 11, counts)).ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);
+
+        Assert.Equal(SetupExitCode.Ok, result.ExitCode);
+        var rows = PayloadOf(Assert.Single(harness.Audit.Entries))["stepCounts"]!.AsArray();
+        Assert.Equal("ok.name_1-x", Assert.Single(rows)!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Audit_counts_keep_at_most_32_entries()
+    {
+        var harness = new Harness();
+        var counts = Enumerable.Range(0, 40).ToDictionary(i => $"c{i:00}", i => i);
+
+        await Applier(harness, new CountingStep("email.dns", 11, counts)).ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);
+
+        var rows = PayloadOf(Assert.Single(harness.Audit.Entries))["stepCounts"]!.AsArray();
+        Assert.Equal(32, rows.Count);
+        Assert.Equal("c31", rows[^1]!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Step_message_and_secret_like_names_never_reach_the_audit_row()
+    {
+        var harness = new Harness();
+        var step = new CountingStep("email.dns", 11, new Dictionary<string, int> { [SetupFixtures.Canary.ToUpperInvariant() + " text"] = 1, ["pass"] = 1 }, SetupFixtures.Canary);
+
+        await Applier(harness, step).ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);
+
+        var row = Assert.Single(harness.Audit.Entries);
+        Assert.DoesNotContain(SetupFixtures.Canary, row.Payload, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"pass\"", row.Payload);
+    }
+
+    [Fact]
+    public async Task Audit_counts_of_a_rolled_back_apply_are_not_written()
+    {
+        var harness = new Harness();
+
+        await Applier(harness, new CountingStep("email.dns", 11, new Dictionary<string, int> { ["pass"] = 1 }), Step("zz.fail", 20, [], StepBehaviour.ReportFailure))
+            .ApplyAsync(Request(ValidPlan()), TestContext.Current.CancellationToken);
+
+        Assert.False(PayloadOf(Assert.Single(harness.Audit.Entries)).ContainsKey("stepCounts"));
+    }
+
+    private sealed class CountingStep(string id, int order, IReadOnlyDictionary<string, int> counts, string? message = null) : ISetupStep
+    {
+        public string Id { get; } = id;
+
+        public int Order { get; } = order;
+
+        public Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(new SetupStepResult(true, message) { AuditCounts = counts });
+    }
+
     private sealed class Harness
     {
         public FakeInstanceLock Lock { get; } = new();

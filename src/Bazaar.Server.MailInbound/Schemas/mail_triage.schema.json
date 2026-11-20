@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "mail_triage hand-over (doc 22 inbound step 5, doc 15 hand-over). PROPOSED. Registration in the doc 15 schema registry is pending; MailTriageHandoverValidator enforces this shape and a test keeps the two in step.",
+  "title": "mail_triage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["message_id", "verdict", "reason_codes"],
+  "properties": {
+    "message_id": { "type": "string", "format": "uuid" },
+    "verdict": { "enum": ["routine", "needs_attention", "escalate"] },
+    "reason_codes": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "sign_up_confirmation",
+          "verification_code",
+          "owner_request",
+          "notification",
+          "newsletter",
+          "personal_reply",
+          "bounce",
+          "suspicious",
+          "prompt_injection_suspected",
+          "requests_credentials",
+          "requests_payment",
+          "unclear"
+        ]
+      }
+    }
+  }
+}

@@ -99,4 +99,35 @@ public sealed class MimeMailParserTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new MimeMailParser(new MailLimits { MaxParts = 0 }).Parse(Bytes(_plainMessage)));
     }
+
+    [Fact]
+    public void Exposes_the_from_display_name_without_control_characters()
+    {
+        var parsed = new MimeMailParser().Parse(Bytes("From: =?utf-8?q?Ann=07=E2=80=AE_Lee?= <ann@example.test>\nContent-Type: text/plain\n\nx"));
+        Assert.Equal("ann@example.test", parsed.FromAddress);
+        Assert.Equal("Ann Lee", parsed.FromDisplayName);
+
+        Assert.Null(new MimeMailParser().Parse(Bytes("From: ann@example.test\nContent-Type: text/plain\n\nx")).FromDisplayName);
+    }
+
+    [Fact]
+    public void Cleaner_strips_control_and_bidi_characters_and_caps_length()
+    {
+        Assert.Equal("Ann Lee", MailTextCleaner.CleanDisplayName("  Ann\u202E\u0007\t \r\nLee "));
+        Assert.Null(MailTextCleaner.CleanDisplayName("\u0001\u202E"));
+        Assert.Equal(MailTextCleaner.MaxDisplayNameLength, MailTextCleaner.CleanDisplayName(new string('a', 5000))!.Length);
+        // The cut never leaves half a surrogate pair.
+        var cut = MailTextCleaner.CleanDisplayName(new string('a', MailTextCleaner.MaxDisplayNameLength - 1) + "\U0001F600")!;
+        Assert.Equal(MailTextCleaner.MaxDisplayNameLength - 1, cut.Length);
+    }
+
+    [Fact]
+    public void Composed_from_header_round_trips_quotes_and_backslashes()
+    {
+        var header = MailTextCleaner.ComposeFromHeader("A \"b\" c\\", "a@example.test");
+        Assert.True(Bazaar.Server.Mail.Quarantine.EmailAddressParser.TryParseMailbox(header, out var mailbox));
+        Assert.Equal("A \"b\" c\\", mailbox!.DisplayName);
+        Assert.Equal("a@example.test", MailTextCleaner.ComposeFromHeader(null, "a@example.test"));
+        Assert.Null(MailTextCleaner.ComposeFromHeader("x", null));
+    }
 }

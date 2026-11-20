@@ -46,8 +46,12 @@ public static class HostApplicationExtensions
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
+        // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
+        services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
+        // External mail (docs/design/22-email-subsystem.md). Off unless Bazaar:Mail:Enabled is true; needs the components above (audit, secrets).
+        services.AddBazaarMail(configuration);
         services.AddBazaarAgentResponder(configuration);
         // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.
         services.AddBazaarRemoteAuth(configuration);

@@ -76,7 +76,7 @@ public sealed class ImapSmtpBackend(
             throw new InvalidOperationException("Sender domain does not match this back end.");
         }
 
-        var message = OutboundMessageBuilder.Build(mail, footer);
+        var message = OutboundMessageBuilder.Build(mail, string.IsNullOrWhiteSpace(mail.Footer) ? footer : mail.Footer);
         var messageId = OutboundMessageBuilder.MessageIdFor(mail.Key, domain);
         var login = await credentials.GetAsync(mail.From, ct);
 

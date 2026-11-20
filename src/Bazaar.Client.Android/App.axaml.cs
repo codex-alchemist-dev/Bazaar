@@ -2,11 +2,21 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Bazaar.Client.Core.Constellation;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Mail;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
+using Bazaar.Client.Gc;
+using Bazaar.Client.Mobile;
+using Bazaar.Client.Modules;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Vault;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Android;
 
@@ -42,10 +52,23 @@ public sealed class App : Avalonia.Application
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
-        // The panes this head ships, in pager order: the RyuseiFuda board first, then the Client.Core panes, then the rest of RyuseiFuda.
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
-        var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes (pager order).
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            new DashboardPaneModule(),
+            new ConstellationPaneModule(),
+            new GcPaneModule(),
+            new VaultSearchPaneModule(),
+            .. RyuseiFudaPanes.Modules,
+            new EnginePaneModule(),
+            .. MailPanes.Modules,
+        ];
+        var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
+        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
+        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
@@ -66,18 +89,3 @@ public sealed class App : Avalonia.Application
         return metrics is null ? 0 : metrics.WidthPixels / metrics.Density;
     }
 }
-
-// CodeQL default setup retrigger: comment-only, no code change.
-
-// CodeQL analysis trigger (no functional change).
-
-// CodeQL analysis trigger (no functional change).
-
-// CodeQL analysis trigger (no functional change).
-
-// CI re-run: comment-only touch so checks report on a fresh head.
-
-// CodeQL analysis trigger (no functional change).
-// CodeQL analysis trigger, pass 2 (no functional change).
-
-// CodeQL analysis trigger (comment only, no functional change).
