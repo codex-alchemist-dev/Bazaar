@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components.Erasure;
+namespace Bazaar.Erasure.Abstractions;
 
 /// <summary>
 /// Destroys the GC per-person keys of one person (migration 0008, <c>person_key</c>). Destroying a key makes every sealed

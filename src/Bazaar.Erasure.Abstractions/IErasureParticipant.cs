@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components.Erasure;
+namespace Bazaar.Erasure.Abstractions;
 
 /// <summary>
 /// One subsystem's erasure step for a person, for data that lives outside the GC log (Vault memory files, the memory store
