@@ -32,6 +32,9 @@ public static class SetupSettingProjection
     /// <summary>Registry key set by <c>install.updatePolicy.security</c> (doc 42 section 10; <c>automatic</c> is true).</summary>
     public const string AutoSecurityPatchesKey = "deps.update.autoSecurityPatches";
 
+    /// <summary>Registry key set by <c>custody.identityKek</c> (doc 14; not registered in every build).</summary>
+    public const string IdentityKekKey = "identity.kek_provider";
+
     /// <summary>The registry key a derived plan path maps to, or null when the path is not one of the four mapped plan fields.</summary>
     public static string? DerivedKeyForPath(string planPath) => planPath switch
     {
@@ -40,6 +43,7 @@ public static class SetupSettingProjection
         "scamMailProtocol.enabled" => ScamMailKey,
         "install.releaseChannel" => UpdateChannelKey,
         "install.updatePolicy.security" => AutoSecurityPatchesKey,
+        "custody.identityKek" => IdentityKekKey,
         _ => null,
     };
 
@@ -66,6 +70,12 @@ public static class SetupSettingProjection
         // Doc 45 step 2. Only the security half has a registry key. The "other" half has none (every non-security update is manual
         // and nothing stores an automatic choice), so it is not projected and the apply step refuses "automatic" (see IsOtherUpdatePolicyBacked).
         Add(projected, AutoSecurityPatchesKey, "install.updatePolicy.security", Parse(string.Equals(plan.Install.UpdatePolicy.Security, "automatic", StringComparison.Ordinal) ? "true" : "false"));
+        if (plan.Custody.IdentityKek is { } identityKek)
+        {
+            // Absent means the server default, so nothing is written.
+            Add(projected, IdentityKekKey, "custody.identityKek", Parse(JsonSerializer.Serialize(identityKek, SetupPlanJsonContext.Default.String)));
+        }
+
         return [.. projected.Values];
     }
 

@@ -14,6 +14,7 @@ public static partial class SetupPlanValidator
     private static readonly string[] _releaseChannels = ["alpha", "beta", "stable", "ltsc", "latest-commit"];
     private static readonly string[] _updateModes = ["automatic", "manual"];
     private static readonly string[] _kekProviders = ["env", "file", "dpapi", "systemd-creds"];
+    private static readonly string[] _identityKekProviders = ["file", "dpapi", "openbao", "tpm"];
     private static readonly string[] _mergeKinds = ["owner_app", "owner_linked"];
     private static readonly string[] _privacyProfiles = ["private"];
 
@@ -65,6 +66,7 @@ public static partial class SetupPlanValidator
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
         ValidateUpdatePolicy(plan, issues);
+        ValidateIdentityKek(plan, registry, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
@@ -356,6 +358,40 @@ public static partial class SetupPlanValidator
         {
             issues.Add(Error("install.updatePolicy.other", "automatic is not supported yet: no setting stores it, so only manual can be applied."));
         }
+    }
+
+    /// <summary>
+    /// The identity KEK provider (doc 45 step 5, doc 14 <c>identity.kek_provider</c>). Optional: absent writes nothing and needs no
+    /// registry key. A value must be file, dpapi, openbao or tpm (a provider may land in a later build, the plan value is valid now).
+    /// The plan field is the one place that sets the key. When the key is not registered in this build the plan is refused with a clear
+    /// error rather than accepted and silently not stored.
+    /// </summary>
+    private static void ValidateIdentityKek(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(SetupSettingProjection.IdentityKekKey))
+        {
+            issues.Add(Error("settings." + SetupSettingProjection.IdentityKekKey, "is already set by custody.identityKek; set it in one place."));
+        }
+
+        var value = plan.Custody.IdentityKek;
+        if (value is null)
+        {
+            return;
+        }
+
+        if (!_identityKekProviders.Contains(value, StringComparer.Ordinal))
+        {
+            issues.Add(Error("custody.identityKek", "must be file, dpapi, openbao or tpm, or omitted for the server default."));
+            return;
+        }
+
+        if (!registry.TryGet(SetupSettingProjection.IdentityKekKey, out var definition) || definition is null)
+        {
+            issues.Add(Error("custody.identityKek", "the identity.kek_provider setting is not registered in this build."));
+            return;
+        }
+
+        CheckRegistryValue(definition, "custody.identityKek", JsonSerializer.SerializeToElement(value, SetupPlanJsonContext.Default.String), issues);
     }
 
     /// <summary>

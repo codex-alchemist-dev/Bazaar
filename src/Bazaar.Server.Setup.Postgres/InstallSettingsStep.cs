@@ -7,7 +7,7 @@ namespace Bazaar.Server.Setup.Postgres;
 /// <summary>
 /// The setup step that writes the plan's install-scope settings (doc 45 sections 1.2 and 1.3; doc 03 settings registry, doc 04
 /// <c>setting</c> table). The settings are the plan's <c>settings</c> map and the four plan fields that map to one registry key each
-/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 2 (the security half of the update policy), 12 (scam-mail
+/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 5 (the identity KEK provider, when set), 2 (the security half of the update policy), 12 (scam-mail
 /// protocol) and 15 (status bind and port).
 /// </summary>
 /// <remarks>
@@ -28,7 +28,7 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
     public const int StepOrder = 1500;
 
     /// <summary>The plan sections this step applies: the settings-backed parts of the plan (doc 45 steps 1, 2, 12 and 15, plus the settings map).</summary>
-    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "install.updatePolicy", "scamMailProtocol", "network", "settings"];
+    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "install.updatePolicy", "scamMailProtocol", "network", "custody.identityKek", "settings"];
 
     private const string _selectSql = "SELECT value::text, updated_by FROM setting WHERE key = @key AND scope = 'install' AND scope_id = ''";
 
