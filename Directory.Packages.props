@@ -58,7 +58,5 @@
     <!-- Wire codec generator (doc 90 WP1): build-time Roslyn only, netstandard2.0 analyzer. 4.14 runs inside every current SDK. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <!-- Reusable codec conformance suite (doc 90 WP1): xunit v3 extensibility and assert, for a library of tests. Same version as xunit.v3.mtp-v2. -->
-    <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
-    <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
   </ItemGroup>
 </Project>
