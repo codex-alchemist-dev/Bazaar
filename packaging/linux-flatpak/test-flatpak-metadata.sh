@@ -132,6 +132,53 @@ for a, kw in ALLOWED.items():
     if not found:
         err("finish-arg %s has no explanatory comment mentioning '%s'" % (a, kw))
 
+# Icon: the manifest must install a scalable SVG named after the app-id, from a file that exists.
+m = re.search(r"install\s+-Dm644\s+(\S+\.svg)\s+/app/share/icons/hicolor/scalable/apps/(\S+)\.svg", text)
+if not m:
+    err("manifest does not install a hicolor scalable SVG icon")
+else:
+    if m.group(2) != app_id: err("icon install name %r != app-id %r" % (m.group(2), app_id))
+    if not os.path.isfile(os.path.join(repo, m.group(1))): err("icon source missing: %s" % m.group(1))
+
+# generated-sources.json: offline NuGet sources (regenerate with generate-sources.sh).
+import json, shutil, subprocess, tempfile
+gs_path = os.path.join(here, "generated-sources.json")
+try:
+    gs = json.loads(read(gs_path))
+except (OSError, ValueError) as e:
+    gs = None; err("generated-sources.json is not valid JSON: %s" % e)
+if gs is not None:
+    if not isinstance(gs, list) or not gs:
+        err("generated-sources.json is empty (run generate-sources.sh)")
+    else:
+        names = [e.get("dest-filename") for e in gs if isinstance(e, dict)]
+        if len(names) != len(gs) or not all(isinstance(n, str) and n.endswith(".nupkg") for n in names):
+            err("generated-sources.json entries need a .nupkg dest-filename")
+        if len(names) != len(set(names)):
+            err("generated-sources.json has duplicate dest-filename values")
+        if names != sorted(names): err("generated-sources.json is not sorted by dest-filename")
+        for e in gs:
+            if not isinstance(e, dict): continue
+            n = e.get("dest-filename")
+            if e.get("type") != "file": err("%s: type must be 'file'" % n)
+            if not str(e.get("url", "")).startswith("https://"): err("%s: url must be https" % n)
+            if not re.fullmatch(r"[0-9a-f]{128}", str(e.get("sha512", ""))): err("%s: sha512 must be 128 hex chars" % n)
+            if e.get("dest") != "nuget-sources": err("%s: dest must be nuget-sources (the manifest's publish --source)" % n)
+    # Determinism: regenerate and compare, only when dotnet is available (needs network for restore).
+    if shutil.which("dotnet") and not os.environ.get("BAZAAR_FLATPAK_SKIP_REGEN"):
+        tmpd = tempfile.mkdtemp()
+        try:
+            regen = os.path.join(tmpd, "regen.json")
+            r = subprocess.run([os.path.join(here, "generate-sources.sh"), regen], capture_output=True, text=True)
+            if r.returncode != 0:
+                err("generate-sources.sh failed: %s" % r.stderr.strip()[-300:])
+            elif read(regen) != read(gs_path):
+                err("generated-sources.json is stale: regenerate it with generate-sources.sh")
+        finally:
+            shutil.rmtree(tmpd, ignore_errors=True)
+    else:
+        print("note: dotnet not available (or regeneration skipped); determinism check skipped")
+
 if errors:
     for e in errors: print("FAIL: " + e, file=sys.stderr)
     sys.exit(1)
