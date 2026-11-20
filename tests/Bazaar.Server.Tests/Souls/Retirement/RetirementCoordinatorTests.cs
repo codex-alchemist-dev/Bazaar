@@ -1,5 +1,6 @@
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Retirement;
+using Bazaar.Souls.Abstractions;
 
 namespace Bazaar.Server.Tests.Souls.Retirement;
 
@@ -36,6 +37,34 @@ public sealed class RetirementCoordinatorTests
         Assert.False(report.HasFailures);
         Assert.Equal(Subject().SoulId, report.SoulId);
         Assert.Equal(Subject().AgentId, report.AgentId);
+    }
+
+    private sealed class RecordingBindings(CallLog log) : ISoulBindingAdmin
+    {
+        public List<Guid> Retired { get; } = [];
+
+        public Task BindAsync(Guid agentId, Guid soulId, string reason, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task RetireAsync(Guid agentId, string reason, CancellationToken cancellationToken)
+        {
+            log.Entries.Add("binding");
+            Retired.Add(agentId);
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task The_agents_soul_binding_ends_before_any_other_step()
+    {
+        var rig = new RetirementRig(_now);
+        var bindings = new RecordingBindings(rig.Log);
+        var coordinator = new RetirementCoordinator(rig.Passports, rig.Tokens, rig.Disks, rig.Ledger, rig.Clock, bindings);
+
+        await coordinator.RetireAsync(Full(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Subject().AgentId, Assert.Single(bindings.Retired));
+        Assert.Equal("binding", rig.Log.Entries[0]);
+        Assert.Equal("passport", rig.Log.Entries[1]);
     }
 
     [Fact]
