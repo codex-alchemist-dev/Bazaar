@@ -27,6 +27,9 @@ public sealed class GcChatSession : IAsyncDisposable
         Timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
     }
 
+    /// <summary>The wire client as a request channel, for panes that ask the server one-off questions on this connection.</summary>
+    public IWireRequester Requests => _client;
+
     /// <summary>Raised after the timeline or the status changes.</summary>
     public event EventHandler? Changed;
 

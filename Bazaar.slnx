@@ -9,6 +9,7 @@
     <Project Path="src/Bazaar.Client.Mobile/Bazaar.Client.Mobile.csproj" />
     <Project Path="src/Bazaar.Client.Vault/Bazaar.Client.Vault.csproj" />
     <Project Path="src/Bazaar.Client.Engines/Bazaar.Client.Engines.csproj" />
+    <Project Path="src/Bazaar.Client.Devices/Bazaar.Client.Devices.csproj" />
     <Project Path="src/Bazaar.Client.Launcher/Bazaar.Client.Launcher.csproj" />
     <Project Path="src/Bazaar.Client.Modules/Bazaar.Client.Modules.csproj" />
     <Project Path="src/Bazaar.Client.Preload/Bazaar.Client.Preload.csproj" />
@@ -109,6 +110,11 @@
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.Android/Bazaar.Server.Vms.Android.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.Devices.Setup/Bazaar.Server.Vms.Devices.Setup.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.Devices/Bazaar.Server.Vms.Devices.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.MicroVm/Bazaar.Server.Vms.MicroVm.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.Devices.Abstractions/Bazaar.Server.Vms.Devices.Abstractions.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Remote.Abstractions/Bazaar.Server.Remote.Abstractions.csproj" />
@@ -132,6 +138,7 @@
     <Project Path="src/Bazaar.Guest.Pointer/Bazaar.Guest.Pointer.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay/Bazaar.Server.VmDisplay.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Devices/Bazaar.Server.VmDisplay.Devices.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -156,6 +163,7 @@
     <Project Path="tests/Bazaar.Client.Mobile.Tests/Bazaar.Client.Mobile.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Vault.Tests/Bazaar.Client.Vault.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Engines.Tests/Bazaar.Client.Engines.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Devices.Tests/Bazaar.Client.Devices.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Launcher.Tests/Bazaar.Client.Launcher.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Modules.Tests/Bazaar.Client.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Preload.Tests/Bazaar.Client.Preload.Tests.csproj" />
@@ -215,7 +223,12 @@
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.Android.Tests/Bazaar.Server.Vms.Android.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.Devices.Setup.Tests/Bazaar.Server.Vms.Devices.Setup.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.Devices.Tests/Bazaar.Server.Vms.Devices.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.MicroVm.Tests/Bazaar.Server.Vms.MicroVm.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Devices.Tests/Bazaar.Server.VmDisplay.Devices.Tests.csproj" />
   </Folder>
 </Solution>

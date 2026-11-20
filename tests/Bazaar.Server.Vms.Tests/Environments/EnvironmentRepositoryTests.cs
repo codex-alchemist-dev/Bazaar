@@ -45,6 +45,20 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     }
 
     [Fact]
+    public async Task Vm_provider_kind_round_trips_and_stays_null_for_a_legacy_row()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var image = await db.InsertImageAsync();
+        var legacy = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id);
+        var routed = new EnvironmentVmRecord(
+            Guid.CreateVersion7(), Guid.CreateVersion7(), VmOs.Linux, image.Id, null, VmState.Absent, 2, 2048, 30, VmDb.Epoch, VmDb.Epoch, "microvm");
+        await db.Repository.InsertVmAsync(routed, TestContext.Current.CancellationToken);
+
+        Assert.Null((await db.Repository.GetVmAsync(legacy.Id, TestContext.Current.CancellationToken))!.ProviderKind);
+        Assert.Equal(routed, await db.Repository.GetVmAsync(routed.Id, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task List_non_retired_excludes_retired_and_list_for_agent_includes_retired()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");

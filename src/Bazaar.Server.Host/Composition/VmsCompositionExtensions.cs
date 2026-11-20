@@ -1,4 +1,5 @@
 using Bazaar.Server.AgentSafety.Containment;
+using Bazaar.Server.Providers;
 using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Vms.WindowsSandbox;
@@ -9,8 +10,10 @@ using Npgsql;
 namespace Bazaar.Server.Host.Composition;
 
 /// <summary>
-/// The Vms module in the host: the environment repository and store, the operation locks, and the lifecycle service. The lifecycle
-/// service needs a backend, so it is registered only when one is configured. Without a backend, the agent pauser stays fail closed.
+/// The Vms module in the host: the environment repository and store, the operation locks, the backend router and the lifecycle
+/// service (doc 62 section 9.2). Provider modules contribute their own <see cref="IVmBackendSource"/>; the host lists none by name
+/// except the Windows Sandbox backend, which is built here from its configuration section. With no source registered, every lifecycle
+/// call is refused with <see cref="VmRefusalReason.NoProvider"/> and the agent pauser stays fail closed.
 /// </summary>
 public static class VmsCompositionExtensions
 {
@@ -29,19 +32,36 @@ public static class VmsCompositionExtensions
         services.TryAddSingleton<IAgentVmDirectory>(sp => new RepositoryAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton(new VmOperationLocks());
 
-        var backend = WindowsSandboxFromConfiguration(configuration);
-        if (backend is not null)
+        var sandbox = WindowsSandboxFromConfiguration(configuration);
+        if (sandbox is not null)
         {
-            services.TryAddSingleton<IVmBackend>(backend);
-            services.TryAddSingleton(sp => new VmLifecycleService(
-                sp.GetRequiredService<IEnvironmentVmStore>(),
-                sp.GetRequiredService<IVmBackend>(),
-                sp.GetRequiredService<VmOperationLocks>(),
-                sp.GetRequiredService<TimeProvider>()));
+            services.AddSingleton<IVmBackendSource>(sandbox);
         }
+
+        // Sources are resolved when the router is built, so a provider component registered after this call is still routed to.
+        services.TryAddSingleton<IVmBackendRouter>(sp => new VmBackendRouter(
+            sp.GetServices<IVmBackendSource>(),
+            PairSelection(sp.GetService<ProviderCapabilityReport>()),
+            sp.GetService<IVmProviderGate>()));
+        services.TryAddSingleton(sp => new VmLifecycleService(
+            sp.GetRequiredService<IEnvironmentVmStore>(),
+            sp.GetRequiredService<IVmBackendRouter>(),
+            sp.GetRequiredService<VmOperationLocks>(),
+            sp.GetRequiredService<TimeProvider>()));
 
         return services;
     }
+
+    /// <summary>The VM role's selected provider kind from the startup report, or none.</summary>
+    public static VmPairSelection PairSelection(ProviderCapabilityReport? report) =>
+        new(report?.Selections.FirstOrDefault(s => s.Role == ProviderRole.Vm)?.Provider?.Kind);
+
+    /// <summary>
+    /// The pair candidates for the provider selector (doc 62 section 9.2): every registered <see cref="VmProviderPlacement.Pair"/> source
+    /// that is also an <see cref="IVmProvider"/>, in <see cref="VmBackendOrdering"/> order. On-demand providers are never pair candidates.
+    /// </summary>
+    public static IReadOnlyList<IVmProvider> PairCandidates(IEnumerable<IVmBackendSource> sources) =>
+        VmBackendOrdering.Order(sources).Where(s => s.Placement == VmProviderPlacement.Pair).OfType<IVmProvider>().ToList();
 
     /// <summary>The Windows Sandbox backend, or null when its section does not name a base image and a config directory.</summary>
     private static WindowsSandboxBackend? WindowsSandboxFromConfiguration(IConfiguration configuration)

@@ -23,7 +23,7 @@ namespace Bazaar.Server.AgentSafety;
 /// </summary>
 /// <remarks>
 /// Durable implementations are registered before <c>AddAgentSafety</c>, so its in-memory defaults (TryAdd) never take effect.
-/// The VM pauser is real when the Vms lifecycle is composed; otherwise it is fail closed. The token revoker is real and runs over
+/// The VM pauser is real when the Vms lifecycle is composed and at least one VM provider is registered; otherwise it is fail closed. The token revoker is real and runs over
 /// the Identity lease store.
 /// </remarks>
 public static class AgentSafetyModule
@@ -42,9 +42,9 @@ public static class AgentSafetyModule
         services.TryAddSingleton<IAgentTokenRevoker>(sp => new LeaseTokenRevoker(sp.GetRequiredService<ICredentialLeaseStore>()));
         services.TryAddSingleton<IVmPauser>(sp =>
             sp.GetService<VmLifecycleService>() is { } lifecycle
-            && sp.GetService<IVmBackend>() is { } backend
+            && sp.GetServices<IVmBackendSource>().Any()
             && sp.GetService<IAgentVmDirectory>() is { } vms
-                ? new VmContainmentPauser(vms, lifecycle, backend)
+                ? new VmContainmentPauser(vms, lifecycle)
                 : new UnavailableVmPauser());
 
         services.AddAgentSafety(configuration);

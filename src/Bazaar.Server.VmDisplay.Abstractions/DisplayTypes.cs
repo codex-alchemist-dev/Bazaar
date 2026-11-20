@@ -13,6 +13,9 @@ public enum DisplaySourceKind
 
     /// <summary>The browser's debugging protocol (page screenshot and page input).</summary>
     Browser,
+
+    /// <summary>A device provider's own screen and input channel, for example adb for an Android guest (docs/design/62).</summary>
+    Device,
 }
 
 /// <summary>The guest operating system family of a display target.</summary>
@@ -23,6 +26,9 @@ public enum DisplayGuestOs
 
     /// <summary>A Linux guest.</summary>
     Linux,
+
+    /// <summary>An Android emulator guest (docs/design/62). Served only by the <see cref="DisplaySourceKind.Device"/> source.</summary>
+    Android,
 }
 
 /// <summary>Hard limits that settings may tighten but never loosen (docs/design/59, section 9).</summary>
