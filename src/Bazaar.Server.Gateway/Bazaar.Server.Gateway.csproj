@@ -5,6 +5,10 @@
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Module migrations: Data/Sql/<namespace>/NNNN_name.sql, read by EmbeddedMigrationSource (see Data/Sql/README.md). -->
+    <EmbeddedResource Include="Data\Sql\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
