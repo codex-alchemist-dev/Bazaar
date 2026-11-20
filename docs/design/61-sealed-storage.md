@@ -21,11 +21,11 @@ Does not protect against: an attacker running as the Bazaar service account on t
 | Data | On disk where | Today | Decision |
 |---|---|---|---|
 | Soul charter, preferences, Soul version bodies, per-agent folder metadata (doc 07 mount) | Soul store and agent folders under the data root | Plain files or DB text | **Sealed set**, scope `soul:<soul-id>` |
-| Agent private memory (doc 08, Vault area `agents/<id>/memory`) | Vault working copy | Plain Markdown in git | **Sealed set** for the working copy and index cache, scope `memory:<agent-id>`. The git history of the company Vault repo is an [OPEN] question (Q1). |
+| Agent private memory (doc 08, Vault area `agents/<id>/memory`) | Vault working copy | Plain Markdown in git | **Sealed set** for the working copy and index cache, scope `memory:<agent-id>`. The git history of the company Vault repo is sealed too (Q1, DECIDED). |
 | Browser cookie profiles, Passport-backed profiles, OAuth token caches (doc 14, doc 16) | Host profile folders | Plain, or encrypted per doc 14 [PROPOSED] | **Sealed set**, scope `passport:<agent-id>`; doc 14 "cookie profile at rest" becomes this module |
 | Bootstrap values: database credential, KEK reference (doc 03, doc 48 section 10) | Host config file | Plain | **Sealed set**, scope `host:bootstrap` |
 | GitHub App private keys, provider keys, mail credentials | `ISecretStore` rows (envelope encrypted, doc 14) | Already encrypted | No change; on-disk copies, if any, move to the sealed set |
-| KEK key file (`file` provider) | Data root | Protected file | No change here; Windows uses DPAPI. A tamper check on the key file is Q2. |
+| KEK key file (`file` provider) | Data root | Protected file | No change here; Windows uses DPAPI. Sealed by an OS keyring where available (Q2, DECIDED). |
 | Recovery bundles, backups, Soul exports | Backup target | Already encrypted (doc 48 section 6, doc 44 Argon2id) | No change. Soul export never includes memory (doc 54). |
 | Audit log files | Postgres plus signed exports | Tamper-evident hash chain (doc 48 section 5) | No change; integrity, not secrecy |
 | Postgres data directory | Data root | Plain pages | Encrypted volume, doc 63 (owner decision 2026-11-19: Bazaar encrypts the data folder at folder level). Sealed scopes under the data root sit inside that volume. Soul rows with secrets are already field-encrypted. |
@@ -48,8 +48,8 @@ Does not protect against: an attacker running as the Bazaar service account on t
 **Consumers.** Souls (`Bazaar.Server.Souls`, doc 07), Memory (`Bazaar.Server.Memory`), Identity/Passport and Host bootstrap call `ISealedStore` through their own modules. Adoption is one work package per consumer; each is its own PR and PROPOSED until merged. Nothing here puts feature code in Bazaar.Core, Bazaar.Server or Bazaar.Client.Core.
 
 ## Questions for the owner
-1. Company Vault git history: seal the whole repo (git objects through a sealed object store; breaks external git tooling and GitHub push of plaintext) or keep the git remote as plain Markdown and seal only host working copies? Default until answered: seal working copies and the index only; nothing in the Vault repo changes. [OPEN]
-2. Should the `file` KEK provider's key file also be sealed with an OS secret service where one exists (the keyring provider in `Bazaar.Secrets`)? Default: yes where available, else protected file. [PROPOSED]
+1. Company Vault git history: **DECIDED** (owner standing rules, relayed by the coordinator 2026-11-20; owner message 2026-11-19 04:26 Manila): seal the git history too, not only working copies. Mechanics are PROPOSED: the Vault repo is kept as a bare repo whose packs and refs live in sealed scope `vault:<company>`; a git operation materialises a short-lived working tree (tmpfs or the encrypted volume of doc 63), runs, then re-seals the changed packs and refs and wipes the tree. External git tooling and plaintext GitHub push stop working by design; export is an explicit, audited operator action. The agent memory worktrees (scope `memory:<agent-id>`) use the same path.
+2. KEK key file sealed by an OS secret service where one exists (the keyring provider in `Bazaar.Secrets`), else the protected file: **DECIDED** (same relay). Mechanics PROPOSED: the file provider's key is stored in the keyring entry and the file is only a fallback.
 
 ## Work packages (PLANNED)
 1. Module with scopes, file format, manifest and `SealTamperedException`; anchor and audit sink interfaces; tests (this change).
