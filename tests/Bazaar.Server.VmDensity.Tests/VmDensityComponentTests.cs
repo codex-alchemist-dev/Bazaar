@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.VmDensity.Abstractions;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
