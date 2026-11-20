@@ -98,6 +98,8 @@
     <Project Path="src/Bazaar.Server.RepoMap/Bazaar.Server.RepoMap.csproj" />
     <Project Path="src/Bazaar.Server.CodingGit.Abstractions/Bazaar.Server.CodingGit.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CodingGit/Bazaar.Server.CodingGit.csproj" />
+    <Project Path="src/Bazaar.Server.CodingWorkspace.Abstractions/Bazaar.Server.CodingWorkspace.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingWorkspace/Bazaar.Server.CodingWorkspace.csproj" />
     <Project Path="src/Bazaar.Server.CodingReview.Abstractions/Bazaar.Server.CodingReview.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CodingReview/Bazaar.Server.CodingReview.csproj" />
     <Project Path="src/Bazaar.Server.CodingRunner.Abstractions/Bazaar.Server.CodingRunner.Abstractions.csproj" />
@@ -215,6 +217,7 @@
     <Project Path="tests/Bazaar.Server.CodingEdit.Tests/Bazaar.Server.CodingEdit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.RepoMap.Tests/Bazaar.Server.RepoMap.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingGit.Tests/Bazaar.Server.CodingGit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingWorkspace.Tests/Bazaar.Server.CodingWorkspace.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingReview.Tests/Bazaar.Server.CodingReview.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingRunner.Tests/Bazaar.Server.CodingRunner.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Subagents.Tests/Bazaar.Server.Subagents.Tests.csproj" />

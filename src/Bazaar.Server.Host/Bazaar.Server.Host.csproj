@@ -47,6 +47,7 @@
     <ProjectReference Include="..\Bazaar.Server.CodingReview\Bazaar.Server.CodingReview.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingStore\Bazaar.Server.CodingStore.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Subagents\Bazaar.Server.Subagents.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingWorkspace\Bazaar.Server.CodingWorkspace.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />
