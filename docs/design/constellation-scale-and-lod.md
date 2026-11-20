@@ -413,6 +413,56 @@ The CPU threads do nothing to the frame, with the benchmark at High priority (8 
 
 **Limits.** One run per cell and per variant. One load shape (60 Hz, 8 ms, one submission); heavier or lighter games give other numbers, and the share of frames hit by the other process rises with its duty cycle (about 8 of 16.7 ms here). Frames in flight are measured as the interval between submissions, not as time to completion. Tiles are still the fixed grid of 10.10 (#908 is not merged).
 
+### 10.13 Windows GPU scheduling class and a real swapchain with fixed present cadence (2026-11-20)
+Same machine, frame and cells as 10.12 (Intel Arc B580, driver 0.406.842, Windows, N = 1B, M = 1M, 30 cells, `BAZAAR_BENCH_BOOST=1`, one run per cell; "meets" is wall p99 <= 3.3 ms). Load: the GPU-only load of 10.12 (a second process, 60 Hz, about 8 ms of GPU draw work per frame, no busy CPU threads). Raw CSVs: `results/present/`.
+
+**(a) D3DKMT scheduling priority class.** `D3DKMTSetProcessSchedulingPriorityClass` (gdi32) called from the benchmark process (`BAZAAR_BENCH_D3DKMT_CLASS`) or from the load process. The shell was not elevated (administrator role: false). Every class returned `STATUS_SUCCESS`, including REALTIME. Per-context priority (`D3DKMTSetContextSchedulingPriority`) was not tried: it needs the kernel context handle (`hContext`) of the Vulkan queue, which Vulkan does not expose, and a context created by this process through D3DKMT would not be the one the driver submits our frames on.
+
+| Run (GPU-only load) | Cells meeting | Median wall p99 / worst cell (ms) |
+|---|---|---|
+| benchmark at the default class (3 runs) | 14, 9, 11 of 30 | 6.07, 7.85, 6.82 / 11.2 |
+| benchmark ABOVE_NORMAL | 11 of 30 | 8.06 / 10.8 |
+| benchmark HIGH | 11 of 30 | 5.91 / 10.2 |
+| benchmark REALTIME (3 runs) | 17, 16, 14 of 30 | 2.08, 2.81, 3.88 / 9.3 |
+| other process BELOW_NORMAL | 4 of 30 | 7.86 / 9.6 |
+| other process IDLE | 23 of 30 | 1.70 / 9.2 |
+
+- HIGH and ABOVE_NORMAL on the benchmark change nothing. REALTIME helps a little and repeatably (median wall p99 2.1 to 3.9 ms against 6.1 to 7.9 ms, 14 to 17 cells against 9 to 14), but the worst cell is still 9 ms: the wait behind an 8 ms packet that is already executing is not removed, only made less frequent. The kernel scheduler preempts at packet boundaries, so a running 8 ms draw call is not cut short.
+- Lowering the other process to IDLE worked best (23 of 30, median 1.70 ms), one run. That is the reverse of what a renderer can do (it is the game that would be lowered), but it shows the class is honoured between processes, and that the renderer being at the default class and the other work at IDLE is the case where the scheduler already helps.
+- BELOW_NORMAL for the other process did nothing (4 of 30); only the IDLE class changed the outcome.
+- REALTIME granted from a non-elevated shell is a driver and OS fact of this machine, not something to rely on elsewhere (documented as requiring administrator rights). Raising a process to the realtime GPU class also affects every other application's smoothness; it is not a setting for a product to switch on silently.
+
+**(b) Swapchain with a fixed present cadence.** The combined frame (points variant) is drawn straight into the swapchain images of a visible 1280x720 window (DWM-composed, not fullscreen) on a display at 300 Hz (3.33 ms), 600 measured frames per cell, FIFO and IMMEDIATE, 1, 2 and 3 frames in flight. The driver offers only IMMEDIATE and FIFO (no MAILBOX), no `VK_KHR_present_wait`, no present timing, and `DwmGetCompositionTimingInfo` is refused for the window (0x88980090). Therefore the time a frame reaches the screen is not observable here. Two numbers are reported separately:
+- **Cadence:** the interval between successive `vkQueuePresentKHR` returns.
+- **Render latency:** from the input sample (taken right after the swapchain image is acquired, the latest point an app can sample) to the CPU seeing the frame GPU work complete. It does not include the wait for the next vblank, the compositor or the display; with FIFO, the true latency is longer by up to the queue depth in vblanks.
+
+Medians over the 30 cells of each cell's statistic (the worst cell in brackets):
+
+| Run | Mode, frames in flight | Cadence p50 | Cadence p99 | Render latency p50 | Render latency p99 |
+|---|---|---|---|---|---|
+| alone | FIFO, 1 | 3.34 | 4.78 (7.52) | 0.70 | 3.41 (6.75) |
+| alone | FIFO, 2 | 3.34 | 5.96 (8.69) | 0.84 | 7.77 (13.43) |
+| alone | FIFO, 3 | 3.34 | 5.66 (8.98) | 0.86 | 7.25 (22.13) |
+| alone | IMMEDIATE, 1 / 2 / 3 | 0.84 / 0.26 / 0.16 | 3.61 / 1.47 / 1.18 | 0.78 / 0.49 / 0.47 | 3.54 / 2.04 / 2.27 |
+| GPU-only load | FIFO, 1 | 3.34 | 5.73 (8.21) | 0.43 | 8.72 (10.55) |
+| GPU-only load | FIFO, 2 | 3.34 | 5.16 (6.48) | 0.66 | 8.75 (10.98) |
+| GPU-only load | FIFO, 3 | 3.34 | 4.60 (6.63) | 0.73 | 8.98 (11.23) |
+| GPU-only load | IMMEDIATE, 1 / 2 / 3 | 0.42 / 0.16 / 0.15 | 9.07 / 4.10 / 5.11 | 0.39 / 0.35 / 0.44 | 8.96 / 8.94 / 9.53 |
+
+- **FIFO holds the cadence at the refresh period** (p50 3.34 ms in every cell, with or without load) because the present call is paced by the vblank, so p50 and the typical frame are fixed by the display. But even with no load the windowed FIFO cadence p99 is 4.8 to 6 ms (some presents land one refresh late: 6.7 ms intervals), so a 3.3 ms p99 is not reached by a DWM-composed window at 300 Hz regardless of load. Exclusive fullscreen or independent flip may differ; not tried here.
+- **The GPU-only load shows up in latency, not in FIFO cadence.** Under load FIFO cadence p99 goes from 4.8 to 5.7 ms (1 frame in flight) and does not get worse with more frames in flight (4.6 ms with 3), while the render latency p99 goes from 3.4 to 8.7 ms: the frame that arrives behind the other process packet is 8 to 10 ms late, as in 10.12.
+- **More frames in flight lower cadence jitter but raise latency.** Alone, FIFO render latency p99 rises from 3.4 ms (1) to 7.8 and 7.3 ms (2 and 3 frames), because each queued frame waits for the ones before it. Under load it is already about 8.7 to 9.0 ms with any depth, since the other process dominates.
+- IMMEDIATE is not a fixed cadence: p50 0.15 to 0.84 ms (frames are produced as fast as the CPU allows and tear), and under load the p99 is 4 to 9 ms. It is useful only as a throughput check.
+- FIFO and IMMEDIATE present time spread (cadence max) has startup outliers up to 460 to 860 ms in single cells (the first frames after swapchain creation, a DWM and window effect); they are included in the max columns and not in p99.
+
+### 10.14 Conclusion for the renderer: what to keep, what WDDM allows (2026-11-20)
+Short answer for the render thread.
+1. **Keep 2 to 3 frames in flight and a FIFO (vsync) swapchain.** Measured in 10.12 and 10.13: more frames in flight is the only mitigation that moved the submission cadence under load (16 to 17 of 30 cells at 3.3 ms against 10 to 12), and FIFO pins the present cadence at the refresh period. It does cost latency (3.4 ms to 7 to 8 ms render latency p99 with 2 to 3 frames), so choose 2 by default, 3 when throughput matters more than latency, and 1 only for an input-critical mode.
+2. **Track cadence and latency as two metrics.** Cadence: present-to-present interval (target p99 close to the refresh period). Latency: input sample to GPU completion (and, where the platform exposes it, to display: not available on this driver). The frame-time gate of section 11 (p99 <= 3.3 ms) is a cadence number; a late frame behind another process 8 ms packet fails latency by up to one other-frame and cannot be repaired by the renderer.
+3. **What WDDM and the driver let us fix.** Nothing from inside Vulkan: global queue priority HIGH and REALTIME were granted and changed nothing (10.12); the B580 has one queue, so no async compute (10.12); splitting submissions does not shorten the wait (10.12). The D3DKMT process class REALTIME reduces the problem (median wall p99 2.1 to 3.9 ms against 6.1 to 7.9 ms with the other process at the default) but is documented as requiring administrator rights, was accepted without them here, and raises the cost for every other application; it is not recommended as a default, and worst cells stay at 9 ms.
+4. **What we cannot fix:** an application that submits an 8 ms packet and holds the GPU. Preemption works at packet boundaries; the other process would have to submit shorter packets (game engines targeting a high frame rate usually do) or yield. If the renderer must hold 300 fps next to such an application, the realistic design is to degrade detail (fewer instances, coarser tiles) when the measured cadence slips, which section 11 already prescribes, and to report the slip in the diagnostics instead of promising a number.
+5. **Not measured:** exclusive fullscreen or independent-flip presentation, an HDR or variable-refresh path, a second GPU for the other work (the integrated GPU exists), and the real display latency (needs hardware measurement or a driver with present timing).
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
