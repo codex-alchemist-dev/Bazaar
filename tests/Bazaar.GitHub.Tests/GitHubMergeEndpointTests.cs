@@ -276,7 +276,7 @@ public sealed class GitHubMergeEndpointTests
         var now = DateTimeOffset.UtcNow;
         var payload = new OwnerPayload(
             OwnerMergeArgs.Action, Guid.CreateVersion7(), OwnerMergeArgs.Hash(pr, merge), _headSha, _owner, _deviceId,
-            now.AddMinutes(-1), now.AddMinutes(10), Enumerable.Repeat((byte)9, OwnerSignedPayload.NonceLength).ToArray());
+            now.AddMinutes(-1), now.AddMinutes(3), Enumerable.Repeat((byte)9, OwnerSignedPayload.NonceLength).ToArray());
         var signature = key.SignData(OwnerSignedPayload.Build(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         var dto = new GitHubMergeRequestDto(
             new GitHubPrDto(pr.Owner, pr.Repo, pr.Number),

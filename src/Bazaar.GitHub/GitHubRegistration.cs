@@ -1,9 +1,12 @@
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
+using Bazaar.GitHub.Ingress;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace Bazaar.GitHub;
 
@@ -26,7 +29,27 @@ public static class GitHubRegistration
         var section = configuration.GetSection(ConfigurationSection);
         services.TryAddSingleton(section.GetSection("Adapter").Get<GitHubAdapterOptions>() ?? new GitHubAdapterOptions());
         services.TryAddSingleton(section.GetSection("Merge").Get<GitHubMergeOptions>() ?? new GitHubMergeOptions());
-        services.TryAddSingleton<IGitHubRateState, InMemoryGitHubRateState>();
+        services.TryAddSingleton<IGitHubRateState>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubRateState(dataSource) : new InMemoryGitHubRateState());
+
+        // Events poller (doc 21, Ingress). Off until Ingress:InstallationId, Ingress:Repositories and a real sink exist.
+        services.TryAddSingleton(section.GetSection("Ingress").Get<GitHubIngressOptions>() ?? new GitHubIngressOptions());
+        services.TryAddSingleton<IGitHubEventSink, UnwiredGitHubEventSink>();
+        services.TryAddSingleton<IGitHubDeliveryStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubDeliveryStore(dataSource) : new InMemoryGitHubDeliveryStore());
+        services.TryAddSingleton(sp => new GitHubEventsPoller(
+            sp.GetRequiredService<IGitHubAdapter>(),
+            sp.GetRequiredService<IGitHubEventSink>(),
+            sp.GetRequiredService<IGitHubDeliveryStore>(),
+            sp.GetRequiredService<GitHubIngressOptions>(),
+            sp.GetRequiredService<ILogger<GitHubEventsPoller>>(),
+            sp.GetService<TimeProvider>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, GitHubEventsPollingService>(sp => new GitHubEventsPollingService(
+            sp.GetRequiredService<GitHubEventsPoller>(),
+            sp.GetRequiredService<GitHubIngressOptions>(),
+            sp.GetRequiredService<IGitHubEventSink>(),
+            sp.GetRequiredService<ILogger<GitHubEventsPollingService>>(),
+            sp.GetService<TimeProvider>())));
 
         var identityBase = section["IdentityService:BaseAddress"];
         if (string.IsNullOrWhiteSpace(identityBase))
