@@ -16,28 +16,16 @@ public sealed class SetupSettingProjectionTests
 
         Assert.Equal(
             [
-                "company.source",
-                "deps.update.autoSecurityPatches",
-                "gateway.default_preset",
-                "host.shutdown_timeout_seconds",
-                "host.status.bind",
-                "host.status.port",
-                "identity.merge_credential",
-                "identity.merge_credential.app_id_ref",
-                "update.channel",
+                "backup.drill_interval_days", "backup.no_target_acknowledged", "backup.target", "company.source", "deps.update.autoSecurityPatches",
+                "gateway.default_preset", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "identity.merge_credential",
+                "identity.merge_credential.app_id_ref", "mail.backend", "mail.enabled", "update.channel",
             ],
             projected.Select(s => s.Key));
         Assert.Equal(
             [
-                "company.source",
-                "install.updatePolicy.security",
-                "models.defaultPreset",
-                "settings.host.shutdown_timeout_seconds",
-                "network.statusBind",
-                "network.statusPort",
-                "custody.mergeCredential.kind",
-                "custody.mergeCredential.appIdRef",
-                "install.releaseChannel",
+                "backups.drillIntervalDays", "backups.acknowledgeNoTarget", "backups.target", "company.source", "install.updatePolicy.security",
+                "models.defaultPreset", "settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "custody.mergeCredential.kind",
+                "custody.mergeCredential.appIdRef", "email.backend", "email.enabled", "install.releaseChannel",
             ],
             projected.Select(s => s.PlanPath));
     }
@@ -75,12 +63,70 @@ public sealed class SetupSettingProjectionTests
     [InlineData("custody.mergeCredential.appIdRef", "identity.merge_credential.app_id_ref")]
     [InlineData("models.defaultPreset", "gateway.default_preset")]
     [InlineData("company.source", "company.source")]
+    [InlineData("backups.drillIntervalDays", "backup.drill_interval_days")]
+    [InlineData("backups.acknowledgeNoTarget", "backup.no_target_acknowledged")]
+    [InlineData("email.backend", "mail.backend")]
     public void Each_mapped_plan_path_names_its_registry_key(string path, string key) =>
-        Assert.Equal(key, SetupSettingProjection.DerivedKeyForPath(path));
+        Assert.Equal([key], SetupSettingProjection.DerivedKeysForPath(path));
+
+    [Fact]
+    public void The_backup_target_and_the_email_flag_each_feed_two_keys()
+    {
+        Assert.Equal(["backup.target", "backup.no_target_acknowledged"], SetupSettingProjection.DerivedKeysForPath("backups.target"));
+        Assert.Equal(["mail.enabled", "mail.backend"], SetupSettingProjection.DerivedKeysForPath("email.enabled"));
+    }
 
     [Fact]
     public void An_unmapped_path_names_no_key() =>
-        Assert.Null(SetupSettingProjection.DerivedKeyForPath("install.companyName"));
+        Assert.Empty(SetupSettingProjection.DerivedKeysForPath("install.companyName"));
+
+    [Fact]
+    public void A_backup_target_projects_the_target_and_no_acknowledgement()
+    {
+        var plan = new SetupPlan { Backups = new SetupBackupsSection { Target = "file:/mnt/backup/bazaar", DrillIntervalDays = 14, AcknowledgeNoTarget = true } };
+
+        var projected = SetupSettingProjection.Project(plan).ToDictionary(s => s.Key);
+
+        Assert.Equal("file:/mnt/backup/bazaar", projected["backup.target"].Value.GetString());
+        Assert.Equal(14, projected["backup.drill_interval_days"].Value.GetInt32());
+        Assert.Equal(JsonValueKind.False, projected["backup.no_target_acknowledged"].Value.ValueKind);
+    }
+
+    [Fact]
+    public void No_target_with_the_acknowledgement_projects_an_empty_target_and_the_acknowledgement()
+    {
+        var plan = new SetupPlan { Backups = new SetupBackupsSection { Target = null, AcknowledgeNoTarget = true } };
+
+        var projected = SetupSettingProjection.Project(plan).ToDictionary(s => s.Key);
+
+        Assert.Equal(string.Empty, projected["backup.target"].Value.GetString());
+        Assert.Equal(JsonValueKind.True, projected["backup.no_target_acknowledged"].Value.ValueKind);
+        Assert.Equal(30, projected["backup.drill_interval_days"].Value.GetInt32());
+    }
+
+    [Fact]
+    public void An_enabled_email_projects_the_flag_and_the_back_end_and_an_off_one_projects_none()
+    {
+        var on = SetupSettingProjection.Project(new SetupPlan { Email = new SetupEmailSection { Enabled = true, Backend = "imap_smtp" } }).ToDictionary(s => s.Key);
+        var off = SetupSettingProjection.Project(new SetupPlan()).ToDictionary(s => s.Key);
+
+        Assert.Equal(JsonValueKind.True, on["mail.enabled"].Value.ValueKind);
+        Assert.Equal("imap_smtp", on["mail.backend"].Value.GetString());
+        Assert.Equal(JsonValueKind.False, off["mail.enabled"].Value.ValueKind);
+        Assert.Equal("none", off["mail.backend"].Value.GetString());
+    }
+
+    [Theory]
+    [InlineData(false, "", true)]
+    [InlineData(false, "cloudflare", false)]
+    [InlineData(true, "", false)]
+    [InlineData(true, "gmail", false)]
+    [InlineData(true, "bazaar_client", true)]
+    [InlineData(true, "imap_smtp", true)]
+    [InlineData(true, "cloudflare", true)]
+    [InlineData(true, "builtin_server", true)]
+    public void The_email_choice_is_coherent_only_when_the_back_end_matches_the_flag(bool enabled, string backend, bool coherent) =>
+        Assert.Equal(coherent, SetupSettingProjection.IsEmailChoiceCoherent(new SetupPlan { Email = new SetupEmailSection { Enabled = enabled, Backend = backend } }));
 
     [Fact]
     public void Every_projected_value_of_the_valid_plan_passes_the_real_registry()
