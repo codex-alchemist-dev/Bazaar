@@ -40,7 +40,17 @@ public static class CommunityDraftDecisionEndpoint
         if (http.Request.ContentLength is { } length && length > MaxBodyBytes)
             return CommunityHttpGuard.Error(StatusCodes.Status413PayloadTooLarge, "too_large");
 
-        var handler = http.RequestServices.GetService<CommunityDraftDecisionHandler>();
+        CommunityDraftDecisionHandler? handler;
+        try
+        {
+            // The component registers the handler by a factory; a service the host has not bound yet makes it throw, meaning "not configured".
+            handler = http.RequestServices.GetService<CommunityDraftDecisionHandler>();
+        }
+        catch (InvalidOperationException)
+        {
+            handler = null;
+        }
+
         if (handler is null) return CommunityHttpGuard.Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
 
         DraftReviewDecisionDto? dto;
