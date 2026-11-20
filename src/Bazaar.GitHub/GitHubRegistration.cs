@@ -26,7 +26,8 @@ public static class GitHubRegistration
         var section = configuration.GetSection(ConfigurationSection);
         services.TryAddSingleton(section.GetSection("Adapter").Get<GitHubAdapterOptions>() ?? new GitHubAdapterOptions());
         services.TryAddSingleton(section.GetSection("Merge").Get<GitHubMergeOptions>() ?? new GitHubMergeOptions());
-        services.TryAddSingleton<IGitHubRateState, InMemoryGitHubRateState>();
+        services.TryAddSingleton(section.GetSection("Webhook").Get<Bazaar.GitHub.Webhooks.GitHubWebhookOptions>() ?? new Bazaar.GitHub.Webhooks.GitHubWebhookOptions());
+        services.TryAddSingleton<IGitHubRateState,InMemoryGitHubRateState>();
 
         var identityBase = section["IdentityService:BaseAddress"];
         if (string.IsNullOrWhiteSpace(identityBase))
