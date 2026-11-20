@@ -24,6 +24,16 @@ public interface IClaudeCodeRun : IAsyncDisposable
     void KillTree();
 }
 
+/// <summary>
+/// Optional OS-level guard for child processes (docs/design/91 section 6). On Windows a Job Object with kill-on-close makes a
+/// crashed server take its children with it. A platform with no container simply registers none.
+/// </summary>
+public interface IChildProcessContainer
+{
+    /// <summary>Puts the just-started process, and everything it later starts, under the container's control.</summary>
+    void Adopt(System.Diagnostics.Process process);
+}
+
 /// <summary>The seam the fake CLI replaces in tests.</summary>
 public interface IClaudeCodeProcessRunner
 {

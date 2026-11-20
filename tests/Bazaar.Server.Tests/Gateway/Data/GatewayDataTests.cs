@@ -77,6 +77,19 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
     }
 
     [Fact]
+    public async Task Claude_code_cli_provider_and_subscription_identity_round_trip()
+    {
+        SkipWithoutDatabase();
+        var repo = Directory();
+        await repo.UpsertProviderAsync(new GwProvider("p-cli", "first_party", "claude_code_cli", "cli://claude-code", "none", null, "{}", null, null, true), Ct);
+        await repo.UpsertModelAsync(new GwModel("p-cli", "claude-haiku-5-5", "claude", GatewayIdentity.Subscription, "{}", GwModel.StatusAvailable, _t0, _t0, "config"), Ct);
+        Assert.Equal(GatewayIdentity.Subscription, (await repo.GetModelAsync(new ModelRef("p-cli", "claude-haiku-5-5"), Ct))!.Identity);
+
+        await new UsageRepository(db.DataSource).AppendAsync(Usage("agent-cli", GatewayIdentity.Subscription, _t0, "p-cli"), Ct);
+        Assert.Equal(GatewayIdentity.Subscription, Assert.Single(await new UsageRepository(db.DataSource).ListAsync("agent-cli", _t0.AddHours(-1), _t0.AddHours(1), Ct)).Identity);
+    }
+
+    [Fact]
     public async Task Model_upsert_keeps_first_seen_and_requires_a_provider()
     {
         SkipWithoutDatabase();

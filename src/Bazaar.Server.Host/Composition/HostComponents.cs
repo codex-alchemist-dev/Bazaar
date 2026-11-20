@@ -50,5 +50,7 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new Bazaar.Server.Providers.ClaudeCode.ClaudeCodeComponent(),
+        new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
     ];
 }

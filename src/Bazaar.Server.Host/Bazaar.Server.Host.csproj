@@ -18,6 +18,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Providers.ClaudeCode\Bazaar.Server.Providers.ClaudeCode.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Providers.ClaudeCode.Windows\Bazaar.Server.Providers.ClaudeCode.Windows.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />

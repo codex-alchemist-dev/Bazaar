@@ -61,6 +61,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `constellation/0001` | WP-D (memory graph) | this PR | `constellation_memory_revision` and `constellation_memory_edge`: append-only memory graph revisions with one active revision per note (docs/design/constellation-memory-graph.md, "Store"). Owned by `ConstellationComponent`; the migration lives in the `constellation` namespace because `common/` is frozen; no foreign keys |
 | `erasure/0001` | ERASE-HOLD | this PR | `legal_hold_event` (append-only, refuse trigger, `bazaar_app` insert and select only) and view `active_legal_hold`: legal holds (doc 48 section 9). Holds are created and released only through the owner's signed path, which is not on main yet. No foreign keys |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
+| `gateway/0001` | Claude Code CLI provider (doc 91 section 14, 6b) | this PR | Widens the `gw_provider.adapter` check (adds `claude_code_cli`) and the `gw_model` and `gw_usage` identity checks (adds `subscription`). No data changes. Applies in namespace `gateway` |
 
 ## Component namespaces
 

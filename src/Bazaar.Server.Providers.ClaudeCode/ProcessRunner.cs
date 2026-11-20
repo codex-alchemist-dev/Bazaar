@@ -5,7 +5,7 @@ using System.Text;
 namespace Bazaar.Server.Providers.ClaudeCode;
 
 /// <summary>Starts the real child process (docs/design/91 section 6). No shell, an exact environment, bounded output.</summary>
-public sealed class ClaudeCodeProcessRunner(int maxLineChars) : IClaudeCodeProcessRunner
+public sealed class ClaudeCodeProcessRunner(int maxLineChars, IChildProcessContainer? container = null) : IClaudeCodeProcessRunner
 {
     public Task<IClaudeCodeRun> StartAsync(ClaudeCodeInvocation invocation, CancellationToken ct)
     {
@@ -36,6 +36,7 @@ public sealed class ClaudeCodeProcessRunner(int maxLineChars) : IClaudeCodeProce
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.Start();
+        container?.Adopt(process);
         var run = new Run(process, invocation.StdinText, maxLineChars);
         return Task.FromResult<IClaudeCodeRun>(run);
     }

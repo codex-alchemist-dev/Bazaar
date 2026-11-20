@@ -46,7 +46,7 @@ public sealed class ClaudeCodeComponent : IBazaarComponent
                 var options = sp.GetRequiredService<IOptions<ClaudeCodeOptions>>().Value;
                 return new ClaudeCodeAdapter(
                     options,
-                    new ClaudeCodeProcessRunner(options.MaxLineChars),
+                    new ClaudeCodeProcessRunner(options.MaxLineChars, sp.GetService<IChildProcessContainer>()),
                     sp.GetRequiredService<ClaudeCodeLaneState>(),
                     sp.GetService<ISecretResolver>(),
                     sp.GetService<TimeProvider>() ?? TimeProvider.System);
