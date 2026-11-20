@@ -47,7 +47,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
-| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). |
+| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
