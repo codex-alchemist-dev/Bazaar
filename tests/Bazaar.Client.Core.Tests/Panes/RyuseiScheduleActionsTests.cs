@@ -3,7 +3,9 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
@@ -60,7 +62,7 @@ public class RyuseiScheduleActionsTests
     public void Module_hands_the_head_supplied_actions_to_the_pane()
     {
         var actions = new FakeActions();
-        var registry = PaneRegistry.Compose(TestPanes.Modules, new PaneModuleContext().With<IRyuseiTriggerActions>(actions));
+        var registry = PaneRegistry.Compose(PaneViews.Instance, TestPanes.Modules, new PaneModuleContext().With<IRyuseiTriggerActions>(actions));
 
         var pane = Assert.IsType<RyuseiSchedulePaneViewModel>(registry.Create(PaneRegistryTests.Descriptor(PaneKinds.RyuseiSchedule, _model)));
 
@@ -123,7 +125,7 @@ public class RyuseiScheduleActionsTests
     private static Control ScheduleView(IRyuseiTriggerActions? actions)
     {
         var context = actions is null ? new PaneModuleContext() : new PaneModuleContext().With(actions);
-        var registry = PaneRegistry.Compose(TestPanes.Modules, context);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, TestPanes.Modules, context);
         var pane = registry.Create(PaneRegistryTests.Descriptor(PaneKinds.RyuseiSchedule, _model));
         return registry.CreateView(pane);
     }
