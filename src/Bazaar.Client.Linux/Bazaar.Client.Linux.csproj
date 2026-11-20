@@ -23,6 +23,8 @@
     <ProjectReference Include="..\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Launcher\Bazaar.Client.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Commands\Bazaar.Client.Commands.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Updater.Linux.Abstractions\Bazaar.Client.Updater.Linux.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
   </ItemGroup>
