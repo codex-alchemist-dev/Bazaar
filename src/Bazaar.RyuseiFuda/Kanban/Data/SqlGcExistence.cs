@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Bazaar.Server.Kanban.Data;
+namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>The default <see cref="IGcExistence"/>: a parameterised lookup in the <c>gc</c> table.</summary>
 public sealed class SqlGcExistence(NpgsqlDataSource dataSource) : IGcExistence
