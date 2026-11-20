@@ -100,30 +100,30 @@ public sealed class MailBackendCatalog(
         switch (row.BackendKind)
         {
             case "imap_smtp":
-            {
-                var cfg = await ReadAsync<ImapConfig>(row, ct).ConfigureAwait(false);
-                var options = new ImapSmtpOptions(
-                    cfg.ImapHost, cfg.ImapPort, Security(cfg.ImapSecurity), cfg.SmtpHost, cfg.SmtpPort, Security(cfg.SmtpSecurity));
-                options.Validate();
-                return new ImapSmtpBackend(row.Domain, row.Domain, options, credentials, new SendLedger(), OutboundDefaults.Footer, _clock);
-            }
+                {
+                    var cfg = await ReadAsync<ImapConfig>(row, ct).ConfigureAwait(false);
+                    var options = new ImapSmtpOptions(
+                        cfg.ImapHost, cfg.ImapPort, Security(cfg.ImapSecurity), cfg.SmtpHost, cfg.SmtpPort, Security(cfg.SmtpSecurity));
+                    options.Validate();
+                    return new ImapSmtpBackend(row.Domain, row.Domain, options, credentials, new SendLedger(), OutboundDefaults.Footer, _clock);
+                }
 
             case "cloudflare":
-            {
-                var cfg = await ReadAsync<ApiConfig>(row, ct).ConfigureAwait(false);
-                if (!Uri.TryCreate(cfg.ApiBase, UriKind.Absolute, out var apiBase) || apiBase.Scheme != Uri.UriSchemeHttps)
                 {
-                    throw new InvalidOperationException("The API base must be an https address.");
-                }
+                    var cfg = await ReadAsync<ApiConfig>(row, ct).ConfigureAwait(false);
+                    if (!Uri.TryCreate(cfg.ApiBase, UriKind.Absolute, out var apiBase) || apiBase.Scheme != Uri.UriSchemeHttps)
+                    {
+                        throw new InvalidOperationException("The API base must be an https address.");
+                    }
 
-                // A trailing slash keeps relative path joins inside the base path.
-                if (!apiBase.AbsoluteUri.EndsWith('/'))
-                {
-                    apiBase = new Uri(apiBase.AbsoluteUri + "/");
-                }
+                    // A trailing slash keeps relative path joins inside the base path.
+                    if (!apiBase.AbsoluteUri.EndsWith('/'))
+                    {
+                        apiBase = new Uri(apiBase.AbsoluteUri + "/");
+                    }
 
-                return new HttpsSenderBackend(row.Domain, _http, apiBase, credentials, new SendLedger(), OutboundDefaults.Footer);
-            }
+                    return new HttpsSenderBackend(row.Domain, _http, apiBase, credentials, new SendLedger(), OutboundDefaults.Footer);
+                }
 
             default:
                 return null;
