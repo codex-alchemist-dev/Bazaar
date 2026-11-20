@@ -50,4 +50,25 @@ public static class ConstellationNodeStyles
 
         return table;
     }
+
+    /// <summary>
+    /// Like <see cref="Build"/>, but keeps the palette colours and takes the radius and ring width from
+    /// <paramref name="fallback"/>. A backend whose radius is in world units, not the palette's pixels, uses this.
+    /// </summary>
+    public static NodeStyleTable BuildColoured(ConstellationScene scene, NodeStyle fallback)
+    {
+        NodeStyleTable table = Build(scene, fallback);
+        if (scene.ClusterIds.IsEmpty)
+        {
+            return table;
+        }
+
+        for (int node = 0; node < table.NodeCount; node++)
+        {
+            NodeStyle s = table.Get(node);
+            table.Set(node, new NodeStyle(s.Red, s.Green, s.Blue, s.Alpha, fallback.Radius, fallback.RingWidth));
+        }
+
+        return table;
+    }
 }

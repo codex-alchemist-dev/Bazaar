@@ -7,8 +7,8 @@ namespace Bazaar.Constellation.Vulkan;
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
 /// Draw clears the background and draws the latest interpolated frame as instanced nodes. Each node takes its colour,
-/// radius and ring width from its style: SetScene gives every node the fallback style, and SetNodeStyles replaces
-/// that with per-node styles. The adapter does not map its own styles yet.
+/// radius and ring width from its style: SetScene colours each node by its cluster (the fallback style when the scene has no clusters),
+/// and SetNodeStyles replaces that with explicit per-node styles.
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
@@ -93,7 +93,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(scene);
         _scene = scene;
-        _styles = new NodeStyleTable(scene.NodeCount, _nodeStyle);
+        _styles = ConstellationNodeStyles.BuildColoured(scene, _nodeStyle);
         RebuildPalette();
         _instances.Clear();
         _dimensions = 0;
