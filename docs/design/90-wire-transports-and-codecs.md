@@ -28,12 +28,12 @@ Names follow the module sides rule (docs 40 and `BAZAAR-COMPONENTS.md`). Codecs 
 | Module | Role | Notes |
 |---|---|---|
 | `Bazaar.Wire.Abstractions` | `IWireTransportListener`, `IWireTransportConnector`, `IWireConnection`, `WireProfile`, `ITransportOffer`, `IWireTransform`, framing helpers, negotiation types | BCL only. Takes over `IWireTransportFactory` and `IWireConnection` from `Bazaar.Client.Core/Wire`. |
-| `Bazaar.Wire.Generators` | Roslyn incremental generator and analyzer (build-time only; netstandard2.0, ships as an analyzer) | Reads `[WirePayload]` records in `Bazaar.Contracts`; emits the type registry and per-codec adapters. Built for `cbor`; schema artifacts (section 5), the `schema.lock.json` gate and the other codecs are still to do. A codec project opts in with `[assembly: GenerateWireCodec("cbor")]`. |
-| `Bazaar.Wire.Conformance` | Test library | One conformance suite per transport and per codec, reused by every module's tests. The codec half is built: a test project inherits `WireCodecConformance` and supplies the codec plus a hook that adds an unknown field; it runs against `JsonWireCodec` and `CborWireCodec`. The transport half is still to do. |
+| `Bazaar.Wire.Generators` | Roslyn incremental generator and analyzer (build-time only; netstandard2.0, ships as an analyzer) | Reads `[WirePayload]` records in `Bazaar.Contracts`; emits the type registry and per-codec adapters. Built for `cbor` and `msgpack`; schema artifacts (section 5), the `schema.lock.json` gate and the other codecs are still to do. A codec project opts in with `[assembly: GenerateWireCodec("cbor")]` or `"msgpack"`. Both targets share one type resolver and one record analysis. |
+| `Bazaar.Wire.Conformance` | Test library | One conformance suite per transport and per codec, reused by every module's tests. The codec half is built: a test project inherits `WireCodecConformance` and supplies the codec plus a hook that adds an unknown field; it runs against `JsonWireCodec`, `CborWireCodec` and `MsgPackWireCodec`. The transport half is still to do. |
 | JSON codec | Stays in `Bazaar.Contracts` as `JsonWireCodec` for now | The floor. Moves to `Bazaar.Wire.Codec.Json` only if doc 40 asks; no behaviour change. |
 | `Bazaar.Wire.Codec.MemoryPack` | `memorypack` | .NET to .NET only. Fastest expected. |
 | `Bazaar.Wire.Codec.Cbor` | `cbor` | `System.Formats.Cbor` (a NuGet package from the .NET team, 11.0.0; it is not in the shared framework, so the module takes one package dependency). Self-describing, standard, good for outside clients. Built (WP2); shape in section 3.1. |
-| `Bazaar.Wire.Codec.MessagePack` | `msgpack` | Generated formatters only; no typeless mode. |
+| `Bazaar.Wire.Codec.MessagePack` | `msgpack` | `MessagePack` (MessagePack-CSharp 3.1) used only through its low-level `MessagePackReader` and `MessagePackWriter`, called from generated code; no resolver, no typeless mode, no reflection. Built (WP3); shape in section 3.2. |
 | `Bazaar.Wire.Codec.Protobuf` | `protobuf` | Generated `wire.proto`; used by gRPC and available to any transport. |
 | `Bazaar.Server.Transport.WebSocket` / `Bazaar.Client.Transport.WebSocket` | `ws` | The existing WebSocket moved out of `Bazaar.Server.Wire` (`UseBazaarWire`) and `Bazaar.Client.Core/Wire/WebSocketWireTransport.cs`. Behaviour identical. HTTP/1.1, HTTP/2 (RFC 8441) and, when `Http3` is on, HTTP/3 (RFC 9220). |
 | `Bazaar.Server.Transport.Http3` | `h3` listener feature | Adds HTTP/3 (QUIC) bindings and `Alt-Svc` to the existing listeners so `ws`, `grpc` and `webtransport` are reachable over HTTP/3. Not a transport itself. |
@@ -57,7 +57,8 @@ Dependency rules, enforced by `tests/Bazaar.Architecture.Tests`: a transport or 
 `Bazaar.Wire.Generators` emits per codec module, from the same records:
 - JSON: the existing `System.Text.Json` source-generated context.
 - CBOR: direct `CborWriter`/`CborReader` code, map keys equal to the JSON camelCase names (not short names: one name set for JSON, CBOR and the published schema), no reflection. Section 3.1 gives the shape.
-- MessagePack and MemoryPack: mirror DTOs carrying the codec's attributes plus both-way mappers, generated into the codec assembly so Contracts never sees the package. Mirrors use the codec's version-tolerant mode with explicit field order.
+- MessagePack: direct `MessagePackWriter`/`MessagePackReader` code over the contract records themselves, so no mirror DTOs are needed and Contracts never sees the package (section 3.2).
+- MemoryPack: mirror DTOs carrying the codec's attributes plus both-way mappers, generated into the codec assembly so Contracts never sees the package. Mirrors use the codec's version-tolerant mode with explicit field order.
 - Protobuf: `wire.proto` and mirror messages plus mappers (the S6 mapping layer, now generated instead of hand-written).
 
 Every generated path is AOT and trim clean (`IsAotCompatible`, warnings as errors). The Protobuf runtime's IL3050 and IL3053 warnings from S6 get one documented suppression inside the Protobuf codec module only.
@@ -72,6 +73,13 @@ Forward and backward rules, identical for every codec and pinned by the conforma
 - A missing field reads as default for value types, null for nullable types, and the constructor default when the record declares one; a missing non-nullable reference field (such as `text`) is a `WireFormatException`.
 - Every failure of a decoder, including a record constructor refusing values, surfaces as `WireFormatException`; an unregistered `T` is `NotSupportedException`.
 
+
+### 3.2 MessagePack shape [DECIDED in code, WP3]
+Same field names, omission rule, limits and error type as 3.1, over the MessagePack spec instead of CBOR.
+- Envelope: one map with the doc 02 field names; absent optional fields are omitted; `k` is the text `req`, `res`, `evt` or `err`. `ts` is the MessagePack timestamp extension (type -1, UTC instant). `p` is the payload's own MessagePack item embedded in the map, skipped with a depth-limited pass and kept as bytes until `DecodePayload`.
+- Payload: a map with string keys equal to the JSON property names; null fields omitted. `Guid` is the text form `D`. `DateTimeOffset` is the ISO 8601 round-trip text (`O`), so a payload keeps its offset exactly as JSON does (the envelope `ts` is an instant, so it uses the timestamp extension). `decimal` is its invariant text, because MessagePack has no decimal type. Integers are MessagePack integers. `float[]` and `ReadOnlyMemory<float>` are one `bin` of little-endian binary32 values. Enums are text, as in 3.1.
+- Strictness: duplicate map keys, non-string keys, invalid UTF-8, the never-used type code `0xC1`, an integer that does not fit its field and data after the item are all `WireFormatException`. Strings and `bin` items are measured against the byte cap before they are decoded or copied.
+- Library use: only `MessagePackReader` and `MessagePackWriter`. Typeless mode, resolvers and `MessagePackSerializer` are never called; the generated code is the only formatter.
 ### 4. Negotiation [PROPOSED]
 Two questions, answered in this order: which transport reaches the server, then which codec runs over it.
 
