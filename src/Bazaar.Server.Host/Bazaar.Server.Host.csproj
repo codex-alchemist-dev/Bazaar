@@ -31,6 +31,7 @@
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Modules\Bazaar.Server.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
@@ -40,6 +41,8 @@
     <ProjectReference Include="..\Bazaar.Fun\Bazaar.Fun.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>
