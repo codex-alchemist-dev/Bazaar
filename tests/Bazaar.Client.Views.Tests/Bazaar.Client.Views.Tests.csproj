@@ -17,6 +17,8 @@
     <None Include="..\Bazaar.Rubedo.Tests\Golden\pilots\gc-feed.view.json" Link="Golden\pilots\gc-feed.view.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+
+    <ProjectReference Include="..\..\src\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
   </ItemGroup>
 </Project>

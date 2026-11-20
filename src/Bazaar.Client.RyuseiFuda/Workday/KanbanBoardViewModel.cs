@@ -11,6 +11,9 @@ public static class KanbanStates
     public const string Review = "review";
     public const string Done = "done";
 
+    /// <summary>The five stored states in board order.</summary>
+    public static IReadOnlyList<string> All { get; } = [Backlog, Ready, InProgress, Review, Done];
+
     /// <summary>Column title for a stored state.</summary>
     /// <exception cref="ArgumentException">The state is not one of the five.</exception>
     public static string TitleOf(string state)

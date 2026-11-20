@@ -84,7 +84,7 @@ public sealed class GcDispatcher : IDisposable
 
         foreach (var sub in feed.Snapshot())
         {
-            if (!await access.CanReadAsync(sub.PrincipalId, gcId, ct).ConfigureAwait(false))
+            if (!await access.CanReadAsync(sub.PrincipalId, sub.Kind, gcId, ct).ConfigureAwait(false))
             {
                 sub.Revoke();
             }
