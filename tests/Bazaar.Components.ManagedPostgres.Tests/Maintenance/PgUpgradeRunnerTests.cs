@@ -18,7 +18,8 @@ public sealed class PgUpgradeRunnerTests : IDisposable
     [Fact]
     public async Task The_upgrade_dumps_then_stops_then_checks_then_copies_and_never_links()
     {
-        var port = ProcessTestSupport.FreePort();
+        using var reserved = ProcessTestSupport.ReservePort();
+        var port = reserved.Port;
         var layout = MaintenanceFixture.Layout(_root);
         var runner = Runner((file, args) =>
         {
@@ -44,7 +45,8 @@ public sealed class PgUpgradeRunnerTests : IDisposable
     [Fact]
     public async Task A_failing_check_stops_the_run_before_any_data_file_is_touched()
     {
-        var port = ProcessTestSupport.FreePort();
+        using var reserved = ProcessTestSupport.ReservePort();
+        var port = reserved.Port;
         var layout = MaintenanceFixture.Layout(_root);
         var runner = Runner((file, args) =>
             args.Contains("--check")
