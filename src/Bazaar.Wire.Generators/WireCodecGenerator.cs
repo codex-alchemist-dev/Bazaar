@@ -6,7 +6,7 @@ namespace Bazaar.Wire.Generators;
 
 /// <summary>
 /// Reads every <c>[WirePayload]</c> record in the referenced <c>Bazaar.Contracts</c> assembly and, for a project that opts in with
-/// <c>[assembly: GenerateWireCodec("cbor")]</c>, emits a closed registry of payload types plus direct reader and writer code
+/// <c>[assembly: GenerateWireCodec("cbor")]</c> or <c>"msgpack"</c>, emits a closed registry of payload types plus direct reader and writer code
 /// (doc 90 section 3). No reflection, no runtime type discovery: the output is plain C# that is trim and AOT safe.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
@@ -19,7 +19,7 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
         #nullable enable
         namespace Bazaar.Wire.Generators
         {
-            /// <summary>Opts an assembly in to generated wire codec code (doc 90). The only codec name built so far is "cbor".</summary>
+            /// <summary>Opts an assembly in to generated wire codec code (doc 90). Codec names built so far: "cbor" and "msgpack".</summary>
             [global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]
             internal sealed class GenerateWireCodecAttribute : global::System.Attribute
             {
@@ -67,6 +67,10 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
             if (codec == "cbor")
             {
                 files.Add(new GeneratedFile("WireCbor.g.cs", CborEmitter.Emit(compilation, payloads, diagnostics, ct)));
+            }
+            else if (codec == "msgpack")
+            {
+                files.Add(new GeneratedFile("WireMsgPack.g.cs", MsgPackEmitter.Emit(compilation, payloads, diagnostics, ct)));
             }
             else
             {
