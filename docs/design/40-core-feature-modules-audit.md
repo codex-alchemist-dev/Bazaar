@@ -135,7 +135,7 @@ The built-in IDE is its own module family, never code in Client.Core:
 - `Bazaar.Client.Athanor.Abstractions`: `IEditorHost`, `IEditorFileSource`, `IEditorDraftStore`, `IEditorKeyHandoff`, the document and bridge-message records.
 - `Bazaar.Client.Athanor`: host-agnostic editor logic, the `athanor` pane module and a plain-text fallback host.
 - `Bazaar.Client.Athanor.WebView2` and `Bazaar.Client.Athanor.Bundle`: the Monaco host and bundle, gated by spike S12 (reserved names, no code yet).
-- `Bazaar.Server.Athanor`: server-backed saves, waiting for a wire contract (doc 57 §6).
+- `Bazaar.Server.Athanor` and `Bazaar.Server.Athanor.Abstractions`: server-backed open and save handlers, built (doc 57 §6, PROPOSED details); host wiring and the `Bazaar.Contracts` wire records wait for the wire pair to be accepted.
 
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
 
