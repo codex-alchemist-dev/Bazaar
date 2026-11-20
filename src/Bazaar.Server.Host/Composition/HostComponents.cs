@@ -1,4 +1,5 @@
 using Bazaar.Community;
+using Cdax.Core;
 using Bazaar.Fun;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
@@ -22,7 +23,6 @@ using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Vault;
-using Cdax.Core;
 
 namespace Bazaar.Server.Host.Composition;
 

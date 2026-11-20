@@ -1,8 +1,8 @@
 using Bazaar.Contracts.Backup;
+using Cdax.Core;
 using Bazaar.Server.Components.Backup.Engines;
 using Bazaar.Server.Components.Backup.Jobs;
 using Bazaar.Server.Jobs;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;

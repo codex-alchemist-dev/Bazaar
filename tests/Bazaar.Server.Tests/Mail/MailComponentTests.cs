@@ -1,5 +1,5 @@
-using Bazaar.Server.Mail;
 using Cdax.Core;
+using Bazaar.Server.Mail;
 
 namespace Bazaar.Server.Tests.Mail;
 

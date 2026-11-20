@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Graph;
+using Cdax.Core;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Tiles;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

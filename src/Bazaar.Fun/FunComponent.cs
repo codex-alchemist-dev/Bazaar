@@ -1,7 +1,7 @@
+using Cdax.Core;
 using Bazaar.Fun.Vent;
 using Bazaar.Fun.Ward;
 using Bazaar.Server.Sanitization;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

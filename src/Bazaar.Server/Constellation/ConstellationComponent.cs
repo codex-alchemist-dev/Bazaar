@@ -1,8 +1,8 @@
+using Cdax.Core;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Vault.Data;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
