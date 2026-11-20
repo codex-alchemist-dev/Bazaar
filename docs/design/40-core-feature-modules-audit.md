@@ -136,6 +136,7 @@ The built-in IDE is its own module family, never code in Client.Core:
 - `Bazaar.Client.Athanor`: host-agnostic editor logic, the `athanor` pane module and a plain-text fallback host.
 - `Bazaar.Client.Athanor.WebView2` and `Bazaar.Client.Athanor.Bundle`: the Monaco host and bundle, gated by spike S12 (reserved names, no code yet).
 - `Bazaar.Client.Athanor.AvaloniaEdit` (PROPOSED 2026-11-20): an `IEditorHost` over the AvaloniaEdit `TextEditor`, the proposed default Linux editor and usable on Windows; no diff view (doc 57 §2).
+- `Bazaar.Client.Athanor.Gtk` and `Bazaar.Client.Athanor.Gtk.Helper` (PROPOSED 2026-11-20): the optional Linux Monaco editor. The first is the `IEditorHost` proxy that spawns and supervises the second, a separate GTK process (an executable, not a library) that hosts Monaco in WebKitGTK in its own top-level window. No XEmbed and no WebKitGTK at build time (doc 57 §2.1). Heads wire the proxy; neither project is referenced by Client.Core.
 - `Bazaar.Server.Athanor` and `Bazaar.Server.Athanor.Abstractions`: server-backed open and save handlers, built (doc 57 §6, PROPOSED details); host wiring and the `Bazaar.Contracts` wire records wait for the wire pair to be accepted.
 
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
