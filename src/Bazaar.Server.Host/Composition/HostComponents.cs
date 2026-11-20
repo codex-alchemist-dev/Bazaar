@@ -22,6 +22,7 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.TimeMachine;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -48,6 +49,7 @@ public static class HostComponents
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
+        new TimeMachineComponent(),
         new MemoryComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),

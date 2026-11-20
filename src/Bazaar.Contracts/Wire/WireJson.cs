@@ -2,8 +2,8 @@ using System.Text.Json.Serialization;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Roadmap;
-
 using Bazaar.Contracts.Ryusei;
+using Bazaar.Contracts.TimeMachine;
 
 namespace Bazaar.Contracts.Wire;
 
@@ -35,6 +35,10 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
+[JsonSerializable(typeof(ReplayFrameRequest))]
+[JsonSerializable(typeof(ReplayFrameResult))]
+[JsonSerializable(typeof(ReplayForkRequest))]
+[JsonSerializable(typeof(ReplayForkResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
 [JsonSerializable(typeof(KanbanBoardRequest))]

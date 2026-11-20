@@ -13,5 +13,8 @@ public static class HostMigrations
         new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
-        new ComponentMigrationSource(typeof(CouncilStore).Assembly));
+        new ComponentMigrationSource(typeof(CouncilStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.TimeMachine.TimeMachineComponent).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.Playtest.PlaytestComponent).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.WhatIf.WhatIfComponent).Assembly));
 }
