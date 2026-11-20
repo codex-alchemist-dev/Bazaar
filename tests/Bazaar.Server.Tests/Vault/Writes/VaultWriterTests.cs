@@ -219,6 +219,27 @@ public sealed class VaultWriterTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_repo.Checkout, "decisions", "0004-next-one.md")));
     }
 
+    [Fact]
+    public async Task A_repeated_decision_for_the_same_document_id_returns_the_first_number_and_commits_nothing()
+    {
+        var docId = Guid.NewGuid();
+        var first = await _writer.CreateDecisionAsync(
+            new DecisionDraft(docId, "retried", "Retried", "First body.", "agent-ana"),
+            CancellationToken.None);
+        var headAfterFirst = TempGitRepository.HeadOf(_repo.Checkout);
+
+        var second = await _writer.CreateDecisionAsync(
+            new DecisionDraft(docId, "retried", "Retried", "Second body.", "agent-ana"),
+            CancellationToken.None);
+
+        Assert.Equal(1, first.DecisionNumber);
+        Assert.Equal(VaultEditOutcome.UpToDate, second.Outcome);
+        Assert.Equal(1, second.DecisionNumber);
+        Assert.Equal(headAfterFirst, TempGitRepository.HeadOf(_repo.Checkout));
+        Assert.Single(Directory.GetFiles(Path.Combine(_repo.Checkout, "decisions"), "*.md"));
+        Assert.Contains("First body.", TempGitRepository.ReadFile(_repo.Checkout, "decisions/0001-retried.md"));
+    }
+
     private async Task NewAgentBranchAsync(string task) =>
         await _git.AddWorktreeAsync(_repo.Checkout, "agent/" + task, _repo.WorktreePath(task), CancellationToken.None);
 
