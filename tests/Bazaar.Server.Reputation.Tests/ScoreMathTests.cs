@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Bazaar.Server.Reputation;
 
-namespace Bazaar.Server.Tests.Reputation;
+namespace Bazaar.Server.Reputation.Tests;
 
 public class ScoreMathTests
 {
