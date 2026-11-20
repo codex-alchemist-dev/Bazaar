@@ -40,5 +40,9 @@ public sealed class MergeNotApprovedException : Exception
     public MergeNotApprovedException(string reason)
         : base($"The squash merge was refused: {reason}.")
     {
+        Reason = reason;
     }
+
+    /// <summary>The short reason, without the sentence around it.</summary>
+    public string Reason { get; }
 }

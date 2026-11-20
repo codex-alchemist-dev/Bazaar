@@ -1,3 +1,4 @@
+using Bazaar.GitHub;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -30,6 +31,7 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapBazaarGitHubRoutes();
 app.UseBazaarWire();
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
