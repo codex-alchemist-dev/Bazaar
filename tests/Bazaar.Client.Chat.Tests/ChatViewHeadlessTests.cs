@@ -1,0 +1,36 @@
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
+using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
+
+using Bazaar.Contracts.Wire;
+using Bazaar.Testing;
+
+namespace Bazaar.Client.Chat.Tests;
+
+public class ChatViewHeadlessTests
+{
+    private static readonly Guid _gc = Guid.Parse("0196a6f0-0000-7000-8000-000000000001");
+
+    [AvaloniaFact]
+    public void Main_window_shows_the_chat_lines_and_the_draft_box()
+    {
+        var transport = new FakeWireTransport();
+        var timeline = new ChatTimeline(new Dictionary<Guid, ChatMember> { [Guid.Empty] = new("Charles", IsAgent: true) }, "me", TimeZoneInfo.Utc);
+        timeline.Apply(new WireGcMessage(_gc, 1, 1, Guid.NewGuid(), Guid.Empty, "first line", DateTimeOffset.UnixEpoch, false, [], null));
+        var client = new WireClient(transport, transport.Codec, new InMemoryCursorStore(),
+            new WireClientOptions { DeviceId = "linux-test", DeviceClass = "linux", ClientBuild = "test" }, new FakeClock());
+        var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://h/ws"), "t", _gc, "me"), timeline);
+        var vm = new ChatViewModel(session);
+
+        var window = new Window { Content = ChatViewFactory.Instance.Create(vm) };
+        window.Show();
+
+        var lines = window.GetVisualDescendants().OfType<ListBox>().Single();
+        Assert.Equal(1, lines.ItemCount);
+        Assert.NotNull(window.GetVisualDescendants().OfType<TextBox>().SingleOrDefault());
+    }
+}
