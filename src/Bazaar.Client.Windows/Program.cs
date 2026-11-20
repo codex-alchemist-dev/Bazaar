@@ -21,6 +21,7 @@ using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Windows;
@@ -73,7 +74,10 @@ internal static class Program
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
         ];
-        var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
+            .WithViewContext(ViewContextServices.CreateDefault(new ViewActionRouter(), ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
