@@ -28,6 +28,7 @@ public sealed class DevicesPaneView : UserControl
         base.OnAttachedToVisualTree(e);
         _pane.PropertyChanged += OnPanePropertyChanged;
         Rebuild();
+        _pane.StartRefresh();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -50,7 +51,18 @@ public sealed class DevicesPaneView : UserControl
         return row;
     }
 
-    private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e) => Rebuild();
+    // A refresh finishes on a background thread, so the rebuild is posted to the UI thread.
+    private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Rebuild();
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(Rebuild);
+        }
+    }
 
     private void Rebuild()
     {

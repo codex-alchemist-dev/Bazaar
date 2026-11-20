@@ -29,6 +29,10 @@ public sealed class DevicesPaneViewModel : IPaneViewModel, INotifyPropertyChange
         ArgumentNullException.ThrowIfNull(descriptor);
         Kind = descriptor.Kind;
         _source = source;
+        if (source is IRefreshableDeviceListSource refreshable)
+        {
+            refreshable.RefreshRequested += (_, _) => StartRefresh();
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -63,6 +67,31 @@ public sealed class DevicesPaneViewModel : IPaneViewModel, INotifyPropertyChange
             Apply(await _source.ListAsync(cancellationToken).ConfigureAwait(false));
         }
         catch (WireRequestException)
+        {
+            Apply(null);
+        }
+    }
+
+    /// <summary>Starts a refresh nobody awaits; a no-op with no source. Failures hide the pane instead of faulting.</summary>
+    public void StartRefresh()
+    {
+        if (_source is not null)
+        {
+            _ = RefreshQuietlyAsync();
+        }
+    }
+
+    /// <summary>
+    /// Refreshes on a signal from the source, where nobody awaits the result. Any failure (a dropped connection, say) hides
+    /// the pane the way a refusal does. The head marshals the signal to the UI thread.
+    /// </summary>
+    private async Task RefreshQuietlyAsync()
+    {
+        try
+        {
+            await RefreshAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception)
         {
             Apply(null);
         }

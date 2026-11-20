@@ -80,6 +80,52 @@ public class DevicesPaneTests
     }
 
     [Fact]
+    public async Task Pane_stays_hidden_until_the_requester_is_set_then_is_offered_after_the_reply()
+    {
+        var deferred = new DeferredWireRequester();
+        var pane = new DevicesPaneViewModel(Descriptor(), new WireDeviceListSource(deferred));
+
+        await pane.RefreshAsync(TestContext.Current.CancellationToken);
+        Assert.False(pane.IsOffered);
+
+        var shown = new TaskCompletionSource();
+        pane.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DevicesPaneViewModel.IsOffered) && pane.IsOffered)
+            {
+                shown.TrySetResult();
+            }
+        };
+
+        deferred.Set(new FakeRequester(new DeviceListReply([_android], [_guest])));
+        await shown.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.True(pane.IsOffered);
+        Assert.Single(pane.Guests);
+    }
+
+    [Fact]
+    public async Task A_transport_failure_after_the_signal_hides_the_pane_instead_of_faulting()
+    {
+        var deferred = new DeferredWireRequester();
+        var pane = new DevicesPaneViewModel(Descriptor(), new WireDeviceListSource(deferred));
+        pane.Apply(new DeviceListReply([_android], []));
+        var hidden = new TaskCompletionSource();
+        pane.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DevicesPaneViewModel.IsOffered) && !pane.IsOffered)
+            {
+                hidden.TrySetResult();
+            }
+        };
+
+        deferred.Set(new BrokenRequester());
+        await hidden.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.False(pane.IsOffered);
+    }
+
+    [Fact]
     public void Module_registers_its_kind_and_builds_the_pane_with_the_head_source()
     {
         var module = new DevicesPaneModule();
@@ -170,6 +216,12 @@ public class DevicesPaneTests
             Type = type;
             return Task.FromResult((TResponse)reply);
         }
+    }
+
+    private sealed class BrokenRequester : IWireRequester
+    {
+        public Task<TResponse> RequestAsync<TRequest, TResponse>(string type, TRequest payload, CancellationToken cancellationToken = default) =>
+            throw new IOException("socket closed");
     }
 
     private sealed class StubViewFactory : IPaneViewFactory
