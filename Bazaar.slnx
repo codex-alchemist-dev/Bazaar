@@ -33,6 +33,7 @@
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Client.Athanor.Abstractions/Bazaar.Client.Athanor.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Athanor/Bazaar.Client.Athanor.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.AvaloniaEdit/Bazaar.Client.Athanor.AvaloniaEdit.csproj" />
     <Project Path="src/Bazaar.Client.Athanor.Wire/Bazaar.Client.Athanor.Wire.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
@@ -176,6 +177,7 @@
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Tests/Bazaar.Client.Athanor.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Wire.Tests/Bazaar.Client.Athanor.Wire.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
