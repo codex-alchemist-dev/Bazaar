@@ -12,5 +12,10 @@
     <ProjectReference Include="..\Bazaar.Server.CodingRunner.Abstractions\Bazaar.Server.CodingRunner.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingGit.Abstractions\Bazaar.Server.CodingGit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingEdit\Bazaar.Server.CodingEdit.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingGit\Bazaar.Server.CodingGit.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingReview.Abstractions\Bazaar.Server.CodingReview.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingReview\Bazaar.Server.CodingReview.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.RepoMap.Abstractions\Bazaar.Server.RepoMap.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Subagents.Abstractions\Bazaar.Server.Subagents.Abstractions.csproj" />
   </ItemGroup>
 </Project>
