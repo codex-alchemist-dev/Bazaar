@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Bazaar.Server.Settings;
 
-namespace Bazaar.Server.Tests.Settings;
+namespace Bazaar.Server.Settings.Tests;
 
 /// <summary>Registry contents, type checks, floors and approval rules. Pure: no database.</summary>
 public sealed class SettingDefinitionTests

@@ -11,9 +11,9 @@ namespace Bazaar.Server.Settings;
 /// A write that is held or rejected stores nothing, but still writes its audit entry. A write that repeats the stored
 /// value is a no-op and writes no audit entry.
 /// </summary>
-public sealed class NpgsqlSettingStore(NpgsqlDataSource dataSource, ISettingAuditSink audit, SettingRegistry? registry = null) : ISettingStore
+public sealed class NpgsqlSettingStore(NpgsqlDataSource dataSource, ISettingAuditSink audit, SettingRegistry registry) : ISettingStore
 {
-    private readonly SettingRegistry _registry = registry ?? SettingRegistry.Known;
+    private readonly SettingRegistry _registry = registry ?? throw new ArgumentNullException(nameof(registry));
 
     private const string _selectSql = "SELECT value::text FROM setting WHERE key = @key AND scope = @scope AND scope_id = @scope_id";
 
