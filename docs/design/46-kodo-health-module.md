@@ -151,7 +151,7 @@ Revision note. The first draft swapped a directory junction on Windows "with the
 
 - **Pointer.** `kodo.pointer.json` is a signed record with the slot id (`slot-a` or `slot-b`), the SHA-256 of that slot's signed manifest envelope, the key id and the signature. It uses the same signature scheme and trust root as the manifest (6.1). A pointer that fails verification is never followed.
 - **Swap.** Write the new pointer bytes to `kodo.pointer.json.tmp` in the same directory, flush them to disk, then replace `kodo.pointer.json` atomically: `ReplaceFile` on Windows, `rename(2)` on Linux. The temp file and the target are in the same directory on the same volume and mount, so the replace cannot fail with a cross-device error.
-- **Update.** The new version is written into the inactive slot. Its manifest and files are verified (6.1 and 6.4), preflight runs (doc 49), and the new Kodo runs in shadow mode for the probation window (default 10 minutes, a setting) without acting. Only then is the pointer swapped. Before the swap, the current pointer bytes are copied to `kodo.pointer.previous.json` with the same temp-then-replace rule, so the previous slot always has a signed pointer.
+- **Update.** The new version is written into the inactive slot. Its manifest and files are verified (6.1 and 6.4), preflight runs (doc 49), and the pointer is then swapped to the new slot, which runs its probation window (default 10 minutes, a setting) and is rolled back on failure (PROPOSED, see 7.8; probation runs after the swap, as the sentinel implements it). Before the swap, the current pointer bytes are copied to `kodo.pointer.previous.json` with the same temp-then-replace rule, so the previous slot always has a signed pointer.
 - **Rollback.** Rollback swaps the pointer back: `kodo.pointer.json` is replaced with the bytes of `kodo.pointer.previous.json`, and the pointer that was left takes the previous slot's place, so a second rollback goes forward again. Rollback needs no network, no database and no signing key, because both pointers were signed when they were made and are checked against the install trust root. The target slot's manifest and files are re-verified before the flip. A crash between the two writes leaves both pointers naming the older slot, which is a safe state. Rollback never deletes the slot it leaves. It writes an audit event and a Kodo journal event before the flip is announced to clients.
 - **Start-up recovery.** Start removes a stray `kodo.pointer.json.tmp`. If `kodo.pointer.json` fails verification, the sentinel tries `kodo.pointer.previous.json`. If neither pointer verifies, Kodo runs in sealed mode (6.4).
 - **Durability.** Linux is intended to flush the containing directory after the rename, and Windows flushes the temp file before the replace. Whether a power loss between the two writes leaves a usable state is checked in the host run (spike K2, item 9), not assumed.
@@ -235,6 +235,23 @@ The brief's requirement: supervised restart, crash-only design, bulkheads, circu
 - The brief's scale decision is one large company on a single node, splittable to several nodes later. Kodo's probes, journal and API run on that one node by default. Kodo's data volume is bounded by the retention settings (section 20), not by the number of agents.
 - Multi-node splitting is not designed here. When it is, Kodo's journal needs a single writer per install (already true: the journal has one writer, section 5.1) and its probes need a routing table that says which node runs which probe. That design belongs with doc 03's host split and is not started.
 
+### 7.8 Sentinel implementation choices (package 8, PROPOSED 2026-11-18)
+
+The pure parts live in `src/Bazaar.Kodo/Sentinel`, with the OS behind `ISentinelFileStore`, `IKodoProcessLauncher`, `ISentinelJournal` and `ISentinelStatusFile`, and the clock as `TimeProvider`. Every choice below is PROPOSED because the doc leaves it open. Owner to ratify.
+
+- **Stable period.** A run of at least 10 minutes clears the restart backoff. Section 7.1 names no stable period. The schedule's last value is the cap (300 s).
+- **Probation runs after the swap.** The candidate pointer becomes active, then the slot runs its probation window (`kodo.integrity.probation_min`, default 10 minutes). A failed probation rolls back. Section 6.3 now matches this choice (probation after the swap, with rollback on failure). An earlier draft had the new Kodo run in shadow mode before the swap; the coordinator kept probation-after-swap because rollback needs no extra mechanism. Still PROPOSED for owner ratification.
+- **Probation pass.** The process survives the window, and the active pointer and slot verify again at the end.
+- **Probation cannot be skipped (PROPOSED 2026-11-19).** The probation marker `kodo.probation.pending` (runtime root, holds the candidate slot id) is written after the previous pointer and before the swap, and removed only after probation survives. A launcher exception, a cancelled token (sentinel shutdown), a status-file failure when announcing probation, or a marker that cannot be cleared counts as a failed probation and rolls back; cancellation rolls back first and then rethrows. A start check that finds the marker with the active pointer naming the marked slot (or an unreadable or malformed marker) treats the active pointer as unprobated: it rolls back to the previous pointer if that verifies, otherwise it seals (cause `probation_interrupted`). A marker naming another slot is stale and removed. If the previous pointer equals the active pointer, the swap never happened and the marker is just cleared.
+- **Rollback target.** Promotion re-reads and verifies the active pointer from disk. With no verified active pointer it is rejected (`active_pointer_not_verified`), so a stale previous pointer from an older generation is never kept as the rollback target.
+- **Locking.** The gate serialises start and promotion. A second lock guards the restart backoff, the status and the status-file write, so `RecordKodoExit` is safe from any thread, also during probation, and is never held across the probation run. A status-file write that fails after a decision is dropped (the in-memory status carries the truth), except the probation announcement, which is strict.
+- **Rollback order.** Journal event first (`sentinel.rollback`), then the active pointer swap, then the previous pointer is set to the left pointer, then the status file is replaced. A journal write failure does not block the rollback; the status detail records it. The audit event (doc 48) is not written in this slice.
+- **Blocked rollback.** If the previous pointer is missing or does not verify, no flip happens. The candidate stays active with phase `failing` and cause `previous_slot_missing` or `previous_not_verified`.
+- **Startup fallback.** A failed active pointer falls back to the verified previous pointer. The active file is rewritten, and the previous file is left unchanged. Neither pointer verifying gives phase `sealed` with no active slot.
+- **Status file.** `kodo.sentinel.status.json` in the data directory, never in the runtime root. Schema version 1, camelCase, every field always written. Phases: `starting`, `running`, `probation`, `failing`, `sealed`.
+- **Cause codes.** Stable strings in `SentinelCauses`. The verifier's status name goes in `detail`.
+- **Not in this slice.** Crash-loop detection (7.1), the OS launcher and file store, the loopback server, the audit event.
+
 ## 8. State model
 
 ### 8.1 States
@@ -270,7 +287,7 @@ Hysteresis is required everywhere. A rule with a grace period cannot flap a stat
 
 ### 8.3 Unobserved
 
-Kodo cannot report its own death. Clients derive a sixth display value, `unobserved`, when the Kodo stream has been silent for longer than its heartbeat budget (default 30 seconds) or when the status snapshot is older than its freshness budget. `unobserved` is not a server state, is never written to the journal by Kodo, and is rendered as its own word and colour. The client writes it to its own local timeline.
+Kodo cannot report its own death. Clients derive a sixth display value, `unobserved`, when the Kodo stream has been silent for longer than its heartbeat budget (default 30 seconds); any event, including a heartbeat, counts as proof of freshness (15.6). `unobserved` is not a server state, is never written to the journal by Kodo, and is rendered as its own word and colour. The client writes it to its own local timeline.
 
 ## 9. Scope: what Kodo watches
 
@@ -409,6 +426,16 @@ Contract tests run in CI on every PR that touches a module, and in the install d
 ### 10.4 Contract versioning
 
 The health contract has its own protocol version (`kodo.contract = 1` at launch). It is a semver contract under doc 49's and the module API stability rules (brief: semver contract, compatibility shims, contract tests, compatibility matrix in the module manager). A module declares the contract version it targets. Kodo keeps the previous major as a shim for one release.
+
+### 10.5 First slice (package 6): PROPOSED
+
+Package 6 builds the abstractions, the loader gate and the contract test base only. No real module is wired. The rest of section 10 (liveness, readiness, dependencies, self-test, the manifest `health` block) comes in later slices. The choices below are PROPOSED where section 10 is silent.
+
+- **Narrowed interface (PROPOSED).** `IModuleHealthProbe` in `Bazaar.Kodo` (not `Bazaar.Kodo.Abstractions`; the project is still one assembly) reports `ModuleId`, `ProbeId` and `ValueTask<ProbeResult> CheckAsync(ct)`. The section 10.1 `IModuleHealth` (liveness, readiness, dependencies, self-test, `HealthResult`) is a later slice and is not reused under the same name.
+- **Probe id rule (PROPOSED).** A contract's `ProbeId` must be `module.<moduleId>.health`, the section 9.1 catalogue id. A contract that reports another module id or probe id is `unknown` with cause `contract_error`.
+- **Loader gate (PROPOSED).** A missing contract is `unknown` with cause `contract_missing`. A contract that throws while loading, checking or returning no result is `unknown` with cause `contract_error`, and keeps the exception in `Error`. Cancellation propagates to the caller and is not a contract failure. Section 9 already requires that `unknown` never counts as green.
+- **Contract test base (PROPOSED location).** `ModuleHealthContractTests<TModule>` is in the `Bazaar.Kodo.Testing` project (the name in section 10.3), which references xUnit v3 and `Bazaar.Kodo`. `Bazaar.Kodo` stays free of xUnit. The checks are pure (`ModuleHealthContractCheck`) and return violations, so they are testable without xUnit. This slice runs these section 10.3 checks: contract presence, expected `ModuleId`, catalogue `ProbeId`, a stable `ModuleId` across reads, and `CheckAsync` completing without throwing. The I/O fakes, budgets, self-test and manifest checks (10.3 items 2 to 8) come later.
+- **Contract causes.** `contract_missing` and `contract_error` are added to `ProbeCauses` beside the other causes.
 
 ## 11. Module manifest (sketch)
 
@@ -596,6 +623,22 @@ Errors use one shape: `code`, `message`, `retryable` and `correlationId`. No end
 
 - The status listener is doc 03's, bound to loopback by default. The `/status` route format is doc 02's. The public status page (12.4) and any non-loopback exposure need owner approval recorded through the settings registry and the Tier 2 approval of doc 15. This follows doc 03's floor: a non-loopback bind is refused unless `Bazaar:Host:Status:OwnerApprovedWideBind` is true.
 - A browser view of the status page is allowed by CLAUDE.md as a read-only server status page. Kodo adds no interactive browser surface. The narrow passkey sign-in page of doc 32 is unrelated and stays separate.
+
+### 15.6 Read API core choices (package 9, PROPOSED 2026-11-18)
+
+The pure core lives in `src/Bazaar.Kodo/Api`: the snapshot builder and the `kodo` stream writer. The wire types (`KodoStatusSnapshotDto`, `KodoComponentDto`, `KodoStreamEventDto`, `KodoStateChangeDto`), their JSON context and codec, and the client-side `unobserved` derivation (`KodoUnobserved`, `KodoDisplayState`) live in `Bazaar.Contracts` under `Kodo`, as section 4 requires, so `Bazaar.Client.Kodo` can use them without the server module. The status payload is the existing `KodoStatusDto` (no second status type); the snapshot wraps it with `revision`, `schemaVersion`, the journal head and the components. JSON is source-generated `System.Text.Json` with nulls omitted, so `underlyingState` is present only while `frozen`. It has no HTTP route, socket or `/ws` registration. Every choice below is PROPOSED because this section or section 15 leaves it open. Owner to ratify.
+
+- **Stream numbering is `revision`, not a sequence.** The package brief said sequence numbers. Doc 02's registry says state streams carry a `revision`, and this section already speaks of "revisioned deltas". The `kodo` stream is state, so each delta (`state_changed`, `heartbeat`) takes the next revision: one counter per stream, rising by exactly one, gap-free. A snapshot is not a delta. The writer builds it under its lock with the current revision and does not raise the counter, so a snapshot sent to one subscriber on connect leaves no gap for the others, and a concurrent publish cannot make the snapshot fail or carry a stale number. Deltas after it apply on top.
+- **Event types** on the stream are `state_changed`, `snapshot` and `heartbeat`. The webhook names of 15.3 keep the `kodo.` prefix. The stream does not need it.
+- **Only displayed-state changes emit `state_changed`.** A change of the underlying state while the display stays `frozen` writes no event. The underlying state is still carried in the snapshot and in each state-change payload.
+- **Revisions are not persisted by the writer.** A restarted Kodo starts from the revision its caller supplies. Clients treat a revision lower than the one they hold as a reset and re-fetch the snapshot. Whether the counter is persisted is open.
+- **One silence budget.** Section 8.3 names a freshness budget but gives no value. A snapshot arrives only on subscribe or after a gap, so measuring freshness from the last snapshot would turn a healthy connected client `unobserved` after a minute. PROPOSED: every event (snapshot, state change or heartbeat) refreshes freshness, and the only budget is the 30-second silence budget. It is a constructor value in this slice and becomes a settings key (for example `kodo.stream.heartbeat_budget_s`) when added to section 20.
+- **The client clock decides `unobserved`.** The budget is measured from the time the client received the last event, so server clock skew does not matter. A receive time later than the client's `now` counts as age zero.
+- **Edges.** Exactly at a budget is still observed. One tick past it is `unobserved`. A client that has never received a state or an event shows `unobserved`.
+- **Heartbeat cadence** is not set in section 8.3 or 15.2. PROPOSED: the server sends a heartbeat every 10 seconds, a third of the budget, so one lost frame does not trip it. Not built in this slice.
+- **Snapshot shape.** `schemaVersion` is the schema field and the status's `asOf` is the `asOf` of section 15.1. Components are sorted by id. A green component carries no cause. A component that is not green needs a cause. The journal head is the lowercase hex of its 32-byte hash, and null while the journal has no records.
+- **Score caps are enforced at the builder.** A score above the section 12.2 caps is rejected, not clamped: critical red 49, integrity or contract failure 10, critical unknown 70, and an underlying `failing` state 49. The builder takes the observation the score was computed from, and `KodoScore.CapFor` is the one cap rule shared with `KodoScore.Compute`.
+- **Wire strings.** The wire carries strings from `KodoWireNames`, never C# member names. Probe statuses are `green`, `amber`, `red` and `unknown`. `unobserved` is a display value only.
 
 ## 16. Recovery: alerts, runbooks and incident mode
 
@@ -830,7 +873,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 3. Evaluator: states, transitions, hysteresis, flap detection, scoring with caps. Pure, table-driven tests.
 4. Probe runtime: bulkhead pools, timeouts, breakers, `unknown` semantics. Fault tests.
 5. Built-in probes in the order of section 9.1, starting with `host.*`, `db.*`, `secrets.store`, `kodo.self.*`.
-6. Module health contract: abstractions, `ModuleHealthContractTests<T>`, loader gate. Depends on doc 42 for the lifecycle.
+6. Module health contract: abstractions, `ModuleHealthContractTests<T>`, loader gate. Depends on doc 42 for the lifecycle. First slice (probe interface, loader gate, contract test base) is built; its choices are PROPOSED in section 10.5.
 7. Immutable runtime: manifest format, signing and verification (release key from 37), slot pointer, verifier in the sentinel. Spike first (section 22).
 8. Sentinel process: supervision, slot switching, rollback, loopback status file.
 9. Read API and `kodo` stream on doc 02's registry.
@@ -850,7 +893,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Module identity, naming and projects | PLANNED | No project exists |
 | Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Pure parts built in `src/Bazaar.Kodo/Runtime` (manifest, signature check, slot pointer, verifier; package 7). No sentinel or swap code yet. The design uses a signed pointer file (6.3), not a junction. Needs spike K1 (Windows read-only slot and pointer replace) and spike K2 (Linux bind-mount slots and pointer rename) run on hardware. Proposed for doc 35; not numbered there yet |
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
-| Sentinel process | PLANNED | No code |
+| Sentinel process | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Sentinel` (package 8): restart backoff, slot switch with probation and rollback, startup fallback, loopback status shape. Choices are PROPOSED in 7.8. No OS launcher, file store, loopback server, crash-loop detection or audit event yet |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |
 | Warm standby and fencing | PLANNED, optional | Needs a fencing spike on the chosen database setup |
 | State model (5 states plus `unobserved` display) | PLANNED | Table design in 8 |
@@ -860,7 +903,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Prediction (forecast, baseline, drift) | PLANNED | Deterministic parts first |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
-| Read API, stream, webhooks, metrics and OTel export | PLANNED | Depends on doc 02 registry and doc 23 pipeline |
+| Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
 | Alerts, runbooks, incident mode, summaries | PLANNED | Depends on doc 15 approval gates |
 | Release ring cohort signals and auto-halt | PLANNED | Depends on doc 49 (rings, channels) and doc 37 (signed releases) |
 | Testing: fault harness, self-checks, chaos mode | PLANNED | Depends on doc 17 sandbox and doc 33 restore |

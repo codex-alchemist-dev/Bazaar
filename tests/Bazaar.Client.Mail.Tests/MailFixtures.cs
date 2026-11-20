@@ -2,7 +2,8 @@ using System.Text.Json;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Mail.Tests;
@@ -55,7 +56,7 @@ internal static class MailFixtures
     public static PaneDescriptor Descriptor(string kind, string json) =>
         new(kind, "Title", string.Empty, JsonElement.Parse(json));
 
-    public static PaneRegistry Registry() => PaneRegistry.Compose(MailPanes.Modules);
+    public static PaneRegistry Registry() => PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, MailPanes.Modules);
 
     /// <summary>The text of every text block under the view, in tree order.</summary>
     public static IReadOnlyList<string> Texts(Control view) =>

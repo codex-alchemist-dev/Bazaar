@@ -14,20 +14,53 @@ public class LayeringTests
         Assert.Empty(compiled.Concat(declared));
     }
 
-    /// <summary>
-    /// A client feature module (doc 40, step 7) references Client.Core only: no head and no other feature module. A module may
-    /// reference its own Abstractions project (doc 22, WP12).
-    /// </summary>
+    /// <summary>A client feature module (doc 40, step 7) references Client.Core only: no head and no other feature module.</summary>
     [Theory]
     [InlineData("Bazaar.Client.RyuseiFuda")]
     [InlineData("Bazaar.Client.Views")]
-    [InlineData("Bazaar.Client.Mail")]
     public void Client_feature_module_references_only_client_core(string project)
     {
-        var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)))
-            .Where(name => name != project + ".Abstractions");
+        var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));
 
-        Assert.Empty(declared);
+        // A feature module may use the pure shared libraries it names here (doc 41b section 2c). Each edge is listed, so a new one is a decision.
+        var allowed = project switch
+        {
+            "Bazaar.Client.Views" => new[] { "Bazaar.Client.Theme" },
+            _ => [],
+        };
+
+        Assert.Empty(declared.Except(allowed));
+    }
+
+    /// <summary>
+    /// Feature modules take their pane contracts from Bazaar.Client.Panes.Abstractions and never reference Client.Core, so a
+    /// module can be built and tested without the shared UI. A project that does not exist yet is skipped.
+    /// </summary>
+    [Theory]
+    [InlineData("Bazaar.Client.RyuseiFuda")]
+    [InlineData("Bazaar.Client.Chat")]
+    [InlineData("Bazaar.Client.Constellation")]
+    [InlineData("Bazaar.Client.Dashboard")]
+    [InlineData("Bazaar.Client.Vault")]
+    [InlineData("Bazaar.Client.Engines")]
+    [InlineData("Bazaar.Client.Theme")]
+    [InlineData("Bazaar.Client.Commands")]
+    [InlineData("Bazaar.Client.Input")]
+    [InlineData("Bazaar.Client.Preload")]
+    [InlineData("Bazaar.Client.Launcher")]
+    [InlineData("Bazaar.Client.Modules")]
+    [InlineData("Bazaar.Client.Gc")]
+    [InlineData("Bazaar.Client.Souls")]
+    [InlineData("Bazaar.Client.Mobile")]
+    [InlineData("Bazaar.Client.Push")]
+    [InlineData("Bazaar.Client.Mail")]
+    public void Client_feature_module_does_not_reference_client_core(string project)
+    {
+        Assert.SkipUnless(File.Exists(RepoPaths.ProjectFile(project)), $"{project} does not exist yet.");
+
+        var declared = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project));
+
+        Assert.DoesNotContain("Bazaar.Client.Core", declared);
     }
 
     /// <summary>The mail abstractions are plain records. They reference no server project and no client project (doc 22, WP12).</summary>

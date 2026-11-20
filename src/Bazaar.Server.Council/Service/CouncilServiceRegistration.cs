@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Bazaar.Server.Council.Service;
 
@@ -18,6 +19,21 @@ public static class CouncilServiceRegistration
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(new CouncilOptions());
         services.TryAddSingleton<ICouncilService, CouncilService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the deadline sweeper (<see cref="CouncilDeadlineSweeper"/>) with default <see cref="CouncilSweepOptions"/>, and
+    /// the background worker that runs it. The host must also have called <see cref="AddBazaarCouncilService"/> and must
+    /// register <see cref="ICouncilStore"/>. Not called by <see cref="AddBazaarCouncilService"/>, so a host opts in.
+    /// </summary>
+    public static IServiceCollection AddBazaarCouncilDeadlineSweeper(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton(new CouncilSweepOptions());
+        services.TryAddSingleton<CouncilDeadlineSweeper>();
+        services.AddHostedService<CouncilDeadlineWorker>();
         return services;
     }
 }
