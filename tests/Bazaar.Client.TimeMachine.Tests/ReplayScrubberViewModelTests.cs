@@ -1,5 +1,6 @@
 using System.Text.Json;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.TimeMachine.Tests;
 

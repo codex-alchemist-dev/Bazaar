@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.TimeMachine;
 using Bazaar.Contracts.TimeMachine;
 using Bazaar.Contracts.Wire;

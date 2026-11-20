@@ -4,7 +4,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.TimeMachine.Tests;
@@ -27,7 +28,7 @@ public class ReplayScrubberViewHeadlessTests
                 ReplayPartView.Available("Kanban", "2 tasks"),
                 ReplayPartView.Unavailable("Vault", "Vault is not installed"),
             ]));
-        var registry = PaneRegistry.Compose([TimeMachineModule.Pane], new PaneModuleContext().With<IReplayClient>(client));
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, [TimeMachineModule.Pane], new PaneModuleContext().With<IReplayClient>(client));
         var model = JsonElement.Parse($$"""{"gcId":"{{_gc}}","headSeq":10,"defaultView":"{{defaultView}}"}""");
         var vm = Assert.IsType<ReplayScrubberViewModel>(registry.Create(new PaneDescriptor(ReplayScrubberViewModel.PaneKind, "Replay", string.Empty, model)));
         var view = registry.CreateView(vm);
@@ -126,7 +127,7 @@ public class ReplayScrubberViewHeadlessTests
     [AvaloniaFact]
     public void Without_a_client_the_pane_shows_its_empty_state_and_every_action_is_off()
     {
-        var registry = PaneRegistry.Compose([TimeMachineModule.Pane]);
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, [TimeMachineModule.Pane]);
         var model = JsonElement.Parse($$"""{"gcId":"{{_gc}}","headSeq":10}""");
         var vm = registry.Create(new PaneDescriptor(ReplayScrubberViewModel.PaneKind, "Replay", string.Empty, model));
         var view = registry.CreateView(vm);

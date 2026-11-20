@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Contracts.TimeMachine;
 using Bazaar.Contracts.Wire;
 using WireForkRequest = Bazaar.Contracts.TimeMachine.ReplayForkRequest;

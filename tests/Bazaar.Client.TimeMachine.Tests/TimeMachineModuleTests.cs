@@ -1,6 +1,7 @@
 using System.Text.Json;
-using Bazaar.Client.Core.Commands;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Commands;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -47,7 +48,7 @@ public class TimeMachineModuleTests
     public void Pane_module_registers_the_kind_and_builds_the_view_model_with_the_head_supplied_client()
     {
         var client = new InMemoryReplayClient(5);
-        var registry = PaneRegistry.Compose([TimeMachineModule.Pane], new PaneModuleContext().With<IReplayClient>(client));
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, [TimeMachineModule.Pane], new PaneModuleContext().With<IReplayClient>(client));
 
         var pane = registry.Create(Descriptor());
 
@@ -61,7 +62,7 @@ public class TimeMachineModuleTests
     public void A_bad_model_falls_back_to_the_generic_pane_and_reports_once()
     {
         var reports = new List<string>();
-        var registry = PaneRegistry.Compose([TimeMachineModule.Pane], new PaneModuleContext(Report: reports.Add));
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, [TimeMachineModule.Pane], new PaneModuleContext(Report: reports.Add));
 
         var pane = registry.Create(Descriptor("""{"headSeq":5}"""));
 

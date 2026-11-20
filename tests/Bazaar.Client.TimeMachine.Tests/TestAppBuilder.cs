@@ -9,7 +9,7 @@ namespace Bazaar.Client.TimeMachine.Tests;
 public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<Client.Core.App>()
+        AppBuilder.Configure<Bazaar.Client.Core.App>()
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
