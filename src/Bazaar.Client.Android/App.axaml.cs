@@ -2,14 +2,20 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Vault;
 
 namespace Bazaar.Client.Android;
 
@@ -45,13 +51,23 @@ public sealed class App : Avalonia.Application
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
-        // The panes this head ships, in pager order: the RyuseiFuda board first, then the Client.Core panes, then the rest of RyuseiFuda, then Git Solar System.
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. GitSolarSystemPanes.Modules];
+        // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes, then Git Solar System (pager order).
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            new DashboardPaneModule(),
+            new ConstellationPaneModule(),
+            new GcPaneModule(),
+            new VaultSearchPaneModule(),
+            .. RyuseiFudaPanes.Modules,
+            .. GitSolarSystemPanes.Modules,
+        ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
-        var registry = PaneRegistry.Compose(
-            modules,
-            new PaneModuleContext(Tiles: tiles).With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current)));
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(tiles)
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {

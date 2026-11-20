@@ -2,19 +2,25 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Preload;
-using Bazaar.Client.Core.Server;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Vault;
 
 namespace Bazaar.Client.Windows;
 
@@ -60,20 +66,31 @@ internal static class Program
 
         var chatSettings = ChatSettings(args);
         GcChatSession? chat = null;
-        ChatViewModel? chatView = null;
+        Control? chatContent = null;
         using var chatStop = new CancellationTokenSource();
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29), then the Git Solar System pane (doc 19).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules, .. GitSolarSystemPanes.Modules];
-        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With (same as CreateRegistry otherwise).
-        var registry = PaneRegistry.Compose(
+        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            new DashboardPaneModule(),
+            new ConstellationPaneModule(),
+            new GcPaneModule(),
+            new VaultSearchPaneModule(),
+            .. RyuseiFudaPanes.Modules,
+            .. GitSolarSystemPanes.Modules,
+        ];
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        var registry = FirstPartyPanes.CreateRegistry(
             modules,
-            new PaneModuleContext(
-                Tiles: HttpConstellationTileSource.Create(ClientServer.Current),
-                Report: message => Console.Error.WriteLine($"Bazaar: {message}"))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current)));
+            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
+            features: features);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -84,13 +101,13 @@ internal static class Program
             if (chatSettings is not null)
             {
                 chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
-                chatView = new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action));
+                chatContent = ChatViewFactory.Instance.Create(new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action)));
                 _ = chat.StartAsync(chatStop.Token).ContinueWith(
                     task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
                     TaskContinuationOptions.OnlyOnFaulted);
             }
 
-            var window = chatView is null ? new MainWindow() : new MainWindow(chatView);
+            var window = chatContent is null ? new MainWindow() : new MainWindow(chatContent);
             if (preloadStart)
             {
                 // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).

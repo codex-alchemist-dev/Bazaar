@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Wire;
