@@ -113,6 +113,7 @@
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
+    <Project Path="src/Bazaar.Server.ApprovalQueue.Abstractions/Bazaar.Server.ApprovalQueue.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Remote.Abstractions/Bazaar.Server.Remote.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity.Abstractions/Bazaar.Server.VmDensity.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity.HostProbes/Bazaar.Server.VmDensity.HostProbes.csproj" />
