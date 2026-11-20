@@ -1,3 +1,4 @@
+using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -28,6 +29,7 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(status.Address, statu
 
 var app = builder.Build();
 app.UseBazaarGetOnly();
+app.UseBazaarAuthenticatedCaller();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
 app.UseBazaarWire();
