@@ -30,20 +30,21 @@ public sealed class SetupApplier
     private readonly SettingRegistry _registry;
 
     /// <param name="steps">The steps to run. They run in <see cref="ISetupStep.Order"/>, ties broken by <see cref="ISetupStep.Id"/>.</param>
-    /// <param name="registry">The settings registry the plan is validated against. Defaults to the registry this build ships.</param>
+    /// <param name="registry">The settings registry the plan is validated against, the registry this build ships.</param>
     public SetupApplier(
         ISetupInstanceLock instanceLock,
         IEnumerable<ISetupStep> steps,
         IAuditLog audit,
         ISettingAuditSink settingAudit,
         TimeProvider time,
-        SettingRegistry? registry = null)
+        SettingRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(instanceLock);
         ArgumentNullException.ThrowIfNull(steps);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentNullException.ThrowIfNull(settingAudit);
         ArgumentNullException.ThrowIfNull(time);
+        ArgumentNullException.ThrowIfNull(registry);
 
         _steps = steps.OrderBy(step => step.Order).ThenBy(step => step.Id, StringComparer.Ordinal).ToList();
         var duplicate = _steps.GroupBy(step => step.Id, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
@@ -56,7 +57,7 @@ public sealed class SetupApplier
         _audit = audit;
         _settingAudit = settingAudit;
         _time = time;
-        _registry = registry ?? BuiltInSettingRegistries.Known;
+        _registry = registry;
     }
 
     /// <summary>Applies <paramref name="request"/>. Never throws for a refused, held or failed apply; only for a broken caller or an audit write that fails.</summary>
