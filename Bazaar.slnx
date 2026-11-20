@@ -170,6 +170,12 @@
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
+    <Project Path="src/Bazaar.Server.Biometric.Abstractions/Bazaar.Server.Biometric.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Biometric/Bazaar.Server.Biometric.csproj" />
+    <Project Path="src/Bazaar.Server.DeviceEnrolment.Abstractions/Bazaar.Server.DeviceEnrolment.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.DeviceEnrolment/Bazaar.Server.DeviceEnrolment.csproj" />
+    <Project Path="tests/Bazaar.Server.Biometric.Tests/Bazaar.Server.Biometric.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.DeviceEnrolment.Tests/Bazaar.Server.DeviceEnrolment.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />

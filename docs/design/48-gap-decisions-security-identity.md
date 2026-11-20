@@ -210,9 +210,52 @@ Design consequences:
 - Biometric data is never in logs, the audit chain or backups.
 - A device without a required factor cannot perform a high-risk action. It can still read.
 
-Built status: PLANNED. Spike per platform (LiDAR face on the owner's device, multi-lens fallback, liveness reporting, fingerprint).
+Built status: PLANNED (format PROPOSED in 8.1; software verifier built in `Bazaar.Server.Biometric`, spike S-BIO B1 passed, B2 and B3 need the owner's devices; record in `docs/spikes/S-BIO.md`). Spike per platform (LiDAR face on the owner's device, multi-lens fallback, liveness reporting, fingerprint).
 
 OPEN: the platform list for LiDAR face beyond the owner's devices and the exact liveness reporting per platform. These are device-capability questions for the spike, not policy choices. The biometric matching thresholds stay with the platform.
+
+### 8.1 Biometric assertion format [PROPOSED]
+
+**Status: PROPOSED (coordinator request 2026-11-20; not an owner decision).** Section 8 says the device produces a signed assertion and the server verifies it, but names no wire format. This section fixes one, built on WebAuthn assertions, and says plainly what a server can and cannot learn from one. It stays PROPOSED until spike S-BIO (below) passes on the owner's hardware.
+
+**What a server can know.** WebAuthn gives the server three things it can check: the credential was made by an authenticator of a known kind (attestation), the authenticator signed this exact challenge, and it reports a user-verified flag (UV). UV is not "biometric": a PIN sets it too. The factor (face with depth, face with multi-lens, voice, fingerprint) and the liveness result are claims the device makes. They carry weight only because the credential's attestation shows a genuine platform authenticator, and because the claim is inside the signed data. The server therefore trusts the attested platform for factor and liveness, and treats a claim from an unattested credential as no claim.
+
+**The assertion (`BiometricAssertion`, version 1).** One JSON object through `IWireCodec`:
+
+| Field | Meaning |
+|---|---|
+| `v` | `1`. Any other value is refused. |
+| `credential_id` | The WebAuthn credential the device signed with (base64url). |
+| `authenticator_data` | Raw authenticator data (base64url): rpIdHash, flags, sign count. |
+| `client_data_json` | The UTF-8 client data (base64url), `type` `webauthn.get`. |
+| `signature` | The ES256 signature over `authenticator_data` followed by SHA-256 of `client_data_json` (base64url). |
+
+The client data carries three Bazaar members inside the signed bytes: `bazaar.factor` (`face-depth`, `face-multi`, `voice`, `fingerprint` or `hardware-key`), `bazaar.liveness` (`passed` or `not-reported`) and `bazaar.at` (milliseconds since the Unix epoch). The `origin` is `bazaar-device:<device id>`, since a native client has no web origin.
+
+**Binding to the action.** The challenge is `SHA-256("bazaar.biometric.v1" 0x00 SHA-256(owner payload bytes))`, where the owner payload bytes are `OwnerSignedPayload.Build` of the action being approved (section 7 and doc 32 section 5a). The assertion therefore covers the same action id, args hash, human, device, expiry and single-use nonce as the owner signature, and cannot be replayed for another action. The two signatures travel together; neither works alone.
+
+**Server checks, in order, each fail-closed with a fixed reason code and no detail about key material.**
+1. `v` is 1 and every field is present and within size limits.
+2. The credential is registered to the deciding human and device, and is single-device (WebAuthn backup-eligible and backup-state flags are both clear). A synced passkey is refused.
+3. `rpIdHash` matches the instance's relying party id; user presence and user verification flags are set.
+4. Client data `type` is `webauthn.get`, `origin` is the device's own, and `challenge` equals the challenge above.
+5. The signature verifies under the stored credential public key (ES256).
+6. The sign count is strictly greater than the stored one (a stored zero accepts the first), or a clone is suspected and the credential is refused until the owner re-enrols.
+7. `bazaar.at` is within the clock-skew bound of server time (the same bound as `OwnerSignatureOptions`).
+8. The credential's attested properties, recorded at enrolment, allow the claimed factor, and the factor is in the action class's allowed list (setting `biometric.allowed_factors.<class>`; the shipped default for high-risk actions is face with depth, face with multi-lens, and fingerprint). For every factor used on a high-risk action `bazaar.liveness` must be `passed`. This is a floor, not a setting, and it restates section 8: where a platform reports no liveness, the factor is not used for high-risk actions.
+
+**Enrolment.** The device registers a platform credential with attestation at the same moment it enrols its owner-approval key (doc 32 section 5a, whose enrolment path is still OPEN). The server verifies the attestation chain once and stores the credential id, the public key, the attested properties (hardware-backed, user-verification required, authenticator type) and the sign count. Android uses key attestation with the Keystore key set to require biometric (BIOMETRIC_STRONG) authentication on every use. Windows uses the platform authenticator with Windows Hello. The full ceremony (who may start it, the enrolment challenge that ties the credential to the approval key, attestation roots, one transaction with the audit row) is doc 32 section 5b [PROPOSED].
+
+**Where it plugs in.** `IWideningBiometricCheck` (doc 48 section 4) and the owner-gated actions in section 9 call one `IBiometricAssertionVerifier`. It lives in its own module, `Bazaar.Server.Biometric` with `Bazaar.Server.Biometric.Abstractions`, and keeps the WebAuthn parsing in one namespace so the backup-owner verifier (`Fido2AssertionVerifier`, section 7) and the passkey sign-in module can move onto it later instead of keeping separate copies. Templates never reach the server (section 8), and the assertion holds none.
+
+**Spike S-BIO (pass criteria fixed here, before any run).**
+- B1 (software, runs in CI): a software ES256 authenticator produces assertions in this format. The verifier accepts a correct one and refuses each of: wrong version, wrong challenge (another action), wrong origin, wrong rpIdHash, UP or UV clear, backup flags set, bad signature, replayed or lower sign count, stale `bazaar.at`, unattested or disallowed factor, liveness not passed on a high-risk action, unknown credential, and oversized or truncated input. Hostile input never throws.
+- B2 (hardware, owner's devices): an Android Keystore key that requires BIOMETRIC_STRONG on every use signs the challenge, the key attestation chain verifies, and the attested properties show per-use biometric. A Windows Hello credential signs and the platform reports whether the factor was biometric or PIN.
+- B3 (hardware, the owner's LiDAR device and the multi-lens fallback): the platform reports the factor and the liveness result in a form the client can place in `bazaar.factor` and `bazaar.liveness`.
+Fail consequence: if B2 cannot tell biometric from PIN on a platform, that platform cannot perform high-risk actions and stays read-only for them (section 8). If B3 fails, the factor is dropped from the allowed list.
+
+OPEN: whether Windows Hello can report biometric versus PIN (B2). If not, the Windows head cannot satisfy section 8 for high-risk actions and the owner decides between PIN-accepted and Android-only approvals.
+
 
 ## 9. Retention
 
