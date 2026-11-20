@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Commands;
+using Bazaar.Client.Commands;
 
 namespace Bazaar.Client.GitGui;
 
