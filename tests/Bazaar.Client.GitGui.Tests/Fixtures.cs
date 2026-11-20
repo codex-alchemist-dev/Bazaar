@@ -1,5 +1,6 @@
 using System.Text.Json;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Git;
 using Bazaar.Contracts.Panes;
 
@@ -48,7 +49,7 @@ internal static class Fixtures
             context = context.With(repos);
         }
 
-        return PaneRegistry.Compose(GitGuiPanes.Modules, context);
+        return PaneRegistry.Compose(new PlainViews(), GitGuiPanes.Modules, context);
     }
 }
 
@@ -79,4 +80,13 @@ internal sealed class FakeRepoSource : IGitRepoSource
 
     public Task<IReadOnlyList<GitCommitRow>> ListCommitsAsync(GitRepoRow repo, string branch, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GitCommitRow>>([new GitCommitRow(Fixtures.Head1, "first commit", "dev", 1)]);
+}
+
+/// <summary>A plain view factory: the title as a text block above the body. The Client.Core factory is not referenced here.</summary>
+internal sealed class PlainViews : IPaneViewFactory
+{
+    public Avalonia.Controls.Control Create(IPaneViewModel pane) => new Avalonia.Controls.TextBlock { Text = pane.Kind };
+
+    public Avalonia.Controls.Control WithTitle(string title, Avalonia.Controls.Control body) =>
+        new Avalonia.Controls.StackPanel { Children = { new Avalonia.Controls.TextBlock { Text = title }, body } };
 }
