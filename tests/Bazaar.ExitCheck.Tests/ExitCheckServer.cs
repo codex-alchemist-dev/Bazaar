@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Host.Composition;
