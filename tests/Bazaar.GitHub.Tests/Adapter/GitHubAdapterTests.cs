@@ -128,7 +128,7 @@ public sealed class GitHubAdapterTests
             _ownerHuman,
             _ownerDeviceId,
             now.AddMinutes(-1),
-            now.AddMinutes(10),
+            now.AddMinutes(4),
             Enumerable.Repeat((byte)7, OwnerSignedPayload.NonceLength).ToArray());
         var signature = signer.SignData(
             OwnerSignedPayload.Build(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);

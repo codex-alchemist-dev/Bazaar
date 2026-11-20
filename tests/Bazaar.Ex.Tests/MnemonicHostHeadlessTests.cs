@@ -3,7 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 using Bazaar.Ex;
 using Bazaar.Ex.Head;
 
