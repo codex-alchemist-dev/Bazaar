@@ -87,6 +87,18 @@ On 403 or 429, honour `retry-after` and reset headers. Repeated breaches freeze 
 
 **Client review and merge [PROPOSED].** Bazaar.Windows and Bazaar.Android show server-proxied PR lists, file hunks keyed by head SHA, checks and the in-app review. The diff view uses Monaco's diff-editor mode only after the Monaco hosting gate (S12, round 5, C26). Android has no Monaco, so it needs a native diff surface (29). Clients never call GitHub.
 
+**Client PR wire [PROPOSED].** Implementation detail of the two paragraphs above; no new authority. All messages are JSON through `IWireCodec` on the authenticated client connection, in `Bazaar.Contracts` under `GitHub/`. The server proxies; clients never see a GitHub token.
+
+| Message | Direction | Fields |
+|---|---|---|
+| `pr.list` | request / reply | repo filter, state, paging cursor; reply rows: `PrId`, repo, number, title, author (agent or human), draft flag, `HeadSha`, checks rollup, `Revision` |
+| `pr.summary` | request / reply | `PrId`; reply: `HeadSha`, summary text, changed-file list (path, status, additions, deletions), checks, reviewer-approval flag, linked card id |
+| `pr.hunks` | request / reply | `PrId`, `HeadSha`, path, cursor; reply: hunks keyed by that `HeadSha`; a stale `HeadSha` replies `stale` with the current one, never old hunks |
+| `pr.review` | request / reply | `PrId`, `HeadSha`, event (`comment` or `request_changes`), body; reply `applied` or `stale` or `refused`. Never `approve`: reviewer approval is data, not merge authority |
+| `pr.merge` | request / reply | `PrId`, `HeadSha`, commit title and message, owner signature over the `bazaar.owner.v1` payload (action `pr.merge`, args hash from `OwnerMergeArgs.Hash`); reply `merged`, `stale`, `checks_failed`, `bad_signature` or `refused` |
+
+The merge request carries no new approval kind in doc 15's card decisions. It is an owner-gated action, so it is signed with the shared owner payload (doc 32 section 5a) that `OwnerSignedMerge` already verifies. The client side is a sibling of the approval-card gate: the same biometric prompt and device-key signer, a different payload builder, still one fresh biometric per merge, single use, and dictation can never trigger it. Agent messages never reach `pr.merge`.
+
 ## Data and interfaces
 
 ```sql

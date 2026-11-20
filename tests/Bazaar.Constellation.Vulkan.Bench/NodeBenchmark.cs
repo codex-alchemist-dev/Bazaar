@@ -94,6 +94,9 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
     /// <summary>Outcome of the global queue priority request (BAZAAR_BENCH_GPU_PRIORITY): default, granted or refused.</summary>
     public string GlobalPriorityStatus { get; private set; } = "default";
 
+    /// <summary>Enable the Win32 surface and swapchain extensions (set before <see cref="Initialize"/>; the presentation benchmark needs them).</summary>
+    public bool EnablePresent { get; set; }
+
     /// <summary>Creates the instance, device, queue and offscreen target, and builds the pipeline.</summary>
     public void Initialize(string shaderDirectory)
     {
@@ -104,10 +107,16 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
             sType = VkStructureType.ApplicationInfo,
             apiVersion = new VkVersion(VulkanProbe.TargetApiVersion),
         };
+        // Surface extensions only for the presentation benchmark (EnablePresent, set by the caller before Initialize).
+        byte** instanceExtensions = stackalloc byte*[2];
+        instanceExtensions[0] = (byte*)Marshal.StringToHGlobalAnsi("VK_KHR_surface");
+        instanceExtensions[1] = (byte*)Marshal.StringToHGlobalAnsi("VK_KHR_win32_surface");
         var instanceInfo = new VkInstanceCreateInfo
         {
             sType = VkStructureType.InstanceCreateInfo,
             pApplicationInfo = &appInfo,
+            enabledExtensionCount = EnablePresent ? 2u : 0u,
+            ppEnabledExtensionNames = EnablePresent ? instanceExtensions : null,
         };
         Check(vkCreateInstance(&instanceInfo, null, out _instance), "vkCreateInstance");
         _instanceApi = new VkInstanceApi(in _instance);
@@ -354,6 +363,8 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
             multiDrawIndirect = IndirectCountSupported,
             drawIndirectFirstInstance = IndirectCountSupported,
         };
+        byte** deviceExtensions = stackalloc byte*[1];
+        deviceExtensions[0] = (byte*)Marshal.StringToHGlobalAnsi("VK_KHR_swapchain");
         var deviceInfo = new VkDeviceCreateInfo
         {
             sType = VkStructureType.DeviceCreateInfo,
@@ -361,6 +372,8 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
             queueCreateInfoCount = 1,
             pQueueCreateInfos = &queueInfo,
             pEnabledFeatures = &coreFeatures,
+            enabledExtensionCount = EnablePresent ? 1u : 0u,
+            ppEnabledExtensionNames = EnablePresent ? deviceExtensions : null,
         };
         // BAZAAR_BENCH_GPU_PRIORITY=low|medium|high|realtime asks for a global queue priority (VK_KHR_global_priority, core in 1.4).
         // The driver or the OS may refuse (NOT_PERMITTED); the result is kept in GlobalPriorityStatus and the device is made without it.
