@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Fakes;
@@ -6,6 +7,7 @@ using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Usage;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Tests.Gateway.Policy;
 using Bazaar.Testing;
 
@@ -77,6 +79,25 @@ internal sealed class FakeSecrets : IProviderSecretSource
 
     public ValueTask<string?> ResolveAsync(string secretRef, CancellationToken ct) =>
         ValueTask.FromResult(Values.TryGetValue(secretRef, out var v) ? v : Sentinel);
+}
+
+/// <summary>A fixed embedding profile dimension.</summary>
+internal sealed class FixedEmbeddingProfile(int? dimensions) : IEmbeddingProfile
+{
+    public ValueTask<int?> GetDimensionsAsync(CancellationToken cancellationToken) => ValueTask.FromResult(dimensions);
+}
+
+/// <summary>A setting store that answers <c>gateway.embedding.route</c> with a fixed value and every other key with its default.</summary>
+internal sealed class FakeSettingStore(string embeddingRoute) : ISettingStore
+{
+    public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default) =>
+        Task.FromResult(key.Name == GatewaySettings.EmbeddingRoute.Name ? (T)(object)embeddingRoute : key.Default);
+
+    public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    public Task<SettingWriteResult> SetJsonAsync(string key, System.Text.Json.JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
 }
 
 /// <summary>The directory the gateway sees. The resolver reads the world directly, so a test can change a row after resolution.</summary>
@@ -160,7 +181,14 @@ internal sealed class GatewayHarness
         return this;
     }
 
-    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null) => new(
+    /// <summary>Marks the model as an embedding model, with optional caps.</summary>
+    public GatewayHarness EmbeddingModel(string provider, int? maxBatch = null, int? maxInputChars = null)
+    {
+        World.AddModel(provider, "m", kind: GwModel.KindEmbedding, embedMaxBatch: maxBatch, embedMaxInputChars: maxInputChars);
+        return this;
+    }
+
+    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null, IEmbeddingProfile? profile = null, ISettingStore? settings = null) => new(
         World.Resolver(),
         Directory,
         new DictionaryAdapterRegistry(Adapters),
@@ -172,7 +200,9 @@ internal sealed class GatewayHarness
         Sink,
         Suspender,
         Clock,
-        InternalErrors.Add);
+        InternalErrors.Add,
+        embeddingProfile: profile,
+        settings: settings);
 
     public static ModelRequest Request(string route = "r") => InMemoryPolicyWorld.Request(Agent, route);
 

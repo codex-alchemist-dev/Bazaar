@@ -50,6 +50,7 @@ public class ModelGatewayEmbeddingTests
     {
         var adapter = new ScriptedEmbeddingAdapter();
         h.Adapters[id] = adapter;
+        h.EmbeddingModel(id);
         return adapter;
     }
 
@@ -93,6 +94,7 @@ public class ModelGatewayEmbeddingTests
     public async Task An_adapter_that_cannot_embed_is_skipped_and_the_next_candidate_serves()
     {
         var h = new GatewayHarness();
+        h.EmbeddingModel("a");
         var b = Embedder(h, "b");
         b.Enqueue(Ok());
 
@@ -107,7 +109,7 @@ public class ModelGatewayEmbeddingTests
     [Fact]
     public async Task When_no_candidate_can_embed_the_call_throws_with_a_clear_message_and_writes_no_row()
     {
-        var h = new GatewayHarness();
+        var h = new GatewayHarness().EmbeddingModel("a").EmbeddingModel("b");
 
         var ex = await Assert.ThrowsAsync<GatewayModelException>(() => h.Gateway().EmbedAsync(Request(), _ct));
 
@@ -213,6 +215,7 @@ public class ModelGatewayEmbeddingTests
                 "application/json"),
         }));
         h.Adapters["a"] = new OpenAiChatAdapter(new HttpClient(handler));
+        h.EmbeddingModel("a");
         h.World.Providers["a"] = h.World.Providers["a"] with { BaseUrl = "https://example.test/v1/" };
 
         var result = await h.Gateway().EmbedAsync(new EmbeddingRequest(GatewayHarness.Agent, "r", ["x", "y"], Dimensions: 2), _ct);
@@ -237,6 +240,7 @@ public class ModelGatewayEmbeddingTests
         var handler = new StubHandler();
         handler.Reply(Replies.Error(HttpStatusCode.TooManyRequests, """{"error":{"message":"slow down"}}""", "3"));
         h.Adapters["a"] = new OpenAiChatAdapter(new HttpClient(handler));
+        h.EmbeddingModel("a");
         Embedder(h, "b").Enqueue(Ok());
 
         var result = await h.Gateway().EmbedAsync(Request(), _ct);
@@ -253,6 +257,7 @@ public class ModelGatewayEmbeddingTests
         var handler = new StubHandler();
         handler.Reply(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"data":[]}""") }));
         h.Adapters["a"] = new OpenAiChatAdapter(new HttpClient(handler));
+        h.EmbeddingModel("a");
         h.World.AddPolicy("solo", ["a:m"], "a:m");
 
         var ex = await Assert.ThrowsAsync<GatewayModelException>(() =>

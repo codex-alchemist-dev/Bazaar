@@ -10,6 +10,15 @@ namespace Bazaar.Server.Gateway.Adapters;
 public interface IEmbeddingAdapter
 {
     Task<EmbeddingOutcome> EmbedAsync(ProviderEndpoint endpoint, EmbeddingRequest request, CancellationToken ct);
+
+    /// <summary>The provider default for inputs per upstream request (doc 05 "Batching and caps"); a model's <c>embed_max_batch</c> overrides it.</summary>
+    int DefaultMaxBatch => 2048;
+
+    /// <summary>
+    /// The provider default for characters per input; a model's <c>embed_max_input_chars</c> overrides it. 32768 is the
+    /// OpenAI-compatible limit of 8192 tokens at the gateway's four characters per token estimate.
+    /// </summary>
+    int DefaultMaxInputChars => 32768;
 }
 
 /// <summary>The result of one embedding attempt against one provider.</summary>

@@ -62,7 +62,7 @@ public sealed class FakeModelGateway : IModelGateway
             chars += input.Length;
         }
 
-        return Task.FromResult(new EmbeddingResult(vectors, request.Route, (chars + 3) / 4));
+        return Task.FromResult(new EmbeddingResult(vectors, request.Route ?? "", (chars + 3) / 4));
     }
 
     /// <summary>A deterministic unit vector for the text: each component comes from SHA-256 of the dimension index and the text.</summary>

@@ -28,7 +28,7 @@ The single path through which every agent model call leaves Bazaar.Server. It en
 - **Embedding kind** [PROPOSED] (answers the first open point). `gw_model` gets a `kind` column, `chat` or `embedding`, added by a gateway-namespace migration; the existing `family` column keeps its meaning. Chat routes exclude embedding models, embedding routes exclude chat models, and quota and health are tracked per kind.
 - **Install embedding route** [PROPOSED] (answers the second open point). The setting `gateway.embedding.route` is registered through the Gateway module's settings contribution (the settings registry composes module keys through `ISettingContribution`). A caller of `EmbedAsync` may omit `Route`; the gateway then uses this setting. An explicit `Route` still goes through per-agent policy.
 - **Dimension check** [PROPOSED]. The gateway checks every returned vector's length against the install embedding profile's `halfvec` dimension (C39, DECIDED). On a mismatch it fails closed: the call throws `GatewayModelException` with code `embedding_dimension_mismatch`, the candidate's output is discarded, and nothing is returned or stored.
-- **Batching and caps** [PROPOSED]. Batch size and input length caps are per-model settings with provider defaults (for example, 2048 inputs per request for OpenAI-compatible endpoints). The gateway splits a batch into chunks within the caps and merges the results in input order, so callers (for example the Memory module) pass any batch and need no chunking of their own. One `gw_usage` row is written per upstream request.
+- **Batching and caps** [PROPOSED]. Batch size and input length caps are per-model settings with provider defaults (for example, 2048 inputs per request for OpenAI-compatible endpoints). The gateway splits a batch into chunks within the caps and merges the results in input order, so callers (for example the Memory module) pass any batch and need no chunking of their own. One `gw_usage` row is written per upstream request. [PROPOSED] Details: the default caps are 2048 inputs per request and 32768 characters per input (OpenAI-compatible, 8192 tokens at four characters per token); a model's `embed_max_batch` and `embed_max_input_chars` override them. An input longer than every candidate's cap fails the call with `embedding_input_too_long` before any upstream call (never truncated); a candidate whose cap is smaller than the longest input is skipped. A retryable failure on any chunk discards the earlier chunks and restarts the whole batch on the next candidate, so one batch never mixes models. A route that is unset fails with `embedding_route_unset`. The dimension is read through `IEmbeddingProfile` (Gateway.Abstractions), which the host backs with the active `embedding_profile` row; with no active profile no check runs. Embedding calls keep health and quota separate from chat (health key suffix `#embedding`, quota class prefix `embedding:`).
 
 **Provider kinds** [PROPOSED]: `first_party`, `aggregator`, `gateway` (FreeLLMAPI, OmniRoute, LiteLLM), `reverse_proxy` (any OpenAI-compatible URL), `local` (Ollama, LM Studio, llama.cpp, vLLM). Each is a `gw_provider` record plus one adapter.
 
@@ -90,7 +90,7 @@ interface IModelGateway { IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest r,
 
 Tables [PROPOSED]. Doc 05 owns these six; agent and turn ids reference doc 06's tables.
 - `gw_provider(id, kind, adapter, base_url, auth_kind, secret_ref, headers, proxy_ref, terms_ack_at, enabled)`
-- `gw_model(provider_id, model_id, family, identity native|pooled, caps jsonb, status, first_seen, last_seen, source)`
+- `gw_model(provider_id, model_id, family, identity native|pooled, caps jsonb, status, first_seen, last_seen, source, kind chat|embedding, embed_max_batch, embed_max_input_chars)` [PROPOSED for the last three, added by migration `gateway/0001_gateway_model_kind.sql`: `kind` defaults to `chat`; the two caps are nullable, and null means the provider default]
 - `gw_route(id, strategy, members jsonb, expected_set jsonb)`
 - `agent_model_policy(agent_id, allowed jsonb, default_route, version, changed_by, changed_at)`
 - `gw_quota_state(provider_id, key_ref, model_class, state, until, observed jsonb)`
@@ -114,6 +114,7 @@ Keys are registered in doc 03's settings registry [PROPOSED]. All are install-sc
 | `gateway.long_prompt.hard_cap_tokens` | int; 0 = off | 0 | install | operator | No |
 | `gateway.freellmapi.warn_on_version_change` | bool | true | install | operator | No |
 | `gateway.usage.retention_days` | int; 0 = indefinite (needs counsel) | 0 | install | operator | Yes, owner, when set to a non-zero value |
+| `gateway.embedding.route` [PROPOSED] | string: empty, a provider-qualified model id, or a route name (no wildcard, no auto) | empty (unset) | install | operator | No |
 
 **Default catalogue** (shipped as a secret-free file; each entry carries `freeTier`, `termsRisk`, `trainsOnFreeData` and `verification` fields. V = primary page read; P = partly; U = unverified; re-check raw pages before release):
 
