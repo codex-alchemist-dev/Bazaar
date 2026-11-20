@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Sanitization\Bazaar.Server.Sanitization.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>
