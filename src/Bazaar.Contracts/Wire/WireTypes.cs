@@ -45,6 +45,12 @@ public static class WireTypes
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
 
+    /// <summary>
+    /// Owner asks for packed memory context of one agent (docs/design/constellation-memory-graph.md, "Retrieval operation"). Payload
+    /// <c>MemoryContextRequest</c>; answered with a <c>MemoryContextResult</c>, or an error with a <c>MemoryContextErrorCodes</c> code.
+    /// </summary>
+    public const string MemoryContext = "memory.context";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 

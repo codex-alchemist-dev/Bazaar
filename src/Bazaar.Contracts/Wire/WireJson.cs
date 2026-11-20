@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Memory;
 using Bazaar.Contracts.Roadmap;
 
 using Bazaar.Contracts.Ryusei;
@@ -44,6 +45,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(RyuseiTriggerChangeReply))]
 [JsonSerializable(typeof(RyuseiTriggerListRequest))]
 [JsonSerializable(typeof(RyuseiTriggerListReply))]
+[JsonSerializable(typeof(MemoryContextRequest))]
+[JsonSerializable(typeof(MemoryContextResult))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]

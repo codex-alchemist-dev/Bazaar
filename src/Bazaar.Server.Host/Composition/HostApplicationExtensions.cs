@@ -4,6 +4,7 @@ using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
+using Bazaar.Server.Constellation.Memory.Context;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -54,8 +55,12 @@ public static class HostApplicationExtensions
         // reference its own module project, and the graph sink depends on the Memory module. Only when Constellation is enabled.
         if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
-            services.AddMemoryGraphProjection(
-                Guid.TryParse(configuration[ConstellationComponent.VaultIdKey], out var constellationVaultId) ? constellationVaultId : null);
+            Guid? constellationVault = Guid.TryParse(configuration[ConstellationComponent.VaultIdKey], out var constellationVaultId) ? constellationVaultId : null;
+            services.AddMemoryGraphProjection(constellationVault);
+
+            // The retrieval operation over the graph (constellation-memory-graph.md, "Retrieval operation"): memory.context.* settings,
+            // vector seeds through the Embeddings module when it is enabled, the service and the memory.context wire command.
+            services.AddMemoryContext(new MemoryContextHostOptions(constellationVault));
         }
 
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.

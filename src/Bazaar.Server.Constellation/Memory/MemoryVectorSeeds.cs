@@ -141,14 +141,7 @@ public sealed class PgMemoryVectorQuery(NpgsqlDataSource dataSource) : IMemoryVe
         await using var cmd = _dataSource.CreateCommand(_sql);
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = ToVectorLiteral(vector) });
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = profileId });
-        cmd.Parameters.Add(MemoryDocIdResolution.VaultIdParameter(filter.VaultId));
-        cmd.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = filter.RestrictAgentAreas });
-        cmd.Parameters.Add(new NpgsqlParameter { Value = (object?)filter.OwnAgentArea ?? DBNull.Value, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text });
-        cmd.Parameters.Add(new NpgsqlParameter
-        {
-            Value = filter.ScopePrefixes is null ? DBNull.Value : filter.ScopePrefixes.ToArray(),
-            NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text,
-        });
+        AddFilterParameters(cmd, filter);
         cmd.Parameters.Add(new NpgsqlParameter<int> { TypedValue = limit });
 
         var rows = new List<MemoryVectorCandidate>();
@@ -159,6 +152,19 @@ public sealed class PgMemoryVectorQuery(NpgsqlDataSource dataSource) : IMemoryVe
         }
 
         return rows;
+    }
+
+    /// <summary>Adds the four path filter parameters, in order: vault id, restrict-agent-areas flag, own agent area, scope prefixes.</summary>
+    internal static void AddFilterParameters(NpgsqlCommand cmd, MemoryPathFilter filter)
+    {
+        cmd.Parameters.Add(MemoryDocIdResolution.VaultIdParameter(filter.VaultId));
+        cmd.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = filter.RestrictAgentAreas });
+        cmd.Parameters.Add(new NpgsqlParameter { Value = (object?)filter.OwnAgentArea ?? DBNull.Value, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text });
+        cmd.Parameters.Add(new NpgsqlParameter
+        {
+            Value = filter.ScopePrefixes is null ? DBNull.Value : filter.ScopePrefixes.ToArray(),
+            NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text,
+        });
     }
 
     /// <summary>A pgvector text literal, for example <c>[0.5,-1,2]</c>. Values must be finite.</summary>

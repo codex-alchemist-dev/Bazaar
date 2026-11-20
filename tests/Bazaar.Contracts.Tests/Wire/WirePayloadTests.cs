@@ -27,6 +27,24 @@ public class WirePayloadTests
         { "resync", new Resync(WireStreams.Gc(_gc), 5000, 5100, 3, [Message()]) },
         { "lagged", new Lagged(WireStreams.Gc(_gc), 12) },
         { "error", new WireError(WireErrorCodes.RateLimited, null, 1500) },
+        { "memory-context-request", new Bazaar.Contracts.Memory.MemoryContextRequest("ada", "retry policy", "atlas", 1500, 8, ["01JC0000000000000000000000"], IncludeHistory: true) },
+        {
+            "memory-context-result",
+            new Bazaar.Contracts.Memory.MemoryContextResult(
+                [
+                    new Bazaar.Contracts.Memory.MemoryContextHitDto(
+                        _gc.ToString("D"), "01JC0000000000000000000001", "Retry policy", "private", "T2", "semantic", "agent:ada",
+                        "Retry three times.", false, 0.0164, 0, null, 3, false, null),
+                    new Bazaar.Contracts.Memory.MemoryContextHitDto(
+                        _msg.ToString("D"), null, "Retry decision", "project", null, "decision", "vault",
+                        "We decided on backoff.", false, 0.0082, 1, "01JC0000000000000000000001", null, false, null),
+                ],
+                LexicalOnly: true,
+                LexicalOnlyReason: "profile_none",
+                TokensUsed: 11,
+                Truncated: false,
+                AuditId: "0196a6f0-0000-7000-8000-000000000009")
+        },
     };
 
     [Theory]
