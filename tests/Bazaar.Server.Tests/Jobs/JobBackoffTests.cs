@@ -1,6 +1,6 @@
 using Bazaar.Server.Jobs;
 
-namespace Bazaar.Server.Jobs.Tests;
+namespace Bazaar.Server.Tests.Jobs;
 
 public sealed class JobBackoffTests
 {
