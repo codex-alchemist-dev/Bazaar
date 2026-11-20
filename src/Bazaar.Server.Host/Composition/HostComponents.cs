@@ -23,6 +23,7 @@ using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Vault;
+using Bazaar.Server.Wire.Discovery;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -52,6 +53,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new WireDiscoveryComponent(),
         new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),

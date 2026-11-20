@@ -1,6 +1,6 @@
-using System.Text.Json;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Bazaar.Wire.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

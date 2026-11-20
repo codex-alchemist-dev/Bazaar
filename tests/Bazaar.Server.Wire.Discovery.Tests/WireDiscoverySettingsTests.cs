@@ -9,7 +9,7 @@ namespace Bazaar.Server.Wire.Discovery.Tests;
 
 public class WireDiscoverySettingsTests
 {
-    private const string Route = "/.well-known/bazaar/wire";
+    private const string _route = "/.well-known/bazaar/wire";
     private static readonly SettingActor _operator = new("op", SettingRole.Operator);
 
     private sealed class FakeReader(WireDiscoverySettingValues values) : IWireDiscoverySettingsReader
@@ -71,16 +71,16 @@ public class WireDiscoverySettingsTests
             reader, live, Options.Create(new WireDiscoveryOptions()), NullLogger<WireDiscoverySettingsRefresher>.Instance, TimeProvider.System);
 
         await refresher.RefreshAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
 
         reader.Values = reader.Values with { Enabled = false };
         await refresher.RefreshAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route + "/schema/wire.cddl", TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route + "/schema/wire.cddl", TestContext.Current.CancellationToken)).StatusCode);
 
         reader.Values = reader.Values with { Enabled = true };
         await refresher.RefreshAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -96,15 +96,15 @@ public class WireDiscoverySettingsTests
         reader.Fail = true;
         await refresher.RefreshAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
-        Assert.Equal(HttpStatusCode.TooManyRequests, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
     public async Task Before_the_first_reading_the_options_apply()
     {
         await using var host = await DiscoveryHost.StartAsync(services: s => s.AddSingleton(new WireDiscoveryLiveSettings()));
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
     }
 }
