@@ -195,6 +195,8 @@ Keys are typed and shown in the setup wizard and advanced settings (27, 32). Eve
 Packages 1 and 3 can run in parallel; 3 starts after S23 reports.
 
 ## Conflicts
+
+Offline edits merge by the rules in doc 49 section 4, implemented per doc 56.
 1. **Git engine pending.** S23 has not run. LibGit2Sharp's worktree, merge and thread-safety support is unverified (`github_community_presence.md` s4; `vault_constellation_tech.md` s2). If S23 fails, the CLI becomes the implementation, and bundling `git` (GPL-2.0) needs counsel (unverified).
 2. **Windows search is weaker.** Postgres `ts_rank` is below BM25 in ranking quality (unverified against primary docs), and pgvector on Windows needs a manual MSVC build (`data_layer_windows.md` s2). The Windows hybrid path carries more risk than Linux.
 3. **Commit email.** The GitHub App bot email format is unverified. Test it on the throwaway repo from Server spike 2.

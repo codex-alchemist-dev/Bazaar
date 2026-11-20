@@ -7,14 +7,17 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Host.Components.OfflineSync;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
+using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -55,6 +58,7 @@ public static class HostApplicationExtensions
         services.AddBazaarRemoteAuth(configuration);
         services.AddBazaarBlobs(configuration);
         services.AddBazaarHttpSurface(configuration);
+        services.TryAddSingleton<IOfflineSyncRequestAuthenticator, HostOfflineSyncAuthenticator>();
         return services;
     }
 }

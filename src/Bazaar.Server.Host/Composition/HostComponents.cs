@@ -22,6 +22,7 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -53,6 +54,7 @@ public static class HostComponents
         new MailComponent(),
         new ModuleManagerComponent(),
         new RemoteComponent(),
+        new OfflineSyncComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
