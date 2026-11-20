@@ -112,11 +112,13 @@ interface IPushNotifier { Task WakeAsync(string deviceId, WakeHint hint, Cancell
 record WakeHint(string Kind); // kind only: no gc id, no seq, no text (C41)
 ```
 
+Board messages [DECIDED 2026-11-16, owner delegation; shape in doc 12, Card revision and client move command]: `board.snapshot` is answered with a snapshot whose cards each carry a `revision` (the task version). `board.move` is an owner-only request carrying project id, card id, target state and the expected revision. It is answered with a `KanbanMoveReply` whose `status` is `applied`, `conflict`, `refused` or `invalid`. A move outcome is a reply, not an error; a schema failure is `bad_request`.
+
 Codec is chosen in `hello`/`welcome`: text frames JSON; binary Protobuf frames are not built (S6 chose JSON; a binary codec could be added later behind `IWireCodec`). Optional server bookkeeping: `device_cursor(device_id, stream, applied_n, applied_ev)`; the client's cursor is authoritative for replay.
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
-Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `board.snapshot`, `board.move`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]
 Registered in doc 03's settings registry. Operator-set, install scope. Values live in Postgres; the defaults ship in this table. Every change is audited (doc 15 `audit_log`). Settings may tighten the wire floors and never loosen them below the shipped defaults.

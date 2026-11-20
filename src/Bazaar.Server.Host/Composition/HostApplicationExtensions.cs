@@ -49,6 +49,8 @@ public static class HostApplicationExtensions
         // The setup component shows its one-time bootstrap code through this; the setup modules themselves use no console.
         services.TryAddSingleton<Bazaar.Server.Setup.Host.IBootstrapCodeAnnouncer, ConsoleBootstrapCodeAnnouncer>();
         services.AddBazaarComponents(configuration, HostComponents.All);
+        // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
+        services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
