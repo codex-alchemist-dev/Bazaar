@@ -32,6 +32,18 @@ public static class SetupSettingProjection
     /// <summary>Registry key set by <c>install.updatePolicy.security</c> (doc 42 section 10; <c>automatic</c> is true).</summary>
     public const string AutoSecurityPatchesKey = "deps.update.autoSecurityPatches";
 
+    /// <summary>Registry key set by <c>custody.mergeCredential.kind</c> (doc 14 <c>identity.merge_credential</c>; <c>owner_linked</c> is stored as <c>linked_user</c>).</summary>
+    public const string MergeCredentialKey = "identity.merge_credential";
+
+    /// <summary>Registry key set by <c>custody.mergeCredential.appIdRef</c>: a <c>secret://bazaar/</c> reference, or empty when there is none. Never a value.</summary>
+    public const string MergeCredentialAppIdRefKey = "identity.merge_credential.app_id_ref";
+
+    /// <summary>Registry key set by <c>models.defaultPreset</c>.</summary>
+    public const string DefaultPresetKey = "gateway.default_preset";
+
+    /// <summary>Registry key set by <c>company.source</c>.</summary>
+    public const string CompanySourceKey = "company.source";
+
     /// <summary>The registry key a derived plan path maps to, or null when the path is not one of the four mapped plan fields.</summary>
     public static string? DerivedKeyForPath(string planPath) => planPath switch
     {
@@ -40,6 +52,10 @@ public static class SetupSettingProjection
         "scamMailProtocol.enabled" => ScamMailKey,
         "install.releaseChannel" => UpdateChannelKey,
         "install.updatePolicy.security" => AutoSecurityPatchesKey,
+        "custody.mergeCredential.kind" => MergeCredentialKey,
+        "custody.mergeCredential.appIdRef" => MergeCredentialAppIdRefKey,
+        "models.defaultPreset" => DefaultPresetKey,
+        "company.source" => CompanySourceKey,
         _ => null,
     };
 
@@ -66,6 +82,22 @@ public static class SetupSettingProjection
         // Doc 45 step 2. Only the security half has a registry key. The "other" half has none (every non-security update is manual
         // and nothing stores an automatic choice), so it is not projected and the apply step refuses "automatic" (see IsOtherUpdatePolicyBacked).
         Add(projected, AutoSecurityPatchesKey, "install.updatePolicy.security", Parse(string.Equals(plan.Install.UpdatePolicy.Security, "automatic", StringComparison.Ordinal) ? "true" : "false"));
+
+        // Doc 45 steps 9, 10 and 13. The kind and the preset are always written, so a re-run that goes back to the default also resets
+        // an earlier explicit row. The app id reference is written only when the plan carries one (owner_app); switching to the linked
+        // credential leaves the old reference unread rather than blank. A blank company source is not a choice, so it writes nothing.
+        Add(projected, MergeCredentialKey, "custody.mergeCredential.kind", Parse(JsonSerializer.Serialize(WireMergeKind(plan.Custody.MergeCredential.Kind), SetupPlanJsonContext.Default.String)));
+        if (!string.IsNullOrEmpty(plan.Custody.MergeCredential.AppIdRef))
+        {
+            Add(projected, MergeCredentialAppIdRefKey, "custody.mergeCredential.appIdRef", Parse(JsonSerializer.Serialize(plan.Custody.MergeCredential.AppIdRef, SetupPlanJsonContext.Default.String)));
+        }
+
+        Add(projected, DefaultPresetKey, "models.defaultPreset", Parse(JsonSerializer.Serialize(plan.Models.DefaultPreset, SetupPlanJsonContext.Default.String)));
+        if (!string.IsNullOrEmpty(plan.Company.Source))
+        {
+            Add(projected, CompanySourceKey, "company.source", Parse(JsonSerializer.Serialize(plan.Company.Source, SetupPlanJsonContext.Default.String)));
+        }
+
         return [.. projected.Values];
     }
 
@@ -84,6 +116,9 @@ public static class SetupSettingProjection
 
     /// <summary>The registry's enum wire form is snake_case, so the plan's <c>latest-commit</c> is <c>latest_commit</c>.</summary>
     private static string WireChannel(string channel) => channel.Replace('-', '_');
+
+    /// <summary>The registry's merge credential enum is <c>owner_app</c> or <c>linked_user</c>; the plan says <c>owner_linked</c> for the second.</summary>
+    private static string WireMergeKind(string kind) => string.Equals(kind, "owner_linked", StringComparison.Ordinal) ? "linked_user" : kind;
 
     private static JsonElement Parse(string json)
     {

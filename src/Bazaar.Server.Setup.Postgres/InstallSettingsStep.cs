@@ -7,8 +7,9 @@ namespace Bazaar.Server.Setup.Postgres;
 /// <summary>
 /// The setup step that writes the plan's install-scope settings (doc 45 sections 1.2 and 1.3; doc 03 settings registry, doc 04
 /// <c>setting</c> table). The settings are the plan's <c>settings</c> map and the four plan fields that map to one registry key each
-/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 2 (the security half of the update policy), 12 (scam-mail
-/// protocol) and 15 (status bind and port).
+/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 2 (the security half of the update policy), 10 (the
+/// merge credential choice and its secret reference), 12 (scam-mail protocol), 13 (the company source reference) and 15 (status bind and port). The default routing
+/// preset of step 9 is written here too, but the <c>models</c> section is covered by <see cref="GatewaySourcesStep"/>, which stores the sources.
 /// </summary>
 /// <remarks>
 /// Every value goes through the registry first (<see cref="ISetupSettingDefinition.Evaluate"/>), and only an accepted value is written; a
@@ -27,8 +28,8 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
     /// <summary>Step 15 of doc 45 section 1.3 (status and network) is the last configuration step, so this runs after the ones before it.</summary>
     public const int StepOrder = 1500;
 
-    /// <summary>The plan sections this step applies: the settings-backed parts of the plan (doc 45 steps 1, 2, 12 and 15, plus the settings map).</summary>
-    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "install.updatePolicy", "scamMailProtocol", "network", "settings"];
+    /// <summary>The plan sections this step applies: the settings-backed parts of the plan (doc 45 steps 1, 2, 10, 12, 13 and 15, plus the settings map).</summary>
+    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "install.updatePolicy", "git", "scamMailProtocol", "company", "network", "settings"];
 
     private const string _selectSql = "SELECT value::text, updated_by FROM setting WHERE key = @key AND scope = 'install' AND scope_id = ''";
 

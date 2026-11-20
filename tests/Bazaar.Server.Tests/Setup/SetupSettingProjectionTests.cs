@@ -15,9 +15,31 @@ public sealed class SetupSettingProjectionTests
         var projected = SetupSettingProjection.Project(ValidPlan());
 
         Assert.Equal(
-            ["deps.update.autoSecurityPatches", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel"],
+            [
+                "company.source",
+                "deps.update.autoSecurityPatches",
+                "gateway.default_preset",
+                "host.shutdown_timeout_seconds",
+                "host.status.bind",
+                "host.status.port",
+                "identity.merge_credential",
+                "identity.merge_credential.app_id_ref",
+                "update.channel",
+            ],
             projected.Select(s => s.Key));
-        Assert.Equal(["install.updatePolicy.security", "settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "install.releaseChannel"], projected.Select(s => s.PlanPath));
+        Assert.Equal(
+            [
+                "company.source",
+                "install.updatePolicy.security",
+                "models.defaultPreset",
+                "settings.host.shutdown_timeout_seconds",
+                "network.statusBind",
+                "network.statusPort",
+                "custody.mergeCredential.kind",
+                "custody.mergeCredential.appIdRef",
+                "install.releaseChannel",
+            ],
+            projected.Select(s => s.PlanPath));
     }
 
     [Fact]
@@ -49,6 +71,10 @@ public sealed class SetupSettingProjectionTests
     [InlineData("scamMailProtocol.enabled", "security.scam_mail.protocol_enabled")]
     [InlineData("install.releaseChannel", "update.channel")]
     [InlineData("install.updatePolicy.security", "deps.update.autoSecurityPatches")]
+    [InlineData("custody.mergeCredential.kind", "identity.merge_credential")]
+    [InlineData("custody.mergeCredential.appIdRef", "identity.merge_credential.app_id_ref")]
+    [InlineData("models.defaultPreset", "gateway.default_preset")]
+    [InlineData("company.source", "company.source")]
     public void Each_mapped_plan_path_names_its_registry_key(string path, string key) =>
         Assert.Equal(key, SetupSettingProjection.DerivedKeyForPath(path));
 

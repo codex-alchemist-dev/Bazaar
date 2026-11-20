@@ -83,6 +83,7 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
 
         services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
+        services.AddSingleton<ISetupStep>(sp => new GatewaySourcesStep(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<IModelSourceCatalogue>()));
     }
 }
 

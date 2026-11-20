@@ -54,7 +54,7 @@ public sealed class InstallSettingsStepTests
 
         Assert.True(result.Succeeded, result.Message);
         var rows = await RowsAsync(db.DataSource, ct);
-        Assert.Equal(5, rows.Count);
+        Assert.Equal(7, rows.Count);
         Assert.Equal("20", rows["host.shutdown_timeout_seconds"]);
         Assert.Equal("\"loopback\"", rows["host.status.bind"]);
         Assert.Equal("9000", rows["host.status.port"]);
@@ -94,11 +94,11 @@ public sealed class InstallSettingsStepTests
 
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
-        Assert.Equal("5 of 5 settings changed.", first.Message);
-        Assert.Equal("0 of 5 settings changed.", second.Message);
+        Assert.Equal("7 of 7 settings changed.", first.Message);
+        Assert.Equal("0 of 7 settings changed.", second.Message);
         await using var after = db.DataSource.CreateCommand("SELECT max(updated_at) FROM setting");
         Assert.Equal(written, (DateTime)(await after.ExecuteScalarAsync(ct))!);
-        Assert.Equal(5, (await RowsAsync(db.DataSource, ct)).Count);
+        Assert.Equal(7, (await RowsAsync(db.DataSource, ct)).Count);
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public sealed class InstallSettingsStepTests
 
         var result = await step.ApplyAsync(Plan(port: 9001), Context("hash-b"), ct);
 
-        Assert.Equal("1 of 5 settings changed.", result.Message);
+        Assert.Equal("1 of 7 settings changed.", result.Message);
         Assert.Equal("9001", (await RowsAsync(db.DataSource, ct))["host.status.port"]);
     }
 
@@ -144,7 +144,7 @@ public sealed class InstallSettingsStepTests
 
         var rows = await RowsAsync(db.DataSource, ct);
         Assert.Equal("9000", rows["host.status.port"]);
-        Assert.Equal(5, rows.Count);
+        Assert.Equal(7, rows.Count);
         await using var by = db.DataSource.CreateCommand("SELECT updated_by FROM setting WHERE key = 'host.status.port'");
         Assert.Equal("first-operator", await by.ExecuteScalarAsync(ct));
     }
@@ -181,7 +181,7 @@ public sealed class InstallSettingsStepTests
 
         await step.RollbackAsync(Plan(), Context("hash-b"), ct);
 
-        Assert.Equal(5, (await RowsAsync(db.DataSource, ct)).Count);
+        Assert.Equal(7, (await RowsAsync(db.DataSource, ct)).Count);
     }
 
     [Fact]
