@@ -43,6 +43,8 @@
     <ProjectReference Include="..\..\src\Bazaar.Install\Bazaar.Install.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Tls\Bazaar.Tls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Erasure\Bazaar.Erasure.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Fun\Bazaar.Fun.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
