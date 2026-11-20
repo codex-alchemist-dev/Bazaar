@@ -5,7 +5,12 @@
     <IsPackable>false</IsPackable>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
+  <!-- The TPM signer is CNG-only. Off Windows its tests are not compiled, so the Linux runners run the gate tests only. -->
+  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <Compile Remove="TpmApprovalSignerTests.cs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>

@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Bazaar.DeviceApproval.Windows</RootNamespace>
+    <!-- The Windows SDK projection (UserConsentVerifier) is restored on every host, so the Linux CI leg can build the solution. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.DeviceApproval.Abstractions\Bazaar.DeviceApproval.Abstractions.csproj" />
