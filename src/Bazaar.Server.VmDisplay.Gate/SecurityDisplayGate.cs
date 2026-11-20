@@ -1,3 +1,4 @@
+using System.Text;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.Taint;
@@ -136,27 +137,61 @@ public sealed class SecurityDisplayGate : IDisplayGate
 
     private ValueTask<bool> IsFrozenAsync(string agentId, CancellationToken ct) => Read(token => _killSwitch!.IsFrozenAsync(agentId, token), ct);
 
+    // Checks each typed text on its own, then everything the batch types as one string, in order. The joined string also
+    // carries the characters of plain letter, digit and space key strokes, so a value cannot be slipped past the matcher by
+    // splitting it across actions or by pressing its characters one key at a time. Shifted digits and punctuation depend on
+    // the guest's keyboard layout and are not mapped; neither is a value split across batches (doc 15, question 5).
     private async ValueTask<bool> ContainsCredentialAsync(string agentId, IReadOnlyList<InputAction> actions, CancellationToken ct)
     {
         List<string>? texts = null;
+        StringBuilder? typed = null;
+        int pieces = 0;
         foreach (InputAction action in actions)
         {
-            if (action is TypeText { Text: { Length: > 0 } text })
-                (texts ??= []).Add(text);
+            switch (action)
+            {
+                case TypeText { Text: { Length: > 0 } text }:
+                    (texts ??= []).Add(text);
+                    (typed ??= new StringBuilder()).Append(text);
+                    pieces++;
+                    break;
+                case KeyStroke stroke when KeyCharacter(stroke) is { } c:
+                    (typed ??= new StringBuilder()).Append(c);
+                    pieces++;
+                    break;
+            }
         }
 
-        if (texts is null)
-            return false;
-        foreach (string text in texts)
+        if (texts is not null)
         {
-            if (await Read(token => _matcher!.ContainsLeasedCredentialAsync(agentId, text, token), ct).ConfigureAwait(false))
-                return true;
+            foreach (string text in texts)
+            {
+                if (await Read(token => _matcher!.ContainsLeasedCredentialAsync(agentId, text, token), ct).ConfigureAwait(false))
+                    return true;
+            }
         }
 
-        if (texts.Count < 2)
+        // One piece that is a typed text was checked above; anything else (several pieces, or key strokes alone) is checked joined.
+        if (typed is null || (pieces == 1 && texts is not null))
             return false;
-        string joined = string.Concat(texts);
+        string joined = typed.ToString();
         return await Read(token => _matcher!.ContainsLeasedCredentialAsync(agentId, joined, token), ct).ConfigureAwait(false);
+    }
+
+    // The character a key stroke types on a US layout, for the keys whose character does not depend on the layout much:
+    // letters (Shift gives upper case), unshifted digits and Space. A stroke with Control, Alt or Meta types nothing.
+    internal static char? KeyCharacter(KeyStroke stroke)
+    {
+        if ((stroke.Modifiers & ~KeyModifiers.Shift) != KeyModifiers.None || stroke.Key is not { } key)
+            return null;
+        bool shift = (stroke.Modifiers & KeyModifiers.Shift) != KeyModifiers.None;
+        if (key.Length == 4 && key.StartsWith("Key", StringComparison.Ordinal) && key[3] is >= 'A' and <= 'Z')
+            return shift ? key[3] : char.ToLowerInvariant(key[3]);
+        if (!shift && key.Length == 6 && key.StartsWith("Digit", StringComparison.Ordinal) && key[5] is >= '0' and <= '9')
+            return key[5];
+        if (key == "Space")
+            return ' ';
+        return null;
     }
 
     // No classifier, or one that fails or times out, means Account: the strictest class.

@@ -236,6 +236,48 @@ public class SecurityDisplayGateTests
     }
 
     [Fact]
+    public async Task A_secret_pressed_one_key_at_a_time_is_denied()
+    {
+        var r = new Rig();
+        r.Matcher.Secret = "ab" + "C1 d";
+
+        DisplayVerdict v = await r.Gate.CheckInputAsync(
+            Vm(),
+            [new KeyStroke("KeyA"), new KeyStroke("KeyB"), new KeyStroke("KeyC", KeyModifiers.Shift), new KeyStroke("Digit1"), new KeyStroke("Space"), new KeyStroke("KeyD")],
+            Ct);
+
+        AssertDenied(v, SecurityDisplayGate.ReasonCredential);
+    }
+
+    [Fact]
+    public async Task A_secret_split_between_typed_text_and_key_strokes_is_denied()
+    {
+        var r = new Rig();
+        r.Matcher.Secret = _secret;
+
+        DisplayVerdict v = await r.Gate.CheckInputAsync(Vm(), [new TypeText("hunter-tw"), new KeyStroke("KeyO")], Ct);
+
+        AssertDenied(v, SecurityDisplayGate.ReasonCredential);
+    }
+
+    [Fact]
+    public async Task Shortcut_strokes_and_non_character_keys_type_nothing()
+    {
+        Assert.Null(SecurityDisplayGate.KeyCharacter(new KeyStroke("KeyC", KeyModifiers.Control)));
+        Assert.Null(SecurityDisplayGate.KeyCharacter(new KeyStroke("KeyV", KeyModifiers.Shift | KeyModifiers.Meta)));
+        Assert.Null(SecurityDisplayGate.KeyCharacter(new KeyStroke("Enter")));
+        Assert.Null(SecurityDisplayGate.KeyCharacter(new KeyStroke("Digit1", KeyModifiers.Shift)));
+        Assert.Null(SecurityDisplayGate.KeyCharacter(new KeyStroke("F1")));
+        Assert.Equal('z', SecurityDisplayGate.KeyCharacter(new KeyStroke("KeyZ")));
+        Assert.Equal('Z', SecurityDisplayGate.KeyCharacter(new KeyStroke("KeyZ", KeyModifiers.Shift)));
+
+        var r = new Rig();
+        r.Matcher.Secret = _secret;
+        Assert.True((await r.Gate.CheckInputAsync(Vm(), [new KeyStroke("KeyC", KeyModifiers.Control), new KeyStroke("Enter")], Ct)).Allowed);
+        Assert.Empty(r.Matcher.Seen);
+    }
+
+    [Fact]
     public async Task Harmless_text_is_allowed_and_empty_text_is_not_sent_to_the_matcher()
     {
         var r = new Rig();
