@@ -25,6 +25,26 @@ public class LayeringTests
         Assert.Empty(declared);
     }
 
+    /// <summary>
+    /// Feature modules take their pane contracts from Bazaar.Client.Panes.Abstractions and never reference Client.Core, so a
+    /// module can be built and tested without the shared UI. A project that does not exist yet is skipped.
+    /// </summary>
+    [Theory]
+    [InlineData("Bazaar.Client.Chat")]
+    [InlineData("Bazaar.Client.Constellation")]
+    [InlineData("Bazaar.Client.Dashboard")]
+    [InlineData("Bazaar.Client.Vault")]
+    [InlineData("Bazaar.Client.Gc")]
+    [InlineData("Bazaar.Client.Souls")]
+    public void Client_feature_module_does_not_reference_client_core(string project)
+    {
+        Assert.SkipUnless(File.Exists(RepoPaths.ProjectFile(project)), $"{project} does not exist yet.");
+
+        var declared = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project));
+
+        Assert.DoesNotContain("Bazaar.Client.Core", declared);
+    }
+
     [Fact]
     public void Contracts_references_no_server_assembly()
     {
