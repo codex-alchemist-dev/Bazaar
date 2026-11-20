@@ -7,11 +7,15 @@ using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
 using Bazaar.Server.CodingReview;
 using Bazaar.Server.CodingStore;
+using Bazaar.Server.Identity;
 using Bazaar.Server.RepoMap;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Subagents;
+using Bazaar.Server.Vault.Git;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 
 namespace Bazaar.Server.Host.Coding;
@@ -31,19 +35,32 @@ public sealed class CodingHarnessHostOptions
 
 /// <summary>
 /// Composes the coding harness (doc 17, "Module layout") onto Server-owned code: the six modules plus the adapters in this
-/// folder. Every adapter dependency that has no default (policy engine, subagent runner, workspace, GitHub adapter, token
-/// provider, the two directories, the push session directory, the work-share layout, the git identity) must come from the host;
-/// a missing one fails at resolution and never opens a gate. Everything here is registered lazily (factories), so a missing
-/// dependency can never fail host startup, only the first resolution of the service that needs it. The trace sinks are
-/// durable (the <c>tool_calls</c> table) whenever the host has registered a Postgres data source, and in-process otherwise (tests). <see cref="GuestChannelFileAdapter"/> is per guest, so it is built by the session
+/// folder. The harness is off unless <c>Coding:Harness:Enabled</c> is true; when off it registers nothing. When on, every
+/// adapter dependency that has no default must come from the host. Ports with no production source yet are checked at host
+/// start (<see cref="CodingHarnessPorts"/>), so a missing one stops the host with the port's name. Adapters are registered
+/// with TryAdd and lazily (factories or concrete types), so a host registration made first always wins, and a dependency that is
+/// still unbound fails only when that service is first resolved, never opening a gate.
+/// The trace sinks are durable (the <c>tool_calls</c> table) whenever the host has registered a Postgres data source, and
+/// in-process otherwise (tests). <see cref="GuestChannelFileAdapter"/> is per guest, so it is built by the session
 /// that owns the guest channel and is not registered here.
 /// </summary>
 public static class CodingHarnessHostExtensions
 {
-    /// <summary>Registers the six harness modules and the host adapters.</summary>
-    public static IServiceCollection AddBazaarCodingHarness(this IServiceCollection services, Action<CodingHarnessHostOptions>? configure = null)
+    /// <summary>Registers the six harness modules and the host adapters, when <c>Coding:Harness:Enabled</c> is true.</summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">Host configuration; the harness reads <c>Coding:Harness:Enabled</c> from it. Null means off.</param>
+    /// <param name="configure">Host settings, applied only when the harness is on.</param>
+    public static IServiceCollection AddBazaarCodingHarness(
+        this IServiceCollection services,
+        IConfiguration? configuration = null,
+        Action<CodingHarnessHostOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
+        if (!IsEnabled(configuration))
+        {
+            return services;
+        }
+
         var options = new CodingHarnessHostOptions();
         configure?.Invoke(options);
         services.TryAddSingleton(options);
@@ -72,6 +89,12 @@ public static class CodingHarnessHostExtensions
             sp.GetRequiredService<IToolPermissionGate>(),
             sp.GetRequiredService<IPushSessionDirectory>()));
 
+        // Server-owned concretes. Each is a no-op when its owner already registered the service (TryAdd); otherwise it resolves
+        // through its own constructor, so an unbound dependency of it fails at first resolution.
+        services.TryAddSingleton<KillSwitchEngine>();
+        services.TryAddSingleton<SubagentRunner>();
+        services.TryAddSingleton<IToolPolicyEngine, ToolPolicyEngine>();
+
         services.TryAddSingleton<IGenericToolPolicy>(sp => new ToolPolicyEngineAdapter(
             sp.GetRequiredService<IToolPolicyEngine>(),
             sp.GetRequiredService<CapabilityRegistry>(),
@@ -80,6 +103,25 @@ public static class CodingHarnessHostExtensions
         services.TryAddSingleton<IRuntimeSubagentPort>(sp => new RuntimeSubagentAdapter(
             sp.GetRequiredService<SubagentRunner>(),
             sp.GetRequiredService<IRuntimeSubagentParentDirectory>()));
+
+        // GitHub side (doc 21). The token provider and the adapter are the concretes in Bazaar.GitHub; their own dependencies
+        // (the identity token client, the HTTP client) are the host's to bind.
+        services.TryAddSingleton<IGitHubTokenProvider, IdentityServiceGitHubTokenProvider>();
+        services.TryAddSingleton<IGitHubRateState, InMemoryGitHubRateState>();
+        services.TryAddSingleton<GitHubAdapterOptions>();
+        services.TryAddSingleton<IGitHubAdapter, GitHubAdapter>();
+
+        // The workspace reads its root from the harness options, so the two cannot disagree. A work-share layout, when bound, supplies
+        // the per-agent root (doc 16).
+        services.TryAddSingleton(sp => new GitWorkspaceOptions { RootPath = WorkspaceRootOf(sp) });
+        services.TryAddSingleton(sp => new GitWorkspace(
+            sp.GetRequiredService<IGitProvider>(),
+            sp.GetRequiredService<GitWorkspaceOptions>(),
+            sp.GetService<IWorkShareLayout>() is { } layout ? new WorkShareLayoutRootResolver(layout) : null));
+
+        services.TryAddSingleton<IPushSessionDirectory>(sp => new AgentStatePushSessionDirectory(
+            sp.GetRequiredService<IAgentStateReader>(),
+            sp.GetRequiredService<IPushSessionRecords>()));
 
         services.TryAddSingleton<ICodingGitEngine>(sp => new GitWorkspaceCodingGitEngine(
             sp.GetRequiredService<GitWorkspace>(),
@@ -95,8 +137,14 @@ public static class CodingHarnessHostExtensions
             sp.GetRequiredService<ICodingRepoDirectory>(),
             sp.GetRequiredService<CodingHarnessHostOptions>().GitHubWebBase));
 
+        // Fail closed at host start if a port with no production source is unbound.
+        services.AddSingleton<IHostedService>(_ => new CodingHarnessStartupCheck(services));
+
         return services;
     }
+
+    private static bool IsEnabled(IConfiguration? configuration) =>
+        bool.TryParse(configuration?["Coding:Harness:Enabled"], out var enabled) && enabled;
 
     private static string WorkspaceRootOf(IServiceProvider sp) =>
         sp.GetRequiredService<CodingHarnessHostOptions>().WorkspaceRoot

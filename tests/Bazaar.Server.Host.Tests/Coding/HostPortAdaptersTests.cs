@@ -169,7 +169,7 @@ public sealed class HostPortAdaptersTests
     public void The_harness_registers_the_sinks_and_ports_with_a_server_source_and_leaves_the_rest_failing_closed()
     {
         var services = new ServiceCollection();
-        services.AddBazaarCodingHarness();
+        services.AddBazaarCodingHarness(CodingHarnessTestFakes.Config(true));
         services.AddSingleton(new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), new NoopContainment()));
         using var provider = services.BuildServiceProvider();
 
