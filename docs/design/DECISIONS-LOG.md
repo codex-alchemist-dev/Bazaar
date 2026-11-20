@@ -381,3 +381,24 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Clients | Clients stay native, as already built. Native clients may embed web components such as Monaco (Bazaar.Server.md §1). | 27, 35 |
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
+
+## Round 27 (2026-11-18): Web admin panel mechanics
+
+| Decision | Status | Docs |
+|---|---|---|
+| Names `Bazaar.Server.WebAdmin` and `Bazaar.Server.WebAdmin.Abstractions`, component id `web-admin` | PROPOSED (follows the module sides rule, 2026-11-17) | 51, 40 |
+| Panel session: `/signin?audience=admin` hands off to `/admin/session/redeem`, which sets one HttpOnly, SameSite=Strict cookie; 15 min sliding, 8 h absolute; revocation ends it at once | PROPOSED | 51 section 5, 32 section 4 |
+| Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
+| Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
+| Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+
+## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
+
+| Decision | Ruling | Docs |
+|---|---|---|
+| GC and Souls coupling | Interface only, no foreign key (owner, 2026-11-16). GC stamps events through `ISoulBindings`; the writer validates each stamp; a reconciliation reports dangling stamps to Kodo. | 01, 07, 40 |
+| Agent-to-Soul mapping | Append-only `soul_agent_binding` (migration `souls/0002`) owned by `Bazaar.Server.Souls`. Supersedes the unused `agent.soul_version_id`. A retired agent resolves to no Soul; its history stays valid. | 06, 07 |
+| Unbound agent posts | Refused by default. The operator may turn the requirement off while onboarding (`gc.require_soul_binding`, configuration `Bazaar:Gc:AgentPost:RequireSoulBinding`, shipped default on). | 07 |
+| Loop-guard trip | Writes `guard_event`, one idempotent system notice and the Psych Ward hand-off (default no-op until doc 26 is built); the post is refused. | 06 |
+| Binding writers | `ISoulBindingAdmin.BindAsync` is for the hire flow, which does not exist on the server yet; `RetirementCoordinator` ends the binding first. Until a hire flow exists, an unbound agent cannot post with the default setting. | 06, 07 |
+| Not done in this change | Mention depth (needs the wake's depth on the inbox row, which doc 06 owns) and @here/@all agent broadcasts (needs the broadcast rate counter; #438 keeps them ignored). | 06, 01 |

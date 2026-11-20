@@ -5,6 +5,7 @@ using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Mentions;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Mentions;
+using Bazaar.Souls.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -19,6 +20,7 @@ public sealed class MentionRegistrationTests
         services.AddSingleton<IGcLogWriter>(new UnusedLogWriter());
         services.AddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
         services.AddSingleton<ILoopGuard>(new LoopGuardFacade(TimeProvider.System));
+        services.AddSingleton<ISoulBindings>(new NoSoulBindings());
         services.AddSingleton(NpgsqlDataSource.Create("Host=localhost"));
         return services;
     }
@@ -85,6 +87,7 @@ public sealed class MentionRegistrationTests
         services.AddSingleton<IGcLogWriter>(new UnusedLogWriter());
         services.AddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
         services.AddSingleton<ILoopGuard>(new LoopGuardFacade(TimeProvider.System));
+        services.AddSingleton<ISoulBindings>(new NoSoulBindings());
         services.AddGcAgentPostSink();
 
         using var provider = services.BuildServiceProvider();
@@ -112,5 +115,13 @@ public sealed class MentionRegistrationTests
         public Task<int> WriteAsync(IReadOnlyList<InboxRow> rows, CancellationToken ct) => Task.FromResult(0);
 
         public Task<int> WriteAsync(NpgsqlTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) => Task.FromResult(0);
+    }
+
+    /// <summary>Resolves nothing; these tests only check what is registered, never post.</summary>
+    private sealed class NoSoulBindings : ISoulBindings
+    {
+        public ValueTask<SoulRef?> ResolveAsync(Guid agentId, CancellationToken cancellationToken) => ValueTask.FromResult<SoulRef?>(null);
+
+        public ValueTask<bool> IsValidStampAsync(Guid agentId, SoulRef soul, CancellationToken cancellationToken) => ValueTask.FromResult(false);
     }
 }

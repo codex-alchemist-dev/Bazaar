@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.Souls.Abstractions;
 
 namespace Bazaar.Server.Gc.Write;
 
@@ -76,6 +77,14 @@ public sealed record AppendRequest(
 
     /// <summary>Principals mentioned. Already validated against membership by the caller (doc 01 WP8).</summary>
     public IReadOnlyList<Guid> Mentions { get; init; } = [];
+
+    /// <summary>
+    /// The Soul version the author produced this event under (doc 07 "Versioning"), set by the server from
+    /// <see cref="ISoulBindings"/>, never from client input. Only an agent-authored event carries one. The writer checks it
+    /// with <see cref="ISoulBindings.IsValidStampAsync"/> before it writes, because the log has no foreign key to Souls.
+    /// A repeat of an earlier key returns the original event with its original stamp.
+    /// </summary>
+    public SoulRef? Soul { get; init; }
 }
 
 /// <summary>The stored identity of an appended event.</summary>
