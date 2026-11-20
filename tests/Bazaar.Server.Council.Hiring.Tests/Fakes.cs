@@ -29,6 +29,8 @@ internal sealed class FakeCouncilService : ICouncilService
     public Task ProcessDeadlineAsync(Guid voteId, CancellationToken ct) => throw new NotSupportedException();
 
     public Task WithdrawAsync(Guid voteId, string actorId, CancellationToken ct) => throw new NotSupportedException();
+
+    public Task RedriveDecisionAsync(Guid voteId, CancellationToken ct) => throw new NotSupportedException();
 }
 
 /// <summary>An in-memory hire store, one state per template.</summary>
