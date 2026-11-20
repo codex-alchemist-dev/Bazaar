@@ -23,7 +23,10 @@
     <ProjectReference Include="..\Bazaar.Server.Jobs.Abstractions\Bazaar.Server.Jobs.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek.Abstractions\Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Souls.Abstractions\Bazaar.Souls.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.LoopGuard.Abstractions\Bazaar.LoopGuard.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.PrivacyAudit\Bazaar.PrivacyAudit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Remote\Bazaar.Server.Remote.csproj" />
@@ -31,8 +34,10 @@
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />

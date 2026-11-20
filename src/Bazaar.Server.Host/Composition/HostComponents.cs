@@ -22,6 +22,7 @@ using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
+using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Vault;
 
@@ -54,6 +55,7 @@ public static class HostComponents
         new MemoryComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new ModuleManagerComponent(),
         new RemoteComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
