@@ -53,5 +53,7 @@
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
     <!-- Android fold posture (doc 29, WP2): Jetpack WindowManager bindings. Pinned, not yet referenced; the mapping in Bazaar.Client.Core is pure. Provisional, pending spike S13. -->
     <PackageVersion Include="Xamarin.AndroidX.Window" Version="1.5.1.3" />
+    <!-- Android approval biometric prompt (doc 29, Approvals): AndroidX BiometricPrompt bindings, newest stable (androidx.biometric 1.1.0). Android head only. -->
+    <PackageVersion Include="Xamarin.AndroidX.Biometric" Version="1.1.0.33" />
   </ItemGroup>
 </Project>

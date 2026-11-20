@@ -4,6 +4,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Annotation;
+using Bazaar.Client.Android.Approvals;
 using Bazaar.Client.Android.Wire;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
@@ -37,6 +39,8 @@ public sealed class App : Avalonia.Application
         {
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
         };
+        Approvals = new AndroidApprovals(() => MainActivity.Current);
+        Annotation = new AndroidAnnotation(host, ClientServer.Current);
 
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
@@ -61,6 +65,23 @@ public sealed class App : Avalonia.Application
     /// How the phone learns the project is not decided yet (doc 29 and doc 12 name no project listing), so a build sets it.
     /// </summary>
     public static Guid? KanbanProjectId { get; set; }
+
+    /// <summary>
+    /// The approval path: biometric prompt, signer and gate (doc 29, Approvals). Approval cards are built with
+    /// <see cref="AndroidApprovals.CreateCardView"/> so they decide only through the gate. No pane lists cards yet: there is
+    /// no approvals pane kind or wire type for cards or signed decisions, and the approval key cannot be enrolled (doc 32 Question 4).
+    /// </summary>
+    public AndroidApprovals? Approvals { get; private set; }
+
+    /// <summary>
+    /// Screenshot annotation over the HTTP blob channel (doc 29, work package 11). The radial menu is not in the head yet, so its
+    /// Annotate sector will call <see cref="AndroidAnnotation.ShowAsync"/> once it is.
+    /// </summary>
+    public AndroidAnnotation? Annotation { get; private set; }
+
+    // Push (doc 29, Background delivery) is not wired. PushProviderSelector and BareWakeHandler exist in Bazaar.Client.Push, but the
+    // pieces they need do not: no IPushProvider for FCM or UnifiedPush, no IWakeFetcher and no ILocalNotifier. Once those exist, build
+    // `new PushProviderSelector(providers).Select(settings.PushProvider)` and pass wakes to `new BareWakeHandler(fetcher, notifier).HandleAsync(rawKind, ct)`.
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
