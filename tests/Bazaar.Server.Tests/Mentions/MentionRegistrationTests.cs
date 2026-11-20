@@ -124,4 +124,12 @@ public sealed class MentionRegistrationTests
 
         public ValueTask<bool> IsValidStampAsync(Guid agentId, SoulRef soul, CancellationToken cancellationToken) => ValueTask.FromResult(false);
     }
+
+    /// <summary>Resolves nothing; these tests only check what is registered, never post.</summary>
+    private sealed class NoSoulBindings : ISoulBindings
+    {
+        public ValueTask<SoulRef?> ResolveAsync(Guid agentId, CancellationToken cancellationToken) => ValueTask.FromResult<SoulRef?>(null);
+
+        public ValueTask<bool> IsValidStampAsync(Guid agentId, SoulRef soul, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+    }
 }

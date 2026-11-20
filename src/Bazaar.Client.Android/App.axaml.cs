@@ -2,11 +2,17 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Server;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Gc;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Vault;
 
 namespace Bazaar.Client.Android;
 
@@ -42,10 +48,19 @@ public sealed class App : Avalonia.Application
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
-        // The panes this head ships, in pager order: the RyuseiFuda board first, then the Client.Core panes, then the rest of RyuseiFuda.
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
-        var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry));
+        // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes (pager order).
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            new DashboardPaneModule(),
+            new ConstellationPaneModule(),
+            new GcPaneModule(),
+            new VaultSearchPaneModule(),
+            .. RyuseiFudaPanes.Modules,
+        ];
+        var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
+        var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
