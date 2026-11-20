@@ -4,6 +4,7 @@ using Avalonia.LogicalTree;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda;
 
 namespace Bazaar.Client.Core.Tests.Panes;
 
@@ -35,7 +36,7 @@ public class WindowPanesHeadlessTests
         var window = new MainWindow();
         var registry = TestPanes.CreateRegistry();
 
-        window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
+        window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
         window.Show();
 
         Assert.IsType<ScrollViewer>(window.Content);
@@ -52,7 +53,7 @@ public class WindowPanesHeadlessTests
     {
         var window = new MainWindow();
 
-        window.ShowPanes(FirstPartyPanes.WindowPanes(), TestPanes.CreateRegistry());
+        window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], TestPanes.CreateRegistry());
         window.Show();
 
         Assert.Single(window.GetLogicalDescendants().OfType<ConstellationPaneView>());
