@@ -96,6 +96,15 @@ Tables [PROPOSED]. Doc 05 owns these six; agent and turn ids reference doc 06's 
 - `gw_quota_state(provider_id, key_ref, model_class, state, until, observed jsonb)`
 - `gw_usage(id, ts, agent_id, turn_id, provider_id, key_ref, model_id, served_model, identity, input, cache_write_5m, cache_write_1h, cache_read, output, thinking, latency_ms, status, error_code, retry_after_s, estimated, price_version)`. `input` counts uncached input tokens only and excludes cache reads (`cache_read`) and cache writes (`cache_write_5m`, `cache_write_1h`); doc 23 relies on this. `thinking` is a subset of `output`. The two cache-write columns are priced separately (1.25x and 2x multipliers, verified). `usage_record` is dropped (C33). Cost is computed from a dated price table, not stored as truth. No prompt or completion text is stored. The table is unpartitioned in v1 [PROPOSED]; retention is the setting `gateway.usage.retention_days`.
 
+### System-agent policy seeding [PROPOSED]
+
+System agents are platform-owned callers with no row in the agent roster (the first is `bazaar-embeddings`, which Memory uses to embed). Policy is deny by default, so without a row every call from one returns `policy_denied`. Seeding is a separate module, `Bazaar.Server.Gateway.SystemPolicy` with `Bazaar.Server.Gateway.SystemPolicy.Abstractions`, so the gateway core stays free of caller knowledge.
+
+- A module declares its system agents through `ISystemAgentPolicySource` (Abstractions): an agent id and a function that builds the policy entries and default route from the current settings. Modules register sources; the gateway module never names a caller.
+- `bazaar-embeddings` is declared by the seeding module itself for now (it owns the embedding setting): when `gateway.embedding.route` is set, the policy allows that route and, when the value is a route name, every model the route lists (a route name alone does not widen the whitelist, see policy above), with the route as default. When the setting is empty no row is written and the seeder logs that embedding is not configured.
+- The seeder runs at host start and again when a setting it read changes. It writes through `AgentModelPolicyRepository.SaveAsync` with `changed_by = 'system-seed'`. It creates a missing row and refreshes a row whose `changed_by` is still `system-seed`; a row an operator or other principal has edited is never overwritten. Every write is audited like any policy change.
+- Seeded rows grant only what the declaration lists. An operator can narrow or replace them in the admin panel (which marks them operator-owned). No wildcard and no `auto` route, as for every policy.
+
 ### Settings
 Keys are registered in doc 03's settings registry [PROPOSED]. All are install-scoped, changed by the operator in the admin panel, and every change writes an `audit_log` entry. Rows marked "needs counsel" are privacy or terms options; their defaults are the protective choice. Lowering a protective default needs owner approval.
 
