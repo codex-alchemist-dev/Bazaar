@@ -443,6 +443,229 @@ public sealed class ModuleFileSystemTests : IDisposable
         Assert.Equal(new byte[] { 2 }, await fs.ReadAllBytesAsync("local/b.txt", Ct));
     }
 
+    // Size limits on streams and roots
+
+    private static ModuleFsOptions Small(long file = 10, long root = 25) => new(MaxFileBytes: file, MaxRootBytes: root);
+
+    private long LocalLength(string name) => new FileInfo(Path.Combine(_local, name)).Length;
+
+    [Fact]
+    public void Sync_writes_past_the_file_limit_are_refused_and_nothing_is_written()
+    {
+        var fs = Granted(Small());
+        using var w = fs.OpenWrite("local/a.bin");
+        w.Write(new byte[6], 0, 6);
+
+        Assert.Throws<ModuleFsRefusedException>(() => w.Write(new byte[5], 0, 5));
+        Assert.Throws<ModuleFsRefusedException>(() => w.Write(new byte[5].AsSpan()));
+        w.Write(new byte[4]);
+        w.Flush();
+
+        Assert.Equal(10, LocalLength("a.bin"));
+        Assert.Throws<ModuleFsRefusedException>(() => w.WriteByte(1));
+        Assert.Equal(10, w.Length);
+    }
+
+    [Fact]
+    public async Task Async_writes_past_the_file_limit_are_refused()
+    {
+        var fs = Granted(Small());
+        await using var w = fs.OpenWrite("local/a.bin");
+        await w.WriteAsync(new byte[8], Ct);
+
+        await Assert.ThrowsAsync<ModuleFsRefusedException>(async () => await w.WriteAsync(new byte[3], Ct));
+#pragma warning disable CA1835 // The array overload is the one under test.
+        await Assert.ThrowsAsync<ModuleFsRefusedException>(async () => await w.WriteAsync(new byte[3], 0, 3, Ct));
+#pragma warning restore CA1835
+        await w.FlushAsync(Ct);
+
+        Assert.Equal(8, LocalLength("a.bin"));
+    }
+
+    [Fact]
+    public void WriteByte_stops_at_the_file_limit()
+    {
+        var fs = Granted(Small());
+        using (var w = fs.OpenWrite("local/a.bin"))
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                w.WriteByte(1);
+            }
+
+            Assert.Throws<ModuleFsRefusedException>(() => w.WriteByte(1));
+        }
+
+        Assert.Equal(10, LocalLength("a.bin"));
+    }
+
+    [Fact]
+    public void SetLength_past_the_file_limit_is_refused_and_a_shorter_length_frees_quota()
+    {
+        var fs = Granted(Small(file: 10, root: 12));
+        using (var w = fs.OpenWrite("local/a.bin"))
+        {
+            w.SetLength(10);
+            Assert.Throws<ModuleFsRefusedException>(() => w.SetLength(11));
+            w.SetLength(2);
+        }
+
+        Assert.Equal(2, LocalLength("a.bin"));
+        using var b = fs.OpenWrite("local/b.bin");
+        b.SetLength(10);
+        Assert.Equal(10, LocalLength("b.bin"));
+    }
+
+    [Fact]
+    public void A_seek_past_the_end_then_a_write_that_passes_the_limit_is_refused()
+    {
+        var fs = Granted(Small());
+        using (var w = fs.OpenWrite("local/a.bin"))
+        {
+            w.Seek(8, SeekOrigin.Begin);
+            Assert.Throws<ModuleFsRefusedException>(() => w.Write(new byte[3]));
+            w.Write(new byte[2]);
+        }
+
+        Assert.Equal(10, LocalLength("a.bin"));
+    }
+
+    [Fact]
+    public void Append_counts_the_existing_length()
+    {
+        var fs = Granted(Small());
+        File.WriteAllBytes(Path.Combine(_local, "a.bin"), new byte[8]);
+
+        using (var a = fs.OpenAppend("local/a.bin"))
+        {
+            Assert.Throws<ModuleFsRefusedException>(() => a.Write(new byte[3]));
+            a.Write(new byte[2]);
+        }
+
+        Assert.Equal(10, LocalLength("a.bin"));
+    }
+
+    [Fact]
+    public void The_root_quota_is_refused_across_two_files()
+    {
+        var fs = Granted(Small(file: 10, root: 15));
+        using (var a = fs.OpenWrite("local/a.bin"))
+        {
+            a.Write(new byte[10]);
+        }
+
+        using (var b = fs.OpenWrite("local/b.bin"))
+        {
+            b.Write(new byte[5]);
+            Assert.Throws<ModuleFsRefusedException>(() => b.WriteByte(1));
+        }
+
+        Assert.Equal(5, LocalLength("b.bin"));
+        // The other root has its own quota.
+        using var c = fs.OpenWrite("cache/c.bin");
+        c.Write(new byte[10]);
+    }
+
+    [Fact]
+    public async Task A_whole_file_write_that_would_pass_the_quota_leaves_the_old_file_alone()
+    {
+        var fs = Granted(Small(file: 10, root: 12));
+        await fs.WriteAllBytesAsync("local/a.bin", new byte[] { 1, 2 }, Ct);
+        await fs.WriteAllBytesAsync("local/b.bin", new byte[10], Ct);
+
+        await Assert.ThrowsAsync<ModuleFsRefusedException>(async () => await fs.WriteAllBytesAsync("local/a.bin", new byte[5], Ct));
+
+        Assert.Equal(new byte[] { 1, 2 }, await fs.ReadAllBytesAsync("local/a.bin", Ct));
+    }
+
+    [Fact]
+    public async Task Deleting_a_file_frees_quota()
+    {
+        var fs = Granted(Small(file: 10, root: 12));
+        await fs.WriteAllBytesAsync("local/a.bin", new byte[10], Ct);
+        await Assert.ThrowsAsync<ModuleFsRefusedException>(async () => await fs.WriteAllBytesAsync("local/b.bin", new byte[5], Ct));
+
+        fs.Delete("local/a.bin");
+        fs.Delete("local/missing.bin");
+
+        await fs.WriteAllBytesAsync("local/b.bin", new byte[10], Ct);
+    }
+
+    [Fact]
+    public async Task Overwriting_a_file_with_smaller_content_frees_quota()
+    {
+        var fs = Granted(Small(file: 10, root: 15));
+        await fs.WriteAllBytesAsync("local/a.bin", new byte[10], Ct);
+        await fs.WriteAllBytesAsync("local/a.bin", new byte[2], Ct);
+        await fs.WriteAllBytesAsync("local/b.bin", new byte[10], Ct);
+        await using (var reopened = fs.OpenWrite("local/b.bin"))
+        {
+            // Opening for write truncates, which gives the old content back too.
+        }
+
+        await fs.WriteAllBytesAsync("local/c.bin", new byte[10], Ct);
+        await fs.WriteAllBytesAsync("local/d.bin", new byte[3], Ct);
+        await Assert.ThrowsAsync<ModuleFsRefusedException>(async () => await fs.WriteAllBytesAsync("local/e.bin", new byte[1], Ct));
+    }
+
+    [Fact]
+    public async Task Files_already_in_the_root_count_on_the_first_write()
+    {
+        Directory.CreateDirectory(Path.Combine(_local, "sub"));
+        File.WriteAllBytes(Path.Combine(_local, "sub", "old.bin"), new byte[12]);
+        var fs = Granted(Small(file: 10, root: 15));
+
+        await Assert.ThrowsAsync<ModuleFsRefusedException>(async () => await fs.WriteAllBytesAsync("local/a.bin", new byte[4], Ct));
+        await fs.WriteAllBytesAsync("local/a.bin", new byte[3], Ct);
+    }
+
+    [Fact]
+    public async Task Concurrent_writers_on_different_files_never_pass_the_quota_together()
+    {
+        var fs = Granted(Small(file: 10, root: 25));
+        var results = await Task.WhenAll(Enumerable.Range(0, 12).Select(i => Task.Run(async () =>
+        {
+            try
+            {
+                await using var w = fs.OpenWrite($"local/f{i}.bin");
+                for (var n = 0; n < 10; n++)
+                {
+                    await w.WriteAsync(new byte[1], Ct);
+                }
+
+                return true;
+            }
+            catch (ModuleFsRefusedException)
+            {
+                return false;
+            }
+        }, Ct)));
+
+        var total = Directory.GetFiles(_local).Sum(f => new FileInfo(f).Length);
+        Assert.True(total <= 25, $"The root held {total} bytes.");
+        Assert.True(results.Any(r => r) || total > 0);
+    }
+
+    [Fact]
+    public void The_root_limit_must_not_be_smaller_than_the_file_limit()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Granted(new ModuleFsOptions(MaxFileBytes: 10, MaxRootBytes: 9)));
+        Assert.Equal(1024L * 1024 * 1024, new ModuleFsOptions().MaxRootBytes);
+    }
+
+    [Fact]
+    public async Task Links_under_the_root_are_not_counted_or_followed_by_the_usage_walk()
+    {
+        File.WriteAllBytes(Path.Combine(_outside, "big.bin"), new byte[50]);
+        MakeLinkOrSkip(Path.Combine(_local, "dir-link"), _outside, directory: true);
+        MakeLinkOrSkip(Path.Combine(_local, "file-link"), Path.Combine(_outside, "big.bin"), directory: false);
+        var fs = Granted(Small(file: 10, root: 15));
+
+        await fs.WriteAllBytesAsync("local/a.bin", new byte[10], Ct);
+
+        Assert.True(File.Exists(Path.Combine(_outside, "big.bin")));
+    }
+
     // Roots
 
     [Fact]
