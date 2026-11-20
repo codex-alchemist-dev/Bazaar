@@ -57,13 +57,14 @@ Detailed drafts: `docs/design/` (index in `README.md`). Cross-doc conflicts were
 
 ## Agents, models and parallelism (mandatory)
 
-**Default mode.** Do the work primarily through parallel Haiku 5.5 sub-agents, one per independent item or file group, each in its own git worktree (`agent/<task>`). Use Sonnet 5.5 only for security-critical or concurrency-heavy work and for reviewing and integrating sub-agent output. Work directly only when a task is too small or too tightly coupled to split. Build and test before every push.
+**Default mode.** Do the work primarily through parallel sub-agents, one per independent item or file group, each in its own git worktree (`agent/<task>`), with the model picked per task (see Model policy). Haiku 5.5 carries the mass per-file work. Work directly only when a task is too small or too tightly coupled to split. Build and test before every push.
 
-**Model policy (owner, 2026-10-25).** The main session may run on Opus 5.5 or Sonnet 5.5; it coordinates, decides and reviews.
-- **Haiku 5.5 (`model: "haiku"`) for everything by default**: research, scaffolding, routine code, tests, docs, reviews.
-- **Sonnet 5.5 (`model: "sonnet"`) for more complicated tasks**: cross-project design, tricky concurrency or security code, hard debugging, synthesis across many sources.
-- **The main session works by hand only on very high-tier tasks**: architecture decisions, final review before merge, resolving conflicts between agents, and anything touching the owner's decisions or secrets.
-- Always pass `model` explicitly on every Agent call. Never use Opus or Fable for subagents unless the owner names it for that task.
+**Model policy (owner, 2026-11-18; replaces the 2026-10-25 Haiku-only rule).** Threads and sub-agents may use Haiku 5.5, Sonnet 5.5, Opus 5.5 and Fable, picked per task by what the work is.
+- **Always set `model` explicitly on every Agent call.**
+- **Haiku 5.5 (`model: "haiku"`)** for boilerplate, scaffolding, tests, docs and mass per-file work.
+- **Sonnet 5.5 (`model: "sonnet"`)** for normal feature work and reviews.
+- **Opus 5.5 or Fable** for architecture, design, security-critical, concurrency-critical and GC work.
+- The main session coordinates, decides and reviews; it works by hand on very high-tier tasks (architecture decisions, final review before merge, resolving conflicts between agents, anything touching the owner's decisions or secrets).
 - Use the named agents in `.claude/agents/` or `general-purpose`. **Never use `fork` for delegated work**: forks run on the main model.
 - `.claude/settings.json` sets `CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-5-5` and `CLAUDE_CODE_FORK_SUBAGENT=0` as the default. The hard lock (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, needs Claude Code 2.1.257 or newer) is opt-in because it also ignores per-agent `model` and blocks any model override.
 
@@ -73,7 +74,7 @@ Detailed drafts: `docs/design/` (index in `README.md`). Cross-doc conflicts were
 - Fan out research, file-by-file or module-by-module edits, test runs, and doc updates. Keep sequential only what truly depends on earlier output.
 - Concurrency and scale: see **Batch development** below.
 
-**Batch development (owner, 2026-10-25).** When development starts, fan out massively: 200+ Haiku 5.5 sessions across the build, plus a couple of Sonnet 5.5 sessions for the hard parts.
+**Batch development (owner, 2026-10-25).** When development starts, fan out massively: 200+ Haiku 5.5 sessions across the build, plus Sonnet 5.5, Opus 5.5 or Fable sessions for the hard parts.
 - Cut the work into many small, independent work packages (one file or one small module, with its own tests). Each gets its own worktree and branch `agent/<wp-id>`; the main session merges in dependency order and runs the full build after each wave.
 - Run in waves sized to the machine. The platform default is 20 concurrent subagents (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`), and the cloud container has limited CPU, RAM and disk, so 200 simultaneous builds are not realistic; 200+ across waves is. Measure CPU, RAM and disk after the first wave and scale the next one.
 - Agents build and test only the projects they touch; the main session runs the full `./build.sh`.
