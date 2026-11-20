@@ -33,7 +33,35 @@ public interface IMailOnboarding
     /// <param name="agentId">The agent's principal id, the value stored in <c>mail_mailbox.person_id</c>.</param>
     /// <param name="mailboxId">The <c>mail_mailbox.id</c> to bind.</param>
     Task<MailOnboardingResult> OnboardAsync(Guid agentId, Guid mailboxId, CancellationToken ct);
+
+    /// <summary>
+    /// Closes the agent's mailbox and archives its inbox GC. <c>person_id</c> is kept for history. The mailbox is closed first, so mail stops
+    /// before the GC goes; if the archive then fails the call can be repeated.
+    /// </summary>
+    Task<MailOffboardingResult> OffboardAsync(Guid agentId, Guid mailboxId, CancellationToken ct);
 }
+
+/// <summary>Outcome of <see cref="IMailOnboarding.OffboardAsync"/>.</summary>
+public enum MailOffboardingStatus
+{
+    /// <summary>The mailbox is now closed and the inbox GC archived (this call did at least one of the two).</summary>
+    Offboarded,
+
+    /// <summary>Nothing to do: the mailbox was already closed and the inbox GC already archived.</summary>
+    AlreadyOffboarded,
+
+    /// <summary>No such mailbox.</summary>
+    MailboxNotFound,
+
+    /// <summary>The mailbox does not belong to this agent. Nothing changed.</summary>
+    NotOwner,
+
+    /// <summary>The mailbox is closed but the inbox GC could not be archived (port not wired, or it failed). Retry later.</summary>
+    GcUnavailable,
+}
+
+/// <summary>Result of an offboarding call. <see cref="InboxGcId"/> is the deterministic inbox GC id for the agent.</summary>
+public sealed record MailOffboardingResult(MailOffboardingStatus Status, Guid InboxGcId);
 
 /// <summary>Outcome of <see cref="IMailboxPersonStore.SetPersonAsync"/>.</summary>
 public enum MailboxPersonSetResult
@@ -62,16 +90,63 @@ public interface IMailboxPersonStore
 
     /// <summary>Whether the mailbox exists and who owns it.</summary>
     Task<MailboxOwner> GetOwnerAsync(Guid mailboxId, CancellationToken ct);
+
+    /// <summary>
+    /// Sets <c>state</c> to <c>closed</c> when the mailbox belongs to <paramref name="agentId"/>. It never clears <c>person_id</c>: the link is history.
+    /// Idempotent. A closed mailbox is skipped by the inbound directory and refused as a sender.
+    /// </summary>
+    Task<MailboxCloseResult> CloseAsync(Guid mailboxId, Guid agentId, CancellationToken ct);
+}
+
+/// <summary>Outcome of <see cref="IMailboxPersonStore.CloseAsync"/>.</summary>
+public enum MailboxCloseResult
+{
+    /// <summary>The mailbox was open and is now closed.</summary>
+    Closed,
+
+    /// <summary>The mailbox was already closed.</summary>
+    AlreadyClosed,
+
+    /// <summary>The mailbox belongs to another agent, or to none. Nothing changed.</summary>
+    NotOwner,
+
+    /// <summary>No such mailbox.</summary>
+    NotFound,
 }
 
 /// <summary>
 /// Ensures an agent's inbox GC exists with the agent as a member. Idempotent: the same <paramref name="gcId"/> twice is one GC. No database or GC
-/// types cross this port; the adapter (over GC's provisioner) is added when GC publishes it, and until then the default fails closed.
+/// types cross this port; the host's adapter sits over GC's provisioner, and without one the default fails closed.
 /// </summary>
 public interface IInboxGcPort
 {
     /// <returns>True when the GC exists afterwards; false when it could not be ensured.</returns>
     Task<bool> EnsureInboxGcAsync(Guid gcId, Guid agentId, Guid mailboxId, string title, CancellationToken ct);
+
+    /// <summary>Archives the inbox GC for offboarding. Idempotent; the GC and its history are kept.</summary>
+    Task<InboxGcArchiveResult> ArchiveInboxGcAsync(Guid gcId, CancellationToken ct);
+}
+
+/// <summary>Outcome of <see cref="IInboxGcPort.ArchiveInboxGcAsync"/>.</summary>
+public enum InboxGcArchiveResult
+{
+    /// <summary>This call archived the GC.</summary>
+    Archived,
+
+    /// <summary>The GC was already archived.</summary>
+    AlreadyArchived,
+
+    /// <summary>The GC could not be archived (port not wired, GC missing, or it failed).</summary>
+    Failed,
+}
+
+/// <summary>An owner as the inbox GC needs one: the id stored as a GC member and the name shown for it.</summary>
+public sealed record MailOwner(Guid Id, string DisplayName);
+
+/// <summary>Where the instance's owner comes from. Null when there is no owner yet; the default fails closed.</summary>
+public interface IMailOwnerDirectory
+{
+    Task<MailOwner?> GetOwnerAsync(CancellationToken ct);
 }
 
 /// <summary>Marker for a default that refuses to act because its backing module does not exist yet.</summary>
