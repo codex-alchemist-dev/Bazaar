@@ -1,6 +1,7 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
+using Bazaar.GitHub;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -53,6 +54,7 @@ public static class HostComponents
         new MailComponent(),
         new ModuleManagerComponent(),
         new RemoteComponent(),
+        new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
