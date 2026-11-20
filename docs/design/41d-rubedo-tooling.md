@@ -40,6 +40,8 @@ No module references `Bazaar.Server.csproj`. The language server and docs genera
 - Capabilities: diagnostics (push), completion, hover, signature help, formatting, document symbols. No code actions that change meaning in v1.
 - Transport: stdio by default; a loopback-only socket with a random port printed on start. No remote bind.
 - Security: read-only over the text the client sends; it never reads other files, never opens the network, and never executes view actions.
+- Schema: the language server uses `RubedoSchema.Standard` (41a section 3) unless started with `--schema <file>`, a JSON object mapping identifier names to `bool`, `number` or `text`; an invalid file stops startup. Hosts with their own identifiers (a module's view data) pass their schema this way. PROPOSED.
+- View symbols: one symbol per widget node under `root` and `children`, named by the `widget` value (kind Object). PROPOSED.
 - Packaging: a self-contained tool built from the same source as the engine, versioned with it (`dslVersion`). A server whose `dslVersion` is unknown to the editor still works; the response names the version.
 
 ## 6. Docs generator
