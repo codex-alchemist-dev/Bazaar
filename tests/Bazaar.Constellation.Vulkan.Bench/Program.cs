@@ -242,13 +242,60 @@ if (args.Length > 0 && args[0] == "tilecull-check")
     return bad == 0 ? 0 : 1;
 }
 
+if (args.Length > 0 && args[0] == "topology-contention")
+{
+    // Section 10.12. Usage: topology-contention <csv> [parts=1|2|4] [fif=1|2|3]. N = 1B, M = 1M, 30 cells, the points variant of the combined
+    // frame submitted as `parts` command buffers with `fif` frames in flight; 400 measured frames. BAZAAR_BENCH_GPU_PRIORITY sets the queue priority.
+    bench.InitializeTopology(shaders);
+    bench.InitializeCull(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-contention.csv");
+    int parts = 1;
+    int fif = 1;
+    foreach (string a in args.Skip(2))
+    {
+        if (a.StartsWith("parts=", StringComparison.Ordinal))
+        {
+            parts = int.Parse(a[6..], CultureInfo.InvariantCulture);
+        }
+        else if (a.StartsWith("fif=", StringComparison.Ordinal))
+        {
+            fif = int.Parse(a[4..], CultureInfo.InvariantCulture);
+        }
+    }
+
+    Console.WriteLine($"contention parts={parts} fif={fif} priority={bench.GlobalPriorityStatus}");
+    const long n = 1_000_000_000L;
+    const int m = 1_000_000;
+    const int edgeCap = 100_000;
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    foreach (int dim in new[] { 2, 3 })
+    {
+        foreach (Topology topology in Enum.GetValues<Topology>())
+        {
+            bench.BuildTiles(topology, dim, n, m);
+            foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+            {
+                CellStats s = bench.MeasureCombinedSubmitted(topology, dim, n, view, m, edgeCap, parts, fif, WarmupFrames, 400, 2f, 400f);
+                string section = $"cont_{topology}_{dim}d_{view}".ToLowerInvariant();
+                csv.Add(NodeBenchmark.CsvLine(section, n, m, 0, NodeBenchmark.TopologyGpuBytes, edgeCap, s));
+                File.WriteAllLines(csvPath, csv);
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{section} wall p50/p95/p99/max={s.WallP50:F3}/{s.WallP95:F3}/{s.WallP99:F3}/{s.WallMax:F3}"));
+            }
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length > 0 && args[0] == "bgload")
 {
     // Game-like background load for the wall-time tests: usage bgload <stopFile> [cpuThreads]. A 60 Hz frame loop of about 8 ms of GPU
-    // draw work (uniform 3D, 19M points) in this process, plus busy CPU threads, until the stop file exists. Run it without BAZAAR_BENCH_BOOST.
+    // draw work (uniform 3D, 19M points) in this process, plus busy CPU threads, until the stop file exists. A fourth argument 0 turns the GPU
+    // work off (CPU threads only); 0 CPU threads with the GPU on gives the GPU-only load. Run it without BAZAAR_BENCH_BOOST.
     bench.InitializeTopology(shaders);
     string stopFile = args.Length > 1 ? args[1] : "bgload.stop";
     int cpuThreads = args.Length > 2 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 2;
+    bool gpuLoad = !(args.Length > 3 && args[3] == "0");
     for (int t = 0; t < cpuThreads; t++)
     {
         new Thread(() =>
@@ -269,7 +316,10 @@ if (args.Length > 0 && args[0] == "bgload")
     while (!File.Exists(stopFile))
     {
         long frameStart = clock.ElapsedTicks;
-        bench.MeasureDraw(Topology.Uniform, 3, 1_000_000_000L, Viewpoint.Whole, 19_000_000, 100_000, 0, 1);
+        if (gpuLoad)
+        {
+            bench.MeasureDraw(Topology.Uniform, 3, 1_000_000_000L, Viewpoint.Whole, 19_000_000, 100_000, 0, 1);
+        }
         frames++;
         double used = (clock.ElapsedTicks - frameStart) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
         if (used < 16.67)
