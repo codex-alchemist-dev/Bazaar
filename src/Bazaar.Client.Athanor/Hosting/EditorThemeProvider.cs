@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 
 namespace Bazaar.Client.Athanor.Hosting;
 

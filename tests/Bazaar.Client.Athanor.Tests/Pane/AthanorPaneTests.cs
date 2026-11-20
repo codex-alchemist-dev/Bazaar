@@ -6,6 +6,7 @@ using Bazaar.Client.Athanor.Drafts;
 using Bazaar.Client.Athanor.Hosting;
 using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -46,7 +47,7 @@ public sealed class AthanorPaneTests
             .With<IEditorHost>(host)
             .With<IEditorFileSource>(source)
             .With<IEditorDraftStore>(new InMemoryEditorDraftStore());
-        var registry = PaneRegistry.Compose([new AthanorPaneModule()], context);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new AthanorPaneModule()], context);
         var pane = Assert.IsType<AthanorPaneViewModel>(registry.Create(Descriptor()));
         return (registry, pane, host, source);
     }
@@ -79,7 +80,7 @@ public sealed class AthanorPaneTests
     [Fact]
     public void Pane_module_registers_its_kind()
     {
-        var registry = PaneRegistry.Compose([new AthanorPaneModule()], new PaneModuleContext());
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new AthanorPaneModule()], new PaneModuleContext());
 
         Assert.True(registry.Contains(AthanorPaneKinds.Editor));
     }
@@ -87,7 +88,7 @@ public sealed class AthanorPaneTests
     [Fact]
     public async Task Without_services_the_pane_is_an_empty_state()
     {
-        var registry = PaneRegistry.Compose([new AthanorPaneModule()], new PaneModuleContext());
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new AthanorPaneModule()], new PaneModuleContext());
         var pane = Assert.IsType<AthanorPaneViewModel>(registry.Create(Descriptor()));
 
         Assert.True(pane.IsEmpty);
@@ -99,7 +100,7 @@ public sealed class AthanorPaneTests
     [AvaloniaFact]
     public void Empty_state_view_shows_the_message()
     {
-        var registry = PaneRegistry.Compose([new AthanorPaneModule()], new PaneModuleContext());
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [new AthanorPaneModule()], new PaneModuleContext());
         var pane = Assert.IsType<AthanorPaneViewModel>(registry.Create(Descriptor()));
 
         var window = new Window { Content = registry.CreateView(pane) };

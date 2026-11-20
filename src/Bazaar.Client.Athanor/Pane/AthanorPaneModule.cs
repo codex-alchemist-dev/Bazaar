@@ -1,5 +1,6 @@
 using Bazaar.Client.Athanor.Drafts;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Athanor.Pane;
 
@@ -8,8 +9,16 @@ namespace Bazaar.Client.Athanor.Pane;
 /// <see cref="IEditorHost"/> and an <see cref="IEditorFileSource"/> through <see cref="PaneModuleContext.With{T}"/>; with
 /// either missing the pane is its empty state. One host serves one pane, so the module builds one view model.
 /// </summary>
-public sealed class AthanorPaneModule : IPaneModule
+public sealed class AthanorPaneModule : IPaneModule, IClientModule
 {
+    private readonly AthanorClientModule _client = new();
+
+    /// <summary>The manifest the host checks at load (doc 41 section 8).</summary>
+    public ModuleManifest Manifest => _client.Manifest;
+
+    /// <summary>Records the pane kind and commands the manifest declares.</summary>
+    public void Register(ClientModuleBuilder builder) => _client.Register(builder);
+
     public string Id => AthanorPaneKinds.Editor;
 
     public void Register(PaneRegistry registry, PaneModuleContext context)

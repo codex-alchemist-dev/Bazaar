@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Bazaar.Client.Athanor.Hosting;
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 
 namespace Bazaar.Client.Athanor.Tests.Hosting;
 

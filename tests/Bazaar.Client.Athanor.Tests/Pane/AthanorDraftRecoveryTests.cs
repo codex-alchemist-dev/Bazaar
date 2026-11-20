@@ -100,7 +100,7 @@ public sealed class AthanorDraftRecoveryTests
     public async Task The_banner_shows_restore_and_discard_and_hides_after_restore()
     {
         var (pane, _, _, _) = await BuildAsync();
-        var window = new Window { Content = Bazaar.Client.Core.Panes.PaneRegistry.Compose([new AthanorPaneModule()], new Bazaar.Client.Core.Panes.PaneModuleContext()).CreateView(pane) };
+        var window = new Window { Content = Bazaar.Client.Panes.Abstractions.PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, [new AthanorPaneModule()], new Bazaar.Client.Panes.Abstractions.PaneModuleContext()).CreateView(pane) };
         window.Show();
         await pane.OpenAsync(_a, TestContext.Current.CancellationToken);
         Dispatcher.UIThread.RunJobs();
