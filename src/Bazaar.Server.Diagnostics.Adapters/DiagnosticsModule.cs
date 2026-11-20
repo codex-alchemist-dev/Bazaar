@@ -125,6 +125,7 @@ public static class DiagnosticsModule
             Lifetime = TimeSpan.FromMinutes(section.GetValue("PendingAttachmentMinutes", 10)),
         });
         services.TryAddSingleton<AttachmentUploadAssembler>();
+        services.TryAddSingleton<ICrashConnectionRelease, CrashConnectionRelease>();
         services.TryAddSingleton<IPendingAttachmentStore, InMemoryPendingAttachmentStore>();
         services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashSubmitHandler>();
         services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentBeginHandler>();
