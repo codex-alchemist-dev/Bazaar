@@ -9,6 +9,7 @@ public sealed class ClientModuleBuilder
 {
     private readonly HashSet<string> _paneKinds = new(StringComparer.Ordinal);
     private readonly HashSet<string> _commands = new(StringComparer.Ordinal);
+    private readonly List<ClientCommandContribution> _contributions = [];
 
     public ClientModuleBuilder(ModuleManifest manifest)
     {
@@ -38,6 +39,38 @@ public sealed class ClientModuleBuilder
 
         _commands.Add(command);
     }
+
+    /// <summary>
+    /// Records a command with its default mnemonics. Throws when the manifest does not declare the id, when a
+    /// mnemonic is malformed, or when the command was already added.
+    /// </summary>
+    public void AddCommand(ClientCommandContribution command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (_commands.Contains(command.Id))
+        {
+            throw new InvalidOperationException($"Command '{command.Id}' was already added by {Manifest.Id}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(command.Title))
+        {
+            throw new InvalidOperationException($"Command '{command.Id}' of {Manifest.Id} has no title.");
+        }
+
+        foreach (var mnemonic in command.Aliases.Prepend(command.Mnemonic))
+        {
+            if (!ClientCommandContribution.IsValidMnemonic(mnemonic))
+            {
+                throw new InvalidOperationException($"Mnemonic '{mnemonic}' of command '{command.Id}' is not lowercase letters and digits (at most {ClientCommandContribution.MaxMnemonicLength}).");
+            }
+        }
+
+        AddCommand(command.Id);
+        _contributions.Add(command);
+    }
+
+    /// <summary>The commands added with their mnemonics, in the order the module added them.</summary>
+    public IReadOnlyList<ClientCommandContribution> Contributions => _contributions;
 
     public IReadOnlyCollection<string> RegisteredPaneKinds => _paneKinds;
 
