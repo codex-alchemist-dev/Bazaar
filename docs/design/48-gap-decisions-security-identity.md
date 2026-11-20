@@ -104,7 +104,14 @@ Design consequences:
 - No role can grant itself or another principal an approval capability.
 - Agents never hold `admin.*` capabilities.
 
-Built status: PLANNED. Doc `32` section 6 is updated to point here.
+Built status: BUILT as `Bazaar.Roles.Abstractions` and `Bazaar.Roles` (migration `roles/0001`). Doc `32` section 6 is updated to point here.
+
+Implementation notes (in force):
+
+- The approval capability is named `approve`. It sits in the owner template at instance scope. Only a human who holds it grants it, never to themselves, and never to an agent or service. This is how "no role can grant itself or another principal an approval capability" is read: the capability passes only from a human approver to another human.
+- The owner role keeps `admin.roles` and `approve` at instance scope, cannot be deleted, and always has at least one human holder (the removal check and the delete are one locked step in the store). The first human owner is set once, atomically.
+- A change that widens a human's grants goes through `IGrantWideningGate`. With no `IOwnerSignatureVerifier` registered the gate refuses everything (fail closed). With one, `OwnerSignedWideningGate` approves only a human actor who carries the owner's signed approval (`RoleActor.Approval`): action `roles.widen`, signed by that same person, with an args hash that binds the actor, role, person and sorted grant set (`WideningArgs.Hash`), accepted by the shared verifier (key, owner, expiry, single-use nonce). The biometric check (section 8) is the `IWideningBiometricCheck` port. Until the biometric module registers one the signature alone decides, the same layering as the legal-hold decision (owner card 2026-11-16); once one is registered every registered check must pass.
+- Templates are inserted only when missing, so owner edits survive a restart.
 
 OPEN: none for the decision. The default set of built-in templates is a list the owner can change in the setup wizard.
 
