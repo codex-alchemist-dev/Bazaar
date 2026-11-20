@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Media;
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 using Bazaar.Rubedo;
 using Bazaar.Rubedo.Views;
 
