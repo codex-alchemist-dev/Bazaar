@@ -278,7 +278,7 @@ public sealed record UiDocument<T>(string Kind, int SchemaVersion, long Revision
 
 // Layout tree (extends the LayoutDescriptor in 27). Pane leaves carry a kind and an optional config object.
 public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Children, string? PaneKind,
-    string? PaneId, JsonElement? PaneConfig, string? VisibleWhen /* reserved, unused in v1 */);
+    string? PaneId, JsonElement? PaneConfig, string? VisibleWhen /* Rubedo bool rule, doc 41a section 10 */);
 
 // Manifest every client module declares. The host enforces it identically for every module.
 public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
