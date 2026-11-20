@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.ReaderSessions</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Hand-over, taint and trust types still live in Bazaar.Server (Security.*); this reference moves with them. -->
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+  </ItemGroup>
+</Project>

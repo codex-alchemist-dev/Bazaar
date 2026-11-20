@@ -104,6 +104,8 @@
     <Project Path="src/Bazaar.Updates/Bazaar.Updates.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
+    <Project Path="src/Bazaar.Server.ReaderSessions/Bazaar.Server.ReaderSessions.csproj" />
+    <Project Path="src/Bazaar.Server.ReaderSessions.Abstractions/Bazaar.Server.ReaderSessions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Twin/Bazaar.Server.Twin.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />

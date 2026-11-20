@@ -172,7 +172,7 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 2. Capability registry, `ToolPolicyEngine`, rate buckets. Deps: 1.
 3. Approval service, tables, signature and expiry; card contracts and GC, Android and Windows UI. Deps: 1.
 4. Audit log: hash chain, verifier, export. No deps.
-5. Reader primitive: scratch space, schema registry, validator, quarantine; actor hand-over and fresh-session summary path. Deps: 1, 2, 3.
+5. Reader primitive: scratch space, schema registry, validator, quarantine; actor hand-over and fresh-session summary path. Deps: 1, 2, 3. Status: scratch store, schema registry, validator, quarantine state and fresh-session seed exist in `Bazaar.Server.Security.Readers`; the reader SESSION (tool-less gateway call under the agent's model policy, validation, purge on every path, typed result with `source_refs` lineage) is `Bazaar.Server.ReaderSessions`. Not yet built: tool-bearing readers (fetch, anonymous browser), the actor hand-over delivery path, persisted `handover` rows and audit.
 6. Credential broker and GitHub App lease provider. Deps: 2, 4.
 7. Egress provider and Hyper-V and Linux implementations. Dep: doc 16 backend.
 8. Mount manager: metadata and cookie profile, detach on taint, canaries. Deps: 1, 7.
