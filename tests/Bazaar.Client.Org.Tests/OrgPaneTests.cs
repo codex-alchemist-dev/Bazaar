@@ -5,8 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Org.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 [assembly: AvaloniaTestApplication(typeof(Bazaar.Client.Org.Tests.TestAppBuilder))]
@@ -96,7 +97,7 @@ public class OrgPaneTests
     [Fact]
     public void Registry_builds_the_pane_and_falls_back_on_a_malformed_model()
     {
-        var registry = PaneRegistry.Compose(OrgPanes.Modules);
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, OrgPanes.Modules);
 
         Assert.IsType<OrgPaneViewModel>(registry.Create(Descriptor(_model)));
         Assert.IsNotType<OrgPaneViewModel>(registry.Create(Descriptor("""{"projects":1}""")));
@@ -105,7 +106,7 @@ public class OrgPaneTests
     [AvaloniaFact]
     public void View_names_its_controls_states_no_authority_and_switches_lens()
     {
-        var registry = PaneRegistry.Compose(OrgPanes.Modules);
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, OrgPanes.Modules);
         var pane = Assert.IsType<OrgPaneViewModel>(registry.Create(Descriptor(_model)));
         var view = registry.CreateView(pane);
         var window = new Window { Content = view };

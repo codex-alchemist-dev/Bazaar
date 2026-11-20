@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Wire.Sync;
@@ -101,6 +102,6 @@ public sealed class SyncCompositionTests
 
     private sealed class FakeAccessPolicy : IGcAccessPolicy
     {
-        public ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct) => ValueTask.FromResult(false);
+        public ValueTask<bool> CanReadAsync(Guid principalId, PrincipalKind kind, Guid gcId, CancellationToken ct) => ValueTask.FromResult(false);
     }
 }

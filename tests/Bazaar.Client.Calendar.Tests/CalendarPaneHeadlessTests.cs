@@ -3,8 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Calendar.Panes;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Calendar.Tests;
 
@@ -20,7 +21,7 @@ public class CalendarPaneHeadlessTests
     private static (PaneRegistry Registry, Control View) Build()
     {
         var mapper = CalendarTestSupport.Mapper(TimeZoneInfo.Utc);
-        var registry = PaneRegistry.Compose([new CalendarPaneModule(mapper)]);
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, [new CalendarPaneModule(mapper)]);
         var pane = registry.Create(new Bazaar.Contracts.Panes.PaneDescriptor("bazaar.calendar", "Calendar", string.Empty, System.Text.Json.JsonElement.Parse(_model)));
         return (registry, registry.CreateView(pane));
     }

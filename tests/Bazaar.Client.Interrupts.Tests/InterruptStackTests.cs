@@ -3,8 +3,9 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Interrupts.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Interrupts.Tests;
@@ -120,5 +121,5 @@ public class InterruptStackTests
     private static PaneDescriptor Descriptor(string model) =>
         new(InterruptPanes.StackKind, "Interrupts", "view", JsonElement.Parse(model));
 
-    private static PaneRegistry Registry() => PaneRegistry.Compose(InterruptPanes.Modules);
+    private static PaneRegistry Registry() => PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, InterruptPanes.Modules);
 }

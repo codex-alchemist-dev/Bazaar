@@ -1,5 +1,6 @@
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Calendar.Panes;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Calendar.Tests;
 
@@ -102,7 +103,7 @@ public class CalendarPaneTests
     [Fact]
     public void Module_registers_the_pane_kind()
     {
-        var registry = PaneRegistry.Compose(CalendarPanes.Modules);
+        var registry = PaneRegistry.Compose(Bazaar.Client.Core.Panes.PaneViews.Instance, CalendarPanes.Modules);
 
         Assert.True(registry.Contains("bazaar.calendar"));
     }

@@ -1,5 +1,6 @@
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Calendar.Panes;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Calendar;
 
