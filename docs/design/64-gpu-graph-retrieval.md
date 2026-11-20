@@ -49,7 +49,7 @@ The two spaces describe the same memory notes under two keys. A memory note's wi
 1. Trust (`MemoryTier`), memory kind and status come from the note's front matter on the Vault document (doc 19 already records `source_trust` and `tier` there, round 7 C20) and are indexed beside `vault_docs`.
 2. `DerivedFrom` and `Supersedes` become the doc 19 edge kinds `derived_from` and `supersedes`, read from front matter. `Link` becomes `vault_links`.
 3. Provenance (`AuthoredBy`, `FromGc`, `FromMessage`) stays as labels and audit payload, keyed by `doc_id`. It never expanded a retrieval and does not start to.
-4. Revisions and rollback keep their DECIDED behaviour (doc 19: "a correction keeps the earlier version"). Either the revision table is re-keyed to `doc_id` (a migration) or it stays as the revision log and the graph reads only the active revision through a `doc_id` mapping. Which one is a schema choice and needs one answer (owner question 10).
+4. Revisions and rollback keep their DECIDED behaviour (doc 19: "a correction keeps the earlier version"). Either the revision table is re-keyed to `doc_id` (a migration) or it stays as the revision log and the graph reads only the active revision through a `doc_id` mapping. Which one is a schema choice and needs one answer (decision 10 in section 17).
 5. `MemoryGraphRetriever`'s rules (RRF seeds, weighted hops, hop cap 2, 0.5 per hop, filter before scoring, Active only, packing) become the rules of one Constellation retriever over the converged node set.
 
 The convergence is a change to `constellation-memory-graph.md` and lands as its own docs PR before any code (CLAUDE.md, docs first). This doc depends on it: the GPU index is specified over the converged node set, and the CPU retriever over that set is the reference.
@@ -68,7 +68,7 @@ The convergence is a change to `constellation-memory-graph.md` and lands as its 
 
 ### 2.1 How this doc fits the DECIDED placement
 
-The placement decision keeps GraphDRAG, its rules and its retriever in `Server.Constellation`. This doc does not move them. It adds a **graph kernel** (`IGraphKernel`): an engine module that the Constellation retriever calls for the heavy inner loops (vector top-k, expansion, DAG closure, ranking), with a multi-core CPU engine as the default and GPU engines as optional provider modules, in the same way a provider module serves an OS-specific need (doc 03). The retriever, its scoring rules, its scope filter and its packing stay where they are. If the graph kernel is absent, disabled or failing, the retriever behaves exactly as today. Whether this reading is acceptable is owner question 1.
+The placement decision keeps GraphDRAG, its rules and its retriever in `Server.Constellation`. This doc does not move them. It adds a **graph kernel** (`IGraphKernel`): an engine module that the Constellation retriever calls for the heavy inner loops (vector top-k, expansion, DAG closure, ranking), with a multi-core CPU engine as the default and GPU engines as optional provider modules, in the same way a provider module serves an OS-specific need (doc 03). The retriever, its scoring rules, its scope filter and its packing stay where they are. If the graph kernel is absent, disabled or failing, the retriever behaves exactly as today. Whether this reading is acceptable is decision 1 in section 17.
 
 ## 3. Scope and non-goals
 
@@ -86,7 +86,7 @@ Non-goals:
 
 - **No silent change to retrieval semantics.** The stages today's retriever already has (RRF seeds, weighted hops with a cap of 2 and a 0.5 hop penalty, filter before scoring, Active only, packing) keep their rules, and backends must reproduce them exactly. The new stages in section 3A are PROPOSED additions to the retriever spec; they land through the docs PR for `constellation-memory-graph.md` (WP0) before code, and each is behind a setting until S28 and the retrieval evaluation choose defaults.
 - **No lexical search on the GPU.** Full-text stays in Postgres (`ts_rank` on Windows, `pg_search` on Linux, per CLAUDE.md).
-- **No embedding inference on the GPU.** Embeddings come through the gateway (doc 08 section 9). Running an embedding model on the server GPU is a separate question (owner question 8).
+- **No embedding inference on the GPU.** Embeddings come through the gateway (doc 08 section 9). Running an embedding model on the server GPU is a separate question (decision 8 in section 17).
 - **No widening of scope.** Cross-project and company-wide retrieval are reached only through the access rules that exist. The graph kernel never decides what a principal may read.
 - **No new source of truth.** The Vault is the source of truth and Postgres indexes it. GPU memory is a cache that can be thrown away at any time.
 - **No client work.** The client Constellation renderer is unchanged.
@@ -114,7 +114,7 @@ Every stage runs over the principal's readable node set only. The range mask (se
 ### 3A.1 Seeds
 
 - Lexical: Postgres full-text, unchanged. Vector: top-k on the selected backend (GPU, CPU or pgvector).
-- Block hits collapse to their document node (`doc_id`) before fusion; the collapse rule (best block, or a sum) is owner question 9.
+- Block hits collapse to their document node (`doc_id`) before fusion; the collapse rule (best block, or a sum) is decision 9 in section 17.
 - Fusion: today's `RrfFusion.Fuse` with today's constants.
 - Optional seed from context: the GC, task or plan the agent is working in can be added as a pinned seed (setting `graph_retrieval.seed.work_context`, default off), so retrieval starts from where the work is, not only from the query text.
 
@@ -148,7 +148,7 @@ Typed path queries the kernel offers (PROPOSED; from research input R1, section 
 
 The pipeline uses these internally. Exposing them as agent tools (for a bounded "expand, inspect, choose the next edge" loop driven by the agent) is a later step and goes through doc 17's tool rules; every call carries the caller's principal and the same mask.
 
-**Time validity (PROPOSED, research input R3).** Revisions carry a `stored_at` already. Adding `valid_from` and `valid_to` to revisions, and an effective time on `supersedes` edges, would let the pipeline answer "what was true on date D" and mark stale items in the pack. This is a schema change and is owner question 14; until then "current" means the head of the supersede chain.
+**Time validity (PROPOSED, research input R3).** Revisions carry a `stored_at` already. Adding `valid_from` and `valid_to` to revisions, and an effective time on `supersedes` edges, would let the pipeline answer "what was true on date D" and mark stale items in the pack. This is a schema change and is decision 14 in section 17; until then "current" means the head of the supersede chain.
 
 ### 3A.4 Ranking
 
@@ -212,9 +212,9 @@ Source: `docs/research/reports/graph-context-long-horizon-memory.md` (status RES
 |---|---|---|---|
 | R1 | Graph source is the Vault's own links (`Link`, `DerivedFrom`, `Supersedes`); no model-based entity extraction in v1. Typed path queries: ancestors, descendants, supersede head, k-shortest paths, reverse impact, PPR. Return a structured bundle of paths plus cards, not flat snippets. | 3A.3 path queries, 3A.5 assembly, 5.3 edge sources. | Yes, with one disagreement: the report says `DerivedFrom` and `Supersedes` cannot form a cycle because they point back in time. They are front-matter references to ids, written by agents and people, and nothing in the schema or the projector enforces time order; a rollback (`ActivateRevisionAsync`) can also bring back an older edge set. The kernel therefore keeps a visited set and reports cycles on every kind. Enforcing acyclicity at write time is possible later, but it is a Vault write rule, not a retrieval one. |
 | R2 | Keep RRF seeds, 1 hop default, 2 max. Add a local cross-encoder reranker over the top 25 to 50. | 3A.1 and 3A.2 keep today's defaults; 3A.7 rerank over a 32-item shortlist. | Partly. Seeds and hop limits: yes. Rerank: useful, but this doc keeps it off by default and never mandatory until the labelled set (R6) shows a gain on Bazaar's own Vault, because the owner direction makes model steps optional and a rerank adds latency and a gateway dependency to every retrieval. It goes through the gateway so per-agent whitelists and usage labels apply, rather than a separate inference path. |
-| R3 | Add `valid_from` and `valid_to` to revisions and `Supersedes` edges (Zep/Graphiti style). | 3A.3 "Time validity". | Yes in principle. It is a schema change, so it needs one answer (owner question 14) and lands with the convergence docs PR (WP0), not here. |
+| R3 | Add `valid_from` and `valid_to` to revisions and `Supersedes` edges (Zep/Graphiti style). | 3A.3 "Time validity". | Yes in principle. It is a schema change, so it needs one answer (decision 14 in section 17) and lands with the convergence docs PR (WP0), not here. |
 | R4 | Cross-project hops only via grants and Hive copies; access checked per hop at read time with the caller's identity; summaries per access scope, never across; dangling cross-scope links return nothing. | Section 0 item 2, 5.3 cross-project edges, 3A.6 community floor, section 10. | Yes. The range mask is the per-hop check on the engine; the CPU post-filter re-checks with the caller's identity. |
-| R5 | Engine: `IGraphKernel` over a CSR snapshot, multi-core CPU reference first, optional GPU provider modules. cuVS, CAGRA and cuGraph are CUDA-only and the owner's card is an Arc B580, so GPU paths are optional and of the Vulkan or oneAPI/SYCL/OpenCL class. GPU is best spent on embeddings, the reranker and any graph scorer. | 4.1 (CPU engine in the main module, Vulkan as an optional provider module), 4.2 (`IGraphKernel`), 3A.9. | Mostly. Agree on the interface, the CPU default and optional providers. Two differences: (a) a cuGraph or cuVS provider cannot be first-party, because it needs the proprietary CUDA runtime and the public build is OSI-only; a third party could ship one under the module exception. (b) For Intel this doc picks Vulkan over SYCL or OpenCL, to keep one GPU API in the codebase (7.1). On where the GPU is best spent: plausible, and this doc does not dispute it, but embedding and rerank inference are out of this doc's scope (owner question 8). The GPU vector and graph kernels stay behind S28. |
+| R5 | Engine: `IGraphKernel` over a CSR snapshot, multi-core CPU reference first, optional GPU provider modules. cuVS, CAGRA and cuGraph are CUDA-only and the owner's card is an Arc B580, so GPU paths are optional and of the Vulkan or oneAPI/SYCL/OpenCL class. GPU is best spent on embeddings, the reranker and any graph scorer. | 4.1 (CPU engine in the main module, Vulkan as an optional provider module), 4.2 (`IGraphKernel`), 3A.9. | Mostly. Agree on the interface, the CPU default and optional providers. Two differences: (a) a cuGraph or cuVS provider cannot be first-party, because it needs the proprietary CUDA runtime and the public build is OSI-only; a third party could ship one under the module exception. (b) For Intel this doc picks Vulkan over SYCL or OpenCL, to keep one GPU API in the codebase (7.1). On where the GPU is best spent: plausible, and this doc does not dispute it, but embedding and rerank inference are out of this doc's scope (decision 8 in section 17). The GPU vector and graph kernels stay behind S28. |
 | R6 | Build a labelled Vault question set (path, impact, current answer, isolation) before tuning weights. | 13.5 and WP16. Edge weights, PPR alpha, closure budget share and rerank stay at their starting values until it exists. | Yes. |
 
 ## 4. Module shape and the seam
@@ -269,7 +269,7 @@ Rules (PROPOSED):
 3. **The retriever keeps the authority.** The graph kernel returns indices and hop levels only. The retriever maps them to ids, loads revisions, runs `IVaultAccess.CanRead` on every candidate, recomputes scores, applies the Active-only rule and packs. Section 10 explains why the check runs twice.
 4. **No ids, text or paths cross into GPU buffers.** Section 10.1.
 
-The seam itself is a few lines in `Server.Constellation`. Doc 40 records that Constellation is still a folder inside `Bazaar.Server` (finding 5), so this seam sits there until Constellation moves out. That is owner question 2.
+The seam itself is a few lines in `Server.Constellation`. Doc 40 records that Constellation is still a folder inside `Bazaar.Server` (finding 5), so this seam sits there until Constellation moves out. That is decision 2 in section 17.
 
 ### 4.3 What the graph kernel replaces, and what it does not
 
@@ -291,7 +291,7 @@ For the new stages (DAG closure, PPR, assembly) there is no Postgres implementat
 
 `Bazaar.Constellation.Vulkan` is a client renderer library. It references `Bazaar.Constellation.Rendering`, which the server must not take. What is reusable is small: loader initialisation, instance creation at the highest supported version (`VulkanProbe.TargetApiVersion` 1.4), device enumeration, and the pattern of committed GLSL plus SPIR-V embedded as resources.
 
-PROPOSED: extract a feature-free infrastructure library, `Bazaar.Gpu.Vulkan`, holding the probe, device selection, buffer and memory helpers, and a compute-pipeline helper. Both `Bazaar.Constellation.Vulkan` and `Bazaar.Server.GraphRetrieval` reference it. It holds no feature, so it does not break the module rule. The extraction is its own small PR with no behaviour change for the renderer. The probe's Intel driver-version decode bug noted in `constellation-scale-and-lod.md` section 10 is fixed in the same PR. Owner question 3 asks whether this library is acceptable or the module should keep its own copy.
+PROPOSED: extract a feature-free infrastructure library, `Bazaar.Gpu.Vulkan`, holding the probe, device selection, buffer and memory helpers, and a compute-pipeline helper. Both `Bazaar.Constellation.Vulkan` and `Bazaar.Server.GraphRetrieval` reference it. It holds no feature, so it does not break the module rule. The extraction is its own small PR with no behaviour change for the renderer. The probe's Intel driver-version decode bug noted in `constellation-scale-and-lod.md` section 10 is fixed in the same PR. Owner decision 3 asks whether this library is acceptable or the module should keep its own copy.
 
 ## 5. Data layout on the GPU (PROPOSED)
 
@@ -299,7 +299,7 @@ All GPU buffers are device-local storage buffers unless stated. Indices are `uin
 
 ### 5.0 Node set
 
-Nodes are Constellation nodes (section 0): one graph node per `vault_docs.doc_id`, of every Vault document type, in every project the install holds. Memory notes are included because they are Vault documents (`type = memory`), not because a memory table lists them. Phase 1 holds Vault document nodes and document-to-document edges only. GC, decision-reference, task and PR nodes from doc 19 are phase 2, because their visibility rules (DM membership, Thinking GCs) are not Vault path rules and need their own mask source (owner question 11).
+Nodes are Constellation nodes (section 0): one graph node per `vault_docs.doc_id`, of every Vault document type, in every project the install holds. Memory notes are included because they are Vault documents (`type = memory`), not because a memory table lists them. Phase 1 holds Vault document nodes and document-to-document edges only. GC, decision-reference, task and PR nodes from doc 19 are phase 2, because their visibility rules (DM membership, Thinking GCs) are not Vault path rules and need their own mask source (decision 11 in section 17).
 
 ### 5.1 Segments
 
@@ -315,7 +315,7 @@ The index is cut into **segments**. A segment is a contiguous range of rows that
 ### 5.3 Graph (CSR)
 
 - `row_offsets: uint32[N_nodes + 1]`, `col_index: uint32[E]`, `edge_kind: uint8[E]` padded to 4 bytes per edge group. The weight is looked up from the kind through one weight table shared with the CPU retriever, so weights cannot drift.
-- Edge sources: `vault_links` rows with a resolved `target_doc` (kind `link`, and `embed`), and the front-matter relations `derived_from` and `supersedes`. Today's weights carry over: `link` 1.0 (today's `Link`), `derived_from` 0.8, `supersedes` 0.5. A weight for `embed`, for `contradicts`, and whether `backlink` (the reverse direction) expands are not specified anywhere; today's memory retriever expands outgoing edges only, while `NeighbourCardsAsync` reads both directions. These belong in the converged retriever spec (owner question 12), and until then the GPU index carries only the three kinds with known weights, outgoing only.
+- Edge sources: `vault_links` rows with a resolved `target_doc` (kind `link`, and `embed`), and the front-matter relations `derived_from` and `supersedes`. Today's weights carry over: `link` 1.0 (today's `Link`), `derived_from` 0.8, `supersedes` 0.5. A weight for `embed`, for `contradicts`, and whether `backlink` (the reverse direction) expands are not specified anywhere; today's memory retriever expands outgoing edges only, while `NeighbourCardsAsync` reads both directions. These belong in the converged retriever spec (decision 12 in section 17), and until then the GPU index carries only the three kinds with known weights, outgoing only.
 - Unresolved links (`target_doc` null) produce no edge, matching the projector rule. Provenance labels never expand and are left out.
 - A node bitset `node_flags: uint32[ceil(N_nodes / 32)]` per flag: `active` (for memory documents, the active revision's status is `Active`; for other documents, the document exists and is not deprecated or archived by its front matter, by the converged spec) and `tombstone` (removed, erased or moved).
 - **Cross-project edges.** A link whose target is in another project is stored like any edge, and the range mask decides at query time whether the hop is allowed, so a hop across projects happens only when the principal may read the target segment under today's rules (Hive copies, role grants). This doc adds no cross-project grant.
@@ -450,7 +450,7 @@ Each query reads the current change sequence from Postgres (one cheap read, whic
 
 ### 10.1 What may be in GPU memory
 
-Only data the server process may already read: embedding values, row and node indices, edge kinds and flag bits. No note text, titles, vault paths, ids, Soul data, secrets or credentials go to the GPU. The host maps indices back to ids. Encrypted personal blocks are never embedded (doc 08 section 9), so they never reach the GPU either. GPU memory is never written to disk by the module. Staging and per-query buffers are zeroed when they go back to the pool. On Windows the driver may still page device memory; that is the same exposure as paging of server process memory and is listed as owner question 7.
+Only data the server process may already read: embedding values, row and node indices, edge kinds and flag bits. No note text, titles, vault paths, ids, Soul data, secrets or credentials go to the GPU. The host maps indices back to ids. Encrypted personal blocks are never embedded (doc 08 section 9), so they never reach the GPU either. GPU memory is never written to disk by the module. Staging and per-query buffers are zeroed when they go back to the pool. On Windows the driver may still page device memory; that is the same exposure as paging of server process memory and is listed as decision 7 in section 17.
 
 ### 10.2 Scope is enforced twice: by partitioning and by the CPU post-filter
 
@@ -573,7 +573,7 @@ These gates apply per stage: a GPU stage joins `graph_retrieval.gpu.stages` by d
 
 ### 13.5 Retrieval quality evaluation (research input R6)
 
-Speed gates say nothing about whether the context is better. Before any weight, alpha, budget share or optional stage is tuned, build a labelled question set from Bazaar's own Vault (this repo's docs are a public start; the owner's Vault only with question 6's consent):
+Speed gates say nothing about whether the context is better. Before any weight, alpha, budget share or optional stage is tuned, build a labelled question set from Bazaar's own Vault (this repo's docs are a public start; the owner's Vault only with decision 6's consent):
 
 | Question type | Example shape | Scored by |
 |---|---|---|
@@ -588,7 +588,7 @@ Arms: seeds only (today's vector plus lexical), `hop_decay`, `ppr`, each with an
 
 ### 13.6 Where and who
 
-Owner's Windows PC with the B580 for speed numbers (like S14). A Linux run on any Vulkan-capable machine for the Linux requirement; the cloud container has no GPU, so Linux GPU numbers need hardware the owner chooses (owner question 5). Software Vulkan runs in CI. No benchmark number is written into this doc before S28 measures it.
+Owner's Windows PC with the B580 for speed numbers (like S14). A Linux run on any Vulkan-capable machine for the Linux requirement; the cloud container has no GPU, so Linux GPU numbers need hardware the owner chooses (decision 5 in section 17). Software Vulkan runs in CI. No benchmark number is written into this doc before S28 measures it.
 
 ## 14. Test strategy (PROPOSED)
 
@@ -619,7 +619,7 @@ Sizes: S is up to a day, M is two to three days, L is about a week.
 | 0 | Docs PR: converge the memory graph onto Constellation nodes in `constellation-memory-graph.md` (section 1.1), with the edge-weight table for the Vault edge kinds | M | decisions 10 and 12 in section 17 |
 | 1 | Abstractions project: interface, records, decline reasons, null kernel, architecture test | S | none |
 | 2 | Seam in `MemoryGraphRetriever`: optional kernel, decline handling, CPU replay of scoring from hop levels, post-filter mismatch handling; tests proving unchanged behaviour with the null kernel | M | 1 |
-| 3 | Extract `Bazaar.Gpu.Vulkan` from the renderer (probe, device selection, buffers, compute pipeline helper); fix the Intel driver-version decode; renderer tests unchanged | M | owner question 3 |
+| 3 | Extract `Bazaar.Gpu.Vulkan` from the renderer (probe, device selection, buffers, compute pipeline helper); fix the Intel driver-version decode; renderer tests unchanged | M | decision 3 in section 17 |
 | 4 | Change feed table, migration and producers in the Vault indexer, memory revision store and embedding writer | M | 1 |
 | 5 | Host-side index over Constellation nodes (`vault_docs`, `vault_links`, front-matter relations): segment table, row maps, CSR builder, cold build from Postgres, delta apply, compaction | L | 0, 4 |
 | 6 | `CpuGraphKernel` (the default engine): vector top-k, bounded expansion, DAG closure, PPR, typed path queries; the single-threaded oracle; parity property tests against pgvector, the retriever and the oracle | L | 5 |
@@ -632,9 +632,9 @@ Sizes: S is up to a day, M is two to three days, L is about a week.
 | 11 | S28 harness and run on the owner's PC; write results into this doc and doc 35 | L | 6, 8, 16 |
 | 12 | int8 mode with fp16 rescore | M | 8, only if S28 keeps it |
 | 13 | GPU expansion, closure and PPR kernels | M | 7, only if S28's CPU numbers leave room for a gain |
-| 14 | Vault vector search (`VaultSearchService`) through the same kernel | M | 8, and the block-to-document seed rule (owner question 9) |
-| 15 | Phase 2 nodes: GC, decision-reference, task and PR nodes with their own mask source | L | 6, owner question 11 |
-| 16 | Labelled Vault question set and evaluation harness (13.5) | M | none (public docs first; owner question 6 for the real Vault) |
+| 14 | Vault vector search (`VaultSearchService`) through the same kernel | M | 8, and the block-to-document seed rule (decision 9 in section 17) |
+| 15 | Phase 2 nodes: GC, decision-reference, task and PR nodes with their own mask source | L | 6, decision 11 in section 17 |
+| 16 | Labelled Vault question set and evaluation harness (13.5) | M | none (public docs first; decision 6 in section 17 for the real Vault) |
 
 Work packages 0, 1, 3, 4 and 16 can start in parallel. Nothing beyond 0, 1 and 2 should merge before the decisions 1, 2 and 10 in section 17 are accepted.
 
