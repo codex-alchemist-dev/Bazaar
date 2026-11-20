@@ -1,7 +1,7 @@
 using Bazaar.Server.Agents.Inbox;
 using Bazaar.Server.Company.Constitution.Propagation;
 
-namespace Bazaar.Server.Tests.Company.Constitution.Propagation;
+namespace Bazaar.Server.Constitution.Tests.Propagation;
 
 public class ConstitutionChangeNoticeTests
 {
