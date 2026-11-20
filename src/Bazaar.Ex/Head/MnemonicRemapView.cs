@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 
 namespace Bazaar.Ex.Head;
 

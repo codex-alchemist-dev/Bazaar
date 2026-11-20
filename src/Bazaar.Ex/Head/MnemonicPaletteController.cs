@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 
 namespace Bazaar.Ex.Head;
 

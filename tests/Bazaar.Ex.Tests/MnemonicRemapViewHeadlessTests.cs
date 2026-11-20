@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 using Bazaar.Ex.Head;
 
 namespace Bazaar.Ex.Tests;
