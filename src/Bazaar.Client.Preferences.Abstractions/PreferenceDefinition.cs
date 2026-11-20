@@ -27,3 +27,9 @@ public sealed record PreferenceDefinition(
     IReadOnlyList<string>? Choices = null,
     long? Min = null,
     long? Max = null);
+
+/// <summary>Implemented by a module that declares preferences. The head collects the declarations when it builds the store.</summary>
+public interface IPreferenceDeclarer
+{
+    IEnumerable<PreferenceDefinition> Preferences { get; }
+}

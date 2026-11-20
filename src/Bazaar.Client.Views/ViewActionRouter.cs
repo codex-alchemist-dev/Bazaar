@@ -4,7 +4,7 @@ namespace Bazaar.Client.Views;
 /// The head's <see cref="IViewActions"/>, built from whatever the head can do (doc 41c, section 6). An action the head has
 /// not wired fails closed: it throws, and the mapper reports it through <see cref="ViewContext.OnActionError"/>.
 /// </summary>
-public sealed class ViewActionRouter : IViewActions
+public sealed partial class ViewActionRouter : IViewActions
 {
     private readonly Func<string, Task>? _navigate;
     private readonly Func<string, Task>? _invoke;

@@ -12,6 +12,10 @@ using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Navigation;
+using Bazaar.Client.Navigation.Abstractions;
+using Bazaar.Client.Preferences;
+using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
@@ -63,13 +67,34 @@ public sealed class App : Avalonia.Application
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
         ];
+        // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
+        // once the phone shell exists. Preferences stay on this device until a wire sync is attached.
+        var paneSurface = new LatePaneSurface();
+        var preferences = new PreferenceStore(
+            modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
+            new FilePreferenceStorage(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "preferences.json"),
+                Console.Error.WriteLine));
+        var viewActions = ViewActionRouter.ForServices(new PaneNavigator(paneSurface), new CommandRunner(), preferences);
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(tiles)
-            .WithViewContext(ViewContextServices.CreateDefault(new ViewActionRouter(), ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
+            .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
         var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
+        paneSurface.Bind(
+            registry.Contains,
+            (kind, _) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                int page = shell.Pages.ToList().FindIndex(p => p.Contains(kind, StringComparer.Ordinal));
+                if (page < 0)
+                {
+                    throw new NavigationException($"The pane '{kind}' is not on a page of this shell.");
+                }
+
+                shell.GoToPage(page);
+            }).GetTask());
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
