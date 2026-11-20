@@ -7,10 +7,10 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Chat.Abstractions;
-using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Wire;
 using Bazaar.Client.Gc;
+using Bazaar.Client.Mobile;
 using Bazaar.Contracts.Wire;
 using Bazaar.Testing;
 

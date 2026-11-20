@@ -118,7 +118,7 @@ public sealed class RuntimeSignatureCheckerTests
         TrustedKey key = new(
             RuntimeTestSigning.KeyId,
             "ed25519-not-built",
-            RuntimeTestSigning.PrimaryKey.ExportSubjectPublicKeyInfo(),
+            RuntimeTestSigning.PrimaryPublicKey,
             RuntimeTestSigning.Now.AddDays(-1),
             RuntimeTestSigning.Now.AddDays(1));
         RuntimeSignatureChecker checker = new(new RuntimeTrustRoot([key]));
@@ -143,7 +143,7 @@ public sealed class RuntimeSignatureCheckerTests
     public void RsaVerifierReturnsFalseForGarbageKeyBytes()
     {
         RsaPkcs1Sha256Verifier verifier = new();
-        byte[] signature = RuntimeTestSigning.PrimaryKey.SignData(_message, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        byte[] signature = RuntimeTestSigning.SignRaw(RuntimeTestSigning.PrimaryKey, _message);
 
         Assert.False(verifier.Verify(_message, signature, [0x01, 0x02, 0x03]));
     }
@@ -180,7 +180,7 @@ public sealed class RuntimeSignatureCheckerTests
     private static TrustedKey KeyFor(string keyId) => new(
         keyId,
         RsaPkcs1Sha256Verifier.AlgorithmName,
-        RuntimeTestSigning.PrimaryKey.ExportSubjectPublicKeyInfo(),
+        RuntimeTestSigning.PrimaryPublicKey,
         RuntimeTestSigning.Now.AddDays(-1),
         RuntimeTestSigning.Now.AddDays(1));
 }
