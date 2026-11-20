@@ -294,7 +294,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         }
 
         // The codec is final now, so the subscription frames it writes match what the client negotiated.
-        Subscriptions = _subscriptions?.CreateSession(Principal.Id, _codec, new EventOutbound(this));
+        Subscriptions = _subscriptions?.CreateSession(Principal.Id, Principal.GcKind(), _codec, new EventOutbound(this));
 
         var welcome = new Welcome(
             _version, _serverMinor, _codec.Name, Principal.Id, _time.GetUtcNow(), _options.HeartbeatIntervalS,
