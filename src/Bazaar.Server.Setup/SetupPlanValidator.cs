@@ -64,6 +64,7 @@ public static partial class SetupPlanValidator
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
+        ValidateUpdatePolicy(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
@@ -337,6 +338,24 @@ public static partial class SetupPlanValidator
 
         var value = JsonSerializer.SerializeToElement(plan.Install.ReleaseChannel.Replace('-', '_'), SetupPlanJsonContext.Default.String);
         CheckRegistryValue(definition, "install.releaseChannel", value, issues);
+    }
+
+    /// <summary>
+    /// The update policy (doc 45 step 2). The security half is the registry key <c>deps.update.autoSecurityPatches</c>, so a value set
+    /// twice (in the plan field and in settings) is an error. The other half has no backing setting: only <c>manual</c>, the shipped
+    /// default, can be applied, so <c>automatic</c> is refused here rather than accepted and silently not stored.
+    /// </summary>
+    private static void ValidateUpdatePolicy(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(SetupSettingProjection.AutoSecurityPatchesKey))
+        {
+            issues.Add(Error("settings." + SetupSettingProjection.AutoSecurityPatchesKey, "is already set by install.updatePolicy.security; set it in one place."));
+        }
+
+        if (_updateModes.Contains(plan.Install.UpdatePolicy.Other, StringComparer.Ordinal) && !SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
+        {
+            issues.Add(Error("install.updatePolicy.other", "automatic is not supported yet: no setting stores it, so only manual can be applied."));
+        }
     }
 
     /// <summary>

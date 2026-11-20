@@ -64,4 +64,26 @@ public sealed class InstallSettingsStepRefusalTests
         Assert.False(result.Succeeded);
         Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task An_automatic_update_policy_for_the_rest_fails_the_step_because_no_setting_stores_it()
+    {
+        var plan = new SetupPlan { Install = new SetupInstallSection { UpdatePolicy = new SetupUpdatePolicySection { Other = "automatic" } } };
+
+        var result = await ApplyAsync(plan);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("install.updatePolicy.other", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_step_covers_the_update_policy_but_not_the_sections_it_cannot_store()
+    {
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none");
+        var covers = new InstallSettingsStep(dataSource, RegistrySetupSettingCatalog.Known).Covers;
+
+        Assert.Contains("install.updatePolicy", covers);
+        Assert.DoesNotContain(covers, id => id is "privacy" or "backups" or "models" or "git" or "email" or "company" or "modules");
+        Assert.All(covers, id => Assert.True(SetupPlanSections.IsKnown(id), id));
+    }
 }
