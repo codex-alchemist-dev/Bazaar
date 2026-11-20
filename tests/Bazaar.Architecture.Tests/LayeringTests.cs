@@ -26,6 +26,8 @@ public class LayeringTests
         var allowed = project switch
         {
             "Bazaar.Client.Views" => new[] { "Bazaar.Client.Theme" },
+            // RyuseiFuda renders its panes from Rubedo view documents through the mapper (doc 41c).
+            "Bazaar.Client.RyuseiFuda" => new[] { "Bazaar.Client.Views" },
             _ => [],
         };
 

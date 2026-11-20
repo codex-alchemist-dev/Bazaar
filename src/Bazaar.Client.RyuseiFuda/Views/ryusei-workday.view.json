@@ -1,0 +1,78 @@
+{
+  "dslVersion": 1,
+  "name": "bazaar.ryusei.workday",
+  "data": {
+    "emptyText": {
+      "capability": "ryusei.workday",
+      "type": "text"
+    },
+    "emptyVisible": {
+      "capability": "ryusei.workday",
+      "type": "bool"
+    },
+    "lines": {
+      "capability": "ryusei.workday",
+      "type": "list",
+      "fields": {
+        "id": "text",
+        "text": "text",
+        "heading": "bool"
+      }
+    }
+  },
+  "actions": {},
+  "root": {
+    "widget": "stack",
+    "children": [
+      {
+        "widget": "text",
+        "props": {
+          "text": {
+            "expr": "emptyText"
+          },
+          "style": "small",
+          "visibleWhen": {
+            "expr": "emptyVisible"
+          }
+        }
+      },
+      {
+        "widget": "list",
+        "props": {
+          "over": "lines",
+          "key": "id"
+        },
+        "children": [
+          {
+            "widget": "stack",
+            "children": [
+              {
+                "widget": "text",
+                "props": {
+                  "text": {
+                    "expr": "text"
+                  },
+                  "visibleWhen": {
+                    "expr": "heading"
+                  }
+                }
+              },
+              {
+                "widget": "text",
+                "props": {
+                  "text": {
+                    "expr": "text"
+                  },
+                  "style": "small",
+                  "visibleWhen": {
+                    "expr": "!heading"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
