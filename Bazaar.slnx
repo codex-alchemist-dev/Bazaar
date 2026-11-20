@@ -54,6 +54,8 @@
     <Project Path="src/Bazaar.Server.Interrupts/Bazaar.Server.Interrupts.csproj" />
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Reputation/Bazaar.Server.Reputation.csproj" />
+    <Project Path="src/Bazaar.Server.Knowledge.Abstractions/Bazaar.Server.Knowledge.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Knowledge/Bazaar.Server.Knowledge.csproj" />
     <Project Path="src/Bazaar.Server.Modules.Abstractions/Bazaar.Server.Modules.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Modules/Bazaar.Server.Modules.csproj" />
     <Project Path="src/Bazaar.Diagnostics/Bazaar.Diagnostics.csproj" />
@@ -141,6 +143,7 @@
     <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Interrupts.Tests/Bazaar.Server.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Reputation.Tests/Bazaar.Server.Reputation.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Modules.Tests/Bazaar.Server.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Kek.Tests/Bazaar.Server.Identity.Kek.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
