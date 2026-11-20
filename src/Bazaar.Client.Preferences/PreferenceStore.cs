@@ -174,6 +174,19 @@ public sealed class PreferenceStore : IPreferenceStore
             {
                 await _sync.PushAsync(key, value, cancellationToken).ConfigureAwait(false);
             }
+            catch (PreferenceRejectedException)
+            {
+                // A permanent refusal: drop the local change so the key returns to its default and the queue moves on.
+                lock (_gate)
+                {
+                    _pending.Remove(key);
+                    _values.Remove(key);
+                    Persist();
+                }
+
+                Changed?.Invoke(key);
+                continue;
+            }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 return sent;

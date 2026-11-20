@@ -62,3 +62,24 @@ public sealed record PreferenceSnapshot(IReadOnlyDictionary<string, string> Valu
 {
     public static PreferenceSnapshot Empty { get; } = new(new Dictionary<string, string>(), []);
 }
+
+/// <summary>
+/// The server refused a change for good (an unknown key, a value the registry rejects, or a key this person may not
+/// change). The store drops the local change instead of retrying it forever.
+/// </summary>
+public sealed class PreferenceRejectedException : Exception
+{
+    public PreferenceRejectedException(string message)
+        : base(message)
+    {
+    }
+
+    public PreferenceRejectedException()
+    {
+    }
+
+    public PreferenceRejectedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
