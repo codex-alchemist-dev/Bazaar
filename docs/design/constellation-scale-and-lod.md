@@ -305,6 +305,31 @@ Recommended threshold: T = 2 estimated points per pixel. The density path is a c
 
 The real client therefore needs its render thread at a raised priority (or a dedicated high-priority thread) to hold a wall p99 near its GPU p99 on a busy machine.
 
+### 10.10 Compute culling and indirect draws (2026-11-20)
+Bench mode `topology-cull`, same machine and method as 10.9 (Intel Arc B580, offscreen 1280x720, 30 warm-up and 200 measured frames, one run per cell, `BAZAAR_BENCH_BOOST=1`, 100k LOD edges in every variant). 150 draw cells: N = 1B with M = 0.5M, 1M and 2M points, plus N = 100M and N = 2B at M = 1M, 5 topologies, 2D and 3D, 3 viewpoints. Raw CSV: `results/topo-cull.csv` (also the 10.9 baselines re-measured in this run). `vkCmdDrawIndirectCount` is supported on this device (drawIndirectCount, multiDrawIndirect, drawIndirectFirstInstance enabled).
+
+**Path.** The M sampled points are binned once per (topology, N, M) into 4096 tiles (2D 64x64, 3D 16^3; counts, tight bounds, prefix sum, scatter; 4 compute passes). Per frame: a compute pass tests each tile (8-corner frustum test; with Hi-Z also a test against the previous frame's depth pyramid) and appends one `VkDrawIndirectCommand` per surviving tile; one `vkCmdDrawIndirectCount` draws them. Hi-Z variant: points are drawn with a reversed-Z depth buffer, then an 11-level 2x2-min pyramid (640x360 down to 1x1) is built by compute.
+
+| Variant | Cells meeting (GPU p95 <= 2.5 ms, p99 <= 3.3 ms) | Cells meeting (wall p99 <= 3.3 ms) | GPU p50 median (ms) |
+|---|---|---|---|
+| cbase: plain draw | 133 of 150 | 122 | 0.565 |
+| cdec: decimation + indirect draw (10.9 c) | 148 of 150 | 144 | 0.167 |
+| ctile: tile cull + indirect count | 130 of 150 | 130 | 0.270 |
+| cthiz: ctile + depth write + Hi-Z | 137 of 150 | 134 | 0.204 |
+| cthizbig: cthiz, 24 px occluder points (3D, N = 1B, M = 1M, mid and close; 10 cells) | 9 of 10 | 8 | 0.474 |
+
+**Results.**
+- The cull pass itself is cheap: 3.3 to 7.6 microseconds p50 for 4096 tiles; the Hi-Z pyramid build 13 to 18 microseconds. Neither is a cost problem.
+- Culling cuts work in the zoomed views (median 42 percent of the sampled points drawn; 2D close 0 to 1 percent) but does nothing in the whole views, where every tile is visible. The whole-view misses are therefore the same ones as before: ring (2D whole 3.5, 10 and 25 ms at 0.5M, 1M, 2M points) and clustered or hub 2D whole.
+- Point overdraw is not fixed by tile culling (ctile misses 20 cells, mostly ring and clustered whole views). Decimation (10.9 c) is better in the 2D cases because it removes same-pixel points.
+- Hi-Z with points as occluders removes almost nothing: tiles drawn were 155 051 of 156 012 frustum-visible (41 of 150 cells had any tile occluded); in 2D every depth is equal. With 24 px occluder points tiles are occluded (for example hub and spoke 3D close at N = 1B, M = 1M: 253 of 685 frustum-visible tiles drawn), so the test works, but the gain depends on having real occluders.
+- cthiz is faster than ctile in several 3D cells (N = 1B, M = 1M: ring 3D mid GPU p50 1.82 ms to 0.63 ms, ring 3D whole 6.79 ms to 2.37 ms) because the depth test rejects the same-pixel writes early, not because tiles were culled. 2D has no such gain (ring 2D whole still 10 ms).
+- Misses: ctile 20 cells, cthiz 13 cells, all in ring, clustered and hub 2D whole views and the 2M-point cells; cthiz worst GPU p99 26.2 ms (ring 2D whole, M = 2M).
+
+**Conclusion.** For the target, the indirect-count path works and is cheap, but the thing that decides whether the B580 holds 400 fps is overdraw decimation (10.9 c, 148 of 150) combined with the density switch (10.9 d, 150 of 150), not tile culling. Tile cull plus indirect draw is the right shape for the real renderer (per-tile commands, resident tile pool), and belongs in front of decimation, but it was not measured with real tile selection: `ViewSelector` (#908) is not merged, so tiles here are a fixed grid over the sampled points.
+
+**Limits.** One run per cell. Tiles are a uniform grid over a stride sample, not the quadtree or octree of section 3. Hi-Z occluders are the 1 to 4 px points themselves, so it is nearly idle by construction; real node discs or cluster impostors would occlude more. The Hi-Z frame uses a second rendering scope for edges and a depth attachment, so part of its difference from ctile is that. The cull path was not combined with decimation or the density switch in one frame.
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
