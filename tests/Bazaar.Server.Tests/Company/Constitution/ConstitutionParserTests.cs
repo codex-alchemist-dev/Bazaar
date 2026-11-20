@@ -1,7 +1,7 @@
 // TODO(component): move to the Company component project when PR #125 merges.
 using Bazaar.Server.Company.Constitution;
 
-namespace Bazaar.Server.Constitution.Tests;
+namespace Bazaar.Server.Tests.Company.Constitution;
 
 public class ConstitutionParserTests
 {

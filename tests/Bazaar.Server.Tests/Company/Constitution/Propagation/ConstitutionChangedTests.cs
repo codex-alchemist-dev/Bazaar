@@ -1,6 +1,6 @@
 using Bazaar.Server.Company.Constitution.Propagation;
 
-namespace Bazaar.Server.Constitution.Tests.Propagation;
+namespace Bazaar.Server.Tests.Company.Constitution.Propagation;
 
 public class ConstitutionChangedTests
 {

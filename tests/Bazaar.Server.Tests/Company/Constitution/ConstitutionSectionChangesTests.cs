@@ -1,7 +1,7 @@
 using Bazaar.Server.Company.Constitution;
 using Bazaar.Server.Company.Constitution.Propagation;
 
-namespace Bazaar.Server.Constitution.Tests;
+namespace Bazaar.Server.Tests.Company.Constitution;
 
 public sealed class ConstitutionSectionChangesTests
 {
