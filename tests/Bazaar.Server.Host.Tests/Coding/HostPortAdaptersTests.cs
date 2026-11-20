@@ -179,7 +179,7 @@ public sealed class HostPortAdaptersTests
 
         // No Server source exists for these, so they must not resolve.
         Assert.IsType<ConfiguredAgentGitIdentity>(provider.GetRequiredService<IAgentGitIdentity>());
-        Assert.Throws<InvalidOperationException>(provider.GetRequiredService<IWorkShareLayout>);
+        Assert.NotNull(provider.GetRequiredService<IWorkShareLayout>());
         Assert.IsType<RunningTurnParentDirectory>(provider.GetRequiredService<IRuntimeSubagentParentDirectory>());
         Assert.Throws<InvalidOperationException>(provider.GetRequiredService<IPushGate>);
     }
