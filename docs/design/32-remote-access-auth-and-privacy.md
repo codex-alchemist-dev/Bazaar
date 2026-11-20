@@ -68,6 +68,15 @@ ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped t
 
 Reuse of a retired refresh credential revokes the device and audits it. Lifetimes are settings (`auth.*`, Settings table). Revocation is immediate: live sockets close 4403, a device revision is checked on connect and `auth.refresh`, and the device's approval key (5a) is revoked with it. The owner revokes any device; a coworker revokes their own.
 
+**Access token signing key** [PROPOSED]
+- **Algorithm and key.** The access token is signed with HMAC-SHA256 under a 256-bit signing key. The key is an install-scope data key: one row in `soul_dek` with scope `access-token` (one live row per scope). It is wrapped by the host KEK (doc 14, envelope encryption). The Identity Service holds it. No other module sees the key; they get only a verifier or an issuer, behind one interface.
+- **Token format:** `v1.<kid>.<payload>.<mac>`. `kid` is the `dek_id` of the signing key. `payload` is base64url JSON `{"sub": device id, "hum": human id, "exp": unix seconds}`. `mac` is base64url HMAC-SHA256 over the ASCII text `v1.<kid>.<payload>`.
+- **Refusal.** A token is refused if its `kid` is unknown, its `mac` does not verify, `exp` is in the past, or its device is revoked or does not belong to the human in `hum`. These checks replace the HTTP caller check. There is no pairing (section 3).
+- **Rotation.** A new key is created every `auth.signing_key_rotation_days` (default 30, install scope) and on demand. The previous key verifies only, until its `retired_at` plus the access token lifetime (`auth.access_token_minutes`) plus 60 s clock skew. Then its wrapped key is cleared (crypto-shred, as `soul_dek` already allows). Issue uses only the live key.
+- **Fail closed.** If the KEK cannot unwrap the signing key, no access token is issued (503 unavailable) and none verifies.
+- **Custody.** Signing keys are never exported, never written to logs, and never in the Soul export (33). A restore from backup needs the KEK, like every other wrapped key.
+- **Open:** asymmetric signing (Ed25519) if a second verifier outside the server is ever needed. Today only the server verifies, so a symmetric key is enough.
+
 WebSocket: credential in the upgrade `Authorization` header, or in the first `hello` frame within 5 s (02). No cookies; `Origin` absent or allow-listed. Membership is re-checked per subscription, not only at connect.
 
 ### 5a. Owner approval signing key [PROPOSED]
@@ -151,6 +160,7 @@ Registered in doc 03's settings registry and surfaced in the setup wizard or adv
 | `auth.access_token_minutes` | int | 15 | install | owner | no |
 | `auth.refresh_sliding_days` | int | 30 | install | owner | yes, if lengthened |
 | `auth.refresh_absolute_days` | int | 90 | install | owner | yes, if lengthened |
+| `auth.signing_key_rotation_days` | int | 30 | install | owner | yes, if lengthened [PROPOSED] |
 | `approval.coworker_scopes` | list | empty (no coworker approvals) | install | owner | yes |
 | `signin.enabled` | bool | false | install | owner | yes, when enabled |
 | `signin.bind_address` | string | unset (required when enabled) | install | owner | yes |
