@@ -13,6 +13,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Windows\Bazaar.Client.Windows.csproj" />
   </ItemGroup>
 </Project>
