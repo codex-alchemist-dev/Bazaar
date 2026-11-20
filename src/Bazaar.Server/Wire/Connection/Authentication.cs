@@ -1,4 +1,24 @@
+using Bazaar.Contracts.Gc;
+
 namespace Bazaar.Server.Wire.Connection;
+
+/// <summary>The GC model's view of a wire principal.</summary>
+public static class PrincipalRefGcExtensions
+{
+    /// <summary>The GC model's kind for this principal; the owner reads all, so the kind must reach the read rules.</summary>
+    /// <exception cref="InvalidOperationException">The wire kind is not one the GC model knows.</exception>
+    public static GcParticipantKind GcKind(this PrincipalRef principal)
+    {
+        ArgumentNullException.ThrowIfNull(principal);
+        return principal.Kind switch
+        {
+            "owner" => GcParticipantKind.Owner,
+            "human" => GcParticipantKind.Human,
+            "agent" => GcParticipantKind.Agent,
+            _ => throw new InvalidOperationException($"Unknown principal kind '{principal.Kind}'."),
+        };
+    }
+}
 
 /// <summary>What the client presented. The credential comes from the upgrade header or from <c>hello</c>.</summary>
 /// <param name="Value">Credential text; never logged.</param>

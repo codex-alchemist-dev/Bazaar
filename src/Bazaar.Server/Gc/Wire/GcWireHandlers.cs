@@ -10,13 +10,7 @@ namespace Bazaar.Server.Gc.Wire;
 /// <summary>Maps the wire's principal kind (<c>owner</c>, <c>human</c>, <c>agent</c>) onto the GC model.</summary>
 internal static class GcWirePrincipals
 {
-    public static GcParticipantKind KindOf(PrincipalRef principal) => principal.Kind switch
-    {
-        "owner" => GcParticipantKind.Owner,
-        "human" => GcParticipantKind.Human,
-        "agent" => GcParticipantKind.Agent,
-        _ => throw new InvalidOperationException($"Unknown principal kind '{principal.Kind}'."),
-    };
+    public static GcParticipantKind KindOf(PrincipalRef principal) => principal.GcKind();
 
     public static GcPrincipal PrincipalOf(PrincipalRef principal) =>
         new(principal.Id, KindOf(principal), string.Empty);

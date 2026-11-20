@@ -142,7 +142,7 @@ public class GcContextSourceTests
 
         public ValueTask<int> CountUnreadAsync(Guid gcId, Guid viewerId, CancellationToken ct) => throw new NotSupportedException();
 
-        public ValueTask<bool> CanReadAsync(Guid principalId, Guid gcId, CancellationToken ct) => throw new NotSupportedException();
+        public ValueTask<bool> CanReadAsync(Guid principalId, GcParticipantKind kind, Guid gcId, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class FixedCharter(string text) : ISoulCharterSource

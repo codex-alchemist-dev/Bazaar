@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 
@@ -19,8 +20,8 @@ public sealed class SubscriptionEngine(
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>Creates the per-connection state. Dispose it when the socket closes.</summary>
-    public SubscriptionSession CreateSession(Guid principalId, IWireCodec codec, IConnectionOutbound outbound) =>
-        new(principalId, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
+    public SubscriptionSession CreateSession(Guid principalId, GcParticipantKind principalKind, IWireCodec codec, IConnectionOutbound outbound) =>
+        new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
 }
 
 /// <summary>What <see cref="SubscriptionSession.SubscribeAsync"/> decided, and the work to start once the response is queued.</summary>
@@ -45,6 +46,7 @@ public sealed class SubscribeOutcome
 public sealed class SubscriptionSession : IDisposable
 {
     private readonly Guid _principalId;
+    private readonly GcParticipantKind _principalKind;
     private readonly IGcStreamSource _source;
     private readonly IGcAccessPolicy _access;
     private readonly GcDispatcher _dispatcher;
@@ -57,10 +59,11 @@ public sealed class SubscriptionSession : IDisposable
     private readonly Dictionary<string, GcSubscription> _subs = [];
 
     internal SubscriptionSession(
-        Guid principalId, IGcStreamSource source, IGcAccessPolicy access, GcDispatcher dispatcher,
+        Guid principalId, GcParticipantKind principalKind, IGcStreamSource source, IGcAccessPolicy access, GcDispatcher dispatcher,
         SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod)
     {
         _principalId = principalId;
+        _principalKind = principalKind;
         _source = source;
         _access = access;
         _dispatcher = dispatcher;
@@ -166,14 +169,14 @@ public sealed class SubscriptionSession : IDisposable
             return (SubscribeStatuses.Denied, null);
         }
 
-        if (!await _access.CanReadAsync(_principalId, gcId, ct).ConfigureAwait(false))
+        if (!await _access.CanReadAsync(_principalId, _principalKind, gcId, ct).ConfigureAwait(false))
         {
             return (SubscribeStatuses.Denied, null);
         }
 
         var after = Math.Max(cursor.After, 0);
         var editAfter = Math.Max(cursor.EditAfter, 0);
-        var sub = new GcSubscription(gcId, cursor.S, _principalId, after, editAfter, _outbound, _frames, _options, _cts.Token);
+        var sub = new GcSubscription(gcId, cursor.S, _principalId, _principalKind, after, editAfter, _outbound, _frames, _options, _cts.Token);
         Replace(cursor.S, sub);
 
         // Register before reading the head: anything committed after this point is buffered, anything before is
