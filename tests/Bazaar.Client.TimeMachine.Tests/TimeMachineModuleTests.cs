@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Bazaar.Client.Commands;
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
