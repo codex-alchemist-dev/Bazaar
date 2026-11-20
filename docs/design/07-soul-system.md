@@ -71,6 +71,7 @@ The decision index is the set of `vault_docs` rows with `type=decision` (`18`). 
 | Charles boilerplate | templates, scaffolding | `custom/*` over a cheap code-capable whitelist when FreeLLMAPI is installed; otherwise a pinned cheap whitelist | replaces `auto/cheap` |
 | ChatGPT planning | planning, systems input | OPEN | role TBD (Q3) |
 | Juniors | specialists | `custom/*` over a cheap whitelist | specialise from lessons and reputation |
+| Legal team (Legal lead, Terms analyst, Adversarial reviewer, Terms clerk) | terms review, accepted-terms ledger; Legal lead is a frontier senior peer, no Council vote | frontier whitelist for judgment roles, cheap `custom/*` for the clerk | PROPOSED, doc 60; hired by Council vote inside a running Bazaar |
 
 **Creation.** A Talent Pool template (`25`) is a preset without identity or lessons. Instantiating it creates an agent with a new GitHub App, an email address on an operator-configured domain, child Windows and Linux VM disks off their golden images (`16`), and empty memory. It runs as a Council hiring vote (C32).
 
