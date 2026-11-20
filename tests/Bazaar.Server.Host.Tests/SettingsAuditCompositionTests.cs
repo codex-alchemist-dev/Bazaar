@@ -56,10 +56,10 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     {
         await using var sp = Build();
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
+        // The host registry is Known plus the gateway keys (SettingsComponent uses With), so check each key by instance.
         var registry = sp.GetRequiredService<SettingRegistry>();
-        Assert.Equal(
-            SettingRegistry.Known.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal),
-            registry.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal));
+        Assert.All(SettingRegistry.Known.Definitions, definition => Assert.True(registry.Contains(definition)));
+        Assert.All(Bazaar.Server.Gateway.GatewaySettings.All, definition => Assert.True(registry.Contains(definition)));
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
     }
 

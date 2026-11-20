@@ -21,8 +21,9 @@ public sealed class SettingRegistry
 
     /// <summary>
     /// Every built-in setting: the host keys, the calendar keys (doc 24), the knowledge keys (doc 25), the
-    /// constellation keys (doc 19), the gateway keys (doc 05) and the doc 15 security keys. Module keys (the module manager's,
-    /// doc 42 and doc 49) arrive as contributions through <see cref="WithContributions"/>, so the host composes them.
+    /// constellation keys (doc 19) and the doc 15 security keys. Module keys (the module manager's, doc 42 and doc 49)
+    /// arrive as contributions through <see cref="WithContributions"/>. The gateway keys (doc 05) live in Bazaar.Server.Gateway,
+    /// which this project cannot reference; the host adds them with <see cref="With"/>.
     /// </summary>
     public static SettingRegistry Known { get; } = new(BuiltInSettings);
 
@@ -32,7 +33,6 @@ public sealed class SettingRegistry
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
-            .Concat(Gateway.GatewaySettings.All)
             .Concat(SecuritySettings.All);
 
     /// <summary>
@@ -49,6 +49,17 @@ public sealed class SettingRegistry
     public static SettingRegistry Constellation { get; } = new(ConstellationSettings.All);
 
     public IReadOnlyCollection<SettingDefinition> Definitions => _byName.Values;
+
+    /// <summary>
+    /// This registry plus <paramref name="additional"/>. The host uses it to add definitions from modules this project does not
+    /// reference, for example <c>SettingRegistry.Known.With(GatewaySettings.All)</c>. The same instances are kept, so
+    /// <see cref="Contains"/> still holds for them. A duplicate name throws, as in the constructor.
+    /// </summary>
+    public SettingRegistry With(IEnumerable<SettingDefinition> additional)
+    {
+        ArgumentNullException.ThrowIfNull(additional);
+        return new([.. Definitions, .. additional]);
+    }
 
     public bool TryGet(string name, out SettingDefinition? definition)
     {

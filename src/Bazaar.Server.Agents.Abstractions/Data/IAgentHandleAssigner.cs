@@ -1,7 +1,7 @@
 namespace Bazaar.Server.Agents.Data;
 
 /// <summary>
-/// Gives a new agent its default mention handle. A seam so <see cref="AgentRepository"/> does not depend on the handle store;
+/// Gives a new agent its default mention handle. A seam so the agent repository does not depend on the handle store;
 /// the production implementation is <c>PrincipalHandleRepository</c> (<c>mentions/0001</c>).
 /// </summary>
 public interface IAgentHandleAssigner

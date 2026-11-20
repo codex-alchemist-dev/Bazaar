@@ -29,9 +29,20 @@
     <None Include="Testing\Replay\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <!-- AgentResponderGatewayTests drives the gateway through GatewayHarness. Its source is linked from the
+         Gateway tests project (no test-to-test reference); move both to a shared test-support project when one exists. -->
+    <Compile Include="..\Bazaar.Server.Gateway.Tests\Gateway\Pipeline\GatewayHarness.cs" Link="Gateway\Pipeline\GatewayHarness.cs" />
+    <Compile Include="..\Bazaar.Server.Gateway.Tests\Gateway\Policy\PolicyTestKit.cs" Link="Gateway\Policy\PolicyTestKit.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Sanitization\Bazaar.Server.Sanitization.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
