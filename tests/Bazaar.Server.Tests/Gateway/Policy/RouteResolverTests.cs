@@ -1,5 +1,6 @@
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Policy;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Server.Tests.Gateway.Policy;
 
@@ -191,7 +192,7 @@ public class RouteResolverTests
     }
 
     [Theory]
-    [InlineData("sk-ant-api03-literal-key")]
+    [InlineData(FakeSecrets.AnthropicApiKey)]
     [InlineData("secret://other/path")]
     [InlineData(null)]
     public async Task A_literal_key_or_foreign_secret_reference_is_refused(string? secretRef)
