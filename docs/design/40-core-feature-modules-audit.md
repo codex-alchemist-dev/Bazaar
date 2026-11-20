@@ -161,3 +161,15 @@ Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
 - `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs`, `Turns/Tools/Db/SessionTaintMapping.cs`: use `IToolPolicyEngine`, `SessionRoles`, `SessionTaint`, `TaintState` and `TaintSource` (`Bazaar.Server.Security`). Move with the Security abstractions.
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
+
+## Embeddings module (doc 08 WP6)
+
+Docs section this implements: doc 08, "WP6 detail: embedding provider adapter" [PROPOSED].
+
+A new feature module pair, written Server-free from the start (no reference to `Bazaar.Server`), so nothing is added to the ratcheted projects.
+
+- `Bazaar.Server.Embeddings.Abstractions`: `IEmbeddingProvider`, `EmbeddingProviderDescriptor` and `EmbeddingProviderKind` (Fake, Gateway, OpenAiCompatible), `EmbeddingProfile`, `EmbeddingResult`, `IEmbeddingProfileStore`, `IEmbeddingProviderRegistry`, `IActiveEmbeddingSelector`, `IGatewayEmbeddingClient` (the seam the Gateway work will implement), `EmbeddingProfileMismatchException`, and `VaultQueryEmbedder` (adapts a provider to `IVaultQueryEmbedder`). References `Bazaar.Vault.Abstractions` only.
+- `Bazaar.Server.Embeddings`: `EmbeddingsComponent` (`IBazaarComponent`, id `embeddings`), `EmbeddingSettings` and its `ISettingContribution` (`memory.embedding_profile`), `PostgresEmbeddingProfileStore` over `embedding_profile`, `EmbeddingProviderRegistry`, `FakeEmbeddingProvider`, `OpenAiCompatibleEmbeddingProvider`, `GatewayEmbeddingProvider`, and the indexer (`EmbeddingIndexer`, `EmbeddingIndexerService`, `PostgresEmbeddingIndexStore`). It owns its SQL; it does not use `VaultEmbeddingRepository` because that class lives in `Bazaar.Server`. It owns no migration: `embedding_profile` and `vault_block_embedding` stay in `common/`.
+- Host wiring (not in this change): register `EmbeddingSettings.All` with the settings registry, adapt `ISettingStore` to `IEmbeddingSettingSource`, and offer `VaultQueryEmbedder` to Vault search. Until then the module is inert.
+- OPEN: in-process ONNX provider; Gateway provider (blocked on an embeddings call in the gateway).
+
