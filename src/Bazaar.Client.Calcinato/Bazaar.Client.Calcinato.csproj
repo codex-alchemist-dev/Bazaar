@@ -7,7 +7,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Calcinato.Abstractions\Bazaar.Client.Calcinato.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
   </ItemGroup>
 </Project>

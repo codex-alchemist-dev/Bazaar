@@ -3,7 +3,7 @@ using Bazaar.Client.Calcinato.Abstractions;
 using Bazaar.Client.Calcinato.Mnemonics;
 using Bazaar.Client.Calcinato.Modal;
 using Bazaar.Client.Calcinato.Tests.Modal;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 using Bazaar.Ex;
 using static Bazaar.Client.Calcinato.Tests.Modal.Input;
 

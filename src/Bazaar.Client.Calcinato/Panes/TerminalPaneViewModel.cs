@@ -1,9 +1,10 @@
 using System.ComponentModel;
 using System.Text;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Calcinato.Emulation;
 using Bazaar.Client.Calcinato.Modal;
 using Bazaar.Client.Calcinato.Session;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Calcinato.Panes;

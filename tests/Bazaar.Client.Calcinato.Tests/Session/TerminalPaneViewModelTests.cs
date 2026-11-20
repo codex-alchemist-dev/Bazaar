@@ -5,7 +5,7 @@ using Bazaar.Client.Calcinato.Modal;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calcinato.Session;
 using Bazaar.Client.Calcinato.Tests.Sources;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Calcinato.Tests.Session;
@@ -186,7 +186,7 @@ public sealed class TerminalPaneViewModelTests
         await using var manager = new TerminalSessionManager(host);
         var context = new PaneModuleContext().With(manager);
 
-        PaneRegistry registry = PaneRegistry.Compose(CalcinatoPanes.Modules, context);
+        PaneRegistry registry = PaneRegistry.Compose(new UnusedPaneViewFactory(), CalcinatoPanes.Modules, context);
 
         Assert.True(registry.Contains(PaneKinds.Terminal));
         Assert.Contains(PaneKinds.Terminal, registry.Kinds);
@@ -198,7 +198,7 @@ public sealed class TerminalPaneViewModelTests
     [Fact]
     public void The_module_still_registers_without_a_manager()
     {
-        PaneRegistry registry = PaneRegistry.Compose(CalcinatoPanes.Modules);
+        PaneRegistry registry = PaneRegistry.Compose(new UnusedPaneViewFactory(), CalcinatoPanes.Modules);
 
         var pane = Assert.IsType<TerminalPaneViewModel>(registry.Create(new PaneDescriptor(PaneKinds.Terminal, string.Empty, string.Empty, default)));
         Assert.Equal("Terminal", pane.Title);

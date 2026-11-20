@@ -1,5 +1,5 @@
 using Bazaar.Client.Calcinato.Modal;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 using Bazaar.Ex;
 
 namespace Bazaar.Client.Calcinato.Mnemonics;

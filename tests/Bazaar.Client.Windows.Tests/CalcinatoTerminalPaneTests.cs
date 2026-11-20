@@ -6,6 +6,7 @@ using Bazaar.Client.Calcinato.Avalonia;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calcinato.Session;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Windows;
 using Bazaar.Contracts.Panes;
 
@@ -21,7 +22,7 @@ public class CalcinatoTerminalPaneTests
     public void Terminal_pane_kind_resolves_to_a_terminal_control()
     {
         var sessions = new TerminalSessionManager(new FakeTerminalHost());
-        var registry = CalcinatoTerminalPanes.Compose(CalcinatoPanes.Modules, new PaneModuleContext(), sessions);
+        var registry = CalcinatoTerminalPanes.Compose(PaneViews.Instance, CalcinatoPanes.Modules, new PaneModuleContext(), sessions);
 
         Assert.Contains(PaneKinds.Terminal, registry.Kinds);
         var pane = registry.Create(new PaneDescriptor(PaneKinds.Terminal, "Terminal", string.Empty, JsonElement.Parse("{}")));

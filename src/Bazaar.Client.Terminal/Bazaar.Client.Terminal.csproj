@@ -9,6 +9,7 @@
     <ProjectReference Include="..\Bazaar.Client.Calcinato.Abstractions\Bazaar.Client.Calcinato.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato.Pty\Bazaar.Client.Calcinato.Pty.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>

@@ -1,5 +1,5 @@
 using Bazaar.Client.Calcinato.Session;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Calcinato.Panes;
