@@ -14,6 +14,20 @@ public sealed class TestClock(DateTimeOffset start) : TimeProvider
     public void Advance(TimeSpan by) => _now += by;
 }
 
+public sealed class RecordingNotices : IOutboundMailNotices
+{
+    public List<OutboundRefusalNotice> Posted { get; } = [];
+
+    public bool Throw { get; set; }
+
+    public Task PostApprovalRefusedAsync(OutboundRefusalNotice notice, CancellationToken ct)
+    {
+        if (Throw) throw new InvalidOperationException("notice store down");
+        Posted.Add(notice);
+        return Task.CompletedTask;
+    }
+}
+
 public sealed class FakeAuditLog : IAuditLog
 {
     public List<AuditEntry> Entries { get; } = [];

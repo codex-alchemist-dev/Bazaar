@@ -51,6 +51,11 @@ public sealed record MailRuntimeOptions
     /// <summary><c>mail.approval.ttl_hours</c> (PROPOSED). How long an owner approval for an outbound message stays open before it expires.</summary>
     public int ApprovalTtlHours { get; init; } = DefaultApprovalTtlHours;
 
+    /// <summary>
+    /// <c>mail.notices.gc_id</c> (PROPOSED): the GC that receives owner notices from the mail runtime. Null or empty skips the notice (counted, logged as a warning).
+    /// </summary>
+    public Guid? NoticesGcId { get; init; }
+
     /// <summary>The approval lifetime, kept between 1 hour and 30 days; zero or less means the default.</summary>
     public TimeSpan EffectiveApprovalTtl =>
         TimeSpan.FromHours(ApprovalTtlHours <= 0 ? DefaultApprovalTtlHours : Math.Min(ApprovalTtlHours, MaxApprovalTtlHours));

@@ -23,12 +23,14 @@ public sealed class OutboundMailPipeline(
     IMailBackendResolver backends,
     IAuditLog audit,
     OutboundPipelineOptions? options = null,
-    TimeProvider? timeProvider = null) : IOutboundMailPipeline
+    TimeProvider? timeProvider = null,
+    IOutboundMailNotices? notices = null) : IOutboundMailPipeline
 {
     public const string AuditActor = "mail.outbound";
 
     private readonly OutboundPipelineOptions _options = options ?? new OutboundPipelineOptions();
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+    private readonly IOutboundMailNotices _notices = notices ?? new NoOutboundMailNotices();
 
     public async Task<OutboundSendResult> SendAsync(OutboundRequest request, CancellationToken ct)
     {
@@ -293,9 +295,39 @@ public sealed class OutboundMailPipeline(
             };
             await AuditAsync(kind, record.Request?.AgentId ?? string.Empty, record.IdempotencyKey, record.MessageId, record.ApprovalId, record.Reason,
                 record.Attempts, record.Request, ct, reasonCode).ConfigureAwait(false);
+            if (reasonCode is not null && record.Request is { } request)
+            {
+                await NotifyRefusalAsync(record, request, reasonCode, updated.UpdatedAt, ct).ConfigureAwait(false);
+            }
         }
 
         return Result(updated, StatusFor(updated));
+    }
+
+    /// <summary>
+    /// Tells the owner once, right after the row moved to Failed (the compare-and-set makes a repeat impossible). A failing notice never
+    /// undoes the terminal state: it is caught and counted as a <c>mail.outbound.notice_failed</c> audit row with the exception type only.
+    /// </summary>
+    private async Task NotifyRefusalAsync(StoredOutbound record, OutboundRequest request, string reasonCode, DateTimeOffset at, CancellationToken ct)
+    {
+        try
+        {
+            await _notices.PostApprovalRefusedAsync(
+                new OutboundRefusalNotice(request.AgentId, record.MessageId, reasonCode, request.From.Domain, request.Recipients.Count, at), ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            try
+            {
+                await AuditAsync("notice_failed", request.AgentId, record.IdempotencyKey, record.MessageId, record.ApprovalId, record.Reason, record.Attempts,
+                    request, ct, ex.GetType().Name.ToLowerInvariant()).ConfigureAwait(false);
+            }
+            catch (Exception audit) when (audit is not OperationCanceledException)
+            {
+                // The send is already failed and audited; nothing more can be said about the notice.
+            }
+        }
     }
 
     private static OutboundSendStatus StatusFor(StoredOutbound record) => record.Status switch

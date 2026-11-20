@@ -41,6 +41,10 @@ public static class MailRuntimeServiceCollectionExtensions
 
         // Real adapters.
         services.TryAddSingleton<IInboxGcPoster>(sp => new InboxGcPoster(sp.GetRequiredService<IMailGcAppender>()));
+        services.TryAddSingleton<IOutboundMailNotices>(sp => new OutboundMailNotices(
+            sp.GetRequiredService<IMailGcAppender>(),
+            sp.GetRequiredService<IMailRuntimeOptionsSource>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<OutboundMailNotices>>()));
         services.TryAddSingleton<IOutboundMailSettings, DefaultOutboundMailSettings>();
         services.TryAddSingleton<IBazaarAddressDirectory>(sp => new PostgresBazaarAddressDirectory(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IMailDomainSource>(sp => new PostgresMailDomainSource(sp.GetRequiredService<NpgsqlDataSource>()));

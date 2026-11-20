@@ -252,6 +252,33 @@ public sealed class MailApprovalRefusedException : InvalidOperationException
     }
 }
 
+/// <summary>
+/// What the owner is told when a send dies because the approvals store refused its request (PROPOSED, doc 22). Ids, a bounded reason code, the sender
+/// domain, a recipient count and a time. No subject, body, display name or address (not even a local part) has a field here.
+/// </summary>
+public sealed record OutboundRefusalNotice(
+    string AgentId,
+    Guid MessageId,
+    string ReasonCode,
+    string SenderDomain,
+    int RecipientCount,
+    DateTimeOffset At);
+
+/// <summary>
+/// Port: tells the owner about an outbound send that ended as failed because its approval request was refused. The default is no notice (the
+/// <c>mail.outbound.failed</c> audit row stays either way). A notice that throws never changes the send's terminal state.
+/// </summary>
+public interface IOutboundMailNotices
+{
+    Task PostApprovalRefusedAsync(OutboundRefusalNotice notice, CancellationToken ct);
+}
+
+/// <summary>The fail-closed default: no notice.</summary>
+public sealed class NoOutboundMailNotices : IOutboundMailNotices
+{
+    public Task PostApprovalRefusedAsync(OutboundRefusalNotice notice, CancellationToken ct) => Task.CompletedTask;
+}
+
 /// <summary>Port: the back end that sends for one operator domain.</summary>
 public interface IMailBackendResolver
 {

@@ -23,7 +23,8 @@ public static class MailOutboundServiceCollectionExtensions
             sp.GetRequiredService<IMailBackendResolver>(),
             sp.GetRequiredService<Bazaar.Server.Security.Audit.IAuditLog>(),
             sp.GetRequiredService<OutboundPipelineOptions>(),
-            sp.GetService<TimeProvider>()));
+            sp.GetService<TimeProvider>(),
+            sp.GetService<IOutboundMailNotices>()));
         return services;
     }
 }
