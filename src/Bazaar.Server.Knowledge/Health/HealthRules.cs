@@ -34,10 +34,10 @@ public sealed record HealthThresholds
     /// <summary>Consecutive failing CI days that raise an alert.</summary>
     public int BuildFailureStreak { get; }
 
-    /// <summary>The shipped defaults from <see cref="KnowledgeSettings"/>.</summary>
+    /// <summary>The shipped defaults from <see cref="HealthDefaults"/>.</summary>
     public static HealthThresholds Defaults { get; } = new(
-        KnowledgeSettings.HealthCoverageDropPoints.Default,
-        KnowledgeSettings.HealthBuildFailureStreak.Default);
+        HealthDefaults.CoverageDropPoints,
+        HealthDefaults.BuildFailureStreak);
 }
 
 /// <summary>

@@ -2,7 +2,7 @@ using Bazaar.Server.Knowledge;
 using Bazaar.Server.Knowledge.Health;
 using Bazaar.Server.Knowledge.Metrics;
 
-namespace Bazaar.Server.Tests.Knowledge.Health;
+namespace Bazaar.Server.Knowledge.Tests.Health;
 
 public sealed class HealthRulesTests
 {
@@ -186,8 +186,6 @@ public sealed class HealthRulesTests
     [Fact]
     public void Thresholds_read_the_shipped_defaults_from_settings()
     {
-        Assert.Equal(KnowledgeSettings.HealthCoverageDropPoints.Default, HealthThresholds.Defaults.CoverageDropPoints);
-        Assert.Equal(KnowledgeSettings.HealthBuildFailureStreak.Default, HealthThresholds.Defaults.BuildFailureStreak);
         Assert.Equal(2, HealthThresholds.Defaults.CoverageDropPoints);
         Assert.Equal(3, HealthThresholds.Defaults.BuildFailureStreak);
     }
