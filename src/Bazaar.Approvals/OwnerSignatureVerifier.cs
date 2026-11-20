@@ -1,10 +1,11 @@
 namespace Bazaar.Approvals;
 
 /// <summary>Checks owner signatures against the owner key registry (doc 32 section 5a, doc 15 approvals).</summary>
-public sealed class OwnerSignatureVerifier(IOwnerKeyRegistry keys, IOwnerNonceStore nonces) : IOwnerSignatureVerifier
+public sealed class OwnerSignatureVerifier(IOwnerKeyRegistry keys, IOwnerNonceStore nonces, OwnerSignatureOptions? options = null) : IOwnerSignatureVerifier
 {
     private readonly IOwnerKeyRegistry _keys = keys ?? throw new ArgumentNullException(nameof(keys));
     private readonly IOwnerNonceStore _nonces = nonces ?? throw new ArgumentNullException(nameof(nonces));
+    private readonly OwnerSignatureOptions _options = options ?? new OwnerSignatureOptions();
 
     /// <inheritdoc />
     public async Task<OwnerSignatureVerdict> VerifyAsync(
@@ -16,6 +17,17 @@ public sealed class OwnerSignatureVerifier(IOwnerKeyRegistry keys, IOwnerNonceSt
         if (now >= payload.ExpiresAt)
         {
             return OwnerSignatureVerdict.Expired;
+        }
+
+        // Lifetime and issue time are the client's claims, so the server bounds them (doc 32 section 5a).
+        if (payload.ExpiresAt <= payload.IssuedAt || payload.ExpiresAt - payload.IssuedAt > _options.MaxLifetime)
+        {
+            return OwnerSignatureVerdict.InvalidLifetime;
+        }
+
+        if (payload.IssuedAt - now > _options.ClockSkew)
+        {
+            return OwnerSignatureVerdict.IssuedInFuture;
         }
 
         var key = await _keys.FindAsync(payload.DeviceId, cancellationToken).ConfigureAwait(false);
