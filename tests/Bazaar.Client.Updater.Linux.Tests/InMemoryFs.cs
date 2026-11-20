@@ -28,7 +28,7 @@ internal sealed class InMemoryFs : IUpdateFileSystem
         return node.Kind switch
         {
             Kind.Directory => true,
-            Kind.Link => DirectoryExists(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path)!, node.Target!))),
+            Kind.Link => DirectoryExists(Normalize(UnixPath.Combine(UnixPath.GetDirectoryName(path)!, node.Target!))),
             _ => false,
         };
     }
@@ -42,7 +42,7 @@ internal sealed class InMemoryFs : IUpdateFileSystem
         while (!string.IsNullOrEmpty(current) && current != "/")
         {
             chain.Add(current);
-            current = Path.GetDirectoryName(current);
+            current = UnixPath.GetDirectoryName(current);
         }
 
         foreach (string dir in chain.AsEnumerable().Reverse())
@@ -60,6 +60,28 @@ internal sealed class InMemoryFs : IUpdateFileSystem
             ? new MemoryStream(n.Data!, writable: false)
             : throw new FileNotFoundException(path);
 
+    /// <summary>Resolves "." and ".." segments of an absolute path with '/' separators on every host.</summary>
+    private static string Normalize(string path)
+    {
+        var parts = new List<string>();
+        foreach (string segment in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment == "..")
+            {
+                if (parts.Count > 0)
+                {
+                    parts.RemoveAt(parts.Count - 1);
+                }
+            }
+            else if (segment != ".")
+            {
+                parts.Add(segment);
+            }
+        }
+
+        return "/" + string.Join('/', parts);
+    }
+
     public Stream CreateFile(string path)
     {
         if (_nodes.ContainsKey(path))
@@ -67,7 +89,7 @@ internal sealed class InMemoryFs : IUpdateFileSystem
             throw new IOException("exists: " + path);
         }
 
-        string parent = Path.GetDirectoryName(path)!;
+        string parent = UnixPath.GetDirectoryName(path)!;
         if (!_nodes.TryGetValue(parent, out var p) || p.Kind != Kind.Directory)
         {
             throw new DirectoryNotFoundException(parent);
@@ -142,7 +164,7 @@ internal sealed class InMemoryFs : IUpdateFileSystem
     }
 
     public IReadOnlyList<string> EnumerateDirectories(string path) =>
-        _nodes.Where(p => p.Value.Kind == Kind.Directory && Path.GetDirectoryName(p.Key) == path).Select(p => p.Key).ToList();
+        _nodes.Where(p => p.Value.Kind == Kind.Directory && UnixPath.GetDirectoryName(p.Key) == path).Select(p => p.Key).ToList();
 
     public IEnumerable<string> Paths => _nodes.Keys;
 

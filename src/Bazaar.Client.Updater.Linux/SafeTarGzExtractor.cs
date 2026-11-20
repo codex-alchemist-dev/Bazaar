@@ -93,7 +93,7 @@ public sealed class SafeTarGzExtractor
         }
 
         string relative = string.Join('/', segments);
-        string target = Path.Combine(destination, relative);
+        string target = UnixPath.Combine(destination, relative);
         for (int i = 1; i <= segments.Length - 1; i++)
         {
             if (links.Contains(string.Join('/', segments, 0, i)))
@@ -177,7 +177,7 @@ public sealed class SafeTarGzExtractor
 
     private void CreateParent(string target)
     {
-        string? parent = Path.GetDirectoryName(target);
+        string? parent = UnixPath.GetDirectoryName(target);
         if (parent is not null)
         {
             _fs.CreateDirectory(parent, DirectoryMode);

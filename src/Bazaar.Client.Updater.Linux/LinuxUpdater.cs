@@ -50,9 +50,9 @@ public sealed class LinuxUpdater : ILinuxUpdater
 
     private string Root => _settings.InstallRoot;
 
-    private string CurrentLink => Path.Combine(Root, "current");
+    private string CurrentLink => UnixPath.Combine(Root, "current");
 
-    private string PreviousLink => Path.Combine(Root, "previous");
+    private string PreviousLink => UnixPath.Combine(Root, "previous");
 
     /// <inheritdoc />
     public async Task<UpdateResult> CheckAsync(CancellationToken ct) => (await PlanAsync(ct).ConfigureAwait(false)).Result;
@@ -68,17 +68,17 @@ public sealed class LinuxUpdater : ILinuxUpdater
 
         var manifest = plan.Manifest;
         var artifact = plan.Artifact;
-        string staging = Path.Combine(Root, "staging");
-        string work = Path.Combine(staging, Guid.NewGuid().ToString("N"));
+        string staging = UnixPath.Combine(Root, "staging");
+        string work = UnixPath.Combine(staging, Guid.NewGuid().ToString("N"));
         string? partial = null;
         try
         {
             _fs.DeleteDirectory(staging); // Leftovers of a crashed run.
             _fs.CreateDirectory(work, PrivateDirectory);
 
-            string tarball = Path.Combine(work, "package.tar.gz");
-            string checksum = Path.Combine(work, "package.sha256");
-            string signature = Path.Combine(work, "package.asc");
+            string tarball = UnixPath.Combine(work, "package.tar.gz");
+            string checksum = UnixPath.Combine(work, "package.sha256");
+            string signature = UnixPath.Combine(work, "package.asc");
 
             var failure = await DownloadAsync(artifact.Url, tarball, artifact.SizeBytes, ct).ConfigureAwait(false)
                 ?? await DownloadAsync(artifact.Sha256Url, checksum, MaxChecksumFileBytes, ct).ConfigureAwait(false)
@@ -90,9 +90,9 @@ public sealed class LinuxUpdater : ILinuxUpdater
                 return Result(failure.Status, manifest.AppVersion, failure.Detail);
             }
 
-            string releases = Path.Combine(Root, ReleasesDir);
+            string releases = UnixPath.Combine(Root, ReleasesDir);
             _fs.CreateDirectory(releases, PrivateDirectory | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
-            partial = Path.Combine(releases, ".partial-" + Guid.NewGuid().ToString("N"));
+            partial = UnixPath.Combine(releases, ".partial-" + Guid.NewGuid().ToString("N"));
             try
             {
                 var extractor = new SafeTarGzExtractor(_fs, _settings.MaxExtractedBytes, _settings.MaxArchiveEntries);
@@ -104,7 +104,7 @@ public sealed class LinuxUpdater : ILinuxUpdater
                 return Result(UpdateStatus.ExtractionRejected, manifest.AppVersion, e.Message);
             }
 
-            string release = Path.Combine(releases, manifest.AppVersion);
+            string release = UnixPath.Combine(releases, manifest.AppVersion);
             if (_fs.DirectoryExists(release))
             {
                 // A release dir left by an earlier install or rollback of this very version; current and previous never point at a newer one.
@@ -146,7 +146,7 @@ public sealed class LinuxUpdater : ILinuxUpdater
         {
             string? previous = _fs.ReadLink(PreviousLink);
             string? current = _fs.ReadLink(CurrentLink);
-            if (previous is null || !TryVersionOf(previous, out string? version) || !_fs.DirectoryExists(Path.Combine(Root, previous)))
+            if (previous is null || !TryVersionOf(previous, out string? version) || !_fs.DirectoryExists(UnixPath.Combine(Root, previous)))
             {
                 return Result(UpdateStatus.NothingToRollBack, null, "There is no previous release.");
             }
@@ -399,9 +399,9 @@ public sealed class LinuxUpdater : ILinuxUpdater
             }
         }
 
-        foreach (string dir in _fs.EnumerateDirectories(Path.Combine(Root, ReleasesDir)))
+        foreach (string dir in _fs.EnumerateDirectories(UnixPath.Combine(Root, ReleasesDir)))
         {
-            if (!keep.Contains(Path.GetFileName(dir)))
+            if (!keep.Contains(UnixPath.GetFileName(dir)))
             {
                 _fs.DeleteDirectory(dir);
             }
@@ -433,7 +433,7 @@ public sealed class LinuxUpdater : ILinuxUpdater
 
     private static void Validate(LinuxUpdaterSettings s)
     {
-        if (string.IsNullOrEmpty(s.InstallRoot) || !Path.IsPathRooted(s.InstallRoot))
+        if (string.IsNullOrEmpty(s.InstallRoot) || !UnixPath.IsRooted(s.InstallRoot))
         {
             throw new ArgumentException("InstallRoot must be an absolute path.", nameof(s));
         }

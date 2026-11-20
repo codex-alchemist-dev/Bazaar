@@ -24,7 +24,7 @@ internal sealed class RollbackRecord
     public RollbackRecord(IUpdateFileSystem fs, string installRoot)
     {
         _fs = fs;
-        _path = Path.Combine(installRoot, "rolled-back.json");
+        _path = UnixPath.Combine(installRoot, "rolled-back.json");
     }
 
     /// <summary>The recorded version, or null when none was written.</summary>
