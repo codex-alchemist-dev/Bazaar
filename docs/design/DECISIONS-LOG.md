@@ -399,6 +399,15 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
 
+## Round 30 (2026-11-19): Sealed storage for Soul data and other sensitive on-disk data
+
+| Decision | Status | Docs |
+|---|---|---|
+| Soul data, agent memory working copies, cookie and Passport profiles and host bootstrap values are encrypted on disk with authenticated encryption under the KEK, and edits from outside Bazaar are detected on read and fail closed. Owner message `cmsg_01MC1BkUhiVHzqr38uyxWzeHKwHGpbCxbmcQVzZBXGVhhR` (2026-11-19): "soul data should be encrypted in their folders and shouldn't be able to be manually edited from the outside ... as well as any data that needs security like that." | DECIDED (owner) | 61, 07, 14 |
+| Module `Bazaar.Server.SealedStorage` + `.Abstractions` (component id `sealed-storage`), reusing `IKekProvider`; not a new KEK, secret store or Vault. Security floor, not a setting. | DECIDED (follows the requirement) | 61, 40 |
+| Format and manifest mechanics (AES-256-GCM, path and generation in the AAD, sealed manifest, anchor) | PROPOSED | 61 |
+| Company Vault git history is sealed too; the KEK key file is sealed with an OS keyring where available (owner standing rules, relayed 2026-11-20) | DECIDED (mechanics PROPOSED) | 61 Q1, Q2 |
+
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
 | Decision | Ruling | Docs |
