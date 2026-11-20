@@ -8,6 +8,9 @@ namespace Bazaar.Constellation.Rendering;
 /// </summary>
 public static class ConstellationNodeStyles
 {
+    /// <summary>The theme used when the host supplies none: the night sky (pitch-black background, star colours).</summary>
+    public static NightSkyTheme DefaultTheme => NightSkyTheme.Default;
+
     /// <summary>Cluster colours, cycled by cluster id.</summary>
     public static readonly IReadOnlyList<NodeStyle> Palette =
     [
