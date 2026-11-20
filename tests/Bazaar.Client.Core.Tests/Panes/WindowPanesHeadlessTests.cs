@@ -1,7 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
