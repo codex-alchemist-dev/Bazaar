@@ -331,6 +331,12 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: bash scripts/ci/linux-client-startup.sh
 
+      - name: Build the tarball, start it on Xvfb and test signing
+        run: |
+          set -euo pipefail
+          bash packaging/linux/build-tarball.sh --verify
+          bash packaging/linux/test-sign-tarball.sh
+
   secret-scan:
     name: Secret scan (full history)
     runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
