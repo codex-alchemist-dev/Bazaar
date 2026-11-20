@@ -1,5 +1,6 @@
 using Bazaar.Server.Gc.Mentions;
 using Bazaar.Server.Mentions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -23,6 +24,7 @@ public static class AgentPostServiceCollectionExtensions
         services.TryAddSingleton<PrincipalHandleRepository>();
         services.TryAddSingleton<IGcMentionDirectory, SqlGcMentionDirectory>();
         services.TryAddSingleton<IInboxRowWriter, InboxRowWriter>();
+        services.TryAddSingleton(sp => GcAgentPostOptions.From(sp.GetService<IConfiguration>()));
         services.TryAddSingleton<IAgentPostSink, GcAgentPostSink>();
         return services;
     }
