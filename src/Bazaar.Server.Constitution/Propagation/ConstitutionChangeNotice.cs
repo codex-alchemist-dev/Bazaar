@@ -1,4 +1,3 @@
-// TODO(component): move to the Company component project when PR #125 merges.
 using Bazaar.Server.Agents.Inbox;
 
 namespace Bazaar.Server.Company.Constitution.Propagation;

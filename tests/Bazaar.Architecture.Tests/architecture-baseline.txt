@@ -39,14 +39,6 @@ src/Bazaar.Server/Coding/Workspace/IWorkspace.cs
 src/Bazaar.Server/Coding/Workspace/InMemoryGuestChannel.cs
 src/Bazaar.Server/Company/Availability/CalendarAvailabilityFeed.cs
 src/Bazaar.Server/Company/CompanyComponent.cs
-src/Bazaar.Server/Company/Constitution/ConstitutionAcceptance.cs
-src/Bazaar.Server/Company/Constitution/ConstitutionDecisionLinks.cs
-src/Bazaar.Server/Company/Constitution/ConstitutionDocument.cs
-src/Bazaar.Server/Company/Constitution/ConstitutionParser.cs
-src/Bazaar.Server/Company/Constitution/ConstitutionSectionChanges.cs
-src/Bazaar.Server/Company/Constitution/Propagation/ConstitutionChangeNotice.cs
-src/Bazaar.Server/Company/Constitution/Propagation/ConstitutionChanged.cs
-src/Bazaar.Server/Company/Constitution/Propagation/ExcerptRefresh.cs
 src/Bazaar.Server/Company/Org/LoanRules.cs
 src/Bazaar.Server/Company/Org/OrgLoanService.cs
 src/Bazaar.Server/Company/Org/OrgRouting.cs
