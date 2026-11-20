@@ -223,6 +223,16 @@ Before a bundle is marked complete, the server runs the verification above on th
 - The public half is published in the bundle so a reader can check the signature without the instance.
 - A key rotation keeps the old public key in the bundle's history, so old exports still verify.
 
+### 6.4 Built status of the verifier (work package 3)
+
+Built: `Bazaar.Server.Portability.Verifier` (library) and `Bazaar.Verify` (exe `bazaar-verify`; publish with `dotnet publish src/Bazaar.Verify -c Release -r <rid>` for a self-contained single file). It reads a bundle directory with streaming reads and no instance, database or network, and prints a deterministic JSON report (`bazaar.verify.report.v1`). Exit codes: 0 verified, 1 failed, 2 usage.
+
+Checks: every file's SHA-256 and size against the manifest; manifest shape, totals and ordinal file order; files in the bundle that the manifest does not list; the manifest signature (`BundleSigner`; `--signing-key` pins a key the reader already trusts, otherwise the bundle's `manifest.pub` is used and the report says `signing_key_source: bundle`); per-GC `events.jsonl` links, `head.json` and row counts; the audit chain, checkpoints and archive marker (`AuditChainReplay`); and each inclusion proof (`AuditInclusionProofVerifier`). A bundle with audit data needs `--audit-key` (the audit key is not the export key and is not in the bundle); without it the check fails closed.
+
+Decisions where this doc was silent (owner may overrule): an unsigned bundle fails; `head.json` uses the fields `last_seq`, `head_hash` and `counts` (`events`, `messages`, `versions`, `mentions`); a GC's first event has a null or empty `prev_event_hash` and hashes are compared as opaque strings; the audit key is ECDSA P-256 with SHA-256 and fixed-size signatures, the same as the export key; any file the manifest does not list fails, `README.txt` included.
+
+Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
