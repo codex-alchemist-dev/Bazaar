@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Views.Tests.Fixtures;
 
 namespace Bazaar.Client.Views.Tests;
