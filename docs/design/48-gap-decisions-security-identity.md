@@ -109,6 +109,8 @@ Order, all fail closed: create, attach both mounts, apply egress (or confirm blo
 
 Adaptation (not built): once `Bazaar.Server.VmEgress` and `Bazaar.Server.VmMounts` merge (names from PR #767), `ISandboxVmEgress` is adapted onto `IEgressPolicy.ApplyAsync` and `BlockAllAsync`, reusing `EgressRules` as the allowlist type, and `ISandboxVmMounts` onto `IMountManager` (`AttachAsync`, `DetachAsync`, `DetachAllForAgentAsync`) with a bundle mount and a scratch mount; `ISandboxVmHost` is adapted onto `Bazaar.Server.Vms`. Until then only fakes exist. OPEN: the real guest channel and the sandbox image contents.
 
+Host wiring (PROPOSED): `AddBazaarDevSandbox` always runs and registers the runner and the company factory. `AddBazaarDevSandboxLinux`, `AddBazaarDevSandboxWindows` and `AddBazaarDevSandboxWasmtime` each add their provider or engine only when the matching launch plan or module source (`ILinuxSandboxLaunchPlan`, `IWindowsSandboxLaunchPlan`, `IWasmModuleSource`) is already registered, and the provider extensions only on their own OS. With nothing registered, every run is refused (fail closed, no unconfined fallback). Order matters: register the plan or source first. The plans and the module source are the engine side's job and are not built yet.
+
 OPEN (new, not blockers): OS provider implementations (spike per OS in `35`), the WebAssembly engine choice, the VM image (above).
 
 ### Linux provider (PROPOSED)

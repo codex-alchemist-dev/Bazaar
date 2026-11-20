@@ -2,6 +2,10 @@ using Bazaar.Core;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
+using Bazaar.Server.DevSandbox;
+using Bazaar.Server.DevSandbox.Linux;
+using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
+using Bazaar.Server.DevSandbox.Windows;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -38,6 +42,12 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarPostgresCredentialLeases();
         services.AddBazaarVms(configuration);
+        // Developer sandbox (doc 48 section 2.1). The core is always added; each OS provider and engine adds itself only when the launch
+        // plan or module source it needs is registered before this call, so with none every sandbox run is refused.
+        services.AddBazaarDevSandbox();
+        services.AddBazaarDevSandboxLinux();
+        services.AddBazaarDevSandboxWindows();
+        services.AddBazaarDevSandboxWasmtime();
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
