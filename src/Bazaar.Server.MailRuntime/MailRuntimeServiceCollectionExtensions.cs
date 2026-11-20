@@ -27,7 +27,10 @@ public static class MailRuntimeServiceCollectionExtensions
         services.TryAddSingleton<IMailRuntimeOptionsSource>(new StaticMailRuntimeOptionsSource(options));
 
         // Fail-closed defaults (doc 22, Mail runtime open items): no backing module exists for these yet.
-        services.TryAddSingleton<IMailApprovalGateway, FailClosedMailApprovalGateway>();
+        // The approvals queue adapter when a queue is registered (resolved lazily, so registration order does not matter); fail closed otherwise.
+        services.TryAddSingleton<IMailApprovalGateway>(sp => sp.GetService<Bazaar.Server.ApprovalQueue.IApprovalQueue>() is { } queue
+            ? new MailApprovalGateway(queue, sp.GetRequiredService<IMailRuntimeOptionsSource>())
+            : new FailClosedMailApprovalGateway());
         services.TryAddSingleton<IMailBodyProtector, FailClosedMailBodyProtector>();
         services.TryAddSingleton<IMailBodySealer, FailClosedMailBodySealer>();
         services.TryAddSingleton<IMailReaderSessions, FailClosedMailReaderSessions>();

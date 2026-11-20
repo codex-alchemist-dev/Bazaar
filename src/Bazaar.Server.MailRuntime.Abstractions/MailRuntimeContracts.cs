@@ -42,6 +42,19 @@ public sealed record MailRuntimeOptions
     /// <summary><c>mail.runtime.outbound_resume_batch</c>.</summary>
     public int OutboundResumeBatch { get; init; } = DefaultOutboundResumeBatch;
 
+    /// <summary>Shipped lifetime of an outbound mail approval, in hours.</summary>
+    public const int DefaultApprovalTtlHours = 24;
+
+    /// <summary>Ceiling for the approval lifetime (30 days, the approvals queue's own ceiling).</summary>
+    public const int MaxApprovalTtlHours = 720;
+
+    /// <summary><c>mail.approval.ttl_hours</c> (PROPOSED). How long an owner approval for an outbound message stays open before it expires.</summary>
+    public int ApprovalTtlHours { get; init; } = DefaultApprovalTtlHours;
+
+    /// <summary>The approval lifetime, kept between 1 hour and 30 days; zero or less means the default.</summary>
+    public TimeSpan EffectiveApprovalTtl =>
+        TimeSpan.FromHours(ApprovalTtlHours <= 0 ? DefaultApprovalTtlHours : Math.Min(ApprovalTtlHours, MaxApprovalTtlHours));
+
     /// <summary>The inbound interval after the floor and ceiling.</summary>
     public TimeSpan EffectiveInboundInterval =>
         TimeSpan.FromSeconds(Math.Clamp(InboundIntervalSeconds, MinInboundIntervalSeconds, MaxIntervalSeconds));
