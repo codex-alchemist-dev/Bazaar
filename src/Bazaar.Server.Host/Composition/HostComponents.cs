@@ -6,6 +6,7 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.AuditReader;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
@@ -49,6 +50,7 @@ public static class HostComponents
         new CommunityComponent(),
         new RolesComponent(),
         new WebAdminComponent(),
+        new AuditReaderComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
