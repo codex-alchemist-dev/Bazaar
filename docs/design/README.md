@@ -144,3 +144,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
 | 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |
 | 52 | [52-git-modules.md](52-git-modules.md) | Git modules (PROPOSED): Bazaar.Server.Git engine, forge contract, owner-signed merge gate, GitLab adapter, Bazaar.Client.GitGui panes and provider UI modules | - | 14, 15, 21, 32, 40, 41 |
+| 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
