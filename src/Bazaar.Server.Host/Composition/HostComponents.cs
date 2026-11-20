@@ -1,6 +1,7 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -23,6 +24,7 @@ using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Vault;
+using Bazaar.Server.WebAdmin;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -45,6 +47,8 @@ public static class HostComponents
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new RolesComponent(),
+        new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
