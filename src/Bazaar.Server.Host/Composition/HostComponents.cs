@@ -20,6 +20,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Identity.Kek.OpenBao;
+using Bazaar.Server.Identity.Kek.Tpm;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
@@ -39,6 +40,7 @@ public static class HostComponents
         new SettingsComponent(),
         new KekComponent(),
         new OpenBaoKekComponent(),
+        new TpmKekComponent(),
         new GcComponent(),
         new CompanyComponent(),
         new CompanyBuildComponent(),
