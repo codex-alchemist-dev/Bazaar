@@ -1,6 +1,6 @@
 # 61. Graph retrieval engine: RAG plus DAG on many cores and the GPU (GraphDRAG, server side)
 
-Status: PROPOSED (2026-11-20). Design only. Nothing in this document is built. Every decision below is PROPOSED unless it is quoted from a DECIDED source, which is named. One open owner trade-off (section 17); every other earlier question is settled there.
+Status: PROPOSED (2026-11-20). Design only. Nothing in this document is built. Every decision below is PROPOSED unless it is quoted from a DECIDED source, which is named. No open owner trade-off: the earlier cross-project question is answered by the owner (2026-11-20, section 0), and every other earlier question is settled in section 17.
 Depends on: constellation-memory-graph.md (the retriever this doc accelerates), 19-constellation-and-git-solar-system.md ("Agent memory governance (GraphDRAG)", DECIDED 2026-11-13; renderer and GPU path), 08-memory-system.md (sections 8 and 9: retrieval, embeddings), 18-vault.md (access, search, block embeddings), 04-postgres-schema-and-migrations.md (embedding profile), 03-server-host-and-providers.md (provider seam, settings registry), 40-core-feature-modules-audit.md and 42-deps-as-modules.md (module shape, pgvector as a module), 46-kodo-health-module.md (module health contract), 15-security-taint-and-approvals.md and 48-gap-decisions-security-identity.md (audit), 35-spikes-plan.md (spike S28 is added by this doc), constellation-scale-and-lod.md (measured Arc B580 facts).
 Used by: none yet.
 
@@ -11,8 +11,15 @@ GraphDRAG is not a separate memory system. It runs over the Constellation's own 
 What this means for this design:
 
 1. **The GPU index is built over the Constellation node set**: Vault documents keyed by `vault_docs.doc_id`, edges from `vault_links` (resolved `target_doc`) and the front-matter relations doc 19 lists, and later the decision and GC references of doc 19. It is not built over the memory-only tables `constellation_memory_revision` and `constellation_memory_edge`.
-2. **Scope still applies to every hop.** Per-agent and per-project scope and the `IVaultAccess` filter hold for every seed and every hop target. Cross-project edges take part only where the existing design allows them: Hive copies (doc 08 section 6, where crossing projects is a copy note, never a link target of private text) and role grants. Any wider cross-project hop is an owner question (section 17), not a default.
-3. **Flagged finding (PROPOSED convergence):** the memory graph store that exists today is a second node space. Section 1.1 describes it and the PROPOSED plan to converge it onto Constellation nodes.
+2. **Scope still applies to every hop.** Per-agent and per-project scope and the `IVaultAccess` filter hold for every seed and every hop target. Project-to-project hops take part only where the existing design allows them: Hive copies (doc 08 section 6.1, where crossing projects is a copy note, never a link target of private text) and role grants.
+3. **Cross-project reach is company knowledge (owner, 2026-11-20).** Owner, verbatim: "Cross-project is on the principle of company knowledge? Something knowledge. The knowledge the company builds up over time. Learnings, principles, what works for us, what doesn't. Stuff AI typically can't have since they never usually bring other 'unrelated' projects into context." So the cross-project channel is the **company knowledge tier** of doc 08 section 6: generalised principles, learnings, precedents, incidents and what works or fails, distilled from all projects with provenance, under `company/memory/`. It is always in scope for every project's agents (section 3A.10). It is Constellation nodes in the one graph, not a second store. Personal agent memory stays isolated; project-private notes cross only through a Hive grant, or by being distilled into a company note that names no project. No wider project-to-project hop is added.
+4. **Flagged finding (PROPOSED convergence):** the memory graph store that exists today is a second node space. Section 1.1 describes it and the PROPOSED plan to converge it onto Constellation nodes.
+
+### 0.1 Proactive injection first, tools as the fallback (owner design intent, 2026-11-20)
+
+Relayed by the coordinator: agents always keep tools to search and read files, phrases and topics. But GraphDRAG should be good enough to place the relevant knowledge into the agent's soft long-horizon context **proactively**, so the agent rarely needs those tools. Proactive injection is the primary path; on-demand search and read tools are the fallback, never removed.
+
+What this means here: the pipeline of section 3A runs without being asked, at the triggers in section 3A.11, and its quality is measured by how often the agent still has to search (section 13.5, "Injection quality"). The tools stay, and every tool call is also a measurement.
 
 ## 1. Where things stand today
 
@@ -31,6 +38,7 @@ Facts found while reading the code, which this design has to respect:
 - On `main` at the time of writing, `MemoryGraphRetriever` is constructed only in `tests/Bazaar.Server.Tests/Constellation/Memory/MemoryGraphRetrieverTests.cs`. I found no DI registration or production caller, although `constellation-memory-graph.md` "Build status" says it is registered. That doc or the code needs a fix; this doc does not change either.
 - The only Arc B580 measurements in the repo are for drawing (`constellation-scale-and-lod.md` section 10): discrete device, 11.9 GiB device-local heap, Vulkan 1.4.356, `pageableDeviceLocalMemory` true. There are no compute or retrieval measurements.
 - The Vault side already has a one-hop graph read: `VaultSearchRepository.NeighbourCardsAsync` returns the first block of each document one wiki-link away from the seeds, in either direction, with targets the caller cannot read left out.
+- Two access rules in the code are wider than the docs, and the segment map of section 5.1 must follow `IVaultAccess`, not them: (a) `VaultAccess.CanRead` in `src/Bazaar.Server/Vault/Search/VaultAccess.cs` treats every document with no `owner` as readable by every caller, so project areas are not checked by project membership in Vault search, while `VaultPathAccess` (`src/Bazaar.Server/Memory/Access/VaultPathAccess.cs`) does check it; (b) `VaultPathAccess` lets every agent read `hive/**`, while doc 25 and `constellation-memory-graph.md` limit a Hive copy to the projects its grant covers. Doc 08 work package 17 aligns both with doc 08 section 6.
 
 ### 1.1 Flagged finding: the memory graph is a second node space
 
@@ -87,7 +95,7 @@ Non-goals:
 - **No silent change to retrieval semantics.** The stages today's retriever already has (RRF seeds, weighted hops with a cap of 2 and a 0.5 hop penalty, filter before scoring, Active only, packing) keep their rules, and backends must reproduce them exactly. The new stages in section 3A are PROPOSED additions to the retriever spec; they land through the docs PR for `constellation-memory-graph.md` (WP0) before code, and each is behind a setting until S28 and the retrieval evaluation choose defaults.
 - **No lexical search on the GPU.** Full-text stays in Postgres (`ts_rank` on Windows, `pg_search` on Linux, per CLAUDE.md).
 - **No embedding inference on the GPU.** Embeddings come through the gateway (doc 08 section 9). Running an embedding model on the server GPU is a separate question (decision 8 in section 17).
-- **No widening of scope.** Cross-project and company-wide retrieval are reached only through the access rules that exist. The graph kernel never decides what a principal may read.
+- **No widening of scope.** Cross-project reach is the company tier (section 0 item 3, doc 08 section 6), which `IVaultAccess` already lets every agent read; project-to-project reach stays with Hive copies and role grants. The graph kernel never decides what a principal may read.
 - **No new source of truth.** The Vault is the source of truth and Postgres indexes it. GPU memory is a cache that can be thrown away at any time.
 - **No client work.** The client Constellation renderer is unchanged.
 - **No ANN index replacement decision for pgvector.** Whether pgvector gets an HNSW index is doc 08 and doc 18's call. This doc treats exact pgvector as the reference either way.
@@ -127,11 +135,12 @@ Every stage runs over the principal's readable node set only. The range mask (se
 
 ### 3A.3 DAG closure
 
-Some edge kinds form a DAG, or are meant to: `supersedes`, `derived_from`, `decides`, `depends_on` (doc 19 and doc 38, PROPOSED there), and plan, phase and task ancestry (parent edges). For these kinds the pipeline computes, from each selected node:
+Some edge kinds form a DAG, or are meant to: `supersedes`, `derived_from`, `decides`, `depends_on` (doc 19 and doc 38, PROPOSED there), `follows_precedent`, `conditioned_on` and `resolved_by` (section 5.3), and plan, phase and task ancestry (parent edges). For these kinds the pipeline computes, from each selected node:
 
 - **Supersession chain:** follow `supersedes` to the newest Active head. A superseded document is never returned as current; it can appear as labelled history if the budget allows. Deprecated documents stay excluded (today's rule).
 - **Decision ancestry:** for a node that a decision `decides`, include that decision and, through `supersedes` and `derived_from`, the decisions it replaced or came from, so an agent sees why something is the way it is.
 - **Dependency closure:** ancestors and descendants along `depends_on` and plan or task parent edges, up to `graph_retrieval.dag.max_depth` (default 8) and a node cap.
+- **Precedent closure:** for a node that `follows_precedent`, include the precedent and the conditions it is `conditioned_on`; for an incident, include what `resolved_by` names. A precedent past its `valid_to` or review date is included only as labelled history with "expired" or "stale", never as the current rule.
 - **Cycles:** the data is written by agents and people, so a "DAG" kind can contain a cycle. (Research input R1 argues `derived_from` and `supersedes` cannot cycle because they point back in time; this doc disagrees, see 3B.) Closure keeps a visited set and stops at a repeated node; the cycle is reported in the pack's diagnostics and as a metric, never as an error.
 - Closure runs over the mask like everything else: an ancestor the principal cannot read is a gap, shown as nothing (not as "hidden"), and the walk does not pass through it.
 
@@ -146,7 +155,19 @@ Typed path queries the kernel offers (PROPOSED; from research input R1, section 
 | `ppr(seeds)` | Which nodes the seeds jointly point at | 3A.4 |
 | `subgraph(seeds)` | The scored neighbourhood (3A.5) | expansion plus ranking |
 
-The pipeline uses these internally. Exposing them as agent tools (for a bounded "expand, inspect, choose the next edge" loop driven by the agent) is a later step and goes through doc 17's tool rules; every call carries the caller's principal and the same mask.
+The pipeline uses these internally. They are also the agent's fallback tools (section 0.1), next to the plain search and read tools that agents always keep.
+
+**Bounded traversal tools (PROPOSED; research PR #1037 section 3c).** A small, closed tool set, registered through doc 17's tool rules at Tier 0 (internal reads), with no free-form graph query language:
+
+| Tool | Does | Bound |
+|---|---|---|
+| `graph_neighbours(node, kinds?)` | Typed neighbours of a node, with gists and edge kinds | `graph_retrieval.tools.max_results` (default 20) |
+| `graph_path(a, b, kinds?)` | Up to k typed paths between two nodes | k at most 3, length at most 4 |
+| `graph_ancestors(node, kinds)` / `graph_descendants(...)` / `graph_impact(node)` | Closure and reverse impact | `graph_retrieval.dag.max_depth` |
+| `graph_current(node)` | Supersede head, with expired and stale labels | chain length cap |
+| `zoom_in(cluster)` | The member gists of a cluster or scope summary (3A.6) | `graph_retrieval.tools.max_results` |
+
+Rules: every call carries the caller's principal and the same mask, so a tool can never see more than injection could; each turn has a step cap (`graph_retrieval.tools.max_steps_per_turn`, default 8) and a cycle check over the nodes already visited in the turn, which ends the loop with a "cycle" result instead of repeating a node; results are gists and ids, and bodies are fetched by id with the normal read tool. This is a bounded ReAct-style traversal: the agent expands, inspects and chooses the next edge, inside fixed caps.
 
 **Time validity (PROPOSED, research input R3).** Revisions carry a `stored_at` already. Adding `valid_from` and `valid_to` to revisions, and an effective time on `supersedes` edges, would let the pipeline answer "what was true on date D" and mark stale items in the pack. This is a schema change and is decision 14 in section 17; until then "current" means the head of the supersede chain.
 
@@ -174,6 +195,7 @@ The output is a compact subgraph, not a bag of chunks:
 - Louvain communities are computed on the server for the Constellation (doc 19, "Clustering"). When `graph_retrieval.communities.enabled` is on, the pack may add a short note per community that the selected nodes fall in, and name the hub nodes (highest weighted degree inside the readable subgraph).
 - **Security floor:** a community note is built only from nodes the principal may read. A precomputed community summary that was written over nodes of mixed scope is never shown to a principal who cannot read all of them. In practice this means summaries are computed per segment (one scope), or assembled at query time from the gists of readable members.
 - Off by default; S28's evaluation decides whether it helps.
+- **Hierarchical per-scope summaries (PROPOSED; research PR #1037 sections 3c and 4b).** Per scope (one project's shared area, the company tier) and per Louvain cluster inside a scope, a `summary` Vault note holds a short gist list of its members. Summaries are written ahead of time in a reader session (doc 08 section 7's pattern), never at query time, and never across scopes (the security floor above). When a member note changes, `impact(node)` (reverse closure) marks every summary that covers it `stale`; the maintenance job rewrites stale summaries in its next window, and a stale summary is shown with its label until then. A pack may carry a scope summary as one item instead of many member gists, and the agent opens it with `zoom_in(cluster)` (3A.3 tools).
 
 ### 3A.7 Optional model rerank
 
@@ -204,6 +226,43 @@ The output is a compact subgraph, not a bag of chunks:
 
 The CPU backend is a first-class path: it is what runs on a server without a usable GPU (including Linux hosts with no Vulkan driver), and S28 may show it is the best default even where a GPU exists. Backend order when a step is declined: GPU, then CPU, then Postgres (today's path).
 
+### 3A.10 The company knowledge tier in the pipeline
+
+The tier is defined in doc 08 section 6; this is how each stage treats it.
+
+- **Mask.** The company segment (`company/memory/`) is in the readable range set of every agent query unless the agent is quarantined or the call opts out (`IncludeCompany = false`). Candidates (`company/candidates/`) are never Active and never in the index.
+- **Seeds (3A.1).** Besides the normal seed list, each query takes up to `graph_retrieval.company.max_seeds` (default 4, cap 10) seeds from the company segment alone, fused with the same RRF constants. So a strong company lesson reaches a project whose own notes dominate the main list, including a project that looks unrelated to where the lesson came from.
+- **Expansion (3A.2).** Hops into the company tier follow ordinary `link` and `follows_precedent` edges from project notes. Company notes link only to company notes (doc 08 section 6.2), so a hop out stays inside the company segment. `company.evidence` is the provenance edge kind `evidence`, weight 0: like the provenance labels of 5.3 it is kept host-side for labels and is absent from the CSR, so it never expands and carries no PageRank mass. A backlink from a company note reaches a project note only when the mask lets the caller read it.
+- **Closure (3A.3).** For a selected company note: its supersede head and history, its `contradicts` neighbours inside the company segment at depth 1, and its `conditioned_on` targets, inside `graph_retrieval.dag.budget_share`.
+- **PPR (3A.4).** Company seeds join the restart vector at their fused scores. With no `evidence` edges in the CSR, mass from a company seed can reach a project node only through a backlink the caller can read, so PPR cannot route attention into another project's private notes.
+- **Packing (3A.8).** Company items get a reserved share, `memory.context.company_share` (default 0.15, hard cap 0.3); an unused share returns to the general pool; reserved shares together stay at or below 0.5. Each company item carries the labels of doc 08 section 6.8: tier and trust (T2 provisional or T3 owner-promoted), company kind, confidence, evidence counts, conditions, review or expiry state, and the sources the caller can read, by title. Never raw project-private text.
+
+### 3A.11 Proactive injection and refresh (section 0.1)
+
+Triggers (each one runs the pipeline once, with the query built from the new context, not from the whole transcript):
+
+| Trigger | Query and pinned seeds |
+|---|---|
+| Turn start | the triggering message plus the current task title (`constellation-memory-graph.md`, "Agent-turn wiring") |
+| Task change (a Kanban card claimed, moved or finished) | the task title, its plan and dependency ancestry as pinned seeds |
+| GC change (the agent's working GC switches, or a Thinking GC opens under it) | the GC topic and its recent decision references |
+| New project (the agent joins a project or opens one for the first time) | the project's index and plan notes, plus a wider company-tier pass (`graph_retrieval.company.max_seeds` doubled, within its cap) so the agent starts with what the company already knows |
+| Every trigger | company-tier seeds (3A.10) |
+
+Refresh without bloating the window:
+
+1. **Diff, not reload.** The runtime keeps the set of node ids and versions already in the window (`AlreadyInContext`). A refresh adds only new nodes and newer versions; a newer version replaces the older item in place and is marked as a replacement.
+2. **Cards first, bodies by id.** Injected items are path-and-card bundles (gist, provenance, reason; 3A.5). Full bodies go in only for the top tier of the pack; the agent fetches any other body by id.
+3. **Eviction.** Items that no later trigger re-selected for `graph_retrieval.inject.evict_after_triggers` (default 3) triggers drop out of the soft context first, oldest and lowest scored first, before anything else is cut. Before a stale tool result or injected item is cleared, anything the agent produced from it that should last is saved to the Vault first ("save to Vault before clear", research PR #1037 section 4b), so clearing never loses work.
+4. **Budget.** Injection never exceeds the memory share of the turn budget (`memory.context.share_percent`); company and DAG shares sit inside it.
+
+### 3A.12 Context efficiency and cache-aware packing (research PR #1037 section 4b)
+
+- **Where prompt tokens are saved.** By retrieve-on-demand instead of preloading, by clearing stale tool results (with save to Vault before clear, 3A.11), by compact path-and-card bundles with bodies fetched by id (3A.5), and by per-scope summaries (3A.6). Index quantization does **not** remove prompt tokens; it only shrinks storage and speeds search (section 8.3).
+- **Optional prompt compression.** An LLMLingua-2-style compressor may shorten bulky prose items, as an optional sidecar behind the gateway (`graph_retrieval.compress.enabled`, default off). Never on code, ids, paths, decision records or quoted text. Off until the evaluation (13.5) shows it keeps answer quality.
+- **Cache-aware order.** The stable prefix comes first and in a fixed order: rules, Soul, Constitution, pinned cards. The provider's cache breakpoint sits after it. The retrieved bundle comes after the breakpoint, in a stable order (DAG parts topologically, the rest by score with id as the tie key), so two turns with the same bundle hit the same cache and a refresh changes only the tail.
+- **CPU and GPU fit.** CPU for binary, int8 and RaBitQ-style codes and for the graph kernel (section 4); the GPU is the better place for embeddings, the reranker and a compressor, which are gateway upstreams, not this module (decision 8 in section 17). cuVS and cuGraph are NVIDIA-only and the owner's card is an Arc B580 (R5).
+
 ## 3B. Research inputs
 
 Source: `docs/research/reports/graph-context-long-horizon-memory.md` (status RESEARCHED, 2026-11-20; on branch `claude/project-thread-m53emz`, draft PR #1037, not yet on `main`). Research, not decisions. Further inputs from that thread are added here with their source and folded into 3A only through a reviewed edit.
@@ -213,9 +272,13 @@ Source: `docs/research/reports/graph-context-long-horizon-memory.md` (status RES
 | R1 | Graph source is the Vault's own links (`Link`, `DerivedFrom`, `Supersedes`); no model-based entity extraction in v1. Typed path queries: ancestors, descendants, supersede head, k-shortest paths, reverse impact, PPR. Return a structured bundle of paths plus cards, not flat snippets. | 3A.3 path queries, 3A.5 assembly, 5.3 edge sources. | Yes, with one disagreement: the report says `DerivedFrom` and `Supersedes` cannot form a cycle because they point back in time. They are front-matter references to ids, written by agents and people, and nothing in the schema or the projector enforces time order; a rollback (`ActivateRevisionAsync`) can also bring back an older edge set. The kernel therefore keeps a visited set and reports cycles on every kind. Enforcing acyclicity at write time is possible later, but it is a Vault write rule, not a retrieval one. |
 | R2 | Keep RRF seeds, 1 hop default, 2 max. Add a local cross-encoder reranker over the top 25 to 50. | 3A.1 and 3A.2 keep today's defaults; 3A.7 rerank over a 32-item shortlist. | Partly. Seeds and hop limits: yes. Rerank: useful, but this doc keeps it off by default and never mandatory until the labelled set (R6) shows a gain on Bazaar's own Vault, because the owner direction makes model steps optional and a rerank adds latency and a gateway dependency to every retrieval. It goes through the gateway so per-agent whitelists and usage labels apply, rather than a separate inference path. |
 | R3 | Add `valid_from` and `valid_to` to revisions and `Supersedes` edges (Zep/Graphiti style). | 3A.3 "Time validity". | Yes in principle. It is a schema change, so it needs one answer (decision 14 in section 17) and lands with the convergence docs PR (WP0), not here. |
-| R4 | Cross-project hops only via grants and Hive copies; access checked per hop at read time with the caller's identity; summaries per access scope, never across; dangling cross-scope links return nothing. | Section 0 item 2, 5.3 cross-project edges, 3A.6 community floor, section 10. | Yes. The range mask is the per-hop check on the engine; the CPU post-filter re-checks with the caller's identity. |
+| R4 | Cross-project hops only via grants and Hive copies; access checked per hop at read time with the caller's identity; summaries per access scope, never across; dangling cross-scope links return nothing. | Section 0 items 2 and 3, 5.3 cross-project edges, 3A.6 community floor, 3A.10, section 10. | Yes for project-to-project hops. The owner's answer (2026-11-20) adds the company knowledge tier as the cross-project channel, readable by every agent; it adds no project-to-project hop. The range mask is the per-hop check on the engine; the CPU post-filter re-checks with the caller's identity. |
 | R5 | Engine: `IGraphKernel` over a CSR snapshot, multi-core CPU reference first, optional GPU provider modules. cuVS, CAGRA and cuGraph are CUDA-only and the owner's card is an Arc B580, so GPU paths are optional and of the Vulkan or oneAPI/SYCL/OpenCL class. GPU is best spent on embeddings, the reranker and any graph scorer. | 4.1 (CPU engine in the main module, Vulkan as an optional provider module), 4.2 (`IGraphKernel`), 3A.9. | Mostly. Agree on the interface, the CPU default and optional providers. Two differences: (a) a cuGraph or cuVS provider cannot be first-party, because it needs the proprietary CUDA runtime and the public build is OSI-only; a third party could ship one under the module exception. (b) For Intel this doc picks Vulkan over SYCL or OpenCL, to keep one GPU API in the codebase (7.1). On where the GPU is best spent: plausible, and this doc does not dispute it, but embedding and rerank inference are out of this doc's scope (decision 8 in section 17). The GPU vector and graph kernels stay behind S28. |
 | R6 | Build a labelled Vault question set (path, impact, current answer, isolation) before tuning weights. | 13.5 and WP16. Edge weights, PPR alpha, closure budget share and rerank stay at their starting values until it exists. | Yes. |
+| R7 | Context efficiency (section 4b): prompt-token cuts come from retrieve-on-demand, clearing stale tool results with save to Vault before clear, compact path-and-card bundles with bodies by id, per-scope summaries, and optional prompt compression (LLMLingua-2, never on code, ids or decisions). Cache-aware packing: stable prefix first, retrieved bundle after the cache breakpoint in a stable order. | 3A.6 summaries, 3A.11 refresh, 3A.12. | Yes. Compression stays off by default until the evaluation shows no quality loss. |
+| R8 | Index quantization (TurboQuant, RaBitQ, PQ, binary or int8 with rescore, Matryoshka) shrinks storage and speeds search but removes no prompt tokens. The Vault index is small (about 4 GB per million notes at 1024 f32 dimensions), so quantization is headroom, not v1: int8 or Matryoshka with full-vector rescore first, TurboQuant and RaBitQ benchmarked in S28. | 8.3, 13.2 arms. | Yes. int8 with rescore is already the opt-in mode; Matryoshka truncation needs a profile whose model supports it, so it is an S28 arm only for such a profile. |
+| R9 | Wider project scan (section 3b): nothing is a drop-in (all Python). Borrow ideas and reimplement in C#: HippoRAG personalised PageRank (MIT), Graphiti temporal validity windows (Apache-2.0), LightRAG incremental updates (MIT), Cognee no-LLM build mode (Apache-2.0). Optional sidecar: LLMLingua (MIT) for bulky prose only. Skip FalkorDB (SSPL, not OSI), Mem0, Letta, MS GraphRAG, nano-graphrag. | 3A.4 PPR (HippoRAG idea), 3A.3 time validity (Graphiti idea), 9.1 delta apply (LightRAG idea), the deterministic build with no model call (Cognee idea), 3A.12 compressor. | Yes. Ideas only: no code is imported. MIT and Apache-2.0 are AGPL-compatible, but the licences were read from project About boxes, not LICENSE files, so each is **unverified** until a licence check reads the file. |
+| R10 | Agentic GraphRAG patterns (section 3c; practitioner writing, its percentage claims are untested and not used as evidence): an institutional knowledge map of decision, precedent, incident and role notes; write-back of a link when acting under a precedent; failure memory with counts and time, a path marked bad only after repeats; hierarchical summaries with `zoom_in`; bounded ReAct-style traversal over typed-edge tools with step caps and cycle detection, no free-form query language; "who resolved a similar failure before" for Kodo and CI. | Doc 08 section 6 (the company tier is the map; write-back; failure repeats), 5.3 edge kinds, 3A.3 tools, 3A.6 summaries. | Yes, with one limit: "who resolved this before" is an owner-visible suggestion only, because people edges are personal data (C01); no person edge enters agent retrieval. |
 
 ## 4. Module shape and the seam
 
@@ -315,10 +378,28 @@ The index is cut into **segments**. A segment is a contiguous range of rows that
 ### 5.3 Graph (CSR)
 
 - `row_offsets: uint32[N_nodes + 1]`, `col_index: uint32[E]`, `edge_kind: uint8[E]` padded to 4 bytes per edge group. The weight is looked up from the kind through one weight table shared with the CPU retriever, so weights cannot drift.
-- Edge sources: `vault_links` rows with a resolved `target_doc` (kind `link`, and `embed`), and the front-matter relations `derived_from` and `supersedes`. Today's weights carry over: `link` 1.0 (today's `Link`), `derived_from` 0.8, `supersedes` 0.5. A weight for `embed`, for `contradicts`, and whether `backlink` (the reverse direction) expands are not specified anywhere; today's memory retriever expands outgoing edges only, while `NeighbourCardsAsync` reads both directions. These belong in the converged retriever spec (decision 12 in section 17), and until then the GPU index carries only the three kinds with known weights, outgoing only.
+- Edge sources: `vault_links` rows with a resolved `target_doc` (kind `link`, and `embed`), and the front-matter relations. Today's weights carry over: `link` 1.0 (today's `Link`), `derived_from` 0.8, `supersedes` 0.5. Today's memory retriever expands outgoing edges only, while `NeighbourCardsAsync` reads both directions; decision 12 in section 17 adds backlinks at half weight.
+- **Closed set of typed edges (DECIDED by the coordinator, 2026-11-20, from the research thread; weights PROPOSED).** Beyond `link`, `derived_from` and `supersedes`, exactly five relation kinds are added, written as front-matter relations: `conditioned_on`, `approved_by`, `follows_precedent`, `resolved_by`, `affects`. The schema stays lean: detail lives in note bodies, and a new kind needs a docs change, not a setting (no ontology sprawl). The full table:
+
+| Kind | Meaning | Direction expanded | Starting weight | DAG kind (3A.3) | Notes |
+|---|---|---|---|---|---|
+| `link` | a wiki-link | out; backlink at half | 1.0 | no | today's `Link` |
+| `embed` | a transclusion | out | 1.0 (as `link`) | no | |
+| `derived_from` | built from | out | 0.8 | yes | today's value |
+| `supersedes` | replaces | out | 0.5 | yes | today's value; chain walk to the head |
+| `contradicts` | disagrees with | closure only, depth 1 | none (not expanded) | no | shown beside its target, doc 08 section 2 |
+| `conditioned_on` | holds only while the target holds | out | 0.8 | yes | a precedent's conditions |
+| `follows_precedent` | was done under this precedent | out | 0.8 | yes | the write-back edge (doc 08 section 6.6) |
+| `resolved_by` | an incident or failure resolved by a fix, decision or charter | out | 0.6 | yes | never targets a person |
+| `affects` | changes or bears on the target | out; reverse for `impact` | 0.6 | no | feeds `impact(node)` |
+| `approved_by` | approved by a decision record, motion or charter | out | 0.3 | no | targets a decision, a Council motion record or a role charter only. A person approver stays a person reference in the note (C01), visible to the owner, and is never a graph edge |
+| `evidence` | company note to its source note (doc 08 section 6) | never | 0 | no | provenance only; host-side, absent from the CSR |
+| provenance labels (`AuthoredBy`, `FromGc`, `FromMessage`) | who and where from | never | 0 | no | today's rule |
+
+  The new weights are starting values, untuned; the labelled question set (13.5) replaces them. **Precedents carry review or expiry dates:** a precedent note has `review_by` and may have `valid_to`; retrieval flags a precedent past either date as `stale` or `expired` and uses an expired one only as labelled history (3A.3). Edges from a note to a person never exist in phase 1; GC and person nodes are phase 2 (5.0) with their own mask source.
 - Unresolved links (`target_doc` null) produce no edge, matching the projector rule. Provenance labels never expand and are left out.
 - A node bitset `node_flags: uint32[ceil(N_nodes / 32)]` per flag: `active` (for memory documents, the active revision's status is `Active`; for other documents, the document exists and is not deprecated or archived by its front matter, by the converged spec) and `tombstone` (removed, erased or moved).
-- **Cross-project edges.** A link whose target is in another project is stored like any edge, and the range mask decides at query time whether the hop is allowed, so a hop across projects happens only when the principal may read the target segment under today's rules (Hive copies, role grants). This doc adds no cross-project grant.
+- **Cross-project edges.** A link whose target is in another project is stored like any edge, and the range mask decides at query time whether the hop is allowed, so a hop across projects happens only when the principal may read the target segment under today's rules (Hive copies, role grants). The company segment is readable by every agent that is not quarantined, so hops into it are always allowed; hops out of it stay inside it (3A.10). This doc adds no project-to-project grant.
 - Graph node order follows the same segment grouping, so the visibility mask in section 10 is a list of ranges, not a per-node upload.
 
 ### 5.4 Per-query buffers
@@ -409,6 +490,8 @@ Rounding can swap two rows whose scores straddle the k-th place. The GPU therefo
 ### 8.3 int8 mode
 
 int8 is not exact. It is a first pass that selects `k x oversample` rows (default 4x), which are then rescored in fp16 on the GPU from the resident fp16 rows, or from host memory if only int8 is resident. Recall@k against exact pgvector is measured in S28. int8 mode is never the default, needs the operator to opt in, and carries a `approximate: true` label in the retrieval result so callers and logs can tell. If S28 shows recall below the threshold in section 13.4 the setting is removed rather than shipped.
+
+Quantization is headroom, not a v1 need (R8): the Vault index is small, about 4 GB per million notes at 1024 f32 dimensions, and quantization saves storage and search time but no prompt tokens. Order of work: int8 with full-vector rescore (this section) first; Matryoshka truncation with full-vector rescore where the install's embedding model supports it; RaBitQ and TurboQuant only as S28 benchmark arms on the CPU engine, adopted only on measured gains.
 
 ### 8.4 Why the CPU replays the scoring
 
@@ -527,10 +610,15 @@ The module implements `IModuleHealth` (doc 46 section 10):
 | `graph_retrieval.max_pending_apply` | int 0 to 10000 | 256 | install | operator | No (audited) |
 | `graph_retrieval.breaker.failures` / `.window_s` / `.cooldown_s` | ints | 3 / 60 / 600 | install | operator | No (audited) |
 | `graph_retrieval.shadow.fraction` | real 0.001 to 1.0 | 0.01 | install | operator | No (audited) |
+| `graph_retrieval.tools.max_results` / `.max_steps_per_turn` | int 1 to 50 / int 1 to 32 | 20 / 8 | install, agent | operator | No (audited) |
+| `graph_retrieval.inject.evict_after_triggers` | int 1 to 20 | 3 | install | operator | No (audited) |
+| `graph_retrieval.compress.enabled` | bool | `false` | install, agent | operator | No (audited) |
+
+`graph_retrieval.company.max_seeds` and `memory.context.company_share` are doc 08's keys (section 6, Settings) and are not repeated here.
 
 The defaults above are starting values, not measurements. S28 replaces them.
 
-**Not settings (security floors):** the range mask on every hop, closure step and walk transition; community notes only over readable nodes; the rerank can only reorder; the CPU post-filter; the stale-removal floor (9.2); shutdown on a shadow mismatch or a scope mismatch; the ban on ids, text and paths in GPU memory; fallback on every failure. The shadow fraction has a floor of 0.001 so it cannot be turned off while the GPU path is on.
+**Not settings (security floors):** the range mask on every hop, closure step and walk transition; `evidence` edges never expand; traversal tools see only what the mask allows; compression never touches code, ids, paths, decision records or quoted text; community notes only over readable nodes; the rerank can only reorder; the CPU post-filter; the stale-removal floor (9.2); shutdown on a shadow mismatch or a scope mismatch; the ban on ids, text and paths in GPU memory; fallback on every failure. The shadow fraction has a floor of 0.001 so it cannot be turned off while the GPU path is on.
 
 ## 13. Benchmark spike S28 (PROPOSED, added to doc 35 in a follow-up)
 
@@ -546,6 +634,7 @@ Which engine should be the default for each stage (Postgres, multi-core CPU, GPU
 4. **GPU fp16.**
 5. **GPU int8 with fp16 rescore.**
 6. **Software Vulkan** (lavapipe on Linux), for correctness only, not speed.
+7. **Quantized CPU codes** (R8): Matryoshka truncation with rescore (only for a profile whose model supports it), RaBitQ and TurboQuant, each with full-vector rescore, on the CPU engine. Recall@k against exact pgvector and the memory saved are the measures.
 
 ### 13.3 Datasets and sizes
 
@@ -584,7 +673,22 @@ Speed gates say nothing about whether the context is better. Before any weight, 
 | Look-up | single fact | must not get worse than seeds only (graph methods can hurt here, per the research report) |
 | Isolation | asked by agent A about agent B's private notes | zero leaks, including paths and counts |
 
-Arms: seeds only (today's vector plus lexical), `hop_decay`, `ppr`, each with and without DAG closure, communities and rerank. Metrics: recall and nDCG at the token budget, tokens per useful item, and latency. Public long-horizon benchmarks (LongMemEval, LoCoMo) are a sanity check only, since none covers a vault of plans and decisions. Defaults change only on measured gains.
+| Cross-project (company tier) | "What do we know about X?" asked from a project that did not produce the lesson | the company note is in the pack, labelled, with no source text from the other project |
+| Company leakage | canary project, customer and person names planted in source notes | zero canaries in any pack, label or redacted evidence entry |
+| Poisoning | a planted bad candidate and a planted T1 "principle" | neither appears in any pack (acceptance zero above T1) |
+
+Arms: seeds only (today's vector plus lexical), `hop_decay`, `ppr`, each with and without DAG closure, communities, the company tier and rerank. Metrics: recall and nDCG at the token budget, tokens per useful item, and latency. Public long-horizon benchmarks (LongMemEval, LoCoMo) are a sanity check only, since none covers a vault of plans and decisions. Defaults change only on measured gains.
+
+**Injection quality (section 0.1).** Proactive injection is the primary path, so it is measured by what the agent still has to look up. These are metrics and an evaluation plan, not targets; no number is set before measurement.
+
+| Metric | Definition | Grouped by |
+|---|---|---|
+| Redundant search rate | Search or read tool calls whose useful result (the hit the agent then cites or opens) was already in the injected context at the time of the call, over all such calls | agent, task, trigger kind |
+| Miss rate | Search or read tool calls that found a node the injection did not include and the agent then used, over all such calls | agent, task, trigger kind |
+| Tokens per correct answer | Prompt tokens spent (injected plus tool results) per labelled question answered correctly, compared with a full-context baseline that puts every readable candidate note in the window up to the model's limit | agent, model, question type |
+| Injection share used | Injected items cited or opened, over items injected | trigger kind |
+
+How it is measured: the runtime already passes `AlreadyInContext` and the retrieval audit records returned ids (`constellation-memory-graph.md`); a tool result is matched against them by node id, never by text. Every miss writes a candidate question (the tool query and the node found, ids only) into the labelled set builder of WP16, where a person reviews it before it counts, so misses improve the set the weights are tuned on. The full-context baseline runs only in the evaluation harness, never in production.
 
 ### 13.6 Where and who
 
@@ -634,7 +738,14 @@ Sizes: S is up to a day, M is two to three days, L is about a week.
 | 13 | GPU expansion, closure and PPR kernels | M | 7, only if S28's CPU numbers leave room for a gain |
 | 14 | Vault vector search (`VaultSearchService`) through the same kernel | M | 8, and the block-to-document seed rule (decision 9 in section 17) |
 | 15 | Phase 2 nodes: GC, decision-reference, task and PR nodes with their own mask source | L | 6, decision 11 in section 17 |
-| 16 | Labelled Vault question set and evaluation harness (13.5) | M | none (public docs first; decision 6 in section 17 for the real Vault) |
+| 16 | Labelled Vault question set and evaluation harness (13.5), including the company-tier, leakage and poisoning questions | M | none (public docs first; decision 6 in section 17 for the real Vault) |
+| 17 | Company tier in the index and pipeline (3A.10): company segment always in the mask, company seeds, `evidence` edges host-side only, reserved share; tests that no `evidence` edge is in the CSR and that a project B query never reaches project A through the tier. Doc 08 work packages 21 and 22 | M | 5, 6a; doc 08 work package 18 |
+| 18 | Typed edge kinds of 5.3 in the projector and the converged retriever spec (WP0), with the precedent closure and expiry labels | M | 0 |
+| 19 | Bounded traversal tools (3A.3) through doc 17's tool rules: step cap, cycle check, mask | M | 6, doc 17 |
+| 20 | Proactive injection triggers and refresh (3A.11) in the turn assembler side of `constellation-memory-graph.md`, with save to Vault before clear | M | 6a, doc 06 |
+| 21 | Per-scope summaries and `zoom_in` (3A.6), refreshed by reverse impact | M | 6, doc 19 WP5 |
+| 22 | Cache-aware pack order and the optional compressor sidecar (3A.12), off by default | S | 6a |
+| 23 | Injection-quality metrics (13.5): redundant search rate, miss rate, tokens per correct answer against the full-context baseline, misses fed to WP16 | M | 16, 20 |
 
 Work packages 0, 1, 3, 4 and 16 can start in parallel. Nothing beyond 0, 1 and 2 should merge before the decisions 1, 2 and 10 in section 17 are accepted.
 
@@ -646,7 +757,7 @@ Work packages 0, 1, 3, 4 and 16 can start in parallel. Nothing beyond 0, 1 and 2
 - Kernel bugs that pass tests but differ on one vendor's driver. Shadow parity in production is the guard.
 - Keeping the index in step with the Vault adds a new consistency path. The change-feed table and the stale-removal floor bound the damage to "slower", not "wrong".
 
-## 17. Decisions taken and the one open trade-off
+## 17. Decisions taken
 
 The earlier draft listed 14 owner questions. Most are answered by the design docs, the research, or the owner's standing direction (build everything, no shortcuts, everything is a module, nothing duplicated). They are settled here as PROPOSED decisions, and the owner can overturn any of them.
 
@@ -663,9 +774,12 @@ The earlier draft listed 14 owner questions. Most are answered by the design doc
 | 9 | Block versus document seeds | A document's vector score is its best block's score. Tunable later from the labelled set. | Simple and standard. |
 | 10 | Convergence schema | Re-key the memory revision tables to `doc_id` by migration, with a dry run, keeping all history. | Coordinator approved; follows from "no separate memory nodes". |
 | 11 | Phase 2 nodes | GC, decision-reference, task and PR nodes join retrieval in phase 2. Their visibility follows GC membership and the DM and Thinking-GC rules, not Vault paths. | The goal is project-wide context; the access rules already exist. |
-| 12 | Edge kinds and direction | Defaults stay: `link` 1.0, `derived_from` 0.8, `supersedes` 0.5, outgoing, plus backlinks at half weight. Other kinds get weights from the labelled question set. | No weight is tuned without measurement. |
-| 14 | Time validity | Add nullable `valid_from` and `valid_to` to revisions and an effective time to `supersedes` edges. "Current" stays the head of the supersede chain. | Needed for long-horizon "what was true on date D"; additive. |
+| 12 | Edge kinds and direction | Defaults stay: `link` 1.0, `derived_from` 0.8, `supersedes` 0.5, outgoing, plus backlinks at half weight. The closed set of five added kinds (`conditioned_on`, `approved_by`, `follows_precedent`, `resolved_by`, `affects`) is DECIDED by the coordinator (2026-11-20); their weights in 5.3 are starting values, replaced from the labelled question set. `evidence` and provenance labels never expand. | No weight is tuned without measurement; a lean, closed schema. |
+| 14 | Time validity | Add nullable `valid_from` and `valid_to` to revisions and an effective time to `supersedes` edges. "Current" stays the head of the supersede chain. Precedents carry `review_by` and may carry `valid_to`; expired ones are labelled history. | Needed for long-horizon "what was true on date D"; additive. |
+| 15 | How wide a cross-project hop may go (the earlier open trade-off) | **Answered by the owner (2026-11-20, section 0 item 3).** Cross-project reach is the company knowledge tier of doc 08 section 6, always in scope for every agent; project-to-project hops stay with Hive copies and role grants; no owner-granted project link is added. | The owner's statement names company knowledge as the principle; distillation with provenance gives the cross-project value without opening one project's private notes to another. |
+| 16 | Primary context path | Proactive injection (3A.11) is primary; search, read and traversal tools stay as the fallback, and their use is the measure of injection quality (13.5). | Owner design intent (section 0.1). |
+| 17 | Quantization in v1 | int8 with rescore stays opt-in; Matryoshka, RaBitQ and TurboQuant are S28 arms only. | Research input R8: headroom, not a v1 need, and no prompt-token gain. |
 
-**Open trade-off for the owner: how wide may a cross-project hop go?** Today a hop crosses projects only where Hive copies or role grants already make the target readable (the safe default, and what the docs allow). The owner's description says projects are interconnected. A wider rule would let linked projects read each other's shared areas through retrieval, which gives richer context and is also an access-control change (a wrongly linked project would leak its notes). Recommended: keep the default, and add an explicit owner-granted project link as a later, audited setting if the default proves too narrow.
+No owner trade-off is left open in this doc.
 
 Also to fix outside this doc (found while reading, not changed here): `constellation-memory-graph.md` "Build status" says `MemoryGraphRetriever` is registered in `ConstellationComponent`, but on `main` it is constructed only in tests.
