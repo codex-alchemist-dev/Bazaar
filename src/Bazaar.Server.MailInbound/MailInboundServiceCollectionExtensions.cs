@@ -20,6 +20,8 @@ public static class MailInboundServiceCollectionExtensions
         services.TryAddSingleton(new InboundMailOptions());
         services.TryAddSingleton<IInboundMailEvents>(NullInboundMailEvents.Instance);
         services.TryAddSingleton<IMailMessageStore>(sp => new PostgresMailMessageStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        // Without a host-supplied reader, triage runs the host's model port through the mail_triage schema check.
+        services.TryAddSingleton<IMailTriageReader>(sp => new SchemaCheckedMailTriageReader(sp.GetRequiredService<IMailTriageModel>()));
         services.TryAddSingleton<IInboundMailPipeline>(sp => new InboundMailPipeline(
             sp.GetRequiredService<IMailMessageStore>(),
             sp.GetRequiredService<IMailQuarantineStore>(),

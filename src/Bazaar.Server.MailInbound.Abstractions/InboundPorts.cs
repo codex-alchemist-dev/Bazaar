@@ -85,6 +85,15 @@ public sealed record MailReaderInput(
     string? HtmlBody,
     IReadOnlyList<string> AttachmentNames);
 
+/// <summary>
+/// The raw model call behind the triage reader (doc 05 gateway). It returns the model's <c>mail_triage</c> payload as text, or null
+/// when there was none; the reader checks it against the schema and treats it as untrusted.
+/// </summary>
+public interface IMailTriageModel
+{
+    Task<string?> CompleteAsync(ReaderSessionHandle session, MailReaderInput input, CancellationToken ct);
+}
+
 /// <summary>The reader model call (doc 05 gateway, behind a port so tests run a fake). It can answer with a hand-over and nothing else.</summary>
 public interface IMailTriageReader
 {

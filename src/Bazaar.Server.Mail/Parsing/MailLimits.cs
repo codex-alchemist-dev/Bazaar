@@ -27,6 +27,12 @@ public sealed record MailLimits
     /// <summary>Highest declared uncompressed-to-compressed ratio. PROPOSED key <c>mail.max_archive_ratio</c>.</summary>
     public int MaxArchiveCompressionRatio { get; init; } = 100;
 
+    /// <summary>Most distinct links kept per message for the reader session. PROPOSED key <c>mail.max_links</c>.</summary>
+    public int MaxLinks { get; init; } = 50;
+
+    /// <summary>Longest normalized link kept, in UTF-16 code units; longer ones are counted and dropped. PROPOSED key <c>mail.max_link_length</c>.</summary>
+    public int MaxLinkLength { get; init; } = 2048;
+
     public static MailLimits Defaults { get; } = new();
 
     public void Validate()
@@ -38,5 +44,7 @@ public sealed record MailLimits
         if (MaxArchiveEntries <= 0) throw new ArgumentOutOfRangeException(nameof(MaxArchiveEntries));
         if (MaxArchiveUncompressedBytes <= 0) throw new ArgumentOutOfRangeException(nameof(MaxArchiveUncompressedBytes));
         if (MaxArchiveCompressionRatio <= 0) throw new ArgumentOutOfRangeException(nameof(MaxArchiveCompressionRatio));
+        if (MaxLinks < 0) throw new ArgumentOutOfRangeException(nameof(MaxLinks));
+        if (MaxLinkLength <= 0) throw new ArgumentOutOfRangeException(nameof(MaxLinkLength));
     }
 }

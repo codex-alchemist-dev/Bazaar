@@ -10,6 +10,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Schemas\mail_triage.schema.json" LogicalName="mail_triage.schema.json" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.MailInbound.Abstractions\Bazaar.Server.MailInbound.Abstractions.csproj" />
     <!-- The parser, the screens and the quarantine store are the Mail module's; this module wires them into a pipeline and builds none of its own. -->
     <ProjectReference Include="..\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
