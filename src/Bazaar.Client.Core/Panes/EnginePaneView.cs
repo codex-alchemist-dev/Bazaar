@@ -5,6 +5,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
+using Bazaar.Client.Abstractions.Panes;
+
 namespace Bazaar.Client.Core.Panes;
 
 /// <summary>Builds a plugin-specific body for one engine pane kind. Keyed by the pane kind.</summary>
