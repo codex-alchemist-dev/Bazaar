@@ -72,12 +72,14 @@ public sealed class PgHiveStoreTests(HiveDb db) : IClassFixture<HiveDb>
     }
 
     [Fact]
-    public async Task Blank_project_names_are_refused_by_the_table()
+    public async Task Blank_or_equal_project_names_are_refused_before_the_table_is_reached()
     {
         var (grants, _) = await FreshAsync();
 
-        await Assert.ThrowsAsync<PostgresException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             grants.AddAsync(new HiveGrant(" ", "beta", HiveKind.Procedure, "owner"), Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            grants.AddAsync(new HiveGrant("beta", "beta", HiveKind.Procedure, "owner"), Ct));
     }
 
     [Fact]

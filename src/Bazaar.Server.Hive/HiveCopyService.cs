@@ -102,6 +102,16 @@ public sealed partial class HiveCopyService
         ArgumentNullException.ThrowIfNull(request);
         var lesson = request.Lesson;
 
+        if (string.IsNullOrWhiteSpace(lesson.OriginProject) || string.IsNullOrWhiteSpace(request.TargetProject))
+        {
+            return HiveCopyOutcome.Refused(HiveRefusal.InvalidInput);
+        }
+
+        if (string.Equals(lesson.OriginProject, request.TargetProject, StringComparison.Ordinal))
+        {
+            return HiveCopyOutcome.Refused(HiveRefusal.SameProject);
+        }
+
         if (request.SourceClass != HiveSourceClass.Lesson)
         {
             return HiveCopyOutcome.Refused(HiveRefusal.ClassNotShareable, request.SourceClass.ToString());

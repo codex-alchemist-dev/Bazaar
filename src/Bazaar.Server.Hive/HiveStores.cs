@@ -102,7 +102,7 @@ public sealed class InMemoryHiveGrantStore : IHiveGrantStore
     /// <inheritdoc />
     public Task AddAsync(HiveGrant grant, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(grant);
+        HiveGrantRules.Validate(grant);
         lock (_gate)
         {
             if (!_grants.Exists(g => Matches(g, grant.FromProject, grant.ToProject, grant.Kind)))

@@ -399,4 +399,39 @@ public class HiveCopyTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new HiveCopyOptions { ReviewDays = -1 });
         Assert.Throws<ArgumentOutOfRangeException>(() => new HiveCopyOptions { ReviewDays = 366 });
     }
+
+    [Fact]
+    public async Task A_copy_into_the_same_project_is_refused()
+    {
+        var rig = new Rig();
+        var request = Request(Note()) with { TargetProject = _origin };
+
+        var outcome = await rig.Service.SubmitAsync(request, Ct);
+
+        Assert.Equal(HiveRefusal.SameProject, outcome.Refusal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task An_empty_target_project_is_refused(string target)
+    {
+        var rig = new Rig();
+
+        var outcome = await rig.Service.SubmitAsync(Request(Note()) with { TargetProject = target }, Ct);
+
+        Assert.Equal(HiveRefusal.InvalidInput, outcome.Refusal);
+    }
+
+    [Theory]
+    [InlineData("project-atlas", "project-atlas")]
+    [InlineData("", "project-atlas")]
+    [InlineData("project-atlas", " ")]
+    public async Task A_grant_needs_two_different_projects(string from, string to)
+    {
+        var grants = new InMemoryHiveGrantStore();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => grants.AddAsync(new HiveGrant(from, to, HiveKind.Procedure, "owner"), Ct));
+        Assert.Empty(await grants.ListAsync(Ct));
+    }
 }

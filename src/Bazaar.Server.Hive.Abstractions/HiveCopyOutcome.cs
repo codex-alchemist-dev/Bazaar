@@ -16,6 +16,12 @@ public enum HiveCopyStatus
 /// <summary>Why a copy was refused.</summary>
 public enum HiveRefusal
 {
+    /// <summary>The origin or target project is empty, so no grant can apply.</summary>
+    InvalidInput,
+
+    /// <summary>The origin and target project are the same; Hive only moves lessons between projects.</summary>
+    SameProject,
+
     /// <summary>No grant covers the origin project, target project and kind (the default).</summary>
     NoGrant,
 

@@ -38,7 +38,7 @@ public sealed class PgHiveGrantStore(NpgsqlDataSource dataSource) : IHiveGrantSt
     /// <inheritdoc />
     public async Task AddAsync(HiveGrant grant, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(grant);
+        HiveGrantRules.Validate(grant);
         await using var cmd = dataSource.CreateCommand("""
             INSERT INTO hive_grant (from_project, to_project, kind, granted_by)
             VALUES (@from, @to, @kind, @granted_by)
