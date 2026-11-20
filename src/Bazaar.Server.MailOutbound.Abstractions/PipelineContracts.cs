@@ -219,6 +219,39 @@ public interface IMailApprovalGateway
     Task<bool> ConsumeAsync(Guid approvalId, CancellationToken ct);
 }
 
+/// <summary>
+/// Thrown by <see cref="IMailApprovalGateway.RequestAsync"/> when the approvals store refuses to take the request. Nothing was filed. The pipeline ends
+/// the send as failed and never asks again. The reason code is a short lower-case code (letters, digits, <c>_</c>, <c>:</c>, <c>.</c>, <c>-</c>, at most
+/// <see cref="MaxReasonCodeLength"/> characters); it never carries mail content or an address.
+/// </summary>
+public sealed class MailApprovalRefusedException : InvalidOperationException
+{
+    /// <summary>The longest reason code kept.</summary>
+    public const int MaxReasonCodeLength = 64;
+
+    /// <summary>The code used when the supplied one is empty or not a plain code.</summary>
+    public const string DefaultReasonCode = "approval_refused";
+
+    public MailApprovalRefusedException(string reasonCode, Exception? inner = null)
+        : base("The approvals queue refused the mail approval request.", inner) => ReasonCode = Sanitize(reasonCode);
+
+    /// <summary>A bounded, non-sensitive code for the audit record.</summary>
+    public string ReasonCode { get; }
+
+    private static string Sanitize(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return DefaultReasonCode;
+        var trimmed = code.Length > MaxReasonCodeLength ? code[..MaxReasonCodeLength] : code;
+        foreach (var c in trimmed)
+        {
+            var plain = c is >= 'a' and <= 'z' or >= '0' and <= '9' or '_' or ':' or '.' or '-';
+            if (!plain) return DefaultReasonCode;
+        }
+
+        return trimmed;
+    }
+}
+
 /// <summary>Port: the back end that sends for one operator domain.</summary>
 public interface IMailBackendResolver
 {

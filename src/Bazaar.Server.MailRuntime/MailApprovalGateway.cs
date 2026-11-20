@@ -5,13 +5,6 @@ using Bazaar.Server.MailOutbound;
 
 namespace Bazaar.Server.MailRuntime;
 
-/// <summary>Thrown when the approvals queue refuses a mail approval request. Nothing was filed; the pipeline's row stays awaiting approval and a resume asks again.</summary>
-public sealed class MailApprovalRefusedException(ApprovalRefusal refusal, Exception inner)
-    : InvalidOperationException($"The approvals queue refused the mail approval request ({refusal}).", inner)
-{
-    public ApprovalRefusal Refusal { get; } = refusal;
-}
-
 /// <summary>
 /// <see cref="IMailApprovalGateway"/> over the shared approvals queue (doc 22, "Mail runtime (host wiring)"; doc 15 tiers). One request per message,
 /// bound to the outbound message by its payload reference. The queue row carries a short summary and never the mail body, the subject line or full
@@ -34,9 +27,21 @@ public sealed class MailApprovalGateway(IApprovalQueue queue, IMailRuntimeOption
         }
         catch (ApprovalRefusedException refused)
         {
-            throw new MailApprovalRefusedException(refused.Refusal, refused);
+            throw new MailApprovalRefusedException(ReasonCodeFor(refused.Refusal), refused);
         }
     }
+
+    /// <summary>The stable reason code for a queue refusal: <c>approval_refused:</c> and the refusal name in snake case.</summary>
+    public static string ReasonCodeFor(ApprovalRefusal refusal) => refusal switch
+    {
+        ApprovalRefusal.InvalidRequest => "approval_refused:invalid_request",
+        ApprovalRefusal.NotFound => "approval_refused:not_found",
+        ApprovalRefusal.NotPending => "approval_refused:not_pending",
+        ApprovalRefusal.SelfApproval => "approval_refused:self_approval",
+        ApprovalRefusal.NotPermitted => "approval_refused:not_permitted",
+        ApprovalRefusal.HumanRequired => "approval_refused:human_required",
+        _ => MailApprovalRefusedException.DefaultReasonCode,
+    };
 
     public async Task<MailApprovalStatus> GetStatusAsync(Guid approvalId, CancellationToken ct)
     {

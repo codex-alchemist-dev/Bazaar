@@ -122,7 +122,18 @@ public sealed class MailApprovalGatewayTests
     {
         var q = new FakeQueue { Refuse = true };
         var ex = await Assert.ThrowsAsync<MailApprovalRefusedException>(() => Gateway(q).RequestAsync(Request(), CancellationToken.None));
-        Assert.Equal(ApprovalRefusal.InvalidRequest, ex.Refusal);
+        Assert.Equal("approval_refused:invalid_request", ex.ReasonCode);
+    }
+
+    [Fact]
+    public void Every_refusal_maps_to_a_stable_bounded_code()
+    {
+        foreach (var refusal in Enum.GetValues<ApprovalRefusal>())
+        {
+            var code = MailApprovalGateway.ReasonCodeFor(refusal);
+            Assert.StartsWith("approval_refused:", code, StringComparison.Ordinal);
+            Assert.Equal(code, new MailApprovalRefusedException(code).ReasonCode);
+        }
     }
 
     [Theory]

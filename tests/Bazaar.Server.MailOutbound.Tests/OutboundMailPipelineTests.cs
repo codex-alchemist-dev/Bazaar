@@ -166,6 +166,39 @@ public sealed class OutboundMailPipelineTests
         Assert.Equal(1, rig.Backend.Delivered);
     }
 
+    [Fact]
+    public async Task A_refused_approval_request_ends_the_send_for_good()
+    {
+        var rig = new Rig();
+        rig.Approvals.RefuseWith = "approval_refused:not_permitted";
+        var pipeline = rig.Pipeline();
+
+        var first = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+        var resumed = await pipeline.ResumeAsync(first.IdempotencyKey, Ct);
+        var due = await pipeline.ResumeDueAsync(10, Ct);
+        var repeated = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+
+        Assert.Equal(OutboundSendStatus.Failed, first.Status);
+        Assert.Equal(OutboundSendStatus.Failed, resumed!.Status);
+        Assert.Equal(OutboundSendStatus.Failed, repeated.Status);
+        Assert.Equal(0, due);
+        Assert.Equal(1, rig.Approvals.RequestCalls);
+        Assert.Equal(0, rig.Backend.Calls);
+        Assert.Equal(1, rig.Policy.Evaluations);
+        Assert.Equal(OutboundStatus.Failed, (await rig.Store.FindAsync(first.IdempotencyKey, Ct))!.Status);
+        var failed = Assert.Single(rig.Audit.Entries, e => e.Kind == "mail.outbound.failed");
+        Assert.Contains("approval_refused:not_permitted", failed.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(_secretBody, failed.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_refusal_code_is_bounded_and_plain()
+    {
+        Assert.Equal(MailApprovalRefusedException.DefaultReasonCode, new MailApprovalRefusedException("has spaces and a@b.example").ReasonCode);
+        Assert.Equal(MailApprovalRefusedException.DefaultReasonCode, new MailApprovalRefusedException("").ReasonCode);
+        Assert.Equal(MailApprovalRefusedException.MaxReasonCodeLength, new MailApprovalRefusedException(new string('a', 500)).ReasonCode.Length);
+    }
+
     [Theory]
     [InlineData(MailApprovalStatus.Denied, OutboundSendStatus.Rejected)]
     [InlineData(MailApprovalStatus.Expired, OutboundSendStatus.Expired)]

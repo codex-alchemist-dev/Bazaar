@@ -36,8 +36,15 @@ public sealed class FakeApprovals : IMailApprovalGateway
 
     public int ConsumeCalls { get; private set; }
 
+    /// <summary>When set, every request is refused with this code.</summary>
+    public string? RefuseWith { get; set; }
+
+    public int RequestCalls { get; private set; }
+
     public Task<Guid> RequestAsync(MailApprovalRequest request, CancellationToken ct)
     {
+        RequestCalls++;
+        if (RefuseWith is { } code) throw new MailApprovalRefusedException(code);
         var id = Guid.NewGuid();
         _status[id] = MailApprovalStatus.Pending;
         Requests.Add((id, request));
