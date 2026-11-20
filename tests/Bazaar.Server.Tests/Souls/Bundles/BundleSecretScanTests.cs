@@ -1,5 +1,6 @@
 using System.Text;
 using Bazaar.Server.Souls.Bundles;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Server.Tests.Souls.Bundles;
 
@@ -7,10 +8,10 @@ public sealed class BundleSecretScanTests
 {
     // Planted test values, assembled from pieces so the literal shapes do not sit whole in source.
     private const string _openAiShape = "sk-" + "abcdefghijklmnopqrstuvwx1234";
-    private const string _anthropicShape = "sk-ant-" + "api03abcdefghijklmnop";
-    private const string _githubShape = "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789";
-    private const string _githubPatShape = "github_pat_" + "11ABCDEFG0abcdefghij_xyz";
-    private const string _awsShape = "AKIA" + "IOSFODNN7EXAMPLE";
+    private const string _anthropicShape = FakeSecrets.AnthropicApiKey;
+    private const string _githubShape = FakeSecrets.GitHubPat;
+    private const string _githubPatShape = FakeSecrets.GitHubFineGrainedPat;
+    private const string _awsShape = FakeSecrets.AwsAccessKeyId;
     private const string _bearerShape = "Authorization: Bearer " + "9fK2xQ7wLp4Zr8Vb";
     private const string _pemHeader = "-----BEGIN RSA " + "PRIVATE KEY-----";
     private const string _passwordShape = "password=" + "Tr0ub4dor&3xyzQ";
