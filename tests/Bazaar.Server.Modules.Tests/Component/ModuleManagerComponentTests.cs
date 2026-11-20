@@ -1,7 +1,8 @@
 using Bazaar.Core;
-using Bazaar.Server.Modules;
 using Bazaar.Server.Modules.Releases;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Modules.Updates;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -52,6 +53,19 @@ public class ModuleManagerComponentTests
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<UpdatePolicyEvaluator>());
         Assert.NotNull(provider.GetRequiredService<DeferAging>());
+    }
+
+    [Fact]
+    public void Component_contributes_every_module_manager_setting_key()
+    {
+        var services = new ServiceCollection();
+        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+
+        using var provider = services.BuildServiceProvider();
+        var contributions = provider.GetServices<ISettingContribution>().ToList();
+
+        var contribution = Assert.Single(contributions, c => c is ModuleManagerSettingContribution);
+        Assert.Same(ModuleManagerSettings.All, contribution.Settings);
     }
 
     [Fact]
