@@ -227,6 +227,141 @@ if (args.Length > 0 && args[0] == "topology-cull")
     return 0;
 }
 
+if (args.Length > 0 && args[0] == "tilecull-check")
+{
+    // Parity of the reusable TileCullPass (src/Bazaar.Constellation.Vulkan) against its CPU reference on random boxes and cameras.
+    bench.InitializeTopology(shaders);
+    if (!bench.IndirectCountSupported)
+    {
+        Console.WriteLine("vkCmdDrawIndirectCount is not supported on this device");
+        return 3;
+    }
+
+    int bad = bench.CheckTileCullPass(200);
+    Console.WriteLine($"tilecull-check: {bad} of 200 trials differ from the CPU reference");
+    return bad == 0 ? 0 : 1;
+}
+
+if (args.Length > 0 && args[0] == "bgload")
+{
+    // Game-like background load for the wall-time tests: usage bgload <stopFile> [cpuThreads]. A 60 Hz frame loop of about 8 ms of GPU
+    // draw work (uniform 3D, 19M points) in this process, plus busy CPU threads, until the stop file exists. Run it without BAZAAR_BENCH_BOOST.
+    bench.InitializeTopology(shaders);
+    string stopFile = args.Length > 1 ? args[1] : "bgload.stop";
+    int cpuThreads = args.Length > 2 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 2;
+    for (int t = 0; t < cpuThreads; t++)
+    {
+        new Thread(() =>
+        {
+            while (!File.Exists(stopFile))
+            {
+                for (int i = 0; i < 2_000_000; i++)
+                {
+                    Math.Sqrt(i);
+                }
+            }
+        })
+        { IsBackground = true }.Start();
+    }
+
+    long frames = 0;
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    while (!File.Exists(stopFile))
+    {
+        long frameStart = clock.ElapsedTicks;
+        bench.MeasureDraw(Topology.Uniform, 3, 1_000_000_000L, Viewpoint.Whole, 19_000_000, 100_000, 0, 1);
+        frames++;
+        double used = (clock.ElapsedTicks - frameStart) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+        if (used < 16.67)
+        {
+            Thread.Sleep((int)(16.67 - used));
+        }
+    }
+
+    Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"bgload frames={frames} seconds={clock.Elapsed.TotalSeconds:F1}"));
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "topology-combined")
+{
+    // Section 10.11. Usage: topology-combined [csv] [subset] [quick]. subset = N = 1B, M = 1M only (for the background-load runs).
+    // Per draw cell, 100k LOD edges in every variant:
+    //   ccpts: tile cull, decimation of the kept tiles, decimated points, edges; ccdens: the same cull and decimation (the overdraw estimate)
+    //   then the aggregate density path instead of points. The density switch (policy T) picks between them from points per 2x2 cell.
+    //   ctilesz / cthizsz (3D only): tile cull with and without Hi-Z, points sized from the density of the drawn points so they occlude.
+    bench.InitializeTopology(shaders);
+    if (!bench.IndirectCountSupported)
+    {
+        Console.WriteLine("vkCmdDrawIndirectCount is not supported on this device");
+        return 3;
+    }
+
+    bench.InitializeCull(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-combined.csv");
+    bool subset = args.Contains("subset");
+    bool quick = args.Contains("quick");
+    int warm = quick ? 5 : WarmupFrames;
+    int meas = quick ? 20 : MeasuredFrames;
+    const int edgeCap = 100_000;
+    var csv = new List<string> { NodeBenchmark.CombinedCsvHeader };
+    void Emit(string section, long total, long points, double buildMs, CellStats s, CullCounters c, CombinedCounters d)
+    {
+        csv.Add(NodeBenchmark.CombinedCsvLine(section, total, points, buildMs, edgeCap, s, c, d));
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} N={total} M={points} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} ppc={d.PointsPerCell:F2} tiles={c.DrawnTiles}/{c.FrustumTiles} [{breakdown}]"));
+    }
+
+    var noCombined = new CombinedCounters(0, 0);
+    var cells = new List<(long N, int M)>();
+    foreach (int m in subset || quick ? new[] { 1_000_000 } : new[] { 500_000, 1_000_000, 2_000_000 })
+    {
+        cells.Add((1_000_000_000L, m));
+    }
+
+    if (!subset && !quick)
+    {
+        cells.Add((100_000_000L, 1_000_000));
+        cells.Add((2_000_000_000L, 1_000_000));
+    }
+
+    foreach (long n in cells.Select(c => c.N).Distinct())
+    {
+        foreach (int dim in new[] { 2, 3 })
+        {
+            foreach (Topology topology in Enum.GetValues<Topology>())
+            {
+                bench.BuildAggregate(topology, dim, n);
+                foreach ((long cn, int m) in cells.Where(c => c.N == n))
+                {
+                    double buildMs = bench.BuildTiles(topology, dim, n, m);
+                    foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+                    {
+                        string tag = $"{topology}_{dim}d_{view}".ToLowerInvariant();
+                        (CellStats pts, CullCounters ptsCull, CombinedCounters ptsDec) = bench.MeasureCombined(topology, dim, n, view, m, edgeCap, false, warm, meas, 2f, 400f);
+                        Emit($"ccpts_{tag}", n, m, buildMs, pts, ptsCull, ptsDec);
+                        (CellStats dens, CullCounters densCull, CombinedCounters densDec) = bench.MeasureCombined(topology, dim, n, view, m, edgeCap, true, warm, meas, 2f, 400f);
+                        Emit($"ccdens_{tag}", n, m, buildMs, dens, densCull, densDec);
+                        if (dim == 3 && !subset)
+                        {
+                            // Occluder size from the density of the drawn points: about the screen area per drawn point, so splats tile the screen.
+                            (_, CullCounters drawn) = bench.MeasureCulled(topology, dim, n, view, m, edgeCap, false, 1, 1, 2f, 400f);
+                            float size = (float)Math.Clamp(Math.Sqrt(NodeBenchmark.ScreenCells / Math.Max(1.0, drawn.Instances)) * 1.2, 1.0, 48.0);
+                            (CellStats sz, CullCounters szCull) = bench.MeasureCulled(topology, dim, n, view, m, edgeCap, false, warm, meas, 2f, 400f, size);
+                            Emit($"ctilesz_{tag}", n, m, buildMs, sz, szCull, new CombinedCounters((uint)size, 0));
+                            (CellStats hz, CullCounters hzCull) = bench.MeasureCulled(topology, dim, n, view, m, edgeCap, true, warm, meas, 2f, 400f, size);
+                            Emit($"cthizsz_{tag}", n, m, buildMs, hz, hzCull, new CombinedCounters((uint)size, 0));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length > 0 && args[0] == "topology-pipeline")
 {
     // Wall-time hitches: the draw frame (500k points, 100k LOD edges) at N = 1B with 1, 2 and 3 frames in flight.
