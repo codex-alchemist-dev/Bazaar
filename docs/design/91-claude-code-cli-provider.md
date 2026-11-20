@@ -47,7 +47,7 @@ What this means, plainly. Reading 3 permits the shape the owner wants: the opera
 
 C14 and doc 05 say subscription logins stay off every route. The owner's request of 2026-11-20 adds a route that uses a subscription login held by the CLI. The credential rule behind C14 ("never route subscription credentials through the gateway") still holds in letter: the gateway never sees a credential, because the CLI keeps it (T2, T3). What changes is the sentence "no Claude Code tier or subscription login can be configured". The docs PR for this note edits that sentence in doc 05, adds a pointer in 05b section 4, and logs round 30 in DECISIONS-LOG. FreeLLMAPI's own "Claude Code tiers" stay refused: that is a third party holding the login.
 
-CLAUDE.md also says subscription logins stay off every route and that the Claude lane never routes Pro/Max credentials through the gateway; this note leaves that file alone (it is the owner's rule file) and asks the owner to adjust the wording if section 15 question 1 is accepted.
+CLAUDE.md said the same in two places; the owner accepted the account risk on 2026-11-20, and both lines now name this provider as the one exception.
 
 The usage `identity` label gains a third value, `subscription`, beside `native` and `pooled`. Cost records from this lane carry the CLI's `total_cost_usd` as a notional figure, marked as not billed.
 
@@ -204,7 +204,7 @@ All with a **fake CLI**: a small .NET console program (`Bazaar.Server.Providers.
 
 ## 15. Open questions
 
-1. **Accept the terms risk (owner).** Section 2: the login path is permitted for a person using their own plan in the unmodified CLI, but a round-the-clock agent fleet is outside "ordinary, individual usage" and the account could be limited. Recommended: build it, ship it off by default with the acknowledgement, keep the API key route as the fallback. Counsel review before public release.
+1. **Terms risk: ACCEPTED by the owner, 2026-11-20.** Section 2: the login path is permitted for a person using their own plan in the unmodified CLI, but a round-the-clock agent fleet is outside "ordinary, individual usage" and the account could be limited. Recommended: build it, ship it off by default with the acknowledgement, keep the API key route as the fallback. Counsel review before public release.
 2. **Several humans (owner).** v1 serves one login owner. Recommended: keep it that way. Per-human logins and per-human agents are a later design.
 3. **CLI-run tool loops (owner).** A coding agent that runs inside Claude Code's own loop (its file and shell tools, in a VM) is a different module with its own approval and taint design. Recommended: not now; the harness in doc 17 stays the coding path.
 
