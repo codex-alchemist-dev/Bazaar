@@ -33,7 +33,6 @@ public sealed class MemoryComponentTests : IDisposable
     {
         var services = new ServiceCollection();
 
-        new Bazaar.Server.Vault.VaultComponent().AddServices(services, Config());
         new MemoryComponent().AddServices(services, Config());
 
         Assert.Empty(services);
