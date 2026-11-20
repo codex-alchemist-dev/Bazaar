@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Wire;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Mobile;
@@ -12,6 +13,8 @@ using Bazaar.Client.Dashboard;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.RyuseiFuda.Phone;
+using Bazaar.Contracts.Panes;
 using Bazaar.Client.Vault;
 
 namespace Bazaar.Client.Android;
@@ -26,6 +29,10 @@ public sealed class App : Avalonia.Application
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
         ClientServer.ConnectToCompanyServer();
+        _wire = AndroidWire.Start(
+            ClientServer.Current,
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "bazaar"),
+            "bazaar-android");
         var host = new ContentControl
         {
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
@@ -46,6 +53,15 @@ public sealed class App : Avalonia.Application
     // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
     private readonly List<IDisposable> _postureBindings = [];
 
+    // The one socket to the company server. Kanban (and later approvals) send their wire requests through it.
+    private AndroidWire? _wire;
+
+    /// <summary>
+    /// The project whose board the Kanban pane shows, or null while none is chosen (the pane then says so and sends nothing).
+    /// How the phone learns the project is not decided yet (doc 29 and doc 12 name no project listing), so a build sets it.
+    /// </summary>
+    public static Guid? KanbanProjectId { get; set; }
+
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
         // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes (pager order).
@@ -60,7 +76,12 @@ public sealed class App : Avalonia.Application
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
         var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
+        var firstParty = FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry));
+        // The Kanban pane is the live board over the wire (doc 29 work package 9), not the static placeholder body.
+        var board = new WireKanbanBoardClient(_wire!.Client);
+        var shell = new PhoneShell(registry, kind => kind == PaneKinds.Kanban
+            ? KanbanPhoneBody.Create(board, KanbanProjectId)
+            : firstParty(kind));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
