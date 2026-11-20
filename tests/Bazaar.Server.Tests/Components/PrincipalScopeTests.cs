@@ -77,6 +77,46 @@ public class PrincipalScopeTests
     }
 
     [Theory]
+    [InlineData("service:kek")]
+    [InlineData("agent:charles on behalf of user:dom")]
+    [InlineData("service:device-1 on behalf of user:dom")]
+    public void Principal_action_round_trips(string text)
+    {
+        var action = PrincipalAction.Parse(text);
+
+        Assert.Equal(text, action.ToString());
+        Assert.Equal(action, PrincipalAction.Parse(action.ToString()));
+    }
+
+    [Fact]
+    public void Principal_action_parse_exposes_both_principals()
+    {
+        var action = PrincipalAction.Parse("agent:charles on behalf of user:dom");
+
+        Assert.Equal(Principal.Agent("charles"), action.Actor);
+        Assert.Equal(Principal.User("dom"), action.OnBehalfOf);
+        Assert.Null(PrincipalAction.Parse("agent:charles").OnBehalfOf);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("agent:charles on behalf of")]
+    [InlineData("agent:charles on behalf of ")]
+    [InlineData(" on behalf of user:dom")]
+    [InlineData("agent:charles on behalf of nobody")]
+    [InlineData("agent:charles on behalf of user:dom on behalf of user:x")]
+    [InlineData("agent:charles  on behalf of user:dom")]
+    [InlineData("agent:charles on behalf of user:dom ")]
+    [InlineData("robot:x on behalf of user:dom")]
+    public void Principal_action_rejects_invalid_text(string? text)
+    {
+        Assert.False(PrincipalAction.TryParse(text, out var action));
+        Assert.Null(action);
+        Assert.Throws<FormatException>(() => PrincipalAction.Parse(text!));
+    }
+
+    [Theory]
     [InlineData("install:main")]
     [InlineData("tenant:acme")]
     [InlineData("tenant:acme/branch/7")]
