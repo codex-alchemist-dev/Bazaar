@@ -102,6 +102,9 @@
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
     <Project Path="src/Bazaar.Conduit/Bazaar.Conduit.csproj" />
     <Project Path="src/Bazaar.Updates/Bazaar.Updates.csproj" />
+    <Project Path="src/Bazaar.DeviceApproval.Abstractions/Bazaar.DeviceApproval.Abstractions.csproj" />
+    <Project Path="src/Bazaar.DeviceApproval.Windows/Bazaar.DeviceApproval.Windows.csproj" />
+    <Project Path="tests/Bazaar.DeviceApproval.Tests/Bazaar.DeviceApproval.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
