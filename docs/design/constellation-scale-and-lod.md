@@ -153,3 +153,23 @@ Run: `Bazaar.Constellation.Vulkan.Bench.Android` on an Android 15 (API 35) x86_6
 | instances | 16.8M | 16.8M | 1M | 8 001 | 2.29 | 3.67 | 1.92 | 3.30 |
 
 The 300k-instance cap is the phone-tier figure from section 6. Above it, the emulator tracks the PC roughly linearly and did not show the PC cliff in the range measured here (1M instances at 1.9 ms GPU p50). The emulator's translation layer dominates these numbers, so they don't say anything about phone-GPU cliffs.
+
+### 10.3 PC re-run and run-to-run variance (2026-11-13)
+Same bench, Release build, Intel Arc B580, Vulkan 1.4.356. GPU p50 and p95 in ms. Earlier run in section 10 for comparison.
+
+| Row | Earlier p50 | Re-run p50 | Re-run p95 |
+|---|---|---|---|
+| 1M nodes, 1M instances | 0.50 | 0.58 | 0.97 |
+| 10M nodes, 2M instances | 1.72 | 1.02 | 1.42 |
+| 100M nodes, 2M instances | 1.00 | 1.00 | 1.39 |
+| 1B nodes (100.7M window), 2M instances | 1.54 | 1.00 | 1.00 |
+| 100k instances, 100.7M resident | 0.37 | 0.29 | 0.29 |
+| 1M instances, 100.7M resident | 1.78 | 0.50 | 0.77 |
+| 2M instances, 100.7M resident | 1.00 | 1.00 | 1.00 |
+| 10M instances, 100.7M resident | 318 | 326 | 328 |
+| 50M instances, 100.7M resident | 2 427 | 2 467 | 2 536 |
+| 100M instances, 100.7M resident | not measured | 5 111 | 5 151 |
+
+The cliff reproduces. Above about 2M instances per frame the cost grows about linearly with instance count, at about 50 ms per million. The 100M-instance row takes 5.1 s per frame.
+
+Small-count rows vary between the two runs. The largest gap is the 10M-node, 2M-instance row (1.72 against 1.02 ms), and some 1M-instance rows differ by about 1.3 ms. Treat differences under about 2 ms, or any single-run number, as noise until a repeat-run spread is measured (section 10.4 once added).
