@@ -14,7 +14,7 @@ namespace Bazaar.Constellation.Vulkan;
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
 {
     /// <summary>Background colour cleared each frame until node drawing lands (RGBA, linear).</summary>
-    private static readonly (float R, float G, float B, float A) _background = (0.05f, 0.06f, 0.08f, 1f);
+    private static readonly (float R, float G, float B, float A) _background = ConstellationNodeStyles.DefaultTheme.Background;
 
     /// <summary>Style used for every node until per-node styles arrive from the adapter (RGBA, radius in world units).</summary>
     private static readonly NodeStyle _nodeStyle = NodeStyle.Create(0.80f, 0.86f, 0.95f, 1f, 0.012f);
