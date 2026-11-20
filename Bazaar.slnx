@@ -111,6 +111,8 @@
     <Project Path="src/Bazaar.Server.MailInbound/Bazaar.Server.MailInbound.csproj" />
     <Project Path="src/Bazaar.Server.MailOutbound.Abstractions/Bazaar.Server.MailOutbound.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.MailOutbound/Bazaar.Server.MailOutbound.csproj" />
+    <Project Path="src/Bazaar.Server.MailOnboarding.Abstractions/Bazaar.Server.MailOnboarding.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailOnboarding/Bazaar.Server.MailOnboarding.csproj" />
     <Project Path="src/Bazaar.Server.MailRuntime.Abstractions/Bazaar.Server.MailRuntime.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.MailRuntime/Bazaar.Server.MailRuntime.csproj" />
     <Project Path="src/Bazaar.Conduit/Bazaar.Conduit.csproj" />
@@ -219,6 +221,7 @@
     <Project Path="tests/Bazaar.Server.MailDns.Tests/Bazaar.Server.MailDns.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailInbound.Tests/Bazaar.Server.MailInbound.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailOutbound.Tests/Bazaar.Server.MailOutbound.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailOnboarding.Tests/Bazaar.Server.MailOnboarding.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailRuntime.Tests/Bazaar.Server.MailRuntime.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
