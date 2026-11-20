@@ -42,6 +42,12 @@ public static class WireTypes
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
 
+    /// <summary>Editor opens a workspace file (doc 57 §6, PROPOSED). Answered with an <c>EditorOpenReply</c>.</summary>
+    public const string EditorOpen = "editor.open";
+
+    /// <summary>Editor saves a workspace file against the revision it opened (doc 57 §6, PROPOSED). Answered with an <c>EditorSaveReply</c>.</summary>
+    public const string EditorSave = "editor.save";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
