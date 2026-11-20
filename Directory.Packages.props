@@ -60,5 +60,8 @@
     <!-- Wire codec generator (doc 90 WP1): build-time Roslyn only, netstandard2.0 analyzer. 4.14 runs inside every current SDK. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <!-- Reusable codec conformance suite (doc 90 WP1): xunit v3 extensibility and assert, for a library of tests. Same version as xunit.v3.mtp-v2. -->
+    <!-- Protobuf codec (doc 90 WP2): Google.Protobuf runtime and the Grpc.Tools protoc build step. Only Bazaar.Wire.Codec.Protobuf (and later the gRPC module) may reference them; newest stable on 2026-11-20. -->
+    <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
+    <PackageVersion Include="Grpc.Tools" Version="2.85.0" />
   </ItemGroup>
 </Project>
