@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 
 using Bazaar.Contracts.Ryusei;
@@ -52,4 +53,6 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(ViewportRequest))]
 [JsonSerializable(typeof(ClusterGlyph))]
 [JsonSerializable(typeof(TileFrame))]
+[JsonSerializable(typeof(ReleaseManifest))]
+[JsonSerializable(typeof(ReleaseArtifact))]
 public sealed partial class WireJsonContext : JsonSerializerContext;
