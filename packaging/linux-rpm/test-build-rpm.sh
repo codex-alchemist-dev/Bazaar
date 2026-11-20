@@ -48,7 +48,7 @@ for arch in x86_64 aarch64; do
     grep -qx '/usr/share/applications/bazaar-client.desktop' <<<"${files}" || fail "desktop file missing (${arch})"
     grep -qx '/usr/share/icons/hicolor/scalable/apps/bazaar-client.svg' <<<"${files}" || fail "icon missing (${arch})"
     if grep -q '\.pdb$' <<<"${files}"; then fail "pdb shipped (${arch})"; fi
-    if rpm -qlp --qf '[%{FILEUSERNAME}:%{FILEGROUPNAME}\n]' "${rpmfile}" | grep -v '^root:root$' | grep -q .; then
+    if rpm -qp --qf '[%{FILEUSERNAME}:%{FILEGROUPNAME}\n]' "${rpmfile}" | grep -v '^root:root$' | grep -q .; then
         fail "entry not owned by root:root (${arch})"
     fi
     [[ "$(rpm -qp --qf '[%{FILELINKTOS}\n]' "${rpmfile}" | grep -c .)" == "1" ]] || fail "expected exactly one symlink (${arch})"
