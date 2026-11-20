@@ -12,26 +12,26 @@ public class KnownRegistryTests
     [InlineData("constellation.screenshot_sources")]
     public void Known_registry_holds_every_constellation_key_the_store_must_read(string name)
     {
-        Assert.True(SettingRegistry.Known.TryGet(name, out var definition));
+        Assert.True(BuiltInSettingRegistries.Known.TryGet(name, out var definition));
         Assert.NotNull(definition);
     }
 
     [Fact]
     public void Known_registry_still_holds_the_host_keys()
     {
-        foreach (var host in SettingRegistry.Host.Definitions)
+        foreach (var host in BuiltInSettingRegistries.Host.Definitions)
         {
-            Assert.True(SettingRegistry.Known.Contains(host));
+            Assert.True(BuiltInSettingRegistries.Known.Contains(host));
         }
     }
 
     [Fact]
     public void With_no_contributions_the_registry_matches_known()
     {
-        var registry = SettingRegistry.WithContributions([]);
+        var registry = BuiltInSettingRegistries.WithContributions([]);
 
         Assert.Equal(
-            SettingRegistry.Known.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal),
+            BuiltInSettingRegistries.Known.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal),
             registry.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal));
     }
 
@@ -41,11 +41,11 @@ public class KnownRegistryTests
         var key = new SettingKey<bool>("widgets.enabled", false, SettingScope.Install, SettingRole.Operator, "Test key.");
         var contribution = new FakeContribution([key]);
 
-        var registry = SettingRegistry.WithContributions([contribution]);
+        var registry = BuiltInSettingRegistries.WithContributions([contribution]);
 
         Assert.True(registry.Contains(key));
-        Assert.Equal(SettingRegistry.Known.Definitions.Count + 1, registry.Definitions.Count);
-        Assert.True(SettingRegistry.Known.TryGet("host.status.port", out _));
+        Assert.Equal(BuiltInSettingRegistries.Known.Definitions.Count + 1, registry.Definitions.Count);
+        Assert.True(BuiltInSettingRegistries.Known.TryGet("host.status.port", out _));
         Assert.True(registry.TryGet("host.status.port", out _));
     }
 
@@ -54,7 +54,7 @@ public class KnownRegistryTests
     {
         var clash = new SettingKey<int>("host.status.port", 1, SettingScope.Install, SettingRole.Operator, "Clash.");
 
-        Assert.Throws<ArgumentException>(() => SettingRegistry.WithContributions([new FakeContribution([clash])]));
+        Assert.Throws<ArgumentException>(() => BuiltInSettingRegistries.WithContributions([new FakeContribution([clash])]));
     }
 
     [Fact]
@@ -63,13 +63,13 @@ public class KnownRegistryTests
         var first = new SettingKey<bool>("widgets.enabled", false, SettingScope.Install, SettingRole.Operator, "First.");
         var second = new SettingKey<bool>("widgets.enabled", true, SettingScope.Install, SettingRole.Operator, "Second.");
 
-        Assert.Throws<ArgumentException>(() => SettingRegistry.WithContributions([new FakeContribution([first]), new FakeContribution([second])]));
+        Assert.Throws<ArgumentException>(() => BuiltInSettingRegistries.WithContributions([new FakeContribution([first]), new FakeContribution([second])]));
     }
 
     [Fact]
     public void Null_contributions_are_rejected()
     {
-        Assert.Throws<ArgumentNullException>(() => SettingRegistry.WithContributions(null!));
+        Assert.Throws<ArgumentNullException>(() => BuiltInSettingRegistries.WithContributions(null!));
     }
 
     private sealed class FakeContribution(IReadOnlyList<SettingDefinition> settings) : ISettingContribution
