@@ -11,6 +11,7 @@ using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
+using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
@@ -42,6 +43,7 @@ public static class HostApplicationExtensions
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
+        services.AddBazaarPortabilityPostgres();
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.

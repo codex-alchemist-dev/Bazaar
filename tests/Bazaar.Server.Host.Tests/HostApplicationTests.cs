@@ -1,5 +1,7 @@
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Portability;
+using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +39,7 @@ public sealed class HostApplicationTests
 
             Assert.NotNull(sp.GetRequiredService<IGcNotificationSource>());
             Assert.NotNull(sp.GetRequiredService<AgentResponder>());
+            Assert.IsType<PostgresImportJobStore>(sp.GetRequiredService<IImportJobStore>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
         }
         finally
