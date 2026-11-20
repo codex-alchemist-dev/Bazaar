@@ -100,7 +100,7 @@ public sealed class FailClosedTests
 
         Assert.IsType<OkSealer>(sp.GetRequiredService<IMailBodySealer>());
         Assert.Equal(
-            ["IInboundMailboxDirectory", "IMailReaderSessions", "IReaderSessionTaint", "IMailTriageReader"],
+            ["IMailReaderSessions", "IReaderSessionTaint", "IMailTriageReader"],
             MailRuntimeReadiness.MissingInbound(sp));
         Assert.Equal(["IMailBodyProtector"], MailRuntimeReadiness.MissingOutbound(sp));
     }

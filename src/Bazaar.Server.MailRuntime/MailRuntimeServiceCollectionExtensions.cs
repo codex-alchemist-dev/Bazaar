@@ -36,7 +36,6 @@ public static class MailRuntimeServiceCollectionExtensions
         services.TryAddSingleton<IMailReaderSessions, FailClosedMailReaderSessions>();
         services.TryAddSingleton<IReaderSessionTaint, FailClosedReaderSessionTaint>();
         services.TryAddSingleton<IMailTriageReader, FailClosedMailTriageReader>();
-        services.TryAddSingleton<IInboundMailboxDirectory, FailClosedInboundMailboxDirectory>();
         services.TryAddSingleton<IApprovedRecipients, FailClosedApprovedRecipients>();
 
         // Real adapters.
@@ -55,6 +54,9 @@ public static class MailRuntimeServiceCollectionExtensions
             sp.GetRequiredService<IMailCredentialSource>(),
             sp.GetService<TimeProvider>()));
         services.TryAddSingleton<IMailBackendResolver>(sp => sp.GetRequiredService<IMailBackendCatalog>());
+        // Maps mailbox to person and inbox GC; lists nothing it cannot map, so it keeps the fail-closed behaviour (FailClosedInboundMailboxDirectory is the unit-test double).
+        services.TryAddSingleton<IInboundMailboxDirectory>(sp => new PostgresInboundMailboxDirectory(
+            sp.GetRequiredService<NpgsqlDataSource>(), () => sp.GetRequiredService<IMailBackendCatalog>()));
         services.TryAddSingleton<IOutboundMailStore>(sp => new PostgresOutboundMailStore(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<IMailBodyProtector>()));
 
