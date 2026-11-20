@@ -123,7 +123,7 @@ public class GcContextSourceTests
     {
         public ValueTask<GcReadGrant> GetGrantAsync(Guid gcId, GcPrincipal viewer, CancellationToken ct)
         {
-            Assert.Equal(PrincipalKind.Agent, viewer.Kind);
+            Assert.Equal(GcParticipantKind.Agent, viewer.Kind);
             return ValueTask.FromResult(grant);
         }
     }
@@ -142,7 +142,7 @@ public class GcContextSourceTests
 
         public ValueTask<int> CountUnreadAsync(Guid gcId, Guid viewerId, CancellationToken ct) => throw new NotSupportedException();
 
-        public ValueTask<bool> CanReadAsync(Guid principalId, PrincipalKind kind, Guid gcId, CancellationToken ct) => throw new NotSupportedException();
+        public ValueTask<bool> CanReadAsync(Guid principalId, GcParticipantKind kind, Guid gcId, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class FixedCharter(string text) : ISoulCharterSource

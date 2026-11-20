@@ -52,13 +52,13 @@ public static class BroadcastPolicyRules
 
         switch (author.Kind)
         {
-            case PrincipalKind.Owner:
+            case GcParticipantKind.Owner:
                 return Allow();
 
-            case PrincipalKind.Human:
+            case GcParticipantKind.Human:
                 return Deny(BroadcastDenial.HumanMemberNotAllowed);
 
-            case PrincipalKind.Agent:
+            case GcParticipantKind.Agent:
                 if (policy == BroadcastPolicy.OwnerOnly)
                 {
                     return Deny(BroadcastDenial.AgentNotAllowedByPolicy);

@@ -31,7 +31,7 @@ public class MessageEditPlannerTests
     {
         return MessageEditPlanner.Plan(
             gc ?? LiveGc(),
-            editor ?? new GcViewer(AuthorId, PrincipalKind.Human),
+            editor ?? new GcViewer(AuthorId, GcParticipantKind.Human),
             MessageId,
             originalAuthorId ?? AuthorId,
             currentVersion,
@@ -106,10 +106,10 @@ public class MessageEditPlannerTests
     }
 
     [Theory]
-    [InlineData(PrincipalKind.Owner, AuthorKind.Owner)]
-    [InlineData(PrincipalKind.Human, AuthorKind.Human)]
-    [InlineData(PrincipalKind.Agent, AuthorKind.Agent)]
-    public void Author_kind_maps_from_the_viewer_kind(PrincipalKind kind, AuthorKind expected)
+    [InlineData(GcParticipantKind.Owner, AuthorKind.Owner)]
+    [InlineData(GcParticipantKind.Human, AuthorKind.Human)]
+    [InlineData(GcParticipantKind.Agent, AuthorKind.Agent)]
+    public void Author_kind_maps_from_the_viewer_kind(GcParticipantKind kind, AuthorKind expected)
     {
         var plan = Accepted(PlanEdit(editor: new GcViewer(AuthorId, kind)));
 
@@ -119,7 +119,7 @@ public class MessageEditPlannerTests
     [Fact]
     public void Non_author_is_refused_even_when_the_owner_asks()
     {
-        var result = PlanEdit(editor: new GcViewer(OtherId, PrincipalKind.Owner));
+        var result = PlanEdit(editor: new GcViewer(OtherId, GcParticipantKind.Owner));
 
         Assert.Equal(MessageEditRefusal.NotAuthor, Refused(result));
     }
@@ -129,7 +129,7 @@ public class MessageEditPlannerTests
     {
         var archived = new GcRecord(GcId, null, "general", CreatedAt);
 
-        var result = PlanEdit(gc: archived, editor: new GcViewer(OtherId, PrincipalKind.Human));
+        var result = PlanEdit(gc: archived, editor: new GcViewer(OtherId, GcParticipantKind.Human));
 
         Assert.Equal(MessageEditRefusal.NotAuthor, Refused(result));
     }

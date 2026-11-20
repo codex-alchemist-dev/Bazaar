@@ -30,7 +30,7 @@ public sealed class GcMemberAddHandler(
     public async ValueTask<WireReply> HandleAsync(WireRequestContext context, CancellationToken cancellationToken)
     {
         var request = context.Payload<GcMemberAdd>();
-        if (request.Kind is not (PrincipalKind.Human or PrincipalKind.Agent))
+        if (request.Kind is not (GcParticipantKind.Human or GcParticipantKind.Agent))
             return WireReply.Fail(WireErrorCodes.BadRequest, "Only a human or an agent can be added.");
         if (request.Role is not ("member" or "observer"))
             return WireReply.Fail(WireErrorCodes.BadRequest, "Role must be member or observer.");
@@ -134,17 +134,17 @@ internal static class GcMembershipWire
         return WireReply.Fail(WireErrorCodes.BadRequest, "The GC changed while the change was planned. Try again.");
     }
 
-    private static AuthorKind AuthorKindOf(PrincipalKind kind) => kind switch
+    private static AuthorKind AuthorKindOf(GcParticipantKind kind) => kind switch
     {
-        PrincipalKind.Owner => AuthorKind.Owner,
-        PrincipalKind.Agent => AuthorKind.Agent,
+        GcParticipantKind.Owner => AuthorKind.Owner,
+        GcParticipantKind.Agent => AuthorKind.Agent,
         _ => AuthorKind.Human,
     };
 
-    private static SourceTrust TrustOf(PrincipalKind kind) => kind switch
+    private static SourceTrust TrustOf(GcParticipantKind kind) => kind switch
     {
-        PrincipalKind.Owner => SourceTrust.Owner,
-        PrincipalKind.Agent => SourceTrust.Agent,
+        GcParticipantKind.Owner => SourceTrust.Owner,
+        GcParticipantKind.Agent => SourceTrust.Agent,
         _ => SourceTrust.MemberHuman,
     };
 

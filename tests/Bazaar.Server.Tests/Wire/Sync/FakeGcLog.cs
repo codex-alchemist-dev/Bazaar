@@ -114,7 +114,7 @@ internal sealed class FakeGcLog : IGcStreamSource, IGcAccessPolicy, IGcNotificat
 
     public ValueTask<int> CountUnreadAsync(Guid gcId, Guid viewerId, CancellationToken ct) => ValueTask.FromResult(7);
 
-    public ValueTask<bool> CanReadAsync(Guid principalId, PrincipalKind kind, Guid gcId, CancellationToken ct)
+    public ValueTask<bool> CanReadAsync(Guid principalId, GcParticipantKind kind, Guid gcId, CancellationToken ct)
     {
         lock (_gate) { return ValueTask.FromResult(_members.Contains((principalId, gcId))); }
     }

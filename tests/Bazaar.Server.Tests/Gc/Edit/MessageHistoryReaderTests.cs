@@ -13,7 +13,7 @@ public class MessageHistoryReaderTests
     private static Guid AuthorId => Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static DateTimeOffset T0 => new(2026, 10, 25, 9, 0, 0, TimeSpan.Zero);
 
-    private static GcViewer Reader => new(AuthorId, PrincipalKind.Human);
+    private static GcViewer Reader => new(AuthorId, GcParticipantKind.Human);
     private static Func<GcViewer, bool> CanRead => _ => true;
     private static Func<GcViewer, bool> CannotRead => _ => false;
 

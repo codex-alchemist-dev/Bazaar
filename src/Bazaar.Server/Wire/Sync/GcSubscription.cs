@@ -24,7 +24,7 @@ internal sealed class GcSubscription : IDisposable
     private long _lastEv;
 
     public GcSubscription(
-        Guid gcId, string stream, Guid principalId, PrincipalKind kind, long after, long editAfter,
+        Guid gcId, string stream, Guid principalId, GcParticipantKind kind, long after, long editAfter,
         IConnectionOutbound outbound, SyncFrames frames, SyncOptions options, CancellationToken sessionCt)
     {
         GcId = gcId;
@@ -49,7 +49,7 @@ internal sealed class GcSubscription : IDisposable
     public Guid PrincipalId { get; }
 
     /// <summary>The subscriber's kind, re-checked with the id when access is revalidated.</summary>
-    public PrincipalKind Kind { get; }
+    public GcParticipantKind Kind { get; }
 
     public long After { get; }
 

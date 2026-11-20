@@ -13,7 +13,7 @@ namespace Bazaar.Server.Tests.Gc;
 public sealed class GcReaderAndNotifierTests(GcDb db) : IClassFixture<GcDb>
 {
     private static readonly Guid _systemId = Guid.CreateVersion7();
-    private static readonly GcPrincipal _viewer = new(Guid.CreateVersion7(), PrincipalKind.Owner, "Owner");
+    private static readonly GcPrincipal _viewer = new(Guid.CreateVersion7(), GcParticipantKind.Owner, "Owner");
 
     private sealed class NoopNotifier : IGcNotifier
     {

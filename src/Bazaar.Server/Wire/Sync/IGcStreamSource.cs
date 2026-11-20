@@ -38,7 +38,7 @@ public interface IGcStreamSource
 public interface IGcAccessPolicy
 {
     /// <summary>True when the principal may read the GC. The kind matters: the owner reads every GC, DMs included.</summary>
-    ValueTask<bool> CanReadAsync(Guid principalId, PrincipalKind kind, Guid gcId, CancellationToken ct);
+    ValueTask<bool> CanReadAsync(Guid principalId, GcParticipantKind kind, Guid gcId, CancellationToken ct);
 }
 
 /// <summary>One notification from the post-commit <c>NOTIFY</c> (doc 04): the GC and its new <c>n</c>.</summary>

@@ -28,7 +28,7 @@ internal static class ConsumerTestSupport
         await cmd.ExecuteNonQueryAsync();
     }
 
-    public static GcPrincipal Principal(Guid id, PrincipalKind kind = PrincipalKind.Human) => new(id, kind, "test");
+    public static GcPrincipal Principal(Guid id, GcParticipantKind kind = GcParticipantKind.Human) => new(id, kind, "test");
 }
 
 /// <summary>Records every batch it receives. Optionally throws on a given call (1-based) to simulate a failed batch.</summary>

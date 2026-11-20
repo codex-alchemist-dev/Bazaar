@@ -10,7 +10,7 @@ namespace Bazaar.Server.Gc.Wire;
 /// <summary>Maps the wire's principal kind (<c>owner</c>, <c>human</c>, <c>agent</c>) onto the GC model.</summary>
 internal static class GcWirePrincipals
 {
-    public static PrincipalKind KindOf(PrincipalRef principal) => principal.GcKind();
+    public static GcParticipantKind KindOf(PrincipalRef principal) => principal.GcKind();
 
     public static GcPrincipal PrincipalOf(PrincipalRef principal) =>
         new(principal.Id, KindOf(principal), string.Empty);
@@ -84,16 +84,16 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
             GcEventKinds.Message,
             kind switch
             {
-                PrincipalKind.Owner => AuthorKind.Owner,
-                PrincipalKind.Agent => AuthorKind.Agent,
+                GcParticipantKind.Owner => AuthorKind.Owner,
+                GcParticipantKind.Agent => AuthorKind.Agent,
                 _ => AuthorKind.Human,
             },
             principal.Id,
             kind switch
             {
                 // The server sets provenance from the authenticated session; the client never does (doc 15).
-                PrincipalKind.Owner => SourceTrust.Owner,
-                PrincipalKind.Agent => SourceTrust.Agent,
+                GcParticipantKind.Owner => SourceTrust.Owner,
+                GcParticipantKind.Agent => SourceTrust.Agent,
                 _ => SourceTrust.MemberHuman,
             },
             clientMsgId)

@@ -27,7 +27,7 @@ public class MessageHistoryGoldenTests
 
         var result = MessageHistoryReader.GetHistory(
             versions,
-            new GcViewer(AuthorId, PrincipalKind.Human),
+            new GcViewer(AuthorId, GcParticipantKind.Human),
             _ => true);
 
         var history = Assert.IsType<MessageHistoryFound>(result).History;

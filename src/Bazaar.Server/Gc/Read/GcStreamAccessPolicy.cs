@@ -15,7 +15,7 @@ namespace Bazaar.Server.Gc.Read;
 public sealed class GcStreamAccessPolicy(IGcReadAccess access) : IGcAccessPolicy
 {
     /// <inheritdoc />
-    public async ValueTask<bool> CanReadAsync(Guid principalId, PrincipalKind kind, Guid gcId, CancellationToken ct)
+    public async ValueTask<bool> CanReadAsync(Guid principalId, GcParticipantKind kind, Guid gcId, CancellationToken ct)
     {
         var grant = await access.GetGrantAsync(gcId, new GcPrincipal(principalId, kind, string.Empty), ct)
             .ConfigureAwait(false);

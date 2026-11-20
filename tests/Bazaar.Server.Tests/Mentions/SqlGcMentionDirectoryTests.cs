@@ -29,7 +29,7 @@ public sealed class SqlGcMentionDirectoryTests(GcDb db) : IClassFixture<GcDb>
         await cmd.ExecuteNonQueryAsync(Ct);
     }
 
-    private async Task<Guid> MemberWithHandleAsync(Guid gc, string handle, PrincipalKind kind = PrincipalKind.Agent)
+    private async Task<Guid> MemberWithHandleAsync(Guid gc, string handle, GcParticipantKind kind = GcParticipantKind.Agent)
     {
         var principal = Guid.CreateVersion7();
         await AddMemberAsync(gc, principal, 1);
@@ -58,7 +58,7 @@ public sealed class SqlGcMentionDirectoryTests(GcDb db) : IClassFixture<GcDb>
         var anaHandle = Unique("ana");
         var benHandle = Unique("ben");
         var ana = await MemberWithHandleAsync(gc, anaHandle);
-        var ben = await MemberWithHandleAsync(gc, benHandle, PrincipalKind.Human);
+        var ben = await MemberWithHandleAsync(gc, benHandle, GcParticipantKind.Human);
 
         var roster = await Directory.LoadAsync(gc, Ct);
 
@@ -88,7 +88,7 @@ public sealed class SqlGcMentionDirectoryTests(GcDb db) : IClassFixture<GcDb>
         var otherGc = await db.CreateGcAsync();
         var member = await MemberWithHandleAsync(gc, Unique("inside"));
         await MemberWithHandleAsync(otherGc, Unique("elsewhere"));
-        await Handles.SetAsync(Guid.CreateVersion7(), PrincipalKind.Agent, Unique("nowhere"), Ct);
+        await Handles.SetAsync(Guid.CreateVersion7(), GcParticipantKind.Agent, Unique("nowhere"), Ct);
 
         var roster = await Directory.LoadAsync(gc, Ct);
 
@@ -131,7 +131,7 @@ public sealed class SqlGcMentionDirectoryTests(GcDb db) : IClassFixture<GcDb>
         var gc = await db.CreateGcAsync();
         var observer = Guid.CreateVersion7();
         await AddMemberAsync(gc, observer, 1, role: "observer");
-        await Handles.SetAsync(observer, PrincipalKind.Human, Unique("watcher"), Ct);
+        await Handles.SetAsync(observer, GcParticipantKind.Human, Unique("watcher"), Ct);
 
         var roster = await Directory.LoadAsync(gc, Ct);
 
@@ -145,7 +145,7 @@ public sealed class SqlGcMentionDirectoryTests(GcDb db) : IClassFixture<GcDb>
         var gc = await db.CreateGcAsync();
         var member = await MemberWithHandleAsync(gc, Unique("before"));
         var after = Unique("after");
-        await Handles.SetAsync(member, PrincipalKind.Agent, after, Ct);
+        await Handles.SetAsync(member, GcParticipantKind.Agent, after, Ct);
 
         var roster = await Directory.LoadAsync(gc, Ct);
 

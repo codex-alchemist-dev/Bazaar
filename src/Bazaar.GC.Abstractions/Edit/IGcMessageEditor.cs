@@ -14,7 +14,7 @@ public sealed record GcMessageEdit(
     Guid GcId,
     Guid MessageId,
     Guid EditorId,
-    PrincipalKind EditorKind,
+    GcParticipantKind EditorKind,
     string Text,
     string ClientMsgId);
 

@@ -43,7 +43,7 @@ public sealed class GcCatchUpReaderTests(GcDb db) : IClassFixture<GcDb>
         await ConsumerTestSupport.AppendAsync(db, gc, _other, 3, "o-owner", ct);
         await ConsumerTestSupport.AppendAsync(db, gc, _me, 2, "m-owner", ct);
 
-        var items = await CreateReader().GetAsync(ConsumerTestSupport.Principal(_me, PrincipalKind.Owner), ct);
+        var items = await CreateReader().GetAsync(ConsumerTestSupport.Principal(_me, GcParticipantKind.Owner), ct);
 
         var item = Assert.Single(items, i => i.GcId == gc);
         Assert.Equal(5, item.HeadSeq);
@@ -97,7 +97,7 @@ public sealed class GcCatchUpReaderTests(GcDb db) : IClassFixture<GcDb>
             await archive.ExecuteNonQueryAsync(ct);
         }
 
-        var items = await CreateReader().GetAsync(ConsumerTestSupport.Principal(_me, PrincipalKind.Owner), ct);
+        var items = await CreateReader().GetAsync(ConsumerTestSupport.Principal(_me, GcParticipantKind.Owner), ct);
 
         Assert.DoesNotContain(items, i => i.GcId == gc);
     }

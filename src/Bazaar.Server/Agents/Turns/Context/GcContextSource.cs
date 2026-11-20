@@ -40,7 +40,7 @@ public sealed class GcContextSource(IGcStreamSource stream, IGcReadAccess access
         if (request.TriggerGcId is null || !Guid.TryParse(request.TriggerGcId, out var gcId))
             return [];
 
-        var viewer = new GcPrincipal(request.AgentId, PrincipalKind.Agent, "agent");
+        var viewer = new GcPrincipal(request.AgentId, GcParticipantKind.Agent, "agent");
         var grant = await _access.GetGrantAsync(gcId, viewer, cancellationToken).ConfigureAwait(false);
         if (!grant.Allowed)
             return [new ContextSourceItem(gcId.ToString("D"), "0", _denied, ContextSection.GcBackread)];

@@ -57,7 +57,7 @@ public sealed class GcImportTarget(
             {
                 throw new InvalidOperationException("Replace refused: the stored message was written by another author.");
             }
-            edits.Add(new GcMessageEdit(gcId, Guid.Parse(stored.ObjectId), authorId, PrincipalKindOf(authorKind), item.Record.Body,
+            edits.Add(new GcMessageEdit(gcId, Guid.Parse(stored.ObjectId), authorId, ParticipantKindOf(authorKind), item.Record.Body,
                 ClientMsgIdFor(item.Provenance.SourceKey) + ":v" + (int.Parse(stored.Version, CultureInfo.InvariantCulture) + 1).ToString(CultureInfo.InvariantCulture)));
         }
 
@@ -106,11 +106,11 @@ public sealed class GcImportTarget(
         _ => "the stored message was not found",
     };
 
-    private static PrincipalKind PrincipalKindOf(AuthorKind kind) => kind switch
+    private static GcParticipantKind ParticipantKindOf(AuthorKind kind) => kind switch
     {
-        AuthorKind.Owner => PrincipalKind.Owner,
-        AuthorKind.Agent => PrincipalKind.Agent,
-        _ => PrincipalKind.Human,
+        AuthorKind.Owner => GcParticipantKind.Owner,
+        AuthorKind.Agent => GcParticipantKind.Agent,
+        _ => GcParticipantKind.Human,
     };
 
     /// <summary>Reads the GC log from the start and returns the source keys of this job's import messages, in log order.</summary>

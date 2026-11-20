@@ -24,7 +24,7 @@ public sealed record GcEntryHeader(
     Guid AuthorId,
     AuthorKind AuthorKind,
     string? AuthorName,
-    PrincipalKind? AuthorPrincipalKind,
+    GcParticipantKind? AuthorPrincipalKind,
     SourceTrust SourceTrust,
     DateTimeOffset CreatedAt,
     DateTimeOffset LocalTime,

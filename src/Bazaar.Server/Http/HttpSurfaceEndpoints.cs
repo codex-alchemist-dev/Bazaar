@@ -302,9 +302,9 @@ public static class HttpSurfaceEndpoints
         principal.Id,
         principal.Kind switch
         {
-            "owner" => PrincipalKind.Owner,
-            "agent" => PrincipalKind.Agent,
-            _ => PrincipalKind.Human,
+            "owner" => GcParticipantKind.Owner,
+            "agent" => GcParticipantKind.Agent,
+            _ => GcParticipantKind.Human,
         },
         string.Empty);
 

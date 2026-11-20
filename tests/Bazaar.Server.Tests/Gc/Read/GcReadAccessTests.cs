@@ -15,11 +15,11 @@ public sealed class GcReadAccessTests(GcDb db) : IClassFixture<GcDb>
     private static readonly Guid _agentA = Guid.CreateVersion7();
     private static readonly Guid _agentB = Guid.CreateVersion7();
 
-    private static GcPrincipal Owner => new(_owner, PrincipalKind.Owner, "owner");
+    private static GcPrincipal Owner => new(_owner, GcParticipantKind.Owner, "owner");
 
-    private static GcPrincipal Human(Guid id) => new(id, PrincipalKind.Human, "human");
+    private static GcPrincipal Human(Guid id) => new(id, GcParticipantKind.Human, "human");
 
-    private static GcPrincipal Agent(Guid id) => new(id, PrincipalKind.Agent, "agent");
+    private static GcPrincipal Agent(Guid id) => new(id, GcParticipantKind.Agent, "agent");
 
     private GcReadAccess Access => new(db.DataSource);
 

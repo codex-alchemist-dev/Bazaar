@@ -102,6 +102,6 @@ public sealed class SyncCompositionTests
 
     private sealed class FakeAccessPolicy : IGcAccessPolicy
     {
-        public ValueTask<bool> CanReadAsync(Guid principalId, PrincipalKind kind, Guid gcId, CancellationToken ct) => ValueTask.FromResult(false);
+        public ValueTask<bool> CanReadAsync(Guid principalId, GcParticipantKind kind, Guid gcId, CancellationToken ct) => ValueTask.FromResult(false);
     }
 }

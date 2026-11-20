@@ -7,14 +7,14 @@ public static class PrincipalRefGcExtensions
 {
     /// <summary>The GC model's kind for this principal; the owner reads all, so the kind must reach the read rules.</summary>
     /// <exception cref="InvalidOperationException">The wire kind is not one the GC model knows.</exception>
-    public static PrincipalKind GcKind(this PrincipalRef principal)
+    public static GcParticipantKind GcKind(this PrincipalRef principal)
     {
         ArgumentNullException.ThrowIfNull(principal);
         return principal.Kind switch
         {
-            "owner" => PrincipalKind.Owner,
-            "human" => PrincipalKind.Human,
-            "agent" => PrincipalKind.Agent,
+            "owner" => GcParticipantKind.Owner,
+            "human" => GcParticipantKind.Human,
+            "agent" => GcParticipantKind.Agent,
             _ => throw new InvalidOperationException($"Unknown principal kind '{principal.Kind}'."),
         };
     }

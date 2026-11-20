@@ -46,7 +46,7 @@ public sealed record GcEdit(Guid GcId, Guid MessageId, string Text);
 /// <param name="PrincipalId">The principal to add.</param>
 /// <param name="Kind">Human or agent. Owners are not added this way.</param>
 /// <param name="Role">member or observer.</param>
-public sealed record GcMemberAdd(Guid GcId, Guid PrincipalId, PrincipalKind Kind, string Role);
+public sealed record GcMemberAdd(Guid GcId, Guid PrincipalId, GcParticipantKind Kind, string Role);
 
 /// <summary>Request <c>gc.member.remove</c>: removes a principal. The owner may remove anyone; a member may remove only themselves.</summary>
 /// <param name="GcId">The group chat.</param>

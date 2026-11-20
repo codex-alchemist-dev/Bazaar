@@ -182,7 +182,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await AddMemberAsync(gc, former, joinedSeq: 0, leftSeq: 2);
         var policy = new GcStreamAccessPolicy(Access);
 
-        Assert.False(await policy.CanReadAsync(former, PrincipalKind.Human, gc, ct));
+        Assert.False(await policy.CanReadAsync(former, GcParticipantKind.Human, gc, ct));
     }
 
     [Fact]
@@ -203,8 +203,8 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await AddMemberAsync(gc, other, joinedSeq: 0, leftSeq: null);
         var policy = new GcStreamAccessPolicy(Access);
 
-        Assert.True(await policy.CanReadAsync(owner, PrincipalKind.Owner, gc, ct));
-        Assert.False(await policy.CanReadAsync(owner, PrincipalKind.Human, gc, ct));
+        Assert.True(await policy.CanReadAsync(owner, GcParticipantKind.Owner, gc, ct));
+        Assert.False(await policy.CanReadAsync(owner, GcParticipantKind.Human, gc, ct));
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         using var running = new CancellationTokenSource();
         var dispatching = dispatcher.RunAsync(notifications, null, running.Token);
         var outbound = new BoundedOutbound(1000);
-        using var session = engine.CreateSession(member.Id, PrincipalKind.Human, _codec, outbound);
+        using var session = engine.CreateSession(member.Id, GcParticipantKind.Human, _codec, outbound);
 
         var outcome = await session.SubscribeAsync(new Subscribe([new StreamCursor(WireStreams.Gc(gc), 0, 0)]), ct);
         Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single().Status);
@@ -334,7 +334,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
             new GcLogWriter(connection.Data, new RecordingNotifier()), new GcReadAccess(connection.Data),
             new Bazaar.Server.Gc.Members.PgGcMembershipSource(connection.Data), SettingsFor());
         return await handler.HandleAsync(
-            Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, PrincipalKind.Human, "member")),
+            Context(connection, WireTypes.GcMemberAdd, requestId, new GcMemberAdd(gc, newMember, GcParticipantKind.Human, "member")),
             TestContext.Current.CancellationToken);
     }
 
