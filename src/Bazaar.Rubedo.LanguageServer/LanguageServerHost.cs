@@ -1,3 +1,4 @@
+using Bazaar.Rubedo.Semantics;
 using System.Text;
 
 namespace Bazaar.Rubedo.LanguageServer;
@@ -6,9 +7,9 @@ namespace Bazaar.Rubedo.LanguageServer;
 public static class LanguageServerHost
 {
     /// <summary>Serves until the stream ends, <c>exit</c> arrives or a fatal framing error happens. Returns the process exit code.</summary>
-    public static async Task<int> RunAsync(Stream input, Stream output, CancellationToken cancellationToken = default)
+    public static async Task<int> RunAsync(Stream input, Stream output, RubedoSchema? schema = null, CancellationToken cancellationToken = default)
     {
-        var core = new LanguageServerCore();
+        var core = new LanguageServerCore(schema);
         var reader = new FrameReader(input);
         while (!core.ExitRequested)
         {

@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bazaar.Rubedo.Analysis;
+using Bazaar.Rubedo.Semantics;
 
 namespace Bazaar.Rubedo.LanguageServer;
 
@@ -10,7 +11,7 @@ namespace Bazaar.Rubedo.LanguageServer;
 /// send back (responses and published diagnostics). Holds the text the client sent and nothing else: it never reads files,
 /// opens no network connection and executes nothing from a view document. Not thread safe; one connection drives one instance.
 /// </summary>
-public sealed class LanguageServerCore
+public sealed class LanguageServerCore(RubedoSchema? schema = null)
 {
     public const string RubedoLanguageId = "rubedo";
     public const string ViewLanguageId = "rubedo-view";
@@ -28,6 +29,7 @@ public sealed class LanguageServerCore
     }
 
     private readonly Dictionary<string, Document> _documents = new(StringComparer.Ordinal);
+    private readonly RubedoSchema _schema = schema ?? RubedoSchema.Standard;
     private bool _initialized;
     private bool _shutdown;
 
@@ -275,9 +277,9 @@ public sealed class LanguageServerCore
         }
     }
 
-    private static void Publish(string uri, Document document, List<string> output)
+    private void Publish(string uri, Document document, List<string> output)
     {
-        IReadOnlyList<AnalysisDiagnostic> found = document.IsView ? RubedoAnalyzer.DiagnoseView(document.Text) : RubedoAnalyzer.Diagnose(document.Text);
+        IReadOnlyList<AnalysisDiagnostic> found = document.IsView ? RubedoAnalyzer.DiagnoseView(document.Text) : RubedoAnalyzer.Diagnose(document.Text, _schema);
         var diagnostics = found
             .Select(d => new LspDiagnostic(TextPositions.ToRange(document.Text, d.Start, d.End), 1, d.Code, "rubedo", d.Message))
             .ToList();
@@ -308,9 +310,9 @@ public sealed class LanguageServerCore
         return WithDocument(id, parameters, document => handler(document, TextPositions.ToOffset(document.Text, line, character)));
     }
 
-    private static JsonNode? Complete(Document document, int offset)
+    private JsonNode? Complete(Document document, int offset)
     {
-        CompletionList list = document.IsView ? RubedoAnalyzer.CompleteView(document.Text, offset) : RubedoAnalyzer.Complete(document.Text, offset);
+        CompletionList list = document.IsView ? RubedoAnalyzer.CompleteView(document.Text, offset) : RubedoAnalyzer.Complete(document.Text, offset, _schema);
         LspRange replace = TextPositions.ToRange(document.Text, list.ReplaceStart, list.ReplaceEnd);
         var items = list.Items
             .Select(i => new LspCompletionItem(
@@ -336,9 +338,9 @@ public sealed class LanguageServerCore
         _ => 5, // Field
     };
 
-    private static JsonNode? Hover(Document document, int offset)
+    private JsonNode? Hover(Document document, int offset)
     {
-        if (document.IsView || RubedoAnalyzer.Hover(document.Text, offset) is not { } hover)
+        if (document.IsView || RubedoAnalyzer.Hover(document.Text, offset, _schema) is not { } hover)
         {
             return null;
         }
@@ -359,7 +361,7 @@ public sealed class LanguageServerCore
         return JsonSerializer.SerializeToNode(new LspSignatureHelp([signature], 0, help.ActiveParameter), LspJsonContext.Default.LspSignatureHelp);
     }
 
-    private static JsonNode? Format(Document document)
+    private JsonNode? Format(Document document)
     {
         // Views have no formatter (doc 41d section 3 covers expressions only).
         if (document.IsView || Encoding.UTF8.GetByteCount(document.Text) > RubedoAnalyzer.MaxDocumentBytes)
@@ -367,7 +369,7 @@ public sealed class LanguageServerCore
             return null;
         }
 
-        RubedoFormatResult result = RubedoFormatter.Format(document.Text);
+        RubedoFormatResult result = RubedoFormatter.Format(document.Text, _schema);
         if (result.Formatted is not { } formatted || formatted == document.Text)
         {
             return new JsonArray();

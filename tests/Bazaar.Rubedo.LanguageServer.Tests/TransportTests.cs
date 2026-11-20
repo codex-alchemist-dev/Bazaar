@@ -17,7 +17,7 @@ public sealed class TransportTests
     private static async Task<(int Code, List<JsonObject> Replies)> RunAsync(Stream input)
     {
         using var output = new MemoryStream();
-        int code = await LanguageServerHost.RunAsync(input, output, TestContext.Current.CancellationToken);
+        int code = await LanguageServerHost.RunAsync(input, output, cancellationToken: TestContext.Current.CancellationToken);
         var replies = new List<JsonObject>();
         output.Position = 0;
         var reader = new FrameReader(output);
