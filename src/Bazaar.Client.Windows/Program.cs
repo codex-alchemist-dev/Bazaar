@@ -5,6 +5,11 @@ using Avalonia.Threading;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Drafts;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
+using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -72,8 +77,9 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            new AthanorPaneModule(),
         ];
-        var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        var features = CreateFeatures(HttpConstellationTileSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
@@ -111,6 +117,22 @@ internal static class Program
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
+
+    /// <summary>
+    /// The services the head hands the feature modules. The editor services come from here (doc 57 section 2). No
+    /// server-backed file source exists yet, so the editor opens nothing and refuses saves until doc 57 section 6 lands.
+    /// </summary>
+    internal static PaneModuleContext CreateFeatures(IConstellationTileSource? tiles)
+    {
+        var context = new PaneModuleContext()
+            .With<IEditorHost>(new PlainTextFallbackHost())
+            .With<IEditorFileSource>(new OfflineEditorFileSource())
+            .With<IEditorDraftStore>(new FileEditorDraftStore(AthanorDraftsPath(), TimeProvider.System));
+        return tiles is null ? context : context.With(tiles);
+    }
+
+    private static string AthanorDraftsPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "athanor-drafts");
 
     /// <summary>
     /// Chat settings from the environment. <c>--dev-gc</c> overrides <c>BAZAAR_GC</c> for this run. Null means no chat is configured.

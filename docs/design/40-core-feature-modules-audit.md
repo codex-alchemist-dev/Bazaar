@@ -128,6 +128,18 @@ The owner-signature contract is its own module, not server code. It moved out of
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
 
+## Athanor editor modules (doc 57, PROPOSED 2026-11-18)
+
+The built-in IDE is its own module family, never code in Client.Core:
+
+- `Bazaar.Client.Athanor.Abstractions`: `IEditorHost`, `IEditorFileSource`, `IEditorDraftStore`, `IEditorKeyHandoff`, the document and bridge-message records.
+- `Bazaar.Client.Athanor`: host-agnostic editor logic, the `athanor` pane module and a plain-text fallback host.
+- `Bazaar.Client.Athanor.Bundle`: the trimmed, hash-pinned Monaco 0.57.0 (vendored by script, not committed), the bridge page and script, the licence notice and `AthanorBundle.Verify`. Built after spike S12 (`docs/spikes/S12.md`).
+- `Bazaar.Client.Athanor.WebView2`: the Windows-only `IEditorHost` for Monaco in a WebView2 island (child window via Avalonia `NativeControlHost`, doc 57 §3a), the shared environment pre-warm and crash reporting. The bridge logic itself (`BridgeEditorHost`, the transport and claimed-key interfaces) lives in `Bazaar.Client.Athanor`. Not wired into `Bazaar.Client.Windows` yet.
+- `Bazaar.Client.Athanor.AvaloniaEdit` (PROPOSED 2026-11-20): an `IEditorHost` over the AvaloniaEdit `TextEditor`, the proposed default Linux editor and usable on Windows; no diff view (doc 57 §2).
+- `Bazaar.Client.Athanor.Gtk` and `Bazaar.Client.Athanor.Gtk.Helper` (PROPOSED 2026-11-20): the optional Linux Monaco editor. The first is the `IEditorHost` proxy that spawns and supervises the second, a separate GTK process (an executable, not a library) that hosts Monaco in WebKitGTK in its own top-level window. No XEmbed and no WebKitGTK at build time (doc 57 §2.1). Heads wire the proxy; neither project is referenced by Client.Core.
+- `Bazaar.Server.Athanor` and `Bazaar.Server.Athanor.Abstractions`: server-backed open and save handlers, built (doc 57 §6, PROPOSED details); host wiring and the `Bazaar.Contracts` wire records wait for the wire pair to be accepted.
+
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
 
 Docs section this implements: this section (wave 1 of the agent runtime extraction; the owner's direction to accelerate modularity transfer).

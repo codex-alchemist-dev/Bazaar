@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.Athanor;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Roadmap;
@@ -15,6 +16,10 @@ namespace Bazaar.Contracts.Wire;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip)]
+[JsonSerializable(typeof(EditorOpenRequest))]
+[JsonSerializable(typeof(EditorOpenReply))]
+[JsonSerializable(typeof(EditorSaveRequest))]
+[JsonSerializable(typeof(EditorSaveReply))]
 [JsonSerializable(typeof(Hello))]
 [JsonSerializable(typeof(Welcome))]
 [JsonSerializable(typeof(Subscribe))]
