@@ -83,6 +83,7 @@
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.Retention/Bazaar.Server.Gateway.Retention.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Souls/Bazaar.Server.Souls.csproj" />
@@ -173,6 +174,7 @@
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Gateway.Retention.Tests/Bazaar.Server.Gateway.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
