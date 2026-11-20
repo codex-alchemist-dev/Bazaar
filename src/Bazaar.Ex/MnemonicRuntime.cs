@@ -15,6 +15,7 @@ public sealed class MnemonicRuntime
     private readonly IReadOnlyList<KeyStroke> _paletteKeys;
     private readonly MnemonicNoticeLog _log;
     private readonly bool _actorIsOwner;
+    private readonly MnemonicOptions _options;
     private readonly IReadOnlyDictionary<string, string> _titles;
 
     private MnemonicRuntime(
@@ -22,8 +23,10 @@ public sealed class MnemonicRuntime
         IMnemonicOverrideStore store,
         IReadOnlyList<KeyStroke> paletteKeys,
         MnemonicNoticeLog log,
-        bool actorIsOwner)
+        bool actorIsOwner,
+        MnemonicOptions options)
     {
+        _options = options;
         _defaults = defaults;
         _store = store;
         _paletteKeys = paletteKeys;
@@ -58,6 +61,7 @@ public sealed class MnemonicRuntime
         IEnumerable<KeyStroke> paletteKeys,
         MnemonicNoticeLog log,
         bool actorIsOwner = false,
+        MnemonicOptions? options = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(defaults);
@@ -70,7 +74,8 @@ public sealed class MnemonicRuntime
             store,
             paletteKeys.ToList(),
             log,
-            actorIsOwner);
+            actorIsOwner,
+            options ?? MnemonicOptions.Default);
 
         var load = await store.LoadAsync(ct).ConfigureAwait(false);
         runtime.Warning = load.Warning;
@@ -119,7 +124,7 @@ public sealed class MnemonicRuntime
         var assignments = new List<MnemonicAssignment>(_defaults);
         assignments.AddRange(FileMnemonicOverrideStore.ToAssignments(document, _titles));
         var resolution = MnemonicResolver.Resolve(assignments, _actorIsOwner);
-        var session = MnemonicSession.TryCreate(resolution, _paletteKeys);
+        var session = MnemonicSession.TryCreate(resolution, _paletteKeys, _options);
         if (session is null)
         {
             return false;
