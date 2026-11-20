@@ -31,7 +31,7 @@ public static class SetupPlanLoader
         ["install"] = ["companyName", "companySlug", "locale", "timezone", "releaseChannel", "updatePolicy"],
         ["install.updatePolicy"] = ["security", "other"],
         ["database"] = ["postgresMajor", "dataRoot", "gcPartitionCount"],
-        ["custody"] = ["kekProvider", "kekRef", "auditAnchorTarget", "mergeCredential"],
+        ["custody"] = ["kekProvider", "kekRef", "identityKek", "auditAnchorTarget", "mergeCredential"],
         ["custody.mergeCredential"] = ["kind", "appIdRef"],
         ["owner"] = ["displayName", "requireSecondFactor", "recovery"],
         ["owner.recovery"] = ["printedCodes", "backupOwners"],
@@ -50,6 +50,7 @@ public static class SetupPlanLoader
     {
         "database.dataRoot",
         "custody.auditAnchorTarget",
+        "custody.identityKek",
         "custody.mergeCredential.appIdRef",
         "backups.target",
         "models.sources[].keyRef",

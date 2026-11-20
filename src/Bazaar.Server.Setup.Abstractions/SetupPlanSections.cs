@@ -30,6 +30,7 @@ public static class SetupPlanSections
         new("install.updatePolicy", ["install.updatePolicy"], [2]),
         new("database", ["database"], [3, 4]),
         new("custody", ["custody.kekProvider", "custody.kekRef", "custody.auditAnchorTarget"], [5]),
+        new("custody.identityKek", ["custody.identityKek"], [5]),
         new("owner", ["owner"], [6]),
         new("privacy", ["privacy"], [7]),
         new("backups", ["backups"], [8]),
