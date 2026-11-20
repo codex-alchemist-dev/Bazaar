@@ -48,6 +48,7 @@ public static class HostApplicationExtensions
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
+        services.AddBazaarEmbeddingsHost(configuration);
 
         // The memory graph (Bazaar.Server.Constellation) is wired here, not in a component: the Constellation component cannot
         // reference its own module project, and the graph sink depends on the Memory module. Only when Constellation is enabled.
