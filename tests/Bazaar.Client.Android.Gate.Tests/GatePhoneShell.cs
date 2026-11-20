@@ -1,13 +1,20 @@
+using Bazaar.Client.RyuseiFuda;
 using System.Net;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
-using Bazaar.Client.Core.Constellation;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
+using Bazaar.Client.Vault;
+using Bazaar.Client.Mobile;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
+using Bazaar.Client.Gc;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Server;
-using Bazaar.Client.Core.Vault;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
@@ -28,9 +35,18 @@ internal static class GatePhoneShell
     {
         var tiles = new EmptyTileSource();
         var vault = VaultApiFactory.Create(PairedEndpoint, new EmptyResponseHandler());
-        var modules = FirstPartyPanes.Modules;
-        var registry = FirstPartyPanes.CreateRegistry(modules, tiles: tiles, vault: vault);
-        Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(registry);
+        // The Dashboard, then Constellation, then the GC pane, then Vault, as in the Android head (pager order).
+        IPaneModule[] modules =
+        [
+            new DashboardPaneModule(),
+            new ConstellationPaneModule(),
+            new GcPaneModule(),
+            new VaultSearchPaneModule(),
+            new EnginePaneModule(),
+        ];
+        var features = new PaneModuleContext().With<IConstellationTileSource>(tiles).With(vault);
+        var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
+        Func<string, Control?> production = FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry));
 
         // The production pager shows a kind-name placeholder for the Vault search pane, so the shell has no interactive
         // control and the scan would pass vacuously. The gate shows that pane's real view (query box and search button) so

@@ -3,11 +3,14 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Core.Tests.Wire;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Gc;
+using Bazaar.Client.Mobile;
 using Bazaar.Contracts.Wire;
 using Bazaar.Testing;
 
@@ -73,7 +76,7 @@ public class GcPaneTests
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://h/ws"), "t", _gc, "me"), timeline);
         var chat = new ChatViewModel(session);
         var withChat = TestPanes.CreateRegistry(chat: chat).Create(PaneRegistryTests.Descriptor(GcPaneViewModel.PaneKind));
-        var chatWindow = new Window { Content = TestPanes.CreateRegistry().CreateView(withChat), Width = 400, Height = 600 };
+        var chatWindow = new Window { Content = TestPanes.CreateRegistry(chat: chat).CreateView(withChat), Width = 400, Height = 600 };
         chatWindow.Show();
 
         Assert.Equal(1, chatWindow.GetVisualDescendants().OfType<ListBox>().Single().ItemCount);
