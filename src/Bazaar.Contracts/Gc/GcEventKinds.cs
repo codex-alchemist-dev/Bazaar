@@ -18,6 +18,12 @@ public static class GcEventKinds
     /// <summary>An SDK-validated structured record: task update, PR event, decision, vote notice.</summary>
     public const string Structured = "structured";
 
+    /// <summary>
+    /// A pull request state change in a <c>pr</c> GC: opened, ready, review, checks, merged or closed. Provider-neutral; the
+    /// provider and its PR id are in the payload (docs/design/21, "Git model").
+    /// </summary>
+    public const string PrEvent = "pr_event";
+
     /// <summary>Targets an earlier sequence number and marks it quarantined.</summary>
     public const string Quarantine = "quarantine";
 
