@@ -1,5 +1,6 @@
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Devices;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Modules;
@@ -25,6 +26,7 @@ public class FirstPartyManifestsTests
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            new DevicesPaneModule(),
         ];
         return [.. panes.Cast<IClientModule>()];
     }

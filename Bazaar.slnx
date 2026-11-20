@@ -9,6 +9,7 @@
     <Project Path="src/Bazaar.Client.Mobile/Bazaar.Client.Mobile.csproj" />
     <Project Path="src/Bazaar.Client.Vault/Bazaar.Client.Vault.csproj" />
     <Project Path="src/Bazaar.Client.Engines/Bazaar.Client.Engines.csproj" />
+    <Project Path="src/Bazaar.Client.Devices/Bazaar.Client.Devices.csproj" />
     <Project Path="src/Bazaar.Client.Launcher/Bazaar.Client.Launcher.csproj" />
     <Project Path="src/Bazaar.Client.Modules/Bazaar.Client.Modules.csproj" />
     <Project Path="src/Bazaar.Client.Preload/Bazaar.Client.Preload.csproj" />
@@ -158,6 +159,7 @@
     <Project Path="tests/Bazaar.Client.Mobile.Tests/Bazaar.Client.Mobile.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Vault.Tests/Bazaar.Client.Vault.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Engines.Tests/Bazaar.Client.Engines.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Devices.Tests/Bazaar.Client.Devices.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Launcher.Tests/Bazaar.Client.Launcher.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Modules.Tests/Bazaar.Client.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Preload.Tests/Bazaar.Client.Preload.Tests.csproj" />

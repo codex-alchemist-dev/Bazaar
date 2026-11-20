@@ -13,6 +13,7 @@ using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Devices;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Launcher;
@@ -72,6 +73,7 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            new DevicesPaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
