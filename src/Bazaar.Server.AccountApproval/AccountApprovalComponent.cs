@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.AccountApproval.Abstractions;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.AccountApproval;
 /// (<c>Bazaar.Server.Security.Audit.IAuditLog</c>) and <see cref="IOwnerApprovalHandOff"/>; the approver directory defaults to
 /// "nobody is eligible", so a host that wires nothing sends every request to the owner.
 /// </summary>
-public sealed class AccountApprovalComponent : IBazaarComponent
+public sealed class AccountApprovalComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "account-approval",
