@@ -151,3 +151,16 @@ Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
 - `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs`, `Turns/Tools/Db/SessionTaintMapping.cs`: use `IToolPolicyEngine`, `SessionRoles`, `SessionTaint`, `TaintState` and `TaintSource` (`Bazaar.Server.Security`). Move with the Security abstractions.
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
+
+## Skimmer module (extraction from `Bazaar.Server/Skimmer`)
+
+Docs section this implements: `docs/design/13-skimmer-bouncer.md` (gate pipeline: rules stage, relevance scorer, digest planner, labels) and section 4 and 5 of this audit (feature extraction).
+
+`Bazaar.Server/Skimmer` (26 files) is split into two module projects. Namespaces did not change (`Bazaar.Server.Skimmer.*`).
+
+- `Bazaar.Server.Skimmer.Abstractions` (16 files): the contracts and value types. `Rules` (`RuleResult`, `GatePaths`, `GateDecisions`, `GateRuleSettings`, `GcMessageFacts`), `Scoring` (`IRelevanceScorer`, `ScoreRequest`, `GcMessageRef`, `AgentProfile`, `RelevanceResult`, `Category`, `CategoryWire`, `ScorerParseResult`), `Digest` (`DigestQuoteMode`, `GateDecision`, `DigestEnqueue`), `Labels/GateLabelValues` and the `Data/SkimmerRecords` records. It references `Bazaar.Contracts` and `Bazaar.Server.Agents.Abstractions` (for the inbox types).
+- `Bazaar.Server.Skimmer` (10 files): `RulesStage`, `DigestPlanner`, `FakeScorer`, `ScorerOutputParser`, `ScorePromptBuilder`, `GateFlagService`, the three Npgsql repositories and `SkimmerCommands`. It references the abstractions projects and Npgsql, not `Bazaar.Server`.
+
+`Bazaar.Server` and `Bazaar.Server.Host` reference both projects. No SQL moved: the migrations stay under `src/Bazaar.Server/Data/Sql` (frozen). `tests/Bazaar.Server.Skimmer.Tests` holds the pure tests (71, no database); the Postgres-backed tests (`SkimmerSchemaTests`, `SkimmerRepositoryTests`, `GateFlagServiceTests`, `SkimmerDb`) stay in `tests/Bazaar.Server.Tests/Skimmer`.
+
+Nothing from the Skimmer folder stayed in `Bazaar.Server`. `ScorePromptBuilder` now builds its JSON with `JsonValue.Create` so it passes the AOT analyser.
