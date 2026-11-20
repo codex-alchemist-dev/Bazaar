@@ -85,6 +85,8 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `POST /blobs` | Chunked, resumable upload; returns content hash; size limit per doc 01 | 01 |
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
+| `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
+| `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |
