@@ -1,4 +1,8 @@
-# CI for Bazaar. Runs on GitHub-hosted runners only (public repo: never self-hosted).
+# CI for Bazaar. Runs on pull requests and on pushes to main only (a branch is built once, not twice).
+# Docs-only PRs skip the heavy steps (see the `changes` job and docs/pr-flow.md). Runs on GitHub-hosted runners, except that required jobs go to the owner's self-hosted
+# runners (labels bazaar-win, bazaar-linux, bazaar-linux-pg) when the run was started by the owner account
+# (github.actor and triggering_actor are Cookiesmuch) and, for pull requests, the head branch is in this
+# repository. Fork PRs and every other actor stay on hosted runners and never reach the owner's machine.
 #
 # Every third-party action is pinned to a full commit SHA; the version tag is
 # kept in a trailing comment. Dependabot (github-actions ecosystem) proposes
@@ -12,9 +16,12 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly run so the full-history secret scan also runs when no push happens (Mondays 03:17 UTC).
+    - cron: '17 3 * * 1'
 
 permissions:
   contents: read
@@ -25,13 +32,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # No paths filter on purpose, here or on the workflow trigger. Docs-only and
-  # YAML-only PRs still run this build, so the required checks always report
-  # and a PR is never stuck waiting for a check that was filtered out.
-  # Do not add a paths-ignore. See docs/pr-flow.md.
+  # Decides whether the change touches code. Docs-only PRs skip the heavy work. The heavy jobs still run (a
+  # skipped matrix job would report an unexpanded check name and leave the required check pending), so the
+  # skip is done per step with `if: needs.changes.outputs.code == 'true'`. Pushes and non-PR events are code.
+  changes:
+    name: Detect code changes
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - name: List changed files
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Any failure here means "treat as code": the heavy jobs then run instead of silently skipping.
+          files="$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')" || {
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [ -z "$files" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Code is anything outside docs/, *.md and the issue templates. Workflow changes count as code.
+          if printf '%s\n' "$files" | grep -Evq '^(docs/|\.github/ISSUE_TEMPLATE/)|\.md$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # No paths filter on purpose, here or on the workflow trigger: the required checks always report.
+  # Docs-only PRs skip the work step by step (`changes` job); do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
     name: Build and test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(matrix.os == 'windows-latest' && '["self-hosted","bazaar-win"]' || '["self-hosted","bazaar-linux-pg"]') || matrix.os }}
+    needs: changes
     timeout-minutes: 45
     permissions:
       contents: read
@@ -45,52 +92,87 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
     steps:
       - name: Check out
+        if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       # The SDK version comes from global.json at the repo root (.NET 11, pinned).
       - name: Set up .NET SDK from global.json
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key (Linux)
+        if: runner.os != 'Windows'
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+      # The Windows self-hosted runners have no bash on PATH, so this leg uses PowerShell 7 (pwsh; Windows PowerShell is blocked by the execution policy).
+      - name: Compute NuGet cache key (Windows)
+        if: runner.os == 'Windows'
+        id: nugetkey-win
+        shell: pwsh
+        run: |
+          $files = git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | Sort-Object
+          $parts = $files | ForEach-Object { "$_ " + (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash }
+          $bytes = [System.Text.Encoding]::UTF8.GetBytes(($parts -join "`n"))
+          $hash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
+          "hash=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Cache NuGet packages
+        if: needs.changes.outputs.code == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash || steps.nugetkey-win.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
       # Real PostgreSQL for tests that touch SQL (no in-memory substitute). Linux only: hosted
       # Windows runners cannot run Linux containers. Tests read the connection string from BAZAAR_TEST_PG.
       - name: Start PostgreSQL 18 with pgvector (Linux)
-        if: runner.os == 'Linux'
+        if: needs.changes.outputs.code == 'true' && (runner.os == 'Linux')
         run: |
           set -euo pipefail
-          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+          PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
+          # Throwaway test database: data on tmpfs and no fsync, so a loaded runner does not time out on disk I/O.
+          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
+            --tmpfs /var/lib/postgresql:rw,size=4g \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            pgvector/pgvector:pg18
+            pgvector/pgvector:pg18 -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
           done
-          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
-          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ]
+          PG_PORT="$(docker port "$PG_NAME" 5432/tcp | head -n1 | sed 's/.*://')"
+          echo "BAZAAR_TEST_PG=Host=127.0.0.1;Port=${PG_PORT};Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          echo "PG_NAME=$PG_NAME" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux)
-        if: runner.os == 'Linux'
+        if: needs.changes.outputs.code == 'true' && (runner.os == 'Linux')
         run: ./build.sh
 
       - name: Build and test (Windows)
-        if: runner.os == 'Windows'
+        if: needs.changes.outputs.code == 'true' && (runner.os == 'Windows')
         shell: pwsh
         run: ./build.ps1
 
       # Test output is only kept when the run fails, to keep artifact storage small.
+      - name: Remove the PostgreSQL container
+        if: needs.changes.outputs.code == 'true' && (always() && env.PG_NAME != '')
+        run: docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
+
       - name: Upload test results on failure
-        if: failure()
+        if: needs.changes.outputs.code == 'true' && (failure())
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-${{ matrix.os }}
@@ -106,6 +188,7 @@ jobs:
   build-android:
     name: Build Android head
     runs-on: ubuntu-latest
+    needs: changes
     timeout-minutes: 45
     permissions:
       contents: read
@@ -115,19 +198,23 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
     steps:
       - name: Check out
+        if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up .NET SDK from global.json
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
       - name: Install .NET Android workload
+        if: needs.changes.outputs.code == 'true'
         run: dotnet workload install android
 
       - name: Build Android head (Release)
+        if: needs.changes.outputs.code == 'true'
         run: |
           set -euo pipefail
           dotnet build src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
@@ -136,12 +223,14 @@ jobs:
       # Accessibility gate on Android (doc 49 section 2). The desktop gate cannot construct the Android views, so the
       # gate app runs the same AccessibleControlScan on an emulator. Build only here; the emulator step installs it.
       - name: Build Android accessibility gate (Release)
+        if: needs.changes.outputs.code == 'true'
         run: |
           set -euo pipefail
           dotnet build tests/Bazaar.Client.Android.Gate.Tests/Bazaar.Client.Android.Gate.Tests.csproj \
             -c Release -p:BazaarAndroid=true
 
       - name: Enable KVM for the emulator
+        if: needs.changes.outputs.code == 'true'
         run: |
           set -euo pipefail
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -153,6 +242,7 @@ jobs:
       # unless the app logs RESULT=PASS. The script installs the app with dotnet build -t:Install.
       # Inline emulator steps: no third-party action to pin (doc 49 section 2, supply chain).
       - name: Install Android emulator and system image
+        if: needs.changes.outputs.code == 'true'
         run: |
           # No pipefail here: `yes |` gets SIGPIPE once sdkmanager stops reading, which is expected.
           set -eu
@@ -175,12 +265,14 @@ jobs:
           echo "$sdk/emulator" >> "$GITHUB_PATH"
 
       - name: Start emulator
+        if: needs.changes.outputs.code == 'true'
         run: |
           set -eu
           nohup "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/emulator/emulator" -avd ci -no-window -no-audio -no-boot-anim \
             -gpu swiftshader_indirect -no-snapshot > "$RUNNER_TEMP/emulator.log" 2>&1 &
 
       - name: Run Android accessibility gate on emulator
+        if: needs.changes.outputs.code == 'true'
         run: bash scripts/ci/android-a11y-gate.sh
 
   # Start-up gate for the Linux head (doc 30, testing). The headless tests cannot see a client that aborts on a real
@@ -188,6 +280,7 @@ jobs:
   linux-client-startup:
     name: Linux client start-up (Xvfb)
     runs-on: ubuntu-latest
+    needs: changes
     timeout-minutes: 30
     permissions:
       contents: read
@@ -197,35 +290,50 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
     steps:
       - name: Check out
+        if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up .NET SDK from global.json
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
+        if: needs.changes.outputs.code == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
       - name: Install Xvfb
+        if: needs.changes.outputs.code == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb
 
       - name: Start the Linux client on Xvfb
+        if: needs.changes.outputs.code == 'true'
         run: bash scripts/ci/linux-client-startup.sh
 
   secret-scan:
     name: Secret scan (full history)
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -246,7 +354,7 @@ jobs:
       # issued through a sign-up form and the action itself is under a
       # custom licence, not an OSI open-source one. The gitleaks CLI is MIT
       # licensed and needs no key, so we download the pinned release, verify its
-      # SHA-256 and run it directly. Scans all refs and full history.
+      # SHA-256 and run it directly. See the scan step for what each trigger scans.
       - name: Install gitleaks CLI (checksum verified)
         run: |
           set -euo pipefail
@@ -258,11 +366,22 @@ jobs:
           "$RUNNER_TEMP/gitleaks" version
 
       - name: Scan git history for secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # --log-opts=--all scans every ref in the fetched history, not just HEAD.
-          # --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
-          "$RUNNER_TEMP/gitleaks" git --log-opts=--all --redact --exit-code 1 --verbose .
+          # A pull request scans only its own commits (base..head), so another branch's fake token cannot turn this
+          # PR red. Pushes, the weekly schedule and manual runs scan every ref in the fetched history, so nothing
+          # stays unscanned. --exit-code 1 fails the job on any finding. --redact keeps secret values out of logs.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          else
+            range="--all"
+          fi
+          echo "gitleaks scope: $range"
+          "$RUNNER_TEMP/gitleaks" git --log-opts="$range" --redact --exit-code 1 --verbose .
 
 # CodeQL analysis trigger (no functional change).
 
@@ -270,9 +389,13 @@ jobs:
   # Not required until PostgreSQL 19 is GA; then drop continue-on-error and add it to branch protection.
   build-test-pg19:
     name: Build and test (Linux, PostgreSQL 19 RC)
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
+    needs: changes
     timeout-minutes: 45
     continue-on-error: true
+    # Not required, so it runs only on main and by hand, not on every PR or branch push. This frees the
+    # three bazaar-linux-pg runners for the required checks. PostgreSQL 18 still runs on every PR.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
     env:
@@ -281,44 +404,66 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
     steps:
       - name: Check out
+        if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up .NET SDK from global.json
+        if: needs.changes.outputs.code == 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
+      # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
+      # files that matter, listed by git.
+      - name: Compute NuGet cache key
+        id: nugetkey
+        shell: bash
+        run: |
+          set -euo pipefail
+          hash="$(git ls-files -- 'global.json' '*Directory.Packages.props' '*.csproj' '*packages.lock.json' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
       - name: Cache NuGet packages
+        if: needs.changes.outputs.code == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          key: ${{ runner.os }}-nuget-${{ steps.nugetkey.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
       # PostgreSQL 19 RC with pgvector from PGDG, built from the same Dockerfile as the Compose image.
       # The RC base tag is set here; bump to the GA tag on 2026-11-19 or later.
       - name: Build and start PostgreSQL 19 RC with pgvector
+        if: needs.changes.outputs.code == 'true'
         run: |
           set -euo pipefail
+          PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
-          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            bazaar-pg19:ci
+            bazaar-pg19:ci -c max_locks_per_transaction=512 -c max_connections=500 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
           for _ in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
           done
-          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
-          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ]
+          PG_PORT="$(docker port "$PG_NAME" 5432/tcp | head -n1 | sed 's/.*://')"
+          echo "BAZAAR_TEST_PG=Host=127.0.0.1;Port=${PG_PORT};Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          echo "PG_NAME=$PG_NAME" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux, PostgreSQL 19 RC)
+        if: needs.changes.outputs.code == 'true'
         run: ./build.sh
 
+      - name: Remove the PostgreSQL container
+        if: needs.changes.outputs.code == 'true' && (always() && env.PG_NAME != '')
+        run: docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
+
       - name: Upload test results on failure
-        if: failure()
+        if: needs.changes.outputs.code == 'true' && (failure())
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-pg19

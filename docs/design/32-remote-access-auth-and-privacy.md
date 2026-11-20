@@ -54,7 +54,7 @@ Purpose: sign a human in from a new device with a passkey, then hand off to a na
 - Handoff: success redirects to `bazaar://signin?code=...`, a 60 s single-use handoff code. The native client redeems it at `/auth/handoff` (an API route on the 02 surface, not a page) for a normal device credential. There is no separate "done" page.
 - Shown: server display name, the sign-in control, generic error text.
 - Never shown: GC or agent names, member or device lists, counts, version beyond a build id, logs, links to data, any response distinguishing valid from invalid usernames.
-- No session cookie beyond the ceremony. No Bazaar content is ever rendered in a browser.
+- No session cookie beyond the ceremony, with one exception: `audience=admin` (doc 51 section 5, PROPOSED) redirects to `/admin/session/redeem`, which sets the admin panel's own short-lived cookie. The panel is the only place a browser renders Bazaar content, and only for accounts holding an admin capability.
 - Off by default; operator enables it and sets the bind address.
 
 ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped to authentication scenarios", "isn't intended as a general-purpose WebAuthn library", needs a WebAuthn browser. So passkeys serve only this page, not native clients. Set the RP ID explicitly (`IdentityPasskeyOptions.ServerDomain`) rather than inferring it from the Host header; passkeys work only on the registered domain, so a hostname change breaks them (recovery codes cover it). Attestation state is unsigned JSON, so keep it server-side. Exact .NET 10 API names are unverified; confirm in a spike.
@@ -76,9 +76,20 @@ Doc 14 and doc 28 defer the key class for a signed owner approval to this sectio
 - **Storage floor (not a setting).** Hardware-backed where the platform offers it. Android: Keystore, with a fresh biometric prompt per signature (29). Windows and Linux: TPM or platform key store (unverified; spike). A software-only key cannot approve a merge.
 - **Algorithm:** ECDSA P-256, chosen for hardware support [PROPOSED; unverified per platform].
 - **Signed payload:** approval id, action, `args_hash`, PR head SHA where the action is a merge (a new head invalidates the approval, 29), deciding human id, device id, issued-at, expiry and a server nonce. The server checks signature, key not revoked, nonce unused and expiry before it acts.
+- **Timing bounds (implementation detail of the single-use, short-lived intent; `OwnerSignatureOptions`).** The server does not trust the client's `issued-at` and expiry. It refuses a payload whose expiry is not after issued-at or is more than the maximum lifetime after it (default 5 minutes), and one whose issued-at is ahead of the server clock by more than the clock skew (default 60 seconds). Operators may only tighten these: the lifetime ceiling is 15 minutes and the skew ceiling is 60 seconds, and larger values are clamped. Verdicts `InvalidLifetime` and `IssuedInFuture`.
 - **Holders:** the owner only in v1 (Q1). A coworker gets an approval key only if the owner delegates a scope (`approval.coworker_scopes`). Agents never hold one.
 - **Lifecycle:** enrolment path is open, because section 3 (pairing) is removed (Question 4). It is audited when it exists. Device revocation revokes the key at once. Keystore loss or device reset requires a new enrolment, by the path in Question 4. Rotation means a new enrolment.
 - **Data:** `approval_key` (section Data and interfaces). Enrolment, each use and revocation go to `audit_log` (15).
+
+
+#### 5a.1 Windows approvals (owner decision via coordinator, 2026-11-18)
+
+Status: DECIDED for the Windows head, by the owner's delegation of 2026-11-18. It applies the storage floor above and adds a presence check. Android (doc 29) is unchanged.
+
+- **Key.** The `owner-approval` key on Windows is an ECDSA P-256 key created in the TPM through the Microsoft Platform Crypto Provider. It is non-exportable and has no software fallback for approvals. A device without a usable TPM cannot enrol an approval key, and it cannot approve a merge.
+- **Presence.** Each approval signature needs a fresh Windows Hello verification (the platform's user consent verifier). Cancelled, unavailable or failed verification refuses the approval and signs nothing. A signature cannot be produced without presence, and the key is never used for anything else.
+- **Refusals are explicit.** No TPM, no Hello, a cancelled prompt and a software-only key each produce a named refusal. None of them falls back to a weaker path.
+- **Linux.** Unchanged here. It stays under the platform store question in the storage floor above.
 
 ### 6. Roles and permissions [PROPOSED]
 Principals: `owner` (one per instance in v1), `coworker` (human, senior), `agent`, `service` (SDK/system). ASP.NET policy-based authorization over a Postgres membership table; no OpenFGA in v1.

@@ -1,5 +1,5 @@
 using System.Globalization;
-using Bazaar.Server.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Data;
 
 namespace Bazaar.RyuseiFuda.Orrery;
 
