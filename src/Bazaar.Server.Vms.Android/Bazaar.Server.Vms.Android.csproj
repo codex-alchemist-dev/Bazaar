@@ -4,9 +4,15 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Platform-neutral: the module reaches the Android SDK only through IAndroidHost (doc 62). It never references Bazaar.Server.csproj's features beyond the provider roles. -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.Devices.Abstractions\Bazaar.Server.Vms.Devices.Abstractions.csproj" />
+    <!-- Devices owns the vms.* setting keys the component reads (DeviceProvidersSettings). It does not reference this module. -->
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices\Bazaar.Server.Vms.Devices.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Vms.Android.Tests" />
   </ItemGroup>
 </Project>
