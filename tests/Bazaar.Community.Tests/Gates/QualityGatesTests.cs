@@ -1,4 +1,5 @@
 using Bazaar.Community.Gates;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Community.Tests.Gates;
 
@@ -175,7 +176,7 @@ public class QualityGatesTests
     [Fact]
     public void Token_like_string_fails_personal_data()
     {
-        DraftPost draft = GoodDraft() with { Body = "The config had ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx in it." };
+        DraftPost draft = GoodDraft() with { Body = "The config had " + FakeSecrets.GitHubPat + " in it." };
 
         GateResult result = QualityGates.Evaluate(draft, GoodPolicy(), _today);
 
