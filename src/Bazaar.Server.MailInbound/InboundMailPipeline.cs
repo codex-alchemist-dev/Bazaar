@@ -111,7 +111,7 @@ public sealed class InboundMailPipeline(
         var inserted = await messages.InsertReceivedAsync(
             new NewInboundMessage(
                 Guid.NewGuid(), mailbox.MailboxId, screened.RfcMessageId, raw.BackendId, screened.SenderDomain, screened.AuthSummary,
-                screened.Codes, raw.ReceivedAt, sealer.Seal(mailbox.PersonId, raw.Bytes)),
+                screened.Codes, raw.ReceivedAt, await sealer.SealAsync(mailbox.PersonId, raw.Bytes, ct).ConfigureAwait(false)),
             ct).ConfigureAwait(false);
         if (inserted.Outcome == InboundInsertOutcome.Duplicate)
         {
@@ -147,7 +147,7 @@ public sealed class InboundMailPipeline(
         await messages.RecordGcMessageAsync(message.Id, gcMessageId, ct).ConfigureAwait(false);
 
         // Step 5: a reader session reads the message. It is hard-tainted before it sees any content.
-        var parsed = _parser.Parse(sealer.Open(mailbox.PersonId, message.Body));
+        var parsed = _parser.Parse(await sealer.OpenAsync(mailbox.PersonId, message.Body, ct).ConfigureAwait(false));
         var handover = await TriageAsync(mailbox, message.Id, parsed, ct).ConfigureAwait(false);
         if (handover.Verdict == MailTriageVerdict.Escalate)
         {

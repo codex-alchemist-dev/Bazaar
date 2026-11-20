@@ -68,9 +68,9 @@ internal sealed class OkDirectory : IInboundMailboxDirectory
 
 internal sealed class OkSealer : IMailBodySealer
 {
-    public SealedBody Seal(Guid personId, ReadOnlyMemory<byte> raw) => new(Guid.Empty, [], []);
+    public ValueTask<SealedBody> SealAsync(Guid personId, ReadOnlyMemory<byte> raw, CancellationToken ct) => ValueTask.FromResult(new SealedBody(Guid.Empty, [], []));
 
-    public byte[] Open(Guid personId, SealedBody sealedBody) => [];
+    public ValueTask<byte[]> OpenAsync(Guid personId, SealedBody sealedBody, CancellationToken ct) => ValueTask.FromResult<byte[]>([]);
 }
 
 internal sealed class OkSessions : IMailReaderSessions
@@ -102,9 +102,9 @@ internal sealed class OkGateway : IMailApprovalGateway
 
 internal sealed class OkProtector : IMailBodyProtector
 {
-    public ProtectedBody Protect(string agentId, ReadOnlySpan<byte> plaintext) => new(Guid.Empty, [], []);
+    public ValueTask<ProtectedBody> ProtectAsync(string agentId, ReadOnlyMemory<byte> plaintext, CancellationToken ct) => ValueTask.FromResult(new ProtectedBody(Guid.Empty, [], []));
 
-    public byte[] Unprotect(ProtectedBody body) => [];
+    public ValueTask<byte[]> UnprotectAsync(ProtectedBody body, CancellationToken ct) => ValueTask.FromResult<byte[]>([]);
 }
 
 internal sealed class FakeSecretStore(Dictionary<string, string> values) : ISecretStore

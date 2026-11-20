@@ -147,10 +147,11 @@ internal sealed class RecordingEvents : IInboundMailEvents
 /// <summary>Not encryption: a marker transform, so a test can tell sealed bytes from the clear message.</summary>
 internal sealed class FakeSealer : IMailBodySealer
 {
-    public SealedBody Seal(Guid personId, ReadOnlyMemory<byte> raw) =>
-        new(Guid.NewGuid(), [.. raw.ToArray().Select(b => (byte)(b ^ 0x5A))], [1, 2, 3]);
+    public ValueTask<SealedBody> SealAsync(Guid personId, ReadOnlyMemory<byte> raw, CancellationToken ct) =>
+        ValueTask.FromResult(new SealedBody(Guid.NewGuid(), [.. raw.ToArray().Select(b => (byte)(b ^ 0x5A))], [1, 2, 3]));
 
-    public byte[] Open(Guid personId, SealedBody sealedBody) => [.. sealedBody.Ciphertext.Select(b => (byte)(b ^ 0x5A))];
+    public ValueTask<byte[]> OpenAsync(Guid personId, SealedBody sealedBody, CancellationToken ct) =>
+        ValueTask.FromResult<byte[]>([.. sealedBody.Ciphertext.Select(b => (byte)(b ^ 0x5A))]);
 }
 
 internal static class Mime

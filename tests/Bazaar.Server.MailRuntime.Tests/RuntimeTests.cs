@@ -61,12 +61,12 @@ public sealed class FailClosedTests
     }
 
     [Fact]
-    public void Sealers_and_protector_refuse_so_no_clear_text_is_stored()
+    public async Task Sealers_and_protector_refuse_so_no_clear_text_is_stored()
     {
-        Assert.Throws<MailPortNotConfiguredException>(() => new FailClosedMailBodySealer().Seal(Guid.NewGuid(), new byte[] { 1 }));
-        Assert.Throws<MailPortNotConfiguredException>(() => new FailClosedMailBodySealer().Open(Guid.NewGuid(), new SealedBody(Guid.Empty, [], [])));
-        Assert.Throws<MailPortNotConfiguredException>(() => new FailClosedMailBodyProtector().Protect("agent", new byte[] { 1 }));
-        Assert.Throws<MailPortNotConfiguredException>(() => new FailClosedMailBodyProtector().Unprotect(new ProtectedBody(Guid.Empty, [], [])));
+        await Assert.ThrowsAsync<MailPortNotConfiguredException>(async () => await new FailClosedMailBodySealer().SealAsync(Guid.NewGuid(), new byte[] { 1 }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<MailPortNotConfiguredException>(async () => await new FailClosedMailBodySealer().OpenAsync(Guid.NewGuid(), new SealedBody(Guid.Empty, [], []), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<MailPortNotConfiguredException>(async () => await new FailClosedMailBodyProtector().ProtectAsync("agent", new byte[] { 1 }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<MailPortNotConfiguredException>(async () => await new FailClosedMailBodyProtector().UnprotectAsync(new ProtectedBody(Guid.Empty, [], []), TestContext.Current.CancellationToken));
     }
 
     [Fact]

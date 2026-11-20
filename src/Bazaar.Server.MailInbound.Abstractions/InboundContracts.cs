@@ -27,13 +27,13 @@ public sealed record SealedBody(Guid KeyId, byte[] Ciphertext, byte[] Nonce);
 /// <summary>Encrypts a raw message under a person's key (doc 14, erasure keys). The host supplies the real implementation.</summary>
 public interface IMailBodySealer
 {
-    SealedBody Seal(Guid personId, ReadOnlyMemory<byte> raw);
+    ValueTask<SealedBody> SealAsync(Guid personId, ReadOnlyMemory<byte> raw, CancellationToken ct);
 
     /// <summary>
     /// Decrypts a stored body so a pending message can be resumed and shown to a reader session. The key service behind it decides who may call it;
     /// the pipeline calls it only to feed a hard-tainted, tool-less reader.
     /// </summary>
-    byte[] Open(Guid personId, SealedBody sealedBody);
+    ValueTask<byte[]> OpenAsync(Guid personId, SealedBody sealedBody, CancellationToken ct);
 }
 
 /// <summary>Where a stored inbound message is. <c>Received</c> is the only state the pipeline resumes from.</summary>

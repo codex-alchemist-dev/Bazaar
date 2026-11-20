@@ -232,9 +232,9 @@ public sealed record ProtectedBody(Guid KeyId, byte[] Ciphertext, byte[] Nonce);
 /// <summary>Port: the per-person encryption of stored message text (doc 04 pattern). The store never writes plaintext.</summary>
 public interface IMailBodyProtector
 {
-    ProtectedBody Protect(string agentId, ReadOnlySpan<byte> plaintext);
+    ValueTask<ProtectedBody> ProtectAsync(string agentId, ReadOnlyMemory<byte> plaintext, CancellationToken ct);
 
-    byte[] Unprotect(ProtectedBody body);
+    ValueTask<byte[]> UnprotectAsync(ProtectedBody body, CancellationToken ct);
 }
 
 /// <summary>Pipeline settings (PROPOSED: <c>mail.outbound.max_attempts</c>, <c>mail.outbound.retry_base_seconds</c>, <c>mail.outbound.retry_max_seconds</c>).</summary>
