@@ -7,6 +7,7 @@ using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Server.Wire.Sync;
 using Npgsql;
