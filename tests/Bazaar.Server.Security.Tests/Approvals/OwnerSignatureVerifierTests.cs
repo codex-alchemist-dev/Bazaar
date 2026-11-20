@@ -15,6 +15,7 @@ public sealed class OwnerSignatureVerifierTests
         string action = "pr.merge",
         string? headSha = "0123456789abcdef0123456789abcdef01234567",
         DateTimeOffset? expiresAt = null,
+        DateTimeOffset? issuedAt = null,
         byte? nonceSeed = 1) =>
         new(
             action,
@@ -23,8 +24,8 @@ public sealed class OwnerSignatureVerifierTests
             headSha,
             _human,
             Signing.DeviceId,
-            _now.AddMinutes(-1),
-            expiresAt ?? _now.AddMinutes(5),
+            issuedAt ?? _now.AddMinutes(-1),
+            expiresAt ?? _now.AddMinutes(4),
             Enumerable.Repeat(nonceSeed ?? 1, OwnerSignedPayload.NonceLength).ToArray());
 
     private static byte[] Sign(ECDsa key, OwnerPayload payload) =>
@@ -33,11 +34,11 @@ public sealed class OwnerSignatureVerifierTests
             HashAlgorithmName.SHA256,
             DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
-    private static (OwnerSignatureVerifier Verifier, InMemoryOwnerKeyRegistry Registry) Setup(ECDsa key, bool revoked = false, string? ownerId = null)
+    private static (OwnerSignatureVerifier Verifier, InMemoryOwnerKeyRegistry Registry) Setup(ECDsa key, bool revoked = false, string? ownerId = null, OwnerSignatureOptions? options = null)
     {
         var registry = new InMemoryOwnerKeyRegistry();
         registry.Register(new OwnerDeviceKey(ownerId ?? _human.ToString("D"), Signing.DeviceId, Signing.PublicKey(key), revoked));
-        return (new OwnerSignatureVerifier(registry, new InMemoryOwnerNonceStore()), registry);
+        return (new OwnerSignatureVerifier(registry, new InMemoryOwnerNonceStore(), options), registry);
     }
 
     [Fact]
@@ -156,5 +157,84 @@ public sealed class OwnerSignatureVerifierTests
         var verdict = await verifier.VerifyAsync(payload, Sign(key, payload), _now, TestContext.Current.CancellationToken);
 
         Assert.Equal(OwnerSignatureVerdict.Expired, verdict);
+    }
+
+    private static async Task<OwnerSignatureVerdict> VerdictAsync(OwnerPayload payload, OwnerSignatureOptions? options = null)
+    {
+        using var key = Signing.NewKey();
+        var (verifier, _) = Setup(key, options: options);
+        return await verifier.VerifyAsync(payload, Sign(key, payload), _now, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_lifetime_of_exactly_the_maximum_is_accepted()
+    {
+        var issued = _now.AddMinutes(-1);
+        Assert.Equal(OwnerSignatureVerdict.Valid, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(5))));
+    }
+
+    [Fact]
+    public async Task A_lifetime_one_second_over_the_maximum_is_refused()
+    {
+        var issued = _now.AddMinutes(-1);
+        Assert.Equal(OwnerSignatureVerdict.InvalidLifetime, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(5).AddSeconds(1))));
+    }
+
+    [Fact]
+    public async Task A_payload_valid_for_years_is_refused()
+    {
+        Assert.Equal(OwnerSignatureVerdict.InvalidLifetime, await VerdictAsync(Payload(expiresAt: _now.AddDays(900))));
+    }
+
+    [Fact]
+    public async Task An_expiry_not_after_the_issue_time_is_refused()
+    {
+        Assert.Equal(OwnerSignatureVerdict.InvalidLifetime, await VerdictAsync(Payload(issuedAt: _now.AddSeconds(30), expiresAt: _now.AddSeconds(10))));
+    }
+
+    [Fact]
+    public async Task An_issue_time_within_the_skew_is_accepted()
+    {
+        var issued = _now.AddSeconds(60);
+        Assert.Equal(OwnerSignatureVerdict.Valid, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(1))));
+    }
+
+    [Fact]
+    public async Task An_issue_time_beyond_the_skew_is_refused()
+    {
+        var issued = _now.AddSeconds(61);
+        Assert.Equal(OwnerSignatureVerdict.IssuedInFuture, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(1))));
+    }
+
+    [Fact]
+    public async Task An_operator_can_tighten_the_lifetime()
+    {
+        var options = new OwnerSignatureOptions { MaxLifetime = TimeSpan.FromMinutes(1) };
+        var issued = _now.AddSeconds(-10);
+
+        Assert.Equal(OwnerSignatureVerdict.Valid, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(1)), options));
+        Assert.Equal(OwnerSignatureVerdict.InvalidLifetime, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(1).AddSeconds(1)), options));
+    }
+
+    [Fact]
+    public async Task An_operator_cannot_loosen_past_the_ceiling()
+    {
+        var options = new OwnerSignatureOptions { MaxLifetime = TimeSpan.FromDays(30), ClockSkew = TimeSpan.FromHours(1) };
+        var issued = _now.AddMinutes(-1);
+
+        Assert.Equal(OwnerSignatureOptions.MaxLifetimeCeiling, options.MaxLifetime);
+        Assert.Equal(OwnerSignatureOptions.ClockSkewCeiling, options.ClockSkew);
+        Assert.Equal(OwnerSignatureVerdict.Valid, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(15)), options));
+        Assert.Equal(OwnerSignatureVerdict.InvalidLifetime, await VerdictAsync(Payload(issuedAt: issued, expiresAt: issued.AddMinutes(15).AddSeconds(1)), options));
+        Assert.Equal(OwnerSignatureVerdict.IssuedInFuture, await VerdictAsync(Payload(issuedAt: _now.AddSeconds(61), expiresAt: _now.AddMinutes(2)), options));
+    }
+
+    [Fact]
+    public void Options_below_the_floor_are_raised()
+    {
+        var options = new OwnerSignatureOptions { MaxLifetime = TimeSpan.Zero, ClockSkew = TimeSpan.FromSeconds(-5) };
+
+        Assert.Equal(TimeSpan.FromSeconds(1), options.MaxLifetime);
+        Assert.Equal(TimeSpan.Zero, options.ClockSkew);
     }
 }
