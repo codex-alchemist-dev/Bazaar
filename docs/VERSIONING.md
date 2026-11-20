@@ -68,7 +68,7 @@ Five channels, after RESIBO. The **Bazaar.Server operator picks one per install*
 | LTSC | One major, security and critical fixes only, backported | Real branch `ltsc/<codename>` forked at the major's release tag; fixes are cherry-picked |
 | Stable | `vX.Y.Z` with no pre-release suffix | Tags on `main` |
 | Beta | `vX.Y.Z-beta.N` and `-rc.N` | Tags on `main` |
-| Alpha | `vX.Y.Z-alpha.N` | Tags on `main` |
+| Nightly | CI build of `main` once a day, marked with its commit; the old `vX.Y.Z-alpha.N` tag is a deprecated alias that resolves to this channel | No tag |
 | Latest-Commit | CI build of every `main` commit, `vX.Y.Z-dev.N+sha` | No tag; owner-only, never offered to other operators |
 
 Stable, Beta and Alpha are points on one linear history, so they need no branches. Only LTSC diverges. Unlike RESIBO's moving channel labels, Bazaar tags are immutable SemVer tags and the pre-release suffix decides the channel; the update feed (Velopack, doc 30) publishes each build to its channel's feed.
