@@ -41,6 +41,7 @@
     <ProjectReference Include="..\Bazaar.Server.Calendar\Bazaar.Server.Calendar.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mentions\Bazaar.Server.Mentions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Org\Bazaar.Server.Org.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
   </ItemGroup>
