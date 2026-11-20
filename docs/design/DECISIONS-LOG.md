@@ -382,7 +382,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Admin web panel | Needs no exception, because the rule it would have narrowed is gone. Its scope and sign-in are in doc 51 (on its own PR). | 51, 32 §4 |
 | Read-only status page and narrow sign-in page | Unchanged. Their scope comes from docs 02, 03, 23, 32 §4 and 46 §15.5, not from the removed rule. | 02, 03, 32, 46 |
 
-## Round 28 (2026-11-16): Kanban card revision and client move command
+## Round 29 (2026-11-16): Kanban card revision and client move command
 
 | Decision | Owner ruling | Docs |
 |---|---|---|
