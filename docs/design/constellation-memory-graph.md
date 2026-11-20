@@ -84,7 +84,7 @@ The payload goes through the shared payload guard, so no secret-like key can ent
 
 ## Server-side GraphDRAG completion [PROPOSED]
 
-Status: PROPOSED (2026-11-20). Everything in the sections below this line up to "Tests" is a specification for work that is not built. It changes no DECIDED item and needs owner confirmation of the open questions at the end before code starts. GPU acceleration of the retrieval work is specified separately in `docs/design/61-gpu-graph-retrieval.md`; nothing here depends on it, and the CPU path stays the reference.
+Status: PROPOSED (2026-11-20). Everything in the sections below this line up to "Tests" is a specification for work that is not built. It changes no DECIDED item and needs owner confirmation of the open questions at the end before code starts. GPU acceleration of the retrieval work is specified separately in `docs/design/64-gpu-graph-retrieval.md`; nothing here depends on it, and the CPU path stays the reference.
 
 ### Vector seeds (retriever side only) [PROPOSED]
 
@@ -193,7 +193,7 @@ a. The retriever does not re-expand a neighbour reached later with a higher scor
 b. Cross-note wiki-link resolution by title needs the Vault index. The sink passes an empty title map today, so `[[Title]]` links produce no edge. Only `[[note id]]` links resolve.
 c. Not built: retention, crypto-erase, legal hold, the Hive and Company areas, vector seeds, the owner read-audit, HTTP and wire endpoints, rebuild from the Vault, and the client view.
 d. PROPOSED specifications now exist for vector seeds, the retrieval operation, agent-turn wiring, cross-project context limits and the durable owner-read access log; see "Server-side GraphDRAG completion". None of it is built. Its open questions are listed at the end of that section.
-e. GPU-accelerated retrieval is specified in `docs/design/61-gpu-graph-retrieval.md` (PROPOSED).
+e. GPU-accelerated retrieval is specified in `docs/design/64-gpu-graph-retrieval.md` (PROPOSED).
 
 ## Owner questions
 

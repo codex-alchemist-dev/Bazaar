@@ -1,6 +1,6 @@
 # 61. Graph retrieval engine: RAG plus DAG on many cores and the GPU (GraphDRAG, server side)
 
-Status: PROPOSED (2026-11-20). Design only. Nothing in this document is built. Every decision below is PROPOSED unless it is quoted from a DECIDED source, which is named. Owner questions: 14 (section 17).
+Status: PROPOSED (2026-11-20). Design only. Nothing in this document is built. Every decision below is PROPOSED unless it is quoted from a DECIDED source, which is named. One open owner trade-off (section 17); every other earlier question is settled there.
 Depends on: constellation-memory-graph.md (the retriever this doc accelerates), 19-constellation-and-git-solar-system.md ("Agent memory governance (GraphDRAG)", DECIDED 2026-11-13; renderer and GPU path), 08-memory-system.md (sections 8 and 9: retrieval, embeddings), 18-vault.md (access, search, block embeddings), 04-postgres-schema-and-migrations.md (embedding profile), 03-server-host-and-providers.md (provider seam, settings registry), 40-core-feature-modules-audit.md and 42-deps-as-modules.md (module shape, pgvector as a module), 46-kodo-health-module.md (module health contract), 15-security-taint-and-approvals.md and 48-gap-decisions-security-identity.md (audit), 35-spikes-plan.md (spike S28 is added by this doc), constellation-scale-and-lod.md (measured Arc B580 facts).
 Used by: none yet.
 
@@ -550,7 +550,7 @@ Which engine should be the default for each stage (Postgres, multi-core CPU, GPU
 ### 13.3 Datasets and sizes
 
 - **Synthetic:** random unit vectors at `D` = 768, 1024 and 1536, with a power-law graph (degree distribution from the real memory graph once one exists). Sizes 10k, 100k, 1M, 5M, 10M and, where it fits (int8 or larger budget), 20M and 50M. Sizes that do not fit are reported as "not resident", which is itself a result.
-- **Realistic:** the repo's own docs and the Vault fixtures embedded with the chosen profile; and, if the owner allows, a copy of the owner's Vault on the owner's PC that never leaves it (owner question 6).
+- **Realistic:** the repo's own docs and the Vault fixtures embedded with the chosen profile; and, if the owner allows, a copy of the owner's Vault on the owner's PC that never leaves it (decision 6 in section 17).
 - **Scope mixes:** 1, 10, 100 and 1,000 agents, with queries from an agent (one private segment plus shared ones) and from the owner (all segments).
 - **Queries:** k = 10, 20, 50; MaxHops 0, 1, 2 (and 3, 4 for `ppr`); DAG closure depths 2, 8, 32; PPR over reached subgraphs of 1k, 10k, 100k and 1M nodes; single queries and batches of 8, 32 and 128.
 
@@ -558,7 +558,7 @@ Which engine should be the default for each stage (Postgres, multi-core CPU, GPU
 
 Measured: p50 and p99 latency per stage, throughput (queries per second at batch sizes), recall@k against exact pgvector, parity counters from section 8, VRAM use, index build and incremental-apply time, CPU use of the host during a run, and GPU power where available (Intel's tooling on Windows, hwmon on Linux if the driver exposes it, else an external meter, else "not measured").
 
-PROPOSED gates for `graph_retrieval.gpu.enabled` to default to `true` (the owner sets the final numbers, question 4):
+PROPOSED gates for `graph_retrieval.gpu.enabled` to default to `true` (the owner may change the numbers; decision 4 in section 17):
 
 | Gate | Threshold |
 |---|---|
@@ -616,7 +616,7 @@ Sizes: S is up to a day, M is two to three days, L is about a week.
 
 | # | Package | Size | Depends on |
 |---|---|---|---|
-| 0 | Docs PR: converge the memory graph onto Constellation nodes in `constellation-memory-graph.md` (section 1.1), with the edge-weight table for the Vault edge kinds | M | owner questions 10 and 12 |
+| 0 | Docs PR: converge the memory graph onto Constellation nodes in `constellation-memory-graph.md` (section 1.1), with the edge-weight table for the Vault edge kinds | M | decisions 10 and 12 in section 17 |
 | 1 | Abstractions project: interface, records, decline reasons, null kernel, architecture test | S | none |
 | 2 | Seam in `MemoryGraphRetriever`: optional kernel, decline handling, CPU replay of scoring from hop levels, post-filter mismatch handling; tests proving unchanged behaviour with the null kernel | M | 1 |
 | 3 | Extract `Bazaar.Gpu.Vulkan` from the renderer (probe, device selection, buffers, compute pipeline helper); fix the Intel driver-version decode; renderer tests unchanged | M | owner question 3 |
@@ -636,7 +636,7 @@ Sizes: S is up to a day, M is two to three days, L is about a week.
 | 15 | Phase 2 nodes: GC, decision-reference, task and PR nodes with their own mask source | L | 6, owner question 11 |
 | 16 | Labelled Vault question set and evaluation harness (13.5) | M | none (public docs first; owner question 6 for the real Vault) |
 
-Work packages 0, 1, 3, 4 and 16 can start in parallel. Nothing beyond 0, 1 and 2 should merge before this doc's owner questions 1, 2 and 10 are answered.
+Work packages 0, 1, 3, 4 and 16 can start in parallel. Nothing beyond 0, 1 and 2 should merge before the decisions 1, 2 and 10 in section 17 are accepted.
 
 ## 16. Risks
 
@@ -646,21 +646,26 @@ Work packages 0, 1, 3, 4 and 16 can start in parallel. Nothing beyond 0, 1 and 2
 - Kernel bugs that pass tests but differ on one vendor's driver. Shadow parity in production is the guard.
 - Keeping the index in step with the Vault adds a new consistency path. The change-feed table and the stale-removal floor bound the damage to "slower", not "wrong".
 
-## 17. Open questions for the owner
+## 17. Decisions taken and the one open trade-off
 
-1. **Placement.** GraphDRAG is DECIDED to live in `Server.Constellation`, "not a separate module". Is a separate graph-kernel module (`Bazaar.Server.GraphRetrieval` plus Abstractions) that Constellation may call acceptable under that decision, with all GraphDRAG rules staying in Constellation? Default if unanswered: build nothing past WP1 and WP2.
-2. **Seam location.** Constellation is still a folder in `Bazaar.Server` (doc 40 finding 5). May the small seam land there now, or should Constellation's memory graph move to its own module first?
-3. **Shared Vulkan library.** May the probe and device helpers move into a feature-free `Bazaar.Gpu.Vulkan` used by both the client renderer and the server module, or should the server module keep its own copy?
-4. **Default-on gates.** Are the S28 thresholds in section 13.4 the right ones (100% fp16 parity, GPU p99 at most half of pgvector p99, 24-hour soak)?
-5. **Linux GPU testing.** Linux must work. Which Linux machine with a GPU should S28 and the nightly run on? The cloud container has none.
-6. **Realistic dataset.** May S28 use a copy of the owner's real Vault on the owner's PC only, with nothing leaving the machine?
-7. **Driver paging on Windows.** WDDM may page device memory to system RAM or the page file. Is that acceptable for embedding data, given that server process memory can be paged too, or should the module refuse to run when it cannot prevent it?
-8. **Embedding inference on the server GPU.** Out of scope here. Does the owner want a separate design for running the embedding model locally on the B580 (which would also take VRAM from this budget)?
-9. **Block versus document seeds.** Vector search returns Vault blocks; graph nodes are documents. Should a document's vector score be its best block's score? This is a retrieval rule for `constellation-memory-graph.md` and doc 08, needed before WP14 and before vector seeds reach the graph on any path.
-10. **Convergence schema.** For the memory revision log after convergence (section 1.1 item 4): re-key `constellation_memory_revision` and `constellation_memory_edge` to `doc_id` by migration, or keep the revision log as is and read active revisions through a `doc_id` mapping? Schema choices need one answer (round 13).
-11. **Phase 2 nodes.** Should GC, decision-reference, task and PR nodes from doc 19 join GraphDRAG retrieval at all, and if so with which edge weights? Their visibility follows GC membership and the DM and Thinking-GC rules, not Vault paths.
-12. **Edge kinds and direction.** Weights for `embed`, `contradicts`, `decides`, `mentions` and the rest of doc 19's edge kinds, and whether expansion also walks backlinks. Default until answered: only `link` 1.0, `derived_from` 0.8, `supersedes` 0.5, outgoing only.
-13. **Wider cross-project hops.** Today a hop crosses projects only where Hive copies or role grants make the target readable. Does the owner want any wider cross-project hop (for example, linked projects reading each other's shared areas)? That is an access rule, so it is a question, not a setting, and the default is no.
-14. **Time validity.** Add `valid_from` and `valid_to` to revisions and an effective time to `supersedes` edges (research input R3), so retrieval can answer "what was true on date D"? This is a schema change and needs one answer. Default until answered: no new columns; "current" is the head of the supersede chain.
+The earlier draft listed 14 owner questions. Most are answered by the design docs, the research, or the owner's standing direction (build everything, no shortcuts, everything is a module, nothing duplicated). They are settled here as PROPOSED decisions, and the owner can overturn any of them.
+
+| # | Question | Decision (PROPOSED) | Why |
+|---|---|---|---|
+| 1 | Placement | A compute-only module pair, `Bazaar.Server.GraphRetrieval` plus `.Abstractions`, that Constellation calls. All GraphDRAG rules (seeds, scope, expansion policy, packing) stay in `Bazaar.Server.Constellation`. | Everything is a module and core holds no features; GraphDRAG stays "Constellation's server side" because the rules never leave it. |
+| 2 | Seam location | The seam lives in the extracted Constellation module, never in `Bazaar.Server` or Core. | The architecture ratchet forbids new files there. |
+| 3 | Shared Vulkan library | Extract a feature-free `Bazaar.Gpu.Vulkan` (probe, device, buffers) used by the renderer and the server module. | One GPU API in the codebase, and no duplicate code. |
+| 4 | Default-on gates | The thresholds in section 13.4 stand. The engine stays off until S28 passes them on the owner's PC. | The benchmark decides, not opinion. |
+| 5 | Linux GPU testing | CI runs the CPU reference and parity tests. The GPU benchmark runs on the owner's PC (Intel Arc B580) through Remote Control, from `V:`. A Linux GPU run waits for a Linux GPU host. | No other GPU machine exists. |
+| 6 | Realistic dataset | S28 and the evaluation may use a copy of the owner's real Vault on the owner's PC only. Nothing leaves the machine. | It is their machine and their data. |
+| 7 | Driver paging on Windows | Accepted and documented. Embeddings are no more sensitive than the database the server already reads. | The same exposure already exists for server memory. |
+| 8 | Embedding inference on the server GPU | Out of scope here. A separate design follows if the benchmark shows VRAM headroom. | Keeps this design bounded. |
+| 9 | Block versus document seeds | A document's vector score is its best block's score. Tunable later from the labelled set. | Simple and standard. |
+| 10 | Convergence schema | Re-key the memory revision tables to `doc_id` by migration, with a dry run, keeping all history. | Coordinator approved; follows from "no separate memory nodes". |
+| 11 | Phase 2 nodes | GC, decision-reference, task and PR nodes join retrieval in phase 2. Their visibility follows GC membership and the DM and Thinking-GC rules, not Vault paths. | The goal is project-wide context; the access rules already exist. |
+| 12 | Edge kinds and direction | Defaults stay: `link` 1.0, `derived_from` 0.8, `supersedes` 0.5, outgoing, plus backlinks at half weight. Other kinds get weights from the labelled question set. | No weight is tuned without measurement. |
+| 14 | Time validity | Add nullable `valid_from` and `valid_to` to revisions and an effective time to `supersedes` edges. "Current" stays the head of the supersede chain. | Needed for long-horizon "what was true on date D"; additive. |
+
+**Open trade-off for the owner: how wide may a cross-project hop go?** Today a hop crosses projects only where Hive copies or role grants already make the target readable (the safe default, and what the docs allow). The owner's description says projects are interconnected. A wider rule would let linked projects read each other's shared areas through retrieval, which gives richer context and is also an access-control change (a wrongly linked project would leak its notes). Recommended: keep the default, and add an explicit owner-granted project link as a later, audited setting if the default proves too narrow.
 
 Also to fix outside this doc (found while reading, not changed here): `constellation-memory-graph.md` "Build status" says `MemoryGraphRetriever` is registered in `ConstellationComponent`, but on `main` it is constructed only in tests.
