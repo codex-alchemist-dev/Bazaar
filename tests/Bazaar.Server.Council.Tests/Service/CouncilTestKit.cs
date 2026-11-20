@@ -16,6 +16,7 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
 {
     private readonly Dictionary<Guid, CouncilVoteRecord> _votes = new();
     private readonly List<StoredBallot> _ballots = new();
+    private readonly Dictionary<Guid, List<CouncilTransitionRecord>> _transitions = new();
 
     public int ForcedMismatches { get; set; }
 
@@ -25,6 +26,7 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
     public Task InsertVoteAsync(CouncilVoteRecord vote, CancellationToken ct)
     {
         _votes[vote.VoteId] = vote;
+        _transitions[vote.VoteId] = [new CouncilTransitionRecord(1, VoteState.Collecting, "open", vote.CreatedAt)];
         return Task.CompletedTask;
     }
 
@@ -57,6 +59,7 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
             DeadlineAt = newDeadlineAt ?? vote.DeadlineAt,
             Extensions = newExtensions ?? vote.Extensions,
         };
+        _transitions[voteId].Add(new CouncilTransitionRecord(vote.Version + 1, target, reason, at));
         return Task.FromResult(true);
     }
 
@@ -81,6 +84,31 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
         _ballots.Add(ballot);
         return Task.FromResult(true);
     }
+
+    public Task<IReadOnlyList<Guid>> ListVotesDueAsync(DateTimeOffset now, int limit, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Guid>>(_votes.Values
+            .Where(vote => vote.State == VoteState.Revealed
+                || (vote.State is VoteState.Collecting or VoteState.FollowUp && vote.DeadlineAt <= now))
+            .OrderByDescending(vote => vote.State == VoteState.Revealed)
+            .ThenBy(vote => vote.DeadlineAt)
+            .ThenBy(vote => vote.VoteId)
+            .Take(limit)
+            .Select(vote => vote.VoteId)
+            .ToList());
+
+    public Task<IReadOnlyList<Guid>> ListDecidedSinceAsync(DateTimeOffset since, int limit, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Guid>>(_transitions
+            .Where(pair => pair.Value.Any(t => t.To == VoteState.Decided && t.At >= since))
+            .Select(pair => (Id: pair.Key, At: pair.Value.Single(t => t.To == VoteState.Decided).At))
+            .OrderBy(pair => pair.At)
+            .ThenBy(pair => pair.Id)
+            .Take(limit)
+            .Select(pair => pair.Id)
+            .ToList());
+
+    public Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<CouncilTransitionRecord>>(_transitions.GetValueOrDefault(voteId)?.ToList()
+            ?? new List<CouncilTransitionRecord>());
 
     /// <summary>Test helper: sets the state directly, as a crash-recovery test needs.</summary>
     public void SetState(Guid voteId, VoteState state) =>
@@ -111,6 +139,22 @@ internal sealed class RecordingGcEvents : ICouncilGcEvents
     }
 
     public IEnumerable<RecordedGcEvent> OfKind(string kind) => Events.Where(evt => evt.Kind == kind);
+}
+
+/// <summary>GC event sink that fails the first <see cref="FailKind"/> append, as a crash between two writes would.</summary>
+internal sealed class CrashingGcEvents(RecordingGcEvents inner, string failKind) : ICouncilGcEvents
+{
+    public bool Armed { get; set; } = true;
+
+    public Task AppendAsync(Guid gcId, string kind, string payloadJson, string idempotencyKey, CancellationToken ct)
+    {
+        if (Armed && kind == failKind)
+        {
+            throw new IOException("Simulated crash before the event was written.");
+        }
+
+        return inner.AppendAsync(gcId, kind, payloadJson, idempotencyKey, ct);
+    }
 }
 
 /// <summary>Membership fake with a settable member list.</summary>

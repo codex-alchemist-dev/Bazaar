@@ -53,6 +53,27 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         WHERE vote_id = @vote_id AND (vault_decision_no IS NULL OR vault_decision_no = @decision_no)
         """;
 
+    // Revealed votes first: a revealed vote is always a crash leftover, so it should not wait behind future deadlines.
+    private const string _dueVotesSql = """
+        SELECT vote_id FROM council_vote
+        WHERE state = 'revealed' OR (state IN ('collecting', 'follow_up') AND deadline_at <= @now)
+        ORDER BY (state = 'revealed') DESC, deadline_at, vote_id
+        LIMIT @limit
+        """;
+
+    private const string _decidedSinceSql = """
+        SELECT t.vote_id FROM council_transition t
+        WHERE t.to_state = 'decided' AND t.at >= @since
+        ORDER BY t.at, t.vote_id
+        LIMIT @limit
+        """;
+
+    private const string _listTransitionsSql = """
+        SELECT version, to_state, reason, at FROM council_transition
+        WHERE vote_id = @vote_id
+        ORDER BY version
+        """;
+
     private const string _insertBallotSql = """
         INSERT INTO council_ballot (vote_id, voter_id, phase, choice, reasoning_key_id, reasoning_ct, reasoning_nonce,
             tainted_at_write, submitted_at)
@@ -216,6 +237,45 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListVotesDueAsync(DateTimeOffset now, int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = dataSource.CreateCommand(_dueVotesSql);
+        cmd.Parameters.AddWithValue("now", now);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListDecidedSinceAsync(DateTimeOffset since, int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = dataSource.CreateCommand(_decidedSinceSql);
+        cmd.Parameters.AddWithValue("since", since);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand(_listTransitionsSql);
+        cmd.Parameters.AddWithValue("vote_id", voteId);
+        var result = new List<CouncilTransitionRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(new CouncilTransitionRecord(
+                reader.GetInt64(0),
+                CouncilText.ParseState(reader.GetString(1)),
+                reader.GetString(2),
+                reader.GetFieldValue<DateTimeOffset>(3)));
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc />
     public async Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(ballot);
@@ -296,6 +356,18 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         cmd.Parameters.AddWithValue("reason", reason);
         cmd.Parameters.AddWithValue("at", at);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    private static async Task<IReadOnlyList<Guid>> ReadVoteIdsAsync(NpgsqlCommand cmd, CancellationToken ct)
+    {
+        var result = new List<Guid>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(reader.GetGuid(0));
+        }
+
+        return result;
     }
 
     private static NpgsqlParameter Jsonb(string name, string json) => new(name, NpgsqlDbType.Jsonb) { Value = json };

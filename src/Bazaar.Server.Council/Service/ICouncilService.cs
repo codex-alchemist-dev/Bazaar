@@ -50,6 +50,14 @@ public interface ICouncilService
     /// <summary>Applies the deadline rules to a vote whose deadline has passed. Does nothing before the deadline.</summary>
     Task ProcessDeadlineAsync(Guid voteId, CancellationToken ct);
 
+    /// <summary>
+    /// Re-drives the decision record of a Decided vote: writes <c>council.decision</c> (and the Vault file when a writer is
+    /// set) if a crash after the decided transition left it out. Does nothing when the vote is not Decided. Safe to repeat:
+    /// the event key and the stored vault number make a second call write nothing new.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The vote is Decided but its history or ballots do not give one decision.</exception>
+    Task RedriveDecisionAsync(Guid voteId, CancellationToken ct);
+
     /// <summary>Withdraws a vote. Allowed for the proposer or the owner, before the vote is decided.</summary>
     /// <exception cref="CouncilRejectedException">The actor may not withdraw, or the vote is already terminal.</exception>
     Task WithdrawAsync(Guid voteId, string actorId, CancellationToken ct);

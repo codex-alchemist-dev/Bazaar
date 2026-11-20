@@ -34,6 +34,12 @@ public sealed class CouncilService : ICouncilService
     /// <summary>Attempts at one transition before <see cref="ConcurrencyException"/>. Each retry reloads the vote.</summary>
     private const int _maxTransitionAttempts = 3;
 
+    /// <summary>Reason prefix the owner's resolution writes on its decided transition.</summary>
+    private const string _ownerResolvedPrefix = "owner resolved: ";
+
+    /// <summary>Reason the tally's decided transition writes.</summary>
+    private const string _decidedByTallyReason = "decided by tally";
+
     private readonly ICouncilStore _store;
     private readonly ICouncilGcEvents _gcEvents;
     private readonly IGcMembership _membership;
@@ -219,6 +225,50 @@ public sealed class CouncilService : ICouncilService
     }
 
     /// <inheritdoc />
+    public async Task RedriveDecisionAsync(Guid voteId, CancellationToken ct)
+    {
+        var vote = await LoadAsync(voteId, ct);
+        if (vote.State != VoteState.Decided)
+        {
+            return;
+        }
+
+        // The decided transition's reason says how the vote was decided. The owner's choice is in the reason; the owner's
+        // reasoning was never stored outside the decision event, so a re-driven owner decision has none.
+        var history = await _store.ListTransitionsAsync(voteId, ct);
+        var decidedAt = history.LastOrDefault(transition => transition.To == VoteState.Decided)
+            ?? throw new InvalidOperationException($"Council vote {voteId:D} is Decided with no decided transition.");
+
+        if (decidedAt.Reason.StartsWith(_ownerResolvedPrefix, StringComparison.Ordinal))
+        {
+            var ownerChoice = decidedAt.Reason[_ownerResolvedPrefix.Length..];
+            await RecordDecisionAsync(vote, ownerChoice, "owner", null, ct);
+            return;
+        }
+
+        if (decidedAt.Reason != _decidedByTallyReason)
+        {
+            throw new InvalidOperationException($"Council vote {voteId:D} has an unknown decided reason.");
+        }
+
+        // Replays the tally the service ran for the decision: a vote that went through the follow-up round is tallied on
+        // every ballot in that round, otherwise on the independent ballots at the reveal.
+        var followedUp = history.Any(transition => transition.To == VoteState.FollowUp);
+        var round = followedUp ? TallyRound.FollowUp : TallyRound.Independent;
+        var ballots = await _store.ListBallotsAsync(voteId, ct);
+        var scope = followedUp
+            ? ballots
+            : ballots.Where(ballot => ballot.Phase == BallotPhase.Independent).ToList();
+        var decision = DecideRound(vote, round, scope, await UnanimityBlockedAsync(vote, ct));
+        if (decision.Kind != TallyDecisionKind.Decided || decision.Choice is null)
+        {
+            throw new InvalidOperationException($"Council vote {voteId:D} is Decided but its ballots no longer decide it.");
+        }
+
+        await RecordDecisionAsync(vote, decision.Choice, "tally", null, ct);
+    }
+
+    /// <inheritdoc />
     public async Task ResolveEscalationAsync(Guid voteId, string optionChoice, string? reasoning, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(optionChoice);
@@ -237,7 +287,7 @@ public sealed class CouncilService : ICouncilService
 
         var decided = await TransitionAsync(
             voteId,
-            _ => new TransitionPlan(VoteEvent.OwnerResolved, $"owner resolved: {optionChoice}"),
+            _ => new TransitionPlan(VoteEvent.OwnerResolved, $"{_ownerResolvedPrefix}{optionChoice}"),
             ct)
             ?? throw new CouncilRejectedException("The vote is no longer awaiting the owner.");
 
@@ -376,7 +426,7 @@ public sealed class CouncilService : ICouncilService
         {
             var decided = await TransitionAsync(
                 vote.VoteId,
-                _ => new TransitionPlan(VoteEvent.Decide, "decided by tally"),
+                _ => new TransitionPlan(VoteEvent.Decide, _decidedByTallyReason),
                 ct);
             if (decided is not null)
             {
