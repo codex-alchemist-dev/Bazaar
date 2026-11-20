@@ -33,6 +33,8 @@
     <ProjectReference Include="..\Bazaar.Fun\Bazaar.Fun.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>
