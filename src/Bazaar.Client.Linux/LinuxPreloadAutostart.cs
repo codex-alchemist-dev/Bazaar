@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Preload;
 
 namespace Bazaar.Client.Linux;
 

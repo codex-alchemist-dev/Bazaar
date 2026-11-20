@@ -1,5 +1,8 @@
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
 
@@ -10,7 +13,7 @@ public class PaneRegistryTests
     [Fact]
     public void Known_kind_uses_its_factory()
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         registry.Register("test.kind", d => new GenericPaneViewModel(d));
 
         var pane = registry.Create(Descriptor("test.kind"));
@@ -23,7 +26,7 @@ public class PaneRegistryTests
     public void Unknown_kind_falls_back_to_generic_and_reports_once()
     {
         var reports = new List<string>();
-        var registry = new PaneRegistry(reports.Add);
+        var registry = new PaneRegistry(PaneViews.Instance, reports.Add);
 
         var first = registry.Create(Descriptor("godot.scene-tree", "{\"nodes\":1}"));
         var second = registry.Create(Descriptor("godot.scene-tree", "{\"nodes\":2}"));
@@ -51,7 +54,7 @@ public class PaneRegistryTests
     [Fact]
     public void Duplicate_registration_throws()
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         registry.Register("test.kind", d => new GenericPaneViewModel(d));
 
         Assert.Throws<InvalidOperationException>(() => registry.Register("test.kind", d => new GenericPaneViewModel(d)));
@@ -60,7 +63,7 @@ public class PaneRegistryTests
     [Fact]
     public void Kinds_list_registered_kinds_in_registration_order()
     {
-        var registry = new PaneRegistry();
+        var registry = new PaneRegistry(PaneViews.Instance);
         registry.Register("test.b", d => new GenericPaneViewModel(d));
         registry.Register("test.a", d => new GenericPaneViewModel(d));
         registry.Register("test.c", d => new GenericPaneViewModel(d));
