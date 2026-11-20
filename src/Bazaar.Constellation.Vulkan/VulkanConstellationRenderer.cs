@@ -40,7 +40,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)>? createSwapchain = null)
     {
         _probe = new Lazy<VulkanProbeResult>(probe ?? VulkanProbe.Run);
-        _createSwapchain = createSwapchain ?? VulkanSwapchain.TryCreate;
+        _createSwapchain = createSwapchain ?? (surface => VulkanSwapchain.TryCreate(surface));
         _interpolator = new FrameInterpolator(frameBlendSeconds);
     }
 
