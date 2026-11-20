@@ -9,7 +9,8 @@ namespace Bazaar.Server.Gc.Create;
 /// <param name="Title">The display title. Trimmed, and at most <see cref="GcCreateService.MaxTitleLength"/> characters.</param>
 /// <param name="CreatedBy">The creator's id, stored on the GC.</param>
 /// <param name="Members">The members to add. Distinct, and at most the service's member cap.</param>
-public sealed record GcCreateRequest(Guid GcId, string Title, Guid CreatedBy, IReadOnlyList<Guid> Members);
+/// <param name="TypeKey">The GC type key. Defaults to <see cref="GcCreateService.TypeKey"/> (general).</param>
+public sealed record GcCreateRequest(Guid GcId, string Title, Guid CreatedBy, IReadOnlyList<Guid> Members, string TypeKey = GcCreateService.TypeKey);
 
 /// <summary>Raised when a create request breaks a rule. The message names the rule, never the title.</summary>
 public sealed class GcCreateRefusedException(string message) : Exception(message);
@@ -19,7 +20,7 @@ public sealed class GcCreateRefusedException(string message) : Exception(message
 /// idempotent on the GC id: a second call with the same id changes nothing, so a retried fire lands on the same GC. The member
 /// cap bounds the fan-out of one create. Lines go through the GC log, not here.
 /// </summary>
-public sealed class GcCreateService
+public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
 {
     /// <summary>The longest title stored, in characters.</summary>
     public const int MaxTitleLength = 120;
@@ -29,6 +30,9 @@ public sealed class GcCreateService
 
     /// <summary>The GC type every trigger-created GC uses (doc 01 seed, <c>general</c>).</summary>
     public const string TypeKey = "general";
+
+    /// <summary>The GC type a provisioned project GC uses (seeded in the core schema).</summary>
+    public const string ProjectTypeKey = "project";
 
     private readonly NpgsqlDataSource _dataSource;
     private readonly int _maxMembers;
@@ -79,7 +83,7 @@ public sealed class GcCreateService
         await using (var cmd = new NpgsqlCommand(insertGc, conn, tx))
         {
             cmd.Parameters.AddWithValue("gc_id", request.GcId);
-            cmd.Parameters.AddWithValue("type_key", TypeKey);
+            cmd.Parameters.AddWithValue("type_key", request.TypeKey);
             cmd.Parameters.AddWithValue("title", title);
             cmd.Parameters.AddWithValue("created_by", request.CreatedBy);
             var created = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
@@ -107,6 +111,13 @@ public sealed class GcCreateService
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return true;
+    }
+
+    /// <inheritdoc />
+    public Task<bool> CreateProjectGcAsync(Guid gcId, string title, Bazaar.Contracts.Gc.GcPrincipal owner, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return EnsureAsync(new GcCreateRequest(gcId, title, owner.Id, [owner.Id], ProjectTypeKey), ct);
     }
 
     private string Validate(GcCreateRequest request)
