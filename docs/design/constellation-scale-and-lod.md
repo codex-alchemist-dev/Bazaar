@@ -330,6 +330,51 @@ Bench mode `topology-cull`, same machine and method as 10.9 (Intel Arc B580, off
 
 **Limits.** One run per cell. Tiles are a uniform grid over a stride sample, not the quadtree or octree of section 3. Hi-Z occluders are the 1 to 4 px points themselves, so it is nearly idle by construction; real node discs or cluster impostors would occlude more. The Hi-Z frame uses a second rendering scope for edges and a depth attachment, so part of its difference from ctile is that. The cull path was not combined with decimation or the density switch in one frame.
 
+### 10.11 Tile cull, decimation and density switch in one frame; Hi-Z occluders; background load (2026-11-20)
+Bench mode `topology-combined`, same machine and method as 10.9 and 10.10 (Intel Arc B580, 1280x720, 30 warm-up and 200 measured frames, one run per cell, `BAZAAR_BENCH_BOOST=1`, 100k LOD edges). The same 150 draw cells. Tiles are still the fixed grid of 10.10: `ViewSelector` selection (#908) is not merged, so the cells do not use it yet. Raw CSVs: `results/topo-combined.csv`, `topo-combined-idle.csv`, `topo-combined-load.csv`. "Meets" means GPU p95 <= 2.5 ms and p99 <= 3.3 ms; wall means wall p99 <= 3.3 ms.
+
+**The combined frame.** One command buffer: reset, tile cull (10.10), decimation over the kept tiles only (claim and select run one workgroup per kept tile: each in-view sampled point claims its 2x2-pixel cell, the winner is appended), then either the decimated points (one indirect draw) or the aggregate density path (clear, reproject, shade), then the 100k LOD edges. Both variants run the decimation passes, because their result is the overdraw estimate: points per occupied 2x2 cell = in-view sampled points in kept tiles divided by survivors. The density switch is made by the host from that number read back from a previous frame (the benchmark camera is static; a real renderer would use the previous frame counters, one or two frames late). Variants: `ccpts` (decimated points), `ccdens` (density path); the policy "density when points per cell > T" picks one per cell.
+
+| Variant | Meets (GPU) | Meets (wall p99) | GPU p50 median (ms) | Worst GPU p99 / wall p99 (ms) |
+|---|---|---|---|---|
+| ccpts: cull + decimation + points | 150 of 150 | 150 of 150 | 0.157 | 1.98 / 2.29 |
+| ccdens: cull + decimation + density path | 150 of 150 | 149 of 150 | 0.224 | 2.33 / 3.34 |
+| 10.9 for reference: decimation alone | 148 of 150 | 144 of 150 | 0.167 | 3.03 / 15.47 |
+
+- All 150 cells meet the GPU target with `ccpts` alone, including the cells that missed before: ring 2D whole at 0.5M, 1M and 2M points (GPU p50 0.24 ms at 1M, against 9.9 ms with tile cull alone and 0.74 ms with decimation alone), clustered 2D whole and hub and spoke 2D whole at 2M points. Decimation over the kept tiles is cheaper than over all M points because culled tiles are never touched.
+- The density switch is not needed to meet the target on this GPU: policy T = 1, 2, 4, 8, 16 and 32 all give 150 of 150 GPU, and the same single wall miss (one density cell, wall p99 3.34 ms), so `ccpts` alone is the better result. The density path is still the right fallback for what points cannot show (a count image where many points share a 2x2 cell), but at these caps it is a quality choice, not a performance one.
+- The estimator (claim plus select) costs 0.03 to 0.3 ms in the whole views; the whole combined frame is 0.04 to 1.0 ms p50.
+
+**Hi-Z with realistic occluders (3D, 75 cells).** Points are drawn as splats sized from the density of the drawn points (about 1.2 times the square root of the screen area per drawn point, 1 to 48 px), so they cover the screen and can hide tiles. `ctilesz` is tile cull with those splats and no depth; `cthizsz` adds depth write and the Hi-Z test.
+
+| Variant | Meets (GPU) | GPU p50 median (ms) | Worst GPU p99 (ms) | Tiles frustum-visible / drawn |
+|---|---|---|---|---|
+| ctilesz | 67 of 75 | 0.415 | 20.7 | 81 455 / 81 455 |
+| cthizsz | 70 of 75 | 0.331 | 6.5 | 81 455 / 80 581 |
+
+Hi-Z culled 1.1 percent of the tiles that passed the frustum test. Its cell-level win (33 cells more than 10 percent faster, 23 more than 10 percent slower) comes mostly from the depth test rejecting same-pixel writes early, as in 10.10, not from skipped tiles. Splat occluders do not hide much of a graph, whose nodes are sparse; Hi-Z is not worth carrying into the renderer until there are occluders that are large and dense (cluster impostors or filled regions). It is left out of the reusable API below.
+
+**Background load (wall p99).** N = 1B, M = 1M, 30 cells, run with `BAZAAR_BENCH_BOOST=1`, alone and with a second process (`bgload`: a 60 Hz loop of about 8 ms of GPU draw work, plus two busy CPU threads, normal priority).
+
+| Run | Variant | Meets (GPU) | Meets (wall) | Wall p99 median / max (ms) | GPU p99 median / max (ms) |
+|---|---|---|---|---|---|
+| alone | ccpts | 30 of 30 | 30 of 30 | 0.83 / 1.89 | 0.59 / 1.68 |
+| alone | ccdens | 30 of 30 | 30 of 30 | 1.00 / 1.92 | 0.82 / 1.63 |
+| with load | ccpts | 30 of 30 | 9 of 30 | 8.57 / 10.30 | 0.60 / 1.82 |
+| with load | ccdens | 30 of 30 | 2 of 30 | 8.81 / 10.77 | 0.70 / 1.72 |
+
+The GPU time of the frame is unchanged under load, but the wall p99 rises to 8 to 11 ms, about one frame of the other process GPU work: the queue is shared and the benchmark frame waits behind the other process draws. The raised priority of the benchmark process and thread does not help against that. The CPU and GPU load were not run separately, so how much of the rise is the CPU threads is not known. The 300 to 400 fps target cannot be guaranteed while another application keeps the GPU busy for 8 ms in one submission; the render thread would need the other work split into shorter submissions, or its own queue at a higher GPU priority (not tried).
+
+**Reusable API.** `Bazaar.Constellation.Vulkan.TileCullPass` (`src/Bazaar.Constellation.Vulkan/TileCullPass.cs`, shader `Shaders/tilecull.comp.glsl`) is the part the renderer lifts; selection (`ViewSelector`, `TileDrawPlanner`, `ImportanceRanker`) stays with the renderer thread.
+- `new TileCullPass(deviceApi, memoryProperties, maxTiles)`: creates a host-visible tile buffer, a device-local command buffer and the compute pipeline. The device needs Vulkan 1.2 `drawIndirectCount` and core `multiDrawIndirect` and `drawIndirectFirstInstance`.
+- `UploadTiles(ReadOnlySpan<TileCullEntry>)`: one entry per tile, `(Min, Max, FirstInstance, InstanceCount)`: the box that bounds the tile instances and its slice of the instance list. Do not call while a frame that reads the buffer is in flight.
+- `RecordCull(cb, viewProjection, verticesPerDraw)`: outside a rendering scope; resets the counters, dispatches one thread per tile (frustum test of the 8 box corners, clip depth range 0 to w, so reversed Z works) and records the barrier before the indirect draw. `viewProjection` is the System.Numerics matrix the renderer already pushes.
+- `RecordDraw(cb)`: inside a rendering scope with the renderer pipeline bound: one `vkCmdDrawIndirectCount`. The vertex shader reads instance `gl_InstanceIndex`, which includes `FirstInstance`.
+- `TileCullPass.IsVisible(min, max, viewProjection)`: CPU reference of the shader test. Six unit tests in `TileCullPassTests`, and a GPU parity check, bench mode `tilecull-check` (200 random camera and box sets, 3 000 tiles: draw count and instance total match the CPU reference in all).
+- Not in it: the Hi-Z test (bench shader `tile_cull.comp`), decimation (bench shaders `claim_tiles.comp`, `select_tiles.comp`) and the density switch. Decimation is the piece that made all 150 cells meet; it can be lifted next as a second pass over the commands `RecordCull` writes (one workgroup per command), see the bench.
+
+**Limits.** One run per cell. Tiles are a uniform grid over a stride sample, not the quadtree or octree; real selection from #908 will change tile sizes and counts, and the cull and decimation costs with them. The density switch is decided on the host from a previous frame counters. The background load is one kind of game-like load (60 Hz, 8 ms GPU, two spinning threads); other loads can give other wall times.
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
