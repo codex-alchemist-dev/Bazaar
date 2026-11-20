@@ -1,7 +1,7 @@
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 
-namespace Bazaar.Server.Tests.Interrupts;
+namespace Bazaar.Server.Interrupts.Tests;
 
 /// <summary>
 /// A per-class database with the interrupt frame migrations (common 0015, interrupts 0001) applied. 0015 has no foreign keys, so it runs
@@ -14,7 +14,7 @@ public sealed class InterruptDb : PgFixture, IAsyncLifetime
         if (PgSource.IsUnsupportedHost)
             return;
         await base.InitializeAsync();
-        var embedded = new EmbeddedMigrationSource(typeof(Bazaar.Server.Interrupts.InterruptStackService).Assembly);
+        var embedded = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
         // common 0015 creates the table with a plaintext reason; the interrupts namespace 0001 seals it. Both run in order, as on a real install.
         var files = embedded.Load(MigrationRunner.Common).Where(f => f.Version == 15)
             .Concat(embedded.Load("interrupts").Where(f => f.Version == 1));
