@@ -120,6 +120,8 @@
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Server.Constellation/Bazaar.Server.Constellation.csproj" />
     <Project Path="src/Bazaar.Server.Constellation.Algorithms/Bazaar.Server.Constellation.Algorithms.csproj" />
+    <Project Path="src/Bazaar.Server.Embeddings.Abstractions/Bazaar.Server.Embeddings.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Embeddings/Bazaar.Server.Embeddings.csproj" />
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
     <Project Path="src/Bazaar.Server.Memory.Abstractions/Bazaar.Server.Memory.Abstractions.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
@@ -202,6 +204,7 @@
     <Project Path="tests/Bazaar.Server.Constellation.Tests/Bazaar.Server.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WorkLife.Tests/Bazaar.Server.WorkLife.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Tests/Bazaar.Server.Council.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Embeddings.Tests/Bazaar.Server.Embeddings.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Hiring.Tests/Bazaar.Server.Council.Hiring.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
