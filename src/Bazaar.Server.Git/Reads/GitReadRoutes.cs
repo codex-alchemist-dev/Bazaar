@@ -21,13 +21,13 @@ namespace Bazaar.Server.Git.Reads;
 public static partial class GitReadRoutes
 {
     [GeneratedRegex(@"^[a-z][a-z0-9-]{0,31}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex ProviderRegex();
+    internal static partial Regex ProviderRegex();
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex SegmentRegex();
+    internal static partial Regex SegmentRegex();
 
     [GeneratedRegex(@"^[0-9a-fA-F]{40}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex ShaRegex();
+    internal static partial Regex ShaRegex();
 
     public static IEndpointRouteBuilder MapBazaarGitReads(this IEndpointRouteBuilder app, Func<RouteHandlerBuilder, RouteHandlerBuilder> guard)
     {
@@ -143,10 +143,10 @@ public static partial class GitReadRoutes
     private static IResult BadRequest(string error) =>
         Results.Json(new Dictionary<string, string> { ["error"] = error }, ErrorContext.Default.DictionaryStringString, statusCode: StatusCodes.Status400BadRequest);
 
-    private static bool ValidRepo(string provider, string owner, string repo) =>
+    internal static bool ValidRepo(string provider, string owner, string repo) =>
         ProviderRegex().IsMatch(provider) && SegmentRegex().IsMatch(owner) && SegmentRegex().IsMatch(repo);
 
-    private static bool ValidPr(string provider, string owner, string repo, string n, out PrRef pr)
+    internal static bool ValidPr(string provider, string owner, string repo, string n, out PrRef pr)
     {
         pr = null!;
         if (!ValidRepo(provider, owner, repo)
