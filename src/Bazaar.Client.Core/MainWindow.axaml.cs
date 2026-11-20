@@ -1,6 +1,7 @@
 using Avalonia.Controls;
-using Bazaar.Client.Core.Chat;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core;
@@ -11,13 +12,13 @@ public sealed partial class MainWindow : Window
     {
     }
 
-    /// <param name="chat">The group chat to show. Null shows the plain start window.</param>
-    public MainWindow(ChatViewModel? chat)
+    /// <param name="content">The start content, such as the group chat view a head builds. Null shows the plain start window.</param>
+    public MainWindow(Control? content)
     {
         InitializeComponent();
-        if (chat is not null)
+        if (content is not null)
         {
-            Content = new ChatView { DataContext = chat };
+            Content = content;
         }
     }
 

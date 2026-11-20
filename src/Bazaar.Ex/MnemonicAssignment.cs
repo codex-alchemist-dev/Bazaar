@@ -38,4 +38,21 @@ public sealed record MnemonicAssignment(
 {
     /// <summary>The source label for first-party defaults.</summary>
     public const string BuiltInSource = "bazaar";
+
+    /// <summary>
+    /// Turns the commands loaded client modules contributed into built-in assignments: one for each command's mnemonic and
+    /// one alias assignment for each of its aliases. Overrides and conflicts are resolved later by <see cref="MnemonicResolver"/>.
+    /// </summary>
+    public static IReadOnlyList<MnemonicAssignment> FromContributions(IEnumerable<Bazaar.Contracts.Modules.ClientCommandContribution> commands)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        var result = new List<MnemonicAssignment>();
+        foreach (var command in commands)
+        {
+            result.Add(new MnemonicAssignment(command.Id, command.Title, command.Mnemonic, MnemonicTier.BuiltIn, BuiltInSource));
+            result.AddRange(command.Aliases.Select(alias => new MnemonicAssignment(command.Id, command.Title, alias, MnemonicTier.BuiltIn, BuiltInSource, Alias: true)));
+        }
+
+        return result;
+    }
 }

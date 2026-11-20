@@ -1,6 +1,8 @@
-using Cdax.Core;
 using Bazaar.Server.Modules.Releases;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Modules.Updates;
+using Bazaar.Server.Settings;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,10 +11,10 @@ namespace Bazaar.Server.Modules;
 
 /// <summary>
 /// The module manager's pure services as a Bazaar Component (docs/design/42-deps-as-modules.md, BAZAAR-COMPONENTS.md section 2).
-/// Registers the update policy evaluator, the defer aging report and the release lifecycle. Registrations only: no I/O, no settings
-/// read here. The clock is the kernel's <see cref="TimeProvider"/>, added only when nothing else registered one.
-/// The module manager's SQL (the <c>modules</c> migration namespace) stays under <c>Data/Sql/modules</c> in the Bazaar.Server assembly,
-/// because the migration source is that assembly only (the same rule <c>CommunityComponent</c> follows).
+/// Registers the update policy evaluator, the defer aging report and the release lifecycle, and contributes the module manager's
+/// settings keys (<see cref="ModuleManagerSettingContribution"/>). Registrations only: no I/O and no settings read here. The clock
+/// is the kernel's <see cref="TimeProvider"/>, added only when nothing else registered one. The SQL (the <c>modules</c> migration
+/// namespace) is embedded in this assembly under <c>Sql/modules</c>; the host composes it as a migration source.
 /// </summary>
 /// <remarks>
 /// <see cref="MaintenanceWindowValidator"/> and <see cref="RingHealthGate"/> are static, so there is nothing to register for them;
@@ -38,5 +40,6 @@ public sealed class ModuleManagerComponent : ICdaxModule
         services.AddSingleton<UpdatePolicyEvaluator>();
         services.AddSingleton<DeferAging>();
         services.AddSingleton<ReleaseCandidateLifecycle>();
+        services.AddSingleton<ISettingContribution, ModuleManagerSettingContribution>();
     }
 }
