@@ -32,6 +32,12 @@
     <Project Path="src/Bazaar.Server.CompanyBuild.Abstractions/Bazaar.Server.CompanyBuild.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Client.Org/Bazaar.Client.Org.csproj" />
+    <Project Path="src/Bazaar.Client.Org.Abstractions/Bazaar.Client.Org.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Calendar/Bazaar.Client.Calendar.csproj" />
+    <Project Path="src/Bazaar.Client.Calendar.Abstractions/Bazaar.Client.Calendar.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Interrupts/Bazaar.Client.Interrupts.csproj" />
+    <Project Path="src/Bazaar.Client.Interrupts.Abstractions/Bazaar.Client.Interrupts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Michi/Bazaar.Michi.csproj" />
@@ -170,6 +176,9 @@
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Org.Tests/Bazaar.Client.Org.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Calendar.Tests/Bazaar.Client.Calendar.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Interrupts.Tests/Bazaar.Client.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Windows.Tests/Bazaar.Client.Windows.Tests.csproj" />
     <Project Path="tests/Bazaar.Secrets.Windows.Tests/Bazaar.Secrets.Windows.Tests.csproj" />
