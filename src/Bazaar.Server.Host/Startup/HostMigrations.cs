@@ -1,7 +1,7 @@
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.Setup.Postgres;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Setup.Postgres;
 using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;

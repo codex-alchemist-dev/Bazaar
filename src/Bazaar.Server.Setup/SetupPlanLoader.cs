@@ -39,7 +39,7 @@ public static class SetupPlanLoader
         ["backups"] = ["target", "drillIntervalDays", "acknowledgeNoTarget"],
         ["models"] = ["sources", "defaultPreset"],
         ["models.sources[]"] = ["id", "keyRef"],
-        ["email"] = ["enabled"],
+        ["email"] = ["enabled", "backend"],
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
         ["network"] = ["statusBind", "statusPort"],
