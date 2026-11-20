@@ -767,4 +767,16 @@ public sealed class ModuleFileSystemTests : IDisposable
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new ModuleFileSystem(gate, _module, roots, options));
     }
+
+    [Fact]
+    public async Task The_storage_local_capability_covers_the_files_below_the_local_root_only()
+    {
+        var (fs, _) = Make(["storage:local"]);
+
+        await fs.WriteAllBytesAsync("local/notes.txt", new byte[] { 1 }, Ct);
+
+        Assert.Equal(new byte[] { 1 }, await fs.ReadAllBytesAsync("local/notes.txt", Ct));
+        Assert.Throws<ModulePermissionDeniedException>(() => fs.Exists("cache/notes.txt"));
+        Assert.Throws<ModulePermissionDeniedException>(() => fs.Enumerate("local"));
+    }
 }
