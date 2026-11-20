@@ -117,6 +117,30 @@ Recent papers worth reading, found by title only and not read: "Prune the Summar
 
 Pattern across the field: none of these is a drop-in for Bazaar, because Bazaar's graph is authored (links in notes), isolated per agent and project, and held in Postgres and git. The ideas worth taking are small: PPR ranking, temporal validity, incremental note edits, optional compression, and quantized storage.
 
+## 3c. Enterprise patterns for agentic GraphRAG, and the institutional knowledge map (owner-supplied source, 2026-11-20)
+
+Source: Partha Sarkar, "A Practitioner's Guide to 6 Agentic GraphRAG Patterns" (Towards Data Science, 15 Nov 2026; the shared link's title is "Agentic GraphRAG Explained With 6 Enterprise Patterns"). Read in full. Evidence level: a practitioner article, not peer-reviewed. It reports no measurements. Its figures ("over 50 percent", "over 70 percent" fewer tokens or round-trips) are asserted, not tested, so none are used as evidence here. Its examples use Neo4j and Cypher; Bazaar would express the same traversals through the graph kernel of section 2b.
+
+The article's central claim fits our design: the graph should not be a passive store queried once at the end of a prompt. It should be an **institutional knowledge map** (decisions, precedents, exceptions, who resolved what) that an agent navigates step by step, and that agents write back to as they work. Static GraphRAG has two named failures: broad queries explode into thousands of nodes that flood the context, and one-shot generated graph queries are brittle.
+
+| Pattern | What it is | Bazaar equivalent and fit |
+|---|---|---|
+| 1. Operational memory (decision precedent) | Decisions, waivers and committee rulings become connected nodes (`APPROVED_UNDER`, `CONDITIONED_ON`, `APPROVED_BY`), so an agent finds a precedent and its conditions, not just the policy text. Needs expiry rules so outdated precedents do not persist. | Closest match to the company knowledge tier: decision notes, Council rulings and DECISIONS-LOG entries with typed edges for conditions and approver, plus `valid_to` and `Supersedes`. Strong fit. |
+| 2. Execution memory | Tool calls, parameters, errors and working trajectories stored as a graph, so agents skip known failing paths. Warns that temporary glitches must not blacklist healthy tools. | Fits `memory-procedure` and failure lessons (doc 08). Sharing across agents must go through Hive grants and the sanitizer (doc 08 section 6), not a shared write; the article's "every agent learns from every agent" conflicts with our isolation rule. Count failures over time before marking a path bad. |
+| 3. User context graph | A lean schema (`User - ESTABLISHES -> Constraint - APPLIES_TO -> Project`), details kept as text on the node, retrieved by relevance; superseded preferences are retired. Warns of cross-user leakage. | Fits per-agent and per-person memory. Copy the lean-schema rule (few edge types, detail in the note body) to avoid ontology sprawl. Leakage warning matches our isolation floor. |
+| 4. Self-enriching topology | A system graph enriched by every resolved incident: symptom, root cause, who resolved it, who was affected; new incidents are routed to the team that fixed similar ones; a blast radius is computed by traversal. | Fits Kodo health and CI failures: link a failure to past root causes and the member that fixed them; reverse-impact traversal (section 2b) is the blast radius. A "who fixed this before" graph is personal data about members: owner-visible, Council-gated. |
+| 5. Hierarchical multi-scale | Recursive community clusters (levels 0 to 3) with a summary at each level; the agent zooms in and out with a tool call and finishes on atomic facts; summaries must be refreshed when the underlying nodes change. | Matches the summary recommendation (RAPTOR, GraphRAG). Add: a `zoom_in(cluster)` tool, per-scope summaries, and summary staleness driven by reverse impact when member notes change. |
+| 6. Adaptive ReAct graph loop | Reason, act, observe, one hop at a time, with backtracking, instead of one generated multi-join query. Costs sequential latency; needs hard limits and cycle detection. | Matches the bounded agent-driven traversal in section 2b. Our tools take typed edges and ids, so there is no free-form query language for the model to get wrong. |
+
+**What this adds to the recommendations:**
+
+1. **Typed decision edges.** Beyond `Link`, `DerivedFrom` and `Supersedes`, add a small, closed set: `ConditionedOn`, `ApprovedBy`, `Precedent` (this decision follows that one), `ResolvedBy` and `Affects`. Keep it small, with detail in the note body (pattern 3's lean-schema rule). Edge kinds are a schema choice, so this needs one answer in doc 64.
+2. **Precedent lifecycle.** Every precedent and exception note gets `valid_to` or a review date, and retrieval flags expired ones instead of returning them as current.
+3. **Write-back as a first-class step.** When an agent acts under a precedent, it writes a link from the new work to the precedent. This is already how notes link; make it part of the work flow so the map grows from normal work.
+4. **Institutional map scope.** The map is the company tier (`company/`), built from decision, precedent, incident and role notes, with the same isolation rules: per-hop access checks, grants for any crossing, and summaries per scope.
+5. **Routing by past resolution.** For Kodo and CI failures, offer "who resolved a similar failure before" as an owner-visible suggestion, never an automatic assignment, and treat the people-edges as personal data (section 5).
+6. **Failure memory needs a threshold.** Record failures with counts and time; mark a path "bad" only after repeats, so a transient outage does not blacklist a tool.
+
 ## 4. GPU vector and graph search
 
 - **cuVS / CAGRA** (NVIDIA): Meta and NVIDIA report CAGRA builds indexes up to 12.3 times faster than CPU HNSW and answers single queries up to 4.7 times faster on a 100-million-vector set; batch throughput is much higher (verified, vendor-reported). FAISS 1.10 can use it, and a CAGRA index can be converted to HNSW for CPU serving.
@@ -199,6 +223,7 @@ What to do instead, to keep most of the quality:
 | Expansion | One hop by default, two at most (as built). Add personalised PageRank over the same edges as an optional ranker once a labelled set exists. | HippoRAG results; cheap at query time. |
 | Graph reasoning | Add typed path queries (ancestors, descendants, supersede head, k-shortest paths, reverse impact) over a CSR snapshot of the `doc_id` graph, and return a structured bundle of paths plus cards instead of flat snippets. | Section 2b; owner clarification. |
 | Graph engine | One kernel interface (`IGraphKernel`): multi-core CPU reference implementation first, optional GPU provider modules (cuGraph on NVIDIA; Arc provider if measured worthwhile). Per-hop access check stays in the engine, not the provider. | Section 2b and 4; Arc B580 cannot run CUDA libraries. |
+| Institutional knowledge map | Company tier holds decision, precedent, incident and role notes with a small closed set of typed edges (`ConditionedOn`, `ApprovedBy`, `Precedent`, `ResolvedBy`, `Affects`), `valid_to` on every precedent, write-back links from new work, and per-scope isolation. "Who resolved this before" is an owner-visible suggestion only. | Section 3c (Sarkar, 2026). |
 | Agent-driven traversal | Optional bounded expand/inspect loop for hard questions; cap calls and tokens; same access checks. | Think-on-graph style methods (background). |
 | Edge weights | Keep Link 1.0, DerivedFrom 0.8, Supersedes 0.5. Tune on the labelled set, not by hand. | No published values transfer. |
 | Reranking | Add a local cross-encoder reranker over a shortlist of 25 to 50, after expansion and before packing. | Best measured gain per cost; 45 to 140 ms. |
@@ -242,5 +267,6 @@ What to do instead, to keep most of the quality:
 - Embedding quantization (Hugging Face), <https://huggingface.co/blog/embedding-quantization>; Voyage flexible dimensions, <https://docs.voyageai.com/docs/flexible-dimensions-and-quantization>
 - LLMLingua-2, <https://arxiv.org/abs/2403.12968>; prompt compression empirical study, <https://arxiv.org/pdf/2505.00019>
 - Anthropic context management (context editing, memory tool), <https://www.anthropic.com/news/context-management>
+- Sarkar, "A Practitioner's Guide to 6 Agentic GraphRAG Patterns", <https://towardsdatascience.com/a-practitioners-guide-to-6-agentic-graphrag-patterns/>
 - Reranker latency and accuracy: <https://dev.to/gabrielanhaia/rerankers-and-the-latency-budget-when-cross-encoders-are-worth-it-3efc>, <https://redis.io/blog/top-reranking-models-rag-accuracy/>
 - In-repo: `docs/design/constellation-memory-graph.md`, `19-constellation-and-git-solar-system.md` ("Agent memory governance"), `08-memory-system.md` (sections 6, 7, 8), `retrieval-and-token-efficiency.md`.
