@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.MailRuntime</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.MailInbound.Abstractions\Bazaar.Server.MailInbound.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.MailOutbound.Abstractions\Bazaar.Server.MailOutbound.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
