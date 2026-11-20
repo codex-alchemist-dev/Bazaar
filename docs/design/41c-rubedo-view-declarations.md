@@ -36,7 +36,7 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 | `input` | no | Text input bound to a value (write goes through an action) |
 | `list` | template | Keyed list over a data source, one item template |
 | `tabs` | yes | Named tabs |
-| `badge` | no | Count or status chip |
+| `badge` | no | Count or status chip. `variant` is from a closed set the theme colours: `neutral`, `owner`, `agent`, `system`, and the health states `healthy`, `degraded`, `failing`, `recovering`, `frozen`, `unobserved` |
 | `divider` | no | Separator |
 | `placeholder` | no | Failure card (doc 41 section 6, rule 7) |
 

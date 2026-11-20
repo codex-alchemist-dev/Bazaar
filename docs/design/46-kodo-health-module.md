@@ -256,7 +256,7 @@ The pure parts live in `src/Bazaar.Kodo/Sentinel`, with the OS behind `ISentinel
 
 ### 8.1 States
 
-Kodo's health state is one of five values. Each has a colour token from the theme (doc 27) and a text word for accessibility, so colour is never the only signal.
+Kodo's health state is one of five values. Each has a colour token from the theme (doc 27) and a text word for accessibility, so colour is never the only signal. The tokens are `color.health.<state>.background` and `color.health.<state>.text`, one pair for each of the five states and for the client-derived `unobserved` display value (section 8.3). A view paints a state with a `badge` whose `variant` is the state name (doc 41c, section 3).
 
 | State | Word | Meaning | Automatic actions allowed |
 |---|---|---|---|
