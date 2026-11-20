@@ -24,19 +24,22 @@ namespace Bazaar.Server.SealedVault;
 /// call throws until the server restarts and remounts from the sealed state. A commit whose reseal failed is lost on that remount.
 /// </para>
 /// </remarks>
-public sealed class SealedGitProvider : IGitProvider, ISealedVault, IAsyncDisposable
+public sealed class SealedGitProvider : IGitProvider, ISealedVault, IAsyncDisposable, IDisposable
 {
     private readonly IGitProvider _inner;
     private readonly ISealedGitRepo _repo;
     private readonly SealedVaultOptions _options;
     private readonly ISealAuditSink _audit;
+    private readonly IMountRootVerifier _verifier;
     private readonly SemaphoreSlim _mountGate = new(1, 1);
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private ISealedGitMount? _mount;
     private volatile bool _disposed;
 
-    public SealedGitProvider(IGitProvider inner, ISealedGitRepo repo, SealedVaultOptions options, ISealAuditSink audit)
+    /// <param name="verifier">Confirms the mount root is tmpfs or the encrypted volume; the mount is refused otherwise (owner ruling 2026-11-20).</param>
+    public SealedGitProvider(IGitProvider inner, ISealedGitRepo repo, SealedVaultOptions options, ISealAuditSink audit, IMountRootVerifier verifier)
     {
+        _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         _repo = repo ?? throw new ArgumentNullException(nameof(repo));
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Normalised();
@@ -75,12 +78,20 @@ public sealed class SealedGitProvider : IGitProvider, ISealedVault, IAsyncDispos
                 return;
             }
 
-            if (_options.ImportFrom is { } source && Directory.Exists(source))
+            var verdict = _verifier.Verify(_options.MountRoot);
+            if (!verdict.IsProtected)
             {
-                await _repo.ImportCheckoutAsync(source, cancellationToken).ConfigureAwait(false);
+                await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealvault.mount_unverified", Scope, null, $"Mount root {_options.MountRoot} refused: {verdict.Reason}"), CancellationToken.None).ConfigureAwait(false);
+                throw new InvalidOperationException($"The sealed Vault mount root is not confirmed as tmpfs or the encrypted volume ({verdict.Reason}).");
             }
 
-            var mount = await _repo.MountAsync(new SealedGitMountRequest(_options.MountRoot, _options.RepoPath, _options.WorktreeRoot), cancellationToken).ConfigureAwait(false);
+            if (_options.ImportFrom is { } source && Directory.Exists(source))
+            {
+                await _repo.ImportCheckoutAsync(source, _options.MountRoot, _verifier, cancellationToken).ConfigureAwait(false);
+            }
+
+            var request = new SealedGitMountRequest(_options.MountRoot, _options.RepoPath, _verifier, _options.WorktreeRoot, _options.AdoptStaleMount);
+            var mount = await _repo.MountAsync(request, cancellationToken).ConfigureAwait(false);
             Volatile.Write(ref _mount, mount);
         }
         finally
@@ -88,6 +99,9 @@ public sealed class SealedGitProvider : IGitProvider, ISealedVault, IAsyncDispos
             _mountGate.Release();
         }
     }
+
+    /// <summary>Synchronous dispose for hosts that dispose the container synchronously; wipes the mount like <see cref="DisposeAsync"/>.</summary>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()
     {
@@ -244,18 +258,20 @@ public sealed class SealedGitProvider : IGitProvider, ISealedVault, IAsyncDispos
     private Target Classify(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var full = SealedVaultOptions.Full(path);
-        if (SealedVaultOptions.PathEquals(full, _options.RepoPath) || SealedVaultOptions.IsInside(full, _options.RepoPath))
+
+        // Canonical (links resolved), so an alias of the checkout is still the checkout and cannot slip past the seal.
+        var full = SealedPaths.Canonicalize(path);
+        if (SealedPaths.IsAtOrInside(full, _options.RepoPath))
         {
             return Target.Checkout;
         }
 
-        if (SealedVaultOptions.IsInside(full, _options.WorktreeRoot))
+        if (SealedPaths.IsStrictlyInside(full, _options.WorktreeRoot))
         {
             return Target.Worktree;
         }
 
-        if (SealedVaultOptions.PathEquals(full, _options.MountRoot) || SealedVaultOptions.IsInside(full, _options.MountRoot))
+        if (SealedPaths.IsAtOrInside(full, _options.MountRoot))
         {
             SealedVaultAudit.Record(_audit, "sealvault.refused", Scope, $"Git call on {full} inside the mount root refused: not the Vault checkout or a worktree.");
             throw new InvalidOperationException("That path is inside the sealed Vault mount root but is not the Vault checkout or one of its worktrees.");

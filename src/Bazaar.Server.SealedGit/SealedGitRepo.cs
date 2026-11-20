@@ -227,14 +227,28 @@ public sealed partial class SealedGitRepo : ISealedGitRepo, IDisposable
         return dir;
     }
 
+    /// <summary>Object alternates point git at another object store; they are refused on reseal and restore, never sealed.</summary>
+    private static readonly string[] _alternates = ["objects/info/alternates", "objects/info/http-alternates"];
+
     private static bool Sealable(string logicalPath)
     {
         var name = logicalPath[(logicalPath.LastIndexOf('/') + 1)..];
+        // Ref names are free text ("refs/heads/hooks/x", "refs/heads/config"), so the any-depth config and hooks rules skip refs and reflogs.
+        var isRefName = logicalPath.StartsWith("refs/", StringComparison.Ordinal) || logicalPath.StartsWith("logs/", StringComparison.Ordinal);
         return !logicalPath.StartsWith("hooks/", StringComparison.Ordinal)
+            && (isRefName || (!logicalPath.Contains("/hooks/", StringComparison.Ordinal) && !(name == "config" && logicalPath != "config")))
             && !name.EndsWith(".lock", StringComparison.Ordinal)
             && !name.StartsWith("tmp_", StringComparison.Ordinal)
             && !name.StartsWith(".tmp", StringComparison.Ordinal)
             && name != "gc.pid";
+    }
+
+    private static void RefuseAlternates(string logicalPath)
+    {
+        if (_alternates.Contains(logicalPath, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"'{logicalPath}' would make git read objects from outside the sealed repo; refused.");
+        }
     }
 
     private static async Task<Dictionary<string, (long Generation, byte[] Hash)>> MaterialiseAsync(ISealedScope scope, string gitDir, CancellationToken ct)
@@ -257,6 +271,17 @@ public sealed partial class SealedGitRepo : ISealedGitRepo, IDisposable
 
             foreach (var file in sealedFiles.Files)
             {
+                RefuseAlternates(file.Path);
+
+                // Never restored: hooks and config below the top level (any depth), and a top-level config outside the allowlist.
+                if (!Sealable(file.Path) || (file.Path == "config" && !ConfigIsSafe(System.Text.Encoding.UTF8.GetString(file.Content))))
+                {
+                    // Kept in the snapshot with a hash that never matches, so a reseal replaces a skipped config instead of conflicting.
+                    snapshot[file.Path] = (file.Generation, []);
+                    CryptographicOperations.ZeroMemory(file.Content);
+                    continue;
+                }
+
                 var dest = Path.Combine(gitDir, file.Path.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                 await File.WriteAllBytesAsync(dest, file.Content, ct).ConfigureAwait(false);
@@ -278,12 +303,12 @@ public sealed partial class SealedGitRepo : ISealedGitRepo, IDisposable
             Directory.CreateDirectory(Path.Combine(gitDir, dir.Replace('/', Path.DirectorySeparatorChar)));
         }
 
-        if (!snapshot.ContainsKey("HEAD"))
+        if (!File.Exists(Path.Combine(gitDir, "HEAD")))
         {
             await File.WriteAllTextAsync(Path.Combine(gitDir, "HEAD"), "ref: refs/heads/main\n", ct).ConfigureAwait(false);
         }
 
-        if (!snapshot.ContainsKey("config"))
+        if (!File.Exists(Path.Combine(gitDir, "config")))
         {
             await File.WriteAllTextAsync(Path.Combine(gitDir, "config"), "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n", ct).ConfigureAwait(false);
         }
@@ -361,6 +386,7 @@ public sealed partial class SealedGitRepo : ISealedGitRepo, IDisposable
         foreach (var file in files)
         {
             var logical = Path.GetRelativePath(gitDir, file.FullName).Replace(Path.DirectorySeparatorChar, '/');
+            RefuseAlternates(logical);
             if (!sealable(logical))
             {
                 continue;

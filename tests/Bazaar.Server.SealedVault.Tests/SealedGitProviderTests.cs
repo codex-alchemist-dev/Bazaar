@@ -49,8 +49,8 @@ public sealed class SealedGitProviderTests : IDisposable
 
     private ISealedGitRepo NewRepo() => new SealedGitRepoFactory(NewStore(), _audit, new SealedGitOptions { TempRoot = TempRoot }).Open("acme");
 
-    private SealedGitProvider NewProvider(string? importFrom = null) =>
-        new(new LibGit2GitProvider(), NewRepo(), new SealedVaultOptions("acme", MountRoot, RepoPath, WorktreeRoot, importFrom), _audit);
+    private SealedGitProvider NewProvider(string? importFrom = null, bool adopt = false, IMountRootVerifier? verifier = null) =>
+        new(new LibGit2GitProvider(), NewRepo(), new SealedVaultOptions("acme", MountRoot, RepoPath, WorktreeRoot, importFrom, adopt), _audit, verifier ?? new ProcMountsRootVerifier(attested: true));
 
     /// <summary>Writes a file into the main checkout and commits it, as the Vault writer does.</summary>
     private async Task<string> CommitMainAsync(IGitProvider git, string relative, string text)
@@ -333,6 +333,7 @@ public sealed class SealedGitProviderTests : IDisposable
             ["Bazaar:SealedVault:Enabled"] = "true",
             ["Bazaar:SealedVault:Name"] = "acme",
             ["Bazaar:SealedVault:MountRoot"] = MountRoot,
+            ["Bazaar:SealedVault:MountRootAttested"] = "true",
             ["Memory:Vault:RepoPath"] = RepoPath,
         }));
 
@@ -362,6 +363,157 @@ public sealed class SealedGitProviderTests : IDisposable
             ["Bazaar:SealedVault:Name"] = "acme",
             ["Memory:Vault:RepoPath"] = RepoPath,
         })));
+    }
+
+    [Fact]
+    public async Task A_commit_whose_reseal_never_ran_is_not_wiped_on_remount()
+    {
+        var crashed = Path.Combine(_dir, "crashed");
+        string unsealed;
+        await using (var git = NewProvider())
+        {
+            await CommitMainAsync(git, "README.md", "vault\n");
+
+            // The engine commits, then the process dies before the reseal: simulated by committing around the decorator.
+            await File.WriteAllTextAsync(Path.Combine(RepoPath, "late.md"), _canary);
+            unsealed = await new LibGit2GitProvider().CommitAsync(RepoPath, "late", _writer, CancellationToken.None);
+            CopyTree(RepoPath, crashed);
+        }
+
+        CopyTree(crashed, RepoPath);
+        await File.WriteAllBytesAsync(RepoPath + ".bazaar-sealed-mount", []);
+
+        await using (var refused = NewProvider())
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => refused.EnsureMountedAsync());
+            Assert.Contains(_audit.Events, e => e.Kind == "sealgit.stale_unsealed");
+            Assert.Equal(_canary, await File.ReadAllTextAsync(Path.Combine(RepoPath, "late.md")));
+        }
+
+        await using var adopted = NewProvider(adopt: true);
+        Assert.Equal(unsealed, await adopted.HeadAsync(RepoPath, CancellationToken.None));
+        Assert.Contains(_audit.Events, e => e.Kind == "sealgit.stale_adopted");
+    }
+
+    [Fact]
+    public async Task An_unconfirmed_mount_root_is_refused()
+    {
+        var mounts = Path.Combine(_dir, "mounts");
+        await File.WriteAllTextAsync(mounts, "/dev/sda1 / ext4 rw 0 0\n");
+        await using var git = NewProvider(verifier: new ProcMountsRootVerifier(attested: false, mounts));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => git.EnsureMountedAsync());
+        Assert.Contains(_audit.Events, e => e.Kind == "sealvault.mount_unverified");
+        Assert.False(Directory.Exists(RepoPath));
+    }
+
+    [Fact]
+    public async Task A_tmpfs_mount_root_is_detected_from_the_mount_table()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        var mounts = Path.Combine(_dir, "mounts");
+        var escaped = MountRoot.Replace(" ", "\\040", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(mounts, $"/dev/sda1 / ext4 rw 0 0\ntmpfs {escaped} tmpfs rw 0 0\n");
+        Assert.True(new ProcMountsRootVerifier(false, mounts).Verify(MountRoot).IsProtected);
+        Assert.False(new ProcMountsRootVerifier(false, mounts).Verify(MountRoot + "-x").IsProtected);
+        Assert.True(new ProcMountsRootVerifier(true, mounts).Verify(MountRoot + "-x").IsProtected);
+    }
+
+    [Fact]
+    public void A_disabled_start_over_a_mount_marker_is_refused()
+    {
+        Directory.CreateDirectory(MountRoot);
+        File.WriteAllBytes(RepoPath + ".bazaar-sealed-mount", []);
+        var services = new ServiceCollection();
+        services.AddSingleton<IGitProvider, LibGit2GitProvider>();
+        Assert.Throws<InvalidOperationException>(() => new SealedVaultComponent().AddServices(services, Config(new() { ["Memory:Vault:RepoPath"] = RepoPath })));
+    }
+
+    [Fact]
+    public async Task A_link_alias_of_the_checkout_is_still_sealed_and_prefix_siblings_are_refused()
+    {
+        await using var git = NewProvider();
+        await CommitMainAsync(git, "README.md", "vault\n");
+        var head = await git.HeadAsync(RepoPath, CancellationToken.None);
+
+        if (OperatingSystem.IsLinux())
+        {
+            var alias = Path.Combine(_dir, "alias");
+            Directory.CreateSymbolicLink(alias, RepoPath);
+            await File.WriteAllTextAsync(Path.Combine(alias, "via-alias.md"), "x");
+            var viaAlias = await git.CommitAsync(alias, "via alias", _writer, CancellationToken.None);
+            Assert.NotEqual(head, viaAlias);
+
+            // The commit through the alias was resealed: a remount sees it.
+            await git.DisposeAsync();
+            File.Delete(alias);
+            await using var again = NewProvider();
+            Assert.Equal(viaAlias, await again.HeadAsync(RepoPath, CancellationToken.None));
+            return;
+        }
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => git.HeadAsync(RepoPath + "2", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_prefix_sibling_of_the_checkout_is_refused()
+    {
+        await using var git = NewProvider();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => git.HeadAsync(RepoPath + "2", CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(() => new SealedVaultOptions("acme", MountRoot, MountRoot + "-evil" + Path.DirectorySeparatorChar + "vault", WorktreeRoot).Normalised());
+    }
+
+    [Fact]
+    public void A_repo_path_that_leaves_the_mount_root_through_a_link_is_refused()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        var outside = Path.Combine(_dir, "outside");
+        Directory.CreateDirectory(outside);
+        Directory.CreateDirectory(MountRoot);
+        Directory.CreateSymbolicLink(RepoPath, outside);
+        Assert.Throws<InvalidOperationException>(() => new SealedVaultOptions("acme", MountRoot, RepoPath, WorktreeRoot).Normalised());
+
+        var linkedRoot = Path.Combine(_dir, "linked-root");
+        Directory.CreateSymbolicLink(linkedRoot, MountRoot);
+        Assert.Throws<InvalidOperationException>(() => new SealedVaultOptions("acme", linkedRoot, Path.Combine(linkedRoot, "v"), Path.Combine(linkedRoot, "w")).Normalised());
+    }
+
+    [Fact]
+    public async Task An_ignored_file_in_the_import_source_is_refused_through_the_provider()
+    {
+        var source = Path.Combine(_dir, "plain-vault");
+        LibGit2Sharp.Repository.Init(source);
+        await File.WriteAllTextAsync(Path.Combine(source, ".gitignore"), "*.log\n");
+        await File.WriteAllTextAsync(Path.Combine(source, "note.md"), "committed");
+        await new LibGit2GitProvider().CommitAsync(source, "first", _writer, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(source, "debug.log"), "ignored but would be wiped");
+
+        await using var git = NewProvider(importFrom: source);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => git.EnsureMountedAsync());
+        Assert.True(File.Exists(Path.Combine(source, "debug.log")));
+        using var scope = await NewStore().OpenScopeAsync("vault:acme");
+        Assert.Empty(await scope.ListAsync());
+    }
+
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var dir in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, dir)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetRelativePath(from, file)));
+        }
     }
 
     [Fact]

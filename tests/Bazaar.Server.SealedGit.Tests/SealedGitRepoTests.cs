@@ -7,6 +7,7 @@ namespace Bazaar.Server.SealedGit.Tests;
 public sealed class SealedGitRepoTests : IDisposable
 {
     private const string _canary = "CANARY-vault-note-do-not-leak-4417";
+    private static readonly IMountRootVerifier Protected = new AlwaysProtected();
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "bazaar-sealedgit-test-" + Guid.NewGuid().ToString("N"));
     private readonly RecordingSink _audit = new();
     private readonly InMemorySealAnchor _anchor = new();
@@ -420,10 +421,10 @@ public sealed class SealedGitRepoTests : IDisposable
         var mountRoot = Path.Combine(_dir, "mnt");
         var checkout = Path.Combine(mountRoot, "vault");
 
-        await using (var mount = await repo.MountAsync(new SealedGitMountRequest(mountRoot, checkout)))
+        await using (var mount = await repo.MountAsync(new SealedGitMountRequest(mountRoot, checkout, Protected)))
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() => repo.WithWorkingTreeAsync(g => Task.FromResult(0)));
-            await Assert.ThrowsAsync<InvalidOperationException>(() => repo.MountAsync(new SealedGitMountRequest(mountRoot, Path.Combine(mountRoot, "second"))));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => repo.MountAsync(new SealedGitMountRequest(mountRoot, Path.Combine(mountRoot, "second"), Protected)));
 
             await File.WriteAllTextAsync(Path.Combine(checkout, "note.md"), _canary);
             Assert.Equal(0, (await GitCommand.RunAsync(mount.GitDir, ["add", "note.md"], checkout)).ExitCode);
@@ -437,7 +438,7 @@ public sealed class SealedGitRepoTests : IDisposable
         Assert.False(Directory.Exists(checkout));
         Assert.Empty(Directory.EnumerateFileSystemEntries(mountRoot));
 
-        await using (var again = await repo.MountAsync(new SealedGitMountRequest(mountRoot, checkout)))
+        await using (var again = await repo.MountAsync(new SealedGitMountRequest(mountRoot, checkout, Protected)))
         {
             Assert.Equal(_canary, await File.ReadAllTextAsync(Path.Combine(checkout, "note.md")));
         }
@@ -450,8 +451,13 @@ public sealed class SealedGitRepoTests : IDisposable
     {
         var repo = Repo();
         var mountRoot = Path.Combine(_dir, "mnt");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.MountAsync(new SealedGitMountRequest(mountRoot, Path.Combine(_dir, "vault"))));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.MountAsync(new SealedGitMountRequest(mountRoot, Path.Combine(mountRoot, "vault"), Path.Combine(mountRoot, "vault", "wt"))));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.MountAsync(new SealedGitMountRequest(mountRoot, Path.Combine(_dir, "vault"), Protected)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.MountAsync(new SealedGitMountRequest(mountRoot, Path.Combine(mountRoot, "vault"), Protected, Path.Combine(mountRoot, "vault", "wt"))));
+    }
+
+    private sealed class AlwaysProtected : IMountRootVerifier
+    {
+        public MountRootVerdict Verify(string mountRoot) => new(true, "test");
     }
 
     private sealed class RecordingSink : ISealAuditSink
