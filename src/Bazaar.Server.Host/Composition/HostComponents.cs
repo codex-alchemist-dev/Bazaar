@@ -6,6 +6,7 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.ApprovalQueue;
 using Bazaar.Server.AuditReader;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
@@ -59,6 +60,7 @@ public static class HostComponents
         new MailComponent(),
         new ModuleManagerComponent(),
         new RemoteComponent(),
+        new ApprovalQueueComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
