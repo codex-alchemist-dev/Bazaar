@@ -3,7 +3,7 @@ using Bazaar.Contracts.Gc;
 namespace Bazaar.Server.Gc;
 
 /// <summary>The text stored in the <c>author_kind</c> and <c>source_trust</c> columns (the same names the wire uses).</summary>
-internal static class GcEnumText
+public static class GcEnumText
 {
     public static string ToText(AuthorKind kind) => kind switch
     {
