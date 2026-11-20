@@ -375,6 +375,44 @@ The GPU time of the frame is unchanged under load, but the wall p99 rises to 8 t
 
 **Limits.** One run per cell. Tiles are a uniform grid over a stride sample, not the quadtree or octree; real selection from #908 will change tile sizes and counts, and the cull and decimation costs with them. The density switch is decided on the host from a previous frame counters. The background load is one kind of game-like load (60 Hz, 8 ms GPU, two spinning threads); other loads can give other wall times.
 
+### 10.12 Wall-time p99 under a busy GPU: what helps and what the driver allows (2026-11-20)
+Bench mode `topology-contention`, same machine and method as 10.11 (Intel Arc B580, driver 0.406.842, Windows, 1280x720, `BAZAAR_BENCH_BOOST=1`). The frame is the points variant of the combined frame of 10.11 (tile cull, decimation, points, 100k LOD edges), N = 1B, M = 1M, 30 cells (5 topologies, 2D and 3D, 3 viewpoints), 30 warm-up and 400 measured frames, one run per cell. The load is a second process (`bgload`, normal priority): "GPU" is a 60 Hz loop of about 8 ms of GPU draw work (19M points in one submission), "CPU" is busy threads. "Meets" means wall p99 <= 3.3 ms. Raw CSVs: `results/contention/<load>-<variant>.csv`; the table gives, per run, cells meeting, the median over cells of wall p99, and the worst cell.
+
+**Which load hurts.**
+
+| Load | Cells meeting | Wall p99 median / worst (ms) |
+|---|---|---|
+| none | 30 of 30 | 0.78 / 1.90 |
+| CPU only, 2 busy threads | 30 of 30 | 0.86 / 1.91 |
+| CPU only, 4 busy threads | 30 of 30 | 0.69 / 1.72 |
+| CPU only, 8 busy threads | 30 of 30 | 0.80 / 1.64 |
+| GPU only (8 ms, 60 Hz) | 12 of 30 | 7.23 / 10.27 |
+| GPU 8 ms + 2 CPU threads (the 10.11 load) | 10 of 30 | 7.33 / 10.05 |
+
+The CPU threads do nothing to the frame, with the benchmark at High priority (8 threads on the machine included). The whole wall p99 rise comes from the other process GPU work: a frame that arrives while the other 8 ms submission is running waits for it to finish (7 to 10 ms, about one other frame), a few percent of the time, which is exactly what p99 sees. GPU timestamps of the frame itself stay at 0.6 ms.
+
+**Mitigations, GPU 8 ms load alone and with 2 CPU threads** (cells meeting / median wall p99 in ms; the baseline is the first row):
+
+| Variant | GPU only | GPU + 2 CPU |
+|---|---|---|
+| baseline (1 submission, 1 frame in flight) | 12 / 7.23 | 10 / 7.33 |
+| global queue priority HIGH (VK_KHR_global_priority) | 12 / 7.12 | 8 / 8.54 |
+| global queue priority REALTIME | 10 / 7.67 | 7 / 7.54 |
+| frame split in 2 submissions | 10 / 8.55 | 9 / 7.75 |
+| frame split in 4 submissions | 5 / 8.33 | 5 / 7.41 |
+| 2 frames in flight | 17 / 1.74 | 17 / 2.22 |
+| 3 frames in flight | 17 / 2.08 | 16 / 3.29 |
+| HIGH priority and 3 frames in flight | not run | 16 / 3.26 |
+
+- **Global priority.** The driver exposes VK_KHR_global_priority (core in Vulkan 1.4, plus the EXT variant and the query feature) and the device was created with HIGH and with REALTIME without error, so both were granted. Neither changed the wall p99 (7.1 and 7.7 ms against 7.2 ms alone; the other process is at the default priority). So on this driver and under WDDM the request is accepted but does not make our work run ahead of, or preempt, the other process 8 ms packet. I cannot tell from the API whether the value is used at all; no effect was measured.
+- **Dedicated or async compute queue: not possible on this device.** The B580 reports one queue family (graphics, compute, transfer, sparse) with one queue, and the integrated GPU the same. There is no second queue to put the cull and decimation on, so async compute was not tested. Cull and decimation cost 0.04 to 0.3 ms here in any case.
+- **Smaller submissions do not help and slightly hurt.** 2 and 4 submissions per frame leave the p99 at 7 to 8.5 ms and drop the cells meeting from 12 to 10 and 5 (the p50 rises from 0.28 to 0.30 and 0.37 ms because every submission has fixed cost). The wait behind the other process is for the time slice that is already running; shorter command buffers on our side do not shorten it.
+- **Frames in flight help the cadence, not the wait.** With 2 or 3 frames in flight the interval between successive frame submissions has a median wall p99 of 1.7 to 3.3 ms and 16 to 17 cells meet, because the CPU keeps submitting while one frame waits. The latency of the frame that was behind the other 8 ms work is still 8 to 10 ms (worst-cell p99 is 10 to 11 ms in every run, and the longest single interval 13 to 16 ms), so what the viewer sees is a frame that is late by one other-process frame a few percent of the time, with the other frames earlier. The 17 of 30 cells are those whose own frames are short enough for the queue to catch up. This is the only mitigation that moved the number, and it should be read as cadence, not as frame latency.
+
+**What the OS allows.** Between two processes on WDDM the GPU is time-sliced by the scheduler; a Vulkan application cannot raise its process scheduling class from the API, and the Vulkan global priority did nothing measurable here. Things not tried: D3DKMT scheduling priority class (needs elevated rights), hardware-accelerated GPU scheduling settings, the other process using shorter submissions (the game side, not ours), and presenting from a swapchain with a fixed cadence that hides a late frame behind the previous one. For the renderer the practical answer is to keep 2 or 3 frames in flight and to measure cadence and latency separately; a hard 3.3 ms wall p99 cannot be held while another application keeps the GPU busy for 8 ms in one go.
+
+**Limits.** One run per cell and per variant. One load shape (60 Hz, 8 ms, one submission); heavier or lighter games give other numbers, and the share of frames hit by the other process rises with its duty cycle (about 8 of 16.7 ms here). Frames in flight are measured as the interval between submissions, not as time to completion. Tiles are still the fixed grid of 10.10 (#908 is not merged).
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.

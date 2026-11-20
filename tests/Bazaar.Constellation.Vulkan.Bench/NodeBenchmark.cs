@@ -91,6 +91,9 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
     /// <summary>The device has vkCmdDrawIndirectCount (drawIndirectCount, multiDrawIndirect and drawIndirectFirstInstance) and it was enabled.</summary>
     public bool IndirectCountSupported { get; private set; }
 
+    /// <summary>Outcome of the global queue priority request (BAZAAR_BENCH_GPU_PRIORITY): default, granted or refused.</summary>
+    public string GlobalPriorityStatus { get; private set; } = "default";
+
     /// <summary>Creates the instance, device, queue and offscreen target, and builds the pipeline.</summary>
     public void Initialize(string shaderDirectory)
     {
@@ -359,6 +362,35 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
             pQueueCreateInfos = &queueInfo,
             pEnabledFeatures = &coreFeatures,
         };
+        // BAZAAR_BENCH_GPU_PRIORITY=low|medium|high|realtime asks for a global queue priority (VK_KHR_global_priority, core in 1.4).
+        // The driver or the OS may refuse (NOT_PERMITTED); the result is kept in GlobalPriorityStatus and the device is made without it.
+        string requested = (Environment.GetEnvironmentVariable("BAZAAR_BENCH_GPU_PRIORITY") ?? string.Empty).ToLowerInvariant();
+        VkQueueGlobalPriority? global = requested switch
+        {
+            "low" => VkQueueGlobalPriority.Low,
+            "medium" => VkQueueGlobalPriority.Medium,
+            "high" => VkQueueGlobalPriority.High,
+            "realtime" => VkQueueGlobalPriority.Realtime,
+            _ => null,
+        };
+        GlobalPriorityStatus = "default";
+        if (global is not null)
+        {
+            var priorityInfo = new VkDeviceQueueGlobalPriorityCreateInfo { sType = VkStructureType.DeviceQueueGlobalPriorityCreateInfo, globalPriority = global.Value };
+            queueInfo.pNext = &priorityInfo;
+            VkResult withPriority = _instanceApi.vkCreateDevice(_physical, &deviceInfo, null, out _device);
+            queueInfo.pNext = null;
+            if (withPriority == VkResult.Success)
+            {
+                GlobalPriorityStatus = $"{requested} granted";
+                _deviceApi = new VkDeviceApi(_instanceApi, in _device);
+                _deviceApi.vkGetDeviceQueue(_queueFamily, 0, out _queue);
+                return;
+            }
+
+            GlobalPriorityStatus = $"{requested} refused ({withPriority}), using default";
+        }
+
         Check(_instanceApi.vkCreateDevice(_physical, &deviceInfo, null, out _device), "vkCreateDevice");
         _deviceApi = new VkDeviceApi(_instanceApi, in _device);
         _deviceApi.vkGetDeviceQueue(_queueFamily, 0, out _queue);
