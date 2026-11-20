@@ -119,6 +119,9 @@
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Annotation/Bazaar.Client.Annotation.csproj" />
+    <Project Path="src/Bazaar.Client.Annotation.Abstractions/Bazaar.Client.Annotation.Abstractions.csproj" />
+    <Project Path="tests/Bazaar.Client.Annotation.Tests/Bazaar.Client.Annotation.Tests.csproj" />
     <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
@@ -128,6 +131,9 @@
     <Project Path="src/Bazaar.Guest.Pointer/Bazaar.Guest.Pointer.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay/Bazaar.Server.VmDisplay.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.AgentTools/Bazaar.Server.VmDisplay.AgentTools.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Audit/Bazaar.Server.VmDisplay.Audit.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Gate/Bazaar.Server.VmDisplay.Gate.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -214,5 +220,8 @@
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.AgentTools.Tests/Bazaar.Server.VmDisplay.AgentTools.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Audit.Tests/Bazaar.Server.VmDisplay.Audit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Gate.Tests/Bazaar.Server.VmDisplay.Gate.Tests.csproj" />
   </Folder>
 </Solution>

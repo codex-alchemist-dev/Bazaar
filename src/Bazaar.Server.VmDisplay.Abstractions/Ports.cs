@@ -58,10 +58,10 @@ public interface IBrowserPageDriver
 public interface IDisplayGate
 {
     /// <summary>Decides whether a capture may happen.</summary>
-    DisplayVerdict CheckCapture(DisplayTarget target);
+    ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct);
 
     /// <summary>Decides whether the input may be sent. The actions are passed so the host can refuse typed secrets.</summary>
-    DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions);
+    ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct);
 }
 
 /// <summary>Writes audit rows. Rows carry sizes, source and hash, never pixels or typed text.</summary>
