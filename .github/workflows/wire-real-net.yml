@@ -56,8 +56,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $projects = @(Get-ChildItem -Path 'tests/Bazaar.Wire.Transport.*.Tests', 'tests/Bazaar.Transport.*.Tests' -Directory -ErrorAction SilentlyContinue)
           if (-not $projects) { throw 'No wire transport test projects found.' }
+          # One failing project must not hide the others: run them all, then fail at the end.
+          $failed = @()
           foreach ($p in $projects) {
             Write-Host "== $($p.Name)"
             dotnet test --project $p.FullName --configuration Release
-            if ($LASTEXITCODE -ne 0) { throw "Tests failed in $($p.Name)" }
+            if ($LASTEXITCODE -ne 0) { $failed += $p.Name }
           }
+          if ($failed) { throw "Tests failed in: $($failed -join ', ')" }
