@@ -144,3 +144,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
 | 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |
 | 62 | [62-device-vm-providers-android-ios-macos.md](62-device-vm-providers-android-ios-macos.md) | Optional microVM, Android, iOS and macOS VM provider modules behind IVmBackend, Apple-hardware rule, Mac node, install-time selection (PROPOSED) | 5 | 16, 50, 59, 03, 15 |
+| 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
