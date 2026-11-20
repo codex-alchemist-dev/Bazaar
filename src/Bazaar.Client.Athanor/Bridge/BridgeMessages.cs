@@ -14,6 +14,7 @@ namespace Bazaar.Client.Athanor.Bridge;
 [JsonDerivedType(typeof(ShowDiffMessage), "showDiff")]
 [JsonDerivedType(typeof(ApplyEditMessage), "applyEdit")]
 [JsonDerivedType(typeof(FocusMessage), "focus")]
+[JsonDerivedType(typeof(SetClaimedKeysMessage), "setClaimedKeys")]
 public abstract record HostMessage(long Seq);
 
 /// <summary>Opens a document in the editor. <paramref name="Revision"/> is the server revision the content came from.</summary>
@@ -49,6 +50,13 @@ public sealed record ApplyEditMessage(
 
 /// <summary>Moves keyboard focus into the editor.</summary>
 public sealed record FocusMessage(long Seq) : HostMessage(Seq);
+
+/// <summary>
+/// Replaces the table of keys the client key router claims (doc 57 §3a, §7). Each entry is a chord in the form
+/// <c>Alt+Meta+Shift+Code</c>: the modifiers present in that fixed order, then the <c>KeyboardEvent.code</c>, for example
+/// <c>Alt+KeyM</c> or <c>F6</c>. A chord never contains <c>Ctrl</c>.
+/// </summary>
+public sealed record SetClaimedKeysMessage(long Seq, string[] Keys) : HostMessage(Seq);
 
 /// <summary>
 /// A message the editor sends to the host (doc 57 §4). Decoded from untrusted input, so every field is required and

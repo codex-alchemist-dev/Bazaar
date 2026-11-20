@@ -24,8 +24,8 @@ Names follow doc 41b §2a: `Bazaar.Client.<Name>` and `Bazaar.Server.<Name>`, ea
 |---|---|---|
 | `Bazaar.Client.Athanor.Abstractions` | `IEditorHost`, `IEditorFileSource`, `IEditorDraftStore`, `IEditorKeyHandoff`, document and bridge-message records, `EditorLanguage`. Contracts only. | none |
 | `Bazaar.Client.Athanor` | Host-agnostic logic: workspace and tab model, bridge codec, theme push, save coordinator with revision checks, draft store, language registry, diff session, key handoff mapping, the `athanor` pane module and `IClientModule` manifest, and a plain-text fallback host. Pure .NET plus Avalonia for the pane. | none (testable headless) |
-| `Bazaar.Client.Athanor.WebView2` | The Windows-only `IEditorHost` for Monaco in a WebView2 island, plus the WebView2 environment pre-warm. | S12 |
-| `Bazaar.Client.Athanor.Bundle` | The Monaco bundle build, the JS bridge script, and the headless Chromium harness (test-only). | S12 |
+| `Bazaar.Client.Athanor.WebView2` | The Windows-only `IEditorHost` for Monaco in a WebView2 island (an Avalonia `NativeControlHost`, see §3a), the shared WebView2 environment pre-warm, and crash reporting. It supplies only the transport; the bridge logic is `BridgeEditorHost` in `Bazaar.Client.Athanor`. | S12 (spike passed on the child-HWND route, `docs/spikes/S12.md`) |
+| `Bazaar.Client.Athanor.Bundle` | The trimmed, hash-pinned Monaco bundle (vendored by script, not committed), the bridge page and script, the licence notice, and the bundle lookup. The headless Chromium harness (test-only) is not built yet. | S12 |
 | `Bazaar.Server.Athanor` | Server-backed document service: open, save with revision check, workspace root checks, audit rows. | needs an owner-visible wire contract (§6) |
 
 `Bazaar.Client.GitGui` references `Bazaar.Client.Athanor.Abstractions` for the diff host.
@@ -41,11 +41,20 @@ The first PR series builds the first two rows and tests. The WebView2, bundle an
 - A host never touches the network. All reads and writes go through `IEditorFileSource`, which the head wires to the server connection. The client holds no repository credential (doc 28; doc 21).
 - `PlainTextFallbackHost` implements the same interface over an Avalonia `TextBox` for tests, for Linux before its spike, and as the failure fallback if S12 fails. It exists so Athanor works end to end in headless tests.
 
+## 3a. WebView2 hosting and its airspace limit (PROPOSED, from spike S12, 2026-11-20)
+
+S12 (`docs/spikes/S12.md`) hosted Monaco through Avalonia's `NativeControlHost`, which gives a **child HWND** (doc 28 option D), not a composition-embedded visual. This note replaces the "composition embedding as the first design" wording in §1 until the owner decides otherwise; a composition spike is out of scope for now. Consequences the module must live with:
+
+- **Airspace.** Avalonia content cannot draw over the editor rectangle. Popups, tooltips, menus, drag adorners and toasts that overlap the editor must be separate top-level windows, or the editor must be inset. Animations and transitions that cross the editor do not composite.
+- **Focus.** Keyboard focus lives inside the WebView2 HWND, so the client key router never sees a key Monaco consumes. The handoff in §7 therefore cannot be a synchronous call per key. The host pushes the table of claimed keys to the page (`setClaimedKeys`, §4); the page decides locally, swallows a claimed key and reports `keyPressed`, and the host then takes focus. Keys not in the table never reach the router.
+- **Resize and DPI.** The controller bounds follow the host control's arranged size and the child window's client rectangle.
+- **One environment.** All windows share one `CoreWebView2Environment` (pre-warmed at client start), whose user-data folder is set by the caller and lives under the client data folder, never in a system profile path.
+
 ## 4. Bridge protocol (PROPOSED)
 
 JSON messages over the WebView2 message channel, source-generated `System.Text.Json` (same rule as the wire format, no reflection, no Protobuf). Two directions:
 
-- Host to editor: `open`, `close`, `setTheme`, `setReadOnly`, `showDiff`, `applyEdit`, `focus`.
+- Host to editor: `open`, `close`, `setTheme`, `setReadOnly`, `showDiff`, `applyEdit`, `focus`, `setClaimedKeys` (the keys the client key router claims, as `KeyboardEvent.code` chords such as `Alt+KeyM`; never a Ctrl chord; sent on ready and whenever the router's table changes).
 - Editor to host: `ready`, `changed`, `saveRequested`, `keyPressed`, `selection`, `error`.
 
 Every message carries a `type`, a monotonically increasing `seq` and the `documentId` where one applies. The codec rejects unknown types, oversize payloads (default 8 MiB, configurable) and out-of-order `seq` from the editor, and never evaluates a script string built from user text. Theme payloads come from `MonacoThemeGenerator` and are pushed without a reload.
