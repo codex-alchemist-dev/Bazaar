@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 using Bazaar.Rubedo.Views;
 
 namespace Bazaar.Client.Views.Tests.Fixtures;
