@@ -11,7 +11,7 @@ internal sealed class CronetWireConnection : IWireConnection
     private readonly int _maxFrameBytes;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly byte[] _prefix = new byte[GrpcMessageFraming.PrefixBytes];
-    private CronetNetworkEvent? _lastNetworkEvent;
+    private WireNetworkEvent? _lastNetworkEvent;
     private WireReceive? _closed;
 
     public CronetWireConnection(ICronetBidirectionalStream stream, WireProfile profile, int maxFrameBytes, IWireConnectionObserver observer)
@@ -36,7 +36,7 @@ internal sealed class CronetWireConnection : IWireConnection
         }
         catch (IOException)
         {
-            _observer.OnReconnectRequired(ReconnectReason.StreamFailed, _lastNetworkEvent);
+            _observer.OnReconnectRequired(WireReconnectReason.StreamFailed, _lastNetworkEvent);
             throw;
         }
         finally
@@ -56,7 +56,7 @@ internal sealed class CronetWireConnection : IWireConnection
         }
         catch (IOException)
         {
-            _observer.OnReconnectRequired(ReconnectReason.StreamFailed, _lastNetworkEvent);
+            _observer.OnReconnectRequired(WireReconnectReason.StreamFailed, _lastNetworkEvent);
             return (_closed = WireReceive.Closed()).Value;
         }
     }
@@ -106,7 +106,7 @@ internal sealed class CronetWireConnection : IWireConnection
 
     private WireReceive Cut()
     {
-        _observer.OnReconnectRequired(ReconnectReason.StreamCut, _lastNetworkEvent);
+        _observer.OnReconnectRequired(WireReconnectReason.StreamCut, _lastNetworkEvent);
         return WireReceive.Closed();
     }
 
@@ -123,7 +123,7 @@ internal sealed class CronetWireConnection : IWireConnection
         return WireReceive.Closed(GrpcMetadata.CloseCodeOfStatus(trailers));
     }
 
-    private void OnNetworkEvent(CronetNetworkEvent networkEvent)
+    private void OnNetworkEvent(WireNetworkEvent networkEvent)
     {
         _lastNetworkEvent = networkEvent;
         _observer.OnNetworkEvent(networkEvent);
