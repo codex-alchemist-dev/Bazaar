@@ -17,8 +17,8 @@ public sealed record ReleaseManifest : IEquatable<ReleaseManifest>
     /// <param name="minProtocol">Lowest wire protocol the build speaks, <c>major.minor</c> (doc 02).</param>
     /// <param name="maxProtocol">Highest wire protocol the build speaks, <c>major.minor</c>; not below <paramref name="minProtocol"/>.</param>
     /// <param name="schemaVersion">Database schema the build needs (doc 04), 1 to 32 characters of letters, digits, dot, underscore or hyphen.</param>
-    /// <param name="signingKeyFingerprint">Lowercase hex OpenPGP fingerprint (40 or 64 characters) of the key that made every <c>.asc</c>.</param>
-    /// <param name="artifacts">At least one, at most <see cref="MaxArtifacts"/>; no two share os, architecture and format.</param>
+    /// <param name="signingKeyFingerprint">Lowercase hex (40 or 64 characters) identity of the signing key: the OpenPGP fingerprint for Linux, the pinned certificate's thumbprint for Windows.</param>
+    /// <param name="artifacts">At least one, at most <see cref="MaxArtifacts"/>; all for one os; no two share architecture and format.</param>
     /// <exception cref="ArgumentException">A field is missing or malformed.</exception>
     public ReleaseManifest(
         string channel, string appVersion, string minProtocol, string maxProtocol,
@@ -57,6 +57,12 @@ public sealed record ReleaseManifest : IEquatable<ReleaseManifest>
         for (int i = 0; i < copy.Length; i++)
         {
             var artifact = artifacts[i] ?? throw new ArgumentException("An artifact is null.", nameof(artifacts));
+            if (artifact.Os != artifacts[0].Os)
+            {
+                // One signing key (and one signing scheme) covers a manifest, so a feed serves one manifest per OS.
+                throw new ArgumentException("All artifacts in a manifest must share one os.", nameof(artifacts));
+            }
+
             if (!seen.Add((artifact.Os, artifact.Architecture, artifact.Format)))
             {
                 throw new ArgumentException(

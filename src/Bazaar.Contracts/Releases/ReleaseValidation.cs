@@ -81,6 +81,23 @@ internal static partial class ReleaseValidation
         }
     }
 
+    /// <summary>Standard padded base64 that decodes to at least one byte, at most <see cref="ReleaseArtifact.MaxSignatureLength"/> characters.</summary>
+    public static string Base64(string? value, string name)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > ReleaseArtifact.MaxSignatureLength || value.Length % 4 != 0)
+        {
+            throw new ArgumentException("An inline signature of padded base64 (1 to 2048 characters) is required.", name);
+        }
+
+        Span<byte> buffer = new byte[value.Length];
+        if (!Convert.TryFromBase64String(value, buffer, out int written) || written == 0)
+        {
+            throw new ArgumentException("The inline signature is not valid base64.", name);
+        }
+
+        return value;
+    }
+
     public static Version Protocol(string? value, string name)
     {
         if (value is null || !ProtocolPattern().IsMatch(value))
