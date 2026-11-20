@@ -47,7 +47,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
-| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). |
+| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
@@ -93,6 +93,19 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 16 | Plan review and apply | Shows the change list and the plan hash. Apply runs under the lock. | 1.2 |
 | 17 | Kodo verification | Read-only checks and a green, amber or red report with a 0 to 100 score. Section 1.12. | 46 (not in tree) |
 | 18 | Client packages | Builds the per-company packages (.msix, .apk, .exe) on the server. Signing keys stay on the server. | 37 |
+
+**Apply step status (2026-11-19).** The step table above is the order. Which steps `setup apply` and `POST /setup/plans/{hash}/apply` run today:
+
+| Step | Status | Notes |
+|---|---|---|
+| 1 Install identity (release channel), 12 Scam-mail protocol, 15 Status and network (bind and port), plus the plan's `settings` map | **BUILT** as `install.settings` (`InstallSettingsStep`, order 1500, in `Bazaar.Server.Setup.Postgres`) | Writes the install-scope rows of the `setting` table: the `settings` map, `network.statusBind` and `network.statusPort` (`host.status.bind`, `host.status.port`), `install.releaseChannel` (`update.channel`, snake_case wire form) and `scamMailProtocol.enabled` (`security.scam_mail.protocol_enabled`, written only when on, which is held for owner approval). Every value goes through the registry first. One transaction, same per-key locks as the settings store. A key already holding the planned value is left alone (idempotent). Rollback restores the previous value and writer, or removes the row, and leaves a value someone changed after the run. The applier writes the `setting.changed` rows. |
+| 0 Preflight, 2 Update policy, 3 Data root and PostgreSQL, 4 Schema, 5 Custody, 6 Owner, 7 Privacy and retention, 8 Backups, 9 Model sources, 10 Git and GitHub, 11 Email, 13 Company source, 14 Modules, 16 to 18 | PLANNED, no step registered | Each needs a store or service that is not in the tree yet. The rest of the install identity (company name, slug, locale, timezone, install id) has no table; the update policy has no setting key; the backup target has no setting key; the audit anchor target is not `security.audit.export_target` (an enum); the owner needs a passkey ceremony; the module set has no enabled-modules store. `migrate` stays its own explicit command (doc 04), and an apply needs the migrated `audit_log`. Until they land, an apply refuses a plan that asks for those parts (see "Unapplied sections" below). |
+
+**Unapplied sections (DECIDED 2026-11-19, rationale: a setup that cannot apply what the operator asked for must say so before it changes anything).** `SetupPlanSections` (in `Bazaar.Server.Setup.Abstractions`) is the one registry of plan sections: `install.identity` (step 1), `install.releaseChannel` (1), `install.updatePolicy` (2), `database` (3, 4), `custody` (5), `owner` (6), `privacy` (7), `backups` (8), `models` (9), `git` (10, the merge credential), `email` (11), `scamMailProtocol` (12), `company` (13), `modules` (14), `network` (15) and `settings` (the registry values map). Every plan leaf belongs to exactly one section (a test enforces it). Each `ISetupStep` declares the sections it applies in `Covers` (default none), so registering a step shrinks the list with no other edit.
+- A section is *requested* when any of its leaves differs from the shipped default plan (and, once a state reader exists, from the current state). A section left at its default or empty is not requested and needs no step. Required fields (company name and slug, KEK, owner name, company source) have no default, so they always request their sections.
+- Before the lock or any step, the applier compares the requested sections with the registered steps' `Covers`. Any requested section nobody covers holds the apply: exit 2, issue path `unapplied_sections`, message naming the section ids and doc step numbers (never values), `appliedSteps` empty, nothing changed, so a partial apply cannot happen. Exit 0 therefore means every requested section was applied. Exit codes keep their meanings.
+- The list appears in the apply result (`UnappliedSections`), the CLI text and `--json` (`unappliedSections`, outcome `unapplied_sections`), the HTTP bodies of `POST /setup/plans` and `.../apply` (`unappliedSections`), the HTTP call audit row (outcome `held:unapplied_sections`) and a `setup.plan.applied` row with outcome `held_unapplied_sections` (section ids only; this is the one held apply that is recorded, so the refusal is on the record). A dry run (`setup --dry-run`, `POST /setup/plans`) lists the same sections, marked as what an apply would be held for.
+- Today only `install.settings` is registered, covering `install.releaseChannel`, `scamMailProtocol`, `network` and `settings`. Every valid plan also requests `install.identity`, `custody`, `owner`, `company` and more, so a real apply is held until those steps land. That is the honest state.
 
 ## 1.4 What the wizard asks, and what it defaults to [PLANNED]
 
@@ -215,7 +228,7 @@ The file is a plan input. It is never executed and never contains a secret value
 
 One company per install. A template creates the install's one company; it does not create a second one.
 
-## 1.9 Provisioning API [PLANNED]
+## 1.9 Provisioning API [BUILT behind its gates; no apply step registered yet]
 
 | Route | Purpose |
 |---|---|
@@ -225,6 +238,8 @@ One company per install. A template creates the install's one company; it does n
 
 - **Where it lives.** On the authenticated HTTP surface (doc 02), on its own rate bucket. JSON only; no client UI is served.
 - **Access.** Before the first owner exists, only from loopback, and only with the one-time bootstrap code printed at the first start. This is the same pattern doc 32 uses for pairing codes. After the owner exists, only the owner role may call it, and each call is audited.
+- **Host wiring.** The `setup` Bazaar Component (`Bazaar.Server.Setup.Host`, depends on `audit` and `settings`) registers the apply engine, this API and the durable Postgres stores. `Program.cs` maps the three routes only when the component is enabled (`Bazaar:Components:setup:Enabled`, default true), so a host without it answers 404 on `/setup/*`; a missing dependency answers 503. The bootstrap code is created at start while no owner exists (a `human` row with role `owner`), printed once to standard output and never logged; only its SHA-256 digest is stored (`setup_bootstrap_code`, setup migration 0002), it works once, and it is retired at the next start after an owner exists. The caller check uses the host's connection authenticator, the transport rule is `wire.allow_plaintext_overlay`, and the rate bucket is `setup_api` (30 a minute, working default).
+- **Not yet.** No apply step is registered: an apply of a plan that changes anything ends in exit 3 with one audit row until the database and custody steps land. `GET /setup/status` lists registered steps as pending and holds no approvals.
 - **Not a sign-in route.** These routes are outside the three sign-in routes of doc 32. Doc 02 must list them (conflict, section Conflicts).
 
 ## 1.10 Dependencies bundled as modules [DECIDED install rule; PLANNED mechanics]
