@@ -11,8 +11,9 @@ public sealed class SetupPureChecksTests
     private const string _anchorUrl = "https://anchor.example.invalid/bazaar-audit";
 
     /// <summary>A plan that passes every pure check, with the same shape as the fixture.</summary>
-    private static SetupCustodySection ValidCustody() => new()
+    private static SetupCustodySection ValidCustody(string? identityKek = null) => new()
     {
+        IdentityKek = identityKek,
         KekProvider = "dpapi",
         KekRef = "dpapi:C:\\ProgramData\\Bazaar\\kek.bin",
         AuditAnchorTarget = _anchorUrl,
@@ -43,6 +44,29 @@ public sealed class SetupPureChecksTests
         check.RunAsync(new SetupVerificationContext(plan), CancellationToken.None);
 
     private static JsonElement Text(string value) => JsonSerializer.SerializeToElement(value);
+
+    private static SetupPlan TpmPlan(string? identityKek, bool? allowVirtual)
+    {
+        var custody = ValidCustody(identityKek);
+        var settings = new Dictionary<string, JsonElement>();
+        if (allowVirtual is { } allow)
+            settings[IdentityKekCustodyCheck.AllowVirtualKey] = JsonSerializer.SerializeToElement(allow);
+        return PlanWith(custody: custody, settings: settings);
+    }
+
+    [Theory]
+    [InlineData(null, null, SetupCheckStatus.Green)]
+    [InlineData("file", true, SetupCheckStatus.Green)]
+    [InlineData("openbao", null, SetupCheckStatus.Green)]
+    [InlineData("tpm", null, SetupCheckStatus.Green)]
+    [InlineData("tpm", false, SetupCheckStatus.Green)]
+    [InlineData("tpm", true, SetupCheckStatus.Amber)]
+    public async Task Identity_kek_custody_warns_only_for_tpm_with_virtual_allowed(string? kek, bool? allowVirtual, SetupCheckStatus expected)
+    {
+        var result = await Run(new IdentityKekCustodyCheck(), TpmPlan(kek, allowVirtual));
+
+        Assert.Equal(expected, result.Status);
+    }
 
     [Fact]
     public async Task Fixture_plan_passes_every_pure_check()

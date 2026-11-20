@@ -15,6 +15,7 @@ public static class SetupVerificationChecks
         new OwnerSecondFactorCheck(),
         new SecretReferenceSyntaxCheck(),
         new AuditAnchorTargetCheck(),
+        new IdentityKekCustodyCheck(),
     ];
 
     /// <summary>The placeholders for checks that need the Host adapter (doc 45 section 1.12). None of them can report green.</summary>
