@@ -409,3 +409,14 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Loop-guard trip | Writes `guard_event`, one idempotent system notice and the Psych Ward hand-off (default no-op until doc 26 is built); the post is refused. | 06 |
 | Binding writers | `ISoulBindingAdmin.BindAsync` is for the hire flow, which does not exist on the server yet; `RetirementCoordinator` ends the binding first. Until a hire flow exists, an unbound agent cannot post with the default setting. | 06, 07 |
 | Not done in this change | Mention depth (needs the wake's depth on the inbox row, which doc 06 owns) and @here/@all agent broadcasts (needs the broadcast rate counter; #438 keeps them ignored). | 06, 01 |
+
+## Round 30 (2026-11-20): Claude Code CLI provider
+
+| Decision | Status | Docs |
+|---|---|---|
+| A provider that drives the Claude Code CLI so agents can use the operator's own Claude plan instead of an API key | DECIDED (owner request, 2026-11-20) | 91, 05 |
+| Terms finding: allowed is an end user signing in to the unmodified binary with their own plan; not allowed is Bazaar handling the login, using the Agent SDK with plan credentials, sharing a plan, or reselling. Round-the-clock fleet use is outside "ordinary, individual usage" and risks the account | RESEARCHED (primary pages read 2026-11-20) | 91 section 2 |
+| Guard rails T1 to T9: unmodified binary only; Bazaar never touches the login; token env var refused; one login, one human; off by default with acknowledgement; conservative caps; stop on rate limit or account error; API key mode as the compliant fallback | PROPOSED | 91 section 2 |
+| C14 sentence "no subscription login can be configured" narrowed: the gateway still never holds a subscription credential; the CLI provider is the one exception route (usage identity `subscription`) | PROPOSED | 05, 05b |
+| One model step per CLI process, tools off in the CLI, tools offered as definitions only through a loopback MCP bridge, calls executed by `ToolDispatcher` | PROPOSED | 91 sections 5 and 7 |
+| Modules: `Bazaar.Server.Gateway.Abstractions` (adapter seam extraction), `Bazaar.Server.Providers.ClaudeCode` and `.Abstractions` | PROPOSED | 91 section 4 |
