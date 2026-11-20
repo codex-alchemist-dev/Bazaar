@@ -174,6 +174,27 @@ Host-side sources (PROPOSED, 2026-11-18): the harness binds these ports in `Baza
 14. Avalonia.Headless tests for the review-diff view. Depends on 11 and the client shell (doc 28).
 15. Coding tool runner (PROPOSED, 2026-11-20). Depends on 6, 8, 10. It is not a second agent loop: the model call, turn loop and tool dispatch stay in `Bazaar.Server.Agents` (doc 06); the runner is the guarded tool body a host adapter registers in that dispatcher, one registration per coding tool. Decisions: (a) an unknown tool is traced as an `Exec` row and completed as failed with exit code 127; (b) a handler exception completes the row as failed with exit code -1 and shows the model only the exception type; (c) a handler cancelled by the caller completes the row as cancelled and the cancellation is rethrown; a handler that times out on its own is a timeout; (d) a writer tool on a worktree waits for `IWorktreeLocks` (polling, default 30 s, then a `busy` result, exit code 75); a writer call without a worktree key fails with exit code 64; (e) the completion write always uses `CancellationToken.None`, so the recorder is called even after cancellation; (f) the args hash is SHA-256 of the raw JSON text until Server's canonical hash is bound by the host adapter.
 
+## Coding tool handlers (WP15 follow-up) [PROPOSED, 2026-11-20]
+Implementation: `src/Bazaar.Server.CodingRunner/Handlers/` (one class per tool), registered by `AddBazaarCodingToolHandlers` in `CodingToolHandlerRegistration.cs`. The handlers sit in CodingRunner, not in the owning modules, because none of RepoMap, CodingGit, CodingReview or Subagents references `Bazaar.Server.CodingRunner.Abstractions`. The host binds the services each one wraps and `ICodingToolHostContext`.
+
+| Tool | CapabilityClass | Writes worktree | Required args | Optional args and notes |
+|---|---|---|---|---|
+| `search` | Read | no | `pattern` (1 to 256 chars) | `glob`, `max_results` (1 to 1000, default 100), `case_insensitive`; ripgrep through `ISearchTool` |
+| `repo_map` | Read | no | none | `root` (default `.`), `token_budget` (1 to 16000, default 1000), `focus_files` |
+| `git_diff` | Read | no | none | needs a worktree key; patch capped at 200 000 characters, `patch_truncated` says when the cap cut it |
+| `git_commit` | Exec | yes | `subject` | `body`; the credited model comes from the host; trailers and the `Signed-off-by` ban are `CommitMessageBuilder`'s rules |
+| `git_push_draft_pr` | Post | no | `title` | `body`, `branch` (any value other than the worktree's own branch is refused); the push gate decides; draft only |
+| `review` | Post | no | `repository`, `number`, `base_commit`, `head_commit` (hex, 7 to 64 chars) | the author model comes from the host; a `NotCompleted` review is a failure, not a verdict |
+| `subagent_spawn` | Exec | no | `task`, `tool_allowlist`, `model_id` | `worktree` (`none` default, `read_only`, `own`), `declared_paths`, `references`; waits for the child |
+
+Decisions for the gaps (the most robust option; the owner may overrule):
+1. **Argument errors.** Each schema is closed: unknown fields, wrong JSON types, blank required strings and out-of-range numbers are rejected. The result is `malformed_args` with exit code 64. Argument values are never echoed back, and the model never receives a host path or a raw exception.
+2. **Host facts come from the host, never from arguments.** The worktree for a key, the commit model, the reviewer's author model and the parent limits all come from `ICodingToolHostContext`. The parent limits must name the calling session, or the call fails with `parent_mismatch`.
+3. **Git refusals** surface as `git_<error kind>` (for example `git_push_denied`, `git_push_needs_approval`, `git_nothing_to_commit`), using the service's fixed message. Nothing is pushed or committed in those cases.
+4. **Subagents run inline.** `subagent_spawn` waits for the child's completion. A cancelled call cancels the child. The child's summary is model output, returned as data with `summary_is_untrusted: true`. A failed or cancelled child exits 1; a refused spawn returns `subagent_rejected_<reason>` and starts nothing.
+5. **Review is Post, not Read.** It posts the report to the PR's group chat and sets the approval flag, which is never merge authority. The review inputs are commit ids the model supplies, so the host's review sink must check them against the PR's current head before it records a verdict. That binding is OPEN and belongs to the host adapter.
+6. **Exit codes.** 0 is success; 1 is a failed tool or a refused operation; 64 is a usage error (malformed arguments, or no worktree the host holds). The runner's own codes (127, 75, -1) are unchanged.
+
 ## Conflicts
 1. **Subagent depth.** This doc uses depth 1 inside doc 06's runtime limit (depth 2, 3 concurrent). Doc 06 must still state that its limit covers runtime delegation only.
 2. **Parallel subagents.** Cognition (June 2025, a vendor opinion) calls them fragile; Claude Code docs describe them with a default cap of 20; Anthropic (June 2025) calls most coding tasks a poor fit for fan-out. Unresolved; this design defaults to one writer and measures.
