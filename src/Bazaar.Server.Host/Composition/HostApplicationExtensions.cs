@@ -53,7 +53,8 @@ public static class HostApplicationExtensions
         // reference its own module project, and the graph sink depends on the Memory module. Only when Constellation is enabled.
         if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
-            services.AddMemoryGraphProjection();
+            services.AddMemoryGraphProjection(
+                Guid.TryParse(configuration[ConstellationComponent.VaultIdKey], out var constellationVaultId) ? constellationVaultId : null);
         }
 
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.

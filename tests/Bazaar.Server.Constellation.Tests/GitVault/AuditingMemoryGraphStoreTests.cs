@@ -150,5 +150,8 @@ public sealed class AuditingMemoryGraphStoreTests
 
         public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
+
+        public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
     }
 }

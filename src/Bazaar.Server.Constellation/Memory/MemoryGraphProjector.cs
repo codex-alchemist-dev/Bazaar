@@ -5,8 +5,13 @@ namespace Bazaar.Server.Constellation.Memory;
 
 /// <summary>
 /// Projects one memory note revision into a <see cref="MemoryGraphRevision"/> (docs/design/constellation-memory-graph.md,
-/// "Projector"). Pure: no IO, no clock, no randomness. The same input always gives the same output.
+/// "Projector" and "Convergence design"). Pure: no IO, no clock, no randomness. The same input always gives the same output.
 /// </summary>
+/// <remarks>
+/// <see cref="ProjectIndexed"/> is the converged path: the note is its Vault doc node and its links are the ones the Vault index
+/// resolved. <see cref="Project"/> is the path for a note the Vault index has not seen yet; it resolves <c>[[note id]]</c> and
+/// <c>[[Title]]</c> links against the map it is given, and stores no doc id.
+/// </remarks>
 public static class MemoryGraphProjector
 {
     /// <summary>A <c>[[target]]</c> token. Links do not nest, so the target is everything up to the closing brackets.</summary>
@@ -77,6 +82,56 @@ public static class MemoryGraphProjector
             Add(edges, new MemoryGraphEdge(resolved, MemoryEdgeKind.Link, _linkWeight));
         }
 
+        return Finish(note, vaultPath, scopeAgentId, edges, docId: null);
+    }
+
+    /// <summary>
+    /// Builds the graph revision for a note the Vault index holds as doc <paramref name="docId"/>. The Link edges are the doc's
+    /// resolved Vault links (<c>vault_links.target_doc</c>), so title, alias and path links resolve by the Vault rules; targets
+    /// are doc ids in "D" format. A link to the doc itself is dropped. DerivedFrom, Supersedes and provenance edges are as in
+    /// <see cref="Project"/>.
+    /// </summary>
+    /// <param name="note">The note front matter.</param>
+    /// <param name="vaultPath">The normalized vault path of the note.</param>
+    /// <param name="scopeAgentId">The agent whose private area holds the note.</param>
+    /// <param name="docId">The Vault doc id of the note.</param>
+    /// <param name="resolvedLinkTargets">The doc ids the Vault index resolved for this doc's wiki-links.</param>
+    public static MemoryGraphRevision ProjectIndexed(
+        MemoryNote note,
+        string vaultPath,
+        string scopeAgentId,
+        Guid docId,
+        IReadOnlyCollection<Guid> resolvedLinkTargets)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+        ArgumentException.ThrowIfNullOrWhiteSpace(vaultPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scopeAgentId);
+        ArgumentNullException.ThrowIfNull(resolvedLinkTargets);
+        if (docId == Guid.Empty)
+        {
+            throw new ArgumentException("The doc id must not be empty.", nameof(docId));
+        }
+
+        var edges = new Dictionary<(string TargetId, MemoryEdgeKind Kind), MemoryGraphEdge>();
+        foreach (var target in resolvedLinkTargets)
+        {
+            if (target != docId && target != Guid.Empty)
+            {
+                Add(edges, new MemoryGraphEdge(target.ToString("D"), MemoryEdgeKind.Link, _linkWeight));
+            }
+        }
+
+        return Finish(note, vaultPath, scopeAgentId, edges, docId);
+    }
+
+    /// <summary>Adds the front matter and provenance edges, orders the edges and builds the revision.</summary>
+    private static MemoryGraphRevision Finish(
+        MemoryNote note,
+        string vaultPath,
+        string scopeAgentId,
+        Dictionary<(string TargetId, MemoryEdgeKind Kind), MemoryGraphEdge> edges,
+        Guid? docId)
+    {
         foreach (var id in note.DerivedFrom)
         {
             Add(edges, new MemoryGraphEdge(id, MemoryEdgeKind.DerivedFrom, _derivedFromWeight));
@@ -116,7 +171,8 @@ public static class MemoryGraphProjector
             Kind: note.Kind.ToString(),
             Status: note.Status.ToString(),
             Trust: note.Trust.ToString(),
-            Edges: ordered);
+            Edges: ordered,
+            DocId: docId);
     }
 
     /// <summary>Adds an edge unless one with the same target and kind is already present (the first weight wins).</summary>

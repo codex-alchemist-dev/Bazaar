@@ -34,7 +34,8 @@ public sealed record MemoryGraphEdge(string TargetId, MemoryEdgeKind Kind, doubl
 
 /// <summary>
 /// One stored revision of a memory note as the graph sees it. Revisions are append-only; exactly one revision per note
-/// is active at a time.
+/// is active at a time. Since the convergence (docs/design/constellation-memory-graph.md, "Convergence design") a revision is
+/// a set of attributes of its Vault doc node, <paramref name="DocId"/>, not a node of its own.
 /// </summary>
 /// <param name="NoteId">The note id (<c>MemoryNote.Id</c>).</param>
 /// <param name="Version">The note version (<c>MemoryNote.Version</c>).</param>
@@ -45,6 +46,10 @@ public sealed record MemoryGraphEdge(string TargetId, MemoryEdgeKind Kind, doubl
 /// <param name="Status">The <c>MemoryNoteStatus</c> name.</param>
 /// <param name="Trust">The <c>MemoryTier</c> name.</param>
 /// <param name="Edges">The outgoing edges of this revision.</param>
+/// <param name="DocId">
+/// The Vault index doc (<c>vault_docs.doc_id</c>) this note is. Null when the Vault index had not seen the file when the revision
+/// was stored; the store resolves it on write and <see cref="MemoryGraphDocIdMigrator"/> backfills it.
+/// </param>
 public sealed record MemoryGraphRevision(
     string NoteId,
     long Version,
@@ -54,7 +59,8 @@ public sealed record MemoryGraphRevision(
     string Kind,
     string Status,
     string Trust,
-    IReadOnlyList<MemoryGraphEdge> Edges);
+    IReadOnlyList<MemoryGraphEdge> Edges,
+    Guid? DocId = null);
 
 /// <summary>Knobs for one retrieval. Defaults are the shipped values.</summary>
 /// <param name="MaxHops">How far to expand from a seed. Capped at 2 by the retriever.</param>
@@ -62,22 +68,27 @@ public sealed record MemoryGraphRevision(
 /// <param name="RrfK">The RRF constant (see <c>RetrievalOptions</c>).</param>
 public sealed record MemoryGraphOptions(int MaxHops = 1, int TopK = 20, int RrfK = 60);
 
-/// <summary>One note returned by a retrieval, with the score it was packed under.</summary>
-/// <param name="NoteId">The note id.</param>
+/// <summary>
+/// One Constellation node returned by a retrieval, with the score it was packed under. The node is a Vault doc; when the doc is
+/// a memory note, the memory fields come from its active revision.
+/// </summary>
+/// <param name="DocId">The Vault doc id (<c>vault_docs.doc_id</c>, "D" format). This is the node id.</param>
+/// <param name="NoteId">The memory note id when the doc is a memory note, otherwise null.</param>
 /// <param name="VaultPath">The vault path the caller may read.</param>
-/// <param name="Title">The note title.</param>
-/// <param name="ScopeAgentId">The agent scope of the note.</param>
-/// <param name="Kind">The <c>MemoryKind</c> name.</param>
-/// <param name="Trust">The <c>MemoryTier</c> name.</param>
+/// <param name="Title">The doc title.</param>
+/// <param name="ScopeAgentId">The agent scope of a memory note, otherwise null.</param>
+/// <param name="Kind">The <c>MemoryKind</c> name for a memory note, otherwise the Vault doc type (for example <c>decision</c>).</param>
+/// <param name="Trust">The <c>MemoryTier</c> name for a memory note, otherwise null.</param>
 /// <param name="Score">The score after expansion weighting.</param>
 /// <param name="HopDistance">0 for a seed, 1 or 2 for an expansion hit.</param>
 public sealed record MemoryGraphHit(
-    string NoteId,
+    string DocId,
+    string? NoteId,
     string VaultPath,
     string Title,
-    string ScopeAgentId,
+    string? ScopeAgentId,
     string Kind,
-    string Trust,
+    string? Trust,
     double Score,
     int HopDistance);
 
@@ -85,3 +96,32 @@ public sealed record MemoryGraphHit(
 /// <param name="Hits">The packed hits, best first.</param>
 /// <param name="LexicalOnly">True when the seeds came from lexical search only.</param>
 public sealed record MemoryGraphRetrieval(IReadOnlyList<MemoryGraphHit> Hits, bool LexicalOnly);
+
+/// <summary>
+/// An expanding edge between two Constellation doc nodes, as the retriever follows it: a resolved Vault link, or a memory
+/// <see cref="MemoryEdgeKind.DerivedFrom"/> or <see cref="MemoryEdgeKind.Supersedes"/> edge mapped to its doc.
+/// </summary>
+/// <param name="TargetDocId">The target doc id.</param>
+/// <param name="Kind">The edge kind (<see cref="MemoryEdgeKind.Link"/>, <see cref="MemoryEdgeKind.DerivedFrom"/> or <see cref="MemoryEdgeKind.Supersedes"/>).</param>
+/// <param name="Weight">The expansion weight in [0, 1].</param>
+public sealed record ConstellationGraphEdge(Guid TargetDocId, MemoryEdgeKind Kind, double Weight);
+
+/// <summary>
+/// One Constellation node for retrieval (docs/design/constellation-memory-graph.md, "Convergence design"): a Vault doc, with
+/// the active memory revision when the doc is a memory note.
+/// </summary>
+/// <param name="DocId">The Vault doc id.</param>
+/// <param name="VaultPath">The doc path in the Vault index.</param>
+/// <param name="Title">The doc title.</param>
+/// <param name="DocType">The Vault doc type (<c>vault_docs.type</c>).</param>
+/// <param name="FrontMatterStatus">The front matter <c>status</c>, or null.</param>
+/// <param name="Memory">The active memory revision of this doc, or null when the doc is not a memory note.</param>
+/// <param name="Edges">The expanding edges, already mapped to doc ids, deduplicated by target and kind.</param>
+public sealed record ConstellationGraphNode(
+    Guid DocId,
+    string VaultPath,
+    string Title,
+    string DocType,
+    string? FrontMatterStatus,
+    MemoryGraphRevision? Memory,
+    IReadOnlyList<ConstellationGraphEdge> Edges);

@@ -14,4 +14,15 @@ public sealed class HostMigrationsTests
         var files = source.Load("council");
         Assert.Contains(files, f => f.Version == 1 && f.Name == "council");
     }
+
+    [Fact]
+    public void Constellation_namespace_holds_0001_from_the_server_and_0002_from_the_constellation_module()
+    {
+        var source = HostMigrations.Source();
+
+        var files = source.Load("constellation");
+        Assert.Contains(files, f => f.Version == 1 && f.Name == "memory_graph");
+        Assert.Contains(files, f => f.Version == 2 && f.Name == "memory_doc_id");
+        Assert.Equal(2, files.Count);
+    }
 }
