@@ -676,4 +676,95 @@ public sealed class ModuleFileSystemTests : IDisposable
         Assert.Throws<ArgumentException>(() => new ModuleFsRoots(new Dictionary<string, string> { ["local"] = "relative/dir" }));
         Assert.Throws<ArgumentException>(() => new ModuleFsRoots([new("local", _local), new("local", _cache)]));
     }
+
+    [Fact]
+    public async Task A_directory_move_cannot_carry_files_the_module_has_no_grant_for()
+    {
+        Directory.CreateDirectory(Path.Combine(_local, "shared", "deep"));
+        File.WriteAllText(Path.Combine(_local, "shared", "deep", "note.txt"), "not yours");
+        Directory.CreateDirectory(Path.Combine(_local, "mine"));
+        var (fs, _) = Make(["fs:local/shared", "fs:local/mine/*"]);
+
+        Assert.Throws<ModuleFsRefusedException>(() => fs.Move("local/shared", "local/mine/taken"));
+
+        Assert.True(File.Exists(Path.Combine(_local, "shared", "deep", "note.txt")));
+        Assert.False(Directory.Exists(Path.Combine(_local, "mine", "taken")));
+        await Assert.ThrowsAsync<ModulePermissionDeniedException>(async () => await fs.ReadAllBytesAsync("local/shared/deep/note.txt", Ct));
+    }
+
+    [Fact]
+    public void CreateDirectory_does_not_create_the_directories_above_a_grant()
+    {
+        var (fs, _) = Make(["fs:local/a/b/*"]);
+
+        Assert.Throws<ModuleFsRefusedException>(() => fs.CreateDirectory("local/a/b/c"));
+        Assert.False(Directory.Exists(Path.Combine(_local, "a")));
+
+        Directory.CreateDirectory(Path.Combine(_local, "a", "b"));
+        fs.CreateDirectory("local/a/b/c");
+        Assert.True(Directory.Exists(Path.Combine(_local, "a", "b", "c")));
+    }
+
+    [Theory]
+    [InlineData("local/a:stream")]
+    [InlineData("local/CON")]
+    [InlineData("local/x.")]
+    [InlineData("/local/x")]
+    [InlineData("local/x/")]
+    [InlineData("local")]
+    public void A_path_refused_by_a_file_name_rule_is_still_audited_when_it_is_not_granted(string path)
+    {
+        var (fs, sink) = Make(["fs:cache/*"]);
+
+        Assert.ThrowsAny<UnauthorizedAccessException>(() => fs.Exists(path));
+
+        Assert.Single(sink.Denials);
+    }
+
+    [Fact]
+    public void An_over_long_or_over_deep_path_is_audited_when_it_is_not_granted()
+    {
+        var (fs, sink) = Make(["fs:cache/*"], new ModuleFsOptions(MaxPathLength: 16, MaxSegments: 3));
+
+        Assert.ThrowsAny<UnauthorizedAccessException>(() => fs.Exists("local/" + new string('a', 20)));
+        Assert.ThrowsAny<UnauthorizedAccessException>(() => fs.Exists("local/a/b/c/d"));
+
+        Assert.Equal(2, sink.Denials.Count);
+    }
+
+    [Fact]
+    public void A_cross_root_move_is_audited_once_for_each_end_that_is_not_granted()
+    {
+        var (fs, sink) = Make(["fs:local/*"]);
+        File.WriteAllText(Path.Combine(_local, "a.txt"), "a");
+
+        Assert.Throws<ModulePermissionDeniedException>(() => fs.Move("local/a.txt", "cache/a.txt"));
+
+        Assert.Single(sink.Denials);
+        Assert.True(File.Exists(Path.Combine(_local, "a.txt")));
+    }
+
+    [Fact]
+    public void Roots_that_are_a_filesystem_root_or_contain_one_another_are_refused()
+    {
+        var fsRoot = Path.GetPathRoot(_local)!;
+        Assert.Throws<ArgumentException>(() => new ModuleFsRoots(new Dictionary<string, string> { ["sys"] = fsRoot }));
+        Assert.Throws<ArgumentException>(() => new ModuleFsRoots([new("local", _base), new("cache", _cache)]));
+        Assert.Throws<ArgumentException>(() => new ModuleFsRoots([new("cache", _cache), new("local", _base)]));
+        Assert.Throws<ArgumentException>(() => new ModuleFsRoots([new("one", _local), new("two", _local + Path.DirectorySeparatorChar)]));
+
+        // A sibling whose name only starts with the other's name is not inside it.
+        _ = new ModuleFsRoots([new("local", _local), new("other", _local + "-2")]);
+    }
+
+    [Fact]
+    public void A_whole_file_limit_larger_than_an_array_is_refused()
+    {
+        var sink = new ListSink();
+        var gate = new ModulePermissionGate(sink, TimeProvider.System);
+        var roots = new ModuleFsRoots(new Dictionary<string, string> { ["local"] = _local });
+        var options = new ModuleFsOptions(MaxFileBytes: (long)Array.MaxLength + 1, MaxRootBytes: long.MaxValue);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ModuleFileSystem(gate, _module, roots, options));
+    }
 }

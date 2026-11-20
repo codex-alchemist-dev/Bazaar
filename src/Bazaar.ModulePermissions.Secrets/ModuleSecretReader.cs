@@ -48,7 +48,8 @@ public sealed class ModuleSecretReader
         _gate = gate;
         _store = store;
         _moduleId = moduleId;
-        // The store's policy grants this component by name, so an operator can scope it to the module's own prefix.
+        // The store's policy grants this component by name. Whatever that grant allows, Map keeps every read inside the
+        // module's own mod_<id>_ names.
         _caller = new HostCaller("module." + moduleId);
     }
 

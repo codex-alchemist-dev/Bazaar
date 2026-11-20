@@ -46,7 +46,8 @@ public sealed class ModuleFileSystem
         _moduleId = moduleId;
         _roots = roots;
         _options = options ?? new ModuleFsOptions();
-        if (_options.MaxPathLength < 1 || _options.MaxSegments < 1 || _options.MaxFileBytes < 0 || _options.MaxEnumerateEntries < 0)
+        if (_options.MaxPathLength < 1 || _options.MaxSegments < 1 || _options.MaxFileBytes < 0 || _options.MaxEnumerateEntries < 0
+            || _options.MaxFileBytes > Array.MaxLength)
         {
             throw new ArgumentOutOfRangeException(nameof(options), "A limit must not be negative or zero.");
         }
@@ -134,7 +135,7 @@ public sealed class ModuleFileSystem
     public void Delete(string path)
     {
         var parsed = Parse(path, allowRootOnly: false);
-        var full = Confine(path, parsed);
+        var full = Confine(parsed);
         var usage = UsageOf(parsed.Root);
         Guard(() =>
         {
@@ -154,12 +155,20 @@ public sealed class ModuleFileSystem
         });
     }
 
-    /// <summary>Creates a directory and any missing directories above it, all below the root.</summary>
+    /// <summary>
+    /// Creates one directory. The directory above it must exist: creating missing parents would write to paths the demanded
+    /// one does not cover (a grant of <c>fs:local/a/b/*</c> covers neither <c>local/a</c> nor <c>local/a/b</c>).
+    /// </summary>
     public void CreateDirectory(string path)
     {
         var full = Resolve(path, allowRootOnly: false);
         Guard(() =>
         {
+            if (!Directory.Exists(Path.GetDirectoryName(full)))
+            {
+                throw Refuse("The directory above does not exist.");
+            }
+
             Directory.CreateDirectory(full);
             RecheckLinks(path);
             return true;
@@ -202,8 +211,9 @@ public sealed class ModuleFileSystem
     }
 
     /// <summary>
-    /// Moves a file or directory inside one root. Both ends are checked against the gate and both are confined; the
-    /// destination must not exist. A move from one root to another is refused.
+    /// Moves one file inside one root. Both ends are checked against the gate and both are confined; the destination must
+    /// not exist. A move from one root to another is refused, and so is a directory: moving a directory would carry
+    /// everything below it, which the two demanded paths do not cover.
     /// </summary>
     public void Move(string source, string destination)
     {
@@ -211,14 +221,12 @@ public sealed class ModuleFileSystem
         var to = Parse(destination, allowRootOnly: false);
         if (!string.Equals(from.Root, to.Root, StringComparison.Ordinal))
         {
-            // Still demand both so the attempt is audited when a grant is missing, then refuse the crossing either way.
-            Demand(source);
-            Demand(destination);
+            // Both ends were demanded when they were parsed, so a missing grant is audited before this refusal.
             throw Refuse("A move must stay inside one root.");
         }
 
-        var fullFrom = Confine(source, from);
-        var fullTo = Confine(destination, to);
+        var fullFrom = Confine(from);
+        var fullTo = Confine(to);
         Guard(() =>
         {
             if (File.Exists(fullFrom))
@@ -227,7 +235,7 @@ public sealed class ModuleFileSystem
             }
             else if (Directory.Exists(fullFrom))
             {
-                Directory.Move(fullFrom, fullTo);
+                throw Refuse("A directory cannot be moved.");
             }
             else
             {
@@ -272,7 +280,7 @@ public sealed class ModuleFileSystem
     private ModuleFsQuotaStream OpenWritable(string path, bool append, FileOptions options = FileOptions.None, long? replaceWith = null)
     {
         var parsed = Parse(path, allowRootOnly: false);
-        var full = Confine(path, parsed);
+        var full = Confine(parsed);
         var usage = UsageOf(parsed.Root);
         usage.EnsureMeasured();
         FileStream? stream = null;
@@ -364,22 +372,28 @@ public sealed class ModuleFileSystem
         return total;
     }
 
-    private string Resolve(string path, bool allowRootOnly) => Confine(path, Parse(path, allowRootOnly));
+    private string Resolve(string path, bool allowRootOnly) => Confine(Parse(path, allowRootOnly));
 
     private void Demand(string path) => _gate.Demand(_moduleId, new ModuleAccess(ModulePermissionClasses.FileSystem, path));
 
-    private (string Root, string[] Segments) Parse(string path, bool allowRootOnly)
+    private (string Root, string[] Segments) Parse(string path, bool allowRootOnly, bool demand = true)
     {
         ArgumentNullException.ThrowIfNull(path);
+
+        // The gate is asked before any rule here can refuse, so every refused call is audited too (doc 48 section 1: "refused
+        // and audited"). A target the gate cannot match is recorded as an invalid target, by its length only.
+        if (demand)
+        {
+            Demand(path);
+        }
+
         if (path.Length > _options.MaxPathLength)
         {
             throw Refuse("The path is longer than the limit.");
         }
 
-        // A target the gate cannot match is audited as an invalid target; the gate drops the text and keeps only its length.
         if (!ModuleTargetRules.IsValidTarget(path))
         {
-            Demand(path);
             throw Refuse("The path is not a clean module path.");
         }
 
@@ -410,9 +424,8 @@ public sealed class ModuleFileSystem
         return (parts[0], parts[1..]);
     }
 
-    private string Confine(string path, (string Root, string[] Segments) parsed)
+    private string Confine((string Root, string[] Segments) parsed)
     {
-        Demand(path);
         if (!_roots.TryGetDirectory(parsed.Root, out var rootFull))
         {
             throw Refuse("The root is not known.");
@@ -446,7 +459,7 @@ public sealed class ModuleFileSystem
     // Walks the path again; the demand was already made, so this only repeats the link check.
     private void RecheckLinks(string path)
     {
-        var parsed = Parse(path, allowRootOnly: false);
+        var parsed = Parse(path, allowRootOnly: false, demand: false);
         if (!_roots.TryGetDirectory(parsed.Root, out var current))
         {
             throw Refuse("The root is not known.");
