@@ -39,7 +39,7 @@ public sealed class EmbeddingsComponent : IBazaarComponent
         services.TryAddSingleton<IEmbeddingSettingSource, DefaultEmbeddingSettingSource>();
         services.TryAddSingleton<IEmbeddingProviderRegistry>(sp => new EmbeddingProviderRegistry(
             sp.GetRequiredService<IOptions<EmbeddingOptions>>(),
-            sp.GetService<IGatewayEmbeddingClient>(),
+            sp.GetService<Bazaar.Server.Gateway.IModelGateway>(),
             sp.GetService<Bazaar.Server.Secrets.ISecretResolver>()));
         services.TryAddSingleton<IEmbeddingProfileStore, PostgresEmbeddingProfileStore>();
         services.TryAddSingleton<IActiveEmbeddingSelector, ActiveEmbeddingSelector>();

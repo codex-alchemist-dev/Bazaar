@@ -1,3 +1,4 @@
+using Bazaar.Server.Gateway;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Options;
 
@@ -11,7 +12,7 @@ public sealed class EmbeddingProviderRegistry : IEmbeddingProviderRegistry, IDis
 
     public EmbeddingProviderRegistry(
         IOptions<EmbeddingOptions> options,
-        IGatewayEmbeddingClient? gateway = null,
+        IModelGateway? gateway = null,
         ISecretResolver? secrets = null,
         Func<EmbeddingProviderOptions, HttpClient>? httpClientFactory = null)
     {
@@ -34,7 +35,7 @@ public sealed class EmbeddingProviderRegistry : IEmbeddingProviderRegistry, IDis
                 EmbeddingProviderKind.OpenAiCompatible => new OpenAiCompatibleEmbeddingProvider(CreateClient(entry, httpClientFactory), entry, secrets),
                 EmbeddingProviderKind.Gateway => new GatewayEmbeddingProvider(
                     gateway ?? throw new InvalidOperationException(
-                        $"Embedding provider '{entry.Id}' uses the gateway, which has no embeddings call yet (blocked on the Gateway work)."),
+                        $"Embedding provider '{entry.Id}' uses the gateway, but no model gateway is registered."),
                     entry),
                 _ => throw new InvalidOperationException($"Embedding provider '{entry.Id}' has an unknown kind."),
             };

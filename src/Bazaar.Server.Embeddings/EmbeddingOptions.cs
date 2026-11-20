@@ -37,4 +37,11 @@ public sealed class EmbeddingProviderOptions
     public int BatchSize { get; set; } = 32;
 
     public int TimeoutSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Gateway only: the agent id the gateway call is made under, so its policy and usage rows apply. Embedding is system work with no
+    /// agent behind it, so it uses a system identity (like <c>bazaar-archive</c>), and that identity's policy must allow the install's
+    /// embedding route.
+    /// </summary>
+    public string GatewayAgentId { get; set; } = "bazaar-embeddings";
 }

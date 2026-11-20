@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Bazaar.Server.Gateway.Fakes;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Options;
 
@@ -201,7 +202,7 @@ public class RegistryTests
     }
 
     [Fact]
-    public void Gateway_kind_fails_clearly_while_the_gateway_has_no_embeddings_call()
+    public void Gateway_kind_without_a_registered_gateway_fails_clearly()
     {
         var options = Microsoft.Extensions.Options.Options.Create(new EmbeddingOptions
         {
@@ -209,7 +210,21 @@ public class RegistryTests
         });
 
         var ex = Assert.Throws<InvalidOperationException>(() => new EmbeddingProviderRegistry(options));
-        Assert.Contains("Gateway", ex.Message);
+        Assert.Contains("gateway", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Gateway_kind_builds_over_the_model_gateway()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new EmbeddingOptions
+        {
+            Providers = [new() { Id = "gw", Kind = EmbeddingProviderKind.Gateway, ModelId = "m", Dimensions = 4 }],
+        });
+
+        using var registry = new EmbeddingProviderRegistry(options, new FakeModelGateway(new FakeProvider()));
+
+        Assert.True(registry.TryGet("gw", out var provider));
+        Assert.IsType<GatewayEmbeddingProvider>(provider);
     }
 
     [Fact]

@@ -236,6 +236,38 @@ public class IndexerTests
     }
 
     [Fact]
+    public async Task A_block_that_is_too_long_is_skipped_and_the_rest_of_the_batch_is_embedded()
+    {
+        var profile = new EmbeddingProfile(Guid.NewGuid(), "fake", FakeEmbeddingProvider.DefaultModelId, 8, DateTimeOffset.UnixEpoch, true);
+        var provider = new TooLongProvider(new FakeEmbeddingProvider(), "huge");
+        var selector = new ActiveEmbeddingSelector(new FakeSettingSource("fake"), new FakeProfileStore(profile), new FakeRegistry(("fake", provider)));
+        var store = new InMemoryIndexStore();
+        store.Blocks.Add(new PendingBlock(_doc1, 0, "fine", Hash(1)));
+        store.Blocks.Add(new PendingBlock(_doc1, 1, "huge", Hash(2)));
+        store.Blocks.Add(new PendingBlock(_doc1, 2, "also fine", Hash(3)));
+
+        var result = await new EmbeddingIndexer(selector, store, new FencedPersonalDataBlockDetector(), 8).RunOnceAsync(CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Equal(2, result.Embedded);
+        Assert.Equal(1, result.TooLong);
+        Assert.Equal(2, store.Stored.Count);
+    }
+
+    [Fact]
+    public async Task A_retry_later_failure_ends_the_sweep_with_the_message()
+    {
+        var (indexer, store, provider) = Create();
+        provider.FailWith = new EmbeddingRetryLaterException("route unset");
+        store.Blocks.Add(new PendingBlock(_doc1, 0, "text", Hash(1)));
+
+        var result = await indexer.RunOnceAsync(CancellationToken.None);
+
+        Assert.Equal("route unset", result.Error);
+        Assert.Empty(store.Stored);
+    }
+
+    [Fact]
     public async Task A_profile_mismatch_is_reported_and_nothing_is_embedded()
     {
         var profile = new EmbeddingProfile(Guid.NewGuid(), "fake", FakeEmbeddingProvider.DefaultModelId, 8, DateTimeOffset.UnixEpoch, true);
