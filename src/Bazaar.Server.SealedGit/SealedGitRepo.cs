@@ -1,11 +1,14 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Bazaar.Server.SealedStorage;
 
 namespace Bazaar.Server.SealedGit;
 
-/// <summary>Opens <see cref="SealedGitRepo"/> instances over an <see cref="ISealedStore"/>.</summary>
+/// <summary>Opens <see cref="SealedGitRepo"/> instances over an <see cref="ISealedStore"/>. Creating the factory wipes stale <c>bazaar-sealedgit-*</c> folders under the temp root (once per process).</summary>
 public sealed class SealedGitRepoFactory : ISealedGitRepoFactory
 {
+    private static readonly ConcurrentDictionary<string, bool> _swept = new(StringComparer.Ordinal);
+
     private readonly ISealedStore _store;
     private readonly ISealAuditSink _audit;
     private readonly SealedGitOptions _options;
@@ -16,6 +19,22 @@ public sealed class SealedGitRepoFactory : ISealedGitRepoFactory
         _store = store;
         _audit = audit;
         _options = options;
+        SweepStale(options, audit);
+    }
+
+    /// <summary>Wipes stale temp folders of crashed runs under the temp root, once per process and root. Assumes one Bazaar server per temp root.</summary>
+    public static void SweepStale(SealedGitOptions options, ISealAuditSink audit)
+    {
+        var root = Path.GetFullPath(options.TempRoot ?? Path.GetTempPath());
+        if (!_swept.TryAdd(root, true))
+        {
+            return;
+        }
+
+        foreach (var failure in SecureTemp.SweepStale(root))
+        {
+            SealedGitRepo.AuditSafe(audit, "sealgit.wipe_failed", "*", $"Stale temp sweep under {root}: {failure.Message}");
+        }
     }
 
     public ISealedGitRepo Open(string name)
@@ -35,14 +54,31 @@ public sealed class SealedGitRepoFactory : ISealedGitRepoFactory
 
 /// <summary>
 /// A bare git repo kept as sealed files (doc 61 Q1). Only <see cref="WithWorkingTreeAsync{T}"/> and <see cref="ExportAsync"/> ever
-/// put plaintext on disk, in a temp folder that is zero-wiped afterwards. Sealed paths mirror the git dir layout.
+/// put plaintext on disk, in an owner-only temp folder that is zero-wiped afterwards. Sealed paths mirror the git dir layout.
+/// The callback receives only the git dir; everything it leaves there is sealed, except <c>hooks/</c>, links, git lock and temp files,
+/// and a <c>config</c> that has keys outside a small allowlist.
 /// </summary>
 public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
 {
+    private const long MaxFileBytes = 256L * 1024 * 1024;
+
+    private static readonly string[] _requiredDirs = ["refs/heads", "refs/tags", "objects/info", "objects/pack"];
+
+    private static readonly HashSet<string> _allowedConfigKeys = new(StringComparer.Ordinal)
+    {
+        "core.repositoryformatversion",
+        "core.filemode",
+        "core.bare",
+        "core.logallrefupdates",
+        "user.name",
+        "user.email",
+    };
+
     private readonly ISealedStore _store;
     private readonly ISealAuditSink _audit;
     private readonly SealedGitOptions _options;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private int _warnedTempRoot;
 
     public SealedGitRepo(string scope, ISealedStore store, ISealAuditSink audit, SealedGitOptions options)
     {
@@ -60,19 +96,46 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
     {
         ArgumentNullException.ThrowIfNull(work);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        var temp = CreateTempDir();
         try
         {
-            using var scope = await _store.OpenScopeAsync(Scope, cancellationToken).ConfigureAwait(false);
-            var gitDir = Path.Combine(temp, "git");
-            var snapshot = await MaterialiseAsync(scope, gitDir, cancellationToken).ConfigureAwait(false);
-            var result = await work(gitDir).ConfigureAwait(false);
-            await ResealAsync(scope, gitDir, snapshot, cancellationToken).ConfigureAwait(false);
+            string? temp = null;
+            T result;
+            try
+            {
+                if (_options.TempRoot is null && Interlocked.Exchange(ref _warnedTempRoot, 1) == 0)
+                {
+                    await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealgit.temp_root_default", Scope, null, "TempRoot is not configured; plaintext working copies use the system temp folder. Point it at tmpfs or the encrypted volume."), CancellationToken.None).ConfigureAwait(false);
+                }
+
+                temp = CreateTempDir();
+                using var scope = await _store.OpenScopeAsync(Scope, cancellationToken).ConfigureAwait(false);
+                var gitDir = Path.Combine(temp, "git");
+                var snapshot = await MaterialiseAsync(scope, gitDir, cancellationToken).ConfigureAwait(false);
+                result = await work(gitDir).ConfigureAwait(false);
+
+                // The work is done: finishing the re-seal is not cancellable, or refs and packs could be left half written.
+                await ResealAsync(scope, gitDir, snapshot, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (temp is not null)
+                {
+                    await WipeAsync(temp).ConfigureAwait(false);
+                }
+
+                throw;
+            }
+
+            var failure = await WipeAsync(temp).ConfigureAwait(false);
+            if (failure is not null)
+            {
+                throw new IOException("The plaintext working copy could not be fully wiped; see the sealgit.wipe_failed audit event.", failure);
+            }
+
             return result;
         }
         finally
         {
-            WipeAndDelete(temp);
             _gate.Release();
         }
     }
@@ -80,18 +143,40 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
     public async Task<int> ExportAsync(string targetDir, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(targetDir);
-        if (Directory.Exists(targetDir) && Directory.EnumerateFileSystemEntries(targetDir).Any())
-        {
-            throw new IOException("Export target must be missing or empty.");
-        }
-
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var target = Path.GetFullPath(targetDir);
         try
         {
-            using var scope = await _store.OpenScopeAsync(Scope, cancellationToken).ConfigureAwait(false);
-            var snapshot = await MaterialiseAsync(scope, targetDir, cancellationToken).ConfigureAwait(false);
-            await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealgit.export", Scope, null, $"{snapshot.Count} files exported in plaintext"), cancellationToken).ConfigureAwait(false);
-            return snapshot.Count;
+            await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealgit.export.start", Scope, null, $"Export to {target}"), CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                var info = new DirectoryInfo(target);
+                if (SecureTemp.IsLink(info))
+                {
+                    throw new IOException("Export target must not be a link.");
+                }
+
+                if (info.Exists && info.EnumerateFileSystemInfos().Any())
+                {
+                    throw new IOException("Export target must be missing or empty.");
+                }
+
+                if (!info.Exists)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    SecureTemp.CreateOwnerOnly(target);
+                }
+
+                using var scope = await _store.OpenScopeAsync(Scope, cancellationToken).ConfigureAwait(false);
+                var snapshot = await MaterialiseAsync(scope, target, cancellationToken).ConfigureAwait(false);
+                await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealgit.export", Scope, null, $"{snapshot.Count} files exported in plaintext to {target}"), CancellationToken.None).ConfigureAwait(false);
+                return snapshot.Count;
+            }
+            catch (Exception ex)
+            {
+                await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealgit.export.failed", Scope, null, $"Export to {target} failed: {ex.GetType().Name}"), CancellationToken.None).ConfigureAwait(false);
+                throw;
+            }
         }
         finally
         {
@@ -99,17 +184,53 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
         }
     }
 
-    private string CreateTempDir()
+    internal static void AuditSafe(ISealAuditSink audit, string kind, string scope, string detail)
     {
-        var root = _options.TempRoot ?? Path.GetTempPath();
-        var dir = Path.Combine(root, "bazaar-sealedgit-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        if (!OperatingSystem.IsWindows())
+        try
         {
-            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, kind, scope, null, detail), CancellationToken.None).AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // An audit failure must not hide the original problem.
+        }
+    }
+
+    private async Task<Exception?> WipeAsync(string temp)
+    {
+        var failure = SecureTemp.WipeAndDelete(temp);
+        if (failure is not null)
+        {
+            try
+            {
+                await _audit.RecordAsync(new SealAuditEvent(DateTimeOffset.UtcNow, "sealgit.wipe_failed", Scope, null, $"Wipe of {temp} failed: {failure.Message}"), CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // Same: do not hide the wipe failure.
+            }
         }
 
+        return failure;
+    }
+
+    private string CreateTempDir()
+    {
+        var root = Path.GetFullPath(_options.TempRoot ?? Path.GetTempPath());
+        Directory.CreateDirectory(root);
+        var dir = Path.Combine(root, SecureTemp.TempPrefix + Guid.NewGuid().ToString("N"));
+        SecureTemp.CreateOwnerOnly(dir);
         return dir;
+    }
+
+    private static bool Sealable(string logicalPath)
+    {
+        var name = logicalPath[(logicalPath.LastIndexOf('/') + 1)..];
+        return !logicalPath.StartsWith("hooks/", StringComparison.Ordinal)
+            && !name.EndsWith(".lock", StringComparison.Ordinal)
+            && !name.StartsWith("tmp_", StringComparison.Ordinal)
+            && !name.StartsWith(".tmp", StringComparison.Ordinal)
+            && name != "gc.pid";
     }
 
     private static async Task<Dictionary<string, (long Generation, byte[] Hash)>> MaterialiseAsync(ISealedScope scope, string gitDir, CancellationToken ct)
@@ -117,6 +238,16 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
         Directory.CreateDirectory(gitDir);
         var snapshot = new Dictionary<string, (long, byte[])>(StringComparer.Ordinal);
         var entries = await scope.ListAsync(ct).ConfigureAwait(false);
+
+        var folded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            if (!folded.Add(entry.Path))
+            {
+                throw new InvalidOperationException($"Sealed paths collide when case is ignored ('{entry.Path}'); restoring would overwrite a file on a case-insensitive file system.");
+            }
+        }
+
         foreach (var entry in entries)
         {
             var file = await scope.ReadAsync(entry.Path, ct).ConfigureAwait(false)
@@ -128,41 +259,109 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
             CryptographicOperations.ZeroMemory(file.Content);
         }
 
-        if (entries.Count == 0)
+        // gc and pack-refs can leave no files under these, so they must exist even when nothing was sealed there.
+        foreach (var dir in _requiredDirs)
         {
-            Directory.CreateDirectory(Path.Combine(gitDir, "objects", "pack"));
-            Directory.CreateDirectory(Path.Combine(gitDir, "refs", "heads"));
-            Directory.CreateDirectory(Path.Combine(gitDir, "refs", "tags"));
+            Directory.CreateDirectory(Path.Combine(gitDir, dir.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        if (!snapshot.ContainsKey("HEAD"))
+        {
             await File.WriteAllTextAsync(Path.Combine(gitDir, "HEAD"), "ref: refs/heads/main\n", ct).ConfigureAwait(false);
+        }
+
+        if (!snapshot.ContainsKey("config"))
+        {
             await File.WriteAllTextAsync(Path.Combine(gitDir, "config"), "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n", ct).ConfigureAwait(false);
         }
 
         return snapshot;
     }
 
-    private static bool IsTransient(string logicalPath)
+    /// <summary>True when every key of the git config text is in the allowlist (no sections with names, no aliases, filters, hooks or fsmonitor).</summary>
+    public static bool ConfigIsSafe(string text)
     {
-        var name = logicalPath[(logicalPath.LastIndexOf('/') + 1)..];
-        return name.EndsWith(".lock", StringComparison.Ordinal)
-            || name.StartsWith("tmp_", StringComparison.Ordinal)
-            || name.StartsWith(".tmp", StringComparison.Ordinal);
-    }
-
-    private static async Task ResealAsync(ISealedScope scope, string gitDir, Dictionary<string, (long Generation, byte[] Hash)> snapshot, CancellationToken ct)
-    {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var file in Directory.EnumerateFiles(gitDir, "*", SearchOption.AllDirectories))
+        var section = string.Empty;
+        foreach (var raw in text.Split('\n'))
         {
-            var logical = Path.GetRelativePath(gitDir, file).Replace(Path.DirectorySeparatorChar, '/');
-            if (IsTransient(logical))
+            var line = raw.Trim();
+            if (line.Length == 0 || line[0] is '#' or ';')
             {
                 continue;
             }
 
+            if (line[0] == '[')
+            {
+                var end = line.IndexOf(']', StringComparison.Ordinal);
+                if (end < 0 || line.Contains('"', StringComparison.Ordinal) || line.Contains('.', StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                section = line[1..end].Trim().ToLowerInvariant();
+                var rest = line[(end + 1)..].Trim();
+                if (rest.Length == 0)
+                {
+                    continue;
+                }
+
+                line = rest;
+            }
+
+            var eq = line.IndexOf('=', StringComparison.Ordinal);
+            var key = (eq < 0 ? line : line[..eq]).Trim().ToLowerInvariant();
+            if (section.Length == 0 || !_allowedConfigKeys.Contains(section + "." + key) || line.EndsWith('\\'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static int Tier(string path) =>
+        path.StartsWith("objects/", StringComparison.Ordinal) ? 0 :
+        path == "HEAD" ? 2 : 1;
+
+    private static async Task ResealAsync(ISealedScope scope, string gitDir, Dictionary<string, (long Generation, byte[] Hash)> snapshot, CancellationToken ct)
+    {
+        var (files, links, _) = SecureTemp.Walk(gitDir);
+        if (links.Count > 0)
+        {
+            throw new InvalidOperationException($"The working copy contains a symbolic link or reparse point ('{Path.GetRelativePath(gitDir, links[0].FullName)}'); links are never sealed. Nothing was sealed.");
+        }
+
+        // Plan everything and check every size before the first write, so a failure leaves the sealed repo untouched.
+        var plan = new List<(string Logical, FileInfo File)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            var logical = Path.GetRelativePath(gitDir, file.FullName).Replace(Path.DirectorySeparatorChar, '/');
+            if (!Sealable(logical))
+            {
+                continue;
+            }
+
+            if (file.Length > MaxFileBytes)
+            {
+                throw new InvalidOperationException($"'{logical}' is larger than the 256 MiB sealed file limit. Nothing was sealed.");
+            }
+
             seen.Add(logical);
-            var bytes = await File.ReadAllBytesAsync(file, ct).ConfigureAwait(false);
+            plan.Add((logical, file));
+        }
+
+        // Order: objects and packs, then packed-refs/refs/config, then HEAD, then deletions. A crash part-way leaves refs that still resolve.
+        foreach (var (logical, file) in plan.OrderBy(p => Tier(p.Logical)).ThenBy(p => p.Logical, StringComparer.Ordinal))
+        {
+            var bytes = await File.ReadAllBytesAsync(file.FullName, ct).ConfigureAwait(false);
             try
             {
+                if (logical == "config" && !ConfigIsSafe(System.Text.Encoding.UTF8.GetString(bytes)))
+                {
+                    continue;
+                }
+
                 if (snapshot.TryGetValue(logical, out var old))
                 {
                     if (!CryptographicOperations.FixedTimeEquals(SHA256.HashData(bytes), old.Hash))
@@ -181,44 +380,9 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
             }
         }
 
-        foreach (var removed in snapshot.Keys.Where(p => !seen.Contains(p)))
+        foreach (var removed in snapshot.Keys.Where(p => !seen.Contains(p) && Sealable(p)).OrderBy(p => p, StringComparer.Ordinal))
         {
             await scope.DeleteAsync(removed, ct).ConfigureAwait(false);
         }
-    }
-
-    internal static void WipeAndDelete(string dir)
-    {
-        if (!Directory.Exists(dir))
-        {
-            return;
-        }
-
-        foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-        {
-            try
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-                var length = new FileInfo(file).Length;
-                using var fs = new FileStream(file, FileMode.Open, FileAccess.Write, FileShare.None);
-                var zeros = new byte[(int)Math.Min(Math.Max(length, 1), 81920)];
-                for (long done = 0; done < length; done += zeros.Length)
-                {
-                    fs.Write(zeros, 0, (int)Math.Min(zeros.Length, length - done));
-                }
-
-                fs.Flush(true);
-            }
-            catch (IOException)
-            {
-                // Best effort: the delete below still removes the name.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Same.
-            }
-        }
-
-        Directory.Delete(dir, recursive: true);
     }
 }
