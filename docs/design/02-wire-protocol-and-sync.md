@@ -111,11 +111,13 @@ interface IPushNotifier { Task WakeAsync(string deviceId, WakeHint hint, Cancell
 record WakeHint(string Kind); // kind only: no gc id, no seq, no text (C41)
 ```
 
+
+
 Codec is chosen in `hello`/`welcome`: text frames JSON; other codecs and transports are optional modules negotiated per connection (doc 90; S6 chose JSON as the default and the floor). Optional server bookkeeping: `device_cursor(device_id, stream, applied_n, applied_ev)`; the client's cursor is authoritative for replay.
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
-Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `board.snapshot`, `board.move`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]
 Registered in doc 03's settings registry. Operator-set, install scope. Values live in Postgres; the defaults ship in this table. Every change is audited (doc 15 `audit_log`). Settings may tighten the wire floors and never loosen them below the shipped defaults.
