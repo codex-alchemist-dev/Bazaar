@@ -2,6 +2,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
@@ -15,7 +16,8 @@ public class PaneModuleTests
     [Fact]
     public void Each_first_party_module_registers_its_own_kind()
     {
-        var expected = new Dictionary<Type, string>
+        // A null kind marks a module that registers a view only (the engine module: engine kinds are namespaced by the engine).
+        var expected = new Dictionary<Type, string?>
         {
             [typeof(KanbanPaneModule)] = PaneKinds.Kanban,
             [typeof(DashboardPaneModule)] = PaneKinds.Dashboard,
@@ -25,17 +27,24 @@ public class PaneModuleTests
             [typeof(RyuseiSchedulePaneModule)] = PaneKinds.RyuseiSchedule,
             [typeof(RoadmapPaneModule)] = PaneKinds.Roadmap,
             [typeof(WorkdayPaneModule)] = PaneKinds.Workday,
+            [typeof(EnginePaneModule)] = null,
         };
 
         Assert.Equal(expected.Count, TestPanes.Modules.Count);
         foreach (var module in TestPanes.Modules)
         {
             var kind = expected[module.GetType()];
-            Assert.Equal(kind, module.Id);
 
             var registry = new PaneRegistry(PaneViews.Instance);
             module.Register(registry, new PaneModuleContext());
 
+            if (kind is null)
+            {
+                Assert.Empty(registry.Kinds);
+                continue;
+            }
+
+            Assert.Equal(kind, module.Id);
             Assert.Equal([kind], registry.Kinds);
         }
     }

@@ -1,16 +1,20 @@
 using System.Text.Json;
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Core.Tests.Panes;
 
 public class WindowPanesTests
 {
+    private static readonly PaneDescriptor[] _windowPanes = [RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane];
+
     [Fact]
     public void Window_panes_are_kanban_then_constellation_with_object_models()
     {
-        var panes = FirstPartyPanes.WindowPanes();
+        var panes = _windowPanes;
 
         Assert.Equal([PaneKinds.Kanban, PaneKinds.Constellation], panes.Select(pane => pane.Kind).ToArray());
         Assert.All(panes, pane => Assert.Equal(JsonValueKind.Object, pane.Model.ValueKind));
@@ -19,7 +23,7 @@ public class WindowPanesTests
     [Fact]
     public void Kanban_pane_title_is_the_ryusei_fuda_board()
     {
-        var kanban = FirstPartyPanes.WindowPanes().Single(pane => pane.Kind == PaneKinds.Kanban);
+        var kanban = _windowPanes.Single(pane => pane.Kind == PaneKinds.Kanban);
 
         Assert.Equal("RyuseiFuda · Board", kanban.Title);
     }
@@ -30,7 +34,7 @@ public class WindowPanesTests
         var reports = new List<string>();
         var registry = TestPanes.CreateRegistry(report: reports.Add);
 
-        foreach (var pane in FirstPartyPanes.WindowPanes())
+        foreach (var pane in _windowPanes)
         {
             registry.Create(pane);
         }
