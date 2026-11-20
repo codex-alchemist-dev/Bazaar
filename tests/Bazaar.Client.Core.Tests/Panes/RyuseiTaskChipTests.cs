@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
@@ -92,7 +94,7 @@ public class RyuseiTaskChipTests
     [Fact]
     public void Board_pane_title_reads_RyuseiFuda_Board()
     {
-        var board = FirstPartyPanes.WindowPanes().Single(p => p.Kind == PaneKinds.Kanban);
+        var board = RyuseiFudaPanes.WindowPane;
 
         Assert.Equal("RyuseiFuda · Board", board.Title);
     }
