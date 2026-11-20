@@ -102,7 +102,7 @@ public sealed class DevOwnerSeedDb : PgFixture, IAsyncLifetime
 
     private static string ReadSchema()
     {
-        var assembly = typeof(RemoteComponent).Assembly;
+        var assembly = typeof(Bazaar.Server.Data.Migrations.MigrateCommand).Assembly;
         var resource = assembly.GetManifestResourceNames().Single(n => n.EndsWith(_schemaResourceSuffix, StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resource)
             ?? throw new InvalidOperationException("The remote auth schema resource is missing.");
