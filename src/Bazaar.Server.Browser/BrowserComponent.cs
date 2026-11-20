@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.Browser.Abstractions;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Browser;
 /// The browser module (doc 16 WP13, doc 14 "Browser (C22)"). It registers the launcher; the host supplies the ports
 /// (profile directory, cookie source, egress policy, taint gate, guest host).
 /// </summary>
-public sealed class BrowserComponent : IBazaarComponent
+public sealed class BrowserComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "browser",

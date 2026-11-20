@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,7 +29,7 @@ public sealed class FreeLlmApiComponentTests
     private static ServiceCollection Register(IConfiguration configuration)
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(configuration, [new FreeLlmApiComponent()]);
+        services.AddCdaxModules(configuration, [new FreeLlmApiComponent()]);
         return services;
     }
 
@@ -49,12 +49,12 @@ public sealed class FreeLlmApiComponentTests
     [Fact]
     public void Gateway_on_with_the_component_disabled_fails_startup_and_names_both_settings()
     {
-        var configuration = Config([.. EnabledValues(), ("Bazaar:Components:freellmapi:Enabled", "false")]);
+        var configuration = Config([.. EnabledValues(), ("Cdax:Modules:freellmapi:Enabled", "false")]);
 
         var ex = Assert.Throws<InvalidOperationException>(() => FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration));
 
         Assert.Contains("Bazaar:Gateway:FreeLlmApi:Enabled", ex.Message);
-        Assert.Contains("Bazaar:Components:freellmapi:Enabled=false", ex.Message);
+        Assert.Contains("Cdax:Modules:freellmapi:Enabled=false", ex.Message);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class FreeLlmApiComponentTests
     [Fact]
     public void Gateway_off_with_the_component_disabled_passes_the_guard()
     {
-        FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(Config([("Bazaar:Components:freellmapi:Enabled", "false")]));
+        FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(Config([("Cdax:Modules:freellmapi:Enabled", "false")]));
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class FreeLlmApiComponentTests
     {
         var services = new ServiceCollection();
         services.AddOptions();
-        services.AddBazaarComponents(Config(), [new FreeLlmApiComponent()]);
+        services.AddCdaxModules(Config(), [new FreeLlmApiComponent()]);
 
         await using var provider = services.BuildServiceProvider(validateScopes: true);
         var options = provider.GetService<IOptions<FreeLlmApiOptions>>()?.Value ?? new FreeLlmApiOptions();

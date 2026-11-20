@@ -1,7 +1,7 @@
 using Bazaar.CompanyIdentity;
-using Bazaar.Core;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyBuild.Abstractions;
+using Cdax.Core;
 
 namespace Bazaar.Server.CompanyBuild.Tests;
 

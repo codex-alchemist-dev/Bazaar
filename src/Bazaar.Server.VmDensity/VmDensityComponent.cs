@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.VmDensity.Abstractions;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.VmDensity;
 /// <see cref="IDensityVmControl"/> onto the platform and the VM lifecycle service. Density control is an optimisation, not a security
 /// control: with any of those three missing the governor admits every start.
 /// </summary>
-public sealed class VmDensityComponent : IBazaarComponent
+public sealed class VmDensityComponent : ICdaxModule
 {
     /// <summary>The component manifest.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

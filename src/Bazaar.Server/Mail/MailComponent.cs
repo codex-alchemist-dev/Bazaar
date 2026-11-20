@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +12,7 @@ namespace Bazaar.Server.Mail;
 /// No mail services are registered yet: the back ends, the inbound and outbound pipelines and the quarantine store are later
 /// work packages (doc 22 WP3 to WP12). Add registrations here as they land, so the component stays the single owner of its services.
 /// </remarks>
-public sealed class MailComponent : IBazaarComponent
+public sealed class MailComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "mail",

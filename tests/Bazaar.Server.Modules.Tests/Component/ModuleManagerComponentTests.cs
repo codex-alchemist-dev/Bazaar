@@ -1,8 +1,9 @@
-using Bazaar.Core;
+using Bazaar.Server.Modules;
 using Bazaar.Server.Modules.Releases;
 using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Modules.Updates;
 using Bazaar.Server.Settings;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,7 +49,7 @@ public class ModuleManagerComponentTests
     public void Component_resolves_the_update_policy_evaluator_and_defer_aging_without_a_host()
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+        services.AddCdaxModules(Config(), [new ModuleManagerComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<UpdatePolicyEvaluator>());
@@ -59,7 +60,7 @@ public class ModuleManagerComponentTests
     public void Component_contributes_every_module_manager_setting_key()
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+        services.AddCdaxModules(Config(), [new ModuleManagerComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var contributions = provider.GetServices<ISettingContribution>().ToList();
@@ -72,7 +73,7 @@ public class ModuleManagerComponentTests
     public void Component_resolves_the_release_candidate_lifecycle()
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+        services.AddCdaxModules(Config(), [new ModuleManagerComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<ReleaseCandidateLifecycle>());
@@ -82,7 +83,7 @@ public class ModuleManagerComponentTests
     public void Component_uses_the_system_clock_when_no_time_provider_is_registered()
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+        services.AddCdaxModules(Config(), [new ModuleManagerComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.Same(TimeProvider.System, provider.GetRequiredService<TimeProvider>());
@@ -95,7 +96,7 @@ public class ModuleManagerComponentTests
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(host);
 
-        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+        services.AddCdaxModules(Config(), [new ModuleManagerComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.Same(host, provider.GetRequiredService<TimeProvider>());
@@ -107,7 +108,7 @@ public class ModuleManagerComponentTests
         var now = new DateTimeOffset(2026, 11, 13, 0, 0, 0, TimeSpan.Zero);
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(new FixedTimeProvider(now));
-        services.AddBazaarComponents(Config(), [new ModuleManagerComponent()]);
+        services.AddCdaxModules(Config(), [new ModuleManagerComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var report = provider.GetRequiredService<DeferAging>().Measure(now.AddDays(31), deferWarnDays: 30);
@@ -122,8 +123,8 @@ public class ModuleManagerComponentTests
         var services = new ServiceCollection();
         var before = services.Count;
 
-        services.AddBazaarComponents(
-            Config(("Bazaar:Components:module-manager:Enabled", "false")),
+        services.AddCdaxModules(
+            Config(("Cdax:Modules:module-manager:Enabled", "false")),
             [new ModuleManagerComponent()]);
 
         Assert.Equal(before, services.Count);

@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.Vault;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,7 +17,7 @@ namespace Bazaar.RyuseiFuda.Roadmap;
 /// on live databases, and the runner refuses a recorded migration whose file is gone, so it cannot move to another namespace.
 /// The component therefore has no migration folder of its own: its id is <c>ryusei-roadmap</c> as doc 38 names it.
 /// </remarks>
-public sealed class RoadmapComponent : IBazaarComponent
+public sealed class RoadmapComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "ryusei-roadmap",

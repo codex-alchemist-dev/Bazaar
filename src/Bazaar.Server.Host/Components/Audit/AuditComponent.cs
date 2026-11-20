@@ -1,8 +1,8 @@
-using Bazaar.Core;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Anchors;
 using Bazaar.Server.Security.Audit.Db;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.Host.Components.Audit;
 /// The Postgres audit log (doc 15) as a Bazaar Component. Registers <see cref="IAuditLog"/> on the shared
 /// <see cref="NpgsqlDataSource"/>. It depends on no other component; the kernel's <c>DatabaseConnection</c> provides the data source.
 /// </summary>
-public sealed class AuditComponent : IBazaarComponent
+public sealed class AuditComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "audit",

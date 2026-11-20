@@ -4,7 +4,7 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 
 ## 1. Short answer
 
-- **The kernel exists; the module boundaries do not yet.** `src/Bazaar.Server/Components/` has `IBazaarComponent`, `ComponentManifest`, `ComponentGraph` (validation and ordering) and `BazaarComponentRegistration` (enable/disable). `HostComponents.All` lists 16 components. GC, Constellation, Vault, Kanban and RyuseiFuda's schedule are registered through it.
+- **The kernel exists; the module boundaries do not yet.** `src/Bazaar.Server/Components/` has `ICdaxModule`, `ComponentManifest`, `ComponentGraph` (validation and ordering) and `BazaarComponentRegistration` (enable/disable). `HostComponents.All` lists 16 components. GC, Constellation, Vault, Kanban and RyuseiFuda's schedule are registered through it.
 - **Server side, the features are folders, not modules.** GC, Constellation and Vault are folders inside the one `Bazaar.Server` assembly. Only Kanban and RyuseiFuda sit in their own project, `Bazaar.Server.Components.Kanban`, and that project also holds RyuseiFuda's layer-2 code. Nothing stops a feature from using another feature's internals, because the assemblies are shared.
 - **Client side, there is no module at all.** The panes for GC, Constellation, Kanban and the dashboard are registered by hand in `Bazaar.Client.Core/Panes/FirstPartyPanes.cs`, which has a `TODO(component)` for the missing client kernel. RyuseiFuda's client view model sits in `Bazaar.Client.Core/Ryusei/`.
 - **So the answer to "Bazaar.Core plus Bazaar.GC etc. that slot in" is: yes, that is the target, and the kernel half is already built. The feature half is not.**
@@ -42,10 +42,10 @@ Status: AUDIT (2026-11-09). Written from the code at this branch's base. Follows
 The owner's picture is right. The target, for each feature `<F>`:
 
 ```
-Bazaar.Core                       kernel: IBazaarComponent, manifests, graph, migrations, DI, wire base
+Bazaar.Core                       kernel: ICdaxModule, manifests, graph, migrations, DI, wire base
 Server (per feature <F>):
   Bazaar.<F>.Abstractions         contracts other modules may reference (no implementation)
-  Bazaar.<F>                      implementation; registers via one AddBazaar<F>() / IBazaarComponent
+  Bazaar.<F>                      implementation; registers via one AddBazaar<F>() / ICdaxModule
   migrations                      Data/Sql/<f>/NNNN_*.sql, its own namespace
 Client (per feature <F>):
   Bazaar.Client.<F>               pane views and view models, referencing Bazaar.Client.Core only
@@ -125,7 +125,7 @@ The owner-signature contract is its own module, not server code. It moved out of
 - `Bazaar.Approvals.Abstractions`: `OwnerSignedPayload` (the `bazaar.owner.v1` byte layout), `IOwnerSignatureVerifier` and its verdicts, `IOwnerNonceStore`, `IOwnerKeyRegistry` and `OwnerDeviceKey`, and `OwnerSignatureCrypto` (the ECDSA P-256 check).
 - `Bazaar.Approvals`: `OwnerSignatureVerifier`, `InMemoryOwnerNonceStore` (tests and dev runs only), and the Postgres stores `Db.PostgresOwnerKeyRegistry` and `Db.PostgresOwnerNonceStore`.
 
-The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
+The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `ICdaxModule`: a component would only restate that.
 
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
 

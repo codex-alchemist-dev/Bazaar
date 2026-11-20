@@ -44,7 +44,7 @@ The manifest is data. The kernel reads it before it runs any component code, so 
 A component implements one interface:
 
 ```csharp
-public interface IBazaarComponent
+public interface ICdaxModule
 {
     ComponentManifest Manifest { get; }
     void AddServices(IServiceCollection services, IConfiguration configuration);
@@ -61,7 +61,7 @@ Lifecycle, in order, for every enabled component:
 6. **Start.** Hosted services run. A component's `BackgroundService`s start through the normal host.
 7. **Stop.** Reverse order.
 
-Enablement comes from settings (`Bazaar:Components:<id>:Enabled`). A disabled component is not registered and its migrations are not applied, but its contracts are still validated so that a dependent that needs it fails at startup, not at first use. Core components cannot be disabled.
+Enablement comes from settings (`Cdax:Modules:<id>:Enabled`). A disabled component is not registered and its migrations are not applied, but its contracts are still validated so that a dependent that needs it fails at startup, not at first use. Core components cannot be disabled.
 
 ## 4. Contracts and dependencies
 
@@ -167,15 +167,15 @@ Until wave 1 lands, new work follows the rule the coordinator relays to running 
 
 Coordinator request: get `Bazaar.Core` ready to become the standalone CDAX Core System repo, dependency-free and product-neutral. This is the audit of `src/Bazaar.Core` at main d7874f05. Nothing here is DECIDED; the two owner questions at the end block the code.
 
-**What Core holds (9 files, about 210 lines).** `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, `IBazaarComponent` and `BazaarComponentRegistration`. It has no reference to `Bazaar.Server`, `Bazaar.Contracts` or any other Bazaar project, and no `AgentId`, company, tenant or Postgres concept.
+**What Core holds (9 files, about 210 lines).** `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, `ICdaxModule` and `BazaarComponentRegistration`. It has no reference to `Bazaar.Server`, `Bazaar.Contracts` or any other Bazaar project, and no `AgentId`, company, tenant or Postgres concept.
 
 **Findings.**
 
 | # | Finding | Where | Effect on standalone use |
 |---|---|---|---|
-| 1 | Two package references: `Microsoft.Extensions.Configuration` and `Microsoft.Extensions.DependencyInjection` | `Bazaar.Core.csproj`; `IBazaarComponent.AddServices(IServiceCollection, IConfiguration)`; `BazaarComponentRegistration` | Core is not dependency-free. The manifest, kind and graph are pure; only the entry point and registration use the two packages. |
-| 2 | Product names in public API: `IBazaarComponent`, `BazaarComponentRegistration.AddBazaarComponents`, namespace `Bazaar.Core`, assembly `Bazaar.Core` | 5 files in Core; `IBazaarComponent` is used in 32 files, `AddBazaarComponents` in 23, `ComponentManifest` in 41 | Not product-neutral. |
-| 3 | Product-specific configuration key `Bazaar:Components:<id>:Enabled` | `BazaarComponentRegistration.IsEnabled`; 14 files reference the key | Hard-coded prefix. |
+| 1 | Two package references: `Microsoft.Extensions.Configuration` and `Microsoft.Extensions.DependencyInjection` | `Bazaar.Core.csproj`; `ICdaxModule.AddServices(IServiceCollection, IConfiguration)`; `BazaarComponentRegistration` | Core is not dependency-free. The manifest, kind and graph are pure; only the entry point and registration use the two packages. |
+| 2 | Product names in public API: `ICdaxModule`, `BazaarComponentRegistration.AddCdaxModules`, namespace `Bazaar.Core`, assembly `Bazaar.Core` | 5 files in Core; `ICdaxModule` is used in 32 files, `AddCdaxModules` in 23, `ComponentManifest` in 41 | Not product-neutral. |
+| 3 | Product-specific configuration key `Cdax:Modules:<id>:Enabled` | `BazaarComponentRegistration.IsEnabled`; 14 files reference the key | Hard-coded prefix. |
 | 4 | A Bazaar rename recorded in generic code: `LegacyIds = { ryusei -> ryusei-schedule }` | `BazaarComponentRegistration` | History of one product's component ids inside the generic kernel. |
 | 5 | Doc comments cite `docs/design/BAZAAR-COMPONENTS.md` and Bazaar terms (migration namespace, `gateway:adapter:openai_chat`) | all Core files | Cosmetic. |
 | 6 | `ComponentManifest.MigrationNamespace` encodes the Bazaar SQL-per-component layout | `ComponentManifest` | Mild: a Postgres-migration convention in the kernel, but it is only a pure string mapping. |
@@ -183,12 +183,14 @@ Coordinator request: get `Bazaar.Core` ready to become the standalone CDAX Core 
 **Proposed split (needs the owner's go-ahead).**
 
 1. `Core` keeps only the pure parts: `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`. No package references. (A separate neutral component interface proved unnecessary: the graph works on manifests alone.)
-2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddBazaarComponents`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter. The namespace stays `Bazaar.Core` in both projects until the owner names the standalone repo, so the split costs no source changes and a later rename is one mechanical pass. Done in the split PR stacked on this one; modules that only read manifests reference `Bazaar.Core` alone.
+2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddCdaxModules`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter. The namespace stays `Bazaar.Core` in both projects until the owner names the standalone repo, so the split costs no source changes and a later rename is one mechanical pass. Done in the split PR stacked on this one; modules that only read manifests reference `Bazaar.Core` alone.
 3. The architecture tests gain a rule that `Bazaar.Core` has no package or project references, so it stays dependency-free once split.
 
 **Owner questions.**
 
-1. **Names.** What are the standalone repo's namespace and public type names? The docs record "CDAX" only as a trademark and the pilot company (`Bazaar.CDAX`), and nowhere as the name of a Core System repo. Renaming `IBazaarComponent` and `Bazaar.Core` touches about 40 files and every component's registration, and the `Bazaar:Components` key is an operator-facing setting that needs a compatibility read of the old key.
+1. **Names.** What are the standalone repo's namespace and public type names? The docs record "CDAX" only as a trademark and the pilot company (`Bazaar.CDAX`), and nowhere as the name of a Core System repo. Renaming `ICdaxModule` and `Bazaar.Core` touches about 40 files and every component's registration, and the `Bazaar:Components` key is an operator-facing setting that needs a compatibility read of the old key.
 2. **Scope of the split.** Is the DI and configuration adapter module (item 2 above) the intended shape, or should Core keep `IServiceCollection` and accept the one package?
 
 Coordination: the "Converge Bazaar and Resibo shared features" thread is adding `Principal` and `Scope` to Core and deleting `ProviderSelector` (#919). This audit touches none of those files; any change there lands through that thread.
+
+**Naming (owner, 2026-11-19: "CDAX Core System").** The standalone Core is `Cdax.Core` (manifest, kind and graph types, no references) and its DI and configuration entry point is `Cdax.Core.Hosting`. The namespaces match the projects. The entry point interface is `ICdaxModule` (was `IBazaarComponent`), the registration is `AddCdaxModules` (was `AddBazaarComponents`), and the enablement setting is `Cdax:Modules:<id>:Enabled` (was `Bazaar:Components:<id>:Enabled`); the old key is still read when the new one is absent, so existing operator settings keep working. `ComponentManifest`, `ComponentKind` and `ComponentGraph` keep their names, because `ModuleManifest` already means the client module manifest in `Bazaar.Contracts`. Sections 1 to 12 still say "Bazaar Component" in prose; that wording is the product term and is unchanged here.

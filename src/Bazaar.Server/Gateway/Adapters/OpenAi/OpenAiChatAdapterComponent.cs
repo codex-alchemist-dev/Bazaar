@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Gateway.Adapters.OpenAi;
 /// The OpenAI-compatible chat wire-family adapter as a Bazaar Component (docs/design/05-model-gateway.md,
 /// docs/design/BAZAAR-COMPONENTS.md). When FreeLLMAPI is enabled, the adapter is wrapped by its routing layer, as before.
 /// </summary>
-public sealed class OpenAiChatAdapterComponent : IBazaarComponent
+public sealed class OpenAiChatAdapterComponent : ICdaxModule
 {
     /// <summary>The adapter name stored on provider rows.</summary>
     public const string WireName = "openai_chat";

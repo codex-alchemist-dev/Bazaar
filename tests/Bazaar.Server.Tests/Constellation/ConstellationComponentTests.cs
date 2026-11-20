@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Graph;
-using Bazaar.Core;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Tiles;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,7 +29,7 @@ public sealed class ConstellationComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<ConstellationTileHandler>();
@@ -49,7 +49,7 @@ public sealed class ConstellationComponentTests
         services.AddSingleton<IConstellationTileSource>(
             new FakeConstellationTileSource(7, [new FakeTileNode("a", 0f, 0f, 0f)]));
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<ConstellationTileHandler>();
@@ -61,11 +61,11 @@ public sealed class ConstellationComponentTests
     public void A_disabled_component_registers_nothing()
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:constellation:Enabled"] = "false" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Cdax:Modules:constellation:Enabled"] = "false" })
             .Build();
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(configuration, [new ConstellationComponent()]);
+        services.AddCdaxModules(configuration, [new ConstellationComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.Null(provider.GetService<ConstellationTileHandler>());
