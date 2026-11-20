@@ -219,6 +219,66 @@ public interface IMailApprovalGateway
     Task<bool> ConsumeAsync(Guid approvalId, CancellationToken ct);
 }
 
+/// <summary>
+/// Thrown by <see cref="IMailApprovalGateway.RequestAsync"/> when the approvals store refuses to take the request. Nothing was filed. The pipeline ends
+/// the send as failed and never asks again. The reason code is a short lower-case code (letters, digits, <c>_</c>, <c>:</c>, <c>.</c>, <c>-</c>, at most
+/// <see cref="MaxReasonCodeLength"/> characters); it never carries mail content or an address.
+/// </summary>
+public sealed class MailApprovalRefusedException : InvalidOperationException
+{
+    /// <summary>The longest reason code kept.</summary>
+    public const int MaxReasonCodeLength = 64;
+
+    /// <summary>The code used when the supplied one is empty or not a plain code.</summary>
+    public const string DefaultReasonCode = "approval_refused";
+
+    public MailApprovalRefusedException(string reasonCode, Exception? inner = null)
+        : base("The approvals queue refused the mail approval request.", inner) => ReasonCode = Sanitize(reasonCode);
+
+    /// <summary>A bounded, non-sensitive code for the audit record.</summary>
+    public string ReasonCode { get; }
+
+    private static string Sanitize(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return DefaultReasonCode;
+        var trimmed = code.Length > MaxReasonCodeLength ? code[..MaxReasonCodeLength] : code;
+        foreach (var c in trimmed)
+        {
+            var plain = c is >= 'a' and <= 'z' or >= '0' and <= '9' or '_' or ':' or '.' or '-';
+            if (!plain) return DefaultReasonCode;
+        }
+
+        return trimmed;
+    }
+}
+
+/// <summary>
+/// What the owner is told when a send dies because the approvals store refused its request (PROPOSED, doc 22). Ids, a bounded reason code, the sender
+/// domain, a recipient count and a time. No subject, body, display name or address (not even a local part) has a field here.
+/// </summary>
+public sealed record OutboundRefusalNotice(
+    string AgentId,
+    Guid MessageId,
+    string ReasonCode,
+    string SenderDomain,
+    int RecipientCount,
+    DateTimeOffset At);
+
+/// <summary>
+/// Port: tells the owner about an outbound send that ended as failed because its approval request was refused. The default is no notice (the
+/// <c>mail.outbound.failed</c> audit row stays either way). A notice that throws never changes the send's terminal state.
+/// </summary>
+public interface IOutboundMailNotices
+{
+    Task PostApprovalRefusedAsync(OutboundRefusalNotice notice, CancellationToken ct);
+}
+
+/// <summary>The fail-closed default: no notice.</summary>
+public sealed class NoOutboundMailNotices : IOutboundMailNotices
+{
+    public Task PostApprovalRefusedAsync(OutboundRefusalNotice notice, CancellationToken ct) => Task.CompletedTask;
+}
+
 /// <summary>Port: the back end that sends for one operator domain.</summary>
 public interface IMailBackendResolver
 {
