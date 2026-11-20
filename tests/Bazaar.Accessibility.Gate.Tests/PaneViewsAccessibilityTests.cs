@@ -3,9 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Bazaar.Accessibility.Avalonia;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Orrery;
 using Bazaar.Client.RyuseiFuda.Panes;
 using Bazaar.Contracts.Panes;
@@ -37,6 +38,7 @@ public class PaneViewsAccessibilityTests
     public void RyuseiFuda_schedule_pane_has_named_controls()
     {
         var registry = PaneRegistry.Compose(
+            PaneViews.Instance,
             [new RyuseiSchedulePaneModule()],
             new PaneModuleContext().With<IRyuseiTriggerActions>(new IdleTriggerActions()));
         var descriptor = new PaneDescriptor(PaneKinds.RyuseiSchedule, "RyuseiFuda · Schedule", string.Empty, JsonElement.Parse(_scheduleModel));
