@@ -32,7 +32,6 @@ public sealed class SettingRegistry
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
-            .Concat(Gateway.GatewaySettings.All)
             .Concat(SecuritySettings.All);
 
     /// <summary>

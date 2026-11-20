@@ -7,13 +7,6 @@ public enum ConstellationGitLayout
     Force,
 }
 
-/// <summary>Orbit radius rule for branches (doc 19 <c>constellation.orbit_radius</c>).</summary>
-public enum ConstellationOrbitRadius
-{
-    Age,
-    Equal,
-}
-
 /// <summary>Where screenshot nodes come from (doc 19 <c>constellation.screenshot_sources</c>).</summary>
 public enum ConstellationScreenshotSource
 {

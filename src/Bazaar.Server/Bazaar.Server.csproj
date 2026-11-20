@@ -4,6 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.CompanyIdentity\Bazaar.CompanyIdentity.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Memory.Abstractions\Bazaar.Server.Memory.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
@@ -16,6 +19,7 @@
     <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Blobs.Abstractions\Bazaar.Server.Blobs.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Install.Abstractions\Bazaar.Install.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Modules.Abstractions\Bazaar.Server.Modules.Abstractions.csproj" />
@@ -31,6 +35,7 @@
     <ProjectReference Include="..\Bazaar.Server.Remote\Bazaar.Server.Remote.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Remote.Abstractions\Bazaar.Server.Remote.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Constellation.Algorithms\Bazaar.Server.Constellation.Algorithms.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
