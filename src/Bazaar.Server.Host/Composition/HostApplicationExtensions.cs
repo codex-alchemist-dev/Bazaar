@@ -56,6 +56,8 @@ public static class HostApplicationExtensions
             services.AddMemoryGraphProjection();
         }
 
+        // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
+        services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);

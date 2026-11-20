@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Settings;
 public sealed class GatewaySettingsTests
 {
     private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
-    private static readonly SettingRegistry _registry = SettingRegistry.Known.With(GatewaySettings.All);
+    private static readonly SettingRegistry _registry = SettingRegistry.WithContributions([new GatewaySettingContribution()]);
 
     private static SettingDefinition Lookup(string name)
     {
