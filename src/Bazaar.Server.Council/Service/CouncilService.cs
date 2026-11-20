@@ -259,7 +259,7 @@ public sealed class CouncilService : ICouncilService
         var scope = followedUp
             ? ballots
             : ballots.Where(ballot => ballot.Phase == BallotPhase.Independent).ToList();
-        var decision = DecideRound(vote, round, scope, await UnanimityBlockedAsync(vote, ct));
+        var decision = await DecideRoundAsync(vote, round, scope, await UnanimityBlockedAsync(vote, ct), ct);
         if (decision.Kind != TallyDecisionKind.Decided || decision.Choice is null)
         {
             throw new InvalidOperationException($"Council vote {voteId:D} is Decided but its ballots no longer decide it.");
