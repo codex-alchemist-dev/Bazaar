@@ -173,7 +173,17 @@ These are invariants, not settings.
 7. **Kill switch and audit.** The kill switch stops every device guest of an agent. Every lifecycle call and every `IDeviceControl` call writes an audit row with the provider kind, the guest id and the argv class, not pixels or logs.
 
 ## 9. Client module
-`Bazaar.Client.Devices` (and `Bazaar.Client.Devices.Abstractions` only if another module needs its contract; otherwise one project) registers a pane that lists the enabled providers, shows their capability report and probe reasons, and shows each running device guest with start, stop and a screen view. It reads the server through the existing module routes; it adds no wire format. It hides itself when no device provider is enabled. Avalonia.Headless tests cover the pane (CLAUDE.md). The Android client is a development console and shows the list and a screen view only.
+`Bazaar.Client.Devices` (and `Bazaar.Client.Devices.Abstractions` only if another module needs its contract; otherwise one project) registers a pane that lists the enabled providers, shows their capability report and probe reasons, and lists each running device guest and its state. Start, stop and a screen view are follow-ups (section 9.1). It reads the server through one new wire request, `vms.devices.list` (section 9.1). It hides itself when no device provider is enabled. Avalonia.Headless tests cover the pane (CLAUDE.md). The Android client is a development console and shows the list only.
+
+
+### 9.1 Wire request `vms.devices.list` (PROPOSED)
+Doc 16 and the existing routes give a client no way to ask which device providers are on and which device guests run, so this adds one read-only request. It is a wire change, so it lands docs first (this section) and follows doc 44's and the wire contract's rules: a typed payload in `Bazaar.Contracts`, source-generated JSON, no new serializer.
+- **Request type** `vms.devices.list`, payload `DeviceListRequest()` (empty record).
+- **Reply** `DeviceListReply(Providers, Guests)`. `DeviceProviderInfo(Kind, GuestOs, Usable, Reason, Isolation, Headless, Save, Checkpoint, Restore, EgressEnforced, MaxConcurrentInstances, Running)` is the capability report of section 4 plus the probe result. `DeviceGuestInfo(VmId, Kind, GuestOs, State)` has no agent name, port, path or screen content.
+- **Who may call it:** the owner principal only. Any other principal gets `not_found`, as the Orrery list does, so a company's device usage is not disclosed.
+- **Only enabled providers appear.** An install with `vms.devices.enabled` empty returns two empty lists, and the client hides the pane.
+- **Server side:** a new module `Bazaar.Server.Vms.Devices` (component `vms-devices`) holds the handler, the `DeviceProvidersComponent` that registers the `vms.devices.*`, `vms.android.*` and `vms.microvm.*` settings through `ISettingContribution`, and registers the setup step of section 7. Providers implement `IDeviceProviderCatalogEntry` (in the device abstractions) to report themselves; the module only reads them.
+- **Screen view is not in v1 of the pane.** A client screen view needs its own request and a decision about how pixels, which are untrusted and may hold secrets (section 8, rule 5), reach a human. It is a follow-up and a separate section.
 
 ## 10. Work packages
 Each is its own module project with tests. The abstractions and node client come first; the three providers follow in parallel. All code uses fakes for the host (`IAndroidHost`, `ISimctlHost`, `IMacVmHelper`, `IMacNodeLink`) so cloud CI makes no emulator, Xcode or Apple calls, as doc 50 does for Windows Sandbox.
