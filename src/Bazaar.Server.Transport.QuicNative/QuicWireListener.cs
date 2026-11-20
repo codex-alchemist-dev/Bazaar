@@ -87,12 +87,11 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
         if (!IsSupported) throw new PlatformNotSupportedException("System.Net.Quic is not available here (MsQuic missing).");
         if (_listener is not null) throw new InvalidOperationException("Already started.");
         var keepAlive = _options.HeartbeatInterval / 2;
-        var alpn = new SslApplicationProtocol(QuicWireSupport.Alpn);
         _listener = await QuicListener.ListenAsync(
             new QuicListenerOptions
             {
                 ListenEndPoint = _options.ListenEndPoint,
-                ApplicationProtocols = [alpn],
+                ApplicationProtocols = QuicWireSupport.CreateApplicationProtocols(),
                 ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(new QuicServerConnectionOptions
                 {
                     DefaultStreamErrorCode = StreamWireConnection.BadFrame,
@@ -103,7 +102,7 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
                     IdleTimeout = _options.HeartbeatInterval * 3,
                     ServerAuthenticationOptions = new SslServerAuthenticationOptions
                     {
-                        ApplicationProtocols = [alpn],
+                        ApplicationProtocols = QuicWireSupport.CreateApplicationProtocols(),
                         ServerCertificate = _options.Certificate,
                         ClientCertificateRequired = false,
                     },

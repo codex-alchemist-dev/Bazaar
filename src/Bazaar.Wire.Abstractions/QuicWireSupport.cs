@@ -1,4 +1,5 @@
 using System.Net.Quic;
+using System.Net.Security;
 
 namespace Bazaar.Wire.Abstractions;
 
@@ -7,6 +8,12 @@ public static class QuicWireSupport
 {
     /// <summary>The ALPN protocol id, as text.</summary>
     public const string Alpn = "bazaar-wire/1";
+
+    /// <summary>The ALPN protocol as <see cref="SslApplicationProtocol"/>; the one place both sides build it from <see cref="Alpn"/>.</summary>
+    public static SslApplicationProtocol ApplicationProtocol { get; } = new(Alpn);
+
+    /// <summary>A fresh ALPN list for <c>SslClientAuthenticationOptions</c>, <c>SslServerAuthenticationOptions</c> and <c>QuicListenerOptions</c>; the server and the client both take it from here.</summary>
+    public static List<SslApplicationProtocol> CreateApplicationProtocols() => [ApplicationProtocol];
 
     /// <summary>Maps a QUIC exception to the close code the peer sent as its application error code (same number), or null when it is not a peer close.</summary>
     public static int? CloseCodeFromException(Exception exception)

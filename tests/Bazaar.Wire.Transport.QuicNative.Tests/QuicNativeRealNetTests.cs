@@ -101,7 +101,7 @@ public sealed class QuicNativeRealNetTests
                 DefaultCloseErrorCode = 0,
                 ClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
-                    ApplicationProtocols = [new SslApplicationProtocol(QuicWireSupport.Alpn)],
+                    ApplicationProtocols = QuicWireSupport.CreateApplicationProtocols(),
                     TargetHost = "localhost",
                     RemoteCertificateValidationCallback = (_, certificate, _, _) => certificate is not null && pin(new X509Certificate2(certificate)),
                 },
