@@ -154,6 +154,28 @@ internal static class ProcessTestSupport
         return port;
     }
 
+    /// <summary>
+    /// A loopback port held by a socket that is bound but never listening: no other process or test can take it, and a connect
+    /// to it is refused. Use it where a test needs a port that nothing listens on for as long as the test runs.
+    /// </summary>
+    public static ReservedPort ReservePort() => new();
+
+    public sealed class ReservedPort : IDisposable
+    {
+        private readonly Socket _socket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+        public ReservedPort()
+        {
+            _socket.ExclusiveAddressUse = true;
+            _socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+            Port = ((IPEndPoint)_socket.LocalEndPoint!).Port;
+        }
+
+        public int Port { get; }
+
+        public void Dispose() => _socket.Dispose();
+    }
+
     public static PostgresProcessOptions OptionsFor(string dataDirectory, int port) => new()
     {
         BinDirectory = "/fake/pg/bin",
