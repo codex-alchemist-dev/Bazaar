@@ -1,6 +1,7 @@
 using Bazaar.Server.Memory.Notes;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Server.Tests.Memory.Notes;
 
@@ -54,13 +55,13 @@ public class SoulGuardTests
     }
 
     [Theory]
-    [InlineData("Key: sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123")]
+    [InlineData("Key: " + FakeSecrets.AnthropicApiKey)]
     [InlineData("Token sk-proj-abcdefghijklmnopqrstuvwx in the body")]
-    [InlineData("Token ghp_abcdefghijklmnopqrstuvwxyz0123456789 here")]
-    [InlineData("Fine-grained github_pat_11ABCDEFG0123456789_abcdefghijk")]
-    [InlineData("AWS id AKIAIOSFODNN7XYZ1234 leaked")]
-    [InlineData("Google AIzaSyA-1234567890abcdefghijklmnopqrstu")]
-    [InlineData("Slack xoxb-1234567890-abcdefghij")]
+    [InlineData("Token " + FakeSecrets.GitHubPat + " here")]
+    [InlineData("Fine-grained " + FakeSecrets.GitHubFineGrainedPat)]
+    [InlineData("AWS id " + FakeSecrets.AwsAccessKeyId + " leaked")]
+    [InlineData("Google " + FakeSecrets.GoogleApiKey)]
+    [InlineData("Slack " + FakeSecrets.SlackBotToken)]
     [InlineData("-----BEGIN RSA PRIVATE KEY-----\nMIIEow")]
     [InlineData("-----BEGIN OPENSSH PRIVATE KEY-----")]
     [InlineData("Authorization: Bearer abcdefghijklmnopqrstuvwxyz.0123456789")]
@@ -322,7 +323,7 @@ public class SoulGuardTests
     [Fact]
     public void Invalid_front_matter_still_gets_the_secret_scan()
     {
-        var result = Check("---\nbroken: [\nkey: sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123\n");
+        var result = Check("---\nbroken: [\nkey: " + FakeSecrets.AnthropicApiKey + "\n");
 
         Assert.Contains(SoulGuardReason.SecretDetected, result.Reasons);
     }

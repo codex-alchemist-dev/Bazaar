@@ -159,3 +159,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 83 | [83-client-patterns-from-resibo.md](83-client-patterns-from-resibo.md) | Client patterns from Resibo (PROPOSED, Resibo exchange) | 8 | 84 |
 | 84 | [84-resibo-exchange-ledger.md](84-resibo-exchange-ledger.md) | Resibo exchange ledger (274 rows, conventions, conflicts, build plan) (PROPOSED, Resibo exchange) | 8 | 84 |
 | 85 | [85-extraction-portability.md](85-extraction-portability.md) | Extracted libraries must work in any .NET project: portability rules, readiness checklist, extension points and audit hook; 49 rows, 16 work packages (PROPOSED) | 8 | 84, 76, 49 |
+| 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
