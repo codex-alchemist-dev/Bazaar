@@ -11,13 +11,3 @@ public interface IEmbeddingProvider
     /// </summary>
     Task<EmbeddingResult> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken);
 }
-
-/// <summary>
-/// The seam the gateway implements to serve embeddings under per-agent policy (doc 05). Blocked on the Gateway work:
-/// <c>IModelGateway</c> has no embeddings call yet, so nothing registers this interface today.
-/// </summary>
-public interface IGatewayEmbeddingClient
-{
-    /// <summary>Embeds the texts with the model the gateway resolves for <paramref name="modelId"/>. Returns one vector per text.</summary>
-    Task<IReadOnlyList<float[]>> EmbedAsync(string modelId, IReadOnlyList<string> texts, CancellationToken cancellationToken);
-}

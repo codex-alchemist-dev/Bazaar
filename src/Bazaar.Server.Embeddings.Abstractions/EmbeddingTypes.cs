@@ -55,3 +55,19 @@ public class EmbeddingException(string message, Exception? inner = null) : Excep
 
 /// <summary>A provider does not produce the active profile's vectors. Vectors of different profiles never mix, so this is a refusal, not a retry.</summary>
 public sealed class EmbeddingProfileMismatchException(string message) : EmbeddingException(message);
+
+/// <summary>
+/// The provider cannot serve the call now but may later without any change (for example the gateway's route is unset, policy denies the
+/// call until an operator fixes it, or no candidate has capacity). The indexer ends the sweep with the message and the next sweep retries.
+/// </summary>
+public sealed class EmbeddingRetryLaterException(string message, int? retryAfterSeconds = null, Exception? inner = null) : EmbeddingException(message, inner)
+{
+    /// <summary>Seconds the upstream asked the caller to wait, when it said so.</summary>
+    public int? RetryAfterSeconds { get; } = retryAfterSeconds;
+}
+
+/// <summary>
+/// One input is longer than the model accepts. It is a failure of that block, not of the batch: the indexer embeds the batch's blocks one
+/// by one, skips the block that is too long (it is never truncated) and carries on.
+/// </summary>
+public sealed class EmbeddingInputTooLongException(string message, Exception? inner = null) : EmbeddingException(message, inner);
