@@ -4,7 +4,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.GitGui.Diff;
 using Bazaar.Client.GitGui.Panes;
 using Bazaar.Contracts.Git;
@@ -245,7 +246,7 @@ public sealed class HeadlessRenderTests
     [AvaloniaFact]
     public void Pane_without_a_client_shows_the_not_connected_error()
     {
-        var registry = PaneRegistry.Compose(GitGuiPanes.Modules, new PaneModuleContext());
+        var registry = PaneRegistry.Compose(new PlainViews(), GitGuiPanes.Modules, new PaneModuleContext());
         var pane = registry.Create(Fixtures.Descriptor("git.prs", """{"provider":"github","repo":"acme/widgets"}"""));
 
         Assert.Contains("Git is not connected to a server.", Texts(registry.CreateView(pane)));

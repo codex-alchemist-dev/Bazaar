@@ -1,5 +1,8 @@
 using System.Text.Json;
-using Bazaar.Client.Core.Panes;
+using Avalonia.Controls;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.GitGui.Merge;
 using Bazaar.Contracts.Git;
 using Bazaar.Contracts.Panes;
 
@@ -38,7 +41,10 @@ internal static class Fixtures
     internal static PaneDescriptor Descriptor(string kind, string json) =>
         new(kind, kind, string.Empty, JsonElement.Parse(json));
 
-    internal static PaneRegistry Registry(IGitGuiClient client, IGitRepoSource? repos = null, params IGitProviderUi[] providers)
+    internal static PaneRegistry Registry(IGitGuiClient client, IGitRepoSource? repos = null, params IGitProviderUi[] providers) =>
+        Registry(client, null, repos, providers);
+
+    internal static PaneRegistry Registry(IGitGuiClient client, IOwnerMergeApprover? approver, IGitRepoSource? repos, params IGitProviderUi[] providers)
     {
         var context = new PaneModuleContext()
             .With(client)
@@ -48,7 +54,12 @@ internal static class Fixtures
             context = context.With(repos);
         }
 
-        return PaneRegistry.Compose(GitGuiPanes.Modules, context);
+        if (approver is not null)
+        {
+            context = context.With(approver);
+        }
+
+        return PaneRegistry.Compose(new PlainViews(), GitGuiPanes.Modules, context);
     }
 }
 
@@ -79,4 +90,13 @@ internal sealed class FakeRepoSource : IGitRepoSource
 
     public Task<IReadOnlyList<GitCommitRow>> ListCommitsAsync(GitRepoRow repo, string branch, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<GitCommitRow>>([new GitCommitRow(Fixtures.Head1, "first commit", "dev", 1)]);
+}
+
+/// <summary>A plain view factory: the title as a text block above the body. The Client.Core factory is not referenced here.</summary>
+internal sealed class PlainViews : IPaneViewFactory
+{
+    public Control Create(IPaneViewModel pane) => new TextBlock { Text = pane.Kind };
+
+    public Control WithTitle(string title, Control body) =>
+        new StackPanel { Children = { new TextBlock { Text = title }, body } };
 }

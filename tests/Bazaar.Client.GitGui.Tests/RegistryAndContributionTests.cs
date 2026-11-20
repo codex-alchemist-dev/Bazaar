@@ -1,5 +1,5 @@
-using Bazaar.Client.Core.Commands;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Commands;
+using Bazaar.Client.Input;
 using Bazaar.Client.GitGui.Diff;
 
 namespace Bazaar.Client.GitGui.Tests;
