@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -72,14 +73,20 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            // The terminal pane comes last in pager order (doc 55, section 7).
+            .. CalcinatoPanes.Modules,
         ];
-        var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
+        var features = CalcinatoTerminalPanes.AddServices(
+            new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current)),
+            terminals);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
+        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -109,6 +116,7 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 

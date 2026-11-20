@@ -128,6 +128,10 @@ The owner-signature contract is its own module, not server code. It moved out of
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
 
+## Calcinato terminal modules (doc 55)
+
+Status: PROPOSED (2026-11-18). Server half: `Bazaar.Server.Terminal` and `Bazaar.Server.Terminal.Abstractions` (component id `terminal`, agent terminals streamed on the `pane` stream). Client half: `Bazaar.Client.Calcinato` (emulator, modal engine, sessions), `Bazaar.Client.Calcinato.Abstractions` and `Bazaar.Client.Calcinato.Pty` (the only home of ConPTY and Unix PTY code). Wire frames: `Bazaar.Contracts.Terminal`. Nothing lands in `Bazaar.Server` or `Bazaar.Client.Core`. The existing `Bazaar.Client.Terminal` is the text-mode head and composes `Bazaar.Client.Calcinato`.
+
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
 
 Docs section this implements: this section (wave 1 of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
