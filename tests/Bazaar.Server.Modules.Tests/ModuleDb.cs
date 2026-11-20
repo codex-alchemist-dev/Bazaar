@@ -1,4 +1,6 @@
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Modules;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
@@ -12,6 +14,14 @@ public sealed class ModuleDb : PgFixture, IAsyncLifetime
 {
     private NpgsqlDataSource? _pool;
 
+    /// <summary>
+    /// The migrations the host runs for this fixture: the server's core files plus the module manager's <c>modules</c> namespace
+    /// embedded in Bazaar.Server.Modules. The same composition as <c>HostMigrations.Source()</c>, without the Vms component files.
+    /// </summary>
+    public static IMigrationSource MigrationSource { get; } = new CompositeMigrationSource(
+        new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
+        new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly));
+
     /// <summary>Pooled data source for this class's database, capped at 12 connections.</summary>
     public new NpgsqlDataSource DataSource => _pool ?? throw new InvalidOperationException("ModuleDb is not initialised.");
 
@@ -23,7 +33,7 @@ public sealed class ModuleDb : PgFixture, IAsyncLifetime
         // A small pool per class: the CI server allows 100 connections in total and test classes run in parallel.
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(MigrationSource, "linux", CancellationToken.None);
     }
 
     /// <summary>Runs a scalar query on the fixture's pool and returns its value as <typeparamref name="T"/>.</summary>

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Modules;
 using Bazaar.Server.Modules.LineMove;
 using Bazaar.Server.Modules.Updates;
 
@@ -11,7 +12,7 @@ namespace Bazaar.Server.Modules.Tests.Persistence;
 /// </summary>
 public sealed partial class ModuleManagerMigrationTests
 {
-    private static readonly EmbeddedMigrationSource _source = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
+    private static readonly EmbeddedMigrationSource _source = new(typeof(ModuleManagerComponent).Assembly);
 
     private static string ModuleSql =>
         Assert.Single(_source.Load("modules"), f => f.Version == 1 && f.Name == "module_manager").Sql;
