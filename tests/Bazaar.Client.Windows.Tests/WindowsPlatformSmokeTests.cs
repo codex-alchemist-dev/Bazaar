@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Preload;
 using Bazaar.Client.Windows;
 
 namespace Bazaar.Client.Windows.Tests;
