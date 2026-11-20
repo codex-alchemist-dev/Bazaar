@@ -327,7 +327,6 @@ src/Bazaar.Server/Email/Quarantine/EmailAddressParser.cs
 src/Bazaar.Server/Email/Quarantine/InboundQuarantineRules.cs
 src/Bazaar.Server/Email/Quarantine/QuarantineDecision.cs
 src/Bazaar.Server/Email/Quarantine/QuarantineReason.cs
-src/Bazaar.Server/Gateway/Adapters/AdapterKind.cs
 src/Bazaar.Server/Gateway/Adapters/Anthropic/AnthropicErrors.cs
 src/Bazaar.Server/Gateway/Adapters/Anthropic/AnthropicMessagesAdapter.cs
 src/Bazaar.Server/Gateway/Adapters/Anthropic/AnthropicMessagesAdapterComponent.cs
@@ -337,12 +336,9 @@ src/Bazaar.Server/Gateway/Adapters/Common/SseReader.cs
 src/Bazaar.Server/Gateway/Adapters/Gemini/GeminiGenerateContentAdapter.cs
 src/Bazaar.Server/Gateway/Adapters/Gemini/GeminiGenerateContentAdapterComponent.cs
 src/Bazaar.Server/Gateway/Adapters/Gemini/GeminiRequestBuilder.cs
-src/Bazaar.Server/Gateway/Adapters/IModelAdapter.cs
-src/Bazaar.Server/Gateway/Adapters/ModelAdapterRegistration.cs
 src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatAdapter.cs
 src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatAdapterComponent.cs
 src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatWire.cs
-src/Bazaar.Server/Gateway/Adapters/ProviderEndpoint.cs
 src/Bazaar.Server/Gateway/Ai/GatewayChatClient.cs
 src/Bazaar.Server/Gateway/Ai/GatewayChatMapping.cs
 src/Bazaar.Server/Gateway/Ai/GatewayModelException.cs
