@@ -70,6 +70,19 @@ The owner decided the scope above. These mechanics fill the gaps the decisions l
 
 **Browser hardening.** Responses carry `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`, plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store` on every `/admin/api` response. The assets use no inline script or style, so the policy needs no `unsafe-inline`. The panel has its own rate-limit bucket `admin` (doc 32 section 7).
 
+### 6. Approvals queue [PROPOSED]
+One shared queue serves the panel's approvals list (`IAdminApprovalSource`) and the mail thread's approval gateway (doc 22 tiers). Projects: `Bazaar.Server.ApprovalQueue.Abstractions` (`IApprovalQueue`, `NewApproval`, `ApprovalItem`, `ApprovalStatus`) and `Bazaar.Server.ApprovalQueue` (Postgres store, service, component id `approval-queue`, depends on `roles` and `audit`). Neither references `Bazaar.Server`. It does not replace the owner-signature contract of `Bazaar.Approvals.Abstractions` (doc 32 section 5a); a request that needs the owner's signature keeps using that, and this queue holds routine tier 1 and tier 2 approvals checked by Roles permissions.
+
+**Status machine.** `Pending` becomes `Approved` or `Denied` once, by a decision. `Approved` becomes `Consumed` once, by a consumer. `Expired` is never stored: a `Pending` item past `ExpiresAt` reads as `Expired`, cannot be decided and is not listed. `Denied`, `Expired` and `Consumed` are final.
+
+**Rules.**
+- The ttl is clamped to 1 minute at least and 30 days at most (constants for now; a setting contribution can replace them).
+- A request needs a kind, a subject and tier 1 or 2. It stores a `PayloadRef` (a pointer), never the contents.
+- A decision needs `Pending`, an approver who is not the requester, and the approval capability (`approve`, doc 48 section 4) at instance scope through `IPermissionChecker`. Agents never hold it. A tier 2 item additionally needs a human approver. The approver's kind comes from their role assignment.
+- Consuming is one guarded `UPDATE ... WHERE status = 'approved' RETURNING`, so it returns true exactly once per approval.
+- Audit: `approval.requested`, `approval.decided` and `approval.consumed`, with the item id, kind, tier and outcome only (no subject, reference or reason).
+- Storage: table `approval_queue_item` in the `approval_queue` migration namespace, raw Npgsql, SQL-first.
+
 ## Open questions for the owner
 1. **Who may use the panel. DECIDED (owner, 2026-11-16): any account with admin rights.** Any admin account can sign in to the panel, with the same permissions as the client admin views. Doc 32 section 6 has one owner per instance and no admin permission yet. The admin permission is named in the roles model of doc 48 section 4 (custom roles win over the fixed table in doc 32 section 6), and doc 32 section 6 must list it as a built-in role template. No new role name is introduced here.
 2. **Can the panel change the module selection and start a rebuild. DECIDED (owner, 2026-11-16): yes, and every rebuild is recorded in the audit log.** Admins can change the module selection and start rebuilds from the web panel, with the same permission check as the client (section 2) and an audit entry for each rebuild (doc 15).
