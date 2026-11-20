@@ -7,12 +7,14 @@ using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.LoopGuard;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
 using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Souls;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -154,6 +156,8 @@ public static class HostCompositionExtensions
             sp.GetRequiredService<IOptions<LoopGuardOptions>>().Value));
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
+        services.AddBazaarSoulBindings();
+        services.AddBazaarLoopTripHandling();
         return services;
     }
 }

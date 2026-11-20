@@ -1,4 +1,5 @@
 using Bazaar.Testing.Replay;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Server.Tests.Testing.Replay;
 
@@ -18,8 +19,8 @@ public class ReplaySanitizerTests
 
     [Theory]
     [InlineData("sk-synthetic")]
-    [InlineData("ghp_synthetic")]
-    [InlineData("xoxb-synthetic")]
+    [InlineData(FakeSecrets.GitHubPat)]
+    [InlineData(FakeSecrets.SlackBotToken)]
     public void Key_like_prefix_in_a_string_field_is_rejected(string value)
     {
         var json = Document($$"""{ "seq": 1, "kind": "gc_message", "text": "token {{value}}", "keys": { "speaker": "agent-alpha" } }""");
