@@ -12,8 +12,7 @@ namespace Bazaar.Client.TimeMachine;
 /// <see cref="ReplayClientException"/> with a message that is safe to show.
 /// </summary>
 /// <remarks>
-/// Message text: the server sends each message's kind-specific payload as JSON and this module has no per-kind decoder yet, so
-/// <see cref="ReplayMessageView.Text"/> is the payload's <c>text</c> string when it has one, otherwise the payload as-is.
+/// Message text: the wire carries no event kind, so every row is decoded as a message by <see cref="ReplayMessageText"/>.
 /// Author labels are the author id, since the replay frame carries no names. The fork reply does not carry the clamped seq, so
 /// <see cref="ReplayForkOutcome.SourceSeq"/> is the seq asked for.
 /// </remarks>
@@ -68,32 +67,7 @@ public sealed class WireReplayClient(IWireRequester requester) : IReplayClient
     }
 
     private static ReplayMessageView ToView(ReplayMessageWire m) =>
-        new(m.MessageId, m.AuthorId.ToString("N")[..8], m.VersionSeq, m.Version, m.Edited, m.Quarantined, TextOf(m.PayloadJson));
-
-    private static string? TextOf(string? payloadJson)
-    {
-        if (string.IsNullOrEmpty(payloadJson))
-        {
-            return null;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(payloadJson);
-            if (doc.RootElement.ValueKind == JsonValueKind.Object
-                && doc.RootElement.TryGetProperty("text", out var text)
-                && text.ValueKind == JsonValueKind.String)
-            {
-                return text.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            // Not JSON: show it as it came.
-        }
-
-        return payloadJson;
-    }
+        new(m.MessageId, m.AuthorId.ToString("N")[..8], m.VersionSeq, m.Version, m.Edited, m.Quarantined, ReplayMessageText.Decode(kind: null, m.PayloadJson));
 
     private static ReplayPartView Part<T>(string name, ReplayPartWire<T> part, Func<T, string> summary) =>
         part.Available && part.Value is { } value

@@ -74,9 +74,10 @@ public class WireReplayClientTests
     }
 
     [Theory]
-    [InlineData("{\"kind\":\"image\"}", "{\"kind\":\"image\"}")]
+    [InlineData("{\"kind\":\"image\"}", "[image message]")]
+    [InlineData("{\"n\":1}", "(no text)")]
     [InlineData("plain words", "plain words")]
-    public async Task Payload_without_a_text_field_is_shown_as_is(string payload, string expected)
+    public async Task Payload_without_a_text_field_is_shown_as_a_neutral_placeholder_or_as_is(string payload, string expected)
     {
         var client = new WireReplayClient(new FakeRequester { Answer = (_, _) => Result(1, 1, payload) });
 

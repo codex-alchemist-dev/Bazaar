@@ -65,7 +65,9 @@ public sealed class ReplayScrubberPaneModule : IPaneModule
         ArgumentNullException.ThrowIfNull(context);
 
         var client = context.Get<IReplayClient>();
-        registry.Register(ReplayScrubberViewModel.PaneKind, descriptor => ReplayScrubberViewModel.FromModel(descriptor.Model, client));
+        // No durable preference store exists in Client.Abstractions yet: without one handed over, the override lasts the session.
+        var preferences = context.Get<IReplayPreferences>() ?? new InMemoryReplayPreferences();
+        registry.Register(ReplayScrubberViewModel.PaneKind, descriptor => ReplayScrubberViewModel.FromModel(descriptor.Model, client, preferences));
         registry.RegisterView<ReplayScrubberViewModel>(vm => ReplayScrubberView.Build(vm));
     }
 }

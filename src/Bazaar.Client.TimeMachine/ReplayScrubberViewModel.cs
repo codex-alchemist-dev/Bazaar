@@ -30,6 +30,7 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
     private readonly IReplayClient? _client;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly Dictionary<long, Guid> _forkRequestIds = [];
+    private readonly IReplayPreferences? _preferences;
     private ReplayViewMode? _viewerOverride;
     private CancellationTokenSource? _playing;
     private int _requestCounter;
@@ -39,8 +40,11 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
         long headSeq,
         ReplayViewMode defaultView,
         IReplayClient? client,
-        Func<TimeSpan, CancellationToken, Task>? delay = null)
+        Func<TimeSpan, CancellationToken, Task>? delay = null,
+        IReplayPreferences? preferences = null)
     {
+        _preferences = preferences;
+        _viewerOverride = preferences?.GetViewerOverride();
         GcId = gcId;
         HeadSeq = Math.Max(0, headSeq);
         CursorSeq = HeadSeq;
@@ -50,7 +54,7 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
     }
 
     /// <summary>Builds the view model from a pane descriptor model.</summary>
-    public static ReplayScrubberViewModel FromModel(JsonElement model, IReplayClient? client)
+    public static ReplayScrubberViewModel FromModel(JsonElement model, IReplayClient? client, IReplayPreferences? preferences = null)
     {
         if (model.ValueKind != JsonValueKind.Object)
         {
@@ -78,7 +82,7 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
             };
         }
 
-        return new ReplayScrubberViewModel(gcId, headSeq, mode, client);
+        return new ReplayScrubberViewModel(gcId, headSeq, mode, client, preferences: preferences);
     }
 
     public string Kind => PaneKind;
@@ -148,6 +152,7 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
     public void SetViewerOverride(ReplayViewMode? mode)
     {
         _viewerOverride = mode;
+        _preferences?.SetViewerOverride(mode);
         Changed?.Invoke();
     }
 

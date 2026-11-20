@@ -15,5 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.TimeMachine\Bazaar.Client.TimeMachine.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Accessibility.Avalonia\Bazaar.Accessibility.Avalonia.csproj" />
   </ItemGroup>
 </Project>
