@@ -53,6 +53,7 @@
     <Project Path="src/Bazaar.Wire.Codec.Cbor/Bazaar.Wire.Codec.Cbor.csproj" />
     <Project Path="src/Bazaar.Wire.Codec.MessagePack/Bazaar.Wire.Codec.MessagePack.csproj" />
     <Project Path="src/Bazaar.Wire.Codec.Protobuf/Bazaar.Wire.Codec.Protobuf.csproj" />
+    <Project Path="src/Bazaar.Wire.Codec.MemoryPack/Bazaar.Wire.Codec.MemoryPack.csproj" />
     <Project Path="src/Bazaar.Wire.Conformance/Bazaar.Wire.Conformance.csproj" />
     <Project Path="src/Bazaar.Server.Transport.QuicNative/Bazaar.Server.Transport.QuicNative.csproj" />
     <Project Path="src/Bazaar.Client.Transport.QuicNative/Bazaar.Client.Transport.QuicNative.csproj" />
@@ -196,6 +197,7 @@
     <Project Path="tests/Bazaar.Wire.Transport.QuicNative.Tests/Bazaar.Wire.Transport.QuicNative.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.MessagePack.Tests/Bazaar.Wire.Codec.MessagePack.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.Protobuf.Tests/Bazaar.Wire.Codec.Protobuf.Tests.csproj" />
+    <Project Path="tests/Bazaar.Wire.Codec.MemoryPack.Tests/Bazaar.Wire.Codec.MemoryPack.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
     <Project Path="tests/Bazaar.Engines.Tests/Bazaar.Engines.Tests.csproj" />

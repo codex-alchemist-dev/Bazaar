@@ -7,7 +7,7 @@ namespace Bazaar.Wire.Generators.Tests;
 
 public class WireCodecGeneratorTests
 {
-    private const string Marker = """
+    internal const string Marker = """
         namespace Bazaar.Contracts.Wire
         {
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple = true)]
@@ -20,7 +20,7 @@ public class WireCodecGeneratorTests
         }
         """;
 
-    private const string OptIn = "[assembly: Bazaar.Wire.Generators.GenerateWireCodec(\"cbor\")]";
+    internal const string OptIn = "[assembly: Bazaar.Wire.Generators.GenerateWireCodec(\"cbor\")]";
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] Files, string Text) Run(string source)
     {
@@ -65,6 +65,59 @@ public class WireCodecGeneratorTests
         Assert.Contains("\"gcId\"", text);
         Assert.Contains("typeof(global::B)", text);
         Assert.Contains("namespace Bazaar.Test.Generated;", text);
+    }
+
+    internal const string MemoryPackOptIn = "[assembly: Bazaar.Wire.Generators.GenerateWireCodec(\"memorypack\")]";
+
+    [Fact]
+    public void The_memorypack_target_emits_a_registry_and_version_tolerant_formatters_in_member_order()
+    {
+        var (diagnostics, files, text) = Run($$"""
+            using Bazaar.Contracts.Wire;
+            {{MemoryPackOptIn}}
+            [WirePayload("a.one")] [WirePayload("a.two")] public sealed record A(int FirstValue, string? Name, System.Collections.Generic.IReadOnlyList<string> Tags);
+            [WirePayload] public sealed record B(System.Guid GcId, A Inner);
+            """);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("WireMemoryPack.g.cs", files);
+        Assert.DoesNotContain("WireCbor.g.cs", files);
+        Assert.Contains("\"a.one\", \"a.two\"", text);
+        Assert.Contains("typeof(global::B)", text);
+        Assert.Contains("WriteObjectHeader(3)", text);
+        Assert.Contains("WriteObjectHeader(2)", text);
+        Assert.Contains("class WireMemoryPackPayloads", text);
+        Assert.Contains("Rt.ReadMemberLengths(ref r, d)", text);
+
+        // Position is the field number: FirstValue is member 0, Name member 1, Tags member 2.
+        Assert.True(text.IndexOf("v.FirstValue", StringComparison.Ordinal) < text.IndexOf("v.Name", StringComparison.Ordinal));
+        Assert.True(text.IndexOf("v.Name", StringComparison.Ordinal) < text.IndexOf("v.Tags", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Both_codec_targets_can_be_requested_in_one_assembly()
+    {
+        var (diagnostics, files, _) = Run($"using Bazaar.Contracts.Wire;\n{OptIn}\n{MemoryPackOptIn}\n[WirePayload] public sealed record A(int X);");
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("WireCbor.g.cs", files);
+        Assert.Contains("WireMemoryPack.g.cs", files);
+    }
+
+    [Fact]
+    public void The_memorypack_target_reports_an_unsupported_type()
+    {
+        var (diagnostics, _, _) = Run($"using Bazaar.Contracts.Wire;\n{MemoryPackOptIn}\n[WirePayload] public sealed record A(System.Type Kind);");
+
+        Assert.Contains(diagnostics, d => d.Id == "BWG003");
+    }
+
+    [Fact]
+    public void The_memorypack_target_output_is_stable_between_runs()
+    {
+        const string Source = "using Bazaar.Contracts.Wire;\n" + MemoryPackOptIn + "\n[WirePayload] public sealed record A(int X); [WirePayload] public sealed record B(string Y);";
+
+        Assert.Equal(Run(Source).Text, Run(Source).Text);
     }
 
     [Fact]

@@ -63,5 +63,8 @@
     <!-- Protobuf codec (doc 90 WP2): Google.Protobuf runtime and the Grpc.Tools protoc build step. Only Bazaar.Wire.Codec.Protobuf (and later the gRPC module) may reference them; newest stable on 2026-11-20. -->
     <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
     <PackageVersion Include="Grpc.Tools" Version="2.85.0" />
+    <!-- MemoryPack codec (doc 90 WP3): the runtime for the module, the full package (with its source generator) for the layout cross-check in the tests. 1.22.0 published 2026-11-11, MIT. -->
+    <PackageVersion Include="MemoryPack.Core" Version="1.22.0" />
+    <PackageVersion Include="MemoryPack" Version="1.22.0" />
   </ItemGroup>
 </Project>
