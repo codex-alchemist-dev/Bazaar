@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <!-- xUnit v3 base classes that module test projects inherit (doc 46 section 10.3). Test-only: Bazaar.Kodo itself stays xUnit-free. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Kodo\Bazaar.Kodo.csproj" />
+  </ItemGroup>
+</Project>
