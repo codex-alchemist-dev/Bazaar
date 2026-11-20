@@ -48,6 +48,8 @@
     <Project Path="src/Bazaar.Core/Bazaar.Core.csproj" />
     <Project Path="src/Bazaar.Install.Abstractions/Bazaar.Install.Abstractions.csproj" />
     <Project Path="src/Bazaar.Install/Bazaar.Install.csproj" />
+    <Project Path="src/Bazaar.Server.Wire.Abstractions/Bazaar.Server.Wire.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Wire/Bazaar.Server.Wire.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts.Abstractions/Bazaar.Server.Interrupts.Abstractions.csproj" />
@@ -106,12 +108,6 @@
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
-    <Project Path="src/Bazaar.Server.Verification/Bazaar.Server.Verification.csproj" />
-    <Project Path="src/Bazaar.Server.Sanitization/Bazaar.Server.Sanitization.csproj" />
-    <Project Path="src/Bazaar.Server.Calendar.Abstractions/Bazaar.Server.Calendar.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Server.Calendar/Bazaar.Server.Calendar.csproj" />
-    <Project Path="src/Bazaar.Server.Org/Bazaar.Server.Org.csproj" />
-    <Project Path="src/Bazaar.Server.Mentions/Bazaar.Server.Mentions.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Remote.Abstractions/Bazaar.Server.Remote.Abstractions.csproj" />
@@ -215,10 +211,6 @@
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Verification.Tests/Bazaar.Server.Verification.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Sanitization.Tests/Bazaar.Server.Sanitization.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Calendar.Tests/Bazaar.Server.Calendar.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Mentions.Tests/Bazaar.Server.Mentions.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
   </Folder>
