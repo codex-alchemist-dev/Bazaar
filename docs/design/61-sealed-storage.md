@@ -53,7 +53,7 @@ Does not protect against: an attacker running as the Bazaar service account on t
 
 ## Work packages (PLANNED)
 1. Module with scopes, file format, manifest and `SealTamperedException`; anchor and audit sink interfaces; tests (this change).
-2. Souls adoption. 3. Memory working copy adoption. 4. Passport/cookie profile adoption (doc 14). 5. Host bootstrap values (doc 03). 6. Audit-log anchor implementation. 7. Plaintext import tool. 8. Kodo health event wiring. 9. KEK rotation rewrap and an authenticated scope index.
+2. Souls adoption. 3. Memory working copy adoption. 4. Passport/cookie profile adoption (doc 14). 5. Host bootstrap values (doc 03). 6. Audit-log anchor implementation. 7. Plaintext import tool (done: `SealedImporter`, verify-then-wipe). 8. Kodo health event wiring. 9. KEK rotation rewrap and an authenticated scope index.
 
 ## Testing
 Round trip; flipped bit anywhere; truncated file; file moved to another path and another scope; older generation restored; file deleted; unknown file added (reported, never read); manifest rolled back with anchor; wrong KEK; concurrent writers with stale generation; crash between file and manifest rename; no plaintext in any file under the root (byte search for a canary string); shred leaves nothing readable.
