@@ -9,7 +9,7 @@ The single path through which every agent model call leaves Bazaar.Server. It en
 ## Decided inputs
 - Bazaar.Server has its own gateway that enforces per-agent policy. No global `auto/*` (CLAUDE.md; Bazaar.Server.md §3).
 - The gateway layer is pluggable per install. FreeLLMAPI has priority support: guided setup, usage and health on the dashboard, a default free-lane preset, manual and custom dynamic routing. OmniRoute, direct provider keys and custom proxies are supported too. Operators may add reverse proxies and local runtimes (Bazaar.md §3).
-- **Claude lane (DECIDED round 4, C14):** the Claude member uses both the owner's Anthropic API key and FreeLLMAPI's free Claude tokens, by availability. This supersedes "Anthropic API keys only" in CLAUDE.md. Usage and cost records keep an `identity` label, `native` or `pooled`. Pro/Max and other subscription logins stay off every route.
+- **Claude lane (DECIDED round 4, C14):** the Claude member uses both the owner's Anthropic API key and FreeLLMAPI's free Claude tokens, by availability. This supersedes "Anthropic API keys only" in CLAUDE.md. Usage and cost records keep an `identity` label, `native` or `pooled`. Pro/Max and other subscription logins stay off every route the gateway or a third party holds; the one exception is the CLI provider of doc 91, where the unmodified `claude` program keeps the login (owner request 2026-11-20, PROPOSED).
 - Haiku-heavy budget for the Claude lane (CLAUDE.md).
 - Secrets: provider records hold references only. Resolution goes through doc 14's server-side `ISecretStore`, which holds provider keys from the start (C05, round 2).
 - Quota state and model policy are owned here (C04). Shared rate buckets live in doc 15's table (C36); this doc owns provider and model limits only.
@@ -128,7 +128,7 @@ Keys are registered in doc 03's settings registry [PROPOSED]. All are install-sc
 | LM Studio / llama.cpp | openai_chat | `http://127.0.0.1:1234/v1` / `:8080/v1` | P: OpenCode docs only |
 | vLLM, custom OpenAI-compatible | openai_chat | operator-set | U / n/a |
 
-Not shipped: GitHub Models (retired 2026-07-30), and any Copilot, Claude Pro/Max, ChatGPT or Gemini CLI subscription login.
+Not shipped: GitHub Models (retired 2026-07-30), and any Copilot, ChatGPT or Gemini CLI subscription login, or a Claude Pro/Max login held by anything other than the CLI provider of doc 91.
 
 ## Behaviour and edge cases
 - Streaming: usage may arrive only at stream end. On abort, record partial usage with `estimated=true`. No retry or fallback once any event reached the agent; a mid-stream failure surfaces the partial result and the error.

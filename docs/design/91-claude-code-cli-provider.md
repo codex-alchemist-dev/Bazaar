@@ -20,7 +20,8 @@ Sources, all read directly:
 
 Facts, stated as the pages state them:
 
-1. **Not allowed:** a third-party developer offering Claude.ai login in their own application, or routing requests through Free, Pro, Max or Ultra plan credentials on behalf of their users. Developers building products on the Agent SDK "should use API key authentication". The Agent SDK page repeats this and adds "unless previously approved".
+0. **Condition:** running Claude Code inside a product or service "requires agreeing to our Commercial Terms of Service", and the binary must not be modified: customers "may not remove, disable, or restrict any authentication method built into it".
+1. **Not allowed:** a third-party developer offering Claude.ai login (the Agent SDK page adds "or rate limits") in their own application, or routing requests through Free, Pro, Max or Ultra plan credentials on behalf of their users. Developers building products on the Agent SDK "should use API key authentication". The Agent SDK page repeats this and adds "unless previously approved".
 2. **Not allowed:** collecting, storing or intermediating Claude.ai credentials or session tokens. Sign-in must complete through Anthropic's own flow.
 3. **Allowed:** "an end user signing in to the unmodified Claude Code binary with their own Claude subscription, including where a platform hosts Claude Code". The binary must not be modified, and no built-in authentication method may be removed or restricted.
 4. **Not allowed:** paying for, reselling or intermediating Claude usage for other people. Each end user authenticates with their own plan, key or cloud credential.
@@ -37,13 +38,16 @@ What this means, plainly. Reading 3 permits the shape the owner wants: the opera
 - **T4.** Sign-in is done by the operator in their own terminal with the unmodified program. The admin panel shows the exact command and the directory; it does not wrap the browser flow.
 - **T5.** One login serves one human. The lane is bound to one `user` principal (the login owner) and is offered only to agents of an install whose human membership is that one person, unless the operator turns the single-person guard off after a recorded acknowledgement that each human must then use their own login (not supported in v1, section 11).
 - **T6.** Off by default. Turning it on needs the operator's acknowledgement of the section 2 summary, stored with a timestamp like the FreeLLMAPI warnings (doc 05, step 2).
-- **T7.** Conservative load: a small concurrency cap and an hourly step cap by default (section 9), so use looks closer to one person's than to a fleet's. These are tightening settings and are never loosened by an agent.
+- **T7.** Conservative load: a small concurrency cap and an hourly step cap by default (section 9), so use looks closer to one person's than to a fleet's. The operator may change them (audited); an agent never can.
 - **T8.** Rate limits and account errors (limit reached, `authentication_failed`, `account_on_hold`, `oauth_org_not_allowed`) stop the lane and raise an admin alert. The module never retries around them, rotates logins or hides the cause.
+- **T10.** The operator accepts the Commercial Terms for hosting the program (recorded with the T6 acknowledgement). T3's refusals are Bazaar-side refusals to store or forward a token, not a change to the binary; whether blocking `CLAUDE_CODE_OAUTH_TOKEN` and not using `--bare` for login mode counts as restricting an authentication method goes to counsel with the rest of this lane.
 - **T9.** API key mode (an `ANTHROPIC_API_KEY` secret reference, billed to the operator's Console account) is supported through the same module. It is the compliant fallback and is what the module recommends for any install that has more than one human or runs unattended around the clock.
 
 ## 3. Changes to DECIDED items
 
 C14 and doc 05 say subscription logins stay off every route. The owner's request of 2026-11-20 adds a route that uses a subscription login held by the CLI. The credential rule behind C14 ("never route subscription credentials through the gateway") still holds in letter: the gateway never sees a credential, because the CLI keeps it (T2, T3). What changes is the sentence "no Claude Code tier or subscription login can be configured". The docs PR for this note edits that sentence in doc 05, adds a pointer in 05b section 4, and logs round 30 in DECISIONS-LOG. FreeLLMAPI's own "Claude Code tiers" stay refused: that is a third party holding the login.
+
+CLAUDE.md also says subscription logins stay off every route and that the Claude lane never routes Pro/Max credentials through the gateway; this note leaves that file alone (it is the owner's rule file) and asks the owner to adjust the wording if section 15 question 1 is accepted.
 
 The usage `identity` label gains a third value, `subscription`, beside `native` and `pooled`. Cost records from this lane carry the CLI's `total_cost_usd` as a notional figure, marked as not billed.
 
@@ -52,7 +56,7 @@ The usage `identity` label gains a third value, `subscription`, beside `native` 
 | Project | Role |
 |---|---|
 | `Bazaar.Server.Gateway.Abstractions` | New, small extraction: `IModelAdapter`, `ProviderEndpoint`, `ModelAdapterRegistration`, `AdapterKind` move out of `Bazaar.Server` so a provider module can implement the adapter seam without referencing `Bazaar.Server`. Namespace stays `Bazaar.Server.Gateway.Adapters`. |
-| `Bazaar.Server.Providers.ClaudeCode.Abstractions` | `ClaudeCodeOptions`, `IClaudeCodeProcessRunner` (the seam the fake CLI replaces), `ClaudeCodeStatus`, `IClaudeCodeLaneState` (read by Kodo and the admin panel). No process code. |
+| `Bazaar.Server.Providers.ClaudeCode.Abstractions` (required) | `ClaudeCodeOptions`, `IClaudeCodeProcessRunner` (the seam the fake CLI replaces), `ClaudeCodeStatus`, `IClaudeCodeLaneState` (read by Kodo and the admin panel). No process code. |
 | `Bazaar.Server.Providers.ClaudeCode` | Component `claude-code-cli` (`ComponentKind.Provider`, provides `gateway:provider:claude-code`). The adapter registered as wire name `claude_code_cli`, the process runner, the stream parser, the definition-only tool bridge, health and rate-limit mapping. |
 | `Bazaar.Server.Providers.ClaudeCode.Tests` | Tests against a fake CLI (section 13). |
 
@@ -69,18 +73,18 @@ Command (arguments go through `ProcessStartInfo.ArgumentList`, never a shell str
 | `-p` | Print mode, reads the prompt from standard input. The prompt is never on the command line (length limits, process lists). |
 | `--output-format stream-json --verbose --include-partial-messages` | Newline-delimited events with text deltas. |
 | `--no-session-persistence` | The CLI keeps no transcript on disk. |
-| `--model <id>` | From the route (section 10). |
+| `--model=<id>` | From the route (section 10). The id must match `^[a-z0-9][a-z0-9.\-]*$`; anything else fails the call before a process starts. |
 | `--system-prompt-file <temp file>` | Replaces Claude Code's own prompt with the agent's Soul and instructions. File in a private temp folder, deleted after the call. |
 | `--tools ""` | All built-in tools off (Bash, file tools, web). |
-| `--strict-mcp-config --mcp-config <inline json>` | Only the definition-only bridge (section 7). |
-| `--max-turns 1` | Backstop: one model response per process. |
+| `--strict-mcp-config --mcp-config <temp file>` | Only the definition-only bridge (section 7). A private temp file, because the bearer token must not appear in the process list. |
+| `--max-turns 1` | Backstop: one model response per process. Not shown in `claude --help` on the version the reviewer checked (2.1.329), so it is unverified; the kill after the tool-use message is the real stop. |
 | `--permission-mode dontAsk` with `--permission-prompts none` | Nothing can wait for a human. |
 | `--exclude-dynamic-system-prompt-sections` | Keeps the prompt prefix stable for caching. |
 | `--safe-mode` | Defence in depth when the version supports it (checked, section 12). |
 
 Not used: `--bare` (it ignores the subscription login, so it is used only in API key mode, where it is recommended), `--resume` and `--continue` (state is Bazaar's), `--dangerously-skip-permissions`, any Agent SDK package.
 
-**History.** `stream-json` input accepts user messages only, so earlier assistant tool calls and tool results are rendered into the prompt as plain tagged sections (`<assistant>`, `<tool_call id name>`, `<tool_result id>`), in order, by one deterministic renderer. The same prefix repeated across steps keeps the CLI's prompt cache warm.
+**History.** `stream-json` input accepts user messages only, so earlier assistant tool calls and tool results are rendered into the prompt as plain tagged sections (`<assistant>`, `<tool_call id name>`, `<tool_result id>`), in order, by one deterministic renderer. Every delimiter carries a random per-request nonce (`<tool_result nonce=...>`), content is escaped so it cannot close a section, and a renderer test feeds a forged closing tag. The same prefix repeated across steps keeps the CLI's prompt cache warm.
 
 **Working directory and home.** The child runs in a fresh empty directory per call and with the dedicated configuration directory of section 11. Nothing of the operator's own `~/.claude` (hooks, MCP servers, CLAUDE.md, skills) is loaded.
 
@@ -89,7 +93,7 @@ Not used: `--bare` (it ignores the subscription login, so it is used only in API
 ## 6. Process lifecycle
 
 - **Start.** A runner acquires a slot from a semaphore (`max_concurrent`) and an hourly token bucket (`max_steps_per_hour`). If either is exhausted the call returns `Failure("rate_limited", retryAfter)` without starting a process, so the gateway's existing quota state and the Work-Life Simulation see it as capacity, not an error.
-- **Kill tree.** Windows: the child is placed in a Job Object with kill-on-close. Linux: its own process group, killed by group. A child that outlives its parent is therefore not possible after a server crash on Windows; on Linux a startup sweep removes processes whose command line carries the module's marker argument.
+- **Kill tree.** Cancel and timeouts use `Process.Kill(entireProcessTree: true)`. For a server crash, Windows adds a Job Object with kill-on-close, created before the child can spawn anything (the child starts suspended or is placed by the job-list attribute, so no early grandchild escapes). Linux marks the child with an environment variable carrying a per-server id and a startup sweep removes only processes of the server's own user that carry it; an unknown command-line marker is not used because the unmodified CLI may reject it. The Job Object and sweep are a work package of their own (section 14).
 - **Time limits.** First-event timeout (default 60 s), idle gap timeout between events (default 90 s), total timeout (default 15 min). Each ends the call with `Failure("timeout")` and kills the tree.
 - **Bounded output.** Standard error is captured up to a small cap and only for diagnostics; it is scrubbed before logging. A single event line over the line cap ends the call with `Failure("provider_error")`.
 - **Exit.** A clean exit without a `result` event is `stream_dropped`. A non-zero exit maps through section 9.
@@ -106,7 +110,8 @@ Not used: `--bare` (it ignores the subscription login, so it is used only in API
 | `stream_event` thinking delta | `ThinkingDelta` |
 | assistant `tool_use` block (content block start / input JSON deltas / stop) | `ToolCallStart`, `ToolCallArgsDelta`, `ToolCallEnd` |
 | `system/api_retry` | `Warning("upstream_retry", ...)`; `rate_limit` error also feeds section 9 |
-| `result` | `UsageReported` (input, output, cache read and write tokens), then `Done(stopReason, servedModel)` |
+| `message_start` and `message_delta` usage | accumulated; the lane's usage comes from these, so a step ended by a tool call still reports tokens |
+| `result` | when it arrives, its `usage` replaces the accumulated counts; then `UsageReported` and `Done(stopReason, servedModel)` |
 | `result` with `is_error` or `error_max_turns` after a tool call | mapped as below |
 | anything unknown | ignored and counted (the parser is tolerant on purpose: the event set changes between versions) |
 
@@ -116,7 +121,7 @@ Stop reasons: the stream's own `stop_reason` maps `end_turn`, `tool_use`, `max_t
 
 Doc 15 (DECIDED): `ToolDispatcher` is the only path from model output to side effects, with taint, approvals and audit. If the CLI executed tools it would bypass all of that. So the CLI never executes anything:
 
-1. The module runs a tiny MCP server on a loopback address with an ephemeral port and a per-process random bearer token (never the same token twice, never logged). It answers `initialize` and `tools/list` with the request's `ModelToolDefinition`s under the server name `bazaar`, so the model sees `mcp__bazaar__<tool>` and calls it with native `tool_use`.
+1. The module runs a tiny MCP server on a loopback address with an ephemeral port and a per-process random bearer token (never the same token twice, never logged). (The JSON-RPC layer is small; it should reuse the MCP layer of doc 80 section 5 once that PROPOSED doc lands, and until then is a private minimal one.) It answers `initialize` and `tools/list` with the request's `ModelToolDefinition`s under the server name `bazaar`, so the model sees `mcp__bazaar__<tool>` and calls it with native `tool_use`.
 2. Its `tools/call` handler never runs a tool. It returns a fixed error result ("deferred to the host") and counts the attempt.
 3. When the stream shows a completed assistant message whose stop reason is `tool_use`, the module emits the call events, emits `Done(ToolUse)` and kills the process. The agent runtime then runs the calls through `ToolDispatcher` as it does for every other provider and sends the next `ModelRequest`, with results in `Messages`.
 4. The `mcp__bazaar__` prefix is stripped before events leave the module. A tool name the request did not offer is `Failure("malformed_tool_json")`.
@@ -159,7 +164,7 @@ One login, one human (T5): `claude_code.login_owner` names the `user` principal.
 
 ## 12. Security review points
 
-- **No tools in the child.** `--tools ""`, definition-only MCP, empty working directory, allowlisted environment, no hooks (dedicated config folder plus `--safe-mode` when supported). The capability check at start fails closed: if `system/init` lists any built-in tool or any MCP server other than `bazaar`, the lane goes `Down` and says why.
+- **No tools in the child.** `--tools ""`, definition-only MCP, empty working directory, allowlisted environment, no hooks (dedicated config folder plus `--safe-mode` when supported). The capability check at start fails closed: if `system/init` lists any built-in tool or any MCP server other than `bazaar`, the lane goes `Down` and says why. It also goes `Down` when the `bazaar` server is missing from `system/init` (`--safe-mode` can disable MCP), and any hook that administrator-managed policy settings still apply is reported to the operator, because those cannot be switched off from here.
 - **Prompt injection** is the same exposure as any model call: the model's output is data, and tool calls pass `ToolDispatcher`, taint and approvals unchanged. Reader sessions for untrusted input work as in doc 15.
 - **Argument and path safety.** No shell, no interpolation of agent text into arguments, prompt only on standard input, temp files in a private directory with owner-only access, cleaned in `finally`.
 - **Loopback bridge.** Binds to loopback only, random port, per-process bearer token, refuses any other path and any request when no call is live, closes at call end. The token is not a credential for anything else.
@@ -192,7 +197,9 @@ All with a **fake CLI**: a small .NET console program (`Bazaar.Server.Providers.
 3. Stream parser and event mapper (golden tests).
 4. Process runner (Job Object / process group, timeouts, bounded output) and the fake CLI.
 5. Definition-only MCP bridge.
-6. Adapter, component, settings, health, rate-limit mapping, usage identity `subscription`.
+6. Adapter, component, settings, health, rate-limit mapping. `ProviderEndpoint.BaseUrl` is required by the gateway, so provider rows for this adapter use the sentinel `cli://claude-code`; the adapter ignores it and reads its own options.
+6b. Gateway persistence: a migration widening `adapter` (adds `claude_code_cli`) and `identity` (adds `subscription`) in `gw_provider`, `gw_model` and `gw_usage` (`0002_gateway.sql` lines 8, 28, 77; `common/` is frozen, so its placement needs the doc 04 rule for a change to a core-owned table), the Contracts `GatewayIdentity.Subscription` value, `AdapterKind.ClaudeCodeCli`, and a directory overlay like `AnthropicDirectWiring`.
+6c. Job Object and Linux sweep.
 7. Admin wiring: guided setup text and the acknowledgement record (rides doc 51).
 
 ## 15. Open questions
