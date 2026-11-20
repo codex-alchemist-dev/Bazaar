@@ -30,4 +30,26 @@ public sealed class GcProvisionerTests(GcDb db) : IClassFixture<GcDb>
         Assert.True(reader.IsDBNull(1));
         Assert.Equal(1L, reader.GetInt64(2));
     }
+
+    [Fact]
+    public async Task A_typed_gc_is_found_by_owner_and_metadata_and_a_member_is_added_once()
+    {
+        GcTestSkip.WithoutDatabase();
+        var svc = new GcCreateService(db.DataSource);
+        var ct = TestContext.Current.CancellationToken;
+        var mailbox = Guid.NewGuid().ToString("D");
+        var id = GcCreateService.DeterministicGcId($"inbox:{mailbox}");
+        var meta = new Dictionary<string, string> { ["mail.mailbox_id"] = mailbox };
+
+        Assert.True(await svc.CreateAsync(id, "inbox", "Inbox", _owner, meta, ct));
+        Assert.False(await svc.CreateAsync(id, "inbox", "Inbox", _owner, meta, ct));
+        Assert.Equal(id, await svc.FindAsync("inbox", _owner.Id, "mail.mailbox_id", mailbox, ct));
+        Assert.Null(await svc.FindAsync("inbox", _owner.Id, "mail.mailbox_id", "other", ct));
+        Assert.Null(await svc.FindAsync("project", _owner.Id, "mail.mailbox_id", mailbox, ct));
+
+        var human = new GcPrincipal(Guid.NewGuid(), PrincipalKind.Human, "Human");
+        Assert.True(await svc.AddMemberAsync(id, human, ct));
+        Assert.False(await svc.AddMemberAsync(id, human, ct));
+        await Assert.ThrowsAsync<GcCreateRefusedException>(() => svc.CreateAsync(Guid.NewGuid(), "no_such_type", "x", _owner, null, ct));
+    }
 }

@@ -10,7 +10,8 @@ namespace Bazaar.Server.Gc.Create;
 /// <param name="CreatedBy">The creator's id, stored on the GC.</param>
 /// <param name="Members">The members to add. Distinct, and at most the service's member cap.</param>
 /// <param name="TypeKey">The GC type key. Defaults to <see cref="GcCreateService.TypeKey"/> (general).</param>
-public sealed record GcCreateRequest(Guid GcId, string Title, Guid CreatedBy, IReadOnlyList<Guid> Members, string TypeKey = GcCreateService.TypeKey);
+/// <param name="Metadata">String metadata stored on the GC, or null for none.</param>
+public sealed record GcCreateRequest(Guid GcId, string Title, Guid CreatedBy, IReadOnlyList<Guid> Members, string TypeKey = GcCreateService.TypeKey, IReadOnlyDictionary<string, string>? Metadata = null);
 
 /// <summary>Raised when a create request breaks a rule. The message names the rule, never the title.</summary>
 public sealed class GcCreateRefusedException(string message) : Exception(message);
@@ -76,8 +77,8 @@ public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         const string insertGc = """
-            INSERT INTO gc (gc_id, type_key, title, created_by)
-            VALUES (@gc_id, @type_key, @title, @created_by)
+            INSERT INTO gc (gc_id, type_key, title, created_by, metadata)
+            VALUES (@gc_id, @type_key, @title, @created_by, @metadata)
             ON CONFLICT (gc_id) DO NOTHING
             """;
         await using (var cmd = new NpgsqlCommand(insertGc, conn, tx))
@@ -86,6 +87,10 @@ public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
             cmd.Parameters.AddWithValue("type_key", request.TypeKey);
             cmd.Parameters.AddWithValue("title", title);
             cmd.Parameters.AddWithValue("created_by", request.CreatedBy);
+            cmd.Parameters.Add(new NpgsqlParameter("metadata", NpgsqlTypes.NpgsqlDbType.Jsonb)
+            {
+                Value = System.Text.Json.JsonSerializer.Serialize(request.Metadata ?? new Dictionary<string, string>()),
+            });
             var created = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
             if (!created)
             {
@@ -118,6 +123,95 @@ public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
     {
         ArgumentNullException.ThrowIfNull(owner);
         return EnsureAsync(new GcCreateRequest(gcId, title, owner.Id, [owner.Id], ProjectTypeKey), ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CreateAsync(
+        Guid gcId,
+        string typeKey,
+        string title,
+        Bazaar.Contracts.Gc.GcPrincipal owner,
+        IReadOnlyDictionary<string, string>? metadata,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeKey);
+        try
+        {
+            return await EnsureAsync(new GcCreateRequest(gcId, title, owner.Id, [owner.Id], typeKey, metadata), ct).ConfigureAwait(false);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+        {
+            throw new GcCreateRefusedException("The GC type is not known.");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid?> FindAsync(string typeKey, Guid ownerId, string metadataKey, string metadataValue, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(metadataKey);
+        ArgumentNullException.ThrowIfNull(metadataValue);
+
+        const string sql = """
+            SELECT gc_id FROM gc
+            WHERE type_key = @type_key AND created_by = @owner AND metadata ->> @key = @value
+            ORDER BY created_at, gc_id
+            LIMIT 1
+            """;
+        await using var cmd = _dataSource.CreateCommand(sql);
+        cmd.Parameters.AddWithValue("type_key", typeKey);
+        cmd.Parameters.AddWithValue("owner", ownerId);
+        cmd.Parameters.AddWithValue("key", metadataKey);
+        cmd.Parameters.AddWithValue("value", metadataValue);
+        var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        return result is Guid id ? id : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AddMemberAsync(Guid gcId, Bazaar.Contracts.Gc.GcPrincipal member, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        // The GC row lock serialises this with appends and with a concurrent add of the same member.
+        long head;
+        await using (var lockCmd = new NpgsqlCommand("SELECT head_seq FROM gc WHERE gc_id = @gc_id FOR UPDATE", conn, tx))
+        {
+            lockCmd.Parameters.AddWithValue("gc_id", gcId);
+            var value = await lockCmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+            if (value is not long headSeq)
+            {
+                throw new GcCreateRefusedException("The GC does not exist.");
+            }
+
+            head = headSeq;
+        }
+
+        await using (var current = new NpgsqlCommand(
+            "SELECT 1 FROM gc_member_current WHERE gc_id = @gc_id AND principal_id = @p AND left_seq IS NULL", conn, tx))
+        {
+            current.Parameters.AddWithValue("gc_id", gcId);
+            current.Parameters.AddWithValue("p", member.Id);
+            if (await current.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null)
+            {
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return false;
+            }
+        }
+
+        await using (var insert = new NpgsqlCommand(
+            "INSERT INTO gc_member (gc_id, principal_id, role, joined_seq) VALUES (@gc_id, @p, 'member', @seq)", conn, tx))
+        {
+            insert.Parameters.AddWithValue("gc_id", gcId);
+            insert.Parameters.AddWithValue("p", member.Id);
+            insert.Parameters.AddWithValue("seq", head);
+            await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return true;
     }
 
     private string Validate(GcCreateRequest request)
