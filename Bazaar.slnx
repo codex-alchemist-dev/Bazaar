@@ -20,6 +20,10 @@
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
     <Project Path="src/Bazaar.Client.Gc/Bazaar.Client.Gc.csproj" />
     <Project Path="src/Bazaar.Client.Chat/Bazaar.Client.Chat.csproj" />
+    <Project Path="src/Bazaar.Client.Navigation/Bazaar.Client.Navigation.csproj" />
+    <Project Path="src/Bazaar.Client.Navigation.Abstractions/Bazaar.Client.Navigation.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Preferences/Bazaar.Client.Preferences.csproj" />
+    <Project Path="src/Bazaar.Client.Preferences.Abstractions/Bazaar.Client.Preferences.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Chat.Abstractions/Bazaar.Client.Chat.Abstractions.csproj" />
     <Project Path="src/Bazaar.Localisation/Bazaar.Localisation.csproj" />
     <Project Path="src/Bazaar.Accessibility/Bazaar.Accessibility.csproj" />
@@ -117,6 +121,9 @@
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Annotation/Bazaar.Client.Annotation.csproj" />
+    <Project Path="src/Bazaar.Client.Annotation.Abstractions/Bazaar.Client.Annotation.Abstractions.csproj" />
+    <Project Path="tests/Bazaar.Client.Annotation.Tests/Bazaar.Client.Annotation.Tests.csproj" />
     <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
@@ -160,6 +167,8 @@
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Chat.Tests/Bazaar.Client.Chat.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Navigation.Tests/Bazaar.Client.Navigation.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Preferences.Tests/Bazaar.Client.Preferences.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Souls.Tests/Bazaar.Client.Souls.Tests.csproj" />
     <Project Path="tests/Bazaar.Localisation.Tests/Bazaar.Localisation.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Tests/Bazaar.Accessibility.Tests.csproj" />

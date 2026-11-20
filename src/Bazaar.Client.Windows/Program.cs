@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -17,12 +18,16 @@ using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Navigation;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Preferences;
+using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
+using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Windows;
 
@@ -74,10 +79,17 @@ internal static class Program
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
         ];
+        // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
+        // once the registry and the window exist; until then a pane cannot be shown. Preferences stay on this device until a wire sync is attached.
+        var paneSurface = new LatePaneSurface();
+        var preferences = new PreferenceStore(
+            modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
+            new FilePreferenceStorage(PreferencesPath(), Console.Error.WriteLine));
+        var viewActions = ViewActionRouter.ForServices(new PaneNavigator(paneSurface), new CommandRunner(), preferences);
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
-            .WithViewContext(ViewContextServices.CreateDefault(new ViewActionRouter(), ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
+            .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
@@ -103,6 +115,9 @@ internal static class Program
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
 
+            paneSurface.Bind(
+                registry.Contains,
+                (kind, _) => Dispatcher.UIThread.InvokeAsync(() => window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry)).GetTask());
             return window;
         }
 
@@ -127,6 +142,9 @@ internal static class Program
                 ? gc.ToString("D")
                 : Environment.GetEnvironmentVariable(name));
     }
+
+    private static string PreferencesPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "preferences.json");
 
     private static string CursorPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "cursors.json");
