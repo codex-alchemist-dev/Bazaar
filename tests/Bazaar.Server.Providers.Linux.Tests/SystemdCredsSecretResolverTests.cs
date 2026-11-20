@@ -1,7 +1,7 @@
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Secrets;
 
-namespace Bazaar.Server.Tests.Providers.Linux;
+namespace Bazaar.Server.Providers.Linux.Tests;
 
 public class SystemdCredsSecretResolverTests : IDisposable
 {
