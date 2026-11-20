@@ -53,10 +53,11 @@ public sealed class MicroVmComponentTests
     }
 
     [Fact]
-    public void An_unset_state_directory_reports_not_usable_with_a_reason_and_does_not_throw()
+    public async Task An_unset_state_directory_reports_not_usable_with_a_reason_and_does_not_throw()
     {
         using var provider = Build([]);
         var entry = provider.GetRequiredService<IDeviceProviderCatalogEntry>();
+        await entry.RefreshAsync(TestContext.Current.CancellationToken);
 
         var probe = entry.ProbeDevice();
 
@@ -68,11 +69,13 @@ public sealed class MicroVmComponentTests
     }
 
     [Fact]
-    public void Unset_binary_kernel_and_rootfs_are_named_in_the_reason()
+    public async Task Unset_binary_kernel_and_rootfs_are_named_in_the_reason()
     {
         using var provider = Build(new() { [DeviceProvidersSettings.MicroVmStateDir.Name] = Root + "/state" });
+        var entry = provider.GetRequiredService<IDeviceProviderCatalogEntry>();
+        await entry.RefreshAsync(TestContext.Current.CancellationToken);
 
-        var probe = provider.GetRequiredService<IDeviceProviderCatalogEntry>().ProbeDevice();
+        var probe = entry.ProbeDevice();
 
         Assert.False(probe.Usable);
         Assert.Contains("MonitorBinaryPath", probe.Reason, StringComparison.Ordinal);
@@ -81,7 +84,7 @@ public sealed class MicroVmComponentTests
     }
 
     [Fact]
-    public void A_complete_configuration_builds_the_backend_with_the_selected_monitor_and_cap()
+    public async Task A_complete_configuration_builds_the_backend_with_the_selected_monitor_and_cap()
     {
         var built = new List<MicroVmOptions>();
         var settings = new MapSettingStore(new()
@@ -102,6 +105,7 @@ public sealed class MicroVmComponentTests
             var fake = new FakeMonitor();
             return new MicroVmBackend(fake, fake, o);
         });
+        await entry.RefreshAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(entry.Backend);
         Assert.Equal(MicroVmMonitorKind.CloudHypervisor, Assert.Single(built).Monitor);

@@ -12,7 +12,8 @@ public enum MicroVmMonitorSetting
 
 /// <summary>
 /// The device-guest provider settings of doc 62 section 7: <c>vms.devices.*</c>, <c>vms.android.*</c> and <c>vms.microvm.*</c>.
-/// All are install scope and operator-changed, with safe shipped defaults (DECISIONS-LOG round 13). Paths default to empty, which
+/// All are install scope and operator-changed, with safe shipped defaults (DECISIONS-LOG round 13). When a change takes effect (live,
+/// or after a restart) is <see cref="LiveKeys"/>. Paths default to empty, which
 /// means unset: the providers never fall back to a profile folder. The iOS, macOS and Mac node keys wait for the parked Apple work.
 /// </summary>
 public static class DeviceProvidersSettings
@@ -52,7 +53,7 @@ public static class DeviceProvidersSettings
 
     public static readonly SettingKey<int> AndroidMaxConcurrent = new(
         "vms.android.max_concurrent", 2, SettingScope.Install, SettingRole.Operator,
-        "Android emulators that may run at once.",
+        "Android emulators that may run at once. Applies to new starts without a restart.",
         validate: Between(1, 16, "vms.android.max_concurrent"));
 
     public static readonly SettingKey<MicroVmMonitorSetting> MicroVmMonitor = new(
@@ -61,13 +62,32 @@ public static class DeviceProvidersSettings
 
     public static readonly SettingKey<int> MicroVmMaxConcurrent = new(
         "vms.microvm.max_concurrent", 8, SettingScope.Install, SettingRole.Operator,
-        "microVM guests that may run at once.",
+        "microVM guests that may run at once. Applies to new starts without a restart.",
         validate: Between(1, 256, "vms.microvm.max_concurrent"));
 
     public static readonly SettingKey<string> MicroVmStateDir = new(
         DeviceSetupValidator.MicroVmStateDirKey, string.Empty, SettingScope.Install, SettingRole.Operator,
         "Absolute folder for microVM disks and monitor sockets. Required to use the microVM provider; empty means unset.",
         validate: PathOrEmpty(DeviceSetupValidator.MicroVmStateDirKey));
+
+    /// <summary>
+    /// The keys doc 62 section 7 marks "live": a change reaches new starts without a restart (section 9.2). Every other key here is
+    /// "install": it is read when a provider builds its backend and needs a restart once one exists.
+    /// </summary>
+    public static IReadOnlySet<string> LiveKeys { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "vms.devices.idle_stop_minutes",
+        "vms.devices.max_concurrent",
+        "vms.android.max_concurrent",
+        "vms.microvm.max_concurrent",
+    };
+
+    /// <summary>True when a change to <paramref name="key"/> applies without a restart.</summary>
+    public static bool AppliesLive(SettingDefinition key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return LiveKeys.Contains(key.Name);
+    }
 
     /// <summary>Every key this module registers.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =

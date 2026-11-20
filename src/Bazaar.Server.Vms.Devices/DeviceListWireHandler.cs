@@ -64,6 +64,7 @@ public sealed class DeviceListWireHandler : IWireRequestHandler
                 continue;
             }
 
+            await RefreshAsync(entry, cancellationToken).ConfigureAwait(false);
             var capabilities = entry.Capabilities;
             var probe = Probe(entry);
             var running = entry.RunningGuests();
@@ -84,6 +85,18 @@ public sealed class DeviceListWireHandler : IWireRequestHandler
         }
 
         return WireReply.Ok(context.Connection.Codec, new DeviceListReply(providers, guests));
+    }
+
+    // A settings read that fails must not fail the whole list; the entry then reports its last loaded state.
+    private static async ValueTask RefreshAsync(IDeviceProviderCatalogEntry entry, CancellationToken ct)
+    {
+        try
+        {
+            await entry.RefreshAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+        }
     }
 
     // A probe that throws must not fail the whole list. The reason is fixed text: an exception message may carry a host path.

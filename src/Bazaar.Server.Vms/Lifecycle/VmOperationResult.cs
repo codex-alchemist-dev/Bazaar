@@ -13,10 +13,16 @@ public enum VmRefusalReason
 
     /// <summary>The recorded state changed underneath the operation, so the compare-and-set failed.</summary>
     StateChanged,
+
+    /// <summary>No provider may serve this VM (doc 62 section 9.2). The detail says why. No row was written and no backend was called.</summary>
+    NoProvider,
 }
 
-/// <summary>A refused operation: the reason, the state that was recorded, and the state the operation asked for.</summary>
-public sealed record VmRefusal(VmRefusalReason Reason, VmState? CurrentState, VmState? RequestedState);
+/// <summary>
+/// A refused operation: the reason, the state that was recorded, the state the operation asked for, and a plain detail when the
+/// reason alone does not say enough (set for <see cref="VmRefusalReason.NoProvider"/>).
+/// </summary>
+public sealed record VmRefusal(VmRefusalReason Reason, VmState? CurrentState, VmState? RequestedState, string? Detail = null);
 
 /// <summary>The outcome of a lifecycle operation that changes state.</summary>
 public abstract record VmOperationResult

@@ -1,4 +1,6 @@
 using Bazaar.Server.Providers;
+using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.Lifecycle;
 
 namespace Bazaar.Server.Vms.WindowsSandbox.Tests;
 
@@ -43,6 +45,33 @@ public sealed class WindowsSandboxSelectionTests : IDisposable
         var selection = ProviderSelector.Select<IVmProvider>(ProviderRole.Vm, ProviderSelector.Auto, [hyperV, _backend], ProviderRequirements.AgentPairConcurrency);
 
         Assert.Same(hyperV, selection.Provider);
+    }
+
+    [Fact]
+    public async Task As_its_own_backend_source_it_is_a_last_resort_pair_candidate_for_windows_guests()
+    {
+        var lookup = await _backend.GetCurrentAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(VmProviderPlacement.Pair, _backend.Placement);
+        Assert.Equal(VmBackendOrdering.LastResort, _backend.Preference);
+        Assert.Equal([VmOs.Windows], _backend.GuestOs);
+        Assert.True(lookup.Usable);
+        Assert.Same(_backend, lookup.Backend);
+    }
+
+    [Fact]
+    public async Task On_a_host_without_the_feature_the_source_keeps_the_backend_but_reports_it_unusable()
+    {
+        using var backend = new WindowsSandboxBackend(
+            new FakeWindowsSandboxHost(),
+            new FixedHostFacts(new("linux", "x64", new HashSet<string>())),
+            new WindowsSandboxOptions(Guid.NewGuid()));
+
+        var lookup = await backend.GetCurrentAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(lookup.Usable);
+        Assert.Same(backend, lookup.Backend);
+        Assert.False(string.IsNullOrWhiteSpace(lookup.Reason));
     }
 
     private sealed class AlwaysUsable(string kind, int maxConcurrent) : IVmProvider, ICapacityLimitedProvider

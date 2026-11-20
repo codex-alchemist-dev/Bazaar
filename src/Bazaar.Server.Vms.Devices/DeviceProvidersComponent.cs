@@ -2,6 +2,7 @@ using Bazaar.Core;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Vms.Devices.Setup;
+using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,8 @@ public sealed class DeviceProvidersComponent : IBazaarComponent
 
         services.AddSingleton<ISettingContribution, DeviceProvidersSettingContribution>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISetupStep, DeviceProvidersSetupStep>());
+        // The lifecycle router asks this gate whether an on-demand provider may take a new VM (doc 62 section 9.2).
+        services.TryAddSingleton<IVmProviderGate>(sp => new DeviceProvidersGate(sp.GetRequiredService<ISettingStore>()));
 
         // Owner-only, read-only listing. The catalog entries are resolved when the handler is built, so a provider module
         // registered by the host is picked up; with none installed the reply is two empty lists.

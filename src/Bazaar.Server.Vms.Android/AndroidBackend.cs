@@ -27,6 +27,7 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
     private readonly Dictionary<Guid, string> _byVm = [];
     private readonly object _gate = new();
     private readonly SemaphoreSlim _launchGate = new(1, 1);
+    private int _maxConcurrent;
 
     public AndroidBackend(IAndroidHost host, IAndroidHostFacts facts, IAndroidWorkspace workspace, AndroidOptions options)
     {
@@ -35,17 +36,33 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         options.Validate();
+        _maxConcurrent = options.MaxConcurrent;
     }
+
+    /// <summary>The most emulators one backend can address: one even console port each from the base port.</summary>
+    public const int PortSlots = 16;
 
     public string Kind => AndroidModule.Kind;
 
-    public int MaxConcurrentInstances => _options.MaxConcurrent;
+    /// <summary>The live <c>vms.android.max_concurrent</c> cap (doc 62 section 9.2). It starts at the configured value.</summary>
+    public int MaxConcurrentInstances => Volatile.Read(ref _maxConcurrent);
 
     public bool SupportsSaveState => true;
 
-    public DeviceProviderCapabilities Capabilities => AndroidModule.Capabilities with { MaxConcurrentInstances = _options.MaxConcurrent };
+    public DeviceProviderCapabilities Capabilities => AndroidModule.Capabilities with { MaxConcurrentInstances = MaxConcurrentInstances };
 
     public int Running => RunningGuests().Count;
+
+    /// <summary>
+    /// Applies a changed <c>vms.android.max_concurrent</c> without a rebuild. It affects only new starts: lowering it below the running
+    /// count stops nothing, and further starts are refused until enough guests stop.
+    /// </summary>
+    public void SetMaxConcurrent(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, PortSlots);
+        Volatile.Write(ref _maxConcurrent, value);
+    }
 
     public DeviceProbeResult ProbeDevice()
     {
@@ -239,12 +256,13 @@ public sealed class AndroidBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
             lock (_gate)
             {
                 var used = _instances.Values.Where(i => i.Port is not null).Select(i => i.Port!.Value).ToHashSet();
-                if (used.Count >= _options.MaxConcurrent)
+                var max = MaxConcurrentInstances;
+                if (used.Count >= max)
                 {
-                    throw new InvalidOperationException($"The Android provider allows {_options.MaxConcurrent} running emulator(s).");
+                    throw new InvalidOperationException($"The Android provider allows {max} running emulator(s).");
                 }
 
-                port = Enumerable.Range(0, 16).Select(n => _options.BasePort + (2 * n)).First(p => !used.Contains(p));
+                port = Enumerable.Range(0, PortSlots).Select(n => _options.BasePort + (2 * n)).First(p => !used.Contains(p));
             }
 
             await _host.StartEmulatorAsync(instance.AvdName, port, snapshot, ct).ConfigureAwait(false);

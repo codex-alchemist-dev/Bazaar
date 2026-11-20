@@ -5,6 +5,8 @@ using Bazaar.Contracts.Modules;
 using Bazaar.Core;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Vms.Devices;
+using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Vms.MicroVm.Monitors;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,8 +16,10 @@ namespace Bazaar.Server.Vms.MicroVm;
 
 /// <summary>
 /// The microVM provider as a Bazaar Component (doc 62 sections 5.0 and 9.1). It registers the provider as an
-/// <see cref="IDeviceProviderCatalogEntry"/> so <c>vms.devices.list</c> can report it. Registrations only: nothing is read,
-/// probed or started until the list handler asks for an enabled kind, and the listing keeps its own <c>vms.devices.enabled</c> filter.
+/// <see cref="IDeviceProviderCatalogEntry"/> so <c>vms.devices.list</c> can report it, and as an <see cref="IVmBackendSource"/> so the
+/// lifecycle can create and start microVMs on it (doc 62 section 9.2). Registrations only: nothing is read, probed or started until the
+/// listing or the lifecycle asks, and both keep their own <c>vms.devices.enabled</c> check. A Linux guest goes to the microVM provider
+/// only when the request names the kind; it is never chosen silently instead of the pair provider.
 /// </summary>
 public sealed class MicroVmComponent : IBazaarComponent
 {
@@ -43,8 +47,10 @@ public sealed class MicroVmComponent : IBazaarComponent
         // A second AddServices call must not list the entry twice. A factory descriptor cannot go through TryAddEnumerable.
         if (services.All(d => d.ServiceType != typeof(MicroVmCatalogEntry)))
         {
-            services.AddSingleton(sp => new MicroVmCatalogEntry(sp.GetRequiredService<ISettingStore>(), configuration));
+            services.AddSingleton(sp => new MicroVmCatalogEntry(
+                sp.GetRequiredService<ISettingStore>(), configuration, clock: sp.GetService<TimeProvider>()));
             services.AddSingleton<IDeviceProviderCatalogEntry>(sp => sp.GetRequiredService<MicroVmCatalogEntry>());
+            services.AddSingleton<IVmBackendSource>(sp => sp.GetRequiredService<MicroVmCatalogEntry>());
         }
     }
 }
@@ -110,33 +116,38 @@ public sealed class LinuxMicroVmHostFacts : IMicroVmHostFacts
 }
 
 /// <summary>
-/// The catalogue entry of the microVM provider. It reads <c>vms.microvm.*</c> and the <c>Bazaar:Vms:MicroVm</c> section on first use and
-/// builds the real backend only when the state directory, monitor binary, kernel and root file system are set and valid. Otherwise it
-/// reports Usable=false with a plain reason and never throws. Read once per process, so a change needs a restart.
+/// The catalogue entry and backend source of the microVM provider (doc 62 sections 9.1 and 9.2). It reads <c>vms.microvm.*</c> and
+/// the <c>Bazaar:Vms:MicroVm</c> section and builds the real backend only when the state directory, monitor binary, kernel and root file
+/// system are set and valid; otherwise it reports Usable=false with a plain reason and never throws. Settings are cached for a few
+/// seconds (<see cref="DeviceProviderEntry{TBackend}"/>): <c>vms.microvm.max_concurrent</c> is live and reaches the same backend on the
+/// next refresh; the other values are read again only while no backend exists, and need a restart after that.
 /// </summary>
-public sealed class MicroVmCatalogEntry : IDeviceProviderCatalogEntry, IDisposable
+public sealed class MicroVmCatalogEntry : DeviceProviderEntry<MicroVmBackend>
 {
     private static readonly string[] _ipCandidates = ["/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip"];
 
     private readonly ISettingStore _settings;
     private readonly IConfiguration _configuration;
     private readonly Func<MicroVmOptions, MicroVmBackend> _factory;
-    private readonly Lock _gate = new();
-    private State? _state;
 
-    public MicroVmCatalogEntry(ISettingStore settings, IConfiguration configuration, Func<MicroVmOptions, MicroVmBackend>? factory = null)
+    public MicroVmCatalogEntry(
+        ISettingStore settings,
+        IConfiguration configuration,
+        Func<MicroVmOptions, MicroVmBackend>? factory = null,
+        TimeProvider? clock = null,
+        TimeSpan? refreshInterval = null)
+        : base(clock, refreshInterval)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _factory = factory ?? CreateReal;
     }
 
-    /// <summary>The real backend, or null when a required value is unset or invalid.</summary>
-    public MicroVmBackend? Backend => Resolve().Backend;
+    public override string Kind => MicroVmModule.Kind;
 
-    public string Kind => MicroVmModule.Kind;
+    public override IReadOnlyList<VmOs> GuestOs { get; } = [VmOs.Linux];
 
-    public DeviceProviderCapabilities Capabilities => Resolve().Backend?.Capabilities ?? new(
+    protected override DeviceProviderCapabilities DefaultCapabilities { get; } = new(
         GuestOs: "linux",
         Isolation: DeviceIsolation.HardwareVirtualised,
         Save: MicroVmModule.Capabilities.Save,
@@ -150,60 +161,13 @@ public sealed class MicroVmCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
         ScreenSource: false,
         RemoteNode: false);
 
-    public int Running => Resolve().Backend?.Running ?? 0;
+    protected override string ReadFailureReason => "The microVM settings could not be read.";
 
-    public DeviceProbeResult ProbeDevice()
+    protected override async Task<(MicroVmBackend? Backend, string? Reason)> BuildAsync(CancellationToken ct)
     {
-        var state = Resolve();
-        return state.Backend?.ProbeDevice() ?? new DeviceProbeResult(false, state.Reason);
-    }
-
-    public IReadOnlyList<DeviceGuestState> RunningGuests() => Resolve().Backend?.RunningGuests() ?? [];
-
-    public void Dispose() => _state?.Backend?.Dispose();
-
-    private static MicroVmBackend CreateReal(MicroVmOptions options)
-    {
-        var launcher = new ProcessMicroVmLauncher();
-        var ip = _ipCandidates.FirstOrDefault(File.Exists)
-            ?? throw new InvalidOperationException("The ip tool was not found.");
-        IMicroVmMonitor monitor = options.Monitor switch
-        {
-            MicroVmMonitorKind.CloudHypervisor => new CloudHypervisorMonitor(options, new UnixSocketApiClient(), launcher, new IpTapNetwork(ip, launcher)),
-            _ => new FirecrackerMonitor(options, new UnixSocketApiClient(), launcher, new IpTapNetwork(ip, launcher)),
-        };
-        return new MicroVmBackend(monitor, new LinuxMicroVmHostFacts(options), options);
-    }
-
-    private State Resolve()
-    {
-        lock (_gate)
-        {
-            if (_state is not null)
-            {
-                return _state;
-            }
-
-            try
-            {
-                // The store is async and this entry is read synchronously; the read runs once on the pool.
-                var state = Task.Run(ResolveAsync).GetAwaiter().GetResult();
-                _state = state;
-                return state;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Not cached: a store that is down now may answer on the next list.
-                return new State(null, "The microVM settings could not be read.");
-            }
-        }
-    }
-
-    private async Task<State> ResolveAsync()
-    {
-        var stateDir = await _settings.GetAsync(DeviceProvidersSettings.MicroVmStateDir).ConfigureAwait(false);
-        var monitor = await _settings.GetAsync(DeviceProvidersSettings.MicroVmMonitor).ConfigureAwait(false);
-        var max = await _settings.GetAsync(DeviceProvidersSettings.MicroVmMaxConcurrent).ConfigureAwait(false);
+        var stateDir = await _settings.GetAsync(DeviceProvidersSettings.MicroVmStateDir, cancellationToken: ct).ConfigureAwait(false);
+        var monitor = await _settings.GetAsync(DeviceProvidersSettings.MicroVmMonitor, cancellationToken: ct).ConfigureAwait(false);
+        var max = await _settings.GetAsync(DeviceProvidersSettings.MicroVmMaxConcurrent, cancellationToken: ct).ConfigureAwait(false);
 
         var section = _configuration.GetSection(MicroVmComponent.SectionName);
         var binary = Unset(section["MonitorBinaryPath"]);
@@ -227,7 +191,7 @@ public sealed class MicroVmCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
 
         if (missing.Count > 0)
         {
-            return new State(null, $"Not configured: {string.Join(", ", missing)}.");
+            return (null, $"Not configured: {string.Join(", ", missing)}.");
         }
 
         try
@@ -245,13 +209,38 @@ public sealed class MicroVmCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
                 JailerUid = int.TryParse(section["JailerUid"], out var uid) ? uid : 0,
                 JailerGid = int.TryParse(section["JailerGid"], out var gid) ? gid : 0,
             };
-            return new State(_factory(options), null);
+            return (_factory(options), null);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
             // The validators name the setting and never a path.
-            return new State(null, ex.Message);
+            return (null, ex.Message);
         }
+    }
+
+    protected override async Task<bool> ApplyLiveAsync(MicroVmBackend backend, CancellationToken ct)
+    {
+        var max = await _settings.GetAsync(DeviceProvidersSettings.MicroVmMaxConcurrent, cancellationToken: ct).ConfigureAwait(false);
+        if (max == backend.MaxConcurrentInstances)
+        {
+            return false;
+        }
+
+        backend.SetMaxConcurrent(max);
+        return true;
+    }
+
+    private static MicroVmBackend CreateReal(MicroVmOptions options)
+    {
+        var launcher = new ProcessMicroVmLauncher();
+        var ip = _ipCandidates.FirstOrDefault(File.Exists)
+            ?? throw new InvalidOperationException("The ip tool was not found.");
+        IMicroVmMonitor monitor = options.Monitor switch
+        {
+            MicroVmMonitorKind.CloudHypervisor => new CloudHypervisorMonitor(options, new UnixSocketApiClient(), launcher, new IpTapNetwork(ip, launcher)),
+            _ => new FirecrackerMonitor(options, new UnixSocketApiClient(), launcher, new IpTapNetwork(ip, launcher)),
+        };
+        return new MicroVmBackend(monitor, new LinuxMicroVmHostFacts(options), options);
     }
 
     private static string? Unset(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
@@ -260,6 +249,4 @@ public sealed class MicroVmCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
         Guid.TryParse(configured, out var id)
             ? id
             : new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"bazaar:microvm:{kernel}:{rootfs}")).AsSpan(0, 16));
-
-    private sealed record State(MicroVmBackend? Backend, string? Reason);
 }

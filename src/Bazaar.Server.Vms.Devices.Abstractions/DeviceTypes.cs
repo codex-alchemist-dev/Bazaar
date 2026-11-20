@@ -134,4 +134,10 @@ public interface IDeviceProviderCatalogEntry
 
     /// <summary>The guests running now.</summary>
     IReadOnlyList<DeviceGuestState> RunningGuests();
+
+    /// <summary>
+    /// Re-reads the provider's settings when its short cache is due (doc 62 section 9.2). The listing awaits it before it reads the
+    /// members above, which then report the loaded state without blocking. An entry with nothing to load keeps the default.
+    /// </summary>
+    ValueTask RefreshAsync(CancellationToken ct) => ValueTask.CompletedTask;
 }

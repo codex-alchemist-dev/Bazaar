@@ -4,6 +4,8 @@ using Bazaar.Core;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Vms.Android.Sdk;
 using Bazaar.Server.Vms.Devices;
+using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.Lifecycle;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,10 +13,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.Vms.Android;
 
 /// <summary>
-/// The Android emulator provider as a Bazaar Component (doc 62 sections 5.1 and 9.1). It registers the provider as an
-/// <see cref="IDeviceProviderCatalogEntry"/> so <c>vms.devices.list</c> can report it. Registrations only: nothing is read from the
-/// settings store, probed or started until the list handler asks for an enabled kind. The listing keeps its own
-/// <c>vms.devices.enabled</c> filter, so a registered but disabled provider is never touched.
+/// The Android emulator provider as a Bazaar Component (doc 62 sections 5.1, 9.1 and 9.2). It registers one entry as an
+/// <see cref="IDeviceProviderCatalogEntry"/>, so <c>vms.devices.list</c> can report it, and as an <see cref="IVmBackendSource"/>, so the
+/// lifecycle can create and start Android guests on it. Registrations only: nothing is read from the settings store, probed or started
+/// until the listing or the lifecycle asks. The listing and the router keep their own <c>vms.devices.enabled</c> check, so a registered
+/// but disabled provider takes no new guest.
 /// </summary>
 public sealed class AndroidComponent : IBazaarComponent
 {
@@ -43,10 +46,12 @@ public sealed class AndroidComponent : IBazaarComponent
         if (services.All(d => d.ServiceType != typeof(AndroidCatalogEntry)))
         {
             services.AddSingleton(sp => new AndroidCatalogEntry(
-            sp.GetRequiredService<ISettingStore>(),
-            configuration,
-            sp.GetRequiredService<IAndroidWorkspace>()));
+                sp.GetRequiredService<ISettingStore>(),
+                configuration,
+                sp.GetRequiredService<IAndroidWorkspace>(),
+                clock: sp.GetService<TimeProvider>()));
             services.AddSingleton<IDeviceProviderCatalogEntry>(sp => sp.GetRequiredService<AndroidCatalogEntry>());
+            services.AddSingleton<IVmBackendSource>(sp => sp.GetRequiredService<AndroidCatalogEntry>());
         }
     }
 }
@@ -59,24 +64,27 @@ public sealed class UnavailableAndroidWorkspace : IAndroidWorkspace
 }
 
 /// <summary>
-/// The catalogue entry of the Android provider. It reads <c>vms.android.*</c> on first use and builds the real backend only when
-/// the SDK root, AVD home and system image are all set and valid. Otherwise it reports Usable=false with a plain reason and never
-/// throws. The values are read once per process, so a changed setting needs a restart.
+/// The catalogue entry and backend source of the Android provider (doc 62 sections 9.1 and 9.2). It builds the real backend only when
+/// the SDK root, AVD home and system image are all set and valid; otherwise it reports Usable=false with a plain reason and never throws.
+/// Settings are cached for a few seconds (<see cref="DeviceProviderEntry{TBackend}"/>): <c>vms.android.max_concurrent</c> is live and
+/// reaches the same backend on the next refresh; the folders and the image are read again only while no backend exists, and need a
+/// restart after that.
 /// </summary>
-public sealed class AndroidCatalogEntry : IDeviceProviderCatalogEntry, IDisposable
+public sealed class AndroidCatalogEntry : DeviceProviderEntry<AndroidBackend>
 {
     private readonly ISettingStore _settings;
     private readonly IConfiguration _configuration;
     private readonly IAndroidWorkspace _workspace;
     private readonly Func<AndroidOptions, IAndroidWorkspace, AndroidBackend> _factory;
-    private readonly Lock _gate = new();
-    private State? _state;
 
     public AndroidCatalogEntry(
         ISettingStore settings,
         IConfiguration configuration,
         IAndroidWorkspace workspace,
-        Func<AndroidOptions, IAndroidWorkspace, AndroidBackend>? factory = null)
+        Func<AndroidOptions, IAndroidWorkspace, AndroidBackend>? factory = null,
+        TimeProvider? clock = null,
+        TimeSpan? refreshInterval = null)
+        : base(clock, refreshInterval)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -84,24 +92,13 @@ public sealed class AndroidCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
         _factory = factory ?? CreateReal;
     }
 
-    /// <summary>The real backend, or null when a required setting is unset or invalid.</summary>
-    public AndroidBackend? Backend => Resolve().Backend;
+    public override string Kind => AndroidModule.Kind;
 
-    public string Kind => AndroidModule.Kind;
+    public override IReadOnlyList<VmOs> GuestOs { get; } = [VmOs.Android];
 
-    public DeviceProviderCapabilities Capabilities => Resolve().Backend?.Capabilities ?? AndroidModule.Capabilities;
+    protected override DeviceProviderCapabilities DefaultCapabilities => AndroidModule.Capabilities;
 
-    public int Running => Resolve().Backend?.Running ?? 0;
-
-    public DeviceProbeResult ProbeDevice()
-    {
-        var state = Resolve();
-        return state.Backend?.ProbeDevice() ?? new DeviceProbeResult(false, state.Reason);
-    }
-
-    public IReadOnlyList<DeviceGuestState> RunningGuests() => Resolve().Backend?.RunningGuests() ?? [];
-
-    public void Dispose() => _state?.Backend?.Dispose();
+    protected override string ReadFailureReason => "The Android settings could not be read.";
 
     /// <summary>The golden image id that stands for the pinned system image: configured, or derived from the package id.</summary>
     public static Guid ImageVersion(IConfiguration configuration, string package)
@@ -115,39 +112,12 @@ public sealed class AndroidCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
         return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes("bazaar:android:" + package)).AsSpan(0, 16));
     }
 
-    private static AndroidBackend CreateReal(AndroidOptions options, IAndroidWorkspace workspace) =>
-        new(new SdkAndroidHost(options, new ProcessAndroidCommandRunner()), new SdkAndroidHostFacts(options), workspace, options);
-
-    private State Resolve()
+    protected override async Task<(AndroidBackend? Backend, string? Reason)> BuildAsync(CancellationToken ct)
     {
-        lock (_gate)
-        {
-            if (_state is not null)
-            {
-                return _state;
-            }
-
-            try
-            {
-                // The store is async and this entry is read synchronously; the read runs once on the pool.
-                var state = Task.Run(ResolveAsync).GetAwaiter().GetResult();
-                _state = state;
-                return state;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Not cached: a store that is down now may answer on the next list.
-                return new State(null, "The Android settings could not be read.");
-            }
-        }
-    }
-
-    private async Task<State> ResolveAsync()
-    {
-        var sdkRoot = await _settings.GetAsync(DeviceProvidersSettings.AndroidSdkRoot).ConfigureAwait(false);
-        var avdHome = await _settings.GetAsync(DeviceProvidersSettings.AndroidAvdHome).ConfigureAwait(false);
-        var image = await _settings.GetAsync(DeviceProvidersSettings.AndroidSystemImage).ConfigureAwait(false);
-        var max = await _settings.GetAsync(DeviceProvidersSettings.AndroidMaxConcurrent).ConfigureAwait(false);
+        var sdkRoot = await _settings.GetAsync(DeviceProvidersSettings.AndroidSdkRoot, cancellationToken: ct).ConfigureAwait(false);
+        var avdHome = await _settings.GetAsync(DeviceProvidersSettings.AndroidAvdHome, cancellationToken: ct).ConfigureAwait(false);
+        var image = await _settings.GetAsync(DeviceProvidersSettings.AndroidSystemImage, cancellationToken: ct).ConfigureAwait(false);
+        var max = await _settings.GetAsync(DeviceProvidersSettings.AndroidMaxConcurrent, cancellationToken: ct).ConfigureAwait(false);
 
         var missing = new List<string>();
         if (sdkRoot.Length == 0)
@@ -167,7 +137,7 @@ public sealed class AndroidCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
 
         if (missing.Count > 0)
         {
-            return new State(null, $"Not configured: {string.Join(", ", missing)}.");
+            return (null, $"Not configured: {string.Join(", ", missing)}.");
         }
 
         try
@@ -180,14 +150,27 @@ public sealed class AndroidCatalogEntry : IDeviceProviderCatalogEntry, IDisposab
                 SystemImageVersion = ImageVersion(_configuration, image),
                 MaxConcurrent = max,
             };
-            return new State(_factory(options, _workspace), null);
+            return (_factory(options, _workspace), null);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
             // The validators name the setting and never a path.
-            return new State(null, ex.Message);
+            return (null, ex.Message);
         }
     }
 
-    private sealed record State(AndroidBackend? Backend, string? Reason);
+    protected override async Task<bool> ApplyLiveAsync(AndroidBackend backend, CancellationToken ct)
+    {
+        var max = await _settings.GetAsync(DeviceProvidersSettings.AndroidMaxConcurrent, cancellationToken: ct).ConfigureAwait(false);
+        if (max == backend.MaxConcurrentInstances)
+        {
+            return false;
+        }
+
+        backend.SetMaxConcurrent(max);
+        return true;
+    }
+
+    private static AndroidBackend CreateReal(AndroidOptions options, IAndroidWorkspace workspace) =>
+        new(new SdkAndroidHost(options, new ProcessAndroidCommandRunner()), new SdkAndroidHostFacts(options), workspace, options);
 }

@@ -4,62 +4,94 @@ namespace Bazaar.Server.Vms.Lifecycle;
 
 /// <summary>
 /// The single entry point for VM lifecycle changes (doc 16). Each operation takes the VM's lock, reads the recorded state,
-/// checks the transition table, calls the backend, then records the new state with a compare-and-set. A refused transition
-/// never reaches the backend. If the backend throws, the recorded state stays as it was and the exception propagates.
+/// checks the transition table, asks the router for the VM's backend (doc 62 section 9.2), calls it, then records the new state
+/// with a compare-and-set. A refused transition or a missing provider never reaches a backend. If the backend throws, the recorded
+/// state stays as it was and the exception propagates.
 /// </summary>
-public sealed class VmLifecycleService(IEnvironmentVmStore store, IVmBackend backend, VmOperationLocks locks, TimeProvider clock)
+public sealed class VmLifecycleService
 {
+    private readonly IEnvironmentVmStore _store;
+    private readonly IVmBackendRouter _router;
+    private readonly VmOperationLocks _locks;
+    private readonly TimeProvider _clock;
+
+    /// <summary>One backend for every VM (the doc 16 single-backend lifecycle). No provider kind is recorded.</summary>
+    public VmLifecycleService(IEnvironmentVmStore store, IVmBackend backend, VmOperationLocks locks, TimeProvider clock)
+        : this(store, new SingleBackendRouter(backend), locks, clock)
+    {
+    }
+
+    /// <summary>Several providers: each VM goes to the backend the router names.</summary>
+    public VmLifecycleService(IEnvironmentVmStore store, IVmBackendRouter router, VmOperationLocks locks, TimeProvider clock)
+    {
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _router = router ?? throw new ArgumentNullException(nameof(router));
+        _locks = locks ?? throw new ArgumentNullException(nameof(locks));
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+    }
+
     /// <summary>
-    /// Creates the child VM for <paramref name="vm"/>, which must be in <see cref="VmState.Absent"/>. The row is inserted,
-    /// moved to Provisioning, and ends in Stopped. If the backend fails, the row goes back to Absent and the exception propagates.
+    /// Creates the child VM for <paramref name="vm"/>, which must be in <see cref="VmState.Absent"/>. The router picks the provider
+    /// first (by <see cref="EnvironmentVmRecord.ProviderKind"/>, or by the guest OS); if none may serve, the result is refused with
+    /// <see cref="VmRefusalReason.NoProvider"/> and no row is written. Otherwise the row is inserted with the chosen kind, moved to
+    /// Provisioning, and ends in Stopped. If the backend fails, the row goes back to Absent and the exception propagates.
     /// The environment id stays the store's id; the backend's own id is kept only as <c>backend_ref</c>.
     /// </summary>
     public async Task<VmOperationResult> CreateAsync(EnvironmentVmRecord vm, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(vm);
         if (vm.State != VmState.Absent)
             return Refuse(VmRefusalReason.ForbiddenTransition, vm.State, VmState.Provisioning);
 
-        using var lease = await locks.AcquireAsync(vm.Id, ct).ConfigureAwait(false);
-        await store.InsertAsync(vm, ct).ConfigureAwait(false);
-        if (!await store.TryUpdateStateAsync(vm.Id, VmState.Absent, VmState.Provisioning, clock.GetUtcNow(), ct).ConfigureAwait(false))
+        using var lease = await _locks.AcquireAsync(vm.Id, ct).ConfigureAwait(false);
+        var route = await _router.RouteNewAsync(vm.Os, vm.ProviderKind, ct).ConfigureAwait(false);
+        if (route.Backend is null)
+            return Refuse(VmRefusalReason.NoProvider, vm.State, VmState.Provisioning, route.Reason);
+
+        var row = vm with { ProviderKind = route.Kind };
+        await _store.InsertAsync(row, ct).ConfigureAwait(false);
+        if (!await _store.TryUpdateStateAsync(vm.Id, VmState.Absent, VmState.Provisioning, _clock.GetUtcNow(), ct).ConfigureAwait(false))
             return await StateChangedAsync(vm.Id, VmState.Provisioning, ct).ConfigureAwait(false);
 
         VmHandle handle;
         try
         {
             var spec = new VmSpec(vm.Os, vm.Vcpu, vm.MemoryMb, vm.DiskCapGb);
-            handle = await backend.CreateChildAsync(new ImageVersionId(vm.ParentImageId), spec, ct).ConfigureAwait(false);
+            handle = await route.Backend.CreateChildAsync(new ImageVersionId(vm.ParentImageId), spec, ct).ConfigureAwait(false);
         }
         catch
         {
             // Create failed: the table sends Provisioning back to Absent. Recorded with no cancellation so the row is not left in Provisioning.
-            await store.TryUpdateStateAsync(vm.Id, VmState.Provisioning, VmState.Absent, clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false);
+            await _store.TryUpdateStateAsync(vm.Id, VmState.Provisioning, VmState.Absent, _clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false);
             throw;
         }
 
+        // The child lives in this backend object, so the VM stays on it even if the provider hands out a new one later.
+        _router.Pin(vm.Id, route.Kind, route.Backend);
+
         // The backend created the VM, so the handle is recorded and the state moves even if the caller has been cancelled.
-        if (!await store.SetBackendRefAsync(vm.Id, handle.BackendRef, clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false))
+        if (!await _store.SetBackendRefAsync(vm.Id, handle.BackendRef, _clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false))
             throw new InvalidOperationException($"VM {vm.Id} disappeared while it was being created.");
-        if (!await store.TryUpdateStateAsync(vm.Id, VmState.Provisioning, VmState.Stopped, clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false))
+        if (!await _store.TryUpdateStateAsync(vm.Id, VmState.Provisioning, VmState.Stopped, _clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false))
             return await StateChangedAsync(vm.Id, VmState.Stopped, ct).ConfigureAwait(false);
         return new VmOperationResult.Applied(VmState.Stopped);
     }
 
     public Task<VmOperationResult> StartAsync(Guid vmId, CancellationToken ct) =>
-        RunAsync(vmId, VmState.Running, h => backend.StartAsync(h, ct), ct);
+        RunAsync(vmId, VmState.Running, (b, h) => b.StartAsync(h, ct), ct);
 
     public Task<VmOperationResult> StopAsync(Guid vmId, StopMode mode, CancellationToken ct) =>
-        RunAsync(vmId, VmState.Stopped, h => backend.StopAsync(h, mode, ct), ct);
+        RunAsync(vmId, VmState.Stopped, (b, h) => b.StopAsync(h, mode, ct), ct);
 
     public Task<VmOperationResult> SaveAsync(Guid vmId, CancellationToken ct) =>
-        RunAsync(vmId, VmState.Saved, h => backend.SaveStateAsync(h, ct), ct);
+        RunAsync(vmId, VmState.Saved, (b, h) => b.SaveStateAsync(h, ct), ct);
 
     public async Task<VmCheckpointResult> CheckpointAsync(Guid vmId, CancellationToken ct)
     {
         CheckpointId? checkpoint = null;
-        var result = await RunAsync(vmId, VmState.Checkpointed, async h =>
+        var result = await RunAsync(vmId, VmState.Checkpointed, async (b, h) =>
         {
-            checkpoint = await backend.CheckpointAsync(h, ct).ConfigureAwait(false);
+            checkpoint = await b.CheckpointAsync(h, ct).ConfigureAwait(false);
         }, ct).ConfigureAwait(false);
 
         if (result is VmOperationResult.Refused refused)
@@ -68,22 +100,40 @@ public sealed class VmLifecycleService(IEnvironmentVmStore store, IVmBackend bac
     }
 
     public Task<VmOperationResult> RestoreAsync(Guid vmId, CheckpointId checkpoint, CancellationToken ct) =>
-        RunAsync(vmId, VmState.Restored, h => backend.RestoreAsync(h, checkpoint, ct), ct);
+        RunAsync(vmId, VmState.Restored, (b, h) => b.RestoreAsync(h, checkpoint, ct), ct);
 
-    public Task<VmOperationResult> RetireAsync(Guid vmId, CancellationToken ct) =>
-        RunAsync(vmId, VmState.Retired, h => backend.RetireAsync(h, ct), ct);
+    public async Task<VmOperationResult> RetireAsync(Guid vmId, CancellationToken ct)
+    {
+        var result = await RunAsync(vmId, VmState.Retired, (b, h) => b.RetireAsync(h, ct), ct).ConfigureAwait(false);
+        if (result is VmOperationResult.Applied)
+            _router.Release(vmId);
+        return result;
+    }
 
     /// <summary>
     /// Returns the recorded state, or null for an unknown VM. This reads the store only: it takes no lock and calls no backend.
     /// </summary>
     public async Task<VmState?> GetStateAsync(Guid vmId, CancellationToken ct) =>
-        (await store.GetAsync(vmId, ct).ConfigureAwait(false))?.State;
+        (await _store.GetAsync(vmId, ct).ConfigureAwait(false))?.State;
 
-    private async Task<VmOperationResult> RunAsync(Guid vmId, VmState requested, Func<VmHandle, Task> backendCall, CancellationToken ct)
+    /// <summary>
+    /// Whether the backend that owns this VM can save a running VM's state (<see cref="IVmBackend.SupportsSaveState"/>). Null for an
+    /// unknown VM or one no provider can serve. Reads the store and asks the router; calls no backend operation.
+    /// </summary>
+    public async Task<bool?> SupportsSaveStateAsync(Guid vmId, CancellationToken ct)
     {
-        using var lease = await locks.AcquireAsync(vmId, ct).ConfigureAwait(false);
+        var vm = await _store.GetAsync(vmId, ct).ConfigureAwait(false);
+        if (vm is null)
+            return null;
+        var route = await _router.RouteExistingAsync(vm, ct).ConfigureAwait(false);
+        return route.Backend?.SupportsSaveState;
+    }
 
-        var current = await store.GetAsync(vmId, ct).ConfigureAwait(false);
+    private async Task<VmOperationResult> RunAsync(Guid vmId, VmState requested, Func<IVmBackend, VmHandle, Task> backendCall, CancellationToken ct)
+    {
+        using var lease = await _locks.AcquireAsync(vmId, ct).ConfigureAwait(false);
+
+        var current = await _store.GetAsync(vmId, ct).ConfigureAwait(false);
         if (current is null)
             return Refuse(VmRefusalReason.UnknownVm, null, requested);
         if (!VmTransitions.CanTransition(current.State, requested))
@@ -91,22 +141,26 @@ public sealed class VmLifecycleService(IEnvironmentVmStore store, IVmBackend bac
         if (current.BackendRef is null)
             throw new InvalidOperationException($"VM {vmId} is {current.State} but has no backend ref.");
 
+        var route = await _router.RouteExistingAsync(current, ct).ConfigureAwait(false);
+        if (route.Backend is null)
+            return Refuse(VmRefusalReason.NoProvider, current.State, requested, route.Reason);
+
         // An exception here propagates and leaves the recorded state unchanged.
-        await backendCall(new VmHandle(vmId, current.BackendRef)).ConfigureAwait(false);
+        await backendCall(route.Backend, new VmHandle(vmId, current.BackendRef)).ConfigureAwait(false);
 
         // The backend has acted, so the outcome is recorded even if the caller has been cancelled.
         // A failed compare-and-set means the row changed during the call; it is reported, not claimed as success.
-        if (!await store.TryUpdateStateAsync(vmId, current.State, requested, clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false))
+        if (!await _store.TryUpdateStateAsync(vmId, current.State, requested, _clock.GetUtcNow(), CancellationToken.None).ConfigureAwait(false))
             return await StateChangedAsync(vmId, requested, ct).ConfigureAwait(false);
         return new VmOperationResult.Applied(requested);
     }
 
     private async Task<VmOperationResult> StateChangedAsync(Guid vmId, VmState requested, CancellationToken ct)
     {
-        var now = await store.GetAsync(vmId, ct).ConfigureAwait(false);
+        var now = await _store.GetAsync(vmId, ct).ConfigureAwait(false);
         return Refuse(VmRefusalReason.StateChanged, now?.State, requested);
     }
 
-    private static VmOperationResult.Refused Refuse(VmRefusalReason reason, VmState? current, VmState? requested) =>
-        new VmOperationResult.Refused(new VmRefusal(reason, current, requested));
+    private static VmOperationResult.Refused Refuse(VmRefusalReason reason, VmState? current, VmState? requested, string? detail = null) =>
+        new VmOperationResult.Refused(new VmRefusal(reason, current, requested, detail));
 }

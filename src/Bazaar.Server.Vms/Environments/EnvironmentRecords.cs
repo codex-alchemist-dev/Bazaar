@@ -55,7 +55,10 @@ public sealed record GoldenImageRecord(
     GoldenImageState State,
     DateTimeOffset CreatedAt);
 
-/// <summary>An agent's VM for one OS (<c>environment_vm</c>).</summary>
+/// <summary>
+/// An agent's VM for one OS (<c>environment_vm</c>). <paramref name="ProviderKind"/> names the provider that owns it (doc 62
+/// section 9.2); null on a row written before routing existed, or on a new VM that lets the router choose.
+/// </summary>
 public sealed record EnvironmentVmRecord(
     Guid Id,
     Guid AgentId,
@@ -67,7 +70,8 @@ public sealed record EnvironmentVmRecord(
     int MemoryMb,
     int DiskCapGb,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? ProviderKind = null);
 
 /// <summary>A named or unnamed checkpoint of a VM (<c>environment_checkpoint</c>).</summary>
 public sealed record EnvironmentCheckpointRecord(

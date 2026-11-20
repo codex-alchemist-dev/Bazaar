@@ -10,8 +10,14 @@ namespace Bazaar.Server.Vms.WindowsSandbox;
 /// and <see cref="IVmProvider"/> so the selector can choose it for the VM role. Operations Windows Sandbox cannot do throw
 /// <see cref="NotSupportedException"/>, matching <see cref="WindowsSandboxModule.Capabilities"/>. Saved state and checkpoints are never faked.
 /// </summary>
-public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IDisposable
+/// <remarks>
+/// It is also its own <see cref="IVmBackendSource"/> (doc 62 section 9.2): a pair candidate with the last-resort preference, so the
+/// selector lists it after Hyper-V, and its single-instance cap keeps it out of the agent pair. A VM may still name it explicitly.
+/// </remarks>
+public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, ICapacityLimitedProvider, IVmBackendSource, IDisposable
 {
+    private static readonly IReadOnlyList<VmOs> _guestOs = [VmOs.Windows];
+
     private readonly int _maxConcurrentInstances = WindowsSandboxModule.Capabilities.MaxConcurrentInstances;
 
     private readonly IWindowsSandboxHost _host;
@@ -35,6 +41,22 @@ public sealed class WindowsSandboxBackend : IVmBackend, IVmProvider, ICapacityLi
 
     /// <inheritdoc />
     public int MaxConcurrentInstances => _maxConcurrentInstances;
+
+    /// <inheritdoc />
+    public IReadOnlyList<VmOs> GuestOs => _guestOs;
+
+    /// <inheritdoc />
+    public VmProviderPlacement Placement => VmProviderPlacement.Pair;
+
+    /// <inheritdoc />
+    public int Preference => VmBackendOrdering.LastResort;
+
+    /// <summary>This backend, with the host probe deciding whether it may take a new VM.</summary>
+    public ValueTask<VmBackendLookup> GetCurrentAsync(CancellationToken ct)
+    {
+        var status = Probe();
+        return ValueTask.FromResult(new VmBackendLookup(this, status.Usable, status.Usable ? null : status.Reason));
+    }
 
     /// <summary>
     /// Checks the host against <see cref="WindowsSandboxModule.Requirements"/>. Synchronous and read-only.

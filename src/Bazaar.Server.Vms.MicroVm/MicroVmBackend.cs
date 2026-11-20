@@ -20,6 +20,7 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
     private readonly Dictionary<string, Guid> _ids = new(StringComparer.Ordinal);
     private readonly object _gate = new();
     private readonly SemaphoreSlim _launchGate = new(1, 1);
+    private int _maxConcurrent;
 
     public MicroVmBackend(IMicroVmMonitor monitor, IMicroVmHostFacts facts, MicroVmOptions options)
     {
@@ -27,11 +28,16 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         _facts = facts ?? throw new ArgumentNullException(nameof(facts));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         options.Validate();
+        _maxConcurrent = options.MaxConcurrent;
     }
+
+    /// <summary>The highest <c>vms.microvm.max_concurrent</c> the setting allows.</summary>
+    public const int MaxCap = 256;
 
     public string Kind => MicroVmModule.Kind;
 
-    public int MaxConcurrentInstances => _options.MaxConcurrent;
+    /// <summary>The live <c>vms.microvm.max_concurrent</c> cap (doc 62 section 9.2). It starts at the configured value.</summary>
+    public int MaxConcurrentInstances => Volatile.Read(ref _maxConcurrent);
 
     /// <summary>The device capability report (doc 62 section 4), from <see cref="MicroVmModule.Capabilities"/> and the configured cap.</summary>
     public DeviceProviderCapabilities Capabilities => new(
@@ -41,7 +47,7 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         Checkpoint: MicroVmModule.Capabilities.Checkpoint,
         Restore: MicroVmModule.Capabilities.Restore,
         Headless: MicroVmModule.Capabilities.Headless,
-        MaxConcurrentInstances: _options.MaxConcurrent,
+        MaxConcurrentInstances: MaxConcurrentInstances,
         GuestAgent: MicroVmModule.Capabilities.GuestAgent,
         EgressEnforced: MicroVmModule.Capabilities.EgressEnforced,
         ParentContentPinned: MicroVmModule.Capabilities.ParentContentPinned,
@@ -49,6 +55,17 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         RemoteNode: false);
 
     public int Running => RunningGuests().Count;
+
+    /// <summary>
+    /// Applies a changed <c>vms.microvm.max_concurrent</c> without a rebuild. It affects only new starts: lowering it below the running
+    /// count stops nothing, and further starts are refused until enough guests stop.
+    /// </summary>
+    public void SetMaxConcurrent(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, MaxCap);
+        Volatile.Write(ref _maxConcurrent, value);
+    }
 
     public DeviceProbeResult ProbeDevice()
     {
@@ -113,9 +130,10 @@ public sealed class MicroVmBackend : IVmBackend, IVmProvider, ICapacityLimitedPr
         {
             lock (_gate)
             {
-                if (_states.Values.Count(s => s == VmState.Running) >= _options.MaxConcurrent)
+                var max = MaxConcurrentInstances;
+                if (_states.Values.Count(s => s == VmState.Running) >= max)
                 {
-                    throw new InvalidOperationException($"The microVM provider allows {_options.MaxConcurrent} running VMs.");
+                    throw new InvalidOperationException($"The microVM provider allows {max} running VMs.");
                 }
             }
 

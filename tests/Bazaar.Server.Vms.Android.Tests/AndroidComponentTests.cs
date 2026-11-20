@@ -65,10 +65,11 @@ public sealed class AndroidComponentTests
     }
 
     [Fact]
-    public void An_unset_sdk_root_reports_not_usable_with_a_reason_and_does_not_throw()
+    public async Task An_unset_sdk_root_reports_not_usable_with_a_reason_and_does_not_throw()
     {
         using var provider = Build([]);
         var entry = provider.GetRequiredService<IDeviceProviderCatalogEntry>();
+        await entry.RefreshAsync(TestContext.Current.CancellationToken);
 
         var probe = entry.ProbeDevice();
 
@@ -80,7 +81,7 @@ public sealed class AndroidComponentTests
     }
 
     [Fact]
-    public void A_relative_path_that_slips_past_the_setting_check_is_reported_not_thrown()
+    public async Task A_relative_path_that_slips_past_the_setting_check_is_reported_not_thrown()
     {
         using var provider = Build(new()
         {
@@ -89,14 +90,16 @@ public sealed class AndroidComponentTests
             [DeviceProvidersSettings.AndroidSystemImage.Name] = "system-images;android-35;google_apis;x86_64",
         });
 
-        var probe = provider.GetRequiredService<IDeviceProviderCatalogEntry>().ProbeDevice();
+        var entry = provider.GetRequiredService<IDeviceProviderCatalogEntry>();
+        await entry.RefreshAsync(TestContext.Current.CancellationToken);
+        var probe = entry.ProbeDevice();
 
         Assert.False(probe.Usable);
-        Assert.NotNull(probe.Reason);
+        Assert.Contains("vms.android", probe.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void A_complete_configuration_builds_the_backend_with_the_configured_cap()
+    public async Task A_complete_configuration_builds_the_backend_with_the_configured_cap()
     {
         using var provider = Build(new()
         {
@@ -106,6 +109,7 @@ public sealed class AndroidComponentTests
             [DeviceProvidersSettings.AndroidMaxConcurrent.Name] = 3,
         });
         var entry = provider.GetRequiredService<AndroidCatalogEntry>();
+        await entry.RefreshAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(entry.Backend);
         Assert.Equal(3, entry.Capabilities.MaxConcurrentInstances);
