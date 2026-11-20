@@ -133,6 +133,7 @@
     <Project Path="src/Bazaar.Server.VmDisplay/Bazaar.Server.VmDisplay.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.AgentTools/Bazaar.Server.VmDisplay.AgentTools.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Audit/Bazaar.Server.VmDisplay.Audit.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Gate/Bazaar.Server.VmDisplay.Gate.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -221,5 +222,6 @@
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.AgentTools.Tests/Bazaar.Server.VmDisplay.AgentTools.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Audit.Tests/Bazaar.Server.VmDisplay.Audit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Gate.Tests/Bazaar.Server.VmDisplay.Gate.Tests.csproj" />
   </Folder>
 </Solution>
