@@ -16,14 +16,16 @@ public sealed class SetupSettingProjectionTests
 
         Assert.Equal(
             [
-                "backup.drill_interval_days", "backup.no_target_acknowledged", "backup.target", "deps.update.autoSecurityPatches",
-                "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "mail.backend", "mail.enabled", "update.channel",
+                "backup.drill_interval_days", "backup.no_target_acknowledged", "backup.target", "company.source", "deps.update.autoSecurityPatches",
+                "gateway.default_preset", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "identity.merge_credential",
+                "identity.merge_credential.app_id_ref", "mail.backend", "mail.enabled", "update.channel",
             ],
             projected.Select(s => s.Key));
         Assert.Equal(
             [
-                "backups.drillIntervalDays", "backups.acknowledgeNoTarget", "backups.target", "install.updatePolicy.security",
-                "settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "email.backend", "email.enabled", "install.releaseChannel",
+                "backups.drillIntervalDays", "backups.acknowledgeNoTarget", "backups.target", "company.source", "install.updatePolicy.security",
+                "models.defaultPreset", "settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "custody.mergeCredential.kind",
+                "custody.mergeCredential.appIdRef", "email.backend", "email.enabled", "install.releaseChannel",
             ],
             projected.Select(s => s.PlanPath));
     }
@@ -57,6 +59,10 @@ public sealed class SetupSettingProjectionTests
     [InlineData("scamMailProtocol.enabled", "security.scam_mail.protocol_enabled")]
     [InlineData("install.releaseChannel", "update.channel")]
     [InlineData("install.updatePolicy.security", "deps.update.autoSecurityPatches")]
+    [InlineData("custody.mergeCredential.kind", "identity.merge_credential")]
+    [InlineData("custody.mergeCredential.appIdRef", "identity.merge_credential.app_id_ref")]
+    [InlineData("models.defaultPreset", "gateway.default_preset")]
+    [InlineData("company.source", "company.source")]
     [InlineData("backups.drillIntervalDays", "backup.drill_interval_days")]
     [InlineData("backups.acknowledgeNoTarget", "backup.no_target_acknowledged")]
     [InlineData("email.backend", "mail.backend")]

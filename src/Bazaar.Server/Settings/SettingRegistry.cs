@@ -21,7 +21,7 @@ public sealed class SettingRegistry
 
     /// <summary>
     /// Every built-in setting: the host keys, the calendar keys (doc 24), the knowledge keys (doc 25), the
-    /// constellation keys (doc 19), the gateway keys (doc 05) and the doc 15 security keys. Module keys (the module manager's,
+    /// constellation keys (doc 19), the gateway keys (doc 05), the doc 15 security keys and the owner merge credential keys (doc 14). Module keys (the module manager's,
     /// doc 42 and doc 49) arrive as contributions through <see cref="WithContributions"/>, so the host composes them.
     /// </summary>
     public static SettingRegistry Known { get; } = new(BuiltInSettings);
@@ -33,7 +33,8 @@ public sealed class SettingRegistry
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
             .Concat(Gateway.GatewaySettings.All)
-            .Concat(SecuritySettings.All);
+            .Concat(SecuritySettings.All)
+            .Concat(SecuritySettings.IdentityKeys);
 
     /// <summary>
     /// The built-in keys plus every module contribution. A contributed name that repeats a built-in or another
