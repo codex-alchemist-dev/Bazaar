@@ -369,6 +369,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Onboarding and portability names | Pilot company is Bazaar.CDAX. Module names: Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda, Bazaar.Conduit, Bazaar.KODO. CALCINATO is the terminal and ATHANOR is the IDE. | 41, 47 |
 | Extraction | Kodo and Constellation.Renderer stay first-party modules until the owner asks for extraction. | 46, 19 |
 | KEK custody default (doc 14, `identity.kek_provider`) | **DECIDED 2026-11-16 (owner card):** the KEK is protected by DPAPI on a Windows host, tied to the machine or service account. Other OSes use a protected key file (`file`). Supersedes the random key file default in code. | 14, 33 |
+| Kanban fold into RyuseiFuda (owner, 2026-11-16) | Kanban is RyuseiFuda's macro board (layer 1, doc 38), folded under one name. Code moves into the RyuseiFuda module with forward migrations in the `ryusei` namespace. Stored `kanban.*` keys, the `kanban.transition` tool and the `kanban.deadline_scan` job kind are rewritten, and old names stay readable (`kanban.transition` is a read-only alias). The component ID `kanban` stays stable under the component-ID rule. Table names and board rules do not change. | 12, 38 (R4) |
 | Principles | Open source, modern, novel, performant, forward-facing, modular first. Beta 0.x. | 42, 49, FORWARD-FACING.md |
 
 **Open for owner:** the licence pricing (decided later); whether the module exception wording and the CLA mechanism (47, M4) are accepted by counsel; the number of this round.
