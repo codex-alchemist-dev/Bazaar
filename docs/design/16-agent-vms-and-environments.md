@@ -190,6 +190,13 @@ Registry owned by doc 03 [PROPOSED]. Changes are written to `audit_log` (doc 15)
 12. KVM provider and Linux host spike. (after 3; later)
 13. Browser profiles in the pair; third VM only if the headed and headless spike needs it. (after 6, 8, 9)
 
+## Browser module build notes (WP13) [PROPOSED]
+- Own module pair `Bazaar.Server.Browser` and `Bazaar.Server.Browser.Abstractions` (doc 40). It owns launch, session registry and cookie hand-off; Identity (doc 14) keeps profile storage, encryption and leases.
+- Chromium runs in the agent's existing VM pair (`BrowserGuestOs`), headless by default. Argv is built host-side: profile directory in the guest, `--proxy-server` to the per-agent egress proxy, `--host-resolver-rules` so DNS only resolves through the proxy, `--remote-debugging-pipe` (no TCP debug port), never `--no-sandbox`.
+- Account profiles get cookies over the guest channel by CDP `Network.setCookies` after the process starts (the cookie never goes on argv or disk in the guest beyond Chromium's own profile). Anonymous profiles never call the cookie source.
+- Hard taint calls `DetachAccountSessionsAsync`: account sessions stop and cookies drop; anonymous sessions are unaffected. No egress route means no browser (fail closed).
+- Conflict 1 (mount mode) stays open for doc 15; this module uses a guest-local profile directory and does not depend on the answer.
+
 ## Conflicts
 1. **Soul folder mount mode vs cookie profile.** The mount mode (`scoped_mount.mode`) is not decided here. A read-only mount conflicts with Chromium writing its profile: either the profile is copied into the guest on attach and written back on detach, or the mount is read-write. PROPOSED resolution (2026-11-18): read-only share plus a guest-local working copy of the profile, written back on detach; see the build design above. Doc 15 confirms.
 2. **Egress has no owner.** This doc depends on an egress design, but the doc index has no egress entry. PROPOSED resolution (2026-11-18): doc 15 owns the policy, this doc owns the VM-side enforcement; see the build design above. The owner confirms.
