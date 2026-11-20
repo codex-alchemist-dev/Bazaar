@@ -16,6 +16,8 @@
     <Project Path="src/Bazaar.Localisation/Bazaar.Localisation.csproj" />
     <Project Path="src/Bazaar.Accessibility/Bazaar.Accessibility.csproj" />
     <Project Path="src/Bazaar.Accessibility.Avalonia/Bazaar.Accessibility.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Server.Browser/Bazaar.Server.Browser.csproj" />
+    <Project Path="src/Bazaar.Server.Browser.Abstractions/Bazaar.Server.Browser.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval/Bazaar.Server.AccountApproval.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval.Abstractions/Bazaar.Server.AccountApproval.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild/Bazaar.Server.CompanyBuild.csproj" />
@@ -142,6 +144,7 @@
     <Project Path="tests/Bazaar.Accessibility.Tests/Bazaar.Accessibility.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Avalonia.Tests/Bazaar.Accessibility.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
