@@ -6,6 +6,7 @@ using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Tests.Memory.Notes;
+using Bazaar.Testing.Secrets;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Tests.Memory.Tools;
@@ -15,7 +16,7 @@ public class MemoryToolServiceTests
     private static readonly DateTimeOffset _start = new(2026, 11, 2, 9, 0, 0, TimeSpan.Zero);
     private const string _alpha = "alpha";
     private const string _beta = "beta";
-    private const string _secretBody = "Retry with key sk-ant-api03abcdefghijklmnopqrstuvwxyz0123 after each failure.";
+    private const string _secretBody = "Retry with key " + FakeSecrets.AnthropicApiKey + " after each failure.";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

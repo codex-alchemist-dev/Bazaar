@@ -89,6 +89,18 @@ public static class KodoScore
         // Integer division with a half-up rounding offset: (2 * weighted + total) / (2 * total).
         int raw = (int)((2 * weighted + totalWeight) / (2 * totalWeight));
 
+        int cap = CapFor(observation);
+
+        return Math.Min(raw, cap);
+    }
+
+    /// <summary>
+    /// The highest score the observation allows (section 12.2): 100 when no cap applies, otherwise the lowest applicable cap.
+    /// </summary>
+    public static int CapFor(KodoObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+
         int cap = 100;
         if (observation.CriticalRed)
         {
@@ -105,6 +117,6 @@ public static class KodoScore
             cap = Math.Min(cap, CriticalUnknownCap);
         }
 
-        return Math.Min(raw, cap);
+        return cap;
     }
 }
