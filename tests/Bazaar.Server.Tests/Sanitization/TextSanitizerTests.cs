@@ -1,5 +1,6 @@
 using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Server.Tests.Sanitization;
 
@@ -19,7 +20,7 @@ public class TextSanitizerTests
 
     [Theory]
     [InlineData("-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----", "[secret]", RedactionKind.Secret)]
-    [InlineData("use sk-ant-abcdefghij12 now", "use [secret] now", RedactionKind.Secret)]
+    [InlineData("use " + FakeSecrets.AnthropicApiKey + " now", "use [secret] now", RedactionKind.Secret)]
     [InlineData("auth Bearer abcdef123456xyz end", "auth [secret] end", RedactionKind.Secret)]
     [InlineData("password=hunter2 ok", "[secret] ok", RedactionKind.Secret)]
     [InlineData("clone https://bob:s3cr3t@git.example.com/x", "clone https://[secret]@git.example.com/x", RedactionKind.Secret)]
