@@ -14,7 +14,7 @@ public class ReleaseManifestTests
     private const string Sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private const string Fingerprint = "0123456789abcdef0123456789abcdef01234567";
 
-    private static readonly JsonSerializerOptions _indented = new(WireJsonContext.Default.Options) { WriteIndented = true };
+    private static readonly JsonSerializerOptions _indented = new(WireJsonContext.Default.Options) { WriteIndented = true, NewLine = "\n" };
 
     private static ReleaseArtifact Artifact(
         string os = "linux", string arch = "linux-x64", string format = "tar.gz",
