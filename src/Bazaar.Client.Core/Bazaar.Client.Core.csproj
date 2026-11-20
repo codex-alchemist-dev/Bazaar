@@ -12,6 +12,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Cdax.Core\Cdax.Core.csproj" />
-    <ProjectReference Include="..\Bazaar.Constellation.Rendering\Bazaar.Constellation.Rendering.csproj" />
   </ItemGroup>
 </Project>
