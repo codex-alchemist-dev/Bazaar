@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.PrivacyAudit;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Security.Audit;
 
