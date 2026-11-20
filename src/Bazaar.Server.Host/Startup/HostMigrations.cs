@@ -1,17 +1,21 @@
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Hive;
 using Bazaar.Server.Modules;
+using Bazaar.Server.TalentPool;
 using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
 
-/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, and the module component files under Sql/components/ (Vms, Council).</summary>
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Vms, Hive and Council modules' component files under Sql/components/{id}, and the Talent Pool module's Sql/talent_pool namespace.</summary>
 public static class HostMigrations
 {
-    /// <summary>Server, Vms and Council migrations, read from their assemblies.</summary>
+    /// <summary>Server, Vms, Hive, Council and Talent Pool migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
         new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
-        new ComponentMigrationSource(typeof(CouncilStore).Assembly));
+        new ComponentMigrationSource(typeof(CouncilStore).Assembly),
+        new ComponentMigrationSource(typeof(HiveRegistration).Assembly),
+        new EmbeddedMigrationSource(typeof(TalentPoolServiceCollectionExtensions).Assembly));
 }
