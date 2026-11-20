@@ -12,12 +12,16 @@ using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Preload;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.Launcher;
+using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Windows;
 
@@ -50,21 +54,10 @@ internal static class Program
             Console.Error.WriteLine("Bazaar: the running instance did not answer; this launch will not be forwarded.");
         }
 
-        using var listenerStop = new CancellationTokenSource();
-        if (isPrimary)
-        {
-            // TODO(component): pane routing for --open and --terminal lands with the pane host; for now every
-            // forwarded launch only brings the main window forward.
-            _ = LaunchPipe.ListenAsync(pipeName, _ => Dispatcher.UIThread.InvokeAsync(ActivateMainWindow).GetTask(), listenerStop.Token)
-                .ContinueWith(
-                    task => Console.Error.WriteLine($"Bazaar: launcher listener stopped: {task.Exception?.GetBaseException().Message}"),
-                    TaskContinuationOptions.OnlyOnFaulted);
-        }
+        using var launcher = isPrimary ? LauncherHost.Start(pipeName, Console.Error.WriteLine) : null;
 
         var chatSettings = ChatSettings(args);
-        GcChatSession? chat = null;
-        Control? chatContent = null;
-        using var chatStop = new CancellationTokenSource();
+        ChatHost? chat = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
@@ -78,10 +71,13 @@ internal static class Program
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            new EnginePaneModule(),
         ];
         var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
+        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
-            modules,
+            shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
@@ -93,22 +89,14 @@ internal static class Program
         {
             if (chatSettings is not null)
             {
-                chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
-                chatContent = ChatViewFactory.Instance.Create(new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action)));
-                _ = chat.StartAsync(chatStop.Token).ContinueWith(
-                    task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
-                    TaskContinuationOptions.OnlyOnFaulted);
+                chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
             }
 
-            var window = chatContent is null ? new MainWindow() : new MainWindow(chatContent);
-            if (preloadStart)
-            {
-                // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).
-                window.Opened += (_, _) => window.Hide();
-            }
+            // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
+            var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
             if (showPanes)
             {
-                window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
+                window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
 
             return window;
@@ -120,9 +108,7 @@ internal static class Program
         }
         finally
         {
-            chatStop.Cancel();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            listenerStop.Cancel();
         }
     }
 
@@ -143,18 +129,4 @@ internal static class Program
 
     private static AppBuilder BuildAvaloniaApp(Func<Window> createMainWindow) =>
         AppBuilder.Configure(() => new App(createMainWindow)).UsePlatformDetect();
-
-    private static void ActivateMainWindow()
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            if (!window.IsVisible)
-            {
-                window.Show();
-            }
-
-            window.WindowState = WindowState.Normal;
-            window.Activate();
-        }
-    }
 }
