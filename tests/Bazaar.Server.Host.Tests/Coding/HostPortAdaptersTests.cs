@@ -178,7 +178,7 @@ public sealed class HostPortAdaptersTests
         Assert.IsType<KillSwitchAgentFreeze>(provider.GetRequiredService<IAgentFreeze>());
 
         // No Server source exists for these, so they must not resolve.
-        Assert.Throws<InvalidOperationException>(provider.GetRequiredService<IAgentGitIdentity>);
+        Assert.IsType<ConfiguredAgentGitIdentity>(provider.GetRequiredService<IAgentGitIdentity>());
         Assert.Throws<InvalidOperationException>(provider.GetRequiredService<IWorkShareLayout>);
         Assert.IsType<RunningTurnParentDirectory>(provider.GetRequiredService<IRuntimeSubagentParentDirectory>());
         Assert.Throws<InvalidOperationException>(provider.GetRequiredService<IPushGate>);

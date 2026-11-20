@@ -59,7 +59,7 @@ public sealed class CodingHarnessWiringTests
     {
         foreach (var port in CodingHarnessPorts.Required)
         {
-            if (port == typeof(IRuntimeSubagentParentDirectory)) { continue; } // bound by the harness itself (running-turn registry)
+            if (port == typeof(IRuntimeSubagentParentDirectory) || port == typeof(IAgentGitIdentity) || port == typeof(IAgentStateReader) || port == typeof(IPushSessionRecords)) { continue; } // bound by the harness itself
             var services = HostPolicyBase().AddFakes(except: port);
             services.AddBazaarCodingHarness(CodingHarnessTestFakes.Config(true));
 
