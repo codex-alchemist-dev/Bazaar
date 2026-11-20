@@ -1,10 +1,13 @@
 using Bazaar.Contracts.Soul;
+using Bazaar.Souls.Abstractions;
 
 namespace Bazaar.Server.Souls.Retirement;
 
 /// <summary>
 /// Runs the retirement steps for one Soul and agent in a fixed order (docs/design/07-soul-system.md, work package 6):
 /// <list type="number">
+/// <item>end the agent's Soul binding first, so it resolves to no Soul and cannot post (doc 06 "Retired"; skipped when no
+/// <see cref="ISoulBindingAdmin"/> is given, and idempotent, so a repeat run does not record it twice);</item>
 /// <item>revoke Passport entries;</item>
 /// <item>revoke tokens;</item>
 /// <item>stop the VM child disk;</item>
@@ -23,13 +26,17 @@ public sealed class RetirementCoordinator(
     ITokenRevoker tokens,
     IVmDiskRetirer disks,
     IRetirementLedger ledger,
-    TimeProvider clock)
+    TimeProvider clock,
+    ISoulBindingAdmin? bindings = null)
 {
     /// <summary>Runs every applicable step once, or reports what a previous run already did. Never throws for a step failure.</summary>
     public async Task<RetirementReport> RetireAsync(RetirementRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var subject = request.Subject;
+        if (bindings is not null)
+            await bindings.RetireAsync(subject.AgentId, "Soul retirement", cancellationToken).ConfigureAwait(false);
+
         var completed = (await ledger.ReadAsync(subject, cancellationToken).ConfigureAwait(false))
             .Where(r => r.Status is RetirementStepStatus.Done or RetirementStepStatus.AlreadyDone)
             .Select(r => r.Step)
