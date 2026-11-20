@@ -66,7 +66,20 @@ public sealed record MemoryGraphRevision(
 /// <param name="MaxHops">How far to expand from a seed. Capped at 2 by the retriever.</param>
 /// <param name="TopK">The number of fused seeds kept before expansion.</param>
 /// <param name="RrfK">The RRF constant (see <c>RetrievalOptions</c>).</param>
-public sealed record MemoryGraphOptions(int MaxHops = 1, int TopK = 20, int RrfK = 60);
+/// <param name="IncludeHistory">
+/// When true, notes superseded by a readable current head are returned as labelled history (<see cref="MemoryGraphHit.IsHistory"/>),
+/// always ranked below their head. When false (the default), only the head of a supersedes chain is returned.
+/// </param>
+/// <param name="ScopePrefixes">
+/// Optional path scope: when set, a node is a candidate (seed or hop target) only when its doc path starts with one of these
+/// prefixes. It only narrows what <c>IVaultAccess</c> already allows; it never widens it.
+/// </param>
+public sealed record MemoryGraphOptions(
+    int MaxHops = 1,
+    int TopK = 20,
+    int RrfK = 60,
+    bool IncludeHistory = false,
+    IReadOnlyList<string>? ScopePrefixes = null);
 
 /// <summary>
 /// One Constellation node returned by a retrieval, with the score it was packed under. The node is a Vault doc; when the doc is
@@ -81,6 +94,13 @@ public sealed record MemoryGraphOptions(int MaxHops = 1, int TopK = 20, int RrfK
 /// <param name="Trust">The <c>MemoryTier</c> name for a memory note, otherwise null.</param>
 /// <param name="Score">The score after expansion weighting.</param>
 /// <param name="HopDistance">0 for a seed, 1 or 2 for an expansion hit.</param>
+/// <param name="IsHistory">
+/// True when this doc is superseded by a current head the caller can read. A history hit is never current advice and is never
+/// ranked above its head; it is returned only when <see cref="MemoryGraphOptions.IncludeHistory"/> is set.
+/// </param>
+/// <param name="SupersededBy">For a history hit, the doc id ("D" format) of the current head of its supersedes chain; otherwise null.</param>
+/// <param name="Version">The active memory revision version for a memory note, otherwise null.</param>
+/// <param name="ViaDocId">For an expansion hit, the doc id of the parent it was reached from; for a head returned in place of a superseded seed, the superseded doc id; otherwise null.</param>
 public sealed record MemoryGraphHit(
     string DocId,
     string? NoteId,
@@ -90,12 +110,20 @@ public sealed record MemoryGraphHit(
     string Kind,
     string? Trust,
     double Score,
-    int HopDistance);
+    int HopDistance,
+    bool IsHistory = false,
+    string? SupersededBy = null,
+    long? Version = null,
+    string? ViaDocId = null);
 
-/// <summary>A retrieval result. <paramref name="LexicalOnly"/> is true when no vector seeds were supplied.</summary>
+/// <summary>
+/// A retrieval result. <paramref name="LexicalOnly"/> is true when no vector seeds were used; <paramref name="LexicalOnlyReason"/>
+/// then says why when the caller knows (a reason code of docs/design/constellation-memory-graph.md, "Vector seeds", rule 7).
+/// </summary>
 /// <param name="Hits">The packed hits, best first.</param>
 /// <param name="LexicalOnly">True when the seeds came from lexical search only.</param>
-public sealed record MemoryGraphRetrieval(IReadOnlyList<MemoryGraphHit> Hits, bool LexicalOnly);
+/// <param name="LexicalOnlyReason">The reason code when <paramref name="LexicalOnly"/> is true and known, otherwise null.</param>
+public sealed record MemoryGraphRetrieval(IReadOnlyList<MemoryGraphHit> Hits, bool LexicalOnly, string? LexicalOnlyReason = null);
 
 /// <summary>
 /// An expanding edge between two Constellation doc nodes, as the retriever follows it: a resolved Vault link, or a memory
@@ -117,6 +145,10 @@ public sealed record ConstellationGraphEdge(Guid TargetDocId, MemoryEdgeKind Kin
 /// <param name="FrontMatterStatus">The front matter <c>status</c>, or null.</param>
 /// <param name="Memory">The active memory revision of this doc, or null when the doc is not a memory note.</param>
 /// <param name="Edges">The expanding edges, already mapped to doc ids, deduplicated by target and kind.</param>
+/// <param name="SupersededBy">
+/// The docs whose active memory revision has a <see cref="MemoryEdgeKind.Supersedes"/> edge to this doc (incoming), sorted. Empty
+/// when nothing supersedes it. The retriever still applies access, status and scope to each before it counts as a head.
+/// </param>
 public sealed record ConstellationGraphNode(
     Guid DocId,
     string VaultPath,
@@ -124,4 +156,5 @@ public sealed record ConstellationGraphNode(
     string DocType,
     string? FrontMatterStatus,
     MemoryGraphRevision? Memory,
-    IReadOnlyList<ConstellationGraphEdge> Edges);
+    IReadOnlyList<ConstellationGraphEdge> Edges,
+    IReadOnlyList<Guid>? SupersededBy = null);

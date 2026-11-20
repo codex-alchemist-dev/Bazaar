@@ -77,9 +77,18 @@ Writes use raw Npgsql through the shared `NpgsqlDataSource` (CLAUDE.md data-acce
 
 1. Fuse the seeds with `RrfFusion.Fuse` (ids are Vault doc ids since the convergence, not note ids or vault paths).
 2. Expand up to `options.MaxHops` (default 1, cap 2) along `Link`, `DerivedFrom` and `Supersedes` edges of active revisions. A neighbour's score is the parent's score times the edge weight times 0.5 per hop.
-3. Visibility: every candidate's `VaultPath` must pass `IVaultAccess.CanRead(who, path)`. Candidates that fail are dropped before scoring, so a hidden note never shows up as a hop target or a count. Scope is never widened by expansion.
+3. Visibility: every candidate's `VaultPath` must pass `IVaultAccess.CanRead(who, path)`. Candidates that fail are dropped before scoring, so a hidden note never shows up as a hop target or a count. Scope is never widened by expansion. An optional path scope (`MemoryGraphOptions.ScopePrefixes`) narrows seeds and hop targets further to docs under the given path prefixes; it only narrows what `IVaultAccess` allows.
 4. Status: only `Active` revisions are returned. Deprecated revisions are kept for history and never returned.
 5. Pack with `TokenBudgetPacker.Pack`, using the token counts supplied by the caller.
+
+### Supersede-head ranking [PROPOSED; coordinator decision 2026-11-20; built]
+
+A `Supersedes` chain (C supersedes B, B supersedes A) has one current note, its head. The rules:
+
+1. **Head first.** The node reader reports, for each doc, the docs whose active memory revision has a `Supersedes` edge to it (`ConstellationGraphNode.SupersededBy`; the edge target may be the doc id, a note id of the doc, or its front matter `id`; a key that names more than one doc is dropped). When a seed or hop target is superseded, the retriever follows the chain to its head: the first node that no readable, `Active`, non-deprecated, in-scope node supersedes. The head is returned in its place with at least the superseded node's score (so a query that best matches an old version still ranks the current version where the old one would have ranked) and `ViaDocId` set to the superseded doc. Among several readable superseders the lowest doc id wins, so the result is deterministic; the walk is cycle-safe and bounded (16 steps).
+2. **History is labelled and opt-in.** A superseded node is never current advice. It never expands and is not returned unless the caller sets `MemoryGraphOptions.IncludeHistory`; then it is returned with `IsHistory = true` and `SupersededBy` = the head's doc id, its score capped at the head's score, and it sorts after the head on a tie. It is never ranked above its head.
+3. **Isolation.** A superseder the caller cannot read (another agent's private note, a doc outside the caller's project or path scope) does not count: it is never a head, never appears, and does not turn the caller's own note into history.
+
 
 ## Sink
 

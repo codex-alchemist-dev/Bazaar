@@ -257,19 +257,125 @@ public class MemoryGraphRetrieverTests
     }
 
     [Fact]
-    public async Task DerivedFrom_and_Supersedes_edges_expand()
+    public async Task DerivedFrom_edges_expand_and_a_Supersedes_target_is_history_not_a_current_hit()
     {
         var store = new FakeNodes(
             Note("a", "agent-a", Edge("derived", MemoryEdgeKind.DerivedFrom, 0.8), Edge("replaced", MemoryEdgeKind.Supersedes, 0.5)),
             Note("derived", "agent-a"),
-            Note("replaced", "agent-a"));
+            SupersededBy(Note("replaced", "agent-a"), "a"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1);
 
-        Assert.Equal(["a", "derived", "replaced"], Names(result));
+        Assert.Equal(["a", "derived"], Names(result));
         Assert.Equal(Rank1 * 0.8 * 0.5, result.Hits[1].Score, 12);
-        Assert.Equal(Rank1 * 0.5 * 0.5, result.Hits[2].Score, 12);
+        Assert.All(result.Hits, h => Assert.False(h.IsHistory));
+
+        var withHistory = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1, includeHistory: true);
+
+        Assert.Equal(["a", "derived", "replaced"], Names(withHistory));
+        MemoryGraphHit old = withHistory.Hits[2];
+        Assert.True(old.IsHistory);
+        Assert.Equal(Key("a"), old.SupersededBy);
+        Assert.Equal(Rank1 * 0.5 * 0.5, old.Score, 12);
+    }
+
+    [Fact]
+    public async Task Supersedes_chain_of_three_returns_only_the_head_even_when_the_oldest_ranks_first()
+    {
+        // c supersedes b, b supersedes a. The lexical ranking puts the oldest note first.
+        var store = new FakeNodes(
+            SupersededBy(Note("a", "agent-a"), "b"),
+            SupersededBy(Note("b", "agent-a", Edge("a", MemoryEdgeKind.Supersedes, 0.5)), "c"),
+            Note("c", "agent-a", Edge("b", MemoryEdgeKind.Supersedes, 0.5)));
+        var retriever = new MemoryGraphRetriever(store, _access);
+
+        var result = await RetrieveAsync(retriever, _agentA, lexical: ["a", "b", "c"], vector: [], store: store, maxHops: 2);
+
+        MemoryGraphHit head = Assert.Single(result.Hits);
+        Assert.Equal(Key("c"), head.DocId);
+        Assert.False(head.IsHistory);
+        Assert.Null(head.SupersededBy);
+        // The head takes the best score of its chain, so it ranks where the oldest note would have ranked.
+        Assert.Equal(Rank1, head.Score, 12);
+        Assert.Equal(Key("a"), head.ViaDocId);
+        Assert.Equal(0, head.HopDistance);
+    }
+
+    [Fact]
+    public async Task Supersedes_chain_history_is_opt_in_labelled_and_never_ranked_above_its_head()
+    {
+        var store = new FakeNodes(
+            SupersededBy(Note("a", "agent-a"), "b"),
+            SupersededBy(Note("b", "agent-a", Edge("a", MemoryEdgeKind.Supersedes, 0.5)), "c"),
+            Note("c", "agent-a", Edge("b", MemoryEdgeKind.Supersedes, 0.5)));
+        var retriever = new MemoryGraphRetriever(store, _access);
+
+        var result = await RetrieveAsync(retriever, _agentA, lexical: ["a", "b", "c"], vector: [], store: store, maxHops: 2, includeHistory: true);
+
+        Assert.Equal(Key("c"), result.Hits[0].DocId);
+        Assert.False(result.Hits[0].IsHistory);
+        Assert.Equal(["a", "b"], Names(result).Skip(1).Order(StringComparer.Ordinal));
+        Assert.All(result.Hits.Skip(1), h =>
+        {
+            Assert.True(h.IsHistory);
+            Assert.Equal(Key("c"), h.SupersededBy);
+            Assert.True(h.Score <= result.Hits[0].Score);
+        });
+    }
+
+    [Fact]
+    public async Task Superseded_seed_reached_alone_brings_in_its_head_instead()
+    {
+        var store = new FakeNodes(
+            SupersededBy(Note("a", "agent-a"), "b"),
+            SupersededBy(Note("b", "agent-a", Edge("a", MemoryEdgeKind.Supersedes, 0.5)), "c"),
+            Note("c", "agent-a", Edge("b", MemoryEdgeKind.Supersedes, 0.5)));
+        var retriever = new MemoryGraphRetriever(store, _access);
+
+        var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 0);
+
+        Assert.Equal(["c"], Names(result));
+        Assert.Equal(Key("a"), result.Hits[0].ViaDocId);
+    }
+
+    [Fact]
+    public async Task A_superseder_the_caller_cannot_read_is_not_a_head_and_never_appears()
+    {
+        // Agent B's private note claims to supersede agent A's note; agent A must neither see it nor lose its own note to it.
+        var store = new FakeNodes(
+            SupersededBy(Note("a", "agent-a"), "b"),
+            Note("b", "agent-b", Edge("a", MemoryEdgeKind.Supersedes, 0.5)));
+        var retriever = new MemoryGraphRetriever(store, _access);
+
+        var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1, includeHistory: true);
+
+        MemoryGraphHit hit = Assert.Single(result.Hits);
+        Assert.Equal(Key("a"), hit.DocId);
+        Assert.False(hit.IsHistory);
+        Assert.Null(hit.SupersededBy);
+    }
+
+    [Fact]
+    public async Task Scope_prefixes_narrow_seeds_and_hop_targets()
+    {
+        var store = new FakeNodes(
+            Note("a", "agent-a", Link("b")),
+            Doc("b", "projects/alpha/decisions/b.md", "decision"),
+            Doc("c", "projects/beta/decisions/c.md", "decision"));
+        var retriever = new MemoryGraphRetriever(store, Access(("alpha", "agent-a"), ("beta", "agent-a")));
+        var counts = store.Ids().ToDictionary(id => id, _ => 1, StringComparer.Ordinal);
+
+        var result = await retriever.RetrieveAsync(
+            _agentA,
+            Ranked("a", "c"),
+            [],
+            counts,
+            _defaultBudget,
+            new MemoryGraphOptions(MaxHops: 1, ScopePrefixes: ["agents/agent-a/memory/"]),
+            CancellationToken.None);
+
+        Assert.Equal(["a"], Names(result));
     }
 
     [Fact]
@@ -484,7 +590,8 @@ public class MemoryGraphRetrieverTests
         string[] lexical,
         string[] vector,
         FakeNodes store,
-        int maxHops = 1)
+        int maxHops = 1,
+        bool includeHistory = false)
     {
         var counts = store.Ids().ToDictionary(id => id, _ => 1, StringComparer.Ordinal);
         return await retriever.RetrieveAsync(
@@ -493,12 +600,12 @@ public class MemoryGraphRetrieverTests
             Ranked(vector),
             counts,
             _defaultBudget,
-            new MemoryGraphOptions(MaxHops: maxHops),
+            new MemoryGraphOptions(MaxHops: maxHops, IncludeHistory: includeHistory),
             CancellationToken.None);
     }
 
     /// <summary>Doc ids by test name. The first names get ids that sort in name order, so id tie-breaks read naturally.</summary>
-    private static readonly string[] _ordered = ["a", "b", "c", "d"];
+    private static readonly string[] _ordered = ["a", "b", "c", "d", "home-doc", "linked-doc"];
     private static readonly Dictionary<string, Guid> _ids = new(StringComparer.Ordinal);
     private static readonly Dictionary<Guid, string> _names = [];
 
@@ -564,6 +671,10 @@ public class MemoryGraphRetrieverTests
             DocId: DocId(name));
         return new ConstellationGraphNode(DocId(name), path, name, "memory", null, memory, ToEdges(edges));
     }
+
+    /// <summary>The node with incoming supersedes edges from <paramref name="by"/>, as the node reader reports them.</summary>
+    private static ConstellationGraphNode SupersededBy(ConstellationGraphNode node, params string[] by) =>
+        node with { SupersededBy = [.. by.Select(DocId).Order()] };
 
     /// <summary>A Vault doc that is not a memory note.</summary>
     private static ConstellationGraphNode Doc(string name, string path, string type, params NodeEdge[] edges) =>
