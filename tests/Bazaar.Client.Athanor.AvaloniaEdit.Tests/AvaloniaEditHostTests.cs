@@ -255,15 +255,16 @@ public class AvaloniaEditHostTests
     }
 
     [AvaloniaFact]
-    public async Task Diff_is_not_supported_and_crashed_never_fires()
+    public async Task Crashed_never_fires_and_diff_is_supported()
     {
         await using var host = new AvaloniaEditHost();
         bool crashed = false;
         host.Crashed += (_, _) => crashed = true;
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => host.ShowDiffAsync("a", "b", LanguageIds.PlainText, _none));
+        await host.ShowDiffAsync("a", "b", LanguageIds.PlainText, _none);
 
-        Assert.False(AvaloniaEditHost.SupportsDiff);
+        Assert.True(AvaloniaEditHost.SupportsDiff);
+        Assert.True(host.IsDiffVisible);
         Assert.False(crashed);
     }
 

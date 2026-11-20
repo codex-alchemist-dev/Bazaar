@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -15,7 +16,8 @@ public readonly record struct EditorCaret(int Line, int Column);
 /// editor, usable on Windows. One control, one buffer per open document; the last opened document is shown. It never touches
 /// the network and adds no Ctrl chords: a key the client router claims through <see cref="IEditorKeyHandoff"/> is marked
 /// handled before the control acts, every other key is raised on <see cref="KeyPressed"/> and left to the control.
-/// Must be used on the UI thread. There is no diff view (<see cref="SupportsDiff"/> is false).
+/// Syntax colours follow the pushed theme (<see cref="ThemedHighlighting"/>) and <see cref="ShowDiffAsync"/> shows a side-by-side
+/// <see cref="DiffView"/>. Must be used on the UI thread.
 /// </summary>
 public sealed class AvaloniaEditHost : IEditorHost
 {
@@ -23,6 +25,8 @@ public sealed class AvaloniaEditHost : IEditorHost
     private readonly Dictionary<EditorDocumentId, OpenBuffer> _buffers = [];
     private readonly Dictionary<EditorDocumentId, long> _versions = [];
     private readonly TextDocument _emptyDocument = new();
+    private TokenColorMap? _tokenColors;
+    private string _diffLanguage = LanguageIds.PlainText;
     private OpenBuffer? _active;
     private bool _readyRaised;
     private bool _disposed;
@@ -38,6 +42,8 @@ public sealed class AvaloniaEditHost : IEditorHost
             WordWrap = false,
             FontFamily = new FontFamily("Cascadia Code,Consolas,DejaVu Sans Mono,Liberation Mono,monospace"),
         };
+        Diff = new DiffView { IsVisible = false };
+        Root = new Grid { Children = { Editor, Diff } };
         Editor.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         Editor.TextArea.Caret.PositionChanged += OnCaretMoved;
     }
@@ -45,8 +51,17 @@ public sealed class AvaloniaEditHost : IEditorHost
     /// <summary>The control to place in a pane. Owned by this host.</summary>
     public TextEditor Editor { get; }
 
-    /// <summary>Always false: this host has no diff view (doc 57 §2).</summary>
-    public static bool SupportsDiff => false;
+    /// <summary>The side-by-side diff view, hidden until <see cref="ShowDiffAsync"/> runs.</summary>
+    public DiffView Diff { get; }
+
+    /// <summary>The control to place in a pane: holds <see cref="Editor"/> and <see cref="Diff"/>, one visible at a time.</summary>
+    public Grid Root { get; }
+
+    /// <summary>True while the diff view is shown instead of the editor.</summary>
+    public bool IsDiffVisible => Diff.IsVisible;
+
+    /// <summary>Always true: this host shows diffs in <see cref="Diff"/> (doc 57 §2).</summary>
+    public static bool SupportsDiff => true;
 
     /// <summary>The document shown now, or null when none is open.</summary>
     public EditorDocumentId? ActiveDocument => _active?.Id;
@@ -148,6 +163,9 @@ public sealed class AvaloniaEditHost : IEditorHost
             }
 
             Colors = colors;
+            _tokenColors = TokenColorMap.Parse(monacoThemeJson);
+            ApplyHighlighting(_active?.LanguageId ?? LanguageIds.PlainText);
+            Diff.ApplyColors(DiffColors.Parse(monacoThemeJson), colors, HighlightingFor(_diffLanguage));
         }, cancellationToken);
     }
 
@@ -163,9 +181,29 @@ public sealed class AvaloniaEditHost : IEditorHost
             }
         }, cancellationToken);
 
-    /// <summary>Not supported: this host has no diff view (doc 57 §2). Use the Monaco host or the plain-text fallback for diffs.</summary>
-    public Task ShowDiffAsync(string original, string modified, string languageId, CancellationToken cancellationToken) =>
-        Task.FromException(new NotSupportedException("The AvaloniaEdit host has no diff view."));
+    /// <summary>Shows a side-by-side diff in <see cref="Diff"/> in place of the editor. The open documents are untouched.</summary>
+    public Task ShowDiffAsync(string original, string modified, string languageId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(original);
+        ArgumentNullException.ThrowIfNull(modified);
+        ArgumentNullException.ThrowIfNull(languageId);
+        return Run(() =>
+        {
+            EnsureNotDisposed();
+            _diffLanguage = languageId;
+            Diff.Show(original, modified, HighlightingFor(languageId));
+            Diff.IsVisible = true;
+            Editor.IsVisible = false;
+        }, cancellationToken);
+    }
+
+    /// <summary>Hides the diff view and shows the editor again.</summary>
+    public void CloseDiff()
+    {
+        EnsureNotDisposed();
+        Diff.IsVisible = false;
+        Editor.IsVisible = true;
+    }
 
     /// <summary>Sets the language of an open document. An id with no shipped definition is plain text.</summary>
     public Task SetLanguageAsync(EditorDocumentId id, string languageId, CancellationToken cancellationToken)
@@ -262,10 +300,13 @@ public sealed class AvaloniaEditHost : IEditorHost
         ApplyHighlighting(buffer?.LanguageId ?? LanguageIds.PlainText);
     }
 
-    private void ApplyHighlighting(string languageId)
+    private void ApplyHighlighting(string languageId) => Editor.SyntaxHighlighting = HighlightingFor(languageId);
+
+    private IHighlightingDefinition? HighlightingFor(string languageId)
     {
         string? extension = AvaloniaEditLanguages.ExtensionFor(languageId);
-        Editor.SyntaxHighlighting = extension is null ? null : HighlightingManager.Instance.GetDefinitionByExtension(extension);
+        IHighlightingDefinition? shipped = extension is null ? null : HighlightingManager.Instance.GetDefinitionByExtension(extension);
+        return shipped is not null && _tokenColors is not null ? ThemedHighlighting.Apply(shipped, _tokenColors) : shipped;
     }
 
     private OpenBuffer Find(EditorDocumentId id) =>
