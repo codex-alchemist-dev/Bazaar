@@ -85,7 +85,7 @@ VM caveats:
 - A Bazaar.Server running inside a VM sees only a virtual TPM. QEMU provides one through swtpm (`--tpmstate dir=<path>`, TIS or CRB front ends), and its state is a host directory that the hypervisor operator can read. Snapshots and migration need identical swtpm and QEMU command lines, and mismatched swtpm or libtpms versions can make the destination reject the state, so a restored or migrated VM may be unable to unseal. [QEMU TPM device docs]
 - Agent VMs (doc 35) never hold the KEK; this applies only to the host that runs the Identity Service.
 
-Decisions (owner, 2026-11-19; DECISIONS-LOG round 28):
+Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - **DECIDED:** `identity.kek_provider` gains an explicit `tpm` value (enum: `dpapi`, `file`, `tpm`, `openbao`). It is auditable and fails closed; it is not folded into `file`.
 - **DECIDED:** the shipped PCR policy is a signed one: PCR 7 plus a policy authorised by an offline-held signing key, so firmware and kernel updates do not brick unseal. The signing key is held in the owner's recovery bundle. If the owner declines to hold a key, the fallback is a raw PCR-7-only policy, with the escrowed KEK copy as the recovery path.
 - **DECIDED:** use `systemd-creds` where systemd is present (maintained sealing UX, less custom code). A direct tpm2-tools path is used only on non-systemd hosts.
