@@ -460,9 +460,6 @@ src/Bazaar.Server/Security/Budgets/TokenBudgetOptions.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetService.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetServiceCollectionExtensions.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetWindow.cs
-src/Bazaar.Server/Security/Erasure/ErasureProof.cs
-src/Bazaar.Server/Security/Erasure/IErasureProofSigner.cs
-src/Bazaar.Server/Security/Erasure/SubjectRefHasher.cs
 src/Bazaar.Server/Security/KillSwitch/AgentContainmentAdapter.cs
 src/Bazaar.Server/Security/KillSwitch/IAgentContainment.cs
 src/Bazaar.Server/Security/KillSwitch/IContainmentStateStore.cs
