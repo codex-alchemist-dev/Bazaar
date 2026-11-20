@@ -1,6 +1,6 @@
 using Bazaar.Server.Jobs;
 
-namespace Bazaar.Server.Tests.Jobs;
+namespace Bazaar.Server.Jobs.Tests;
 
 /// <summary>The bucket rules behind the recurring-job seam (doc 03, Background jobs). Pure: no database.</summary>
 public sealed class RecurringJobPlanTests
