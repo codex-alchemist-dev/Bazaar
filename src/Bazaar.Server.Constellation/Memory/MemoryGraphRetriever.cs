@@ -4,6 +4,11 @@ using Bazaar.Server.Memory.Retrieval;
 namespace Bazaar.Server.Constellation.Memory;
 
 /// <summary>
+/// Token counts for candidate doc ids ("D" format), asked once per retrieval for the final candidate set. A missing id is not packed.
+/// </summary>
+public delegate Task<IReadOnlyDictionary<string, int>> MemoryTokenCounter(IReadOnlyCollection<string> docIds, CancellationToken ct);
+
+/// <summary>
 /// Graph-expanded retrieval over Constellation's own nodes, the Vault docs (docs/design/constellation-memory-graph.md,
 /// "Retrieval" and "Convergence design"). Seeds are doc ids fused with <see cref="RrfFusion"/>, expanded along resolved Vault
 /// links and the <see cref="MemoryEdgeKind.DerivedFrom"/> and <see cref="MemoryEdgeKind.Supersedes"/> edges of memory notes,
@@ -21,15 +26,56 @@ public sealed class MemoryGraphRetriever
 
     private readonly IConstellationNodeReader _nodes;
     private readonly IVaultAccess _access;
+    private readonly IMemoryVectorSeedSource? _vectorSeeds;
 
     /// <param name="nodes">Source of the doc nodes, their memory attributes and their edges.</param>
     /// <param name="access">The Vault access layer; every candidate must pass it.</param>
-    public MemoryGraphRetriever(IConstellationNodeReader nodes, IVaultAccess access)
+    /// <param name="vectorSeeds">
+    /// Vector seeds for query retrieval (<see cref="RetrieveForQueryAsync"/>). Null means no embedding is wired: every query call is
+    /// lexical only with reason <see cref="MemoryLexicalOnlyReasons.ProfileNone"/>.
+    /// </param>
+    public MemoryGraphRetriever(IConstellationNodeReader nodes, IVaultAccess access, IMemoryVectorSeedSource? vectorSeeds = null)
     {
         ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(access);
         _nodes = nodes;
         _access = access;
+        _vectorSeeds = vectorSeeds;
+    }
+
+    /// <summary>
+    /// Retrieval for a query text (docs/design/constellation-memory-graph.md, "Vector seeds"). The query is embedded once and its
+    /// vector seeds, scoped to what <paramref name="who"/> may read and to <see cref="MemoryGraphOptions.ScopePrefixes"/> before
+    /// ranking, are fused with <paramref name="lexical"/>. No profile, a provider failure or a dimension mismatch degrades to
+    /// lexical seeds alone: the result then has <c>LexicalOnly = true</c> and a reason code, and nothing is thrown.
+    /// <paramref name="tokenCounts"/> is asked once, for the final candidate set, so vector seeds and hop targets get counts too.
+    /// </summary>
+    public async Task<MemoryGraphRetrieval> RetrieveForQueryAsync(
+        VaultPrincipal who,
+        string queryText,
+        IReadOnlyList<RankedHit> lexical,
+        MemoryTokenCounter tokenCounts,
+        int tokenBudget,
+        MemoryGraphOptions options,
+        int vectorCandidates,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(who);
+        ArgumentNullException.ThrowIfNull(queryText);
+        ArgumentNullException.ThrowIfNull(lexical);
+        ArgumentNullException.ThrowIfNull(tokenCounts);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfLessThan(vectorCandidates, 1);
+
+        MemoryVectorSeeds vector = _vectorSeeds is null
+            ? MemoryVectorSeeds.LexicalOnly(MemoryLexicalOnlyReasons.ProfileNone)
+            : await _vectorSeeds.GetSeedsAsync(who, queryText, options.ScopePrefixes, vectorCandidates, ct).ConfigureAwait(false);
+
+        MemoryGraphRetrieval result = await RetrieveCoreAsync(who, lexical, vector.Seeds, tokenCounts, tokenBudget, options, ct)
+            .ConfigureAwait(false);
+        return vector.Seeds.Count == 0
+            ? result with { LexicalOnly = true, LexicalOnlyReason = vector.LexicalOnlyReason ?? MemoryLexicalOnlyReasons.NoVectorsYet }
+            : result;
     }
 
     /// <summary>
@@ -48,10 +94,23 @@ public sealed class MemoryGraphRetriever
         MemoryGraphOptions options,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(tokenCounts);
+        return await RetrieveCoreAsync(who, lexical, vector, (_, _) => Task.FromResult(tokenCounts), tokenBudget, options, ct)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<MemoryGraphRetrieval> RetrieveCoreAsync(
+        VaultPrincipal who,
+        IReadOnlyList<RankedHit> lexical,
+        IReadOnlyList<RankedHit> vector,
+        MemoryTokenCounter countTokens,
+        int tokenBudget,
+        MemoryGraphOptions options,
+        CancellationToken ct)
+    {
         ArgumentNullException.ThrowIfNull(who);
         ArgumentNullException.ThrowIfNull(lexical);
         ArgumentNullException.ThrowIfNull(vector);
-        ArgumentNullException.ThrowIfNull(tokenCounts);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentOutOfRangeException.ThrowIfNegative(tokenBudget);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.TopK, 1);
@@ -200,6 +259,9 @@ public sealed class MemoryGraphRetriever
             .ToList();
 
         // Candidates without a token count cannot be packed. Skip them instead of failing the call.
+        IReadOnlyDictionary<string, int> tokenCounts = await countTokens(
+            [.. ordered.Select(candidate => candidate.Id)],
+            ct).ConfigureAwait(false);
         var packable = ordered
             .Where(candidate => tokenCounts.ContainsKey(candidate.Id))
             .Select(candidate => new FusedHit(

@@ -7,6 +7,7 @@
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constellation.Algorithms\Bazaar.Server.Constellation.Algorithms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory.Abstractions\Bazaar.Server.Memory.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Embeddings.Abstractions\Bazaar.Server.Embeddings.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Migrations of the constellation namespace that this module owns (Sql/components/constellation/NNNN_name.sql). -->
