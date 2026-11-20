@@ -178,9 +178,9 @@ internal static class Descriptors
 
     public static readonly DiagnosticDescriptor ProtobufReservedName = new(
         "BWG009", "Property name reserved by protoc", "{0} would collide with a member of the C# class protoc generates; rename the property", Category, DiagnosticSeverity.Error, true);
-            }
+
     public static readonly DiagnosticDescriptor TooManyFields = new(
-        "BWG007", "Record has too many fields", "{0} has more members than a MemoryPack object header can announce (249)", Category, DiagnosticSeverity.Error, true);
+        "BWG010", "Record has too many fields", "{0} has more members than a MemoryPack object header can announce (249)", Category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor DuplicateMessageType = new(
         "BWG006", "Message type claimed twice", "Message type {0} is declared on two payload records", Category, DiagnosticSeverity.Error, true);

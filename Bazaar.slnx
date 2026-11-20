@@ -136,6 +136,10 @@
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay/Bazaar.Server.VmDisplay.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Bazaar.Wire.Bench/Bazaar.Wire.Bench.csproj" />
+    <Project Path="tools/Bazaar.Wire.Bench.Aot/Bazaar.Wire.Bench.Aot.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Agents.Tests/Bazaar.Server.Agents.Tests.csproj" />
