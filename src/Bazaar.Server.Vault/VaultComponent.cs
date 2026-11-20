@@ -1,7 +1,10 @@
 using Bazaar.Core;
+using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Search;
+using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Vault;
 
@@ -32,5 +35,28 @@ public sealed class VaultComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
         // Read side: hybrid search, link expansion and body fetch (GET /vault/search). Needs the host's NpgsqlDataSource.
         services.AddBazaarVaultSearch();
+        AddWriter(services, configuration);
+    }
+
+    // The Vault's git provider and writer, over the main checkout. The install-level keys are the Memory component's
+    // (Memory:Vault:*), kept as they are so no host configuration changes; Memory validates them and fails fast, this
+    // registers nothing until all three are set.
+    private static void AddWriter(IServiceCollection services, IConfiguration configuration)
+    {
+        var repoPath = configuration["Memory:Vault:RepoPath"];
+        var writerName = configuration["Memory:Vault:WriterName"];
+        var writerEmail = configuration["Memory:Vault:WriterEmail"];
+        if (string.IsNullOrWhiteSpace(repoPath) || string.IsNullOrWhiteSpace(writerName) || string.IsNullOrWhiteSpace(writerEmail))
+        {
+            return;
+        }
+
+        services.TryAddSingleton<IGitProvider, LibGit2GitProvider>();
+        services.TryAddSingleton(sp => new VaultWriter(
+            sp.GetRequiredService<IGitProvider>(),
+            repoPath,
+            new GitIdentity(writerName, writerEmail),
+            sp.GetService<IVaultCommitObserver>()));
+        services.TryAddSingleton<IVaultWriter>(sp => sp.GetRequiredService<VaultWriter>());
     }
 }

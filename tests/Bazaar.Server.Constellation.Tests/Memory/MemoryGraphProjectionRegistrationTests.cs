@@ -66,7 +66,9 @@ public sealed class MemoryGraphProjectionRegistrationTests
             [MemoryComponent.WriterEmailKey] = "writer@example.invalid",
             [MemoryComponent.AuthorEmailFormatKey] = "{agent}@example.invalid",
         };
-        new MemoryComponent().AddServices(services, new ConfigurationBuilder().AddInMemoryCollection(values).Build());
+        var config = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        new Bazaar.Server.Vault.VaultComponent().AddServices(services, config);
+        new MemoryComponent().AddServices(services, config);
     }
 
     private sealed class FakeGraphStore : IMemoryGraphStore

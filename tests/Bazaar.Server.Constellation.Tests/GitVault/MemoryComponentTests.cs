@@ -128,6 +128,7 @@ public sealed class MemoryComponentTests : IDisposable
             services.AddSingleton(audit);
         }
 
+        new Bazaar.Server.Vault.VaultComponent().AddServices(services, Config(values));
         new MemoryComponent().AddServices(services, Config(values));
         if (graph is not null)
         {
