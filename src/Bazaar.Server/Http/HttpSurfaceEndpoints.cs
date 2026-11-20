@@ -45,7 +45,12 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// Guards one route of the authenticated HTTP surface: plaintext refusal, bearer authentication (401), the HTTP rate bucket
+    /// (429), then <paramref name="run"/> with the caller. Public so a module can map its own route with the same guard
+    /// (for example <c>POST /github/merge</c>, doc 21).
+    /// </summary>
+    public static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
