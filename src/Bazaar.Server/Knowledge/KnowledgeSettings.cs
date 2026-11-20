@@ -36,13 +36,6 @@ public enum BiggerChangeClass
     ModelWhitelistChange,
 }
 
-/// <summary>Who reviews Genetic Memory Transfer candidates (doc 25 <c>gmt.lesson_reviewer</c>).</summary>
-public enum LessonReviewer
-{
-    Architect,
-    Owner,
-}
-
 /// <summary>
 /// The knowledge-area settings from doc 25 ("MOVED TO SETTINGS" and the settings table). Defaults match the table.
 /// Keys that the table marks as needing approval carry Tier 2 and, where the table says owner, the owner role.
