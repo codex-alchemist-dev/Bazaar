@@ -17,9 +17,11 @@ public interface ISealedGitRepo
     string Scope { get; }
 
     /// <summary>
-    /// Materialises the bare repo into a short-lived temporary folder, runs <paramref name="work"/> with that git dir, then re-seals every
-    /// changed, new or removed file (each with a generation check) and zero-wipes and deletes the folder, also when <paramref name="work"/> throws.
-    /// When <paramref name="work"/> throws nothing is re-sealed. A concurrent change to a sealed file throws a generation conflict.
+    /// Takes the scope lease (exclusive against other stores and processes for the whole cycle), materialises one consistent snapshot of the
+    /// bare repo into a short-lived temporary folder, runs <paramref name="work"/> with that git dir, then re-seals every changed, new or
+    /// removed file in one all-or-nothing batch (each with a generation check) and zero-wipes and deletes the folder, also when
+    /// <paramref name="work"/> throws. When <paramref name="work"/> throws nothing is re-sealed. A concurrent change to a sealed file made
+    /// without the lease throws a generation conflict and nothing of the batch is committed.
     /// </summary>
     Task<T> WithWorkingTreeAsync<T>(Func<string, Task<T>> work, CancellationToken cancellationToken = default);
 

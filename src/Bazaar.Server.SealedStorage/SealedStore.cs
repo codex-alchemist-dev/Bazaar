@@ -21,6 +21,8 @@ public sealed class SealedStore : ISealedStore
     public SealedStore(SealedStoreOptions options, IKekProvider kek, ISealAnchor anchor, ISealAuditSink audit, TimeProvider? time = null)
     {
         _root = options.RootPath;
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxBulkBytes, 1);
+        MaxBulkBytes = options.MaxBulkBytes;
         _kek = kek;
         _anchor = anchor;
         _audit = audit;
@@ -53,7 +55,7 @@ public sealed class SealedStore : ISealedStore
                     }
                 }
 
-                if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(e => Path.GetFileName(e) != "scope.lock"))
+                if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(e => Path.GetFileName(e) is not ("scope.lock" or "scope.lease")))
                 {
                     throw await FailAsync(scope, null, "Scope key header is missing but the scope folder is not empty.", cancellationToken).ConfigureAwait(false);
                 }
@@ -86,6 +88,8 @@ public sealed class SealedStore : ISealedStore
     }
 
     internal ISealAnchor Anchor => _anchor;
+
+    internal long MaxBulkBytes { get; }
 
     internal async ValueTask<SealTamperedException> FailAsync(string scope, string? path, string detail, CancellationToken cancellationToken)
     {
