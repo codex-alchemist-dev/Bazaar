@@ -16,6 +16,7 @@ using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
+using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
@@ -49,6 +50,7 @@ public static class HostComponents
         new BackupComponent(),
         new VaultComponent(),
         new MemoryComponent(),
+        new HiveComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
