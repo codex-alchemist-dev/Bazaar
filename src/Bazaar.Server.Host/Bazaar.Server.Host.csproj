@@ -28,6 +28,8 @@
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.Devices\Bazaar.Server.Vms.Devices.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Android\Bazaar.Server.Vms.Android.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.MicroVm\Bazaar.Server.Vms.MicroVm.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Community\Bazaar.Community.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
