@@ -4,7 +4,8 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Approvals;
 using Bazaar.Contracts.Community;
 using Bazaar.Contracts.Gc;
@@ -150,7 +151,7 @@ public class DraftReviewViewHeadlessTests
         {
             cards = new[] { JsonSerializer.SerializeToElement(Card(), CommunityContractsJsonContext.Default.DraftReviewCardDto) },
         });
-        var registry = PaneRegistry.Compose([new CommunityDraftsPaneModule(new Signer(), new Sender(), new Clock())]);
+        var registry = PaneRegistry.Compose(new TestViewFactory(), [new CommunityDraftsPaneModule(new Signer(), new Sender(), new Clock())]);
         var pane = registry.Create(new PaneDescriptor(PaneKinds.CommunityDrafts, "Drafts", string.Empty, model));
 
         var typed = Assert.IsType<DraftReviewPaneViewModel>(pane);
@@ -161,8 +162,15 @@ public class DraftReviewViewHeadlessTests
     [AvaloniaFact]
     public void Wrong_model_shape_falls_back_to_the_generic_pane()
     {
-        var registry = PaneRegistry.Compose([new CommunityDraftsPaneModule()]);
+        var registry = PaneRegistry.Compose(new TestViewFactory(), [new CommunityDraftsPaneModule()]);
         var pane = registry.Create(new PaneDescriptor(PaneKinds.CommunityDrafts, "Drafts", string.Empty, JsonSerializer.SerializeToElement(new { x = 1 })));
         Assert.IsNotType<DraftReviewPaneViewModel>(pane);
+    }
+
+    private sealed class TestViewFactory : IPaneViewFactory
+    {
+        public Control Create(IPaneViewModel pane) => new TextBlock { Text = pane.Kind };
+
+        public Control WithTitle(string title, Control body) => body;
     }
 }
