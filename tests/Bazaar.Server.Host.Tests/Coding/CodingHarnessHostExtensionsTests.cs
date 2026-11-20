@@ -25,7 +25,7 @@ public sealed class CodingHarnessHostExtensionsTests
     public void The_permission_gate_resolves_over_the_policy_engine_adapter()
     {
         var services = WithPolicy();
-        services.AddBazaarCodingHarness();
+        services.AddBazaarCodingHarness(CodingHarnessTestFakes.Config(true));
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<ToolPolicyEngineAdapter>(provider.GetRequiredService<IGenericToolPolicy>());
@@ -36,7 +36,7 @@ public sealed class CodingHarnessHostExtensionsTests
     public void Ports_the_host_must_supply_fail_resolution_instead_of_defaulting_open()
     {
         var services = WithPolicy();
-        services.AddBazaarCodingHarness();
+        services.AddBazaarCodingHarness(CodingHarnessTestFakes.Config(true));
         using var provider = services.BuildServiceProvider();
 
         Assert.Throws<InvalidOperationException>(provider.GetRequiredService<IRuntimeSubagentPort>);
@@ -49,7 +49,7 @@ public sealed class CodingHarnessHostExtensionsTests
     public void The_edit_module_registers_without_a_guest_channel_because_that_is_per_session()
     {
         var services = WithPolicy();
-        services.AddBazaarCodingHarness();
+        services.AddBazaarCodingHarness(CodingHarnessTestFakes.Config(true));
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IGuestFileChannel));
     }

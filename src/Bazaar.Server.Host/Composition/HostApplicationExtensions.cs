@@ -44,10 +44,10 @@ public static class HostApplicationExtensions
         services.AddBazaarGateway();
         services.AddBazaarJobs();
 
-        // Coding harness (doc 17). Every registration is a lazy factory, so ports the host has no source for yet (git identity,
-        // work-share layout, repo directory, push session directory, parent-turn directory, GitWorkspace) fail only when a
-        // harness service is first resolved, never at startup, and never open a gate.
-        services.AddBazaarCodingHarness();
+        // Coding harness (doc 17). Off unless Coding:Harness:Enabled is true. When on, the ports with no production source yet
+        // (repo directory, work-share layout, worktree allocator, git identity, parent-turn directory, agent state, push session
+        // records) must be bound, or the host fails at start naming the port.
+        services.AddBazaarCodingHarness(configuration);
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
