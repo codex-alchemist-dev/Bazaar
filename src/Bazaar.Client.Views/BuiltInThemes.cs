@@ -5,7 +5,7 @@ namespace Bazaar.Client.Views;
 /// <summary>The theme a head uses until the operator or user supplies one (doc 41 section 5). It passes the same validator as any theme file.</summary>
 public static class BuiltInThemes
 {
-    private const string DarkJson = """
+    private const string _darkJson = """
         {
           "schemaVersion": 1,
           "name": "bazaar-dark",
@@ -47,6 +47,6 @@ public static class BuiltInThemes
         """;
 
     /// <summary>The built-in dark theme.</summary>
-    public static ThemeDefinition Dark { get; } = ThemeValidator.Validate(DarkJson).Definition
-        ?? throw new InvalidOperationException("The built-in dark theme is invalid: " + string.Join("; ", ThemeValidator.Validate(DarkJson).Issues.Select(i => i.Path + " " + i.Code)));
+    public static ThemeDefinition Dark { get; } = ThemeValidator.Validate(_darkJson).Definition
+        ?? throw new InvalidOperationException("The built-in dark theme is invalid: " + string.Join("; ", ThemeValidator.Validate(_darkJson).Issues.Select(i => i.Path + " " + i.Code)));
 }
