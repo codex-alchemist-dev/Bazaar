@@ -58,6 +58,15 @@ public sealed record StoredBallot(
     DateTimeOffset SubmittedAt);
 
 /// <summary>
+/// One row of the vote's transition history (council_transition), as the deadline sweeper reads it.
+/// </summary>
+/// <param name="Version">The vote version the transition wrote.</param>
+/// <param name="To">The state the transition moved the vote to.</param>
+/// <param name="Reason">The reason text the service wrote with the transition.</param>
+/// <param name="At">When the transition was written.</param>
+public sealed record CouncilTransitionRecord(long Version, VoteState To, string Reason, DateTimeOffset At);
+
+/// <summary>
 /// Storage port for the Council service. Implemented over Postgres by the store (WP3); the service and its tests use fakes.
 /// Every write that changes vote state is a single transaction that also appends council_transition.
 /// </summary>
@@ -88,6 +97,22 @@ public interface ICouncilStore
 
     /// <summary>All ballots for a vote, both phases, in submit order.</summary>
     Task<IReadOnlyList<StoredBallot>> ListBallotsAsync(Guid voteId, CancellationToken ct);
+
+    /// <summary>
+    /// Votes the deadline sweeper must look at: votes in Collecting or FollowUp whose deadline is at or before
+    /// <paramref name="now"/>, and votes in Revealed (a crash after the reveal transition left them there). Revealed votes
+    /// come first, then by deadline, then by id. At most <paramref name="limit"/> ids.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListVotesDueAsync(DateTimeOffset now, int limit, CancellationToken ct);
+
+    /// <summary>
+    /// Decided votes whose decided transition was written at or after <paramref name="since"/>, oldest first, at most
+    /// <paramref name="limit"/> ids. Used to re-drive a decision whose council.decision event may not have been written.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListDecidedSinceAsync(DateTimeOffset since, int limit, CancellationToken ct);
+
+    /// <summary>The vote's transition history in version order (council_transition).</summary>
+    Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct);
 
     /// <summary>
     /// Inserts a ballot for (vote, voter, phase). Returns false when that phase already has a ballot for the voter;
