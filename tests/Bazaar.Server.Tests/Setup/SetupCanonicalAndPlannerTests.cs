@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 
 namespace Bazaar.Server.Tests.Setup;
@@ -9,7 +10,9 @@ namespace Bazaar.Server.Tests.Setup;
 /// <summary>The canonical form, the plan hash, the dry-run change list and the exit-code mapping. Pure: no database, no files.</summary>
 public sealed class SetupCanonicalAndPlannerTests
 {
-    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+    private static SetupLoadResult Load(string json) => SetupPlanLoader.Load(json, BuiltInSettingRegistries.Known);
+
+    private static SetupPlan ValidPlan() => Load(SetupFixtures.Valid).Plan!;
 
     [Fact]
     public void Canonical_text_has_sorted_keys_and_no_insignificant_whitespace()
@@ -143,7 +146,7 @@ public sealed class SetupCanonicalAndPlannerTests
     {
         var original = SetupChangePlanner.Compute(ValidPlan(), SetupStateSnapshot.Empty);
         var changed = SetupChangePlanner.Compute(
-            SetupPlanLoader.Load(SetupFixtures.With("\"companySlug\": \"example-studio\"", "\"companySlug\": \"other-studio\"")).Plan!,
+            Load(SetupFixtures.With("\"companySlug\": \"example-studio\"", "\"companySlug\": \"other-studio\"")).Plan!,
             SetupStateSnapshot.Empty);
 
         Assert.NotEqual(original.PlanHash, changed.PlanHash);

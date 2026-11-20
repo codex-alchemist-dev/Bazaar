@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 
 namespace Bazaar.Server.Tests.Setup;
@@ -7,6 +8,8 @@ namespace Bazaar.Server.Tests.Setup;
 /// <summary>Parsing, schema checks, secret-reference checks, settings checks and the hash, against the file the doc 45 sketch describes.</summary>
 public sealed class SetupPlanLoaderTests
 {
+    private static SetupLoadResult Load(string json) => SetupPlanLoader.Load(json, BuiltInSettingRegistries.Known);
+
     private static readonly string[] _sortedModules = ["Bazaar.Constellation", "Bazaar.GC", "Bazaar.KODO"];
 
     private static bool HasError(SetupLoadResult result, string path) =>
@@ -19,7 +22,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Valid_fixture_loads_with_no_issues_and_a_sha256_hash()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.Valid);
+        var result = Load(SetupFixtures.Valid);
 
         Assert.Empty(result.Issues);
         Assert.NotNull(result.Plan);
@@ -36,8 +39,8 @@ public sealed class SetupPlanLoaderTests
         var original = JsonNode.Parse(SetupFixtures.Valid)!.AsObject();
         var reversed = ReverseKeys(original);
 
-        var a = SetupPlanLoader.Load(SetupFixtures.Valid);
-        var b = SetupPlanLoader.Load(reversed.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        var a = Load(SetupFixtures.Valid);
+        var b = Load(reversed.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         Assert.Empty(b.Issues);
         Assert.Equal(a.PlanHash, b.PlanHash);
@@ -46,9 +49,9 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Equal_plans_hash_equally_and_a_changed_value_changes_the_hash()
     {
-        var first = SetupPlanLoader.Load(SetupFixtures.Valid);
-        var second = SetupPlanLoader.Load(SetupFixtures.Valid);
-        var changed = SetupPlanLoader.Load(SetupFixtures.With("\"companyName\": \"Example Studio\"", "\"companyName\": \"Other Studio\""));
+        var first = Load(SetupFixtures.Valid);
+        var second = Load(SetupFixtures.Valid);
+        var changed = Load(SetupFixtures.With("\"companyName\": \"Example Studio\"", "\"companyName\": \"Other Studio\""));
 
         Assert.Equal(first.PlanHash, second.PlanHash);
         Assert.NotEqual(first.PlanHash, changed.PlanHash);
@@ -61,17 +64,17 @@ public sealed class SetupPlanLoaderTests
             "[\"Bazaar.GC\", \"Bazaar.Constellation\", \"Bazaar.KODO\"]",
             "[\"Bazaar.KODO\", \"Bazaar.GC\", \"Bazaar.Constellation\", \"Bazaar.GC\"]");
 
-        var result = SetupPlanLoader.Load(reordered);
+        var result = Load(reordered);
 
         Assert.Empty(result.Issues);
         Assert.Equal(_sortedModules, result.Plan!.Modules);
-        Assert.Equal(SetupPlanLoader.Load(SetupFixtures.Valid).PlanHash, result.PlanHash);
+        Assert.Equal(Load(SetupFixtures.Valid).PlanHash, result.PlanHash);
     }
 
     [Fact]
     public void Unknown_top_level_key_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"schemaVersion\": 1,", "\"schemaVersion\": 1, \"surprise\": true,"));
+        var result = Load(SetupFixtures.With("\"schemaVersion\": 1,", "\"schemaVersion\": 1, \"surprise\": true,"));
 
         Assert.Null(result.Plan);
         Assert.Null(result.PlanHash);
@@ -82,7 +85,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Unknown_nested_key_is_rejected_with_its_full_path()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"companySlug\": \"example-studio\",", "\"companySlug\": \"example-studio\", \"nickname\": \"x\","));
+        var result = Load(SetupFixtures.With("\"companySlug\": \"example-studio\",", "\"companySlug\": \"example-studio\", \"nickname\": \"x\","));
 
         Assert.True(HasError(result, "install.nickname"));
         Assert.Equal(SetupExitCode.InvalidInput, result.ExitCode);
@@ -91,7 +94,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Repeated_key_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"email\": { \"enabled\": false },", "\"email\": { \"enabled\": false }, \"email\": { \"enabled\": true },"));
+        var result = Load(SetupFixtures.With("\"email\": { \"enabled\": false },", "\"email\": { \"enabled\": false }, \"email\": { \"enabled\": true },"));
 
         Assert.True(HasError(result, "email"));
     }
@@ -102,8 +105,8 @@ public sealed class SetupPlanLoaderTests
         var withComment = SetupFixtures.With("\"privacy\": { \"profile\": \"private\" },", "// a comment\n  \"privacy\": { \"profile\": \"private\" },");
         var withTrailingComma = SetupFixtures.With("\"email\": { \"enabled\": false },", "\"email\": { \"enabled\": false, },");
 
-        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load(withComment).ExitCode);
-        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load(withTrailingComma).ExitCode);
+        Assert.Equal(SetupExitCode.InvalidInput, Load(withComment).ExitCode);
+        Assert.Equal(SetupExitCode.InvalidInput, Load(withTrailingComma).ExitCode);
     }
 
     [Theory]
@@ -112,7 +115,7 @@ public sealed class SetupPlanLoaderTests
     [InlineData("\"schemaVersion\": 1,", "")]
     public void Schema_version_other_than_1_is_rejected(string oldText, string newText)
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(oldText, newText));
+        var result = Load(SetupFixtures.With(oldText, newText));
 
         Assert.Null(result.Plan);
         Assert.True(HasError(result, "schemaVersion"));
@@ -122,7 +125,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Missing_required_key_is_reported_by_path()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"company\": { \"source\": \"template:starter@1.0.0\" },", ""));
+        var result = Load(SetupFixtures.With("\"company\": { \"source\": \"template:starter@1.0.0\" },", ""));
 
         Assert.True(HasError(result, "company"));
         Assert.Equal(SetupExitCode.InvalidInput, result.ExitCode);
@@ -131,8 +134,8 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void A_file_that_is_not_an_object_is_rejected()
     {
-        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load("[1, 2]").ExitCode);
-        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load("{").ExitCode);
+        Assert.Equal(SetupExitCode.InvalidInput, Load("[1, 2]").ExitCode);
+        Assert.Equal(SetupExitCode.InvalidInput, Load("{").ExitCode);
     }
 
     [Theory]
@@ -142,7 +145,7 @@ public sealed class SetupPlanLoaderTests
     [InlineData("\"kekRef\": \"dpapi:C:\\\\ProgramData\\\\Bazaar\\\\kek.bin\"", "\"kekRef\": \"secret://bazaar/kek\"", "custody.kekRef")]
     public void Literal_secret_or_wrong_family_is_rejected_and_the_error_names_the_key_only(string oldFragment, string newFragment, string expectedPath)
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(oldFragment, newFragment));
+        var result = Load(SetupFixtures.With(oldFragment, newFragment));
 
         Assert.Null(result.Plan);
         Assert.True(HasError(result, expectedPath));
@@ -154,7 +157,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Kek_reference_must_use_the_family_named_by_kek_provider()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"kekProvider\": \"dpapi\"", "\"kekProvider\": \"env\""));
+        var result = Load(SetupFixtures.With("\"kekProvider\": \"dpapi\"", "\"kekProvider\": \"env\""));
 
         Assert.True(HasError(result, "custody.kekRef"));
     }
@@ -162,7 +165,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Literal_secret_in_a_setting_value_never_reaches_the_error_text()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(
+        var result = Load(SetupFixtures.With(
             "\"settings\": { \"host.shutdown_timeout_seconds\": 20 }",
             "\"settings\": { \"host.shutdown_timeout_seconds\": \"" + SetupFixtures.Canary + "\" }"));
 
@@ -173,10 +176,10 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Unknown_setting_key_and_out_of_range_setting_are_rejected()
     {
-        var unknown = SetupPlanLoader.Load(SetupFixtures.With(
+        var unknown = Load(SetupFixtures.With(
             "\"host.shutdown_timeout_seconds\": 20",
             "\"host.no_such_key\": 1"));
-        var outOfRange = SetupPlanLoader.Load(SetupFixtures.With("\"host.shutdown_timeout_seconds\": 20", "\"host.shutdown_timeout_seconds\": 500"));
+        var outOfRange = Load(SetupFixtures.With("\"host.shutdown_timeout_seconds\": 20", "\"host.shutdown_timeout_seconds\": 500"));
 
         Assert.True(HasError(unknown, "settings.host.no_such_key"));
         Assert.True(HasError(outOfRange, "settings.host.shutdown_timeout_seconds"));
@@ -185,7 +188,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Setting_outside_install_scope_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(
+        var result = Load(SetupFixtures.With(
             "\"host.shutdown_timeout_seconds\": 20",
             "\"calendar.vacation_confirmer\": \"owner\""));
 
@@ -195,7 +198,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Non_loopback_status_bind_is_held_for_approval_with_exit_code_2()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"statusBind\": \"loopback\"", "\"statusBind\": \"lan\""));
+        var result = Load(SetupFixtures.With("\"statusBind\": \"loopback\"", "\"statusBind\": \"lan\""));
 
         Assert.NotNull(result.Plan);
         Assert.NotNull(result.PlanHash);
@@ -206,7 +209,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void An_error_and_a_hold_together_exit_1()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(
+        var result = Load(SetupFixtures.With(
             "\"statusBind\": \"loopback\"",
             "\"statusBind\": \"lan\", \"statusPort\": 0"));
 
@@ -217,7 +220,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Status_port_set_in_both_network_and_settings_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(
+        var result = Load(SetupFixtures.With(
             "\"settings\": { \"host.shutdown_timeout_seconds\": 20 }",
             "\"settings\": { \"host.shutdown_timeout_seconds\": 20, \"host.status.port\": 9000 }"));
 
@@ -227,7 +230,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Enabling_the_scam_mail_protocol_with_email_on_is_held_for_owner_approval()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.Valid
+        var result = Load(SetupFixtures.Valid
             .Replace("\"email\": { \"enabled\": false }", "\"email\": { \"enabled\": true }", StringComparison.Ordinal)
             .Replace("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }", StringComparison.Ordinal));
 
@@ -239,7 +242,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Enabling_the_scam_mail_protocol_with_email_off_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }"));
+        var result = Load(SetupFixtures.With("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }"));
 
         Assert.True(HasError(result, "scamMailProtocol.enabled"));
         Assert.Null(result.Plan);
@@ -248,7 +251,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void The_scam_mail_setting_cannot_be_set_through_the_settings_map()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With(
+        var result = Load(SetupFixtures.With(
             "\"settings\": { \"host.shutdown_timeout_seconds\": 20 }",
             "\"settings\": { \"host.shutdown_timeout_seconds\": 20, \"security.scam_mail.protocol_enabled\": true }"));
 
@@ -258,7 +261,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void The_scam_mail_protocol_off_adds_no_issue()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.Valid);
+        var result = Load(SetupFixtures.Valid);
 
         Assert.DoesNotContain(result.Issues, issue => issue.Path.StartsWith("scamMailProtocol", StringComparison.Ordinal));
     }
@@ -273,7 +276,7 @@ public sealed class SetupPlanLoaderTests
     [InlineData("\"source\": \"bogus\"", false)]
     public void Company_source_grammar(string sourceFragment, bool valid)
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"source\": \"template:starter@1.0.0\"", sourceFragment));
+        var result = Load(SetupFixtures.With("\"source\": \"template:starter@1.0.0\"", sourceFragment));
 
         Assert.Equal(valid, !HasError(result, "company.source"));
     }
@@ -281,8 +284,8 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Backups_without_a_target_need_the_acknowledgement()
     {
-        var missing = SetupPlanLoader.Load(SetupFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null"));
-        var acknowledged = SetupPlanLoader.Load(SetupFixtures.With(
+        var missing = Load(SetupFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null"));
+        var acknowledged = Load(SetupFixtures.With(
             "\"target\": \"file:/mnt/backup/bazaar\", \"drillIntervalDays\": 30, \"acknowledgeNoTarget\": false",
             "\"target\": null, \"drillIntervalDays\": 30, \"acknowledgeNoTarget\": true"));
 
@@ -295,7 +298,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Duplicate_model_source_ids_are_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"id\": \"anthropic-owner\"", "\"id\": \"freellmapi\""));
+        var result = Load(SetupFixtures.With("\"id\": \"anthropic-owner\"", "\"id\": \"freellmapi\""));
 
         Assert.True(HasError(result, "models.sources[1].id"));
     }
@@ -303,8 +306,8 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Non_https_audit_anchor_and_bad_module_names_are_rejected()
     {
-        var anchor = SetupPlanLoader.Load(SetupFixtures.With("\"https://anchor.example.invalid/bazaar-audit\"", "\"http://anchor.example.invalid/x\""));
-        var module = SetupPlanLoader.Load(SetupFixtures.With("\"Bazaar.GC\"", "\"gc\""));
+        var anchor = Load(SetupFixtures.With("\"https://anchor.example.invalid/bazaar-audit\"", "\"http://anchor.example.invalid/x\""));
+        var module = Load(SetupFixtures.With("\"Bazaar.GC\"", "\"gc\""));
 
         Assert.True(HasError(anchor, "custody.auditAnchorTarget"));
         Assert.True(HasError(module, "modules[0]"));
@@ -313,7 +316,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void Privacy_profile_other_than_private_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"profile\": \"private\"", "\"profile\": \"public\""));
+        var result = Load(SetupFixtures.With("\"profile\": \"private\"", "\"profile\": \"public\""));
 
         Assert.True(HasError(result, "privacy.profile"));
     }
@@ -321,7 +324,7 @@ public sealed class SetupPlanLoaderTests
     [Fact]
     public void A_null_where_no_null_is_allowed_is_rejected()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("\"locale\": \"en\"", "\"locale\": null"));
+        var result = Load(SetupFixtures.With("\"locale\": \"en\"", "\"locale\": null"));
 
         Assert.True(HasError(result, "install.locale"));
     }
