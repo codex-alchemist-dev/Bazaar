@@ -128,6 +128,12 @@ The owner-signature contract is its own module, not server code. It moved out of
 
 The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Data/Sql/remote`, because migrations belong to the server host. `Bazaar.Server` references the abstractions only. `ApprovalsRegistration.AddBazaarApprovals()` composes the verifier on the durable stores (every registration is TryAdd), and the agent safety module calls it, so one verifier serves the kill switch, the approval service and the GitHub merge gate. The module owns no SQL of its own (the nonce table sits in the `remote` namespace above), so it registers no `IBazaarComponent`: a component would only restate that.
 
+## Gateway module (doc 05)
+
+The model gateway leaves `Bazaar.Server` in two steps. Step 1 (this change): `Bazaar.Server.Gateway.Abstractions` holds the contracts that Server-side consumers (Agents, Memory, Souls) bind to: `IModelGateway`, `GatewayChatClient` and its mapping, `GatewayModelException`, and `ModelRef`/`RouteNames`. Namespaces stay `Bazaar.Server.Gateway`, `.Ai` and `.Policy`. It references `Bazaar.Contracts` only. It is not marked AOT-compatible yet because the chat mapping uses reflection-based JSON. Step 2: `Bazaar.Server.Gateway` takes the rest of the folder (adapters, pipeline, health, usage, policy, providers, fakes, FreeLlmApi, AnthropicDirect), and `GatewaySettings` registers through the module instead of `SettingRegistry`.
+
+Step 2 is done: `Bazaar.Server.Gateway` references `Bazaar.Server` (it uses the secret resolver and setting types), `Bazaar.Server.Gateway.Abstractions` and `Bazaar.Contracts`; `Bazaar.Server` does not reference it. `GatewaySettings` is registered by the host (`SettingRegistry.Known.With(GatewaySettings.All)` in `SettingsComponent`); a caller that loads a setup plan with `gateway.*` keys must pass that registry. The gateway tests live in `tests/Bazaar.Server.Gateway.Tests`. Follow-ups: a shared gateway test-support project (two harness files are linked into `Bazaar.Server.Tests` for now), and AOT-clean JSON in the module.
+
 ## Agents module, wave 1 (extraction from `Bazaar.Server/Agents`)
 
 Docs section this implements: this section (wave 1 of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
