@@ -84,6 +84,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 7 | Privacy and retention | Privacy profile, retention periods, legal-hold defaults, erasure window. Each option that touches law is marked "needs counsel". | 32, 15, 33 |
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
+| 9b | Embedding profile (optional) | `none` (lexical-only search, the default) or one configured embedding provider. The dimension is fixed once chosen. Implemented as the `embeddings.profile` step (order 95); the choice is the setting `memory.embedding_profile` in the plan, and the provider's base URL, model, dimensions and key reference come from the `Bazaar:Embeddings` configuration (key by reference only). Section 1.4. | 08 (WP6), 04 |
 | 10 | Git and GitHub | Merge credential (owner GitHub App or linked owner credential; no default), GitHub App installation for the company's organisation. | 14, 21 |
 | 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC). Domains are never hardcoded. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
@@ -114,6 +115,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | Retention and erasure window | Yes | The most protective documented option | Doc 04 lists 35 days as a placeholder. Needs counsel. |
 | Backup target | Yes | Required; finishing without one needs a recorded acknowledgement [PROPOSED] | Operator's choice, documented in doc 33. |
 | Model sources | Yes | FreeLLMAPI guided setup; default free-lane preset | Owner's API key optional. Routing defaults are doc 05's. |
+| Embedding profile | Yes | `none` (lexical only) | One per install; the dimension is fixed at setup, so a plan with a different dimension on an active profile is refused. A later change is a planned re-embed (doc 08). Shipped as a step by `Bazaar.Server.Embeddings` [PROPOSED]. |
 | Merge credential | Yes | None; must be chosen (doc 14, round 12) | Owner GitHub App or linked owner credential. |
 | Status listener bind | Yes | Loopback | Non-loopback needs Tier 2 approval (doc 03). |
 | Email | Yes | Off | If on, a back end and domain are required (doc 22). |
