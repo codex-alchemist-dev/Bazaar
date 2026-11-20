@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.CompanyMemory.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.CompanyMemory.Tests;
@@ -223,7 +225,7 @@ public class CompanyMemoryPaneTests
     [Fact]
     public void Registry_builds_the_pane_from_the_module()
     {
-        var registry = PaneRegistry.Compose(CompanyMemoryPanes.Modules);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, CompanyMemoryPanes.Modules);
 
         Assert.True(registry.Contains(PaneKinds.CompanyMemory));
         var pane = Assert.IsType<CompanyMemoryPaneViewModel>(registry.Create(Descriptor(Model(string.Empty, string.Empty))));
@@ -233,7 +235,7 @@ public class CompanyMemoryPaneTests
     [Fact]
     public void Registry_falls_back_to_the_generic_view_on_a_bad_model()
     {
-        var registry = PaneRegistry.Compose(CompanyMemoryPanes.Modules);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, CompanyMemoryPanes.Modules);
 
         var pane = registry.Create(Descriptor("""{"decisions":[{"path":"a","title":"t","status":"draft","decidedIn":null}],"links":[]}"""));
 

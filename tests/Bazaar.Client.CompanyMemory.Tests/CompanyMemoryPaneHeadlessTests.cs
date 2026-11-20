@@ -3,8 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.CompanyMemory.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.CompanyMemory.Tests;
@@ -66,5 +68,5 @@ public class CompanyMemoryPaneHeadlessTests
     }
 
     private static Control Views(CompanyMemoryPaneViewModel pane) =>
-        PaneRegistry.Compose(CompanyMemoryPanes.Modules).CreateView(pane);
+        PaneRegistry.Compose(PaneViews.Instance, CompanyMemoryPanes.Modules).CreateView(pane);
 }

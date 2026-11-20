@@ -18,11 +18,6 @@ public class LayeringTests
     [Theory]
     [InlineData("Bazaar.Client.RyuseiFuda")]
     [InlineData("Bazaar.Client.Views")]
-    [InlineData("Bazaar.Client.Health")]
-    [InlineData("Bazaar.Client.Twin")]
-    [InlineData("Bazaar.Client.Archive")]
-    [InlineData("Bazaar.Client.CompanyMemory")]
-    [InlineData("Bazaar.Client.Hive")]
     public void Client_feature_module_references_only_client_core(string project)
     {
         var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));
@@ -41,6 +36,11 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Vault")]
     [InlineData("Bazaar.Client.Gc")]
     [InlineData("Bazaar.Client.Souls")]
+    [InlineData("Bazaar.Client.Health")]
+    [InlineData("Bazaar.Client.Twin")]
+    [InlineData("Bazaar.Client.Archive")]
+    [InlineData("Bazaar.Client.CompanyMemory")]
+    [InlineData("Bazaar.Client.Hive")]
     public void Client_feature_module_does_not_reference_client_core(string project)
     {
         Assert.SkipUnless(File.Exists(RepoPaths.ProjectFile(project)), $"{project} does not exist yet.");

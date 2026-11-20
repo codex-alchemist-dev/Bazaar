@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Hive.Grants;
 using Bazaar.Client.Hive.Panes;
 using Bazaar.Contracts.Hive;

@@ -3,8 +3,10 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Archive.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Archive.Tests;
 
@@ -31,7 +33,7 @@ public class ArchivePaneHeadlessTests
     private static Window Show(ArchivePaneViewModel archive)
     {
         var view = new ArchivePaneModule();
-        var registry = PaneRegistry.Compose([view]);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, [view]);
         var window = new Window { Width = 800, Height = 900, Content = registry.CreateView(archive) };
         window.Show();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();

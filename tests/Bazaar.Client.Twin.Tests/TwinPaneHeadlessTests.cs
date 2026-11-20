@@ -1,7 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Twin.Panes;
 using Bazaar.Contracts.Panes;
 
@@ -19,7 +21,7 @@ public class TwinPaneHeadlessTests
             ],"pages":[{"page":"overview","sentences":[{"text":"Unsourced line.","sourceRef":null}]}]}]}
             """));
 
-        var view = PaneRegistry.Compose(TwinPanes.Modules).CreateView(pane);
+        var view = PaneRegistry.Compose(PaneViews.Instance, TwinPanes.Modules).CreateView(pane);
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
 
         Assert.Contains("STALE", texts);

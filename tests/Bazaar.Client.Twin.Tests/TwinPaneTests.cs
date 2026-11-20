@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Twin.Panes;
 using Bazaar.Contracts.Panes;
 
@@ -108,7 +110,7 @@ public class TwinPaneTests
     [Fact]
     public void Registry_builds_the_twin_card_and_falls_back_on_a_missing_field()
     {
-        var registry = PaneRegistry.Compose(TwinPanes.Modules);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, TwinPanes.Modules);
         Assert.Contains(PaneKinds.Twin, registry.Kinds);
         Assert.IsType<TwinPaneViewModel>(registry.Create(Descriptor(_model)));
 

@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Hive.Grants;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Hive.Tests;
@@ -26,7 +28,7 @@ internal static class HiveTestData
     public static PaneRegistry CreateRegistry(IHiveGrantActions? actions = null)
     {
         var context = actions is null ? new PaneModuleContext() : new PaneModuleContext().With(actions);
-        return PaneRegistry.Compose(HivePanes.Modules, context);
+        return PaneRegistry.Compose(PaneViews.Instance, HivePanes.Modules, context);
     }
 }
 

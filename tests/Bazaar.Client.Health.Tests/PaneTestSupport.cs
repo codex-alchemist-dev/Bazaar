@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Health;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Health.Tests;
@@ -14,5 +16,5 @@ internal static class PaneTestSupport
         return new PaneDescriptor(kind, "test", string.Empty, document.RootElement.Clone());
     }
 
-    public static PaneRegistry CreateRegistry() => PaneRegistry.Compose(HealthPanes.Modules);
+    public static PaneRegistry CreateRegistry() => PaneRegistry.Compose(PaneViews.Instance, HealthPanes.Modules);
 }

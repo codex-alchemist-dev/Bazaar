@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Archive.Panes;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Archive.Tests;
@@ -208,7 +210,7 @@ public class ArchivePaneViewModelTests
     [Fact]
     public void Registry_builds_the_archive_pane_from_the_module()
     {
-        var registry = PaneRegistry.Compose(ArchivePanes.Modules);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, ArchivePanes.Modules);
 
         Assert.True(registry.Contains(PaneKinds.Archive));
         var pane = registry.Create(Descriptor(_book));
@@ -218,7 +220,7 @@ public class ArchivePaneViewModelTests
     [Fact]
     public void Registry_falls_back_to_the_generic_view_on_a_model_mismatch()
     {
-        var registry = PaneRegistry.Compose(ArchivePanes.Modules);
+        var registry = PaneRegistry.Compose(PaneViews.Instance, ArchivePanes.Modules);
 
         var pane = registry.Create(Descriptor("""{ "chapters": "none" }"""));
 
