@@ -126,4 +126,29 @@ public sealed class InProcessRunningTurnRegistryTests
 
         Assert.NotNull(provider.GetRequiredService<IRunningTurnRegistry>().TryGet(info.TurnId));
     }
+
+    [Fact]
+    public void The_index_lists_only_the_agents_running_turns_and_drops_ended_ones()
+    {
+        var registry = new InProcessRunningTurnRegistry();
+        var agent = Guid.NewGuid();
+        var mine = new RunningTurnInfo(Guid.NewGuid(), agent, Guid.NewGuid(), "h", [], 0, 5, null, null, "");
+        var theirs = Info();
+        using var other = registry.Register(theirs);
+        var registration = registry.Register(mine);
+
+        Assert.Equal([mine.TurnId], registry.ForAgent(agent).Select(t => t.TurnId));
+        Assert.Empty(registry.ForAgent(Guid.NewGuid()));
+
+        registration.Dispose();
+        Assert.Empty(registry.ForAgent(agent));
+    }
+
+    [Fact]
+    public void The_index_is_registered_with_the_registry()
+    {
+        using var provider = new ServiceCollection().AddRunningTurnRegistry().BuildServiceProvider();
+
+        Assert.Same(provider.GetRequiredService<InProcessRunningTurnRegistry>(), provider.GetRequiredService<IRunningTurnIndex>());
+    }
 }

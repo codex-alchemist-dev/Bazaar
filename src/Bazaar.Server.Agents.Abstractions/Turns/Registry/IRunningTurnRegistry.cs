@@ -20,3 +20,13 @@ public interface IRunningTurnRegistrar
     /// <exception cref="InvalidOperationException">A turn with the same id is already registered.</exception>
     IDisposable Register(RunningTurnInfo info);
 }
+
+/// <summary>
+/// Read-only index of running turns by agent, for host adapters that need an agent's live sessions (taint and push-session
+/// lookups). Same source as <see cref="IRunningTurnRegistry"/>: an entry exists only while its turn holds a lease.
+/// </summary>
+public interface IRunningTurnIndex
+{
+    /// <summary>A snapshot of the agent's running turns. Empty when none is running.</summary>
+    IReadOnlyList<RunningTurnInfo> ForAgent(Guid agentId);
+}

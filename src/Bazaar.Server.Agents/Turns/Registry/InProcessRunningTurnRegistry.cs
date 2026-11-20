@@ -5,12 +5,16 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.Agents.Turns;
 
 /// <summary>The in-process running-turn registry (doc 06, "Running-turn registry"). Nothing is persisted: a restart starts empty.</summary>
-public sealed class InProcessRunningTurnRegistry : IRunningTurnRegistry, IRunningTurnRegistrar
+public sealed class InProcessRunningTurnRegistry : IRunningTurnRegistry, IRunningTurnRegistrar, IRunningTurnIndex
 {
     private readonly ConcurrentDictionary<Guid, RunningTurnInfo> _turns = new();
 
     /// <inheritdoc />
     public RunningTurnInfo? TryGet(Guid turnId) => _turns.TryGetValue(turnId, out var info) ? info : null;
+
+    /// <inheritdoc />
+    public IReadOnlyList<RunningTurnInfo> ForAgent(Guid agentId) =>
+        _turns.Values.Where(info => info.AgentId == agentId).ToArray();
 
     /// <inheritdoc />
     public IDisposable Register(RunningTurnInfo info)
@@ -44,6 +48,7 @@ public static class RunningTurnRegistryServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<InProcessRunningTurnRegistry>();
         services.TryAddSingleton<IRunningTurnRegistry>(sp => sp.GetRequiredService<InProcessRunningTurnRegistry>());
+        services.TryAddSingleton<IRunningTurnIndex>(sp => sp.GetRequiredService<InProcessRunningTurnRegistry>());
         services.TryAddSingleton<IRunningTurnRegistrar>(sp => sp.GetRequiredService<InProcessRunningTurnRegistry>());
         return services;
     }
