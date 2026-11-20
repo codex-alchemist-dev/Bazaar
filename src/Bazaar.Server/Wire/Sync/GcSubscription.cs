@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Server.Wire.Sync;
@@ -23,12 +24,13 @@ internal sealed class GcSubscription : IDisposable
     private long _lastEv;
 
     public GcSubscription(
-        Guid gcId, string stream, Guid principalId, long after, long editAfter,
+        Guid gcId, string stream, Guid principalId, PrincipalKind kind, long after, long editAfter,
         IConnectionOutbound outbound, SyncFrames frames, SyncOptions options, CancellationToken sessionCt)
     {
         GcId = gcId;
         Stream = stream;
         PrincipalId = principalId;
+        Kind = kind;
         After = after;
         EditAfter = editAfter;
         _lastN = after;
@@ -45,6 +47,9 @@ internal sealed class GcSubscription : IDisposable
     public string Stream { get; }
 
     public Guid PrincipalId { get; }
+
+    /// <summary>The subscriber's kind, re-checked with the id when access is revalidated.</summary>
+    public PrincipalKind Kind { get; }
 
     public long After { get; }
 
