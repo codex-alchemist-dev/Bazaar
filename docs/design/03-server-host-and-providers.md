@@ -9,7 +9,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 ## Decided inputs
 - One OS-agnostic .NET 11 build; Windows is the first supported and tested host. (CLAUDE.md; Bazaar.Server.md §1)
 - Service host, VM backend, cache and search are per-OS providers. No Windows-only API outside a provider. (CLAUDE.md; Bazaar.Server.md §3)
-- Pub/sub (C07, round 1): GC fan-out is Postgres NOTIFY, owned by doc 04 and not a provider. Valkey (Linux) or Garnet (Windows) serve cache and presence only. Spike S2 passed (DECISIONS-LOG round 28), so Garnet is the Windows cache provider.
+- Pub/sub (C07, round 1): GC fan-out is Postgres NOTIFY, owned by doc 04 and not a provider. Valkey (Linux) or Garnet (Windows) serve cache and presence only. Spike S2 passed (DECISIONS-LOG round 30), so Garnet is the Windows cache provider.
 - VM topology (C03, round 1, owner 2026-10-24): two VMs per agent, a Windows VM and a Linux VM. Spike S8 is for sizing only. The VM contract is doc 16's.
 - Secrets (C05, round 2): doc 14's `ISecretStore` holds provider and GitHub App keys. This doc's resolver only bootstraps the key-encryption key (KEK) and the database credential.
 - Migrations (C44, round 11): an explicit `migrate` command. Startup only checks the schema version and refuses on mismatch.
