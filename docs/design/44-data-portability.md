@@ -307,8 +307,10 @@ Re-importing the same source must not create duplicates.
 ### 8.6 Staging retention
 
 - Staging holds the source as uploaded and the parse output until commit verifies.
-- Default: staging is deleted when the job commits and verifies. The job keeps the source manifest, hashes and counts.
-- `portability.import.staging_retention_hours`, default 0. The floor is 72 hours unless the owner approves a longer period, because staging holds plaintext personal content.
+- Default: staging is deleted 72 hours after the job commits and verifies. The job keeps the source manifest, hashes and counts.
+- `portability.import.staging_retention_hours`, default 72, and 72 is the minimum (owner decision, 2026-11-19). A longer period is an admin setting and every change is audited, because staging holds plaintext personal content.
+
+**Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention defaults to and may not go below 72 hours (the doc's "default 0, floor 72" is read as 72 hours); a longer period is an admin setting and each change is audited as `portability.import.staging_retention_changed`.
 
 ### 8.7 Large dumps
 
@@ -319,6 +321,8 @@ Re-importing the same source must not create duplicates.
 - **Cancel means stop, not undo.** GC history is append-only, so cancelling leaves committed batches in place. Undo is a separate action (section 8.8).
 - **Progress and health.** Progress (items, bytes, ETA, failures) is reported to Observatory (doc 23) and to the health contract (doc 46). A job that makes no progress for a set time is marked `stalled` and alerted.
 - **Size limits.** `portability.import.max_upload_bytes`, default 10 GiB. A larger dump is split by the owner into jobs, or the owner raises the limit, which is audited.
+
+**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Observatory and health reporting are not wired.
 
 ### 8.8 Withdrawing an import
 
@@ -410,7 +414,7 @@ Keys are install-scoped. The operator changes them in the setup wizard or advanc
 | `portability.import.batch_items` | int | 500 | 1 to 5000 | Operator | No |
 | `portability.import.write_rate` | int | 200 items per second | Bounded by chat latency budget | Operator | No |
 | `portability.import.secret_scan` | enum: `quarantine`, `warn`, `off` | `quarantine` | `off` not allowed for text from external sources | Operator | Yes (owner) to set `warn` or `off` |
-| `portability.import.staging_retention_hours` | int | 0 | Max 72 unless owner approves | Operator | Yes (owner) above 72 |
+| `portability.import.staging_retention_hours` | int | 72 | Min 72 (owner decision, 2026-11-19) | Operator | No; a longer period is an audited admin change |
 | `portability.import.dry_run_required` | bool | true | Always true (cannot be disabled) | None | Not settable |
 
 ## 13. Conflicts with existing docs
