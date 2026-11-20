@@ -1,5 +1,6 @@
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.GitGui.ViewModels;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.GitGui.Panes;
 
