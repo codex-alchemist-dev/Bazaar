@@ -2,11 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
 using Bazaar.Client.Core.Preload;
-using Bazaar.Client.Core.Wire;
 using Bazaar.Client.Linux.Display;
 
 namespace Bazaar.Client.Linux;
@@ -136,7 +136,7 @@ internal static class Program
         Directory.CreateDirectory(paths.StateDirectory);
         GcChatSession session = ChatConnection.Create(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild);
         var chat = new ChatViewModel(session, action => Dispatcher.UIThread.Post(action));
-        var window = new MainWindow(chat);
+        var window = new MainWindow(ChatViewFactory.Instance.Create(chat));
 
         var cts = new CancellationTokenSource();
         window.Closed += async (_, _) =>
