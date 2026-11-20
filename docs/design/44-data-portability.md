@@ -97,9 +97,9 @@ The graph is derived from the Vault index, GC references, Kanban and PR data. It
 
 - `graph/nodes.jsonl` and `graph/edges.jsonl`: node kind, source reference, label and edge kind.
 - `graph/graph.graphml`: the same graph in GraphML for external tools.
-- `graph/layout.jsonl`: node positions. Excluded by default (`portability.export.include_derived`, false), because positions are derived and change with every layout run.
+- `graph/layout.jsonl`: the layout position of each node, one JSON line per node in the same index order as `graph/nodes.jsonl` (`index`, `ref`, then `x`, `y`, `z`; 2D layouts keep `z` at 0). Positions are derived and change with every layout run, so the file is written only when `portability.export.include_derived` is true (default false). It sits under `graph/`, which `graph/derived.json` marks as derived and not authoritative. Owner decision (2026-11-18): layout positions are exported, as derived data. Section 7 has the matching rule.
 
-Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access).
+Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access). Positions come from the same viewer-filtered snapshot, so a position is never written for a node the viewer cannot read. A layout computed for another graph version is not exported.
 
 ### 4.6 Personal fields and the audit log
 
@@ -159,6 +159,12 @@ Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday an
 - **Roadmap (objective layer, doc 38 layer 3).** Objectives and phases are Vault Markdown documents written through `VaultWriter`. Export route: the Vault export in section 4.3 (Markdown in git). No separate format. Derived views are recomputed, not exported (section 7).
 - **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
 - **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
+
+**Built status (2026-11-18, built to the proposal; owner approved building before the section is DECIDED, so it is easy to adjust).**
+- Roadmap: nothing new. The Vault exporter covers it; no separate format.
+- Workday: `WorkdayExporter` (`Bazaar.Server.Portability`) adds `workday/events.jsonl` (the full `task_events` log, every kind, canonical JSON payloads), `workday/gate-decisions.jsonl` and `workday/manifest.json`. Tasks, edges, links and applied transitions stay in the Kanban export (section 4.4).
+- Orrery: `OrreryExporter` writes `orrery/triggers.jsonl` (every `ryusei_trigger` column, each row marked `restoreAs: "paused"`), `orrery/fires.jsonl` (the `ryusei_fire` journal, for exported triggers only) and `orrery/manifest.json`. The `ryusei.trigger.*` audit rows travel with the audit-log export (section 4.6), not here.
+- Both read through narrow source interfaces (`IWorkdayExportSource`, `IOrreryExportSource`) that the host implements; the import side (restoring triggers paused) is not built yet.
 
 ### 4.z Whole-company export (added 2026-11-13, DECIDED)
 
@@ -237,7 +243,7 @@ Each row below is a hard exclusion or a route to the data. None of these is a se
 | Erased subjects' content | Destroyed by design (section 10) | Tombstones only |
 | Other principals' private Vault areas | Access rule (doc 18) | Owner export only, as section 4.3 |
 | Logs, presence, cache, search indexes, embeddings | Rebuildable or transient. Logs rotate (doc 33) | Rebuilt from the log and the Vault. Embeddings can be included as derived data with their embedding profile id (`portability.export.include_derived`, false) |
-| Layout positions and other derived views | Change on every run | Recomputed from sources |
+| Other derived views (render tiles, caches) | Change on every run | Recomputed from sources. Graph layout positions are not excluded: they are exported as derived data with `include_derived` (section 4.5) |
 | The live audit chain as a writable object | Import would forge history | Audit is exported as evidence (section 4.6) and imported only as an archive (section 8.2) |
 | Work in flight (open turns, locks, leases) | Not data at rest | Drain before export (doc 03 shutdown). Export of a running instance is a snapshot at a consistent point, with the point recorded |
 
