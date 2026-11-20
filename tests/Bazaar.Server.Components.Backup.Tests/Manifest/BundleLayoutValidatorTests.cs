@@ -1,7 +1,7 @@
 using System.Text;
 using Bazaar.Server.Backup.Manifest;
 
-namespace Bazaar.Server.Tests.Backup.Manifest;
+namespace Bazaar.Server.Components.Backup.Tests.Manifest;
 
 public sealed class BundleLayoutValidatorTests
 {
