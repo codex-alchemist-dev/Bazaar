@@ -1,8 +1,8 @@
+using Cdax.Core;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Company;
 using Bazaar.Server.Company.Org;
 using Bazaar.Server.Org.Data;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

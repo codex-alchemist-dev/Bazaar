@@ -1,10 +1,10 @@
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Cdax.Core;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Security.Policy;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;

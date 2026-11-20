@@ -1,3 +1,4 @@
+using Cdax.Core;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
@@ -5,7 +6,6 @@ using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Search;
 using Bazaar.Server.Vault.Writes;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

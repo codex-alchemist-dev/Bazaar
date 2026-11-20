@@ -15,9 +15,9 @@ namespace Cdax.Core;
 public sealed record PrincipalAction(Principal Actor, Principal? OnBehalfOf = null)
 {
     /// <summary>A short human-readable form: <c>actor</c>, or <c>actor on behalf of principal</c>.</summary>
-    public override string ToString() => OnBehalfOf is null ? Actor.ToString() : $"{Actor}{Separator}{OnBehalfOf}";
+    public override string ToString() => OnBehalfOf is null ? Actor.ToString() : $"{Actor}{_separator}{OnBehalfOf}";
 
-    private const string Separator = " on behalf of ";
+    private const string _separator = " on behalf of ";
 
     /// <summary>Parses the text form, throwing <see cref="FormatException"/> when it is invalid.</summary>
     public static PrincipalAction Parse(string text) =>
@@ -32,7 +32,7 @@ public sealed record PrincipalAction(Principal Actor, Principal? OnBehalfOf = nu
             return false;
         }
 
-        var split = text.IndexOf(Separator, StringComparison.Ordinal);
+        var split = text.IndexOf(_separator, StringComparison.Ordinal);
         if (split < 0)
         {
             if (!Principal.TryParse(text, out var solo))
@@ -44,7 +44,7 @@ public sealed record PrincipalAction(Principal Actor, Principal? OnBehalfOf = nu
             return true;
         }
 
-        if (!Principal.TryParse(text[..split], out var actor) || !Principal.TryParse(text[(split + Separator.Length)..], out var onBehalfOf))
+        if (!Principal.TryParse(text[..split], out var actor) || !Principal.TryParse(text[(split + _separator.Length)..], out var onBehalfOf))
         {
             return false;
         }

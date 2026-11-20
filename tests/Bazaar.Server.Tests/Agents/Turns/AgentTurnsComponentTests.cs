@@ -1,7 +1,7 @@
+using Cdax.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Mentions;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;

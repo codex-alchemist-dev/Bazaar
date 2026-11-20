@@ -1,5 +1,5 @@
-using Bazaar.Server.CompanyBuild.Abstractions;
 using Cdax.Core;
+using Bazaar.Server.CompanyBuild.Abstractions;
 
 namespace Bazaar.Server.CompanyBuild;
 

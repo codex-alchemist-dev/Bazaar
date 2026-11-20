@@ -1,6 +1,6 @@
+using Cdax.Core;
 using Bazaar.Server.Modules.Releases;
 using Bazaar.Server.Modules.Updates;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

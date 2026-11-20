@@ -1,3 +1,4 @@
+using Cdax.Core;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.Agents.Turns.Tools;
@@ -8,7 +9,6 @@ using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
-using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
