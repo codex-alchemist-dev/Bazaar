@@ -90,7 +90,7 @@ interface IModelGateway { IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest r,
 
 Tables [PROPOSED]. Doc 05 owns these six; agent and turn ids reference doc 06's tables.
 - `gw_provider(id, kind, adapter, base_url, auth_kind, secret_ref, headers, proxy_ref, terms_ack_at, enabled)`
-- `gw_model(provider_id, model_id, family, identity native|pooled, caps jsonb, status, first_seen, last_seen, source, kind chat|embedding, embed_max_batch, embed_max_input_chars)` [PROPOSED for the last three, added by migration `gateway/0001_gateway_model_kind.sql`: `kind` defaults to `chat`; the two caps are nullable, and null means the provider default]
+- `gw_model(provider_id, model_id, family, identity native|pooled, caps jsonb, status, first_seen, last_seen, source, kind chat|embedding, embed_max_batch, embed_max_input_chars)` [PROPOSED for the last three, added by migration `gateway/0002_gateway_model_kind.sql`: `kind` defaults to `chat`; the two caps are nullable, and null means the provider default]
 - `gw_route(id, strategy, members jsonb, expected_set jsonb)`
 - `agent_model_policy(agent_id, allowed jsonb, default_route, version, changed_by, changed_at)`
 - `gw_quota_state(provider_id, key_ref, model_class, state, until, observed jsonb)`

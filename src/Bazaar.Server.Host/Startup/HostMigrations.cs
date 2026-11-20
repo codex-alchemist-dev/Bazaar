@@ -6,10 +6,10 @@ using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
 
-/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway's <c>gateway</c> namespace, and the module component files under Sql/components/ (Vms, Council).</summary>
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, and the module component files under Sql/components/ (Vms, Council).</summary>
 public static class HostMigrations
 {
-    /// <summary>Server, Gateway, Vms and Council migrations, read from their assemblies.</summary>
+    /// <summary>Server, module manager, Gateway, Vms and Council migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
         new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
