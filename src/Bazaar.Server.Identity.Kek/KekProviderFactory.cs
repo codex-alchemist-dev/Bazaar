@@ -10,7 +10,7 @@ namespace Bazaar.Server.Identity.Kek;
 public static class KekProviderFactory
 {
     /// <summary>The setting's allowed values, as documented in doc 14.</summary>
-    public static IReadOnlyList<string> AllowedKinds { get; } = ["dpapi", "file", "openbao"];
+    public static IReadOnlyList<string> AllowedKinds { get; } = ["dpapi", "file", "tpm", "openbao"];
 
     /// <summary>The platform default: <c>dpapi</c> on Windows, <c>file</c> elsewhere.</summary>
     public static string DefaultKind => OperatingSystem.IsWindows() ? "dpapi" : "file";
@@ -32,7 +32,7 @@ public static class KekProviderFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         var chosen = Normalise(kind);
-        if (chosen is "openbao" || !File.Exists(KeyPathFor(chosen, dataRoot)))
+        if (chosen is "openbao" or "tpm" || !File.Exists(KeyPathFor(chosen, dataRoot)))
             throw new FileNotFoundException($"No existing KEK file for identity.kek_provider '{chosen}'.", KeyPathFor(chosen, dataRoot));
         return Create(chosen, dataRoot);
     }
@@ -58,6 +58,8 @@ public static class KekProviderFactory
                 if (!OperatingSystem.IsWindows())
                     throw new PlatformNotSupportedException("identity.kek_provider 'dpapi' needs a Windows host. Use 'file' on this host (doc 14).");
                 return CreateDpapi(keyPath);
+            case "tpm":
+                throw new NotSupportedException("identity.kek_provider 'tpm' needs the identity-kek-tpm module to be loaded (doc 14).");
             case "openbao":
                 throw new NotSupportedException("identity.kek_provider 'openbao' needs the identity-kek-openbao module to be loaded (doc 14).");
             default:
