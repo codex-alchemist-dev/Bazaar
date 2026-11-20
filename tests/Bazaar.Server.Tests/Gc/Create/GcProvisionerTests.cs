@@ -32,6 +32,34 @@ public sealed class GcProvisionerTests(GcDb db) : IClassFixture<GcDb>
     }
 
     [Fact]
+    public async Task Archive_sets_archived_at_once_keeps_the_members_and_refuses_an_unknown_gc()
+    {
+        GcTestSkip.WithoutDatabase();
+        var svc = new GcCreateService(db.DataSource);
+        var ct = TestContext.Current.CancellationToken;
+        var id = GcCreateService.DeterministicGcId($"archive:{Guid.NewGuid():D}");
+        Assert.True(await svc.CreateAsync(id, "inbox", "Inbox", _owner, null, ct));
+
+        Assert.True(await svc.ArchiveAsync(id, ct));
+        var first = await ArchivedAtAsync(id, ct);
+        Assert.False(await svc.ArchiveAsync(id, ct));
+        Assert.Equal(first, await ArchivedAtAsync(id, ct));
+        Assert.NotNull(first);
+
+        await using var cmd = db.DataSource.CreateCommand("SELECT count(*) FROM gc_member WHERE gc_id = $1");
+        cmd.Parameters.AddWithValue(id);
+        Assert.Equal(1L, (long)(await cmd.ExecuteScalarAsync(ct))!);
+        await Assert.ThrowsAsync<GcCreateRefusedException>(() => svc.ArchiveAsync(Guid.NewGuid(), ct));
+    }
+
+    private async Task<DateTime?> ArchivedAtAsync(Guid id, CancellationToken ct)
+    {
+        await using var cmd = db.DataSource.CreateCommand("SELECT archived_at FROM gc WHERE gc_id = $1");
+        cmd.Parameters.AddWithValue(id);
+        return await cmd.ExecuteScalarAsync(ct) is DateTime at ? at : null;
+    }
+
+    [Fact]
     public async Task A_typed_gc_is_found_by_owner_and_metadata_and_a_member_is_added_once()
     {
         GcTestSkip.WithoutDatabase();

@@ -1,6 +1,7 @@
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Mail.Quarantine;
 using Bazaar.Server.MailDns;
+using Bazaar.Server.MailOnboarding;
 using Bazaar.Server.MailRuntime;
 using Bazaar.Server.Setup;
 using Microsoft.Extensions.Configuration;
@@ -49,6 +50,12 @@ public sealed class MailCompositionTests
             Assert.Single(hosted, s => s is InboundMailHostedService);
             Assert.Single(hosted, s => s is OutboundMailResumeHostedService);
             Assert.Single(sp.GetServices<ISetupStep>(), s => s is MailDnsSetupStep);
+
+            // Onboarding is wired with the real GC adapter and the Postgres owner, not the fail-closed defaults.
+            Assert.IsType<GcInboxGcPort>(sp.GetRequiredService<IInboxGcPort>());
+            Assert.IsType<PostgresMailOwnerDirectory>(sp.GetRequiredService<IMailOwnerDirectory>());
+            Assert.IsType<MailOnboardingService>(sp.GetRequiredService<IMailOnboarding>());
+            Assert.IsType<Bazaar.Server.Gc.Create.GcCreateService>(sp.GetRequiredService<Bazaar.Server.Gc.Write.IGcProvisioner>());
         }
         finally
         {
@@ -71,6 +78,9 @@ public sealed class MailCompositionTests
             Assert.Null(sp.GetService<IMailGcAppender>());
             Assert.DoesNotContain(sp.GetServices<IHostedService>(), s => s is InboundMailHostedService or OutboundMailResumeHostedService);
             Assert.DoesNotContain(sp.GetServices<ISetupStep>(), s => s is MailDnsSetupStep);
+            Assert.Null(sp.GetService<IMailOnboarding>());
+            Assert.Null(sp.GetService<IInboxGcPort>());
+            Assert.Null(sp.GetService<IMailOwnerDirectory>());
         }
         finally
         {

@@ -46,6 +46,34 @@ internal sealed class FakeMailboxStore : IMailboxPersonStore
         }
     }
 
+    private readonly HashSet<Guid> _closed = [];
+
+    public bool IsClosed(Guid mailboxId)
+    {
+        lock (_gate)
+        {
+            return _closed.Contains(mailboxId);
+        }
+    }
+
+    public Task<MailboxCloseResult> CloseAsync(Guid mailboxId, Guid agentId, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (!_boxes.TryGetValue(mailboxId, out var person))
+            {
+                return Task.FromResult(MailboxCloseResult.NotFound);
+            }
+
+            if (person != agentId)
+            {
+                return Task.FromResult(MailboxCloseResult.NotOwner);
+            }
+
+            return Task.FromResult(_closed.Add(mailboxId) ? MailboxCloseResult.Closed : MailboxCloseResult.AlreadyClosed);
+        }
+    }
+
     public Task<MailboxOwner> GetOwnerAsync(Guid mailboxId, CancellationToken ct)
     {
         lock (_gate)
@@ -82,6 +110,26 @@ internal sealed class FakeInboxGcPort(bool available = true, bool throws = false
 
             Gcs.Add(gcId);
             return true;
+        }
+    }
+
+    public HashSet<Guid> Archived { get; } = [];
+
+    public Task<InboxGcArchiveResult> ArchiveInboxGcAsync(Guid gcId, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (throws)
+            {
+                throw new InvalidOperationException("boom");
+            }
+
+            if (!available || !Gcs.Contains(gcId))
+            {
+                return Task.FromResult(InboxGcArchiveResult.Failed);
+            }
+
+            return Task.FromResult(Archived.Add(gcId) ? InboxGcArchiveResult.Archived : InboxGcArchiveResult.AlreadyArchived);
         }
     }
 }
@@ -264,5 +312,102 @@ public sealed class MailOnboardingServiceTests
         var bare = new ServiceCollection().AddBazaarMailOnboarding();
         await using var bareProvider = bare.BuildServiceProvider();
         Assert.IsType<FailClosedInboxGcPort>(bareProvider.GetRequiredService<IInboxGcPort>());
+        var owner = bareProvider.GetRequiredService<IMailOwnerDirectory>();
+        Assert.IsType<FailClosedMailOwnerDirectory>(owner);
+        Assert.Null(await owner.GetOwnerAsync(Ct));
+    }
+
+    private static async Task<(FakeMailboxStore Store, FakeInboxGcPort Gc, MailOnboardingService Service, Guid Agent, Guid Box)> OnboardedAsync(RecordingAudit? audit = null)
+    {
+        var store = new FakeMailboxStore();
+        var gc = new FakeInboxGcPort();
+        var service = new MailOnboardingService(store, gc, audit);
+        var agent = Guid.NewGuid();
+        var box = Guid.NewGuid();
+        store.Add(box);
+        await service.OnboardAsync(agent, box, Ct);
+        return (store, gc, service, agent, box);
+    }
+
+    [Fact]
+    public async Task Offboard_closes_the_mailbox_archives_the_gc_and_keeps_person_id()
+    {
+        var audit = new RecordingAudit();
+        var (store, gc, service, agent, box) = await OnboardedAsync(audit);
+
+        var result = await service.OffboardAsync(agent, box, Ct);
+
+        Assert.Equal(MailOffboardingStatus.Offboarded, result.Status);
+        Assert.Equal(InboxGcId.For(agent), result.InboxGcId);
+        Assert.True(store.IsClosed(box));
+        Assert.Equal(agent, store.PersonOf(box));
+        Assert.Contains(InboxGcId.For(agent), gc.Archived);
+        Assert.Contains(audit.Entries, e => e.Kind == "mail.offboarding.offboarded" && !e.Payload.Contains('@', StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Offboard_twice_reports_already_offboarded()
+    {
+        var (store, _, service, agent, box) = await OnboardedAsync();
+
+        await service.OffboardAsync(agent, box, Ct);
+        var again = await service.OffboardAsync(agent, box, Ct);
+
+        Assert.Equal(MailOffboardingStatus.AlreadyOffboarded, again.Status);
+        Assert.Equal(agent, store.PersonOf(box));
+    }
+
+    [Fact]
+    public async Task Offboard_by_a_different_agent_or_of_a_missing_mailbox_changes_nothing()
+    {
+        var (store, gc, service, agent, box) = await OnboardedAsync();
+
+        var other = await service.OffboardAsync(Guid.NewGuid(), box, Ct);
+        var missing = await service.OffboardAsync(agent, Guid.NewGuid(), Ct);
+
+        Assert.Equal(MailOffboardingStatus.NotOwner, other.Status);
+        Assert.Equal(MailOffboardingStatus.MailboxNotFound, missing.Status);
+        Assert.False(store.IsClosed(box));
+        Assert.Empty(gc.Archived);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Offboard_with_a_failing_gc_port_closes_the_mailbox_and_a_retry_finishes(bool throws)
+    {
+        var store = new FakeMailboxStore();
+        var agent = Guid.NewGuid();
+        var box = Guid.NewGuid();
+        store.Add(box, agent);
+
+        var failed = await new MailOnboardingService(store, new FakeInboxGcPort(available: false, throws: throws)).OffboardAsync(agent, box, Ct);
+        var gc = new FakeInboxGcPort();
+        gc.Gcs.Add(InboxGcId.For(agent));
+        var retried = await new MailOnboardingService(store, gc).OffboardAsync(agent, box, Ct);
+
+        Assert.Equal(MailOffboardingStatus.GcUnavailable, failed.Status);
+        Assert.Equal(MailOffboardingStatus.Offboarded, retried.Status);
+        Assert.True(store.IsClosed(box));
+        Assert.Contains(InboxGcId.For(agent), gc.Archived);
+    }
+
+    [Fact]
+    public async Task Offboard_with_the_default_fail_closed_port_reports_gc_unavailable()
+    {
+        var store = new FakeMailboxStore();
+        var agent = Guid.NewGuid();
+        var box = Guid.NewGuid();
+        store.Add(box, agent);
+
+        var result = await new MailOnboardingService(store, new FailClosedInboxGcPort()).OffboardAsync(agent, box, Ct);
+
+        Assert.Equal(MailOffboardingStatus.GcUnavailable, result.Status);
+    }
+
+    [Fact]
+    public async Task Offboard_rejects_an_empty_agent_id()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => new MailOnboardingService(new FakeMailboxStore(), new FakeInboxGcPort()).OffboardAsync(Guid.Empty, Guid.NewGuid(), Ct));
     }
 }

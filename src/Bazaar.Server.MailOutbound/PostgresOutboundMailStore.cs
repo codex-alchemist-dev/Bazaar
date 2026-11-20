@@ -12,12 +12,12 @@ namespace Bazaar.Server.MailOutbound;
 /// <remarks>
 /// The recipients, subject and text are one JSON envelope encrypted through <see cref="IMailBodyProtector"/> into the message row's body columns; no
 /// statement writes them in clear. A send that ends in Failed, Rejected or Expired clears those columns in the same transaction. Raw SQL with
-/// positional parameters, like the quarantine store. The From mailbox must already exist (<c>mail_domain</c> and <c>mail_mailbox</c>).
+/// positional parameters, like the quarantine store. The From mailbox must already exist and not be closed (<c>mail_domain</c> and <c>mail_mailbox</c>).
 /// </remarks>
 public sealed class PostgresOutboundMailStore(NpgsqlDataSource dataSource, IMailBodyProtector protector) : IOutboundMailStore
 {
     private const string _mailbox =
-        "SELECT m.id FROM mail_mailbox m JOIN mail_domain d ON d.id = m.domain_id WHERE d.domain = $1 AND m.local_part = $2";
+        "SELECT m.id FROM mail_mailbox m JOIN mail_domain d ON d.id = m.domain_id WHERE d.domain = $1 AND m.local_part = $2 AND m.state <> 'closed'";
     private const string _insertMessage =
         "INSERT INTO mail_message (id, mailbox_id, direction, state, body_key_id, body_ct, body_nonce) VALUES ($1, $2, 'outbound', $3, $4, $5, $6)";
     private const string _insertOutbound =

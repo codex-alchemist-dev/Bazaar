@@ -214,6 +214,27 @@ public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
         return true;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> ArchiveAsync(Guid gcId, CancellationToken ct)
+    {
+        // One conditional UPDATE keeps the first archive time; a miss is either already archived or unknown.
+        await using var cmd = _dataSource.CreateCommand("UPDATE gc SET archived_at = now() WHERE gc_id = @gc_id AND archived_at IS NULL");
+        cmd.Parameters.AddWithValue("gc_id", gcId);
+        if (await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1)
+        {
+            return true;
+        }
+
+        await using var exists = _dataSource.CreateCommand("SELECT 1 FROM gc WHERE gc_id = @gc_id");
+        exists.Parameters.AddWithValue("gc_id", gcId);
+        if (await exists.ExecuteScalarAsync(ct).ConfigureAwait(false) is null)
+        {
+            throw new GcCreateRefusedException("The GC does not exist.");
+        }
+
+        return false;
+    }
+
     private string Validate(GcCreateRequest request)
     {
         if (request.GcId == Guid.Empty)

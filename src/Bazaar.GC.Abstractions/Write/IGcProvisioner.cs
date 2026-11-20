@@ -39,4 +39,11 @@ public interface IGcProvisioner
     /// </summary>
     /// <returns>True when this call added the member.</returns>
     Task<bool> AddMemberAsync(Guid gcId, Bazaar.Contracts.Gc.GcPrincipal member, CancellationToken ct);
+
+    /// <summary>
+    /// Archives a GC (sets <c>archived_at</c>). Idempotent: an archived GC keeps its original archive time and returns false. The log,
+    /// members and history are kept. An unknown GC is refused.
+    /// </summary>
+    /// <returns>True when this call archived the GC.</returns>
+    Task<bool> ArchiveAsync(Guid gcId, CancellationToken ct);
 }
