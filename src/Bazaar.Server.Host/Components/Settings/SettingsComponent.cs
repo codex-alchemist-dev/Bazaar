@@ -27,7 +27,7 @@ public sealed class SettingsComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton<SettingRegistry>(sp => SettingRegistry.WithContributions(sp.GetServices<ISettingContribution>()));
+        services.TryAddSingleton<SettingRegistry>(sp => BuiltInSettingRegistries.WithContributions(sp.GetServices<ISettingContribution>()));
         services.TryAddSingleton<ISettingAuditSink, AuditLogSettingSink>();
         services.TryAddSingleton<ISettingStore, NpgsqlSettingStore>();
     }

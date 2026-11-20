@@ -56,7 +56,7 @@ public sealed class SetupApplier
         _audit = audit;
         _settingAudit = settingAudit;
         _time = time;
-        _registry = registry ?? SettingRegistry.Known;
+        _registry = registry ?? BuiltInSettingRegistries.Known;
     }
 
     /// <summary>Applies <paramref name="request"/>. Never throws for a refused, held or failed apply; only for a broken caller or an audit write that fails.</summary>

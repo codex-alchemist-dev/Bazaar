@@ -49,7 +49,7 @@ public enum LessonReviewer
 /// Changes are audited like every setting. <c>hive.grants</c> and <c>hive.allowed_kinds</c> belong to doc 08, not here.
 /// </summary>
 /// <remarks>
-/// TODO(component): registered in <see cref="SettingRegistry.Known"/> until the component model (PR #125) moves registration
+/// TODO(component): registered in <see cref="BuiltInSettingRegistries.Known"/> until the component model (PR #125) moves registration
 /// to the knowledge component's own AddBazaarKnowledge().
 /// </remarks>
 public static class KnowledgeSettings
