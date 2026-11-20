@@ -4,5 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Sanitization\Bazaar.Server.Sanitization.csproj" />
   </ItemGroup>
 </Project>
