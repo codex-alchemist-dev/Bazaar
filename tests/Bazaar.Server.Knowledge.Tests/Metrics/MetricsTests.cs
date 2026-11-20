@@ -1,6 +1,6 @@
 using Bazaar.Server.Knowledge.Metrics;
 
-namespace Bazaar.Server.Tests.Knowledge.Metrics;
+namespace Bazaar.Server.Knowledge.Tests.Metrics;
 
 public sealed class MetricsTests
 {
