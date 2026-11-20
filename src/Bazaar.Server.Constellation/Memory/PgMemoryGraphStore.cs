@@ -5,20 +5,34 @@ namespace Bazaar.Server.Constellation.Memory;
 
 /// <summary>
 /// Postgres <see cref="IMemoryGraphStore"/> over <c>constellation_memory_revision</c> and <c>constellation_memory_edge</c>
-/// (<c>constellation/0001</c>). Raw Npgsql with SQL-first commands; values always travel as parameters.
+/// (<c>constellation/0001</c>, <c>constellation/0002</c>). Raw Npgsql with SQL-first commands; values always travel as parameters.
 /// </summary>
-public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGraphStore
+/// <remarks>
+/// Each write maps the note to its Vault doc node (docs/design/constellation-memory-graph.md, "Convergence design"): the doc id
+/// on the revision wins, otherwise it is resolved from the Vault index by path (<see cref="MemoryDocIdResolution"/>). Once a note
+/// has a doc id, every earlier revision of it that had none gets the same one, so history is keyed by the doc.
+/// </remarks>
+/// <param name="dataSource">The shared data source.</param>
+/// <param name="vaultId">The Vault whose index maps paths to doc ids (<c>Constellation:VaultId</c>), or null for any Vault.</param>
+public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource, Guid? vaultId = null) : IMemoryGraphStore
 {
     private const string _uniqueViolation = "23505";
     private const string _revisionPrimaryKey = "constellation_memory_revision_pkey";
+    private const string _activeDocKey = "constellation_memory_revision_active_doc_key";
 
     /// <summary>Takes a transaction-scoped advisory lock per note id, so writers for one note run one at a time.</summary>
     private const string _lockNoteSql = "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))";
 
     private const string _ownersSql = """
-        SELECT scope_agent_id, vault_path
+        SELECT scope_agent_id, vault_path, doc_id
         FROM constellation_memory_revision
         WHERE note_id = $1
+        """;
+
+    private const string _backfillDocSql = """
+        UPDATE constellation_memory_revision
+        SET doc_id = $2
+        WHERE note_id = $1 AND doc_id IS NULL
         """;
 
     private const string _activeVersionSql = """
@@ -29,8 +43,8 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
 
     private const string _insertRevisionSql = """
         INSERT INTO constellation_memory_revision
-            (note_id, version, scope_agent_id, vault_path, title, kind, status, trust, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
+            (note_id, version, scope_agent_id, vault_path, title, kind, status, trust, is_active, doc_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9)
         """;
 
     private const string _deactivateOthersSql = """
@@ -53,7 +67,7 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
     private const string _existsSql = "SELECT count(*) FROM constellation_memory_revision WHERE note_id = $1 AND version = $2";
 
     private const string _activeRevisionsSql = """
-        SELECT note_id, version, scope_agent_id, vault_path, title, kind, status, trust
+        SELECT note_id, version, scope_agent_id, vault_path, title, kind, status, trust, doc_id
         FROM constellation_memory_revision
         WHERE is_active AND note_id = ANY($1)
         ORDER BY note_id
@@ -67,10 +81,24 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         """;
 
     private const string _listRevisionsSql = """
-        SELECT note_id, version, scope_agent_id, vault_path, title, kind, status, trust
+        SELECT note_id, version, scope_agent_id, vault_path, title, kind, status, trust, doc_id
         FROM constellation_memory_revision
         WHERE note_id = $1
         ORDER BY version DESC
+        """;
+
+    private const string _listRevisionsByDocSql = """
+        SELECT note_id, version, scope_agent_id, vault_path, title, kind, status, trust, doc_id
+        FROM constellation_memory_revision
+        WHERE doc_id = $1
+        ORDER BY version DESC, note_id
+        """;
+
+    private const string _listEdgesByDocSql = """
+        SELECT e.note_id, e.version, e.target_id, e.kind, e.weight
+        FROM constellation_memory_edge e
+        JOIN constellation_memory_revision r ON r.note_id = e.note_id AND r.version = e.version
+        WHERE r.doc_id = $1
         """;
 
     private const string _listEdgesSql = """
@@ -96,6 +124,7 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         await LockNoteAsync(conn, tx, revision.NoteId, ct).ConfigureAwait(false);
 
         // Ownership is checked before any write: a note id belongs to one agent and one vault path for its whole history.
+        Guid? storedDocId = null;
         await using (var owners = Command(conn, tx, _ownersSql))
         {
             AddParameter(owners, revision.NoteId);
@@ -107,7 +136,20 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
                     throw new InvalidOperationException(
                         $"Memory note {revision.NoteId} is already stored for another agent or vault path. Nothing was changed.");
                 }
+
+                if (!reader.IsDBNull(2))
+                    storedDocId = reader.GetGuid(2);
             }
+        }
+
+        // The doc node: a doc id set once for the note never changes (constellation/0002 enforces it too).
+        var docId = revision.DocId
+            ?? storedDocId
+            ?? await MemoryDocIdResolution.ResolveAsync(conn, tx, revision.NoteId, revision.VaultPath, vaultId, ct).ConfigureAwait(false);
+        if (storedDocId is { } known && docId != known)
+        {
+            throw new InvalidOperationException(
+                $"Memory note {revision.NoteId} is mapped to Vault doc {known}, not {docId}. Nothing was changed.");
         }
 
         try
@@ -123,7 +165,17 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
                 AddParameter(insert, revision.Kind);
                 AddParameter(insert, revision.Status);
                 AddParameter(insert, revision.Trust);
+                insert.Parameters.Add(new NpgsqlParameter { Value = (object?)docId ?? DBNull.Value, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Uuid });
                 await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+
+            // Earlier revisions stored before the Vault index knew the file get the same doc id now.
+            if (docId is { } mapped)
+            {
+                await using var backfill = Command(conn, tx, _backfillDocSql);
+                AddParameter(backfill, revision.NoteId);
+                AddParameter(backfill, mapped);
+                await backfill.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
             }
 
             // The new row is inactive, so this reads the previously active version (if any). A stale replay is refused here.
@@ -165,6 +217,12 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
             // The transaction is disposed without a commit, so the rollback leaves the stored revisions as they were.
             throw new InvalidOperationException(
                 $"Memory revision {revision.NoteId} version {revision.Version} is already stored. Revisions are append-only.", ex);
+        }
+        catch (PostgresException ex) when (ex.SqlState == _uniqueViolation && ex.ConstraintName == _activeDocKey)
+        {
+            throw new InvalidOperationException(
+                $"Memory revision {revision.NoteId} version {revision.Version} could not be stored: Vault doc {docId} already has an active revision of another note. Nothing was changed.",
+                ex);
         }
         catch (PostgresException ex) when (ex.SqlState == _uniqueViolation)
         {
@@ -241,6 +299,14 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
             ct).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct) =>
+        await ReadRevisionsAsync(
+            _listRevisionsByDocSql,
+            _listEdgesByDocSql,
+            cmd => AddParameter(cmd, docId),
+            ct).ConfigureAwait(false);
+
     /// <summary>
     /// Reads revision rows, then their edges, in one repeatable-read transaction, so the edges always match the revisions
     /// that were read. Attaches the edges in a stable order.
@@ -254,7 +320,7 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct).ConfigureAwait(false);
 
-        var revisions = new List<(string NoteId, long Version, string ScopeAgentId, string VaultPath, string Title, string Kind, string Status, string Trust)>();
+        var revisions = new List<(string NoteId, long Version, string ScopeAgentId, string VaultPath, string Title, string Kind, string Status, string Trust, Guid? DocId)>();
         await using (var cmd = Command(conn, tx, revisionSql))
         {
             bind(cmd);
@@ -269,7 +335,8 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
                     reader.GetString(4),
                     reader.GetString(5),
                     reader.GetString(6),
-                    reader.GetString(7)));
+                    reader.GetString(7),
+                    reader.IsDBNull(8) ? null : reader.GetGuid(8)));
             }
         }
 
@@ -307,7 +374,7 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
                 .ThenBy(e => e.TargetId, StringComparer.Ordinal)
                 .ToList();
             result.Add(new MemoryGraphRevision(
-                row.NoteId, row.Version, row.ScopeAgentId, row.VaultPath, row.Title, row.Kind, row.Status, row.Trust, ordered));
+                row.NoteId, row.Version, row.ScopeAgentId, row.VaultPath, row.Title, row.Kind, row.Status, row.Trust, ordered, row.DocId));
         }
 
         return result;
@@ -339,6 +406,8 @@ public sealed class PgMemoryGraphStore(NpgsqlDataSource dataSource) : IMemoryGra
         ArgumentException.ThrowIfNullOrWhiteSpace(revision.Trust, nameof(revision));
         ArgumentNullException.ThrowIfNull(revision.Title, nameof(revision));
         ArgumentNullException.ThrowIfNull(revision.Edges, nameof(revision));
+        if (revision.DocId == Guid.Empty)
+            throw new ArgumentException("A doc id, when given, must not be empty.", nameof(revision));
 
         var seen = new HashSet<(string, MemoryEdgeKind)>();
         foreach (var edge in revision.Edges)

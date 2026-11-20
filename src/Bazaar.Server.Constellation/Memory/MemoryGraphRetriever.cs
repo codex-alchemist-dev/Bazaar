@@ -4,35 +4,38 @@ using Bazaar.Server.Memory.Retrieval;
 namespace Bazaar.Server.Constellation.Memory;
 
 /// <summary>
-/// Graph-expanded retrieval over memory notes (docs/design/constellation-memory-graph.md, "Retrieval").
-/// Seeds are fused with <see cref="RrfFusion"/>, expanded along active <see cref="MemoryEdgeKind.Link"/>,
-/// <see cref="MemoryEdgeKind.DerivedFrom"/> and <see cref="MemoryEdgeKind.Supersedes"/> edges, filtered by
-/// <see cref="IVaultAccess"/> before they score or expand, and packed under the token budget. Only Active
-/// revisions are returned. Expansion never widens the scope a principal can read.
+/// Graph-expanded retrieval over Constellation's own nodes, the Vault docs (docs/design/constellation-memory-graph.md,
+/// "Retrieval" and "Convergence design"). Seeds are doc ids fused with <see cref="RrfFusion"/>, expanded along resolved Vault
+/// links and the <see cref="MemoryEdgeKind.DerivedFrom"/> and <see cref="MemoryEdgeKind.Supersedes"/> edges of memory notes,
+/// filtered by <see cref="IVaultAccess"/> before they score or expand, and packed under the token budget. A memory note is
+/// returned only while its active revision is Active; a doc whose front matter status is deprecated is never returned.
+/// Expansion never widens the scope a principal can read.
 /// </summary>
 public sealed class MemoryGraphRetriever
 {
     private const string _activeStatus = "Active";
+    private const string _deprecatedFrontMatterStatus = "deprecated";
     private const int _maxHopsCeiling = 2;
     private const double _hopPenalty = 0.5;
 
-    private readonly IMemoryGraphStore _store;
+    private readonly IConstellationNodeReader _nodes;
     private readonly IVaultAccess _access;
 
-    /// <param name="store">Source of the active revisions.</param>
+    /// <param name="nodes">Source of the doc nodes, their memory attributes and their edges.</param>
     /// <param name="access">The Vault access layer; every candidate must pass it.</param>
-    public MemoryGraphRetriever(IMemoryGraphStore store, IVaultAccess access)
+    public MemoryGraphRetriever(IConstellationNodeReader nodes, IVaultAccess access)
     {
-        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(access);
-        _store = store;
+        _nodes = nodes;
         _access = access;
     }
 
     /// <summary>
     /// Retrieves the packed hits for <paramref name="who"/>. <paramref name="lexical"/> and <paramref name="vector"/> are
-    /// ranked lists of note ids (not vault paths). <paramref name="tokenCounts"/> is keyed by note id; a candidate with
-    /// no count is skipped rather than failing the call. <see cref="MemoryGraphOptions.MaxHops"/> is clamped to [0, 2].
+    /// ranked lists of Vault doc ids (<c>vault_docs.doc_id</c>, "D" format), not note ids or vault paths; an id that is not a
+    /// doc id is dropped. <paramref name="tokenCounts"/> is keyed by the same doc id string; a candidate with no count is
+    /// skipped rather than failing the call. <see cref="MemoryGraphOptions.MaxHops"/> is clamped to [0, 2].
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">A count, the budget or an RRF or top-k setting is out of range.</exception>
     public async Task<MemoryGraphRetrieval> RetrieveAsync(
@@ -61,25 +64,26 @@ public sealed class MemoryGraphRetriever
             vector,
             new RetrievalOptions(TokenBudget: tokenBudget, TopK: options.TopK, RrfK: options.RrfK));
 
-        // Kept candidates by note id. Rejected ids were loaded or seen and failed the status or visibility check,
+        // Kept candidates by doc id. Rejected ids were loaded or seen and failed the status or visibility check,
         // so they are never loaded again and never count as a hop target.
         var kept = new Dictionary<string, Candidate>(StringComparer.Ordinal);
         var rejected = new HashSet<string>(StringComparer.Ordinal);
 
-        IReadOnlyDictionary<string, MemoryGraphRevision> seedRevisions = await LoadVisibleAsync(
+        IReadOnlyDictionary<string, ConstellationGraphNode> seedNodes = await LoadVisibleAsync(
             who,
             seeds.Select(seed => seed.Id).ToArray(),
             ct);
 
         foreach (FusedHit seed in seeds)
         {
-            if (seedRevisions.TryGetValue(seed.Id, out MemoryGraphRevision? revision))
+            string? key = Key(seed.Id);
+            if (key is not null && seedNodes.TryGetValue(key, out ConstellationGraphNode? node) && !kept.ContainsKey(key))
             {
-                kept[seed.Id] = new Candidate(revision, seed.Score, HopDistance: 0, seed.FromLexical, seed.FromVector);
+                kept[key] = new Candidate(node, seed.Score, HopDistance: 0, seed.FromLexical, seed.FromVector);
             }
-            else
+            else if (key is not null && !kept.ContainsKey(key))
             {
-                rejected.Add(seed.Id);
+                rejected.Add(key);
             }
         }
 
@@ -90,33 +94,34 @@ public sealed class MemoryGraphRetriever
             var proposed = new Dictionary<string, double>(StringComparer.Ordinal);
             foreach (Candidate parent in frontier)
             {
-                foreach (MemoryGraphEdge edge in parent.Revision.Edges)
+                foreach (ConstellationGraphEdge edge in parent.Node.Edges)
                 {
-                    if (!IsExpanding(edge.Kind))
+                    if (!PgConstellationNodeReader.IsExpanding(edge.Kind))
                     {
                         continue;
                     }
 
+                    string target = edge.TargetDocId.ToString("D");
                     double score = parent.Score * edge.Weight * _hopPenalty;
 
-                    if (kept.TryGetValue(edge.TargetId, out Candidate? existing))
+                    if (kept.TryGetValue(target, out Candidate? existing))
                     {
                         // Seeds keep their fused score. An expansion hit found by a higher-scoring path keeps the higher score,
                         // and the hop distance stays the smaller one it already has.
                         if (existing.HopDistance > 0 && score > existing.Score)
                         {
-                            kept[edge.TargetId] = existing with { Score = score };
+                            kept[target] = existing with { Score = score };
                         }
 
                         continue;
                     }
 
-                    if (rejected.Contains(edge.TargetId))
+                    if (rejected.Contains(target))
                     {
                         continue;
                     }
 
-                    proposed[edge.TargetId] = proposed.TryGetValue(edge.TargetId, out double best)
+                    proposed[target] = proposed.TryGetValue(target, out double best)
                         ? Math.Max(best, score)
                         : score;
                 }
@@ -127,7 +132,7 @@ public sealed class MemoryGraphRetriever
                 break;
             }
 
-            IReadOnlyDictionary<string, MemoryGraphRevision> loaded = await LoadVisibleAsync(
+            IReadOnlyDictionary<string, ConstellationGraphNode> loaded = await LoadVisibleAsync(
                 who,
                 proposed.Keys.ToArray(),
                 ct);
@@ -135,13 +140,13 @@ public sealed class MemoryGraphRetriever
             var nextFrontier = new List<Candidate>();
             foreach (KeyValuePair<string, double> pair in proposed.OrderBy(entry => entry.Key, StringComparer.Ordinal))
             {
-                if (!loaded.TryGetValue(pair.Key, out MemoryGraphRevision? revision))
+                if (!loaded.TryGetValue(pair.Key, out ConstellationGraphNode? node))
                 {
                     rejected.Add(pair.Key);
                     continue;
                 }
 
-                var candidate = new Candidate(revision, pair.Value, hop, FromLexical: false, FromVector: false);
+                var candidate = new Candidate(node, pair.Value, hop, FromLexical: false, FromVector: false);
                 kept[pair.Key] = candidate;
                 nextFrontier.Add(candidate);
             }
@@ -151,14 +156,14 @@ public sealed class MemoryGraphRetriever
 
         var ordered = kept.Values
             .OrderByDescending(candidate => candidate.Score)
-            .ThenBy(candidate => candidate.NoteId, StringComparer.Ordinal)
+            .ThenBy(candidate => candidate.Id, StringComparer.Ordinal)
             .ToList();
 
         // Candidates without a token count cannot be packed. Skip them instead of failing the call.
         var packable = ordered
-            .Where(candidate => tokenCounts.ContainsKey(candidate.NoteId))
+            .Where(candidate => tokenCounts.ContainsKey(candidate.Id))
             .Select(candidate => new FusedHit(
-                candidate.NoteId,
+                candidate.Id,
                 candidate.Score,
                 candidate.FromLexical,
                 candidate.FromVector,
@@ -167,7 +172,7 @@ public sealed class MemoryGraphRetriever
 
         IReadOnlyList<FusedHit> packed = TokenBudgetPacker.Pack(packable, tokenCounts, tokenBudget);
 
-        var byId = ordered.ToDictionary(candidate => candidate.NoteId, StringComparer.Ordinal);
+        var byId = ordered.ToDictionary(candidate => candidate.Id, StringComparer.Ordinal);
         var hits = packed
             .Select(hit => ToHit(byId[hit.Id]))
             .ToList();
@@ -175,67 +180,88 @@ public sealed class MemoryGraphRetriever
         return new MemoryGraphRetrieval(hits, lexicalOnly);
     }
 
-    private static bool IsExpanding(MemoryEdgeKind kind) =>
-        kind is MemoryEdgeKind.Link or MemoryEdgeKind.DerivedFrom or MemoryEdgeKind.Supersedes;
+    /// <summary>The canonical doc id string ("D" format) of an id, or null when it is not a doc id.</summary>
+    private static string? Key(string id) => Guid.TryParse(id, out Guid docId) ? docId.ToString("D") : null;
 
     /// <summary>
-    /// Loads the active revisions of <paramref name="noteIds"/> in one store call and keeps only those the principal may
-    /// read. Revisions that are not Active or whose vault path is invalid or hidden are left out.
+    /// Loads the nodes of <paramref name="ids"/> in one reader call and keeps only those the principal may read. Ids that are
+    /// not doc ids, memory notes whose active revision is not Active, deprecated docs, and nodes whose doc path (or memory
+    /// revision path) is invalid or hidden are left out.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, MemoryGraphRevision>> LoadVisibleAsync(
+    private async Task<IReadOnlyDictionary<string, ConstellationGraphNode>> LoadVisibleAsync(
         VaultPrincipal who,
-        string[] noteIds,
+        string[] ids,
         CancellationToken ct)
     {
-        var visible = new Dictionary<string, MemoryGraphRevision>(StringComparer.Ordinal);
-        if (noteIds.Length == 0)
+        var visible = new Dictionary<string, ConstellationGraphNode>(StringComparer.Ordinal);
+        var requested = new HashSet<Guid>();
+        foreach (string id in ids)
+        {
+            if (Guid.TryParse(id, out Guid docId))
+            {
+                requested.Add(docId);
+            }
+        }
+
+        if (requested.Count == 0)
         {
             return visible;
         }
 
-        var requested = new HashSet<string>(noteIds, StringComparer.Ordinal);
-        IReadOnlyList<MemoryGraphRevision> revisions = await _store.GetActiveAsync(noteIds, ct);
+        IReadOnlyList<ConstellationGraphNode> nodes = await _nodes.GetNodesAsync(requested, ct);
 
-        foreach (MemoryGraphRevision revision in revisions)
+        foreach (ConstellationGraphNode node in nodes)
         {
-            if (!requested.Contains(revision.NoteId)
-                || !string.Equals(revision.Status, _activeStatus, StringComparison.Ordinal))
+            if (!requested.Contains(node.DocId)
+                || string.Equals(node.FrontMatterStatus, _deprecatedFrontMatterStatus, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            if (!VaultPath.TryParse(revision.VaultPath, out VaultPath? path) || !_access.CanRead(who, path))
+            if (node.Memory is { } memory && !string.Equals(memory.Status, _activeStatus, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            visible[revision.NoteId] = revision;
+            // The doc path decides, and a memory note must also be readable at the path its revision names, so a stale or
+            // mismatched index row can never open another agent's note.
+            if (!CanRead(who, node.VaultPath) || (node.Memory is { } note && !CanRead(who, note.VaultPath)))
+            {
+                continue;
+            }
+
+            visible[node.DocId.ToString("D")] = node;
         }
 
         return visible;
     }
 
+    private bool CanRead(VaultPrincipal who, string path) =>
+        VaultPath.TryParse(path, out VaultPath? parsed) && _access.CanRead(who, parsed);
+
     private static MemoryGraphHit ToHit(Candidate candidate)
     {
-        MemoryGraphRevision revision = candidate.Revision;
+        ConstellationGraphNode node = candidate.Node;
+        MemoryGraphRevision? memory = node.Memory;
         return new MemoryGraphHit(
-            revision.NoteId,
-            revision.VaultPath,
-            revision.Title,
-            revision.ScopeAgentId,
-            revision.Kind,
-            revision.Trust,
+            candidate.Id,
+            memory?.NoteId,
+            node.VaultPath,
+            node.Title,
+            memory?.ScopeAgentId,
+            memory?.Kind ?? node.DocType,
+            memory?.Trust,
             candidate.Score,
             candidate.HopDistance);
     }
 
     private sealed record Candidate(
-        MemoryGraphRevision Revision,
+        ConstellationGraphNode Node,
         double Score,
         int HopDistance,
         bool FromLexical,
         bool FromVector)
     {
-        public string NoteId => Revision.NoteId;
+        public string Id => Node.DocId.ToString("D");
     }
 }

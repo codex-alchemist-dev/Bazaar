@@ -52,6 +52,10 @@ public sealed class AuditingMemoryGraphStore(IMemoryGraphStore inner, IAuditLog 
     public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct) =>
         _inner.ListRevisionsAsync(noteId, ct);
 
+    /// <inheritdoc />
+    public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct) =>
+        _inner.ListRevisionsByDocAsync(docId, ct);
+
     private Task AppendAsync(string kind, string actor, MemoryGraphRevision revision, CancellationToken ct)
     {
         var payload = new JsonObject
