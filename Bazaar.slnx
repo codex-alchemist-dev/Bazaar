@@ -122,6 +122,8 @@
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Push/Bazaar.Client.Push.csproj" />
     <Project Path="src/Bazaar.Client.Push.Abstractions/Bazaar.Client.Push.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Updater.Linux/Bazaar.Client.Updater.Linux.csproj" />
+    <Project Path="src/Bazaar.Client.Updater.Linux.Abstractions/Bazaar.Client.Updater.Linux.Abstractions.csproj" />
     <Project Path="src/Bazaar.Testing/Bazaar.Testing.csproj" />
     <Project Path="src/Bazaar.Guest.Pointer/Bazaar.Guest.Pointer.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
@@ -207,6 +209,7 @@
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Updater.Linux.Tests/Bazaar.Client.Updater.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
