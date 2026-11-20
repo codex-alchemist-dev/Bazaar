@@ -5,7 +5,7 @@ using Bazaar.Testing;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
-namespace Bazaar.Server.Tests.Interrupts;
+namespace Bazaar.Server.Interrupts.Tests;
 
 public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<InterruptDb>
 {
