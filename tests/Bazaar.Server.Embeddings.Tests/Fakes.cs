@@ -9,16 +9,59 @@ internal sealed class FakeSettingSource(string value) : IEmbeddingSettingSource
     public Task<string> GetEmbeddingProfileSettingAsync(CancellationToken cancellationToken) => Task.FromResult(Value);
 }
 
-internal sealed class FakeProfileStore(EmbeddingProfile? active) : IEmbeddingProfileStore
+/// <summary>In-memory <c>embedding_profile</c>: rows are kept, so create, find and activate behave like the table.</summary>
+internal sealed class FakeProfileStore : IEmbeddingProfileStore
 {
-    public EmbeddingProfile? Active { get; set; } = active;
+    public FakeProfileStore(EmbeddingProfile? active)
+    {
+        if (active is not null)
+        {
+            Rows.Add(active);
+        }
+    }
+
+    public List<EmbeddingProfile> Rows { get; } = [];
+
+    public int Creates { get; private set; }
+
+    public int Activations { get; private set; }
+
+    public EmbeddingProfile? Active
+    {
+        get => Rows.SingleOrDefault(r => r.Active);
+        set
+        {
+            Rows.RemoveAll(r => r.Active);
+            if (value is not null)
+            {
+                Rows.Add(value);
+            }
+        }
+    }
 
     public Task<EmbeddingProfile?> GetActiveAsync(CancellationToken cancellationToken) => Task.FromResult(Active);
 
-    public Task<EmbeddingProfile> CreateAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken) =>
-        Task.FromResult(new EmbeddingProfile(Guid.NewGuid(), providerId, modelId, dimensions, DateTimeOffset.UnixEpoch, false));
+    public Task<EmbeddingProfile?> FindAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken) =>
+        Task.FromResult(Rows.FirstOrDefault(r => r.ProviderId == providerId && r.ModelId == modelId && r.Dimensions == dimensions));
 
-    public Task ActivateAsync(Guid profileId, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task<EmbeddingProfile> CreateAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken)
+    {
+        Creates++;
+        var row = new EmbeddingProfile(Guid.NewGuid(), providerId, modelId, dimensions, DateTimeOffset.UnixEpoch, false);
+        Rows.Add(row);
+        return Task.FromResult(row);
+    }
+
+    public Task ActivateAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        Activations++;
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            Rows[i] = Rows[i] with { Active = Rows[i].ProfileId == profileId };
+        }
+
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FakeRegistry(params (string Id, IEmbeddingProvider Provider)[] entries) : IEmbeddingProviderRegistry

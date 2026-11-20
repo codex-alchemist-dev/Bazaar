@@ -6,6 +6,9 @@ public interface IEmbeddingProfileStore
     /// <summary>The active profile, or null when none is chosen (lexical only).</summary>
     Task<EmbeddingProfile?> GetActiveAsync(CancellationToken cancellationToken);
 
+    /// <summary>The profile row with exactly this provider, model and dimension, active or not; null when there is none. Lets a repeated setup find its row.</summary>
+    Task<EmbeddingProfile?> FindAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken);
+
     /// <summary>Adds an inactive profile. The dimension is fixed from here on.</summary>
     Task<EmbeddingProfile> CreateAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken);
 

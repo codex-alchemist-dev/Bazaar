@@ -14,6 +14,19 @@ public sealed class PostgresEmbeddingProfileStore(NpgsqlDataSource dataSource) :
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
     }
 
+    public async Task<EmbeddingProfile?> FindAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        await using var cmd = dataSource.CreateCommand(
+            $"SELECT {Columns} FROM embedding_profile WHERE provider_id = $1 AND model_id = $2 AND dimensions = $3 ORDER BY active DESC, created_at LIMIT 1");
+        cmd.Parameters.AddWithValue(providerId);
+        cmd.Parameters.AddWithValue(modelId);
+        cmd.Parameters.AddWithValue(dimensions);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
+    }
+
     public async Task<EmbeddingProfile> CreateAsync(string providerId, string modelId, int dimensions, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);

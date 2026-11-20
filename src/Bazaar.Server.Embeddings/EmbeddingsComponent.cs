@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Server.Embeddings.Indexing;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Setup;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,7 +13,7 @@ namespace Bazaar.Server.Embeddings;
 /// The embedding provider adapter as a Bazaar Component (docs/design/08, "WP6 detail"; docs/design/40, "Embeddings module"). Registers the
 /// providers from <c>Bazaar:Embeddings</c>, the <c>memory.embedding_profile</c> setting key and the indexer. The host registers
 /// <c>NpgsqlDataSource</c> and, to go beyond lexical-only search, an <see cref="IEmbeddingSettingSource"/> over its setting store;
-/// until then the setting reads as <c>none</c> and the indexer stays idle.
+/// until then the setting reads as <c>none</c> and the indexer stays idle. It also contributes the <c>embeddings.profile</c> setup step.
 /// </summary>
 public sealed class EmbeddingsComponent : IBazaarComponent
 {
@@ -50,5 +51,6 @@ public sealed class EmbeddingsComponent : IBazaarComponent
             sp.GetRequiredService<IPersonalDataBlockDetector>(),
             Math.Max(1, sp.GetRequiredService<IOptions<EmbeddingOptions>>().Value.IndexerBatchSize)));
         services.AddHostedService<EmbeddingIndexerService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISetupStep, EmbeddingSetupStep>());
     }
 }

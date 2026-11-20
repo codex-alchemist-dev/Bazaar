@@ -10,6 +10,7 @@ using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
+using Bazaar.Server.Embeddings;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -49,6 +50,7 @@ public static class HostComponents
         new BackupComponent(),
         new VaultComponent(),
         new MemoryComponent(),
+        new EmbeddingsComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
