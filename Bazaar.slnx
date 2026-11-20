@@ -67,6 +67,8 @@
     <Project Path="src/Bazaar.Server.Components.Backup/Bazaar.Server.Components.Backup.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek.Abstractions/Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek/Bazaar.Server.Identity.Kek.csproj" />
+    <Project Path="src/Bazaar.Server.SealedGit.Abstractions/Bazaar.Server.SealedGit.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.SealedGit/Bazaar.Server.SealedGit.csproj" />
     <Project Path="src/Bazaar.Server.SealedStorage.Abstractions/Bazaar.Server.SealedStorage.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.SealedStorage/Bazaar.Server.SealedStorage.csproj" />
     <Project Path="src/Bazaar.Tls/Bazaar.Tls.csproj" />
@@ -145,6 +147,7 @@
     <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Modules.Tests/Bazaar.Server.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Kek.Tests/Bazaar.Server.Identity.Kek.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.SealedGit.Tests/Bazaar.Server.SealedGit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.SealedStorage.Tests/Bazaar.Server.SealedStorage.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Settings.Tests/Bazaar.Server.Settings.Tests.csproj" />
