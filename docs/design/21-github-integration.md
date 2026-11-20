@@ -10,6 +10,7 @@ Lets agents work on GitHub as disclosed bots: one App per agent, webhooks or pol
 Bazaar works on any GitHub or GitLab repository reachable over the internet. It has no git server of its own and no native forge. GitHub and GitLab are supported extensively through provider modules: repository settings, PRs, reviews, checks and merges. One Bazaar endpoint and the client GitGui modules (doc 41 section 4.14) control both. This doc describes the GitHub provider. The GitLab provider follows the same contract, with its own identity and credentials held by the Identity Service (doc 14). GitLab is in v1 scope.
 
 ## Decided inputs
+- **Git model (owner, 2026-11-16, DECIDED).** Bazaar has no git server of its own. It works on any GitHub or GitLab repository, anywhere on the internet, through provider modules that sit behind one contract. The owner controls repository settings through the Bazaar server endpoint and the client GUI. The git client module is a custom GUI over those providers (diffs, PR panels and so on), built because the owner dislikes GitHub's mobile UI. The PR GC, `pr` and `pr_event` are provider-neutral in shape and keyed by `(provider, provider_pr_id)`; GitHub and GitLab are both provider modules.
 - Machine accounts are barred by GitHub's terms. Agents use one GitHub App each, owned by org `codex-alchemist-dev`. Agents never create accounts; a human does (CLAUDE.md; Bazaar.Server.md §2; 14).
 - Secrets: the Identity Service holds GitHub App keys and tokens are minted there. One server-side `ISecretStore` (owned by 14). Git pushes run host-side, so tokens never enter a VM (DECISIONS-LOG round 2, C05).
 - Taint: external content taints hard; agent text taints softly and only from a tainted source session (round 2, C06). Reader sessions read external input and hand over summaries; actor sessions never read it directly (round 6, C18; Claude's reading, to confirm). Approval gates outward high-impact actions: posting, push, merge (C18, C06).
@@ -85,6 +86,18 @@ On 403 or 429, honour `retry-after` and reset headers. Repeated breaches freeze 
 **Merge request path [PROPOSED].** The client sends a merge request for one PR and one head SHA, signed with the device-held owner key (key class and signing rules in doc 32, PROPOSED). The server verifies the signature, that the head SHA is still current, and that checks pass. It then calls `SquashMergeAsync` with the credential named by `github.merge_credential` (owner-class, held by 14). A changed SHA or failed check voids the approval; the owner re-approves. Agent messages never reach this path.
 
 **Client review and merge [PROPOSED].** Bazaar.Windows and Bazaar.Android show server-proxied PR lists, file hunks keyed by head SHA, checks and the in-app review. The diff view uses Monaco's diff-editor mode only after the Monaco hosting gate (S12, round 5, C26). Android has no Monaco, so it needs a native diff surface (29). Clients never call GitHub.
+
+**Client PR wire [PROPOSED].** Implementation detail of the two paragraphs above; no new authority. All messages are JSON through `IWireCodec` on the authenticated client connection, in `Bazaar.Contracts` under `GitHub/`. The server proxies; clients never see a GitHub token.
+
+| Message | Direction | Fields |
+|---|---|---|
+| `pr.list` | request / reply | repo filter, state, paging cursor; reply rows: `PrId`, repo, number, title, author (agent or human), draft flag, `HeadSha`, checks rollup, `Revision` |
+| `pr.summary` | request / reply | `PrId`; reply: `HeadSha`, summary text, changed-file list (path, status, additions, deletions), checks, reviewer-approval flag, linked card id |
+| `pr.hunks` | request / reply | `PrId`, `HeadSha`, path, cursor; reply: hunks keyed by that `HeadSha`; a stale `HeadSha` replies `stale` with the current one, never old hunks |
+| `pr.review` | request / reply | `PrId`, `HeadSha`, event (`comment` or `request_changes`), body; reply `applied` or `stale` or `refused`. Never `approve`: reviewer approval is data, not merge authority |
+| `pr.merge` | request / reply | `PrId`, `HeadSha`, commit title and message, owner signature over the `bazaar.owner.v1` payload (action `pr.merge`, args hash from `OwnerMergeArgs.Hash`); reply `merged`, `stale`, `checks_failed`, `bad_signature` or `refused` |
+
+The merge request carries no new approval kind in doc 15's card decisions. It is an owner-gated action, so it is signed with the shared owner payload (doc 32 section 5a) that `OwnerSignedMerge` already verifies. The client side is a sibling of the approval-card gate: the same biometric prompt and device-key signer, a different payload builder, still one fresh biometric per merge, single use, and dictation can never trigger it. Agent messages never reach `pr.merge`.
 
 ## Data and interfaces
 

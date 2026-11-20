@@ -6,16 +6,19 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
-using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Mobile;
+using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Client.Android;
 
@@ -60,14 +63,17 @@ public sealed class App : Avalonia.Application
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(tiles)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
-        var registry = FirstPartyPanes.CreateRegistry(modules, features: features);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(registry, extra: kind => GcPaneModule.PhoneBody(kind, registry)));
+        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
+        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
@@ -88,18 +94,3 @@ public sealed class App : Avalonia.Application
         return metrics is null ? 0 : metrics.WidthPixels / metrics.Density;
     }
 }
-
-// CodeQL default setup retrigger: comment-only, no code change.
-
-// CodeQL analysis trigger (no functional change).
-
-// CodeQL analysis trigger (no functional change).
-
-// CodeQL analysis trigger (no functional change).
-
-// CI re-run: comment-only touch so checks report on a fresh head.
-
-// CodeQL analysis trigger (no functional change).
-// CodeQL analysis trigger, pass 2 (no functional change).
-
-// CodeQL analysis trigger (comment only, no functional change).
