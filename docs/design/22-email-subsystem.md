@@ -203,6 +203,7 @@ Registry rows (03 owns the registry; 27 and 32 surface them in the setup wizard 
 | `mail.attachments.agent_readable` | bool | false | agent | operator | Yes [PROPOSED]; any agent read goes through a reader session (hard taint) |
 | `security.scam_mail.protocol_enabled` | bool | false | install | per 15 | Owned by 15 (referenced here, not redefined); needs counsel |
 | `security.quota.mail_sent_per_day` | int | 20 | install | per 15 | Owned by 15 (referenced here, not redefined); see Conflicts 9 |
+| `Bazaar:Mail:Enabled` (host configuration) | bool | false | install | operator | No [PROPOSED, 2026-11-20]; read at startup, so a change needs a restart. Registers the quarantine store, the DNS setup step and the mail runtime (both loops) in `Bazaar.Server.Host`; off, none of it is registered. Needs a configured database, secrets, audit and rate limits (the host supplies them). |
 
 ## Behaviour and edge cases
 - Limits: `mail.max_message_bytes` and `mail.max_attachments` [PROPOSED]. Cloudflare's 25 MiB inbound cap is the hard ceiling (verified).

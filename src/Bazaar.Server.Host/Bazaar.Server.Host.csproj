@@ -24,6 +24,13 @@
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.MailRuntime\Bazaar.Server.MailRuntime.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.MailRuntime.Abstractions\Bazaar.Server.MailRuntime.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.MailInbound\Bazaar.Server.MailInbound.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.MailOutbound\Bazaar.Server.MailOutbound.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.MailDns\Bazaar.Server.MailDns.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Mail.Abstractions\Bazaar.Server.Mail.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.RateLimits\Bazaar.RateLimits.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Modules\Bazaar.Server.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
