@@ -398,6 +398,9 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+| Providers are just modules on Core (owner, 2026-11-19). Core has no provider selector, no per-role one-or-many declaration and no `auto`/`none`/`all` strings. Any number of provider modules can be installed and all load; they are configured in the app; each consuming module decides how to use several. Supersedes the "one provider per role" text in doc 03 (#2, #16). | DECIDED | 03 |
+| Actor attribution uses one `Principal` type (kind agent/user/service/system plus id) in Cdax.Core (no package references; `Scope` lives there too), text form `kind:id`, for audit, settings changes, module and install decisions, secret scopes and callers, approvals and telemetry consent; not AgentId-only (owner, 2026-11-19). Audit keeps its `actor` column and hash chain. | DECIDED | BAZAAR-COMPONENTS 4.2, 15, 14 |
+| Resibo exchange (owner, 2026-11-19): incorporate every Resibo feature that benefits Bazaar as modules; conflicts become separate modules; docs 70 to 84 (ledger in 84) are PROPOSED designs. Resibo's repo is proprietary, so designs only, no code copied. Open owner questions are listed at the end of each doc and in 84 section 8 | PROPOSED | 70-84 |
 
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
