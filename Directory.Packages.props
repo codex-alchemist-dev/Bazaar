@@ -41,6 +41,9 @@
     <PackageVersion Include="Vortice.Vulkan" Version="3.3.0" />
     <!-- 3.2.x, not 4.0.x: Avalonia.Headless.XUnit 12.1.4 is binary-incompatible with xunit.v3 4.0.2 (MissingMethodException at discovery). -->
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
+    <!-- Library-side xUnit v3 for module contract base classes (doc 46 section 10.3). Same version as the test host. -->
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
     <!-- Passphrase KDF for encrypted export bundles (doc 44 section 5): Argon2id, RFC 9106. Vetted 2026-11-15: MIT (Keef Aragon),
          source github.com/kmaragon/Konscious.Security.Cryptography, sha512 6301179dbd560b3f4ed8b81acc0e65851d2c60a6c4c5552edd058a36c915d1615d2dc6a8a1e65d987da02d8fac8409aa592d74e7ff05e510db112a793ac74ea7.
          Only transitive dependency on net8+: Konscious.Security.Cryptography.Blake2 1.1.1 (MIT, same author, sha512 b05af3d189f4748bb0680fc403f9e94ef1be678085995cdfe12598fd7d07d82381be301ce4ef7af6d76e8e648f89e430fc4e7e0563a69caaa0870a7d944fd897).

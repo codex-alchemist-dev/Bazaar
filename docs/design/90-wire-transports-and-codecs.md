@@ -1,6 +1,6 @@
 # Wire Transports and Codecs
 
-Status: DECIDED (owner, 2026-11-19: modular transports and codecs; JSON over WebSocket stays) · PROPOSED (everything below the decided list) · Owner questions: 4
+Status: DECIDED (owner, 2026-11-19: modular transports and codecs; JSON over WebSocket stays) · PROPOSED (everything below the decided list) · Owner questions: 4 (all answered)
 Depends on: 02-wire-protocol-and-sync.md, 39-conduit-remote-connectivity.md, 40-core-feature-modules-audit.md, 42-deps-as-modules.md, 15-security-taint-and-approvals.md, 32-remote-access-auth-and-privacy.md, 03-server-host-and-providers.md · Used by: 02, 27, 29, 39, Bazaar.Sdk · Spike: `docs/spikes/S-WTX.md` (to be written; plan in section 10)
 
 ## Purpose
@@ -38,6 +38,7 @@ Names follow the module sides rule (docs 40 and `BAZAAR-COMPONENTS.md`). Codecs 
 | `Bazaar.Server.Transport.WebSocket` / `Bazaar.Client.Transport.WebSocket` | `ws` | The existing WebSocket moved out of `Bazaar.Server.Wire` (`UseBazaarWire`) and `Bazaar.Client.Core/Wire/WebSocketWireTransport.cs`. Behaviour identical. HTTP/1.1, HTTP/2 (RFC 8441) and, when `Http3` is on, HTTP/3 (RFC 9220). |
 | `Bazaar.Server.Transport.Http3` | `h3` listener feature | Adds HTTP/3 (QUIC) bindings and `Alt-Svc` to the existing listeners so `ws`, `grpc` and `webtransport` are reachable over HTTP/3. Not a transport itself. |
 | `Bazaar.Server.Transport.QuicNative` / `Bazaar.Client.Transport.QuicNative` | `quic` | Raw `System.Net.Quic`, ALPN `bazaar-wire/1`, no HTTP. Settles the QUIC framing question that doc 39 left open for `p2p`. |
+| `Bazaar.Client.Transport.AndroidHttp3` | `grpc` over HTTP/3 on Android | Owner, 2026-11-19. Client-only module (Android head). Uses Cronet (Chromium network stack, QUIC and HTTP/3 built in, no MsQuic needed) through its bidirectional stream API, and speaks the same gRPC framing as `grpc` to the server's existing `grpc` endpoint, so the server needs only the `Grpc` and `Http3` modules. Tried first on Android; any failure falls back to `grpc` over HTTP/2, then `ws`. |
 | `Bazaar.Server.Transport.WebTransport` (+ `Bazaar.Client.Transport.WebTransport` if the spike allows) | `webtransport` | For browsers and other outside clients. A .NET client uses `quic`. |
 | `Bazaar.Server.Transport.Grpc` / `Bazaar.Client.Transport.Grpc` | `grpc`, `grpc-web` | `Grpc.AspNetCore`, `Grpc.Net.Client`, `Grpc.AspNetCore.Web`. Requires the Protobuf codec module. |
 | `Bazaar.Server.Wire.Discovery` | `/.well-known/bazaar/wire` and the schema routes | Read-only, unauthenticated, allowed on the status surface (section 6). |
@@ -77,7 +78,7 @@ Two questions, answered in this order: which transport reaches the server, then 
 **4.1 Transport selection (client side).**
 1. The client knows an endpoint from Conduit (doc 39: address, trust pin). Conduit decides how to reach the host; the transport list says what the host speaks. They do not overlap.
 2. After the first successful connection the client caches the server's `TransportOffer` list from `welcome` (new capability field, section 4.3) and refreshes it from `/.well-known/bazaar/wire` when reachable. On first contact it tries the floor, then upgrades on the next connect.
-3. The client orders usable offers by its own preference (`wire.client.transport_order`, default `quic, webtransport, grpc, ws`, filtered to modules installed in this client). If the best offer is UDP-based, it races it against the best TCP-based offer: start the UDP attempt, start the TCP attempt after 250 ms, keep the first that completes `hello`/`welcome`, close the other.
+3. The client orders usable offers by its own preference (`wire.client.transport_order`, default `quic, h3-grpc, webtransport, grpc, ws` (`h3-grpc` is the Android HTTP/3 module), filtered to modules installed in this client). If the best offer is UDP-based, it races it against the best TCP-based offer: start the UDP attempt, start the TCP attempt after 250 ms, keep the first that completes `hello`/`welcome`, close the other.
 4. A failed offer is remembered for 10 minutes (exponential up to 1 hour) so UDP-hostile networks do not pay the delay on every reconnect. Success clears it.
 5. `h3` is discovered through `Alt-Svc` for the HTTP-based transports in the usual way; the client never assumes it.
 
@@ -130,7 +131,7 @@ Registered in doc 03's settings registry; operator-set, install scope; every cha
 | `wire.transport.race_stagger_ms` | int | 250 | install | Operator | No; audited |
 | `wire.quic.stream_per_subscription` | bool | false | install | Operator | No; audited |
 | `wire.decode.max_depth`, `wire.decode.max_string_bytes`, `wire.decode.max_collection_items` | int | 32, 1048576, 100000 | install | Operator | Raising above default: yes |
-| `wire.client.transport_order` | string list | `quic, webtransport, grpc, ws` | device | User | No |
+| `wire.client.transport_order` | string list | `quic, h3-grpc, webtransport, grpc, ws` | device | User | No |
 
 The default codec preference moves to the benchmark winner for .NET to .NET connections only when the spike passes (section 9) and the owner approves the new default in a card; until then JSON stays first.
 
@@ -139,14 +140,14 @@ The default codec preference moves to the benchmark winner for .NET to .NET conn
 - **`quic`:** one bidirectional control stream carries frames, each prefixed by a QUIC variable-length integer. Credential in the first frame after the preface (`hello`) over a TLS 1.3 connection with ALPN `bazaar-wire/1`; the client pins the server certificate as Conduit offers (doc 39). Optional `stream_per_subscription`: each `gc:<id>` subscription gets its own server-opened unidirectional stream, which removes head-of-line blocking between GCs; order inside a stream is unchanged and cursors are per stream already, so correctness does not depend on cross-stream order. Connection migration helps phones changing networks; resume with cursors stays the correctness mechanism. QUIC keep-alive is set to half `wire.heartbeat_interval_s`; wire `ping` stays as the application-level heartbeat. Close codes map to QUIC application error codes with the same numbers.
 - **`webtransport`:** HTTP/3 extended CONNECT on `/wt`, credential in the CONNECT request headers, one bidirectional stream with the same framing as `quic`. Datagrams are not used for anything that must arrive. The ASP.NET Core WebTransport feature has been preview-gated; the module ships only when the .NET 11 server API is stable, else it is marked Experimental and off by default (spike S-WTX decides).
 - **`grpc`:** one service `bazaar.wire.v1.Session` with `rpc Connect(stream Frame) returns (stream Frame)`; `Frame { bytes data }` holds one codec frame, so any codec works and `protobuf` is the native pairing. Credential in `authorization` metadata, checked by the same `IConnectionAuthenticator`. Close codes travel in trailers. **`grpc-web`** cannot do client streaming, so it uses `Subscribe(SubscribeRequest) returns (stream Frame)` plus unary `Send(Frame) returns (Frame)`, both mapped onto the same connection manager.
-- **Platform support:** `System.Net.Quic` needs MsQuic (bundled with Windows 11 and Server 2022 or newer; the `libmsquic` package on Linux) and reports `QuicConnection.IsSupported`; the modules check it and drop out of negotiation cleanly. Android and any platform without MsQuic fall back to `grpc` over HTTP/2 or `ws`. Support per platform, and whether each client head can load each module, is measured in the spike, not assumed.
+- **Platform support:** `System.Net.Quic` needs MsQuic (bundled with Windows 11 and Server 2022 or newer; the `libmsquic` package on Linux) and reports `QuicConnection.IsSupported`; the modules check it and drop out of negotiation cleanly. Android has no MsQuic: its ladder is `AndroidHttp3` (Cronet, HTTP/3) then `grpc` over HTTP/2 then `ws`. Other platforms without MsQuic fall back to `grpc` over HTTP/2 or `ws`. Cronet offers HTTP/3 streams, not raw QUIC, which is why the Android module carries gRPC framing; whether Cronet's bidirectional stream keeps long-lived streams alive through Doze and network handover is measured in the spike. Support per platform, and whether each client head can load each module, is measured in the spike, not assumed.
 - **Server runtime:** all transports feed the existing connection manager through `IWireConnection`. Nothing about GC sequencing, subscription, replay or the idempotent request layer changes.
 
 ### 10. Benchmark spike S-WTX [PROPOSED]
 Pass criteria, fixed before the first run. **Correctness is mandatory for every module** (conformance suite green; foreign-client vectors round-trip; fuzz clean). **Performance decides only the default preference order and which candidates join the wave, not whether the five named transports and four named codecs ship** (owner asked for all of them).
 - Corpus: the S6 corpus (10 000 synthetic messages, 200-message page, 10 000-frame replay, fixed seed) plus a Constellation snapshot payload.
 - Codecs: json, memorypack, cbor, msgpack, protobuf, plus any candidate. Measure bytes (raw, gzip, brotli), encode and decode time, allocations per frame, AOT publish size and warnings, on Windows (owner PC), Linux (cloud) and Android (device).
-- Transports: ws/h1, ws/h2, ws/h3, quic, webtransport, grpc, grpc-web. Measure connect time (cold and resumed), time to first replay page, throughput at 1 000 msg/s, CPU per 1 000 msg/s, head-of-line behaviour under 1% and 5% loss with 50 ms RTT (`tc netem` on Linux, a loss shim on Windows), and reconnect after a network change.
+- Transports: ws/h1, ws/h2, ws/h3, quic, webtransport, grpc (h2 and h3), grpc-web, and on Android the Cronet HTTP/3 module against `grpc` over HTTP/2. Measure connect time (cold and resumed), time to first replay page, throughput at 1 000 msg/s, CPU per 1 000 msg/s, head-of-line behaviour under 1% and 5% loss with 50 ms RTT (`tc netem` on Linux, a loss shim on Windows), and reconnect after a network change.
 - Report against today's JSON over ws as the baseline; record the owner PC and device models; three process runs per row.
 
 ## Work packages (build order)
@@ -169,7 +170,7 @@ Conformance suite per codec and per transport (envelope round trip for every `[W
 - `Bazaar.Contracts` holds `JsonWireCodec` today. Kept; moving it is a doc 40 matter.
 
 ## Questions for the owner
-1. Native Android has no MsQuic in .NET: accept `grpc` over HTTP/2 as the Android upgrade path, with QUIC only on desktop? (Recommended: yes, until the spike shows otherwise.)
-2. May the benchmark winner become the default codec for .NET to .NET connections, with JSON staying the floor? (Recommended: yes, by owner card after the spike.)
-3. Should the browser-facing `webtransport` and `grpc-web` modules ship in the first public build, or after the first outside client exists? (Recommended: build now, ship off by default.)
-4. Which extra candidates (FlatBuffers, Avro, Bebop, Cap'n Proto, Arrow IPC) should the spike evaluate, if not all? (Recommended: all five; cost is a day each.)
+1. ANSWERED (owner card, 2026-11-19, extended by the owner the same day): Android has no MsQuic in .NET, so `grpc` over HTTP/2 is the Android floor. The owner also wants QUIC on Android, so the `AndroidHttp3` module (Cronet) is tried first and falls back to HTTP/2. [DECIDED]
+2. ANSWERED (owner card, 2026-11-19): the benchmark winner becomes the default codec for .NET to .NET connections after the spike, with JSON staying the floor and the owner approving the final default. [DECIDED]
+3. ANSWERED (owner card, 2026-11-19): `webtransport` and `grpc-web` are built now and ship off by default; an operator turns them on. [DECIDED]
+4. ANSWERED (owner card, 2026-11-19): the spike evaluates all five (FlatBuffers, Avro, Bebop, Cap'n Proto, Arrow IPC); each joins the build only if it passes the conformance suite and stays AOT-clean. [DECIDED]
