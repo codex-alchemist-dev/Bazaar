@@ -11,17 +11,18 @@ namespace Bazaar.ModulePermissions.Secrets;
 /// <remarks>
 /// A module names a secret as <c>segment/segment</c>. The store holds it as the single <see cref="SecretName"/>
 /// <c>mod_&lt;moduleId&gt;_&lt;segment&gt;.&lt;segment&gt;</c> in the installation scope, so the name a module asks for is always
-/// inside its own namespace, whatever its grant says. Module ids and segments use only lower-case letters, digits and hyphens;
-/// that keeps the mapping one-to-one (a segment can hold neither the <c>_</c> nor the <c>.</c> the mapping uses). The prefix
+/// inside its own namespace, whatever its grant says. A module id is dot-separated labels (<c>acme.weather</c>); labels and name
+/// segments use only lower-case letters, digits and hyphens. That keeps the mapping one-to-one: neither part can hold the
+/// <c>_</c> that separates them, so the id ends at the second <c>_</c> and the rest is the name. The prefix
 /// <c>mod_</c> is reserved for modules: the operator must not give a platform secret a name that starts with it.
 /// </remarks>
 public sealed class ModuleSecretReader
 {
     /// <summary>Longest module id, in characters.</summary>
-    public const int MaxModuleIdLength = 32;
+    public const int MaxModuleIdLength = 64;
 
     /// <summary>Longest module secret name, in characters.</summary>
-    public const int MaxNameLength = 80;
+    public const int MaxNameLength = 58;
 
     private const string _prefix = "mod_";
     private const string _unclean = "A module secret name must be a clean name.";
@@ -37,9 +38,11 @@ public sealed class ModuleSecretReader
         ArgumentNullException.ThrowIfNull(gate);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleId);
-        if (!IsCleanSegment(moduleId, MaxModuleIdLength))
+        if (!IsCleanModuleId(moduleId))
         {
-            throw new ArgumentException("A module id is 1 to 32 lower-case letters, digits or hyphens.", nameof(moduleId));
+            throw new ArgumentException(
+                "A module id is at most 64 characters: dot-separated labels of lower-case letters, digits or hyphens.",
+                nameof(moduleId));
         }
 
         _gate = gate;
@@ -90,7 +93,9 @@ public sealed class ModuleSecretReader
     /// <summary>The store name of a module's secret. Throws <see cref="ModuleSecretRefusedException"/> when the name cannot be mapped.</summary>
     public static SecretName Map(string moduleId, string name)
     {
-        if (name.Length > MaxNameLength)
+        ArgumentNullException.ThrowIfNull(moduleId);
+        ArgumentNullException.ThrowIfNull(name);
+        if (!IsCleanModuleId(moduleId) || name.Length > MaxNameLength)
         {
             throw new ModuleSecretRefusedException(_unclean);
         }
@@ -103,6 +108,9 @@ public sealed class ModuleSecretReader
 
         return new SecretName(new StringBuilder(_prefix).Append(moduleId).Append('_').AppendJoin('.', segments).ToString());
     }
+
+    private static bool IsCleanModuleId(string moduleId) =>
+        moduleId.Length <= MaxModuleIdLength && moduleId.Split('.').All(static l => IsCleanSegment(l, MaxModuleIdLength));
 
     private static bool IsCleanSegment(string segment, int maxLength) =>
         segment.Length > 0 && segment.Length <= maxLength

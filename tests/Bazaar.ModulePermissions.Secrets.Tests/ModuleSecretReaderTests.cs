@@ -230,8 +230,27 @@ public class ModuleSecretReaderTests
         var one = ModuleSecretReader.Map("a-b", "c/d");
         var two = ModuleSecretReader.Map("a", "b-c/d");
         var three = ModuleSecretReader.Map("a-b", "c-d");
+        var four = ModuleSecretReader.Map("a.b", "c/d");
+        var five = ModuleSecretReader.Map("a", "b/c/d");
+        var six = ModuleSecretReader.Map("a.b.c", "d");
 
-        Assert.Equal(3, new[] { one.Value, two.Value, three.Value }.Distinct().Count());
+        Assert.Equal(6, new[] { one.Value, two.Value, three.Value, four.Value, five.Value, six.Value }.Distinct().Count());
+    }
+
+    [Fact]
+    public void A_dotted_module_id_maps_inside_its_own_prefix()
+    {
+        Assert.Equal("mod_acme.weather_api.key", ModuleSecretReader.Map("acme.weather", "api/key").Value);
+    }
+
+    [Fact]
+    public void The_longest_id_and_name_still_fit_a_store_name()
+    {
+        var id = new string('a', ModuleSecretReader.MaxModuleIdLength);
+        var name = new string('b', ModuleSecretReader.MaxNameLength);
+
+        Assert.True(ModuleSecretReader.Map(id, name).Value.Length <= 128);
+        Assert.Throws<ModuleSecretRefusedException>(() => ModuleSecretReader.Map(id + "a", name));
     }
 
     [Fact]
@@ -283,7 +302,10 @@ public class ModuleSecretReaderTests
     [InlineData("")]
     [InlineData("Weather")]
     [InlineData("a_b")]
-    [InlineData("a.b")]
+    [InlineData("a..b")]
+    [InlineData(".a")]
+    [InlineData("a.")]
+    [InlineData("a.-b")]
     [InlineData("a/b")]
     [InlineData("-a")]
     public void A_module_id_that_could_blur_the_mapping_is_refused(string moduleId)
