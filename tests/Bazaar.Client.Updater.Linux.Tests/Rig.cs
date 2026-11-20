@@ -153,8 +153,8 @@ internal sealed class Rig
             ReleaseArtifact.OsLinux, architecture, format, baseUrl + ".tar.gz", declaredSize ?? tarball.Length,
             inlineSha ?? hash, baseUrl + ".tar.gz.sha256", baseUrl + ".tar.gz.asc");
         Source.Files[artifact.Url] = servedTarball ?? tarball;
-        Source.Files[artifact.Sha256Url] = Encoding.ASCII.GetBytes(shaFileText ?? $"{hash}  Bazaar-{version}.tar.gz\n");
-        Source.Files[artifact.SignatureUrl] = signature ?? Encoding.ASCII.GetBytes("-----BEGIN PGP SIGNATURE-----");
+        Source.Files[artifact.Sha256Url!] = Encoding.ASCII.GetBytes(shaFileText ?? $"{hash}  Bazaar-{version}.tar.gz\n");
+        Source.Files[artifact.SignatureUrl!] = signature ?? Encoding.ASCII.GetBytes("-----BEGIN PGP SIGNATURE-----");
         var manifest = new ReleaseManifest(channel, version, minProtocol, maxProtocol, schema, fingerprint ?? Fingerprint, [artifact]);
         Source.Manifest = manifest;
         return manifest;

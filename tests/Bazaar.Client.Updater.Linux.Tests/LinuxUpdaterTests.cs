@@ -196,7 +196,7 @@ public class LinuxUpdaterTests
     {
         var rig = new Rig();
         var manifest = rig.Publish("0.2.0");
-        rig.Source.Files.Remove(manifest.Artifacts[0].SignatureUrl);
+        rig.Source.Files.Remove(manifest.Artifacts[0].SignatureUrl!);
 
         Assert.Equal(UpdateStatus.DownloadFailed, (await rig.Updater.ApplyAsync(_ct)).Status);
         Assert.Null(rig.Current);

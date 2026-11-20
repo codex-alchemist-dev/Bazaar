@@ -81,8 +81,8 @@ public sealed class LinuxUpdater : ILinuxUpdater
             string signature = UnixPath.Combine(work, "package.asc");
 
             var failure = await DownloadAsync(artifact.Url, tarball, artifact.SizeBytes, ct).ConfigureAwait(false)
-                ?? await DownloadAsync(artifact.Sha256Url, checksum, MaxChecksumFileBytes, ct).ConfigureAwait(false)
-                ?? await DownloadAsync(artifact.SignatureUrl, signature, MaxSignatureFileBytes, ct).ConfigureAwait(false)
+                ?? await DownloadAsync(artifact.Sha256Url!, checksum, MaxChecksumFileBytes, ct).ConfigureAwait(false)
+                ?? await DownloadAsync(artifact.SignatureUrl!, signature, MaxSignatureFileBytes, ct).ConfigureAwait(false)
                 ?? await CheckHashAsync(artifact, tarball, checksum, ct).ConfigureAwait(false)
                 ?? await new GpgSignatureVerifier(_settings, _runner, _fs).VerifyAsync(tarball, signature, ct).ConfigureAwait(false);
             if (failure is not null)
@@ -241,9 +241,15 @@ public sealed class LinuxUpdater : ILinuxUpdater
         }
 
         var artifact = manifest.Find(_settings.Architecture, ReleaseArtifact.FormatTarGz);
-        if (artifact is null)
+        if (artifact is null || artifact.Os != ReleaseArtifact.OsLinux)
         {
             return new Plan(Result(UpdateStatus.NoArtifact, version, $"No tar.gz for {_settings.Architecture}."));
+        }
+
+        // A Linux artifact always carries both companion files (the contract enforces it); the check keeps the nullable types honest.
+        if (artifact.Sha256Url is null || artifact.SignatureUrl is null)
+        {
+            return new Plan(Result(UpdateStatus.NoArtifact, version, "The tar.gz entry names no checksum or signature file."));
         }
 
         if (artifact.SizeBytes > _settings.MaxPackageBytes)
