@@ -1,3 +1,5 @@
+using Bazaar.ModulePermissions;
+
 namespace Bazaar.Install.Trust;
 
 /// <summary>The result of comparing a module version's declared permissions with the owner's approval.</summary>
@@ -8,7 +10,8 @@ public sealed record PermissionApprovalResult(bool IsApproved, IReadOnlyList<str
 /// <summary>
 /// Permission approval per module version (doc 48 section 1). The owner approves the declared set once per version.
 /// A version is approved only when its declared set is covered by the approved set. Narrowing needs no new approval,
-/// because the declared set is then a subset of what the owner already approved. Widening is never silently approved:
+/// because the declared set is then a subset of what the owner already approved; a permission below an approved prefix
+/// grant (<c>secret:weather/api-key</c> under <c>secret:weather/*</c>) is such a narrowing. Widening is never silently approved:
 /// the added permissions come back in <see cref="PermissionApprovalResult.Unapproved"/>.
 /// </summary>
 public static class PermissionApproval
@@ -23,7 +26,7 @@ public static class PermissionApproval
         ArgumentNullException.ThrowIfNull(approved);
 
         var unapproved = declared
-            .Where(permission => !approved.Contains(permission))
+            .Where(permission => !ModuleGrantCoverage.IsCovered(permission, approved))
             .Order(StringComparer.Ordinal)
             .ToList();
 
