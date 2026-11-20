@@ -21,6 +21,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Vault;
@@ -48,6 +49,7 @@ public static class HostComponents
         new RoadmapComponent(),
         new CommunityComponent(),
         new RolesComponent(),
+        new SignInComponent(),
         new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
