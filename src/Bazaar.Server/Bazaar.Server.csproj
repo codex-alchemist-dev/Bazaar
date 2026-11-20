@@ -38,6 +38,7 @@
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls.Abstractions\Bazaar.Server.Souls.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />
