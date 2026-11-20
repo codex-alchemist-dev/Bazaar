@@ -4,6 +4,7 @@ using Bazaar.Server.Memory.Consolidation.Fakes;
 using Bazaar.Server.Memory.Notes;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Testing.Secrets;
 using Microsoft.Extensions.Time.Testing;
 using static Bazaar.Server.Tests.Memory.Consolidation.ConsolidationTestSupport;
 
@@ -192,7 +193,7 @@ public class ConsolidationRunnerTests
     [Fact]
     public async Task Rejected_secret_shaped_note_is_dropped_and_the_rest_commit()
     {
-        var secret = CreateSemantic("leaked", "Use token ghp_" + new string('a', 36) + " for the API.");
+        var secret = CreateSemantic("leaked", "Use token " + FakeSecrets.GitHubPat + " for the API.");
         var provider = new FakeProvider();
         provider.EnqueueCall(Text(Reply(secret, CreateSemantic("backoff"))), Done());
         var episodes = new InMemoryEpisodeSource();
