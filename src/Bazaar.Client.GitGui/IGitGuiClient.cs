@@ -19,6 +19,16 @@ public interface IGitGuiClient
     Task<IReadOnlyList<GitPrFileDto>> GetFilesAsync(string provider, string repo, long number, string headSha, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<GitCheckDto>> GetChecksAsync(string provider, string repo, long number, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends the owner-signed squash merge to the server's neutral merge route. The server verifies the signature; the client never
+    /// calls a forge. Returns the merged head sha.
+    /// </summary>
+    /// <exception cref="HeadMovedException">409: the PR head is no longer the one that was approved.</exception>
+    /// <exception cref="GitMergeNotApprovedException">403: the server refused the approval, with no detail.</exception>
+    /// <exception cref="GitRateLimitedException">429: the forge is rate limiting; retry later.</exception>
+    /// <exception cref="GitServerUnavailableException">502 or another 5xx, or no connection.</exception>
+    Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The server answered <c>409 head_moved</c>: the head the client asked about is no longer current (doc 52).</summary>
