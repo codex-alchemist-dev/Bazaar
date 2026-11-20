@@ -7,16 +7,19 @@ draft pull requests. The workflows are in `.github/workflows/`.
 
 | Check | Workflow | Docs-only PR | Draft PR |
 |---|---|---|---|
-| `Build and test (ubuntu-latest)` | `ci.yml` | Runs | Runs |
-| `Build and test (windows-latest)` | `ci.yml` | Runs | Runs |
+| `Build and test (ubuntu-latest)` | `ci.yml` | Runs | Skipped (passes) |
+| `Build and test (windows-latest)` | `ci.yml` | Runs | Skipped (passes) |
 | `Secret scan (full history)` | `ci.yml` | Runs | Runs |
-| `Analyze (csharp)` | `codeql.yml` | Runs | Runs |
-| `Analyze (actions)` | `codeql.yml` | Runs | Runs |
+| `Analyze (csharp)` | `codeql.yml` | Runs | Skipped (passes) |
+| `Analyze (actions)` | `codeql.yml` | Runs | Skipped (passes) |
 | `Signed-off-by line in PR description` | `pr-sponsor.yml` | Runs | Skipped by design |
 
-- `ci.yml` and `codeql.yml` have no `paths:` filter, so they run on every
-  pull request, whatever files changed. A docs-only change still produces the
-  full set of results, so a required check is never left missing.
+- `ci.yml` and `codeql.yml` have no `paths:` filter on their triggers. A first job
+  (`changes`) decides whether the change touches code; on a docs-only PR the build,
+  test and CodeQL jobs are skipped by an `if:`, which still reports the required
+  check (a skipped job passes), so a required check is never left missing. The
+  secret scan always runs. See `docs/pr-flow.md` for the rules and the dedupe of
+  push and pull request runs.
 - `ci.yml` has no draft filter, so drafts build and test too. This keeps
   feedback fast while the work is in progress.
 - `pr-sponsor.yml` runs only when `draft == false`. It also runs again on

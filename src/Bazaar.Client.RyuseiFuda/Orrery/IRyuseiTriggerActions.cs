@@ -1,3 +1,5 @@
+using Bazaar.Client.Panes.Abstractions;
+
 namespace Bazaar.Client.RyuseiFuda.Orrery;
 
 /// <summary>
