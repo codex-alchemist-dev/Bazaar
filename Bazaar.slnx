@@ -54,6 +54,7 @@
     <Project Path="src/Bazaar.Wire.Conformance/Bazaar.Wire.Conformance.csproj" />
     <Project Path="src/Bazaar.Server.Transport.QuicNative/Bazaar.Server.Transport.QuicNative.csproj" />
     <Project Path="src/Bazaar.Client.Transport.QuicNative/Bazaar.Client.Transport.QuicNative.csproj" />
+    <Project Path="src/Bazaar.Server.Transport.WebTransport/Bazaar.Server.Transport.WebTransport.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts.Abstractions/Bazaar.Server.Interrupts.Abstractions.csproj" />
@@ -123,6 +124,9 @@
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Annotation/Bazaar.Client.Annotation.csproj" />
+    <Project Path="src/Bazaar.Client.Annotation.Abstractions/Bazaar.Client.Annotation.Abstractions.csproj" />
+    <Project Path="tests/Bazaar.Client.Annotation.Tests/Bazaar.Client.Annotation.Tests.csproj" />
     <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
@@ -192,6 +196,7 @@
     <Project Path="tests/Bazaar.Wire.Generators.Tests/Bazaar.Wire.Generators.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.Cbor.Tests/Bazaar.Wire.Codec.Cbor.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Transport.QuicNative.Tests/Bazaar.Wire.Transport.QuicNative.Tests.csproj" />
+    <Project Path="tests/Bazaar.Wire.Transport.WebTransport.Tests/Bazaar.Wire.Transport.WebTransport.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
     <Project Path="tests/Bazaar.Engines.Tests/Bazaar.Engines.Tests.csproj" />
