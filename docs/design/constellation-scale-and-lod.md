@@ -153,3 +153,97 @@ Run: `Bazaar.Constellation.Vulkan.Bench.Android` on an Android 15 (API 35) x86_6
 | instances | 16.8M | 16.8M | 1M | 8 001 | 2.29 | 3.67 | 1.92 | 3.30 |
 
 The 300k-instance cap is the phone-tier figure from section 6. Above it, the emulator tracks the PC roughly linearly and did not show the PC cliff in the range measured here (1M instances at 1.9 ms GPU p50). The emulator's translation layer dominates these numbers, so they don't say anything about phone-GPU cliffs.
+
+### 10.3 PC re-run and run-to-run variance (2026-11-13)
+Same bench, Release build, Intel Arc B580, Vulkan 1.4.356. GPU p50 and p95 in ms. Earlier run in section 10 for comparison.
+
+| Row | Earlier p50 | Re-run p50 | Re-run p95 |
+|---|---|---|---|
+| 1M nodes, 1M instances | 0.50 | 0.58 | 0.97 |
+| 10M nodes, 2M instances | 1.72 | 1.02 | 1.42 |
+| 100M nodes, 2M instances | 1.00 | 1.00 | 1.39 |
+| 1B nodes (100.7M window), 2M instances | 1.54 | 1.00 | 1.00 |
+| 100k instances, 100.7M resident | 0.37 | 0.29 | 0.29 |
+| 1M instances, 100.7M resident | 1.78 | 0.50 | 0.77 |
+| 2M instances, 100.7M resident | 1.00 | 1.00 | 1.00 |
+| 10M instances, 100.7M resident | 318 | 326 | 328 |
+| 50M instances, 100.7M resident | 2 427 | 2 467 | 2 536 |
+| 100M instances, 100.7M resident | not measured | 5 111 | 5 151 |
+
+The cliff reproduces. Above about 2M instances per frame the cost grows about linearly with instance count, at about 50 ms per million. The 100M-instance row takes 5.1 s per frame.
+
+Small-count rows vary between the two runs. The largest gap is the 10M-node, 2M-instance row (1.72 against 1.02 ms), and some 1M-instance rows differ by about 1.3 ms. Treat differences under about 2 ms, or any single-run number, as noise until a repeat-run spread is measured (section 10.4 once added).
+
+### 10.4 Root-cause controls for the cliff, and the density fix (2026-11-14)
+Bench modes `rootcause` and `passes`, `density`. Release build, Intel Arc B580, 10M nodes in one frame unless noted. GPU p50 in ms.
+
+**Controls.** Each row changes one thing against the baseline:
+
+| Control | GPU p50 (ms) |
+|---|---|
+| Triangles, 10M instances, on screen (three repeats: 322.3, 323.4, 323.7) | ~323 |
+| Triangles, 10M instances, all moved off screen | 5.0 |
+| One point per node, on screen | 162 |
+| One point per node, off screen | 4.2 |
+| One point per node, on screen, colour writes disabled | 4.2 |
+| Triangles, 2M or 1M per render pass (5 or 10 passes per frame) | 323 / 322 |
+| Points, 2M or 1M per render pass | 162 / 161 |
+
+What this rules out: vertex fetch and clipping (off-screen draws are cheap), per-draw-call and per-render-pass overhead (splitting changes nothing), and scattered writes (clustering the nodes changes nothing). Colour writes to the target are what cost time: with writes disabled the on-screen points cost the same as the off-screen ones.
+
+**Root cause, not proven.** The cost is about flat up to about 4M instances per frame, then rises roughly linearly at about 50 ns per instance, whatever the frame is split into. The likely cause is a per-frame limit inside the driver or hardware for on-screen primitive or fragment work. The controls do not show which. Solving it inside the driver is not in our hands, so the fix below avoids it.
+
+**Fix: density path (section 5, far zoom).** A compute pass bins every node into a 512 x 288 grid of counters with atomic adds. One fullscreen triangle then shades the grid. Per-frame cost no longer depends on per-node rasterisation. Code: `NodeBenchmark.Density.cs`, `Shaders/density.*`.
+
+| Nodes in the frame | Before: every node drawn (GPU p50 / p95, ms) | After: density grid (GPU p50 / p95, ms) | Speed-up |
+|---|---|---|---|
+| 1M | 1.01 / 2.58 | 0.040 / 0.040 | about 25x |
+| 10M | 321.7 / 323.4 | 4.40 / 4.42 | about 73x |
+| 100M | 5 107.7 / 5 146.4 | 68.7 / 68.9 | about 74x |
+
+**What the fix does not solve.** The density cost still grows with node count, at about 0.69 ns per node. At 100M nodes it is about 69 ms per frame, which is about five times the 14 ms PC budget in section 6. At the 1B target it would be about 690 ms. The 1B target needs tile-level aggregates, so the grid is built from precomputed per-tile counts, not per-node atomics. That is the next step, and it belongs with the server tile format in section 3.
+
+**Run-to-run variance.** Three repeats of the 10M triangle baseline gave 322.3, 323.4 and 323.7 ms, a spread of about 1.4 ms. The earlier full re-run gave 318 to 326 ms for the same row. Each density row was measured in a single run; repeat spread for the density path is not yet measured.
+
+### 10.5 Per-tile aggregate path (2026-11-14)
+Bench mode `aggregate`. Release build, Intel Arc B580. Nodes are generated from their global index and streamed in chunks of 16M nodes (256 MB). Each chunk is binned into one 512 x 288 grid, then discarded, so the whole graph never sits on the GPU at once. The per-frame cost is one fullscreen shade of the finished grid.
+
+| Nodes | Build, one-time (wall ms, 3 runs) | Per-frame GPU p50 / p95 (ms, 3 runs) | Per-frame wall p50 (ms) |
+|---|---|---|---|
+| 100M | 1 017 / 873 / 902 | 0.025 / 0.030, 0.020 / 0.023, 0.025 / 0.025 | 0.27, 0.12, 0.14 |
+| 1B | 9 660 / 9 648 / 9 632 | 0.059 / 0.060, 0.060 / 0.060, 0.059 / 0.060 | 0.33, 0.33, 0.32 |
+
+**Against the budget.** The per-frame cost is about 0.06 ms at 1B, far inside the 14 ms PC budget in section 6. It no longer depends on node count.
+
+**What the number does not include.**
+- The build is paid once per graph version, not per frame. At 1B it is about 9.6 s on this PC, mostly CPU generation and copy. The GPU part is about 0.7 s. The server builds aggregates in batch, per section 3, so this cost moves there.
+- The grid is built in the layout's fixed frame with the transform in force at build time. Panning or zooming does not re-bin it, so a view change needs either a re-bin or per-tile levels. Per-tile levels for zoom are the next step and are not built yet.
+- Hit-testing and focus are not covered here.
+
+**Variance.** Build time at 100M varies by about 15% across three runs (873 to 1 017 ms). At 1B it varies by about 0.3% (9 632 to 9 660 ms). Per-frame GPU p50 varies by about 25% at 100M (0.020 to 0.025 ms), and by under 2% at 1B. Earlier per-node density rows (section 10.4) were single runs, so their spread is still unmeasured.
+
+### 10.6 Aggregate path re-run and the 1B frame spike (2026-11-18)
+Bench modes `aggregate` and `spike`. Release build, Intel Arc B580. Same method as 10.5.
+
+**Re-run (three runs each, GPU p50 and p95 in ms):**
+
+| Nodes | One-time build (ms) | Per-frame GPU p50 / p95 | Per-frame wall p95 (ms) |
+|---|---|---|---|
+| 100M | 1 061 / 880 / 914 | 0.009 / 0.016, 0.010 / 0.010, 0.016 / 0.016 | 0.13, 0.23, 0.17 |
+| 1B | 9 468 / 9 162 / 9 295 | 0.022 / 0.022, 0.018 / 0.018, 0.061 / 0.071 | 0.22, 0.21, 1.21 |
+
+A second 1B re-run gave the same pattern: 0.018 ms in run 1, then 0.048 and 0.060 ms GPU p50 in runs 2 and 3, with wall p95 at 1.26 and 1.57 ms.
+
+**Spike check.** One 1B build (9 299 ms), then three frame blocks with 60 s idle between them:
+
+| Frame block | GPU p50 / p95 (ms) | Wall p95 (ms) |
+|---|---|---|
+| Immediately after the build | 0.026 / 0.027 | 0.28 |
+| After 60 s idle | 0.059 / 0.072 | 1.29 |
+| After a further 60 s idle | 0.059 / 0.071 | 1.36 |
+
+**Reading.** The slow frames are real and repeatable, but their cause is not known. They are not explained by GPU clock recovery: idling for 60 s does not bring the fast time back. The grid and the shader are the same in every block, so the difference is in driver or runtime state, not in the data. The first block was fast, and every later block was slow.
+
+**Next checks for the spike** (not yet run): time the same frame block in a fresh process without a build, to see if the build leaves state behind; count frames per block and compare the first 200 in a process with no prior work; and read the adapter's clock state before and after a block, if a tool for it is available on this machine.
+
+Per-frame cost at 100M stays far inside the 14 ms PC budget in both states. At 1B the slow state is still about 0.06 ms, so the budget is not at risk from this spike.
