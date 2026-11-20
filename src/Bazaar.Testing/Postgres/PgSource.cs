@@ -47,26 +47,26 @@ public sealed class PgSource : IAsyncDisposable
 
     /// <summary>Builds a connection string for <paramref name="database"/> on the same server and credentials.</summary>
     public string ConnectionStringFor(string database, bool pooling = true) =>
-        new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = database, Pooling = pooling, MaxPoolSize = MaxPoolSize }.ConnectionString;
+        new NpgsqlConnectionStringBuilder(AdminConnectionString) { Database = database, Pooling = pooling, MaxPoolSize = _maxPoolSize }.ConnectionString;
 
     /// <summary>
     /// Timeouts for a shared, heavily loaded test server. The defaults (15 s to connect, 30 s per command) are tuned for a quiet
     /// server; on a busy self-hosted runner a command that is only waiting for CPU time exceeds them and a whole class fails with
     /// "Timeout during reading attempt". These are failure ceilings, not delays: a healthy command returns at once.
     /// </summary>
-    private const int ConnectTimeoutSeconds = 60;
-    private const int CommandTimeoutSeconds = 180;
+    private const int _connectTimeoutSeconds = 60;
+    private const int _commandTimeoutSeconds = 180;
 
     /// <summary>
     /// Per-class pool cap. Many test classes run at once, each with its own pool; the 100 default lets a few of them exhaust the
     /// server's connection slots, and connection waits then surface as timeouts.
     /// </summary>
-    private const int MaxPoolSize = 20;
+    private const int _maxPoolSize = 20;
 
     private static NpgsqlConnectionStringBuilder WithTimeouts(NpgsqlConnectionStringBuilder builder)
     {
-        builder.Timeout = ConnectTimeoutSeconds;
-        builder.CommandTimeout = CommandTimeoutSeconds;
+        builder.Timeout = _connectTimeoutSeconds;
+        builder.CommandTimeout = _commandTimeoutSeconds;
         return builder;
     }
 

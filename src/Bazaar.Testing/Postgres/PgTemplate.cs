@@ -135,7 +135,7 @@ public sealed class PgTemplate
     /// one server, each with its own template. A server-wide advisory lock lets only one clone run at a time across all of them,
     /// so the checkpoints queue instead of piling up and starving every other command on the server.
     /// </summary>
-    private const long CloneAdvisoryLockKey = 0x42415A_434C4F4E; // "BAZ" "CLON"
+    private const long _cloneAdvisoryLockKey = 0x42415A_434C4F4E; // "BAZ" "CLON"
 
     private async Task CreateCloneAsync(string name)
     {
@@ -143,7 +143,7 @@ public sealed class PgTemplate
         await conn.OpenAsync().ConfigureAwait(false);
         await using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_lock(@k)", conn))
         {
-            lockCmd.Parameters.AddWithValue("k", CloneAdvisoryLockKey);
+            lockCmd.Parameters.AddWithValue("k", _cloneAdvisoryLockKey);
             await lockCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
@@ -156,7 +156,7 @@ public sealed class PgTemplate
         {
             // The lock is session-level and the connection is not pooled, so closing it releases the lock even if this fails.
             await using var unlock = new NpgsqlCommand("SELECT pg_advisory_unlock(@k)", conn);
-            unlock.Parameters.AddWithValue("k", CloneAdvisoryLockKey);
+            unlock.Parameters.AddWithValue("k", _cloneAdvisoryLockKey);
             try { await unlock.ExecuteNonQueryAsync().ConfigureAwait(false); } catch (NpgsqlException) { }
         }
     }
