@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Gateway.Adapters.Gemini;
 
 /// <summary>The Gemini generateContent wire-family adapter as a Bazaar Component (docs/design/BAZAAR-COMPONENTS.md).</summary>
-public sealed class GeminiGenerateContentAdapterComponent : IBazaarComponent
+public sealed class GeminiGenerateContentAdapterComponent : ICdaxModule
 {
     /// <summary>The adapter name stored on provider rows.</summary>
     public const string WireName = "gemini_generate_content";

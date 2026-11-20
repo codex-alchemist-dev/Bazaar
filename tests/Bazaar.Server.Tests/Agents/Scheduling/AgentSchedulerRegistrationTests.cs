@@ -1,7 +1,7 @@
-using Bazaar.Core;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.Agents.Turns;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -22,7 +22,7 @@ public sealed class AgentSchedulerRegistrationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar"));
-        services.AddBazaarComponents(configuration, [new AgentTurnsComponent()]);
+        services.AddCdaxModules(configuration, [new AgentTurnsComponent()]);
         return services;
     }
 
@@ -94,7 +94,7 @@ public sealed class AgentSchedulerRegistrationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IAgentScheduler>(other);
-        services.AddBazaarComponents(configuration, [new AgentTurnsComponent()]);
+        services.AddCdaxModules(configuration, [new AgentTurnsComponent()]);
 
         await using var provider = services.BuildServiceProvider();
 

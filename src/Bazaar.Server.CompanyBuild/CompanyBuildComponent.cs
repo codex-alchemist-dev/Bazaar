@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,7 +8,7 @@ namespace Bazaar.Server.CompanyBuild;
 /// The company-build module. It composes a company's modules through the kernel graph and runs the build with bounded retries.
 /// It has no hard dependencies and sits outside Bazaar.Server, so the server never gains build code.
 /// </summary>
-public sealed class CompanyBuildComponent : IBazaarComponent
+public sealed class CompanyBuildComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "company-build",

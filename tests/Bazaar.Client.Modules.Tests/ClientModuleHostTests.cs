@@ -139,6 +139,71 @@ public class ClientModuleHostTests
         Assert.Throws<ArgumentNullException>(() => ClientModuleHost.Load(null!, _host));
         Assert.Throws<ArgumentNullException>(() => ClientModuleHost.Load([], null!));
     }
+
+    [Fact]
+    public void A_module_registers_after_the_modules_it_depends_on()
+    {
+        var late = new FakeModule(Manifest("bazaar.a") with { DependsOn = ["bazaar.z"] });
+        var early = new FakeModule(Manifest("bazaar.z"));
+
+        var result = ClientModuleHost.Load([late, early], _host);
+
+        Assert.Equal(["bazaar.z", "bazaar.a"], result.Loaded.Select(m => m.Id).ToArray());
+        Assert.Empty(result.Skipped);
+    }
+
+    [Fact]
+    public void A_module_with_a_missing_hard_dependency_is_skipped_and_so_are_its_dependents()
+    {
+        var needy = new FakeModule(Manifest("bazaar.needy") with { DependsOn = ["bazaar.absent"] });
+        var downstream = new FakeModule(Manifest("bazaar.down") with { DependsOn = ["bazaar.needy"] });
+        var fine = new FakeModule(Manifest("bazaar.fine"));
+
+        var result = ClientModuleHost.Load([needy, downstream, fine], _host);
+
+        Assert.Equal(["bazaar.fine"], result.Loaded.Select(m => m.Id).ToArray());
+        Assert.All(result.Skipped, skip => Assert.Equal("missing-dependency", skip.Code));
+        Assert.Equal(2, result.Skipped.Count);
+        Assert.Equal(0, needy.RegisterCalls);
+    }
+
+    [Fact]
+    public void A_missing_soft_dependency_costs_nothing()
+    {
+        var module = new FakeModule(Manifest("bazaar.soft") with { SoftDependsOn = ["bazaar.absent"] });
+
+        var result = ClientModuleHost.Load([module], _host);
+
+        Assert.Empty(result.Skipped);
+        Assert.Equal(1, module.RegisterCalls);
+    }
+
+    [Fact]
+    public void A_hard_dependency_cycle_skips_the_modules_in_it_and_the_rest_still_load()
+    {
+        var a = new FakeModule(Manifest("bazaar.a") with { DependsOn = ["bazaar.b"] });
+        var b = new FakeModule(Manifest("bazaar.b") with { DependsOn = ["bazaar.a"] });
+        var behind = new FakeModule(Manifest("bazaar.behind") with { DependsOn = ["bazaar.a"] });
+        var fine = new FakeModule(Manifest("bazaar.fine"));
+
+        var result = ClientModuleHost.Load([a, b, behind, fine], _host);
+
+        Assert.Equal(["bazaar.fine"], result.Loaded.Select(m => m.Id).ToArray());
+        Assert.Equal(3, result.Skipped.Count(skip => skip.Code == "dependency-cycle"));
+        Assert.Equal(0, a.RegisterCalls);
+    }
+
+    [Fact]
+    public void A_soft_dependency_cycle_is_allowed()
+    {
+        var a = new FakeModule(Manifest("bazaar.a") with { SoftDependsOn = ["bazaar.b"] });
+        var b = new FakeModule(Manifest("bazaar.b") with { SoftDependsOn = ["bazaar.a"] });
+
+        var result = ClientModuleHost.Load([a, b], _host);
+
+        Assert.Equal(2, result.Loaded.Count);
+        Assert.Empty(result.Skipped);
+    }
 }
 
 public class ClientModuleLoadResultTests

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Identity.Kek;
 /// (environment <c>BAZAAR__IDENTITY__KEKPROVIDER</c>); it is host configuration because the KEK must open before the database.
 /// The data root comes from <c>Bazaar:Host:DataRoot</c>.
 /// </summary>
-public sealed class KekComponent : IBazaarComponent
+public sealed class KekComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "identity-kek",

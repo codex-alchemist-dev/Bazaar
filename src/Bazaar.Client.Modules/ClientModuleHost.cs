@@ -1,10 +1,11 @@
 using Bazaar.Contracts.Modules;
+using Cdax.Core;
 
 namespace Bazaar.Client.Modules;
 
 /// <summary>Why a module was not loaded.</summary>
 /// <param name="ModuleId">The manifest id, or an empty string when the module has no manifest.</param>
-/// <param name="Code">Stable code: <c>no-manifest</c>, <c>invalid-manifest</c>, <c>host-incompatible</c>, <c>duplicate-id</c>, <c>pane-kind-taken</c>, <c>command-taken</c> or <c>register-failed</c>.</param>
+/// <param name="Code">Stable code: <c>no-manifest</c>, <c>invalid-manifest</c>, <c>host-incompatible</c>, <c>duplicate-id</c>, <c>missing-dependency</c>, <c>dependency-cycle</c>, <c>pane-kind-taken</c>, <c>command-taken</c> or <c>register-failed</c>.</param>
 /// <param name="Message">One line for the log.</param>
 public sealed record ClientModuleSkip(string ModuleId, string Code, string Message);
 
@@ -83,6 +84,8 @@ public static class ClientModuleHost
             report?.Invoke($"Bazaar: module '{id}' not loaded ({code}): {message}");
         }
 
+        // Pass 1: checks that need no other module. A failure skips only that module.
+        var candidates = new Dictionary<string, IClientModule>(StringComparer.Ordinal);
         foreach (var module in modules)
         {
             var manifest = module?.Manifest;
@@ -106,9 +109,53 @@ public static class ClientModuleHost
                 continue;
             }
 
-            if (ids.Contains(manifest.Id))
+            if (!candidates.TryAdd(manifest.Id, module!))
             {
                 Skip(manifest.Id, "duplicate-id", "another module with this id is already loaded.");
+            }
+        }
+
+        // Pass 2: hard dependencies. A module whose dependency is missing or was itself skipped is skipped too, and that can
+        // cascade, so repeat until nothing changes. Soft dependencies never skip a module.
+        bool changed;
+        do
+        {
+            changed = false;
+            foreach (var (id, module) in candidates.ToList())
+            {
+                var missing = module.Manifest.Hard.FirstOrDefault(dependency => !candidates.ContainsKey(dependency));
+                if (missing is not null)
+                {
+                    candidates.Remove(id);
+                    Skip(id, "missing-dependency", $"it needs module '{missing}', which is not loaded.");
+                    changed = true;
+                }
+            }
+        }
+        while (changed);
+
+        // Pass 3: the same graph the server uses (Cdax.Core), so a client module and a server module share one dependency model.
+        // Hard cycles skip every module caught in or behind the cycle; the rest still load, in dependency order.
+        var graph = candidates.Values.Select(module => ToComponent(module.Manifest)).ToList();
+        var stuck = FindStuck(graph);
+        foreach (var id in stuck.Order(StringComparer.Ordinal))
+        {
+            candidates.Remove(id);
+            Skip(id, "dependency-cycle", "it is part of, or depends on, a dependency cycle.");
+        }
+
+        var ordered = ComponentGraph.Order(graph.Where(component => !stuck.Contains(component.Id)));
+
+        // Pass 4: register in dependency order, with the checks that compare one module against those already loaded.
+        foreach (var component in ordered)
+        {
+            var module = candidates[component.Id];
+            var manifest = module.Manifest;
+
+            var notLoaded = manifest.Hard.FirstOrDefault(dependency => !ids.Contains(dependency));
+            if (notLoaded is not null)
+            {
+                Skip(manifest.Id, "missing-dependency", $"it needs module '{notLoaded}', which did not load.");
                 continue;
             }
 
@@ -130,7 +177,7 @@ public static class ClientModuleHost
             try
             {
                 var builder = new ClientModuleBuilder(manifest);
-                module!.Register(builder);
+                module.Register(builder);
                 registered = builder.Contributions;
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -155,5 +202,28 @@ public static class ClientModuleHost
         }
 
         return new ClientModuleLoadResult(loaded, skipped, paneKinds, commands, contributions);
+    }
+
+    /// <summary>Describes a client module to the shared graph: the same fields a server component declares.</summary>
+    private static ComponentManifest ToComponent(ModuleManifest manifest) =>
+        new(manifest.Id, manifest.Version, ComponentKind.ClientPane, manifest.Hard, [.. manifest.PaneKinds, .. manifest.Commands], manifest.Soft);
+
+    /// <summary>The ids that cannot be placed because they sit on a hard dependency cycle or depend on one.</summary>
+    private static HashSet<string> FindStuck(IReadOnlyList<ComponentManifest> graph)
+    {
+        var placed = new HashSet<string>(StringComparer.Ordinal);
+        bool progressed;
+        do
+        {
+            progressed = false;
+            foreach (var component in graph.Where(c => !placed.Contains(c.Id) && c.DependsOn.All(placed.Contains)))
+            {
+                placed.Add(component.Id);
+                progressed = true;
+            }
+        }
+        while (progressed);
+
+        return [.. graph.Select(c => c.Id).Where(id => !placed.Contains(id))];
     }
 }

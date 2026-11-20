@@ -8,7 +8,7 @@ namespace Bazaar.Server.Host.Composition;
 /// <summary>
 /// Sign-in tokens and refresh (doc 32 section 5) for the host. Device pairing is removed (owner, 2026-11-16). The access-token issuer is the dev issuer only when
 /// <c>Bazaar:Remote:DevIssuer:Enabled</c> is true AND the host environment is Development. Otherwise it is
-/// <see cref="UnavailableAccessTokenIssuer"/>, so the routes answer 503 instead of minting tokens. Register after <c>AddBazaarComponents</c>,
+/// <see cref="UnavailableAccessTokenIssuer"/>, so the routes answer 503 instead of minting tokens. Register after <c>AddCdaxModules</c>,
 /// which provides the audit log and the shared <c>NpgsqlDataSource</c> these services need.
 /// </summary>
 public static class RemoteAuthCompositionExtensions

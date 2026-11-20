@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Npgsql;
 
 namespace Bazaar.Server.Data.Migrations;

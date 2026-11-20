@@ -1,9 +1,9 @@
 using Bazaar.Contracts.Backup;
-using Bazaar.Core;
 using Bazaar.Server.Components.Backup.Engines;
 using Bazaar.Server.Components.Backup.Jobs;
 using Bazaar.Server.Components.Backup.Processes;
 using Bazaar.Server.Jobs;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,7 +17,7 @@ namespace Bazaar.Server.Components.Backup;
 /// plus operator-supplied PostgreSQL binary and storage paths.
 /// TODO(component): persist run records through this component's own migration namespace (components/backup/NNNN_name.sql).
 /// </summary>
-public sealed class BackupComponent : IBazaarComponent
+public sealed class BackupComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "backup",

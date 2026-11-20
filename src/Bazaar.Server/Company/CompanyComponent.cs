@@ -1,7 +1,7 @@
-using Bazaar.Core;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Company.Org;
 using Bazaar.Server.Org.Data;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.Company;
 /// Company systems (docs/design/24-company-systems-core.md). Registers the Calendar and Org services that depend on the shared
 /// database and GC components. Interrupt stack registration waits for the personal-data key provider integration.
 /// </summary>
-public sealed class CompanyComponent : IBazaarComponent
+public sealed class CompanyComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "company",

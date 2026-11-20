@@ -1,6 +1,6 @@
-using Bazaar.Core;
 using Bazaar.Server.Modules.Releases;
 using Bazaar.Server.Modules.Updates;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -18,7 +18,7 @@ namespace Bazaar.Server.Modules;
 /// <see cref="MaintenanceWindowValidator"/> and <see cref="RingHealthGate"/> are static, so there is nothing to register for them;
 /// callers use them directly.
 /// </remarks>
-public sealed class ModuleManagerComponent : IBazaarComponent
+public sealed class ModuleManagerComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "module-manager",

@@ -1,8 +1,8 @@
-using Bazaar.Core;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Vault.Data;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,7 +19,7 @@ namespace Bazaar.Server.Constellation;
 /// Migration 0020 (<c>constellation_views</c>) stays in <c>Data/Sql/common/</c> by decision (coordinator, 2026-11-01). Moving an
 /// applied migration changes its identity, so the component's migration namespace is not used yet. A later wave moves it.
 /// </remarks>
-public sealed class ConstellationComponent : IBazaarComponent
+public sealed class ConstellationComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "constellation",

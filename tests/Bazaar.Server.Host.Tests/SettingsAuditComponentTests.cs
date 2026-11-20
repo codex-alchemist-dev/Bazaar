@@ -1,9 +1,9 @@
-using Bazaar.Core;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,8 +49,8 @@ public sealed class SettingsAuditComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(
-            Config(("Bazaar:Components:audit:Enabled", "false"), ("Bazaar:Components:settings:Enabled", "false")),
+        services.AddCdaxModules(
+            Config(("Cdax:Modules:audit:Enabled", "false"), ("Cdax:Modules:settings:Enabled", "false")),
             [new AuditComponent(), new SettingsComponent()]);
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IAuditLog));
@@ -63,8 +63,8 @@ public sealed class SettingsAuditComponentTests
         // Settings' audit sink appends to IAuditLog, so settings cannot start without audit. The kernel reports it at start.
         var services = new ServiceCollection();
 
-        var ex = Assert.Throws<ComponentGraphException>(() => services.AddBazaarComponents(
-            Config(("Bazaar:Components:audit:Enabled", "false")),
+        var ex = Assert.Throws<ComponentGraphException>(() => services.AddCdaxModules(
+            Config(("Cdax:Modules:audit:Enabled", "false")),
             [new AuditComponent(), new SettingsComponent()]));
 
         Assert.Contains("'settings' needs disabled component(s): audit", ex.Message, StringComparison.Ordinal);
@@ -76,7 +76,7 @@ public sealed class SettingsAuditComponentTests
         // Registration only describes services; the shared data source is a factory that runs at first resolve, so no database is needed.
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(), [new AuditComponent(), new SettingsComponent()]);
+        services.AddCdaxModules(Config(), [new AuditComponent(), new SettingsComponent()]);
 
         Assert.Contains(services, d => d.ServiceType == typeof(ISettingStore));
         Assert.Contains(services, d => d.ServiceType == typeof(ISettingAuditSink));
