@@ -1,8 +1,10 @@
+using Bazaar.Client.Panes.Abstractions;
+
 namespace Bazaar.Client.RyuseiFuda.Orrery;
 
 /// <summary>
 /// The pause and resume actions of the micro schedule pane (doc 38, layer 2). A head supplies the implementation through
-/// <see cref="Bazaar.Client.Core.Panes.PaneModuleContext.With{T}"/>. The server owns the authority rules: a refused
+/// <see cref="Bazaar.Client.Panes.Abstractions.PaneModuleContext.With{T}"/>. The server owns the authority rules: a refused
 /// change throws, and the pane then keeps the row as it was. No wire request exists yet for these actions, so the
 /// first-party heads supply none and the pane shows its buttons disabled.
 /// </summary>
