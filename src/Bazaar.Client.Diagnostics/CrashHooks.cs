@@ -27,6 +27,7 @@ public sealed class CrashHooks : IDisposable
     private readonly RingBuffer<CaptureLogEntry>? _logs;
     private readonly CrashReportContext _context;
     private readonly TimeProvider _time;
+    private readonly CrashSentinel? _sentinel;
     private readonly UnhandledExceptionEventHandler _onUnhandled;
     private readonly EventHandler<UnobservedTaskExceptionEventArgs> _onUnobserved;
     private readonly object _installGate = new();
@@ -42,13 +43,15 @@ public sealed class CrashHooks : IDisposable
     /// <param name="logs">The recent log entries, or null when the host keeps none. The newest <c>log_lines</c> are copied.</param>
     /// <param name="context">The install, client and device information the host supplies.</param>
     /// <param name="time">The clock for capture and report times.</param>
+    /// <param name="sentinel">The crash-on-last-run marker (doc 43 section 7.5), or null for none. Armed by <see cref="Install"/>, disarmed by <see cref="Dispose"/>.</param>
     public CrashHooks(
         ClientCapture capture,
         CrashReportQueue queue,
         Func<ConsentSettings> consent,
         RingBuffer<CaptureLogEntry>? logs,
         CrashReportContext context,
-        TimeProvider time)
+        TimeProvider time,
+        CrashSentinel? sentinel = null)
     {
         ArgumentNullException.ThrowIfNull(capture);
         ArgumentNullException.ThrowIfNull(queue);
@@ -62,6 +65,7 @@ public sealed class CrashHooks : IDisposable
         _logs = logs;
         _context = context;
         _time = time;
+        _sentinel = sentinel;
         _onUnhandled = OnUnhandledException;
         _onUnobserved = OnUnobservedTaskException;
     }
@@ -91,6 +95,7 @@ public sealed class CrashHooks : IDisposable
             AppDomain.CurrentDomain.UnhandledException += _onUnhandled;
             TaskScheduler.UnobservedTaskException += _onUnobserved;
             _installed = true;
+            _sentinel?.Arm();
         }
     }
 
@@ -104,6 +109,7 @@ public sealed class CrashHooks : IDisposable
                 AppDomain.CurrentDomain.UnhandledException -= _onUnhandled;
                 TaskScheduler.UnobservedTaskException -= _onUnobserved;
                 _installed = false;
+                _sentinel?.Disarm();
             }
 
             _disposed = true;
@@ -151,6 +157,7 @@ public sealed class CrashHooks : IDisposable
                     try
                     {
                         _queue.Add(report);
+                        _sentinel?.NoteReport();
                     }
                     catch (Exception)
                     {
