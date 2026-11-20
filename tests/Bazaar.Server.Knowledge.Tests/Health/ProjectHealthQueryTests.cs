@@ -2,7 +2,7 @@ using Bazaar.Server.Knowledge.Health;
 using Bazaar.Server.Knowledge.Metrics;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Bazaar.Server.Tests.Knowledge.Health;
+namespace Bazaar.Server.Knowledge.Tests.Health;
 
 public sealed class ProjectHealthQueryTests
 {
