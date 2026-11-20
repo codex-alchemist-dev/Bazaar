@@ -33,6 +33,7 @@
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Rubedo.Analysis/Bazaar.Rubedo.Analysis.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Client.Rubedo.Playground/Bazaar.Client.Rubedo.Playground.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
     <Project Path="src/Bazaar.Michi/Bazaar.Michi.csproj" />
@@ -172,6 +173,7 @@
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Analysis.Tests/Bazaar.Rubedo.Analysis.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Rubedo.Playground.Tests/Bazaar.Client.Rubedo.Playground.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Windows.Tests/Bazaar.Client.Windows.Tests.csproj" />
     <Project Path="tests/Bazaar.Secrets.Windows.Tests/Bazaar.Secrets.Windows.Tests.csproj" />
