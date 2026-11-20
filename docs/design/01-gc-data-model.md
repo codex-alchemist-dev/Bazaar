@@ -123,15 +123,18 @@ gc_event(gc_id, seq, event_id, kind, author_kind, author_id, session_id,
          source_trust, tainted_at_write bool, taint_sources jsonb,
          message_id NULL, version NULL, target_seq NULL, reply_to_seq NULL,
          payload jsonb, payload_ct bytea NULL, key_id NULL,        -- personal values in payload_ct
-         client_msg_id, created_at)   -- pk (gc_id, seq); unique (gc_id, author_id, client_msg_id)
+         client_msg_id, created_at,
+         soul_id NULL, soul_version NULL)   -- pk (gc_id, seq); unique (gc_id, author_id, client_msg_id)
 gc_message(gc_id, message_id, first_seq, author_id)               -- pk (gc_id, message_id)
-gc_message_version(gc_id, message_id, version, body_ct bytea, key_id, editor_id, created_at)
+gc_message_version(gc_id, message_id, version, body_ct bytea, key_id, editor_id, created_at, soul_id NULL, soul_version NULL)
 gc_mention(gc_id, seq, target_principal_id)
 entry_ref(gc_id, seq, ref_kind, ref_id, snapshot jsonb)
 gc_access_request(id, gc_id, requester, status, decided_by, decided_seq)
 read_state(principal_id, gc_id, last_read_seq)
 consumer_cursor(consumer, gc_id, last_seq)
 ```
+**Soul stamp (doc 07 "Versioning", migration `gc/0001`).** An agent-authored event carries the Soul version it was produced under in two typed, indexed columns, `soul_id` and `soul_version`, on `gc_event` and on `gc_message_version` (the version that carried the text). Both are set or both are null, and only an agent author may set them (CHECK constraints). The server sets them from `ISoulBindings` (`Bazaar.Souls.Abstractions`), never from client input. There is no foreign key to Souls, because GC and Souls are separate modules (owner, 2026-11-16): the writer validates each stamp through `ISoulBindings.IsValidStampAsync` before it writes, a repeat of an idempotency key returns the original event with its original stamp, and the Souls reconciliation (`SoulStampReconciler`, reported to Kodo through the module health contract) finds a stamp whose version no longer exists. Human, system and bridge events carry no stamp.
+
 `gc_event`, `gc_message`, `gc_message_version`, `gc_mention`, `entry_ref` are hash-partitioned by `gc_id`. Every key includes `gc_id`. `gc.head_seq` is locked per GC, which keeps seq gap-free.
 
 Append: one transaction increments `gc.head_seq`, inserts the event, message or version rows and mentions in one statement and commits. NOTIFY is not sent inside that transaction: after commit, a coalescing notifier sends `pg_notify('gc', '{"gc":..,"seq":..}')` with the newest seq per GC, one transaction every few ms (spike S3: in-transaction NOTIFY serialises commits and gave unstable tails). Consumers read from a per-GC cursor that advances only over contiguous seq; a periodic head-versus-cursor sweep covers a crash between commit and notify.
