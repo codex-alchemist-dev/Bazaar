@@ -1,0 +1,564 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bazaar wire payloads",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:c1c849d3359acca5d6f5f957d0660697511dba990dabe7c80aed7e460adb66c5. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "x-protocol": { "major": 1, "minor": 0 },
+  "x-schemaHash": "sha256:c1c849d3359acca5d6f5f957d0660697511dba990dabe7c80aed7e460adb66c5",
+  "x-messages": {
+    "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
+    "gc.history": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcHistory" },
+    "gc.member.add": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberAdd" },
+    "gc.member.remove": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberRemove" },
+    "gc.message": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcMessage" },
+    "gc.read": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcRead" },
+    "gc.send": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcSend" },
+    "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
+    "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
+    "lagged": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Lagged" },
+    "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
+    "pong": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Pong" },
+    "resync": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Resync" },
+    "ryusei.trigger.list": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerListRequest" },
+    "ryusei.trigger.pause": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest" },
+    "ryusei.trigger.resume": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest" },
+    "stream.revoked": { "$ref": "#/$defs/Bazaar.Contracts.Wire.StreamRevoked" },
+    "subscribe": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Subscribe" },
+    "unsubscribe": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Unsubscribe" },
+    "welcome": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Welcome" }
+  },
+  "$defs": {
+    "Bazaar.Contracts.Gc.PrincipalKind": { "anyOf": [ { "type": "string", "enum": ["owner", "human", "agent"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.Graph.ClusterGlyph": {
+      "type": "object",
+      "properties": {
+        "clusterId": { "type": "string" },
+        "memberCount": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      },
+      "required": ["clusterId", "memberCount", "x", "y", "z"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.FocusRequest": {
+      "type": "object",
+      "properties": {
+        "viewId": { "type": "string" },
+        "nodeId": { "type": "string" }
+      },
+      "required": ["viewId", "nodeId"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphEdge": {
+      "type": "object",
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphEdgeKind" }
+      },
+      "required": ["from", "to"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphEdgeKind": { "anyOf": [ { "type": "string", "enum": ["unspecified", "dependsOn", "phaseMembership", "wikiLink"] }, { "type": "integer", "enum": [0, 1, 2, 3] } ] },
+    "Bazaar.Contracts.Graph.GraphLodEdge": {
+      "type": "object",
+      "properties": {
+        "a": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "b": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "weight": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["a", "b", "weight"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphLodFrame": {
+      "type": "object",
+      "properties": {
+        "s": { "type": "string" },
+        "graphVersion": { "type": "integer" },
+        "clustersOnly": { "type": "boolean" },
+        "clusters": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodGlyph" } },
+        "clusterEdges": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodEdge" } },
+        "tiles": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodTile" } }
+      },
+      "required": ["s", "graphVersion", "clustersOnly", "clusters", "clusterEdges", "tiles"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphLodGlyph": {
+      "type": "object",
+      "properties": {
+        "cluster": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "centroid": { "type": "array", "items": { "type": "number" } },
+        "count": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["cluster", "centroid", "count"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphLodTile": {
+      "type": "object",
+      "properties": {
+        "col": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "row": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "nodeIndices": { "type": "array", "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }
+      },
+      "required": ["col", "row", "nodeIndices"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphNode": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphNodeKind" }
+      },
+      "required": ["id"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.GraphNodeKind": { "anyOf": [ { "type": "string", "enum": ["unspecified", "objective", "phase", "vault"] }, { "type": "integer", "enum": [0, 1, 2, 3] } ] },
+    "Bazaar.Contracts.Graph.GraphSnapshot": {
+      "type": "object",
+      "properties": {
+        "graphVersion": { "type": "integer" },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphNode" } },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphEdge" } }
+      },
+      "required": ["graphVersion", "nodes", "edges"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.LayoutFrame": {
+      "type": "object",
+      "properties": {
+        "graphVersion": { "type": "integer" },
+        "layoutSeq": { "type": "integer" },
+        "focusId": { "type": "string" },
+        "xyz": { "type": "array", "items": { "type": "number" } }
+      },
+      "required": ["graphVersion", "layoutSeq", "focusId", "xyz"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.TileFrame": {
+      "type": "object",
+      "properties": {
+        "viewId": { "type": "string" },
+        "graphVersion": { "type": "integer" },
+        "layoutSeq": { "type": "integer" },
+        "key": { "$ref": "#/$defs/Bazaar.Contracts.Graph.TileKey" },
+        "tier": { "$ref": "#/$defs/Bazaar.Contracts.Graph.ZoomTier" },
+        "dimensions": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "nodeIds": { "type": "array", "items": { "type": "string" } },
+        "xyz": { "type": "array", "items": { "type": "number" } },
+        "clusters": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Graph.ClusterGlyph" } }
+      },
+      "required": ["viewId", "graphVersion", "layoutSeq", "key", "tier", "dimensions", "nodeIds", "xyz", "clusters"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.TileKey": {
+      "type": "object",
+      "properties": {
+        "level": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "x": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "y": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "z": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["level", "x", "y"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.ViewportRequest": {
+      "type": "object",
+      "properties": {
+        "viewId": { "type": "string" },
+        "graphVersion": { "type": "integer" },
+        "tier": { "$ref": "#/$defs/Bazaar.Contracts.Graph.ZoomTier" },
+        "minX": { "type": "number" },
+        "minY": { "type": "number" },
+        "minZ": { "type": "number" },
+        "maxX": { "type": "number" },
+        "maxY": { "type": "number" },
+        "maxZ": { "type": "number" },
+        "maxNodes": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["viewId", "graphVersion", "tier", "minX", "minY", "minZ", "maxX", "maxY", "maxZ", "maxNodes"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Graph.ZoomTier": { "anyOf": [ { "type": "string", "enum": ["far", "mid", "near"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.Kanban.KanbanBoardCard": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "title": { "type": "string" },
+        "state": { "type": "string" },
+        "ownerAgentId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "unfinishedBlockerIds": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } },
+        "blockerTitles": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "title", "state", "unfinishedBlockerIds", "blockerTitles"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Kanban.KanbanBoardRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+      },
+      "required": ["projectId"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Kanban.KanbanBoardSnapshot": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "cards": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardCard" } }
+      },
+      "required": ["projectId", "cards"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Roadmap.RoadmapBoardSnapshot": {
+      "type": "object",
+      "properties": {
+        "vaultId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "phases": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Roadmap.RoadmapPhaseDto" } },
+        "unphasedObjectives": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Roadmap.RoadmapObjectiveDto" } },
+        "dependencyCycle": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Roadmap.RoadmapDocumentErrorDto" } }
+      },
+      "required": ["vaultId", "phases", "unphasedObjectives", "dependencyCycle", "errors"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Roadmap.RoadmapDocumentErrorDto": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "field": { "type": "string" },
+        "message": { "type": "string" }
+      },
+      "required": ["path", "field", "message"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Roadmap.RoadmapObjectiveDto": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "title": { "type": "string" },
+        "phaseSlug": { "type": "string" },
+        "status": { "type": "string" },
+        "owner": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "dependsOn": { "type": "array", "items": { "type": "string" } },
+        "progress": { "$ref": "#/$defs/Bazaar.Contracts.Roadmap.RoadmapProgressDto" }
+      },
+      "required": ["path", "title", "phaseSlug", "status", "dependsOn", "progress"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Roadmap.RoadmapPhaseDto": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "path": { "type": "string" },
+        "title": { "type": "string" },
+        "gatePassed": { "type": "boolean" },
+        "objectiveCount": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "openObjectives": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "objectives": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Roadmap.RoadmapObjectiveDto" } }
+      },
+      "required": ["slug", "path", "title", "gatePassed", "objectiveCount", "openObjectives", "objectives"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Roadmap.RoadmapProgressDto": {
+      "type": "object",
+      "properties": {
+        "linkedTasks": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "backlog": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "ready": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "inProgress": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "review": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "done": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "doneShare": { "anyOf": [ { "type": "number" }, { "type": "null" } ] }
+      },
+      "required": ["linkedTasks", "backlog", "ready", "inProgress", "review", "done"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Ryusei.RyuseiTriggerChangeReply": {
+      "type": "object",
+      "properties": {
+        "triggerId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "version": { "type": "integer" }
+      },
+      "required": ["triggerId", "version"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest": {
+      "type": "object",
+      "properties": {
+        "triggerId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+      },
+      "required": ["triggerId"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Ryusei.RyuseiTriggerChip": {
+      "type": "object",
+      "properties": {
+        "triggerId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "taskId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "kind": { "type": "string" },
+        "state": { "type": "string" },
+        "nextFireAt": { "anyOf": [ { "type": "string", "format": "date-time" }, { "type": "null" } ] },
+        "purpose": { "type": "string" },
+        "version": { "type": "integer" }
+      },
+      "required": ["triggerId", "kind", "state", "purpose", "version"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Ryusei.RyuseiTriggerListReply": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "triggers": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerChip" } }
+      },
+      "required": ["projectId", "triggers"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Ryusei.RyuseiTriggerListRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+      },
+      "required": ["projectId"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcEdit": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "messageId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "text": { "type": "string" }
+      },
+      "required": ["gcId", "messageId", "text"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcHistory": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "before": { "type": "integer" },
+        "limit": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["gcId", "before", "limit"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcMemberAdd": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "principalId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "kind": { "$ref": "#/$defs/Bazaar.Contracts.Gc.PrincipalKind" },
+        "role": { "type": "string" }
+      },
+      "required": ["gcId", "principalId", "kind", "role"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcMemberRemove": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "principalId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+      },
+      "required": ["gcId", "principalId"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcPage": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcMessage" } },
+        "hasMore": { "type": "boolean" }
+      },
+      "required": ["items", "hasMore"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcRead": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "upToN": { "type": "integer" }
+      },
+      "required": ["gcId", "upToN"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcSend": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "text": { "type": "string" },
+        "mentions": { "anyOf": [ { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } }, { "type": "null" } ] },
+        "replyToN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] }
+      },
+      "required": ["gcId", "text"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcSendResult": {
+      "type": "object",
+      "properties": {
+        "n": { "type": "integer" },
+        "ev": { "type": "integer" }
+      },
+      "required": ["n", "ev"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Hello": {
+      "type": "object",
+      "properties": {
+        "versionMin": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "versionMax": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "minor": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "codecs": { "type": "array", "items": { "type": "string" } },
+        "deviceId": { "type": "string" },
+        "deviceClass": { "type": "string" },
+        "clientBuild": { "type": "string" },
+        "credential": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "cursors": { "anyOf": [ { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.StreamCursor" } }, { "type": "null" } ] }
+      },
+      "required": ["versionMin", "versionMax", "minor", "codecs", "deviceId", "deviceClass", "clientBuild"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Lagged": {
+      "type": "object",
+      "properties": {
+        "s": { "type": "string" },
+        "lastSent": { "type": "integer" }
+      },
+      "required": ["s", "lastSent"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Ping": {
+      "type": "object",
+      "properties": {
+        "nonce": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Pong": {
+      "type": "object",
+      "properties": {
+        "nonce": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Resync": {
+      "type": "object",
+      "properties": {
+        "s": { "type": "string" },
+        "latestN": { "type": "integer" },
+        "latestEv": { "type": "integer" },
+        "unread": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "tail": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcMessage" } }
+      },
+      "required": ["s", "latestN", "latestEv", "unread", "tail"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.StreamCursor": {
+      "type": "object",
+      "properties": {
+        "s": { "type": "string" },
+        "after": { "type": "integer" },
+        "editAfter": { "type": "integer" }
+      },
+      "required": ["s", "after", "editAfter"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.StreamResult": {
+      "type": "object",
+      "properties": {
+        "s": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["s", "status"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.StreamRevoked": {
+      "type": "object",
+      "properties": {
+        "s": { "type": "string" }
+      },
+      "required": ["s"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Subscribe": {
+      "type": "object",
+      "properties": {
+        "streams": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.StreamCursor" } }
+      },
+      "required": ["streams"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.SubscribeResult": {
+      "type": "object",
+      "properties": {
+        "results": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.StreamResult" } }
+      },
+      "required": ["results"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Unsubscribe": {
+      "type": "object",
+      "properties": {
+        "streams": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["streams"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.Welcome": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "minor": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "codec": { "type": "string" },
+        "principalId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "serverTime": { "type": "string", "format": "date-time" },
+        "heartbeatIntervalS": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "heartbeatTimeoutS": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "limits": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireLimits" },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "uiRevision": { "type": "integer" },
+        "upgradeRequired": { "anyOf": [ { "type": "boolean" }, { "type": "null" } ] },
+        "minimumBuild": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["version", "minor", "codec", "principalId", "serverTime", "heartbeatIntervalS", "heartbeatTimeoutS", "limits", "capabilities", "uiRevision"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.WireError": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "retryAfterMs": { "anyOf": [ { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, { "type": "null" } ] }
+      },
+      "required": ["code"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.WireGcMessage": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "n": { "type": "integer" },
+        "ev": { "type": "integer" },
+        "messageId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "authorId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "text": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" },
+        "edited": { "type": "boolean" },
+        "mentions": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } },
+        "replyToN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] }
+      },
+      "required": ["gcId", "n", "ev", "messageId", "authorId", "text", "ts", "edited", "mentions"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.WireLimits": {
+      "type": "object",
+      "properties": {
+        "maxFrameBytes": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "inflightRequestsMax": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "replayPageSize": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["maxFrameBytes", "inflightRequestsMax", "replayPageSize"],
+      "additionalProperties": true
+    }
+  }
+}
