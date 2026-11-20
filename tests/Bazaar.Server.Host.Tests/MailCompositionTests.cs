@@ -43,6 +43,8 @@ public sealed class MailCompositionTests
 
             Assert.IsType<PostgresMailQuarantineStore>(sp.GetRequiredService<IMailQuarantineStore>());
             Assert.NotNull(sp.GetRequiredService<IMailGcAppender>());
+            Assert.IsNotType<FailClosedMailBodyProtector>(sp.GetRequiredService<Bazaar.Server.MailOutbound.IMailBodyProtector>());
+            Assert.IsNotType<FailClosedMailBodySealer>(sp.GetRequiredService<Bazaar.Server.MailInbound.IMailBodySealer>());
             var hosted = sp.GetServices<IHostedService>().ToList();
             Assert.Single(hosted, s => s is InboundMailHostedService);
             Assert.Single(hosted, s => s is OutboundMailResumeHostedService);

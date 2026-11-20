@@ -1,8 +1,12 @@
 using Bazaar.RateLimits;
+using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Mail.Quarantine;
 using Bazaar.Server.MailDns;
+using Bazaar.Server.MailInbound;
+using Bazaar.Server.MailOutbound;
 using Bazaar.Server.MailRuntime;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +42,13 @@ public static class MailCompositionExtensions
             new DelegateMailGcAppender((request, ct) => sp.GetRequiredService<IGcLogWriter>().AppendAsync(request, ct)));
         services.TryAddSingleton<IMailQuarantineStore>(sp =>
             new PostgresMailQuarantineStore(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<TimeProvider>()));
+        // Mail bodies are per-person encrypted fields (doc 22, doc 04). Without a KEK provider the fail-closed defaults stay in place.
+        services.TryAddSingleton<IMailPersonKeys>(sp =>
+            new PersonKeyStoreMailKeys(new PersonKeyStore(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<IKekProvider>())));
+        services.TryAddSingleton<IMailBodyProtector>(sp =>
+            sp.GetService<IKekProvider>() is null ? new FailClosedMailBodyProtector() : new PersonKeyMailBodyProtector(sp.GetRequiredService<IMailPersonKeys>()));
+        services.TryAddSingleton<IMailBodySealer>(sp =>
+            sp.GetService<IKekProvider>() is null ? new FailClosedMailBodySealer() : new PersonKeyMailBodySealer(sp.GetRequiredService<IMailPersonKeys>()));
         services.AddBazaarRateLimits();
         services.AddBazaarMailScreening();
         services.AddBazaarMailDns();

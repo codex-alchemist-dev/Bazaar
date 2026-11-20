@@ -50,7 +50,7 @@ public sealed class PostgresOutboundMailStore(NpgsqlDataSource dataSource, IMail
         if (!reader.IsDBNull(12))
         {
             var body = new ProtectedBody(reader.GetGuid(11), reader.GetFieldValue<byte[]>(12), reader.GetFieldValue<byte[]>(13));
-            var envelope = JsonSerializer.Deserialize(protector.Unprotect(body), OutboundEnvelopeContext.Default.OutboundEnvelope);
+            var envelope = JsonSerializer.Deserialize(await protector.UnprotectAsync(body, ct).ConfigureAwait(false), OutboundEnvelopeContext.Default.OutboundEnvelope);
             request = envelope?.ToRequest();
         }
 
@@ -75,7 +75,7 @@ public sealed class PostgresOutboundMailStore(NpgsqlDataSource dataSource, IMail
         var request = record.Request ?? throw new ArgumentException("A new send carries its request.", nameof(record));
 
         var envelope = JsonSerializer.SerializeToUtf8Bytes(OutboundEnvelope.From(request), OutboundEnvelopeContext.Default.OutboundEnvelope);
-        var body = protector.Protect(request.AgentId, envelope);
+        var body = await protector.ProtectAsync(request.AgentId, envelope, ct).ConfigureAwait(false);
 
         await using var connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
