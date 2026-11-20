@@ -66,7 +66,7 @@ public static partial class SetupPlanValidator
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
         ValidateUpdatePolicy(plan, issues);
-        ValidateIdentityKek(plan, registry, issues);
+        ValidateIdentityKek(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
@@ -361,37 +361,17 @@ public static partial class SetupPlanValidator
     }
 
     /// <summary>
-    /// The identity KEK provider (doc 45 step 5, doc 14 <c>identity.kek_provider</c>). Optional: absent writes nothing and needs no
-    /// registry key. A value must be file, dpapi, openbao or tpm (a provider may land in a later build, the plan value is valid now).
-    /// The plan field is the one place that sets the key. When the key is not registered in this build the plan is refused with a clear
-    /// error rather than accepted and silently not stored.
+    /// The identity KEK provider (doc 45 step 5, doc 14 <c>identity.kek_provider</c>). Optional: absent writes nothing. A value must be
+    /// file, dpapi, openbao or tpm (a provider may land in a later build, the plan value is valid now). The KEK opens before the
+    /// database, so this value is applied to the host configuration file, not to the settings registry (PROPOSED, doc 45 step 5).
     /// </summary>
-    private static void ValidateIdentityKek(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    private static void ValidateIdentityKek(SetupPlan plan, List<SetupValidationIssue> issues)
     {
-        if (plan.Settings.ContainsKey(SetupSettingProjection.IdentityKekKey))
-        {
-            issues.Add(Error("settings." + SetupSettingProjection.IdentityKekKey, "is already set by custody.identityKek; set it in one place."));
-        }
-
         var value = plan.Custody.IdentityKek;
-        if (value is null)
-        {
-            return;
-        }
-
-        if (!_identityKekProviders.Contains(value, StringComparer.Ordinal))
+        if (value is not null && !_identityKekProviders.Contains(value, StringComparer.Ordinal))
         {
             issues.Add(Error("custody.identityKek", "must be file, dpapi, openbao or tpm, or omitted for the server default."));
-            return;
         }
-
-        if (!registry.TryGet(SetupSettingProjection.IdentityKekKey, out var definition) || definition is null)
-        {
-            issues.Add(Error("custody.identityKek", "the identity.kek_provider setting is not registered in this build."));
-            return;
-        }
-
-        CheckRegistryValue(definition, "custody.identityKek", JsonSerializer.SerializeToElement(value, SetupPlanJsonContext.Default.String), issues);
     }
 
     /// <summary>
