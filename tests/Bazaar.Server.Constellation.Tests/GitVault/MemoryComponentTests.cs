@@ -33,6 +33,7 @@ public sealed class MemoryComponentTests : IDisposable
     {
         var services = new ServiceCollection();
 
+        new Bazaar.Server.Vault.VaultComponent().AddServices(services, Config());
         new MemoryComponent().AddServices(services, Config());
 
         Assert.Empty(services);
@@ -128,6 +129,7 @@ public sealed class MemoryComponentTests : IDisposable
             services.AddSingleton(audit);
         }
 
+        new Bazaar.Server.Vault.VaultComponent().AddServices(services, Config(values));
         new MemoryComponent().AddServices(services, Config(values));
         if (graph is not null)
         {

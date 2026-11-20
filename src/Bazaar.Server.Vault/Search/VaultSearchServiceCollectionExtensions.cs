@@ -14,6 +14,7 @@ public static class VaultSearchServiceCollectionExtensions
         services.AddSingleton(options ?? new VaultSearchOptions());
         services.AddSingleton<Data.VaultSearchRepository>();
         services.AddSingleton<VaultSearchService>();
+        services.AddSingleton<IVaultSearchService>(sp => sp.GetRequiredService<VaultSearchService>());
         return services;
     }
 }

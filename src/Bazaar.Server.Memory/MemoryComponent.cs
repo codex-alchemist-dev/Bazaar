@@ -75,15 +75,9 @@ public sealed class MemoryComponent : IBazaarComponent
             agent => new GitIdentity(agent, authorFormat.Replace(_agentToken, agent, StringComparison.Ordinal)));
         Guid? vaultId = Guid.TryParse(configuration[VaultIdKey], out var parsed) ? parsed : null;
 
-        services.TryAddSingleton<IGitProvider, LibGit2GitProvider>();
-        services.TryAddSingleton(sp => new VaultWriter(
-            sp.GetRequiredService<IGitProvider>(),
-            repoPath,
-            new GitIdentity(writerName, writerEmail),
-            sp.GetService<IVaultCommitObserver>()));
-        services.TryAddSingleton<IVaultWriter>(sp => sp.GetRequiredService<VaultWriter>());
+        // IGitProvider and IVaultWriter come from the Vault component (it reads the same Memory:Vault:* host keys).
 
-        services.TryAddSingleton<IMemoryLexicalIndex>(sp => vaultId is { } id && sp.GetService<VaultSearchService>() is { } search
+        services.TryAddSingleton<IMemoryLexicalIndex>(sp => vaultId is { } id && sp.GetService<IVaultSearchService>() is { } search
             ? new VaultSearchLexicalIndex(search, id)
             : new NullMemoryLexicalIndex());
         services.TryAddSingleton<GitMemoryVault>(sp => new GitMemoryVault(

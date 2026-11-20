@@ -10,7 +10,7 @@ namespace Bazaar.Server.Vault.Search;
 public sealed class VaultSearchService(
     VaultSearchRepository repository,
     IVaultQueryEmbedder? embedder = null,
-    VaultSearchOptions? options = null)
+    VaultSearchOptions? options = null) : IVaultSearchService
 {
     private readonly VaultSearchOptions _options = options ?? new VaultSearchOptions();
 

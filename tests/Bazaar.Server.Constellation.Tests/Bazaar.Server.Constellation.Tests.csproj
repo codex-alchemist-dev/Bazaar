@@ -25,6 +25,6 @@
   </ItemGroup>
   <ItemGroup>
     <!-- TempGitRepository is shared with the Vault tests that stay in tests/Bazaar.Server.Tests; linked, not copied. -->
-    <Compile Include="..\Bazaar.Server.Tests\Vault\Git\TempGitRepository.cs" Link="Vault\Git\TempGitRepository.cs" />
+    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Git\TempGitRepository.cs" Link="Vault\Git\TempGitRepository.cs" />
   </ItemGroup>
 </Project>
