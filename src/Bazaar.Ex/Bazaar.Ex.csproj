@@ -4,6 +4,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
-    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
   </ItemGroup>
 </Project>

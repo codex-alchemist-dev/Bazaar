@@ -1,6 +1,6 @@
-using Bazaar.Ex.Commands;
+using Bazaar.Client.Core.Commands;
 
-namespace Bazaar.Ex.Tests.Commands;
+namespace Bazaar.Client.Core.Tests.Commands;
 
 public class FuzzyScorerTests
 {

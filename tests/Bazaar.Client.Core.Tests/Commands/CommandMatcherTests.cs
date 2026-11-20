@@ -1,7 +1,6 @@
-using Bazaar.Ex.Commands;
-using Bazaar.Rubedo.Rules;
+using Bazaar.Client.Core.Commands;
 
-namespace Bazaar.Ex.Tests.Commands;
+namespace Bazaar.Client.Core.Tests.Commands;
 
 public class CommandMatcherTests
 {
@@ -101,21 +100,6 @@ public class CommandMatcherTests
         Assert.Empty(matcher.Search(registry, "panel"));
         enabled = true;
         Assert.Single(matcher.Search(registry, "panel"));
-    }
-
-    [Fact]
-    public void Rule_bearing_command_needs_a_context_to_appear()
-    {
-        var ruled = new Command("ruled", "Phone only", "po", null, CommandSource.Local, null, "deviceClass == \"phone\"");
-        var registry = Registry(ruled, Cmd("plain", "Phone plain"));
-        var matcher = new CommandMatcher();
-        var phone = RubedoContext.ForDevice("phone", "single", "folded", 400, 800, 1m, false, false, "light");
-        var desktop = RubedoContext.ForDevice("desktop", "single", "folded", 1400, 800, 1m, false, false, "light");
-
-        Assert.Equal(["plain"], matcher.Search(registry, "phone").Select(r => r.Command.Id));
-        Assert.Equal(["plain"], matcher.Search(registry, "phone", null).Select(r => r.Command.Id));
-        Assert.Equal(["plain", "ruled"], matcher.Search(registry, "phone", phone).Select(r => r.Command.Id).Order());
-        Assert.Equal(["plain"], matcher.Search(registry, "phone", desktop).Select(r => r.Command.Id));
     }
 
     [Fact]

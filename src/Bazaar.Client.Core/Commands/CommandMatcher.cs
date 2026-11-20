@@ -1,6 +1,4 @@
-using Bazaar.Rubedo.Rules;
-
-namespace Bazaar.Ex.Commands;
+namespace Bazaar.Client.Core.Commands;
 
 /// <summary>Which command field produced the match. Lower values rank first.</summary>
 public enum CommandMatchField
@@ -35,11 +33,7 @@ public sealed class CommandMatcher
         _recency = recency ?? new CommandRecency();
     }
 
-    /// <summary>Searches without a Rubedo context: commands with an <c>enabledWhen</c> rule fail closed and are left out.</summary>
-    public IReadOnlyList<CommandMatch> Search(CommandRegistry registry, string query) => Search(registry, query, null);
-
-    /// <summary>Searches with the head's context so <c>enabledWhen</c> rules are evaluated. A null context behaves like the overload without one.</summary>
-    public IReadOnlyList<CommandMatch> Search(CommandRegistry registry, string query, RubedoContext? context)
+    public IReadOnlyList<CommandMatch> Search(CommandRegistry registry, string query)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(query);
@@ -48,7 +42,7 @@ public sealed class CommandMatcher
         foreach (var command in registry.Commands)
         {
             // Enabled is evaluated now, at query time, so disabled commands never appear.
-            if (!(context is null ? command.IsEnabled() : command.IsEnabled(context)))
+            if (!command.IsEnabled())
             {
                 continue;
             }
