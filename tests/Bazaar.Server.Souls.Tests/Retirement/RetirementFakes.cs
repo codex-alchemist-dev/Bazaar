@@ -1,7 +1,7 @@
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Retirement;
 
-namespace Bazaar.Server.Tests.Souls.Retirement;
+namespace Bazaar.Server.Souls.Tests.Retirement;
 
 /// <summary>Port calls in the order they happened, shared by every fake in one test.</summary>
 internal sealed class CallLog

@@ -4,7 +4,7 @@ using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls;
 using Bazaar.Server.Souls.Bundles;
 
-namespace Bazaar.Server.Tests.Souls.Bundles;
+namespace Bazaar.Server.Souls.Tests.Bundles;
 
 /// <summary>Shared inputs for the bundle exporter tests.</summary>
 internal static class BundleFixture

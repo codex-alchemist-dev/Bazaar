@@ -2,7 +2,7 @@ using System.Text;
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Import;
 
-namespace Bazaar.Server.Tests.Souls.Import;
+namespace Bazaar.Server.Souls.Tests.Import;
 
 public sealed class BundleImporterTests
 {

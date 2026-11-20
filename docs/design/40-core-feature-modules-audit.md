@@ -151,3 +151,22 @@ Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
 - `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs`, `Turns/Tools/Db/SessionTaintMapping.cs`: use `IToolPolicyEngine`, `SessionRoles`, `SessionTaint`, `TaintState` and `TaintSource` (`Bazaar.Server.Security`). Move with the Security abstractions.
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
+
+## Souls module (extraction from `Bazaar.Server/Souls`)
+
+Docs section this implements: this section (Souls extraction; the owner's direction to accelerate modularity transfer).
+
+`Bazaar.Server/Souls` (29 files plus the roster JSON) is split into two module projects. The namespaces did not change (`Bazaar.Server.Souls.*`), so callers only changed their project references. SQL migrations stay under `Bazaar.Server/Data/Sql` (frozen layout).
+
+- `Bazaar.Server.Souls.Abstractions`: the ports and records other code plugs into: `IGcJudgmentPoster` with `JudgmentPost` and `JudgmentPostReceipt`, `IDecisionFileWriter` with its records, `IBundleSigner`, `IBundleSignatureVerifier` with `BundleSignatureStatus`, the retirement ports (`IPassportRevoker`, `ITokenRevoker`, `IVmDiskRetirer`), `IRetirementLedger` and the retirement request records. It references `Bazaar.Contracts` only.
+- `Bazaar.Server.Souls`: the bundle exporter, importer, secret scanner and `FakeBundleSigner`, `JudgmentWriter` and `JudgmentDecisionFile`, `RetirementCoordinator` with the in-memory and Postgres ledgers and `AddBazaarRetirementLedger`, `SoulCanonicalJson`, `SoulVersioningService` and `SoulVersionConflictException`. It references the Abstractions project and `Bazaar.Contracts`; it does not reference `Bazaar.Server`.
+
+`Bazaar.Server` references both projects. `tests/Bazaar.Server.Souls.Tests` holds the tests that need only moved code (162 tests, no database). The Postgres-backed tests (`SoulVersioningServiceTests`, the retirement ledger and soul-data tests), `GcLogJudgmentPosterTests` and the preset tests stay in `tests/Bazaar.Server.Tests/Souls`, which links `JudgmentFixtures.cs` and `RetirementFakes.cs` from the new test project.
+
+Still in `Bazaar.Server/Souls` (5 files), with the reason each one stays:
+
+- `Presets/PresetLoader.cs`, `Presets/DefaultPresetRoster.cs`, `Presets/PresetValidationException.cs` and `Presets/Data/default-roster.json`: `PresetLoader` uses `ModelRef` (`Bazaar.Server.Gateway.Policy`); the roster and exception depend on it. Move with the Gateway abstractions (`ModelRef` is a candidate for `Bazaar.Contracts`).
+- `Judgments/GcLogJudgmentPoster.cs`: uses `IGcLogWriter` and the GC body codec (`Bazaar.Server.Gc.Write`, `Gc.Body`). Moves with the GC abstractions.
+- `Judgments/JudgmentServiceCollectionExtensions.cs`: registers `GcLogJudgmentPoster`, so it stays with it.
+
+One code change besides the move: `JudgmentDecisionFile.Quote` now uses `JavaScriptEncoder.UnsafeRelaxedJsonEscaping.Encode` instead of `JsonSerializer.Serialize`, because the new project is AOT-compatible and the reflection overload is not. Output is identical.

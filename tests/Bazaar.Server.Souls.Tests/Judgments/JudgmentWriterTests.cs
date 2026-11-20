@@ -2,7 +2,7 @@ using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Judgments;
 
-namespace Bazaar.Server.Tests.Souls.Judgments;
+namespace Bazaar.Server.Souls.Tests.Judgments;
 
 /// <summary>The judgment writer over fake ports (docs/design/07-soul-system.md, work package 4).</summary>
 public sealed class JudgmentWriterTests

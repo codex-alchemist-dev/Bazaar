@@ -4,7 +4,7 @@ using System.Text.Json;
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Import;
 
-namespace Bazaar.Server.Tests.Souls.Import;
+namespace Bazaar.Server.Souls.Tests.Import;
 
 /// <summary>
 /// Test-only signature verifier. It uses HMAC-SHA256 with keys held in the test, so it is a stand-in for the real

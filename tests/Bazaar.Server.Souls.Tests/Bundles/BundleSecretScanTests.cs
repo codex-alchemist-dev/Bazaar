@@ -2,7 +2,7 @@ using System.Text;
 using Bazaar.Server.Souls.Bundles;
 using Bazaar.Testing.Secrets;
 
-namespace Bazaar.Server.Tests.Souls.Bundles;
+namespace Bazaar.Server.Souls.Tests.Bundles;
 
 public sealed class BundleSecretScanTests
 {
