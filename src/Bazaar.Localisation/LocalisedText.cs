@@ -85,6 +85,34 @@ public sealed class LocalisedText
         return $"<{key}>";
     }
 
+    /// <summary>
+    /// Resolves a key as an ICU message (plurals, gender select, numbers in the locale of the catalogue that has it).
+    /// Returns <c>&lt;key&gt;</c> when no catalogue has the key, and <c>&lt;key: invalid&gt;</c> when the template is
+    /// malformed or an argument is missing, so a translator's mistake shows on screen instead of crashing the view.
+    /// </summary>
+    public string ResolveIcu(string key, IReadOnlyDictionary<string, object?> args)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(args);
+
+        foreach (MessageCatalog catalog in _chain)
+        {
+            if (catalog.TryGet(key, out string template))
+            {
+                try
+                {
+                    return IcuMessage.Format(template, catalog.Locale, args);
+                }
+                catch (FormatException)
+                {
+                    return $"<{key}: invalid>";
+                }
+            }
+        }
+
+        return $"<{key}>";
+    }
+
     /// <summary>True when the first catalogue that has the key is not the first locale in the chain.</summary>
     public bool UsesFallback(string key)
     {
