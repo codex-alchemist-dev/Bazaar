@@ -105,11 +105,17 @@ internal sealed class Harness
 
     public FixedTime Time { get; } = new(Fixtures.Now);
 
+    public IAccountApprovalStore Store { get; }
+
+    public AccountApprovalOptions Options { get; }
+
     public AccountApprovalService Service { get; }
 
-    public Harness(AccountApprovalOptions? options = null, bool allGood = true)
+    public Harness(AccountApprovalOptions? options = null, bool allGood = true, IAccountApprovalStore? store = null)
     {
         options ??= Fixtures.Options();
+        Options = options;
+        Store = store ?? new InMemoryAccountApprovalStore();
         if (allGood)
         {
             foreach (var id in options.PeerApprovers)
@@ -118,6 +124,10 @@ internal sealed class Harness
             }
         }
 
-        Service = new AccountApprovalService(Directory, Audit, HandOff, Fixtures.Wrap(options), Time);
+        Service = new AccountApprovalService(Directory, Audit, HandOff, Store, Fixtures.Wrap(options), Time);
     }
+
+    /// <summary>A second service over the same store, as after a server restart: the new instance holds no state of its own.</summary>
+    public AccountApprovalService Restart() =>
+        new(Directory, Audit, HandOff, Store, Fixtures.Wrap(Options), Time);
 }

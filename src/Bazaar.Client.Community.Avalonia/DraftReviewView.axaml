@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Bazaar.Client.Community"
+             xmlns:dto="using:Bazaar.Contracts.Community"
+             x:Class="Bazaar.Client.Community.Avalonia.DraftReviewView"
+             x:DataType="vm:DraftReviewViewModel"
+             FontFamily="{DynamicResource Bazaar.font.family.ui}"
+             FontSize="{DynamicResource Bazaar.font.size.body}"
+             Foreground="{DynamicResource Bazaar.brush.color.text.primary}">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource Bazaar.brush.color.text.secondary}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="{DynamicResource Bazaar.font.family.mono}" />
+    </Style>
+    <Style Selector="TextBox.mono">
+      <Setter Property="FontFamily" Value="{DynamicResource Bazaar.font.family.mono}" />
+    </Style>
+  </UserControl.Styles>
+  <Grid ColumnDefinitions="260,*">
+    <TextBlock Grid.ColumnSpan="2" Name="EmptyText" Margin="16" Classes="secondary"
+               IsVisible="{Binding IsEmpty}" Text="No drafts are waiting for review." />
+
+    <ListBox Name="DraftList" Grid.Column="0"
+             IsVisible="{Binding !IsEmpty}"
+             ItemsSource="{Binding Cards}"
+             SelectedItem="{Binding Selected, Mode=TwoWay}"
+             AutomationProperties.Name="Drafts waiting for review">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:DraftReviewItemViewModel">
+          <StackPanel Margin="4" Spacing="2">
+            <TextBlock FontWeight="SemiBold" Text="{Binding Target}" TextTrimming="CharacterEllipsis" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="secondary" Text="{Binding Platform}" />
+              <TextBlock Classes="secondary" Text="{Binding Kind}" />
+            </StackPanel>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <ScrollViewer Grid.Column="1" IsVisible="{Binding !IsEmpty}">
+      <ContentControl Content="{Binding Selected}">
+        <ContentControl.ContentTemplate>
+          <DataTemplate x:DataType="vm:DraftReviewItemViewModel">
+            <StackPanel Margin="16" Spacing="12">
+              <!-- Where the post goes. -->
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Name="PlatformText" FontWeight="SemiBold" Text="{Binding Platform}" />
+                <TextBlock Name="KindText" Classes="secondary" Text="{Binding Kind}" />
+                <TextBlock Name="TargetText" Text="{Binding Target}" TextWrapping="Wrap" />
+              </StackPanel>
+              <TextBlock Name="TitleText" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"
+                         IsVisible="{Binding HasTitle}" Text="{Binding Title}" />
+
+              <!-- The exact outbound text, quoted and read-only. It is data, never markup. -->
+              <TextBlock Classes="secondary" Text="Exact text that will be posted" />
+              <Border BorderBrush="{DynamicResource Bazaar.brush.color.border.default}"
+                      BorderThickness="3,0,0,0"
+                      Background="{DynamicResource Bazaar.brush.color.background.surface}"
+                      Padding="8">
+                <TextBox Name="BodyBox" Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                         BorderThickness="0" Background="Transparent"
+                         Text="{Binding Body, Mode=OneWay}"
+                         AutomationProperties.Name="Draft body, read-only quote" />
+              </Border>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="secondary" Text="SHA-256" />
+                <TextBlock Name="HashText" Classes="mono" Text="{Binding BodySha256}" TextWrapping="Wrap" />
+              </StackPanel>
+
+              <!-- Disclosure footer. Missing footer blocks approval. -->
+              <StackPanel Orientation="Horizontal" Spacing="8" Name="FooterIndicator"
+                          AutomationProperties.Name="Disclosure footer status">
+                <TextBlock Classes="secondary" Text="Disclosure footer" />
+                <TextBlock Name="FooterPresentText" FontWeight="SemiBold" Text="Present" IsVisible="{Binding FooterPresent}" />
+                <TextBlock Name="FooterMissingText" FontWeight="Bold" Text="MISSING" IsVisible="{Binding !FooterPresent}" />
+              </StackPanel>
+
+              <!-- Quality gates. Each row says Passed or FAILED in words, not colour alone. -->
+              <TextBlock Classes="secondary" Text="Quality gates" />
+              <ItemsControl Name="GateList" ItemsSource="{Binding Gates}" AutomationProperties.Name="Quality gate results">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="dto:QualityGateFindingDto">
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                      <TextBlock Classes="gate-pass" Text="Passed" IsVisible="{Binding Passed}" />
+                      <TextBlock Classes="gate-fail" FontWeight="Bold" Text="FAILED" IsVisible="{Binding !Passed}" />
+                      <TextBlock Text="{Binding Gate}" />
+                      <TextBlock Classes="secondary" Text="{Binding Detail}" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Taint lineage, quoted. -->
+              <StackPanel Spacing="4" IsVisible="{Binding HasExcerpts}">
+                <TextBlock Classes="secondary" Text="Untrusted content this draft was built from (quoted)" />
+                <ItemsControl Name="ExcerptList" ItemsSource="{Binding Excerpts}" AutomationProperties.Name="Quoted untrusted excerpts">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:QuotedExcerptLine">
+                      <Border BorderBrush="{DynamicResource Bazaar.brush.color.border.default}"
+                              BorderThickness="3,0,0,0" Padding="8,2" Margin="0,2">
+                        <StackPanel>
+                          <TextBlock Classes="secondary" FontSize="{DynamicResource Bazaar.font.size.small}">
+                            <Run Text="{Binding SourceId}" /><Run Text=" - " /><Run Text="{Binding Trust}" />
+                          </TextBlock>
+                          <TextBlock Classes="mono" Text="{Binding Text}" TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <!-- Editor, shown after Edit. The edit is sent as a new draft that needs a new approval. -->
+              <StackPanel Spacing="4" IsVisible="{Binding IsEditing}">
+                <TextBlock Classes="secondary" Text="Edit the text. It will be posted only after a new approval." />
+                <TextBox Name="EditBox" Classes="mono" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120"
+                         Text="{Binding EditedBody, Mode=TwoWay}"
+                         AutomationProperties.Name="Edited draft body" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Name="SubmitEditButton" Content="Send edit for approval" Command="{Binding SubmitEditCommand}"
+                          AutomationProperties.Name="Send edited draft as a new draft" />
+                  <Button Name="CancelEditButton" Content="Cancel edit" Command="{Binding CancelEditCommand}"
+                          AutomationProperties.Name="Cancel editing" />
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Name="ApproveButton" Content="Approve" Command="{Binding ApproveCommand}"
+                        AutomationProperties.Name="Approve this exact draft" />
+                <Button Name="DenyButton" Content="Deny" Command="{Binding DenyCommand}"
+                        AutomationProperties.Name="Deny this draft" />
+                <Button Name="EditButton" Content="Edit" Command="{Binding EditCommand}"
+                        AutomationProperties.Name="Edit this draft" />
+              </StackPanel>
+              <TextBlock Name="StatusText" Classes="secondary" TextWrapping="Wrap" Text="{Binding StatusText}" />
+              <TextBlock Name="ErrorText" FontWeight="Bold" TextWrapping="Wrap"
+                         IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                         Text="{Binding Error}" />
+            </StackPanel>
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

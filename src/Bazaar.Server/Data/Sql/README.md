@@ -33,6 +33,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `0013` | REP1 | merged | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
 | `0020` | CGR | this PR | Constellation projection views over 0001, 0009 and 0012 (doc 19 WP2): `constellation_*` views and `constellation_node_rows` / `constellation_edge_rows` read functions; no tables |
 | `0013` | REP1 | this PR | reputation ledger tables: `review`, `outcome_event`, `outcome_attribution`, `reviewer_calibration`, `weights_version`, `score_snapshot`, `reputation_event` (append-only) |
+| `gateway/0001` | Retention (doc 48 section 9) | this PR | `gw_usage.soft_deleted_at` tombstone for retention soft delete, a partial index on it, and `bazaar_app` grants (SELECT, INSERT, DELETE, UPDATE of the tombstone column only). Always applies (no component); `UsageRepository` filters tombstoned rows |
 | `remote/0001` | PAIR1 (group 32 WP1) | this PR | `human`, `device`, `refresh_credential`, `pairing_offer`, `passkey_credential`, `recovery_code`, `privacy_settings`, `privacy_request`, `approval_key` (doc 32). Applies with `RemoteComponent` (namespace `remote`) |
 | `remote/0002` | PAIR1 follow-up | this PR | `pairing_offer` gains `device_label`, `device_class`, `last_polled_at` (device request shown to the approver; slow_down). Applies with `RemoteComponent` |
 | `remote/0003` | PAIR1 removal (owner, 2026-11-16) | this PR | drops `pairing_offer`. Device pairing is removed; devices, refresh credentials and sign-in tables stay. Applies with `RemoteComponent` |
@@ -63,6 +64,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `identity/0001` | LEASE-DURABLE | this PR | `credential_lease.approval_id` with a unique partial index, so an approval backs at most one lease across restarts (`PostgresCredentialLeaseStore`). Own namespace, because `common/` is frozen |
 | `constellation/0001` | WP-D (memory graph) | this PR | `constellation_memory_revision` and `constellation_memory_edge`: append-only memory graph revisions with one active revision per note (docs/design/constellation-memory-graph.md, "Store"). Owned by `ConstellationComponent`; the migration lives in the `constellation` namespace because `common/` is frozen; no foreign keys |
 | `erasure/0001` | ERASE-HOLD | this PR | `legal_hold_event` (append-only, refuse trigger, `bazaar_app` insert and select only) and view `active_legal_hold`: legal holds (doc 48 section 9). Holds are created and released only through the owner's signed path, which is not on main yet. No foreign keys |
+| `roles/0001` | ROLES | this PR | `role`, `role_grant`, `role_assignment`: custom roles with capability-over-scope grants and role assignments for human, agent and service principals (doc 48 section 4). Built-in templates are inserted by `RoleService`, not by SQL. No foreign keys to people or agents |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces

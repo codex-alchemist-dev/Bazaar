@@ -297,8 +297,7 @@ public class GitLabForgeProviderTests
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
     [InlineData(HttpStatusCode.Forbidden)]
-    [InlineData(HttpStatusCode.NotFound)]
-    public async Task Auth_and_missing_errors_are_not_retried(HttpStatusCode status)
+    public async Task Auth_errors_are_not_retried(HttpStatusCode status)
     {
         var (provider, http, _, time) = Create();
         http.Json(_get, _project + "/merge_requests/42", "{\"message\":\"nope\"}", status);
@@ -308,6 +307,44 @@ public class GitLabForgeProviderTests
         Assert.Equal(status, error.StatusCode);
         Assert.Single(http.Requests);
         Assert.Empty(time.Delays);
+    }
+
+    [Fact]
+    public async Task A_missing_pr_is_the_neutral_not_found_and_is_not_retried()
+    {
+        var (provider, http, _, time) = Create();
+        http.Json(_get, _project + "/merge_requests/42", "{\"message\":\"404 Not found\"}", HttpStatusCode.NotFound);
+
+        var error = await Assert.ThrowsAsync<ForgeNotFoundException>(() => provider.GetPrAsync(Pr(), CancellationToken.None));
+
+        Assert.DoesNotContain(FakeCredentialSource.Secret, error.ToString());
+        Assert.DoesNotContain("Not found", error.Message);
+        Assert.Single(http.Requests);
+        Assert.Empty(time.Delays);
+    }
+
+    [Fact]
+    public async Task A_spent_rate_limit_budget_is_the_neutral_rate_limited_with_the_capped_hint()
+    {
+        var (provider, http, _, time) = Create(new GitLabOptions { MaxRetries = 1, MaxRetryAfter = TimeSpan.FromSeconds(30) });
+        http.Json(_get, _project + "/merge_requests/42", "{}", HttpStatusCode.TooManyRequests, ("Retry-After", "3600"));
+
+        var error = await Assert.ThrowsAsync<ForgeRateLimitedException>(() => provider.GetPrAsync(Pr(), CancellationToken.None));
+
+        Assert.Equal(TimeSpan.FromSeconds(30), error.RetryAfter);
+        Assert.Equal(2, http.Requests.Count);
+        Assert.Single(time.Delays);
+    }
+
+    [Fact]
+    public async Task A_spent_rate_limit_budget_without_a_hint_carries_none()
+    {
+        var (provider, http, _, _) = Create(new GitLabOptions { MaxRetries = 0 });
+        http.Json(_get, _project + "/merge_requests/42", "{}", HttpStatusCode.TooManyRequests);
+
+        var error = await Assert.ThrowsAsync<ForgeRateLimitedException>(() => provider.GetPrAsync(Pr(), CancellationToken.None));
+
+        Assert.Null(error.RetryAfter);
     }
 
     [Fact]
@@ -417,6 +454,32 @@ public class GitLabForgeProviderTests
         var request = Assert.Single(http.Requests);
         Assert.Equal("/api/v4/projects/group%2Fsub%2Fproject/merge_requests/42", request.Path);
         Assert.Equal("https://gitlab.com/api/v4/projects/group%2Fsub%2Fproject/merge_requests/42", request.Uri.GetLeftPart(UriPartial.Path));
+    }
+
+    [Fact]
+    public async Task Deeply_nested_subgroup_list_encodes_every_slash_in_one_segment()
+    {
+        var (provider, http, _, _) = Create();
+        http.Json(_get, "/api/v4/projects/group%2Fsub%2Fsub2%2Fproject/merge_requests", "[]");
+
+        await provider.ListPrsAsync(new RepoRef("gitlab", "group/sub/sub2/project"), new ListPrsQuery(null, 1, 30), CancellationToken.None);
+
+        var request = Assert.Single(http.Requests);
+        Assert.Equal("/api/v4/projects/group%2Fsub%2Fsub2%2Fproject/merge_requests", request.Path);
+        // "/", "api/", "v4/", "projects/", the one encoded project segment, "merge_requests"
+        Assert.Equal(["/", "api/", "v4/", "projects/", "group%2Fsub%2Fsub2%2Fproject/", "merge_requests"], request.Uri.Segments);
+    }
+
+    [Fact]
+    public async Task Reserved_characters_in_a_project_path_are_escaped_not_split()
+    {
+        var (provider, http, _, _) = Create();
+        http.Json(_get, "/api/v4/projects/group%2Fa%20b%3Fx%23y/merge_requests", "[]");
+
+        await provider.ListPrsAsync(new RepoRef("gitlab", "group/a b?x#y"), new ListPrsQuery(null, 1, 30), CancellationToken.None);
+
+        var request = Assert.Single(http.Requests);
+        Assert.Equal("/api/v4/projects/group%2Fa%20b%3Fx%23y/merge_requests", request.Path);
     }
 
     [Fact]
