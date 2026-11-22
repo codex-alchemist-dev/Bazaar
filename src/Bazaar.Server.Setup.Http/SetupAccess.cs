@@ -1,5 +1,3 @@
-using Bazaar.Server.Wire.Connection;
-
 namespace Bazaar.Server.Setup.Http;
 
 /// <summary>
@@ -9,7 +7,7 @@ namespace Bazaar.Server.Setup.Http;
 /// <param name="IsLoopback">True when the connection comes from the loopback address.</param>
 /// <param name="Principal">The authenticated principal, or null when no valid bearer token was presented.</param>
 /// <param name="BootstrapCode">The bootstrap code header value, or null when absent. Never logged.</param>
-public sealed record SetupCaller(bool IsLoopback, PrincipalRef? Principal, string? BootstrapCode);
+public sealed record SetupCaller(bool IsLoopback, SetupPrincipal? Principal, string? BootstrapCode);
 
 /// <summary>Which rule admitted a call.</summary>
 public enum SetupAccessKind
