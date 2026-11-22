@@ -652,6 +652,7 @@
     <Project Path="tests/Bazaar.Wire.Codec.Cbor.Tests/Bazaar.Wire.Codec.Cbor.Tests.csproj" />
     <Project Path="tests/Bazaar.Transport.Grpc.Tests/Bazaar.Transport.Grpc.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.MessagePack.Tests/Bazaar.Wire.Codec.MessagePack.Tests.csproj" />
+    <Project Path="tests/Bazaar.Wire.Bench.Tests/Bazaar.Wire.Bench.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Schema.Tests/Bazaar.Wire.Schema.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.Protobuf.Tests/Bazaar.Wire.Codec.Protobuf.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.MemoryPack.Tests/Bazaar.Wire.Codec.MemoryPack.Tests.csproj" />
