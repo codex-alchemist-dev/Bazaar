@@ -42,12 +42,16 @@ public static class GitMergeArgs
 /// <summary>A squash merge was refused because its owner approval or the PR state did not hold. No merge request was sent.</summary>
 public sealed class MergeNotApprovedException : Exception
 {
-    public MergeNotApprovedException(string reason, string code = "not_approved")
+    public MergeNotApprovedException(string reason, string code = "not_approved", string? currentHeadSha = null)
         : base($"The squash merge was refused: {reason}.")
     {
         Reason = reason;
         Code = code;
+        CurrentHeadSha = currentHeadSha;
     }
+
+    /// <summary>The forge's current head sha, set only for <c>head_moved</c>.</summary>
+    public string? CurrentHeadSha { get; }
 
     /// <summary>The short human reason, without the sentence frame.</summary>
     public string Reason { get; }
