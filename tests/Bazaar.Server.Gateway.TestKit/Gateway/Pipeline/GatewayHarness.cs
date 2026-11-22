@@ -88,16 +88,9 @@ internal sealed class FixedEmbeddingProfile(int? dimensions) : IEmbeddingProfile
 }
 
 /// <summary>A setting store that answers <c>gateway.embedding.route</c> with a fixed value and every other key with its default.</summary>
-internal sealed class FakeSettingStore(string embeddingRoute) : ISettingStore
+internal sealed class FakeSettingStore(string embeddingRoute) : IEmbeddingRouteSource
 {
-    public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default) =>
-        Task.FromResult(key.Name == GatewaySettings.EmbeddingRoute.Name ? (T)(object)embeddingRoute : key.Default);
-
-    public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException();
-
-    public Task<SettingWriteResult> SetJsonAsync(string key, System.Text.Json.JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException();
+    public Task<string> GetEmbeddingRouteAsync(CancellationToken cancellationToken = default) => Task.FromResult(embeddingRoute);
 }
 
 /// <summary>The directory the gateway sees. The resolver reads the world directly, so a test can change a row after resolution.</summary>
@@ -188,7 +181,7 @@ internal sealed class GatewayHarness
         return this;
     }
 
-    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null, IEmbeddingProfile? profile = null, ISettingStore? settings = null) => new(
+    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null, IEmbeddingProfile? profile = null, IEmbeddingRouteSource? settings = null) => new(
         World.Resolver(),
         Directory,
         new DictionaryAdapterRegistry(Adapters),
@@ -202,7 +195,7 @@ internal sealed class GatewayHarness
         Clock,
         InternalErrors.Add,
         embeddingProfile: profile,
-        settings: settings);
+        embeddingRoute: settings);
 
     public static ModelRequest Request(string route = "r") => InMemoryPolicyWorld.Request(Agent, route);
 

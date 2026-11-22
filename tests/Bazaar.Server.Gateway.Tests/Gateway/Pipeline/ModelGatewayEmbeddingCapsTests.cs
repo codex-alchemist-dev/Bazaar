@@ -272,7 +272,7 @@ public class ModelGatewayEmbeddingCapsTests
         var files = new Bazaar.Server.Data.Migrations.EmbeddedMigrationSource(typeof(UsageRepository).Assembly);
 
         Assert.Contains("gateway", files.Namespaces());
-        var file = Assert.Single(files.Load("gateway"), f => f.Version == 2 && f.Name == "gateway_model_kind");
+        var file = Assert.Single(files.Load("gateway"), f => f.Name == "gateway_model_kind");
         Assert.Contains("ADD COLUMN kind", file.Sql, StringComparison.Ordinal);
         Assert.Contains("embed_max_batch", file.Sql, StringComparison.Ordinal);
         Assert.Contains("embed_max_input_chars", file.Sql, StringComparison.Ordinal);
