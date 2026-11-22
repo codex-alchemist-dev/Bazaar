@@ -211,6 +211,8 @@
     <Project Path="src/Bazaar.Client.Push.Abstractions/Bazaar.Client.Push.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Shell/Bazaar.Client.Shell.csproj" />
     <Project Path="src/Bazaar.Client.Shell.Abstractions/Bazaar.Client.Shell.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Tabula/Bazaar.Tabula.csproj" />
+    <Project Path="src/Bazaar.Tabula.Abstractions/Bazaar.Tabula.Abstractions.csproj" />
     <Project Path="src/Bazaar.Testing/Bazaar.Testing.csproj" />
     <Project Path="src/Bazaar.Guest.Pointer/Bazaar.Guest.Pointer.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
@@ -244,6 +246,7 @@
     <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Modules.Tests/Bazaar.Server.Modules.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Kek.Tests/Bazaar.Server.Identity.Kek.Tests.csproj" />
+    <Project Path="tests/Bazaar.Tabula.Tests/Bazaar.Tabula.Tests.csproj" />
     <Project Path="tests/Bazaar.Tls.Tests/Bazaar.Tls.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Settings.Tests/Bazaar.Server.Settings.Tests.csproj" />
     <Project Path="tests/Bazaar.Secrets.Tests/Bazaar.Secrets.Tests.csproj" />
