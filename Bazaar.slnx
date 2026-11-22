@@ -127,7 +127,6 @@
     <Project Path="src/Bazaar.Server.Subagents/Bazaar.Server.Subagents.csproj" />
     <Project Path="src/Bazaar.Server.CodingStore.Abstractions/Bazaar.Server.CodingStore.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CodingStore/Bazaar.Server.CodingStore.csproj" />
-    <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
     <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mail/Bazaar.Server.Mail.csproj" />
     <Project Path="src/Bazaar.Server.Council.Hiring/Bazaar.Server.Council.Hiring.csproj" />
@@ -286,7 +285,6 @@
     <Project Path="tests/Bazaar.Server.CodingRunner.Tests/Bazaar.Server.CodingRunner.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Subagents.Tests/Bazaar.Server.Subagents.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingStore.Tests/Bazaar.Server.CodingStore.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Mail.Tests/Bazaar.Server.Mail.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Hiring.Tests/Bazaar.Server.Council.Hiring.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
@@ -309,7 +307,6 @@
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
