@@ -16,6 +16,7 @@ namespace Bazaar.GitHub.Tests.Webhooks;
 /// <summary><c>POST /github/webhook</c> (doc 21, Ingress): verify, dedupe, persist, acknowledge.</summary>
 public sealed class GitHubWebhookEndpointTests
 {
+    private static readonly string[] _migrationFiles = ["0001_github_tables.sql", "0002_github_delivery_payload.sql"];
     private const string _secret = "s3cret-value";
     private const string _payload = """{"zen":"Keep it logically awesome.","hook_id":1}""";
 
@@ -32,6 +33,14 @@ public sealed class GitHubWebhookEndpointTests
         public List<(string Source, string Id, string Event)> Rows { get; } = [];
 
         public bool Fail { get; set; }
+
+        public List<string?> Payloads { get; } = [];
+
+        public Task<bool> TryRecordAsync(string source, string deliveryId, string eventName, DateTimeOffset receivedAt, string? payloadJson, CancellationToken cancellationToken)
+        {
+            Payloads.Add(payloadJson);
+            return TryRecordAsync(source, deliveryId, eventName, receivedAt, cancellationToken);
+        }
 
         public Task<bool> TryRecordAsync(string source, string deliveryId, string eventName, DateTimeOffset receivedAt, CancellationToken cancellationToken)
         {
@@ -287,10 +296,13 @@ public sealed class GitHubWebhookEndpointTests
         await PgTestDatabase.CreateAsync("ghwebhook", async (data, token) =>
         {
             var assembly = typeof(GitHubComponent).Assembly;
-            var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("0001_github_tables.sql", StringComparison.Ordinal));
-            using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
-            await using var command = data.CreateCommand(await reader.ReadToEndAsync(token));
-            await command.ExecuteNonQueryAsync(token);
+            foreach (var file in _migrationFiles)
+            {
+                var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith(file, StringComparison.Ordinal));
+                using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
+                await using var command = data.CreateCommand(await reader.ReadToEndAsync(token));
+                await command.ExecuteNonQueryAsync(token);
+            }
         }, ct);
 
     [Fact]
@@ -337,5 +349,46 @@ public sealed class GitHubWebhookEndpointTests
         Assert.Equal("pull_request", reader.GetString(2));
         Assert.True(reader.GetBoolean(3));
         Assert.False(await reader.ReadAsync(ct));
+    }
+
+    [Fact]
+    public async Task Postgres_store_keeps_payload_and_event_type_and_the_first_payload_on_replay()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await CreateDatabaseAsync(ct);
+        var store = new PgGitHubDeliveryStore(db.DataSource);
+
+        Assert.True(await store.TryRecordAsync("github", "p-1", "push", DateTimeOffset.UtcNow, """{"a":1}""", ct));
+        Assert.False(await store.TryRecordAsync("github", "p-1", "push", DateTimeOffset.UtcNow, """{"a":2}""", ct));
+        Assert.True(await store.TryRecordAsync("github", "p-2", "ping", DateTimeOffset.UtcNow, ct));
+        Assert.True(await store.TryRecordAsync("github", "p-3", "push", DateTimeOffset.UtcNow, "{\"t\":\"a\\u0000b\"}", ct));
+
+        await using var rows = db.DataSource.CreateCommand("SELECT delivery_id, payload->>'a', event_type, payload IS NULL FROM github_delivery ORDER BY delivery_id");
+        await using var reader = await rows.ExecuteReaderAsync(ct);
+        Assert.True(await reader.ReadAsync(ct));
+        Assert.Equal("1", reader.GetString(1));
+        Assert.Equal("push", reader.GetString(2));
+        Assert.True(await reader.ReadAsync(ct));
+        Assert.True(reader.GetBoolean(3));
+        Assert.Equal("ping", reader.GetString(2));
+        Assert.True(await reader.ReadAsync(ct));
+        Assert.Equal("p-3", reader.GetString(0));
+        Assert.True(reader.GetBoolean(3));
+    }
+
+    [Fact]
+    public async Task Endpoint_passes_a_JSON_body_through_and_drops_a_non_JSON_body()
+    {
+        var store = new MemoryStore();
+        var (app, client) = await StartAsync(store);
+        await using var _ = app;
+        var json = Encoding.UTF8.GetBytes(_payload);
+        var form = Encoding.UTF8.GetBytes("payload=%7B%7D");
+
+        await PostAsync(client, json, Sign(json), "j-1", "push");
+        await PostAsync(client, form, Sign(form), "j-2", "push");
+
+        Assert.Equal([_payload, null], store.Payloads);
     }
 }
