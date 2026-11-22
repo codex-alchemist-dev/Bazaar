@@ -21,7 +21,7 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
     public const int MaxReasonLength = 500;
 
     private const string _columns =
-        "id, agent_id, parent_frame_id, source, reason_sealed, reason_nonce, reason_key_id, gc_id, state, pushed_at, ttl_at, version";
+        "id, agent_id, parent_frame_id, source, reason_sealed, reason_nonce, reason_key_id, gc_id, state, pushed_at, ttl_at, version, emergency";
 
     private const string _lockSql = "SELECT pg_advisory_xact_lock(hashtextextended(@key::text, 0))";
 
@@ -46,10 +46,10 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
 
     private const string _insertSql = """
         INSERT INTO interrupt_frame (
-            id, agent_id, parent_frame_id, source, reason_sealed, reason_nonce, reason_key_id, gc_id, state, pushed_at, ttl_at, version)
+            id, agent_id, parent_frame_id, source, reason_sealed, reason_nonce, reason_key_id, gc_id, state, pushed_at, ttl_at, version, emergency)
         VALUES (
             @id, @agent_id, @parent_frame_id, @source, @reason_sealed, @reason_nonce, @reason_key_id, @gc_id, 'active', @pushed_at,
-            @ttl_at, 1)
+            @ttl_at, 1, @emergency)
         """;
 
     private const string _doneSql = """
@@ -66,7 +66,8 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
 
     /// <inheritdoc />
     public async Task<InterruptFrame> PushAsync(
-        Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, CancellationToken ct = default)
+        Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, bool emergency = false,
+        CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         if (reason.Length > MaxReasonLength)
@@ -104,8 +105,9 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
 
         var frameId = Guid.CreateVersion7();
         var sealedReason = await reasonCipher.SealAsync(sealingPerson, reason, ct).ConfigureAwait(false);
+        var tagged = emergency && !IsSystem(source);
         var frame = new InterruptFrame(
-            frameId, agentId, top?.Id, source, reason, gcId, InterruptFrameState.Active, now, ttlAt, 1);
+            frameId, agentId, top?.Id, source, reason, gcId, InterruptFrameState.Active, now, ttlAt, 1, tagged);
         await using (var insert = Command(conn, tx, _insertSql))
         {
             insert.Parameters.AddWithValue("id", frame.Id);
@@ -118,6 +120,7 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
             insert.Parameters.AddWithValue("gc_id", gcId);
             insert.Parameters.AddWithValue("pushed_at", now);
             insert.Parameters.Add(new NpgsqlParameter<DateTimeOffset?>("ttl_at", ttlAt));
+            insert.Parameters.AddWithValue("emergency", tagged);
             await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
@@ -226,7 +229,8 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
                 FromDbState(reader.GetString(8)),
                 reader.GetFieldValue<DateTimeOffset>(9),
                 reader.IsDBNull(10) ? null : reader.GetFieldValue<DateTimeOffset>(10),
-                reader.GetInt64(11)));
+                reader.GetInt64(11),
+                reader.GetBoolean(12)));
         }
 
         return frames;
