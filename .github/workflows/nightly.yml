@@ -1,0 +1,87 @@
+# Nightly (Latest-Commit channel) build.
+#
+# Builds the head of main once a day with the dev version `X.Y.Z-dev.N+sha`
+# from packaging/channels/dev-version.sh (docs/VERSIONING.md section 4). The
+# version is never a tag and never a release: this job only proves the commit
+# builds at that version and uploads the version record as the `nightly-version`
+# artifact. It does not publish anything and uses no secrets.
+#
+# Pins follow ci.yml: every third-party action is a full commit SHA.
+
+name: Nightly
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    name: Nightly build (Latest-Commit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Compute the dev version
+        id: version
+        shell: bash
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          bash packaging/channels/dev-version.sh Directory.Build.props "$BUILD_NUMBER" "$COMMIT" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Build the solution at that version
+        shell: bash
+        env:
+          SEMVER: ${{ steps.version.outputs.semver }}
+        run: |
+          set -euo pipefail
+          solutions=(./*.slnx)
+          if [ "${#solutions[@]}" -ne 1 ] || [ ! -f "${solutions[0]}" ]; then
+            echo "::error::Expected exactly one .slnx at the repository root."
+            exit 1
+          fi
+          dotnet build "${solutions[0]}" -c Release --nologo -p:Version="$SEMVER"
+
+      - name: Write the version record
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p nightly
+          printf 'channel=latest-commit\nversion=%s\ncommit=%s\n' "$VERSION" "$COMMIT" > nightly/NIGHTLY-VERSION.txt
+          cd nightly
+          sha256sum -- NIGHTLY-VERSION.txt > SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
+
+      - name: Upload the version record
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-version
+          path: nightly/
+          if-no-files-found: error
+          retention-days: 14
