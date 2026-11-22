@@ -6,6 +6,7 @@
     <PackageReference Include="Avalonia" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Commands\Bazaar.Client.Commands.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
     <ProjectReference Include="..\Bazaar.Localisation\Bazaar.Localisation.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
