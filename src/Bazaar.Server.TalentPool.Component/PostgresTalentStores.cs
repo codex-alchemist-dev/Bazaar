@@ -107,7 +107,7 @@ public sealed class PostgresHireDecisionStore(NpgsqlDataSource dataSource) : IHi
 /// Tier 2 tool-grant approvals (<c>talent_tool_grant_approval</c>). The owner's approval flow calls <see cref="RecordAsync"/>;
 /// the Talent Pool only reads. A hire vote never records one.
 /// </summary>
-public sealed class PostgresToolGrantApproval(NpgsqlDataSource dataSource, TimeProvider time) : ITalentToolGrantApproval
+public sealed class PostgresToolGrantApproval(NpgsqlDataSource dataSource, TimeProvider time) : ITalentToolGrantApproval, IToolGrantRecorder
 {
     /// <summary>Lowercase hex SHA-256 of the sorted tool list, so order does not matter and any change needs a new approval.</summary>
     public static string ToolsSha(IEnumerable<string> tools) =>
@@ -135,4 +135,11 @@ public sealed class PostgresToolGrantApproval(NpgsqlDataSource dataSource, TimeP
         cmd.Parameters.AddWithValue(time.GetUtcNow());
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
+}
+
+/// <summary>Records an owner-approved tool grant. Implemented over Postgres; a test double stands in for it in unit tests.</summary>
+public interface IToolGrantRecorder
+{
+    /// <summary>Records the owner's approval of exactly this tool list for a template version. Idempotent.</summary>
+    Task RecordAsync(string hireKey, IReadOnlyList<string> tools, string approvedBy, CancellationToken ct);
 }

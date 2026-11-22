@@ -50,6 +50,10 @@ public sealed class ChatTimeline(IReadOnlyDictionary<Guid, ChatMember> members, 
         }
     }
 
+    /// <summary>The plain display name of a principal (no agent marker), or the first eight characters of its id when unknown.</summary>
+    public string NameOf(Guid principalId) =>
+        _members.TryGetValue(principalId, out ChatMember? known) ? known.Name : principalId.ToString("N", CultureInfo.InvariantCulture)[..8];
+
     private ChatLine ToLine(WireGcMessage message, bool own)
     {
         string author;

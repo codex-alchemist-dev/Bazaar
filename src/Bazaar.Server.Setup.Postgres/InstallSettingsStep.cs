@@ -7,7 +7,7 @@ namespace Bazaar.Server.Setup.Postgres;
 /// <summary>
 /// The setup step that writes the plan's install-scope settings (doc 45 sections 1.2 and 1.3; doc 03 settings registry, doc 04
 /// <c>setting</c> table). The settings are the plan's <c>settings</c> map and the four plan fields that map to one registry key each
-/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 12 (scam-mail
+/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 2 (the security half of the update policy), 12 (scam-mail
 /// protocol) and 15 (status bind and port).
 /// </summary>
 /// <remarks>
@@ -27,8 +27,8 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
     /// <summary>Step 15 of doc 45 section 1.3 (status and network) is the last configuration step, so this runs after the ones before it.</summary>
     public const int StepOrder = 1500;
 
-    /// <summary>The plan sections this step applies: the four settings-backed parts of the plan (doc 45 steps 1, 12 and 15, plus the settings map).</summary>
-    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "scamMailProtocol", "network", "settings"];
+    /// <summary>The plan sections this step applies: the settings-backed parts of the plan (doc 45 steps 1, 2, 12 and 15, plus the settings map).</summary>
+    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "install.updatePolicy", "scamMailProtocol", "network", "settings"];
 
     private const string _selectSql = "SELECT value::text, updated_by FROM setting WHERE key = @key AND scope = 'install' AND scope_id = ''";
 
@@ -131,6 +131,13 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
     {
         desired = [];
         failure = null;
+        if (!SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
+        {
+            // Defence in depth: the validator already refuses this, but a step must not report success for what it cannot store.
+            failure = "'install.updatePolicy.other' can only be manual: no setting stores an automatic choice.";
+            return false;
+        }
+
         foreach (var setting in SetupSettingProjection.Project(plan))
         {
             if (!_catalog.TryGet(setting.Key, out var definition) || definition is null || !definition.IsInstallScope)

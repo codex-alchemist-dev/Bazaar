@@ -13,7 +13,12 @@ using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Providers.ClaudeCode;
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
+using Bazaar.Server.Settings;
+using Bazaar.Server.Setup.FirstRun.Gateway;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -53,8 +58,20 @@ public static class GatewayCompositionExtensions
         // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
         services.TryAddSingleton<AgentModelPolicyRepository>();
+
+        // The Claude Code terms acceptance lives in settings when a settings store exists; the component's in-memory store is the fallback.
+        services.TryAddSingleton<IClaudeCodeAcknowledgementStore>(sp =>
+            sp.GetService<Bazaar.Server.Settings.ISettingStore>() is { } store
+                ? new SettingsClaudeCodeAcknowledgementStore(store)
+                : new InMemoryClaudeCodeAcknowledgementStore());
         services.AddHostedService<GatewayProviderRowSync>();
         services.AddHostedService<DevAgentPolicySeed>();
+        services.TryAddSingleton<IClaudeSourceDirectory, GatewayClaudeSourceDirectory>();
+        services.TryAddSingleton<IDefaultAgentPolicyStore, GatewayDefaultAgentPolicyStore>();
+        services.AddFirstRunGatewayRoutes();
+        services.AddSingleton<IAgentDefaultPolicyGrant, AgentDefaultPolicyGrantAdapter>();
+        services.AddSingleton<IAgentPolicyPresence, AgentPolicyPresenceAdapter>();
+        services.AddBazaarAgentGrantRepair();
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
@@ -64,19 +81,28 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<QuotaStateRepository>();
         services.TryAddSingleton<RouteResolver>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
+        services.TryAddSingleton<IEmbeddingProfile, PostgresEmbeddingProfile>();
 
         services.TryAddSingleton<SecretScrubber>();
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
         services.Replace(ServiceDescriptor.Singleton<IUsageStore, UsageRepository>());
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
         // Config-defined sources overlay the stored directory: FreeLLMAPI first, then the owner's Anthropic key on top.
-        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => AnthropicDirectWiring.CreateDirectory(
-            FreeLlmApiWiring.CreateDirectory(
-                sp.GetRequiredService<GatewayDirectoryRepository>(),
-                FreeLlmApiOptionsOf(sp),
-                sp.GetRequiredService<TimeProvider>()),
-            AnthropicDirectOptionsOf(sp),
-            sp.GetRequiredService<TimeProvider>())));
+        // The Claude Code CLI provider (doc 91) goes on top, so its default route can fall back to the owner's key inside the Claude family.
+        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp =>
+        {
+            var anthropic = AnthropicDirectOptionsOf(sp);
+            IGatewayDirectory directory = AnthropicDirectWiring.CreateDirectory(
+                FreeLlmApiWiring.CreateDirectory(
+                    sp.GetRequiredService<GatewayDirectoryRepository>(),
+                    FreeLlmApiOptionsOf(sp),
+                    sp.GetRequiredService<TimeProvider>()),
+                anthropic,
+                sp.GetRequiredService<TimeProvider>());
+            return sp.GetService<IOptions<ClaudeCodeOptions>>()?.Value is { Enabled: true } claudeCode
+                ? new ClaudeCodeGatewayDirectory(directory, claudeCode, anthropic, sp.GetRequiredService<TimeProvider>())
+                : directory;
+        }));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
             sp.GetRequiredService<RouteResolver>(),
@@ -88,7 +114,9 @@ public static class GatewayCompositionExtensions
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
             time: sp.GetRequiredService<TimeProvider>(),
             onInternalError: ex => GatewayProviderRowSync.LogInternalError(sp.GetRequiredService<ILoggerFactory>().CreateLogger<ModelGateway>(), ex),
-            scrubber: sp.GetRequiredService<SecretScrubber>())));
+            scrubber: sp.GetRequiredService<SecretScrubber>(),
+            embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
+            embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
         return services;
     }
 
@@ -130,4 +158,3 @@ public static class GatewayCompositionExtensions
         return new DictionaryAdapterRegistry(adapters);
     }
 }
-

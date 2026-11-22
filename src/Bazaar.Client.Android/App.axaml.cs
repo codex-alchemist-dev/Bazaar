@@ -5,6 +5,10 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Approvals;
+using Bazaar.Client.Approvals;
+using Bazaar.Client.Approvals.Phone;
+using Bazaar.Client.TalentPool;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
@@ -24,6 +28,7 @@ using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Android;
@@ -46,6 +51,9 @@ public sealed class App : Avalonia.Application
         // Direction from the locale and the screen-reader live region wrap the main view (doc 41c; Android has no window).
         ShellHost.Install(host, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
+        // Mnemonics serve a hardware keyboard (a foldable or a docked phone). They start once the view has a top level to listen on.
+        host.AttachedToVisualTree += (_, _) => _ = InstallMnemonicsAsync(host);
+
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
             activity.MainViewFactory = () => host;
@@ -57,6 +65,32 @@ public sealed class App : Avalonia.Application
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    private MnemonicShell? _mnemonics;
+
+    private async Task InstallMnemonicsAsync(ContentControl host)
+    {
+        if (_mnemonics is not null || TopLevel.GetTopLevel(host) is not { } top)
+        {
+            return;
+        }
+
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            _mnemonics = await MnemonicHeadSetup.InstallAsync(top, host, _moduleCommands, path, Console.Error.WriteLine);
+            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
+            _mnemonics.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Bazaar: keyboard mnemonics are off: {ex.Message}");
+        }
+    }
+
+    // The commands the loaded client modules contributed, kept for the mnemonic shell.
+    private IReadOnlyList<ClientCommandContribution> _moduleCommands = [];
 
     // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
     private readonly List<IDisposable> _postureBindings = [];
@@ -70,6 +104,7 @@ public sealed class App : Avalonia.Application
             new DashboardPaneModule(),
             new ConstellationPaneModule(),
             new GcPaneModule(),
+            new ApprovalsPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             .. OrgPanes.Modules,
@@ -78,14 +113,31 @@ public sealed class App : Avalonia.Application
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
         ];
+        // The approvals pane gets the biometric gate and the server source. With no enrolled approval key the gate is absent and the pane says so (doc 29 Approvals).
+        var deviceId = MainActivity.Current?.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private)?.GetString("approval_device_id", null);
+        var (gate, approvals) = AndroidApprovals.Create(ClientServer.Current, () => MainActivity.Current, deviceId);
+        // Talent tool grants ride the same pane, key and biometric. No enrolled owner id means no gate and no cards (doc 25, doc 32).
+        var ownerHumanId = MainActivity.Current?.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private)?.GetString("owner_human_id", null);
+        var (grantGate, grants) = AndroidApprovals.CreateToolGrants(ClientServer.Current, () => MainActivity.Current, deviceId, ownerHumanId);
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(tiles)
+            .With<IPendingApprovalSource>(approvals)
+            .With<IPendingToolGrantSource>(grants)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        if (gate is not null) features = features.With(gate);
+        if (grantGate is not null) features = features.With(grantGate);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        _moduleCommands = loaded.Commands;
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
+        var settings = new AndroidSettings();
+        var shell = new PhoneShell(
+            registry,
+            FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry), kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
+            settings.Gestures,
+            settings.RadialSectors);
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
@@ -94,7 +146,7 @@ public sealed class App : Avalonia.Application
                 old.Dispose();
             }
             _postureBindings.Clear();
-            _postureBindings.Add(new PostureShellBinder(source, shell, WidthDp, new AndroidSettings().HalfOpenLayout));
+            _postureBindings.Add(new PostureShellBinder(source, shell, WidthDp, settings.HalfOpenLayout));
         }
         return shell;
     }
