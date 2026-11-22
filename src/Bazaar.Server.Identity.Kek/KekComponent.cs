@@ -39,6 +39,17 @@ public sealed class KekComponent : IBazaarComponent
         // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
         services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));
         services.AddSingleton<ISoulDekStore>(sp => new PostgresSoulDekStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        // Start-up refuses a KEK that opens none of the keys already stored (a wrong or unmounted data root). With no data root
+        // configured there is no KEK to check: the provider above refuses on first use.
+        services.AddSingleton<IKekCustodyCheck>(sp => new KekCustodyCheck(
+            () => sp.GetRequiredService<IKekProvider>(),
+            () =>
+            {
+                if (configuration[DataRootKey] is null)
+                    return [];
+                var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
+                return [new PostgresKekRewrapStore(dataSource), new PostgresSoulDekRewrapStore(dataSource)];
+            }));
         services.AddSingleton(sp => new SoulDekService(
             sp.GetRequiredService<IKekProvider>(),
             sp.GetRequiredService<ISoulDekStore>(),

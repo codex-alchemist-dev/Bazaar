@@ -1,5 +1,6 @@
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Providers;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -53,15 +54,69 @@ public sealed class StartupSequenceTests
         public void StopApplication() => Stopped = true;
     }
 
+    private sealed class FakeCustody(KekCustodyResult result) : IKekCustodyCheck
+    {
+        public int Calls { get; private set; }
+
+        public Task<KekCustodyResult> CheckAsync(CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(result);
+        }
+    }
+
     private static (StartupSequence Sequence, HostState State, HostExitCode Exit, FakeLifetime Lifetime) Create(
-        FakeLock instanceLock, ISchemaGate gate, ProviderRole[]? required = null)
+        FakeLock instanceLock, ISchemaGate gate, ProviderRole[]? required = null, IKekCustodyCheck? custody = null)
     {
         var state = new HostState(TimeProvider.System);
         var exit = new HostExitCode();
         var lifetime = new FakeLifetime();
         var options = Options.Create(new BazaarReadinessOptions { RequiredRoles = [.. required ?? []] });
         var report = new ProviderCapabilityReport([ProviderSelector.Select(ProviderRole.Cache, ProviderSelector.None, Array.Empty<ICacheProvider>())]);
-        return (new StartupSequence(instanceLock, gate, report, options, state, exit, lifetime, NullLogger<StartupSequence>.Instance), state, exit, lifetime);
+        return (new StartupSequence(instanceLock, gate, report, options, state, exit, lifetime, NullLogger<StartupSequence>.Instance, custody), state, exit, lifetime);
+    }
+
+    // Chaos finding: a host started against an unmounted data root minted a new key file, ran, and failed every encrypted
+    // read and write while reporting ready.
+    [Fact]
+    public async Task A_key_file_that_opens_none_of_the_stored_keys_refuses_the_start()
+    {
+        var custody = new FakeCustody(new KekCustodyResult(Stored: 12, Opened: 0));
+        var (sequence, state, exit, lifetime) = Create(new FakeLock(acquire: true), new FakeGate(), custody: custody);
+
+        var refused = await Assert.ThrowsAsync<StartupRefusedException>(() => sequence.StartAsync(TestContext.Current.CancellationToken));
+
+        Assert.Contains("does not open the keys stored in this database", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Bazaar:Host:DataRoot", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(1, exit.Value);
+        Assert.True(lifetime.Stopped);
+        Assert.False(state.Started);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    public async Task A_first_start_or_a_matching_key_file_starts(int stored, int opened)
+    {
+        var custody = new FakeCustody(new KekCustodyResult(stored, opened));
+        var (sequence, state, exit, _) = Create(new FakeLock(acquire: true), new FakeGate(), custody: custody);
+
+        await sequence.StartAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, custody.Calls);
+        Assert.True(state.Started);
+        Assert.Equal(0, exit.Value);
+    }
+
+    [Fact]
+    public async Task The_key_check_does_not_run_when_the_schema_is_refused()
+    {
+        var custody = new FakeCustody(new KekCustodyResult(0, 0));
+        var (sequence, _, _, _) = Create(new FakeLock(acquire: true), new FakeGate(new SchemaVersionException("newer")), custody: custody);
+
+        await Assert.ThrowsAsync<StartupRefusedException>(() => sequence.StartAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, custody.Calls);
     }
 
     [Fact]

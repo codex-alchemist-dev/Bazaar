@@ -249,7 +249,7 @@ New cracks from the fourth wave are items 37 to 50 below.
 
 None of these were changed. Each needs a decision first.
 
-1. **A missing data root mints a new KEK.** If the data root is not mounted at start, the host silently creates a fresh key. Existing wrapped keys no longer unwrap, every send fails with `internal`, and readiness stays green. This is the most dangerous open item.
+1. **A missing data root mints a new KEK.** If the data root is not mounted at start, the host silently creates a fresh key. Existing wrapped keys no longer unwrap, every send fails with `internal`, and readiness stays green. This was the most dangerous open item. **Closed on 2026-11-22 without waiting for the decision:** the host now refuses to start when the database holds wrapped keys and its key file opens none of them (doc 03 startup step 4a). Still open: the host can create a key file at start at all (doc 63 proposes that only setup may).
 2. **The blob store ignores the host data root** and falls back to a per-user folder, so two installs on one machine share blobs and a data-root backup misses them.
 3. **Approval grants are marked used after the call runs**, so two concurrent dispatches could both use one grant. Not wired into the dispatcher yet.
 4. **Not wired yet:** nothing calls the token budget service, nothing can engage the kill switch except SQL, and usage is kept in memory rather than in `gw_usage`.

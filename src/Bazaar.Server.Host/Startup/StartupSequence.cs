@@ -1,11 +1,12 @@
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Providers;
 
 namespace Bazaar.Server.Host.Startup;
 
 /// <summary>
 /// Doc 03 startup steps 3 to 5, run before the other hosted services: take the instance lock (a second instance exits with one log line),
-/// check the schema, probe providers. The schema gate is a seam; M1's runner plugs in through <see cref="ISchemaGate"/>.
+/// check the schema, check that the host KEK opens the keys already stored, probe providers. The schema gate is a seam; M1's runner plugs in through <see cref="ISchemaGate"/>.
 /// </summary>
 public sealed partial class StartupSequence(
     IInstanceLock instanceLock,
@@ -15,7 +16,8 @@ public sealed partial class StartupSequence(
     HostState state,
     HostExitCode exitCode,
     IHostApplicationLifetime lifetime,
-    ILogger<StartupSequence> logger) : IHostedService
+    ILogger<StartupSequence> logger,
+    IKekCustodyCheck? kekCustody = null) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -30,6 +32,20 @@ public sealed partial class StartupSequence(
             }
 
             await schemaGate.EnsureCurrentAsync(cancellationToken);
+
+            // The KEK must be the one this database's keys were wrapped under. A wrong or unmounted data root gives a different
+            // (or freshly made) key file: the host would run, fail every encrypted read and write, and still report ready.
+            if (kekCustody is not null && await kekCustody.CheckAsync(cancellationToken) is { Matches: false } custody)
+            {
+                var reason = $"the host key file does not open the keys stored in this database (tried {custody.Stored}, opened none). "
+                    + "The data root is probably not the one this database was set up with, or it is not mounted. "
+                    + "Point Bazaar:Host:DataRoot at the right folder or restore its keys folder; a key file made by this start is not the key for this database. "
+                    + "Nothing in the database was changed";
+                LogStartRefused(logger, reason);
+                exitCode.Value = 1;
+                lifetime.StopApplication();
+                throw new StartupRefusedException(reason);
+            }
         }
         catch (Exception ex) when (ex is not StartupRefusedException && (ex is MigrationException || MigrateCommand.TryDescribeDatabaseFailure(ex, out _)))
         {
