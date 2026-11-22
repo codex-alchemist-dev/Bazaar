@@ -359,6 +359,62 @@ public sealed class SealedGitRepoTests : IDisposable
         Assert.Contains(_audit.Events, e => e.Kind == "sealgit.export.failed");
     }
 
+    [Fact]
+    public async Task A_concurrent_writer_during_restore_never_yields_new_refs_with_old_packs()
+    {
+        var repo = Repo();
+        await repo.WithWorkingTreeAsync(g => Commit(g, "one"));
+        using var writer = await NewStore().OpenScopeAsync("vault:acme");
+        using var stop = new CancellationTokenSource();
+        var writes = Task.Run(async () =>
+        {
+            for (var i = 0; !stop.IsCancellationRequested; i++)
+            {
+                await writer.WriteBatchAsync([SealedWrite.Put("objects/pack/race.pack", Encoding.ASCII.GetBytes($"{i}")), SealedWrite.Put("refs/heads/race", Encoding.ASCII.GetBytes($"{i}"))]);
+                await Task.Delay(2);
+            }
+        });
+
+        for (var n = 0; n < 15; n++)
+        {
+            await repo.WithWorkingTreeAsync(async g =>
+            {
+                var pack = Path.Combine(g, "objects", "pack", "race.pack");
+                var reference = Path.Combine(g, "refs", "heads", "race");
+                if (File.Exists(pack) || File.Exists(reference))
+                {
+                    Assert.Equal(await File.ReadAllTextAsync(pack), await File.ReadAllTextAsync(reference));
+                }
+
+                return 0;
+            });
+        }
+
+        await stop.CancelAsync();
+        await writes;
+    }
+
+    [Fact]
+    public async Task The_lease_makes_a_whole_cycle_exclusive_against_a_second_store()
+    {
+        var first = Repo();
+        var second = new SealedGitRepoFactory(NewStore(), _audit, new SealedGitOptions { TempRoot = Temp, LeaseTimeout = TimeSpan.FromMilliseconds(300) }).Open("acme");
+        var entered = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var holding = first.WithWorkingTreeAsync(async g =>
+        {
+            entered.SetResult();
+            await release.Task;
+            return await Commit(g, "one");
+        });
+        await entered.Task;
+        await Assert.ThrowsAsync<TimeoutException>(() => second.WithWorkingTreeAsync(g => Commit(g, "two")));
+        release.SetResult();
+        await holding;
+        await second.WithWorkingTreeAsync(g => Commit(g, "two"));
+        Assert.Equal("2", (await first.WithWorkingTreeAsync(g => Git(g, "rev-list", "--count", "HEAD"))).Trim());
+    }
+
     private sealed class RecordingSink : ISealAuditSink
     {
         public List<SealAuditEvent> Events { get; } = [];
