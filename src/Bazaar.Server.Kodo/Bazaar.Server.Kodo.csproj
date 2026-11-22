@@ -11,6 +11,8 @@
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Kodo\Bazaar.Kodo.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Kodo.Abstractions\Bazaar.Server.Kodo.Abstractions.csproj" />
+    <!-- IAdminKodoSource (doc 51 section 5): Kodo owns the data, so it implements the port. Abstractions only. -->
+    <ProjectReference Include="..\Bazaar.Server.WebAdmin.Abstractions\Bazaar.Server.WebAdmin.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Kodo.Tests" />

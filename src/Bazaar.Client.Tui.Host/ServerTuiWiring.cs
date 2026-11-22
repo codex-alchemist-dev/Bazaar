@@ -90,6 +90,8 @@ public sealed class ServerTuiWiring : ITuiHostWiring
             provider.GetRequiredService<IAdminAudit>(),
             clock);
         var ports = new OpsPorts(
+            Status: provider.GetRequiredService<IAdminStatusSource>(),
+            Kodo: provider.GetRequiredService<IAdminKodoSource>(),
             Events: provider.GetRequiredService<IOpsEventSource>(),
             Crashes: provider.GetRequiredService<IOpsCrashJournal>(),
             Logs: provider.GetRequiredService<IOpsLogSource>(),

@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Kodo.Probes.Host;
 using Bazaar.Kodo.Settings;
+using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -43,6 +44,9 @@ public static class KodoServiceCollectionExtensions
         KodoServerOptions options = ReadOptions(configuration?.GetSection(KodoServerComponent.SectionName));
         services.TryAddSingleton(options);
         services.TryAddSingleton(TimeProvider.System);
+
+        // The web panel's Kodo section reads through this port (doc 51 section 5); the TUI reads the snapshot file instead.
+        services.TryAddSingleton<IAdminKodoSource>(sp => new KodoAdminSource(sp.GetRequiredService<IKodoStatusSource>(), sp.GetRequiredService<TimeProvider>()));
         if (!options.Enabled)
         {
             services.TryAddSingleton<IKodoStatusSource, DisabledKodoStatusSource>();
@@ -88,7 +92,20 @@ public static class KodoServiceCollectionExtensions
             JournalMemoryRecords = Int(s, "JournalMemoryRecords", d.JournalMemoryRecords),
             DataVolumePath = string.IsNullOrWhiteSpace(s?["DataVolumePath"]) ? d.DataVolumePath : s["DataVolumePath"]!,
             IncludeClockDrift = Bool(s, "IncludeClockDrift", d.IncludeClockDrift),
+            SnapshotFile = SnapshotPath(s),
         };
+    }
+
+    // With configuration present the file is on by default (the TUI needs it); an explicitly empty value turns it off.
+    private static string? SnapshotPath(IConfigurationSection? s)
+    {
+        if (s is null)
+        {
+            return null;
+        }
+
+        string? explicitPath = s["SnapshotFile"];
+        return explicitPath is { Length: 0 } ? null : KodoSnapshotFile.ResolvePath(explicitPath, s["DataDirectory"]);
     }
 
     private static bool Bool(IConfigurationSection? s, string key, bool fallback) => bool.TryParse(s?[key], out bool v) ? v : fallback;
