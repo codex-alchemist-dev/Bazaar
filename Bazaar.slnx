@@ -243,7 +243,6 @@
     <Project Path="src/Bazaar.Server.Portability.Sandbox.Abstractions/Bazaar.Server.Portability.Sandbox.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Portability.Sandbox/Bazaar.Server.Portability.Sandbox.csproj" />
     <Project Path="src/Bazaar.Server.Portability.ParserHost/Bazaar.Server.Portability.ParserHost.csproj" />
-    <Project Path="src/Bazaar.Server.Portability.Postgres/Bazaar.Server.Portability.Postgres.csproj" />
     <Project Path="src/Bazaar.Client.Portability/Bazaar.Client.Portability.csproj" />
     <Project Path="src/Bazaar.Client.Portability.Avalonia/Bazaar.Client.Portability.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
@@ -260,6 +259,7 @@
     <Project Path="src/Bazaar.Server.Coding.Abstractions/Bazaar.Server.Coding.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.HyperV/Bazaar.Server.Vms.HyperV.csproj" />
     <Project Path="src/Bazaar.Server.CodingBench.Abstractions/Bazaar.Server.CodingBench.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CodingBench/Bazaar.Server.CodingBench.csproj" />
     <Project Path="src/Bazaar.Server.VmBench.Abstractions/Bazaar.Server.VmBench.Abstractions.csproj" />
@@ -529,7 +529,6 @@
     <Project Path="tests/Bazaar.Server.Portability.Postgres.Tests/Bazaar.Server.Portability.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Verifier.Tests/Bazaar.Server.Portability.Verifier.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Sandbox.Tests/Bazaar.Server.Portability.Sandbox.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Portability.Postgres.Tests/Bazaar.Server.Portability.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Tests/Bazaar.Client.Portability.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Avalonia.Tests/Bazaar.Client.Portability.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
@@ -575,6 +574,7 @@
     <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.HyperV.Tests/Bazaar.Server.Vms.HyperV.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingBench.Tests/Bazaar.Server.CodingBench.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmBench.Tests/Bazaar.Server.VmBench.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Tests/Bazaar.Server.VmEgress.Tests.csproj" />
