@@ -91,6 +91,29 @@ Status: DECIDED for the Windows head, by the owner's delegation of 2026-11-18. I
 - **Refusals are explicit.** No TPM, no Hello, a cancelled prompt and a software-only key each produce a named refusal. None of them falls back to a weaker path.
 - **Linux.** Unchanged here. It stays under the platform store question in the storage floor above.
 
+### 5b. Owner device enrolment [PROPOSED]
+
+**Status: PROPOSED (coordinator request 2026-11-20; answers Question 4 by its stated default, now designed). Not an owner decision.** Pairing is removed, so a device becomes an owner approval device only through the ceremony below. It enrols two keys in one step: the `owner-approval` key (5a) and the biometric credential (doc 48 section 8.1).
+
+**Who may start it.**
+- *First device.* The owner is signed in on the device and types a one-time enrolment code that the server console shows at setup (or `bazaar enrol-code` on the server host prints). The code is 10 characters from a 32-letter alphabet, single use, hashed at rest, valid 15 minutes. It is the second factor: possession of the server console.
+- *Further devices.* The owner is signed in on the new device, and an already enrolled owner device signs an owner-signed `device.enrol` approval (5a payload; `args_hash` covers the new device id and the new approval key's SHA-256). That approval needs a fresh biometric assertion from the approving device, like any other high-risk action.
+- *No enrolled device left.* The recovery path of doc 48 section 7 applies; this section adds nothing to it.
+- A coworker device never enrols an approval key unless the owner delegated a scope (5a, holders).
+
+**The ceremony.**
+1. The device asks for an enrolment challenge. The server returns a random 32-byte nonce, valid 5 minutes, single use, bound to the human id and the device id.
+2. The device generates the approval key pair in hardware (5a storage floor; 5a.1 on Windows) and a platform credential (doc 48 section 8.1). The credential's WebAuthn challenge is `SHA-256("bazaar.enrol.v1" 0x00 nonce humanId deviceId SHA-256(approval public key SPKI))`, so one signature ties the credential to that exact approval key, device and nonce.
+3. The device sends an `EnrolmentRequest`: device id and class, the approval public key (SPKI), the credential id, the attestation object and client data, and the key attestation of the approval key (Android key attestation chain, Windows TPM attestation).
+4. The server checks, in order, each fail-closed with a fixed reason code: the nonce is live and unused; the starter proof of the previous paragraph holds; the device id and class match the signed-in device; the approval key is P-256 and its attestation shows hardware backing with biometric required on every use (Android) or a TPM key (Windows); the credential attestation chain verifies and the signed challenge matches; the credential is single-device (backup flags clear). A credential with no attestation, or one whose chain does not verify, enrols as unattested: its factor claims never count, so it cannot approve a high-risk action, and the approval key is refused unless its own hardware attestation held. The approval key and the credential are written in one transaction with the audit row, and the nonce is consumed in the same transaction.
+5. Attestation trust roots (Google's key attestation roots, Microsoft TPM roots, FIDO metadata) are operator-updatable data, shipped defaults pinned. A chain that does not end in a trusted root is refused.
+
+**What it records.** `approval_key` (5a) gets the new row. The credential row (doc 48 section 8.1: credential id, public key, attested factors, sign count, device id, human id) is new. Every step of the ceremony, success or refusal, goes to `audit_log` (15) with the reason code and never key material.
+
+**Lifecycle.** Revoking a device revokes both keys at once (5). Re-enrolment after a suspected clone, Keystore loss or device reset runs this ceremony again with a new device row; the old credential stays revoked. A device can hold one live pair; a second enrolment on the same device id is refused until the first is revoked.
+
+**Open inside this proposal.** The shape of the console code command and its screen is left to the server install design (doc 37). What a client does when it has no hardware attestation at all is decided by section 8: it stays read-only for high-risk actions.
+
 ### 6. Roles and permissions [PROPOSED]
 Principals: `owner` (one per instance in v1), `coworker` (human, senior), `agent`, `service` (SDK/system). ASP.NET policy-based authorization over a Postgres membership table; no OpenFGA in v1.
 
@@ -202,7 +225,7 @@ Real Postgres, fake clock, in-memory WebSocket host, Avalonia.Headless for the A
 1. Is the owner the only human approver in v1 (one owner per instance)? Default: yes. Changing this changes the principal model (section 6) and the approval key holders (5a).
 2. May the other DM member approve an access request alone? Default: no; the owner approves, and the other member is notified and can object (matches 01 Q4). This touches the owner-reads-all DM rule.
 3. The decided sign-in scope has three routes, one of them "pairing approval" (`/signin/register`). With device pairing removed (owner 2026-11-16), should that route be passkey enrolment for an already signed-in owner, with no approval step? Default: yes, and the scope wording changes with it. This changes a DECIDED item (C42), so it needs the owner's word.
-4. How is the owner approval key (5a) enrolled, and how is a new client sign-in approved, now that pairing is removed? Options: during owner sign-in on the device, with a second factor; or only at the server console. Default until decided: owner sign-in plus second factor on the device, which is not yet designed.
+4. How is the owner approval key (5a) enrolled, and how is a new client sign-in approved, now that pairing is removed? Options: during owner sign-in on the device, with a second factor; or only at the server console. Default until decided: owner sign-in plus second factor on the device. Designed in section 5b (PROPOSED): a console enrolment code for the first device, an owner-signed approval from an enrolled device for further ones.
 
 MOVED TO SETTINGS: auth.access_token_minutes, auth.refresh_sliding_days, auth.refresh_absolute_days, approval.coworker_scopes, tls.certificate_source, recovery.printed_codes_enabled, privacy.overlays, privacy.owner_dm_read_marker (DECISIONS-LOG round 13)
 
