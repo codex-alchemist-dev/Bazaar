@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.AuditSinks.Postgres</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.AuditSinks.Postgres.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.AuditSinks.Abstractions\Bazaar.Server.AuditSinks.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+</Project>
