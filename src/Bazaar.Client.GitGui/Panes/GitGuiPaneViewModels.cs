@@ -31,6 +31,8 @@ internal sealed class DisconnectedGitGuiClient : IGitGuiClient
 {
     private static InvalidOperationException Fail() => new("Git is not connected to a server.");
 
+    public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default) => throw Fail();
+
     public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default) => throw Fail();
 
     public Task<GitPrDetailDto> GetPrAsync(string provider, string repo, long number, CancellationToken cancellationToken = default) => throw Fail();
