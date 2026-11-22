@@ -20,7 +20,7 @@ public sealed class PostgresSettingAuditSinkTests(SettingsDb db) : IClassFixture
             await cmd.ExecuteNonQueryAsync(ct);
 
         var ds = db.DataSource;
-        await new MigrationRunner(ds).MigrateAsync(new EmbeddedMigrationSource(typeof(NpgsqlSettingStore).Assembly), "linux", ct);
+        await new MigrationRunner(ds).MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", ct);
         var log = new PostgresAuditLog(ds);
         return (ds, log, new NpgsqlSettingStore(ds, new PostgresSettingAuditSink(log), SettingRegistry.Known));
     }

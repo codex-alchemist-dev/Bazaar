@@ -2,7 +2,7 @@ namespace Bazaar.Server.Settings;
 
 /// <summary>
 /// The built-in registry composition. <see cref="SettingRegistry"/> itself lives in Bazaar.Server.Settings; the keys of the
-/// features that still live in Bazaar.Server (calendar, gc, knowledge, gateway) are gathered here, so call sites keep
+/// features that still live in Bazaar.Server (calendar, gc, knowledge) are gathered here, so call sites keep
 /// writing <c>SettingRegistry.Known</c> and <c>SettingRegistry.WithContributions(...)</c>.
 /// </summary>
 public static class SettingRegistryComposition
@@ -15,7 +15,6 @@ public static class SettingRegistryComposition
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
-            .Concat(Gateway.GatewaySettings.All)
             .Concat(SecuritySettings.All);
 
     extension(SettingRegistry)
