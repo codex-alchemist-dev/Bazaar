@@ -1,6 +1,6 @@
 # Client visual system, materials and motion (desktop and mobile)
 
-Status: PROPOSED, with owner picks of 2026-11-22 recorded below · Owner questions: 7
+Status: PROPOSED, with owner picks of 2026-11-22 recorded below · Owner questions: 8
 Depends on: 27-client-architecture.md, 28-windows-client.md, 29-android-client.md, 30-linux-client-and-packaging.md, 41-client-gui-customization-and-dsl.md, constellation-render-core.md · Used by: 34-testing-strategy.md
 
 ## Purpose
@@ -84,8 +84,59 @@ Three base themes, all from one theme file each (doc 27): **Void** (pure black g
 - Posture comes from `WindowLayoutInfo` as today (`Posture` record plus hinge orientation). If a company has no variant for book or tabletop, the client uses the half-open variant (`android.half_open_layout`), then folded. Whether book and tabletop become separate server variants or one half-open variant with an orientation flag is open (question 7).
 - Content never straddles the hinge: the gap is a layout inset, not a drawn surface, and translucent materials stop at it.
 
+### Liquid motion language [PROPOSED; owner direction 2026-11-22]
+Owner direction: a "liquid" feel made of a couple of hundred small details, not large set pieces. Mostly on phone; desktop is subtler. A reduced-animation mode exists on phone. This sits on top of the Fluid tokens above and replaces nothing in them.
+- **Four ideas, reused everywhere.** (1) *Droplet spawn*: new things start as a small drop at their origin and expand into shape. (2) *Surface tension*: nearby shapes bulge toward each other and merge or split (metaball effect), then relax. (3) *Viscous spring*: movement stretches along its direction while moving and settles with one small wobble (squash and stretch, volume kept). (4) *Ripple*: touch sends a soft ring through the surface.
+- **Three levels,** a setting `client.motion_level`: `liquid` (phone default), `subtle` (desktop default: same ideas at about half the distance and duration, no merge or wobble), `reduced` (fades of 90 ms or less, no travel, no squash; also what the OS reduced-motion setting selects). Level is per person; `reduced` is always reachable on phone in one tap from settings.
+- **Budget rules.** Merge and goo effects run only while a small area animates (a bubble, a chip), never on a scrolling list or full screen. Each effect is skipped when the frame budget is missed, falling back one level for that effect. Text is never inside a merge effect; it fades in after the shape settles so it stays sharp. Shapes keep their volume (squash on one axis stretches the other).
+- **Implementation [spike, unverified].** Squash, stretch, ripple and droplet travel are plain transforms and clip animations in Avalonia. The metaball merge needs a threshold-blur effect; whether Avalonia 12's composition layer and Skia on Android and Linux can run it cheaply is not known. If not, merge falls back to overlapping shapes with the squash and stretch only. A prototype of the droplet bubble, ripple, typing blobs and viscous switch was shown to the owner in the options page; it was a browser mock, not a measurement.
+
+#### Micro-interaction catalogue [PROPOSED]
+Level columns: L = liquid (phone), S = subtle (desktop), R = reduced. "fade" means a 90 ms cross-fade.
+| Interaction | L (phone) | S (desktop) | R |
+|---|---|---|---|
+| New message bubble | Drop leaves the composer or avatar, merges, expands into the bubble with one overshoot; text fades in after | Scale from .96 and fade, 160 ms | fade |
+| Own message sent | Drop rises from composer into the list; composer clears with a downward drip | Slide 8 px and fade | fade |
+| Typing indicator | Three drops that merge and separate | Three dots, small bounce | dots fade in turn |
+| Touch ripple on any pressable | Soft ring from the finger, 900 ms | Hover tint, 80 ms; click tint 200 ms | 90 ms flash |
+| Switch toggle | Knob stretches while travelling, wobbles once, track tints as it passes | 140 ms slide | instant |
+| Checkbox and radio | Fill spreads from the tap point | Fill fade | instant |
+| Button press | Squash to .96 with ripple, release springs back | Darken | darken |
+| Send button | Fills like a drop when the composer has text | Fade to accent | fade |
+| Unread badge and counts | Pops in as a drop, number rolls | Fade | fade |
+| Presence dot change | Dot swells and settles | Colour fade | colour change |
+| Reaction chip added | Merges out of the message edge into place | Fade in | fade |
+| Reaction chip count change | Number rolls with a small bulge | Fade swap | swap |
+| Chat swipe | Neighbour follows the finger; edge bulges toward the finger | Cross-fade on tab switch | fade |
+| Pull to load history | Rubber band stretches into a drop that releases | Spinner-free progress line | progress line |
+| Row swipe (approve, reply, archive) | Row stretches, action blob grows behind it, commit tick, blob pops | Hover toolbar | fade |
+| Bottom sheet | Rises with a meniscus on the top edge, drags with the finger, snaps with a small wobble | Dialog fade and 6 px drop | fade |
+| Radial menu open | Drops spread from the touch point into sectors; sector under the thumb swells and the others dim | n/a (mnemonics) | sectors appear, no travel |
+| Radial sector change | Highlight blob flows to the new sector, haptic tick | n/a | highlight jump |
+| Dictation active | Centre pulses with the voice level as a breathing blob | Level meter bar | static ring |
+| Dictation to composer | Blob flows up into the text field | Fade | fade |
+| Approval card appear | Drops in from the top strip | Fade and 6 px drop | fade |
+| Approve commit | Button fills the card, card dissolves into a ripple, confirmation check draws | Check fades in | check |
+| Deny | Card drains downward | Fade | fade |
+| Kanban card lift and move | Card lifts with a bulge, neighbours part like liquid, lands with a ripple | Ghost outline, neighbours slide | ghost outline |
+| Kanban state change by server | Card flows to the new column | Fade out and in | fade |
+| Presence and list reorder | Rows ease past each other | Short slide | none |
+| Constellation node focus | Node swells, links ripple outward | Node highlight | highlight |
+| Tab and pane change | Content flows in from the side with an edge bulge | Cross-fade | fade |
+| Unfold and fold (foldable) | Layout stretches across the hinge like a film, panes bud off the chat | n/a | cross-fade |
+| Theme switch | Colour spreads from the toggle as an expanding drop | Cross-fade | instant |
+| Toast and banner | Drops from the top and absorbs back | Fade | fade |
+| Connection state chip | Chip breathes while connecting; flashes a ripple when live | Colour fade | colour change |
+| Loading skeleton | Slow liquid shimmer | Plain shimmer | static |
+| Empty state | Single drop idles with slow breathing | Static | static |
+| Scroll to bottom button | Rises as a drop; unread count pops | Fade | fade |
+| Text input focus | Underline spreads from the caret | Underline fade | instant |
+| Error shake | Surface shudders with a ripple | Border flash | border flash |
+| Haptics | Tick on commit points, per radial sector, send, approve | none | kept |
+The catalogue is the starting set (about 40). The target is to give every pressable, list change and state change a row here as the screens are built; each new row names its three levels and has a headless test that the level switch works. Adding rows is a docs change, as with the doc 29 scope table.
+
 ### Theme file additions [PROPOSED]
-Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old tokens unchanged: `color.hue.0` to `color.hue.11` (or the generator parameters), `material.mode`, `material.tint`, `material.opacity`, `material.fallback.*`, `motion.duration.*`, `motion.spring.*`, `motion.scale.desktop`, plus the existing `reducedMotion`. The validator rejects unknown tokens as it does now. Migration of v1 files fills defaults.
+Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old tokens unchanged: `color.hue.0` to `color.hue.11` (or the generator parameters), `material.mode`, `material.tint`, `material.opacity`, `material.fallback.*`, `motion.duration.*`, `motion.spring.*`, `motion.scale.desktop`, `motion.liquid.*` (squash and stretch limits, ripple size and duration, merge softness), plus the existing `reducedMotion`. The validator rejects unknown tokens as it does now. Migration of v1 files fills defaults.
 
 ### Settings [PROPOSED]
 | Key | Type | Default | Scope | Who may change | Approval |
@@ -93,7 +144,7 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 | `client.theme` | enum void, graphite, paper, or imported | void | person | person | no |
 | `client.density` | enum comfortable, compact | comfortable | person | person | no |
 | `client.materials` | enum auto, translucent, opaque | auto | person | person | no |
-| `client.motion` | enum full, reduced (follows OS by default) | follows OS | person | person | no |
+| `client.motion_level` | enum liquid, subtle, reduced (OS reduced-motion forces reduced) | liquid on phone, subtle on desktop | person | person | no |
 | `android.haptics` | bool | on | person | person | no |
 | `android.gesture_edge_dp` | int | 24 (floor 16) | install | operator | no |
 
@@ -114,7 +165,7 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 1. Theme schemaVersion 2 and migration, `HueFamily`, validator for translucent surfaces. Depends on doc 27 theme code.
 2. Void, Graphite and Paper theme files and the Avalonia and Monaco generators.
 3. Materials service with fallbacks (Windows, Linux, Android), setting and reduce-transparency handling.
-4. Motion token set and a Core animation helper (spring, interruptible, velocity-preserving), reduced-motion substitution.
+4. Motion token set and a Core animation helper (spring, interruptible, velocity-preserving), reduced-motion substitution, and the liquid effects library (droplet, squash and stretch, ripple, merge spike) with the catalogue's headless level tests.
 5. Phone gesture layer: pager swipe, row swipe, sheet drag, radial highlight and haptics, accessibility actions.
 6. Predictive back spike and `IBackGestureSource`.
 7. Apply to screens (shell, GC view, Kanban, dashboard). Depends on the shell and pane work.
@@ -128,4 +179,5 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 4. Is blur acceptable on low-end phones if it measures fine, or should Android never blur?
 5. How much motion on desktop: the proposed half-length set, or phone-level Fluid everywhere?
 6. Tablet and desktop-mode Android behaviour, iconography, empty and error states, and the dashboard layout are not covered here and come in a later round.
+8. Can the merge (goo) effect be dropped on a device where it costs too much, falling back to squash and stretch only, or must every device show it?
 7. Book and tabletop: separate server variants, or one half-open variant with an orientation flag?
