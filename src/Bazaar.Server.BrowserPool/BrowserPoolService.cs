@@ -20,8 +20,10 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
     private readonly IPoolVmHost _host;
     private readonly IPoolEgressPolicy _egress;
     private readonly IPoolGate _gate;
+    private readonly IAsyncPoolGate? _asyncGate;
     private readonly IPoolAuditSink _audit;
     private readonly TimeProvider _time;
+    private readonly IPoolReadinessCheck[] _readiness;
 
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _firewallLock = new(1, 1);
@@ -36,7 +38,9 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         IPoolEgressPolicy egress,
         IPoolGate gate,
         IPoolAuditSink audit,
-        TimeProvider time)
+        TimeProvider time,
+        IEnumerable<IPoolReadinessCheck>? readiness = null,
+        IAsyncPoolGate? asyncGate = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
@@ -49,8 +53,10 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _egress = egress ?? throw new ArgumentNullException(nameof(egress));
         _gate = gate ?? throw new ArgumentNullException(nameof(gate));
+        _asyncGate = asyncGate;
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _time = time ?? throw new ArgumentNullException(nameof(time));
+        _readiness = readiness?.ToArray() ?? [];
         _slots = new SessionState?[_options.MaxSessions];
     }
 
@@ -73,7 +79,7 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
             throw Refuse(agentForAudit, PoolFailure.InvalidRequest, requestError);
         }
 
-        if (_gate.IsBlocked(request!.AgentId))
+        if (await IsBlockedAsync(request!.AgentId, ct).ConfigureAwait(false))
         {
             throw Refuse(request.AgentId, PoolFailure.AgentBlocked, "The agent is blocked.");
         }
@@ -82,6 +88,12 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         if (limit is not null)
         {
             throw Refuse(request.AgentId, limit.Value, LimitMessage(limit.Value));
+        }
+
+        var notReady = await CheckReadinessAsync(ct).ConfigureAwait(false);
+        if (notReady is not null)
+        {
+            throw Refuse(request.AgentId, PoolFailure.ImageNotReady, notReady);
         }
 
         PoolEgressEndpoint? endpoint;
@@ -226,6 +238,59 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         return due.Count(d => d.WasOpen);
     }
 
+    /// <summary>Asks every registered readiness check. Returns a refusal message naming the failure ids, or null when all pass. A check that throws counts as a failure.</summary>
+    private async Task<string?> CheckReadinessAsync(CancellationToken ct)
+    {
+        if (_readiness.Length == 0)
+        {
+            return null;
+        }
+
+        var ids = new List<string>();
+        foreach (var check in _readiness)
+        {
+            try
+            {
+                foreach (var failure in await check.CheckAsync(ct).ConfigureAwait(false))
+                {
+                    ids.Add(failure.Id);
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                ids.Add("readiness-check-error");
+            }
+        }
+
+        return ids.Count == 0 ? null : "The pool VM image is not ready: " + string.Join(", ", ids.Distinct(StringComparer.Ordinal)) + ".";
+    }
+
+    /// <summary>
+    /// Asks the gate: the asynchronous one when the host registered it, otherwise the synchronous one. A gate that throws (other than
+    /// by cancellation) counts as blocked, so a broken gate refuses and never lets a session through.
+    /// </summary>
+    private async ValueTask<bool> IsBlockedAsync(string agentId, CancellationToken ct)
+    {
+        try
+        {
+            return _asyncGate is not null
+                ? await _asyncGate.IsBlockedAsync(agentId, ct).ConfigureAwait(false)
+                : _gate.IsBlocked(agentId);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return true;
+        }
+    }
+
     private BrowserPoolException Refuse(string agentId, PoolFailure failure, string detail)
     {
         SafeAudit(() => _audit.Refused(agentId, failure, detail));
@@ -310,7 +375,7 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
             }
 
             // The kill switch may have fired while the slot was being prepared.
-            if (_gate.IsBlocked(request.AgentId))
+            if (await IsBlockedAsync(request.AgentId, token).ConfigureAwait(false))
             {
                 throw new BrowserPoolException(PoolFailure.AgentBlocked, "The agent is blocked.");
             }

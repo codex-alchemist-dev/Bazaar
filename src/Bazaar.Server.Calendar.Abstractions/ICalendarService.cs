@@ -15,9 +15,12 @@ public interface ICalendarService
     /// <summary>Cancels an event. Cancel is a status change; the row stays.</summary>
     Task<CalendarResult> CancelAsync(Guid id, long expectedVersion, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default);
 
-    /// <summary>Reads one event. The title stays sealed; see <c>CalendarService.OpenTitleAsync</c>.</summary>
+    /// <summary>Reads one event. The title stays sealed; see <see cref="OpenTitleAsync"/>.</summary>
     Task<CalendarEventRecord?> GetAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Lists events overlapping [<paramref name="from"/>, <paramref name="until"/>), including cancelled rows.</summary>
     Task<IReadOnlyList<CalendarEventRecord>> ListOverlappingAsync(DateTimeOffset from, DateTimeOffset until, Guid? agentId, CancellationToken ct = default);
+
+    /// <summary>Opens the sealed title of a stored event. Returns <c>null</c> when the author's key was erased.</summary>
+    ValueTask<string?> OpenTitleAsync(CalendarEventRecord record, CancellationToken ct = default);
 }
