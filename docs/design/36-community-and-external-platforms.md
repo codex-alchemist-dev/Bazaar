@@ -187,3 +187,5 @@ Settled without a question: objections stop posting and blocklist the target at 
 
 ANSWERED: New accounts need owner approval every time, Tier 2, overriding doc 15's whitelist autonomy (DECISIONS-LOG round 7, C21).
 ANSWERED: Unverified platforms are Deny until a verified record exists (DECISIONS-LOG round 7, C21; 36's stricter default adopted).
+
+Client head binding for WP 8 and WP 9 [PROPOSED, 2026-11-22]: `Bazaar.Client.Windows` registers `CommunityDraftsPaneModule` and `CommunityLogPaneModule` in its pane module list (`CommunityPanes`, a head composition file) and puts `HttpDraftReviewDecisionSender` over `ClientServer.Current` into the feature context. No device key store exists in the client yet, so no `IDecisionSigner` is supplied: the drafts pane refuses Approve, Deny and Edit with "No device signing key is available in this client" and sends nothing. No HTTP `ICommunityLogSource` exists yet, so the log pane shows its error state. Both close when those seams land. The Linux head has no pane registry yet, and the Android phone shell has no phone body for these kinds, so neither registers them.
