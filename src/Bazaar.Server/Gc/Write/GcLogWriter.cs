@@ -28,7 +28,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         """;
 
     private const string _keyssql = """
-        SELECT k.ord, e.seq, e.event_id, e.created_at
+        SELECT k.ord, e.seq, e.event_id, e.created_at, e.message_id
         FROM unnest($2::uuid[], $3::text[]) WITH ORDINALITY AS k(author_id, client_msg_id, ord)
         JOIN gc_event e ON e.gc_id = $1 AND e.author_id = k.author_id AND e.client_msg_id = k.client_msg_id
         """;
@@ -93,7 +93,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         {
             if (existing.TryGetValue(i, out var found))
             {
-                results[i] = new AppendResult(gcId, found.Seq, found.EventId, Duplicate: true, found.CreatedAt);
+                results[i] = new AppendResult(gcId, found.Seq, found.EventId, Duplicate: true, found.CreatedAt, found.MessageId);
             }
             else
             {
@@ -195,7 +195,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         return gcId;
     }
 
-    private static async Task<(long Head, Dictionary<int, (long Seq, Guid EventId, DateTimeOffset CreatedAt)> Existing)> LockAndLookupAsync(
+    private static async Task<(long Head, Dictionary<int, (long Seq, Guid EventId, DateTimeOffset CreatedAt, Guid? MessageId)> Existing)> LockAndLookupAsync(
         NpgsqlConnection conn, NpgsqlTransaction tx, Guid gcId, IReadOnlyList<AppendRequest> requests, CancellationToken ct)
     {
         await using var batch = new NpgsqlBatch(conn, tx);
@@ -216,9 +216,9 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         var archived = reader.GetBoolean(1);
 
         await reader.NextResultAsync(ct).ConfigureAwait(false);
-        var existing = new Dictionary<int, (long, Guid, DateTimeOffset)>();
+        var existing = new Dictionary<int, (long, Guid, DateTimeOffset, Guid?)>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
-            existing[(int)reader.GetInt64(0) - 1] = (reader.GetInt64(1), reader.GetGuid(2), reader.GetFieldValue<DateTimeOffset>(3));
+            existing[(int)reader.GetInt64(0) - 1] = (reader.GetInt64(1), reader.GetGuid(2), reader.GetFieldValue<DateTimeOffset>(3), reader.IsDBNull(4) ? null : reader.GetGuid(4));
 
         // Archive blocks new events; answering a repeat of an event written before the archive stays allowed.
         if (archived && existing.Count < requests.Count)
@@ -270,7 +270,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 batch.BatchCommands.Add(Cmd(_insertmembersql, P(gcId), P(member.PrincipalId), P(member.Role), P(seq), N(left)));
             }
 
-            results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);
+            results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now, messageId);
         }
 
         await batch.ExecuteNonQueryAsync(ct).ConfigureAwait(false);

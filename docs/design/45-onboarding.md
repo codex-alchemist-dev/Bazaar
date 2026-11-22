@@ -491,6 +491,10 @@ The owner has not chosen a sample-data sandbox company. Empty states explain wha
 
 The import wizard is offered after the tour and from the palette. It is the same importer set as the server's import source (section 1.8). Nothing is imported without an explicit choice.
 
+## 2.7 Who is signed in [PROPOSED]
+
+After sign-in a client reads the signed-in person (human id, display name, role, device id) from `GET /auth/whoami` (doc 32 section 5) with its access token, instead of decoding the token itself. A 401 means sign in again. Signing out calls `POST /auth/signout` (doc 32 section 5), which revokes this device only; the client then clears its stored credentials.
+
 ## 2.6 Sign-in and create-company screens [PLANNED; the handoff route's body is PROPOSED]
 
 Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar.Client.CompanySetup`, each with `.Abstractions` and `.Avalonia`). They add no code to Client.Core. A head (Windows first) shows them with `--sign-in`, `--create-company` or `--first-run`.

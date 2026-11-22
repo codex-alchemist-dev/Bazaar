@@ -352,6 +352,8 @@ public static class PoolCommandLine
             "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE " + host,
             "--remote-debugging-pipe",
             "--window-size=" + PoolRequestValidator.Invariant(request.Width) + "," + PoolRequestValidator.Invariant(request.Height),
+            // One CSS pixel is one screenshot pixel, so a click at a screenshot coordinate lands where the agent saw it.
+            "--force-device-scale-factor=1",
         };
 
         if (headed)
