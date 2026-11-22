@@ -49,12 +49,6 @@ src/Bazaar.Server/Constellation/Tiles/LayoutTileSource.cs
 src/Bazaar.Server/Constellation/Tiles/QuadtreeTileBuilder.cs
 src/Bazaar.Server/Constellation/Tiles/TileFrameBinaryCodec.cs
 src/Bazaar.Server/Constellation/Tiles/VaultGraphSource.cs
-src/Bazaar.Server/Data/Migrations/IMigrationSource.cs
-src/Bazaar.Server/Data/Migrations/MigrateCommand.cs
-src/Bazaar.Server/Data/Migrations/MigrationExceptions.cs
-src/Bazaar.Server/Data/Migrations/MigrationFile.cs
-src/Bazaar.Server/Data/Migrations/MigrationNamespaces.cs
-src/Bazaar.Server/Data/Migrations/MigrationRunner.cs
 src/Bazaar.Server/Email/Quarantine/EmailAddressParser.cs
 src/Bazaar.Server/Email/Quarantine/InboundQuarantineRules.cs
 src/Bazaar.Server/Email/Quarantine/QuarantineDecision.cs

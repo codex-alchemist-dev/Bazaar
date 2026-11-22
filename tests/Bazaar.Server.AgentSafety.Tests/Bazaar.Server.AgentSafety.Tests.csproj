@@ -11,6 +11,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Abstractions\Bazaar.Server.Identity.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Identity\Bazaar.Server.Identity.csproj" />

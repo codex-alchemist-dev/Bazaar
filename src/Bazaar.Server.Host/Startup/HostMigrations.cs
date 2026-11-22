@@ -18,7 +18,7 @@ public static class HostMigrations
 {
     /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Setup, Agents and Portability migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
-        new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
+        new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new EmbeddedMigrationSource(typeof(UsageRepository).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
