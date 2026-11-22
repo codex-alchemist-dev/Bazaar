@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Graph;
 
 /// <summary>
@@ -11,6 +13,7 @@ public sealed record GraphNode(string Id, GraphNodeKind Kind = GraphNodeKind.Uns
 public sealed record GraphEdge(string From, string To, GraphEdgeKind Kind = GraphEdgeKind.Unspecified);
 
 /// <summary>A versioned copy of the graph that the layout engine lays out.</summary>
+[WirePayload]
 public sealed record GraphSnapshot(
     long GraphVersion,
     IReadOnlyList<GraphNode> Nodes,
@@ -20,7 +23,9 @@ public sealed record GraphSnapshot(
 /// One layout result sent to clients. <c>Xyz</c> is packed x,y,z per node index (stride 3), in the node order of the
 /// snapshot it was computed from. 2D layouts keep z at 0. Clients drop any frame older than the newest one applied (doc 19, ordering).
 /// </summary>
+[WirePayload]
 public sealed record LayoutFrame(long GraphVersion, long LayoutSeq, string FocusId, ReadOnlyMemory<float> Xyz);
 
 /// <summary>A client's request to move the focus of one view to a node (doc 19, Commands). Sent over the socket.</summary>
+[WirePayload]
 public sealed record FocusRequest(string ViewId, string NodeId);
