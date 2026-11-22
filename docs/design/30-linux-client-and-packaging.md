@@ -101,6 +101,8 @@ Rollback switches `current` back. An old binary refuses to start if the schema i
 
 Scope: Windows executables, MSI and Velopack packages. Linux: SHA-256 sums plus a detached signature (GPG or Sigstore, unverified). Android: Play App Signing. SignPath holds its own key, so no certificate sits in the repository. Timing is setting `packaging.signing_mode`.
 
+**Implemented (Linux):** `packaging/linux/sign-tarball.sh` writes a detached ASCII-armoured OpenPGP signature (`<tarball>.asc`) with the key the operator names in `BAZAAR_SIGNING_GPG_KEY`; it refuses to run without one and the key never sits in the repository. `packaging/linux/verify-tarball.sh` checks the SHA-256 file and then the signature against a public key the verifier already trusts; the release gate calls it. Sigstore is not built; OpenPGP is the verified-available route.
+
 ### 8. Release pipeline [PROPOSED]
 - Exists: `ci.yml` (build and test on `ubuntu-latest` and `windows-latest`, gitleaks) and `pr-sponsor.yml`. No release workflow yet.
 - New `release.yml`, started only by the owner (`workflow_dispatch` with a version input). Its publish job runs in a GitHub environment with the owner as required reviewer, and is the only job with `contents: write`. Actions stay pinned to commit SHAs.
