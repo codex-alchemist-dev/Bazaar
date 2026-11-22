@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Security.Erasure;
+using Bazaar.Erasure;
 
 namespace Bazaar.Server.Security.Tests.Erasure;
 
