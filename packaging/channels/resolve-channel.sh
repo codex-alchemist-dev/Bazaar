@@ -14,6 +14,7 @@
 #   The LTSC and Latest-Commit channels are never produced from a tag: LTSC lives on its own
 #   branch and Latest-Commit is a CI build, not a release tag. The Bazaar.Server operator picks
 #   a channel per install; this script only labels a published release.
+#   LTSC releases are checked by lts-branch.sh (branch ltsc/<codename>, patch-only bumps).
 #
 # Exit 2 on a tag or ring that is not valid, so release workflows fail closed.
 
