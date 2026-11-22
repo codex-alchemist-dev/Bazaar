@@ -22,7 +22,7 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     /// (the module manager's, the backup policy's and the mail policy's), the same set the host composes. The admin tool has no
     /// component kernel, so it composes them here.
     /// </summary>
-    public static RegistrySetupSettingCatalog Known { get; } = new(SettingRegistry.WithContributions(
+    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.WithContributions(
         [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution()]));
 
     public RegistrySetupSettingCatalog(SettingRegistry registry)

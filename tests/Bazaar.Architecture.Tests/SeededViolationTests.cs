@@ -60,6 +60,36 @@ public class SeededViolationTests
     }
 
     [Fact]
+    public void Seeded_module_server_reference_is_flagged() =>
+        Assert.Equal(["Bazaar.Seeded"], ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded", ["Bazaar.Core", "Bazaar.Server"])]));
+
+    [Fact]
+    public void Seeded_module_abstractions_server_reference_is_flagged() =>
+        Assert.Equal(["Bazaar.Seeded.Abstractions"], ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded.Abstractions", ["Bazaar.Server"])]));
+
+    [Fact]
+    public void Seeded_server_module_reference_is_flagged() =>
+        Assert.Equal(["Bazaar.Server.Seeded"], ArchitectureRules.ModuleServerReferences([("Bazaar.Server.Seeded", ["Bazaar.Server"])]));
+
+    [Fact]
+    public void Seeded_module_without_server_reference_is_not_flagged() =>
+        Assert.Empty(ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded", ["Bazaar.Core", "Bazaar.Contracts"])]));
+
+    [Fact]
+    public void Seeded_exempt_projects_referencing_server_are_not_flagged() =>
+        Assert.Empty(ArchitectureRules.ModuleServerReferences(
+        [
+            ("Bazaar.Server.Host", ["Bazaar.Server"]),
+            ("Bazaar.Client.Windows", ["Bazaar.Server"]),
+            ("Bazaar.Client.Core", ["Bazaar.Server"]),
+            ("Bazaar.Core", ["Bazaar.Server"]),
+        ]));
+
+    [Fact]
+    public void Seeded_non_bazaar_project_is_not_restricted() =>
+        Assert.False(ArchitectureRules.IsServerReferenceRestricted("Vendor.Seeded"));
+
+    [Fact]
     public void Repo_root_is_found_from_nested_build_output() =>
         Assert.Equal(RepoPaths.Root, RepoPaths.FindRoot(Path.Combine(RepoPaths.Root, "tests", "Bazaar.Architecture.Tests", "bin")));
 }

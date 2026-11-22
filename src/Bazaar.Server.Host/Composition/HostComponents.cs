@@ -2,21 +2,24 @@ using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.BackupPolicy;
-using Bazaar.Server.Company;
+using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
+using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
@@ -26,8 +29,10 @@ using Bazaar.Server.Mail;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -44,15 +49,18 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new GatewayRetentionComponent(),
         new KekComponent(),
         new GcComponent(),
-        new CompanyComponent(),
+        new CalendarComponent(),
+        new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new RolesComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
@@ -70,5 +78,7 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new ValkeyComponent(),
+        new GarnetComponent(),
     ];
 }

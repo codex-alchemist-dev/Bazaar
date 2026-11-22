@@ -10,7 +10,7 @@ public sealed class MailPolicySettingsTests
 {
     private static readonly SettingActor _operator = new("setup:plan", SettingRole.Operator);
 
-    private static readonly SettingRegistry _known = SettingRegistry.WithContributions([new MailPolicySettingContribution()]);
+    private static readonly SettingRegistry _known = BuiltInSettingRegistries.WithContributions([new MailPolicySettingContribution()]);
 
     private static SettingEvaluation Eval(string name, string json)
     {
