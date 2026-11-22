@@ -266,6 +266,21 @@ public sealed class AdminHttpTests
     }
 
     [Fact]
+    public async Task Status_json_carries_version_uptime_queues_and_health_in_camel_case()
+    {
+        await using var h = await AdminTestHost.StartAsync();
+        var r = await h.SendAsync("GET", "/admin/api/status", h.Seed());
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var j = System.Text.Json.JsonElement.Parse(await r.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).GetProperty("data");
+        Assert.Equal("0.1.0", j.GetProperty("version").GetString());
+        Assert.Equal(5, j.GetProperty("uptimeSeconds").GetInt64());
+        Assert.Equal("jobs", j.GetProperty("queues")[0].GetProperty("name").GetString());
+        Assert.Equal(2, j.GetProperty("queues")[0].GetProperty("depth").GetInt64());
+        Assert.Equal("degraded", j.GetProperty("health").GetProperty("state").GetString());
+        Assert.Equal("mail", j.GetProperty("health").GetProperty("checks")[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
     public async Task Read_fails_closed_when_audit_is_down()
     {
         await using var h = await AdminTestHost.StartAsync();

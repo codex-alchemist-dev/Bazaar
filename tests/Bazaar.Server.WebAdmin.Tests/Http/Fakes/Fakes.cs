@@ -121,7 +121,7 @@ internal sealed class FakeAssets : IAdminAssetProvider
 internal sealed class FakeStatus : IAdminStatusSource
 {
     public Task<AdminStatusView> GetAsync(CancellationToken ct = default) =>
-        Task.FromResult(new AdminStatusView("Bazaar", "0.1.0", "Zuhal", DateTimeOffset.UnixEpoch, 5, ["p1"]));
+        Task.FromResult(new AdminStatusView("Bazaar", "0.1.0", "Zuhal", DateTimeOffset.UnixEpoch, 5, ["p1"], [new AdminQueueDepth("jobs", 2)], new AdminHealthSummary("degraded", [new AdminHealthCheck("mail", "degraded", "slow")])));
 }
 
 internal sealed class FakeKodo : IAdminKodoSource
