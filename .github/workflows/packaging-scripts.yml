@@ -1,7 +1,7 @@
 # Runs the PowerShell tests for the packaging scripts (packaging/velopack). Only when packaging/ changes.
 # The tests are dry-run only: they never call vpk, never sign and never upload.
-# Runner choice follows ci.yml: the owner's self-hosted Windows runner when the owner account started
-# the run from this repository, GitHub-hosted windows-latest (which has pwsh) for everyone else.
+# Runs on GitHub-hosted windows-latest (it has pwsh). It does not use the owner's PC runner, so it
+# does not wait behind the PC's queue or stall while the PC is off.
 # Not a required check, so a docs-only PR is never left waiting on it.
 
 name: Packaging scripts
@@ -27,7 +27,7 @@ concurrency:
 jobs:
   velopack-pack-script:
     name: Velopack pack script tests
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-win"]') || 'windows-latest' }}
+    runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - name: Check out
