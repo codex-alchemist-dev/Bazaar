@@ -5,6 +5,14 @@ namespace Bazaar.Server.DevSandbox.Linux;
 /// <summary>Registers the Linux confinement provider (doc 48 section 2.1, Linux provider).</summary>
 public static class LinuxSandboxModule
 {
+    /// <summary>Registers the operator-configured launch plan (see <see cref="ConfiguredLinuxLaunchPlan"/>). Call it before <see cref="AddBazaarDevSandboxLinux"/>.</summary>
+    public static IServiceCollection AddBazaarDevSandboxLinuxConfiguredPlan(this IServiceCollection services, ConfiguredLinuxLaunchOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(options);
+        return services.AddSingleton<ILinuxSandboxLaunchPlan>(new ConfiguredLinuxLaunchPlan(options));
+    }
+
     /// <summary>
     /// Adds the provider on a Linux host where an <see cref="ILinuxSandboxLaunchPlan"/> is already registered (call this after the plan). On any other host, or without a plan,
     /// nothing is added, so every run is refused (fail closed, no unconfined fallback). The provider's startup self-test decides whether it

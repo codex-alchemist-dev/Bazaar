@@ -24,4 +24,15 @@ public sealed class LinuxSandboxModuleTests
 
         Assert.Equal(OperatingSystem.IsLinux(), services.Any(d => d.ServiceType == typeof(ISandboxConfinementProvider)));
     }
+
+    [Fact]
+    public void The_configured_plan_extension_registers_a_plan_the_provider_extension_then_accepts()
+    {
+        var services = new ServiceCollection()
+            .AddBazaarDevSandboxLinuxConfiguredPlan(new ConfiguredLinuxLaunchOptions { ModuleRoot = "/m", Executable = "/usr/bin/runner" })
+            .AddBazaarDevSandboxLinux();
+
+        Assert.Contains(services, d => d.ServiceType == typeof(ILinuxSandboxLaunchPlan));
+        Assert.Equal(OperatingSystem.IsLinux(), services.Any(d => d.ServiceType == typeof(ISandboxConfinementProvider)));
+    }
 }
