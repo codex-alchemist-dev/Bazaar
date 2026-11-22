@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Bazaar.GitHub.Events;
 using Bazaar.GitHub.Ingress;
+using Bazaar.GitHub.Pr;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -29,7 +30,8 @@ public sealed partial class GitHubIssueService(
     GitHubIssueGcOptions options,
     Guid creator,
     Guid? bridge,
-    ILogger<GitHubIssueService> logger)
+    ILogger<GitHubIssueService> logger,
+    IGitHubOwnerResolver? ownerResolver = null)
 {
     /// <summary>The GC id for an issue node id. Stable, so every caller derives the same one.</summary>
     public static Guid GcIdFor(string issueNodeId) =>
@@ -45,6 +47,7 @@ public sealed partial class GitHubIssueService(
         var gcId = GcIdFor(node);
         var trusted = GitHubEventMapper.IsTrustedAssociation(ev.AuthorAssociation);
         var created = false;
+        Guid? owner = null;
 
         var known = await ReadAsync(node, cancellationToken).ConfigureAwait(false);
         if (known is null)
@@ -55,7 +58,8 @@ public sealed partial class GitHubIssueService(
                 return null;
             }
 
-            var (members, agents) = await MembersAtCreateAsync(ev, trusted, cancellationToken).ConfigureAwait(false);
+            owner = ownerResolver is null ? null : await ownerResolver.GetOwnerPrincipalIdAsync(cancellationToken).ConfigureAwait(false);
+            var (members, agents) = await MembersAtCreateAsync(ev, trusted, owner, cancellationToken).ConfigureAwait(false);
             if (!trusted && agents == 0)
             {
                 LogNoAgentInvolved(logger, ev.EventId);
@@ -71,6 +75,10 @@ public sealed partial class GitHubIssueService(
         var (rowGc, applied) = await UpsertAsync(ev, gcId, cancellationToken).ConfigureAwait(false);
         if (rowGc is null)
             return null;
+
+        // The owner joins at create when one resolved then; otherwise (no owner yet) at the first event that finds one. Idempotent.
+        if (owner is null && ownerResolver is not null && await ownerResolver.GetOwnerPrincipalIdAsync(cancellationToken).ConfigureAwait(false) is { } later && later != creator)
+            await factory.AddOwnerAsync(rowGc.Value, later, cancellationToken).ConfigureAwait(false);
 
         // Agents named by this event join an existing GC (a mention needs the GC to be readable). A GC created above already holds them.
         if (!created)
@@ -159,11 +167,13 @@ public sealed partial class GitHubIssueService(
             _ => null,
         };
 
-    private async Task<(Guid[] Members, int Agents)> MembersAtCreateAsync(GitHubEvent ev, bool trusted, CancellationToken ct)
+    private async Task<(Guid[] Members, int Agents)> MembersAtCreateAsync(GitHubEvent ev, bool trusted, Guid? owner, CancellationToken ct)
     {
         var members = new List<Guid> { creator };
         if (bridge is { } b)
             members.Add(b);
+        if (owner is { } o)
+            members.Add(o);
         var agents = 0;
         foreach (var login in NamedLogins(ev, trusted))
         {
