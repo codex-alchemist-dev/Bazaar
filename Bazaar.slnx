@@ -70,6 +70,7 @@
     <Project Path="src/Bazaar.Client.Calcinato.Avalonia/Bazaar.Client.Calcinato.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Calcinato.Abstractions/Bazaar.Client.Calcinato.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Terminal.Abstractions/Bazaar.Server.Terminal.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Terminal.Vms/Bazaar.Server.Terminal.Vms.csproj" />
     <Project Path="src/Bazaar.Client.Org/Bazaar.Client.Org.csproj" />
     <Project Path="src/Bazaar.Client.Org.Abstractions/Bazaar.Client.Org.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Calendar/Bazaar.Client.Calendar.csproj" />
@@ -623,6 +624,7 @@
     <Project Path="tests/Bazaar.Client.Community.Approvals.Tests/Bazaar.Client.Community.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Terminal.Tests/Bazaar.Server.Terminal.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Terminal.Vms.Tests/Bazaar.Server.Terminal.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Calcinato.Pty.Tests/Bazaar.Client.Calcinato.Pty.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Calcinato.Tests/Bazaar.Client.Calcinato.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Calcinato.Avalonia.Tests/Bazaar.Client.Calcinato.Avalonia.Tests.csproj" />
