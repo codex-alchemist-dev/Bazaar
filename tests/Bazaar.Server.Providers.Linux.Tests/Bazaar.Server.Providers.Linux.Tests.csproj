@@ -12,7 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
-    <!-- Test-only: selection tests drive ProviderSelector. -->
+    <!-- Test-only: the report tests list the Linux providers. -->
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers\Bazaar.Server.Providers.csproj" />
   </ItemGroup>
 </Project>
