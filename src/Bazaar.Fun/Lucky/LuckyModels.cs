@@ -29,7 +29,11 @@ public enum LuckyIdeaStatus
 /// <param name="Text">The sanitized idea text; empty when quarantined.</param>
 /// <param name="Status">Kept or quarantined.</param>
 /// <param name="OwnerMarked">True when the owner marked the idea for a Backlog card.</param>
-public sealed record LuckyIdea(string AgentId, string Text, LuckyIdeaStatus Status, bool OwnerMarked = false);
+public sealed record LuckyIdea(string AgentId, string Text, LuckyIdeaStatus Status, bool OwnerMarked = false)
+{
+    /// <summary>The source trust every Lucky idea carries (doc 26, section 6): an agent's text, never an external one.</summary>
+    public const string SourceTrust = "agent";
+}
 
 /// <summary>An open or finished Lucky run.</summary>
 /// <param name="RunId">The run's identifier.</param>
