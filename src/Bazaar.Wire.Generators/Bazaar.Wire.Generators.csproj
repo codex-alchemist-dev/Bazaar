@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Wire.Generators.Tests" />
+    <InternalsVisibleTo Include="Bazaar.Wire.Schema.Tests" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />

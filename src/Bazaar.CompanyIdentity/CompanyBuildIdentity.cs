@@ -12,4 +12,16 @@ public static class CompanyBuildIdentity
 
     /// <summary>The SHA-256 pin of the server's key, or null when this build carries no identity.</summary>
     public static string? KeyHashPin => null;
+
+    /// <summary>Lowercase hex fingerprint of the update signing key, or null when this build carries no update trust.</summary>
+    public static string? UpdateSigningKeyFingerprint => null;
+
+    /// <summary>The ASCII-armoured OpenPGP public key text for release manifests, or null when this build carries no update trust.</summary>
+    public static string? UpdateSigningPublicKey => null;
+
+    /// <summary>True only for the owner's own build (allows the Latest-Commit channel). False when unset.</summary>
+    public static bool IsOwnerInstall => false;
+
+    /// <summary>The release manifest address on the company server's origin, or null when this build carries no update trust.</summary>
+    public static Uri? ReleaseManifestUrl => null;
 }

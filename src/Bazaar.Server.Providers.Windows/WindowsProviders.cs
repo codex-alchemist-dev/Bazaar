@@ -1,3 +1,4 @@
+using Bazaar.Server.Portability.Sandbox;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
@@ -21,7 +22,7 @@ public static class WindowsProviders
     /// <summary>
     /// The VM provider candidates in preference order. Hyper-V goes first once it exists; the sandbox is listed after it.
     /// Returns an empty list when the host is not Windows. The sandbox declares one instance per host, so the agent pair
-    /// (which needs two) never selects it (fail closed in <see cref="ProviderSelector"/>).
+    /// (which needs two) never selects it (fail closed in the Server's ProviderSelector).
     /// </summary>
     public static IReadOnlyList<IVmProvider> VmCandidates(string dataRoot)
     {
@@ -39,4 +40,11 @@ public static class WindowsProviders
             new WindowsSandboxOptions(Guid.Empty));
         return [sandbox];
     }
+
+    /// <summary>
+    /// The job-object confinement for the portability parser child (doc 44 section 8.3), or null when the host is not Windows
+    /// (the runner then uses its own OS default).
+    /// </summary>
+    public static IParserConfinement? ParserConfinement() =>
+        OperatingSystem.IsWindows() ? new WindowsJobObjectConfinement() : null;
 }

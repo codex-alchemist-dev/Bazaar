@@ -2,4 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
+  </ItemGroup>
 </Project>
