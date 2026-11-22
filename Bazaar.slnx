@@ -35,6 +35,14 @@
     <Project Path="src/Bazaar.Server.Constitution/Bazaar.Server.Constitution.csproj" />
     <Project Path="src/Bazaar.Server.Constitution.Abstractions/Bazaar.Server.Constitution.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.Abstractions/Bazaar.Client.Athanor.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor/Bazaar.Client.Athanor.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.AvaloniaEdit/Bazaar.Client.Athanor.AvaloniaEdit.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.Wire/Bazaar.Client.Athanor.Wire.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.Gtk/Bazaar.Client.Athanor.Gtk.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.Gtk.Helper/Bazaar.Client.Athanor.Gtk.Helper.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.Bundle/Bazaar.Client.Athanor.Bundle.csproj" />
+    <Project Path="src/Bazaar.Client.Athanor.WebView2/Bazaar.Client.Athanor.WebView2.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
     <Project Path="src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj" />
@@ -58,6 +66,8 @@
     <Project Path="src/Bazaar.Install/Bazaar.Install.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
+    <Project Path="src/Bazaar.Server.Athanor.Abstractions/Bazaar.Server.Athanor.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Athanor/Bazaar.Server.Athanor.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts.Abstractions/Bazaar.Server.Interrupts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts/Bazaar.Server.Interrupts.csproj" />
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
@@ -213,6 +223,7 @@
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.ReadAudit.Tests/Bazaar.Server.ReadAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Athanor.Tests/Bazaar.Server.Athanor.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Interrupts.Tests/Bazaar.Server.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Reputation.Tests/Bazaar.Server.Reputation.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
@@ -252,6 +263,12 @@
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.Tests/Bazaar.Client.Athanor.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.Wire.Tests/Bazaar.Client.Athanor.Wire.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.Gtk.Tests/Bazaar.Client.Athanor.Gtk.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.Bundle.Tests/Bazaar.Client.Athanor.Bundle.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Athanor.WebView2.Tests/Bazaar.Client.Athanor.WebView2.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Studio.Tests/Bazaar.Client.Studio.Tests.csproj" />
