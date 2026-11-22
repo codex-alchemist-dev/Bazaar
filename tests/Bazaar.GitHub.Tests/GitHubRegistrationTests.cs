@@ -37,6 +37,19 @@ public sealed class GitHubRegistrationTests
     }
 
     [Fact]
+    public void The_five_PR_wire_handlers_and_a_read_model_resolve_from_the_module()
+    {
+        using var provider = Build();
+
+        var types = provider.GetServices<Bazaar.Server.Wire.Connection.IWireRequestHandler>().Select(h => h.Type).ToHashSet();
+
+        Assert.Superset(
+            new HashSet<string> { Bazaar.Contracts.Wire.WireTypes.PrList, Bazaar.Contracts.Wire.WireTypes.PrSummary, Bazaar.Contracts.Wire.WireTypes.PrHunks, Bazaar.Contracts.Wire.WireTypes.PrReview, Bazaar.Contracts.Wire.WireTypes.PrMerge },
+            types);
+        Assert.IsType<Bazaar.GitHub.Wire.EmptyGitHubPrReadModel>(provider.GetRequiredService<Bazaar.GitHub.Wire.IGitHubPrReadModel>());
+    }
+
+    [Fact]
     public async Task Without_an_identity_service_the_token_provider_fails_closed()
     {
         using var provider = Build();

@@ -1,4 +1,7 @@
+using Bazaar.Contracts.Hive;
+using Bazaar.Contracts.Engines;
 using Bazaar.Contracts.Gc;
+using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Releases;
@@ -116,6 +119,22 @@ public static class PayloadSamples
         Of(null, new GraphSnapshot(3, [new GraphNode("a", GraphNodeKind.Objective), new GraphNode("b")], [new GraphEdge("a", "b", GraphEdgeKind.DependsOn), new GraphEdge("b", "a")])),
         Of(null, new KanbanBoardSnapshot(_gc, [new KanbanBoardCard(_author, "Build it", "ready", _other, [_gc], ["Other"]), new KanbanBoardCard(_other, "Idle", "backlog", null, [], [])])),
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
+        Of(null, new HiveGrantChangeRequest("project-a", "project-b", "procedure"), WireTypes.HiveGrantSet),
+        Of(null, new HiveGrantChangeReply(true, null, true)),
+        Of(null, new EngineRelayRequestFrame(_gc, DateTimeOffset.Parse("2026-11-18T12:00:00+00:00", System.Globalization.CultureInfo.InvariantCulture), new EngineRelayCallFrame("grant-1", "studio-1", "multi_edit", "{\"x\":1}")), EngineRelayWire.EventType),
+        Of(null, new EngineRelayResultFrame(_gc, new EngineRelayCallResultFrame("grant-1", true, "{\"done\":true}")), EngineRelayWire.RequestType),
+        Of(null, new EngineGrantVerifyRequest("grant-1", "multi_edit", RiskClass.Write), EngineRelayWire.GrantVerifyType),
+        Of(null, new EngineGrantVerifyReply(true)),
+        Of(null, new PrListRequest("codex-alchemist-dev/Bazaar", PrListState.Open, null, 25), WireTypes.PrList),
+        Of(null, new PrListReply([new PrListRow("PR_1", "codex-alchemist-dev/Bazaar", 7, "Wake the agent", "claude", PrAuthorKind.Agent, false, new string('a', 40), PrChecksRollup.Passing, 3)], null)),
+        Of(null, new PrSummaryRequest("PR_1"), WireTypes.PrSummary),
+        Of(null, new PrSummaryReply("PR_1", new string('a', 40), "Summary", [new PrChangedFile("src/a.cs", "modified", 3, 1)], PrChecksRollup.Passing, true, null)),
+        Of(null, new PrHunksRequest("PR_1", new string('a', 40), "src/a.cs", null), WireTypes.PrHunks),
+        Of(null, new PrHunksReply(PrHunksStatus.Ok, new string('a', 40), "src/a.cs", [new PrHunk("@@ -1 +1 @@", 1, 1, 1, 1, ["-a", "+b"])], null)),
+        Of(null, new PrReviewRequest("PR_1", new string('a', 40), PrReviewEvents.Comment, "Looks fine"), WireTypes.PrReview),
+        Of(null, new PrReviewReply(PrReviewStatus.Applied, new string('a', 40), null)),
+        Of(null, new PrMergeRequest("PR_1", new string('a', 40), "Title", "Message", new PrOwnerPayload("pr.merge", _author, [1, 2, 3], new string('a', 40), _other, "device-1", new DateTimeOffset(2026, 11, 22, 8, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 11, 22, 8, 5, 0, TimeSpan.Zero), [4, 5, 6]), [7, 8, 9]), WireTypes.PrMerge),
+        Of(null, new PrMergeReply(PrMergeStatus.Merged, new string('a', 40), null)),
         Of(null, new KanbanAssignRequest(_gc, _author, _other, 3), WireTypes.BoardAssign),
         Of(null, new KanbanAssignReply(KanbanAssignStatuses.Applied, 4)),
         Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",
