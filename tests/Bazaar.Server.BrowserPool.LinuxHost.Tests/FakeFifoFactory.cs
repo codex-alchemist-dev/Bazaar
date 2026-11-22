@@ -70,9 +70,10 @@ internal sealed class FakeFifoFactory : IFifoFactory, IDisposable
         {
             File.Delete(Real(path));
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // The temp file is removed with the directory in Dispose.
+            // Windows refuses to delete a file that still has an open handle (UnauthorizedAccessException); the
+            // temp file is removed with the directory in Dispose.
         }
     }
 

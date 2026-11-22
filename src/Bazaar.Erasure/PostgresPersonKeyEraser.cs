@@ -1,6 +1,7 @@
+using Bazaar.Erasure.Abstractions;
 using Npgsql;
 
-namespace Bazaar.Server.Components.Erasure;
+namespace Bazaar.Erasure;
 
 /// <summary>
 /// Calls the <c>erase_person_key(uuid)</c> function from migration 0008 for each live key of a person. Only the
