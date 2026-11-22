@@ -20,8 +20,15 @@ draft pull requests. The workflows are in `.github/workflows/`.
   check (a skipped job passes), so a required check is never left missing. The
   secret scan always runs. See `docs/pr-flow.md` for the rules and the dedupe of
   push and pull request runs.
-- `ci.yml` has no draft filter, so drafts build and test too. This keeps
-  feedback fast while the work is in progress.
+- `ci.yml` skips draft pull requests (owner, 2026-11-20): the `changes` and
+  `secret-scan` jobs carry `github.event.pull_request.draft != true`, and every
+  other job needs `changes`. Marking the PR ready (`ready_for_review`) starts the
+  first full run. A draft cannot merge, so nothing required is lost; while a PR is a
+  draft its CI checks show as skipped or pending, which is intended. Run `workflow_dispatch`
+  on the branch if a draft needs a build before it is ready.
+- `codeql.yml` runs on every branch push, which is what links the required Analyze
+  checks to a PR. Its `pull_request` run is skipped for pull requests from this
+  repository (it only ran as an unlinked duplicate) and still runs for fork pull requests.
 - `pr-sponsor.yml` runs only when `draft == false`. It also runs again on
   `ready_for_review`. A draft cannot be merged, so the sign-off line is not
   needed until the PR is ready. While a PR is a draft, this check shows as
